@@ -21,15 +21,16 @@ const MAP = {
   56: { spec: 'packages/aot-validator/src/utilities/SPEC.md', tests: 'packages/aot-validator/src/utilities/utilities.spec.ts (6)' },
 };
 
-const ROOT = 'zero-maintenance-data-layer';
+const ROOT = 'packages'; // retained for reference; paths in MAP are already root-relative
+void ROOT;
 for (const [issue, m] of Object.entries(MAP)) {
   const body = [
     '## Spec Freeze complete ✅ (TDD red phase)',
     '',
     `Delivered in commit ${SHA}:`,
     '',
-    `- **Frozen spec**: \`${ROOT}/${m.spec}\``,
-    `- **Failing tests**: \`${ROOT}/${m.tests}\``,
+    `- **Frozen spec**: \`${m.spec}\``,
+    `- **Failing tests**: \`${m.tests}\``,
     '',
     'The spec is frozen and the test suite is authored and **verified failing** ' +
       '(all assertions fail with `Error: not implemented`, i.e. compiles cleanly and ' +

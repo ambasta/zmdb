@@ -7,7 +7,7 @@
     "node": ">=26"
   },
   "workspaces": [
-    "zero-maintenance-data-layer/packages/*"
+    "packages/*"
   ],
   "scripts": {
     "test": "vitest run",

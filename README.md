@@ -35,7 +35,7 @@ class UserRepository extends BaseRepository<typeof UserSchema> {
 
 ## Architecture
 
-See [ARCHITECTURE.md](./zero-maintenance-data-layer/ARCHITECTURE.md) for full details.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details.
 
 ## Requirements
 

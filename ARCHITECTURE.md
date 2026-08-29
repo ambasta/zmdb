@@ -44,14 +44,14 @@ Our core principle: **modify once, propagate everywhere**.
 We split into **four focused packages** to keep each concern isolated, testable, and independently versionable.
 
 ```
-zero-maintenance-data-layer/
+zmdb/  (repository root)
 ├── packages/
 │   ├── schema-core          # The DSL, type derivation engine, and schema metadata
 │   ├── query-compiler       # Kysely fork with custom SQL compilation
 │   ├── aot-validator        # TypeScript transformer + validation rule definitions
 │   └── repository           # BaseRepository, auto-validation interceptors
 ├── package.json             # Workspace root
-└── turbo.json               # Turborepo config
+└── tsconfig.base.json       # Shared TS config
 ```
 
 ---
@@ -453,11 +453,10 @@ const users = await db.execute(sql.text, sql.parameters);
 ## 9. Files to Create
 
 ```
-zero-maintenance-data-layer/
+zmdb/  (repository root)
 ├── package.json
-├── turbo.json
 ├── tsconfig.base.json
-├── .npmrc
+├── vitest.config.ts
 ├── .nvmrc                       # 26
 ├── packages/
 │   ├── schema-core/
