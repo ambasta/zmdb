@@ -66,6 +66,37 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return this.driver.execute(this.qb.selectFrom(this.tableName).compile());
   }
 
+  // #34 — explicit populate for a to-many relation. Loads parents, then batches
+  // one IN() query for children, and attaches them under `relationName`. No
+  // proxies, no identity map — children are plain rows on plain parents.
+  async findAllWithMany(
+    relationName: string,
+    childTable: string,
+    childFk: string,
+    parentKey = 'id',
+  ): Promise<readonly Record<string, unknown>[]> {
+    const parents = [...(await this.findAll())].map((p) => ({ ...p }));
+    if (parents.length === 0) return parents;
+    const ids = parents.map((p) => p[parentKey]);
+    let cb = this.qb.selectFrom(childTable);
+    // Build a single batched IN() via repeated OR on the FK (compiler-agnostic).
+    ids.forEach((id, i) => {
+      cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
+    });
+    const children = await this.driver.execute(cb.compile());
+    const byParent = new Map<unknown, Record<string, unknown>[]>();
+    for (const c of children) {
+      const key = c[childFk];
+      const list = byParent.get(key) ?? [];
+      list.push({ ...c });
+      byParent.set(key, list);
+    }
+    for (const p of parents) {
+      (p as Record<string, unknown>)[relationName] = byParent.get(p[parentKey]) ?? [];
+    }
+    return parents;
+  }
+
   // #27 — create/update with validation interception.
   async create(payload: unknown): Promise<Record<string, unknown>> {
     const dto = this.validatePayload(payload, 'create');
