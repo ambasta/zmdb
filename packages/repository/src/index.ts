@@ -68,26 +68,41 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   // #27 — create/update with validation interception.
   async create(payload: unknown): Promise<Record<string, unknown>> {
     const dto = this.validatePayload(payload, 'create');
+    this.preInsert(dto);
     const rows = await this.driver.execute(
       this.qb.insertInto(this.tableName).values(dto).returning(['*']).compile(),
     );
-    return rows[0] ?? {};
+    const row = rows[0] ?? {};
+    this.postInsert(row);
+    return row;
   }
 
   async update(id: unknown, payload: unknown): Promise<Record<string, unknown> | undefined> {
     const dto = this.validatePayload(payload, 'update');
+    this.preUpdate(dto);
     const rows = await this.driver.execute(
       this.qb.updateTable(this.tableName).set(dto).where(this.pkColumn, '=', id).returning(['*']).compile(),
     );
     return rows[0];
   }
 
-  // #28 — delete.
+  // #28 — delete + lifecycle hooks.
   async delete(id: unknown): Promise<boolean> {
+    this.preDelete(id);
     const rows = await this.driver.execute(
       this.qb.deleteFrom(this.tableName).where(this.pkColumn, '=', id).returning([this.pkColumn]).compile(),
     );
     return rows.length > 0;
+  }
+
+  // Explicit, synchronous lifecycle hooks. No hidden change tracking — these
+  // fire only around the corresponding operation, in documented order.
+  protected preInsert(_row: Record<string, unknown>): void {}
+  protected postInsert(_row: Record<string, unknown>): void {}
+  protected preUpdate(_row: Record<string, unknown>): void {}
+  protected preDelete(_id: unknown): void {}
+  protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
+    return rows;
   }
 
   // Runtime validation against the schema's column metadata. Mirrors the DTO
