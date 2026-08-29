@@ -32,6 +32,47 @@ export function manyToMany(target: string, through: string): RelationMeta {
   return Object.freeze({ cardinality: 'many-to-many', target, through, owning: true });
 }
 
+export type PopulateDialect = 'postgres' | 'mysql' | 'sqlite';
+
+export interface PopulateQuery {
+  readonly kind: 'join' | 'batched';
+  readonly sql: string;
+  readonly parameters: readonly unknown[];
+}
+
+function q(dialect: PopulateDialect, ident: string): string {
+  const c = dialect === 'mysql' ? '`' : '"';
+  return `${c}${ident}${c}`;
+}
+function placeholder(dialect: PopulateDialect, i: number): string {
+  return dialect === 'postgres' ? `$${i}` : '?';
+}
+
+// #33 — compile a populate hint into deterministic SQL.
+// to-one (many-to-one / one-to-one) → INNER JOIN on the owning FK.
+// to-many (one-to-many / many-to-many) → batched IN() select on the FK.
+export function compilePopulate(
+  baseTable: string,
+  _relationName: string,
+  rel: RelationMeta,
+  dialect: PopulateDialect,
+  parentIds: readonly unknown[] = [],
+): PopulateQuery {
+  const toOne = rel.cardinality === 'many-to-one' || rel.cardinality === 'one-to-one';
+  if (toOne) {
+    const fk = rel.fk ?? 'id';
+    const sql =
+      `SELECT * FROM ${q(dialect, baseTable)} INNER JOIN ${q(dialect, rel.target)} ` +
+      `ON ${q(dialect, baseTable)}.${q(dialect, fk)} = ${q(dialect, rel.target)}.${q(dialect, 'id')}`;
+    return { kind: 'join', sql, parameters: [] };
+  }
+  // to-many: batched IN() select against the inverse FK on the target table.
+  const fk = rel.mappedBy ?? 'id';
+  const inList = parentIds.map((_, i) => placeholder(dialect, i + 1)).join(', ');
+  const sql = `SELECT * FROM ${q(dialect, rel.target)} WHERE ${q(dialect, fk)} IN (${inList})`;
+  return { kind: 'batched', sql, parameters: [...parentIds] };
+}
+
 // #32 — compile-time relation type derivation.
 // A relations map describes each relation's target entity + cardinality.
 export interface RelationDef {
