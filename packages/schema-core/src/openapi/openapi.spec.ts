@@ -14,7 +14,7 @@ const UserSchema = {
       flags: { nullable: false },
       validation: [{ kind: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$' }],
     },
-    role: { type: 'jsonEnum', flags: { nullable: false, enum: ['admin', 'user', 'guest'] } },
+    role: { type: 'jsonEnum', flags: { nullable: false, hasDefault: true, enum: ['admin', 'user', 'guest'] } },
     createdAt: { type: 'timestamp', flags: { nullable: false, hasDefault: true } },
   },
   primaryKey: ['id'],
