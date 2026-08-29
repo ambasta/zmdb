@@ -17,8 +17,10 @@
 | [`@zmdb/aot-validator`](./packages/aot-validator) | 🚧 | AOT inlining + is/assert/validate, unions, transforms, Ser/De |
 | [`@zmdb/repository`](./packages/repository) | 🚧 | Auto-validating CRUD + hooks + transactions |
 
-> Status legend: 🚧 in progress (core implemented, tracked sub-issues open) · 🔜 planned · ✅ complete.
-> `defineSchema`, strict `equals`/`random`, and the benchmark runners/report are still open (see issues).
+> Status legend: 🚧 in progress (most sub-issues closed) · 🔜 planned · ✅ complete.
+> Nearly all tracked sub-issues are implemented and tested (incl. real
+> `node:sqlite` E2E and a Kysely head-to-head). `random<T>` and the live-Postgres
+> competitor harness remain open (the latter reported as DNF — see below).
 
 ## Quick Start
 
