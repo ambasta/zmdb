@@ -501,6 +501,8 @@ __metadata:
 "@zmdb/benchmarks@workspace:benchmarks":
   version: 0.0.0-use.local
   resolution: "@zmdb/benchmarks@workspace:benchmarks"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:*"
   languageName: unknown
   linkType: soft
 

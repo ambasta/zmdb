@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=26"
   },
+  "dependencies": {
+    "@zmdb/aot-validator": "workspace:*"
+  },
   "scripts": {
     "test": "vitest run"
   }

@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./advanced": "./src/advanced/index.ts",
+    "./serialization": "./src/serialization/index.ts",
+    "./utilities": "./src/utilities/index.ts"
   },
   "engines": {
     "node": ">=26"
