@@ -49,27 +49,32 @@ transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
 ## Benchmarks
 
-We run zmdb as a participant in the **exact upstream benchmark suites**, against
-the **real competitor libraries** — which also surfaces, honestly, how many
-cases zmdb **cannot express** (reported as `DNF`, a real feature-gap metric):
+We run zmdb inside the **actual upstream benchmark harnesses** against the
+**real competitor libraries** — including the real drizzle-benchmarks method
+(HTTP server per ORM + k6 load) against **real PostgreSQL 16**. This honestly
+surfaces both throughput and, crucially, **which routes/cases zmdb cannot
+express** (each listed individually, never summed into a score):
 
-- **Validation** — the [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
-  runner (exact parseSafe/parseStrict/assertLoose/assertStrict cases) vs Zod v3/v4,
-  Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4 cases (0/4 DNF).
-- **ORM** — the [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  Northwind query set (exact p1–p13) against **real PostgreSQL 16** vs Drizzle / Kysely.
-  zmdb is **DNF on 6/13** — joins, aggregations, and full-text search are outside
-  its deliberately CRUD-focused query builder.
+- **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
+  routes + k6 vs Drizzle / Kysely. **zmdb cannot serve 6 of 13 routes** (joins,
+  aggregations, full-text search — no builder for them), which is **57.8% of the
+  replayed traffic**. On the shared CRUD routes it *can* serve, zmdb is
+  competitive (slightly ahead of kysely/drizzle here) — but it is **not** the
+  fastest overall, since it forfeits the majority of the workload as DNF.
+- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
+  runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
+  cases (no DNF) but runs its **runtime** validator (the AOT transformer is not
+  yet a wired build plugin), so JIT/AOT libraries are 6–24× faster on assert —
+  the AOT premise is unproven here and not claimed.
 
-**Honesty policy:** zmdb's validation currently runs via its **runtime**
-validator (the AOT transformer is not yet a wired build plugin), so those
-numbers are labelled as runtime, not AOT. Typia (needs its AOT build) and Prisma
-(engine not installed) are `DNF (not implemented)`, as is the k6 distributed rig
-(single-process tinybench used). We never silently skip or fake an in-scope case.
+**Honesty policy:** DNF routes/cases are enumerated individually, not aggregated.
+Typia (needs its AOT build) and Prisma (engine not installed) are DNF. We never
+silently skip or fake an in-scope case, and we do not claim a "fastest" title we
+have not earned across the full workload.
 
-Real comparative numbers **and the per-library DNF counts**:
-[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction harnesses
-(with the Postgres-via-podman setup): [`benchmarks/harness/`](./benchmarks/harness).
+Full results + per-route/per-case DNF listings:
+[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction (HTTP servers +
+k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
 
 ## Requirements
 

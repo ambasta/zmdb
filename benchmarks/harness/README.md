@@ -35,28 +35,38 @@ zmdb registers all four upstream case kinds (parseSafe / parseStrict /
 assertLoose / assertStrict) via its **runtime** validator — its AOT transformer
 is not yet a wired build plugin, so this is the runtime path (see RESULTS.md).
 
-## ORM — the actual drizzle-benchmarks query set (p1–p13), REAL PostgreSQL
+## ORM — the actual drizzle-benchmarks methodology (HTTP servers + k6, REAL PostgreSQL)
+
+The upstream benchmark runs **one HTTP server per ORM** and drives them with
+**k6** replaying `data/requests.json`. `server.ts` reproduces that: it serves
+the exact upstream routes, choosing the ORM via the `ORM` env var, over real
+PostgreSQL. Routes an ORM's builder cannot express return **HTTP 501** (an
+honest per-route DNF — never a faked 200).
 
 ```sh
 # 1. Real Postgres (podman or docker)
 podman run -d --name zmdb-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bench \
   -p 55432:5432 docker.io/library/postgres:16-alpine
 
-# 2. Get the upstream Northwind DB (drizzle-benchmarks/src/sqlite/northwind.db)
-#    and place it next to the harness as ./northwind.db
-
-# 3. Install + load the FULL dataset into Postgres
+# 2. Northwind DB from drizzle-benchmarks (src/sqlite/northwind.db) → ./northwind.db
 cd benchmarks/harness/orm && npm install
-node load-pg-full.mjs            # all tables: customers/employees/suppliers/products/orders/order_details
+node load-pg-full.mjs            # all tables into Postgres
 
-# 4. Run the exact upstream query set p1–p13 for each ORM builder
-node --experimental-strip-types orm-full.bench.ts
+# 3. Start a server (repeat per ORM on different ports)
+ORM=drizzle PORT=3000 node --experimental-strip-types server.ts &
+ORM=kysely  PORT=3001 node --experimental-strip-types server.ts &
+ORM=zmdb    PORT=3002 node --experimental-strip-types server.ts &
+
+# 4. Run the real k6 script (get k6 from grafana/k6 releases) against each,
+#    replaying the upstream request list. See run-k6.sh for the orchestration
+#    used to produce RESULTS.md (it also builds a "fair" replay of only the
+#    routes all three ORMs can serve, so zmdb's 501 DNFs don't inflate its rate).
+HOST=http://localhost:3000 k6 run bench.js
 ```
 
-`orm-full.bench.ts` implements every upstream prepared query (p1–p13) with each
-ORM's **own builder API**. A query a builder cannot express is reported `DNF`
-(the feature-gap metric). Competitors: drizzle-orm (node-postgres), kysely
-(PostgresDialect). Prisma is DNF (engine not installed); the k6 distributed rig
-is DNF (single-process tinybench used instead).
-
-Connection string: `postgres://postgres:postgres@localhost:55432/bench`.
+**Honesty**: zmdb DNFs 6 of the 13 routes (joins / aggregates / full-text
+search — no builder for them), which is **57.8% of the replay traffic**. The
+throughput table in RESULTS.md therefore compares only the shared CRUD routes
+(fair, 0 failures) and lists every DNF route individually. Prisma is DNF
+(engine not installed). `orm-full.bench.ts` is a quick in-process cross-check;
+`server.ts` + k6 is the authoritative path.
