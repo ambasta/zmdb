@@ -1,6 +1,5 @@
-// Relations — API stubs (red phase). Implementation in #31–#34.
-
-const NOT_IMPL = 'not implemented';
+// Relations — implementation (#31). Relation DSL builders returning frozen
+// RelationMeta per the frozen fixtures.
 
 export type Cardinality =
   | 'many-to-one'
@@ -17,15 +16,18 @@ export interface RelationMeta {
   readonly owning: boolean;
 }
 
-export function manyToOne(_target: string, _fk: string): RelationMeta {
-  throw new Error(NOT_IMPL);
+export function manyToOne(target: string, fk: string): RelationMeta {
+  return Object.freeze({ cardinality: 'many-to-one', target, fk, owning: true });
 }
-export function oneToMany(_target: string, _mappedBy: string): RelationMeta {
-  throw new Error(NOT_IMPL);
+
+export function oneToMany(target: string, mappedBy: string): RelationMeta {
+  return Object.freeze({ cardinality: 'one-to-many', target, mappedBy, owning: false });
 }
-export function oneToOne(_target: string, _fk: string): RelationMeta {
-  throw new Error(NOT_IMPL);
+
+export function oneToOne(target: string, fk: string): RelationMeta {
+  return Object.freeze({ cardinality: 'one-to-one', target, fk, owning: true });
 }
-export function manyToMany(_target: string, _through: string): RelationMeta {
-  throw new Error(NOT_IMPL);
+
+export function manyToMany(target: string, through: string): RelationMeta {
+  return Object.freeze({ cardinality: 'many-to-many', target, through, owning: true });
 }
