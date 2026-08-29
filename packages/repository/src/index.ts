@@ -16,11 +16,21 @@ export class ValidationError extends Error {
 
 export abstract class BaseRepository<S extends CoreSchema<string>> {
   static readonly schema: CoreSchema<string>;
-  protected readonly driver: Driver;
+  protected driver: Driver;
   protected readonly qb = createQueryCompiler('postgres');
 
   constructor(driver: Driver) {
     this.driver = driver;
+  }
+
+  // #37 — bind this repository to a transaction context so all its SQL runs
+  // on the transaction's connection. Returns a shallow, tx-scoped clone (no
+  // shared mutable state with the original repository).
+  withTransaction(tx: { execute: Driver['execute'] }): this {
+    const scoped = Object.create(Object.getPrototypeOf(this)) as this;
+    Object.assign(scoped, this);
+    scoped.driver = { execute: (q) => tx.execute(q) };
+    return scoped;
   }
 
   private get schema(): CoreSchema<string> {
