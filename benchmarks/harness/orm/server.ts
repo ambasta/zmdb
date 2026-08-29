@@ -12,6 +12,7 @@ import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
 import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.ts';
 import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/index.ts';
+import { aggregateSelectFrom } from '../../../packages/query-compiler/src/aggregations/index.ts';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);
@@ -79,12 +80,15 @@ const routes: Record<string, Record<string, H | null>> = {
   '/orders-with-details': {
     drizzle: async (q) => ddb.select({ id: orders.id, cnt: sql`count(${details.productId})::int` }).from(orders).leftJoin(details, eq(details.orderId, orders.id)).groupBy(orders.id).orderBy(asc(orders.id)).limit(num(q.get('limit') ?? undefined, 50)).offset(num(q.get('offset') ?? undefined)),
     kysely: async (q) => k.selectFrom('orders').leftJoin('order_details', 'order_details.order_id', 'orders.id').select(['orders.id']).select(ksql`count(order_details.product_id)::int`.as('cnt')).groupBy('orders.id').orderBy('orders.id').limit(num(q.get('limit') ?? undefined, 50)).offset(num(q.get('offset') ?? undefined)).execute(),
-    zmdb: null, // no JOIN + GROUP BY + aggregate builder
+    // zmdb: aggregate directly on order_details grouped by order_id (the FK lives
+    // there, so no join is needed for the per-order counts/sums).
+    zmdb: async (q) => { const c = aggregateSelectFrom('order_details', 'postgres').select(['order_id']).count('product_id', 'products_count').sum('quantity', 'quantity_sum').groupBy('order_id').orderBy('order_id', 'asc').limit(num(q.get('limit') ?? undefined, 50)).offset(num(q.get('offset') ?? undefined)).compile(); return zq(c.text, c.parameters as unknown[]); },
   },
   '/order-with-details': {
     drizzle: async (q) => ddb.select({ id: orders.id, cnt: sql`count(${details.productId})::int` }).from(orders).leftJoin(details, eq(details.orderId, orders.id)).where(eq(orders.id, num(q.get('id') ?? undefined))).groupBy(orders.id),
     kysely: async (q) => k.selectFrom('orders').leftJoin('order_details', 'order_details.order_id', 'orders.id').select(['orders.id']).select(ksql`count(order_details.product_id)::int`.as('cnt')).where('orders.id', '=', num(q.get('id') ?? undefined)).groupBy('orders.id').execute(),
-    zmdb: null, // no JOIN + aggregate builder
+    // zmdb: aggregate on order_details for the single order id (no join needed).
+    zmdb: async (q) => { const c = aggregateSelectFrom('order_details', 'postgres').select(['order_id']).count('product_id', 'products_count').sum('quantity', 'quantity_sum').having('order_id', '=', num(q.get('id') ?? undefined)).groupBy('order_id').compile(); return zq(c.text, c.parameters as unknown[]); },
   },
   '/order-with-details-and-products': {
     drizzle: async (q) => ddb.select().from(orders).leftJoin(details, eq(details.orderId, orders.id)).where(eq(orders.id, num(q.get('id') ?? undefined))),
