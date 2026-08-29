@@ -1,86 +1,96 @@
-# Benchmark Results (real, comparative)
+# Benchmark Results (real, comparative — exact upstream suites)
 
-> zmdb benchmarked head-to-head against **real, installed competitor libraries**
-> on the **actual upstream benchmark workloads**. Reproduction harnesses live in
+> zmdb run as a participant in the **exact upstream benchmark suites**, against
+> **real installed competitor libraries**. Reproduction harnesses in
 > [`harness/`](./harness).
 >
-> Environment: local dev box, Node 26.8.1. ORM runs against **real PostgreSQL 16**
-> (podman container) loaded with the drizzle-benchmarks Northwind dataset
-> (10,000 customers / 50,000 orders / 308,224 order-details). ops/s are
-> `tinybench` hz — indicative of this machine, not an official ranking.
+> Environment: local dev box, Node 26.8.1. Validation via the upstream moltar
+> runner (`ts-node index.ts run …`). ORM against **real PostgreSQL 16** (podman)
+> loaded with the drizzle-benchmarks Northwind dataset (10k customers / 200
+> employees / 1k suppliers / 5k products / 50k orders / 308,224 order-details),
+> running the exact upstream prepared-query set p1–p13. ops/s = benny/tinybench
+> hz — indicative of this machine, not an official ranking.
 
-## Honesty notes (read first)
+## Why DNF counts matter
 
-- **zmdb validation runs via its RUNTIME validator, not the AOT-inlined path.**
-  zmdb's AOT transformer (`transformSource`) is not yet wired as a ttypescript/
-  ts-patch build plugin, so the AOT numbers cannot honestly be claimed. The
-  runtime path is what is measured and labelled below. Wiring the real
-  transformer is the prerequisite for an apples-to-apples comparison with
-  Typia's AOT output.
-- **Typia is DNF (not wired: needs typia AOT build)** — it cannot run without
-  its own AOT transform step; running it untransformed would misrepresent it.
-- **ORM = real PostgreSQL.** All three ORMs run against the same live PG
-  instance over the same `pg` pool, so numbers isolate query-building +
-  result-mapping overhead. (No SQLite.)
-- **Prisma is DNF (not implemented)** — its engine/codegen was not installed.
-- The upstream drizzle-benchmarks also drives load with **k6** across two
-  machines; that distributed throughput rig is **DNF (not implemented)** here.
-  These numbers are single-process `tinybench` hz against the same DB.
+Running the **exact** upstream cases (not a hand-picked subset) means the number
+of cases a library **cannot express with its own API** is a real feature-gap
+metric. Those show as `DNF`, counted per library below.
 
-## Validation suite (moltar data model, 4 case kinds)
+## Validation — moltar suite (exact 4 case kinds, upstream runner)
 
-Real libraries: zod 3.25, @sinclair/typebox 0.34 (compiled), ajv 8.20,
-valibot 1.4, zmdb (runtime). ops/s (higher = faster):
+Per-library × per-case ops/s. `DNF` = the library does not register that case.
 
-| Case | typebox | ajv | zmdb (runtime) | valibot | zod |
-|------|--------:|----:|---------------:|--------:|----:|
-| parseSafe    | n/a¹ | n/a¹ | **3,862,464** | 1,477,430 | 935,377 |
-| parseStrict  | n/a¹ | n/a¹ | **1,299,025** | n/a | 887,924 |
-| assertLoose  | **24,355,192** | 19,580,836 | 3,716,008 | 1,590,291 | 923,484 |
-| assertStrict | **30,411,817** | 25,264,303 | 1,788,074 | n/a | 946,149 |
+| library | parseSafe | parseStrict | assertLoose | assertStrict | DNF |
+|---------|----------:|------------:|------------:|-------------:|----:|
+| @sinclair/typebox (JIT) | DNF | DNF | 88,070,252 | 29,157,066 | 2/4 |
+| ajv | DNF | DNF | 43,363,522 | 29,246,420 | 2/4 |
+| arktype | DNF | 3,998,596 | 64,604,434 | 3,983,815 | 1/4 |
+| myzod | 3,364,233 | 3,837,054 | DNF | 3,872,625 | 1/4 |
+| valibot | 1,757,211 | 1,370,568 | 1,801,433 | 1,530,501 | **0/4** |
+| **zmdb (runtime)** | 1,438,372 | 1,258,077 | 5,037,460 | 1,207,424 | **0/4** |
+| zod (v3) | 1,087,654 | 970,236 | 1,051,654 | 1,014,129 | **0/4** |
+| zod (v4) | 8,052,444 | 4,680,788 | 4,603,060 | 3,918,349 | **0/4** |
 
-¹ typebox/ajv are schema-check libraries (loose/strict *assert*) with no
-parse-and-strip step, so those cells are n/a.
+- **zmdb covers all 4 cases (0/4 DNF)** — same coverage as zod/valibot; more than
+  typebox/ajv (assert-only) or arktype/myzod.
+- **zmdb runs its RUNTIME validator, not AOT** (the transformer is not a wired
+  build plugin), so on `assert` the JIT/AOT libs (typebox, ajv) are far ahead —
+  expected and labelled. On `parse`, zmdb's runtime already beats zod v3.
+- **Typia**: `DNF (not run)` — needs its own AOT transform build step in the
+  suite; running it untransformed would misrepresent it.
 
-- On **assert**, JIT-compiled TypeBox / Ajv are ~7–17× faster than zmdb's
-  *runtime* validator — expected, since zmdb is not yet AOT here.
-- On **parse** (validate + return), zmdb's runtime path already leads zod and
-  valibot. The AOT transform (when wired) targets closing the assert gap; that
-  remains unproven and is not claimed.
-- **Typia**: DNF (not wired: needs typia AOT build).
+## ORM — drizzle-benchmarks suite (exact p1–p13, REAL PostgreSQL)
 
-## ORM suite (drizzle-benchmarks Northwind, REAL PostgreSQL 16)
-
-Real libraries: drizzle-orm 0.36 (node-postgres), kysely 0.29 (PostgresDialect),
-zmdb query-compiler (→ pg). Representative of repeated runs; ops/s (higher = faster):
+Each ORM builds each query with its **own builder API**; a query a builder cannot
+express is `DNF`. ops/s (higher = faster):
 
 | Query | zmdb | drizzle | kysely |
 |-------|-----:|--------:|-------:|
-| customer-by-id       | 12,564 | **12,893** | 11,629 |
-| customers-paginated  | **6,774** | 5,795 | 5,932 |
-| orders-with-details  | **5,649** | 5,448 | 5,317 |
+| p1 customers-list (paginated) | 4,444 | 4,681 | 3,436 |
+| p2 customer-by-id | 6,868 | 6,865 | 7,379 |
+| p3 customer-search (full-text) | **DNF** | 41 | 47 |
+| p4 employees-list | 4,745 | 6,276 | 3,741 |
+| p5 employee + recipient (self-join) | **DNF** | 9,209 | 7,301 |
+| p6 suppliers-list | 5,961 | 8,708 | 5,681 |
+| p7 supplier-by-id | 12,203 | 9,632 | 10,385 |
+| p8 products-list | 6,488 | 6,531 | 5,663 |
+| p9 product + supplier (join) | **DNF** | 3,405 | 3,800 |
+| p10 product-search (full-text) | **DNF** | 121 | 119 |
+| p11 orders + aggregates (GROUP BY, list) | **DNF** | 2,096 | 2,736 |
+| p12 order + aggregates (by id) | **DNF** | 4,379 | 5,211 |
+| p13 order-with-details | 4,983 | 4,190 | 4,429 |
+| **DNF total (of 13)** | **6** | **0** | **0** |
 
-- All three are within ~10% of each other — expected, since the PostgreSQL
-  round-trip dominates and the execution path (`pg` pool) is identical.
-- zmdb's thin, allocation-lean query-compiler is competitive with (and on the
-  list/join paths slightly ahead of) drizzle and kysely — consistent with the
-  zero-overhead design (no proxy/identity-map wrapping of result rows).
-- Run-to-run variance is a few %; rankings on the close cases can swap.
+### What zmdb's 6 DNFs actually are
 
-### Anti-pattern cases (DNF — visible, not hidden)
+zmdb's `@zmdb/query-compiler` is deliberately **CRUD-focused** — it has builders
+for single-table SELECT/INSERT/UPDATE/DELETE with where/order/limit/offset, but
+**no builder for joins, aggregations (GROUP BY / computed columns), or full-text
+search**. Those upstream queries (p3, p5, p9, p10, p11, p12) therefore cannot be
+expressed with zmdb's builder and are honest `DNF`:
 
-zmdb rejects these by architecture, so they are reported `DNF (anti-pattern)`:
+| DNF query | missing zmdb builder capability |
+|-----------|--------------------------------|
+| p3, p10 | full-text search predicate builder |
+| p5, p9 | JOIN builder |
+| p11, p12 | JOIN + GROUP BY + aggregate/computed-column builder |
+
+p13 (order-with-details) is **not** DNF: zmdb expresses it as the explicit
+two-query populate pattern (parent + batched children), which is the intended
+zmdb idiom instead of a join.
+
+- On the 7 queries zmdb can express, it is competitive with drizzle/kysely
+  (all within the same range; PG round-trip dominates).
+- These 6 DNFs are a genuine roadmap signal: joins, aggregates, and FTS are
+  builder features zmdb has not implemented (some, like joins, are partly
+  covered by relations `populate` but not as a general query-builder join).
+
+### Not run here (DNF — environment / not implemented)
 
 | Case | Status |
 |------|--------|
-| lazy-relation-graph (proxy lazy-load) | DNF (anti-pattern) |
-| identity-map-dedup | DNF (anti-pattern) |
-| active-record `entity.save()` | DNF (anti-pattern) |
-
-### Not wired here (DNF — not implemented)
-
-| Case | Status |
-|------|--------|
-| Prisma comparison | DNF (not implemented: prisma engine not installed) |
-| k6 distributed throughput rig | DNF (not implemented: single-process tinybench used) |
-| Typia validation (AOT) | DNF (not wired: needs typia AOT build) |
+| Prisma (ORM suite) | DNF (not implemented: engine/codegen not installed) |
+| k6 distributed throughput rig | DNF (not implemented: single-process benny/tinybench used) |
+| Typia (validation) | DNF (not run: needs its AOT transform build in the suite) |
+| Full 60-library moltar matrix | Partial: ran zmdb + zod/zod4/valibot/ajv/myzod/arktype/typebox-JIT (representative set; others omitted for time, not faked) |

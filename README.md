@@ -49,24 +49,27 @@ transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
 ## Benchmarks
 
-We benchmark zmdb head-to-head against the industry-standard suites, using the
-**real competitor libraries** on the **actual upstream workloads**:
+We run zmdb as a participant in the **exact upstream benchmark suites**, against
+the **real competitor libraries** — which also surfaces, honestly, how many
+cases zmdb **cannot express** (reported as `DNF`, a real feature-gap metric):
 
 - **Validation** — the [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
-  case model (safe/strict parse, loose/strict assert) vs Zod / TypeBox / Ajv / Valibot.
+  runner (exact parseSafe/parseStrict/assertLoose/assertStrict cases) vs Zod v3/v4,
+  Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4 cases (0/4 DNF).
 - **ORM** — the [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  Northwind workload against **real PostgreSQL 16** vs Drizzle / Kysely.
+  Northwind query set (exact p1–p13) against **real PostgreSQL 16** vs Drizzle / Kysely.
+  zmdb is **DNF on 6/13** — joins, aggregations, and full-text search are outside
+  its deliberately CRUD-focused query builder.
 
 **Honesty policy:** zmdb's validation currently runs via its **runtime**
 validator (the AOT transformer is not yet a wired build plugin), so those
-numbers are labelled as runtime, not AOT. Anti-pattern-only cases (identity map,
-proxy lazy-load, active-record `save()`) are `DNF (anti-pattern)`. Typia (needs
-its AOT build) and Prisma (engine not installed) are `DNF (not implemented)`.
-We never silently skip or fake an in-scope case.
+numbers are labelled as runtime, not AOT. Typia (needs its AOT build) and Prisma
+(engine not installed) are `DNF (not implemented)`, as is the k6 distributed rig
+(single-process tinybench used). We never silently skip or fake an in-scope case.
 
-Real comparative numbers: [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md).
-Reproduction harnesses (with the Postgres-via-podman setup):
-[`benchmarks/harness/`](./benchmarks/harness).
+Real comparative numbers **and the per-library DNF counts**:
+[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction harnesses
+(with the Postgres-via-podman setup): [`benchmarks/harness/`](./benchmarks/harness).
 
 ## Requirements
 
