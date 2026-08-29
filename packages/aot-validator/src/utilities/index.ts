@@ -118,10 +118,13 @@ export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor)
 }
 
 export function validate<T = unknown>(
-  _input: unknown,
-  _descriptor?: TypeDescriptor,
+  input: unknown,
+  descriptor?: TypeDescriptor,
 ): ValidateResult<T> {
-  throw new Error(NOT_IMPL);
+  if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  const issues: ValidationIssue[] = [];
+  collectIssues(input, descriptor, 'input', issues);
+  return issues.length === 0 ? { success: true, data: input as T } : { success: false, errors: issues };
 }
 
 export function equals<T = unknown>(_input: unknown, _descriptor?: TypeDescriptor): _input is T {
