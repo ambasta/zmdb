@@ -7,6 +7,7 @@ import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
 
 export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
@@ -94,6 +95,16 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     );
     if (where) b = b.where(where.col, where.op, where.value);
     return this.driver.execute(b.compile());
+  }
+
+  // #92 — aggregation integration. Runs a grouped aggregate (count/sum/…)
+  // returning typed computed columns. `build` receives the aggregate builder so
+  // callers compose exactly the aggregate they need.
+  async aggregate<R extends Record<string, unknown>>(
+    build: (agg: ReturnType<typeof aggregateSelectFrom>) => { compile(): { text: string; parameters: readonly unknown[] } },
+  ): Promise<readonly R[]> {
+    const q = build(aggregateSelectFrom(this.tableName, this.dialect)).compile();
+    return this.driver.execute(q) as Promise<readonly R[]>;
   }
 
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
