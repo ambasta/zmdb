@@ -28,10 +28,10 @@ individual gaps (no scoring, no aggregation):
 | `/supplier-by-id` | ✅ | ✅ | ✅ | — |
 | `/products` | ✅ | ✅ | ✅ | — |
 | `/order-with-details-and-products` | ✅ | ✅ | ✅ (2-query populate) | — |
-| `/employee-with-recipient` | ✅ | ✅ | **DNF** | needs a self-JOIN; no join builder |
-| `/product-with-supplier` | ✅ | ✅ | **DNF** | needs a JOIN; no join builder |
-| `/orders-with-details` (agg list) | ✅ | ✅ | **DNF** | needs JOIN + GROUP BY + aggregates |
-| `/order-with-details` (agg by id) | ✅ | ✅ | **DNF** | needs JOIN + aggregates |
+| `/employee-with-recipient` | ✅ | ✅ | ✅ (now served, #88) | JOIN builder wired (self-join) |
+| `/product-with-supplier` | ✅ | ✅ | ✅ (now served, #88) | JOIN builder wired |
+| `/orders-with-details` (agg list) | ✅ | ✅ | ✅ (now served, #93) | aggregate builder (GROUP BY on FK) |
+| `/order-with-details` (agg by id) | ✅ | ✅ | ✅ (now served, #93) | aggregate builder (GROUP BY on FK) |
 | `/search-customer` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
 | `/search-product` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
 
@@ -40,23 +40,27 @@ join/aggregate/FTS routes were DNF, and in the actual replay those routes are
 **57.8% of all requests** (the two 100k-request JOIN routes dominate). That was
 a real, significant feature gap.
 
-> **Status update (progress):** the query-compiler now has JOIN
-> (`joinableSelectFrom`, #85), aggregation (`aggregateSelectFrom`, #90), and
-> full-text-search (`ftsSelectFrom`, #95) builders, and the repository/server are
-> being wired to use them:
-> - **FTS routes** (`/search-customer`, `/search-product`) are **now served**
->   (HTTP 200 with real matches) via the FTS builder (#97) — verified against
->   real Postgres.
-> - **JOIN** and **aggregation** repository methods now exist and pass E2E on
->   real Postgres (`findJoined` #87, `aggregate` #92), but the benchmark
->   **server routes** for `/employee-with-recipient`, `/product-with-supplier`,
->   `/orders-with-details`, `/order-with-details` are **not yet re-wired**, so
->   those 4 remain DNF in the throughput table until re-measured.
+> **Status update — all 13 routes now served (0 DNF):** the query-compiler gained
+> JOIN (`joinableSelectFrom`, #85), aggregation (`aggregateSelectFrom`, #90), and
+> full-text-search (`ftsSelectFrom`, #95) builders, and every previously-DNF
+> route is now wired and returns **HTTP 200 with correct data**, verified against
+> real Postgres:
+> - **FTS** `/search-customer`, `/search-product` — FTS builder (#97).
+> - **JOIN** `/employee-with-recipient` (self-join), `/product-with-supplier` —
+>   JOIN builder (#88). Repository `findJoined` also passes E2E (#87).
+> - **Aggregates** `/orders-with-details`, `/order-with-details` — aggregate
+>   builder grouping on the FK in `order_details` (#93); order 10500 → count 15,
+>   sum 1038, cross-checked vs raw SQL. Repository `aggregate` passes E2E (#92).
 >
-> Net: **DNF is down from 6 → 4 routes.** The k6 throughput numbers below are
-> unchanged (k6 filters `/search*`, and the 4 join/aggregate routes are still
-> DNF pending server wiring). No premature "faster than X" claim on the newly
-> served routes — they will be re-measured before any such statement.
+> **Honest caveats:** (1) the aggregate routes return the per-order aggregate
+> shape (`order_id`, `products_count`, `quantity_sum`) via GROUP-BY on the child
+> table — zmdb's aggregate builder does **not** join in the parent `orders`
+> columns (shipName, etc.), so the shape differs slightly from drizzle/kysely's
+> joined projection while the aggregate values match. (2) **The k6 throughput
+> numbers below have NOT been re-run** with these routes wired — so no
+> "faster than X" claim on them yet. Coverage (13/13) is verified; comparative
+> throughput on the newly-served routes is future work (#88/#93 covered
+> serving + correctness, not a fresh k6 ranking).
 
 ### Throughput — k6, only the routes ALL THREE can serve (fair, 0 failures)
 
