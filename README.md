@@ -12,10 +12,13 @@
 
 | Package | Status | Description |
 |---------|--------|-------------|
-| [`@zmdb/schema-core`](./packages/schema-core) | 🔜 | DSL + type derivation |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | 🔜 | Kysely fork, raw SQL |
-| [`@zmdb/aot-validator`](./packages/aot-validator) | 🔜 | Compile-time validation |
-| [`@zmdb/repository`](./packages/repository) | 🔜 | Auto-validating CRUD |
+| [`@zmdb/schema-core`](./packages/schema-core) | 🚧 | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI) |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | 🚧 | SELECT/INSERT/UPDATE/DELETE + dialects + migration diff/DDL |
+| [`@zmdb/aot-validator`](./packages/aot-validator) | 🚧 | AOT inlining + is/assert/validate, unions, transforms, Ser/De |
+| [`@zmdb/repository`](./packages/repository) | 🚧 | Auto-validating CRUD + hooks + transactions |
+
+> Status legend: 🚧 in progress (core implemented, tracked sub-issues open) · 🔜 planned · ✅ complete.
+> `defineSchema`, strict `equals`/`random`, and the benchmark runners/report are still open (see issues).
 
 ## Quick Start
 
