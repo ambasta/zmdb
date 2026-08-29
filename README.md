@@ -35,7 +35,9 @@ class UserRepository extends BaseRepository<typeof UserSchema> {
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the
+[COOKBOOK.md](./COOKBOOK.md) for real-world usage (model definition, CRUD,
+transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
 ## Requirements
 

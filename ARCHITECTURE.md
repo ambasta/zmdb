@@ -5,6 +5,9 @@
 > **Target TypeScript**: 7.0+ (stage 3 proposals permitted)  
 > **Performance Target**: Zero runtime overhead, native V8 execution speed
 
+> 📖 For end-to-end, real-world usage (model definition, CRUD, transactions,
+> relations, validation, Ser/De, JSON/OpenAPI), see the **[Cookbook](./COOKBOOK.md)**.
+
 ---
 
 ## 1. Design Philosophy
@@ -378,15 +381,26 @@ We **do not** use `.ts` files for the `aot-validator` transformer itself (it's a
 
 ### 6.1 No "Smart" Entities
 ```typescript
-// ❌ FORBIDDEN: Mikro-ORM style
+// ❌ FORBIDDEN: Mikro-ORM style — mutate a live proxy, flush later
 const user = em.findOne(User, 1);
 user.email = 'new@example.com';
-await em.flush(); // Change tracked via proxy
+await em.flush(); // change tracked via proxy; implicit persistence
 
-// ✅ REQUIRED: Raw results
-const [user] = await db.execute('SELECT * FROM users WHERE id = $1', [1]);
-// user is a plain object. Mutations do not auto-persist.
+// ✅ REQUIRED: fetched rows are inert plain objects; writes are explicit
+const user = await users.findById(1);
+// `user` is a plain object (prototype === Object.prototype).
+// Mutating it does NOTHING to the database:
+user.email = 'new@example.com';   // local edit only — not persisted
+
+// To persist, call an explicit, validated repository method:
+await users.update(1, { email: 'new@example.com' });
+// → validates the partial against UpdateDTO<S>, compiles UPDATE ... RETURNING *
 ```
+
+Persistence happens **only** when you call `create` / `update` / `delete`
+by name. There is no hidden change tracking and no `flush()`. For grouped,
+all-or-nothing writes, use an explicit transaction (see the Cookbook).
+
 
 ### 6.2 No Runtime Schema Inspection
 ```typescript
