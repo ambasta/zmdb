@@ -775,7 +775,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"kysely@npm:^0.29.0, kysely@npm:^0.29.5":
+"kysely@npm:^0.29.0":
   version: 0.29.5
   resolution: "kysely@npm:0.29.5"
   checksum: 10c0/b2a64d06e568ff9cd5a738fd371c834252517625e4e844e29332654080647a824c2573f60ed1d52945205e2aa19707538c17b581347650dad2899f37455945f0
@@ -1291,7 +1291,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zmdb@workspace:."
   dependencies:
-    kysely: "npm:^0.29.5"
     typescript: "npm:^5.9.2"
     vitest: "npm:^3.2.4"
   languageName: unknown
