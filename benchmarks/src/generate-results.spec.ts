@@ -37,7 +37,11 @@ describe('benchmark RESULTS.md generation (live)', () => {
     expect(shape(toMarkdown(generate()))).toBe(shape(md));
 
     const here = dirname(fileURLToPath(import.meta.url));
-    writeFileSync(join(here, '..', 'RESULTS.md'), md);
+    // NOTE: the authoritative comparative report is benchmarks/RESULTS.md,
+    // produced by the real head-to-head harnesses in benchmarks/harness/.
+    // This in-process generator writes an internal artifact only, so it does
+    // not clobber the real results.
+    writeFileSync(join(here, '..', '.internal-results.md'), md);
     expect(md).toContain('dnf (anti-pattern)');
     expect(md).toContain('dnf (not implemented)');
   });

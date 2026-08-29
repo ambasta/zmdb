@@ -18,3 +18,9 @@ node_modules
 
 # TS build artifacts
 *.tsbuildinfo
+
+# Benchmark harness deps (real competitor libs, not shipped)
+benchmarks/harness/**/node_modules
+benchmarks/harness/**/package-lock.json
+
+benchmarks/.internal-results.md

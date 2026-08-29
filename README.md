@@ -49,20 +49,24 @@ transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
 ## Benchmarks
 
-We benchmark zmdb head-to-head against the industry-standard suites:
+We benchmark zmdb head-to-head against the industry-standard suites, using the
+**real competitor libraries** on the **actual upstream workloads**:
 
 - **Validation** — the [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
-  case model (safe/strict parse, loose/strict assert) vs Typia / Zod / TypeBox / Ajv.
+  case model (safe/strict parse, loose/strict assert) vs Zod / TypeBox / Ajv / Valibot.
 - **ORM** — the [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  e-commerce workload (real PostgreSQL, k6-driven) vs Drizzle / Prisma / Kysely.
+  Northwind workload against **real PostgreSQL 16** vs Drizzle / Kysely.
 
-**Honesty policy:** anti-pattern-only cases (identity map, proxy lazy-load,
-active-record `save()`) are reported as `DNF (anti-pattern)` — visible, not
-hidden. Any supported-in-principle case we haven't wired yet is reported as
-`DNF (not implemented)`. We never silently skip an in-scope case.
+**Honesty policy:** zmdb's validation currently runs via its **runtime**
+validator (the AOT transformer is not yet a wired build plugin), so those
+numbers are labelled as runtime, not AOT. Anti-pattern-only cases (identity map,
+proxy lazy-load, active-record `save()`) are `DNF (anti-pattern)`. Typia (needs
+its AOT build) and Prisma (engine not installed) are `DNF (not implemented)`.
+We never silently skip or fake an in-scope case.
 
-Harness spec: [`benchmarks/SPEC.md`](./benchmarks/SPEC.md); results (once
-generated) land in `benchmarks/RESULTS.md`.
+Real comparative numbers: [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md).
+Reproduction harnesses (with the Postgres-via-podman setup):
+[`benchmarks/harness/`](./benchmarks/harness).
 
 ## Requirements
 
