@@ -11,6 +11,7 @@ import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
 import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
 import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.ts';
+import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/index.ts';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);
@@ -53,7 +54,7 @@ const routes: Record<string, Record<string, H | null>> = {
   '/employee-with-recipient': {
     drizzle: async (q) => ddb.select().from(employees).leftJoin(sql`employees r`, sql`r.id = ${employees.recipientId}`).where(eq(employees.id, num(q.get('id') ?? undefined))),
     kysely: async (q) => k.selectFrom('employees').leftJoin('employees as r', 'r.id', 'employees.recipient_id').selectAll('employees').where('employees.id', '=', num(q.get('id') ?? undefined)).execute(),
-    zmdb: null, // no JOIN builder
+    zmdb: async (q) => { const c = joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', num(q.get('id') ?? undefined)).compile(); return zq(c.text, c.parameters as unknown[]); },
   },
   '/suppliers': {
     drizzle: async (q) => ddb.select().from(suppliers).orderBy(asc(suppliers.id)).limit(num(q.get('limit') ?? undefined, 50)).offset(num(q.get('offset') ?? undefined)),
@@ -73,7 +74,7 @@ const routes: Record<string, Record<string, H | null>> = {
   '/product-with-supplier': {
     drizzle: async (q) => ddb.select().from(products).leftJoin(suppliers, eq(suppliers.id, products.supplierId)).where(eq(products.id, num(q.get('id') ?? undefined))),
     kysely: async (q) => k.selectFrom('products').leftJoin('suppliers', 'suppliers.id', 'products.supplier_id').selectAll().where('products.id', '=', num(q.get('id') ?? undefined)).execute(),
-    zmdb: null, // no JOIN builder
+    zmdb: async (q) => { const c = joinableSelectFrom('products', 'postgres').leftJoin('suppliers', 'suppliers.id', 'products.supplier_id').where('products.id', '=', num(q.get('id') ?? undefined)).compile(); return zq(c.text, c.parameters as unknown[]); },
   },
   '/orders-with-details': {
     drizzle: async (q) => ddb.select({ id: orders.id, cnt: sql`count(${details.productId})::int` }).from(orders).leftJoin(details, eq(details.orderId, orders.id)).groupBy(orders.id).orderBy(asc(orders.id)).limit(num(q.get('limit') ?? undefined, 50)).offset(num(q.get('offset') ?? undefined)),
