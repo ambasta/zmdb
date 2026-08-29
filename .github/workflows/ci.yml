@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test + Typecheck + Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Typecheck (all packages + benchmarks)
+        run: |
+          for p in schema-core query-compiler aot-validator repository; do
+            yarn tsc --noEmit -p packages/$p/tsconfig.json
+          done
+          yarn tsc --noEmit -p benchmarks/tsconfig.json
+
+      - name: Unit + integration tests (incl. node:sqlite E2E)
+        run: yarn vitest run
+
+      # Benchmarks run as part of the vitest suite (validation + ORM, plus the
+      # Kysely head-to-head and the RESULTS.md generator). The report generator
+      # enforces the honesty policy (assertNoSilentSkips) — an in-scope case
+      # missing from the results fails the build.
+      - name: Publish benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/RESULTS.md
+
+  regression-guardrail:
+    name: Benchmark regression guardrail
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - run: yarn install --immutable
+      # The guardrail unit tests assert the ok→DNF and throughput-drop detection
+      # logic. A real pipeline would diff the freshly-generated RESULTS.md
+      # against the committed baseline using checkRegressions() and fail on any
+      # regression; here we run the guardrail test suite as the gate.
+      - name: Guardrail checks
+        run: yarn vitest run benchmarks/src/guardrail.spec.ts
