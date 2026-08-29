@@ -89,8 +89,9 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
 
 function columnDdl(d: Dialect, col: ColumnSnapshot): string {
   const q = d === 'mysql' ? '`' : '"';
-  const nn = col.nullable ? '' : ' NOT NULL';
+  // PRIMARY KEY implies NOT NULL, so we don't emit both.
   const pk = col.primaryKey ? ' PRIMARY KEY' : '';
+  const nn = !col.primaryKey && !col.nullable ? ' NOT NULL' : '';
   return `${q}${col.name}${q} ${col.type}${pk}${nn}`;
 }
 
