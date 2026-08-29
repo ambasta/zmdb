@@ -1,7 +1,7 @@
 // AOT serialization — implementation.
 // #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
 import type { ValidationIssue } from '../advanced/index.ts';
-import { assert, type TypeDescriptor } from '../utilities/index.ts';
+import { assert, AssertError, type TypeDescriptor } from '../utilities/index.ts';
 
 
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
@@ -48,5 +48,20 @@ export function parse<T = unknown>(text: string): ParseResult<T> {
         },
       ],
     };
+  }
+}
+
+// #54 — typed parse/decode: parse JSON then validate into T against a
+// descriptor. Malformed JSON or a validation failure yields success:false with
+// structured issues (exact paths).
+export function decode<T = unknown>(text: string, descriptor?: TypeDescriptor): ParseResult<T> {
+  const parsed = parse<T>(text);
+  if (!parsed.success) return parsed;
+  try {
+    const data = assert<T>(parsed.data, descriptor);
+    return { success: true, data };
+  } catch (err) {
+    const issues = err instanceof AssertError ? err.issues : [];
+    return { success: false, issues };
   }
 }
