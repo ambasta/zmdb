@@ -1,0 +1,14 @@
+{
+  "name": "@zmdb/schema-core",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}
