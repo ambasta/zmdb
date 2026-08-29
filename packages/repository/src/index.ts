@@ -6,8 +6,6 @@ import type { CoreSchema } from '@zmdb/schema-core';
 import type { CompiledQuery } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-const NOT_IMPL = 'not implemented';
-
 export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
@@ -57,15 +55,91 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return this.driver.execute(this.qb.selectFrom(this.tableName).compile());
   }
 
-  // #27 — not yet implemented.
-  create(_payload: unknown): Promise<Record<string, unknown>> {
-    throw new Error(NOT_IMPL);
+  // #27 — create/update with validation interception.
+  async create(payload: unknown): Promise<Record<string, unknown>> {
+    const dto = this.validatePayload(payload, 'create');
+    const rows = await this.driver.execute(
+      this.qb.insertInto(this.tableName).values(dto).returning(['*']).compile(),
+    );
+    return rows[0] ?? {};
   }
-  update(_id: unknown, _payload: unknown): Promise<Record<string, unknown> | undefined> {
-    throw new Error(NOT_IMPL);
+
+  async update(id: unknown, payload: unknown): Promise<Record<string, unknown> | undefined> {
+    const dto = this.validatePayload(payload, 'update');
+    const rows = await this.driver.execute(
+      this.qb.updateTable(this.tableName).set(dto).where(this.pkColumn, '=', id).returning(['*']).compile(),
+    );
+    return rows[0];
   }
-  // #28 — not yet implemented.
-  delete(_id: unknown): Promise<boolean> {
-    throw new Error(NOT_IMPL);
+
+  // #28 — delete.
+  async delete(id: unknown): Promise<boolean> {
+    const rows = await this.driver.execute(
+      this.qb.deleteFrom(this.tableName).where(this.pkColumn, '=', id).returning([this.pkColumn]).compile(),
+    );
+    return rows.length > 0;
+  }
+
+  // Runtime validation against the schema's column metadata. Mirrors the DTO
+  // rules: create omits autoIncrement; both variants reject wrong-typed values,
+  // out-of-enum values, and (for create) missing required fields.
+  private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      const e = new ValidationError('payload must be an object');
+      (e as { issues: unknown }).issues = [{ path: 'input', message: 'expected object' }];
+      throw e;
+    }
+    const obj = payload as Record<string, unknown>;
+    const issues: { path: string; message: string }[] = [];
+    const out: Record<string, unknown> = {};
+
+    for (const [name, col] of Object.entries(this.schema.columns)) {
+      if (col.flags.autoIncrement) continue; // never accepted from payloads
+      const present = name in obj;
+      const value = obj[name];
+
+      if (!present) {
+        const optional = col.flags.hasDefault === true || col.flags.nullable === true;
+        if (variant === 'create' && !optional) {
+          issues.push({ path: `input.${name}`, message: `missing required field "${name}"` });
+        }
+        continue;
+      }
+      if (!this.valueMatchesColumn(value, col)) {
+        issues.push({ path: `input.${name}`, message: `invalid value for "${name}"` });
+        continue;
+      }
+      out[name] = value;
+    }
+
+    if (issues.length > 0) {
+      const e = new ValidationError(`validation failed: ${issues.map((i) => i.path).join(', ')}`);
+      (e as { issues: unknown }).issues = issues;
+      throw e;
+    }
+    return out;
+  }
+
+  private valueMatchesColumn(value: unknown, col: { type: string; flags: { nullable: boolean; enum?: readonly string[] } }): boolean {
+    if (value === null) return col.flags.nullable;
+    switch (col.type) {
+      case 'serial':
+      case 'integer':
+      case 'bigint':
+      case 'numeric':
+        return typeof value === 'number' || typeof value === 'bigint';
+      case 'text':
+      case 'varchar':
+        return typeof value === 'string';
+      case 'boolean':
+        return typeof value === 'boolean';
+      case 'timestamp':
+        return value instanceof Date || typeof value === 'string';
+      case 'jsonEnum':
+        return typeof value === 'string' && (col.flags.enum?.includes(value) ?? false);
+      case 'json':
+      default:
+        return true;
+    }
   }
 }
