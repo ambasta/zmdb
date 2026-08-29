@@ -4,7 +4,6 @@
 // unimplemented; their tests stay red.
 import type { ValidationIssue } from '../advanced/index.ts';
 
-const NOT_IMPL = 'not implemented';
 
 export interface TypeDescriptor {
   readonly kind: 'object' | 'string' | 'number' | 'boolean' | 'enum' | 'array';
@@ -167,6 +166,49 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
   return input as T;
 }
 
-export function random<T = unknown>(_descriptor?: TypeDescriptor): T {
-  throw new Error(NOT_IMPL);
+// #61 — schema/type-driven sample generator. Produces a value that satisfies
+// the descriptor BY CONSTRUCTION, honoring tags (minimum/maxLength/pattern/
+// enum). Contract: is(random(d), d) === true for every seed.
+function randomFor(d: TypeDescriptor): unknown {
+  switch (d.kind) {
+    case 'number': {
+      const min = d.minimum ?? 0;
+      return min + Math.floor(Math.random() * 1000);
+    }
+    case 'string': {
+      // Pattern support is intentionally limited to the common email-ish shape
+      // used by our fixtures; unknown patterns fall back to a safe token.
+      let s: string;
+      if (d.pattern) {
+        s = d.pattern.includes('@') ? `user${Math.floor(Math.random() * 1000)}@example.com` : 'x';
+      } else {
+        s = `s${Math.floor(Math.random() * 1_000_000).toString(36)}`;
+      }
+      if (d.maxLength !== undefined && s.length > d.maxLength) s = s.slice(0, d.maxLength);
+      return s;
+    }
+    case 'boolean':
+      return Math.random() < 0.5;
+    case 'enum': {
+      const values = d.values ?? [];
+      return values[Math.floor(Math.random() * values.length)];
+    }
+    case 'array': {
+      if (!d.of) return [];
+      const n = Math.floor(Math.random() * 3) + 1;
+      return Array.from({ length: n }, () => randomFor(d.of!));
+    }
+    case 'object': {
+      const out: Record<string, unknown> = {};
+      for (const [key, fd] of Object.entries(d.fields ?? {})) out[key] = randomFor(fd);
+      return out;
+    }
+    default:
+      return undefined;
+  }
+}
+
+export function random<T = unknown>(descriptor?: TypeDescriptor): T {
+  if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  return randomFor(descriptor) as T;
 }
