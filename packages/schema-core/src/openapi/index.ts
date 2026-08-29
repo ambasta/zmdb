@@ -110,6 +110,29 @@ function pascalCase(table: string): string {
   return singular.charAt(0).toUpperCase() + singular.slice(1);
 }
 
+// #66 — DTO-aware generation + relation $refs.
+// Relations are emitted only for the `entity` (response) variant, never for
+// create/update input bodies. to-one → $ref; to-many → array of $ref.
+interface RelationLike {
+  readonly cardinality: 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
+  readonly target: string;
+}
+export function toJsonSchemaWithRelations(
+  schema: CoreSchema<string>,
+  relations: Record<string, RelationLike>,
+  variant: Variant = 'entity',
+): JsonSchemaObject {
+  const base = toJsonSchema(schema, variant);
+  if (variant !== 'entity') return base; // input bodies exclude relations
+  const properties: Record<string, unknown> = { ...base.properties };
+  for (const [name, rel] of Object.entries(relations)) {
+    const ref = { $ref: `#/components/schemas/${pascalCase(rel.target)}` };
+    const toMany = rel.cardinality === 'one-to-many' || rel.cardinality === 'many-to-many';
+    properties[name] = toMany ? { type: 'array', items: ref } : ref;
+  }
+  return { type: 'object', properties, required: base.required };
+}
+
 export function toOpenApiComponents(
   schemas: readonly CoreSchema<string>[],
 ): { schemas: Record<string, JsonSchemaObject> } {
