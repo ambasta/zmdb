@@ -301,28 +301,33 @@ schema and this handler fails to compile until updated — no drift.
 
 ---
 
-## 10. JSON Schema / OpenAPI (planned)
+## 10. JSON Schema / OpenAPI
 
-**(planned — not yet a frozen spec / issue.)** Because the schema already carries
-column types, nullability, defaults, and validation tags, a JSON Schema / OpenAPI
-document can be generated deterministically from the same source of truth.
-
-Intended surface (subject to a future spec):
+Because the schema already carries column types, nullability, defaults, and
+validation tags, a JSON Schema / OpenAPI document is generated **deterministically
+at build time** from the same source of truth. Backed by
+`packages/schema-core/src/openapi/SPEC.md` (epic #62; spec frozen in #63,
+implementation in #64–#67).
 
 ```ts
-import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi'; // planned
+import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
 
-const userJsonSchema = toJsonSchema(UserSchema);
-// { type: 'object', properties: { ... }, required: [...] }
+// Variant-aware: 'entity' (default) | 'create' | 'update'
+const userEntity = toJsonSchema(UserSchema);            // response shape
+const userCreate = toJsonSchema(UserSchema, 'create');  // request-body shape
+// { type: 'object', properties: { ... }, required: [...] }  (draft 2020-12)
 
-const components = toOpenApiComponents([UserSchema, OrderSchema]); // planned
-// -> components.schemas.User / .Order for an OpenAPI document
+const components = toOpenApiComponents([UserSchema, OrderSchema]);
+// components.schemas.User / .Order  (OpenAPI 3.1)
 ```
 
-Design constraints it will follow: generated at build time (no runtime reflection),
-`CreateDTO` used for request bodies, `Entity` for responses, validation tags mapped
-to JSON Schema keywords (`minimum`, `maxLength`, `pattern`, `enum`). If you want,
-this can be promoted to a real epic + sub-issues.
+Frozen behavior:
+- Build-time generation only — **no runtime reflection**.
+- `create`/`update` variants for request bodies, `entity` for responses.
+- Validation tags map to keywords: `Minimum→minimum`, `Maximum→maximum`,
+  `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`, `Enum→enum`.
+- Relations emit `$ref` (to-one) / `items:{$ref}` (to-many).
+- Deterministic (stable key ordering) so output is committable/diffable.
 
 ---
 
