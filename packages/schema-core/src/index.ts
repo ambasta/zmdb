@@ -1,8 +1,6 @@
-// @zmdb/schema-core — API stubs (red phase).
-// Implementation lands in #12–#15. Everything here throws so tests fail
-// on behavior rather than on import resolution.
-
-const NOT_IMPL = 'not implemented';
+// @zmdb/schema-core — implementation.
+// #12 column builders + #13 modifiers implemented. #14 derivation (types)
+// and #15 defineSchema remain unimplemented (their tests stay red).
 
 export type SqlType =
   | 'serial'
@@ -49,76 +47,115 @@ export interface CoreSchema<T extends string> {
 
 export class SchemaError extends Error {}
 
-// A chainable column: carries ColumnMeta plus fluent modifier methods.
+// Chainable column: ColumnMeta + fluent modifier methods.
+// Note: `references` is intentionally NOT a fluent method — it would collide
+// with the `ColumnMeta.references` metadata field. Use the function-style
+// `references(col, target)` modifier for foreign keys.
 export interface Column extends ColumnMeta {
   notNull(): Column;
   nullable(): Column;
   primaryKey(): Column;
   unique(): Column;
-  references(target: string): Column;
   defaultTo(value: unknown): Column;
   validate(rule: ValidationRule): Column;
 }
 
+// Deep-freeze a column metadata object and wrap it with fluent methods.
+// Each fluent method returns a NEW frozen column (immutability preserved).
+function makeColumn(meta: ColumnMeta): Column {
+  const frozenFlags = Object.freeze({ ...meta.flags });
+  const base: ColumnMeta = Object.freeze({
+    ...meta,
+    flags: frozenFlags,
+    ...(meta.validation ? { validation: Object.freeze([...meta.validation]) } : {}),
+  });
+
+  const withFlag = (patch: Partial<ColumnFlags>): Column =>
+    makeColumn({ ...base, flags: { ...base.flags, ...patch } });
+
+  // Metadata is the enumerable surface (so `toEqual` compares metadata only).
+  const column = { ...base } as unknown as Column;
+
+  // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
+  // columns with equal metadata compare deep-equal regardless of build style.
+  const methods: Record<string, (...args: never[]) => Column> = {
+    notNull: () => withFlag({ nullable: false }),
+    nullable: () => withFlag({ nullable: true }),
+    primaryKey: () => withFlag({ primaryKey: true }),
+    unique: () => withFlag({ unique: true }),
+    defaultTo: ((value: unknown) =>
+      makeColumn({ ...base, default: value, flags: { ...base.flags, hasDefault: true } })) as never,
+    validate: ((rule: ValidationRule) =>
+      makeColumn({ ...base, validation: [...(base.validation ?? []), rule] })) as never,
+  };
+  for (const [name, fn] of Object.entries(methods)) {
+    Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
+  }
+  return Object.freeze(column);
+}
+
 // Column builders --------------------------------------------------------
 export function serial(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({
+    type: 'serial',
+    flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
+  });
 }
 export function integer(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'integer', flags: { nullable: false } });
 }
 export function bigint(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'bigint', flags: { nullable: false } });
 }
 export function numeric(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'numeric', flags: { nullable: false } });
 }
 export function text(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'text', flags: { nullable: false } });
 }
-export function varchar(_length: number): Column {
-  throw new Error(NOT_IMPL);
+export function varchar(length: number): Column {
+  return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
 }
 export function boolean(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'boolean', flags: { nullable: false } });
 }
 export function timestamp(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'timestamp', flags: { nullable: false } });
 }
 export function json(): Column {
-  throw new Error(NOT_IMPL);
+  return makeColumn({ type: 'json', flags: { nullable: false } });
 }
-export function jsonEnum<const V extends readonly string[]>(_values: V): Column {
-  throw new Error(NOT_IMPL);
-}
-
-// Function-style modifiers ----------------------------------------------
-export function notNull(_col: ColumnMeta): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function nullable(_col: ColumnMeta): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function primaryKey(_col: ColumnMeta): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function unique(_col: ColumnMeta): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function references(_col: ColumnMeta, _target: string): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function defaultTo(_col: ColumnMeta, _value: unknown): ColumnMeta {
-  throw new Error(NOT_IMPL);
-}
-export function validate(_col: ColumnMeta, _rule: ValidationRule): ColumnMeta {
-  throw new Error(NOT_IMPL);
+export function jsonEnum<const V extends readonly string[]>(values: V): Column {
+  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } });
 }
 
-// defineSchema -----------------------------------------------------------
+// Function-style modifiers (pure; never mutate input) --------------------
+export function notNull(col: ColumnMeta): ColumnMeta {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } });
+}
+export function nullable(col: ColumnMeta): ColumnMeta {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } });
+}
+export function primaryKey(col: ColumnMeta): ColumnMeta {
+  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } });
+}
+export function unique(col: ColumnMeta): ColumnMeta {
+  return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
+}
+export function references(col: ColumnMeta, target: string): ColumnMeta {
+  return makeColumn({ ...col, references: { target } });
+}
+export function defaultTo(col: ColumnMeta, value: unknown): ColumnMeta {
+  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } });
+}
+export function validate(col: ColumnMeta, rule: ValidationRule): ColumnMeta {
+  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
+}
+
+// defineSchema (#15) — NOT yet implemented; tests remain red. ------------
 export function defineSchema<T extends string>(
   _table: T,
   _columns: Record<string, ColumnMeta>,
 ): CoreSchema<T> {
-  throw new Error(NOT_IMPL);
+  throw new Error('not implemented');
 }
