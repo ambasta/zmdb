@@ -124,20 +124,101 @@ export interface QueryCompiler {
   deleteFrom(table: string): DeleteBuilder;
 }
 
+function returningClause(d: DialectStrategy, cols?: readonly string[]): string {
+  if (!cols || cols.length === 0) return '';
+  return ` RETURNING ${cols.map((c) => d.quote(c)).join(', ')}`;
+}
+
+function makeInsert(
+  d: DialectStrategy,
+  table: string,
+  row?: Record<string, unknown>,
+  ret?: readonly string[],
+): InsertBuilder {
+  return {
+    values: (r) => makeInsert(d, table, r, ret),
+    returning: (cols) => makeInsert(d, table, row, cols ?? []),
+    compile: () => {
+      if (!row) throw new Error('insertInto requires values()');
+      const keys = Object.keys(row);
+      const params = keys.map((k) => row[k]);
+      const cols = keys.map((k) => d.quote(k)).join(', ');
+      const placeholders = keys.map((_, i) => d.placeholder(i + 1)).join(', ');
+      const text = `INSERT INTO ${d.quote(table)} (${cols}) VALUES (${placeholders})${returningClause(d, ret)}`;
+      return Object.freeze({ text, parameters: Object.freeze(params) });
+    },
+  };
+}
+
+function makeUpdate(
+  d: DialectStrategy,
+  table: string,
+  row?: Record<string, unknown>,
+  wheres: readonly WhereClause[] = [],
+  ret?: readonly string[],
+): UpdateBuilder {
+  return {
+    set: (r) => makeUpdate(d, table, r, wheres, ret),
+    where: (col, op, value) =>
+      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    returning: (cols) => makeUpdate(d, table, row, wheres, cols ?? []),
+    compile: () => {
+      if (!row) throw new Error('updateTable requires set()');
+      const params: unknown[] = [];
+      const sets = Object.keys(row)
+        .map((k) => {
+          params.push(row[k]);
+          return `${d.quote(k)} = ${d.placeholder(params.length)}`;
+        })
+        .join(', ');
+      let text = `UPDATE ${d.quote(table)} SET ${sets}`;
+      if (wheres.length > 0) {
+        const parts = wheres.map((w, i) => {
+          params.push(w.value);
+          const cond = `${d.quote(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+          return i === 0 ? cond : `${w.connector} ${cond}`;
+        });
+        text += ` WHERE ${parts.join(' ')}`;
+      }
+      text += returningClause(d, ret);
+      return Object.freeze({ text, parameters: Object.freeze(params) });
+    },
+  };
+}
+
+function makeDelete(
+  d: DialectStrategy,
+  table: string,
+  wheres: readonly WhereClause[] = [],
+  ret?: readonly string[],
+): DeleteBuilder {
+  return {
+    where: (col, op, value) =>
+      makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    returning: (cols) => makeDelete(d, table, wheres, cols ?? []),
+    compile: () => {
+      const params: unknown[] = [];
+      let text = `DELETE FROM ${d.quote(table)}`;
+      if (wheres.length > 0) {
+        const parts = wheres.map((w, i) => {
+          params.push(w.value);
+          const cond = `${d.quote(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+          return i === 0 ? cond : `${w.connector} ${cond}`;
+        });
+        text += ` WHERE ${parts.join(' ')}`;
+      }
+      text += returningClause(d, ret);
+      return Object.freeze({ text, parameters: Object.freeze(params) });
+    },
+  };
+}
+
 export function createQueryCompiler(dialect: Dialect = 'postgres'): QueryCompiler {
   const d = DIALECTS[dialect];
   return {
-    selectFrom: (table) =>
-      makeSelect(d, { table, wheres: [], orderBys: [] }),
-    // #18 — not yet implemented; write-builder tests remain red.
-    insertInto: () => {
-      throw new Error(NOT_IMPL);
-    },
-    updateTable: () => {
-      throw new Error(NOT_IMPL);
-    },
-    deleteFrom: () => {
-      throw new Error(NOT_IMPL);
-    },
+    selectFrom: (table) => makeSelect(d, { table, wheres: [], orderBys: [] }),
+    insertInto: (table) => makeInsert(d, table),
+    updateTable: (table) => makeUpdate(d, table),
+    deleteFrom: (table) => makeDelete(d, table),
   };
 }
