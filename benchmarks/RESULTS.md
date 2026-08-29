@@ -32,22 +32,31 @@ individual gaps (no scoring, no aggregation):
 | `/product-with-supplier` | ✅ | ✅ | **DNF** | needs a JOIN; no join builder |
 | `/orders-with-details` (agg list) | ✅ | ✅ | **DNF** | needs JOIN + GROUP BY + aggregates |
 | `/order-with-details` (agg by id) | ✅ | ✅ | **DNF** | needs JOIN + aggregates |
-| `/search-customer` (full-text) | ✅ | ✅ | **DNF** | needs FTS predicate; no builder |
-| `/search-product` (full-text) | ✅ | ✅ | **DNF** | needs FTS predicate; no builder |
+| `/search-customer` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
+| `/search-product` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
 
-**zmdb cannot serve 6 of the 13 upstream routes** — and in the actual replay
-those 6 routes are **57.8% of all requests** (the two 100k-request JOIN routes
-dominate). This is a real, significant feature gap, not a footnote.
+**As originally measured, zmdb served only 7 of the 13 upstream routes** — the 6
+join/aggregate/FTS routes were DNF, and in the actual replay those routes are
+**57.8% of all requests** (the two 100k-request JOIN routes dominate). That was
+a real, significant feature gap.
 
-> **Status update (post-benchmark):** the query-compiler now has JOIN
+> **Status update (progress):** the query-compiler now has JOIN
 > (`joinableSelectFrom`, #85), aggregation (`aggregateSelectFrom`, #90), and
-> full-text-search (`ftsSelectFrom`, #95) **builders** that compile the correct
-> SQL — the compilation gap is closed. They are **not yet wired into the
-> benchmark servers/repository**, so these routes have **not been re-measured**
-> and the DNF rows above still reflect the benchmark as run. Flipping them to
-> 200 + recording throughput is the remaining work in #87/#88 (joins),
-> #92/#93 (aggregates), #96/#97 (FTS). Numbers here will be updated then, not
-> before — no premature "now supported" claim.
+> full-text-search (`ftsSelectFrom`, #95) builders, and the repository/server are
+> being wired to use them:
+> - **FTS routes** (`/search-customer`, `/search-product`) are **now served**
+>   (HTTP 200 with real matches) via the FTS builder (#97) — verified against
+>   real Postgres.
+> - **JOIN** and **aggregation** repository methods now exist and pass E2E on
+>   real Postgres (`findJoined` #87, `aggregate` #92), but the benchmark
+>   **server routes** for `/employee-with-recipient`, `/product-with-supplier`,
+>   `/orders-with-details`, `/order-with-details` are **not yet re-wired**, so
+>   those 4 remain DNF in the throughput table until re-measured.
+>
+> Net: **DNF is down from 6 → 4 routes.** The k6 throughput numbers below are
+> unchanged (k6 filters `/search*`, and the 4 join/aggregate routes are still
+> DNF pending server wiring). No premature "faster than X" claim on the newly
+> served routes — they will be re-measured before any such statement.
 
 ### Throughput — k6, only the routes ALL THREE can serve (fair, 0 failures)
 
