@@ -45,12 +45,39 @@ export function transform(fnSource: string): Rule {
   } as unknown as Rule);
 }
 
-export function union(..._rules: readonly Rule[]): Rule {
-  throw new Error(NOT_IMPL);
+interface UnionRule extends Rule {
+  readonly kind: 'union';
+  readonly branches: readonly Rule[];
+}
+interface DiscriminatedRule extends Rule {
+  readonly kind: 'discriminated';
+  readonly key: string;
+  readonly map: Record<string, Rule>;
 }
 
-export function discriminated(_key: string, _map: Record<string, Rule>): Rule {
-  throw new Error(NOT_IMPL);
+export function union(...rules: readonly Rule[]): Rule {
+  return Object.freeze({ kind: 'union', args: Object.freeze(rules), branches: rules } as unknown as UnionRule);
+}
+
+export function discriminated(key: string, map: Record<string, Rule>): Rule {
+  return Object.freeze({ kind: 'discriminated', args: Object.freeze([key]), key, map } as unknown as DiscriminatedRule);
+}
+
+// Runtime evaluator (the fallback the transformer's inline emission mirrors).
+export function evalRule(rule: Rule, value: unknown): boolean {
+  switch (rule.kind) {
+    case 'union':
+      return (rule as UnionRule).branches.some((b) => evalRule(b, value));
+    case 'discriminated': {
+      const r = rule as DiscriminatedRule;
+      if (typeof value !== 'object' || value === null) return false;
+      const disc = (value as Record<string, unknown>)[r.key];
+      if (typeof disc !== 'string' || !(disc in r.map)) return false;
+      return evalRule(r.map[disc]!, (value as Record<string, unknown>).value);
+    }
+    default:
+      return checkRule(rule, value).ok;
+  }
 }
 
 export const coerce = {
