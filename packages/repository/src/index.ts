@@ -6,6 +6,7 @@ import type { CoreSchema } from '@zmdb/schema-core';
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 
 export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
@@ -75,6 +76,24 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
     const q = ftsSelectFrom(this.tableName, this.dialect).whereMatch(column, term).compile();
     return this.driver.execute(q);
+  }
+
+  // #87 — JOIN integration. Fetch this table left-joined to a target on an FK,
+  // filtered by a predicate on the base table. Returns flat joined rows (plain
+  // objects — no proxies). Uses the query-compiler JOIN builder.
+  async findJoined(
+    join: { target: string; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
+    where?: { col: string; op: string; value: unknown },
+  ): Promise<readonly Record<string, unknown>[]> {
+    let b = joinableSelectFrom(this.tableName, this.dialect);
+    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(
+      b,
+      join.target,
+      join.leftCol,
+      join.rightCol,
+    );
+    if (where) b = b.where(where.col, where.op, where.value);
+    return this.driver.execute(b.compile());
   }
 
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
