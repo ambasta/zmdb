@@ -14,6 +14,12 @@ export interface ValidationIssue {
   readonly message: string;
 }
 
+// #49 — branded (nominal) types. Compile-time only; erases to the base type at
+// runtime (no footprint). `Brand<number, 'UserId'>` is assignable to `number`
+// but distinct from `Brand<number, 'OrderId'>`.
+declare const __brand: unique symbol;
+export type Brand<Base, Tag extends string> = Base & { readonly [__brand]: Tag };
+
 // A refinement rule carries an inlineable predicate source + a message.
 // The runtime fallback compiles the predicate with `v` in scope.
 interface RefineRule extends Rule {
