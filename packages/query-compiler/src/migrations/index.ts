@@ -33,8 +33,26 @@ export type ChangeOp =
       readonly to: string;
     };
 
-export function snapshot(_schemas: readonly unknown[]): SchemaSnapshot {
-  throw new Error(NOT_IMPL);
+export function snapshot(schemas: readonly unknown[]): SchemaSnapshot {
+  const tables: TableSnapshot[] = schemas
+    .map((s) => {
+      const schema = s as {
+        table: string;
+        columns: Record<string, { type: string; flags: { nullable: boolean; primaryKey?: boolean } }>;
+      };
+      const columns: ColumnSnapshot[] = Object.entries(schema.columns)
+        .map(([name, meta]) => ({
+          name,
+          type: meta.type,
+          nullable: meta.flags.nullable,
+          primaryKey: meta.flags.primaryKey === true,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return { name: schema.table, columns };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { version: 1, tables };
 }
 
 export function diff(_prev: SchemaSnapshot, _next: SchemaSnapshot): readonly ChangeOp[] {
