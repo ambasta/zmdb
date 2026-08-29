@@ -219,10 +219,43 @@ export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C 
   return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as never;
 }
 
-// defineSchema (#15) — NOT yet implemented; tests remain red. ------------
+// defineSchema (#15) — derive primaryKey[] and references[] from column
+// metadata, deeply freeze, and register. Throws SchemaError on no primary key.
+const SCHEMA_REGISTRY = new Map<string, CoreSchema<string>>();
+
 export function defineSchema<T extends string>(
-  _table: T,
-  _columns: Record<string, ColumnMeta>,
+  table: T,
+  columns: Record<string, ColumnMeta>,
 ): CoreSchema<T> {
-  throw new Error('not implemented');
+  const primaryKey: string[] = [];
+  const references: { column: string; target: string }[] = [];
+  const frozenColumns: Record<string, ColumnMeta> = {};
+
+  for (const [name, col] of Object.entries(columns)) {
+    if (col.flags.primaryKey === true) primaryKey.push(name);
+    if (col.references) references.push({ column: name, target: col.references.target });
+    frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
+  }
+
+  if (primaryKey.length === 0) {
+    throw new SchemaError(`schema "${table}" must declare at least one primary key`);
+  }
+
+  const schema: CoreSchema<T> = Object.freeze({
+    table,
+    columns: Object.freeze(frozenColumns),
+    primaryKey: Object.freeze(primaryKey),
+    references: Object.freeze(references),
+  });
+
+  SCHEMA_REGISTRY.set(table, schema);
+  return schema;
+}
+
+// Compile-time-friendly registry access (explicit; no runtime reflection).
+export function getRegisteredSchema(table: string): CoreSchema<string> | undefined {
+  return SCHEMA_REGISTRY.get(table);
+}
+export function registeredSchemas(): readonly CoreSchema<string>[] {
+  return [...SCHEMA_REGISTRY.values()];
 }
