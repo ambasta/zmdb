@@ -35,8 +35,14 @@ export function refine(predicateSource: string, message: string): Rule {
   } satisfies RefineRule);
 }
 
-export function transform(_fnSource: string): Rule {
-  throw new Error(NOT_IMPL);
+export function transform(fnSource: string): Rule {
+  // eslint-disable-next-line no-new-func
+  const apply = new Function('v', `return (${fnSource});`) as (v: unknown) => unknown;
+  return Object.freeze({
+    kind: 'transform',
+    args: Object.freeze([fnSource]),
+    apply,
+  } as unknown as Rule);
 }
 
 export function union(..._rules: readonly Rule[]): Rule {
