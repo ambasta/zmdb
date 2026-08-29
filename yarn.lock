@@ -503,6 +503,8 @@ __metadata:
   resolution: "@zmdb/benchmarks@workspace:benchmarks"
   dependencies:
     "@zmdb/aot-validator": "workspace:*"
+    "@zmdb/query-compiler": "workspace:*"
+    kysely: "npm:^0.29.0"
   languageName: unknown
   linkType: soft
 
@@ -770,6 +772,13 @@ __metadata:
   version: 9.0.1
   resolution: "js-tokens@npm:9.0.1"
   checksum: 10c0/68dcab8f233dde211a6b5fd98079783cbcd04b53617c1250e3553ee16ab3e6134f5e65478e41d82f6d351a052a63d71024553933808570f04dbf828d7921e80e
+  languageName: node
+  linkType: hard
+
+"kysely@npm:^0.29.0, kysely@npm:^0.29.5":
+  version: 0.29.5
+  resolution: "kysely@npm:0.29.5"
+  checksum: 10c0/b2a64d06e568ff9cd5a738fd371c834252517625e4e844e29332654080647a824c2573f60ed1d52945205e2aa19707538c17b581347650dad2899f37455945f0
   languageName: node
   linkType: hard
 
@@ -1282,6 +1291,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zmdb@workspace:."
   dependencies:
+    kysely: "npm:^0.29.5"
     typescript: "npm:^5.9.2"
     vitest: "npm:^3.2.4"
   languageName: unknown
