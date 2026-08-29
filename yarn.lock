@@ -498,6 +498,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/benchmarks@workspace:benchmarks":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/benchmarks@workspace:benchmarks"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/query-compiler@workspace:*, @zmdb/query-compiler@workspace:packages/query-compiler":
   version: 0.0.0-use.local
   resolution: "@zmdb/query-compiler@workspace:packages/query-compiler"

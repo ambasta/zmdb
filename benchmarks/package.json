@@ -1,0 +1,12 @@
+{
+  "name": "@zmdb/benchmarks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}
