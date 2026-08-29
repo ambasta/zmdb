@@ -5,7 +5,6 @@
 // packaging is #81; this string harness pins & implements the emitted-JS
 // contract the spec froze.)
 
-const NOT_IMPL = 'not implemented';
 
 // A parsed TS type: primitives or a flat/nested object type literal.
 type PType =
@@ -118,6 +117,25 @@ export function transformTypeChecks(code: string): string {
   return rewriteCall(rewriteCall(code, 'is'), 'assert');
 }
 
-export function zmdbAot(): unknown {
-  throw new Error(NOT_IMPL);
+// unplugin-compatible plugin factory. The `transform` hook inlines
+// is<T>()/assert<T>() calls in source modules via transformTypeChecks. Shape is
+// what unplugin/vite/esbuild/rollup expect: { name, transform(code, id) }.
+// For ts-patch/ttypescript, use the program transformer (createTransformer, #81
+// follow-up) via tsconfig "plugins"; this hook covers the bundler path.
+export interface UnpluginLike {
+  readonly name: string;
+  transform(code: string, id: string): { code: string } | null;
+}
+
+export function zmdbAot(): UnpluginLike {
+  return {
+    name: 'zmdb-aot',
+    transform(code: string, id: string): { code: string } | null {
+      // Only source modules; never touch dependencies or declaration files.
+      if (id.includes('node_modules')) return null;
+      if (!/\.(ts|tsx|mts|cts|js|jsx|mjs)$/.test(id)) return null;
+      const out = transformTypeChecks(code);
+      return out === code ? null : { code: out };
+    },
+  };
 }
