@@ -5,6 +5,7 @@
 import type { CoreSchema } from '@zmdb/schema-core';
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 
 export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
@@ -18,9 +19,11 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
+  protected readonly dialect: Dialect;
 
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
+    this.dialect = dialect;
     this.qb = createQueryCompiler(dialect);
   }
 
@@ -64,6 +67,14 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
 
   async findAll(): Promise<readonly Record<string, unknown>[]> {
     return this.driver.execute(this.qb.selectFrom(this.tableName).compile());
+  }
+
+  // #96 — full-text search integration. Uses the query-compiler FTS builder;
+  // on dialects without arbitrary-column FTS (sqlite) this throws an honest
+  // UnsupportedFeatureError (never a silently-wrong query).
+  async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
+    const q = ftsSelectFrom(this.tableName, this.dialect).whereMatch(column, term).compile();
+    return this.driver.execute(q);
   }
 
   // #34 — explicit populate for a to-many relation. Loads parents, then batches

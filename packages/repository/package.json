@@ -15,5 +15,8 @@
   },
   "scripts": {
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "pg": "^8.13.0"
   }
 }

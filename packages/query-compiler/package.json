@@ -3,7 +3,11 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./fts": "./src/fts/index.ts",
+    "./joins": "./src/joins/index.ts",
+    "./aggregations": "./src/aggregations/index.ts",
+    "./migrations": "./src/migrations/index.ts"
   },
   "engines": {
     "node": ">=26"
