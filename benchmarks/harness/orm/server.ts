@@ -10,6 +10,7 @@ import { sql, eq, asc } from 'drizzle-orm';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
 import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
+import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.ts';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);
@@ -90,9 +91,17 @@ const routes: Record<string, Record<string, H | null>> = {
     // zmdb idiom: explicit parent + batched children (two CRUD queries).
     zmdb: async (q) => { const id = num(q.get('id') ?? undefined); const o = qc.selectFrom('orders').where('id', '=', id).compile(); const parent = await zq(o.text, o.parameters as unknown[]); const d = qc.selectFrom('order_details').where('order_id', '=', id).compile(); const kids = await zq(d.text, d.parameters as unknown[]); return { ...(parent[0] ?? {}), details: kids }; },
   },
-  // /search-customer and /search-product are filtered out by the k6 script.
-  '/search-customer': { drizzle: async () => [], kysely: async () => [], zmdb: null },
-  '/search-product': { drizzle: async () => [], kysely: async () => [], zmdb: null },
+  // #97 — /search-* now served by zmdb via the FTS builder (was DNF).
+  '/search-customer': {
+    drizzle: async (q) => ddb.execute(sql`select * from customers where to_tsvector('english', company_name) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`),
+    kysely: async (q) => k.selectFrom('customers').selectAll().where(ksql<boolean>`to_tsvector('english', company_name) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`).execute(),
+    zmdb: async (q) => { const c = ftsSelectFrom('customers', 'postgres').whereMatch('company_name', q.get('term') ?? 'ltd').compile(); return zq(c.text, c.parameters as unknown[]); },
+  },
+  '/search-product': {
+    drizzle: async (q) => ddb.execute(sql`select * from products where to_tsvector('english', name) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`),
+    kysely: async (q) => k.selectFrom('products').selectAll().where(ksql<boolean>`to_tsvector('english', name) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`).execute(),
+    zmdb: async (q) => { const c = ftsSelectFrom('products', 'postgres').whereMatch('name', q.get('term') ?? 'chai').compile(); return zq(c.text, c.parameters as unknown[]); },
+  },
 };
 
 for (const [path, byOrm] of Object.entries(routes)) {
