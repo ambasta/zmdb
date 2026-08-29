@@ -127,12 +127,44 @@ export function validate<T = unknown>(
   return issues.length === 0 ? { success: true, data: input as T } : { success: false, errors: issues };
 }
 
-export function equals<T = unknown>(_input: unknown, _descriptor?: TypeDescriptor): _input is T {
-  throw new Error(NOT_IMPL);
+// #60 — excess-property-strict variants. equals = is<T> plus a recursive
+// no-excess-keys check; assertEquals is the throwing form.
+function hasNoExcessKeys(value: unknown, d: TypeDescriptor): boolean {
+  if (d.kind === 'object') {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return true;
+    const allowed = new Set(Object.keys(d.fields ?? {}));
+    const obj = value as Record<string, unknown>;
+    for (const k of Object.keys(obj)) {
+      if (!allowed.has(k)) return false;
+      const fd = d.fields?.[k];
+      if (fd && !hasNoExcessKeys(obj[k], fd)) return false;
+    }
+    return true;
+  }
+  if (d.kind === 'array' && Array.isArray(value) && d.of) {
+    return value.every((item) => hasNoExcessKeys(item, d.of!));
+  }
+  return true;
 }
 
-export function assertEquals<T = unknown>(_input: unknown, _descriptor?: TypeDescriptor): T {
-  throw new Error(NOT_IMPL);
+export function equals<T = unknown>(input: unknown, descriptor?: TypeDescriptor): input is T {
+  if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  return matches(input, descriptor) && hasNoExcessKeys(input, descriptor);
+}
+
+export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescriptor): T {
+  if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  const issues: ValidationIssue[] = [];
+  collectIssues(input, descriptor, 'input', issues);
+  if (issues.length === 0 && !hasNoExcessKeys(input, descriptor)) {
+    issues.push({ path: 'input', expected: 'no excess properties', value: input, message: 'excess properties present' });
+  }
+  if (issues.length > 0) {
+    const err = new AssertError(issues[0]!.message);
+    (err as { issues: readonly ValidationIssue[] }).issues = issues;
+    throw err;
+  }
+  return input as T;
 }
 
 export function random<T = unknown>(_descriptor?: TypeDescriptor): T {
