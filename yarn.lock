@@ -803,15 +803,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mono@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "mono@workspace:."
-  dependencies:
-    typescript: "npm:^5.9.2"
-    vitest: "npm:^3.2.4"
-  languageName: unknown
-  linkType: soft
-
 "ms@npm:^2.1.3":
   version: 2.1.3
   resolution: "ms@npm:2.1.3"
@@ -1284,3 +1275,12 @@ __metadata:
   checksum: 10c0/a499c81ce6d4a1d260d4ea0f6d49ab4da09681e32c3f0472dee16667ed69d01dae63a3b81745a24bd78476ec4fcf856114cb4896ace738e01da34b2c42235416
   languageName: node
   linkType: hard
+
+"zmdb@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "zmdb@workspace:."
+  dependencies:
+    typescript: "npm:^5.9.2"
+    vitest: "npm:^3.2.4"
+  languageName: unknown
+  linkType: soft

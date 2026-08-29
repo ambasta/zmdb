@@ -1,4 +1,4 @@
-# mono
+# zmdb
 
 > A TypeScript data layer framework that eliminates schema drift maintenance hell.
 
