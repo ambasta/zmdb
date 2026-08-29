@@ -1,8 +1,8 @@
 // AOT serialization — implementation.
 // #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
 import type { ValidationIssue } from '../advanced/index.ts';
+import { assert, type TypeDescriptor } from '../utilities/index.ts';
 
-const NOT_IMPL = 'not implemented';
 
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
 // values; bigint throws TypeError (documented policy). The AOT transformer will
@@ -20,8 +20,10 @@ export function stringify(value: unknown): string {
   });
 }
 
-export function assertStringify(_value: unknown): string {
-  throw new Error(NOT_IMPL);
+export function assertStringify(value: unknown, descriptor?: TypeDescriptor): string {
+  // Validate first (throws AssertError on failure), then serialize.
+  assert(value, descriptor);
+  return stringify(value);
 }
 
 export interface ParseResult<T> {

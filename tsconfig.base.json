@@ -11,9 +11,7 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   }
 }
