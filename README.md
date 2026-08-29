@@ -18,9 +18,10 @@
 | [`@zmdb/repository`](./packages/repository) | 🚧 | Auto-validating CRUD + hooks + transactions |
 
 > Status legend: 🚧 in progress (most sub-issues closed) · 🔜 planned · ✅ complete.
-> Nearly all tracked sub-issues are implemented and tested (incl. real
-> `node:sqlite` E2E and a Kysely head-to-head). `random<T>` and the live-Postgres
-> competitor harness remain open (the latter reported as DNF — see below).
+> All tracked sub-issues are implemented and tested (170 tests green), including
+> real `node:sqlite` E2E, a Kysely head-to-head, and the full validation + ORM
+> benchmark suites. The live-PostgreSQL competitor comparison is reported as
+> `DNF (not implemented)` (see Benchmarks) rather than faked.
 
 ## Quick Start
 
