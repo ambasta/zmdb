@@ -3,7 +3,7 @@
 // + query-compiler. #27 (create/update) and #28 (delete/hooks) remain
 // unimplemented; their tests stay red.
 import type { CoreSchema } from '@zmdb/schema-core';
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 export interface Driver {
@@ -17,10 +17,11 @@ export class ValidationError extends Error {
 export abstract class BaseRepository<S extends CoreSchema<string>> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
-  protected readonly qb = createQueryCompiler('postgres');
+  protected readonly qb: ReturnType<typeof createQueryCompiler>;
 
-  constructor(driver: Driver) {
+  constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
+    this.qb = createQueryCompiler(dialect);
   }
 
   // #37 — bind this repository to a transaction context so all its SQL runs

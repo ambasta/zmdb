@@ -126,7 +126,7 @@ export interface QueryCompiler {
 
 function returningClause(d: DialectStrategy, cols?: readonly string[]): string {
   if (!cols || cols.length === 0) return '';
-  return ` RETURNING ${cols.map((c) => d.quote(c)).join(', ')}`;
+  return ` RETURNING ${cols.map((c) => (c === '*' ? '*' : d.quote(c))).join(', ')}`;
 }
 
 function makeInsert(
