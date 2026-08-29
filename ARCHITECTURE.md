@@ -375,6 +375,20 @@ We **do not** use `.ts` files for the `aot-validator` transformer itself (it's a
 | **Memory allocation** | 0 heap allocations for simple queries | Direct SQL string concatenation, no object wrappers |
 | **Bundle size** | <50KB total (tree-shaken) | No runtime dependencies |
 
+These targets are validated by a comparative benchmarking harness (see
+[`benchmarks/SPEC.md`](./benchmarks/SPEC.md)) that ports two industry-standard
+suites:
+
+- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
+  (vs Typia / Zod / TypeBox / Ajv).
+- **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
+  (vs Drizzle / Prisma / Kysely).
+
+**Honesty policy:** cases that only make sense for a rejected pattern (identity
+map, proxy lazy-load, active-record `save()`) are reported as
+`DNF (anti-pattern)`; supported-in-principle cases we have not wired yet are
+reported as `DNF (not implemented)`. No in-scope case is ever silently skipped.
+
 ---
 
 ## 6. Opinionated Design Directives

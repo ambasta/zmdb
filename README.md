@@ -39,6 +39,23 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the
 [COOKBOOK.md](./COOKBOOK.md) for real-world usage (model definition, CRUD,
 transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
+## Benchmarks
+
+We benchmark zmdb head-to-head against the industry-standard suites:
+
+- **Validation** — the [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
+  case model (safe/strict parse, loose/strict assert) vs Typia / Zod / TypeBox / Ajv.
+- **ORM** — the [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
+  e-commerce workload (real PostgreSQL, k6-driven) vs Drizzle / Prisma / Kysely.
+
+**Honesty policy:** anti-pattern-only cases (identity map, proxy lazy-load,
+active-record `save()`) are reported as `DNF (anti-pattern)` — visible, not
+hidden. Any supported-in-principle case we haven't wired yet is reported as
+`DNF (not implemented)`. We never silently skip an in-scope case.
+
+Harness spec: [`benchmarks/SPEC.md`](./benchmarks/SPEC.md); results (once
+generated) land in `benchmarks/RESULTS.md`.
+
 ## Requirements
 
 - Node.js 26+
