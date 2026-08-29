@@ -13,7 +13,7 @@
 | Package | Status | Description |
 |---------|--------|-------------|
 | [`@zmdb/schema-core`](./packages/schema-core) | ✅ | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI) |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅ | SELECT/INSERT/UPDATE/DELETE + dialects + migration diff/DDL/runner |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅ | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner |
 | [`@zmdb/aot-validator`](./packages/aot-validator) | ✅ | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De |
 | [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
 
@@ -56,11 +56,13 @@ surfaces both throughput and, crucially, **which routes/cases zmdb cannot
 express** (each listed individually, never summed into a score):
 
 - **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  routes + k6 vs Drizzle / Kysely. **zmdb cannot serve 6 of 13 routes** (joins,
-  aggregations, full-text search — no builder for them), which is **57.8% of the
-  replayed traffic**. On the shared CRUD routes it *can* serve, zmdb is
-  competitive (slightly ahead of kysely/drizzle here) — but it is **not** the
-  fastest overall, since it forfeits the majority of the workload as DNF.
+  routes + k6 vs Drizzle / Kysely. As measured, **zmdb served only 7 of 13
+  routes** — it DNF'd joins, aggregations, and full-text search (**57.8% of the
+  replayed traffic**). Those query-builder capabilities have since been
+  implemented (#85/#90/#95) but are **not yet wired into the servers**, so the
+  routes await re-measurement. On the shared CRUD routes, zmdb is competitive
+  (slightly ahead of kysely/drizzle here) — but it is **not** the fastest
+  overall, since it forfeited the majority of that workload as DNF.
 - **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
   runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
   cases (no DNF) but runs its **runtime** validator (the AOT transformer is not

@@ -39,6 +39,16 @@ individual gaps (no scoring, no aggregation):
 those 6 routes are **57.8% of all requests** (the two 100k-request JOIN routes
 dominate). This is a real, significant feature gap, not a footnote.
 
+> **Status update (post-benchmark):** the query-compiler now has JOIN
+> (`joinableSelectFrom`, #85), aggregation (`aggregateSelectFrom`, #90), and
+> full-text-search (`ftsSelectFrom`, #95) **builders** that compile the correct
+> SQL — the compilation gap is closed. They are **not yet wired into the
+> benchmark servers/repository**, so these routes have **not been re-measured**
+> and the DNF rows above still reflect the benchmark as run. Flipping them to
+> 200 + recording throughput is the remaining work in #87/#88 (joins),
+> #92/#93 (aggregates), #96/#97 (FTS). Numbers here will be updated then, not
+> before — no premature "now supported" claim.
+
 ### Throughput — k6, only the routes ALL THREE can serve (fair, 0 failures)
 
 Running the full replay would count zmdb's instant 501s as "fast requests" —
