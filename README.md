@@ -12,16 +12,17 @@
 
 | Package | Status | Description |
 |---------|--------|-------------|
-| [`@zmdb/schema-core`](./packages/schema-core) | 🚧 | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI) |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | 🚧 | SELECT/INSERT/UPDATE/DELETE + dialects + migration diff/DDL |
-| [`@zmdb/aot-validator`](./packages/aot-validator) | 🚧 | AOT inlining + is/assert/validate, unions, transforms, Ser/De |
-| [`@zmdb/repository`](./packages/repository) | 🚧 | Auto-validating CRUD + hooks + transactions |
+| [`@zmdb/schema-core`](./packages/schema-core) | ✅ | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI) |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅ | SELECT/INSERT/UPDATE/DELETE + dialects + migration diff/DDL/runner |
+| [`@zmdb/aot-validator`](./packages/aot-validator) | ✅ | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De |
+| [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
 
-> Status legend: 🚧 in progress (most sub-issues closed) · 🔜 planned · ✅ complete.
-> All tracked sub-issues are implemented and tested (170 tests green), including
-> real `node:sqlite` E2E, a Kysely head-to-head, and the full validation + ORM
-> benchmark suites. The live-PostgreSQL competitor comparison is reported as
-> `DNF (not implemented)` (see Benchmarks) rather than faked.
+> Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
+> All ten capability epics (#1–#10) are complete: 170 tests green, including real
+> `node:sqlite` E2E, a Kysely head-to-head, and the full validation + ORM benchmark
+> suites. Only the benchmarking CI job (#73, epic #68) remains. The live-PostgreSQL
+> competitor comparison is reported as `DNF (not implemented)` (see Benchmarks)
+> rather than faked.
 
 ## Quick Start
 
