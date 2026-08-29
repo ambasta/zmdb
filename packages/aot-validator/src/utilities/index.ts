@@ -65,8 +65,56 @@ export function is<T = unknown>(input: unknown, descriptor?: TypeDescriptor): in
   return matches(input, descriptor);
 }
 
-export function assert<T = unknown>(_input: unknown, _descriptor?: TypeDescriptor): T {
-  throw new Error(NOT_IMPL);
+// Path-aware failure collection (shared by assert/validate). Reports exact
+// paths like `input.id` or `input.items[2]`.
+function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: ValidationIssue[]): void {
+  const fail = (expected: string): void => {
+    out.push({ path, expected, value, message: `expected ${expected}` });
+  };
+
+  switch (d.kind) {
+    case 'string':
+      if (typeof value !== 'string') return fail('string');
+      if (d.maxLength !== undefined && value.length > d.maxLength) fail(`maxLength ${d.maxLength}`);
+      if (d.pattern !== undefined && !new RegExp(d.pattern).test(value)) fail(`pattern ${d.pattern}`);
+      return;
+    case 'number':
+      if (typeof value !== 'number' || Number.isNaN(value)) return fail('number');
+      if (d.minimum !== undefined && value < d.minimum) fail(`minimum ${d.minimum}`);
+      return;
+    case 'boolean':
+      if (typeof value !== 'boolean') fail('boolean');
+      return;
+    case 'enum':
+      if (typeof value !== 'string' || !(d.values?.includes(value) ?? false)) fail(`enum ${JSON.stringify(d.values)}`);
+      return;
+    case 'array':
+      if (!Array.isArray(value) || !d.of) return fail('array');
+      value.forEach((item, idx) => collectIssues(item, d.of!, `${path}[${idx}]`, out));
+      return;
+    case 'object': {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) return fail('object');
+      const obj = value as Record<string, unknown>;
+      for (const [key, fd] of Object.entries(d.fields ?? {})) {
+        collectIssues(obj[key], fd, `${path}.${key}`, out);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor): T {
+  if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  const issues: ValidationIssue[] = [];
+  collectIssues(input, descriptor, 'input', issues);
+  if (issues.length > 0) {
+    const err = new AssertError(issues[0]!.message);
+    (err as { issues: readonly ValidationIssue[] }).issues = issues;
+    throw err;
+  }
+  return input as T;
 }
 
 export function validate<T = unknown>(
