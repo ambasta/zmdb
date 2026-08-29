@@ -18,9 +18,10 @@
 | [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
-> All ten capability epics (#1–#10) are complete: 170 tests green, including real
-> `node:sqlite` E2E, a Kysely head-to-head, and the full validation + ORM benchmark
-> suites. Only the benchmarking CI job (#73, epic #68) remains. The live-PostgreSQL
+> All eleven capability epics (#1–#10, #62) **and** the benchmarking epic (#68)
+> are complete — every tracked issue is closed. 175 tests green, including real
+> `node:sqlite` E2E, a Kysely head-to-head, the full validation + ORM benchmark
+> suites, and a CI job with a regression guardrail. The live-PostgreSQL
 > competitor comparison is reported as `DNF (not implemented)` (see Benchmarks)
 > rather than faked.
 
