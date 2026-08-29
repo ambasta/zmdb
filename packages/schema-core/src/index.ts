@@ -45,6 +45,64 @@ export interface CoreSchema<T extends string> {
   readonly references: readonly { readonly column: string; readonly target: string }[];
 }
 
+// ---------------------------------------------------------------------------
+// #14 — compile-time type derivation.
+// Maps a column's metadata to its TypeScript type.
+// ---------------------------------------------------------------------------
+type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' | 'numeric'
+  ? number
+  : C['type'] extends 'bigint'
+    ? bigint
+    : C['type'] extends 'text' | 'varchar'
+      ? string
+      : C['type'] extends 'boolean'
+        ? boolean
+        : C['type'] extends 'timestamp'
+          ? Date
+          : C['type'] extends 'jsonEnum'
+            ? C['flags'] extends { enum: infer E extends readonly string[] }
+              ? E[number]
+              : string
+            : unknown;
+
+// Apply nullability.
+type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true }
+  ? BaseTsType<C> | null
+  : BaseTsType<C>;
+
+type ColumnsOf<S> = S extends { columns: infer C } ? C : never;
+
+// Keys of columns that are auto-increment (stripped from CreateDTO).
+type AutoIncrementKeys<C> = {
+  [K in keyof C]: C[K] extends { flags: { autoIncrement: true } } ? K : never;
+}[keyof C];
+
+// Keys of columns that have a default (optional in CreateDTO).
+type DefaultKeys<C> = {
+  [K in keyof C]: C[K] extends { flags: { hasDefault: true } } ? K : never;
+}[keyof C];
+
+// Entity<S>: full row type — every column mapped to its TS type.
+export type Entity<S> = {
+  [K in keyof ColumnsOf<S>]: ColumnsOf<S>[K] extends ColumnMeta ? TsType<ColumnsOf<S>[K]> : never;
+};
+
+// CreateDTO<S>: omit auto-increment columns; columns with defaults are optional.
+export type CreateDTO<S, C = ColumnsOf<S>> = {
+  // required: not auto-increment, no default
+  [K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K]: C[K] extends ColumnMeta
+    ? TsType<C[K]>
+    : never;
+} & {
+  // optional: has a default (and not auto-increment)
+  [K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never]?: C[K] extends ColumnMeta
+    ? TsType<C[K]>
+    : never;
+};
+
+// UpdateDTO<S>: fully partial CreateDTO.
+export type UpdateDTO<S> = Partial<CreateDTO<S>>;
+
 export class SchemaError extends Error {}
 
 // Chainable column: ColumnMeta + fluent modifier methods.
@@ -95,61 +153,70 @@ function makeColumn(meta: ColumnMeta): Column {
 }
 
 // Column builders --------------------------------------------------------
-export function serial(): Column {
+// Builders return literal-typed metadata so downstream type derivation
+// (Entity/CreateDTO/UpdateDTO) can read `type` and enum literals. Runtime is
+// unchanged (makeColumn); the precise return type is a cast over it.
+type Typed<M extends ColumnMeta> = Column & M;
+
+export function serial(): Typed<{ type: 'serial'; flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true } }> {
   return makeColumn({
     type: 'serial',
     flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
-  });
+  }) as never;
 }
-export function integer(): Column {
-  return makeColumn({ type: 'integer', flags: { nullable: false } });
+export function integer(): Typed<{ type: 'integer'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'integer', flags: { nullable: false } }) as never;
 }
-export function bigint(): Column {
-  return makeColumn({ type: 'bigint', flags: { nullable: false } });
+export function bigint(): Typed<{ type: 'bigint'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'bigint', flags: { nullable: false } }) as never;
 }
-export function numeric(): Column {
-  return makeColumn({ type: 'numeric', flags: { nullable: false } });
+export function numeric(): Typed<{ type: 'numeric'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'numeric', flags: { nullable: false } }) as never;
 }
-export function text(): Column {
-  return makeColumn({ type: 'text', flags: { nullable: false } });
+export function text(): Typed<{ type: 'text'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'text', flags: { nullable: false } }) as never;
 }
-export function varchar(length: number): Column {
-  return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
+export function varchar(length: number): Typed<{ type: 'varchar'; flags: { nullable: false; length: number } }> {
+  return makeColumn({ type: 'varchar', flags: { nullable: false, length } }) as never;
 }
-export function boolean(): Column {
-  return makeColumn({ type: 'boolean', flags: { nullable: false } });
+export function boolean(): Typed<{ type: 'boolean'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'boolean', flags: { nullable: false } }) as never;
 }
-export function timestamp(): Column {
-  return makeColumn({ type: 'timestamp', flags: { nullable: false } });
+export function timestamp(): Typed<{ type: 'timestamp'; flags: { nullable: false } }> {
+  return makeColumn({ type: 'timestamp', flags: { nullable: false } }) as never;
 }
 export function json(): Column {
   return makeColumn({ type: 'json', flags: { nullable: false } });
 }
-export function jsonEnum<const V extends readonly string[]>(values: V): Column {
-  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } });
+export function jsonEnum<const V extends readonly string[]>(
+  values: V,
+): Typed<{ type: 'jsonEnum'; flags: { nullable: false; enum: V } }> {
+  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } }) as never;
 }
 
 // Function-style modifiers (pure; never mutate input) --------------------
-export function notNull(col: ColumnMeta): ColumnMeta {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } });
+// Function-style modifiers preserve the input column's literal metadata and
+// merge in the new flag, so type derivation sees the narrowed result.
+export function notNull<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { nullable: false } } {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } }) as never;
 }
-export function nullable(col: ColumnMeta): ColumnMeta {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } });
+export function nullable<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { nullable: true } } {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } }) as never;
 }
-export function primaryKey(col: ColumnMeta): ColumnMeta {
-  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } });
+export function primaryKey<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { primaryKey: true } } {
+  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } }) as never;
 }
-export function unique(col: ColumnMeta): ColumnMeta {
-  return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
+export function unique<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { unique: true } } {
+  return makeColumn({ ...col, flags: { ...col.flags, unique: true } }) as never;
 }
-export function references(col: ColumnMeta, target: string): ColumnMeta {
-  return makeColumn({ ...col, references: { target } });
+export function references<C extends ColumnMeta>(col: C, target: string): C & { references: { target: string } } {
+  return makeColumn({ ...col, references: { target } }) as never;
 }
-export function defaultTo(col: ColumnMeta, value: unknown): ColumnMeta {
-  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } });
+export function defaultTo<C extends ColumnMeta>(col: C, value: unknown): C & { flags: C['flags'] & { hasDefault: true } } {
+  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } }) as never;
 }
-export function validate(col: ColumnMeta, rule: ValidationRule): ColumnMeta {
-  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
+export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C {
+  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as never;
 }
 
 // defineSchema (#15) — NOT yet implemented; tests remain red. ------------
