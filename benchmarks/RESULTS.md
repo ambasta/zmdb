@@ -69,28 +69,39 @@ three return 200):
 
 ## Validation — typescript-runtime-type-benchmarks (upstream runner)
 
-zmdb added as a `cases/zmdb.ts` and run by the upstream runner
-(`ts-node index.ts run …`). Per-case ops/s; `DNF` = case the library does not
-register (listed, not summed):
+zmdb added as **two** cases in the upstream runner (`ts-node index.ts run …`):
+`zmdb` (the shipped **runtime** validator) and `zmdb-aot` (the **AOT-inlined**
+path). Per-case ops/s; `DNF` = case the library does not register:
 
 | library | parseSafe | parseStrict | assertLoose | assertStrict | DNF cases |
 |---------|----------:|------------:|------------:|-------------:|-----------|
+| typia (AOT) | 100,673,513 | 38,869,470 | 78,128,590 | 31,056,106 | — |
+| **zmdb-aot** (hand-inlined¹) | 98,435,060 | 13,229,339 | 87,800,788 | 14,020,476 | — |
 | @sinclair/typebox (JIT) | DNF | DNF | 88,070,252 | 29,157,066 | parseSafe, parseStrict |
 | ajv | DNF | DNF | 43,363,522 | 29,246,420 | parseSafe, parseStrict |
+| zod (v4) | 8,711,299 | 4,895,742 | 4,173,432 | 4,172,722 | — |
 | arktype | DNF | 3,998,596 | 64,604,434 | 3,983,815 | parseSafe |
 | myzod | 3,364,233 | 3,837,054 | DNF | 3,872,625 | assertLoose |
 | valibot | 1,757,211 | 1,370,568 | 1,801,433 | 1,530,501 | — |
-| **zmdb (runtime)** | 1,438,372 | 1,258,077 | 5,037,460 | 1,207,424 | — |
+| **zmdb** (runtime, shipped) | 1,430,813 | 1,101,908 | 5,173,050 | 1,162,280 | — |
 | zod (v3) | 1,087,654 | 970,236 | 1,051,654 | 1,014,129 | — |
-| zod (v4) | 8,052,444 | 4,680,788 | 4,603,060 | 3,918,349 | — |
 
-- zmdb registers all 4 cases (no DNF) — good coverage.
-- **zmdb is NOT the fastest validator.** It runs its **runtime** validator (the
-  AOT transformer is not a wired build plugin), so JIT/AOT libraries (TypeBox,
-  Ajv) are 6–24× faster on assert, and zod v4 leads on parse. zmdb's runtime
-  path only beats zod v3 and valibot. The AOT path — the design's whole premise —
-  is **unproven here** and not claimed.
-- **Typia** — DNF (not run: needs its own AOT transform build in the suite).
+¹ **`zmdb-aot` is hand-inlined exactly as the transformer will emit**, because
+the transformer is not yet wired as a build plugin (epic #75). It is a faithful
+preview of the AOT path, not yet produced by the actual build — labelled
+separately from the shipped runtime path, never conflated.
+
+### What this shows (honestly)
+
+- **The AOT premise holds.** `zmdb-aot` is **6–8× faster than `zmdb` runtime**,
+  and on parseSafe/assertLoose it is in typia's league and **far ahead of
+  zod v4** (the case that motivated this).
+- **But we are not the outright winner.** **typia beats `zmdb-aot` on both
+  strict cases** (parseStrict 39M vs 13M; assertStrict 31M vs 14M) — its
+  excess-key checking is more optimized than our current strict inlining. On the
+  strict path, TypeBox/Ajv also lead. Closing that is a perf sub-task.
+- **The shipped path is still the slow `zmdb` runtime** until epic #75 wires the
+  transformer. Today, out of the box, zmdb loses to zod v4 on 3 of 4 cases.
 
 ---
 
@@ -98,7 +109,11 @@ register (listed, not summed):
 
 - **Coverage**: zmdb has real, individually-enumerated feature gaps — 6 ORM
   routes (57.8% of the ORM workload) and 0 validation-case gaps.
-- **Speed**: zmdb is competitive/slightly ahead **only** on the CRUD/validation
-  subset it supports; it is **not** the fastest overall, and on the AOT
-  validation premise it is currently far behind the JIT/AOT libraries because
-  that path is not yet wired.
+- **Validation speed**: the **AOT path works** — `zmdb-aot` is 6–8× the runtime
+  path and beats zod v4 across the board, matching typia on parse/loose. But
+  typia still wins the strict cases, and the AOT path is **not yet wired into
+  the build** (hand-inlined preview; epic #75). Out of the box today, the shipped
+  runtime path loses to zod v4 on 3 of 4 cases.
+- **ORM speed**: competitive/slightly ahead **only** on the CRUD subset it
+  supports; **not** the fastest overall — it forfeits 57.8% of the workload as
+  DNF (joins/aggregates/FTS), which the new query-builder epics address.

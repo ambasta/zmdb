@@ -13,6 +13,7 @@ import { TypeCompiler } from '@sinclair/typebox/compiler';
 import Ajv from 'ajv';
 import * as v from 'valibot';
 import { is, equals, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
+import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './zmdb-aot.ts';
 
 // moltar's exact data model.
 const validateData = Object.freeze({
@@ -122,6 +123,12 @@ const impls: Record<string, Partial<Record<CaseKind, () => void>>> = {
   valibot: {
     parseSafe: () => void v.parse(vSchema, validateData),
     assertLoose: () => void v.is(vSchema, validateData),
+  },
+  'zmdb (aot)': {
+    assertLoose: () => void aotIs(validateData),
+    assertStrict: () => void aotEquals(validateData),
+    parseSafe: () => void aotParseSafe(validateData),
+    parseStrict: () => void aotParseStrict(validateData),
   },
   'zmdb (runtime)': {
     assertLoose: () => void is(validateData, zmdbDesc),
