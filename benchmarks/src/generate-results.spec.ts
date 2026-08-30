@@ -28,4 +28,3 @@ describe('benchmark RESULTS.md generation (live)', () => {
     expect(md).toContain('dnf (not implemented)');
   });
 });
-

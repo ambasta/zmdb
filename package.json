@@ -9,13 +9,13 @@
   "scripts": {
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "guardrail": "node --experimental-strip-types benchmarks/src/cli.ts",
     "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "node scripts/typecheck.mjs",
-    "guardrail": "node --experimental-strip-types benchmarks/src/cli.ts"
+    "typecheck": "node scripts/typecheck.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",

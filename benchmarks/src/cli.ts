@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+
 import { parseResultsFile, checkRegressions } from './guardrail.ts';
-import { runLiveBenchmarks } from './runner.ts';
 import { assertNoSilentSkips } from './report.ts';
 import type { BenchResult } from './results.ts';
+import { runLiveBenchmarks } from './runner.ts';
 
 export function runCli(args: string[] = process.argv.slice(2)): number {
   let baselinePath: string | undefined;
@@ -44,7 +45,9 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
   try {
     baselineResults = parseResultsFile(baselinePath);
   } catch (err: unknown) {
-    console.error(`[BENCHMARK GUARDRAIL] ERROR: Failed to parse baseline file: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `[BENCHMARK GUARDRAIL] ERROR: Failed to parse baseline file: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return 1;
   }
 
@@ -59,7 +62,9 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
     try {
       currentResults = parseResultsFile(resolvedCurrent);
     } catch (err: unknown) {
-      console.error(`[BENCHMARK GUARDRAIL] ERROR: Failed to parse current results file: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(
+        `[BENCHMARK GUARDRAIL] ERROR: Failed to parse current results file: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return 1;
     }
   } else {
@@ -67,7 +72,9 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
     try {
       currentResults = runLiveBenchmarks();
     } catch (err: unknown) {
-      console.error(`[BENCHMARK GUARDRAIL] ERROR: Failed executing live benchmarks: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(
+        `[BENCHMARK GUARDRAIL] ERROR: Failed executing live benchmarks: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return 1;
     }
   }
@@ -83,14 +90,18 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
   const regressions = checkRegressions(baselineResults, currentResults, threshold);
 
   if (regressions.length > 0) {
-    console.error(`\n[BENCHMARK GUARDRAIL] FAILED: ${regressions.length} performance regression(s) detected (threshold ${(threshold * 100).toFixed(0)}%):`);
+    console.error(
+      `\n[BENCHMARK GUARDRAIL] FAILED: ${regressions.length} performance regression(s) detected (threshold ${(threshold * 100).toFixed(0)}%):`,
+    );
     for (const r of regressions) {
       console.error(`  ✖ [${r.kind.toUpperCase()}] ${r.suite}/${r.case} (${r.target}): ${r.detail}`);
     }
     return 1;
   }
 
-  console.log(`[BENCHMARK GUARDRAIL] PASSED: All benchmark cases met baseline criteria (0 regressions detected, threshold ${(threshold * 100).toFixed(0)}%).`);
+  console.log(
+    `[BENCHMARK GUARDRAIL] PASSED: All benchmark cases met baseline criteria (0 regressions detected, threshold ${(threshold * 100).toFixed(0)}%).`,
+  );
   return 0;
 }
 

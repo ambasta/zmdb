@@ -1,7 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
-import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
+
 import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.ts';
 import type { BenchResult } from './results.ts';
+import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
 
 /**
  * Runs live benchmark suites (validation + ORM against node:sqlite) and returns
@@ -16,8 +17,8 @@ export function runLiveBenchmarks(): BenchResult[] {
 
   const db = new DatabaseSync(':memory:');
   const engine: OrmEngine = {
-    exec: (s) => db.exec(s),
-    all: (s, p) => db.prepare(s).all(...(p as any[])) as Record<string, unknown>[],
+    exec: s => db.exec(s),
+    all: (s, p) => db.prepare(s).all(...(p as unknown[])) as Record<string, unknown>[],
   };
   seed(engine, 50, 4);
   const orm = [...runOrmSuite(engine, 1000), ...competitorDnf()];
