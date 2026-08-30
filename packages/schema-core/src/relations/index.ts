@@ -109,3 +109,16 @@ export function attachPopulated<P extends Record<string, unknown>, N extends str
 ): P & { [K in N]: V } {
   return { ...parent, [name]: value } as P & { [K in N]: V };
 }
+
+// #194 — typed join result rows. LEFT: joined columns may be absent.
+export type JoinRow<Base, Joined, Kind extends 'inner' | 'left' = 'left'> = Kind extends 'inner'
+  ? Base & Joined
+  : Base & Partial<Joined>;
+
+/** Rename aliased columns per a { alias: outKey } map (stable, non-mutating). */
+export function aliasRow<Row extends Record<string, unknown>>(
+  _row: Row,
+  _map: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  throw new Error('not implemented');
+}
