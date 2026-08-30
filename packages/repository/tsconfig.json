@@ -3,8 +3,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
+    "types": ["node"],
     "paths": {
       "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
+      "@zmdb/schema-core/dto": ["../schema-core/dist/dto.d.ts"],
+      "@zmdb/schema-core/relations": ["../schema-core/dist/relations.d.ts"],
       "@zmdb/query-compiler": ["../query-compiler/dist/index.d.ts"],
       "@zmdb/query-compiler/fts": ["../query-compiler/dist/fts.d.ts"],
       "@zmdb/query-compiler/joins": ["../query-compiler/dist/joins.d.ts"],

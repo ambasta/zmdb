@@ -28,6 +28,7 @@ jobs:
       - name: Typecheck (all packages + benchmarks)
         run: |
           for p in schema-core query-compiler aot-validator repository; do
+            (cd packages/$p && yarn build)
             yarn tsc --noEmit -p packages/$p/tsconfig.json
           done
           yarn tsc --noEmit -p benchmarks/tsconfig.json
