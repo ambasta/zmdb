@@ -135,6 +135,25 @@ export function project<Row extends Record<string, unknown>, K extends keyof Row
 }
 
 // ---------------------------------------------------------------------------
+// §4 GetDTO
+// ---------------------------------------------------------------------------
+export interface GetOptions<S> {
+  select?: readonly (keyof Entity<S>)[];
+  populate?: readonly string[];
+}
+export type GetDTO<S, O extends GetOptions<S> = {}> = O['select'] extends readonly (infer K extends keyof Entity<S>)[]
+  ? Projection<S, K>
+  : Entity<S>;
+
+/** Apply a Get's select projection to a fetched row. */
+export function getResult<Row extends Record<string, unknown>>(
+  _row: Row,
+  _opts?: { select?: readonly (keyof Row)[] },
+): Row | Partial<Row> {
+  throw new Error('not implemented');
+}
+
+// ---------------------------------------------------------------------------
 // §4–6 Get/List/Search DTOs (types; result assembly in #166/#169/#172)
 // ---------------------------------------------------------------------------
 export interface ListDTO<S> {
