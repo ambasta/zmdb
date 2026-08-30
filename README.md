@@ -33,19 +33,34 @@
 
 ## Quick Start
 
+Install once — the `zmdb` umbrella package re-exports the whole ecosystem:
+
+```bash
+npm add zmdb@alpha
+```
+
 ```typescript
+import { defineSchema, serial, text, jsonEnum, defineRepository } from 'zmdb';
+import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { DatabaseSync } from 'node:sqlite';
+
 // Define once
 export const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
-  email: text().notNull().validate(tags.Pattern(...)),
+  email: text().notNull(),
   role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
 });
 
-// Get CRUD automatically — <10 lines
-class UserRepository extends BaseRepository<typeof UserSchema> {
-  // findById, create, update, delete — all inherited
-}
+// Wire a fully typed repository in one call — no subclass, no hand-written driver
+const users = defineRepository(UserSchema, sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
+
+await users.create({ email: 'a@b.com' });              // validated vs CreateDTO<S>
+const admins = await users.find({ role: 'admin' });    // typed WhereDTO<S>
+const page   = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 ```
+
+Prefer granular installs (`@zmdb/schema-core`, …) and subclassing `BaseRepository`?
+Both are fully supported — see the [Quick Start](https://ambasta.github.io/zmdb/docs/quick-start.html).
 
 ## Documentation
 
