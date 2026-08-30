@@ -394,3 +394,6 @@ export type Expect<T extends true> = T;
 
 /** Negative form: `ExpectNot<Equal<X, Y>>` fails to compile if X = Y. */
 export type ExpectNot<T extends false> = T;
+
+// Relations type re-exports
+export type { PopulatedEntity, Populated, JoinRow, RelationDef, RelationsMap } from './relations/index.ts';
