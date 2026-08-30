@@ -3,7 +3,8 @@
 // #58 assert, #59 validate, #60 equals/assertEquals, #61 random remain
 // unimplemented; their tests stay red.
 import type { ValidationIssue } from '../advanced/index.ts';
-import { getRegExp, getEnumSet } from '../index.ts';
+import { getEnumSet } from '../index.ts';
+import { safeTestPattern } from '../regex-complexity.ts';
 
 // Local (not imported from @zmdb/schema-core, which exports the same guard):
 // this package deliberately has no *runtime* cross-package import, so an emitted
@@ -52,7 +53,7 @@ function matches(value: unknown, d: TypeDescriptor): boolean {
     case 'string':
       if (typeof value !== 'string') return false;
       if (d.maxLength !== undefined && value.length > d.maxLength) return false;
-      if (d.pattern !== undefined && !getRegExp(d.pattern).test(value)) return false;
+      if (d.pattern !== undefined && !safeTestPattern(d.pattern, value)) return false;
       return true;
     case 'number':
       if (typeof value !== 'number' || Number.isNaN(value)) return false;
@@ -94,7 +95,7 @@ function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: Val
     case 'string':
       if (typeof value !== 'string') return fail('string');
       if (d.maxLength !== undefined && value.length > d.maxLength) fail(`maxLength ${d.maxLength}`);
-      if (d.pattern !== undefined && !getRegExp(d.pattern).test(value)) fail(`pattern ${d.pattern}`);
+      if (d.pattern !== undefined && !safeTestPattern(d.pattern, value)) fail(`pattern ${d.pattern}`);
       return;
     case 'number':
       if (typeof value !== 'number' || Number.isNaN(value)) return fail('number');
