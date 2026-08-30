@@ -163,7 +163,7 @@ refactor.
                      ▼
              ┌────────────────┐
              │   @zmdb/web     │  (deps: schema-core, aot-validator, repository)
-             │ (decorator HTTP)│   NestJS-parity layer — planned
+             │ (decorator HTTP)│   full NestJS-parity layer — shipped
              └───────┬─────────┘
                      ▼
              ┌────────────────┐
@@ -192,7 +192,7 @@ refactor.
 | `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects | none |
 | `@zmdb/aot-validator` | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De | none (ts is a devDep) |
 | `@zmdb/repository` | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers** | schema-core, query-compiler |
-| `@zmdb/web` *(alpha — scaffolded)* | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline | schema-core, aot-validator, repository |
+| `@zmdb/web` | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |
 | `zmdb` | Umbrella meta-package (curated root + subpath re-exports) | all of the above |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
