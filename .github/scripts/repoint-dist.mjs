@@ -13,7 +13,7 @@ const ENTRIES = {
   'query-compiler': { '.': 'index', './fts': 'fts', './joins': 'joins', './aggregations': 'aggregations', './migrations': 'migrations', './set-ops': 'set-ops', './schema-objects': 'schema-objects' },
   'aot-validator': { '.': 'index', './advanced': 'advanced', './serialization': 'serialization', './utilities': 'utilities', './plugin': 'plugin' },
   repository: { '.': 'index', './transactions': 'transactions', './replicas': 'replicas', './integrations': 'integrations', './entity-modeling': 'entity-modeling' },
-  web: { '.': 'index', './routing': 'routing', './context': 'context', './di': 'di', './state': 'state', './pipeline': 'pipeline', './data': 'data', './modules': 'modules', './middleware': 'middleware', './app': 'app', './dto-pipes': 'dto-pipes', './openapi': 'openapi' },
+  web: { '.': 'index', './routing': 'routing', './context': 'context', './di': 'di', './state': 'state', './pipeline': 'pipeline', './data': 'data', './modules': 'modules', './middleware': 'middleware', './app': 'app', './dto-pipes': 'dto-pipes', './openapi': 'openapi', './gateways': 'gateways' },
   zmdb: { '.': 'index', './dto': 'dto', './relations': 'relations', './drivers/sqlite': 'drivers-sqlite', './drivers/pg': 'drivers-pg', './web': 'web' },
 };
 

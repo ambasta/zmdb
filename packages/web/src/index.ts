@@ -135,3 +135,16 @@ export {
   type RouteSchemas,
   type JsonSchema,
 } from './openapi/index.ts';
+
+// WebSocket & SSE gateways. See ./gateways.
+export {
+  Gateway,
+  Subscribe,
+  getSubscriptions,
+  createGatewayDispatcher,
+  sseStream,
+  type MessageCtx,
+  type Subscription,
+  type GatewayDispatcher,
+  type SseFrame,
+} from './gateways/index.ts';

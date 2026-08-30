@@ -14,6 +14,7 @@ export default defineConfig({
     app: 'src/app/index.ts',
     'dto-pipes': 'src/dto-pipes/index.ts',
     openapi: 'src/openapi/index.ts',
+    gateways: 'src/gateways/index.ts',
   },
   format: ['esm'],
   dts: true,
