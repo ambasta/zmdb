@@ -31,6 +31,7 @@ const desc: TypeDescriptor = {
 };
 const good = { a: 1, b: 'x', c: { d: 2 } };
 const bench = (fn: () => void, n: number) => {
+  for (let i = 0; i < 10_000; i++) fn();
   const s = performance.now();
   for (let i = 0; i < n; i++) fn();
   return Math.round((n / (performance.now() - s)) * 1000);

@@ -54,6 +54,7 @@ describe('AOT build produces a working inlined validator (#82)', () => {
       },
     };
     const bench = (fn: () => void, n: number) => {
+      for (let i = 0; i < 10_000; i++) fn();
       const s = performance.now();
       for (let i = 0; i < n; i++) fn();
       return Math.round((n / (performance.now() - s)) * 1000);
