@@ -106,6 +106,10 @@ interface ListResult<Row> { readonly items: readonly Row[]; readonly total?: num
 
 - `total` present only when an offset page requests it (extra COUNT query) — opt-in.
 - `hasMore` computed by fetching `limit+1` and trimming (no COUNT needed).
+- Runtime `buildListResult(rows, { limit, select, total? })`: if `rows.length >
+  limit`, set `hasMore=true` and drop the extra row; project each item by
+  `select`; attach `total` when provided. Frozen: with no `limit`, `hasMore=false`
+  and all rows are returned.
 
 ## 6. SearchDTO (#170/#171/#172)
 
