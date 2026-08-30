@@ -3,7 +3,8 @@ import * as zmdb from './index.ts';
 import * as schemaCore from '@zmdb/schema-core';
 import * as repository from '@zmdb/repository';
 import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
-import { is as srcIs, assert as srcAssert, validate as srcValidate, tags as srcTags } from '@zmdb/aot-validator';
+import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
+import { tags as srcTags } from '@zmdb/aot-validator';
 
 describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports the curated schema-core surface, identical to source', () => {

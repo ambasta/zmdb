@@ -24,6 +24,10 @@ const META = {
     description: 'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
     keywords: ['typescript', 'repository', 'crud', 'transactions', 'data-layer', 'zmdb'],
   },
+  zmdb: {
+    description: 'The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.',
+    keywords: ['typescript', 'orm', 'data-layer', 'schema', 'validation', 'sql', 'zmdb'],
+  },
 };
 
 for (const [name, m] of Object.entries(META)) {
@@ -50,6 +54,7 @@ for (const [name, m] of Object.entries(META)) {
     publishConfig: { access: 'public', tag: 'alpha' },
     scripts: pkg.scripts ?? { test: 'vitest run' },
   };
+  if (pkg.dependencies) next.dependencies = pkg.dependencies;
   writeFileSync(pkgPath, JSON.stringify(next, null, 2) + '\n');
 
   // Copy LICENSE.
