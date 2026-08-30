@@ -49,6 +49,7 @@
     "build": "tsup"
   },
   "devDependencies": {
+    "@types/node": "^26.0.0",
     "@types/pg": "^8",
     "pg": "8.13.1",
     "tsup": "8.5.0",
