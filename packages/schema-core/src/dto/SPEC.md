@@ -86,14 +86,16 @@ type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 ## 4. GetDTO + Projection (#164/#165/#166)
 
 ```ts
-interface GetOptions<S> { select?: readonly (keyof Entity<S>)[]; populate?: readonly RelationKeys<S>[]; }
+interface GetOptions<S> { select?: readonly (keyof Entity<S>)[]; populate?: readonly string[]; }
 type GetDTO<S, O extends GetOptions<S> = {}> =
-  (O['select'] extends readonly (infer K extends keyof Entity<S>)[] ? Projection<S, K> : Entity<S>)
-  & PopulatedPart<S, O['populate']>;
+  O['select'] extends readonly (infer K extends keyof Entity<S>)[] ? Projection<S, K> : Entity<S>;
 ```
 
-- No options ⇒ `Entity<S>`. `select` narrows; `populate` widens with relation shapes (coordinated with epic #188 `Populated`).
+- No options ⇒ `Entity<S>`. `select` narrows to the picked columns.
+- `populate` widening is layered on by epic #188 (`Populated<S,K>`); GetDTO here
+  freezes the select-narrowing behavior and the `GetOptions` shape.
 - `findById` returns `GetDTO<S,O> | undefined`.
+- Runtime `getResult(row, opts)` applies `project(row, opts.select)`.
 
 ## 5. ListDTO + ListResult (#167/#168/#169)
 
