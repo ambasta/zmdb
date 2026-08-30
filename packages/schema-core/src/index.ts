@@ -135,14 +135,10 @@ export type UpdateDTO<S> = {
 };
 
 type PrimaryKeyKeys<C> = {
-  [K in keyof C]: C[K] extends ColumnMeta
-    ? C[K]['flags'] extends { primaryKey: true }
-      ? K
-      : never
-    : never;
+  [K in keyof C]: C[K] extends ColumnMeta ? (C[K]['flags'] extends { primaryKey: true } ? K : never) : never;
 }[keyof C];
 
-type IsUnion<T, U = T> = T extends any ? ([U] extends [T] ? false : true) : never;
+type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
 // PrimaryKey<S>: scalar for single-column keys, object map for composite keys.
 export type PrimaryKey<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]

@@ -1,6 +1,7 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
 import { defineSchema, text, integer, primaryKey } from '@zmdb/schema-core';
 import type { PrimaryKey } from '@zmdb/schema-core';
+import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
 
 const CompositeSchema = defineSchema('tenant_users', {
@@ -18,7 +19,7 @@ type SingleS = typeof SinglePkSchema;
 
 function recorder(rows: Record<string, unknown>[] = []) {
   const calls: { text: string; parameters: readonly unknown[] }[] = [];
-  const driver: Driver = { execute: async (q) => (calls.push({ text: q.text, parameters: q.parameters }), rows) };
+  const driver: Driver = { execute: async q => (calls.push({ text: q.text, parameters: q.parameters }), rows) };
   return { driver, calls };
 }
 
@@ -37,9 +38,7 @@ describe('Composite Primary Key Repository Operations', () => {
     const key: PrimaryKey<CompositeS> = { tenantId: 't1', userId: 10 };
     const row = await repo.findById(key);
 
-    expect(calls[0].text).toBe(
-      'SELECT * FROM "tenant_users" WHERE "tenantId" = $1 AND "userId" = $2 LIMIT 1',
-    );
+    expect(calls[0].text).toBe('SELECT * FROM "tenant_users" WHERE "tenantId" = $1 AND "userId" = $2 LIMIT 1');
     expect(calls[0].parameters).toEqual(['t1', 10]);
     expect(row).toEqual({ tenantId: 't1', userId: 10, role: 'admin' });
   });
@@ -89,9 +88,7 @@ describe('Composite Primary Key Repository Operations', () => {
     expect(product).toEqual({ id: 42, name: 'Widget' });
 
     await repo.update(42, { name: 'Super Widget' });
-    expect(calls[1].text).toBe(
-      'UPDATE "products" SET "name" = $1 WHERE "id" = $2 RETURNING *',
-    );
+    expect(calls[1].text).toBe('UPDATE "products" SET "name" = $1 WHERE "id" = $2 RETURNING *');
     expect(calls[1].parameters).toEqual(['Super Widget', 42]);
 
     await repo.delete(42);

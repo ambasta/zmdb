@@ -199,12 +199,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
 
     if (pkCols.length === 1) {
       const pkCol = pkCols[0]!;
-      if (
-        id !== null &&
-        typeof id === 'object' &&
-        !(id instanceof Date) &&
-        pkCol in (id as Record<string, unknown>)
-      ) {
+      if (id !== null && typeof id === 'object' && !(id instanceof Date) && pkCol in (id as Record<string, unknown>)) {
         return { [pkCol]: (id as Record<string, unknown>)[pkCol] } as WhereDTO<CoreSchema<string>>;
       }
       return { [pkCol]: id } as WhereDTO<CoreSchema<string>>;
