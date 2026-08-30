@@ -87,7 +87,7 @@ interface CoreSchema<T extends string> {
 Rules:
 - `primaryKey` is derived by scanning columns where `flags.primaryKey === true`.
 - Throws `SchemaError` if **zero** primary keys.
-- Throws `SchemaError` if a `serial()` column is not marked primary and no other PK exists (documented; enforced in #15).
+- Throws `SchemaError` if any `serial()` column is not explicitly designated as a primary key.
 - `references` is derived from columns carrying a `references` metadata entry.
 - The returned object and nested `columns` are deeply frozen.
 
