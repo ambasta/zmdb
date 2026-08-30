@@ -54,8 +54,11 @@ export interface SequenceDef {
   start?: number;
   increment?: number;
 }
-export function createSequenceDdl(_def: SequenceDef, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function createSequenceDdl(def: SequenceDef, dialect: Dialect): string {
+  let ddl = `CREATE SEQUENCE ${quoteId(dialect, def.name)}`;
+  if (def.start !== undefined) ddl += ` START ${def.start}`;
+  if (def.increment !== undefined) ddl += ` INCREMENT ${def.increment}`;
+  return ddl;
 }
 
 // §4 generated columns
