@@ -67,17 +67,100 @@
   <p class="note" id="dnfNote"></p>
 </section>
 
+<section id="gaps">
+  <h2>Where we don't win — gaps &amp; design trade-offs (honest)</h2>
+  <p class="note">We do <b>not</b> win every case in every runtime. This table is generated from the
+  same matrix above: for each runtime × case it shows <code>zmdb-aot</code>'s rank and, when behind, the
+  leader and the gap. Below it, each recurring gap is explained — separating <b>fixable deficiencies</b>
+  from <b>deliberate design trade-offs</b>.</p>
+  <div class="tabs" id="gapRtTabs"></div>
+  <table id="gapTable"></table>
+
+  <h3 style="margin:22px 0 4px;font-size:16px;">Validation trade-offs</h3>
+  <ul class="note" style="line-height:1.7">
+    <li><b>Parse cases vs typia (~1.0–1.2× on Node/Deno).</b> typia edges the <code>parse</code> variants because
+      its generated object-rebuild is marginally leaner than ours. The gap is small and swings run-to-run
+      under machine load; our <code>is</code>-check itself is byte-for-byte the same straight-line inline
+      typia emits. This is a <b>fixable micro-gap</b>, not a design limit — tracked as a perf issue.</li>
+    <li><b>assertLoose vs TypeBox-JIT on Node (~1.13×).</b> TypeBox compiles with <code>new Function()</code>
+      at runtime; its JIT'd closure has a tiny edge over our module-level function on the pure loose path.
+      <b>Trade-off:</b> we emit static, tree-shakeable, source-visible code at build time (no runtime
+      <code>eval</code>/<code>new Function</code>, CSP-safe) — we accept a few percent on this one case to keep
+      that property.</li>
+    <li><b>Strict (excess-key) cases top out ~40–55M ops/s.</b> Rejecting excess keys requires enumerating the
+      object's own keys (<code>for-in</code> count). That is an inherent cost of "no extra properties" when the
+      instance shape isn't known until runtime; typia sits in the same band (and we lead Node
+      <code>assertStrict</code>). This is a <b>property-of-the-problem</b>, not a zmdb deficiency.</li>
+    <li><b>Deno strict/loose look lower in the harness.</b> An isolated micro-probe puts our Deno strict at
+      ~40–55M (competitive with typia), but the moltar runner reports less — a Deno warmup/sampling artifact,
+      the same class of caveat as Bun's dead-code-elimination below. Flagged, not claimed.</li>
+    <li><b>Bun <code>assertLoose</code> = 1.06B ops/s is not real.</b> Bun's JIT dead-code-eliminates the no-op
+      loose body. We surface the number but do not claim it.</li>
+    <li><b>The shipped default is the runtime path.</b> Without the AOT transform wired in, <code>zmdb (runtime)</code>
+      loses to zod v4 on most cases. The headline numbers require the build plugin — a deliberate
+      "opt-in for peak, correct-by-default" stance.</li>
+  </ul>
+
+  <h3 style="margin:22px 0 4px;font-size:16px;">ORM trade-off — tail latency</h3>
+  <p class="note" style="line-height:1.7">
+    zmdb leads <b>throughput</b> (2,491 req/s) and <b>median p50</b> (112ms) but has the <b>worst tail</b>
+    (p90 220ms / p95 256ms vs drizzle 188/207). Root cause is by design: zmdb has
+    <b>no identity map, no statement cache, and no prepared-statement reuse</b> — every request compiles and
+    executes fresh. That keeps the common path lean (great average/median) but adds variance under load spikes
+    (worse tail). Adding a prepared-statement/plan cache would improve the tail at the cost of the
+    zero-state, no-hidden-cache guarantee. This is the central zmdb trade-off: <b>predictable, stateless,
+    zero-overhead-per-call</b> in exchange for a fatter tail than ORMs that keep server-side caches.
+    See <a href="../docs/anti-patterns.html">Anti-patterns</a> for why the caches are excluded.
+  </p>
+</section>
+
 </main>
 <script>
 const CASES = ['parseSafe','parseStrict','assertLoose','assertStrict'];
 const fmt = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n.toLocaleString();
 let VAL = {}, RUNTIME = 'node', CASE = 'assertStrict', valChart, ormChart;
+let GAP_RT = 'node';
 
 async function load() {
   VAL = await (await fetch('./validation-matrix.json')).json();
   const orm = await (await fetch('./orm-results.json')).json();
   buildRuntimeTabs(); buildCaseTabs(); drawVal();
   drawOrm(orm);
+  buildGapTabs(); drawGap();
+}
+
+// --- Gaps: rank zmdb-aot per case for the selected runtime, show leader+gap ---
+function buildGapTabs() {
+  const el = document.getElementById('gapRtTabs');
+  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">runtime:</span>';
+  for (const rt of Object.keys(VAL)) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (rt === GAP_RT ? ' active' : ''); b.textContent = rt;
+    b.onclick = () => { GAP_RT = rt; buildGapTabs(); drawGap(); };
+    el.appendChild(b);
+  }
+}
+function drawGap() {
+  const m = VAL[GAP_RT];
+  const rowsHtml = CASES.map(c => {
+    const ranked = Object.entries(m).filter(([,v]) => v[c] != null)
+      .map(([n,v]) => [n, v[c]]).sort((a,b) => b[1]-a[1]);
+    const idx = ranked.findIndex(([n]) => n === 'zmdb-aot');
+    if (idx === -1) return '';
+    const us = ranked[idx][1];
+    const leads = idx === 0;
+    const leader = ranked[0];
+    // Bun assertLoose is a DCE artifact — annotate rather than claim a win.
+    const dce = (GAP_RT === 'bun' && c === 'assertLoose');
+    const verdict = dce
+      ? '<span style="color:var(--muted)">leads (DCE artifact — not real)</span>'
+      : leads
+        ? '<span class="yes">LEADS</span>'
+        : `#${idx+1} — behind <code>${leader[0]}</code> by <b>${(leader[1]/us).toFixed(2)}×</b>`;
+    return `<tr><td><code>${c}</code></td><td>${fmt(us)}</td><td style="text-align:left">${verdict}</td></tr>`;
+  }).join('');
+  document.getElementById('gapTable').innerHTML =
+    '<tr><th>case</th><th>zmdb-aot ops/s</th><th style="text-align:left">rank</th></tr>' + rowsHtml;
 }
 
 function buildRuntimeTabs() {

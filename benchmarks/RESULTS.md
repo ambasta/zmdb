@@ -167,11 +167,47 @@ The full per-library × per-runtime matrix is in the interactive dashboard
 
 | runtime | parseSafe | parseStrict | assertLoose | assertStrict |
 |---------|----------:|------------:|------------:|-------------:|
-| node 26 | 101,677,075 | 40,022,611 | 108,934,303 | 42,287,002 |
+| node 26 | 78,458,664 | 31,208,986 | 79,072,762 | 47,015,711 |
 | bun 1.4 | 45,376,333 | 62,591,287 | 1,061,918,540² | 97,744,266 |
 | deno 2  | 132,548,340 | 39,531,359 | 63,003,160 | 22,730,508 |
 
 ² Bun's JIT eliminates the no-op `assertLoose` body — implausible, flagged.
+
+### Where we don't win — gaps & trade-offs
+
+We do **not** win every case in every runtime. Ranking `zmdb-aot` against the
+whole field (same matrix, leader shown when we're behind):
+
+| runtime | case | zmdb-aot rank |
+|---------|------|---------------|
+| node | parseSafe | #2 — behind typia 1.21× |
+| node | parseStrict | #2 — behind typia 1.19× |
+| node | assertLoose | #3 — behind TypeBox-JIT 1.13× |
+| node | assertStrict | **leads** |
+| bun | parseSafe | **leads** |
+| bun | parseStrict | #2 — behind typia 1.90× |
+| bun | assertLoose | leads *(DCE artifact — not real)* |
+| bun | assertStrict | #2 — behind typia 1.22× |
+| deno | parseSafe | **leads** |
+| deno | parseStrict | #2 — behind typia 1.03× |
+| deno | assertLoose | #4 — behind typia 2.37× |
+| deno | assertStrict | #4 — behind typia 1.83× |
+
+Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/benchmarks/#gaps)):
+
+- **Parse vs typia (~1.0–1.2×, Node/Deno)** — *fixable micro-gap.* Our `is`-check
+  is byte-identical to typia's inline; typia's object-rebuild for `parse` is
+  marginally leaner. Small and run-to-run noisy. Tracked as a perf task.
+- **assertLoose vs TypeBox-JIT (Node, 1.13×)** — *deliberate trade-off.* TypeBox
+  JITs with `new Function()`; we emit static, source-visible, CSP-safe code at
+  build time and accept a few percent on this one case.
+- **Strict caps ~40–55M** — *property of the problem.* Excess-key rejection must
+  enumerate own keys; typia sits in the same band (we lead Node `assertStrict`).
+- **Deno strict/loose look low** — *harness artifact.* An isolated micro-probe
+  puts Deno strict at ~40–55M (competitive); the moltar runner under-reports —
+  same caveat class as Bun's DCE.
+- **Runtime default loses to zod v4** — *by design.* Peak numbers require the AOT
+  build plugin; correct-by-default without it.
 
 ---
 
