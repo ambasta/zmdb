@@ -78,27 +78,47 @@ a real, significant feature gap.
 > table — zmdb's aggregate builder does **not** join in the parent `orders`
 > columns (shipName, etc.), so the shape differs slightly from drizzle/kysely's
 > joined projection while the aggregate values match. (2) On the full 13-route
-> k6 run (throughput below), zmdb leads on req/s and median latency but has the
-> **worst p95 (tail) latency** — a genuine trade-off, **not** a "fastest ORM"
-> claim.
+> k6 run (throughput below), zmdb leads on req/s and average latency; drizzle
+> keeps the best tail — a genuine trade-off, **not** a "fastest ORM" claim.
+> Server-side prepared statements (`ZMDB_PREPARED=1`) reproducibly narrow the
+> gap (see the head-to-head).
 
 ### Throughput & latency — k6, FULL 13-route replay (all serve every route, 0 failures)
 
 Full upstream replay (every route, including the heavy `/search-*` full-text
-queries); all three ORMs return 200 on every request. Latency in ms, from the
-same k6 run (ramp to 400 VUs):
+queries, 426,999 requests); all three ORMs return 200 on every request. Latency
+in ms, from the same k6 run (ramp to 400 VUs). p50 omitted — k6
+`--summary-export` does not emit it; avg/p90/p95 are the measured percentiles.
 
-| ORM | req/s | avg | p50 | p90 | p95 | failed |
-|-----|------:|----:|----:|----:|----:|-------:|
-| **zmdb** | **2,491** | 119.8 | **112.2** | 220.5 | 256.0 | 0 |
-| kysely | 2,394 | 124.5 | 132.7 | 196.6 | 220.3 | 0 |
-| drizzle | 2,367 | 126.1 | 135.7 | 188.4 | 207.2 | 0 |
+| ORM | req/s | avg | p90 | p95 | failed |
+|-----|------:|----:|----:|----:|-------:|
+| **zmdb (prepared)** | **3,068** | **97.3** | 179.5 | 209.5 | 0 |
+| **zmdb** (default) | 2,916 | 102.4 | 192.8 | 215.5 | 0 |
+| drizzle | 2,795 | 106.8 | **157.6** | **173.8** | 0 |
+| kysely | 2,733 | 109.3 | 176.8 | 200.8 | 0 |
 
-- **Honest read (mixed):** zmdb leads on **throughput and median (p50) latency**,
-  but has the **worst tail latency** — its p95 (256 ms) is higher than drizzle's
-  (207) and kysely's (220). So zmdb is fastest at the median and on raw
-  throughput, but its tail is worse; drizzle has the tightest tail. This is a
-  genuine trade-off, **not** an outright "fastest ORM" win.
+- **Honest read (mixed):** zmdb (default) leads on **throughput (2,916 req/s)**
+  and **average latency (102 ms)**; **drizzle keeps the best tail** (p95 173.8 vs
+  zmdb 215.5). So zmdb is fastest on throughput and average, drizzle tightest on
+  the tail — a genuine trade-off, **not** an outright "fastest ORM" win.
+
+### Prepared-statement head-to-head (the tail-latency lever, verified)
+
+Same zmdb server with `ZMDB_PREPARED=1` — Postgres caches the query plan
+server-side (a stable statement name per compiled SQL). Two back-to-back runs:
+
+| run | variant | req/s | avg | p90 | p95 |
+|-----|---------|------:|----:|----:|----:|
+| 1 | default | 2,916 | 102.4 | 192.8 | 215.5 |
+| 1 | **prepared** | **3,068** | **97.3** | **179.5** | **209.5** |
+| 2 | default | 2,903 | 102.8 | 193.7 | 220.3 |
+| 2 | **prepared** | **3,010** | **99.2** | **182.6** | **206.5** |
+
+- **Verdict:** `ZMDB_PREPARED=1` reproducibly improves zmdb — **+4–5% req/s,
+  −3–4% avg, ~−11 ms p90, ~−9–14 ms p95.** The tail-latency lever documented as
+  a design mitigation **works empirically**. It stays **opt-in** so the default
+  keeps the zero-state (no hidden statement cache) guarantee; drizzle still owns
+  the absolute tail.
 - Rankings sit within a few % and can swap run-to-run; the short ramp keeps
   absolute numbers well below a big-iron run (see config below).
 

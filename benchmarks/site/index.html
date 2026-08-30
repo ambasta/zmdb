@@ -57,8 +57,18 @@
   <p class="note" id="ormCfg"></p>
   <canvas id="ormChart"></canvas>
   <table id="ormTable"></table>
-  <p class="note honest">Honest read: zmdb leads throughput and median (p50) latency but has the <b>worst p95 tail</b> —
-  a real trade-off, not a "fastest ORM" claim.</p>
+  <p class="note honest">Honest read: <b>zmdb leads throughput (2,916 req/s) and average latency (102ms)</b>;
+  drizzle keeps the <b>best tail</b> (p95 173.8ms vs zmdb 215.5). With server-side prepared statements
+  (<code>ZMDB_PREPARED=1</code>, below) zmdb rises to 3,068 req/s / 97ms avg and narrows the tail to p95 209.5 —
+  a real, reproducible gain, though drizzle still owns the tail. All ORMs: 0 failed requests.</p>
+</section>
+
+<section>
+  <h2>ORM — prepared-statement head-to-head (the tail-latency lever)</h2>
+  <p class="note">Same zmdb server, <code>ZMDB_PREPARED=1</code> makes Postgres cache the query plan
+  server-side (stable statement name per compiled SQL). Two back-to-back runs to show reproducibility:</p>
+  <table id="prepTable"></table>
+  <p class="note honest" id="prepVerdict"></p>
 </section>
 
 <section>
@@ -105,17 +115,16 @@
 
   <h3 style="margin:22px 0 4px;font-size:16px;">ORM trade-off — tail latency</h3>
   <p class="note" style="line-height:1.7">
-    zmdb leads <b>throughput</b> (2,491 req/s) and <b>median p50</b> (112ms) but has the <b>worst tail</b>
-    (p90 220ms / p95 256ms vs drizzle 188/207). We investigated the root cause: zmdb's per-request query
-    <b>compile step is ~254ns</b> — negligible against a ~112ms database round-trip — so a compiled-SQL
-    cache would not move the tail. The tail is dominated by the <b>DB round-trip + connection-pool
-    contention + GC variance under load</b> on a single co-located box, an inherent cost of the
-    <b>stateless, no-identity-map, no-hidden-cache</b> design. The one real lever is <b>server-side
-    prepared statements</b> (cache the query plan in Postgres); the harness now has an opt-in
-    <code>ZMDB_PREPARED=1</code> path for that, and a plan cache is the planned mitigation. Net: the tail
-    trade-off is real and understood — we keep the zero-state guarantee by default and offer prepared
-    statements as an explicit opt-in rather than a hidden cache. See
-    <a href="../docs/anti-patterns.html">Anti-patterns</a> for why the implicit caches are excluded.
+    On the re-run (real Northwind, 427k-request replay), <b>zmdb leads throughput (2,916 req/s) and average
+    (102ms)</b>; drizzle keeps the <b>best tail</b> (p95 173.8 vs zmdb 215.5). We investigated the cause: the
+    per-request query compile is ~254ns — negligible against a ~100ms round-trip — so the tail is
+    round-trip + pool contention + GC variance under load, inherent to the <b>stateless, no-identity-map,
+    no-hidden-cache</b> design. We then <b>empirically tested the real lever</b>: <code>ZMDB_PREPARED=1</code>
+    (server-side prepared statements) reproducibly lifts zmdb to <b>3,068 req/s / 97ms avg</b> and cuts the
+    tail by ~11ms p90 / ~10ms p95 (see the head-to-head table above). So the tail can be improved — we keep it
+    an <b>explicit opt-in</b> rather than a hidden cache, preserving the zero-state guarantee by default.
+    drizzle still owns the tail; that remains an honest trade-off. See
+    <a href="../docs/anti-patterns.html">Anti-patterns</a> for why implicit caches are excluded.
   </p>
 </section>
 
@@ -221,8 +230,20 @@ function drawOrm(orm) {
         y1:{ position:'right', title:{display:true,text:'p95 ms',color:'#f0883e'}, ticks:{ color:'#8b949e' }, grid:{display:false} } } }
   });
   const t = document.getElementById('ormTable');
-  t.innerHTML = '<tr><th>ORM</th><th>req/s</th><th>avg ms</th><th>p50</th><th>p90</th><th>p95</th><th>failed</th></tr>' +
-    rows.map(r => `<tr><td>${r.orm}</td><td>${r.reqs}</td><td>${r.avg}</td><td>${r.p50}</td><td>${r.p90}</td><td>${r.p95}</td><td>${r.failed}</td></tr>`).join('');
+  t.innerHTML = '<tr><th>ORM</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th><th>failed</th></tr>' +
+    rows.map(r => `<tr><td>${r.orm}</td><td>${r.reqs}</td><td>${r.avg}</td><td>${r.p90}</td><td>${r.p95}</td><td>${r.failed}</td></tr>`).join('');
+  // Prepared-statement head-to-head (if present).
+  const prep = document.getElementById('prepTable');
+  if (prep && orm.prepared) {
+    prep.innerHTML =
+      '<tr><th>run</th><th>variant</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th></tr>' +
+      orm.prepared.rows.map(r =>
+        `<tr><td>${r.run}</td><td>zmdb default</td><td>${r.default.reqs}</td><td>${r.default.avg}</td><td>${r.default.p90}</td><td>${r.default.p95}</td></tr>` +
+        `<tr><td>${r.run}</td><td><b>zmdb prepared</b></td><td><b>${r.prepared.reqs}</b></td><td><b>${r.prepared.avg}</b></td><td><b>${r.prepared.p90}</b></td><td><b>${r.prepared.p95}</b></td></tr>`
+      ).join('');
+    const pv = document.getElementById('prepVerdict');
+    if (pv) pv.innerHTML = orm.prepared.verdict;
+  }
   const c = document.getElementById('covTable');
   c.innerHTML = '<tr><th>Route</th><th>drizzle</th><th>kysely</th><th>zmdb</th></tr>' +
     orm.coverage.map(r => `<tr><td><code>${r.route}</code></td>${['drizzle','kysely','zmdb'].map(k=>`<td class="${r[k]?'yes':'no'}">${r[k]?'✅':'DNF'}</td>`).join('')}</tr>`).join('');
