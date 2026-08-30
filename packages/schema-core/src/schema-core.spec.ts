@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import {
   serial,
   integer,
   varchar,
   text,
+  json,
   jsonEnum,
   boolean,
   timestamp,
@@ -30,10 +30,18 @@ describe('column builders', () => {
     expect(c.flags.nullable).toBe(false);
   });
 
-  it('integer/text/boolean/timestamp default to not-null', () => {
-    for (const c of [integer(), text(), boolean(), timestamp()]) {
+  it('integer/text/boolean/timestamp/json default to not-null', () => {
+    for (const c of [integer(), text(), boolean(), timestamp(), json()]) {
       expect(c.flags.nullable).toBe(false);
     }
+  });
+
+  it('json() returns exact literal metadata signature', () => {
+    const c = json();
+    expect(c.type).toBe('json');
+    expect(c.flags.nullable).toBe(false);
+    expectTypeOf(c.type).toEqualTypeOf<'json'>();
+    expectTypeOf(c.flags).toEqualTypeOf<{ readonly nullable: false }>();
   });
 
   it('varchar(n) captures length', () => {

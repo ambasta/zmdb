@@ -83,7 +83,9 @@ type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' |
             ? C['flags'] extends { enum: infer E extends readonly string[] }
               ? E[number]
               : string
-            : unknown;
+            : C['type'] extends 'json'
+              ? unknown
+              : unknown;
 
 // Apply nullability.
 type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
