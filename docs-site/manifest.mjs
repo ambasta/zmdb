@@ -781,7 +781,24 @@ Respects constraints (\`Minimum\`, \`Pattern\`, enum members, etc.) inlined by t
 `),
 
   // ---------------- Advanced ----------------
-  'custom-types': todo('Custom Types & Codecs', 'Advanced', 'User-defined column types with custom SQL mapping + (de)serialization codecs are planned.'),
+  'custom-types': ok('Custom Types & Codecs', 'Advanced', `
+Define a column type with a SQL type + a TS type + a to-DB/from-DB codec (\`@zmdb/schema-core/custom-types\`).
+
+\`\`\`ts
+import { defineType, encodeValue, decodeValue } from '@zmdb/schema-core/custom-types';
+
+const jsonb = defineType<Record<string, unknown>, string>({
+  sqlType: 'jsonb',
+  toDb: (v) => JSON.stringify(v),
+  fromDb: (raw) => JSON.parse(raw),
+});
+
+encodeValue(jsonb, { a: 1 }); // '{"a":1}'  (for the driver)
+decodeValue(jsonb, raw);      // parsed object (from a row)
+\`\`\`
+
+The codec is AOT-friendly (a plain pair of functions, no reflection); \`sqlType\` feeds migration DDL. \`decodeValue(t, encodeValue(t, v))\` round-trips for codec-clean values.
+`),
   'set-operations': ok('Set Operations', 'Advanced', `
 Combine result sets with UNION / UNION ALL / INTERSECT / EXCEPT (\`@zmdb/query-compiler/set-ops\`).
 
