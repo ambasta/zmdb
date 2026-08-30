@@ -47,12 +47,16 @@ export interface SingleTableInheritance {
   discriminator: string;
   map: Record<string, readonly string[]>;
 }
-export function discriminatorFor(_sti: SingleTableInheritance, _type: string): string {
-  throw new Error('not implemented');
+export function discriminatorFor(_sti: SingleTableInheritance, type: string): string {
+  return type;
 }
 export function rowToSubtype(
-  _sti: SingleTableInheritance,
-  _row: Record<string, unknown>,
+  sti: SingleTableInheritance,
+  row: Record<string, unknown>,
 ): { type: string; data: Record<string, unknown> } {
-  throw new Error('not implemented');
+  const type = String(row[sti.discriminator]);
+  const cols = sti.map[type] ?? [];
+  const data: Record<string, unknown> = {};
+  for (const c of cols) data[c] = row[c];
+  return { type, data };
 }
