@@ -1,0 +1,18 @@
+{
+  "suite": "the-benchmarker/web-frameworks",
+  "framework": "@zmdb/web",
+  "upstream": "https://github.com/the-benchmarker/web-frameworks",
+  "port": 3000,
+  "methodology": "oha: GET / for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report (--output-format json); concurrency + routes configurable (CONCURRENCIES / ROUTES); collected: req/s, total data, duration, p50/p75/p90/p99.",
+  "contract": [
+    { "method": "GET", "route": "/", "status": "2xx", "body": "empty", "pass": true },
+    { "method": "GET", "route": "/user/:id", "status": "2xx", "body": "the id path parameter", "pass": true },
+    { "method": "POST", "route": "/user", "status": "2xx", "body": "empty", "pass": true }
+  ],
+  "contractVerdict": "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs; 3 routes, all assertions green).",
+  "throughput": {
+    "measured": false,
+    "reason": "oha is not installed in the environment that produced this dataset, so req/s + p50/p75/p90/p99 are not reported rather than fabricated.",
+    "reproduce": "bash benchmarks/harness/framework/run.sh   (needs oha + jq on PATH)"
+  }
+}

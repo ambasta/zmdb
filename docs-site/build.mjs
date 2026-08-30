@@ -230,7 +230,7 @@ mkdirSync(join(OUT, 'docs'), { recursive: true });
 mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 
 // Copy the benchmark data files into site/benchmarks/ (the page fetches them via ./).
-for (const f of ['validation-matrix.json', 'orm-results.json']) {
+for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-results.json']) {
   const src = join(DASH, f);
   if (existsSync(src)) cpSync(src, join(OUT, 'benchmarks', f));
 }
@@ -245,7 +245,8 @@ function buildBenchmarksPage() {
   const script = (raw.match(/<script>[\s\S]*?<\/script>/) || [''])[0];
   const intro = `<p>zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
     (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
-    <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM). Numbers are indicative of the
+    <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
+    <a href="https://github.com/the-benchmarker/web-frameworks">the-benchmarker/web-frameworks</a> HTTP). Numbers are indicative of the
     generating machine, not an official ranking. <b>DNF</b> = the library cannot express that case (never summed into a score).</p>`;
   // Benchmarks-page-scoped styling for the chart widgets, layered on the docs CSS.
   const bmCss = `

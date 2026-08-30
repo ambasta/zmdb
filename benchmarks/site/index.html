@@ -36,10 +36,19 @@
   <h1>zmdb — Benchmarks</h1>
   <p class="sub">zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
   (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
-  <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM). Numbers are indicative of the
+  <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
+  <a href="https://github.com/the-benchmarker/web-frameworks">the-benchmarker/web-frameworks</a> HTTP). Numbers are indicative of the
   generating machine, not an official ranking. <b>DNF</b> = the library cannot express that case (never summed into a score).</p>
 </header>
 <main>
+
+<section>
+  <h2>Framework (HTTP) — the-benchmarker/web-frameworks (<code>@zmdb/web</code>)</h2>
+  <p class="note" id="fwMethod"></p>
+  <table id="fwContract"></table>
+  <p class="note honest" id="fwVerdict"></p>
+  <p class="note" id="fwThroughput"></p>
+</section>
 
 <section>
   <h2>Validation — ops/sec across runtimes</h2>
@@ -141,6 +150,35 @@ async function load() {
   buildRuntimeTabs(); buildCaseTabs(); drawVal();
   drawOrm(orm);
   buildGapTabs(); drawGap();
+  try { drawFramework(await (await fetch('./framework-results.json')).json()); } catch (e) { /* optional */ }
+}
+
+// --- Framework (HTTP) — the-benchmarker/web-frameworks contract + methodology ---
+function drawFramework(fw) {
+  const method = document.getElementById('fwMethod');
+  if (method) {
+    method.innerHTML = `<code>@zmdb/web</code> participates in the ` +
+      `<a href="${fw.upstream}">the-benchmarker/web-frameworks</a> suite under its exact shared contract ` +
+      `(port <b>${fw.port}</b>). ${fw.methodology}`;
+  }
+  const t = document.getElementById('fwContract');
+  if (t) {
+    t.innerHTML = '<tr><th>Method</th><th style="text-align:left">Route</th><th>Status</th>' +
+      '<th style="text-align:left">Body</th><th>Contract</th></tr>' +
+      fw.contract.map(r =>
+        `<tr><td>${r.method}</td><td style="text-align:left"><code>${r.route}</code></td>` +
+        `<td>${r.status}</td><td style="text-align:left">${r.body}</td>` +
+        `<td class="${r.pass ? 'yes' : 'no'}">${r.pass ? '✓' : '✗'}</td></tr>`).join('');
+  }
+  const v = document.getElementById('fwVerdict');
+  if (v) v.textContent = fw.contractVerdict;
+  const tp = document.getElementById('fwThroughput');
+  if (tp) {
+    tp.innerHTML = fw.throughput && fw.throughput.measured === false
+      ? `<b>Throughput/latency:</b> not measured in this dataset — ${fw.throughput.reason} ` +
+        `Reproduce with <code>${fw.throughput.reproduce}</code>.`
+      : '';
+  }
 }
 
 // --- Gaps: rank zmdb-aot per case for the selected runtime, show leader+gap ---
