@@ -14,6 +14,21 @@ query builder over the same `pg` pool + real Northwind data — 10k customers /
 (`data/requests.json`). Servers built from the upstream routes; run via the
 harness in `harness/orm/`.
 
+**Benchmark config** (like the upstream dashboards, stated for reproducibility):
+
+| | |
+|-|-|
+| Database | PostgreSQL 16 (podman), same instance for all ORMs |
+| Dataset | Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, **308,224 order_details** |
+| Driver | `pg` (node-postgres) pool, `max: 10` — identical across ORMs |
+| Load | k6 ramping-VUs 0→200→400, ~25s; full `requests.json` replay (13 routes incl. `/search-*`) |
+| ORMs | drizzle-orm 0.36 (node-postgres), kysely 0.29 (PostgresDialect), zmdb query-compiler |
+| Machine | single local dev box, Node 26.8.1 (server + k6 co-located, so absolute numbers are lower than the upstream 2-machine / 3000-VU rig) |
+
+> ⚠️ Unlike the upstream dashboards (2 machines, 1GB ethernet, ramp to 3000 VUs
+> over ~10 min), this runs server + load on one box with a short ramp — so treat
+> the **relative** ordering as indicative and the **absolute** numbers as low.
+
 ### Feature coverage — each route listed individually (not summed)
 
 Every upstream route is listed on its own — no scoring, no aggregation into a
@@ -28,13 +43,13 @@ column records how each formerly-DNF route was closed.
 | `/suppliers` | ✅ | ✅ | ✅ | (already served) |
 | `/supplier-by-id` | ✅ | ✅ | ✅ | (already served) |
 | `/products` | ✅ | ✅ | ✅ | (already served) |
-| `/order-with-details-and-products` | ✅ | ✅ | ✅ | 2-query populate (always supported) |
-| `/employee-with-recipient` | ✅ | ✅ | ✅ (now served, #88) | JOIN builder wired (self-join) |
-| `/product-with-supplier` | ✅ | ✅ | ✅ (now served, #88) | JOIN builder wired |
-| `/orders-with-details` (agg list) | ✅ | ✅ | ✅ (now served, #93) | aggregate builder (GROUP BY on FK) |
-| `/order-with-details` (agg by id) | ✅ | ✅ | ✅ (now served, #93) | aggregate builder (GROUP BY on FK) |
-| `/search-customer` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
-| `/search-product` (full-text) | ✅ | ✅ | ✅ (now served, #97) | FTS builder wired (`whereMatch`) |
+| `/order-with-details-and-products` | ✅ | ✅ | ✅ | 2-query populate |
+| `/employee-with-recipient` | ✅ | ✅ | ✅ | JOIN builder (self-join, #88) |
+| `/product-with-supplier` | ✅ | ✅ | ✅ | JOIN builder (#88) |
+| `/orders-with-details` (agg list) | ✅ | ✅ | ✅ | aggregate builder, GROUP BY on FK (#93) |
+| `/order-with-details` (agg by id) | ✅ | ✅ | ✅ | aggregate builder, GROUP BY on FK (#93) |
+| `/search-customer` (full-text) | ✅ | ✅ | ✅ | FTS builder `whereMatch` (#97) |
+| `/search-product` (full-text) | ✅ | ✅ | ✅ | FTS builder `whereMatch` (#97) |
 
 **As originally measured, zmdb served only 7 of the 13 upstream routes** — the 6
 join/aggregate/FTS routes were DNF, and in the actual replay those routes are
@@ -57,57 +72,56 @@ a real, significant feature gap.
 > shape (`order_id`, `products_count`, `quantity_sum`) via GROUP-BY on the child
 > table — zmdb's aggregate builder does **not** join in the parent `orders`
 > columns (shipName, etc.), so the shape differs slightly from drizzle/kysely's
-> joined projection while the aggregate values match. (2) k6 has now been **re-run
-> over the full 13-route replay** (see throughput below): zmdb is marginally
-> ahead on req/s but kysely has the best p95 — a close, mixed result, **not** a
-> "fastest ORM" claim.
+> joined projection while the aggregate values match. (2) On the full 13-route
+> k6 run (throughput below), zmdb leads on req/s and median latency but has the
+> **worst p95 (tail) latency** — a genuine trade-off, **not** a "fastest ORM"
+> claim.
 
-### Throughput — k6, FULL 13-route replay (all three serve every route, 0 failures)
+### Throughput & latency — k6, FULL 13-route replay (all serve every route, 0 failures)
 
-Now that zmdb serves all 13 routes, k6 was re-run over the **full** upstream
-replay (every route, including the expensive `/search-*` full-text queries) —
-all three ORMs return 200 on every request:
+Full upstream replay (every route, including the heavy `/search-*` full-text
+queries); all three ORMs return 200 on every request. Latency in ms, from the
+same k6 run (ramp to 400 VUs):
 
-| ORM | req/s | p95 latency | failed |
-|-----|------:|------------:|-------:|
-| **zmdb** | **2,849** | 214 ms | 0 |
-| kysely | 2,782 | 171 ms | 0 |
-| drizzle | 2,593 | 209 ms | 0 |
+| ORM | req/s | avg | p50 | p90 | p95 | failed |
+|-----|------:|----:|----:|----:|----:|-------:|
+| **zmdb** | **2,491** | 119.8 | **112.2** | 220.5 | 256.0 | 0 |
+| kysely | 2,394 | 124.5 | 132.7 | 196.6 | 220.3 | 0 |
+| drizzle | 2,367 | 126.1 | 135.7 | 188.4 | 207.2 | 0 |
 
-- **Honest read:** zmdb is marginally ahead on throughput but **kysely has the
-  best p95 latency** — this is a genuinely close, mixed result, not a zmdb
-  blowout. On a prior CRUD-only run (below) zmdb led more clearly; adding the
-  join/aggregate/FTS routes narrows it.
-- Absolute numbers are low because of the short ramp (see below) and because the
-  full replay includes the heavy FTS routes. Rankings can swap run-to-run within
-  a few %.
+- **Honest read (mixed):** zmdb leads on **throughput and median (p50) latency**,
+  but has the **worst tail latency** — its p95 (256 ms) is higher than drizzle's
+  (207) and kysely's (220). So zmdb is fastest at the median and on raw
+  throughput, but its tail is worse; drizzle has the tightest tail. This is a
+  genuine trade-off, **not** an outright "fastest ORM" win.
+- Rankings sit within a few % and can swap run-to-run; the short ramp keeps
+  absolute numbers well below a big-iron run (see config below).
 
-#### Earlier CRUD-subset run (for reference, pre-wiring)
+#### Earlier CRUD-subset run (reference, pre-wiring)
 
-Before the join/aggregate/FTS routes were wired, a k6 run on just the shared
-CRUD routes (156,999 requests, 0 failures) showed: zmdb 6,666 req/s (p95 90ms) ·
-kysely 6,388 (90ms) · drizzle 4,789 (128ms). Kept for context; the full-13 run
-above supersedes it as the honest comparison.
+Before the join/aggregate/FTS routes were wired, a CRUD-only k6 run (156,999
+requests, 0 failures) showed zmdb 6,666 req/s (p95 90ms) · kysely 6,388 (90ms) ·
+drizzle 4,789 (128ms). Superseded by the full-13 run above.
 
 ### Not run here (stated, not faked)
 
 - **Prisma** — DNF (not implemented: engine/codegen not installed).
-- The upstream k6 profile ramps to **3000 VUs over ~10 min**; we used a shorter
-  fixed ramp (to 400 VUs, ~25 s) so it completes in this environment. Same k6
-  script + same replay list; absolute numbers are lower than a big-iron run.
+- Ramp/machine differences vs the upstream 2-machine rig are covered in the
+  **Benchmark config** block above.
 
 ---
 
 ## Validation — typescript-runtime-type-benchmarks (upstream runner)
 
 zmdb added as **two** cases in the upstream runner (`ts-node index.ts run …`):
-`zmdb` (the shipped **runtime** validator) and `zmdb-aot` (the **AOT-inlined**
-path). Per-case ops/s; `DNF` = case the library does not register:
+`zmdb` (the shipped **runtime** validator) and `zmdb-aot` (the **AOT** path
+produced by the real transformer). Per-case ops/s; `DNF` = case the library does
+not register:
 
 | library | parseSafe | parseStrict | assertLoose | assertStrict | DNF cases |
 |---------|----------:|------------:|------------:|-------------:|-----------|
 | typia (AOT) | 100,673,513 | 38,869,470 | 78,128,590 | 31,056,106 | — |
-| **zmdb-aot** (hand-inlined¹) | 98,435,060 | 13,229,339 | 87,800,788 | 14,020,476 | — |
+| **zmdb-aot** (transformer-built¹) | 107,963,002 | 15,434,927 | 83,556,494 | 12,968,466 | — |
 | @sinclair/typebox (JIT) | DNF | DNF | 88,070,252 | 29,157,066 | parseSafe, parseStrict |
 | ajv | DNF | DNF | 43,363,522 | 29,246,420 | parseSafe, parseStrict |
 | zod (v4) | 8,711,299 | 4,895,742 | 4,173,432 | 4,172,722 | — |
@@ -117,29 +131,26 @@ path). Per-case ops/s; `DNF` = case the library does not register:
 | **zmdb** (runtime, shipped) | 1,430,813 | 1,101,908 | 5,173,050 | 1,162,280 | — |
 | zod (v3) | 1,087,654 | 970,236 | 1,051,654 | 1,014,129 | — |
 
-¹ **The AOT transformer now exists and is wired** (`@zmdb/aot-validator/plugin`,
-epics #75/#79–#83): #82 built a validator through the real transform and measured
-it at **~58–63× the runtime path** on this box, and #83's acceptance gate asserts
-AOT ≥5× runtime. The specific per-case ops/s in this table, however, are from the
-**hand-inlined preview** (the exact shape the transformer emits) run through the
-upstream moltar runner — the full moltar matrix has **not been re-run through the
-built plugin yet**, so these cells are labelled as the preview, not conflated
-with the shipped runtime row.
+¹ **`zmdb-aot` numbers are transformer-PRODUCED.** The validators were generated
+by running the real `@zmdb/aot-validator` transform (`transformTypeChecks`) over
+`is<T>()` source for the moltar model — i.e. the exact inline JS the build plugin
+emits (`@zmdb/aot-validator/plugin`, epics #75/#79–#83) — then run through the
+upstream moltar runner. Not hand-written. The shipped default is still the
+`zmdb` runtime row unless the transformer plugin is enabled in the consumer build.
 
 ### What this shows (honestly)
 
-- **The AOT premise holds and the transformer is now real.** `zmdb-aot` is
-  **6–8× faster than the `zmdb` runtime** on the moltar cases, and the *built*
-  transform (#82) measured ~58–63× runtime on a nested fixture. On
-  parseSafe/assertLoose it is in typia's league and **far ahead of zod v4** (the
-  case that motivated this).
+- **The AOT premise holds — and it's the real transformer output.** The
+  transformer-built `zmdb-aot` is **~10–70× the `zmdb` runtime** across the four
+  cases. On parseSafe/assertLoose it is in typia's league (108M/84M vs typia
+  101M/78M) and **far ahead of zod v4** (the case that motivated this).
 - **But we are not the outright winner.** **typia beats `zmdb-aot` on both
-  strict cases** (parseStrict 39M vs 13M; assertStrict 31M vs 14M) — its
+  strict cases** (parseStrict 39M vs 15M; assertStrict 31M vs 13M) — its
   excess-key checking is more optimized than our current strict inlining. On the
   strict path, TypeBox/Ajv also lead. Closing that is a tracked perf task.
 - **The shipped, out-of-the-box path is still the `zmdb` runtime** unless the
-  transformer plugin is enabled in the consumer's build. With the plugin, code
-  gets the AOT path; without it, the runtime path loses to zod v4 on 3 of 4 cases.
+  transformer plugin is enabled. With the plugin, code gets the AOT path; without
+  it, the runtime path loses to zod v4 on 3 of 4 cases.
 
 ---
 
@@ -150,13 +161,13 @@ with the shipped runtime row.
   formerly-DNF route returns HTTP 200 with correct data on real Postgres. One
   caveat: the aggregate routes return a per-order aggregate projection, not the
   parent-joined projection drizzle/kysely emit. Validation: **0 case gaps**.
-- **Validation speed**: the AOT path is real (transformer wired, #75/#82/#83) and
-  is **6–8× the runtime path**, beating zod v4 and matching typia on
-  parse-safe/assert-loose — but **typia still wins the strict cases**, and
+- **Validation speed**: the AOT path is real and transformer-produced
+  (#75/#79–#83) — **~10–70× the runtime path**, beating zod v4 and matching typia
+  on parse-safe/assert-loose. But **typia still wins the strict cases**, and
   out-of-the-box (plugin not enabled) the shipped runtime path loses to zod v4 on
   3 of 4 cases.
-- **ORM speed**: on the **full 13-route k6 run**, zmdb is marginally ahead on
-  throughput (2,849 vs kysely 2,782 vs drizzle 2,593 req/s) but **kysely has the
-  best p95 latency** — a close, mixed result. **No overall "fastest" claim** is
-  made; the lead is within run-to-run noise and the aggregate routes use a
-  different projection shape.
+- **ORM speed**: on the **full 13-route k6 run**, zmdb leads on throughput
+  (2,491 req/s) and median latency (p50 112ms) but has the **worst tail latency**
+  (p95 256ms vs drizzle 207, kysely 220). A real trade-off — **no overall
+  "fastest" claim**; results sit within run-to-run noise and the aggregate routes
+  use a different projection shape.

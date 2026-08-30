@@ -59,10 +59,11 @@ express** (each listed individually, never summed into a score):
   routes + k6 vs Drizzle / Kysely. **zmdb now serves all 13 routes (0 DNF)** —
   joins (#85/#88), aggregations (#90/#93), and full-text search (#95/#97) are
   implemented and each previously-DNF route returns HTTP 200 with correct data,
-  verified on real Postgres. On the **full 13-route k6 run** the three are close:
-  zmdb 2,849 req/s, kysely 2,782, drizzle 2,593 — but **kysely has the best p95
-  latency**, so this is a mixed result, not a "fastest ORM" claim. (The aggregate
-  routes also use a different projection shape — see RESULTS.md.)
+  verified on real Postgres. On the **full 13-route k6 run** zmdb leads on
+  throughput (2,491 req/s) and median latency (p50 112ms) but has the **worst
+  tail latency** (p95 256ms vs drizzle 207 / kysely 220) — a real trade-off, not
+  a "fastest ORM" claim. (Aggregate routes also use a different projection shape;
+  see RESULTS.md.)
 - **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
   runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
   cases (no DNF) but runs its **runtime** validator (the AOT transformer is not
