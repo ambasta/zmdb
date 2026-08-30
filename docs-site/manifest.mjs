@@ -8,7 +8,7 @@
 export const NAV = [
   { title: 'Getting Started', pages: ['introduction', 'installation', 'aot-setup', 'pure-typescript'] },
   { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
-  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'joins', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
+  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
   { title: 'Migrations', pages: ['migrations', 'migrations-cli', 'seeding'] },
   { title: 'Validation', pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'] },
@@ -385,6 +385,60 @@ applyPagination(builder, { limit: 20 });             // → LIMIT 20
 \`\`\`
 
 Offset pagination emits \`LIMIT/OFFSET\`; keyset (cursor) pagination is supported via \`{ limit, after }\` on a stable order key (typically the primary key). Both helpers pass the builder through unchanged when the argument is \`undefined\`.
+`),
+
+  'read-dtos': ok('Read/Query DTOs — Get / List / Search', 'Data Access', `
+The read side is fully typed via \`@zmdb/schema-core/dto\`. Three result shapes derive from your schema.
+
+## GetDTO — single row
+
+\`\`\`ts
+import { getResult, type GetDTO } from '@zmdb/schema-core/dto';
+
+type FullRow = GetDTO<typeof UserSchema>;                       // = Entity
+type Slim    = GetDTO<typeof UserSchema, { select: readonly ['id','email'] }>; // { id; email }
+
+const row = getResult(fetched, { select: ['id', 'email'] as const }); // narrowed at runtime
+\`\`\`
+
+## ListDTO + ListResult — collections with pagination metadata
+
+\`\`\`ts
+import { buildListResult, type ListDTO, type ListResult } from '@zmdb/schema-core/dto';
+
+const query: ListDTO<typeof UserSchema> = {
+  where: { role: 'admin' }, orderBy: [{ column: 'id' }], page: { limit: 20 },
+};
+// Fetch limit+1 rows, then:
+const result: ListResult<Row> = buildListResult(rows, { limit: 20, total });
+// { items, hasMore, total?, cursor? } — hasMore computed by trimming the extra row
+\`\`\`
+
+## SearchDTO — full-text + filters + ranking
+
+\`\`\`ts
+import { buildSearchResult, type SearchDTO } from '@zmdb/schema-core/dto';
+
+const search: SearchDTO<typeof DocSchema> = { query: 'wireless', columns: ['body'], rank: true };
+const result = buildSearchResult(hits, { limit: 20 }); // items carry an optional _score
+\`\`\`
+
+All three compose with [filters](./filters.html) (WhereDTO), [ordering & pagination](./pagination.html), and [projections](./projections.html). OpenAPI \`get\`/\`list\`/\`search\` response schemas are generated from the same source (see [OpenAPI](./openapi.html)).
+`),
+
+  projections: ok('Projections (partial select)', 'Data Access', `
+Narrow a row to a subset of columns — typed and runtime-applied.
+
+\`\`\`ts
+import { project, type Projection } from '@zmdb/schema-core/dto';
+
+type Slim = Projection<typeof UserSchema, 'id' | 'email'>; // { id: number; email: string }
+
+const slim = project(row, ['id', 'email'] as const); // new object, only those keys
+project(row, undefined); // passthrough — returns the row unchanged
+\`\`\`
+
+Projection never mutates the input row, and preserves the order of the requested columns. It underpins the \`select\` option on Get/List/Search DTOs.
 `),
 
   joins: ok('Joins', 'Data Access', `
