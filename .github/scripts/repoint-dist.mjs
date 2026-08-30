@@ -18,6 +18,7 @@ const ENTRIES = {
   },
   'query-compiler': {
     '.': 'index',
+    './dialect': 'dialect',
     './fts': 'fts',
     './joins': 'joins',
     './aggregations': 'aggregations',

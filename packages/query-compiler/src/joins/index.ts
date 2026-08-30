@@ -1,8 +1,8 @@
+import { formatIdentifier, formatPlaceholder } from '../dialect.ts';
 // Query-builder JOINs — implementation (#85). inner/left/right join + on() with
 // qualified columns + table aliasing, dialect-aware, parameterized. Pure string
 // compilation (no runtime type resolution).
 import type { CompiledQuery, Dialect } from '../index.ts';
-import { formatPlaceholder, quoteColumn, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
@@ -51,10 +51,10 @@ function make(d: Dialect, s: State): JoinableSelect {
     offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
-      let text = `SELECT * FROM ${quoteTable(d, s.table)}`;
+      let text = `SELECT * FROM ${formatIdentifier(d, s.table)}`;
       for (const j of s.joins) {
         const kw = j.kind === 'inner' ? 'INNER JOIN' : j.kind === 'left' ? 'LEFT JOIN' : 'RIGHT JOIN';
-        text += ` ${kw} ${quoteTable(d, j.target)} ON ${quoteColumn(d, j.leftCol)} = ${quoteColumn(d, j.rightCol)}`;
+        text += ` ${kw} ${formatIdentifier(d, j.target)} ON ${formatIdentifier(d, j.leftCol)} = ${formatIdentifier(d, j.rightCol)}`;
       }
       if (s.wheres.length > 0) {
         const parts = s.wheres.map(w => {
@@ -77,12 +77,12 @@ function make(d: Dialect, s: State): JoinableSelect {
             return `${quoteColumn(d, w.col)} ${w.op} (${subText})`;
           }
           params.push(w.value);
-          return `${quoteColumn(d, w.col)} ${w.op} ${formatPlaceholder(d, params.length)}`;
+          return `${formatIdentifier(d, w.col)} ${w.op} ${formatPlaceholder(d, params.length)}`;
         });
         text += ` WHERE ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${formatIdentifier(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;

@@ -1,9 +1,9 @@
+import { quoteIdentifier } from '../dialect.ts';
 // Migrations (#41–#44): snapshot a set of schemas, diff two snapshots into
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.
 export * from './runner.ts';
 import type { Dialect } from '../index.ts';
-import { quoteIdentifier } from '../quoting.ts';
 
 export interface ColumnSnapshot {
   readonly name: string;

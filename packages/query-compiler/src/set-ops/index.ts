@@ -1,3 +1,4 @@
+import { renumberPlaceholders } from '../dialect.ts';
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { renumberPlaceholders } from '../quoting.ts';

@@ -1,6 +1,4 @@
 import { UnsupportedFeatureError } from '../errors.ts';
-// Query-builder full-text search — implementation (#95). Per-dialect whereMatch:
-// pg to_tsvector/@@/to_tsquery; mysql MATCH...AGAINST; sqlite FTS5 JOIN compilation.
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
@@ -113,7 +111,6 @@ function make(d: Dialect, s: State): FtsSelect {
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }
-      }
       }
 
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;

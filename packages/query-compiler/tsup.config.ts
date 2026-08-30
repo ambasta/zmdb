@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    dialect: 'src/dialect.ts',
     fts: 'src/fts/index.ts',
     joins: 'src/joins/index.ts',
     aggregations: 'src/aggregations/index.ts',

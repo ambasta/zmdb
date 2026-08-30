@@ -5,10 +5,18 @@ export { UnsupportedFeatureError } from './errors.ts';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
+import {
+  type Dialect,
+  quoteIdentifier,
+  quoteColumn,
+  quoteTable,
+  formatIdentifier,
+  formatPlaceholder,
+  renumberPlaceholders,
+} from './dialect.ts';
 
-export type Dialect = 'postgres' | 'mysql' | 'sqlite';
-export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export type { Dialect };
+export { quoteIdentifier, quoteColumn, quoteTable, formatIdentifier, formatPlaceholder, renumberPlaceholders };
 export type Operator =
   | '='
   | '!='
