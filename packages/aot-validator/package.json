@@ -1,7 +1,29 @@
 {
   "name": "@zmdb/aot-validator",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.",
+  "keywords": [
+    "typescript",
+    "validation",
+    "aot",
+    "runtime-types",
+    "json",
+    "serialization",
+    "zmdb"
+  ],
+  "license": "MIT",
+  "author": "zmdb contributors",
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/aot-validator"
+  },
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./advanced": "./src/advanced/index.ts",
@@ -9,8 +31,16 @@
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=26"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "vitest run"

@@ -1,0 +1,53 @@
+name: Publish @zmdb packages to npm
+
+# Gated: only runs on a manual dispatch or a v* tag, and only if NPM_TOKEN is set.
+# See PUBLISHING.md. The @zmdb org/scope must already exist on npm.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (npm pack, do not publish)'
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Guard — require NPM_TOKEN
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it in repo Settings → Secrets → Actions. See PUBLISHING.md."
+            exit 1
+          fi
+      - name: Refresh publish metadata
+        run: node .github/scripts/prepare-publish.mjs
+      - name: Publish (or dry-run) each package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -e
+          for pkg in schema-core query-compiler aot-validator repository; do
+            echo "=== packages/$pkg ==="
+            cd "packages/$pkg"
+            if [ "$DRY" = "false" ]; then
+              npm publish --access public
+            else
+              npm pack --dry-run
+            fi
+            cd - >/dev/null
+          done

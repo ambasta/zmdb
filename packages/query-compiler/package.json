@@ -1,7 +1,30 @@
 {
   "name": "@zmdb/query-compiler",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.",
+  "keywords": [
+    "typescript",
+    "sql",
+    "query-builder",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "migrations",
+    "zmdb"
+  ],
+  "license": "MIT",
+  "author": "zmdb contributors",
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/query-compiler"
+  },
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./fts": "./src/fts/index.ts",
@@ -11,8 +34,16 @@
     "./set-ops": "./src/set-ops/index.ts",
     "./schema-objects": "./src/schema-objects/index.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=26"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "vitest run"
