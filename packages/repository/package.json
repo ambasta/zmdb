@@ -50,10 +50,10 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
-    "@types/pg": "^8",
-    "pg": "8.13.1",
-    "tsup": "8.5.0",
-    "typescript": "5.9.2"
+    "@types/pg": "^8.23.1",
+    "pg": "8.23.0",
+    "tsup": "8.5.1",
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=26"

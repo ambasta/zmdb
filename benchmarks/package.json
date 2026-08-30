@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:*",
-    "@zmdb/query-compiler": "workspace:*"
+    "@zmdb/query-compiler": "workspace:*",
+    "@zmdb/repository": "workspace:*",
+    "@zmdb/schema-core": "workspace:*"
   },
   "devDependencies": {
     "kysely": "^0.29.0"
