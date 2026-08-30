@@ -1945,6 +1945,40 @@ const deleted = await users.delete(created.id);
 // deleted: boolean
 \`\`\`
 
+## Typed filtering & pagination
+
+Beyond \`findById\`/\`findOne\`, the repository exposes typed \`find\` and \`list\`
+methods driven by the schema-derived [WhereDTO](./filters.html) and
+[pagination](./pagination.html) DTOs — no untyped \`Record\` filters.
+
+\`\`\`ts
+// find(where: WhereDTO<S>) → readonly Entity<S>[]
+const admins = await users.find({ role: 'admin', age: { gte: 18 } });
+
+// findOne(where) adds LIMIT 1
+const one = await users.findOne({ email: 'a@b.com' });
+
+// list(query) → ListResult<Entity<S>>  { items, hasMore, total?, cursor? }
+const page = await users.list({
+  where: { role: 'admin' },
+  orderBy: [{ column: 'createdAt', dir: 'desc' }],
+  page: { limit: 20 },
+});
+// page.items: readonly Entity<S>[]  ·  page.hasMore: boolean
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users" WHERE "role" = $1 AND "age" >= $2
+SELECT * FROM "users" WHERE "email" = $1 LIMIT 1
+SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
+\`\`\`
+
+> [!NOTE]
+> \`list\` fetches \`limit + 1\` rows and trims, so \`hasMore\` is computed without a
+> separate \`COUNT\`. The operator set (\`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/
+> isNull/notNull\`) and result shape come from [Filters](./filters.html) and the
+> [Read/Query DTOs](./read-dtos.html).
+
 ## Lifecycle Hooks
 
 Hooks fire synchronously around CRUD operations. Override them in your subclass.
