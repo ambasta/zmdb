@@ -9,7 +9,7 @@ import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
 import { isRecord } from '@zmdb/schema-core';
-import type { ColumnMeta, CoreSchema, Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import type { ColumnMeta, CoreSchema, Entity, CreateDTO, UpdateDTO, JoinRow } from '@zmdb/schema-core';
 import {
   compileWhere,
   applyOrderBy,
@@ -44,12 +44,22 @@ type EntityRow<S> = Entity<S> & Record<string, unknown>;
  * carried for documentation/introspection — the runtime reads neither.
  */
 export interface RelationDefLike {
-  readonly cardinality: Cardinality;
-  readonly childTable: string;
-  readonly childFk: string;
+  readonly cardinality?: Cardinality | 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many' | undefined;
+  readonly childTable?: string | undefined;
+  readonly childFk?: string | undefined;
   readonly parentKey?: string | undefined;
-  readonly meta?: RelationMeta | undefined;
-  readonly entity: CoreSchema<string>;
+  readonly meta?:
+    | {
+        cardinality?: Cardinality | 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many' | undefined;
+        target?: string | undefined;
+        fk?: string | undefined;
+        mappedBy?: string | undefined;
+        through?: string | undefined;
+        owning?: boolean | undefined;
+      }
+    | RelationMeta
+    | undefined;
+  readonly entity?: CoreSchema<string> | unknown;
 }
 
 /** A repository's relations map: relation name → definition. */
@@ -58,11 +68,20 @@ export type RelationsLike = Readonly<Record<string, RelationDefLike>>;
 /** A repository with no declared relations — the default for `BaseRepository`. */
 export type NoRelations = Readonly<Record<never, never>>;
 
+type RelationCardinality<D> = D extends { cardinality: infer C }
+  ? C
+  : D extends { meta: { cardinality: infer MC } }
+    ? MC
+    : never;
+
+type RelationEntity<D> = D extends { entity: infer E } ? (E extends CoreSchema<string> ? Entity<E> : E) : never;
+
 // The value attached for one populated relation: an array of child entities for
 // to-many, a single child (or null, when the FK matches nothing) for to-one.
-type PopulatedField<D extends RelationDefLike> = D['cardinality'] extends 'one-to-many' | 'many-to-many'
-  ? readonly Entity<D['entity']>[]
-  : Entity<D['entity']> | null;
+type PopulatedField<D extends RelationDefLike> =
+  RelationCardinality<D> extends 'one-to-many' | 'many-to-many'
+    ? readonly RelationEntity<D>[]
+    : RelationEntity<D> | null;
 
 /**
  * `Entity<S>` widened with exactly the relations that were populated (#217).
@@ -71,7 +90,7 @@ type PopulatedField<D extends RelationDefLike> = D['cardinality'] extends 'one-t
  * unpopulated relation a compile error instead of `undefined` at runtime — the
  * "no lazy getters" guarantee, stated as a type.
  */
-export type Populated<S, R extends RelationsLike, K extends keyof R> = Entity<S> & {
+export type Populated<S, R extends RelationsLike, K extends keyof R = keyof R> = Entity<S> & {
   readonly [P in K]: PopulatedField<R[P]>;
 };
 
@@ -183,7 +202,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   /** Batch-load and attach the named relations onto the given parent rows. */
-  private async attachRelations(parents: Record<string, unknown>[], names: readonly string[]): Promise<void> {
+  private async attachRelations<T extends Record<string, unknown>>(
+    parents: readonly T[],
+    names: readonly string[],
+  ): Promise<void> {
     if (parents.length === 0) return;
     // boundary: same static-side limitation as `schema` above; `relations` is the
     // optional half of the subclass contract.
@@ -191,32 +213,47 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     for (const name of names) {
       const def = relations[name];
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
+      const childTable = def.childTable ?? (def.meta as { target?: string } | undefined)?.target;
+      const childFk =
+        def.childFk ??
+        (def.meta as { mappedBy?: string; fk?: string } | undefined)?.mappedBy ??
+        (def.meta as { mappedBy?: string; fk?: string } | undefined)?.fk;
+      const cardinality = def.cardinality ?? (def.meta as { cardinality?: Cardinality } | undefined)?.cardinality;
+      if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? 'id';
-      const ids = parents.map(p => p[parentKey]);
+      const ids = parents.map(p => (p as Record<string, unknown>)[parentKey]);
       // One batched query for all parents' children (OR chain = IN).
-      let cb = this.qb.selectFrom(def.childTable);
+      let cb = this.qb.selectFrom(childTable);
       ids.forEach((id, i) => {
-        cb = i === 0 ? cb.where(def.childFk, '=', id) : cb.orWhere(def.childFk, '=', id);
+        cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
       });
       const children = await this.driver.execute(cb.compile());
-      const toMany = def.cardinality === 'one-to-many' || def.cardinality === 'many-to-many';
+      const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
       const byParent = new Map<unknown, Record<string, unknown>[]>();
       for (const c of children) {
-        const list = byParent.get(c[def.childFk]) ?? [];
+        const list = byParent.get(c[childFk]) ?? [];
         list.push(c);
-        byParent.set(c[def.childFk], list);
+        byParent.set(c[childFk], list);
       }
       for (const p of parents) {
-        const list = byParent.get(p[parentKey]) ?? [];
-        p[name] = toMany ? list : (list[0] ?? null);
+        const list = byParent.get((p as Record<string, unknown>)[parentKey]) ?? [];
+        (p as Record<string, unknown>)[name] = toMany ? list : (list[0] ?? null);
       }
     }
   }
 
-  async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined> {
+  async findOne<K extends keyof R & string>(
+    where: WhereDTO<S>,
+    opts: { populate: readonly K[] },
+  ): Promise<Populated<S, R, K> | undefined>;
+  async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined>;
+  async findOne(where: WhereDTO<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
     const b = compileWhere(this.qb.selectFrom(this.tableName), where);
-    const rows = await this.rows<Entity<S>>(b.limit(1).compile());
-    return rows[0];
+    const rows = await this.rows<EntityRow<S>>(b.limit(1).compile());
+    const row = rows[0];
+    if (!row || !opts?.populate?.length) return row;
+    await this.attachRelations([row], opts.populate);
+    return row;
   }
 
   async find(where: WhereDTO<S>): Promise<readonly Entity<S>[]>;
@@ -235,11 +272,22 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return parents;
   }
 
-  async findAll(): Promise<readonly Entity<S>[]> {
-    return this.rows<Entity<S>>(this.qb.selectFrom(this.tableName).compile());
+  async findAll<K extends keyof R & string>(opts: { populate: readonly K[] }): Promise<readonly Populated<S, R, K>[]>;
+  async findAll(): Promise<readonly Entity<S>[]>;
+  async findAll(opts?: { populate?: readonly string[] }): Promise<readonly Entity<S>[]> {
+    const rows = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
+    if (!opts?.populate?.length) return rows;
+    const parents = rows.map(r => ({ ...r }));
+    await this.attachRelations(parents, opts.populate);
+    return parents;
   }
 
-  async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>> {
+  async list<K extends keyof R & string>(
+    query: ListDTO<S> | undefined,
+    opts: { populate: readonly K[] },
+  ): Promise<ListResult<Populated<S, R, K>>>;
+  async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>>;
+  async list(query?: ListDTO<S>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<S>>> {
     let b = this.qb.selectFrom(this.tableName);
     const pkColumn = this.pkColumn;
 
@@ -284,13 +332,17 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     }
 
     const rows = await this.rows<EntityRow<S>>(b.compile());
-    const opts = {
+    const opts2 = {
       ...(limit !== undefined ? { limit } : {}),
       select: query?.select,
       orderBy: effectiveOrderBy,
       pkColumn,
     };
-    return buildListResult(rows, opts);
+    const res = buildListResult(rows, opts2);
+    if (opts?.populate?.length) {
+      await this.attachRelations(res.items, opts.populate);
+    }
+    return res;
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder;
@@ -304,12 +356,21 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #87 — JOIN integration. Fetch this table left-joined to a target on an FK,
   // filtered by a predicate on the base table. Returns flat joined rows (plain
   // objects — no proxies). Uses the query-compiler JOIN builder.
+  async findJoined<TargetS extends CoreSchema<string>, Kind extends 'inner' | 'left' = 'left'>(
+    join: { target: TargetS; leftCol: string; rightCol: string; kind?: Kind },
+    where?: { col: string; op: string; value: unknown },
+  ): Promise<readonly JoinRow<Entity<S>, Entity<TargetS>, Kind>[]>;
+  async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
+    join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
+    where?: { col: string; op: string; value: unknown },
+  ): Promise<readonly JoinRow<Entity<S>, Joined, Kind>[]>;
   async findJoined(
-    join: { target: string; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
+    join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
     where?: { col: string; op: string; value: unknown },
   ): Promise<readonly Record<string, unknown>[]> {
+    const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
     let b = joinableSelectFrom(this.tableName, this.dialect);
-    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, join.target, join.leftCol, join.rightCol);
+    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, targetTable, join.leftCol, join.rightCol);
     if (where) b = b.where(where.col, where.op, where.value);
     return this.driver.execute(b.compile());
   }
@@ -329,32 +390,45 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
   // one IN() query for children, and attaches them under `relationName`. No
   // proxies, no identity map — children are plain rows on plain parents.
+  async findAllWithMany<K extends keyof R & string>(relationName: K): Promise<readonly Populated<S, R, K>[]>;
   async findAllWithMany(
     relationName: string,
     childTable: string,
     childFk: string,
+    parentKey?: string,
+  ): Promise<readonly Record<string, unknown>[]>;
+  async findAllWithMany(
+    relationName: string,
+    childTable?: string,
+    childFk?: string,
     parentKey = 'id',
   ): Promise<readonly Record<string, unknown>[]> {
+    if (childTable && childFk) {
+      const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
+      const parents: Record<string, unknown>[] = fetched.map(p => ({ ...p }));
+      if (parents.length === 0) return parents;
+      const ids = parents.map(p => p[parentKey]);
+      let cb = this.qb.selectFrom(childTable);
+      ids.forEach((id, i) => {
+        cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
+      });
+      const children = await this.driver.execute(cb.compile());
+      const byParent = new Map<unknown, Record<string, unknown>[]>();
+      for (const c of children) {
+        const key = c[childFk];
+        const list = byParent.get(key) ?? [];
+        list.push({ ...c });
+        byParent.set(key, list);
+      }
+      for (const p of parents) {
+        p[relationName] = byParent.get(p[parentKey]) ?? [];
+      }
+      return parents;
+    }
     const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
     const parents: Record<string, unknown>[] = fetched.map(p => ({ ...p }));
     if (parents.length === 0) return parents;
-    const ids = parents.map(p => p[parentKey]);
-    let cb = this.qb.selectFrom(childTable);
-    // Build a single batched IN() via repeated OR on the FK (compiler-agnostic).
-    ids.forEach((id, i) => {
-      cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
-    });
-    const children = await this.driver.execute(cb.compile());
-    const byParent = new Map<unknown, Record<string, unknown>[]>();
-    for (const c of children) {
-      const key = c[childFk];
-      const list = byParent.get(key) ?? [];
-      list.push({ ...c });
-      byParent.set(key, list);
-    }
-    for (const p of parents) {
-      p[relationName] = byParent.get(p[parentKey]) ?? [];
-    }
+    await this.attachRelations(parents, [relationName]);
     return parents;
   }
 

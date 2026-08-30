@@ -128,39 +128,61 @@ export function compilePopulate(
   return { kind: 'batched', sql, parameters: [...parentIds] };
 }
 
+import type { CoreSchema, Entity } from '../index.ts';
+
 // #32 — compile-time relation type derivation.
 // A relations map describes each relation's target entity + cardinality.
 export interface RelationDef<TargetEntity = unknown> {
-  readonly meta: RelationMeta<TargetEntity>;
-  readonly entity?: TargetEntity;
-  readonly cardinality: Cardinality;
+  readonly meta?: RelationMeta<TargetEntity> | undefined;
+  readonly entity?: TargetEntity | CoreSchema<string> | undefined;
+  readonly cardinality?: Cardinality | undefined;
 }
 export type RelationsMap = Record<string, RelationDef | RelationMeta>;
+
+type DerivedEntity<T> = T extends CoreSchema<string> ? Entity<T> : T;
+
+type RelationEntityFromDef<D> = D extends RelationDef<infer E>
+  ? [unknown] extends [E]
+    ? D extends { entity: infer Ent }
+      ? DerivedEntity<Ent>
+      : never
+    : DerivedEntity<E>
+  : D extends RelationMeta<infer E>
+    ? [unknown] extends [E]
+      ? D extends { entity: infer Ent }
+        ? DerivedEntity<Ent>
+        : never
+      : DerivedEntity<E>
+    : D extends { entity: infer Ent }
+      ? DerivedEntity<Ent>
+      : never;
+
+type RelationCardinalityFromDef<D> = D extends { cardinality: infer C }
+  ? C
+  : D extends { meta: { cardinality: infer MC } }
+    ? MC
+    : D extends RelationMeta<unknown, string, infer MC>
+      ? MC
+      : never;
 
 // PopulatedEntity augments Base with related fields ONLY for populated keys K.
 // `Relations` is constrained structurally so plain interfaces work as relation
 // maps (no string index signature required).
 export type PopulatedEntity<
   Base,
-  Relations extends
-    | Record<string, RelationDef<unknown> | RelationMeta<unknown>>
-    | { [K: string]: RelationDef<unknown> | RelationMeta<unknown> },
-  K extends keyof Relations,
+  Relations extends Record<string, unknown> | { [K: string]: unknown },
+  K extends keyof Relations = keyof Relations,
 > = Base & {
-  [P in K]: Relations[P] extends RelationDef<infer E>
-    ? [unknown] extends [E]
-      ? never
-      : Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
-        ? E[]
-        : E
-    : Relations[P] extends RelationMeta<infer E>
-      ? [unknown] extends [E]
-        ? never
-        : Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
-          ? E[]
-          : E
-      : never;
+  [P in K]: RelationCardinalityFromDef<Relations[P]> extends 'one-to-many' | 'many-to-many'
+    ? readonly RelationEntityFromDef<Relations[P]>[]
+    : RelationEntityFromDef<Relations[P]>;
 };
+
+export type Populated<
+  Base,
+  Relations extends Record<string, unknown> | { [K: string]: unknown },
+  K extends keyof Relations = keyof Relations,
+> = PopulatedEntity<Base, Relations, K>;
 
 // #191 — attach a populated relation to a parent (non-mutating). Returns a new
 // object with `name` set to the related value (array for to-many, object/null
