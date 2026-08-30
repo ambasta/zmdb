@@ -68,7 +68,7 @@ export {
 export { extractParams, type PathParams, type QueryValues, type Ctx, type HandlerFor } from './context/index.ts';
 
 // Compile-time dependency injection: Container + @Inject. See ./di.
-export { Container, createToken, Inject, UnresolvedTokenError, type Token, type Constructor } from './di/index.ts';
+export { Container, createToken, Inject, UnresolvedTokenError, type Token, type Constructor, type Scope } from './di/index.ts';
 
 // Compile-time domain state machines (branded/phantom types). See ./state.
 export { defineState, transition, type Brand, type State } from './state/index.ts';
@@ -86,3 +86,13 @@ export {
 
 // zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.
 export { repositoryToken, validateWith } from './data/index.ts';
+
+// Modules & providers over the DI Container. See ./modules.
+export {
+  Module,
+  compileModule,
+  type ModuleDef,
+  type ModuleClass,
+  type ProviderDef,
+  type CompiledModule,
+} from './modules/index.ts';

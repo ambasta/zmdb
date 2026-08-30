@@ -79,28 +79,47 @@ export function Inject<T>(token: Token<T>) {
 /** A class constructor the container can build. */
 export type Constructor<T> = new () => T;
 
+/** Provider scope: a singleton is resolved once and cached; transient re-runs. */
+export type Scope = 'singleton' | 'transient';
+
 /** The explicit, opt-in DI registry. Resolution is O(1) by token identity. */
 export class Container {
   // Keyed by token identity. Values are the registered instances; each key's
   // value type is guaranteed by `register`'s typed signature.
   readonly #bindings = new Map<Token<unknown>, unknown>();
+  // Factory providers: token → { factory, scope }. Singleton factories cache
+  // their first result back into #bindings.
+  readonly #factories = new Map<Token<unknown>, { factory: (c: Container) => unknown; scope: Scope }>();
 
   /** Bind a token to an instance. The instance type is constrained to T. */
   register<T>(token: Token<T>, instance: T): void {
     this.#bindings.set(token, instance);
   }
 
-  /** True if the token is registered. */
+  /** Bind a token to a factory with a scope (default singleton). */
+  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): void {
+    this.#factories.set(token, { factory, scope });
+  }
+
+  /** True if the token is registered (as a value or a factory). */
   has<T>(token: Token<T>): boolean {
-    return this.#bindings.has(token);
+    return this.#bindings.has(token) || this.#factories.has(token);
   }
 
   /** Resolve a token to its instance, or throw UnresolvedTokenError. */
   resolve<T>(token: Token<T>): T {
-    if (!this.#bindings.has(token)) {
-      throw new UnresolvedTokenError(token.description);
+    if (this.#bindings.has(token)) {
+      return readBinding(this.#bindings, token);
     }
-    return readBinding(this.#bindings, token);
+    const provider = this.#factories.get(token);
+    if (provider !== undefined) {
+      const value = provider.factory(this);
+      if (provider.scope === 'singleton') {
+        this.#bindings.set(token, value);
+      }
+      return narrowFactoryValue<T>(value);
+    }
+    throw new UnresolvedTokenError(token.description);
   }
 
   /**
@@ -127,4 +146,12 @@ export class Container {
 function readBinding<T>(bindings: ReadonlyMap<Token<unknown>, unknown>, token: Token<T>): T {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return bindings.get(token) as T;
+}
+
+// boundary: a factory registered under Token<T> via registerFactory returns T by
+// construction; widening its `unknown` result to T is sound. Same enumerated DI
+// boundary as readBinding (ARCHITECTURE.md §2.1); never on the consumer surface.
+function narrowFactoryValue<T>(value: unknown): T {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  return value as T;
 }
