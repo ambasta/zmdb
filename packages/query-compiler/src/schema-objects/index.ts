@@ -17,11 +17,14 @@ export interface IndexDef {
   unique?: boolean;
   where?: string;
 }
-export function createIndexDdl(_def: IndexDef, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
+  const cols = def.columns.map((c) => quoteId(dialect, c)).join(', ');
+  const unique = def.unique ? 'UNIQUE ' : '';
+  const where = def.where ? ` WHERE ${def.where}` : '';
+  return `CREATE ${unique}INDEX ${quoteId(dialect, def.name)} ON ${quoteId(dialect, def.table)} (${cols})${where}`;
 }
-export function checkConstraintDdl(_table: string, _name: string, _expr: string, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function checkConstraintDdl(table: string, name: string, expr: string, dialect: Dialect): string {
+  return `ALTER TABLE ${quoteId(dialect, table)} ADD CONSTRAINT ${quoteId(dialect, name)} CHECK (${expr})`;
 }
 
 // §2 views
