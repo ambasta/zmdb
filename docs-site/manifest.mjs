@@ -5723,7 +5723,36 @@ See also: [Repository](./repository.html) · [Embeddables](./embeddables.html) �
 
   // ---------------- Integrations ----------------
   'drivers': ok('Drivers', 'Integrations', `
-Drivers are zmdb's abstraction over database connections. A Driver is a simple interface — just an \`execute\` method that runs compiled SQL. This minimal surface area makes it easy to adapt zmdb to any database driver or connection pool.
+Drivers are zmdb's abstraction over database connections. A Driver is a simple interface — just an \`execute\` method that runs compiled SQL. zmdb ships **first-party adapters** so you don't have to write one, and the interface stays open for any other database.
+
+## First-party drivers
+
+\`\`\`ts
+// node:sqlite — zero external dependencies
+import { DatabaseSync } from 'node:sqlite';
+import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+
+const db = new DatabaseSync('app.db');
+const users = new UserRepository(sqliteDriver(db), 'sqlite');
+\`\`\`
+
+\`\`\`ts
+// pg (node-postgres)
+import { Pool } from 'pg';
+import { pgDriver } from '@zmdb/repository/drivers/pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const users = new UserRepository(pgDriver(pool), 'postgres');
+
+// opt-in server-side prepared statements (caches the query plan):
+const fast = pgDriver(pool, { prepared: true });
+\`\`\`
+
+> [!TIP]
+> \`pg\` is an optional dependency — install it only if you use the pg driver. The
+> sqlite driver uses the built-in \`node:sqlite\`, so a zero-dependency setup works
+> out of the box. Prepared statements are opt-in to preserve the zero-state
+> default (see the [benchmarks](../benchmarks/index.html) tail-latency note).
 
 ## The Driver Interface
 
@@ -5737,9 +5766,9 @@ export interface Driver {
 
 A driver receives compiled SQL (text + parameters) and returns the raw database result. There's no ORM-layer magic — you control exactly what runs against your database.
 
-## Implementing a Driver
+## Implementing your own driver
 
-Implement the interface for your database. Here's a minimal node:sqlite driver:
+Implement the interface for any other database. Here's a minimal node:sqlite driver:
 
 \`\`\`ts
 import Database from 'better-sqlite3';
