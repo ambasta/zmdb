@@ -61,3 +61,5 @@ function createPolicyDdl(p: RlsPolicy, dialect): string; // CREATE POLICY "n" ON
   throws an honest `UnsupportedFeatureError` (never silently wrong).
 
 <!-- §3 sequences frozen: CREATE SEQUENCE with optional START/INCREMENT. -->
+
+<!-- §4 generated columns frozen: GENERATED ALWAYS AS (expr) [STORED]. -->
