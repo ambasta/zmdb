@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./transactions": "./src/transactions/index.ts",
-    "./replicas": "./src/replicas/index.ts"
+    "./replicas": "./src/replicas/index.ts",
+    "./integrations": "./src/integrations/index.ts"
   },
   "engines": {
     "node": ">=26"
