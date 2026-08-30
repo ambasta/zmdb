@@ -137,3 +137,31 @@ type SearchResult<Row> = ListResult<SearchHit<Row>>;
 - Type-level (`expectTypeOf`) assertions for each derived type.
 - Runtime golden SQL for `compileWhere`, order/pagination.
 - No proxies/identity map; parameterized SQL.
+
+## 8. AggregateResult<S, Spec> (#197/#198/#199)
+
+```ts
+type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
+interface AggregateSpec<S> {
+  groupBy?: readonly (keyof Entity<S>)[];
+  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<S> }>>;
+}
+type AggComputedType<S, C> = C extends { fn: 'count' } ? number
+  : C extends { fn: 'sum' | 'avg' } ? number | null
+  : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> } ? Entity<S>[Col] | null
+  : number | null;
+
+type AggregateResult<S, Spec extends AggregateSpec<S>> =
+  // groupBy key columns, typed from the entity
+  { [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K] }
+  // one typed field per computed aggregate
+  & { [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]> };
+```
+
+- `count` ⇒ `number`; `sum`/`avg` ⇒ `number | null`; `min`/`max` ⇒ the source
+  column's type `| null`.
+- The result row is the group-key columns plus one field per computed aggregate.
+- Compile-time only; the query-compiler `aggregateSelectFrom` produces the SQL.
+- Runtime `describeAggregate(spec)` returns the ordered field list (for callers
+  that assemble typed rows); frozen: group-key fields first (spec order), then
+  computed fields (spec key order).
