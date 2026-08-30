@@ -830,18 +830,69 @@ Projection never mutates the input row, and preserves the order of the requested
 `),
 
   joins: ok('Joins', 'Data Access', `
-Real SQL joins across tables, typed against the participating schemas.
+Real SQL joins across tables, compiled to parameterized, dialect-correct SQL and
+typed against the participating schemas. Joins also power the to-one relation
+[populate](./relations.html) strategy.
+
+The examples use \`orders(id, userId, status)\` joined to \`users(id, email)\`.
+
+## Inner join
 
 \`\`\`ts
-this.query
-  .selectFrom('orders')
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+
+joinableSelectFrom('orders', 'postgres')
   .innerJoin('users', 'orders.userId', 'users.id')
-  .select(['orders.id', 'users.email'])
   .where('orders.status', '=', 'shipped')
-  .execute();
+  .compile();
 \`\`\`
 
-\`innerJoin\`, \`leftJoin\` are supported. Joins power the to-one relation \`populate\` strategy.
+\`\`\`sql
+SELECT * FROM "orders"
+INNER JOIN "users" ON "orders"."userId" = "users"."id"
+WHERE "orders"."status" = $1
+\`\`\`
+
+## Left join
+
+A left join keeps base rows even when there is no match — the joined columns may
+be null (reflected by \`JoinRow<Base, Joined, 'left'>\`).
+
+\`\`\`ts
+joinableSelectFrom('employees as e', 'postgres')
+  .leftJoin('employees as r', 'r.id', 'e.recipient_id')
+  .where('e.id', '=', 1)
+  .compile();
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "employees" AS "e"
+LEFT JOIN "employees" AS "r" ON "r"."id" = "e"."recipient_id"
+WHERE "e"."id" = $1
+\`\`\`
+
+## Self-join & aliases
+
+As above, table aliases (\`table as alias\`) let a table join itself. Use
+[\`aliasRow\`](./populate-results.html) to rename the aliased columns into a clean
+typed shape.
+
+## Through the repository
+
+\`\`\`ts
+await orders.findJoined(
+  { target: 'users', leftCol: 'orders.userId', rightCol: 'users.id', kind: 'inner' },
+  { col: 'orders.status', op: '=', value: 'shipped' },
+);
+\`\`\`
+
+> [!TIP]
+> Joined rows come back as **flat plain objects** (no nested proxies). For typed
+> nested relation shapes use [populate](./relations.html); for a typed flat join
+> row use [\`JoinRow\`](./populate-results.html).
+
+This is one of the routes exercised in the drizzle-benchmarks harness against
+real PostgreSQL — see the [benchmarks](../benchmarks/index.html).
 `),
 
   'populate-results': ok('Typed Populate & Join Results', 'Data Access', `
@@ -874,18 +925,60 @@ const clean = aliasRow(row, { r_id: 'recipientId', r_name: 'recipientName' });
 `),
 
   aggregations: ok('Aggregations', 'Data Access', `
+Grouped aggregates — \`count\`, \`sum\`, \`avg\`, \`min\`, \`max\` with \`GROUP BY\` and
+\`HAVING\` — compiled to real SQL and verified against PostgreSQL in the
+[benchmarks](../benchmarks/index.html).
+
+## Count
+
 \`\`\`ts
-this.query
-  .selectFrom('orders')
-  .select(['userId'])
-  .count('id', 'orderCount')
-  .sum('totalPrice', 'revenue')
-  .groupBy(['userId'])
-  .having('orderCount', '>', 5)
-  .execute();
+import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+
+aggregateSelectFrom('orders', 'postgres').count('id', 'orderCount').compile();
 \`\`\`
 
-\`count\`, \`sum\`, \`avg\`, \`min\`, \`max\` with \`groupBy\`/\`having\` are supported and verified against real PostgreSQL in the [benchmarks](../benchmarks/index.html).
+\`\`\`sql
+SELECT COUNT("id") AS "orderCount" FROM "orders"
+\`\`\`
+
+## Group by + multiple aggregates
+
+\`\`\`ts
+aggregateSelectFrom('orders', 'postgres')
+  .select(['userId'])
+  .count('id', 'orderCount')
+  .sum('total', 'revenue')
+  .groupBy(['userId'])
+  .compile();
+\`\`\`
+
+\`\`\`sql
+SELECT "userId", COUNT("id") AS "orderCount", SUM("total") AS "revenue"
+FROM "orders" GROUP BY "userId"
+\`\`\`
+
+## Having
+
+Filter on an aggregate with \`having\`:
+
+\`\`\`ts
+aggregateSelectFrom('orders', 'postgres')
+  .select(['userId'])
+  .count('id', 'orderCount')
+  .groupBy(['userId'])
+  .having('orderCount', '>', 5)
+  .compile();
+\`\`\`
+
+\`\`\`sql
+SELECT "userId", COUNT("id") AS "orderCount" FROM "orders"
+GROUP BY "userId" HAVING COUNT("id") > $1
+\`\`\`
+
+> [!TIP]
+> The result row is **typed** from the spec — group-key columns plus one field
+> per computed aggregate, with correct \`number\` / \`number | null\` typing. See
+> [Typed aggregate results](./aggregate-results.html).
 `),
 
   'aggregate-results': ok('Typed Aggregate Results', 'Data Access', `
@@ -913,16 +1006,44 @@ Typing rules: \`count\` ⇒ \`number\`; \`sum\`/\`avg\` ⇒ \`number | null\`; \
 `),
 
   'full-text-search': ok('Full-Text Search', 'Data Access', `
-Postgres full-text search is expressible directly in the builder.
+PostgreSQL full-text search is expressible directly in the query builder, and a
+typed [SearchDTO](./read-dtos.html) layers ranking + paging on top.
+
+## Match a term
 
 \`\`\`ts
-this.query
-  .selectFrom('products')
-  .whereFullText('description', 'wireless headphones')
-  .execute();
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+
+ftsSelectFrom('products', 'postgres').whereMatch('description', 'wireless headphones').compile();
 \`\`\`
 
-Compiles to a \`to_tsvector\`/\`to_tsquery\` predicate. This is one of the routes exercised in the drizzle-benchmarks harness against real Postgres.
+\`\`\`sql
+SELECT * FROM "products"
+WHERE to_tsvector("description") @@ to_tsquery($1)
+\`\`\`
+
+## Through the repository
+
+\`\`\`ts
+await products.findByFullText('description', 'wireless headphones');
+\`\`\`
+
+## Ranked search with SearchDTO
+
+\`\`\`ts
+import { buildSearchResult, type SearchDTO } from '@zmdb/schema-core/dto';
+
+const search: SearchDTO<typeof ProductSchema> = {
+  query: 'wireless', columns: ['description'], rank: true,
+};
+const result = buildSearchResult(hits, { limit: 20 }); // items carry an optional _score
+\`\`\`
+
+> [!IMPORTANT]
+> FTS is dialect-specific. On SQLite (no arbitrary-column FTS without FTS5),
+> \`findByFullText\` throws an honest \`UnsupportedFeatureError\` rather than
+> silently running a wrong query. This is one of the routes exercised against
+> real Postgres in the [benchmarks](../benchmarks/index.html).
 `),
 
   aliases: ok('Aliases', 'Data Access', `
