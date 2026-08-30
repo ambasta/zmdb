@@ -7,6 +7,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     dto: 'src/dto/index.ts',
+    relations: 'src/relations/index.ts',
     'custom-types': 'src/custom-types/index.ts',
     seeding: 'src/seeding/index.ts',
     llm: 'src/llm/index.ts',
