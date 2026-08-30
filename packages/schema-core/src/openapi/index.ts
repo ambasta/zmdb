@@ -3,7 +3,7 @@
 // logic that the shared golden suite exercises). Build-time, no reflection.
 import type { CoreSchema, ColumnMeta } from '../index.ts';
 
-export type Variant = 'entity' | 'create' | 'update';
+export type Variant = 'entity' | 'create' | 'update' | 'get' | 'list' | 'search';
 
 export interface JsonSchemaObject {
   readonly type: 'object';
@@ -83,9 +83,10 @@ export function toJsonSchema(
   schema: CoreSchema<string>,
   variant: Variant = 'entity',
 ): JsonSchemaObject {
+  const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   const entries = Object.entries(schema.columns)
-    // create/update omit auto-increment columns.
-    .filter(([, col]) => (variant === 'entity' ? true : col.flags.autoIncrement !== true))
+    // create/update omit auto-increment columns; response variants keep all.
+    .filter(([, col]) => (isResponse ? true : col.flags.autoIncrement !== true))
     .sort(([a], [b]) => a.localeCompare(b));
 
   const properties: Record<string, unknown> = {};
@@ -95,7 +96,7 @@ export function toJsonSchema(
     properties[name] = scalarSchema(col);
     if (variant === 'update') continue; // all optional
     const optional = col.flags.hasDefault === true || col.flags.nullable === true;
-    if (variant === 'entity') {
+    if (isResponse) {
       if (!col.flags.nullable) required.push(name);
     } else if (!optional) {
       required.push(name);
@@ -141,4 +142,18 @@ export function toOpenApiComponents(
     out[pascalCase(s.table)] = toJsonSchema(s, 'entity');
   }
   return { schemas: out };
+}
+
+// #175 — read-variant envelopes. list wraps the entity in a paged envelope;
+// search adds an optional _score to each item. Build-time, deterministic.
+export interface EnvelopeSchema {
+  readonly type: 'object';
+  readonly properties: Readonly<Record<string, unknown>>;
+  readonly required: readonly string[];
+}
+export function toListSchema(_schema: CoreSchema<string>): EnvelopeSchema {
+  throw new Error('not implemented');
+}
+export function toSearchSchema(_schema: CoreSchema<string>): EnvelopeSchema {
+  throw new Error('not implemented');
 }
