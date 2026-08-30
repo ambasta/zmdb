@@ -1,6 +1,15 @@
 import { tags as srcTags } from '@zmdb/aot-validator';
 import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
 import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
+import {
+  driverMigrationConnection as srcDMC,
+  createMigrationConnection as srcCMC,
+  driverAdapter as srcDA,
+  up as srcUp,
+  down as srcDown,
+  status as srcStatus,
+  runCli as srcRunCli,
+} from '@zmdb/query-compiler/migrations';
 import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
 import {
   boolean as srcBoolean,
@@ -31,8 +40,15 @@ import {
   tags,
   text,
   timestamp,
+  up,
   UnsupportedFeatureError,
   validate,
+  down,
+  status,
+  runCli,
+  driverMigrationConnection,
+  createMigrationConnection,
+  driverAdapter,
 } from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
@@ -68,5 +84,15 @@ describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports unplugin zmdbAot via zmdb/unplugin', async () => {
     const unplugin = await import('./unplugin.ts');
     expect(typeof unplugin.zmdbAot).toBe('function');
+  });
+
+  it('re-exports migration runner and driver adapters', () => {
+    expect(up).toBe(srcUp);
+    expect(down).toBe(srcDown);
+    expect(status).toBe(srcStatus);
+    expect(runCli).toBe(srcRunCli);
+    expect(driverMigrationConnection).toBe(srcDMC);
+    expect(createMigrationConnection).toBe(srcCMC);
+    expect(driverAdapter).toBe(srcDA);
   });
 });

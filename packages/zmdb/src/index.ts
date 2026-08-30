@@ -25,10 +25,20 @@ export {
 } from '@zmdb/schema-core';
 export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta } from '@zmdb/schema-core';
 
-// Query compiler.
+// Query compiler & Migrations.
 export { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
-
+export {
+  driverMigrationConnection,
+  createMigrationConnection,
+  driverAdapter,
+  ensureVersionTable,
+  up,
+  down,
+  status,
+  runCli,
+} from '@zmdb/query-compiler/migrations';
 export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
+export type { Migration, MigrationConnection, MigrationStatus } from '@zmdb/query-compiler/migrations';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.
 export { is, assert, validate } from '@zmdb/aot-validator/utilities';

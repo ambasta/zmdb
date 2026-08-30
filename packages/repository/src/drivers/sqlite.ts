@@ -31,6 +31,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Driver {
   const cache = new Map<string, CachedStatement>();
 
   return {
+    dialect: 'sqlite',
     async execute(q) {
       let entry = maxCacheSize > 0 ? cache.get(q.text) : undefined;
       if (!entry) {

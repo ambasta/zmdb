@@ -7,6 +7,7 @@ export default defineConfig({
     joins: 'src/joins/index.ts',
     aggregations: 'src/aggregations/index.ts',
     migrations: 'src/migrations/index.ts',
+    'migrations/runner': 'src/migrations/runner.ts',
     'set-ops': 'src/set-ops/index.ts',
     'schema-objects': 'src/schema-objects/index.ts',
   },
