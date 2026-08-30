@@ -10,7 +10,7 @@ export default defineConfig({
     web: 'src/web.ts',
   },
   format: ['esm'],
-  dts: true,
+  dts: false,
   clean: true,
   target: 'node22',
   external: [/^@zmdb\//],

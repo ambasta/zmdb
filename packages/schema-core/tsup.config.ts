@@ -14,7 +14,7 @@ export default defineConfig({
     llm: 'src/llm/index.ts',
   },
   format: ['esm'],
-  dts: true,
+  dts: false,
   clean: true,
   target: 'node22',
   external: [/^@zmdb\//],

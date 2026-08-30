@@ -13,7 +13,9 @@
     "./unplugin": "./src/unplugin.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
@@ -21,6 +23,10 @@
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "@zmdb/web": "workspace:^"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=26"

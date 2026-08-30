@@ -38,6 +38,8 @@ const ENTRIES = {
     './replicas': 'replicas',
     './integrations': 'integrations',
     './entity-modeling': 'entity-modeling',
+    './drivers/sqlite': 'drivers-sqlite',
+    './drivers/pg': 'drivers-pg',
   },
   web: {
     '.': 'index',

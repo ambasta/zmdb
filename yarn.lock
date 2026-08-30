@@ -3029,5 +3029,7 @@ __metadata:
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     "@zmdb/web": "workspace:^"
+    tsup: "npm:8.5.1"
+    typescript: "npm:^7.0.2"
   languageName: unknown
   linkType: soft
