@@ -299,29 +299,60 @@ export const OrderSchema = defineSchema('orders', {
 `),
 
   'column-types': ok('Column Types', 'Schema', `
-The builder functions map to SQL column types and drive both the derived TypeScript type and the DDL emitted by migrations.
+The builder functions map to SQL column types and drive both the derived
+TypeScript type and the DDL emitted by [migrations](./migrations.html).
 
-| Builder | TS type | Notes |
-|---------|---------|-------|
-| \`serial()\` | \`number\` | auto-increment; omitted from \`CreateDTO\` |
-| \`integer()\` | \`number\` | |
-| \`numeric()\` | \`number\` | fixed precision |
-| \`text()\` | \`string\` | |
-| \`timestamp()\` | \`Date\` | \`.defaultTo('now')\` supported |
-| \`jsonEnum([...])\` | union of literals | e.g. \`'admin'\\|'user'\` |
-| \`boolean()\` | \`boolean\` | |
+## Type mapping
+
+| Builder | SQL | TS type |
+|---------|-----|---------|
+| \`serial()\` | \`SERIAL\` / auto-inc PK | \`number\` (omitted from \`CreateDTO\`) |
+| \`integer()\` | \`INTEGER\` | \`number\` |
+| \`bigint()\` | \`BIGINT\` | \`bigint\` |
+| \`numeric()\` | \`NUMERIC\` | \`number\` |
+| \`text()\` | \`TEXT\` | \`string\` |
+| \`varchar()\` | \`VARCHAR(n)\` | \`string\` |
+| \`boolean()\` | \`BOOLEAN\` | \`boolean\` |
+| \`timestamp()\` | \`TIMESTAMP\` | \`Date\` |
+| \`json()\` | \`JSON\` / \`JSONB\` | \`unknown\` |
+| \`jsonEnum([...])\` | \`TEXT\` + check | union of the literals |
 
 ## Modifiers
+
+Modifiers are pure and chainable; they return frozen column metadata.
 
 \`\`\`ts
 serial().primaryKey()
 text().notNull()
-jsonEnum(['a','b']).notNull().defaultTo('a')
+varchar().notNull() // length via the builder
+jsonEnum(['admin', 'user']).notNull().defaultTo('user')
 integer().notNull().references('users.id')
-text().validate(tags.Pattern('...'))
+text().validate(tags.Pattern('^[^@]+@[^@]+\\\\.[^@]+$'))
+timestamp().notNull().defaultTo('now')
 \`\`\`
 
-\`.notNull()\` makes the field required; a column with \`.defaultTo()\` or \`serial()\` becomes **optional in \`CreateDTO\`**.
+## How columns become DDL
+
+A schema diffs into \`CREATE TABLE\` DDL through migrations:
+
+\`\`\`sql
+CREATE TABLE "users" (
+  "id" SERIAL PRIMARY KEY,
+  "email" TEXT NOT NULL,
+  "role" TEXT NOT NULL DEFAULT 'user',
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now()
+);
+\`\`\`
+
+> [!TIP]
+> \`.notNull()\` makes a field **required**; a column with \`.defaultTo()\` or
+> \`serial()\` becomes **optional in \`CreateDTO\`** and is omitted where
+> auto-generated. \`nullable\` columns become \`T | null\` in \`Entity\`. See
+> [Type derivation](./type-derivation.html).
+
+For richer schema objects (indexes, generated columns, sequences), see
+[Indexes & constraints](./indexes-constraints.html) and
+[Generated columns](./generated-columns.html).
 `),
 
   'type-derivation': ok('Type Derivation', 'Schema', `
@@ -346,6 +377,15 @@ type UpdateUser = UpdateDTO<typeof UserSchema>;
 - **UpdateDTO** — \`Partial<CreateDTO>\`.
 
 These are the same types the validators and serializers are generated against, so the request DTO, the DB write, and the response type can never drift apart.
+
+> [!IMPORTANT]
+> This is the anti-drift guarantee: change a column and all three types update.
+> Any code that no longer satisfies them **fails to compile** — there is no
+> runtime schema object to fall out of sync with.
+
+Beyond the write triad, the **read side** also derives typed DTOs —
+\`GetDTO\`, \`ListDTO\`/\`ListResult\`, \`SearchDTO\`, \`Projection\`,
+\`Populated\` and \`AggregateResult\`. See [Read/Query DTOs](./read-dtos.html).
 `),
 
   relations: ok('Relations', 'Schema', `
