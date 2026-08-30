@@ -1,16 +1,21 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": "../..",
     "outDir": "dist",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false,
     "paths": {
-      "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
-      "@zmdb/aot-validator": ["../aot-validator/dist/index.d.ts"],
-      "@zmdb/aot-validator/utilities": ["../aot-validator/dist/utilities.d.ts"],
-      "@zmdb/repository": ["../repository/dist/index.d.ts"]
+      "@zmdb/schema-core": ["../schema-core/src/index.ts"],
+      "@zmdb/schema-core/dto": ["../schema-core/src/dto/index.ts"],
+      "@zmdb/query-compiler": ["../query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/fts": ["../query-compiler/src/fts/index.ts"],
+      "@zmdb/query-compiler/joins": ["../query-compiler/src/joins/index.ts"],
+      "@zmdb/query-compiler/aggregations": ["../query-compiler/src/aggregations/index.ts"],
+      "@zmdb/aot-validator": ["../aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/utilities": ["../aot-validator/src/utilities/index.ts"],
+      "@zmdb/repository": ["../repository/src/index.ts"]
     }
   },
   "include": [
