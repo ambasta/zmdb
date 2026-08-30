@@ -27,6 +27,22 @@ input throws a structured error; on valid input equals `stringify` output.
 `parse(text)` → `{ success, data?, issues? }`. Parses JSON then validates into `T`.
 Malformed JSON or validation failure yields `success:false` with issues.
 
+### Performance acceptance (frozen — #162)
+
+`parse` (and the transformer's generated `aotParseSafe`) must **not rebuild** the
+value — for a plain structural type there is no transform/coercion, so the
+parsed input *is* the result. Frozen invariants:
+
+- `parse(JSON.stringify(obj))` on success returns `data` that is **structurally
+  equal** to `obj` (deep-equal), with **no wasteful clone** — the shipped `parse`
+  returns the `JSON.parse` result directly (identity of the freshly-parsed
+  object), not a field-by-field rebuilt copy.
+- The transformer's `aotParseSafe(d)` returns `d` (the validated input) rather
+  than a `{ a: d.a, … }` rebuild; the earlier rebuild made parse ~1.56× slower
+  in a low-noise probe (153M→98M ops/s) and was the entire source of the
+  parse-case gap vs typia. Acceptance: passthrough parse throughput ≥ rebuild
+  throughput (regression-guarded by a micro-probe).
+
 ## 5. Correctness contract
 
 For all supported values `v`: `JSON.parse(stringify(v))` deep-equals `v`, and
