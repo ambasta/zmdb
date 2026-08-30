@@ -8,7 +8,7 @@
 export const NAV = [
   { title: 'Getting Started', pages: ['introduction', 'installation', 'aot-setup', 'pure-typescript'] },
   { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
-  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'joins', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
+  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'joins', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
   { title: 'Migrations', pages: ['migrations', 'migrations-cli', 'seeding'] },
   { title: 'Validation', pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'] },
@@ -338,6 +338,53 @@ Through the repository, prefer \`delete(id)\`, which returns a boolean.
 \`\`\`
 
 Supported operators include \`=\`, \`!=\`, \`<\`, \`<=\`, \`>\`, \`>=\`, \`in\`, \`not in\`, \`like\`, \`is null\`, \`is not null\`. Values are always parameterized.
+
+## Typed filters — WhereDTO
+
+For the repository/read side there is a **typed** filter DTO derived from your schema (\`@zmdb/schema-core/dto\`). Each column is keyed to its value type with an operator set, and \`compileWhere\` folds it into the query builder.
+
+\`\`\`ts
+import { compileWhere, type WhereDTO } from '@zmdb/schema-core/dto';
+
+const where: WhereDTO<typeof UserSchema> = {
+  age: { gte: 18, lt: 65 },     // ANDed comparisons
+  role: 'admin',                 // bare value ⇒ eq
+  email: { like: '%@corp.com' }, // like/ilike only on string fields
+  or: [{ id: { in: [1, 2] } }, { email: { isNull: true } }],
+};
+compileWhere(builder, where); // → parameterized WHERE clauses
+\`\`\`
+
+Operators: \`eq/ne/lt/lte/gt/gte\`, \`in/nin\`, \`like/ilike\`, \`isNull/notNull\`, with \`and\`/\`or\` group composition. \`like\`/\`ilike\` are a **compile-time error** on non-string fields.
+`),
+
+  pagination: ok('Ordering & Pagination', 'Data Access', `
+Typed ordering and pagination DTOs from \`@zmdb/schema-core/dto\`.
+
+## OrderByDTO
+
+\`\`\`ts
+import { applyOrderBy, type OrderByDTO } from '@zmdb/schema-core/dto';
+
+const order: OrderByDTO<typeof UserSchema> = [
+  { column: 'age', dir: 'desc' },
+  { column: 'id' }, // dir defaults to 'asc'
+];
+applyOrderBy(builder, order); // → ORDER BY "age" DESC, "id" ASC
+\`\`\`
+
+Columns are constrained to your entity's keys (typo = compile error).
+
+## PaginationDTO
+
+\`\`\`ts
+import { applyPagination, type PaginationDTO } from '@zmdb/schema-core/dto';
+
+applyPagination(builder, { limit: 20, offset: 40 }); // → LIMIT 20 OFFSET 40
+applyPagination(builder, { limit: 20 });             // → LIMIT 20
+\`\`\`
+
+Offset pagination emits \`LIMIT/OFFSET\`; keyset (cursor) pagination is supported via \`{ limit, after }\` on a stable order key (typically the primary key). Both helpers pass the builder through unchanged when the argument is \`undefined\`.
 `),
 
   joins: ok('Joins', 'Data Access', `
