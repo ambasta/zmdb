@@ -28,7 +28,8 @@
     "./transactions": "./src/transactions/index.ts",
     "./replicas": "./src/replicas/index.ts",
     "./integrations": "./src/integrations/index.ts",
-    "./entity-modeling": "./src/entity-modeling/index.ts"
+    "./entity-modeling": "./src/entity-modeling/index.ts",
+    "./drivers/sqlite": "./src/drivers/sqlite.ts"
   },
   "files": [
     "src",
