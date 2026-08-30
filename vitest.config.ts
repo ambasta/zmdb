@@ -1,6 +1,47 @@
 import { defineConfig } from 'vitest/config';
+import { transform as esbuildTransform } from 'esbuild';
+import type { Plugin } from 'vite';
+
+// --- Stage-3 decorator transform for vitest -------------------------------
+// The bumped toolchain (Vitest 4 / Vite 8 / Rolldown + oxc 0.147) does NOT lower
+// TC39 **standard** (Stage 3) decorators — oxc passes the syntax through, and no
+// JS engine (Node 26 / V8) yet executes standard decorators, so importing a
+// decorated module throws "SyntaxError: Invalid or unexpected token". Native TS7
+// (tsgo) exposes no JS transform API (`transpileModule` is undefined), so we
+// realize the Stage-3 proposal at test time with esbuild (which lowers standard
+// decorators to helper calls).
+//
+// This is TEST-EXECUTION ONLY. Our source, tsconfig and shipped build all keep
+// the ESNext (ES2026+) target and use Stage-3 decorators natively — the package
+// is built for distribution by tsup. The plugin only rewrites `.ts` files that
+// actually contain a decorator, so non-decorator modules keep oxc's fast path.
+const DECORATED = /(^|\n)\s*@[A-Za-z_$]/;
+
+function stage3Decorators(): Plugin {
+  return {
+    name: 'zmdb:stage3-decorators',
+    enforce: 'pre',
+    async transform(code, id) {
+      const file = id.split('?')[0] ?? id;
+      if (!file.endsWith('.ts') || file.includes('/node_modules/')) return null;
+      if (!DECORATED.test(code)) return null;
+      // esbuild realizes standard decorators (experimentalDecorators off) into
+      // helper calls; target es2022 keeps output otherwise-modern.
+      const result = await esbuildTransform(code, {
+        loader: 'ts',
+        format: 'esm',
+        target: 'es2022',
+        sourcefile: file,
+        sourcemap: true,
+        tsconfigRaw: { compilerOptions: { experimentalDecorators: false, useDefineForClassFields: true } },
+      });
+      return { code: result.code, map: result.map };
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [stage3Decorators()],
   test: {
     // All package tests live alongside sources under packages/*/src.
     include: ['packages/*/src/**/*.spec.ts', 'benchmarks/src/**/*.spec.ts'],
