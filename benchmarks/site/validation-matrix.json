@@ -1,58 +1,58 @@
 {
   "node": {
     "zmdb": {
-      "parseSafe": 1617840,
-      "parseStrict": 1294175,
-      "assertLoose": 5682562,
-      "assertStrict": 1295224
+      "parseSafe": 1212206,
+      "parseStrict": 1006287,
+      "assertLoose": 4113625,
+      "assertStrict": 1109967
     },
     "zmdb-aot": {
-      "parseSafe": 101677075,
-      "parseStrict": 40022611,
-      "assertLoose": 108934303,
-      "assertStrict": 42287002
+      "parseSafe": 78458664,
+      "parseStrict": 31208986,
+      "assertLoose": 79072762,
+      "assertStrict": 47015711
     },
     "typia": {
-      "parseSafe": 99859218,
-      "parseStrict": 42431863,
-      "assertStrict": 38797947,
-      "assertLoose": 90809150
+      "parseSafe": 94833746,
+      "parseStrict": 37182116,
+      "assertStrict": 35619532,
+      "assertLoose": 83780363
     },
     "zod4": {
-      "parseSafe": 8872885,
-      "parseStrict": 5052933,
-      "assertLoose": 4964250,
-      "assertStrict": 4828425
+      "parseSafe": 6945122,
+      "parseStrict": 3814907,
+      "assertLoose": 4367998,
+      "assertStrict": 4787104
     },
     "zod": {
-      "parseSafe": 1120734,
-      "parseStrict": 1057942,
-      "assertLoose": 1104761,
-      "assertStrict": 1103971
+      "parseSafe": 904886,
+      "parseStrict": 867234,
+      "assertLoose": 896222,
+      "assertStrict": 954909
     },
     "valibot": {
-      "assertLoose": 1629518,
-      "assertStrict": 1471736,
-      "parseSafe": 1929087,
-      "parseStrict": 1607271
+      "assertLoose": 1914172,
+      "assertStrict": 1562946,
+      "parseSafe": 1866400,
+      "parseStrict": 1590209
     },
     "arktype": {
-      "assertLoose": 80212377,
-      "assertStrict": 5046586,
-      "parseStrict": 4324009
+      "assertLoose": 67850967,
+      "assertStrict": 3846824,
+      "parseStrict": 3299482
     },
     "myzod": {
-      "parseSafe": 3396126,
-      "parseStrict": 4016071,
-      "assertStrict": 4006659
+      "parseSafe": 3291839,
+      "parseStrict": 3884343,
+      "assertStrict": 3984556
     },
     "@sinclair/typebox-(just-in-time)": {
-      "assertLoose": 91320349,
-      "assertStrict": 38076966
+      "assertLoose": 89717205,
+      "assertStrict": 38659722
     },
     "ajv": {
-      "assertLoose": 49843494,
-      "assertStrict": 29809195
+      "assertLoose": 49176188,
+      "assertStrict": 29513034
     }
   },
   "bun": {
