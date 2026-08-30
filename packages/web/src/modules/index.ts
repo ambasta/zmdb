@@ -58,13 +58,20 @@ function readModuleDef(moduleClass: ModuleClass): ModuleDef | undefined {
 /**
  * Compile a module graph rooted at `rootModule` into a Container + built
  * controllers. Registers each module's providers, resolves the acyclic import
- * graph (throws on a cycle), and builds every module's controllers.
+ * graph (throws on a cycle), and builds every module's controllers. Optional
+ * `overrides` are registered BEFORE any controller is built, so a controller
+ * under test injects the override (used by the testing harness).
  */
-export function compileModule(rootModule: ModuleClass): CompiledModule {
+export function compileModule(rootModule: ModuleClass, overrides: readonly ProviderDef[] = []): CompiledModule {
   const container = new Container();
   const controllers: object[] = [];
   const visited = new Set<ModuleClass>();
   const inProgress = new Set<ModuleClass>();
+
+  // Register overrides first so provider registration/build sees the stubs.
+  for (const override of overrides) {
+    registerProvider(container, override);
+  }
 
   function visit(moduleClass: ModuleClass): void {
     if (visited.has(moduleClass)) {
@@ -80,7 +87,9 @@ export function compileModule(rootModule: ModuleClass): CompiledModule {
         visit(imported);
       }
       for (const provider of def.providers ?? []) {
-        registerProvider(container, provider);
+        if (!isOverridden(overrides, provider)) {
+          registerProvider(container, provider);
+        }
       }
       for (const Controller of def.controllers ?? []) {
         controllers.push(container.build(Controller));
@@ -92,6 +101,10 @@ export function compileModule(rootModule: ModuleClass): CompiledModule {
 
   visit(rootModule);
   return { container, controllers };
+}
+
+function isOverridden(overrides: readonly ProviderDef[], provider: ProviderDef): boolean {
+  return overrides.some((o) => o.token === provider.token);
 }
 
 function registerProvider(container: Container, provider: ProviderDef): void {

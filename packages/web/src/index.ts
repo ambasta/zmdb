@@ -148,3 +148,6 @@ export {
   type GatewayDispatcher,
   type SseFrame,
 } from './gateways/index.ts';
+
+// Testing utilities: in-process app + provider overrides. See ./testing.
+export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.ts';
