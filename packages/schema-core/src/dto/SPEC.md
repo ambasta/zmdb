@@ -78,6 +78,10 @@ type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 
 - `select()` with no args ⇒ full `Entity<S>`.
 - Repository read methods gain a `select` option that narrows the return type.
+- Runtime helper `project(row, cols)` returns a new object with only `cols`
+  (stable order = `cols` order); `project(row, undefined)` returns `row` as-is.
+- Frozen: projecting a key absent from the row yields `undefined` for that key
+  (no throw); projection never mutates the input row.
 
 ## 4. GetDTO + Projection (#164/#165/#166)
 
