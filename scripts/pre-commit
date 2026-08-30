@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+echo "=== Running Pre-Commit Hooks ==="
+
+echo "1/2 Running type check..."
+yarn typecheck
+
+echo "2/2 Running test suite..."
+yarn test
+
+echo "=== Pre-Commit Validation Passed ==="
