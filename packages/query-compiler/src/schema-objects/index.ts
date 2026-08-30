@@ -33,11 +33,19 @@ export interface ViewDef {
   select: string;
   materialized?: boolean;
 }
-export function createViewDdl(_def: ViewDef, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function createViewDdl(def: ViewDef, dialect: Dialect): string {
+  if (def.materialized && dialect !== 'postgres') {
+    throw new UnsupportedFeatureError(`materialized views are not supported on ${dialect}`);
+  }
+  const mat = def.materialized ? 'MATERIALIZED ' : '';
+  return `CREATE ${mat}VIEW ${quoteId(dialect, def.name)} AS ${def.select}`;
 }
-export function dropViewDdl(_name: string, _dialect: Dialect, _materialized?: boolean): string {
-  throw new Error('not implemented');
+export function dropViewDdl(name: string, dialect: Dialect, materialized?: boolean): string {
+  if (materialized && dialect !== 'postgres') {
+    throw new UnsupportedFeatureError(`materialized views are not supported on ${dialect}`);
+  }
+  const mat = materialized ? 'MATERIALIZED ' : '';
+  return `DROP ${mat}VIEW IF EXISTS ${quoteId(dialect, name)}`;
 }
 
 // §3 sequences
