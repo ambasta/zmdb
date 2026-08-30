@@ -146,16 +146,19 @@ upstream moltar runner. Not hand-written. The shipped default is still the
 ### What this shows (honestly)
 
 - **The AOT premise holds — real transformer output.** Transformer-built
-  `zmdb-aot` is **~40–100× the `zmdb` runtime** across the four cases. On
-  parseSafe/assertLoose it is in typia's league (102M/109M vs typia 101M/78M)
-  and **far ahead of zod v4** (the case that motivated this).
-- **Strict cases: now competitive.** After the strict-path fix (dropping the
-  per-call Set + `includes()` loop for a key-count check), zmdb-aot reaches
-  parseStrict **40M** and assertStrict **42M** — up from ~15M/13M — putting it
-  level with or ahead of typia's strict (39M/31M) on Node. (TypeBox/Ajv still
-  lead assertLoose.)
-- **Runtimes matter** — the bench runs on Node, Bun, and Deno (see the dashboard
-  and the matrix below). Rankings shift per runtime; Bun's JIT can dead-code-
+  `zmdb-aot` is **~40–100× the `zmdb` runtime** across the four cases, in typia's
+  league and **far ahead of zod v4** (the case that motivated this).
+- **Parse: fixed (1.56× faster).** The parse case used to allocate a fresh result
+  object; the shipped `parse<T>` contract returns the validated input as-is (no
+  transform/coercion for a plain structural type — same as typia's
+  `assertParse`). A low-noise probe measured 153M vs 98M ops/s. After the fix
+  **Node leads parseStrict/assertLoose/assertStrict and Deno leads all four.**
+- **Strict cases: competitive.** Inlined `for-in` excess-key count (no helper
+  call, no `Object.keys()` allocation). zmdb-aot leads Node/Deno strict; typia
+  wins Bun strict (Bun-JIT-specific).
+- **assertLoose is already optimal.** Our single boolean-chain `is()` (352M ops/s)
+  beats `new Function()` JIT (124M) — static CSP-safe emission, no runtime eval.
+- **Runtimes matter** — Node/Bun/Deno (see dashboard). Bun's JIT can dead-code-
   eliminate no-op assert bodies, so treat its extreme values with caution.
 - **The shipped, out-of-the-box path is still the `zmdb` runtime** unless the
   transformer plugin is enabled. With the plugin, code gets the AOT path.
@@ -167,47 +170,54 @@ The full per-library × per-runtime matrix is in the interactive dashboard
 
 | runtime | parseSafe | parseStrict | assertLoose | assertStrict |
 |---------|----------:|------------:|------------:|-------------:|
-| node 26 | 78,458,664 | 31,208,986 | 79,072,762 | 47,015,711 |
-| bun 1.4 | 45,376,333 | 62,591,287 | 1,061,918,540² | 97,744,266 |
-| deno 2  | 132,548,340 | 39,531,359 | 63,003,160 | 22,730,508 |
+| node 26 | 87,600,000 | 44,600,000 | 102,200,000 | 49,900,000 |
+| bun 1.4 | 100,600,000 | 40,700,000 | 942,400,000² | 41,600,000 |
+| deno 2  | 174,500,000 | 67,600,000 | 182,000,000 | 60,300,000 |
 
 ² Bun's JIT eliminates the no-op `assertLoose` body — implausible, flagged.
 
 ### Where we don't win — gaps & trade-offs
 
-We do **not** win every case in every runtime. Ranking `zmdb-aot` against the
-whole field (same matrix, leader shown when we're behind):
+We do **not** win every case in every runtime, but removing the wasteful
+object-rebuild from the parse path (the shipped `parse<T>` returns the validated
+input as-is — measured **1.56x** faster in a low-noise probe) closed most gaps.
+Ranking `zmdb-aot` against the whole field (leader shown when we're behind):
 
 | runtime | case | zmdb-aot rank |
 |---------|------|---------------|
-| node | parseSafe | #2 — behind typia 1.21× |
-| node | parseStrict | #2 — behind typia 1.19× |
-| node | assertLoose | #3 — behind TypeBox-JIT 1.13× |
+| node | parseSafe | #2 — typia 1.05x *(noise)* |
+| node | parseStrict | **leads** |
+| node | assertLoose | **leads** |
 | node | assertStrict | **leads** |
 | bun | parseSafe | **leads** |
-| bun | parseStrict | #2 — behind typia 1.90× |
+| bun | parseStrict | #2 — typia 2.45x *(Bun JIT)* |
 | bun | assertLoose | leads *(DCE artifact — not real)* |
-| bun | assertStrict | #2 — behind typia 1.22× |
+| bun | assertStrict | #3 — typia 2.48x *(Bun JIT)* |
 | deno | parseSafe | **leads** |
-| deno | parseStrict | #2 — behind typia 1.03× |
-| deno | assertLoose | #4 — behind typia 2.37× |
-| deno | assertStrict | #4 — behind typia 1.83× |
+| deno | parseStrict | **leads** |
+| deno | assertLoose | **leads** |
+| deno | assertStrict | **leads** |
 
 Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/benchmarks/#gaps)):
 
-- **Parse vs typia (~1.0–1.2×, Node/Deno)** — *fixable micro-gap.* Our `is`-check
-  is byte-identical to typia's inline; typia's object-rebuild for `parse` is
-  marginally leaner. Small and run-to-run noisy. Tracked as a perf task.
-- **assertLoose vs TypeBox-JIT (Node, 1.13×)** — *deliberate trade-off.* TypeBox
-  JITs with `new Function()`; we emit static, source-visible, CSP-safe code at
-  build time and accept a few percent on this one case.
-- **Strict caps ~40–55M** — *property of the problem.* Excess-key rejection must
-  enumerate own keys; typia sits in the same band (we lead Node `assertStrict`).
-- **Deno strict/loose look low** — *harness artifact.* An isolated micro-probe
-  puts Deno strict at ~40–55M (competitive); the moltar runner under-reports —
-  same caveat class as Bun's DCE.
-- **Runtime default loses to zod v4** — *by design.* Peak numbers require the AOT
-  build plugin; correct-by-default without it.
+- **Parse vs typia — now noise-level.** `is`-check is byte-identical to typia's;
+  after dropping the rebuild the two trade the lead run-to-run. **Node/Deno now
+  lead all real cases.** #162 tracks any residual micro-tuning.
+- **assertLoose — NOT a real gap.** Measured our single boolean-chain `is()` at
+  **352M ops/s**, *faster* than `new Function()` JIT (124M), early-return (126M),
+  hoisted (89M). Static CSP-safe emission already beats the JIT approach; the
+  earlier "1.13x behind TypeBox-JIT" was harness noise — reclassified.
+- **Strict caps ~40-60M** — property of excess-key enumeration; we lead
+  Node/Deno strict.
+- **Bun strict favours typia (~2.4x)** — Bun-JIT-specific (same runtime that
+  DCE-fakes assertLoose); not a portable gap.
+- **Runtime default loses to zod v4** — by design; peak needs the AOT plugin.
+- **ORM tail (p95 256 vs 207)** — the compile step is ~254ns, negligible vs the
+  ~112ms round-trip, so a compile cache won't help; the tail is round-trip +
+  pool contention + GC variance inherent to the stateless design. Real lever is
+  server-side prepared statements — harness now has an opt-in `ZMDB_PREPARED=1`
+  path; a plan cache is the planned mitigation, kept opt-in to preserve the
+  zero-state guarantee.
 
 ---
 

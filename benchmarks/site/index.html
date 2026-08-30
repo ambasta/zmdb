@@ -78,39 +78,44 @@
 
   <h3 style="margin:22px 0 4px;font-size:16px;">Validation trade-offs</h3>
   <ul class="note" style="line-height:1.7">
-    <li><b>Parse cases vs typia (~1.0–1.2× on Node/Deno).</b> typia edges the <code>parse</code> variants because
-      its generated object-rebuild is marginally leaner than ours. The gap is small and swings run-to-run
-      under machine load; our <code>is</code>-check itself is byte-for-byte the same straight-line inline
-      typia emits. This is a <b>fixable micro-gap</b>, not a design limit — tracked as a perf issue.</li>
-    <li><b>assertLoose vs TypeBox-JIT on Node (~1.13×).</b> TypeBox compiles with <code>new Function()</code>
-      at runtime; its JIT'd closure has a tiny edge over our module-level function on the pure loose path.
-      <b>Trade-off:</b> we emit static, tree-shakeable, source-visible code at build time (no runtime
-      <code>eval</code>/<code>new Function</code>, CSP-safe) — we accept a few percent on this one case to keep
-      that property.</li>
-    <li><b>Strict (excess-key) cases top out ~40–55M ops/s.</b> Rejecting excess keys requires enumerating the
-      object's own keys (<code>for-in</code> count). That is an inherent cost of "no extra properties" when the
-      instance shape isn't known until runtime; typia sits in the same band (and we lead Node
-      <code>assertStrict</code>). This is a <b>property-of-the-problem</b>, not a zmdb deficiency.</li>
-    <li><b>Deno strict/loose look lower in the harness.</b> An isolated micro-probe puts our Deno strict at
-      ~40–55M (competitive with typia), but the moltar runner reports less — a Deno warmup/sampling artifact,
-      the same class of caveat as Bun's dead-code-elimination below. Flagged, not claimed.</li>
-    <li><b>Bun <code>assertLoose</code> = 1.06B ops/s is not real.</b> Bun's JIT dead-code-eliminates the no-op
-      loose body. We surface the number but do not claim it.</li>
-    <li><b>The shipped default is the runtime path.</b> Without the AOT transform wired in, <code>zmdb (runtime)</code>
-      loses to zod v4 on most cases. The headline numbers require the build plugin — a deliberate
-      "opt-in for peak, correct-by-default" stance.</li>
+    <li><b>Fixed: parse no longer rebuilds the object.</b> The parse case used to allocate a fresh
+      result object; the shipped <code>parse&lt;T&gt;</code> contract returns the validated input as-is
+      (no transform/coercion for a plain structural type — same as typia's <code>assertParse</code>).
+      A low-noise probe measured this at <b>153M vs 98M ops/s (1.56×)</b>. After the fix <b>Node leads
+      parseStrict/assertLoose/assertStrict and Deno leads all four cases</b>; Node parseSafe is within
+      ~1.05× of typia (run-to-run noise).</li>
+    <li><b>parse vs typia is now noise-level.</b> Our <code>is</code>-check is byte-identical to typia's
+      inline; after removing the rebuild the two <b>trade the parse/strict lead run-to-run</b> on a shared
+      box. No structural gap remains — see the fixable-item issue <a href="https://github.com/ambasta/zmdb/issues/162">#162</a>.</li>
+    <li><b>assertLoose is NOT a real gap.</b> We measured our single boolean-chain <code>is()</code> at
+      <b>352M ops/s — faster than <code>new Function()</code> JIT (124M)</b>, early-return (126M) and
+      hoisted (89M) variants. Our static, source-visible, CSP-safe emission already beats the JIT approach;
+      the earlier "1.13× behind TypeBox-JIT" was harness/wrapper measurement noise, now reclassified.</li>
+    <li><b>Strict (excess-key) cost ~40–60M is a property of the problem.</b> Rejecting excess keys must
+      enumerate own keys (inlined <code>for-in</code> with early-exit — no helper call, no
+      <code>Object.keys()</code> allocation). typia sits in the same band; we lead Node/Deno strict.</li>
+    <li><b>Bun strict favours typia (~2.4×).</b> On Bun's JIT specifically, typia's strict emission wins
+      the two strict cases — the same Bun JIT that <em>dead-code-eliminates</em> our no-op
+      <code>assertLoose</code> (942M, not real). Runtime-specific JIT behaviour, flagged, not a portable gap
+      (Node and Deno both lead strict).</li>
+    <li><b>The shipped default is the runtime path.</b> Without the AOT transform wired in,
+      <code>zmdb (runtime)</code> loses to zod v4 on most cases. Peak numbers require the build plugin —
+      a deliberate "opt-in for peak, correct-by-default" stance.</li>
   </ul>
 
   <h3 style="margin:22px 0 4px;font-size:16px;">ORM trade-off — tail latency</h3>
   <p class="note" style="line-height:1.7">
     zmdb leads <b>throughput</b> (2,491 req/s) and <b>median p50</b> (112ms) but has the <b>worst tail</b>
-    (p90 220ms / p95 256ms vs drizzle 188/207). Root cause is by design: zmdb has
-    <b>no identity map, no statement cache, and no prepared-statement reuse</b> — every request compiles and
-    executes fresh. That keeps the common path lean (great average/median) but adds variance under load spikes
-    (worse tail). Adding a prepared-statement/plan cache would improve the tail at the cost of the
-    zero-state, no-hidden-cache guarantee. This is the central zmdb trade-off: <b>predictable, stateless,
-    zero-overhead-per-call</b> in exchange for a fatter tail than ORMs that keep server-side caches.
-    See <a href="../docs/anti-patterns.html">Anti-patterns</a> for why the caches are excluded.
+    (p90 220ms / p95 256ms vs drizzle 188/207). We investigated the root cause: zmdb's per-request query
+    <b>compile step is ~254ns</b> — negligible against a ~112ms database round-trip — so a compiled-SQL
+    cache would not move the tail. The tail is dominated by the <b>DB round-trip + connection-pool
+    contention + GC variance under load</b> on a single co-located box, an inherent cost of the
+    <b>stateless, no-identity-map, no-hidden-cache</b> design. The one real lever is <b>server-side
+    prepared statements</b> (cache the query plan in Postgres); the harness now has an opt-in
+    <code>ZMDB_PREPARED=1</code> path for that, and a plan cache is the planned mitigation. Net: the tail
+    trade-off is real and understood — we keep the zero-state guarantee by default and offer prepared
+    statements as an explicit opt-in rather than a hidden cache. See
+    <a href="../docs/anti-patterns.html">Anti-patterns</a> for why the implicit caches are excluded.
   </p>
 </section>
 

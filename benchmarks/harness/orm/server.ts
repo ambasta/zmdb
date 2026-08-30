@@ -28,7 +28,24 @@ const details = pgTable('order_details', { orderId: integer('order_id'), product
 const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
 const k = new Kysely<any>({ dialect: new PostgresDialect({ pool }) });
 const qc = createQueryCompiler('postgres');
-const zq = (t: string, p: unknown[]) => pool.query(t, p).then((r) => r.rows);
+// zmdb query execution. With ZMDB_PREPARED=1 we pass a stable statement `name`
+// derived from the compiled SQL text, so Postgres caches the plan server-side
+// (prepared statement) and skips per-request planning — a transparent,
+// stateless optimization (no identity map / no proxy), aimed at the tail.
+// Default (unset) uses the simple protocol, identical to the other ORMs here.
+const PREPARED = process.env.ZMDB_PREPARED === '1';
+const stmtNames = new Map<string, string>();
+let stmtSeq = 0;
+const nameFor = (text: string) => {
+  let n = stmtNames.get(text);
+  if (!n) { n = 'z' + (stmtSeq++).toString(36); stmtNames.set(text, n); }
+  return n;
+};
+const zq = (t: string, p: unknown[]) =>
+  (PREPARED
+    ? pool.query({ name: nameFor(t), text: t, values: p })
+    : pool.query(t, p)
+  ).then((r) => r.rows);
 
 const app = new Hono();
 const num = (v: string | undefined, d = 0) => (v == null ? d : Number(v));
