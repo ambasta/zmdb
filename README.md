@@ -18,12 +18,18 @@
 | [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
-> All eleven capability epics (#1–#10, #62) **and** the benchmarking epic (#68)
-> are complete — every tracked issue is closed. 175 tests green, including real
-> `node:sqlite` E2E, a Kysely head-to-head, the full validation + ORM benchmark
-> suites, and a CI job with a regression guardrail. The live-PostgreSQL
-> competitor comparison is reported as `DNF (not implemented)` (see Benchmarks)
-> rather than faked.
+> All capability epics are complete — **every tracked issue is closed** across
+> the original core (#1–#10, #62), benchmarking (#68), the perf/DNF epics
+> (#75–#78), and the follow-up feature-gap epics: the read/query **DTO family**
+> (Get/List/Search/Projection, typed WhereDTO/OrderBy/Pagination, typed
+> populate/join/aggregate results, OpenAPI get/list/search), **schema objects**
+> (indexes, views, sequences, generated columns, namespaces, RLS), **set
+> operations + batch**, **read replicas**, **custom types & codecs**,
+> **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
+> **framework integrations**, and an **LLM function-calling** harness. **300
+> tests green**, including real `node:sqlite` E2E, a Kysely head-to-head, and the
+> full validation + ORM benchmark suites (real PostgreSQL). The docs site tracks
+> **0 TODO** capabilities.
 
 ## Quick Start
 
@@ -48,8 +54,11 @@ CRUD, relations, transactions, migrations, the query builder, validators and
 Ser/De are written up in full. The docs incorporate the union of the
 [MikroORM](https://mikro-orm.io/docs/guide),
 [Drizzle](https://orm.drizzle.team/docs/overview) and
-[Typia](https://typia.io/docs) documentation surfaces: capabilities we don't yet
-have are shown as **TODO** (roadmap, not dead-ends), and features that are
+[Typia](https://typia.io/docs) documentation surfaces. Every capability page is
+now **written in full** (0 TODO): the read/query DTOs, filters, pagination,
+projections, populate/join/aggregate results, schema objects, set operations,
+batch, read replicas, custom types, seeding, entity modeling, framework
+integrations, and the LLM harness are all documented. Features that are
 **anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map,
 unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately
 excluded and explained on the

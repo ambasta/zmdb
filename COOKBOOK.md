@@ -21,6 +21,7 @@
 10. [JSON Schema / OpenAPI generation (planned)](#10-json-schema--openapi-planned)
 11. [Migrations](#11-migrations)
 12. [Mental-model summary](#12-mental-model-summary)
+13. [Typed reads (Get / List / Search DTOs)](#13-typed-reads-get--list--search-dtos)
 
 ---
 
@@ -359,3 +360,35 @@ zmdb migrate status    # show applied vs pending
 - **Validation & Ser/De are AOT-compiled**: inline JS, native speed, no runtime parser.
 - **No proxies, no identity map, no reflection.** That is the price of, and the
   reason for, the zero-overhead guarantee.
+
+---
+
+## 13. Typed reads (Get / List / Search DTOs)
+
+The read side is fully typed via `@zmdb/schema-core/dto` — no more
+`Record<string, unknown>`.
+
+```ts
+import {
+  compileWhere, applyOrderBy, applyPagination, project, buildListResult,
+  type WhereDTO, type OrderByDTO, type ListResult,
+} from '@zmdb/schema-core/dto';
+
+// Typed filter (per-column value types + operator set):
+const where: WhereDTO<typeof UserSchema> = {
+  age: { gte: 18 }, role: 'admin', email: { like: '%@corp.com' },
+};
+
+// Compose into the query builder, then assemble a typed ListResult:
+let qb = users.query.selectFrom('users');
+qb = compileWhere(qb, where);
+qb = applyOrderBy(qb, [{ column: 'age', dir: 'desc' }] as OrderByDTO<typeof UserSchema>);
+qb = applyPagination(qb, { limit: 20 });
+const rows = await driver.execute(qb.compile());
+const page: ListResult<User> = buildListResult(rows, { limit: 20 }); // { items, hasMore, ... }
+```
+
+- **GetDTO / getResult** narrow a single-row fetch by `select`.
+- **SearchDTO / buildSearchResult** add full-text query + ranking (`_score`).
+- **Populated<S,K>** types populated relations; **AggregateResult<S,Spec>** types
+  grouped aggregates. See the [docs site](https://ambasta.github.io/zmdb/docs/read-dtos.html).
