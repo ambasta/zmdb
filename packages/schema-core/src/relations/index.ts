@@ -122,7 +122,10 @@ export function aliasRow<Row extends Record<string, unknown>>(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...row };
   for (const [alias, outKey] of Object.entries(map)) {
-    if (alias in out) out[outKey] = out[alias];
+    if (alias in out) {
+      out[outKey] = out[alias];
+      delete out[alias]; // rename: drop the original aliased key
+    }
   }
   return out;
 }

@@ -29,8 +29,9 @@ type Populated<Base, R extends RelationMap, K extends keyof R> = Base & {
 - Typed join rows: `JoinRow<Base, Joined>` = `Base & Partial<Joined>` for a LEFT
   join (joined side may be absent), `Base & Joined` for INNER. `aliasRow(row,
   map)` renames aliased columns per a `{ alias: outKey }` map, stable order.
-  Frozen: `aliasRow` keeps un-mapped keys as-is, applies renames in `map` key
-  order, and never mutates the input row.
+  Frozen: `aliasRow` renames each mapped key to its out key (dropping the
+  original), keeps un-mapped keys as-is, applies renames in `map` key order, and
+  never mutates the input row.
 
 
 ```ts
