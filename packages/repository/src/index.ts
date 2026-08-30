@@ -121,17 +121,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   // #37 — bind this repository to a transaction context so all its SQL runs
-  // on the transaction's connection. Returns a shallow, tx-scoped clone (no
-  // shared mutable state with the original repository).
+  // on the transaction's connection. Re-instantiates via standard constructor
+  // invocation to allocate private instance state and avoid method binding leaks.
   withTransaction(tx: { execute: Driver['execute'] }): this {
-    // boundary: `Object.create(proto)` is typed `any`/`object` by construction —
-    // TS cannot express "an instance of the same class as `this`". The prototype
-    // is this instance's own, and every own field is copied below, so the result
-    // really is a `this`.
-    const scoped = Object.create(Object.getPrototypeOf(this)) as this;
-    Object.assign(scoped, this);
-    scoped.driver = { execute: q => tx.execute(q) };
-    return scoped;
+    const txDriver: Driver = { execute: q => tx.execute(q) };
+    const ctor = this.constructor as new (driver: Driver, dialect?: Dialect) => this;
+    return new ctor(txDriver, this.dialect);
   }
 
   private get schema(): CoreSchema<string> {
