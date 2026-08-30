@@ -27,15 +27,37 @@
     "LICENSE"
   ],
   "type": "module",
+  "types": "./src/index.ts",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts",
-    "./transactions": "./src/transactions/index.ts",
-    "./replicas": "./src/replicas/index.ts",
-    "./integrations": "./src/integrations/index.ts",
-    "./entity-modeling": "./src/entity-modeling/index.ts",
-    "./drivers/sqlite": "./src/drivers/sqlite.ts",
-    "./drivers/pg": "./src/drivers/pg.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./transactions": {
+      "types": "./src/transactions/index.ts",
+      "import": "./src/transactions/index.ts"
+    },
+    "./replicas": {
+      "types": "./src/replicas/index.ts",
+      "import": "./src/replicas/index.ts"
+    },
+    "./integrations": {
+      "types": "./src/integrations/index.ts",
+      "import": "./src/integrations/index.ts"
+    },
+    "./entity-modeling": {
+      "types": "./src/entity-modeling/index.ts",
+      "import": "./src/entity-modeling/index.ts"
+    },
+    "./drivers/sqlite": {
+      "types": "./src/drivers/sqlite.ts",
+      "import": "./src/drivers/sqlite.ts"
+    },
+    "./drivers/pg": {
+      "types": "./src/drivers/pg.ts",
+      "import": "./src/drivers/pg.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

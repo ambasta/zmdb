@@ -28,14 +28,33 @@
     "LICENSE"
   ],
   "type": "module",
+  "types": "./src/index.ts",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts",
-    "./dto": "./src/dto/index.ts",
-    "./relations": "./src/relations/index.ts",
-    "./custom-types": "./src/custom-types/index.ts",
-    "./seeding": "./src/seeding/index.ts",
-    "./llm": "./src/llm/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./dto": {
+      "types": "./src/dto/index.ts",
+      "import": "./src/dto/index.ts"
+    },
+    "./relations": {
+      "types": "./src/relations/index.ts",
+      "import": "./src/relations/index.ts"
+    },
+    "./custom-types": {
+      "types": "./src/custom-types/index.ts",
+      "import": "./src/custom-types/index.ts"
+    },
+    "./seeding": {
+      "types": "./src/seeding/index.ts",
+      "import": "./src/seeding/index.ts"
+    },
+    "./llm": {
+      "types": "./src/llm/index.ts",
+      "import": "./src/llm/index.ts"
+    }
   },
   "publishConfig": {
     "access": "public",

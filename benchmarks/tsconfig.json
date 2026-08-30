@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "rootDir": "..",
     "paths": {
       "@zmdb/schema-core": ["../packages/schema-core/src/index.ts"],
       "@zmdb/schema-core/dto": ["../packages/schema-core/src/dto/index.ts"],
