@@ -2,7 +2,7 @@
 // Reads manifest.mjs (nav + per-page {status, md}) and emits static HTML into
 // ../site/docs/<slug>.html + ../site/index.html, sharing a dark theme with the
 // benchmarks dashboard. No framework — a tiny markdown subset renderer.
-import { mkdirSync, writeFileSync, cpSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, cpSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NAV, PAGES } from './manifest.mjs';
@@ -123,7 +123,7 @@ const STATUS_BADGE = {
   todo: '<span class="badge todo">TODO</span>',
 };
 
-function navHtml(activeSlug) {
+function navHtml(activeSlug, base = './') {
   let h = '';
   for (const group of NAV) {
     h += `<div class="nav-group"><div class="nav-title">${group.title}</div>`;
@@ -131,7 +131,7 @@ function navHtml(activeSlug) {
       const p = PAGES[slug];
       if (!p) continue;
       const badge = p.status === 'todo' ? ' <span class="dot todo"></span>' : '';
-      h += `<a class="nav-link${slug === activeSlug ? ' active' : ''}" href="./${slug}.html">${p.title}${badge}</a>`;
+      h += `<a class="nav-link${slug === activeSlug ? ' active' : ''}" href="${base}${slug}.html">${p.title}${badge}</a>`;
     }
     h += '</div>';
   }
@@ -229,82 +229,202 @@ ${tocHtml}
 mkdirSync(join(OUT, 'docs'), { recursive: true });
 mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 
-// Copy the existing benchmarks dashboard into site/benchmarks/ (it fetches its
-// JSON via ./ relative paths, which resolve correctly under /benchmarks/).
-for (const f of ['index.html', 'validation-matrix.json', 'orm-results.json']) {
+// Copy the benchmark data files into site/benchmarks/ (the page fetches them via ./).
+for (const f of ['validation-matrix.json', 'orm-results.json']) {
   const src = join(DASH, f);
   if (existsSync(src)) cpSync(src, join(OUT, 'benchmarks', f));
 }
+
+// --- Unified benchmarks page: rendered inside the docs shell (same sidebar +
+// theme + header), with the interactive Chart.js sections + script inlined.
+// Extract the <section>…</section> body and the <script>…</script> from the
+// existing dashboard source so the interactivity is preserved verbatim. ---
+function buildBenchmarksPage() {
+  const raw = existsSync(join(DASH, 'index.html')) ? readFileSync(join(DASH, 'index.html'), 'utf8') : '';
+  const sections = [...raw.matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]).join('\n');
+  const script = (raw.match(/<script>[\s\S]*?<\/script>/) || [''])[0];
+  const intro = `<p>zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
+    (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
+    <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM). Numbers are indicative of the
+    generating machine, not an official ranking. <b>DNF</b> = the library cannot express that case (never summed into a score).</p>`;
+  // Benchmarks-page-scoped styling for the chart widgets, layered on the docs CSS.
+  const bmCss = `
+main section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:18px 0}
+main section h2{border:0;margin:0 0 6px}
+.tabs{display:flex;gap:8px;margin:8px 0 16px;flex-wrap:wrap}
+.tab{background:#21262d;border:1px solid var(--line);color:var(--fg);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:14px}
+.tab.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+canvas{max-height:340px}
+main section table th,main section table td{text-align:right}
+main section table th:first-child,main section table td:first-child{text-align:left}
+.yes{color:var(--ok);font-weight:600}.no{color:#f85149}
+.note{color:var(--muted);font-size:13px;margin:6px 0 14px}
+.honest{border-left:3px solid var(--accent);padding-left:12px}`;
+  const p = { title: 'Benchmarks', group: 'Reference', status: 'supported' };
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Benchmarks — zmdb docs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>${CSS}${bmCss}</style></head><body>
+<div class="layout">
+<aside><div class="brand">zmdb<small>zero-maintenance data layer</small></div>
+<a class="nav-link" href="../index.html">← Home</a>
+<a class="nav-link active" href="./index.html">📊 Benchmarks</a>
+${navHtml(null, '../docs/')}</aside>
+<main>
+<div class="crumbs">Docs / Reference</div>
+<h1>Benchmarks</h1>
+${intro}
+${sections}
+</main>
+<div></div>
+</div>
+${script}
+</body></html>`;
+}
+writeFileSync(join(OUT, 'benchmarks', 'index.html'), buildBenchmarksPage());
 
 // Emit docs pages.
 for (const [slug, p] of Object.entries(PAGES)) {
   writeFileSync(join(OUT, 'docs', `${slug}.html`), pageHtml(slug, p));
 }
 
-// Landing page.
+// Landing page — polished marketing home (drizzle/typia-style hero).
 const counts = Object.values(PAGES).reduce((a, p) => ((a[p.status] = (a[p.status] || 0) + 1), a), {});
-const LANDING_CSS = `${CSS}
-.hero{max-width:820px;margin:0 auto;padding:64px 24px 24px}
-.hero h1{font-size:44px;margin:0 0 8px}
-.hero .tag{font-size:18px;color:var(--muted);margin:0 0 24px}
-.cta a{display:inline-block;margin:0 10px 0 0;padding:10px 18px;border-radius:8px;border:1px solid var(--line)}
-.cta a.primary{background:var(--accent);color:#0d1117;font-weight:600;border-color:var(--accent)}
-.wrap{max-width:820px;margin:0 auto;padding:0 24px 80px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0}
-.card{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--panel)}
-.card h4{margin:0 0 6px;font-size:15px}.card p{margin:0;color:var(--muted);font-size:13px}
-`;
-const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>zmdb — TypeScript data layer with zero schema drift</title><style>${LANDING_CSS}</style></head><body>
-<div class="hero">
-<h1>zmdb</h1>
-<p class="tag">Define your schema once. Entities, DTOs, validation, serialization, OpenAPI, and repository CRUD all derive at compile time — with zero runtime proxies and AOT-inlined validation.</p>
-<div class="cta">
-<a class="primary" href="./docs/quick-start.html">Quick start →</a>
-<a href="./docs/introduction.html">Introduction</a>
-<a href="./benchmarks/index.html">📊 Benchmarks</a>
-<a href="https://github.com/ambasta/zmdb">GitHub</a>
-</div>
-</div>
-<div class="wrap">
-${mdToHtml(`
+const heroCode = mdToHtml(`
 \`\`\`ts
 import { defineSchema, serial, text, jsonEnum } from '@zmdb/schema-core';
 import { BaseRepository } from '@zmdb/repository';
 import type { Entity, CreateDTO } from '@zmdb/schema-core';
 
-// 1. Define once
+// 1 — define your schema once
 export const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull(),
   role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
 });
 
-// 2. Types derive automatically
-type User = Entity<typeof UserSchema>;       // { id; email; role }
+// 2 — types derive automatically
+type User    = Entity<typeof UserSchema>;    // { id; email; role }
 type NewUser = CreateDTO<typeof UserSchema>; // { email; role? }
 
-// 3. CRUD in one line
+// 3 — validated CRUD in one line
 class Users extends BaseRepository<typeof UserSchema> {
   static readonly schema = UserSchema;
 }
-const users = new Users(driver);
-await users.create({ email: 'a@b.com' }); // validated before any SQL runs
+await new Users(driver).create({ email: 'a@b.com' }); // validated before any SQL
 \`\`\`
-`).html}
-<h2>Why zmdb</h2>
-<div class="grid">
-<div class="card"><h4>Define once, derive everything</h4><p>One schema drives entity/create/update/read DTOs, validators, serializers, OpenAPI and migrations. Change a column → everything that no longer fits fails to compile.</p></div>
-<div class="card"><h4>Zero overhead by design</h4><p>No proxies, no identity map, no change tracking. Reads return plain inert objects; writes are explicit. That is where the performance comes from.</p></div>
-<div class="card"><h4>AOT validation & serialization</h4><p>is / assert / validate / stringify compile to straight-line JavaScript at build time — no runtime parser.</p></div>
-<div class="card"><h4>SQL-first query builder</h4><p>Typed select/insert/update/delete with real joins, aggregations and full-text search — plus typed Get/List/Search DTOs on top.</p></div>
-</div>
-<h2>Documentation</h2>
-<p>These docs incorporate the union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a>, and <a href="https://typia.io/docs">Typia</a> documentation surfaces. Every capability page is written in full (${counts.supported ?? 0} pages, 0 TODO). Features that are <b>anti-patterns</b> for a zero-overhead, no-proxy, AOT data layer are deliberately excluded and explained on the <a href="./docs/anti-patterns.html">Anti-patterns</a> page.</p>
-${NAV.map((g) => `<h3>${g.title}</h3><ul>${g.pages.filter((s) => PAGES[s]).map((s) => `<li><a href="./docs/${s}.html">${PAGES[s].title}</a></li>`).join('')}</ul>`).join('')}
-</div>
+`).html;
+
+const LANDING_CSS = `
+:root{--bg:#0a0d12;--panel:#111721;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--ok:#3fb950;--line:#232b36;--grad1:#58a6ff;--grad2:#a371f7;--grad3:#3fb950}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code{background:#1b2230;padding:1px 6px;border-radius:4px;font-size:.85em}
+pre{background:#0d131c;border:1px solid var(--line);border-radius:12px;padding:18px 20px;overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:13.5px;line-height:1.6}
+.nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:22px;padding:14px 6vw;background:rgba(10,13,18,.8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav .logo{font-weight:800;font-size:19px;letter-spacing:-.02em}
+.nav .logo span{background:linear-gradient(90deg,var(--grad1),var(--grad2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.nav a.navlink{color:var(--muted);font-size:14px;font-weight:500}.nav a.navlink:hover{color:var(--fg);text-decoration:none}
+.nav .spacer{flex:1}
+.nav .gh{border:1px solid var(--line);padding:7px 14px;border-radius:8px;color:var(--fg)}
+.hero{max-width:1080px;margin:0 auto;padding:72px 6vw 40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.hero .pill{display:inline-block;font-size:12px;font-weight:600;color:var(--grad3);background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);padding:4px 12px;border-radius:20px;margin-bottom:18px}
+.hero h1{font-size:52px;line-height:1.05;margin:0 0 16px;letter-spacing:-.03em}
+.hero h1 .g{background:linear-gradient(90deg,var(--grad1),var(--grad2) 60%,var(--grad3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p.tag{font-size:18px;color:var(--muted);margin:0 0 28px;max-width:34ch}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.cta a{display:inline-block;padding:12px 20px;border-radius:10px;border:1px solid var(--line);font-weight:600;font-size:15px}
+.cta a.primary{background:linear-gradient(90deg,var(--grad1),var(--grad2));color:#0a0d12;border:none}
+.cta a:hover{text-decoration:none}
+.section{max-width:1080px;margin:0 auto;padding:48px 6vw}
+.section h2{font-size:30px;letter-spacing:-.02em;text-align:center;margin:0 0 6px}
+.section .lead{color:var(--muted);text-align:center;max-width:60ch;margin:0 auto 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.card{border:1px solid var(--line);border-radius:14px;padding:22px;background:var(--panel)}
+.card .ic{font-size:22px;margin-bottom:10px}
+.card h4{margin:0 0 8px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:14px}
+.pkgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:24px}
+.pkg{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--panel)}
+.pkg code{font-size:13px;color:var(--grad1);background:none;padding:0}
+.pkg p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.stats{display:flex;justify-content:center;gap:48px;flex-wrap:wrap;margin-top:8px}
+.stat{text-align:center}.stat .n{font-size:34px;font-weight:800;background:linear-gradient(90deg,var(--grad1),var(--grad3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat .l{color:var(--muted);font-size:13px}
+.foot{border-top:1px solid var(--line);padding:28px 6vw;color:var(--muted);font-size:13px;text-align:center}
+@media(max-width:820px){.hero{grid-template-columns:1fr;padding-top:40px}.hero h1{font-size:38px}.nav .navlink{display:none}}
+`;
+const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>zmdb — the zero-maintenance TypeScript data layer</title>
+<meta name="description" content="Define your schema once. Entities, DTOs, validation, serialization, OpenAPI and repository CRUD all derive at compile time — zero runtime proxies, AOT-inlined validation, SQL-first."/>
+<style>${LANDING_CSS}</style></head><body>
+<nav class="nav">
+  <div class="logo"><span>zmdb</span></div>
+  <a class="navlink" href="./docs/introduction.html">Docs</a>
+  <a class="navlink" href="./docs/quick-start.html">Quick start</a>
+  <a class="navlink" href="./benchmarks/index.html">Benchmarks</a>
+  <a class="navlink" href="./docs/anti-patterns.html">Anti-patterns</a>
+  <div class="spacer"></div>
+  <a class="gh" href="https://github.com/ambasta/zmdb">GitHub ↗</a>
+</nav>
+
+<section class="hero">
+  <div>
+    <span class="pill">◇ zero schema drift · AOT validation</span>
+    <h1>Define once.<br/><span class="g">Everything derives.</span></h1>
+    <p class="tag">A TypeScript data layer where entities, DTOs, validation, serialization, OpenAPI and CRUD all derive from one schema — at compile time.</p>
+    <div class="cta">
+      <a class="primary" href="./docs/quick-start.html">Get started →</a>
+      <a href="./benchmarks/index.html">See benchmarks</a>
+    </div>
+  </div>
+  <div>${heroCode}</div>
+</section>
+
+<section class="section">
+  <h2>Why zmdb</h2>
+  <p class="lead">The whole framework is built around one guarantee: your schema is the single source of truth, and nothing can silently drift from it.</p>
+  <div class="grid">
+    <div class="card"><div class="ic">🧬</div><h4>Define once, derive everything</h4><p>One schema drives entity / create / update / read DTOs, validators, serializers, OpenAPI and migrations. Change a column and anything that no longer fits <b>fails to compile</b>.</p></div>
+    <div class="card"><div class="ic">⚡</div><h4>Zero overhead by design</h4><p>No proxies, no identity map, no change tracking. Reads return plain inert objects; writes are explicit. That is where the speed comes from.</p></div>
+    <div class="card"><div class="ic">🛠️</div><h4>AOT validation &amp; Ser/De</h4><p><code>is</code> / <code>assert</code> / <code>validate</code> / <code>stringify</code> compile to straight-line JavaScript at build time — no runtime parser, no reflection.</p></div>
+    <div class="card"><div class="ic">🗄️</div><h4>SQL-first query builder</h4><p>Typed select / insert / update / delete with real joins, aggregations and full-text search — plus typed Get / List / Search DTOs on top.</p></div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="stats">
+    <div class="stat"><div class="n">300</div><div class="l">tests, all green</div></div>
+    <div class="stat"><div class="n">${counts.supported ?? 0}</div><div class="l">docs pages · 0 TODO</div></div>
+    <div class="stat"><div class="n">~40–100×</div><div class="l">AOT vs runtime validation</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">DNF benchmark routes</div></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Four small packages</h2>
+  <p class="lead">Composable and ESM-only. Use the whole stack, or just the query compiler or validator on their own.</p>
+  <div class="pkgs">
+    <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types, LLM tools.</p></div>
+    <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
+    <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
+    <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Documentation</h2>
+  <p class="lead">Incorporates the union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a> and <a href="https://typia.io/docs">Typia</a> doc surfaces. Every capability page is written in full — features that are anti-patterns for a zero-overhead, no-proxy, AOT layer are <a href="./docs/anti-patterns.html">excluded and explained</a>.</p>
+  <div class="grid">
+    ${NAV.map((g) => `<div class="card"><h4>${g.title}</h4><p>${g.pages.filter((s) => PAGES[s]).slice(0, 6).map((s) => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`).join(' · ')}</p></div>`).join('')}
+  </div>
+</section>
+
+<div class="foot">MIT licensed · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
 </body></html>`;
 writeFileSync(join(OUT, 'index.html'), landing);
 
-console.log(`built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + benchmarks moved to /benchmarks/`);
+console.log(`built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`);
