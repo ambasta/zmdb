@@ -491,43 +491,228 @@ This keeps the core DB-agnostic; adapters wrap \`pg\`, \`mysql2\`, \`better-sqli
 `),
 
   select: ok('Select', 'Data Access', `
-The query builder is SQL-first and typed against the schema.
+zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hiding
+it behind an object graph. Every builder call is typed against your schema, and
+\`.compile()\` returns a parameterized \`{ text, parameters }\` — nothing runs until
+you hand it to a driver.
+
+The examples below assume this schema:
 
 \`\`\`ts
-this.query
-  .selectFrom('users')
-  .select(['id', 'email', 'role'])
-  .where('role', '=', 'admin')
-  .orderBy('createdAt', 'desc')
-  .limit(20)
-  .execute();
+export const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+  role: jsonEnum(['admin', 'user']).notNull(),
+  createdAt: timestamp().notNull(),
+});
 \`\`\`
 
-Columns and operators are checked against the schema. See [Filters](./filters.html) for the full operator set and [Joins](./joins.html) for multi-table reads.
+## Basic select
+
+Select every column from a table:
+
+\`\`\`ts
+const q = qc.selectFrom('users').compile();
+// q.text, q.parameters — pass to your driver
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users"
+\`\`\`
+
+Through a repository you usually call \`findAll()\` / \`findById()\` instead, which
+return \`Entity<S>\` objects.
+
+## Partial select (projection)
+
+Pass the columns you want. Combined with the DTO \`project\`/\`select\` helpers this
+also **narrows the result type** to the chosen columns.
+
+\`\`\`ts
+qc.selectFrom('users').select(['id', 'email']).compile();
+\`\`\`
+
+\`\`\`sql
+SELECT "id", "email" FROM "users"
+\`\`\`
+
+> [!NOTE]
+> zmdb lists columns explicitly rather than emitting \`SELECT *\` when you project,
+> so the column order in the result is deterministic. See [Projections](./projections.html)
+> for the typed \`Projection<S, K>\` narrowing.
+
+## Filtering
+
+\`where(column, operator, value)\` adds a predicate; chained \`where\`/\`andWhere\` are
+ANDed and \`orWhere\` is ORed. Values are always parameterized.
+
+\`\`\`ts
+qc.selectFrom('users')
+  .where('role', '=', 'admin')
+  .andWhere('email', 'like', '%@corp.com')
+  .compile();
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users" WHERE "role" = $1 AND "email" LIKE $2
+-- parameters: ['admin', '%@corp.com']
+\`\`\`
+
+For a typed, schema-derived filter object (operator sets, AND/OR groups), use
+[\`compileWhere\` + WhereDTO](./filters.html).
+
+## Ordering
+
+\`\`\`ts
+qc.selectFrom('users').orderBy('createdAt', 'desc').orderBy('id', 'asc').compile();
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users" ORDER BY "createdAt" DESC, "id" ASC
+\`\`\`
+
+## Limit & offset
+
+\`\`\`ts
+qc.selectFrom('users').orderBy('id', 'asc').limit(20).offset(40).compile();
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users" ORDER BY "id" ASC LIMIT 20 OFFSET 40
+\`\`\`
+
+See [Ordering & pagination](./pagination.html) for typed \`OrderByDTO\` /
+\`PaginationDTO\` and keyset (cursor) pagination.
+
+## Dialect differences
+
+The same builder emits dialect-correct SQL. Identifiers and placeholders differ:
+
+| dialect | quoting | placeholder |
+|---------|---------|-------------|
+| postgres | \`"col"\` | \`$1, $2, …\` |
+| mysql | \`\\\`col\\\`\` | \`?\` |
+| sqlite | \`"col"\` | \`?\` |
+
+\`\`\`ts
+createQueryCompiler('mysql').selectFrom('users').where('id', '=', 1).compile();
+// text: SELECT * FROM \`users\` WHERE \`id\` = ?   parameters: [1]
+\`\`\`
+
+## Next steps
+
+- [Filters & operators](./filters.html) — the full operator set + typed WhereDTO
+- [Joins](./joins.html) and [aggregations](./aggregations.html)
+- [Read/Query DTOs](./read-dtos.html) — Get/List/Search result shapes
 `),
 
   insert: ok('Insert', 'Data Access', `
+Insert rows with the query builder, or (preferably) through a repository's
+\`create()\`, which validates the payload against \`CreateDTO<S>\` **before** any SQL
+is emitted.
+
+## Basic insert
+
 \`\`\`ts
-this.query.insertInto('users').values({ email: 'a@b.com', role: 'user' }).returning(['id']).execute();
+qc.insertInto('users').values({ email: 'a@b.com', role: 'user' }).compile();
 \`\`\`
 
-Through the repository, prefer \`create()\`, which validates against \`CreateDTO<S>\` before emitting SQL.
+\`\`\`sql
+INSERT INTO "users" ("email", "role") VALUES ($1, $2)
+-- parameters: ['a@b.com', 'user']
+\`\`\`
+
+## Returning the inserted row
+
+\`\`\`ts
+qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
+\`\`\`
+
+\`\`\`sql
+INSERT INTO "users" ("email") VALUES ($1) RETURNING "id", "createdAt"
+\`\`\`
+
+## Through the repository (validated)
+
+\`\`\`ts
+const user = await users.create({ email: 'a@b.com' }); // role defaults applied
+// returns Entity<typeof UserSchema>
+\`\`\`
+
+> [!IMPORTANT]
+> If the payload is invalid, \`create\` throws a structured \`ValidationError\` and
+> **no SQL runs** — the driver is never called. Auto-increment PKs and defaulted
+> columns may be omitted from the payload (that is what \`CreateDTO\` encodes).
+
+See also [batch inserts](./batch.html) for multiple statements in one round-trip.
 `),
 
   update: ok('Update', 'Data Access', `
+Update rows with the query builder, or through a repository's \`update(id, patch)\`,
+which validates \`patch\` against \`UpdateDTO<S>\` (a \`Partial<CreateDTO<S>>\`).
+
+## Basic update
+
 \`\`\`ts
-this.query.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).execute();
+qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
 \`\`\`
 
-Through the repository, prefer \`update(id, patch)\`, which validates the patch against \`UpdateDTO<S>\`.
+\`\`\`sql
+UPDATE "users" SET "role" = $1 WHERE "id" = $2
+-- parameters: ['admin', 1]
+\`\`\`
+
+## Returning the updated row
+
+\`\`\`ts
+qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
+\`\`\`
+
+\`\`\`sql
+UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id", "role"
+\`\`\`
+
+## Through the repository (validated)
+
+\`\`\`ts
+const updated = await users.update(1, { role: 'admin' }); // validated vs UpdateDTO
+\`\`\`
+
+> [!WARNING]
+> An \`update\` without a \`where\` clause updates **every row**. The repository's
+> \`update(id, patch)\` always scopes by primary key; the raw builder does not — add
+> a predicate.
 `),
 
   delete: ok('Delete', 'Data Access', `
+Delete rows with the query builder, or through a repository's \`delete(id)\` (which
+returns a boolean).
+
+## Basic delete
+
 \`\`\`ts
-this.query.deleteFrom('users').where('id', '=', 1).execute();
+qc.deleteFrom('users').where('id', '=', 1).compile();
 \`\`\`
 
-Through the repository, prefer \`delete(id)\`, which returns a boolean.
+\`\`\`sql
+DELETE FROM "users" WHERE "id" = $1
+-- parameters: [1]
+\`\`\`
+
+## Returning deleted rows
+
+\`\`\`ts
+qc.deleteFrom('users').where('role', '=', 'guest').returning(['id']).compile();
+\`\`\`
+
+\`\`\`sql
+DELETE FROM "users" WHERE "role" = $1 RETURNING "id"
+\`\`\`
+
+> [!WARNING]
+> As with UPDATE, a DELETE without a \`where\` clause removes **every row**. Prefer
+> the repository's \`delete(id)\` for single-row deletes, or wrap bulk deletes in a
+> [transaction](./transactions.html).
 `),
 
   filters: ok('Filters & Operators', 'Data Access', `
