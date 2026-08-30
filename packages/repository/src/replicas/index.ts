@@ -14,6 +14,15 @@ export function isWrite(sql: string): boolean {
 }
 
 /** Wrap primary+replicas into a single Driver that routes reads to replicas. */
-export function withReplicas(_opts: ReplicaOptions): Driver {
-  throw new Error('not implemented');
+export function withReplicas(opts: ReplicaOptions): Driver {
+  const { primary, replicas } = opts;
+  let rr = 0;
+  return {
+    execute(query: CompiledQuery) {
+      if (isWrite(query.text) || replicas.length === 0) return primary.execute(query);
+      const driver = opts.pick ? opts.pick(replicas, rr) : replicas[rr % replicas.length]!;
+      rr = (rr + 1) % replicas.length;
+      return driver.execute(query);
+    },
+  };
 }
