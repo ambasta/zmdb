@@ -15,7 +15,7 @@ export const NAV = [
   { title: 'JSON & Serialization', pages: ['json-stringify', 'json-parse', 'json-schema', 'openapi', 'random'] },
   { title: 'Advanced', pages: ['custom-types', 'set-operations', 'lifecycle-hooks', 'embeddables', 'inheritance'] },
   { title: 'Integrations', pages: ['drivers', 'framework-integrations', 'llm-function-calling'] },
-  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways'] },
+  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways', 'web-testing'] },
   { title: 'Reference', pages: ['anti-patterns', 'benchmarks'] },
 ];
 
@@ -7128,6 +7128,64 @@ return new Response(sseStream(ticks()), {
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [Dependency injection](./web-di.html)
+`),
+
+  'web-testing': ok('Testing', 'Web Framework', `
+\`createTestApp\` builds an app from a [module](./web-modules.html) with **DI
+overrides** and drives routes **in-process** — no socket, no live server. It's
+the \`@nestjs/testing\` analogue: swap a provider for a fake, then assert on the
+response.
+
+## In-process requests
+
+\`\`\`ts
+import { createTestApp } from '@zmdb/web';
+
+const app = createTestApp(AppModule);
+const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
+// res.status, res.body — same pipeline as production, no network
+\`\`\`
+
+## Overriding a provider
+
+Replace any provider **before** controllers are built, so the controller under
+test injects your stub:
+
+\`\`\`ts
+const stub = { greet: () => 'stubbed' };
+
+const app = createTestApp(AppModule, {
+  overrides: [{ token: GreeterToken, useValue: stub }],
+});
+
+await app.request({ method: 'GET', path: '/hello', headers: {} });
+// → { msg: 'stubbed' }
+
+app.get(GreeterToken) === stub;   // resolve any provider to assert on a spy
+\`\`\`
+
+## Lifecycle in tests
+
+\`createTestApp\` is an \`AsyncDisposable\`, so \`await using\` cleans up:
+
+\`\`\`ts
+await using app = createTestApp(AppModule);
+await app.init();          // runs onModuleInit hooks
+// ... assertions ...
+// dispose runs onShutdown hooks at scope exit
+\`\`\`
+
+## Design notes
+
+- **Overrides apply before build** — the injected value is the override, through
+  the same [container](./web-di.html).
+- **In-process** — \`request\` uses the router's dispatcher; no socket.
+- **No \`as\`** on the consumer surface.
+- Granular import: \`import { createTestApp } from '@zmdb/web/testing'\`.
+
+## Cross-links
+
+- [Modules & providers](./web-modules.html) · [Application bootstrap](./web-app.html)
 `),
 
   // ---------------- Reference ----------------
