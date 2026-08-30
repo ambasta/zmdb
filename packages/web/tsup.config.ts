@@ -7,6 +7,7 @@ export default defineConfig({
     context: 'src/context/index.ts',
     di: 'src/di/index.ts',
     state: 'src/state/index.ts',
+    pipeline: 'src/pipeline/index.ts',
   },
   format: ['esm'],
   dts: true,

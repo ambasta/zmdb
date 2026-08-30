@@ -72,3 +72,14 @@ export { Container, createToken, Inject, UnresolvedTokenError, type Token, type 
 
 // Compile-time domain state machines (branded/phantom types). See ./state.
 export { defineState, transition, type Brand, type State } from './state/index.ts';
+
+// Request pipeline & runtime adapters. See ./pipeline.
+export {
+  createRouter,
+  toNodeHandler,
+  toFetchHandler,
+  type Router,
+  type WebRequest,
+  type WebResponse,
+  type RouteOptions,
+} from './pipeline/index.ts';

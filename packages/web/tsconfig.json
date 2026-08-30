@@ -4,7 +4,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": ".",
-    "lib": ["ES2024", "ESNext.Decorators"],
+    "lib": ["ES2024", "ESNext.Decorators", "DOM", "DOM.Iterable"],
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false,
     "paths": {
