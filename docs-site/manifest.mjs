@@ -69,9 +69,11 @@ run CRUD through a repository, and issued a typed query.
 ## 1. Install
 
 \`\`\`bash
-npm add @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
+npm add zmdb@alpha
 \`\`\`
 
+One package re-exports the whole ecosystem. (Prefer granular installs? Use the
+four \`@zmdb/*\` packages instead — see [Installation](./installation.html).)
 For the AOT-inlined validators (the fast path), wire the transformer once — see
 [AOT setup](./aot-setup.html). Without it, validation still works via a runtime
 fallback.
@@ -216,7 +218,23 @@ const user = await users.create(payload);
 - [Anti-patterns](./anti-patterns.html) — what zmdb deliberately does *not* do, and why
 `),
   'installation': ok('Installation', 'Getting Started', `
-zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. All packages are published to npm and can be installed individually or as a monorepo.
+zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install is the single umbrella package; the four sub-packages are also published individually for advanced/tree-shaken use.
+
+## Recommended: one install
+
+\`\`\`bash
+npm add zmdb@alpha
+\`\`\`
+
+\`\`\`ts
+// everything from one import
+import { defineSchema, serial, text, defineRepository, is } from 'zmdb';
+import { sqliteDriver } from 'zmdb/drivers/sqlite';
+\`\`\`
+
+The \`zmdb\` package re-exports the curated public API of all four sub-packages,
+with deeper surfaces under subpaths (\`zmdb/dto\`, \`zmdb/relations\`,
+\`zmdb/drivers/sqlite\`, \`zmdb/drivers/pg\`, …).
 
 ## Prerequisites
 
@@ -228,14 +246,14 @@ zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and Ty
 {
   "type": "module",
   "dependencies": {
-    "@zmdb/schema-core": "^1.0.0"
+    "zmdb": "^1.0.0-alpha.4"
   }
 }
 \`\`\`
 
-## Install All Packages
+## Advanced: install sub-packages individually
 
-The quickest way to get started is installing the full stack:
+Prefer to depend only on the pieces you use (better tree-shaking):
 
 \`\`\`bash
 npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
