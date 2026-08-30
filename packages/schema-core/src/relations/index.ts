@@ -103,9 +103,9 @@ export type PopulatedEntity<
 // object with `name` set to the related value (array for to-many, object/null
 // for to-one). Type widening is expressed by PopulatedEntity above.
 export function attachPopulated<P extends Record<string, unknown>, N extends string, V>(
-  _parent: P,
-  _name: N,
-  _value: V,
+  parent: P,
+  name: N,
+  value: V,
 ): P & { [K in N]: V } {
-  throw new Error('not implemented');
+  return { ...parent, [name]: value } as P & { [K in N]: V };
 }
