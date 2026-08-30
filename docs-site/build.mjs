@@ -169,6 +169,13 @@ blockquote{margin:12px 0;padding:2px 16px;border-left:3px solid var(--line);colo
 .badge.ok{background:rgba(63,185,80,.15);color:var(--ok)}.badge.todo{background:rgba(210,153,34,.15);color:var(--todo)}
 .todo-banner{background:rgba(210,153,34,.1);border:1px solid var(--todo);border-radius:8px;padding:14px 16px;margin:16px 0;color:#e6edf3}
 .todo-banner b{color:var(--todo)}
+.navsearch{width:100%;margin:0 0 6px;padding:7px 10px;background:#0b0f14;border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:13px}
+.navsearch:focus{outline:none;border-color:var(--accent)}
+.nav-group.hidden,.nav-link.hidden{display:none}
+.nav-empty{color:var(--muted);font-size:13px;padding:8px}
+pre{position:relative}
+.copy-btn{position:absolute;top:8px;right:8px;background:#21262d;border:1px solid var(--line);color:var(--muted);font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .12s}
+pre:hover .copy-btn{opacity:1}.copy-btn:hover{color:var(--fg);border-color:var(--accent)}.copy-btn.ok{color:var(--ok);border-color:var(--ok)}
 .crumbs{color:var(--muted);font-size:13px;margin-bottom:10px}
 .toc{position:sticky;top:0;height:100vh;overflow-y:auto;padding:34px 16px;font-size:13px;border-left:1px solid var(--line)}
 .toc-title{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:11px;margin-bottom:8px}
@@ -211,6 +218,7 @@ function pageHtml(slug, p) {
 <title>${p.title} — zmdb docs</title><style>${CSS}</style></head><body>
 <div class="layout">
 <aside><div class="brand">zmdb<small>zero-maintenance data layer</small></div>
+<input class="navsearch" type="search" placeholder="Filter docs… (/)" aria-label="Filter documentation" />
 <a class="nav-link" href="../index.html">← Home</a>
 <a class="nav-link" href="../benchmarks/index.html">📊 Benchmarks</a>
 ${navHtml(slug)}</aside>
@@ -222,7 +230,38 @@ ${body}
 ${pn}
 </main>
 ${tocHtml}
-</div></body></html>`;
+</div>
+<script>
+(function(){
+  // Nav filter: hide non-matching links + empty groups; focus with "/".
+  var box=document.querySelector('.navsearch');
+  var groups=[].slice.call(document.querySelectorAll('aside .nav-group'));
+  if(box){
+    box.addEventListener('input',function(){
+      var q=box.value.trim().toLowerCase();
+      groups.forEach(function(g){
+        var links=[].slice.call(g.querySelectorAll('.nav-link'));var any=false;
+        links.forEach(function(a){var hit=!q||a.textContent.toLowerCase().indexOf(q)>=0;a.classList.toggle('hidden',!hit);if(hit)any=true;});
+        g.classList.toggle('hidden',!any);
+      });
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.key==='/'&&document.activeElement!==box){e.preventDefault();box.focus();}
+      if(e.key==='Escape'&&document.activeElement===box){box.value='';box.dispatchEvent(new Event('input'));box.blur();}
+    });
+  }
+  // Copy buttons on code blocks.
+  document.querySelectorAll('pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';b.type='button';b.textContent='Copy';
+    b.addEventListener('click',function(){
+      var code=pre.querySelector('code');var text=(code||pre).innerText;
+      navigator.clipboard.writeText(text).then(function(){b.textContent='Copied';b.classList.add('ok');setTimeout(function(){b.textContent='Copy';b.classList.remove('ok');},1200);});
+    });
+    pre.appendChild(b);
+  });
+})();
+</script>
+</body></html>`;
 }
 
 // --- build ---
