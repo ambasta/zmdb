@@ -640,7 +640,19 @@ zmdb migrate status   # show applied vs pending
 The diff is deterministic, so generated SQL is committable and diffable in review.
 `),
 
-  seeding: todo('Seeding', 'Migrations', 'A deterministic seed/data-generator (drizzle-seed style), reusing the AOT random generator, is planned.'),
+  seeding: ok('Seeding', 'Migrations', `
+Generate deterministic, reproducible seed data from a schema (\`@zmdb/schema-core/seeding\`).
+
+\`\`\`ts
+import { seedRows } from '@zmdb/schema-core/seeding';
+
+const users = seedRows(UserSchema, { seed: 42, count: 100 });
+// 100 CreateDTO rows; the same (schema, seed, count) is byte-identical every run
+for (const u of users) await userRepo.create(u);
+\`\`\`
+
+Values respect each column's type (text⇒string, integer⇒int, boolean⇒bool, timestamp⇒Date, jsonEnum⇒a member). Auto-increment and defaulted columns are omitted so rows insert cleanly via \`repository.create\`. The PRNG (mulberry32) is seeded, so runs are reproducible across processes and runtimes.
+`),
 
   // ---------------- Validation ----------------
   'validators-is': ok('is()', 'Validation', `
