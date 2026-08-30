@@ -6,6 +6,7 @@ export default defineConfig({
     routing: 'src/routing/index.ts',
     context: 'src/context/index.ts',
     di: 'src/di/index.ts',
+    state: 'src/state/index.ts',
   },
   format: ['esm'],
   dts: true,

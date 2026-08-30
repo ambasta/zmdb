@@ -69,3 +69,6 @@ export { extractParams, type PathParams, type QueryValues, type Ctx, type Handle
 
 // Compile-time dependency injection: Container + @Inject. See ./di.
 export { Container, createToken, Inject, UnresolvedTokenError, type Token, type Constructor } from './di/index.ts';
+
+// Compile-time domain state machines (branded/phantom types). See ./state.
+export { defineState, transition, type Brand, type State } from './state/index.ts';
