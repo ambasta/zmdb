@@ -121,6 +121,9 @@ type SearchResult<Row> = ListResult<SearchHit<Row>>;
 
 - `query` is the full-text term; `columns` the searched columns.
 - `rank:true` adds a `_score` field (ts_rank on pg) and orders by it desc.
+- Runtime `buildSearchResult(rows, opts)`: reuses `buildListResult` (limit+1
+  trim, projection, total) over `SearchHit` rows; `_score` is preserved on items
+  when present. Frozen: when `rank` is false/absent, `_score` is simply absent.
 
 ## 7. OpenAPI get/list/search variants (#173/#174/#175)
 
