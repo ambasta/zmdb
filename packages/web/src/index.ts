@@ -63,3 +63,6 @@ export {
   type RouteDefinition,
   type ResolvedRoute,
 } from './routing/index.ts';
+
+// Typed request context + compile-time path-param derivation. See ./context.
+export { extractParams, type PathParams, type QueryValues, type Ctx, type HandlerFor } from './context/index.ts';

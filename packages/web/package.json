@@ -26,7 +26,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./routing": "./src/routing/index.ts"
+    "./routing": "./src/routing/index.ts",
+    "./context": "./src/context/index.ts"
   },
   "files": [
     "src",
