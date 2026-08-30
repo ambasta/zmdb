@@ -16,6 +16,7 @@
 | [`@zmdb/query-compiler`](./packages/query-compiler) | ✅ | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner |
 | [`@zmdb/aot-validator`](./packages/aot-validator) | ✅ | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De |
 | [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
+| [`@zmdb/web`](./packages/web) | 🚧 | Stage-3 decorator web framework: controllers, typed `Ctx`, compile-time DI + domain state machines — zero `reflect-metadata`, zero runtime reflection |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
 > All capability epics are complete — **every tracked issue is closed** across
