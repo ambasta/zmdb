@@ -69,20 +69,36 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return rows[0] as Entity<S> | undefined;
   }
 
-  async findOne(_where: WhereDTO<S>): Promise<Entity<S> | undefined> {
-    throw new Error('not implemented');
+  async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined> {
+    const b = compileWhere(this.qb.selectFrom(this.tableName), where as WhereDTO<CoreSchema<string>>);
+    const rows = await this.driver.execute(b.limit(1).compile());
+    return rows[0] as Entity<S> | undefined;
   }
 
-  async find(_where: WhereDTO<S>): Promise<readonly Entity<S>[]> {
-    throw new Error('not implemented');
+  async find(where: WhereDTO<S>): Promise<readonly Entity<S>[]> {
+    const b = compileWhere(this.qb.selectFrom(this.tableName), where as WhereDTO<CoreSchema<string>>);
+    return (await this.driver.execute(b.compile())) as readonly Entity<S>[];
   }
 
   async findAll(): Promise<readonly Entity<S>[]> {
     return (await this.driver.execute(this.qb.selectFrom(this.tableName).compile())) as readonly Entity<S>[];
   }
 
-  async list(_query?: ListDTO<S>): Promise<ListResult<Entity<S>>> {
-    throw new Error('not implemented');
+  async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>> {
+    let b = this.qb.selectFrom(this.tableName);
+    if (query?.where) b = compileWhere(b, query.where as WhereDTO<CoreSchema<string>>);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (query?.orderBy) b = applyOrderBy(b as any, query.orderBy as any) as typeof b;
+    // Fetch limit+1 so buildListResult can compute hasMore by trimming.
+    const limit = query?.page && 'limit' in query.page ? query.page.limit : undefined;
+    if (query?.page) {
+      const probe = { ...query.page, limit: limit !== undefined ? limit + 1 : undefined } as typeof query.page;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      b = applyPagination(b as any, probe as any) as typeof b;
+    }
+    const rows = await this.driver.execute(b.compile());
+    const opts = limit !== undefined ? { limit } : {};
+    return buildListResult(rows as Record<string, unknown>[], opts) as ListResult<Entity<S>>;
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder;
