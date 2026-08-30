@@ -15,7 +15,7 @@ export const NAV = [
   { title: 'JSON & Serialization', pages: ['json-stringify', 'json-parse', 'json-schema', 'openapi', 'random'] },
   { title: 'Advanced', pages: ['custom-types', 'set-operations', 'lifecycle-hooks', 'embeddables', 'inheritance'] },
   { title: 'Integrations', pages: ['drivers', 'framework-integrations', 'llm-function-calling'] },
-  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules'] },
+  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware'] },
   { title: 'Reference', pages: ['anti-patterns', 'benchmarks'] },
 ];
 
@@ -6790,6 +6790,76 @@ const { container, controllers } = compileModule(AppModule);
 ## Cross-links
 
 - [Dependency injection](./web-di.html) · [Controllers & routing](./web-controllers.html)
+`),
+
+  'web-middleware': ok('Guards, Pipes, Interceptors & Filters', 'Web Framework', `
+The request **middleware chain** — the NestJS analogue of guards, pipes,
+interceptors and exception filters — composed **statically** per route and run in
+a deterministic order with no reflection.
+
+## The four roles
+
+\`\`\`ts
+import type { Guard, Pipe, Interceptor, ExceptionFilter } from '@zmdb/web';
+
+const AuthGuard: Guard = { canActivate: (ctx) => Boolean(ctx.headers.authorization) };
+
+const TrimPipe: Pipe<{ name: string }, { name: string }> = {
+  transform: (v) => ({ name: v.name.trim() }),
+};
+
+const Timing: Interceptor = {
+  async intercept(ctx, next) {
+    const start = Date.now();
+    const result = await next();          // runs the rest of the chain (handler)
+    console.log(ctx.path, Date.now() - start);
+    return result;
+  },
+};
+
+const NotFoundFilter: ExceptionFilter = {
+  catch: (err) => err instanceof RangeError
+    ? { status: 404, body: '{}', headers: {} }
+    : undefined,                          // undefined → let another filter/handler win
+};
+\`\`\`
+
+## Execution order
+
+\`runChain(chain, ctx, handler)\` runs:
+
+\`\`\`
+guards → pipes (fold the body) → interceptor(before) → handler → interceptor(after)
+                                                                   ↘ on throw → exception filters
+\`\`\`
+
+\`\`\`ts
+import { runChain, type Chain } from '@zmdb/web';
+
+const chain: Chain = { guards: [AuthGuard], pipes: [TrimPipe], interceptors: [Timing], filters: [NotFoundFilter] };
+const result = await runChain(chain, ctx, (c) => c.body);
+\`\`\`
+
+- A **guard** returning \`false\` short-circuits with \`ChainError(403)\` — the
+  handler never runs.
+- A **pipe** that throws yields \`ChainError(400)\`; pipes **fold** the body
+  left-to-right, and the handler sees the piped value.
+- **Interceptors** nest (first listed = outermost), observing before **and** after.
+- A thrown handler is offered to each **exception filter**; the first to return a
+  response wins, otherwise the error rethrows for the [pipeline](./web-pipeline.html)
+  to turn into a 500.
+
+## Design notes
+
+- **Static composition** — a chain is built once and executed per request; no
+  reflection.
+- **Typed folding** — \`Pipe<In, Out>\` types compose so the handler body type
+  follows from the pipes, with **no \`as\`** on the consumer surface.
+- Granular import: \`import { runChain } from '@zmdb/web/middleware'\`.
+
+## Cross-links
+
+- [Request pipeline](./web-pipeline.html) · [Dependency injection](./web-di.html)
 `),
 
   // ---------------- Reference ----------------
