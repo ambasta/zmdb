@@ -28,6 +28,7 @@ export interface ColumnFlags {
   readonly hasDefault?: boolean;
   readonly length?: number;
   readonly enum?: readonly string[];
+  readonly sensitive?: boolean;
 }
 
 export interface ColumnMeta {
@@ -114,6 +115,7 @@ export interface Column extends ColumnMeta {
   unique(): Column;
   defaultTo(value: unknown): Column;
   validate(rule: ValidationRule): Column;
+  sensitive(isSensitive?: boolean): Column;
 }
 
 // Deep-freeze a column metadata object and wrap it with fluent methods.
@@ -142,6 +144,7 @@ function makeColumn(meta: ColumnMeta): Column {
       makeColumn({ ...base, default: value, flags: { ...base.flags, hasDefault: true } })) as never,
     validate: ((rule: ValidationRule) =>
       makeColumn({ ...base, validation: [...(base.validation ?? []), rule] })) as never,
+    sensitive: ((isSensitive: boolean = true) => withFlag({ sensitive: isSensitive })) as never,
   };
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
@@ -220,6 +223,12 @@ export function defaultTo<C extends ColumnMeta>(
 }
 export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C {
   return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as never;
+}
+export function sensitive<C extends ColumnMeta>(
+  col: C,
+  isSensitive: boolean = true,
+): C & { flags: C['flags'] & { sensitive: boolean } } {
+  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } }) as never;
 }
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
