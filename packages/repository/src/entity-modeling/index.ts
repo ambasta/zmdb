@@ -28,11 +28,18 @@ export class EventBus {
 }
 
 // §2 embeddables
-export function flattenEmbeddable(_prefix: string, _value: Record<string, unknown>): Record<string, unknown> {
-  throw new Error('not implemented');
+export function flattenEmbeddable(prefix: string, value: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) out[`${prefix}_${k}`] = v;
+  return out;
 }
-export function liftEmbeddable(_prefix: string, _row: Record<string, unknown>): Record<string, unknown> {
-  throw new Error('not implemented');
+export function liftEmbeddable(prefix: string, row: Record<string, unknown>): Record<string, unknown> {
+  const p = `${prefix}_`;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k.startsWith(p)) out[k.slice(p.length)] = v;
+  }
+  return out;
 }
 
 // §3 inheritance
