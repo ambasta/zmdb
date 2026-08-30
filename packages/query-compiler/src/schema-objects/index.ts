@@ -88,9 +88,12 @@ export interface RlsPolicy {
   using: string;
   command?: 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
 }
-export function enableRlsDdl(_table: string, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function enableRlsDdl(table: string, dialect: Dialect): string {
+  if (dialect !== 'postgres') throw new UnsupportedFeatureError(`RLS is postgres-only (got ${dialect})`);
+  return `ALTER TABLE ${quoteId(dialect, table)} ENABLE ROW LEVEL SECURITY`;
 }
-export function createPolicyDdl(_p: RlsPolicy, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
+  if (dialect !== 'postgres') throw new UnsupportedFeatureError(`RLS is postgres-only (got ${dialect})`);
+  const cmd = p.command ?? 'ALL';
+  return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
 }
