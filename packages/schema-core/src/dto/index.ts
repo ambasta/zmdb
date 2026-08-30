@@ -191,8 +191,17 @@ export type SearchHit<Row> = Row & { readonly _score?: number };
 export type SearchResult<Row> = ListResult<SearchHit<Row>>;
 /** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
 export function buildSearchResult<Row extends Record<string, unknown>>(
-  _rows: readonly SearchHit<Row>[],
-  _opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+  rows: readonly SearchHit<Row>[],
+  opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
 ): SearchResult<Row | Partial<Row>> {
-  throw new Error('not implemented');
+  const limit = opts?.limit;
+  const hasMore = typeof limit === 'number' && rows.length > limit;
+  const kept = hasMore ? rows.slice(0, limit) : rows;
+  const items = kept.map((hit) => {
+    const base = opts?.select ? project(hit as Row, opts.select) : hit;
+    // preserve the ranking score on the projected hit
+    return hit._score !== undefined ? { ...base, _score: hit._score } : base;
+  });
+  const result: SearchResult<Row | Partial<Row>> = { items, hasMore };
+  return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
