@@ -5,6 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     routing: 'src/routing/index.ts',
     context: 'src/context/index.ts',
+    di: 'src/di/index.ts',
   },
   format: ['esm'],
   dts: true,
