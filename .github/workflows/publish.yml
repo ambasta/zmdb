@@ -62,27 +62,28 @@ jobs:
           COREPACK_ENABLE_PROJECT_SPEC: '0'
         run: |
           set -e
-          # Derive the channel dist-tag from the version: stable→latest,
-          # -rc.*→rc, -beta.*→beta, -alpha.*→alpha. (All packages share a version.)
           VER=$(node -p "require('./packages/schema-core/package.json').version")
-          case "$VER" in
-            *-rc*)    CHANNEL=rc ;;
-            *-beta*)  CHANNEL=beta ;;
-            *-alpha*) CHANNEL=alpha ;;
-            *)        CHANNEL=latest ;;
-          esac
-          echo "version=$VER channel-tag=$CHANNEL"
           # Publish unless this is an explicit dry run. On a tag push, DRY is
           # empty (the input doesn't exist) → publish. Only workflow_dispatch with
           # dry_run=true packs instead. Dependency order so dependents resolve on
           # the registry. No token: npm detects the GitHub OIDC environment.
+          #
+          # Tag policy (implements: latest = highest of stable>rc>beta>alpha):
+          # per package, decide-dist-tag.mjs checks the registry and tells us if
+          # THIS version becomes the highest-precedence version. If so we publish
+          # it under --tag latest (the only way to move `latest` under OIDC, since
+          # `npm dist-tag` is not OIDC-authorized). Otherwise we publish under its
+          # channel tag (alpha/beta/rc).
           for pkg in schema-core query-compiler aot-validator repository; do
             echo "=== packages/$pkg ==="
+            eval "$(node .github/scripts/decide-dist-tag.mjs "@zmdb/$pkg" "$VER")"
+            if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi
+            echo "version=$VER → publishing @zmdb/$pkg under --tag $TAG (channel=$CHANNEL, becomes-latest=$LATEST)"
             cd "packages/$pkg"
             if [ "$DRY" = "true" ]; then
               npm pack --dry-run
             else
-              npm publish --access public --tag "$CHANNEL"
+              npm publish --access public --tag "$TAG"
             fi
             cd - >/dev/null
           done
