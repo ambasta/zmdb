@@ -1,550 +1,304 @@
-# Zero-Maintenance Data Layer — Architecture Specification
+# zmdb — Architecture
 
-> **Project Status**: Architectural Blueprint  
-> **Target Runtime**: Node.js 26+ (ESM-only, no CommonJS)  
-> **Target TypeScript**: 7.0+ (stage 3 proposals permitted)  
-> **Performance Target**: Zero runtime overhead, native V8 execution speed
-
-> 📖 For end-to-end, real-world usage (model definition, CRUD, transactions,
-> relations, validation, Ser/De, JSON/OpenAPI), see the **[Cookbook](./COOKBOOK.md)**.
-
----
-
-## 1. Design Philosophy
-
-This framework exists to solve one problem: **schema drift** in TypeScript backends. When a single database column changes, developers today must manually update:
-
-1. SQL migrations
-2. ORM entities
-3. Validation schemas (Zod/Valibot)
-4. Create DTOs
-5. Update DTOs
-6. Response types
-7. Repository methods
-
-Our core principle: **modify once, propagate everywhere**.
-
-### 1.1 The Three Pillars
-
-| Pillar | Directive | Implementation |
-|--------|-----------|----------------|
-| **Zero-Overhead Runtime** | No proxies, no runtime reflection, no dynamic parsing | AOT transformer inlines validation; query builder compiles to raw SQL strings |
-| **Single Source of Truth** | One definition drives all derived types | Schema DSL generates Entity, CreateDTO, UpdateDTO, ResponseDTO at compile-time |
-| **Encapsulated Repository** | <10 lines to get full CRUD with auto-validation | BaseRepository generic with AOT-validated interceptors |
-
-### 1.2 Non-Negotiable Constraints
-
-- **No CommonJS**. ESM-only. Node 26+ required.
-- **No runtime validation libraries** (Zod, Valibot, Yup). Use AOT-transformed inline checks.
-- **No ORM-style identity maps or stateful entities**. Raw SQL, raw results.
-- **No dynamic type reflection at runtime**. All type derivation happens at compile-time.
-- **Stage 3 proposals permitted**: `using` declarations, `await` for import assertions, decorator metadata.
+> **Status:** living architecture (supersedes the 2026-08-29 component blueprint).
+> **Baseline (hard floor):** Node.js **26+**, TypeScript **7+**, **ESM-only**.
+> Stage 3 ECMAScript proposals are first-class. Nothing older is supported —
+> ever. We do not ship CommonJS, we do not ship compat shims, we do not test
+> against older engines.
+>
+> 📖 Component-level API docs live on the docs site
+> (https://ambasta.github.io/zmdb/) and in each package's `SPEC.md`. This file is
+> the **project-wide** architecture: the north stars, the package-splitting
+> doctrine, the implementation-language policy, and the opinionated directives
+> that every package must obey.
 
 ---
 
-## 2. Package Architecture
+## 1. North stars
 
-We split into **four focused packages** to keep each concern isolated, testable, and independently versionable.
+There are exactly two, in priority order. When they conflict, **(1) wins**, and
+the conflict is documented at the call site.
+
+1. **Fastest possible runtime for the consuming application.** Every design
+   choice is measured by its cost in the *user's* hot path — per request, per
+   query, per validation. Work that can happen at build time, install time, or
+   type-check time must *not* happen at runtime. Allocation, indirection,
+   reflection, and dynamic dispatch on the hot path are defects, not trade-offs.
+
+2. **Maintainability.** The framework must stay small, legible, and changeable by
+   a small team. A feature that cannot be maintained is not shipped. Clever code
+   that no one can safely modify is a liability regardless of speed.
+
+Everything else — ergonomics, breadth, parity with incumbents — is subordinate
+to these two and justified in their terms.
+
+### 1.1 Corollary: the cost model
+
+We reason about cost in **four buckets**, and we push work as far left as possible:
 
 ```
-zmdb/  (repository root)
-├── packages/
-│   ├── schema-core          # The DSL, type derivation engine, and schema metadata
-│   ├── query-compiler       # Kysely fork with custom SQL compilation
-│   ├── aot-validator        # TypeScript transformer + validation rule definitions
-│   └── repository           # BaseRepository, auto-validation interceptors
-├── package.json             # Workspace root
-└── tsconfig.base.json       # Shared TS config
+type-check time   →   build time   →   install time   →   RUNTIME
+(free for users)      (once, CI)       (once, npm i)       (per request — minimize!)
 ```
+
+- **Type-check time** (free for the consumer): schema→type derivation, illegal
+  states, route/param typing, DI graph validation. Prefer this above all.
+- **Build time** (paid once by the consumer's bundler/tsc): AOT validator
+  inlining, SQL compilation where the query is static.
+- **Install time** (paid once): our own `dist` build; native/WASM artifact
+  download.
+- **Runtime** (paid every time): only the irreducible work — the actual SQL
+  round-trip, the inlined validation booleans, one object shape. Anything else
+  here must justify itself against north star (1).
 
 ---
 
-### 2.1 Package: `@zmdb/schema-core`
+## 2. Opinionated design directives (non-negotiable)
 
-**Purpose**: Single Source of Truth. Defines the schema DSL and derives all types.
+These are not preferences; they are invariants. A change that violates one is
+rejected regardless of how convenient it is.
 
-**Public API**:
+1. **No runtime proxies, identity maps, or change tracking.** Reads return plain,
+   inert objects (`prototype === Object.prototype`). Writes are explicit
+   (`create`/`update`/`delete`). This is the single largest source of our speed.
+2. **No runtime reflection.** No `reflect-metadata`, no runtime schema
+   inspection, no `emitDecoratorMetadata`. Type information is erased; derivation
+   is compile-time. Stage 3 decorators may use `context.metadata`, but only for
+   data the decorator itself wrote (never type reflection).
+3. **No runtime parsing/validation engine.** Validation is AOT-inlined to
+   straight-line JavaScript booleans. No Zod/Valibot/Yup on the hot path, ever.
+4. **Explicit SQL.** The query layer compiles to parameterized SQL strings. No
+   implicit magic query objects; no hidden N+1.
+5. **No `as` / no escape hatches.** `any`, `unknown`-casting, `as T` assertions,
+   and non-null `!` in framework code are **defects**. If a type can't be
+   proven, redesign the type, don't assert it. The only permitted assertions are
+   a small, enumerated, individually-justified set of **boundary casts**
+   (§2.1) — each commented with *why it is sound*. Consumer-facing APIs must be
+   assertion-free: a user should never need `as` to use zmdb correctly.
+6. **ESM-only, no dual publishing.** One module format. `"type": "module"`,
+   single `exports` map, no `.cjs`.
+7. **Zero required runtime dependencies.** Packages depend only on other `@zmdb/*`
+   packages and Node built-ins. Third-party integrations (a `pg` driver, a Hono
+   adapter) are *optional* and structurally typed so the dep is never forced.
+8. **Honest measurement.** Performance claims are backed by the real upstream
+   benchmark harnesses; gaps and trade-offs are enumerated individually, never
+   averaged into a flattering score, never silently skipped (see the benchmarks
+   dashboard).
 
-```typescript
-// Schema definition
-import { defineSchema, serial, integer, text, numeric, jsonEnum, validate, tags, references, notNull } from '@zmdb/schema-core';
+### 2.1 The `as`-free rule and its narrow exceptions
 
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate(tags.Pattern('^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$')),
-  role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
-  createdAt: timestamp().notNull().defaultTo('now'),
-});
+"No `as`" is a hard project goal. In practice a typed system that touches an
+untyped world (a DB driver returning `Record<string, unknown>`, `JSON.parse`,
+`context.metadata`) has a finite number of **trust boundaries** where a value
+crosses from "the runtime promises this shape" into "the type system knows this
+shape." The policy:
 
-// Derived types (auto-generated)
-import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
-type User = Entity<typeof UserSchema>;
-type CreateUser = CreateDTO<typeof UserSchema>;
-type UpdateUser = UpdateDTO<typeof UserSchema>;
-```
+- **Consumer code: zero assertions.** If a user must write `as` to satisfy our
+  API, that is our bug.
+- **Framework code: assertions are a reviewed, enumerated exception**, allowed
+  *only* at a trust boundary (driver row → `Entity<S>`, parsed JSON → `T`,
+  metadata slot → typed record), each with a `// boundary:` comment stating the
+  runtime guarantee that makes it sound. We prefer, in order: (a) a type-guard
+  function that *proves* the shape, (b) a generic that carries the type without
+  assertion, (c) a `satisfies` check, and only then (d) a commented boundary
+  cast. New assertions require justification in review; the count is tracked and
+  driven toward zero.
 
-**Internal Structure**:
-
-```
-schema-core/src/
-├── dsl/
-│   ├── columns.ts      # Column builders: serial(), integer(), text(), etc.
-│   ├── modifiers.ts    # notNull(), defaultTo(), primaryKey(), references()
-│   ├── validation.ts   # tags.Minimum, tags.MaxLength, tags.Pattern, etc.
-│   └── index.ts
-├── derivation/
-│   ├── entity.ts       # Entity<T> type
-│   ├── create-dto.ts   # CreateDTO<T> type (strips auto-increment)
-│   ├── update-dto.ts   # UpdateDTO<T> type (all partial)
-│   └── index.ts
-├── metadata/
-│   ├── schema.ts       # CoreSchema<T> interface
-│   └── registry.ts     # Compile-time schema registry
-├── index.ts            # Public exports
-└── package.json
-```
-
-**Dependencies**: None (pure type definitions + runtime DSL objects).
-
----
-
-### 2.2 Package: `@zmdb/query-compiler`
-
-**Purpose**: Zero-overhead query building. Fork of Kysely's compiler, stripped of runtime type resolution, optimized for raw SQL output.
-
-**Public API**:
-
-```typescript
-import { createQueryCompiler } from '@zmdb/query-compiler';
-
-const qb = createQueryCompiler();
-
-// Compiles to raw SQL string — no runtime type resolution
-const sql = qb
-  .selectFrom('users')
-  .where('email', '=', 'user@example.com')
-  .where('role', '=', 'admin')
-  .orderBy('createdAt', 'desc')
-  .limit(10)
-  .compile();
-
-// sql.text === "SELECT * FROM users WHERE email = $1 AND role = $2 ORDER BY createdAt DESC LIMIT 10"
-// sql.parameters === ['user@example.com', 'admin']
-```
-
-**Internal Structure**:
-
-```
-query-compiler/src/
-├── compiler/
-│   ├── select.ts       # SELECT compilation
-│   ├── insert.ts       # INSERT compilation
-│   ├── update.ts       # UPDATE compilation
-│   ├── delete.ts       # DELETE compilation
-│   └── index.ts
-├── dialect/
-│   ├── postgres.ts     # PostgreSQL dialect
-│   ├── mysql.ts        # MySQL dialect
-│   ├── sqlite.ts       # SQLite dialect
-│   └── index.ts
-├── types/
-│   ├── sql-result.ts   # CompiledQuery<T> interface
-│   └── parameter.ts    # Parameterized query types
-├── index.ts
-└── package.json
-```
-
-**Dependencies**: None (pure compiler, no DB driver coupling).
-
-**Why not use Kysely directly?**
-- Kysely maintains runtime type resolution for ergonomics. We strip it for raw speed.
-- We add custom AOT validation hooks directly into the query compilation pipeline.
-- We emit parameterizable SQL strings, not Kysely's Result types.
+> This is the honest position: we make the *public surface* assertion-free and
+> hold framework internals to a documented, shrinking exception list — rather
+> than claim an absolute we'd have to fake with hidden `any`.
 
 ---
 
-### 2.3 Package: `@zmdb/aot-validator`
+## 3. Package architecture & separation of responsibility
 
-**Purpose**: Compile-time validation inlining. TypeScript transformer that replaces validation function calls with inline JavaScript checks.
+### 3.1 The splitting doctrine — *when* a concern earns its own package
 
-**Public API** (for schema-core to consume):
+We split aggressively along **responsibility seams**, not by file count. A new
+package is justified **only** when it satisfies most of these tests:
 
-```typescript
-import { defineValidation, tags } from '@zmdb/aot-validator';
+1. **Distinct responsibility.** It owns one clearly-nameable concern that the
+   others should not know about (e.g. "compile SQL" vs "derive types" vs
+   "validate at the boundary").
+2. **Independent consumability.** A real user would install it *alone* — e.g.
+   someone who wants only the query compiler, or only the AOT validator, with no
+   interest in the rest.
+3. **Independent versioning value.** Its API changes on a different cadence than
+   its siblings, and forcing a lockstep bump would be user-hostile.
+4. **A one-directional dependency edge.** It can sit at a clean layer in the DAG
+   (below its consumers, above its providers) with **no cycles**. If two
+   candidate packages would need to depend on each other, they are one package.
+5. **Independent testability.** Its contract can be tested without standing up
+   the others.
 
-// This call gets AOT-transformed:
-// validate(tags.Minimum(0), input.totalPrice)
+If a concern fails these tests it stays a **sub-module** (`src/<concern>/` with
+its own `SPEC.md` and a subpath export) inside an existing package — cheaper to
+maintain, still separable later. **Subpath exports are the default; a new package
+is the exception.** We would rather ship `@zmdb/schema-core/dto` than a premature
+`@zmdb/dto`.
 
-// Becomes (at compile time):
-// (typeof input.totalPrice === 'number' && input.totalPrice >= 0)
+Conversely, we **merge** packages that have grown a bidirectional dependency or
+that no one installs independently — dissolving a package is a valid, encouraged
+refactor.
+
+### 3.2 The dependency DAG (must stay acyclic)
+
+```
+                         ┌───────────────────┐
+                         │   @zmdb/schema-core│  (no deps — the SoT + type derivation)
+                         └─────────┬─────────┘
+                 ┌─────────────────┼──────────────────┐
+                 ▼                 ▼                  ▼
+      ┌────────────────┐  ┌────────────────┐  (schema-core has no
+      │@zmdb/query-    │  │@zmdb/aot-       │   runtime deps; validator
+      │  compiler      │  │  validator      │   is build-time + a tiny
+      │ (no deps)      │  │ (ts as devDep)  │   runtime fallback)
+      └───────┬────────┘  └───────┬────────┘
+              └───────┬───────────┘
+                      ▼
+             ┌────────────────┐
+             │ @zmdb/repository│  (deps: schema-core, query-compiler)
+             │  + drivers/*    │   optional peer: pg; built-in: node:sqlite
+             └───────┬─────────┘
+                     ▼
+             ┌────────────────┐
+             │   @zmdb/web     │  (deps: schema-core, aot-validator, repository)
+             │ (decorator HTTP)│   NestJS-parity layer — planned
+             └───────┬─────────┘
+                     ▼
+             ┌────────────────┐
+             │      zmdb       │  (umbrella — re-exports the whole ecosystem;
+             │   (meta pkg)    │   depends on all of the above; ZERO logic)
+             └────────────────┘
 ```
 
-**Internal Structure**:
+**Rules enforced by this DAG:**
+- **schema-core is the root and depends on nothing.** It is the Single Source of
+  Truth; everything derives downward. It must never import a sibling.
+- **query-compiler and aot-validator are siblings that do not know about each
+  other.** SQL compilation and boundary validation are orthogonal.
+- **repository is the composition layer** — it wires schema + compiler + validator
+  into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
+- **web sits above repository** — controllers inject repositories, routes
+  validate via the AOT validator, responses serialize via the AOT serializer.
+- **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the
+  default install; the sub-packages remain the tree-shakeable/advanced path.
 
-```
-aot-validator/src/
-├── transformer/
-│   ├── plugin.ts               # TypeScript plugin entry
-│   ├── visitors/
-│   │   ├── call-expression.ts  # Intercept validateX() calls
-│   │   └── binary-expression.ts # Inline boolean checks
-│   └── index.ts
-├── rules/
-│   ├── minimum.ts              # tags.Minimum → >= check
-│   ├── maximum.ts              # tags.Maximum → <= check
-│   ├── min-length.ts           # tags.MinLength → .length >= check
-│   ├── max-length.ts           # tags.MaxLength → .length <= check
-│   ├── pattern.ts              # tags.Pattern → RegExp.test()
-│   ├── enum.ts                 # tags.Enum → includes() check
-│   └── index.ts
-├── js-emitter/
-│   ├── emitter.ts              # AST → JavaScript string
-│   └── index.ts
-├── types/
-│   └── validation-rule.ts      # ValidationRule union type
-├── index.ts
-└── package.json
-```
+### 3.3 Current + planned package map
 
-**Build-Time Behavior**:
-1. User writes `validate(tags.Minimum(0), input.price)`
-2. TypeScript compiles with our transformer
-3. Transformer replaces the call with inline `input.price >= 0`
-4. **Zero runtime cost**: the `validate()` function never executes in production
+| Package | Responsibility | Runtime deps |
+|---------|----------------|--------------|
+| `@zmdb/schema-core` | Schema DSL, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas | none |
+| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects | none |
+| `@zmdb/aot-validator` | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De | none (ts is a devDep) |
+| `@zmdb/repository` | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers** | schema-core, query-compiler |
+| `@zmdb/web` *(planned)* | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline | schema-core, aot-validator, repository |
+| `zmdb` | Umbrella meta-package (curated root + subpath re-exports) | all of the above |
 
-**Dependencies**: `typescript` (dev), `@types/typescript` (dev).
+**Watch-list for future splits** (kept as sub-modules until they earn §3.1):
+- `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime
+  fallback** if the plugin grows a heavy `typescript` coupling that hurts the
+  runtime package's install weight.
+- `@zmdb/web` will likely spawn **sub-modules first** (routing, DI, pipeline,
+  guards/interceptors) and only promote one to a package if it becomes
+  independently useful (e.g. the DI container).
+- Native/WASM hot-path kernels (§4) would ship as their own artifact packages
+  (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
 
 ---
 
-### 2.4 Package: `@zmdb/repository`
+## 4. Implementation-language policy
 
-**Purpose**: The encapsulated repository pattern. Auto-validating CRUD with <10 lines of declarative setup.
+**We target the TypeScript ecosystem; we are not obligated to implement in
+TypeScript.** The public surface (types, DSL, decorators) is and will remain
+TypeScript, because that is the *product*. But the *implementation* of any hot
+path is chosen purely by north star (1): whatever gives the consumer the fastest
+runtime while remaining maintainable.
 
-**Public API**:
+### 4.1 The decision rule
 
-```typescript
-import { BaseRepository } from '@zmdb/repository';
-import { UserSchema } from './user.schema';
+For each unit of work, pick the leftmost option that meets the perf bar:
 
-export class UserRepository extends BaseRepository<typeof UserSchema> {
-  // Inherits: findById, findOne, create, update, delete, findAll
-  
-  // Add domain queries (no validation boilerplate needed)
-  async findAdmins() {
-    return this.query
-      .selectFrom(this.tableName)
-      .where('role', '=', 'admin')
-      .execute();
-  }
-}
+1. **Type-level (0 runtime).** If it can be a compile-time type, it is not code.
+   *(derivation, path-param typing, DI-graph checks, domain state machines)*
+2. **AOT-generated JS (0 marginal runtime).** If it can be inlined at the
+   consumer's build, emit straight-line JavaScript. *(validation, static SQL)*
+3. **Hand-written modern JS/TS (fast enough, most maintainable).** The default
+   for everything not on a measured hot path. Node 26's V8 is the target; write
+   monomorphic, allocation-light code.
+4. **Native (N-API) or WASM kernel (last resort, measured).** Only when (1)–(3)
+   are proven insufficient by a benchmark, and only for a **small, stable,
+   pure-function kernel** with a clean boundary (bytes in → bytes/values out).
 
-// Usage:
-const repo = new UserRepository(dbPool);
-await repo.create({ email: 'admin@example.com', role: 'admin' });
-// → Validates against CreateDTO<UserSchema> automatically
-// → Inserts into 'users' table
-// → Returns Entity<UserSchema>
-```
+### 4.2 Guardrails for reaching down to native/WASM
 
-**Internal Structure**:
+Because native code trades maintainability for speed, it is gated:
 
-```
-repository/src/
-├── base/
-│   ├── base-repository.ts      # Generic CRUD + validation interceptors
-│   └── index.ts
-├── interceptors/
-│   ├── create-interceptor.ts   # validateCreate() → AOT check
-│   ├── update-interceptor.ts   # validateUpdate() → AOT check
-│   └── index.ts
-├── hooks/
-│   ├── pre-insert.ts           # Pre-insert hooks
-│   ├── post-select.ts          # Post-select hooks
-│   └── index.ts
-├── index.ts
-└── package.json
-```
+- **Must be justified by a committed benchmark** showing the JS path is the
+  bottleneck in a *consumer* hot path (not a micro-benchmark of our internals).
+- **Must ship as an optional, separately-versioned artifact** with a **pure-JS
+  fallback of identical behaviour** — installs must never *require* a native
+  build, and consumers on any platform must work (slower) without it.
+- **WASM is preferred over N-API** for portability (no node-gyp, no per-platform
+  binaries, works in edge runtimes), unless N-API is measurably faster for the
+  specific kernel.
+- **The boundary must be tiny and value-typed** (e.g. "compile this AST to a SQL
+  string", "hash these bytes") — never a chatty API that crosses the JS↔native
+  boundary per row.
 
-**Dependencies**: `@zmdb/schema-core`, `@zmdb/query-compiler`, `@zmdb/aot-validator`.
+### 4.3 Current reality (honest)
 
----
-
-## 3. Data Flow
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         DEVELOPER WRITES                                     │
-│                                                                             │
-│   user.schema.ts                                                            │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ defineSchema('users', {                                            │   │
-│   │   id: serial().primaryKey(),                                       │   │
-│   │   email: text().notNull().validate(tags.Pattern(...)),             │   │
-│   │   role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),   │   │
-│   │   createdAt: timestamp().notNull().defaultTo('now')                │   │
-│   │ })                                                                  │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      SCHEMA-CORE (Compile-Time)                             │
-│                                                                             │
-│   Type Derivation:                                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ Entity<UserSchema> = { id: number, email: string, role: string,    │   │
-│   │                       createdAt: Date }                             │   │
-│   │                                                                       │   │
-│   │ CreateDTO<UserSchema> = { email: string, role?: string }           │   │
-│   │   // id, createdAt stripped (auto-increment)                       │   │
-│   │                                                                       │   │
-│   │ UpdateDTO<UserSchema> = Partial<CreateDTO<UserSchema>>             │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      AOT-VALIDATOR (Compile-Time)                           │
-│                                                                             │
-│   Transformer inlines validation:                                           │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ validate(tags.Pattern(...), input.email)                           │   │
-│   │        ↓ (transformed)                                             │   │
-│   │ /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(input.email)│   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      QUERY-COMPILER (Build-Time)                            │
-│                                                                             │
-│   SQL Compilation:                                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ query.selectFrom('users').where(...).compile()                     │   │
-│   │        ↓                                                            │   │
-│   │ { text: "SELECT * FROM users WHERE email = $1", params: [...] }    │   │
-│   └────────────────────────���────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      REPOSITORY (Runtime)                                   │
-│                                                                             │
-│   Execution:                                                                │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ class UserRepository extends BaseRepository                        │   │
-│   │   async create(payload) {                                          │   │
-│   │     const validated = this.validateCreate(payload); // AOT check  │   │
-│   │     const sql = queryCompiler.insertInto(...).values(validated)    │   │
-│   │     return db.execute(sql.text, sql.parameters);                   │   │
-│   │   }                                                                 │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      DATABASE (Runtime)                                     │
-│                                                                             │
-│   Raw SQL executes against PostgreSQL/MySQL/SQLite                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` via `tsup`,
+and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The
+AOT validator's inlined output *is* our "generated JS" tier. **No native/WASM
+kernel exists or is currently justified.** The policy above is the rule we'll
+apply *if and when* a measured bottleneck appears — we do not add native
+complexity speculatively (north star 2). The realistic first candidates, should
+they ever be needed, are the AOT validator's JS emitter and the query compiler's
+string assembly — both pure, both boundary-clean.
 
 ---
 
-## 4. Implementation Language Decision
+## 5. What Node 26 / TS 7 lets us delete
 
-### Recommendation: TypeScript for All Packages
+Committing to a hard floor is itself an architecture decision — it removes code:
 
-Despite the PRD's openness to non-TypeScript implementation, we recommend **TypeScript for all packages** because:
-
-1. **TypeScript 7's metadata reflection** (experimental) can replace runtime schema inspection
-2. **TypeScript's transformer API** is first-class — writing a custom transformer in another language adds friction
-3. **The ecosystem is TypeScript** — contributors will expect TS
-4. **Zero overhead argument is weak** — the runtime cost of TypeScript compilation is paid once at install time, not per-request
-
-We **do not** use `.ts` files for the `aot-validator` transformer itself (it's a plugin). But the schema-core, query-compiler, and repository packages are pure TypeScript.
-
----
-
-## 5. Performance Targets
-
-| Metric | Target | How We Achieve |
-|--------|--------|----------------|
-| **Validation throughput** | 10x-100x faster than Zod | AOT inlined checks, no parsing |
-| **Query compilation** | <1μs overhead | Pre-compiled SQL strings, no runtime type resolution |
-| **Memory allocation** | 0 heap allocations for simple queries | Direct SQL string concatenation, no object wrappers |
-| **Bundle size** | <50KB total (tree-shaken) | No runtime dependencies |
-
-These targets are validated by a comparative benchmarking harness (see
-[`benchmarks/SPEC.md`](./benchmarks/SPEC.md)) that ports two industry-standard
-suites:
-
-- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
-  (vs Typia / Zod / TypeBox / Ajv).
-- **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  (vs Drizzle / Prisma / Kysely).
-
-**Honesty policy:** cases that only make sense for a rejected pattern (identity
-map, proxy lazy-load, active-record `save()`) are reported as
-`DNF (anti-pattern)`; supported-in-principle cases we have not wired yet are
-reported as `DNF (not implemented)`. No in-scope case is ever silently skipped.
+- **No CommonJS interop, no dual `exports`, no `__dirname` shims.** ESM-only.
+- **No transpilation of modern syntax** — `using`/`await using` (explicit
+  resource mgmt), top-level `await`, `Array.fromAsync`, `Object.groupBy`,
+  `Promise.withResolvers`, `structuredClone`, and **`node:sqlite`** are assumed
+  present. The built-in `node:sqlite` driver is why our quickstart is
+  zero-dependency.
+- **Stage 3 standard decorators** (`experimentalDecorators: false`) with
+  `Symbol.metadata` — the foundation of `@zmdb/web`. No `reflect-metadata`.
+- **No polyfills** in shipped code. If a runtime feature isn't in Node 26, we
+  don't use it; we don't shim it.
 
 ---
 
-## 6. Opinionated Design Directives
+## 6. Cross-cutting standards (every package)
 
-### 6.1 No "Smart" Entities
-```typescript
-// ❌ FORBIDDEN: Mikro-ORM style — mutate a live proxy, flush later
-const user = em.findOne(User, 1);
-user.email = 'new@example.com';
-await em.flush(); // change tracked via proxy; implicit persistence
-
-// ✅ REQUIRED: fetched rows are inert plain objects; writes are explicit
-const user = await users.findById(1);
-// `user` is a plain object (prototype === Object.prototype).
-// Mutating it does NOTHING to the database:
-user.email = 'new@example.com';   // local edit only — not persisted
-
-// To persist, call an explicit, validated repository method:
-await users.update(1, { email: 'new@example.com' });
-// → validates the partial against UpdateDTO<S>, compiles UPDATE ... RETURNING *
-```
-
-Persistence happens **only** when you call `create` / `update` / `delete`
-by name. There is no hidden change tracking and no `flush()`. For grouped,
-all-or-nothing writes, use an explicit transaction (see the Cookbook).
-
-
-### 6.2 No Runtime Schema Inspection
-```typescript
-// ❌ FORBIDDEN: Reflect metadata
-const columns = Reflect.getMetadata('schema:columns', UserSchema);
-
-// ✅ REQUIRED: Compile-time only
-type UserColumns = UserSchema['columns']; // TypeScript type, erased at runtime
-```
-
-### 6.3 No Dynamic Validation at Runtime
-```typescript
-// ❌ FORBIDDEN: Zod/Valibot parsing
-const parsed = UserCreateSchema.parse(input);
-
-// ✅ REQUIRED: AOT inlined
-const validated = input.email.match(/^...$/) && typeof input.role === 'string';
-// The validate() call is transformed away at compile time
-```
-
-### 6.4 Explicit SQL, Always
-```typescript
-// ❌ FORBIDDEN: Implicit query building
-const users = await db.users.where({ role: 'admin' });
-
-// ✅ REQUIRED: Explicit compiler
-const sql = qb.selectFrom('users').where('role', '=', 'admin').compile();
-const users = await db.execute(sql.text, sql.parameters);
-```
-
-### 6.5 No CommonJS, No Dual Publishing
-```typescript
-// package.json
-{
-  "type": "module",  // ESM-only
-  "exports": {
-    ".": "./dist/index.js"  // No ".cjs" fallback
-  }
-}
-```
+- **`SPEC.md` per concern, frozen before code** (spec → failing tests → impl →
+  docs). Type-level behaviour is tested with `expectTypeOf`/`@ts-expect-error`.
+- **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
+  `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins
+  `noImplicitAny` and asserts `experimentalDecorators: false`.
+- **Build:** `tsup` → ESM `.js` + `.d.ts`; `@zmdb/*` kept external so cross-package
+  edges resolve to published packages, not bundled copies.
+- **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag
+  tracks the highest-precedence release (stable > rc > beta > alpha); provenance
+  attested. License **GPL-3.0-or-later**.
+- **No hidden state.** No module-level mutable singletons on the hot path (the DI
+  container in `@zmdb/web` is the one explicit, opt-in registry, and it is
+  resolved at class-init, not per request).
 
 ---
 
-## 7. Versioning & Release Strategy
+## 7. Superseded
 
-- **Independent versioning** per package (e.g., `@zmdb/query-compiler@2.1.0` while `@zmdb/schema-core@1.0.0`)
-- **Strict dependency ranges** (no `*` or `^`, exact versions preferred)
-- **Release tags**: `beta` for experimental features, `latest` for stable
-
----
-
-## 8. Open Questions (For Team Discussion)
-
-| Question | Options | Recommendation |
-|----------|---------|----------------|
-| **Custom SQL functions?** | Allow UDF registration or inline only | Allow registration for Postgres functions |
-| **Migrations?** | Built-in or external (e.g., Drizzle) | External — keep scope narrow |
-| **Soft deletes?** | Built-in flag or manual | Manual — more explicit |
-| **Multi-tenancy?** | Schema prefixing or row-level | Row-level with tenant_id column |
-| **Testing strategy?** | Integration tests per package | Unit tests for types/compiler, integration for repository |
-
----
-
-## 9. Files to Create
-
-```
-zmdb/  (repository root)
-├── package.json
-├── tsconfig.base.json
-├── vitest.config.ts
-├── .nvmrc                       # 26
-├── packages/
-│   ├── schema-core/
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── src/
-│   │       ├── dsl/
-│   │       │   ├── columns.ts
-│   │       │   ├── modifiers.ts
-│   │       │   ├── validation.ts
-│   │       │   └── index.ts
-│   │       ├── derivation/
-│   │       │   ├── entity.ts
-│   │       │   ├── create-dto.ts
-│   │       │   ├── update-dto.ts
-│   │       │   └── index.ts
-│   │       ├── metadata/
-│   │       │   ├── schema.ts
-│   │       │   └── registry.ts
-│   │       └── index.ts
-│   ├── query-compiler/
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── src/
-│   │       ├── compiler/
-│   │       ├── dialect/
-│   │       ├── types/
-│   │       └── index.ts
-│   ├── aot-validator/
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── src/
-│   │       ├── transformer/
-│   │       ├── rules/
-│   │       ├── js-emitter/
-│   │       ├── types/
-│   │       └── index.ts
-│   └── repository/
-│       ├── package.json
-│       ├── tsconfig.json
-│       └── src/
-│           ├── base/
-│           ├── interceptors/
-│           ├── hooks/
-│           └── index.ts
-└── ARCHITECTURE.md
-```
-
----
-
-## 10. Next Steps
-
-1. **Initialize workspace** with turbo.json and base tsconfig
-2. **Implement schema-core DSL** — column types, modifiers, type derivation
-3. **Implement query-compiler** — minimal Kysely fork (SELECT/INSERT/UPDATE/DELETE)
-4. **Implement aot-validator** — transformer + validation rules
-5. **Implement repository** — BaseRepository with validation interceptors
-6. **Write integration tests** — end-to-end schema → query → DB
-
----
-
-*Architecture approved: 2026-08-29*
-*Maintainer: [Your Name Here]*
+This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture
+Specification." Notably it **reverses** that document's §4 recommendation
+("TypeScript for all packages") in favour of the north-star-driven language
+policy in §4 here, and it records the five-package reality (+ `@zmdb/web`) rather
+than the original four. Component-level details in the old doc that remain
+accurate now live in each package's `SPEC.md` and the docs site.
