@@ -423,7 +423,7 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
   </div>
 </section>
 
-<div class="foot">MIT licensed · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
+<div class="foot">GPL-3.0-or-later · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
 </body></html>`;
 writeFileSync(join(OUT, 'index.html'), landing);
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const REPO = 'https://github.com/ambasta/zmdb';
-const VERSION = '1.0.0-alpha.2';
+const VERSION = '1.0.0-alpha.3';
 
 const META = {
   'schema-core': {
@@ -37,7 +37,7 @@ for (const [name, m] of Object.entries(META)) {
     version: VERSION,
     description: m.description,
     keywords: m.keywords,
-    license: 'MIT',
+    license: 'GPL-3.0-or-later',
     author: 'zmdb contributors',
     homepage: `${REPO}#readme`,
     repository: { type: 'git', url: `git+${REPO}.git`, directory: `packages/${name}` },
@@ -87,7 +87,7 @@ Full docs: **https://ambasta.github.io/zmdb/**
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+GNU General Public License v3.0 or later (GPL-3.0-or-later) — see [LICENSE](./LICENSE).
 `;
   writeFileSync(join(dir, 'README.md'), readme);
 

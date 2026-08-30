@@ -120,8 +120,9 @@ Future releases are fully automated via CI OIDC — no token, no manual build:
    OIDC under the `alpha` tag, with automatic provenance. (A tag push always
    publishes; a manual `workflow_dispatch` defaults to a dry run.)
 
-> **`latest` dist-tag gotcha:** the very first manual publish of `alpha.0` went to
-> `latest` (no `--tag`), so `npm install @zmdb/x` resolves `latest`. Move it to a
-> good build with `npm dist-tag add @zmdb/x@<good-version> latest`. Prereleases
-> published by CI go to the `alpha` tag and never touch `latest`. When a stable
-> `1.0.0` ships it should take `latest`.
+>  **dist-tags policy (automated):** CI publishes each release under its *channel*
+> tag derived from the version — `alpha` / `beta` / `rc`, or `latest` for a
+> stable version. After publishing, `set-latest-tag.mjs` repoints **`latest`** to
+> the highest-precedence published version: **stable > rc > beta > alpha** (and
+> newest within a channel). So while only alphas exist, `latest` tracks the newest
+> alpha; the moment a stable `1.0.0` is published, `latest` moves to it.

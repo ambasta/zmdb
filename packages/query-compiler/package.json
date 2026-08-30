@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/query-compiler",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.",
   "keywords": [
     "typescript",
@@ -12,7 +12,7 @@
     "migrations",
     "zmdb"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
   "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {

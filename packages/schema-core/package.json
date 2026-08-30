@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/schema-core",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.",
   "keywords": [
     "typescript",
@@ -11,7 +11,7 @@
     "openapi",
     "zmdb"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
   "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
