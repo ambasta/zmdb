@@ -65,3 +65,5 @@ function createPolicyDdl(p: RlsPolicy, dialect): string; // CREATE POLICY "n" ON
 <!-- §4 generated columns frozen: GENERATED ALWAYS AS (expr) [STORED]. -->
 
 <!-- §5 namespaces frozen: CREATE SCHEMA; qualify() ⇒ "schema"."object". -->
+
+<!-- §6 RLS frozen (pg only): ENABLE ROW LEVEL SECURITY + CREATE POLICY. -->
