@@ -887,9 +887,47 @@ const both = setOperation('union', [admins, guests], 'postgres');
 
 Positional placeholders are renumbered across the combined parameter list on Postgres (kept as \`?\` on MySQL/SQLite). Order is preserved; a single query passes through unchanged. Row shapes must be union-compatible.
 `),
-  'lifecycle-hooks': todo('Lifecycle Hooks & Events', 'Advanced', 'Repository-level create/update/delete hooks exist; a full entity event/subscriber system is planned. Note: implicit lifecycle magic that depends on change-tracking is an anti-pattern here — see the anti-patterns page.'),
-  embeddables: todo('Embeddables', 'Advanced', 'Embedding a value object across columns of one table is planned.'),
-  inheritance: todo('Inheritance Mapping', 'Advanced', 'Single-table / class-table inheritance mapping is planned.'),
+  'lifecycle-hooks': ok('Lifecycle Hooks & Events', 'Advanced', `
+An explicit event/subscriber surface around the repository's write methods (\`@zmdb/repository/entity-modeling\`). Events fire only from explicit \`create\`/\`update\`/\`delete\` — never from mutating a fetched object (that would require change-tracking, an [anti-pattern](./anti-patterns.html) here).
+
+\`\`\`ts
+import { EventBus } from '@zmdb/repository/entity-modeling';
+
+const bus = new EventBus();
+const off = bus.subscribe({ on: 'beforeCreate', run: (ctx) => audit(ctx) });
+await bus.emit('beforeCreate', payload); // matching subscribers run in order (async awaited)
+off(); // unsubscribe
+\`\`\`
+
+Events: \`beforeCreate\`/\`afterCreate\`, \`beforeUpdate\`/\`afterUpdate\`, \`beforeDelete\`/\`afterDelete\`.
+`),
+  embeddables: ok('Embeddables', 'Advanced', `
+Embed a value object across several columns of one table via a column prefix.
+
+\`\`\`ts
+import { flattenEmbeddable, liftEmbeddable } from '@zmdb/repository/entity-modeling';
+
+flattenEmbeddable('address', { street: '1 Main', city: 'Metropolis' });
+// { address_street: '1 Main', address_city: 'Metropolis' }
+liftEmbeddable('address', row); // back to { street, city }
+\`\`\`
+
+Round-trips: \`liftEmbeddable(p, flattenEmbeddable(p, v))\` deep-equals \`v\`.
+`),
+  inheritance: ok('Inheritance Mapping', 'Advanced', `
+Single-table inheritance: one table, a discriminator column selects the subtype.
+
+\`\`\`ts
+import { rowToSubtype, type SingleTableInheritance } from '@zmdb/repository/entity-modeling';
+
+const sti: SingleTableInheritance = {
+  discriminator: 'kind',
+  map: { circle: ['radius'], rect: ['width', 'height'] },
+};
+rowToSubtype(sti, { id: 1, kind: 'rect', width: 4, height: 5 });
+// { type: 'rect', data: { width: 4, height: 5 } }
+\`\`\`
+`),
 
   // ---------------- Integrations ----------------
   drivers: ok('Drivers', 'Integrations', `
