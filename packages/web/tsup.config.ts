@@ -8,6 +8,7 @@ export default defineConfig({
     di: 'src/di/index.ts',
     state: 'src/state/index.ts',
     pipeline: 'src/pipeline/index.ts',
+    data: 'src/data/index.ts',
   },
   format: ['esm'],
   dts: true,

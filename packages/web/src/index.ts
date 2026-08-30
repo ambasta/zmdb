@@ -83,3 +83,6 @@ export {
   type WebResponse,
   type RouteOptions,
 } from './pipeline/index.ts';
+
+// zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.
+export { repositoryToken, validateWith } from './data/index.ts';
