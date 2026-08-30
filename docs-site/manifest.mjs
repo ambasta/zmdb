@@ -8,7 +8,7 @@
 export const NAV = [
   { title: 'Getting Started', pages: ['introduction', 'installation', 'aot-setup', 'pure-typescript'] },
   { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
-  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
+  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'populate-results', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
   { title: 'Migrations', pages: ['migrations', 'migrations-cli', 'seeding'] },
   { title: 'Validation', pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'] },
@@ -454,6 +454,35 @@ this.query
 \`\`\`
 
 \`innerJoin\`, \`leftJoin\` are supported. Joins power the to-one relation \`populate\` strategy.
+`),
+
+  'populate-results': ok('Typed Populate & Join Results', 'Data Access', `
+Populated reads and joins produce **typed** result shapes (no proxies, no identity map — plain objects).
+
+## Populated parents
+
+\`\`\`ts
+import { attachPopulated, type PopulatedEntity } from '@zmdb/schema-core';
+
+// findById(1, { populate: ['orders'] }) → parent widened with the relation:
+type UserWithOrders = PopulatedEntity<User, UserRelations, 'orders'>;
+// { id; name; orders: Order[] }   (to-many ⇒ array; to-one ⇒ object | null)
+
+const populated = attachPopulated(user, 'orders', orders); // new object, non-mutating
+\`\`\`
+
+## Typed join rows
+
+\`\`\`ts
+import { aliasRow, type JoinRow } from '@zmdb/schema-core';
+
+type Row = JoinRow<Employee, Recipient, 'left'>; // Employee & Partial<Recipient>
+
+// Rename aliased join columns into a clean shape:
+const clean = aliasRow(row, { r_id: 'recipientId', r_name: 'recipientName' });
+\`\`\`
+
+\`JoinRow<Base, Joined, 'inner'>\` makes the joined columns required; \`'left'\` makes them optional (the join may not match).
 `),
 
   aggregations: ok('Aggregations', 'Data Access', `
