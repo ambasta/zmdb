@@ -12,6 +12,21 @@ export interface PgOptions {
 
 /** Wrap a pg Pool/Client as a zmdb Driver. `prepared:true` opts into server-side
  * prepared statements (stable statement name per SQL). */
-export function pgDriver(_client: PgQueryable, _opts?: PgOptions): Driver {
-  throw new Error('not implemented');
+export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
+  const names = new Map<string, string>();
+  let seq = 0;
+  const nameFor = (text: string): string => {
+    let n = names.get(text);
+    if (!n) { n = 'z' + (seq++).toString(36); names.set(text, n); }
+    return n;
+  };
+  return {
+    async execute(q) {
+      const params = q.parameters as unknown[];
+      const res = opts?.prepared
+        ? await client.query({ name: nameFor(q.text), text: q.text, values: params })
+        : await client.query(q.text, params);
+      return res.rows;
+    },
+  };
 }
