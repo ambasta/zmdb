@@ -22,6 +22,14 @@ export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 
+// Shape of an entry in a repository's static `relations` map (see typed-populate SPEC).
+interface RelationDefLike {
+  readonly cardinality: 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many';
+  readonly childTable: string;
+  readonly childFk: string;
+  readonly parentKey?: string;
+}
+
 export class ValidationError extends Error {
   readonly issues: readonly { path: string; message: string }[] = [];
 }
@@ -79,7 +87,29 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
 
   /** Batch-load and attach the named relations onto the given parent rows. */
   private async attachRelations(parents: Record<string, unknown>[], names: readonly string[]): Promise<void> {
-    throw new Error('not implemented');
+    if (parents.length === 0) return;
+    const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+    for (const name of names) {
+      const def = relations[name];
+      if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
+      const parentKey = def.parentKey ?? 'id';
+      const ids = parents.map((p) => p[parentKey]);
+      // One batched query for all parents' children (OR chain = IN).
+      let cb = this.qb.selectFrom(def.childTable);
+      ids.forEach((id, i) => { cb = i === 0 ? cb.where(def.childFk, '=', id) : cb.orWhere(def.childFk, '=', id); });
+      const children = await this.driver.execute(cb.compile());
+      const toMany = def.cardinality === 'one-to-many' || def.cardinality === 'many-to-many';
+      const byParent = new Map<unknown, Record<string, unknown>[]>();
+      for (const c of children) {
+        const list = byParent.get(c[def.childFk]) ?? [];
+        list.push(c as Record<string, unknown>);
+        byParent.set(c[def.childFk], list);
+      }
+      for (const p of parents) {
+        const list = byParent.get(p[parentKey]) ?? [];
+        p[name] = toMany ? list : (list[0] ?? null);
+      }
+    }
   }
 
   async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined> {
