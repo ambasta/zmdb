@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/repository",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.",
   "keywords": [
     "typescript",

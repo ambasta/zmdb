@@ -1,6 +1,6 @@
 {
   "name": "@zmdb/aot-validator",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.",
   "keywords": [
     "typescript",

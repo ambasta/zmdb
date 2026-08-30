@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const REPO = 'https://github.com/ambasta/zmdb';
-const VERSION = '1.0.0-alpha.1';
+const VERSION = '1.0.0-alpha.2';
 
 const META = {
   'schema-core': {
