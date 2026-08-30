@@ -21,6 +21,8 @@ interface ViewDef { name: string; select: string; materialized?: boolean; }
 function createViewDdl(def, dialect): string; // CREATE [MATERIALIZED] VIEW "n" AS <select>
 function dropViewDdl(name, dialect, materialized?): string;
 ```
+- `CREATE [MATERIALIZED] VIEW "n" AS <select>`; drop is `DROP [MATERIALIZED]
+  VIEW IF EXISTS "n"`. Materialized views: postgres only (else throws).
 
 ## 3. Sequences (#105/#106/#107)
 
