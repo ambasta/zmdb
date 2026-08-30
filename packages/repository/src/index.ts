@@ -63,10 +63,23 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return pk;
   }
 
-  async findById(id: unknown): Promise<Entity<S> | undefined> {
+  // #218 — typed populate. When `opts.populate` names relations (declared in the
+  // subclass's static `relations` map), the parent is widened with the nested
+  // relation(s). Batched IN query per relation; no proxies.
+  async findById(id: unknown): Promise<Entity<S> | undefined>;
+  async findById(id: unknown, opts: { populate: readonly string[] }): Promise<(Entity<S> & Record<string, unknown>) | undefined>;
+  async findById(id: unknown, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
     const q = this.qb.selectFrom(this.tableName).where(this.pkColumn, '=', id).limit(1).compile();
     const rows = await this.driver.execute(q);
-    return rows[0] as Entity<S> | undefined;
+    const row = rows[0] as (Entity<S> & Record<string, unknown>) | undefined;
+    if (!row || !opts?.populate?.length) return row;
+    await this.attachRelations([row as Record<string, unknown>], opts.populate);
+    return row;
+  }
+
+  /** Batch-load and attach the named relations onto the given parent rows. */
+  private async attachRelations(parents: Record<string, unknown>[], names: readonly string[]): Promise<void> {
+    throw new Error('not implemented');
   }
 
   async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined> {
