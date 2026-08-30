@@ -53,11 +53,7 @@ const OP_SQL: Record<string, string> = {
  * Fields/operators are applied in stable object-key order (golden SQL).
  * `and`/`or` groups compose; `or` members are ORed.
  */
-export function compileWhere<B extends WhereTarget>(_builder: B, _where: WhereDTO<CoreSchema<string>> | undefined): B {
-  throw new Error('not implemented');
-}
-// --- impl (restored in #180) ---
-function compileWhereImpl<B extends WhereTarget>(builder: B, where: WhereDTO<CoreSchema<string>> | undefined): B {
+export function compileWhere<B extends WhereTarget>(builder: B, where: WhereDTO<CoreSchema<string>> | undefined): B {
   if (!where) return builder;
   let b: WhereTarget = builder;
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
