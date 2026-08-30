@@ -42,6 +42,12 @@ export interface BatchHandle {
   readonly statements: readonly CompiledQuery[];
   execute<R>(runner: (stmts: readonly CompiledQuery[]) => Promise<readonly R[]>): Promise<readonly R[]>;
 }
-export function batch(_statements: readonly CompiledQuery[]): BatchHandle {
-  throw new Error('not implemented');
+export function batch(statements: readonly CompiledQuery[]): BatchHandle {
+  return {
+    statements,
+    async execute(runner) {
+      if (statements.length === 0) return [];
+      return runner(statements);
+    },
+  };
 }
