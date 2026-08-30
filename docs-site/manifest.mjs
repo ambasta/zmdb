@@ -2685,7 +2685,40 @@ real PostgreSQL — see the [benchmarks](../benchmarks/index.html).
   'populate-results': ok('Typed Populate & Join Results', 'Data Access', `
 Populate loads related entities for to-one and to-many relations. Unlike lazy-loading proxies, zmdb uses explicit batched queries — no proxies, no N+1 problem, and no identity map.
 
-## Populating To-One Relations
+## Typed populate: \`findById(id, { populate })\`
+
+Declare a repository's relations once in a typed static \`relations\` map, then ask
+for them by key — the result is a parent **typed** with its nested relation(s).
+
+\`\`\`ts
+import { oneToMany } from '@zmdb/schema-core/relations';
+
+class UserRepository extends BaseRepository<typeof UserSchema> {
+  static readonly schema = UserSchema;
+  static readonly relations = {
+    orders: { meta: oneToMany('orders', 'userId'), entity: OrderSchema,
+              cardinality: 'one-to-many', childTable: 'orders', childFk: 'userId', parentKey: 'id' },
+  } as const;
+}
+
+const user = await users.findById(1, { populate: ['orders'] });
+// user.orders: Order[]   — typed; to-one relations come back as Child | null
+\`\`\`
+
+Under the hood zmdb loads the parent, then runs **one batched query** for the
+children and attaches them — a plain array on a plain object.
+
+\`\`\`sql
+SELECT * FROM "users" WHERE "id" = $1 LIMIT 1
+SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
+\`\`\`
+
+> [!TIP]
+> Without \`{ populate }\` the result is a plain \`Entity<S>\` (no relation key), so
+> you never pay for data you didn't ask for. This replaces the older stringly-
+> typed \`findAllWithMany\`.
+
+## Populating To-One Relations (via JOIN)
 
 Use \`findJoined\` to fetch a parent with its related entity via JOIN.
 
