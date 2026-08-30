@@ -323,9 +323,15 @@ export interface DefineRepositoryOptions {
   relations?: Record<string, RelationDefLike>;
 }
 export function defineRepository<S extends CoreSchema<string>>(
-  _schema: S,
-  _driver: Driver,
-  _opts?: DefineRepositoryOptions,
+  schema: S,
+  driver: Driver,
+  opts?: DefineRepositoryOptions,
 ): BaseRepository<S> {
-  throw new Error('not implemented');
+  // Anonymous subclass binding the schema (+ optional relations) as statics,
+  // exactly like a hand-written subclass — no proxies, no magic.
+  class Repo extends BaseRepository<S> {
+    static override readonly schema = schema;
+    static readonly relations = opts?.relations ?? {};
+  }
+  return new Repo(driver, opts?.dialect ?? 'postgres');
 }
