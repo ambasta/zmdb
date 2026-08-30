@@ -843,7 +843,33 @@ interface Driver {
 Wrap your database client of choice — \`pg\`, \`mysql2\`, \`better-sqlite3\`, \`node:sqlite\` — in this interface. The benchmark harness uses a \`pg\`-backed driver against real PostgreSQL 16. Additional first-party driver adapters are on the roadmap.
 `),
 
-  'framework-integrations': todo('Framework Integrations', 'Integrations', 'First-party recipes/adapters for NestJS, Hono, tRPC and Express are planned; today, zmdb is framework-agnostic — validate at the boundary with assert() and serialize with stringify() (see the HTTP example in the cookbook).'),
+  'framework-integrations': ok('Framework Integrations', 'Integrations', `
+zmdb is framework-agnostic. \`makeEndpoint\` (\`@zmdb/repository/integrations\`) wires boundary validation + serialization into any HTTP framework.
+
+\`\`\`ts
+import { makeEndpoint } from '@zmdb/repository/integrations';
+import { assert } from '@zmdb/aot-validator';
+
+const createUser = makeEndpoint({
+  validate: (raw) => assert<CreateDTO<typeof UserSchema>>(raw),
+  handle: (dto) => users.create(dto),
+});
+// validate → handle → serialize; invalid input ⇒ 400 (handler not called), else 200
+\`\`\`
+
+Thin per-framework wrappers (1–2 lines each):
+
+\`\`\`ts
+// Hono
+app.post('/users', async (c) => { const r = await createUser(await c.req.json()); return c.body(r.body, r.status); });
+// Express
+app.post('/users', async (req, res) => { const r = await createUser(req.body); res.status(r.status).send(r.body); });
+// tRPC
+t.procedure.input(z.unknown()).mutation(({ input }) => createUser(input));
+\`\`\`
+
+No framework is a hard dependency of the core.
+`),
   'llm-function-calling': todo('LLM Function Calling', 'Integrations', 'A typia-style LLM function-calling harness (type → tool schema + lenient parse/coerce/validate) is a possible future direction, reusing the JSON-schema and validator machinery. Not yet built.'),
 
   // ---------------- Reference ----------------
