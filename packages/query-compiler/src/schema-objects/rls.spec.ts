@@ -20,7 +20,24 @@ describe('RLS DDL (#115)', () => {
   });
 
   it('RLS on non-postgres throws', () => {
-    expect(() => enableRlsDdl('t', 'mysql')).toThrow(UnsupportedFeatureError);
-    expect(() => createPolicyDdl({ name: 'p', table: 't', using: 'x' }, 'sqlite')).toThrow(UnsupportedFeatureError);
+    try {
+      enableRlsDdl('t', 'mysql');
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnsupportedFeatureError);
+      const e = err as UnsupportedFeatureError;
+      expect(e.feature).toBe('row-level security');
+      expect(e.dialect).toBe('mysql');
+    }
+
+    try {
+      createPolicyDdl({ name: 'p', table: 't', using: 'x' }, 'sqlite');
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnsupportedFeatureError);
+      const e = err as UnsupportedFeatureError;
+      expect(e.feature).toBe('row-level security');
+      expect(e.dialect).toBe('sqlite');
+    }
   });
 });

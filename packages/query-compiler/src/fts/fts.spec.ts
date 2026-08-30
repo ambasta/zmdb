@@ -19,8 +19,14 @@ describe('full-text search compilation', () => {
   });
 
   it('sqlite is an honest DNF (throws UnsupportedFeatureError)', () => {
-    expect(() => ftsSelectFrom('customers', 'sqlite').whereMatch('company_name', 'ltd')).toThrow(
-      UnsupportedFeatureError,
-    );
+    try {
+      ftsSelectFrom('customers', 'sqlite').whereMatch('company_name', 'ltd');
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnsupportedFeatureError);
+      const e = err as UnsupportedFeatureError;
+      expect(e.feature).toBe('full-text search');
+      expect(e.dialect).toBe('sqlite');
+    }
   });
 });
