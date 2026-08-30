@@ -1,7 +1,22 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": "..",
+    "paths": {
+      "@zmdb/schema-core": ["../packages/schema-core/src/index.ts"],
+      "@zmdb/schema-core/dto": ["../packages/schema-core/src/dto/index.ts"],
+      "@zmdb/schema-core/relations": ["../packages/schema-core/src/relations/index.ts"],
+      "@zmdb/query-compiler": ["../packages/query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/fts": ["../packages/query-compiler/src/fts/index.ts"],
+      "@zmdb/query-compiler/joins": ["../packages/query-compiler/src/joins/index.ts"],
+      "@zmdb/query-compiler/aggregations": ["../packages/query-compiler/src/aggregations/index.ts"],
+      "@zmdb/aot-validator": ["../packages/aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/utilities": ["../packages/aot-validator/src/utilities/index.ts"],
+      "@zmdb/repository": ["../packages/repository/src/index.ts"],
+      "@zmdb/repository/drivers/sqlite": ["../packages/repository/src/drivers/sqlite.ts"],
+      "@zmdb/repository/drivers/pg": ["../packages/repository/src/drivers/pg.ts"],
+      "@zmdb/web": ["../packages/web/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["**/*.spec.ts"]
