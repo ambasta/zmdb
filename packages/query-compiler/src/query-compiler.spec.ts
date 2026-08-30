@@ -70,3 +70,40 @@ describe('dialect placeholder + quoting', () => {
     expect(q.parameters).toEqual([1]);
   });
 });
+
+describe('subquery & EXISTS compilation', () => {
+  it('compiles scalar comparison and IN subqueries with sequential parameter offsets', () => {
+    const qb = createQueryCompiler('postgres');
+    const sub = qb.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
+    const q = qb.selectFrom('users').where('status', '=', 'active').andWhere('id', 'in', sub).compile();
+
+    expect(q.text).toBe(
+      'SELECT * FROM "users" WHERE "status" = $1 AND "id" IN (SELECT "user_id" FROM "orders" WHERE "amount" > $2)',
+    );
+    expect(q.parameters).toEqual(['active', 100]);
+  });
+
+  it('compiles whereExists and orWhereExists clauses', () => {
+    const qb = createQueryCompiler('postgres');
+    const sub1 = qb.selectFrom('orders').where('status', '=', 'shipped');
+    const sub2 = qb.selectFrom('logs').where('level', '=', 'error');
+    const q = qb.selectFrom('users').where('role', '=', 'admin').whereExists(sub1).orWhereExists(sub2).compile();
+
+    expect(q.text).toBe(
+      'SELECT * FROM "users" WHERE "role" = $1 AND EXISTS (SELECT * FROM "orders" WHERE "status" = $2) OR EXISTS (SELECT * FROM "logs" WHERE "level" = $3)',
+    );
+    expect(q.parameters).toEqual(['admin', 'shipped', 'error']);
+  });
+
+  it('compiles multi-level nested subqueries with continuous parameter renumbering', () => {
+    const qb = createQueryCompiler('postgres');
+    const inner = qb.selectFrom('payments').select(['order_id']).where('status', '=', 'failed');
+    const middle = qb.selectFrom('orders').select(['user_id']).where('total', '>', 50).andWhere('id', 'in', inner);
+    const outer = qb.selectFrom('users').where('tenant_id', '=', 10).andWhere('id', 'in', middle).compile();
+
+    expect(outer.text).toBe(
+      'SELECT * FROM "users" WHERE "tenant_id" = $1 AND "id" IN (SELECT "user_id" FROM "orders" WHERE "total" > $2 AND "id" IN (SELECT "order_id" FROM "payments" WHERE "status" = $3))',
+    );
+    expect(outer.parameters).toEqual([10, 50, 'failed']);
+  });
+});

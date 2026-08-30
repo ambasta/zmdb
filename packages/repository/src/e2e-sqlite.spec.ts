@@ -107,4 +107,25 @@ describe('repository E2E (real SQLite)', () => {
     const found = await sRepo.findById(user.id);
     expect(found?.passwordHash).toBe('hashed_secret_123');
   });
+
+  it('filters using subqueries and EXISTS conditions on real SQLite', async () => {
+    db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, total REAL, status TEXT)');
+    db.exec("INSERT INTO orders VALUES (10, 1, 150.0, 'shipped'), (20, 2, 50.0, 'pending')");
+
+    const u1 = await users.create({ email: 'alice@b.com', role: 'admin' });
+    await users.create({ email: 'bob@b.com', role: 'user' });
+
+    // Subquery filtering via in
+    const matchingIn = await users.find({
+      id: { in: { table: 'orders', select: ['user_id'], where: { total: { gt: 100 } } } },
+    });
+    expect(matchingIn).toHaveLength(1);
+    expect(matchingIn[0]?.id).toBe(u1.id);
+
+    // Existence check via exists
+    const matchingExists = await users.find({
+      exists: { table: 'orders', where: { status: 'shipped' } },
+    });
+    expect(matchingExists).toHaveLength(2);
+  });
 });

@@ -10,7 +10,22 @@ import { quoteColumn, quoteIdentifier, quoteTable } from './quoting.ts';
 export { quoteColumn, quoteIdentifier, quoteTable };
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
-export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like' | 'in';
+export type Operator =
+  | '='
+  | '!='
+  | '<'
+  | '<='
+  | '>'
+  | '>='
+  | 'like'
+  | 'ilike'
+  | 'in'
+  | 'not in'
+  | 'EXISTS'
+  | 'NOT EXISTS'
+  | 'exists'
+  | 'not exists'
+  | (string & {});
 export type Direction = 'asc' | 'desc';
 
 export interface CompiledQuery {
@@ -62,31 +77,86 @@ interface SelectState {
   readonly offsetN?: number;
 }
 
-export interface SelectBuilder {
-  select(columns?: readonly string[]): SelectBuilder;
-  where(col: string, op: Operator, value: unknown): SelectBuilder;
-  andWhere(col: string, op: Operator, value: unknown): SelectBuilder;
-  orWhere(col: string, op: Operator, value: unknown): SelectBuilder;
-  orderBy(col: string, dir: Direction): SelectBuilder;
-  limit(n: number): SelectBuilder;
-  offset(n: number): SelectBuilder;
+export interface SelectBuilder<T = unknown> {
+  select(columns?: readonly string[]): SelectBuilder<T>;
+  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  whereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  andWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  orWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  whereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  andWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  orWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+  orderBy(col: string, dir: Direction): SelectBuilder<T>;
+  limit(n: number): SelectBuilder<T>;
+  offset(n: number): SelectBuilder<T>;
   compile(): CompiledQuery;
+  readonly dialect: Dialect;
+  readonly _type?: T;
 }
 
 function opSql(op: Operator): string {
   return op === 'like' ? 'LIKE' : op === 'in' ? 'IN' : op.toUpperCase() === op ? op : op;
 }
 
-function makeSelect(d: DialectStrategy, state: SelectState): SelectBuilder {
-  const next = (patch: Partial<SelectState>): SelectBuilder => makeSelect(d, { ...state, ...patch });
+function isSubqueryTarget(val: unknown): val is { compile(): CompiledQuery } {
+  return (
+    val !== null &&
+    typeof val === 'object' &&
+    'compile' in val &&
+    typeof (val as { compile?: unknown }).compile === 'function'
+  );
+}
+
+function compileWhereCondition(w: WhereClause, d: DialectStrategy, params: unknown[], i: number): string {
+  const opUpper = String(w.op).toUpperCase();
+  if (isSubqueryTarget(w.value)) {
+    const subCompiled = w.value.compile();
+    let subText = subCompiled.text;
+    const offset = params.length;
+    if (offset > 0 && /\$\d+/.test(subText)) {
+      subText = subText.replace(/\$(\d+)\b/g, (_, num) => `$${parseInt(num, 10) + offset}`);
+    }
+    params.push(...subCompiled.parameters);
+
+    let cond: string;
+    if (opUpper === 'EXISTS') {
+      cond = `EXISTS (${subText})`;
+    } else if (opUpper === 'NOT EXISTS') {
+      cond = `NOT EXISTS (${subText})`;
+    } else {
+      cond = `${d.quoteCol(w.col)} ${opSql(w.op)} (${subText})`;
+    }
+    return i === 0 ? cond : `${w.connector} ${cond}`;
+  } else {
+    params.push(w.value);
+    const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+    return i === 0 ? cond : `${w.connector} ${cond}`;
+  }
+}
+
+function makeSelect<T = unknown>(
+  d: DialectStrategy,
+  state: SelectState,
+  dialect: Dialect = 'postgres',
+): SelectBuilder<T> {
+  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, dialect);
   const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
+    dialect,
     select: columns => (columns === undefined ? next({}) : next({ columns })),
     where: (col, op, value) => addWhere('AND', col, op, value),
     andWhere: (col, op, value) => addWhere('AND', col, op, value),
     orWhere: (col, op, value) => addWhere('OR', col, op, value),
+    whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
+    andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
+    orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
+    whereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
+    andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
+    orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
     orderBy: (col, dir) => next({ orderBys: [...state.orderBys, { col, dir }] }),
     limit: n => next({ limitN: n }),
     offset: n => next({ offsetN: n }),
@@ -96,11 +166,7 @@ function makeSelect(d: DialectStrategy, state: SelectState): SelectBuilder {
       let text = `SELECT ${cols} FROM ${d.quoteTable(state.table)}`;
 
       if (state.wheres.length > 0) {
-        const parts = state.wheres.map((w, i) => {
-          params.push(w.value);
-          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
-          return i === 0 ? cond : `${w.connector} ${cond}`;
-        });
+        const parts = state.wheres.map((w, i) => compileWhereCondition(w, d, params, i));
         text += ` WHERE ${parts.join(' ')}`;
       }
 
@@ -188,11 +254,7 @@ function makeUpdate(
         .join(', ');
       let text = `UPDATE ${d.quoteTable(table)} SET ${sets}`;
       if (wheres.length > 0) {
-        const parts = wheres.map((w, i) => {
-          params.push(w.value);
-          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
-          return i === 0 ? cond : `${w.connector} ${cond}`;
-        });
+        const parts = wheres.map((w, i) => compileWhereCondition(w, d, params, i));
         text += ` WHERE ${parts.join(' ')}`;
       }
       text += returningClause(d, ret);
@@ -214,11 +276,7 @@ function makeDelete(
       const params: unknown[] = [];
       let text = `DELETE FROM ${d.quoteTable(table)}`;
       if (wheres.length > 0) {
-        const parts = wheres.map((w, i) => {
-          params.push(w.value);
-          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
-          return i === 0 ? cond : `${w.connector} ${cond}`;
-        });
+        const parts = wheres.map((w, i) => compileWhereCondition(w, d, params, i));
         text += ` WHERE ${parts.join(' ')}`;
       }
       text += returningClause(d, ret);
@@ -230,7 +288,7 @@ function makeDelete(
 export function createQueryCompiler(dialect: Dialect = 'postgres'): QueryCompiler {
   const d = DIALECTS[dialect];
   return {
-    selectFrom: table => makeSelect(d, { table, wheres: [], orderBys: [] }),
+    selectFrom: table => makeSelect(d, { table, wheres: [], orderBys: [] }, dialect),
     insertInto: table => makeInsert(d, table),
     updateTable: table => makeUpdate(d, table),
     deleteFrom: table => makeDelete(d, table),

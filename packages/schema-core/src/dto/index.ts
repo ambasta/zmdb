@@ -1,23 +1,31 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
+import type { CompiledQuery, SelectBuilder } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+import type { CoreSchema, Entity } from '../index.ts';
 import { isRecord } from '../index.ts';
-import type { Entity, CoreSchema } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // §1 WhereDTO + operator set
 // ---------------------------------------------------------------------------
+export type SubqueryTarget<V = unknown> =
+  | SelectBuilder<V>
+  | { compile(): CompiledQuery; readonly _type?: V }
+  | { table: string; select?: readonly string[]; where?: WhereDTO<CoreSchema<string>>; readonly _type?: V };
+
 export interface FieldOps<V> {
-  eq?: V;
-  ne?: V;
-  lt?: V;
-  lte?: V;
-  gt?: V;
-  gte?: V;
-  in?: readonly V[];
-  nin?: readonly V[];
-  like?: V extends string ? string : never;
-  ilike?: V extends string ? string : never;
+  eq?: V | SubqueryTarget<V>;
+  ne?: V | SubqueryTarget<V>;
+  lt?: V | SubqueryTarget<V>;
+  lte?: V | SubqueryTarget<V>;
+  gt?: V | SubqueryTarget<V>;
+  gte?: V | SubqueryTarget<V>;
+  in?: readonly V[] | SubqueryTarget<V>;
+  nin?: readonly V[] | SubqueryTarget<V>;
+  like?: V extends string ? string | SubqueryTarget<string> : never;
+  ilike?: V extends string ? string | SubqueryTarget<string> : never;
   isNull?: boolean;
   notNull?: boolean;
 }
@@ -27,6 +35,8 @@ export type WhereDTO<S> = {
 } & {
   and?: readonly WhereDTO<S>[];
   or?: readonly WhereDTO<S>[];
+  exists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
+  notExists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
 };
 
 /**
@@ -40,6 +50,10 @@ export type WhereDTO<S> = {
 export interface WhereTarget {
   where(col: string, op: string, value: unknown): this;
   orWhere(col: string, op: string, value: unknown): this;
+  whereExists?(subquery: unknown): this;
+  orWhereExists?(subquery: unknown): this;
+  whereNotExists?(subquery: unknown): this;
+  orWhereNotExists?(subquery: unknown): this;
 }
 
 /**
@@ -67,6 +81,27 @@ const OP_SQL: Record<string, string> = {
   ilike: 'ilike',
 };
 
+function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 'sqlite' = 'postgres'): unknown {
+  if (
+    target !== null &&
+    typeof target === 'object' &&
+    !('compile' in target) &&
+    'table' in target &&
+    typeof (target as { table: unknown }).table === 'string'
+  ) {
+    const spec = target as { table: string; select?: readonly string[]; where?: WhereDTO<CoreSchema<string>> };
+    let sub = createQueryCompiler(dialect).selectFrom(spec.table);
+    if (spec.select && spec.select.length > 0) {
+      sub = sub.select(spec.select);
+    }
+    if (spec.where) {
+      sub = compileWhere(sub, spec.where);
+    }
+    return sub;
+  }
+  return target;
+}
+
 /**
  * Fold a WhereDTO into a query-compiler builder. Bare values become `eq`.
  * Fields/operators are applied in stable object-key order (golden SQL).
@@ -75,30 +110,60 @@ const OP_SQL: Record<string, string> = {
 export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereDTO<S> | undefined): B {
   if (!where) return builder;
   let b: B = builder;
+  const dialect = (builder as { dialect?: 'postgres' | 'mysql' | 'sqlite' }).dialect ?? 'postgres';
+
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
-    const add = (op: string, value: unknown) =>
-      (b = connector === 'or' ? b.orWhere(col, op, value) : b.where(col, op, value));
-    const ops = asRecord(spec);
-    if (ops) {
-      for (const [op, value] of Object.entries(ops)) {
-        if (op === 'isNull') {
-          if (value) add('is null', null);
-          else add('is not null', null);
-        } else if (op === 'notNull') {
-          add(value ? 'is not null' : 'is null', null);
-        } else {
-          const sql = OP_SQL[op];
-          if (sql) add(sql, value);
+    const add = (op: string, rawVal: unknown) => {
+      const value = resolveSubqueryTarget(rawVal, dialect);
+      b = (connector === 'or' ? b.orWhere(col, op, value) : b.where(col, op, value)) as B;
+    };
+    if (
+      spec !== null &&
+      typeof spec === 'object' &&
+      !Array.isArray(spec) &&
+      !('compile' in spec) &&
+      !('table' in spec)
+    ) {
+      const ops = asRecord(spec);
+      if (ops) {
+        for (const [op, value] of Object.entries(ops)) {
+          if (op === 'isNull') {
+            if (value) add('is null', null);
+            else add('is not null', null);
+          } else if (op === 'notNull') {
+            add(value ? 'is not null' : 'is null', null);
+          } else {
+            const sql = OP_SQL[op];
+            if (sql) add(sql, value);
+          }
         }
       }
     } else {
-      // bare value ⇒ eq
+      // bare value or direct subquery spec ⇒ eq
       add('=', spec);
     }
   };
-  // `and`/`or` are read from the typed DTO (no `val as readonly WhereDTO[]`),
-  // while the guard proves the string-keyed field reads are safe. Keys are still
-  // visited in insertion order, which the golden-SQL tests depend on.
+
+  const applyExists = (spec: unknown, isNot: boolean, connector: 'and' | 'or') => {
+    const items = Array.isArray(spec) ? spec : [spec];
+    for (const item of items) {
+      const resolved = resolveSubqueryTarget(item, dialect);
+      if (connector === 'or') {
+        if (isNot) {
+          b = (b.orWhereNotExists ? b.orWhereNotExists(resolved) : b.orWhere('', 'NOT EXISTS', resolved)) as B;
+        } else {
+          b = (b.orWhereExists ? b.orWhereExists(resolved) : b.orWhere('', 'EXISTS', resolved)) as B;
+        }
+      } else {
+        if (isNot) {
+          b = (b.whereNotExists ? b.whereNotExists(resolved) : b.where('', 'NOT EXISTS', resolved)) as B;
+        } else {
+          b = (b.whereExists ? b.whereExists(resolved) : b.where('', 'EXISTS', resolved)) as B;
+        }
+      }
+    }
+  };
+
   const { and, or } = where;
   const fields = asRecord(where);
   if (!fields) return b;
@@ -108,8 +173,22 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
     } else if (key === 'or') {
       for (const sub of or ?? []) {
         const group = asRecord(sub);
-        if (group) for (const [col, spec] of Object.entries(group)) applyField(col, spec, 'or');
+        if (group) {
+          for (const [col, spec] of Object.entries(group)) {
+            if (col === 'exists') {
+              applyExists(spec, false, 'or');
+            } else if (col === 'notExists') {
+              applyExists(spec, true, 'or');
+            } else {
+              applyField(col, spec, 'or');
+            }
+          }
+        }
       }
+    } else if (key === 'exists') {
+      applyExists(fields[key], false, 'and');
+    } else if (key === 'notExists') {
+      applyExists(fields[key], true, 'and');
     } else {
       applyField(key, fields[key], 'and');
     }
