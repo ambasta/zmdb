@@ -47,4 +47,15 @@ describe('typed create/update (#206)', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out?.role).toBe('admin');
   });
+  it('update strips explicit undefined properties before payload validation', async () => {
+    const execute = vi.fn(async (_q: unknown) => [{ id: 1, email: 'a@b.com', age: 32, role: 'user' }]);
+    const repo = new Users({ execute } as Driver);
+    const out = await repo.update(1, { age: 32, email: undefined } as UpdateDTO<S>);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(out?.age).toBe(32);
+    // Check compiled SQL parameter only contains age, not email
+    const query = execute.mock.calls[0]?.[0] as { text: string; parameters: unknown[] } | undefined;
+    expect(query?.text).toContain('UPDATE "users" SET "age" = $1 WHERE "id" = $2');
+    expect(query?.parameters).toEqual([32, 1]);
+  });
 });

@@ -115,11 +115,13 @@ export type CreateDTO<S, C = ColumnsOf<S>> = {
   // optional: has a default (and not auto-increment)
   [
     K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never
-  ]?: C[K] extends ColumnMeta ? TsType<C[K]> : never;
+  ]?: C[K] extends ColumnMeta ? TsType<C[K]> | undefined : never;
 };
 
-// UpdateDTO<S>: fully partial CreateDTO.
-export type UpdateDTO<S> = Partial<CreateDTO<S>>;
+// UpdateDTO<S>: fully partial CreateDTO with exact optional property support.
+export type UpdateDTO<S> = {
+  [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
+};
 
 export class SchemaError extends Error {}
 
