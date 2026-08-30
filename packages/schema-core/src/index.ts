@@ -134,6 +134,27 @@ export type UpdateDTO<S> = {
   [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
 };
 
+type PrimaryKeyKeys<C> = {
+  [K in keyof C]: C[K] extends ColumnMeta
+    ? C[K]['flags'] extends { primaryKey: true }
+      ? K
+      : never
+    : never;
+}[keyof C];
+
+type IsUnion<T, U = T> = T extends any ? ([U] extends [T] ? false : true) : never;
+
+// PrimaryKey<S>: scalar for single-column keys, object map for composite keys.
+export type PrimaryKey<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]
+  ? unknown
+  : IsUnion<PrimaryKeyKeys<C>> extends true
+    ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }
+    : PrimaryKeyKeys<C> extends keyof C
+      ? C[PrimaryKeyKeys<C>] extends ColumnMeta
+        ? TsType<C[PrimaryKeyKeys<C>]>
+        : unknown
+      : unknown;
+
 export class SchemaError extends Error {}
 
 export interface ValidationIssue {
@@ -415,7 +436,7 @@ export function defineSchema<T extends string, C extends ColumnsMap>(
     ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
   });
 
-  SCHEMA_REGISTRY.set(table, schema);
+  SCHEMA_REGISTRY.set(table, schema as unknown as CoreSchema<string>);
   return schema;
 }
 
