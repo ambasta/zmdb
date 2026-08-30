@@ -2,12 +2,21 @@
 // #26 read methods (findById/findOne/findAll) implemented via injected driver
 // + query-compiler. #27 (create/update) and #28 (delete/hooks) remain
 // unimplemented; their tests stay red.
-import type { CoreSchema } from '@zmdb/schema-core';
+import type { CoreSchema, Entity } from '@zmdb/schema-core';
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+import {
+  compileWhere,
+  applyOrderBy,
+  applyPagination,
+  buildListResult,
+  type WhereDTO,
+  type ListDTO,
+  type ListResult,
+} from '@zmdb/schema-core/dto';
 
 export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
@@ -54,21 +63,26 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return pk;
   }
 
-  async findById(id: unknown): Promise<Record<string, unknown> | undefined> {
+  async findById(id: unknown): Promise<Entity<S> | undefined> {
     const q = this.qb.selectFrom(this.tableName).where(this.pkColumn, '=', id).limit(1).compile();
     const rows = await this.driver.execute(q);
-    return rows[0];
+    return rows[0] as Entity<S> | undefined;
   }
 
-  async findOne(where: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
-    let b = this.qb.selectFrom(this.tableName);
-    for (const [col, value] of Object.entries(where)) b = b.where(col, '=', value);
-    const rows = await this.driver.execute(b.limit(1).compile());
-    return rows[0];
+  async findOne(_where: WhereDTO<S>): Promise<Entity<S> | undefined> {
+    throw new Error('not implemented');
   }
 
-  async findAll(): Promise<readonly Record<string, unknown>[]> {
-    return this.driver.execute(this.qb.selectFrom(this.tableName).compile());
+  async find(_where: WhereDTO<S>): Promise<readonly Entity<S>[]> {
+    throw new Error('not implemented');
+  }
+
+  async findAll(): Promise<readonly Entity<S>[]> {
+    return (await this.driver.execute(this.qb.selectFrom(this.tableName).compile())) as readonly Entity<S>[];
+  }
+
+  async list(_query?: ListDTO<S>): Promise<ListResult<Entity<S>>> {
+    throw new Error('not implemented');
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder;
