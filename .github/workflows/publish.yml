@@ -68,7 +68,7 @@ jobs:
             echo "=== packages/$pkg ==="
             cd "packages/$pkg"
             if [ "$DRY" = "false" ]; then
-              npm publish --access public
+              npm publish --access public --tag alpha
             else
               npm pack --dry-run
             fi

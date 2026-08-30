@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const REPO = 'https://github.com/ambasta/zmdb';
-const VERSION = '0.1.0';
+const VERSION = '1.0.0-alpha.0';
 
 const META = {
   'schema-core': {
@@ -47,7 +47,7 @@ for (const [name, m] of Object.entries(META)) {
     exports: pkg.exports,
     files: ['src', 'README.md', 'LICENSE'],
     engines: pkg.engines ?? { node: '>=26' },
-    publishConfig: { access: 'public' },
+    publishConfig: { access: 'public', tag: 'alpha' },
     scripts: pkg.scripts ?? { test: 'vitest run' },
   };
   writeFileSync(pkgPath, JSON.stringify(next, null, 2) + '\n');
@@ -70,11 +70,12 @@ and CRUD all derive at compile time.
 ## Install
 
 \`\`\`bash
-npm add ${pkg.name}
+npm add ${pkg.name}@alpha
 \`\`\`
 
-> Requires **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. This package
-> ships TypeScript source under \`./src\`; consume it from a TS7/ESM toolchain.
+> **Prerelease** (\`${VERSION}\`, published under the \`alpha\` dist-tag). Requires
+> **Node.js 26+** and is **ESM-only**. Ships built ESM \`.js\` + \`.d.ts\` under
+> \`./dist\`.
 
 ## Entry points
 

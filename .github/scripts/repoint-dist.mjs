@@ -29,10 +29,15 @@ for (const [name, entries] of Object.entries(ENTRIES)) {
   pkg.files = ['dist', 'README.md', 'LICENSE'];
   // Convert workspace:^ specifiers to a concrete range so plain `npm publish`
   // (which does not understand the workspace: protocol) produces a valid manifest.
+  // For prerelease versions (e.g. 1.0.0-alpha.0) pin the EXACT version — a caret
+  // range like ^1.0.0-alpha.0 is not reliably satisfied by a sibling prerelease
+  // across resolvers. Stable versions use a caret range.
   if (pkg.dependencies) {
+    const isPrerelease = /-/.test(pkg.version);
+    const range = isPrerelease ? pkg.version : `^${pkg.version}`;
     for (const [dep, spec] of Object.entries(pkg.dependencies)) {
       if (typeof spec === 'string' && spec.startsWith('workspace:')) {
-        pkg.dependencies[dep] = `^${pkg.version}`;
+        pkg.dependencies[dep] = range;
       }
     }
   }

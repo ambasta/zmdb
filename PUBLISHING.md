@@ -1,5 +1,11 @@
 # Publishing zmdb to npm (Trusted Publishing / OIDC)
 
+> **Prerelease.** The first releases are published as **`1.0.0-alpha.0`** under
+> the **`alpha`** dist-tag (not `latest`), so `npm install @zmdb/x` won't pull a
+> prerelease by default. Users opt in with `npm install @zmdb/x@alpha`. Bump the
+> prerelease (`alpha.1`, `alpha.2`, … then `beta.0`, then `1.0.0`) as it matures.
+
+
 The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing
 (OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a
 short-lived OIDC credential, so there is no long-lived secret to leak, rotate, or
@@ -32,7 +38,7 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
 
    > ⚠️ **First publish of a brand-new package name.** npm only lets you add a
    > Trusted Publisher to a package that **already exists**. For the very first
-   > `0.1.0` of each new `@zmdb/*` name you must do **one** initial publish to
+   > `1.0.0-alpha.0` of each new `@zmdb/*` name you must do **one** initial publish to
    > create the package, then attach the trusted publisher for all future
    > releases. Two options for that first publish:
    >
@@ -42,7 +48,7 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
    >     ( cd "packages/$p" && yarn build ); done
    >   node .github/scripts/repoint-dist.mjs
    >   for p in schema-core query-compiler aot-validator repository; do
-   >     ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public )
+   >     ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
    >   done
    >   git checkout packages/*/package.json   # restore dev state
    >   ```
@@ -65,7 +71,7 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
   workflow → leave `dry_run = true`. Builds + `npm pack --dry-run` each package.
 - **Real publish**: run with `dry_run = false`, or push a tag:
   ```bash
-  git tag v0.1.0 && git push --tags
+  git tag v1.0.0-alpha.0 && git push --tags
   ```
   The workflow installs → tests → builds `dist` (dependency order) → repoints
   manifests → `npm publish` each via OIDC. No secrets involved.
@@ -80,7 +86,7 @@ README.md
 LICENSE
 ```
 `exports` map each subpath to `{ types, import }`; `files` is
-`['dist','README.md','LICENSE']`; cross-package deps become concrete `^0.1.0`
+`['dist','README.md','LICENSE']`; cross-package deps become the exact prerelease `1.0.0-alpha.0`
 ranges (`aot-validator` → schema-core; `repository` → schema-core + query-compiler).
 
 ## Verify after publish

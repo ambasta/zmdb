@@ -9,11 +9,12 @@ and CRUD all derive at compile time.
 ## Install
 
 ```bash
-npm add @zmdb/schema-core
+npm add @zmdb/schema-core@alpha
 ```
 
-> Requires **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. This package
-> ships TypeScript source under `./src`; consume it from a TS7/ESM toolchain.
+> **Prerelease** (`1.0.0-alpha.0`, published under the `alpha` dist-tag). Requires
+> **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
+> `./dist`.
 
 ## Entry points
 
