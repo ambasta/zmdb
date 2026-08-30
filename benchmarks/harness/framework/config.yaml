@@ -1,0 +1,9 @@
+# the-benchmarker/web-frameworks per-framework config for @zmdb/web.
+# Mirrors the upstream `<language>/<framework>/config.yaml` shape:
+#   framework: { website, version }, plus the engine variant.
+# (Upstream language-level settings — Node engine, ES version, bootstrap/command
+#  — live at the `javascript/config.yaml` layer; this file is the framework layer.)
+framework:
+  website: https://ambasta.github.io/zmdb/
+  version: 1.0.0-alpha.4
+  engine: node

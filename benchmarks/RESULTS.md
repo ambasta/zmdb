@@ -239,6 +239,49 @@ Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/
   path; a plan cache is the planned mitigation, kept opt-in to preserve the
   zero-state guarantee.
 
+## Framework (HTTP) — the-benchmarker/web-frameworks (real contract + oha)
+
+`@zmdb/web` (the Stage-3 decorator web framework) participates in
+**[the-benchmarker/web-frameworks](https://github.com/the-benchmarker/web-frameworks)**
+under its exact shared contract, driven with the upstream methodology (`oha`,
+`GET /` 15s, keep-alive disabled, latency-corrected, JSON report; configurable
+concurrency + routes). Harness: [`harness/framework/`](./harness/framework)
+(SPEC: [`framework/SPEC.md`](./harness/framework/SPEC.md)).
+
+### Contract compliance — verified (the RSpec-equivalent check)
+
+The app on port `3000` passes all shared-contract assertions before any load run:
+
+| Method | Route | Status | Body | Result |
+|--------|-------|--------|------|--------|
+| `GET`  | `/`         | 200 | empty        | ✓ |
+| `GET`  | `/user/:id` | 200 | the `id`     | ✓ (42, 99999) |
+| `POST` | `/user`     | 200 | empty        | ✓ |
+
+`contract-check.mjs` → **PASSED — app fulfills the-benchmarker/web-frameworks
+contract.** The app is built on `@zmdb/web`'s real routing (Stage-3
+`@Controller`/`@Get`/`@Post`, `getRoutes` resolved once at boot, `extractParams`).
+
+### Throughput & latency — not run here (stated, not faked)
+
+`oha` is **not installed in this environment**, so req/s + p50/p75/p90/p99 are
+**not reported** rather than fabricated. `run.sh` produces them (oha JSON →
+req/s, total data, duration, p50/p75/p90/p99) on any machine with `oha` + `jq`:
+
+```sh
+bash benchmarks/harness/framework/run.sh          # GET / 15s, c=64 (upstream default)
+CONCURRENCIES=64,256,512 ROUTES='GET:/,GET:/user/42,POST:/user' \
+  bash benchmarks/harness/framework/run.sh        # upstream-style knobs
+```
+
+Read any published number in the context of its machine, benchmark revision, and
+runtime variant — and remember this is a **minimal HTTP** test, not a full-app
+workload (the upstream caveat). The separate architectural claim — route
+resolution is **init-time, zero per-request reflection** — is machine-checked by
+the unit guard in `packages/web/src/bench`, not by this HTTP harness.
+
+---
+
 ---
 
 ## Bottom line (honest)

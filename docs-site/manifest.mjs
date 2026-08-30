@@ -7226,6 +7226,17 @@ import { benchmarkRouter } from '@zmdb/web/bench';
 const { iters, totalMs, opsPerSec } = await benchmarkRouter({ routes: 20, iters: 100_000 });
 \`\`\`
 
+## End-to-end HTTP — the-benchmarker/web-frameworks
+
+Beyond the in-process microbench, \`@zmdb/web\` participates in
+**[the-benchmarker/web-frameworks](https://github.com/the-benchmarker/web-frameworks)**
+under its exact shared contract (\`GET /\` empty, \`GET /user/:id\` → the id,
+\`POST /user\` empty, on port 3000). The app is validated by the shared
+correctness contract, then driven with **\`oha\`** (\`GET /\` 15s, keep-alive
+disabled, latency-corrected, JSON report), collecting **req/s + p50/p75/p90/p99**
+— concurrency and routes configurable exactly like upstream. Reproduce it with
+\`benchmarks/harness/framework/run.sh\` (see \`framework/SPEC.md\`).
+
 ## Honesty policy
 
 Consistent with the rest of the [benchmarks](../benchmarks/index.html):

@@ -12,6 +12,10 @@ benchmarks/
 │   ├── results.ts          # Result type + schema validator + report helpers
 │   ├── validation/         # moltar-style validation suite adapter + runner (#70)
 │   └── orm/                # drizzle-style ORM suite adapter + seed + runner (#71)
+├── harness/
+│   ├── validation/         # the actual moltar suite participation
+│   ├── orm/                # the actual drizzle-benchmarks HTTP+k6 participation
+│   └── framework/          # the actual the-benchmarker/web-frameworks participation (@zmdb/web)
 ├── RESULTS.md              # generated comparative report (#72)
 └── results.json            # generated machine-readable results (#72)
 ```

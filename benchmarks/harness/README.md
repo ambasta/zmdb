@@ -70,3 +70,32 @@ throughput table in RESULTS.md therefore compares only the shared CRUD routes
 (fair, 0 failures) and lists every DNF route individually. Prisma is DNF
 (engine not installed). `orm-full.bench.ts` is a quick in-process cross-check;
 `server.ts` + k6 is the authoritative path.
+
+
+## Framework (HTTP) — the actual the-benchmarker/web-frameworks methodology
+
+`@zmdb/web` (the Stage-3 decorator web framework) participates in
+**[the-benchmarker/web-frameworks](https://github.com/the-benchmarker/web-frameworks)**
+under its exact shared contract: an app on port **3000** serving `GET /` (empty),
+`GET /user/:id` (echoes the id), and `POST /user` (empty). Routes are validated
+by a shared correctness contract first, then driven with **`oha`**
+(`GET /` 15s, keep-alive disabled, latency-corrected, JSON report), collecting
+**req/s + total data + p50/p75/p90/p99**. Concurrency + routes are configurable
+(`CONCURRENCIES`, `ROUTES`) exactly like upstream.
+
+```sh
+# needs `oha` (https://github.com/hatoo/oha) and `jq` on PATH
+bash benchmarks/harness/framework/run.sh
+# customize like upstream's rake knobs:
+CONCURRENCIES=64,256,512 ROUTES='GET:/,GET:/user/42,POST:/user' \
+  bash benchmarks/harness/framework/run.sh
+```
+
+`run.sh` builds `@zmdb/web`, esbuild-compiles the app (lowering its Stage-3
+decorators — Node 26 does not run standard decorators natively yet), starts it on
+:3000, verifies the shared contract (`contract-check.mjs` — the RSpec
+equivalent), then runs `oha` and extracts the upstream fields. If `oha` is not
+installed it still verifies the contract and skips the load run. See
+[`framework/SPEC.md`](./framework/SPEC.md) for the full contract, methodology,
+and honesty policy. The app is built on `@zmdb/web`'s real routing (Stage-3
+`@Controller`/`@Get`/`@Post` + `getRoutes` resolved once at boot + `extractParams`).
