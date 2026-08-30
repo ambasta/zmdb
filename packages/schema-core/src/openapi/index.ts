@@ -85,8 +85,9 @@ export function toJsonSchema(
 ): JsonSchemaObject {
   const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   const entries = Object.entries(schema.columns)
+    // Sensitive columns are omitted from all generated specification variants.
     // create/update omit auto-increment columns; response variants keep all.
-    .filter(([, col]) => (isResponse ? true : col.flags.autoIncrement !== true))
+    .filter(([, col]) => col.flags.sensitive !== true && (isResponse ? true : col.flags.autoIncrement !== true))
     .sort(([a], [b]) => a.localeCompare(b));
 
   const properties: Record<string, unknown> = {};

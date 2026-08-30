@@ -8,7 +8,7 @@ import { tags as srcTags } from '@zmdb/aot-validator';
 
 describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports the curated schema-core surface, identical to source', () => {
-    for (const name of ['defineSchema', 'serial', 'integer', 'text', 'boolean', 'timestamp', 'jsonEnum']) {
+    for (const name of ['defineSchema', 'serial', 'integer', 'text', 'boolean', 'timestamp', 'jsonEnum', 'sensitive']) {
       expect((zmdb as Record<string, unknown>)[name], name).toBe((schemaCore as Record<string, unknown>)[name]);
     }
   });

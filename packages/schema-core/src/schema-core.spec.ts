@@ -11,6 +11,7 @@ import {
   primaryKey,
   defaultTo,
   validate,
+  sensitive,
   defineSchema,
   SchemaError,
 } from './index.ts';
@@ -79,6 +80,17 @@ describe('modifiers', () => {
     const fluent = text().notNull().validate({ kind: 'minLength', value: 3 });
     const functional = validate(notNull(text()), { kind: 'minLength', value: 3 });
     expect(fluent).toEqual(functional);
+  });
+
+  it('sensitive sets sensitive flag on column', () => {
+    const fluent = text().sensitive();
+    const functional = sensitive(text());
+    expect(fluent.flags.sensitive).toBe(true);
+    expect(functional.flags.sensitive).toBe(true);
+    expect(fluent).toEqual(functional);
+
+    const unset = fluent.sensitive(false);
+    expect(unset.flags.sensitive).toBe(false);
   });
 });
 

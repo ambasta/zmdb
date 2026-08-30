@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { toJsonSchema, toOpenApiComponents } from './index.ts';
+import { toJsonSchema, toOpenApiComponents, toJsonSchemaWithRelations, toListSchema, toSearchSchema, type Variant } from './index.ts';
+import { defineSchema, serial, text, sensitive } from '../index.ts';
 import type { CoreSchema } from '../index.ts';
 
 // RED PHASE (#63 spec freeze): JSON Schema / OpenAPI golden fixtures.
@@ -58,5 +59,53 @@ describe('toOpenApiComponents', () => {
   it('keys schemas by PascalCase table name', () => {
     const c = toOpenApiComponents([UserSchema]);
     expect(Object.keys(c.schemas)).toContain('User');
+  });
+});
+
+describe('sensitive field redaction in OpenAPI specs', () => {
+  const SchemaWithSecret = defineSchema('users', {
+    id: serial().primaryKey(),
+    email: text().notNull(),
+    passwordHash: sensitive(text().notNull()),
+    apiToken: text().notNull().sensitive(),
+  });
+
+  const variants: Variant[] = ['entity', 'create', 'update', 'get', 'list', 'search'];
+
+  for (const variant of variants) {
+    it(`omits sensitive fields from toJsonSchema for variant "${variant}"`, () => {
+      const s = toJsonSchema(SchemaWithSecret, variant);
+      expect(s.properties).not.toHaveProperty('passwordHash');
+      expect(s.properties).not.toHaveProperty('apiToken');
+      expect(s.properties).toHaveProperty('email');
+      expect(s.required).not.toContain('passwordHash');
+      expect(s.required).not.toContain('apiToken');
+    });
+  }
+
+  it('omits sensitive fields from toOpenApiComponents', () => {
+    const c = toOpenApiComponents([SchemaWithSecret]);
+    const userSchema = c.schemas.User;
+    expect(userSchema.properties).not.toHaveProperty('passwordHash');
+    expect(userSchema.properties).not.toHaveProperty('apiToken');
+    expect(userSchema.required).not.toContain('passwordHash');
+  });
+
+  it('omits sensitive fields from toJsonSchemaWithRelations', () => {
+    const s = toJsonSchemaWithRelations(SchemaWithSecret, {}, 'entity');
+    expect(s.properties).not.toHaveProperty('passwordHash');
+    expect(s.properties).not.toHaveProperty('apiToken');
+  });
+
+  it('omits sensitive fields from toListSchema and toSearchSchema', () => {
+    const listS = toListSchema(SchemaWithSecret);
+    const itemsProp = (listS.properties.items as { items: { properties: Record<string, unknown> } }).items;
+    expect(itemsProp.properties).not.toHaveProperty('passwordHash');
+    expect(itemsProp.properties).not.toHaveProperty('apiToken');
+
+    const searchS = toSearchSchema(SchemaWithSecret);
+    const searchItemsProp = (searchS.properties.items as { items: { properties: Record<string, unknown> } }).items;
+    expect(searchItemsProp.properties).not.toHaveProperty('passwordHash');
+    expect(searchItemsProp.properties).not.toHaveProperty('apiToken');
   });
 });
