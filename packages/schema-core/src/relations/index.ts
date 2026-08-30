@@ -98,3 +98,14 @@ export type PopulatedEntity<
 > = Base & {
   [P in K]: Relations[P] extends RelationDef ? RelationField<Relations[P]> : never;
 };
+
+// #191 — attach a populated relation to a parent (non-mutating). Returns a new
+// object with `name` set to the related value (array for to-many, object/null
+// for to-one). Type widening is expressed by PopulatedEntity above.
+export function attachPopulated<P extends Record<string, unknown>, N extends string, V>(
+  _parent: P,
+  _name: N,
+  _value: V,
+): P & { [K in N]: V } {
+  throw new Error('not implemented');
+}
