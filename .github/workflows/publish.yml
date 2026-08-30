@@ -61,6 +61,9 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY: ${{ github.event.inputs.dry_run }}
+          # Bypass the root "packageManager: yarn" enforcement so the npm CLI can
+          # run inside the repo.
+          COREPACK_ENABLE_PROJECT_SPEC: '0'
         run: |
           set -e
           # Publish in dependency order so dependents resolve on the registry.
