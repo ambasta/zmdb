@@ -62,3 +62,5 @@ Frozen behaviour:
   `update` accepts `UpdateDTO<S>`.
 - Runtime golden tests (via a fake recording driver) for `find`/`list` SQL +
   `hasMore` trimming, and create/update validation-before-SQL.
+
+<!-- §2 create/update frozen: create(CreateDTO<S>)→Entity<S>, update(id,UpdateDTO<S>)→Entity<S>|undefined; validate-before-SQL reused. -->
