@@ -62,6 +62,13 @@ type PaginationDTO<S> = OffsetPage | CursorPage<S>;
   `WHERE (orderKey) > (cursor)` predicate + `LIMIT n` (frozen: requires a stable
   OrderBy; documented that cursor needs a total order — typically the PK).
 
+### Golden (postgres)
+- `applyOrderBy(b, [{column:'age',dir:'desc'},{column:'id'}])` ⇒ `ORDER BY "age" DESC, "id" ASC`.
+- `applyPagination(b, {limit:20,offset:40})` ⇒ `LIMIT 20 OFFSET 40`.
+- `applyPagination(b, {limit:20})` ⇒ `LIMIT 20` (no OFFSET clause).
+- Frozen: `applyOrderBy`/`applyPagination` return the builder unchanged when the
+  arg is `undefined`; `dir` defaults to `'asc'`.
+
 ## 3. Typed select()/projection narrowing (#184/#185/#186)
 
 ```ts
