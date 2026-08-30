@@ -8,7 +8,7 @@
 export const NAV = [
   { title: 'Getting Started', pages: ['introduction', 'installation', 'aot-setup', 'pure-typescript'] },
   { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
-  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'populate-results', 'aggregations', 'full-text-search', 'aliases', 'inert-rows'] },
+  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'populate-results', 'aggregations', 'aggregate-results', 'full-text-search', 'aliases', 'inert-rows'] },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
   { title: 'Migrations', pages: ['migrations', 'migrations-cli', 'seeding'] },
   { title: 'Validation', pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'] },
@@ -498,6 +498,30 @@ this.query
 \`\`\`
 
 \`count\`, \`sum\`, \`avg\`, \`min\`, \`max\` with \`groupBy\`/\`having\` are supported and verified against real PostgreSQL in the [benchmarks](../benchmarks/index.html).
+`),
+
+  'aggregate-results': ok('Typed Aggregate Results', 'Data Access', `
+Aggregate queries return a **derived, typed** result row — the group-by key columns plus one typed field per computed aggregate (\`@zmdb/schema-core/dto\`).
+
+\`\`\`ts
+import { describeAggregate, type AggregateResult, type AggregateSpec } from '@zmdb/schema-core/dto';
+
+const spec = {
+  groupBy: ['customerId'] as const,
+  computed: {
+    orderCount: { fn: 'count' },
+    revenue:    { fn: 'sum', column: 'total' },
+    firstStatus:{ fn: 'min', column: 'status' },
+  },
+} satisfies AggregateSpec<typeof OrderSchema>;
+
+type Row = AggregateResult<typeof OrderSchema, typeof spec>;
+// { customerId: number; orderCount: number; revenue: number | null; firstStatus: string | null }
+
+describeAggregate(spec); // ['customerId','orderCount','revenue','firstStatus']
+\`\`\`
+
+Typing rules: \`count\` ⇒ \`number\`; \`sum\`/\`avg\` ⇒ \`number | null\`; \`min\`/\`max\` ⇒ the source column's type \`| null\`. The group-key columns are typed straight from the entity. Pairs with the [aggregations](./aggregations.html) query builder.
 `),
 
   'full-text-search': ok('Full-Text Search', 'Data Access', `
