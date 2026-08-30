@@ -40,8 +40,11 @@ parsed input *is* the result. Frozen invariants:
 - The transformer's `aotParseSafe(d)` returns `d` (the validated input) rather
   than a `{ a: d.a, … }` rebuild; the earlier rebuild made parse ~1.56× slower
   in a low-noise probe (153M→98M ops/s) and was the entire source of the
-  parse-case gap vs typia. Acceptance: passthrough parse throughput ≥ rebuild
-  throughput (regression-guarded by a micro-probe).
+  parse-case gap vs typia. Acceptance (regression-guarded deterministically): a
+  passthrough parse **preserves every key** of the input, whereas a
+  field-by-field rebuild would narrow the shape — so the key-preservation test
+  fails if the slow rebuild is ever reintroduced. (A timing probe is avoided in
+  the unit suite because it is inherently noise-sensitive; see #162.)
 
 ## 5. Correctness contract
 
