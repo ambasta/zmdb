@@ -870,7 +870,21 @@ t.procedure.input(z.unknown()).mutation(({ input }) => createUser(input));
 
 No framework is a hard dependency of the core.
 `),
-  'llm-function-calling': todo('LLM Function Calling', 'Integrations', 'A typia-style LLM function-calling harness (type → tool schema + lenient parse/coerce/validate) is a possible future direction, reusing the JSON-schema and validator machinery. Not yet built.'),
+  'llm-function-calling': ok('LLM Function Calling', 'Integrations', `
+Turn a schema into an LLM tool schema and leniently parse model output (\`@zmdb/schema-core/llm\`).
+
+\`\`\`ts
+import { toolFromSchema, lenientParse } from '@zmdb/schema-core/llm';
+
+const tool = toolFromSchema('createUser', UserSchema, { description: 'Create a user' });
+// { name, description, parameters }  — parameters = create-variant JSON Schema
+
+const res = lenientParse('\`\`\`json\n{"email":"a@b.com"}\n\`\`\`');
+if (res.success) use(res.data); else retryWith(res.errors);
+\`\`\`
+
+\`toolFromSchema\` reuses the OpenAPI generator (input shape = the create variant). \`lenientParse\` strips Markdown code fences before \`JSON.parse\`, and applies an optional \`coerce\` (guarded — a throwing coerce yields \`success:false\` with errors), suitable for an LLM retry loop.
+`),
 
   // ---------------- Reference ----------------
   benchmarks: ok('Benchmarks', 'Reference', `
