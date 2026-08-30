@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./dto": "./src/dto/index.ts",
-    "./custom-types": "./src/custom-types/index.ts"
+    "./custom-types": "./src/custom-types/index.ts",
+    "./seeding": "./src/seeding/index.ts"
   },
   "engines": {
     "node": ">=26"

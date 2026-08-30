@@ -41,8 +41,18 @@ function genValue(col: ColumnMeta, rng: () => number): unknown {
   }
 }
 
-export function seedRows(_schema: CoreSchema<string>, _opts: SeedOptions): Record<string, unknown>[] {
-  throw new Error('not implemented');
+export function seedRows(schema: CoreSchema<string>, opts: SeedOptions): Record<string, unknown>[] {
+  const rng = makeRng(opts.seed ?? 1);
+  const cols = Object.entries(schema.columns).filter(
+    ([, col]) => col.flags.autoIncrement !== true && col.flags.hasDefault !== true,
+  );
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 0; i < opts.count; i++) {
+    const row: Record<string, unknown> = {};
+    for (const [name, col] of cols) row[name] = genValue(col, rng);
+    rows.push(row);
+  }
+  return rows;
 }
 
 // exported for the impl to reuse
