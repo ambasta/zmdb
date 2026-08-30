@@ -99,6 +99,26 @@ describe('defineSchema', () => {
     expect(() => defineSchema('bad', { name: text() })).toThrow(SchemaError);
   });
 
+  it('throws SchemaError synchronously when a serial column lacks primary key designation', () => {
+    expect(() => defineSchema('users', { id: serial(), email: text() })).toThrow(SchemaError);
+    expect(() => defineSchema('users', { id: serial(), email: text() })).toThrow(
+      'serial column "id" in schema "users" must be designated as a primary key',
+    );
+  });
+
+  it('throws SchemaError synchronously when a serial column lacks primary key designation even if another column is primary key', () => {
+    expect(() => defineSchema('users', { id: serial(), email: text().primaryKey() })).toThrow(SchemaError);
+  });
+
+  it('accepts composite primary key configurations involving serial columns', () => {
+    const s = defineSchema('order_items', {
+      orderId: serial().primaryKey(),
+      itemId: integer().primaryKey(),
+      quantity: integer(),
+    });
+    expect(s.primaryKey).toEqual(['orderId', 'itemId']);
+  });
+
   it('derives references metadata', () => {
     const s = defineSchema('orders', {
       id: primaryKey(serial()),
