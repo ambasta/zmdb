@@ -63,3 +63,5 @@ function createPolicyDdl(p: RlsPolicy, dialect): string; // CREATE POLICY "n" ON
 <!-- §3 sequences frozen: CREATE SEQUENCE with optional START/INCREMENT. -->
 
 <!-- §4 generated columns frozen: GENERATED ALWAYS AS (expr) [STORED]. -->
+
+<!-- §5 namespaces frozen: CREATE SCHEMA; qualify() ⇒ "schema"."object". -->
