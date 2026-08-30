@@ -7,7 +7,8 @@
     "./fts": "./src/fts/index.ts",
     "./joins": "./src/joins/index.ts",
     "./aggregations": "./src/aggregations/index.ts",
-    "./migrations": "./src/migrations/index.ts"
+    "./migrations": "./src/migrations/index.ts",
+    "./set-ops": "./src/set-ops/index.ts"
   },
   "engines": {
     "node": ">=26"

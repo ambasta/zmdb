@@ -16,11 +16,25 @@ export const SET_KEYWORD: Record<SetOp, string> = {
  * for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
  */
 export function setOperation(
-  _op: SetOp,
-  _queries: readonly CompiledQuery[],
-  _dialect: Dialect,
+  op: SetOp,
+  queries: readonly CompiledQuery[],
+  dialect: Dialect,
 ): CompiledQuery {
-  throw new Error('not implemented');
+  if (queries.length === 0) throw new Error('setOperation requires at least one query');
+  if (queries.length === 1) return queries[0]!;
+  const params: unknown[] = [];
+  const fragments = queries.map((q) => {
+    let text = q.text;
+    if (dialect === 'postgres') {
+      // renumber each $n in this fragment to continue the combined sequence
+      const offset = params.length;
+      text = text.replace(/\$(\d+)/g, (_m, n: string) => `$${offset + Number(n)}`);
+    }
+    for (const p of q.parameters) params.push(p);
+    return text;
+  });
+  const text = fragments.join(` ${SET_KEYWORD[op]} `);
+  return Object.freeze({ text, parameters: Object.freeze(params) });
 }
 
 // ---- Batch (§2) ----
