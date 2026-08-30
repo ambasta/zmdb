@@ -5,7 +5,7 @@ import type { ColumnMeta, CoreSchema, Entity, ExtractColumns } from '../index.ts
 
 export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
-export interface RelationMeta<TargetEntity = unknown, Key extends string = string> {
+export interface RelationMeta<TargetEntity = unknown, _Key extends string = string> {
   readonly cardinality: Cardinality;
   readonly target: string;
   readonly fk?: string;
@@ -16,56 +16,57 @@ export interface RelationMeta<TargetEntity = unknown, Key extends string = strin
   readonly _targetEntity?: TargetEntity;
 }
 
-type TargetEntityOf<Target> = Target extends CoreSchema<string, any>
-  ? Entity<Target>
-  : Target extends { columns: Record<string, ColumnMeta> }
+type TargetEntityOf<Target> =
+  Target extends CoreSchema<string, Record<string, ColumnMeta>>
     ? Entity<Target>
-    : Target;
+    : Target extends { columns: Record<string, ColumnMeta> }
+      ? Entity<Target>
+      : Target;
 
 function getTableName(target: { table: string } | string): string {
   return typeof target === 'string' ? target : target.table;
 }
 
 export function manyToOne<
-  TargetSchema extends CoreSchema<string, any> | { columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta> = CoreSchema<string, any>,
-  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string
->(
-  target: TargetSchema | string,
-  fk: FK
-): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
+  TargetSchema extends
+    | CoreSchema<string, Record<string, ColumnMeta>>
+    | { columns: Record<string, ColumnMeta> }
+    | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
+  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
 export function manyToOne(target: { table: string } | string, fk: string): RelationMeta {
   return Object.freeze({ cardinality: 'many-to-one', target: getTableName(target), fk, owning: true });
 }
 
 export function oneToMany<
-  TargetSchema extends CoreSchema<string, any> | { columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta> = CoreSchema<string, any>,
-  MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string
->(
-  target: TargetSchema | string,
-  mappedBy: MappedBy
-): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy>;
+  TargetSchema extends
+    | CoreSchema<string, Record<string, ColumnMeta>>
+    | { columns: Record<string, ColumnMeta> }
+    | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
+  MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(target: TargetSchema | string, mappedBy: MappedBy): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy>;
 export function oneToMany(target: { table: string } | string, mappedBy: string): RelationMeta {
   return Object.freeze({ cardinality: 'one-to-many', target: getTableName(target), mappedBy, owning: false });
 }
 
 export function oneToOne<
-  TargetSchema extends CoreSchema<string, any> | { columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta> = CoreSchema<string, any>,
-  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string
->(
-  target: TargetSchema | string,
-  fk: FK
-): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
+  TargetSchema extends
+    | CoreSchema<string, Record<string, ColumnMeta>>
+    | { columns: Record<string, ColumnMeta> }
+    | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
+  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
 export function oneToOne(target: { table: string } | string, fk: string): RelationMeta {
   return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
 }
 
 export function manyToMany<
-  TargetSchema extends CoreSchema<string, any> | { columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta> = CoreSchema<string, any>,
-  Through extends string = string
->(
-  target: TargetSchema | string,
-  through: Through
-): RelationMeta<TargetEntityOf<TargetSchema>, Through>;
+  TargetSchema extends
+    | CoreSchema<string, Record<string, ColumnMeta>>
+    | { columns: Record<string, ColumnMeta> }
+    | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
+  Through extends string = string,
+>(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through>;
 export function manyToMany(target: { table: string } | string, through: string): RelationMeta {
   return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
 }
@@ -120,24 +121,14 @@ export interface RelationDef<TargetEntity = unknown> {
 }
 export type RelationsMap = Record<string, RelationDef | RelationMeta>;
 
-// The attached field type for a populated relation: array for to-many,
-// single entity for to-one.
-type RelationField<R extends RelationDef | RelationMeta> = R extends RelationDef<infer TargetEntity>
-  ? R['cardinality'] extends 'one-to-many' | 'many-to-many'
-    ? TargetEntity[]
-    : TargetEntity
-  : R extends RelationMeta<infer TargetEntity>
-    ? R['cardinality'] extends 'one-to-many' | 'many-to-many'
-      ? TargetEntity[]
-      : TargetEntity
-    : never;
-
 // PopulatedEntity augments Base with related fields ONLY for populated keys K.
 // `Relations` is constrained structurally so plain interfaces work as relation
 // maps (no string index signature required).
 export type PopulatedEntity<
   Base,
-  Relations extends Record<string, RelationDef<any> | RelationMeta<any>> | { [K: string]: RelationDef<any> | RelationMeta<any> },
+  Relations extends
+    | Record<string, RelationDef<unknown> | RelationMeta<unknown>>
+    | { [K: string]: RelationDef<unknown> | RelationMeta<unknown> },
   K extends keyof Relations,
 > = Base & {
   [P in K]: Relations[P] extends RelationDef<infer E>
