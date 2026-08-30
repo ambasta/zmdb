@@ -1,0 +1,76 @@
+# `@zmdb/web` — SPEC
+
+> Stage-3 decorator web framework for the zmdb ecosystem. This SPEC freezes the
+> **package baseline** (issue #248, epic #247). Later concerns (routing, Ctx, DI,
+> state machines, pipeline, …) get their own `src/<concern>/SPEC.md`.
+
+## Position in the architecture
+
+`@zmdb/web` sits **above** `@zmdb/repository` in the dependency DAG
+(ARCHITECTURE.md §3). It depends on `@zmdb/schema-core`, `@zmdb/aot-validator`,
+and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
+
+## Invariants (inherited, non-negotiable)
+
+1. **No `as` / no `any` / no `!` on the consumer surface.** Framework internals
+   hold to the documented, shrinking boundary-cast exception list (ARCHITECTURE.md
+   §2.1). A user must never need an assertion to use `@zmdb/web`.
+2. **No runtime reflection.** No `reflect-metadata`, no `emitDecoratorMetadata`.
+   Decorators use **Stage 3** semantics and store data only in `context.metadata`
+   (`Symbol.metadata`).
+3. **Stage 3 decorators**: tsconfig sets `experimentalDecorators: false` and must
+   compile standard decorators. `Symbol.metadata` is assumed present on Node 26;
+   a zero-dependency polyfill is installed **only if** the runtime lacks it, and
+   it assigns the well-known symbol without mutating any other global.
+4. **ESM-only, Node 26+, TS 7+.** `"type": "module"`, single `exports` map, no CJS.
+
+## Baseline contract (this issue)
+
+### Package
+- New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other
+  packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
+- `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/repository`
+  (all `workspace:^`). No other runtime deps. `devDependencies`: `tsup`,
+  `typescript`.
+- `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish,
+  exactly like the sibling packages).
+
+### tsconfig
+- Extends `../../tsconfig.base.json`.
+- Adds `rootDir: src`, `outDir: dist`, and `paths` to the sibling packages' built
+  `.d.ts` (mirroring `packages/repository/tsconfig.json`).
+- Explicitly asserts the decorator baseline: `experimentalDecorators: false`,
+  `emitDecoratorMetadata: false`. (`strict` etc. come from base.)
+
+### Build & publish wiring
+- `tsup.config.ts` with `entry: { index: 'src/index.ts' }`, `format: ['esm']`,
+  `dts: true`, `external: [/^@zmdb\//]`.
+- Registered in `.github/scripts/prepare-publish.mjs` `META` (description +
+  keywords), in `.github/scripts/repoint-dist.mjs` `ENTRIES` (`{ '.': 'index' }`),
+  and in `.github/workflows/publish.yml` **both** package loops (build + publish),
+  ordered **after `repository`** and **before `zmdb`** (DAG order).
+- Re-exported from the `zmdb` umbrella as **`zmdb/web`** (a new subpath entry in
+  `packages/zmdb`).
+
+### Baseline symbol
+- `metadataOf(target)` — a tiny, typed accessor that reads the Stage-3
+  `Symbol.metadata` record off a decorated class/prototype and returns a
+  `DecoratorMetadata` object (never `undefined`; returns an empty frozen record
+  when absent). This is the one primitive every later decorator builds on, and it
+  proves the baseline round-trips through the build.
+
+## Acceptance (this issue)
+
+- `@zmdb/web` resolves in dev (vitest/tsc) via `src` and builds to
+  `dist/index.js` + `dist/index.d.ts` via tsup.
+- A trivial Stage-3 class decorator that writes to `context.metadata` can be read
+  back via `metadataOf(...)` at runtime — **without** `reflect-metadata` and
+  **without** any `as` on the consumer surface.
+- `zmdb/web` re-export path is present and re-exports the package root.
+- Full monorepo suite + typecheck stay green.
+
+## Out of scope (future issues/epics)
+
+Routing (#252), typed `Ctx`/path-params (#257), DI (#262), domain state machines
+(#267), request pipeline/adapters (#272), data-layer integration (#277), and all
+NestJS-parity follow-ups (#282–#321). Those freeze their own SPECs.
