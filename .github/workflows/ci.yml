@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '26'
+          cache: 'yarn'
 
       - name: Install
         run: yarn install --immutable
@@ -55,6 +56,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '26'
+          cache: 'yarn'
       - run: yarn install --immutable
       # The guardrail unit tests assert the ok→DNF and throughput-drop detection
       # logic. A real pipeline would diff the freshly-generated RESULTS.md
