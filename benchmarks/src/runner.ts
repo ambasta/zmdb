@@ -12,7 +12,7 @@ export function runLiveBenchmarks(): BenchResult[] {
     kind: 'object' as const,
     fields: { id: { kind: 'number' as const, minimum: 0 }, email: { kind: 'string' as const } },
   };
-  const valid = runValidationSuite('zmdb', zmdbAdapter, desc, { id: 1, email: 'a@b.com' }, 500);
+  const valid = runValidationSuite('zmdb', zmdbAdapter, desc, { id: 1, email: 'a@b.com' }, 1000);
 
   const db = new DatabaseSync(':memory:');
   const engine: OrmEngine = {
@@ -20,6 +20,6 @@ export function runLiveBenchmarks(): BenchResult[] {
     all: (s, p) => db.prepare(s).all(...(p as any[])) as Record<string, unknown>[],
   };
   seed(engine, 50, 4);
-  const orm = [...runOrmSuite(engine, 200), ...competitorDnf()];
+  const orm = [...runOrmSuite(engine, 1000), ...competitorDnf()];
   return [...valid, ...orm];
 }
