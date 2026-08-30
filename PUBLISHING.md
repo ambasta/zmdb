@@ -105,3 +105,23 @@ npm view @zmdb/repository dependencies
 - **repository.url mismatch** → publishing via OIDC requires `package.json`
   `repository.url` to match the GitHub repo exactly (it does here).
 - Provenance is **not** generated for private repos (n/a — this repo is public).
+
+## Cutting a release (proven flow)
+
+Future releases are fully automated via CI OIDC — no token, no manual build:
+
+1. Bump the version in all four `packages/*/package.json` (and `VERSION` in
+   `prepare-publish.mjs`), commit.
+2. Tag and push:
+   ```bash
+   git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N
+   ```
+   The `publish.yml` workflow builds → repoints → publishes each package via
+   OIDC under the `alpha` tag, with automatic provenance. (A tag push always
+   publishes; a manual `workflow_dispatch` defaults to a dry run.)
+
+> **`latest` dist-tag gotcha:** the very first manual publish of `alpha.0` went to
+> `latest` (no `--tag`), so `npm install @zmdb/x` resolves `latest`. Move it to a
+> good build with `npm dist-tag add @zmdb/x@<good-version> latest`. Prereleases
+> published by CI go to the `alpha` tag and never touch `latest`. When a stable
+> `1.0.0` ships it should take `latest`.
