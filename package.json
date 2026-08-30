@@ -1,5 +1,5 @@
 {
-  "name": "zmdb",
+  "name": "zmdb-monorepo",
   "private": true,
   "packageManager": "yarn@4.18.0",
   "type": "module",

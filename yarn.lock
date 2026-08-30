@@ -721,7 +721,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@zmdb/aot-validator@workspace:*, @zmdb/aot-validator@workspace:packages/aot-validator":
+"@zmdb/aot-validator@workspace:*, @zmdb/aot-validator@workspace:^, @zmdb/aot-validator@workspace:packages/aot-validator":
   version: 0.0.0-use.local
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
@@ -750,7 +750,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/repository@workspace:packages/repository":
+"@zmdb/repository@workspace:^, @zmdb/repository@workspace:packages/repository":
   version: 0.0.0-use.local
   resolution: "@zmdb/repository@workspace:packages/repository"
   dependencies:
@@ -2093,12 +2093,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zmdb@workspace:.":
+"zmdb-monorepo@workspace:.":
   version: 0.0.0-use.local
-  resolution: "zmdb@workspace:."
+  resolution: "zmdb-monorepo@workspace:."
   dependencies:
     tsup: "npm:8.5.0"
     typescript: "npm:^5.9.2"
     vitest: "npm:^3.2.4"
+  languageName: unknown
+  linkType: soft
+
+"zmdb@workspace:packages/zmdb":
+  version: 0.0.0-use.local
+  resolution: "zmdb@workspace:packages/zmdb"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
   languageName: unknown
   linkType: soft

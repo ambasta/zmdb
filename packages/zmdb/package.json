@@ -1,0 +1,25 @@
+{
+  "name": "zmdb",
+  "version": "1.0.0-alpha.4",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "exports": {
+    ".": "./src/index.ts",
+    "./dto": "./src/dto.ts",
+    "./relations": "./src/relations.ts",
+    "./drivers/sqlite": "./src/drivers-sqlite.ts",
+    "./drivers/pg": "./src/drivers-pg.ts"
+  },
+  "dependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}
