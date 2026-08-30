@@ -2,7 +2,7 @@
 // #26 read methods (findById/findOne/findAll) implemented via injected driver
 // + query-compiler. #27 (create/update) and #28 (delete/hooks) remain
 // unimplemented; their tests stay red.
-import type { CoreSchema, Entity } from '@zmdb/schema-core';
+import type { CoreSchema, Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
@@ -168,25 +168,26 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     return parents;
   }
 
-  // #27 — create/update with validation interception.
-  async create(payload: unknown): Promise<Record<string, unknown>> {
-    const dto = this.validatePayload(payload, 'create');
-    this.preInsert(dto);
+  // #207 — typed create/update. Signatures are the derived DTOs; runtime reuses
+  // validatePayload (validate-before-SQL) unchanged.
+  async create(dto: CreateDTO<S>): Promise<Entity<S>> {
+    const clean = this.validatePayload(dto, 'create');
+    this.preInsert(clean);
     const rows = await this.driver.execute(
-      this.qb.insertInto(this.tableName).values(dto).returning(['*']).compile(),
+      this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile(),
     );
     const row = rows[0] ?? {};
     this.postInsert(row);
-    return row;
+    return row as Entity<S>;
   }
 
-  async update(id: unknown, payload: unknown): Promise<Record<string, unknown> | undefined> {
-    const dto = this.validatePayload(payload, 'update');
-    this.preUpdate(dto);
+  async update(id: unknown, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
+    const clean = this.validatePayload(patch, 'update');
+    this.preUpdate(clean);
     const rows = await this.driver.execute(
-      this.qb.updateTable(this.tableName).set(dto).where(this.pkColumn, '=', id).returning(['*']).compile(),
+      this.qb.updateTable(this.tableName).set(clean).where(this.pkColumn, '=', id).returning(['*']).compile(),
     );
-    return rows[0];
+    return rows[0] as Entity<S> | undefined;
   }
 
   // #28 — delete + lifecycle hooks.
