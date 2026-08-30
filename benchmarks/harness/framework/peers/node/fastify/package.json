@@ -1,0 +1,1 @@
+{ "name": "peer-fastify", "private": true, "type": "module", "dependencies": { "fastify": "5" } }

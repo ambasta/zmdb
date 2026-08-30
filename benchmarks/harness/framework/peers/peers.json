@@ -1,0 +1,27 @@
+{
+  "$comment": "Same-machine peer set for the-benchmarker/web-frameworks contract. Each entry: how to detect the toolchain, install/build, and start on $PORT. The runner verifies the shared contract per peer BEFORE load and records real oha numbers; any peer whose toolchain/build/contract is unavailable is recorded as skipped (never faked).",
+  "peers": [
+    { "id": "fastify",  "runtime": "node", "language": "javascript", "dir": "node/fastify",  "need": "node", "install": "npm i --no-audit --no-fund --silent", "start": "node app.mjs" },
+    { "id": "hono-node","runtime": "node", "language": "javascript", "dir": "node/hono",     "need": "node", "install": "npm i --no-audit --no-fund --silent", "start": "node app.mjs" },
+    { "id": "express",  "runtime": "node", "language": "javascript", "dir": "node/express",  "need": "node", "install": "npm i --no-audit --no-fund --silent", "start": "node app.mjs" },
+    { "id": "koa",      "runtime": "node", "language": "javascript", "dir": "node/koa",      "need": "node", "install": "npm i --no-audit --no-fund --silent", "start": "node app.mjs" },
+
+    { "id": "elysia-bun","runtime": "bun", "language": "javascript", "dir": "bun/elysia",    "need": "bun",  "install": "bun install --silent", "start": "bun run app.ts" },
+    { "id": "hono-bun",  "runtime": "bun", "language": "javascript", "dir": "bun/hono",      "need": "bun",  "install": "bun install --silent", "start": "bun run app.ts" },
+
+    { "id": "hono-deno", "runtime": "deno","language": "javascript", "dir": "deno/hono",     "need": "deno", "install": "deno cache app.ts", "start": "deno run -A app.ts" },
+    { "id": "oak-deno",  "runtime": "deno","language": "javascript", "dir": "deno/oak",      "need": "deno", "install": "deno cache app.ts", "start": "deno run -A app.ts" },
+
+    { "id": "gin",      "runtime": "go",   "language": "go",         "dir": "go/gin",        "need": "go",   "install": "go mod tidy && go build -o .app .", "start": "./.app" },
+    { "id": "fasthttp", "runtime": "go",   "language": "go",         "dir": "go/fasthttp",   "need": "go",   "install": "go mod tidy && go build -o .app .", "start": "./.app" },
+    { "id": "chi",      "runtime": "go",   "language": "go",         "dir": "go/chi",        "need": "go",   "install": "go mod tidy && go build -o .app .", "start": "./.app" },
+    { "id": "nethttp",  "runtime": "go",   "language": "go",         "dir": "go/nethttp",    "need": "go",   "install": "go build -o .app .", "start": "./.app" },
+
+    { "id": "actix",    "runtime": "rust", "language": "rust",       "dir": "rust/actix",    "need": "cargo","install": "cargo build --release --quiet", "start": "./target/release/peer-actix" },
+    { "id": "axum",     "runtime": "rust", "language": "rust",       "dir": "rust/axum",     "need": "cargo","install": "cargo build --release --quiet", "start": "./target/release/peer-axum" },
+
+    { "id": "fastapi",  "runtime": "python","language": "python",    "dir": "python/fastapi","need": "python3","venv": true, "install": "pip install -q -r requirements.txt", "start": "python -m uvicorn app:app --port $PORT --no-access-log --log-level warning" },
+    { "id": "flask",    "runtime": "python","language": "python",    "dir": "python/flask",  "need": "python3","venv": true, "install": "pip install -q -r requirements.txt", "start": "python -m gunicorn -w 4 -b 0.0.0.0:$PORT app:app --log-level warning" },
+    { "id": "django",   "runtime": "python","language": "python",    "dir": "python/django", "need": "python3","venv": true, "install": "pip install -q -r requirements.txt", "start": "python -m gunicorn -w 4 -b 0.0.0.0:$PORT app:application --log-level warning" }
+  ]
+}

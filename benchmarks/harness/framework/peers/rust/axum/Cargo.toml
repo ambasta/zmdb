@@ -1,0 +1,16 @@
+[package]
+name = "peer-axum"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "peer-axum"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+
+[profile.release]
+opt-level = 3
+lto = true

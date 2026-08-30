@@ -1,0 +1,11 @@
+*/*/node_modules/
+*/*/.venv/
+*/*/.results/
+*/*/.build.log
+*/*/.run.log
+*/*/.app
+*/*/target/
+*/*/bun.lock
+*/*/bun.lockb
+*/*/package-lock.json
+*/*/go.sum

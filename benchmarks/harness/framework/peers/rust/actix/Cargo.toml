@@ -1,0 +1,15 @@
+[package]
+name = "peer-actix"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "peer-actix"
+path = "src/main.rs"
+
+[dependencies]
+actix-web = "4"
+
+[profile.release]
+opt-level = 3
+lto = true
