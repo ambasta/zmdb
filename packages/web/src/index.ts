@@ -96,3 +96,15 @@ export {
   type ProviderDef,
   type CompiledModule,
 } from './modules/index.ts';
+
+// Guards, pipes, interceptors & exception filters. See ./middleware.
+export {
+  runChain,
+  ChainError,
+  type Guard,
+  type Pipe,
+  type Interceptor,
+  type ExceptionFilter,
+  type Chain,
+  type ChainHandler,
+} from './middleware/index.ts';

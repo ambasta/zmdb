@@ -10,6 +10,7 @@ export default defineConfig({
     pipeline: 'src/pipeline/index.ts',
     data: 'src/data/index.ts',
     modules: 'src/modules/index.ts',
+    middleware: 'src/middleware/index.ts',
   },
   format: ['esm'],
   dts: true,
