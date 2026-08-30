@@ -16,7 +16,7 @@
     "typecheck": "tsc --build"
   },
   "devDependencies": {
-    "esbuild": "^0.27.7",
+    "esbuild": "^0.28.1",
     "tsup": "8.5.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
@@ -25,5 +25,8 @@
   "engines": {
     "node": ">=26"
   },
-  "packageManager": "yarn@4.18.0"
+  "packageManager": "yarn@4.18.0",
+  "resolutions": {
+    "esbuild": "^0.28.1"
+  }
 }

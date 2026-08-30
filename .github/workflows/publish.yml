@@ -26,6 +26,13 @@ jobs:
     runs-on: ubuntu-latest # OIDC trusted publishing requires GitHub-hosted runners
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pre-publish Secret Scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable Corepack (yarn 4)
         run: corepack enable
@@ -40,6 +47,9 @@ jobs:
 
       - name: Install (yarn, immutable)
         run: yarn install --immutable
+
+      - name: Pre-publish Dependency Vulnerability Audit
+        run: yarn npm audit --all --recursive --severity high --no-deprecations
 
       - name: Test
         run: yarn vitest run
