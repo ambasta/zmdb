@@ -168,6 +168,13 @@ export interface ListResult<Row> {
   readonly hasMore: boolean;
   readonly cursor?: string;
 }
+/** Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total. */
+export function buildListResult<Row extends Record<string, unknown>>(
+  _rows: readonly Row[],
+  _opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+): ListResult<Row | Partial<Row>> {
+  throw new Error('not implemented');
+}
 export interface SearchDTO<S> {
   query: string;
   columns: readonly (keyof Entity<S>)[];
