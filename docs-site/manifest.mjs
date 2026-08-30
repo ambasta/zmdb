@@ -16,6 +16,7 @@ export const NAV = [
   { title: 'Advanced', pages: ['custom-types', 'set-operations', 'lifecycle-hooks', 'embeddables', 'inheritance'] },
   { title: 'Integrations', pages: ['drivers', 'framework-integrations', 'llm-function-calling'] },
   { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways', 'web-testing', 'web-benchmarks'] },
+  { title: 'Web Framework — Guides', pages: ['web-custom-decorators', 'web-exception-filters', 'web-dynamic-modules', 'web-injection-scopes', 'web-async-providers', 'web-circular-dependency', 'web-configuration', 'web-authentication', 'web-authorization', 'web-cors', 'web-cookies-sessions', 'web-rate-limiting', 'web-security-headers', 'web-caching', 'web-logging', 'web-file-upload', 'web-versioning', 'web-graphql', 'web-microservices', 'web-faq'] },
   { title: 'Reference', pages: ['anti-patterns', 'benchmarks'] },
 ];
 
@@ -7295,5 +7296,792 @@ zmdb is SQL-first by design. We don't hide SQL behind a relational-only object A
 
 ## Runtime schema mutation (\`updateSchema()\`)
 Applying schema changes to a live database at runtime is rejected in favor of reviewable, diffed [migrations](./migrations.html).
+`),
+  'web-custom-decorators': ok('Custom Decorators', 'Web Framework — Guides', `
+The \`@nestjs/common\` \`createParamDecorator\` analogue. Because routing runs on
+the **Stage-3 metadata baseline** (no \`reflect-metadata\`), a "custom decorator"
+is just a small function that reads from the typed [\`Ctx\`](./web-context.html) —
+resolved once at boot, zero per-request reflection.
+
+## A param accessor
+
+There is no runtime parameter-injection reflection; instead you write a typed
+accessor that pulls from \`Ctx\`:
+
+\`\`\`ts
+import type { Ctx } from '@zmdb/web/context';
+
+// "@User()" analogue — a plain function, fully typed, no metadata lookup.
+const currentUser = (ctx: Ctx) => ctx.state.principal; // set by an auth Guard
+const bearer = (ctx: Ctx) => ctx.headers.authorization?.slice(7);
+
+@Controller('/me')
+class MeController {
+  @Get('/')
+  read(ctx: Ctx) {
+    const user = currentUser(ctx);
+    return { id: user?.id };
+  }
+}
+\`\`\`
+
+## Handler metadata (a class/method decorator)
+
+To attach static metadata to a handler (e.g. required roles), define a Stage-3
+decorator that writes to the shared metadata object the router already reads:
+
+\`\`\`ts
+// A method decorator that records metadata read once at boot (not per request).
+function Roles(...roles: string[]) {
+  return function (_target: unknown, context: ClassMethodDecoratorContext) {
+    (context.metadata.roles ??= {})[context.name] = roles;
+  };
+}
+
+@Controller('/admin')
+class AdminController {
+  @Get('/') @Roles('admin')
+  dashboard(ctx: Ctx) { return { ok: true }; }
+}
+\`\`\`
+
+A [Guard](./web-authorization.html) reads \`context.metadata.roles\` at boot and
+enforces it. This is the same \`Symbol.metadata\` channel the router uses, so
+there is still **no reflection at request time**.
+
+## Design notes
+
+- No \`createParamDecorator\` runtime magic — accessors are ordinary typed
+  functions, so there is nothing to reflect and no \`as\` on your surface.
+- Metadata decorators write to \`context.metadata\` (the Stage-3 decorator
+  metadata object), consumed once during \`getRoutes\`/boot.
+- Granular import: \`import type { Ctx } from '@zmdb/web/context'\`.
+
+## Cross-links
+
+- [Typed request context](./web-context.html) · [Authorization](./web-authorization.html) · [Controllers & routing](./web-controllers.html)
+`),
+
+  'web-exception-filters': ok('Exception Filters', 'Web Framework — Guides', `
+The \`@nestjs/common\` exception-filter analogue. An \`ExceptionFilter\` catches
+errors thrown anywhere in the [request pipeline](./web-pipeline.html) and maps
+them to a response — the last link in \`runChain\`.
+
+## Shape
+
+\`\`\`ts
+import type { ExceptionFilter, Ctx } from '@zmdb/web/middleware';
+
+class HttpErrorFilter implements ExceptionFilter {
+  catch(err: unknown, ctx: Ctx) {
+    if (err instanceof NotFoundError) return { status: 404, body: { error: 'not found' } };
+    if (err instanceof ValidationError) return { status: 422, body: { error: err.message } };
+    return { status: 500, body: { error: 'internal' } };
+  }
+}
+\`\`\`
+
+## Wiring
+
+Filters compose with Guards/Pipes/Interceptors through \`runChain\`; register one
+globally on the app or per-controller:
+
+\`\`\`ts
+import { createApp } from '@zmdb/web/app';
+
+const app = createApp({ controllers: [UsersController], filters: [new HttpErrorFilter()] });
+\`\`\`
+
+## Design notes
+
+- A filter returns a response descriptor (\`{ status, body }\`) — it never touches
+  a framework-specific \`res\` object, so it works under both the
+  [Node and Fetch adapters](./web-pipeline.html).
+- Ordering is deterministic: the filter runs after interceptors unwind, catching
+  both handler and pipe/guard errors.
+- Granular import: \`import type { ExceptionFilter } from '@zmdb/web/middleware'\`.
+
+## Cross-links
+
+- [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Request pipeline](./web-pipeline.html)
+`),
+
+  'web-dynamic-modules': ok('Dynamic Modules', 'Web Framework — Guides', `
+The \`@Module.forRoot()/forFeature()\` analogue. A dynamic module is a function
+that returns a \`ModuleDef\` parameterized by options, feeding
+[\`compileModule\`](./web-modules.html). Configuration is a **value provider**
+resolved once at boot — no async DI container, no reflection.
+
+## forRoot pattern
+
+\`\`\`ts
+import { Module, compileModule, createToken } from '@zmdb/web/modules';
+
+export const MailerOptions = createToken<{ apiKey: string; from: string }>('MailerOptions');
+
+export function MailerModule(opts: { apiKey: string; from: string }) {
+  return Module({
+    providers: [
+      { provide: MailerOptions, useValue: opts },
+      { provide: MailerService, useFactory: (o) => new MailerService(o), inject: [MailerOptions] },
+    ],
+    exports: [MailerService],
+  });
+}
+
+// consumer
+const app = compileModule(Module({ imports: [MailerModule({ apiKey: process.env.KEY!, from: 'a@b.c' })] }));
+\`\`\`
+
+## Design notes
+
+- Options are ordinary \`useValue\`/\`useFactory\` providers keyed by a
+  [\`Token\`](./web-di.html); there is no \`ConfigurableModuleBuilder\` runtime —
+  a function returning a \`ModuleDef\` is the whole mechanism.
+- The provider graph is still resolved **once at boot** with O(1) lookups.
+- Granular import: \`import { Module, compileModule } from '@zmdb/web/modules'\`.
+
+## Cross-links
+
+- [Modules & Providers](./web-modules.html) · [Dependency injection](./web-di.html) · [Configuration](./web-configuration.html)
+`),
+
+  'web-injection-scopes': ok('Injection Scopes', 'Web Framework — Guides', `
+zmdb ships **singleton** (default) and **transient** provider scopes. There is
+**no request scope** — a deliberate design choice explained below.
+
+## Singleton vs transient
+
+\`\`\`ts
+import { Module, createToken } from '@zmdb/web/modules';
+
+Module({
+  providers: [
+    { provide: Db, useValue: db },                 // singleton (default)
+    { provide: Id, useFactory: () => randomId(), scope: 'transient' }, // new per resolution
+  ],
+});
+\`\`\`
+
+## Why no request scope (by default)
+
+A request-scoped provider forces the container to build a fresh sub-graph on
+**every request**, which is exactly the per-request reflection/allocation cost
+zmdb's boot-time graph exists to avoid. Instead, request-specific data lives on
+the typed [\`Ctx\`](./web-context.html), and per-request values are passed
+explicitly:
+
+\`\`\`ts
+// Request data flows through Ctx, not through a rebuilt DI sub-tree.
+@Get('/')
+handler(ctx: Ctx) {
+  const svc = ctx.state.container.get(UserService); // singleton
+  return svc.forRequest(ctx.state.principal);        // request data passed in
+}
+\`\`\`
+
+This keeps route dispatch **O(1) with zero per-request DI work** — the property
+the [benchmark](./web-benchmarks.html) guards.
+
+## Design notes
+
+- Singleton graph is resolved once at boot; transient is a factory re-invoked on
+  each \`get\`.
+- Need per-request lifecycle (e.g. a DB transaction)? Open it in an
+  [Interceptor](./web-middleware.html) and hang it on \`ctx.state\`.
+
+## Cross-links
+
+- [Dependency injection](./web-di.html) · [Typed request context](./web-context.html) · [Anti-patterns](./anti-patterns.html)
+`),
+
+  'web-async-providers': ok('Asynchronous Providers', 'Web Framework — Guides', `
+The \`useFactory\` + \`async\` bootstrap analogue. Providers that must \`await\`
+(open a pool, load a key) are resolved during **app bootstrap**, before the
+server accepts traffic — so request dispatch stays synchronous and reflection-free.
+
+## Async factory at boot
+
+\`\`\`ts
+import { createApp } from '@zmdb/web/app';
+import { createToken } from '@zmdb/web/modules';
+
+const Pool = createToken<DbPool>('Pool');
+
+const app = await createApp({
+  controllers: [UsersController],
+  providers: [
+    { provide: Pool, useFactory: async () => openPool(process.env.DATABASE_URL!) },
+  ],
+});
+// createApp awaits async factories + OnModuleInit before listening.
+\`\`\`
+
+## Lifecycle ordering
+
+Async factories run, then \`onModuleInit\` hooks, then the server binds. On
+shutdown, \`onShutdown\` runs (via \`await using\`) to drain the pool.
+
+\`\`\`ts
+class UsersController {
+  async onModuleInit() { /* warm caches, verify connectivity */ }
+  async onShutdown()   { /* flush, close */ }
+}
+\`\`\`
+
+## Design notes
+
+- All \`await\` happens at boot/shutdown — never on the hot path.
+- Async factories participate in the same \`inject: [Token]\` dependency ordering.
+- Granular imports: \`@zmdb/web/app\`, \`@zmdb/web/modules\`.
+
+## Cross-links
+
+- [Application bootstrap & lifecycle](./web-app.html) · [Modules & Providers](./web-modules.html) · [Dependency injection](./web-di.html)
+`),
+
+  'web-circular-dependency': ok('Circular Dependencies', 'Web Framework — Guides', `
+Because the DI graph is resolved **once at boot**, dependency cycles are caught
+**at startup** — you get a clear error naming the cycle, not a runtime
+\`undefined\` or a \`forwardRef\` dance.
+
+## Detection
+
+\`\`\`ts
+// A -> B -> A
+{ provide: A, useFactory: (b) => new A(b), inject: [B] }
+{ provide: B, useFactory: (a) => new B(a), inject: [A] }
+// compileModule throws at boot: "circular dependency: A → B → A"
+\`\`\`
+
+## Breaking a cycle
+
+Prefer restructuring; when two services genuinely need each other, inject a
+**token to a lazy accessor** rather than the instance, or hoist the shared
+concern into a third provider both depend on:
+
+\`\`\`ts
+// Break by depending on a shared abstraction instead of each other.
+{ provide: Events, useValue: new EventBus() }
+{ provide: A, useFactory: (e) => new A(e), inject: [Events] }
+{ provide: B, useFactory: (e) => new B(e), inject: [Events] }
+\`\`\`
+
+## Design notes
+
+- No \`forwardRef()\` runtime shim — the boot-time topological sort reports the
+  exact cycle path so you fix the graph, not paper over it.
+- Detection is free: it's part of the one-time resolution that also gives O(1)
+  request-time lookups.
+
+## Cross-links
+
+- [Dependency injection](./web-di.html) · [Modules & Providers](./web-modules.html)
+`),
+
+  'web-configuration': ok('Configuration', 'Web Framework — Guides', `
+The \`@nestjs/config\` \`ConfigService\` analogue — built from a
+[\`Token\`](./web-di.html) + factory. There is **no built-in ConfigModule**;
+configuration is just a typed provider, validated once at boot with your
+existing [\`@zmdb/aot-validator\`](./validators-assert.html).
+
+## A typed ConfigService
+
+\`\`\`ts
+import { createToken, Module } from '@zmdb/web/modules';
+import { assert } from '@zmdb/aot-validator';
+
+interface Config { port: number; databaseUrl: string }
+export const CONFIG = createToken<Config>('CONFIG');
+
+function loadConfig(): Config {
+  const cfg = { port: Number(process.env.PORT ?? 3000), databaseUrl: process.env.DATABASE_URL! };
+  assert<Config>(cfg); // fail fast at boot if the environment is wrong
+  return cfg;
+}
+
+Module({ providers: [{ provide: CONFIG, useFactory: loadConfig }] });
+\`\`\`
+
+## Consuming it
+
+\`\`\`ts
+{ provide: Server, useFactory: (c) => new Server(c.port), inject: [CONFIG] }
+\`\`\`
+
+## Design notes
+
+- Config is validated with a real schema at boot — misconfiguration crashes
+  startup, never a live request.
+- No \`.env\` magic or namespaced token registry; one \`Token<Config>\` keeps the
+  type flowing and the surface \`as\`-free.
+
+## Cross-links
+
+- [Dependency injection](./web-di.html) · [Dynamic modules](./web-dynamic-modules.html) · [assert()](./validators-assert.html)
+`),
+
+  'web-authentication': ok('Authentication', 'Web Framework — Guides', `
+The \`AuthGuard\` analogue. Authentication is a [Guard](./web-middleware.html)
+that reads a credential from the typed [\`Ctx\`](./web-context.html), verifies it,
+and attaches a principal to \`ctx.state\` for downstream handlers.
+
+## A bearer-token Guard
+
+\`\`\`ts
+import type { Guard, Ctx } from '@zmdb/web/middleware';
+
+class BearerAuth implements Guard {
+  constructor(private readonly verify: (t: string) => Principal | null) {}
+  canActivate(ctx: Ctx): boolean {
+    const token = ctx.headers.authorization?.startsWith('Bearer ')
+      ? ctx.headers.authorization.slice(7) : undefined;
+    const principal = token ? this.verify(token) : null;
+    if (!principal) return false;      // → 401 from the chain
+    ctx.state.principal = principal;   // available to handlers + Authorization
+    return true;
+  }
+}
+\`\`\`
+
+## Wiring
+
+\`\`\`ts
+import { createApp } from '@zmdb/web/app';
+const app = createApp({ controllers: [UsersController], guards: [new BearerAuth(verifyJwt)] });
+\`\`\`
+
+## Design notes
+
+- Token verification (JWT, session lookup) is **your** function — zmdb doesn't
+  bundle a strategy registry; a Guard + a verify callback is the whole seam.
+- The principal rides on \`ctx.state\`, read by
+  [Authorization](./web-authorization.html) and handlers via a
+  [custom accessor](./web-custom-decorators.html) — no reflection.
+
+## Cross-links
+
+- [Authorization](./web-authorization.html) · [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Typed request context](./web-context.html)
+`),
+
+  'web-authorization': ok('Authorization', 'Web Framework — Guides', `
+The \`RolesGuard\` analogue. Authorization is a [Guard](./web-middleware.html)
+that compares the principal (set by [authentication](./web-authentication.html))
+against **handler metadata** declared with a
+[custom decorator](./web-custom-decorators.html) — all read once at boot.
+
+## Roles metadata + Guard
+
+\`\`\`ts
+import type { Guard, Ctx } from '@zmdb/web/middleware';
+
+// @Roles('admin') writes to context.metadata.roles at boot (see Custom Decorators).
+class RolesGuard implements Guard {
+  constructor(private readonly rolesFor: (route: string) => string[] | undefined) {}
+  canActivate(ctx: Ctx): boolean {
+    const required = this.rolesFor(ctx.route);
+    if (!required?.length) return true;               // open route
+    const have = ctx.state.principal?.roles ?? [];
+    return required.every((r) => have.includes(r));    // → 403 if false
+  }
+}
+\`\`\`
+
+## Design notes
+
+- Required roles are static metadata resolved at boot, so the check is a plain
+  array comparison per request — no reflection, no metadata scan.
+- Scope/permission checks follow the same pattern (swap roles for scopes).
+- Fine-grained resource checks belong in the handler (they need the loaded
+  entity); the Guard handles coarse route gating.
+
+## Cross-links
+
+- [Authentication](./web-authentication.html) · [Custom decorators](./web-custom-decorators.html) · [Guards, Pipes, Interceptors & Filters](./web-middleware.html)
+`),
+
+  'web-cors': ok('CORS', 'Web Framework — Guides', `
+CORS is a header concern handled in the [pipeline](./web-pipeline.html) via an
+[Interceptor](./web-middleware.html) (or at the adapter edge) — there is no
+\`app.enableCors()\` global, because responses are transport-neutral descriptors.
+
+## A CORS interceptor
+
+\`\`\`ts
+import type { Interceptor, Ctx } from '@zmdb/web/middleware';
+
+function cors(origin = '*'): Interceptor {
+  return {
+    async intercept(ctx: Ctx, next) {
+      if (ctx.method === 'OPTIONS') {
+        return { status: 204, headers: preflight(origin), body: null };
+      }
+      const res = await next();
+      return { ...res, headers: { ...res.headers, ...preflight(origin) } };
+    },
+  };
+}
+const preflight = (o: string) => ({
+  'access-control-allow-origin': o,
+  'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+  'access-control-allow-headers': 'content-type,authorization',
+});
+\`\`\`
+
+## Design notes
+
+- Preflight (\`OPTIONS\`) short-circuits with 204; actual responses get the
+  headers merged on the way out — identical under the Node and Fetch adapters.
+- Origin allow-listing is your policy function; keep credentials handling explicit.
+
+## Cross-links
+
+- [Request pipeline & adapters](./web-pipeline.html) · [Security headers](./web-security-headers.html) · [Middleware](./web-middleware.html)
+`),
+
+  'web-cookies-sessions': ok('Cookies & Sessions', 'Web Framework — Guides', `
+Cookies are read/written through the typed [\`Ctx\`](./web-context.html) headers;
+sessions are a **bring-your-own store** wired as a DI provider. There is no
+built-in session middleware — the store is explicit, which keeps the request
+path stateless-by-default.
+
+## Reading & setting cookies
+
+\`\`\`ts
+import type { Ctx } from '@zmdb/web/context';
+
+const parseCookies = (ctx: Ctx): Record<string, string> =>
+  Object.fromEntries((ctx.headers.cookie ?? '').split('; ').filter(Boolean)
+    .map((kv) => kv.split('=') as [string, string]));
+
+@Get('/')
+handler(ctx: Ctx) {
+  const sid = parseCookies(ctx).sid;
+  return { status: 200, headers: { 'set-cookie': \`sid=\${sid}; HttpOnly; SameSite=Lax\` }, body: {} };
+}
+\`\`\`
+
+## Sessions as a provider
+
+\`\`\`ts
+import { createToken } from '@zmdb/web/modules';
+const Sessions = createToken<SessionStore>('Sessions');
+// { provide: Sessions, useValue: new RedisSessionStore(...) }
+// a Guard reads the sid cookie, loads the session, sets ctx.state.session
+\`\`\`
+
+## Design notes
+
+- No hidden session singleton — the store is a Token you inject, so it's testable
+  and swappable (memory in tests, Redis in prod).
+- Cookie attributes are set explicitly on the response descriptor.
+
+## Cross-links
+
+- [Typed request context](./web-context.html) · [Authentication](./web-authentication.html) · [Dependency injection](./web-di.html)
+`),
+
+  'web-rate-limiting': ok('Rate Limiting', 'Web Framework — Guides', `
+The \`@nestjs/throttler\` analogue — a [Guard](./web-middleware.html) keyed on a
+value from [\`Ctx\`](./web-context.html) (IP, principal, API key) backed by a
+counter store you provide.
+
+## A token-bucket Guard
+
+\`\`\`ts
+import type { Guard, Ctx } from '@zmdb/web/middleware';
+
+class RateLimit implements Guard {
+  constructor(private readonly store: CounterStore, private readonly limit = 100, private readonly windowMs = 60_000) {}
+  async canActivate(ctx: Ctx): Promise<boolean> {
+    const key = ctx.state.principal?.id ?? ctx.headers['x-forwarded-for'] ?? 'anon';
+    const n = await this.store.incr(key, this.windowMs);
+    return n <= this.limit; // → 429 when exceeded
+  }
+}
+\`\`\`
+
+## Design notes
+
+- The counter store (in-memory, Redis) is injected — no bundled backend, so the
+  limiter is deterministic in tests.
+- Key selection is explicit; combine with [authentication](./web-authentication.html)
+  to rate-limit per principal instead of per IP.
+
+## Cross-links
+
+- [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Authentication](./web-authentication.html)
+`),
+
+  'web-security-headers': ok('Security Headers', 'Web Framework — Guides', `
+The \`helmet\` analogue — a small [Interceptor](./web-middleware.html) that merges
+hardening headers onto every response. No global plugin; it's one composable
+link so you can see exactly what's set.
+
+## A helmet-equivalent interceptor
+
+\`\`\`ts
+import type { Interceptor } from '@zmdb/web/middleware';
+
+const secure: Interceptor = {
+  async intercept(ctx, next) {
+    const res = await next();
+    return { ...res, headers: {
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'no-referrer',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains',
+      'content-security-policy': "default-src 'self'",
+      ...res.headers,
+    } };
+  },
+};
+\`\`\`
+
+## Design notes
+
+- Headers are merged on unwind, so a handler can still override a specific one.
+- CSP/HSTS values are yours to tune — nothing is silently defaulted behind your back.
+
+## Cross-links
+
+- [CORS](./web-cors.html) · [Middleware](./web-middleware.html) · [Request pipeline](./web-pipeline.html)
+`),
+
+  'web-caching': ok('Caching', 'Web Framework — Guides', `
+The \`CacheInterceptor\` analogue — an [Interceptor](./web-middleware.html) keyed
+on route + params, backed by a store you inject. There is **no built-in
+CacheModule** (a hidden cache would violate the zero-state default), so the
+cache is explicit and opt-in per route.
+
+## A response-cache interceptor
+
+\`\`\`ts
+import type { Interceptor, Ctx } from '@zmdb/web/middleware';
+
+function cache(store: KV, ttlMs = 5_000): Interceptor {
+  return {
+    async intercept(ctx: Ctx, next) {
+      if (ctx.method !== 'GET') return next();
+      const key = \`\${ctx.route}?\${new URLSearchParams(ctx.query).toString()}\`;
+      const hit = await store.get(key);
+      if (hit) return { status: 200, headers: { 'x-cache': 'HIT' }, body: hit };
+      const res = await next();
+      if (res.status === 200) await store.set(key, res.body, ttlMs);
+      return { ...res, headers: { ...res.headers, 'x-cache': 'MISS' } };
+    },
+  };
+}
+\`\`\`
+
+## Design notes
+
+- Apply per-controller/route rather than globally — only cache what's safe to.
+- The store is injected (memory, Redis); invalidation is your policy. See
+  [Anti-patterns](./anti-patterns.html) for why there's no implicit global cache.
+
+## Cross-links
+
+- [Middleware](./web-middleware.html) · [Anti-patterns](./anti-patterns.html)
+`),
+
+  'web-logging': ok('Logging', 'Web Framework — Guides', `
+The \`LoggerService\`/\`LoggingInterceptor\` analogue — a request logger is an
+[Interceptor](./web-middleware.html) around the chain. There is no global
+singleton logger by default; you inject the logger you want, which keeps output
+structured and testable.
+
+## A request-timing interceptor
+
+\`\`\`ts
+import type { Interceptor, Ctx } from '@zmdb/web/middleware';
+
+function logging(log: (r: object) => void): Interceptor {
+  return {
+    async intercept(ctx: Ctx, next) {
+      const started = performance.now();
+      const res = await next();
+      log({ method: ctx.method, route: ctx.route, status: res.status,
+            ms: +(performance.now() - started).toFixed(2) });
+      return res;
+    },
+  };
+}
+\`\`\`
+
+## Design notes
+
+- Emit structured objects (JSON lines) — no printf-string logger baked in.
+- Inject the sink (\`console.log\`, pino, a test spy) as a provider; tests assert
+  on captured records instead of scraping stdout.
+
+## Cross-links
+
+- [Middleware](./web-middleware.html) · [Testing](./web-testing.html) · [Dependency injection](./web-di.html)
+`),
+
+  'web-file-upload': todo('File Upload', 'Web Framework — Guides',
+    'multipart/form-data parsing is not shipped — plug a Pipe at the body boundary.', `
+> **ToDo / feature gap.** \`@zmdb/web\` does not ship a multipart
+> (\`multipart/form-data\`) body parser (the \`FileInterceptor\` analogue). The
+> [pipeline](./web-pipeline.html) currently decodes JSON bodies.
+
+## Where it would plug in
+
+Multipart belongs at the **body-decoding boundary** — a [Pipe](./web-middleware.html)
+that runs before the handler, parsing the raw request stream into files + fields
+and validating them, then handing a typed value to the handler:
+
+\`\`\`ts
+// SHAPE ONLY — not shipped. A Pipe that consumes the raw stream.
+import type { Pipe, Ctx } from '@zmdb/web/middleware';
+
+const multipart: Pipe = {
+  async transform(ctx: Ctx) {
+    // parse ctx.rawBody stream → { fields, files: [{ name, mime, bytes }] }
+    // enforce size/type limits here; attach to ctx.state.files
+    return ctx;
+  },
+};
+\`\`\`
+
+## Why it's a ToDo, not an exclusion
+
+Uploads are a legitimate need; they're deferred because a correct implementation
+needs streaming backpressure + size/type limits done carefully. The **Pipe seam
+already exists** — this is wiring a parser into it, not a design change. Until
+then, terminate uploads at a proxy or use a Node adapter middleware that fills
+\`ctx.state.files\`.
+
+## Cross-links
+
+- [Request pipeline & adapters](./web-pipeline.html) · [Middleware](./web-middleware.html)
+`),
+
+  'web-versioning': todo('API Versioning', 'Web Framework — Guides',
+    'no built-in version negotiator; use controller/path prefixes today.', `
+> **ToDo / partial.** There is no built-in \`VersioningType\` (URI/header/media-type)
+> negotiator like \`@nestjs/common\`. **URI versioning works today** via
+> controller path prefixes; header/media-type negotiation is roadmap.
+
+## URI versioning now
+
+\`\`\`ts
+@Controller('/v1/users')
+class UsersV1 { @Get('/') list(ctx: Ctx) { /* ... */ } }
+
+@Controller('/v2/users')
+class UsersV2 { @Get('/') list(ctx: Ctx) { /* v2 shape */ } }
+\`\`\`
+
+Both mount independently; the [route table](./web-controllers.html) resolves them
+at boot with zero per-request cost.
+
+## Header/media-type versioning (roadmap)
+
+A version negotiator would be a [Guard](./web-middleware.html) reading
+\`ctx.headers['accept-version']\` (or an \`Accept\` media-type) and selecting a
+handler variant. It's a ToDo because doing it well means integrating with route
+resolution, not just branching in a Guard.
+
+## Cross-links
+
+- [Controllers & routing](./web-controllers.html) · [Middleware](./web-middleware.html)
+`),
+
+  'web-graphql': todo('GraphQL', 'Web Framework — Guides',
+    'no GraphQL layer shipped; resolvers could sit on the DI container.', `
+> **ToDo / feature gap.** \`@zmdb/web\` ships **HTTP + WebSocket/SSE**, not a
+> GraphQL layer (no \`@nestjs/graphql\` analogue, no schema-first/code-first
+> resolver decorators).
+
+## How it could sit on the existing seams
+
+A GraphQL integration would be an **adapter + a resolver registry over DI**:
+
+- One [controller route](./web-controllers.html) (\`POST /graphql\`) as the transport.
+- Resolvers resolved from the [DI container](./web-di.html) (same boot-time graph).
+- Types generated from your [\`@zmdb/schema-core\`](./type-derivation.html) schemas,
+  reusing the [JSON Schema/OpenAPI](./web-openapi.html) derivation so the GraphQL
+  SDL can't drift from the data model.
+
+## Why it's a ToDo
+
+GraphQL is a large surface (SDL, resolver binding, dataloader batching,
+subscriptions). It's deferred rather than excluded — the DI + schema-derivation
+foundations it would build on already exist.
+
+## Cross-links
+
+- [Controllers & routing](./web-controllers.html) · [Type derivation](./type-derivation.html) · [WebSockets & SSE](./web-gateways.html)
+`),
+
+  'web-microservices': todo('Microservices', 'Web Framework — Guides',
+    'no transport-strategy layer shipped; adapters are the seam.', `
+> **ToDo / feature gap.** There is no \`@nestjs/microservices\` analogue — no
+> built-in TCP/NATS/Kafka/gRPC transport strategies or \`@MessagePattern\`
+> decorators.
+
+## The seam that already exists
+
+zmdb's [pipeline is transport-agnostic](./web-pipeline.html): \`createRouter\`
+produces a handler that adapters ([Node](./web-pipeline.html),
+[Fetch](./web-pipeline.html)) feed. A message-transport strategy would be another
+**adapter** that turns broker messages into the same \`Ctx\` the HTTP path uses,
+and \`@Subscribe\`-style handlers (already present for
+[gateways](./web-gateways.html)) are the natural pattern-matching primitive.
+
+## Why it's a ToDo
+
+Each transport (NATS/Kafka/gRPC) is its own client + framing + backpressure
+story. It's deferred, not rejected — the adapter boundary and the
+\`@Gateway\`/\`@Subscribe\` model are the extension points.
+
+## Cross-links
+
+- [Request pipeline & adapters](./web-pipeline.html) · [WebSockets & SSE](./web-gateways.html)
+`),
+
+  'web-faq': ok('FAQ — Migrating from NestJS', 'Web Framework — Guides', `
+What maps 1:1 from NestJS, what's deliberately different, and the honest
+feature-gap list.
+
+## Maps directly
+
+| NestJS | @zmdb/web |
+|--------|-----------|
+| \`@Controller\`/\`@Get\`… | [same decorators](./web-controllers.html) |
+| Providers / DI | [Token + Container](./web-di.html) |
+| \`@Module\` | [\`@Module\` + \`compileModule\`](./web-modules.html) |
+| Guards / Pipes / Interceptors / Filters | [same four](./web-middleware.html) |
+| Lifecycle (\`onModuleInit\`…) | [\`OnModuleInit\`/\`OnShutdown\`](./web-app.html) |
+| \`@nestjs/swagger\` | [\`toOpenApi\`](./web-openapi.html) |
+| Gateways (WS) | [\`@Gateway\`/\`@Subscribe\`](./web-gateways.html) |
+| \`Test.createTestingModule\` | [\`createTestApp\`](./web-testing.html) |
+
+## Deliberately different
+
+- **No \`reflect-metadata\`** — Stage-3 decorators native; the route table + DI
+  graph resolve **once at boot**, zero runtime reflection.
+- **No request-scoped providers by default** — request data rides on
+  [\`Ctx\`](./web-injection-scopes.html), not a rebuilt DI sub-tree.
+- **No \`as\`** on the consumer surface — everything is inferred/typed.
+- **Responses are transport-neutral descriptors** (\`{ status, headers, body }\`),
+  so the [Node and Fetch adapters](./web-pipeline.html) share one handler.
+- **Target ES2026+/ESNext** — no downlevel of decorators in source.
+
+## Honest feature gaps (ToDos)
+
+- [File upload](./web-file-upload.html) (multipart) · [API versioning](./web-versioning.html)
+  (header/media-type) · [GraphQL](./web-graphql.html) · [Microservices](./web-microservices.html)
+
+Everything else (config, auth, authz, CORS, cookies/sessions, rate limiting,
+security headers, caching, logging) is a **pattern on the existing primitives**,
+documented in this Guides group rather than a bundled module — so there's no
+hidden magic and nothing to reflect.
+
+## Cross-links
+
+- [Overview](./web-overview.html) · [Anti-patterns](./anti-patterns.html) · [Benchmarks](./web-benchmarks.html)
 `),
 };
