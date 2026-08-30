@@ -2111,7 +2111,5 @@ __metadata:
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
-    tsup: "npm:8.5.0"
-    typescript: "npm:5.9.2"
   languageName: unknown
   linkType: soft
