@@ -42,6 +42,17 @@
     "access": "public"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "tsup"
+  },
+  "devDependencies": {
+    "@types/pg": "^8",
+    "pg": "8.13.1",
+    "tsup": "8.5.0",
+    "typescript": "5.9.2"
+  },
+  "dependencies": {
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
   }
 }

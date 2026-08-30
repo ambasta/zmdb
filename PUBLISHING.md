@@ -1,104 +1,100 @@
 # Publishing zmdb to npm
 
-This document is the exact runbook for **reserving** or **publishing** the
-`@zmdb/*` package names on npm. The package metadata is already publish-ready
-(`.github/scripts/prepare-publish.mjs` set version, description, license,
-repository, `publishConfig.access=public`, per-package README + LICENSE +
-`.npmignore`). What remains **requires your npm identity and cannot be done from
-the build environment.**
+Runbook for publishing the `@zmdb/*` packages as **conventional npm packages**
+(`.js` + `.d.ts`) via **GitHub CI**. All the build + metadata plumbing is done;
+what remains is your one-time npm setup and triggering the workflow.
 
 ## Current status (checked against the registry)
 
 | name | availability |
 |------|--------------|
-| `@zmdb/schema-core` | ✅ available (unregistered) |
+| `@zmdb/schema-core` | ✅ available |
 | `@zmdb/query-compiler` | ✅ available |
 | `@zmdb/aot-validator` | ✅ available |
 | `@zmdb/repository` | ✅ available |
-| `zmdb` (unscoped) | ✅ available |
-| `@zmdb` org/scope | ❌ does not exist yet — must be created |
 
-## What you must provide
+## How the packages are built
 
-1. **An npm account** with **2FA enabled** (recommended for publishing).
-2. **The `@zmdb` scope.** Scoped names require you to own the scope:
-   - Create a **free org**: `npm org create zmdb` (then the scope is `@zmdb`), **or**
-   - Publish under your **user scope** instead (`@your-username/*`) — if so, tell me
-     and I'll rename the packages.
-3. **Authentication** for the publish step, one of:
-   - **Interactive**: run `npm login` yourself, then publish (you'll enter an OTP), **or**
-   - **Automation token** (CI-friendly, no OTP prompt): npmjs.com → *Access Tokens*
-     → *Generate* → **Automation** (or Granular with publish scope). Put it in
-     `~/.npmrc` locally or as a GitHub Actions secret `NPM_TOKEN`.
+The source uses **`.ts` import extensions** and cross-package `@zmdb/*` imports,
+so each package is bundled to conventional **ESM `.js` + `.d.ts`** with
+[`tsup`](https://tsup.egoist.dev) before publishing:
 
-## Caveat: what actually ships today
+- `packages/<pkg>/tsup.config.ts` lists every entry point (one per `exports`
+  subpath), emits ESM `.js` + `.d.ts`, and keeps `@zmdb/*` **external**.
+- The committed `package.json` keeps `exports` on `./src` so local dev + `vitest`
+  resolve TypeScript source directly.
+- A CI step (`.github/scripts/repoint-dist.mjs`) flips
+  `exports`/`main`/`types`/`files` to `dist` and rewrites `workspace:^` deps to
+  `^<version>` immediately before publish.
 
-The packages export raw **`./src/*.ts`** (TypeScript 7, ESM-only) with **no build
-step**. Consumers therefore need a TS7/ESM toolchain — this is fine for the
-zmdb monorepo's own use but is not a conventional `dist/.js + .d.ts` package.
+Consumers therefore receive built JavaScript + type declarations — no TS-source
+requirement.
 
-Choose one:
+## One-time setup (you)
 
-- **(A) Reserve / block the names now** — publish the current `0.1.0` (or a
-  `0.0.1` placeholder) so nobody else can take them. Fastest path to secure the
-  names; iterate on a real build later.
-- **(B) Full, conventional package** — add a compile step that emits `dist/*.js`
-  + `*.d.ts` and repoint `exports`/`files` at `dist`. More work; ask me and I'll
-  wire up the build (tsc/tsup) + update the metadata.
+1. **Create the `@zmdb` org** on npm (once): `npm org create zmdb`.
+2. **Add the token secret**: npmjs.com → *Access Tokens* → generate an
+   **Automation** token → GitHub repo *Settings → Secrets and variables →
+   Actions → New repository secret* → name **`NPM_TOKEN`**, value = the token.
 
-## Path A — reserve the names (manual, ~2 min)
+## Publish via CI
 
-```bash
-# 1. one-time: create the scope/org and log in
-npm org create zmdb            # skip if the @zmdb org already exists
-npm login                      # or configure an automation token in ~/.npmrc
+The workflow is `.github/workflows/publish.yml`. It installs, tests, builds
+`dist` for all four packages (dependency order), repoints the manifests to
+`dist`, then publishes each with `NPM_TOKEN`. It is **gated** (manual dispatch or
+`v*` tag) and defaults to a **dry run**.
 
-# 2. publish each package (public scoped). Run from the repo root.
-npm publish -w @zmdb/schema-core   --access public
-npm publish -w @zmdb/query-compiler --access public
-npm publish -w @zmdb/aot-validator  --access public
-npm publish -w @zmdb/repository     --access public
+- **Dry run first** (recommended): Actions tab → *Publish @zmdb packages to npm*
+  → *Run workflow* → leave `dry_run = true`. Builds + `npm pack --dry-run`s each
+  package so you can inspect the tarball contents without publishing.
+- **Real publish**: run the workflow with `dry_run = false`, **or** push a
+  version tag:
+  ```bash
+  git tag v0.1.0 && git push --tags
+  ```
+
+Packages are published in dependency order (schema-core → query-compiler →
+aot-validator → repository) so dependents resolve on the registry.
+
+## What ends up in each tarball
+
 ```
+packages/<pkg>/dist/
+  index.js        index.d.ts
+  <subpath>.js    <subpath>.d.ts   # one pair per exports entry
+README.md
+LICENSE
+```
+- `exports` map each subpath to `{ types, import }`.
+- `files` = `['dist', 'README.md', 'LICENSE']` (source/specs/tests are excluded).
+- Cross-package deps are concrete `^0.1.0` ranges (`aot-validator` → schema-core;
+  `repository` → schema-core + query-compiler).
 
-> This project pins **yarn** via `packageManager`, which makes the `npm` CLI
-> refuse to run inside the repo. Either run the publish commands from a shell
-> where that is unset, use `COREPACK_ENABLE_STRICT=0`/`npm_config_user_agent`
-> workarounds, or publish per-package from within each `packages/<name>` dir:
->
-> ```bash
-> cd packages/schema-core && npm publish --access public && cd -
-> ```
-
-Dry-run first to see exactly what would be uploaded (no auth needed):
+## Local build / dry-run (optional)
 
 ```bash
+# build every package (dependency order)
+for p in schema-core query-compiler aot-validator repository; do
+  yarn workspace "@zmdb/$p" build
+done
+
+# flip manifests to the publish shape, then inspect a tarball
+node .github/scripts/repoint-dist.mjs
 cd packages/schema-core && npm pack --dry-run && cd -
+
+# restore the dev-state manifests afterwards
+git checkout packages/*/package.json
 ```
 
-## Path A via CI (recommended, no local secrets)
+> `repoint-dist.mjs` mutates the committed `package.json` to the publish shape —
+> run it only in CI or a throwaway checkout, then restore with the `git checkout`
+> above. (This repo pins yarn via `packageManager`; the CI runner uses the
+> npm registry `.npmrc` that `setup-node` writes with your token.)
 
-A GitHub Actions workflow is provided at `.github/workflows/publish.yml`. It is
-**gated on the `NPM_TOKEN` secret** and only runs on a manual dispatch or a
-`v*` tag, so it never fires accidentally.
-
-1. Add the secret: GitHub repo → *Settings* → *Secrets and variables* →
-   *Actions* → **New repository secret** → name `NPM_TOKEN`, value = your npm
-   automation token.
-2. Ensure the `@zmdb` org exists (one-time, from your machine: `npm org create zmdb`).
-3. Trigger it: push a tag `git tag v0.1.0 && git push --tags`, or run the
-   workflow manually from the Actions tab.
-
-## Path B — full build before publish
-
-Ask and I will:
-
-1. Add `tsup` (or `tsc`) to emit `dist/index.js` + `dist/index.d.ts` per entry point.
-2. Repoint `exports` to `dist` (with a `types` condition) and set `files: ['dist']`.
-3. Add a `prepublishOnly` build step so `npm publish` always ships fresh output.
-
-## Verifying after publish
+## Verify after publish
 
 ```bash
 npm view @zmdb/schema-core version
-npm view @zmdb/repository dist.tarball
+npm view @zmdb/repository dependencies
+npm view @zmdb/schema-core exports
 ```

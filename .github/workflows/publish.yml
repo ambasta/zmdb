@@ -1,12 +1,13 @@
 name: Publish @zmdb packages to npm
 
-# Gated: only runs on a manual dispatch or a v* tag, and only if NPM_TOKEN is set.
-# See PUBLISHING.md. The @zmdb org/scope must already exist on npm.
+# Builds conventional dist (.js + .d.ts) and publishes to npm. Gated: runs only
+# on a manual dispatch or a v* tag, and only if NPM_TOKEN is set. The @zmdb org
+# must already exist on npm. See PUBLISHING.md.
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run (npm pack, do not publish)'
+        description: 'Dry run (build + pack, do not publish)'
         type: boolean
         default: true
   push:
@@ -21,10 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enable Corepack (yarn 4)
+        run: corepack enable
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+
       - name: Guard — require NPM_TOKEN
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -33,14 +39,31 @@ jobs:
             echo "::error::NPM_TOKEN secret is not set. Add it in repo Settings → Secrets → Actions. See PUBLISHING.md."
             exit 1
           fi
-      - name: Refresh publish metadata
-        run: node .github/scripts/prepare-publish.mjs
+
+      - name: Install (yarn, immutable)
+        run: yarn install --immutable
+
+      - name: Test
+        run: yarn vitest run
+
+      - name: Build dist for every package (dependency order)
+        run: |
+          set -e
+          for pkg in schema-core query-compiler aot-validator repository; do
+            echo "=== build @zmdb/$pkg ==="
+            yarn workspace "@zmdb/$pkg" build
+          done
+
+      - name: Repoint package.json → dist (publish manifest)
+        run: node .github/scripts/repoint-dist.mjs
+
       - name: Publish (or dry-run) each package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY: ${{ github.event.inputs.dry_run }}
         run: |
           set -e
+          # Publish in dependency order so dependents resolve on the registry.
           for pkg in schema-core query-compiler aot-validator repository; do
             echo "=== packages/$pkg ==="
             cd "packages/$pkg"

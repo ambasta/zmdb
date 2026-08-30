@@ -33,3 +33,6 @@ benchmarks/harness/orm/northwind.db
 
 # Generated benchmark AOT case (produced by gen-aot.mjs)
 benchmarks/harness/validation/moltar-case/zmdb-aot-generated.ts
+
+# Built package output (emitted by tsup in CI before publish)
+packages/*/dist/
