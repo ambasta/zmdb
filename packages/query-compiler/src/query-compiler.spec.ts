@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-import { createQueryCompiler } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -22,9 +21,61 @@ describe('postgres SELECT compilation', () => {
     expect(q.parameters).toEqual(['admin', true]);
   });
 
+  it('compiles whereIn, andWhereIn, and orWhereIn', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .whereIn('status', ['pending', 'shipped'])
+      .orWhereIn('userId', [1, 2])
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "orders" WHERE "status" IN ($1, $2) OR "userId" IN ($3, $4)',
+    );
+    expect(q.parameters).toEqual(['pending', 'shipped', 1, 2]);
+  });
+
+  it('compiles whereNotIn, andWhereNotIn, and orWhereNotIn', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('active', '=', true)
+      .andWhereNotIn('role', ['banned', 'guest'])
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "users" WHERE "active" = $1 AND "role" NOT IN ($2, $3)',
+    );
+    expect(q.parameters).toEqual([true, 'banned', 'guest']);
+  });
+
+  it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
+    const qIn = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .whereIn('id', [])
+      .compile();
+    expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
+    expect(qIn.parameters).toEqual([]);
+
+    const qNotIn = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .whereNotIn('id', [])
+      .compile();
+    expect(qNotIn.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(qNotIn.parameters).toEqual([]);
+  });
+
   it('compile() is pure (twice → equal)', () => {
     const b = createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1);
     expect(b.compile()).toEqual(b.compile());
+  });
+});
+
+describe('utility functions', () => {
+  it('sanitizeKeys removes null/undefined and deduplicates while preserving order', () => {
+    const raw = [1, 2, null, 2, undefined, 3, 1, null, 4];
+    expect(sanitizeKeys(raw)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('chunkArray splits an array into parameter-safe chunks', () => {
+    const items = [1, 2, 3, 4, 5];
+    expect(chunkArray(items, 2)).toEqual([[1, 2], [3, 4], [5]]);
   });
 });
 

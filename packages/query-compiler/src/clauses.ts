@@ -46,6 +46,29 @@ const JOIN_KEYWORD: Record<JoinKind, string> = {
   right: 'RIGHT JOIN',
 };
 
+export const OP_MAP: Record<string, string> = Object.assign(Object.create(null), {
+  '=': '=',
+  '!=': '!=',
+  '<': '<',
+  '<=': '<=',
+  '>': '>',
+  '>=': '>=',
+  like: 'LIKE',
+  LIKE: 'LIKE',
+  ilike: 'ILIKE',
+  ILIKE: 'ILIKE',
+  in: 'IN',
+  IN: 'IN',
+  'not in': 'NOT IN',
+  'NOT IN': 'NOT IN',
+  nin: 'NOT IN',
+  NIN: 'NOT IN',
+  exists: 'EXISTS',
+  EXISTS: 'EXISTS',
+  'not exists': 'NOT EXISTS',
+  'NOT EXISTS': 'NOT EXISTS',
+});
+
 /** Anything with a `compile()` — a builder from this package, or a caller's own. */
 export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
   return (
@@ -57,17 +80,17 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 }
 
 /**
- * The two operators we spell for the caller. Everything else is emitted as
- * written, which is what makes raw operators (`@>`, `&&`, `BETWEEN`) work.
+ * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
  */
 export function sqlOperator(op: string): string {
-  if (op === 'like') return 'LIKE';
-  if (op === 'in') return 'IN';
-  return op;
+  const opNorm = String(op).toLowerCase().trim();
+  return Object.prototype.hasOwnProperty.call(OP_MAP, opNorm) ? OP_MAP[opNorm]! : op;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
+  const sqlOp = sqlOperator(p.op);
+
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
     // Continue the outer statement's numbering. For mysql/sqlite the
@@ -76,13 +99,28 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     const text = renumberPlaceholders(sub.text, params.length);
     params.push(...sub.parameters);
 
-    const opUpper = p.op.toUpperCase();
-    if (opUpper === 'EXISTS') return `EXISTS (${text})`;
-    if (opUpper === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    return `${quoteColumn(dialect, p.col)} ${sqlOperator(p.op)} (${text})`;
+    if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
+    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
   }
+
+  if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
+    const isNotIn = sqlOp === 'NOT IN';
+    const arr = Array.isArray(p.value) ? p.value : [p.value];
+    if (arr.length === 0) {
+      return isNotIn ? '1 = 1' : '1 = 0';
+    }
+    const placeholders = arr
+      .map(item => {
+        params.push(item);
+        return formatPlaceholder(dialect, params.length);
+      })
+      .join(', ');
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders})`;
+  }
+
   params.push(p.value);
-  return `${quoteColumn(dialect, p.col)} ${sqlOperator(p.op)} ${formatPlaceholder(dialect, params.length)}`;
+  return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
 }
 
 function predicateList(dialect: Dialect, preds: readonly Predicate[], params: unknown[]): string {

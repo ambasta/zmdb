@@ -1,5 +1,5 @@
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
@@ -259,20 +259,23 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   /**
-   * The children of every parent in one query — an OR chain of FK equalities,
-   * which is how this layer says IN — grouped by FK value. A parent with no
-   * children is simply absent from the map.
+   * The children of every parent in one query — using whereIn and parameter chunking — grouped by FK value.
+   * A parent with no children is simply absent from the map.
    */
   private async childrenByParent(
     childTable: string,
     childFk: string,
     parentIds: readonly unknown[],
   ): Promise<Map<unknown, Record<string, unknown>[]>> {
-    let cb = this.qb.selectFrom(childTable);
-    parentIds.forEach((id, i) => {
-      cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
-    });
-    const children = await this.driver.execute(cb.compile());
+    const ids = sanitizeKeys(parentIds);
+    if (ids.length === 0) return new Map();
+    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
+    const chunks = chunkArray(ids, limit);
+    const children: Record<string, unknown>[] = [];
+    for (const chunk of chunks) {
+      const res = await this.driver.execute(this.qb.selectFrom(childTable).whereIn(childFk, chunk).compile());
+      children.push(...(res as Record<string, unknown>[]));
+    }
     const byParent = new Map<unknown, Record<string, unknown>[]>();
     for (const c of children) {
       const key = c[childFk];
@@ -291,18 +294,23 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     if (parents.length === 0) return parents;
     // boundary: static side of subclass holds relations definition map; constructor is typed Function.
     const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
-    let current: Record<string, unknown>[] = parents.map(p => ({ ...p }));
+    let current: Record<string, unknown>[] = parents.map(p => ({ ...(p as Record<string, unknown>) }));
 
     for (const name of names) {
       const def = relations[name];
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
       const meta = def.rel ?? def.meta;
-      const childTable = def.childTable ?? def.target ?? meta?.target;
-      const childFk = def.childFk ?? def.fk ?? def.mappedBy ?? meta?.fk ?? meta?.mappedBy;
-      const cardinality = def.cardinality ?? meta?.cardinality;
+      const childTable = def.childTable ?? def.target ?? meta?.target ?? '';
+      const childFk =
+        def.childFk ??
+        def.fk ??
+        def.mappedBy ??
+        meta?.fk ??
+        meta?.mappedBy ??
+        '';
       if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
-
+      const cardinality = def.cardinality ?? meta?.cardinality;
       const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
       const byParent = await this.childrenByParent(
         childTable,
@@ -310,7 +318,11 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
         current.map(p => p[parentKey]),
       );
       current = current.map(p => {
-        const list = byParent.get(p[parentKey]) ?? [];
+        const pKey = p[parentKey];
+        if (pKey === null || pKey === undefined) {
+          return { ...p, [name]: toMany ? [] : null };
+        }
+        const list = byParent.get(pKey) ?? [];
         return {
           ...p,
           [name]: toMany ? list : (list[0] ?? null),
