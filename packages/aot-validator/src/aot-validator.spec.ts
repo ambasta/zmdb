@@ -121,4 +121,18 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       }
     }
   });
+
+  it('reuses cached RegExp instance for pattern rules', () => {
+    const patternRule = tags.Pattern('^[a-z]+$');
+    expect(validate(patternRule, 'hello')).toBe(true);
+    expect(validate(patternRule, '123')).toBe(false);
+  });
+
+  it('uses cached Set lookup for enum rules', () => {
+    const enumRule = tags.Enum('alpha', 'beta', 'gamma');
+    for (let i = 0; i < 100; i++) {
+      expect(validate(enumRule, 'beta')).toBe(true);
+      expect(validate(enumRule, 'delta')).toBe(false);
+    }
+  });
 });

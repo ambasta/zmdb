@@ -19,6 +19,14 @@ describe('zmdbAot plugin packaging', () => {
     expect(out?.code).not.toContain('is<');
   });
 
+  it('transform hook inlines primitive tag validation calls', () => {
+    const p = zmdbAot() as { transform: (code: string, id: string) => { code: string } | null };
+    const out = p.transform('export const ok = validate(tags.Minimum(5), input);', '/fixture/tags.ts');
+    expect(out).not.toBeNull();
+    expect(out!.code).toContain('typeof input === "number" && input >= 5');
+    expect(out!.code).not.toContain('validate(');
+  });
+
   it('transform skips non-source ids (node_modules)', () => {
     expect(zmdbAot().transform('const x=1;', '/x/node_modules/dep/index.js')).toBeNull();
   });

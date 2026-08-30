@@ -34,6 +34,27 @@ export const tags = {
   },
 } as const;
 
+// Caches for zero-allocation fallback validation.
+const regexCache = new Map<string, RegExp>();
+export function getRegExp(pattern: string): RegExp {
+  let re = regexCache.get(pattern);
+  if (!re) {
+    re = new RegExp(pattern);
+    regexCache.set(pattern, re);
+  }
+  return re;
+}
+
+const enumSetCache = new WeakMap<readonly unknown[], Set<unknown>>();
+export function getEnumSet(values: readonly unknown[]): Set<unknown> {
+  let set = enumSetCache.get(values);
+  if (!set) {
+    set = new Set(values);
+    enumSetCache.set(values, set);
+  }
+  return set;
+}
+
 // Runtime-safety fallback: identical boolean semantics to the inlined form.
 // This is what executes pre-transform (dev / ts-node).
 export function validate(r: Rule, expr: unknown): boolean {
@@ -47,9 +68,9 @@ export function validate(r: Rule, expr: unknown): boolean {
     case 'MaxLength':
       return typeof expr === 'string' && expr.length <= (r.args[0] as number);
     case 'Pattern':
-      return typeof expr === 'string' && new RegExp(r.args[0] as string).test(expr);
+      return typeof expr === 'string' && getRegExp(r.args[0] as string).test(expr);
     case 'Enum':
-      return r.args.includes(expr);
+      return getEnumSet(r.args).has(expr);
     default:
       throw new Error(`unknown rule kind: ${r.kind}`);
   }
