@@ -147,10 +147,10 @@ export type GetDTO<S, O extends GetOptions<S> = {}> = O['select'] extends readon
 
 /** Apply a Get's select projection to a fetched row. */
 export function getResult<Row extends Record<string, unknown>>(
-  _row: Row,
-  _opts?: { select?: readonly (keyof Row)[] },
+  row: Row,
+  opts?: { select?: readonly (keyof Row)[] },
 ): Row | Partial<Row> {
-  throw new Error('not implemented');
+  return project(row, opts?.select);
 }
 
 // ---------------------------------------------------------------------------
