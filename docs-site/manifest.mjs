@@ -232,12 +232,73 @@ const user = await users.findById(1, { populate: ['orders'] });
 - No identity map: populated children are plain objects, not shared references. See [Anti-patterns](./anti-patterns.html) for why lazy/proxy relations are excluded.
 `),
 
-  'indexes-constraints': todo('Indexes & Constraints', 'Schema', 'A declarative index/unique/check DSL on the schema, feeding migration DDL, is planned.'),
-  views: todo('Views', 'Schema', 'Declaring SQL views (and materialized views) as first-class schema objects is planned.'),
-  sequences: todo('Sequences', 'Schema', 'Standalone sequence objects (beyond serial columns) are planned.'),
-  'generated-columns': todo('Generated Columns', 'Schema', 'Stored/virtual generated columns are planned.'),
-  'schemas-namespaces': todo('Schemas / Namespaces', 'Schema', 'Multiple Postgres schema namespaces are planned.'),
-  rls: todo('Row-Level Security (RLS)', 'Schema', 'Declarative RLS policy generation is planned.'),
+  'indexes-constraints': ok('Indexes & Constraints', 'Schema', `
+Declare indexes and check constraints; they emit dialect-correct DDL (\`@zmdb/query-compiler/schema-objects\`).
+
+\`\`\`ts
+import { createIndexDdl, checkConstraintDdl } from '@zmdb/query-compiler/schema-objects';
+
+createIndexDdl({ name: 'u_email', table: 'users', columns: ['email'], unique: true }, 'postgres');
+// CREATE UNIQUE INDEX "u_email" ON "users" ("email")
+checkConstraintDdl('orders', 'chk_total', 'total >= 0', 'postgres');
+\`\`\`
+
+Supports unique, multi-column and partial (\`where\`) indexes. Feeds migrations.
+`),
+  views: ok('Views', 'Schema', `
+Declare SQL views and materialized views.
+
+\`\`\`ts
+import { createViewDdl, dropViewDdl } from '@zmdb/query-compiler/schema-objects';
+
+createViewDdl({ name: 'active_users', select: 'SELECT * FROM users WHERE active' }, 'postgres');
+createViewDdl({ name: 'mv', select: 'SELECT ...', materialized: true }, 'postgres');
+\`\`\`
+
+Materialized views are PostgreSQL-only; other dialects throw an honest \`UnsupportedFeatureError\`.
+`),
+  sequences: ok('Sequences', 'Schema', `
+Standalone sequences with optional start/increment.
+
+\`\`\`ts
+import { createSequenceDdl } from '@zmdb/query-compiler/schema-objects';
+
+createSequenceDdl({ name: 'order_no', start: 1000, increment: 1 }, 'postgres');
+// CREATE SEQUENCE "order_no" START 1000 INCREMENT 1
+\`\`\`
+`),
+  'generated-columns': ok('Generated Columns', 'Schema', `
+Stored or virtual generated columns.
+
+\`\`\`ts
+import { generatedColumnDdl } from '@zmdb/query-compiler/schema-objects';
+
+generatedColumnDdl({ name: 'full_name', type: 'text', expression: "first || last", stored: true }, 'postgres');
+// "full_name" text GENERATED ALWAYS AS (first || last) STORED
+\`\`\`
+`),
+  'schemas-namespaces': ok('Schemas / Namespaces', 'Schema', `
+Multiple namespaces and qualified identifiers.
+
+\`\`\`ts
+import { createSchemaDdl, qualify } from '@zmdb/query-compiler/schema-objects';
+
+createSchemaDdl('analytics', 'postgres'); // CREATE SCHEMA "analytics"
+qualify('analytics', 'events', 'postgres'); // "analytics"."events"
+\`\`\`
+`),
+  rls: ok('Row-Level Security (RLS)', 'Schema', `
+Declarative RLS policies (PostgreSQL).
+
+\`\`\`ts
+import { enableRlsDdl, createPolicyDdl } from '@zmdb/query-compiler/schema-objects';
+
+enableRlsDdl('documents', 'postgres');
+createPolicyDdl({ name: 'owner', table: 'documents', using: 'owner_id = current_user_id()' }, 'postgres');
+\`\`\`
+
+PostgreSQL-only; other dialects throw \`UnsupportedFeatureError\`.
+`),
 
   // ---------------- Data Access ----------------
   crud: ok('CRUD', 'Data Access', `
