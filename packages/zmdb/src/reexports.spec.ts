@@ -56,4 +56,9 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(BaseRepository).toBe(SrcBaseRepository);
     expect(defineRepository).toBe(srcDefineRepository);
   });
+
+  it('re-exports unplugin zmdbAot via zmdb/unplugin', async () => {
+    const unplugin = await import('./unplugin.ts');
+    expect(typeof unplugin.zmdbAot).toBe('function');
+  });
 });
