@@ -4,7 +4,7 @@
   "type": "module",
   "dependencies": {
     "better-sqlite3": "11.10.0",
-    "drizzle-orm": "0.36.4",
+    "drizzle-orm": "0.45.2",
     "kysely": "0.29.5",
     "pg": "^8.13.1",
     "tinybench": "3.1.0"
