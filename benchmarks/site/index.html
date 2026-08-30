@@ -19,6 +19,7 @@
   .tabs { display:flex; gap:8px; margin:8px 0 16px; }
   .tab { background:#21262d; border:1px solid var(--line); color:var(--fg); padding:6px 14px; border-radius:6px; cursor:pointer; }
   .tab.active { background:var(--accent); color:#0d1117; border-color:var(--accent); font-weight:600; }
+  .rtbadge { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:20px; color:#0d1117; }
   canvas { max-height:340px; }
   table { border-collapse:collapse; width:100%; font-size:14px; margin-top:8px; }
   th,td { border:1px solid var(--line); padding:6px 10px; text-align:right; }
@@ -55,6 +56,14 @@
     <canvas id="fwChart"></canvas>
     <table id="fwTable"></table>
     <p class="note">Click a column header to sort. Latencies shown in <b>ms</b> (oha reports seconds; converted here). <code>req/s</code> higher = better; latencies lower = better.</p>
+
+    <h3 style="margin:22px 0 4px;font-size:16px;">Measured here — apples-to-apples head-to-head</h3>
+    <p class="note" id="fwPeersNote"></p>
+    <div class="tabs" id="fwPeersLevelTabs"></div>
+    <div class="tabs" id="fwPeersRouteTabs"></div>
+    <canvas id="fwPeersChart"></canvas>
+    <table id="fwPeersTable"></table>
+    <p class="note" id="fwPeersSkipped"></p>
 
     <h3 style="margin:22px 0 4px;font-size:16px;">Context — upstream peer set (published, different machine)</h3>
     <p class="note" id="fwRefNote"></p>
@@ -166,6 +175,7 @@ async function load() {
   drawOrm(orm);
   buildGapTabs(); drawGap();
   try { drawFramework(await (await fetch('./framework-results.json')).json()); } catch (e) { /* optional */ }
+  try { drawPeers(await (await fetch('./peers-results.json')).json()); } catch (e) { var el=document.getElementById('fwPeersNote'); if(el) el.textContent=''; }
 }
 
 // --- Framework (HTTP) — the-benchmarker/web-frameworks contract + methodology ---
@@ -303,6 +313,79 @@ function drawFwRef() {
       scales: { x: { ticks: { color:'#8b949e', callback: fmt }, grid:{ color:'#30363d' } }, y: { ticks:{ color:'#e6edf3', font:{ size:11 } }, grid:{ display:false } } } }
   });
 }
+
+// --- Same-machine head-to-head (peers-results.json + @zmdb/web's own metrics) ---
+let PEERS = null, PEERS_LEVEL = null, PEERS_ROUTE = null, PEERS_SORT = { key:'rps', dir:-1 }, fwPeersChart;
+const RT_COLOR = { javascript:'#f7df1e', go:'#00add8', rust:'#dea584', python:'#3572a5', 'zmdb':'#3fb950' };
+function drawPeers(pd) {
+  PEERS = pd;
+  const note = document.getElementById('fwPeersNote');
+  if (note) note.innerHTML = `Every framework below was built and load-tested on <b>this same machine</b> (${pd.machine}) with the <b>identical</b> <code>oha</code> invocation, ${pd.duration} per route, and the same 3-route contract — a true apples-to-apples ranking. Each peer's contract was verified before its numbers were recorded. <code>@zmdb/web</code> is highlighted.`;
+
+  // Build the combined metric list: peers + @zmdb/web (from FW.metrics, if measured).
+  const rows = (pd.metrics || []).map(m => ({ id:m.id, runtime:m.runtime, language:m.language, level:m.level, route:m.route, label:m.label, value:m.value }));
+  if (FW && Array.isArray(FW.metrics) && FW.throughput && FW.throughput.measured) {
+    for (const m of FW.metrics) rows.push({ id:'@zmdb/web', runtime:'zmdb', language:'typescript', level:m.level, route:m.route, label:m.label, value:m.value });
+  }
+  PEERS._rows = rows;
+  const levels = [...new Set(rows.map(r => r.level))].sort((a,b)=>a-b);
+  const routes = [...new Set(rows.map(r => r.route))];
+  PEERS_LEVEL = levels.includes(64) ? 64 : levels[0];
+  PEERS_ROUTE = routes[0];
+  peersLevelTabs(levels); peersRouteTabs(routes); drawPeersLevel();
+
+  const skipped = (pd.peers || []).filter(p => p.status === 'skipped');
+  const ok = (pd.peers || []).filter(p => p.status === 'ok');
+  const sk = document.getElementById('fwPeersSkipped');
+  if (sk) sk.innerHTML = `<b>${ok.length}</b> peers ran; ` + (skipped.length
+    ? `skipped (honestly, never faked): ` + skipped.map(p => `<b>${p.id}</b> — ${p.reason}`).join('; ') + '.'
+    : 'no peers skipped.');
+}
+function peersRows() {
+  return PEERS._rows.filter(r => r.level === PEERS_LEVEL && r.route === PEERS_ROUTE);
+}
+function peersLevelTabs(levels){
+  const el=document.getElementById('fwPeersLevelTabs'); if(!el) return;
+  el.innerHTML='<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
+  for(const lv of levels){const b=document.createElement('button');b.className='tab'+(lv===PEERS_LEVEL?' active':'');b.textContent='c='+lv;b.onclick=()=>{PEERS_LEVEL=lv;peersLevelTabs(levels);drawPeersLevel();};el.appendChild(b);}
+}
+function peersRouteTabs(routes){
+  const el=document.getElementById('fwPeersRouteTabs'); if(!el) return;
+  el.innerHTML='<span class="note" style="margin:6px 8px 0 0">route:</span>';
+  for(const rt of routes){const b=document.createElement('button');b.className='tab'+(rt===PEERS_ROUTE?' active':'');b.textContent=rt;b.onclick=()=>{PEERS_ROUTE=rt;peersRouteTabs(routes);drawPeersLevel();};el.appendChild(b);}
+}
+function drawPeersLevel(){
+  const rs=peersRows();
+  const byId={};
+  for(const r of rs){(byId[r.id] ??= {id:r.id,runtime:r.runtime,language:r.language})[r.label]=r.value;}
+  let list=Object.values(byId).map(o=>({id:o.id,runtime:o.runtime,language:o.language,
+    rps:o.total_requests_per_s, avg:secs2ms(o.average_latency), p50:secs2ms(o.percentile50), p90:secs2ms(o.percentile90), p99:secs2ms(o.percentile99), err:o.http_errors}));
+  list.sort((a,b)=>{const d=(a[PEERS_SORT.key]-b[PEERS_SORT.key])*PEERS_SORT.dir; return isNaN(d)?0:d;});
+  const ms=n=>n==null?'—':n.toFixed(3);
+  const cols=[['id','Framework'],['runtime','Runtime'],['rps','req/s'],['avg','avg ms'],['p50','p50 ms'],['p90','p90 ms'],['p99','p99 ms'],['err','errors']];
+  const t=document.getElementById('fwPeersTable');
+  if(t){
+    t.innerHTML='<tr>'+cols.map(([k,l])=>`<th data-k="${k}" style="cursor:pointer${(k==='id'||k==='runtime')?';text-align:left':''}">${l}${PEERS_SORT.key===k?(PEERS_SORT.dir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>'+
+      list.map(r=>{const me=r.id==='@zmdb/web';return `<tr${me?' style="background:rgba(63,185,80,.12)"':''}>`+
+        `<td style="text-align:left">${me?'<b>':''}${r.id}${me?'</b>':''}</td>`+
+        `<td style="text-align:left"><span class="rtbadge" style="background:${RT_COLOR[r.runtime]||'#58a6ff'}">${r.language}</span></td>`+
+        `<td>${r.rps==null?'—':Math.round(r.rps).toLocaleString()}</td>`+
+        `<td>${ms(r.avg)}</td><td>${ms(r.p50)}</td><td>${ms(r.p90)}</td><td>${ms(r.p99)}</td>`+
+        `<td class="${r.err?'no':'yes'}">${r.err==null?'—':Math.round(r.err)}</td></tr>`;}).join('');
+    t.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(PEERS_SORT.key===k)PEERS_SORT.dir*=-1;else PEERS_SORT={key:k,dir:(k==='id'||k==='runtime')?1:-1};drawPeersLevel();});
+  }
+  // chart: req/s ranked, @zmdb/web highlighted
+  const ranked=[...list].filter(r=>r.rps!=null).sort((a,b)=>b.rps-a.rps);
+  if(fwPeersChart)fwPeersChart.destroy();
+  fwPeersChart=new Chart(document.getElementById('fwPeersChart'),{
+    type:'bar',
+    data:{labels:ranked.map(r=>r.id),datasets:[{label:`req/s @ c=${PEERS_LEVEL} ${PEERS_ROUTE}`,data:ranked.map(r=>r.rps),
+      backgroundColor:ranked.map(r=>r.id==='@zmdb/web'?'#3fb950':(RT_COLOR[r.runtime]||'#58a6ff'))}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.raw).toLocaleString()+' req/s'}}},
+      scales:{x:{ticks:{color:'#8b949e',callback:fmt},grid:{color:'#30363d'}},y:{ticks:{color:'#e6edf3',font:{size:11}},grid:{display:false}}}}
+  });
+}
+
 
 
 // --- Gaps: rank zmdb-aot per case for the selected runtime, show leader+gap ---

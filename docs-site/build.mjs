@@ -269,7 +269,7 @@ mkdirSync(join(OUT, 'docs'), { recursive: true });
 mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 
 // Copy the benchmark data files into site/benchmarks/ (the page fetches them via ./).
-for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-results.json']) {
+for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-results.json', 'peers-results.json']) {
   const src = join(DASH, f);
   if (existsSync(src)) cpSync(src, join(OUT, 'benchmarks', f));
 }

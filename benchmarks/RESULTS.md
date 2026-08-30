@@ -262,25 +262,53 @@ The app on port `3000` passes all shared-contract assertions before any load run
 contract.** The app is built on `@zmdb/web`'s real routing (Stage-3
 `@Controller`/`@Get`/`@Post`, `getRoutes` resolved once at boot, `extractParams`).
 
-### Throughput & latency — not run here (stated, not faked)
+### Throughput & latency — measured (real oha, `oha` auto-downloaded)
 
-`oha` is **not installed in this environment**, so req/s + p50/p75/p90/p99 are
-**not reported** rather than fabricated. `run.sh` produces them (oha JSON →
-req/s, total data, duration, p50/p75/p90/p99) on any machine with `oha` + `jq`:
+`run.sh` auto-downloads a pinned `oha` prebuilt binary (linux amd64/arm64) when
+absent, then runs the upstream methodology — concurrency **64/256/512** × the
+three contract routes, keep-alive disabled, latency-corrected — and emits
+`framework-results.json` in the-benchmarker `data.min.json` shape (req/s,
+average, p50/p75/p90/p99/p99999, totals, `http_errors`, stddev, duration). The
+shipped dataset was measured on **Linux x86_64, Node 26.8.1**, every route
+returning **0 HTTP errors**.
 
 ```sh
-bash benchmarks/harness/framework/run.sh          # GET / 15s, c=64 (upstream default)
-CONCURRENCIES=64,256,512 ROUTES='GET:/,GET:/user/42,POST:/user' \
-  bash benchmarks/harness/framework/run.sh        # upstream-style knobs
+bash benchmarks/harness/framework/run.sh          # levels 64/256/512, 3 routes, 15s each
 ```
 
-Read any published number in the context of its machine, benchmark revision, and
-runtime variant — and remember this is a **minimal HTTP** test, not a full-app
-workload (the upstream caveat). The separate architectural claim — route
-resolution is **init-time, zero per-request reflection** — is machine-checked by
-the unit guard in `packages/web/src/bench`, not by this HTTP harness.
+### Same-machine, apples-to-apples peer head-to-head
 
----
+Because "context, different machine" numbers only go so far, `peers/peers-run.sh`
+builds and load-tests **17 real peer frameworks on this same box** with the
+**identical** `oha` invocation, levels, routes, and duration as `@zmdb/web`, and
+verifies each peer's shared contract **before** recording a single number:
+
+| Runtime | Peers |
+|---------|-------|
+| Node    | fastify, hono, express, koa |
+| Bun     | elysia, hono |
+| Deno    | hono, oak |
+| Go      | gin, fasthttp, chi, net/http |
+| Rust    | actix, axum |
+| Python  | fastapi (uvicorn), flask + django (gunicorn) |
+
+Each peer is staged **outside** the Corepack/Yarn-PnP monorepo (into `/tmp`) so
+its native toolchain behaves normally. Peers whose toolchain/build/contract is
+unavailable are recorded as **skipped with a reason — never faked**
+(Ruby/Elixir/.NET are out of scope on this machine). Results land in
+`peers-results.json` and render on the dashboard as a sortable, per-level,
+per-route ranking with `@zmdb/web` highlighted — a genuine head-to-head, kept
+**separate** from the "published, different machine" upstream context panel.
+
+```sh
+bash benchmarks/harness/framework/peers/peers-run.sh   # all available peers, same knobs
+ONLY=fastify,gin,actix bash benchmarks/harness/framework/peers/peers-run.sh
+```
+
+Read this as a **minimal-HTTP routing** comparison on one machine, not a full-app
+verdict (the upstream caveat holds). The separate architectural claim — route
+resolution is **init-time, zero per-request reflection** — is machine-checked by
+the unit guard in `packages/web/src/bench`, independent of this HTTP harness.
 
 ---
 

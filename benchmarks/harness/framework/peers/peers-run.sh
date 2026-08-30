@@ -166,22 +166,25 @@ for i in $(seq 0 $((COUNT-1))); do
   run_peer "$id" "$runtime" "$language" "$dir" "$need" "$venv" "$install" "$start"
 done
 
-# assemble peers-results.json
+# assemble peers-results.json (slurpfile avoids ARG_MAX on the metric array)
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 MACHINE="$(uname -s) $(uname -m), Node $(node -v 2>/dev/null)"
+METRICS_ARR="$(mktemp)"; PEERS_ARR="$(mktemp)"
+grep -v '^$' "$METRICS" | jq -s '.' > "$METRICS_ARR"
+grep -v '^$' "$PEERMETA" | jq -s '.' > "$PEERS_ARR"
 jq -n \
   --arg now "$NOW" --arg machine "$MACHINE" --arg dur "$DURATION" --arg oha "$("$OHA_BIN" --version)" \
-  --argjson metrics "$(grep -v '^$' "$METRICS" | jq -s '.')" \
-  --argjson peers "$(grep -v '^$' "$PEERMETA" | jq -s '.')" \
+  --slurpfile metrics "$METRICS_ARR" \
+  --slurpfile peers "$PEERS_ARR" \
   '{
      suite: "the-benchmarker/web-frameworks (same machine)",
      upstream: "https://github.com/the-benchmarker/web-frameworks",
      methodology: ("Same box, same oha " + $oha + ", same contract + routes + levels as @zmdb/web. Per route for " + $dur + ", keep-alive disabled, latency-corrected. Each peer contract-verified before load."),
      generatedAt: $now, machine: $machine, duration: $dur,
-     peers: $peers, metrics: $metrics
+     peers: $peers[0], metrics: $metrics[0]
    }' > "$HERE/peers-results.json"
 cp "$HERE/peers-results.json" "$REPO_ROOT/benchmarks/site/peers-results.json" 2>/dev/null || true
-rm -f "$METRICS" "$PEERMETA"
+rm -f "$METRICS" "$PEERMETA" "$METRICS_ARR" "$PEERS_ARR"
 
 echo "DONE — $HERE/peers-results.json"
 jq -r '.peers[] | "  \(.id) [\(.runtime)]: \(.status)\(if .reason then " ("+.reason+")" else "" end)"' "$HERE/peers-results.json"
