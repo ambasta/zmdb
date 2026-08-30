@@ -68,8 +68,9 @@ export interface GeneratedColumn {
   expression: string;
   stored?: boolean;
 }
-export function generatedColumnDdl(_col: GeneratedColumn, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function generatedColumnDdl(col: GeneratedColumn, dialect: Dialect): string {
+  const stored = col.stored ? ' STORED' : '';
+  return `${quoteId(dialect, col.name)} ${col.type} GENERATED ALWAYS AS (${col.expression})${stored}`;
 }
 
 // §5 schemas / namespaces
