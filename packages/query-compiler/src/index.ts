@@ -309,8 +309,10 @@ function makeUpdate(
     set: r => makeUpdate(d, table, r, wheres, ret),
     where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
     orWhere: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret),
-    whereIn: (col, values) => makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
-    whereNotIn: (col, values) => makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
+    whereIn: (col, values) =>
+      makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+    whereNotIn: (col, values) =>
+      makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
     returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
@@ -337,8 +339,10 @@ function makeDelete(
   return {
     where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
     orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret),
-    whereIn: (col, values) => makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
-    whereNotIn: (col, values) => makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
+    whereIn: (col, values) =>
+      makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+    whereNotIn: (col, values) =>
+      makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
     returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];

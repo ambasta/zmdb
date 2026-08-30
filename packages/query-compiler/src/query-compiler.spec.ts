@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createQueryCompiler, sanitizeKeys, chunkArray } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
@@ -27,9 +28,7 @@ describe('postgres SELECT compilation', () => {
       .whereIn('status', ['pending', 'shipped'])
       .orWhereIn('userId', [1, 2])
       .compile();
-    expect(q.text).toBe(
-      'SELECT * FROM "orders" WHERE "status" IN ($1, $2) OR "userId" IN ($3, $4)',
-    );
+    expect(q.text).toBe('SELECT * FROM "orders" WHERE "status" IN ($1, $2) OR "userId" IN ($3, $4)');
     expect(q.parameters).toEqual(['pending', 'shipped', 1, 2]);
   });
 
@@ -39,24 +38,16 @@ describe('postgres SELECT compilation', () => {
       .where('active', '=', true)
       .andWhereNotIn('role', ['banned', 'guest'])
       .compile();
-    expect(q.text).toBe(
-      'SELECT * FROM "users" WHERE "active" = $1 AND "role" NOT IN ($2, $3)',
-    );
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "active" = $1 AND "role" NOT IN ($2, $3)');
     expect(q.parameters).toEqual([true, 'banned', 'guest']);
   });
 
   it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
-    const qIn = createQueryCompiler('postgres')
-      .selectFrom('users')
-      .whereIn('id', [])
-      .compile();
+    const qIn = createQueryCompiler('postgres').selectFrom('users').whereIn('id', []).compile();
     expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
     expect(qIn.parameters).toEqual([]);
 
-    const qNotIn = createQueryCompiler('postgres')
-      .selectFrom('users')
-      .whereNotIn('id', [])
-      .compile();
+    const qNotIn = createQueryCompiler('postgres').selectFrom('users').whereNotIn('id', []).compile();
     expect(qNotIn.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(qNotIn.parameters).toEqual([]);
   });
