@@ -62,15 +62,17 @@ jobs:
           COREPACK_ENABLE_PROJECT_SPEC: '0'
         run: |
           set -e
-          # Dependency order so dependents resolve on the registry. No token:
-          # npm detects the GitHub OIDC environment and authenticates itself.
+          # Publish unless this is an explicit dry run. On a tag push, DRY is
+          # empty (the input doesn't exist) → publish. Only workflow_dispatch with
+          # dry_run=true packs instead. Dependency order so dependents resolve on
+          # the registry. No token: npm detects the GitHub OIDC environment.
           for pkg in schema-core query-compiler aot-validator repository; do
             echo "=== packages/$pkg ==="
             cd "packages/$pkg"
-            if [ "$DRY" = "false" ]; then
-              npm publish --access public --tag alpha
-            else
+            if [ "$DRY" = "true" ]; then
               npm pack --dry-run
+            else
+              npm publish --access public --tag alpha
             fi
             cd - >/dev/null
           done
