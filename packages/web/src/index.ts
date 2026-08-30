@@ -49,3 +49,17 @@ function hasMetadata(value: object): value is { readonly [Symbol.metadata]: Deco
 export function metadataOf(target: object): WebMetadata {
   return hasMetadata(target) ? target[Symbol.metadata] : EMPTY;
 }
+
+// Controllers & routing (Stage-3 decorators → context.metadata). See ./routing.
+export {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  getRoutes,
+  type HttpMethod,
+  type RouteDefinition,
+  type ResolvedRoute,
+} from './routing/index.ts';
