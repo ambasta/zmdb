@@ -2,19 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist",
-    "paths": {
-      "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
-      "@zmdb/schema-core/dto": ["../schema-core/dist/dto.d.ts"],
-      "@zmdb/schema-core/relations": ["../schema-core/dist/relations.d.ts"],
-      "@zmdb/query-compiler": ["../query-compiler/dist/index.d.ts"],
-      "@zmdb/aot-validator": ["../aot-validator/dist/index.d.ts"],
-      "@zmdb/aot-validator/utilities": ["../aot-validator/dist/utilities.d.ts"],
-      "@zmdb/repository": ["../repository/dist/index.d.ts"],
-      "@zmdb/repository/drivers/sqlite": ["../repository/dist/drivers-sqlite.d.ts"],
-      "@zmdb/repository/drivers/pg": ["../repository/dist/drivers-pg.d.ts"],
-      "@zmdb/web": ["../web/dist/index.d.ts"]
-    }
+    "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["**/*.spec.ts", "dist"]
