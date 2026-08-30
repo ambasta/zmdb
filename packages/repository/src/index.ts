@@ -1,8 +1,3 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/repository — the repository layer: reads (#26), writes (#27), delete +
 // lifecycle hooks (#28), transactions (#37), typed populate (#217) and the
 // no-subclass wiring helper (#223). Every SQL statement comes from
@@ -18,6 +13,12 @@ import {
   type UpdateDTO,
   type ValidationIssue,
 } from '@zmdb/schema-core';
+
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 import {
   compileWhere,
   applyOrderBy,
@@ -658,7 +659,9 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // out-of-enum values, and (for create) missing required fields.
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
     if (!isRecord(payload)) {
-      throw new ValidationError('payload must be an object', [{ path: 'input', message: 'expected object' }]);
+      throw new ValidationError('payload must be an object', [
+        { path: 'input', message: 'expected object', expected: 'object', value: payload },
+      ]);
     }
     const obj = this.sanitizePayload(payload);
     const issues: ValidationIssue[] = [];
@@ -672,12 +675,22 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (!present) {
         const optional = col.flags.hasDefault === true || col.flags.nullable === true;
         if (variant === 'create' && !optional) {
-          issues.push({ path: `input.${name}`, message: `missing required field "${name}"` });
+          issues.push({
+            path: `input.${name}`,
+            message: `missing required field "${name}"`,
+            expected: 'defined',
+            value: undefined,
+          });
         }
         continue;
       }
       if (!this.valueMatchesColumn(value, col)) {
-        issues.push({ path: `input.${name}`, message: `invalid value for "${name}"` });
+        issues.push({
+          path: `input.${name}`,
+          message: `invalid value for "${name}"`,
+          expected: col.type,
+          value,
+        });
         continue;
       }
       out[name] = value;

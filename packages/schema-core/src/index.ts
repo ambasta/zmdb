@@ -154,6 +154,23 @@ export class ValidationError extends Error {
 /** Overwrite flags `P` on flag map `F` (last write wins, no `never` collisions). */
 type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, keyof P> & P;
 
+export interface ValidationIssue {
+  readonly path: string;
+  readonly message: string;
+  readonly expected?: string;
+  readonly value?: unknown;
+}
+
+export class ValidationError extends Error {
+  readonly issues: readonly ValidationIssue[];
+
+  constructor(message: string, issues: readonly ValidationIssue[] = []) {
+    super(message);
+    this.name = 'ValidationError';
+    this.issues = Object.freeze([...issues]);
+  }
+}
+
 // Chainable column: ColumnMeta + fluent modifier methods.
 //
 // Generic in the SQL type and the flag map so a chain preserves both: without

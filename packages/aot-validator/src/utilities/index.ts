@@ -2,7 +2,7 @@
 // #57 is<T> boolean guard implemented over the runtime TypeDescriptor.
 // #58 assert, #59 validate, #60 equals/assertEquals, #61 random remain
 // unimplemented; their tests stay red.
-import type { ValidationIssue } from '../advanced/index.ts';
+import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
 import { getEnumSet } from '../index.ts';
 import { safeTestPattern } from '../regex-complexity.ts';
 
@@ -30,20 +30,11 @@ export interface ValidateResult<T> {
   readonly errors?: readonly ValidationIssue[];
 }
 
-export class AssertError extends Error {
-  readonly issues: readonly ValidationIssue[];
-
+export class AssertError extends ValidationError {
   constructor(message: string, issues: readonly ValidationIssue[] = []) {
-    super(message);
+    super(message, issues);
     this.name = 'AssertError';
-    this.issues = issues;
   }
-}
-
-/** Throw an AssertError carrying `issues` (first issue supplies the message). */
-function failWith(issues: readonly ValidationIssue[]): never {
-  const first = issues[0];
-  throw new AssertError(first ? first.message : 'validation failed', issues);
 }
 
 // Core structural check used by is<T>. Returns a boolean; allocation-free on
@@ -130,7 +121,9 @@ export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor)
   if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
-  if (issues.length > 0) failWith(issues);
+  if (issues.length > 0) {
+    throw new AssertError(issues[0]!.message, issues);
+  }
   // boundary: `T` is the caller's compile-time type and `descriptor` is its
   // runtime witness; `collectIssues` having found nothing is the proof. This is
   // the certification point of the whole package — the assertion IS the API.
@@ -187,14 +180,11 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
   if (issues.length === 0 && !hasNoExcessKeys(input, descriptor)) {
-    issues.push({
-      path: 'input',
-      expected: 'no excess properties',
-      value: input,
-      message: 'excess properties present',
-    });
+    issues.push({ path: 'input', expected: 'no excess properties', value: input, message: 'excess properties present' });
   }
-  if (issues.length > 0) failWith(issues);
+  if (issues.length > 0) {
+    throw new AssertError(issues[0]!.message, issues);
+  }
   // boundary: see `assert` — validated input, certified once.
   return input as T;
 }

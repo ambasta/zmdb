@@ -4,13 +4,10 @@
 // because the same validateObject drives them. #47 transform and #48 union
 // have no runtime-fallback tests in this suite and are left as thin stubs.
 import type { Rule } from '../index.ts';
+import type { ValidationIssue } from '@zmdb/schema-core';
 
-export interface ValidationIssue {
-  readonly path: string;
-  readonly expected: string;
-  readonly value: unknown;
-  readonly message: string;
-}
+export type { ValidationIssue };
+
 
 // #49 — branded (nominal) types. Compile-time only; erases to the base type at
 // runtime (no footprint). `Brand<number, 'UserId'>` is assignable to `number`

@@ -18,6 +18,8 @@ import {
   SchemaError,
   unique,
   references as references_,
+  ValidationError,
+  type ValidationIssue,
 } from './index.ts';
 
 // RED PHASE (#11 spec freeze): these tests encode the frozen spec and MUST
@@ -172,6 +174,25 @@ describe('defineSchema', () => {
     expect(Object.isFrozen(s)).toBe(true);
     expect(Object.isFrozen(s.columns)).toBe(true);
     expect(s.ftsTable).toBe('users_fts');
+  });
+});
+
+describe('ValidationError and ValidationIssue contract', () => {
+  it('instantiates ValidationError with frozen canonical issues', () => {
+    const issue: ValidationIssue = {
+      path: 'input.age',
+      message: 'invalid value for "age"',
+      expected: 'number',
+      value: 'twenty',
+    };
+    const err = new ValidationError('validation failed', [issue]);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.name).toBe('ValidationError');
+    expect(err.message).toBe('validation failed');
+    expect(err.issues).toHaveLength(1);
+    expect(err.issues[0]).toEqual(issue);
+    expect(Object.isFrozen(err.issues)).toBe(true);
   });
 });
 

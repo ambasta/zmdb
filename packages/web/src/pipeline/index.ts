@@ -4,6 +4,7 @@
 // deps). No reflection; no `as` on the consumer surface.
 
 import '../polyfill.ts';
+import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
 import { extractParams, type Ctx, type QueryValues } from '../context/index.ts';
 import { getRoutes, type ResolvedRoute } from '../routing/index.ts';
 
@@ -87,7 +88,14 @@ export function createRouter(): Router {
           try {
             body = bound.validateBody(req.rawBody);
           } catch (error) {
-            return jsonResponse(400, { error: messageOf(error) });
+            const message = messageOf(error);
+            const issues =
+              error instanceof ValidationError
+                ? error.issues
+                : error && typeof error === 'object' && 'issues' in error
+                  ? (error as { issues: readonly ValidationIssue[] }).issues
+                  : undefined;
+            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
         }
         const ctx: Ctx<Record<string, string>, unknown, QueryValues> = {
@@ -102,6 +110,11 @@ export function createRouter(): Router {
           const result = await bound.handler(ctx);
           return jsonResponse(200, result);
         } catch (error) {
+          if (error instanceof ValidationError || (error && typeof error === 'object' && 'issues' in error)) {
+            const message = messageOf(error);
+            const issues = (error as { issues: readonly ValidationIssue[] }).issues;
+            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
+          }
           return jsonResponse(500, { error: messageOf(error) });
         }
       }
