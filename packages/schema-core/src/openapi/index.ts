@@ -151,9 +151,34 @@ export interface EnvelopeSchema {
   readonly properties: Readonly<Record<string, unknown>>;
   readonly required: readonly string[];
 }
-export function toListSchema(_schema: CoreSchema<string>): EnvelopeSchema {
-  throw new Error('not implemented');
+export function toListSchema(schema: CoreSchema<string>): EnvelopeSchema {
+  const entity = toJsonSchema(schema, 'entity');
+  return {
+    type: 'object',
+    properties: {
+      items: { type: 'array', items: entity },
+      total: { type: 'integer' },
+      hasMore: { type: 'boolean' },
+      cursor: { type: 'string' },
+    },
+    required: ['hasMore', 'items'],
+  };
 }
-export function toSearchSchema(_schema: CoreSchema<string>): EnvelopeSchema {
-  throw new Error('not implemented');
+export function toSearchSchema(schema: CoreSchema<string>): EnvelopeSchema {
+  const entity = toJsonSchema(schema, 'entity');
+  const hit = {
+    type: 'object',
+    properties: { ...entity.properties, _score: { type: 'number' } },
+    required: entity.required,
+  };
+  return {
+    type: 'object',
+    properties: {
+      items: { type: 'array', items: hit },
+      total: { type: 'integer' },
+      hasMore: { type: 'boolean' },
+      cursor: { type: 'string' },
+    },
+    required: ['hasMore', 'items'],
+  };
 }
