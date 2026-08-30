@@ -12,6 +12,36 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@zmdb/schema-core": ["./packages/schema-core/src/index.ts"],
+      "@zmdb/schema-core/dto": ["./packages/schema-core/src/dto/index.ts"],
+      "@zmdb/schema-core/relations": ["./packages/schema-core/src/relations/index.ts"],
+      "@zmdb/schema-core/custom-types": ["./packages/schema-core/src/custom-types/index.ts"],
+      "@zmdb/schema-core/seeding": ["./packages/schema-core/src/seeding/index.ts"],
+      "@zmdb/schema-core/llm": ["./packages/schema-core/src/llm/index.ts"],
+      "@zmdb/query-compiler": ["./packages/query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/fts": ["./packages/query-compiler/src/fts/index.ts"],
+      "@zmdb/query-compiler/joins": ["./packages/query-compiler/src/joins/index.ts"],
+      "@zmdb/query-compiler/aggregations": ["./packages/query-compiler/src/aggregations/index.ts"],
+      "@zmdb/query-compiler/migrations": ["./packages/query-compiler/src/migrations/index.ts"],
+      "@zmdb/query-compiler/set-ops": ["./packages/query-compiler/src/set-ops/index.ts"],
+      "@zmdb/query-compiler/schema-objects": ["./packages/query-compiler/src/schema-objects/index.ts"],
+      "@zmdb/aot-validator": ["./packages/aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/advanced": ["./packages/aot-validator/src/advanced/index.ts"],
+      "@zmdb/aot-validator/serialization": ["./packages/aot-validator/src/serialization/index.ts"],
+      "@zmdb/aot-validator/utilities": ["./packages/aot-validator/src/utilities/index.ts"],
+      "@zmdb/aot-validator/plugin": ["./packages/aot-validator/src/plugin/index.ts"],
+      "@zmdb/aot-validator/unplugin": ["./packages/aot-validator/src/plugin/index.ts"],
+      "@zmdb/repository": ["./packages/repository/src/index.ts"],
+      "@zmdb/repository/transactions": ["./packages/repository/src/transactions/index.ts"],
+      "@zmdb/repository/replicas": ["./packages/repository/src/replicas/index.ts"],
+      "@zmdb/repository/integrations": ["./packages/repository/src/integrations/index.ts"],
+      "@zmdb/repository/entity-modeling": ["./packages/repository/src/entity-modeling/index.ts"],
+      "@zmdb/repository/drivers/sqlite": ["./packages/repository/src/drivers/sqlite.ts"],
+      "@zmdb/repository/drivers/pg": ["./packages/repository/src/drivers/pg.ts"],
+      "@zmdb/web": ["./packages/web/src/index.ts"],
+      "@zmdb/web/*": ["./packages/web/src/*/index.ts", "./packages/web/src/*.ts"]
+    }
   }
 }
