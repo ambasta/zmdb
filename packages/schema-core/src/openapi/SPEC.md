@@ -14,6 +14,21 @@ function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchema
 Emits a draft 2020-12 object schema. Output keys are **stably ordered**
 (alphabetical within `properties`; `required` sorted) so documents are diffable.
 
+### Read variants (#173/#174/#175)
+
+The variant set is extended for the read/query DTO family:
+
+```ts
+type Variant = 'entity' | 'create' | 'update' | 'get' | 'list' | 'search';
+```
+
+- `get` → the entity response schema (same shape as `entity`).
+- `list` → an envelope `{ items: { type:'array', items: entity }, total?: integer,
+  hasMore: boolean, cursor?: string }` via `toListSchema(schema)`.
+- `search` → `list` whose item schema also carries an optional `_score` number,
+  via `toSearchSchema(schema)`.
+- Deterministic key ordering; build-time only; no runtime reflection.
+
 ## 2. Column type → JSON Schema mapping
 
 | Column type | JSON Schema |
