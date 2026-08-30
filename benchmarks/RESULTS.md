@@ -3,6 +3,10 @@
 > zmdb run inside the **actual upstream benchmark harnesses** against **real
 > competitor libraries**. Reproduction: [`harness/`](./harness).
 > Environment: local dev box, Node 26.8.1, real PostgreSQL 16 (podman).
+>
+> 📊 **Interactive dashboard** (charts, Node/Bun/Deno tabs):
+> https://ambasta.github.io/zmdb/ — source in [`site/`](./site), deployed via
+> GitHub Pages.
 
 ---
 
@@ -121,7 +125,7 @@ not register:
 | library | parseSafe | parseStrict | assertLoose | assertStrict | DNF cases |
 |---------|----------:|------------:|------------:|-------------:|-----------|
 | typia (AOT) | 100,673,513 | 38,869,470 | 78,128,590 | 31,056,106 | — |
-| **zmdb-aot** (transformer-built¹) | 107,963,002 | 15,434,927 | 83,556,494 | 12,968,466 | — |
+| **zmdb-aot** (transformer-built¹) | 101,677,075 | 40,022,611 | 108,934,303 | 42,287,002 | — |
 | @sinclair/typebox (JIT) | DNF | DNF | 88,070,252 | 29,157,066 | parseSafe, parseStrict |
 | ajv | DNF | DNF | 43,363,522 | 29,246,420 | parseSafe, parseStrict |
 | zod (v4) | 8,711,299 | 4,895,742 | 4,173,432 | 4,172,722 | — |
@@ -140,17 +144,33 @@ upstream moltar runner. Not hand-written. The shipped default is still the
 
 ### What this shows (honestly)
 
-- **The AOT premise holds — and it's the real transformer output.** The
-  transformer-built `zmdb-aot` is **~10–70× the `zmdb` runtime** across the four
-  cases. On parseSafe/assertLoose it is in typia's league (108M/84M vs typia
-  101M/78M) and **far ahead of zod v4** (the case that motivated this).
-- **But we are not the outright winner.** **typia beats `zmdb-aot` on both
-  strict cases** (parseStrict 39M vs 15M; assertStrict 31M vs 13M) — its
-  excess-key checking is more optimized than our current strict inlining. On the
-  strict path, TypeBox/Ajv also lead. Closing that is a tracked perf task.
+- **The AOT premise holds — real transformer output.** Transformer-built
+  `zmdb-aot` is **~40–100× the `zmdb` runtime** across the four cases. On
+  parseSafe/assertLoose it is in typia's league (102M/109M vs typia 101M/78M)
+  and **far ahead of zod v4** (the case that motivated this).
+- **Strict cases: now competitive.** After the strict-path fix (dropping the
+  per-call Set + `includes()` loop for a key-count check), zmdb-aot reaches
+  parseStrict **40M** and assertStrict **42M** — up from ~15M/13M — putting it
+  level with or ahead of typia's strict (39M/31M) on Node. (TypeBox/Ajv still
+  lead assertLoose.)
+- **Runtimes matter** — the bench runs on Node, Bun, and Deno (see the dashboard
+  and the matrix below). Rankings shift per runtime; Bun's JIT can dead-code-
+  eliminate no-op assert bodies, so treat its extreme values with caution.
 - **The shipped, out-of-the-box path is still the `zmdb` runtime** unless the
-  transformer plugin is enabled. With the plugin, code gets the AOT path; without
-  it, the runtime path loses to zod v4 on 3 of 4 cases.
+  transformer plugin is enabled. With the plugin, code gets the AOT path.
+
+### Cross-runtime (Node / Bun / Deno) — `zmdb-aot`, ops/sec
+
+The full per-library × per-runtime matrix is in the interactive dashboard
+([benchmarks/site](./site), published to GitHub Pages). `zmdb-aot` summary:
+
+| runtime | parseSafe | parseStrict | assertLoose | assertStrict |
+|---------|----------:|------------:|------------:|-------------:|
+| node 26 | 101,677,075 | 40,022,611 | 108,934,303 | 42,287,002 |
+| bun 1.4 | 45,376,333 | 62,591,287 | 1,061,918,540² | 97,744,266 |
+| deno 2  | 132,548,340 | 39,531,359 | 63,003,160 | 22,730,508 |
+
+² Bun's JIT eliminates the no-op `assertLoose` body — implausible, flagged.
 
 ---
 
@@ -162,10 +182,11 @@ upstream moltar runner. Not hand-written. The shipped default is still the
   caveat: the aggregate routes return a per-order aggregate projection, not the
   parent-joined projection drizzle/kysely emit. Validation: **0 case gaps**.
 - **Validation speed**: the AOT path is real and transformer-produced
-  (#75/#79–#83) — **~10–70× the runtime path**, beating zod v4 and matching typia
-  on parse-safe/assert-loose. But **typia still wins the strict cases**, and
-  out-of-the-box (plugin not enabled) the shipped runtime path loses to zod v4 on
-  3 of 4 cases.
+  (#75/#79–#83) — **~40–100× the runtime path**, beating zod v4 and matching
+  typia on parse-safe/assert-loose. After the strict-path fix it is now also
+  **competitive with typia on the strict cases** (parseStrict 40M, assertStrict
+  42M on Node). Measured across **Node / Bun / Deno** (see dashboard). Shipped
+  default is still the runtime path unless the transformer plugin is enabled.
 - **ORM speed**: on the **full 13-route k6 run**, zmdb leads on throughput
   (2,491 req/s) and median latency (p50 112ms) but has the **worst tail latency**
   (p95 256ms vs drizzle 207, kysely 220). A real trade-off — **no overall

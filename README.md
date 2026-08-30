@@ -79,6 +79,9 @@ Full results + per-route/per-case DNF listings:
 [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction (HTTP servers +
 k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
 
+📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream
+sites): **https://ambasta.github.io/zmdb/**
+
 ## Requirements
 
 - Node.js 26+
