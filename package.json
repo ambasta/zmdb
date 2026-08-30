@@ -16,10 +16,16 @@
     "typecheck": "tsc --build"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "esbuild": "^0.27.7",
     "tsup": "8.5.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
+  },
+  "dependenciesMeta": {
+    "@types/node@26.4.0": {
+      "unplugged": true
+    }
   }
 }
