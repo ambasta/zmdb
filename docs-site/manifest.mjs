@@ -591,7 +591,18 @@ await db.transaction(async (tx) => {
 - Nested \`tx.savepoint(fn)\` maps to \`SAVEPOINT\`/\`RELEASE\`/\`ROLLBACK TO SAVEPOINT\`.
 `),
 
-  batch: todo('Batch API', 'Transactions', 'A single-roundtrip batch API (multiple statements, one trip) is planned; today, group writes in a transaction.'),
+  batch: ok('Batch API', 'Transactions', `
+Bundle multiple compiled statements into a single round-trip (\`@zmdb/query-compiler/set-ops\`).
+
+\`\`\`ts
+import { batch } from '@zmdb/query-compiler/set-ops';
+
+const b = batch([stmtA, stmtB, stmtC]);
+const [ra, rb, rc] = await b.execute((stmts) => driver.runAll(stmts));
+\`\`\`
+
+\`execute(runner)\` calls the runner exactly once with all statements and returns their results in order. An empty batch never calls the runner. Batching is a transport concern — wrap in \`db.transaction\` when you need atomicity.
+`),
   'read-replicas': todo('Read Replicas', 'Transactions', 'Read/write splitting across replicas is planned; today, inject different drivers per repository instance.'),
 
   // ---------------- Migrations ----------------
@@ -757,7 +768,21 @@ Respects constraints (\`Minimum\`, \`Pattern\`, enum members, etc.) inlined by t
 
   // ---------------- Advanced ----------------
   'custom-types': todo('Custom Types & Codecs', 'Advanced', 'User-defined column types with custom SQL mapping + (de)serialization codecs are planned.'),
-  'set-operations': todo('Set Operations', 'Advanced', 'UNION / INTERSECT / EXCEPT in the query builder are planned.'),
+  'set-operations': ok('Set Operations', 'Advanced', `
+Combine result sets with UNION / UNION ALL / INTERSECT / EXCEPT (\`@zmdb/query-compiler/set-ops\`).
+
+\`\`\`ts
+import { setOperation } from '@zmdb/query-compiler/set-ops';
+
+const admins = qc.selectFrom('users').where('role', '=', 'admin').compile();
+const guests = qc.selectFrom('users').where('role', '=', 'guest').compile();
+
+const both = setOperation('union', [admins, guests], 'postgres');
+// SELECT ... $1 UNION SELECT ... $2   (params: ['admin','guest'])
+\`\`\`
+
+Positional placeholders are renumbered across the combined parameter list on Postgres (kept as \`?\` on MySQL/SQLite). Order is preserved; a single query passes through unchanged. Row shapes must be union-compatible.
+`),
   'lifecycle-hooks': todo('Lifecycle Hooks & Events', 'Advanced', 'Repository-level create/update/delete hooks exist; a full entity event/subscriber system is planned. Note: implicit lifecycle magic that depends on change-tracking is an anti-pattern here — see the anti-patterns page.'),
   embeddables: todo('Embeddables', 'Advanced', 'Embedding a value object across columns of one table is planned.'),
   inheritance: todo('Inheritance Mapping', 'Advanced', 'Single-table / class-table inheritance mapping is planned.'),
