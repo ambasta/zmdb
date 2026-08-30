@@ -603,7 +603,21 @@ const [ra, rb, rc] = await b.execute((stmts) => driver.runAll(stmts));
 
 \`execute(runner)\` calls the runner exactly once with all statements and returns their results in order. An empty batch never calls the runner. Batching is a transport concern — wrap in \`db.transaction\` when you need atomicity.
 `),
-  'read-replicas': todo('Read Replicas', 'Transactions', 'Read/write splitting across replicas is planned; today, inject different drivers per repository instance.'),
+  'read-replicas': ok('Read Replicas', 'Transactions', `
+Route reads to replicas and writes to the primary with a transparent, stateless driver wrapper (\`@zmdb/repository/replicas\`).
+
+\`\`\`ts
+import { withReplicas } from '@zmdb/repository/replicas';
+
+const driver = withReplicas({
+  primary: pgDriver(primaryPool),
+  replicas: [pgDriver(replica1), pgDriver(replica2)],
+});
+const users = new UserRepository(driver);
+\`\`\`
+
+Writes (\`INSERT\`/\`UPDATE\`/\`DELETE\`) go to the primary; other statements round-robin across replicas (falling back to the primary when none are configured). The wrapper only picks a driver and delegates — no identity map, no caching. For read-after-write consistency inside a unit of work, use a [transaction](./transactions.html) (which stays on the primary).
+`),
 
   // ---------------- Migrations ----------------
   migrations: ok('Migrations', 'Migrations', `
