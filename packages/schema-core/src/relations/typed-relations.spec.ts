@@ -1,20 +1,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import {
-  defineSchema,
-  serial,
-  text,
-  integer,
-  references,
-  type Entity,
-} from '../index.ts';
-import {
-  manyToOne,
-  oneToMany,
-  oneToOne,
-  manyToMany,
-  type PopulatedEntity,
-  type RelationMeta,
-} from './index.ts';
+
+import { defineSchema, serial, text, integer, references, type Entity } from '../index.ts';
+import { manyToOne, oneToMany, oneToOne, manyToMany, type PopulatedEntity } from './index.ts';
 
 // Target Schemas for testing
 const UserSchema = defineSchema('users', {
