@@ -87,8 +87,11 @@ jobs:
             cd - >/dev/null
           done
 
-      - name: Point `latest` at the highest-precedence release (stable > rc > beta > alpha)
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        env:
-          COREPACK_ENABLE_PROJECT_SPEC: '0'
-        run: node .github/scripts/set-latest-tag.mjs
+      # NOTE: `npm dist-tag` is NOT authorized by OIDC/trusted publishing (only
+      # `npm publish` is). So `latest` is managed by the publish itself:
+      #   - a STABLE version publishes with --tag latest (npm moves `latest`),
+      #   - prereleases publish under alpha/beta/rc and never touch `latest`.
+      # The desired policy (latest = stable if present, else newest prerelease)
+      # therefore holds automatically once a stable release exists. To repoint
+      # `latest` onto a prerelease (e.g. while only alphas exist), run
+      # `node .github/scripts/set-latest-tag.mjs` locally with a logged-in npm.
