@@ -59,3 +59,5 @@ function createPolicyDdl(p: RlsPolicy, dialect): string; // CREATE POLICY "n" ON
 - Emitters are pure functions returning a single DDL statement; deterministic.
 - RLS / materialized views are postgres features — on other dialects the emitter
   throws an honest `UnsupportedFeatureError` (never silently wrong).
+
+<!-- §3 sequences frozen: CREATE SEQUENCE with optional START/INCREMENT. -->
