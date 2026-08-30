@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
+
 import { defineSchema, serial, text, jsonEnum, primaryKey, notNull } from '@zmdb/schema-core';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { BaseRepository, ValidationError, type Driver } from './index.ts';
 
 // #29: end-to-end integration — a <10-line repository performing real CRUD
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).

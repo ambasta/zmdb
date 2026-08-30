@@ -8,11 +8,7 @@ export interface ToolSpec {
   parameters: JsonSchemaObject;
 }
 
-export function toolFromSchema(
-  name: string,
-  schema: CoreSchema<string>,
-  opts?: { description?: string },
-): ToolSpec {
+export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: { description?: string }): ToolSpec {
   const parameters = toJsonSchema(schema, 'create');
   return opts?.description ? { name, description: opts.description, parameters } : { name, parameters };
 }

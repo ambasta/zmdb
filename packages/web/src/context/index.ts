@@ -8,12 +8,11 @@
  *
  * PathParams<'/users/:id/posts/:postId'> = { id: string; postId: string }
  */
-export type PathParams<Path extends string> =
-  Path extends `${string}:${infer Param}/${infer Rest}`
-    ? { [K in Param | keyof PathParams<`/${Rest}`>]: string }
-    : Path extends `${string}:${infer Param}`
-      ? { [K in Param]: string }
-      : Record<never, string>;
+export type PathParams<Path extends string> = Path extends `${string}:${infer Param}/${infer Rest}`
+  ? { [K in Param | keyof PathParams<`/${Rest}`>]: string }
+  : Path extends `${string}:${infer Param}`
+    ? { [K in Param]: string }
+    : Record<never, string>;
 
 /** Query string values: a single string or a repeated-key array. */
 export type QueryValues = Record<string, string | readonly string[]>;
@@ -78,5 +77,5 @@ export function extractParams(pattern: string, path: string): Record<string, str
 // Split a path into non-empty segments (so leading/trailing slashes don't
 // produce empty entries).
 function splitSegments(path: string): readonly string[] {
-  return path.split('/').filter((segment) => segment.length > 0);
+  return path.split('/').filter(segment => segment.length > 0);
 }

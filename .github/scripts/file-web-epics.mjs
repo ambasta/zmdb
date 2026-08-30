@@ -138,7 +138,13 @@ const EPICS = [
       { key: 'W7s', kind: 'spec', title: 'controller↔repository integration contract', blockedBy: [] },
       { key: 'W7t', kind: 'tests', title: 'Orders end-to-end E2E (node:sqlite)', blockedBy: ['W7s'] },
       { key: 'W7i', kind: 'impl', title: 'repo-injection helper + DTO-bound validation + example', blockedBy: ['W7t'] },
-      { key: 'W7d', kind: 'docs', title: 'building an API with zmdb', pages: ['web-data-integration'], blockedBy: ['W7i'] },
+      {
+        key: 'W7d',
+        kind: 'docs',
+        title: 'building an API with zmdb',
+        pages: ['web-data-integration'],
+        blockedBy: ['W7i'],
+      },
     ],
   },
   // ---------------- Full NestJS parity follow-ups ----------------
@@ -175,7 +181,13 @@ const EPICS = [
       { key: 'W9s', kind: 'spec', title: 'guard/pipe/interceptor/filter contract + order', blockedBy: [] },
       { key: 'W9t', kind: 'tests', title: 'chain order + short-circuit + error mapping', blockedBy: ['W9s'] },
       { key: 'W9i', kind: 'impl', title: 'guards/pipes/interceptors/filters + wiring', blockedBy: ['W9t'] },
-      { key: 'W9d', kind: 'docs', title: 'guards, pipes, interceptors & filters', pages: ['web-middleware'], blockedBy: ['W9i'] },
+      {
+        key: 'W9d',
+        kind: 'docs',
+        title: 'guards, pipes, interceptors & filters',
+        pages: ['web-middleware'],
+        blockedBy: ['W9i'],
+      },
     ],
   },
   {
@@ -193,7 +205,13 @@ const EPICS = [
       { key: 'W10s', kind: 'spec', title: 'createApp + lifecycle + shutdown contract', blockedBy: [] },
       { key: 'W10t', kind: 'tests', title: 'bootstrap wiring + hook order + shutdown', blockedBy: ['W10s'] },
       { key: 'W10i', kind: 'impl', title: 'createApp + lifecycle hooks', blockedBy: ['W10t'] },
-      { key: 'W10d', kind: 'docs', title: 'application bootstrap & lifecycle', pages: ['web-app'], blockedBy: ['W10i'] },
+      {
+        key: 'W10d',
+        kind: 'docs',
+        title: 'application bootstrap & lifecycle',
+        pages: ['web-app'],
+        blockedBy: ['W10i'],
+      },
     ],
   },
   {
@@ -211,7 +229,13 @@ const EPICS = [
       { key: 'W11s', kind: 'spec', title: 'DTO validation-pipe + serialization-interceptor contract', blockedBy: [] },
       { key: 'W11t', kind: 'tests', title: 'pipe rejects invalid, serializer emits Entity', blockedBy: ['W11s'] },
       { key: 'W11i', kind: 'impl', title: 'zmdb validation pipe + serialization interceptor', blockedBy: ['W11t'] },
-      { key: 'W11d', kind: 'docs', title: 'validation & serialization', pages: ['web-validation'], blockedBy: ['W11i'] },
+      {
+        key: 'W11d',
+        kind: 'docs',
+        title: 'validation & serialization',
+        pages: ['web-validation'],
+        blockedBy: ['W11i'],
+      },
     ],
   },
   {
@@ -227,7 +251,12 @@ const EPICS = [
     ],
     subs: [
       { key: 'W12s', kind: 'spec', title: 'routes+schemas → OpenAPI 3.1 mapping', blockedBy: [] },
-      { key: 'W12t', kind: 'tests', title: 'generated document shape (paths/params/bodies/responses)', blockedBy: ['W12s'] },
+      {
+        key: 'W12t',
+        kind: 'tests',
+        title: 'generated document shape (paths/params/bodies/responses)',
+        blockedBy: ['W12s'],
+      },
       { key: 'W12i', kind: 'impl', title: 'toOpenApi generator + optional serve route', blockedBy: ['W12t'] },
       { key: 'W12d', kind: 'docs', title: 'OpenAPI generation', pages: ['web-openapi'], blockedBy: ['W12i'] },
     ],
@@ -259,7 +288,7 @@ const EPICS = [
     dod: [
       'createTestApp(module, { overrides }) → in-process request driver (inject a synthetic request, get the handler result/response).',
       'Provider override API (replace a token with a stub) resolved through the same Container.',
-      'Used by the framework\'s own E2E tests.',
+      "Used by the framework's own E2E tests.",
     ],
     subs: [
       { key: 'W14s', kind: 'spec', title: 'test harness + override contract', blockedBy: [] },
@@ -273,7 +302,7 @@ const EPICS = [
     title: '[EPIC] @zmdb/web — router benchmark & performance verification',
     blockedByEpics: ['W6'],
     motivation:
-      'Prove the PRD non-functional claim: Stage-3 `context.metadata` route resolution runs within a small variance of a native router and carries none of NestJS\'s `Reflect.getMetadata()` per-request overhead. Add a real microbench + a route-resolution/DI benchmark to the existing dashboard, measured honestly (route table built once at init).',
+      "Prove the PRD non-functional claim: Stage-3 `context.metadata` route resolution runs within a small variance of a native router and carries none of NestJS's `Reflect.getMetadata()` per-request overhead. Add a real microbench + a route-resolution/DI benchmark to the existing dashboard, measured honestly (route table built once at init).",
     dod: [
       'A benchmark comparing zmdb/web route resolution to a bare node:http router and (indicatively) an emitDecoratorMetadata/reflect-based baseline.',
       'Results added to the benchmarks dashboard with the same honesty policy (no averaged score, caveats stated).',
@@ -283,12 +312,26 @@ const EPICS = [
       { key: 'W15s', kind: 'spec', title: 'router-perf acceptance + methodology', blockedBy: [] },
       { key: 'W15t', kind: 'tests', title: 'init-time-resolution regression guard', blockedBy: ['W15s'] },
       { key: 'W15i', kind: 'impl', title: 'router/DI microbench + dashboard integration', blockedBy: ['W15t'] },
-      { key: 'W15d', kind: 'docs', title: 'web performance & benchmarks', pages: ['web-benchmarks'], blockedBy: ['W15i'] },
+      {
+        key: 'W15d',
+        kind: 'docs',
+        title: 'web performance & benchmarks',
+        pages: ['web-benchmarks'],
+        blockedBy: ['W15i'],
+      },
     ],
   },
 ];
 
-const subTitle = (s) => (({ spec: '[sub-issue] [Spec Freeze] ', tests: '[sub-issue] [Tests Freeze] ', docs: '[sub-issue] [Docs] ', impl: '[sub-issue] ' })[s.kind] + s.title).slice(0, 250);
+const subTitle = s =>
+  (
+    ({
+      spec: '[sub-issue] [Spec Freeze] ',
+      tests: '[sub-issue] [Tests Freeze] ',
+      docs: '[sub-issue] [Docs] ',
+      impl: '[sub-issue] ',
+    })[s.kind] + s.title
+  ).slice(0, 250);
 const subLabels = (s, blocked) => {
   const l = ['sub-issue'];
   if (s.kind === 'spec' || s.kind === 'tests') l.push('spec');
@@ -296,42 +339,67 @@ const subLabels = (s, blocked) => {
   if (blocked) l.push('blocked');
   return l;
 };
-const gate = (k) =>
-  k === 'spec' ? '## TDD gate\n- [ ] Spec frozen BEFORE any test/impl (SPEC.md section).\n- [ ] Golden type-level + runtime examples enumerated.\n- [ ] Acceptance stated. No implementation.'
-  : k === 'tests' ? '## TDD gate\n- [ ] Depends on the spec being frozen first.\n- [ ] FAILING tests (red), incl. type-level (`expectTypeOf`/`@ts-expect-error`).\n- [ ] No implementation.'
-  : k === 'impl' ? '## Definition of Done\n- [ ] Spec frozen; tests red first.\n- [ ] Tests green (incl. type-level).\n- [ ] **No `as`/`any`/`!` on the consumer surface; no runtime reflection; Stage 3 decorators; ESM/Node 26/TS 7.**\n- [ ] Full suite green + typecheck clean.'
-  : '## Definition of Done\n- [ ] Depends on impl green.\n- [ ] Docs page(s) written with real, verified examples; rebuilt + deployed.';
+const gate = k =>
+  k === 'spec'
+    ? '## TDD gate\n- [ ] Spec frozen BEFORE any test/impl (SPEC.md section).\n- [ ] Golden type-level + runtime examples enumerated.\n- [ ] Acceptance stated. No implementation.'
+    : k === 'tests'
+      ? '## TDD gate\n- [ ] Depends on the spec being frozen first.\n- [ ] FAILING tests (red), incl. type-level (`expectTypeOf`/`@ts-expect-error`).\n- [ ] No implementation.'
+      : k === 'impl'
+        ? '## Definition of Done\n- [ ] Spec frozen; tests red first.\n- [ ] Tests green (incl. type-level).\n- [ ] **No `as`/`any`/`!` on the consumer surface; no runtime reflection; Stage 3 decorators; ESM/Node 26/TS 7.**\n- [ ] Full suite green + typecheck clean.'
+        : '## Definition of Done\n- [ ] Depends on impl green.\n- [ ] Docs page(s) written with real, verified examples; rebuilt + deployed.';
 
 // ---- run ----
 let existing = [];
-if (RUN) existing = JSON.parse(gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '800', '--json', 'number,title']));
-const byTitle = (t) => existing.find((i) => i.title === t);
-const subNum = {};   // sub key -> issue number
-const epicNum = {};  // epic key -> issue number
+if (RUN)
+  existing = JSON.parse(
+    gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '800', '--json', 'number,title']),
+  );
+const byTitle = t => existing.find(i => i.title === t);
+const subNum = {}; // sub key -> issue number
+const epicNum = {}; // epic key -> issue number
 let planned = 0;
 
 function create({ title, body, labels }) {
   planned++;
-  if (!RUN) { console.log(`  [dry] [${labels.join(',')}] ${title}`); return 0; }
-  const f = byTitle(title); if (f) { console.log(`  = #${f.number} ${title}`); return f.number; }
+  if (!RUN) {
+    console.log(`  [dry] [${labels.join(',')}] ${title}`);
+    return 0;
+  }
+  const f = byTitle(title);
+  if (f) {
+    console.log(`  = #${f.number} ${title}`);
+    return f.number;
+  }
   const args = ['issue', 'create', '--repo', REPO, '--title', title, '--body-file', '-'];
   for (const l of labels) args.push('--label', l);
-  const n = Number(gh(args, body).split('/').pop()); existing.push({ number: n, title }); console.log(`  + #${n} ${title}`); return n;
+  const n = Number(gh(args, body).split('/').pop());
+  existing.push({ number: n, title });
+  console.log(`  + #${n} ${title}`);
+  return n;
 }
 function subBody(epicKey, s, blockersText) {
   return [
-    `Parent epic: ${epicNum[epicKey] ? '#' + epicNum[epicKey] : '(epic ' + epicKey + ')'} (@zmdb/web)`, '',
+    `Parent epic: ${epicNum[epicKey] ? '#' + epicNum[epicKey] : '(epic ' + epicKey + ')'} (@zmdb/web)`,
+    '',
     '## Goal',
-    s.kind === 'spec' ? `Freeze the spec for: **${s.title}** (SPEC & TDD first — no implementation).`
-      : s.kind === 'tests' ? `Author FAILING tests for: **${s.title}** (red), incl. type-level assertions.`
-      : s.kind === 'docs' ? `Document: **${s.title}** — page(s) ${(s.pages || []).map((p) => '`' + p + '`').join(', ')}.`
-      : `Implement: **${s.title}**.`,
-    '', '> Architecture invariants (ARCHITECTURE.md): no `as`/reflection on the consumer surface; Stage 3 decorators via `context.metadata`; zero required deps; push work left of runtime.', '',
-    blockersText || '', gate(s.kind),
+    s.kind === 'spec'
+      ? `Freeze the spec for: **${s.title}** (SPEC & TDD first — no implementation).`
+      : s.kind === 'tests'
+        ? `Author FAILING tests for: **${s.title}** (red), incl. type-level assertions.`
+        : s.kind === 'docs'
+          ? `Document: **${s.title}** — page(s) ${(s.pages || []).map(p => '`' + p + '`').join(', ')}.`
+          : `Implement: **${s.title}**.`,
+    '',
+    '> Architecture invariants (ARCHITECTURE.md): no `as`/reflection on the consumer surface; Stage 3 decorators via `context.metadata`; zero required deps; push work left of runtime.',
+    '',
+    blockersText || '',
+    gate(s.kind),
   ].join('\n');
 }
 function epicBody(e, checklist) {
-  const eb = e.blockedByEpics.length ? `\n## Blocked by epics\n${e.blockedByEpics.map((k) => (epicNum[k] ? '#' + epicNum[k] : k)).join(', ')}\n` : '';
+  const eb = e.blockedByEpics.length
+    ? `\n## Blocked by epics\n${e.blockedByEpics.map(k => (epicNum[k] ? '#' + epicNum[k] : k)).join(', ')}\n`
+    : '';
   return `# ${e.title}\n\n## Motivation\n${e.motivation}\n\n## Definition of Done\n${e.dod.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n\n## Process\nSPEC & TDD first: spec-freeze → tests-freeze → implementation → docs; sub-issues block each other. Follows ARCHITECTURE.md (§3 DAG: @zmdb/web sits above @zmdb/repository; §2 no-\`as\`/no-reflection; §4 Stage-3 baseline).\n${eb}\n## Sub-issues\n${checklist || '_(populated below)_'}`;
 }
 
@@ -340,7 +408,11 @@ console.log(RUN ? '=== FILING @zmdb/web EPICS (live) ===' : '=== DRY RUN (pass -
 for (const e of EPICS) {
   console.log(`\nEPIC ${e.key}: ${e.title}`);
   const epicBlocked = e.blockedByEpics.length > 0;
-  epicNum[e.key] = create({ title: e.title, body: epicBody(e, null), labels: ['epic', 'parity:nestjs', ...(epicBlocked ? ['blocked'] : [])] });
+  epicNum[e.key] = create({
+    title: e.title,
+    body: epicBody(e, null),
+    labels: ['epic', 'parity:nestjs', ...(epicBlocked ? ['blocked'] : [])],
+  });
   for (const s of e.subs) {
     const blocked = (s.blockedBy && s.blockedBy.length > 0) || epicBlocked; // blocked if intra-dep OR its epic is blocked
     subNum[s.key] = create({ title: subTitle(s), body: subBody(e.key, s, ''), labels: subLabels(s, blocked) });
@@ -352,13 +424,19 @@ if (RUN) {
   for (const e of EPICS) for (const s of e.subs) for (const b of s.blockedBy || []) (blocks[b] ||= []).push(s.key);
   for (const e of EPICS) {
     for (const s of e.subs) {
-      const bb = (s.blockedBy || []).map((k) => `#${subNum[k]}`);
+      const bb = (s.blockedBy || []).map(k => `#${subNum[k]}`);
       // first sub of a blocked epic also lists the blocking epics' final-impl deps implicitly via the epic; keep sub-level intra deps here
-      const bl = (blocks[s.key] || []).map((k) => `#${subNum[k]}`);
-      const txt = (bb.length ? `## Blocked by\n${bb.join(', ')}\n\n` : '') + (bl.length ? `## Blocks\n${bl.join(', ')}\n\n` : '');
+      const bl = (blocks[s.key] || []).map(k => `#${subNum[k]}`);
+      const txt =
+        (bb.length ? `## Blocked by\n${bb.join(', ')}\n\n` : '') + (bl.length ? `## Blocks\n${bl.join(', ')}\n\n` : '');
       gh(['issue', 'edit', String(subNum[s.key]), '--repo', REPO, '--body-file', '-'], subBody(e.key, s, txt));
     }
-    const checklist = e.subs.map((s) => `- [ ] #${subNum[s.key]}${(s.blockedBy || []).length ? ` (blocked by ${(s.blockedBy).map((k) => '#' + subNum[k]).join(', ')})` : ''}`).join('\n');
+    const checklist = e.subs
+      .map(
+        s =>
+          `- [ ] #${subNum[s.key]}${(s.blockedBy || []).length ? ` (blocked by ${s.blockedBy.map(k => '#' + subNum[k]).join(', ')})` : ''}`,
+      )
+      .join('\n');
     gh(['issue', 'edit', String(epicNum[e.key]), '--repo', REPO, '--body-file', '-'], epicBody(e, checklist));
     console.log(`  ~ wired epic #${epicNum[e.key]} (${e.key})`);
   }

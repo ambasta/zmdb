@@ -82,11 +82,11 @@ To ensure maximum machine efficiency and eliminate boilerplate code, the framewo
 // =========================================================================
 
 // Step 1: Core Schema defined exactly once (Example syntax block)
-export const OrdersSchema = defineCoreSchema("orders", {
+export const OrdersSchema = defineCoreSchema('orders', {
   id: serial().primaryKey(),
-  userId: integer().references("users.id"),
+  userId: integer().references('users.id'),
   totalPrice: numeric().validate(typia.tags.Minimum<0>()),
-  status: jsonEnum(["pending", "shipped", "delivered"]),
+  status: jsonEnum(['pending', 'shipped', 'delivered']),
 });
 
 // Step 2: Boilerplate generation handles Entity, CreateDTO, UpdateDTO implicitly.
@@ -96,9 +96,9 @@ export class OrderRepository extends BaseRepository<OrdersSchema> {
   // Developers only write highly specific domain query overrides here:
   async findActiveOrdersByUser(userId: number) {
     return await this.rawEngine
-      .selectFrom("orders")
-      .where("userId", "=", userId)
-      .where("status", "=", "pending")
+      .selectFrom('orders')
+      .where('userId', '=', userId)
+      .where('status', '=', 'pending')
       .execute();
   }
 }

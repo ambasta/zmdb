@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { joinableSelectFrom } from './index.ts';
 
 // #86: self-join + multi-join + aliasing.

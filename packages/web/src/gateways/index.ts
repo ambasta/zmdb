@@ -99,7 +99,6 @@ type GatewayClass = abstract new (...args: never[]) => unknown;
 // boundary: an instance's `.constructor` carries the gateway metadata; narrowing
 // it for getSubscriptions is sound (§2.1).
 function gatewayClass(ctor: Function): GatewayClass {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return ctor as GatewayClass;
 }
 
@@ -111,7 +110,6 @@ function readMessageHandler(gateway: object, name: string): MessageHandler | und
     return undefined;
   }
   const bound = value.bind(gateway);
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return bound as MessageHandler;
 }
 

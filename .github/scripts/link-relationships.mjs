@@ -40,10 +40,11 @@ for (const [epic, subs] of Object.entries(EPICS)) {
 }
 const id = {};
 for (const n of numbers) {
-  const r = graphql(
-    'query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}',
-    { o: OWNER, r: REPO, n },
-  );
+  const r = graphql('query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}', {
+    o: OWNER,
+    r: REPO,
+    n,
+  });
   id[n] = r.data.repository.issue.id;
 }
 console.log(`resolved ${Object.keys(id).length} node ids`);

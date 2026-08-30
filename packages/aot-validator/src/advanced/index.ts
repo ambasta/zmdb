@@ -5,7 +5,6 @@
 // have no runtime-fallback tests in this suite and are left as thin stubs.
 import type { Rule } from '../index.ts';
 
-
 export interface ValidationIssue {
   readonly path: string;
   readonly expected: string;
@@ -72,7 +71,7 @@ export function discriminated(key: string, map: Record<string, Rule>): Rule {
 export function evalRule(rule: Rule, value: unknown): boolean {
   switch (rule.kind) {
     case 'union':
-      return (rule as UnionRule).branches.some((b) => evalRule(b, value));
+      return (rule as UnionRule).branches.some(b => evalRule(b, value));
     case 'discriminated': {
       const r = rule as DiscriminatedRule;
       if (typeof value !== 'object' || value === null) return false;

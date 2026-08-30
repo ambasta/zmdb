@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createSchemaDdl, qualify } from './index.ts';
 
 describe('schemas / namespaces DDL (#112)', () => {

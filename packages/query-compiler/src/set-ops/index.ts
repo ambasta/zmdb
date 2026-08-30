@@ -15,15 +15,11 @@ export const SET_KEYWORD: Record<SetOp, string> = {
  * are renumbered across the combined parameter list for postgres; kept as `?`
  * for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
  */
-export function setOperation(
-  op: SetOp,
-  queries: readonly CompiledQuery[],
-  dialect: Dialect,
-): CompiledQuery {
+export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: Dialect): CompiledQuery {
   if (queries.length === 0) throw new Error('setOperation requires at least one query');
   if (queries.length === 1) return queries[0]!;
   const params: unknown[] = [];
-  const fragments = queries.map((q) => {
+  const fragments = queries.map(q => {
     let text = q.text;
     if (dialect === 'postgres') {
       // renumber each $n in this fragment to continue the combined sequence

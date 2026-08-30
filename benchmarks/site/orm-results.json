@@ -16,8 +16,16 @@
   "prepared": {
     "note": "Head-to-head: same zmdb server with ZMDB_PREPARED=1 (server-side prepared statements — stable statement name per compiled SQL, so Postgres caches the plan). Reproducible across 2 runs.",
     "rows": [
-      { "run": 1, "default": { "reqs": 2916, "avg": 102.4, "p90": 192.8, "p95": 215.5 }, "prepared": { "reqs": 3068, "avg": 97.3, "p90": 179.5, "p95": 209.5 } },
-      { "run": 2, "default": { "reqs": 2903, "avg": 102.8, "p90": 193.7, "p95": 220.3 }, "prepared": { "reqs": 3010, "avg": 99.2, "p90": 182.6, "p95": 206.5 } }
+      {
+        "run": 1,
+        "default": { "reqs": 2916, "avg": 102.4, "p90": 192.8, "p95": 215.5 },
+        "prepared": { "reqs": 3068, "avg": 97.3, "p90": 179.5, "p95": 209.5 }
+      },
+      {
+        "run": 2,
+        "default": { "reqs": 2903, "avg": 102.8, "p90": 193.7, "p95": 220.3 },
+        "prepared": { "reqs": 3010, "avg": 99.2, "p90": 182.6, "p95": 206.5 }
+      }
     ],
     "verdict": "ZMDB_PREPARED=1 reproducibly improves zmdb: +4–5% req/s, −3–4% avg, ~−11ms p90, ~−9–14ms p95. The tail-latency lever works — kept opt-in to preserve the zero-state default."
   },
@@ -36,7 +44,5 @@
     { "route": "/search-customer", "drizzle": true, "kysely": true, "zmdb": true },
     { "route": "/search-product", "drizzle": true, "kysely": true, "zmdb": true }
   ],
-  "dnf": [
-    { "target": "prisma", "reason": "not implemented: engine/codegen not installed" }
-  ]
+  "dnf": [{ "target": "prisma", "reason": "not implemented: engine/codegen not installed" }]
 }

@@ -126,7 +126,7 @@ function inlineCheck(ruleSrc: string, expr: string): string {
     }
     case 'Enum': {
       const values = splitArgs(args);
-      return `(${values.map((v) => `${expr} === ${v}`).join(' || ')})`;
+      return `(${values.map(v => `${expr} === ${v}`).join(' || ')})`;
     }
     default:
       return `validate(${ruleSrc}, ${expr})`;

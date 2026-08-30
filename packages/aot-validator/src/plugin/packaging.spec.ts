@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { zmdbAot } from './index.ts';
 
 // #81: packaging — an unplugin-compatible plugin object whose transform hook

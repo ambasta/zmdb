@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
+
 import type { Driver } from '../index.ts';
 import { withReplicas, isWrite } from './index.ts';
 
 function tagDriver(tag: string, log: string[]): Driver {
-  return { execute: async (q) => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };
+  return { execute: async q => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };
 }
 const q = (text: string) => ({ text, parameters: [] });
 

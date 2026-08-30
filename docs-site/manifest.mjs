@@ -7,16 +7,97 @@
 
 export const NAV = [
   { title: 'Getting Started', pages: ['introduction', 'quick-start', 'installation', 'aot-setup', 'pure-typescript'] },
-  { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
-  { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'populate-results', 'aggregations', 'aggregate-results', 'full-text-search', 'aliases', 'inert-rows'] },
+  {
+    title: 'Schema',
+    pages: [
+      'schema-declaration',
+      'column-types',
+      'type-derivation',
+      'relations',
+      'indexes-constraints',
+      'views',
+      'sequences',
+      'generated-columns',
+      'schemas-namespaces',
+      'rls',
+    ],
+  },
+  {
+    title: 'Data Access',
+    pages: [
+      'crud',
+      'repository',
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'filters',
+      'pagination',
+      'read-dtos',
+      'projections',
+      'joins',
+      'populate-results',
+      'aggregations',
+      'aggregate-results',
+      'full-text-search',
+      'aliases',
+      'inert-rows',
+    ],
+  },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
   { title: 'Migrations', pages: ['migrations', 'migrations-cli', 'seeding'] },
-  { title: 'Validation', pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'] },
+  {
+    title: 'Validation',
+    pages: ['validators-is', 'validators-assert', 'validators-validate', 'validators-tags', 'unions-refinements'],
+  },
   { title: 'JSON & Serialization', pages: ['json-stringify', 'json-parse', 'json-schema', 'openapi', 'random'] },
   { title: 'Advanced', pages: ['custom-types', 'set-operations', 'lifecycle-hooks', 'embeddables', 'inheritance'] },
   { title: 'Integrations', pages: ['drivers', 'framework-integrations', 'llm-function-calling'] },
-  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways', 'web-testing', 'web-benchmarks'] },
-  { title: 'Web Framework — Guides', pages: ['web-custom-decorators', 'web-exception-filters', 'web-dynamic-modules', 'web-injection-scopes', 'web-async-providers', 'web-circular-dependency', 'web-configuration', 'web-authentication', 'web-authorization', 'web-cors', 'web-cookies-sessions', 'web-rate-limiting', 'web-security-headers', 'web-caching', 'web-logging', 'web-file-upload', 'web-versioning', 'web-graphql', 'web-microservices', 'web-faq'] },
+  {
+    title: 'Web Framework',
+    pages: [
+      'web-overview',
+      'web-controllers',
+      'web-context',
+      'web-di',
+      'web-domain-state',
+      'web-pipeline',
+      'web-data-integration',
+      'web-modules',
+      'web-middleware',
+      'web-app',
+      'web-validation',
+      'web-openapi',
+      'web-gateways',
+      'web-testing',
+      'web-benchmarks',
+    ],
+  },
+  {
+    title: 'Web Framework — Guides',
+    pages: [
+      'web-custom-decorators',
+      'web-exception-filters',
+      'web-dynamic-modules',
+      'web-injection-scopes',
+      'web-async-providers',
+      'web-circular-dependency',
+      'web-configuration',
+      'web-authentication',
+      'web-authorization',
+      'web-cors',
+      'web-cookies-sessions',
+      'web-rate-limiting',
+      'web-security-headers',
+      'web-caching',
+      'web-logging',
+      'web-file-upload',
+      'web-versioning',
+      'web-graphql',
+      'web-microservices',
+      'web-faq',
+    ],
+  },
   { title: 'Reference', pages: ['anti-patterns', 'benchmarks'] },
 ];
 
@@ -25,7 +106,10 @@ const ok = (title, group, md) => ({ title, group, status: 'supported', md });
 
 export const PAGES = {
   // ---------------- Getting Started ----------------
-  introduction: ok('Introduction', 'Getting Started', `
+  introduction: ok(
+    'Introduction',
+    'Getting Started',
+    `
 zmdb is a TypeScript data layer that eliminates schema-drift maintenance. You **define your schema once** and every derived artifact — entity types, create/update DTOs, runtime validation, JSON serialization, OpenAPI, and repository CRUD — is produced from that single source of truth, at **compile time**.
 
 ## The core idea
@@ -56,9 +140,13 @@ export const UserSchema = defineSchema('users', {
 - [Schema declaration](./schema-declaration.html) → [Type derivation](./type-derivation.html)
 - [CRUD](./crud.html) and the [Repository](./repository.html)
 - [Benchmarks](../benchmarks/index.html)
-`),
+`,
+  ),
 
-  'quick-start': ok('Quick Start', 'Getting Started', `
+  'quick-start': ok(
+    'Quick Start',
+    'Getting Started',
+    `
 This guide takes you from an empty project to a validated, type-safe data layer
 in a few minutes. By the end you will have defined a schema, derived its types,
 run CRUD through a repository, and issued a typed query.
@@ -218,8 +306,12 @@ const user = await users.create(payload);
 - [Migrations](./migrations.html) — diffed from the schema
 - [Validators](./validators-is.html) and [JSON / Ser-De](./json-stringify.html)
 - [Anti-patterns](./anti-patterns.html) — what zmdb deliberately does *not* do, and why
-`),
-  'installation': ok('Installation', 'Getting Started', `
+`,
+  ),
+  installation: ok(
+    'Installation',
+    'Getting Started',
+    `
 zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install is the single umbrella package; the four sub-packages are also published individually for advanced/tree-shaken use.
 
 ## Recommended: one install
@@ -327,9 +419,13 @@ console.log(UserSchema.columns.email.type); // 'text'
 - [Quick Start](./quick-start.html) — define your first schema
 - [AOT Setup](./aot-setup.html) — configure build-time validation inlining
 - [Pure TypeScript](./pure-typescript.html) — runtime-only validation without AOT
-`),
+`,
+  ),
 
-  'aot-setup': ok('AOT Setup (transformer)', 'Getting Started', `
+  'aot-setup': ok(
+    'AOT Setup (transformer)',
+    'Getting Started',
+    `
 AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. The validator transforms \`is<T>()\`, \`assert<T>()\`, and \`validate<T>()\` calls into direct JavaScript boolean expressions — no Zod-style runtime parsers, no reflection.
 
 ## Why AOT?
@@ -465,9 +561,13 @@ const ok = is<User>(payload);
 - [Pure TypeScript](./pure-typescript.html) — runtime-only validation
 - [Validation](./validators-is.html) — validation API surface
 - [Benchmarks](./benchmarks.html) — performance numbers
-`),
+`,
+  ),
 
-  'pure-typescript': ok('Pure TypeScript', 'Getting Started', `
+  'pure-typescript': ok(
+    'Pure TypeScript',
+    'Getting Started',
+    `
 Runtime validation without the AOT build step. The \`@zmdb/aot-validator\` package provides validation utilities that work without any build plugin — just import and use.
 
 ## When to Use Runtime
@@ -596,10 +696,14 @@ const ok = is<User>(payload);
 - [AOT Setup](./aot-setup.html) — build plugin configuration
 - [Validation](./validators-is.html) — full validation API
 - [Benchmarks](./benchmarks.html) — performance comparison
-`),
+`,
+  ),
 
   // ---------------- Schema ----------------
-  'schema-declaration': ok('Schema Declaration', 'Schema', `
+  'schema-declaration': ok(
+    'Schema Declaration',
+    'Schema',
+    `
 Schema declaration is the foundation of zmdb. You define your table structure once using column builders and modifiers, and zmdb derives types for Entity, CreateDTO, and UpdateDTO automatically.
 
 > [!IMPORTANT]
@@ -731,9 +835,13 @@ SELECT "id", "email" FROM "users" WHERE "role" = $1
 - [Relations](./relations.html) — defining relationships
 - [Indexes & Constraints](./indexes-constraints.html) — adding constraints
 - [Repository](./repository.html) — using schemas with the repository
-`),
+`,
+  ),
 
-  'column-types': ok('Column Types', 'Schema', `
+  'column-types': ok(
+    'Column Types',
+    'Schema',
+    `
 The builder functions map to SQL column types and drive both the derived
 TypeScript type and the DDL emitted by [migrations](./migrations.html).
 
@@ -788,9 +896,13 @@ CREATE TABLE "users" (
 For richer schema objects (indexes, generated columns, sequences), see
 [Indexes & constraints](./indexes-constraints.html) and
 [Generated columns](./generated-columns.html).
-`),
+`,
+  ),
 
-  'type-derivation': ok('Type Derivation', 'Schema', `
+  'type-derivation': ok(
+    'Type Derivation',
+    'Schema',
+    `
 No hand-written DTOs. Three types derive from every schema:
 
 \`\`\`ts
@@ -821,9 +933,13 @@ These are the same types the validators and serializers are generated against, s
 Beyond the write triad, the **read side** also derives typed DTOs —
 \`GetDTO\`, \`ListDTO\`/\`ListResult\`, \`SearchDTO\`, \`Projection\`,
 \`Populated\` and \`AggregateResult\`. See [Read/Query DTOs](./read-dtos.html).
-`),
+`,
+  ),
 
-  'relations': ok('Relations', 'Schema', `
+  relations: ok(
+    'Relations',
+    'Schema',
+    `
 Relations define how tables relate through foreign keys. zmdb provides a typed relation DSL with compile-time type derivation for populated entities.
 
 > [!IMPORTANT]
@@ -924,9 +1040,13 @@ type UserPostLeft = JoinRow<Entity<typeof UserSchema>, Entity<typeof PostSchema>
 - [Schema Declaration](./schema-declaration.html) — defining tables with foreign keys
 - [Repository](./repository.html) — CRUD with relation support
 - [Indexes & Constraints](./indexes-constraints.html) — indexing FK columns
-`),
+`,
+  ),
 
-  'indexes-constraints': ok('Indexes & Constraints', 'Schema', `
+  'indexes-constraints': ok(
+    'Indexes & Constraints',
+    'Schema',
+    `
 Indexes and constraints are essential schema objects for data integrity and query performance. zmdb provides DDL functions to create indexes (including unique and partial indexes) and check constraints.
 
 > [!TIP]
@@ -1133,8 +1253,12 @@ ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "chk_users_age"
 - [Views](./views.html) — optimizing views with indexes
 - [Generated Columns](./generated-columns.html) — indexing computed values
 - [Schema Declaration](./schema-declaration.html) — defining tables with constraints
-`),
-  'views': ok('Views', 'Schema', `
+`,
+  ),
+  views: ok(
+    'Views',
+    'Schema',
+    `
 Views in zmdb are declarative schema objects that encapsulate reusable SELECT queries. They provide a way to define virtual tables based on the result of a query, which is particularly useful for complex joins, aggregations, or exposing a simplified API over normalized data.
 
 > [!IMPORTANT]
@@ -1243,8 +1367,12 @@ SELECT "id", "email", "post_count" FROM "user_with_post_count" WHERE "post_count
 - [Indexes & Constraints](./indexes-constraints.html) — optimize view queries with indexes
 - [Sequences](./sequences.html) — another schema object for auto-incrementing values
 - [Schema Declaration](./schema-declaration.html) — defining tables that views query
-`),
-  'sequences': ok('Sequences', 'Schema', `
+`,
+  ),
+  sequences: ok(
+    'Sequences',
+    'Schema',
+    `
 Sequences are database objects that generate auto-incrementing numeric values. In PostgreSQL, they're the underlying mechanism behind \`SERIAL\` columns. zmdb provides declarative DDL functions to create and manage sequences independently.
 
 > [!TIP]
@@ -1344,8 +1472,12 @@ zmdb's \`serial()\` column builder abstracts away the sequence creation. Here's 
 - [Schema Declaration](./schema-declaration.html) — defining tables with serial columns
 - [Indexes & Constraints](./indexes-constraints.html) — adding constraints to tables with sequences
 - [Generated Columns](./generated-columns.html) — computed columns that depend on sequences
-`),
-  'generated-columns': ok('Generated Columns', 'Schema', `
+`,
+  ),
+  'generated-columns': ok(
+    'Generated Columns',
+    'Schema',
+    `
 Generated columns are table columns whose values are computed automatically from an expression. They're computed at write time (stored) or read time (virtual), ensuring data consistency without application-level calculations.
 
 > [!IMPORTANT]
@@ -1490,8 +1622,12 @@ SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"
 - [Indexes & Constraints](./indexes-constraints.html) — index generated columns for performance
 - [Schema Declaration](./schema-declaration.html) — defining tables with all column types
 - [Views](./views.html) — virtual tables that can also compute values
-`),
-  'schemas-namespaces': ok('Schemas / Namespaces', 'Schema', `
+`,
+  ),
+  'schemas-namespaces': ok(
+    'Schemas / Namespaces',
+    'Schema',
+    `
 Database schemas provide a namespace for organizing database objects. In PostgreSQL, schemas allow you to group tables, views, and other objects into logical units, enabling multiple teams or applications to use the same database without naming collisions.
 
 > [!IMPORTANT]
@@ -1630,8 +1766,12 @@ DROP SCHEMA IF EXISTS "staging" CASCADE
 - [RLS](./rls.html) — row-level security for tenant isolation
 - [Views](./views.html) — creating views within specific schemas
 - [Schema Declaration](./schema-declaration.html) — defining tables that belong to schemas
-`),
-  'rls': ok('Row-Level Security (RLS)', 'Schema', `
+`,
+  ),
+  rls: ok(
+    'Row-Level Security (RLS)',
+    'Schema',
+    `
 Row-Level Security (RLS) is a PostgreSQL feature that restricts which rows users can access based on their session characteristics. It's the recommended approach for multi-tenant applications, providing security at the database level without relying solely on application logic.
 
 > [!IMPORTANT]
@@ -1801,10 +1941,14 @@ ALTER TABLE "orders" DISABLE ROW LEVEL SECURITY
 - [Schemas & Namespaces](./schemas-namespaces.html) — organizing RLS-protected tables
 - [Indexes & Constraints](./indexes-constraints.html) — performance considerations for RLS
 - [Relations](./relations.html) — relationship handling with RLS enabled
-`),
+`,
+  ),
 
   // ---------------- Data Access ----------------
-  'crud': ok('CRUD', 'Data Access', `
+  crud: ok(
+    'CRUD',
+    'Data Access',
+    `
 Create, Read, Update, and Delete operations form the backbone of any data layer. zmdb's repository provides full CRUD semantics with automatic validation against your schema, ensuring that only well-typed data reaches the database.
 
 ## Create
@@ -1915,9 +2059,13 @@ await users.create({}); // email is required
 - [Read DTOs](./read-dtos.html) — typed query helpers
 - [Inert Rows](./inert-rows.html) — why rows don't auto-persist
 - [Validation](./validators-is.html) — AOT validation details
-`),
+`,
+  ),
 
-  'repository': ok('Repository', 'Data Access', `
+  repository: ok(
+    'Repository',
+    'Data Access',
+    `
 The repository pattern provides a typed, validated data access layer backed by your schema definition. zmdb's \`BaseRepository\` delivers full CRUD with lifecycle hooks, validation interception, and transaction support — all without proxies or an identity map.
 
 ## Defining a Repository
@@ -2080,9 +2228,13 @@ try {
 - [Read DTOs](./read-dtos.html) — typed filtering, ordering, pagination
 - [Transactions](./transactions.html) — transaction management details
 - [Validation](./validators-is.html) — AOT-validated payloads
-`),
+`,
+  ),
 
-  select: ok('Select', 'Data Access', `
+  select: ok(
+    'Select',
+    'Data Access',
+    `
 zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hiding
 it behind an object graph. Every builder call is typed against your schema, and
 \`.compile()\` returns a parameterized \`{ text, parameters }\` — nothing runs until
@@ -2196,9 +2348,13 @@ createQueryCompiler('mysql').selectFrom('users').where('id', '=', 1).compile();
 - [Filters & operators](./filters.html) — the full operator set + typed WhereDTO
 - [Joins](./joins.html) and [aggregations](./aggregations.html)
 - [Read/Query DTOs](./read-dtos.html) — Get/List/Search result shapes
-`),
+`,
+  ),
 
-  insert: ok('Insert', 'Data Access', `
+  insert: ok(
+    'Insert',
+    'Data Access',
+    `
 Insert rows with the query builder, or (preferably) through a repository's
 \`create()\`, which validates the payload against \`CreateDTO<S>\` **before** any SQL
 is emitted.
@@ -2237,9 +2393,13 @@ const user = await users.create({ email: 'a@b.com' }); // role defaults applied
 > columns may be omitted from the payload (that is what \`CreateDTO\` encodes).
 
 See also [batch inserts](./batch.html) for multiple statements in one round-trip.
-`),
+`,
+  ),
 
-  update: ok('Update', 'Data Access', `
+  update: ok(
+    'Update',
+    'Data Access',
+    `
 Update rows with the query builder, or through a repository's \`update(id, patch)\`,
 which validates \`patch\` against \`UpdateDTO<S>\` (a \`Partial<CreateDTO<S>>\`).
 
@@ -2274,9 +2434,13 @@ const updated = await users.update(1, { role: 'admin' }); // validated vs Update
 > An \`update\` without a \`where\` clause updates **every row**. The repository's
 > \`update(id, patch)\` always scopes by primary key; the raw builder does not — add
 > a predicate.
-`),
+`,
+  ),
 
-  delete: ok('Delete', 'Data Access', `
+  delete: ok(
+    'Delete',
+    'Data Access',
+    `
 Delete rows with the query builder, or through a repository's \`delete(id)\` (which
 returns a boolean).
 
@@ -2305,9 +2469,13 @@ DELETE FROM "users" WHERE "role" = $1 RETURNING "id"
 > As with UPDATE, a DELETE without a \`where\` clause removes **every row**. Prefer
 > the repository's \`delete(id)\` for single-row deletes, or wrap bulk deletes in a
 > [transaction](./transactions.html).
-`),
+`,
+  ),
 
-  filters: ok('Filters & Operators', 'Data Access', `
+  filters: ok(
+    'Filters & Operators',
+    'Data Access',
+    `
 \`where\` accepts a column, operator and value. Chained \`where\` clauses are ANDed; use \`orWhere\` for OR.
 
 \`\`\`ts
@@ -2336,9 +2504,13 @@ compileWhere(builder, where); // → parameterized WHERE clauses
 \`\`\`
 
 Operators: \`eq/ne/lt/lte/gt/gte\`, \`in/nin\`, \`like/ilike\`, \`isNull/notNull\`, with \`and\`/\`or\` group composition. \`like\`/\`ilike\` are a **compile-time error** on non-string fields.
-`),
+`,
+  ),
 
-  'pagination': ok('Ordering & Pagination', 'Data Access', `
+  pagination: ok(
+    'Ordering & Pagination',
+    'Data Access',
+    `
 Pagination controls how many rows are returned and in what order. zmdb supports both offset-based and cursor-based pagination through the DTO helpers, with type-safe ordering and limit/offset application.
 
 ## Offset Pagination
@@ -2447,9 +2619,13 @@ type PaginationDTO<S> =
 - [Read DTOs](./read-dtos.html) — full DTO family
 - [Repository](./repository.html) — CRUD with pagination
 - [Query Compiler](./select.html) — builder details
-`),
+`,
+  ),
 
-  'read-dtos': ok('Read/Query DTOs — Get / List / Search', 'Data Access', `
+  'read-dtos': ok(
+    'Read/Query DTOs — Get / List / Search',
+    'Data Access',
+    `
 Read Data Transfer Objects provide typed query inputs and result shapes for fetching data. zmdb derives all read types from your schema — any change to the schema automatically updates the DTOs, eliminating drift between your API contracts and database queries.
 
 ## WhereDTO — Typed Filters
@@ -2577,9 +2753,13 @@ const narrow = project(row, ['email', 'role'] as const);
 - [Projections](./projections.html) — column narrowing
 - [Pagination](./pagination.html) — detailed pagination
 - [Repository](./repository.html) — CRUD with DTOs
-`),
+`,
+  ),
 
-  'projections': ok('Projections (partial select)', 'Data Access', `
+  projections: ok(
+    'Projections (partial select)',
+    'Data Access',
+    `
 Projections let you narrow the result set to specific columns, reducing payload size and improving query performance. zmdb provides compile-time type narrowing and a runtime helper for applying projections to fetched rows.
 
 ## Narrowing Select Results
@@ -2651,9 +2831,13 @@ const publicUser = await users.findById(id, {
 - [Read DTOs](./read-dtos.html) — full GetDTO/ListDTO/SearchDTO documentation
 - [Aliases](./aliases.html) — column renaming with AS
 - [Repository](./repository.html) — CRUD with projection support
-`),
+`,
+  ),
 
-  joins: ok('Joins', 'Data Access', `
+  joins: ok(
+    'Joins',
+    'Data Access',
+    `
 Real SQL joins across tables, compiled to parameterized, dialect-correct SQL and
 typed against the participating schemas. Joins also power the to-one relation
 [populate](./relations.html) strategy.
@@ -2717,9 +2901,13 @@ await orders.findJoined(
 
 This is one of the routes exercised in the drizzle-benchmarks harness against
 real PostgreSQL — see the [benchmarks](../benchmarks/index.html).
-`),
+`,
+  ),
 
-  'populate-results': ok('Typed Populate & Join Results', 'Data Access', `
+  'populate-results': ok(
+    'Typed Populate & Join Results',
+    'Data Access',
+    `
 Populate loads related entities for to-one and to-many relations. Unlike lazy-loading proxies, zmdb uses explicit batched queries — no proxies, no N+1 problem, and no identity map.
 
 ## Typed populate: \`findById(id, { populate })\`
@@ -2838,9 +3026,13 @@ const user = await users.findById(1);
 - [Relations](./relations.html) — schema definition
 - [Read DTOs](./read-dtos.html) — typed reads
 - [Repository](./repository.html) — CRUD with populate
-`),
+`,
+  ),
 
-  aggregations: ok('Aggregations', 'Data Access', `
+  aggregations: ok(
+    'Aggregations',
+    'Data Access',
+    `
 Grouped aggregates — \`count\`, \`sum\`, \`avg\`, \`min\`, \`max\` with \`GROUP BY\` and
 \`HAVING\` — compiled to real SQL and verified against PostgreSQL in the
 [benchmarks](../benchmarks/index.html).
@@ -2895,9 +3087,13 @@ GROUP BY "userId" HAVING COUNT("id") > $1
 > The result row is **typed** from the spec — group-key columns plus one field
 > per computed aggregate, with correct \`number\` / \`number | null\` typing. See
 > [Typed aggregate results](./aggregate-results.html).
-`),
+`,
+  ),
 
-  'aggregate-results': ok('Typed Aggregate Results', 'Data Access', `
+  'aggregate-results': ok(
+    'Typed Aggregate Results',
+    'Data Access',
+    `
 Aggregations compute summary statistics over grouped rows — counts, sums, averages, min/max values. zmdb provides a typed aggregate API that returns compile-time typed results based on your aggregation specification.
 
 ## Defining an Aggregate
@@ -3013,9 +3209,13 @@ const recentStats = await ordersRepo.aggregate({
 - [Read DTOs](./read-dtos.html) — full DTO family
 - [Repository](./repository.html) — CRUD API
 - [Query Compiler](./select.html) — aggregation builder
-`),
+`,
+  ),
 
-  'full-text-search': ok('Full-Text Search', 'Data Access', `
+  'full-text-search': ok(
+    'Full-Text Search',
+    'Data Access',
+    `
 PostgreSQL full-text search is expressible directly in the query builder, and a
 typed [SearchDTO](./read-dtos.html) layers ranking + paging on top.
 
@@ -3054,9 +3254,13 @@ const result = buildSearchResult(hits, { limit: 20 }); // items carry an optiona
 > \`findByFullText\` throws an honest \`UnsupportedFeatureError\` rather than
 > silently running a wrong query. This is one of the routes exercised against
 > real Postgres in the [benchmarks](../benchmarks/index.html).
-`),
+`,
+  ),
 
-  'aliases': ok('Aliases', 'Data Access', `
+  aliases: ok(
+    'Aliases',
+    'Data Access',
+    `
 Table aliases let you give a table a short name in a query — essential for
 **self-joins** and for disambiguating columns when the same table appears twice.
 zmdb's join builder accepts a \`'table as alias'\` spec and quotes it per dialect.
@@ -3135,9 +3339,13 @@ joinableSelectFrom('users as u', 'mysql').compile();
 - [Joins](./joins.html) — inner/left joins that use these aliases
 - [Typed populate & join results](./populate-results.html) — \`JoinRow\` + \`aliasRow\`
 - [Projections](./projections.html) — narrowing/reshaping selected columns
-`),
+`,
+  ),
 
-  'inert-rows': ok('Why Fetched Rows Are Inert', 'Data Access', `
+  'inert-rows': ok(
+    'Why Fetched Rows Are Inert',
+    'Data Access',
+    `
 Fetched rows in zmdb are plain objects with no change tracking, no proxies, and no identity map. Mutating them has zero effect on the database. This is a deliberate design choice that enables zero-overhead data access.
 
 ## The Mutation Fallacy
@@ -3228,10 +3436,14 @@ The inert row design trades convenience for speed:
 - [CRUD](./crud.html) — explicit create/update/delete
 - [Repository](./repository.html) — full repository API
 - [Transactions](./transactions.html) — grouping multiple writes
-`),
+`,
+  ),
 
   // ---------------- Transactions ----------------
-  transactions: ok('Transactions', 'Transactions', `
+  transactions: ok(
+    'Transactions',
+    'Transactions',
+    `
 The legitimate job \`flush()\` does elsewhere — atomically committing several writes — is handled by **explicit transactions**.
 
 \`\`\`ts
@@ -3284,9 +3496,13 @@ COMMIT;
 > \`create\`/\`update\`/\`delete\` — inside a transaction those run on the tx
 > connection. This replaces the unit-of-work/auto-flush model (an
 > [anti-pattern](./anti-patterns.html) here) with explicit, predictable writes.
-`),
+`,
+  ),
 
-  'batch': ok('Batch API', 'Transactions', `
+  batch: ok(
+    'Batch API',
+    'Transactions',
+    `
 Batch operations execute multiple statements in a single database round-trip. Use \`batch\` when you need to run several independent queries together — bulk inserts, multi-table updates, or grouped operations that benefit from a single network call.
 
 ## The Batch Handle
@@ -3382,8 +3598,12 @@ const result = await empty.execute(async () => { throw new Error('Should not run
 ---
 
 See also: [Set Operations](./set-operations.html) · [Query Compiler](./select.html) · [Drivers](./drivers.html)
-`),
-  'read-replicas': ok('Read Replicas', 'Transactions', `
+`,
+  ),
+  'read-replicas': ok(
+    'Read Replicas',
+    'Transactions',
+    `
 Read replicas distribute read traffic across multiple database instances while writes always go to the primary. zmdb's \`withReplicas\` wrapper creates a composite driver that routes queries based on the SQL statement type.
 
 ## Configuring Replicas
@@ -3487,10 +3707,14 @@ This is useful for gradual rollout — start with zero replicas, add them as you
 ---
 
 See also: [Drivers](./drivers.html) · [Repository](./repository.html) · [Query Compiler](./select.html)
-`),
+`,
+  ),
 
   // ---------------- Migrations ----------------
-  'migrations': ok('Migrations', 'Migrations', `
+  migrations: ok(
+    'Migrations',
+    'Migrations',
+    `
 Migrations manage schema evolution over time. zmdb provides snapshot and diff utilities that compare your in-code schema definitions against the live database, generating the DDL needed to align them.
 
 ## Taking a Snapshot
@@ -3576,9 +3800,13 @@ CREATE TABLE IF NOT EXISTS _zmdb_migrations (
 ---
 
 See also: [Migrations CLI](./migrations-cli.html) · [Query Compiler](./select.html) · [Schema Core](./schema-declaration.html)
-`),
+`,
+  ),
 
-  'migrations-cli': ok('Migrations CLI', 'Migrations', `
+  'migrations-cli': ok(
+    'Migrations CLI',
+    'Migrations',
+    `
 The migration CLI runs migration scripts against your database. It wraps the core migration runner and provides a simple command-line interface for applying, rolling back, and checking migration status.
 
 ## Running Migrations
@@ -3694,9 +3922,13 @@ Use the runner in your npm scripts:
 ---
 
 See also: [Migrations](./migrations.html) · [Drivers](./drivers.html) · [Query Compiler](./select.html)
-`),
+`,
+  ),
 
-  'seeding': ok('Seeding', 'Migrations', `
+  seeding: ok(
+    'Seeding',
+    'Migrations',
+    `
 Seeding generates deterministic test data from your schema. Use \`seedRows\` to create reproducible datasets — same seed always produces the same rows. This is useful for testing, demos, and development environments.
 
 ## Basic Usage
@@ -3795,10 +4027,14 @@ async function seedDatabase(repo: UserRepository, count: number) {
 ---
 
 See also: [Schema Core](./schema-declaration.html) · [Repository](./repository.html) · [Validation](./validators-is.html)
-`),
+`,
+  ),
 
   // ---------------- Validation ----------------
-  'validators-is': ok('is()', 'Validation', `
+  'validators-is': ok(
+    'is()',
+    'Validation',
+    `
 A compile-time type guard: \`is<T>(value)\` returns \`boolean\` and **narrows** the
 input on success. With the [AOT transform](./aot-setup.html) it inlines to the
 exact structural checks \`T\` implies — no runtime schema, no reflection.
@@ -3838,9 +4074,13 @@ is<{ email: string; age: number }>(d)
 - [assert()](./validators-assert.html) — throw with the failing path
 - [validate()](./validators-validate.html) — collect every error
 - [Special tags](./validators-tags.html) — constraints like \`Minimum\`/\`Pattern\`
-`),
+`,
+  ),
 
-  'validators-assert': ok('assert()', 'Validation', `
+  'validators-assert': ok(
+    'assert()',
+    'Validation',
+    `
 The \`assert\` function validates a value against a TypeDescriptor and throws an \`AssertError\` if validation fails. Unlike \`validate\` which returns a result object, \`assert\` is designed for cases where you want validation failures to halt execution immediately — perfect for guard clauses and early returns.
 
 > [!IMPORTANT]
@@ -3972,9 +4212,13 @@ This eliminates all runtime validation overhead — the check becomes a simple b
 - [validate](./validators-validate.html) — non-throwing variant
 - [is](./validators-tags.html) — boolean guard (no throws)
 - [random](./random.html) — generate valid test data
-`),
+`,
+  ),
 
-  'validators-validate': ok('validate()', 'Validation', `
+  'validators-validate': ok(
+    'validate()',
+    'Validation',
+    `
 The \`validate\` function performs non-throwing validation, returning a structured result object that indicates success or failure. Unlike \`assert\`, it never throws — making it ideal for scenarios where you need to handle validation failures gracefully without disrupting control flow.
 
 > [!NOTE]
@@ -4087,9 +4331,13 @@ await repo.create({ email: 'bad', age: 10 }); // throws validation error
 - [assert](./validators-assert.html) — throwing variant
 - [tags](./validators-tags.html) — validation rules (Minimum, Pattern, etc.)
 - [unions-refinements](./unions-refinements.html) — union types and custom refinements
-`),
+`,
+  ),
 
-  'validators-tags': ok('Special Tags', 'Validation', `
+  'validators-tags': ok(
+    'Special Tags',
+    'Validation',
+    `
 The validation tags system provides a declarative way to express constraints on primitive values. These tags (\`Minimum\`, \`Maximum\`, \`MinLength\`, \`MaxLength\`, \`Pattern\`, \`Enum\`) are building blocks that can be combined with schema definitions or used directly in validation code.
 
 > [!TIP]
@@ -4205,9 +4453,13 @@ validate(tags.Minimum(18), userAge)
 - [validate](./validators-validate.html) — non-throwing validation
 - [assert](./validators-assert.html) — throwing validation
 - [unions-refinements](./unions-refinements.html) — custom validation rules
-`),
+`,
+  ),
 
-  'unions-refinements': ok('Unions, Refinements & Transforms', 'Validation', `
+  'unions-refinements': ok(
+    'Unions, Refinements & Transforms',
+    'Validation',
+    `
 The validation system supports advanced composition through union types and custom refinements. Unions allow modeling "one of many" scenarios, while refinements enable arbitrary predicate-based validation beyond what tags provide.
 
 > [!NOTE]
@@ -4338,10 +4590,14 @@ const orderId: OrderId = 456 as OrderId;
 - [validate](./validators-validate.html) — base validation
 - [assert](./validators-assert.html) — throwing validation
 - [json-schema](./json-schema.html) — JSON Schema generation
-`),
+`,
+  ),
 
   // ---------------- JSON & Serialization ----------------
-  'json-stringify': ok('stringify()', 'JSON & Serialization', `
+  'json-stringify': ok(
+    'stringify()',
+    'JSON & Serialization',
+    `
 The \`stringify\` function serializes JavaScript values to JSON strings. It wraps \`JSON.stringify\` with consistent error handling and explicit bigint rejection — the AOT transformer will eventually emit fast concatenation for known shapes.
 
 > [!IMPORTANT]
@@ -4453,9 +4709,13 @@ This eliminates function call overhead for hot paths.
 - [json-parse](./json-parse.html) — deserialization
 - [json-schema](./json-schema.html) — JSON Schema generation
 - [openapi](./openapi.html) — OpenAPI spec generation
-`),
+`,
+  ),
 
-  'json-parse': ok('parse()', 'JSON & Serialization', `
+  'json-parse': ok(
+    'parse()',
+    'JSON & Serialization',
+    `
 The \`parse\` function provides safe JSON parsing with structured error handling. Unlike \`JSON.parse()\` which throws on invalid JSON, \`parse\` returns a result object that indicates success or failure with detailed error information.
 
 > [!NOTE]
@@ -4592,9 +4852,13 @@ const OrderSchema = defineSchema('orders', {
 - [json-stringify](./json-stringify.html) — serialization
 - [json-schema](./json-schema.html) — JSON Schema generation
 - [validators-validate](./validators-validate.html) — full validation
-`),
+`,
+  ),
 
-  'json-schema': ok('JSON Schema', 'JSON & Serialization', `
+  'json-schema': ok(
+    'JSON Schema',
+    'JSON & Serialization',
+    `
 The \`toJsonSchema\` function generates valid JSON Schema from zmdb schema definitions. This enables interoperability with tools that understand JSON Schema — validation libraries, API documentation systems, and code generation tools.
 
 > [!NOTE]
@@ -4764,9 +5028,13 @@ const searchSchema = toSearchSchema(UserSchema);
 - [openapi](./openapi.html) — OpenAPI spec integration
 - [validators-tags](./validators-tags.html) — tag reference
 - [json-parse](./json-parse.html) — parsing JSON
-`),
+`,
+  ),
 
-  'openapi': ok('OpenAPI', 'JSON & Serialization', `
+  openapi: ok(
+    'OpenAPI',
+    'JSON & Serialization',
+    `
 The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from zmdb schema definitions. This enables automatic API documentation, client SDK generation, and validation layer interoperability.
 
 > [!NOTE]
@@ -4995,9 +5263,13 @@ const searchSchema = toSearchSchema(UserSchema);
 - [json-schema](./json-schema.html) — JSON Schema generation
 - [validators-tags](./validators-tags.html) — validation tags
 - [random](./random.html) — test data generation
-`),
+`,
+  ),
 
-  'random': ok('Random Generator', 'JSON & Serialization', `
+  random: ok(
+    'Random Generator',
+    'JSON & Serialization',
+    `
 The \`random\` function generates sample values that satisfy a TypeDescriptor by construction. This is invaluable for testing — you get valid test data without manually constructing fixtures, and the generated values respect all constraints (minimum values, patterns, enums, etc.).
 
 > [!NOTE]
@@ -5202,10 +5474,14 @@ for (let i = 0; i < 1000; i++) {
 - [validators-validate](./validators-validate.html) — validation
 - [validators-assert](./validators-assert.html) — assertion
 - [json-parse](./json-parse.html) — JSON parsing
-`),
+`,
+  ),
 
   // ---------------- Advanced ----------------
-  'custom-types': ok('Custom Types & Codecs', 'Advanced', `
+  'custom-types': ok(
+    'Custom Types & Codecs',
+    'Advanced',
+    `
 Custom types let you define domain-specific types with bidirectional encoding/decoding between your TypeScript runtime and the database. zmdb treats custom types as first-class citizens — they're not ORM magic but explicit contracts between your app and the database.
 
 ## Defining a Custom Type
@@ -5311,8 +5587,12 @@ const encoded = encodeValue(MoneyType, { amount: 50, currency: 'EUR' });
 ---
 
 See also: [Schema Core](./schema-declaration.html) · [Validation](./validators-is.html) · [DTO Helpers](./read-dtos.html)
-`),
-  'set-operations': ok('Set Operations', 'Advanced', `
+`,
+  ),
+  'set-operations': ok(
+    'Set Operations',
+    'Advanced',
+    `
 Set operations combine result sets from multiple queries — UNION, INTERSECT, and EXCEPT. Batch executes multiple statements in a single round-trip. zmdb's query compiler exposes both primitives directly, giving you full control over SQL generation.
 
 ## UNION / UNION ALL
@@ -5416,8 +5696,12 @@ const combined = setOperation('union', [q1, q2], 'postgres');
 ---
 
 See also: [Query Compiler](./select.html) · [Repository](./repository.html) · [Migrations](./migrations.html)
-`),
-  'lifecycle-hooks': ok('Lifecycle Hooks & Events', 'Advanced', `
+`,
+  ),
+  'lifecycle-hooks': ok(
+    'Lifecycle Hooks & Events',
+    'Advanced',
+    `
 Lifecycle hooks let you react to entity events — beforeCreate, afterCreate, beforeUpdate, afterUpdate, beforeDelete, afterDelete. zmdb's EventBus provides a simple pub/sub mechanism for injecting behavior into your repository operations without coupling to the data layer.
 
 ## The EventBus
@@ -5528,8 +5812,12 @@ bus.subscribe({ on: 'beforeCreate', run: () => console.log('Second') });
 ---
 
 See also: [Repository](./repository.html) · [Embeddables](./embeddables.html) · [Transactions](./transactions.html)
-`),
-  'embeddables': ok('Embeddables', 'Advanced', `
+`,
+  ),
+  embeddables: ok(
+    'Embeddables',
+    'Advanced',
+    `
 Embeddables let you compose complex value objects from multiple columns. Instead of storing a JSON blob, you get flat columns with type-safe access. zmdb provides \`flattenEmbeddable\` and \`liftEmbeddable\` utilities to transform between the flat database representation and nested TypeScript objects.
 
 ## Embedding a Value Object
@@ -5655,8 +5943,12 @@ if (!result.success) {
 ---
 
 See also: [Schema Core](./schema-declaration.html) · [Lifecycle Hooks](./lifecycle-hooks.html) · [Validation](./validators-is.html)
-`),
-  'inheritance': ok('Inheritance Mapping', 'Advanced', `
+`,
+  ),
+  inheritance: ok(
+    'Inheritance Mapping',
+    'Advanced',
+    `
 Inheritance lets you model entity hierarchies in a single database table using a discriminator column. zmdb provides \`SingleTableInheritance\` utilities to map rows to their correct subtypes at runtime.
 
 ## Single Table Inheritance
@@ -5789,10 +6081,14 @@ async function handleEventAttachment(eventRow: Record<string, unknown>) {
 ---
 
 See also: [Repository](./repository.html) · [Embeddables](./embeddables.html) · [Schema Core](./schema-declaration.html)
-`),
+`,
+  ),
 
   // ---------------- Integrations ----------------
-  'drivers': ok('Drivers', 'Integrations', `
+  drivers: ok(
+    'Drivers',
+    'Integrations',
+    `
 Drivers are zmdb's abstraction over database connections. A Driver is a simple interface — just an \`execute\` method that runs compiled SQL. zmdb ships **first-party adapters** so you don't have to write one, and the interface stays open for any other database.
 
 ## First-party drivers
@@ -5956,9 +6252,13 @@ function parsePgUrl(connStr: string) {
 ---
 
 See also: [Repository](./repository.html) · [Read Replicas](./read-replicas.html) · [Query Compiler](./select.html)
-`),
+`,
+  ),
 
-  'framework-integrations': ok('Framework Integrations', 'Integrations', `
+  'framework-integrations': ok(
+    'Framework Integrations',
+    'Integrations',
+    `
 zmdb is framework-agnostic — it doesn't depend on Express, Hono, Fastify, or any other web framework. The \`makeEndpoint\` utility provides a thin adapter layer that converts your repository into an HTTP handler. Each framework wraps this in 1-2 lines.
 
 ## The Endpoint Handler
@@ -6066,8 +6366,12 @@ const handler: Handler<Input, Output> = {
 ---
 
 See also: [Repository](./repository.html) · [Validation](./validators-is.html) · [DTO Helpers](./read-dtos.html)
-`),
-  'llm-function-calling': ok('LLM Function Calling', 'Integrations', `
+`,
+  ),
+  'llm-function-calling': ok(
+    'LLM Function Calling',
+    'Integrations',
+    `
 zmdb can generate tool definitions from your schema for LLM function-calling. The \`toolFromSchema\` function converts your schema into a JSON Schema that describes the tool's parameters, enabling LLMs to call your repository methods with type-safe inputs.
 
 ## Generating Tool Specs
@@ -6172,10 +6476,14 @@ const result = lenientParse<UserInput>(
 ---
 
 See also: [Schema Core](./schema-declaration.html) · [Validation](./validators-is.html) · [Repository](./repository.html)
-`),
+`,
+  ),
 
   // ---------------- Web Framework ----------------
-  'web-overview': ok('@zmdb/web — Overview', 'Web Framework', `
+  'web-overview': ok(
+    '@zmdb/web — Overview',
+    'Web Framework',
+    `
 \`@zmdb/web\` is a **Stage-3 decorator web framework** for the zmdb ecosystem —
 controllers, a typed request context, compile-time dependency injection and
 compile-time domain state machines, with **zero \`reflect-metadata\` and zero
@@ -6265,9 +6573,13 @@ derivation · compile-time DI (\`@Inject\`) · domain state machines · request
 pipeline + adapters · repository integration — then full NestJS parity (modules,
 guards/pipes/interceptors/filters, app bootstrap & lifecycle, OpenAPI, WS/SSE,
 testing utilities).
-`),
+`,
+  ),
 
-  'web-controllers': ok('Controllers & Routing', 'Web Framework', `
+  'web-controllers': ok(
+    'Controllers & Routing',
+    'Web Framework',
+    `
 Define HTTP controllers with **Stage-3 decorators**. \`@Controller\` sets a path
 prefix; \`@Get\`/\`@Post\`/\`@Put\`/\`@Patch\`/\`@Delete\` mark handler methods. All route
 data is stored in the standard \`Symbol.metadata\` record — **no \`reflect-metadata\`,
@@ -6342,9 +6654,13 @@ Duplicate slashes collapse and a trailing slash is stripped (the root \`/\` stay
 ## Cross-links
 
 - [@zmdb/web overview](./web-overview.html) — the Stage-3 baseline & invariants
-`),
+`,
+  ),
 
-  'web-context': ok('Typed Request Context', 'Web Framework', `
+  'web-context': ok(
+    'Typed Request Context',
+    'Web Framework',
+    `
 Stage 3 has **no parameter decorators**, so \`@zmdb/web\` handlers take a single
 strongly-typed **context** object instead of \`@Param\`/\`@Body\`/\`@Query\` arguments.
 Crucially, the params type is **derived from the route string** at compile
@@ -6418,9 +6734,13 @@ extractParams('/health', '/health');                       // {}
 
 - [Controllers & routing](./web-controllers.html) — where routes are declared
 - [@zmdb/web overview](./web-overview.html)
-`),
+`,
+  ),
 
-  'web-di': ok('Dependency Injection', 'Web Framework', `
+  'web-di': ok(
+    'Dependency Injection',
+    'Web Framework',
+    `
 \`@zmdb/web\` provides dependency injection **without \`emitDecoratorMetadata\` or
 \`reflect-metadata\`**. Instead of reflecting constructor parameter types at
 runtime (the NestJS approach), you use explicit, **typed tokens** and a small
@@ -6500,9 +6820,13 @@ svc.greet();
 
 - [Controllers & routing](./web-controllers.html)
 - [@zmdb/web overview](./web-overview.html)
-`),
+`,
+  ),
 
-  'web-domain-state': ok('Domain State Machines', 'Web Framework', `
+  'web-domain-state': ok(
+    'Domain State Machines',
+    'Web Framework',
+    `
 Model domain state so that **illegal transitions fail to compile**. \`@zmdb/web\`
 uses branded (phantom) types: a \`DraftOrder\` and a \`PaidOrder\` are distinct types
 even though both are just \`Order\` at runtime. Branding erases completely — **zero
@@ -6561,9 +6885,13 @@ in code that type-checks.
 
 - [Dependency injection](./web-di.html)
 - [@zmdb/web overview](./web-overview.html)
-`),
+`,
+  ),
 
-  'web-pipeline': ok('Request Pipeline & Adapters', 'Web Framework', `
+  'web-pipeline': ok(
+    'Request Pipeline & Adapters',
+    'Web Framework',
+    `
 The router ties everything together. Register a controller instance and the
 router reads its [routes](./web-controllers.html) **once**, then dispatches each
 request through: **match → build [Ctx](./web-context.html) → validate body →
@@ -6644,9 +6972,13 @@ Both adapters are **structurally typed** — \`@zmdb/web\` does not depend on
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [Typed context](./web-context.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-data-integration': ok('Building an API with zmdb', 'Web Framework', `
+  'web-data-integration': ok(
+    'Building an API with zmdb',
+    'Web Framework',
+    `
 This is where \`@zmdb/web\` meets the [data layer](./repository.html). A controller
 **injects a repository** via [DI](./web-di.html), validates the request body
 against your **schema-derived DTO**, and returns typed entities — all on the same
@@ -6731,9 +7063,13 @@ await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { u
 ## Cross-links
 
 - [Repository](./repository.html) · [Dependency injection](./web-di.html) · [Request pipeline](./web-pipeline.html)
-`),
+`,
+  ),
 
-  'web-modules': ok('Modules & Providers', 'Web Framework', `
+  'web-modules': ok(
+    'Modules & Providers',
+    'Web Framework',
+    `
 Organize controllers and providers into composable **modules** over the
 [DI container](./web-di.html) — the NestJS \`@Module\` analogue, resolved
 **statically** at compile time (no per-request graph walk, no reflection).
@@ -6791,9 +7127,13 @@ const { container, controllers } = compileModule(AppModule);
 ## Cross-links
 
 - [Dependency injection](./web-di.html) · [Controllers & routing](./web-controllers.html)
-`),
+`,
+  ),
 
-  'web-middleware': ok('Guards, Pipes, Interceptors & Filters', 'Web Framework', `
+  'web-middleware': ok(
+    'Guards, Pipes, Interceptors & Filters',
+    'Web Framework',
+    `
 The request **middleware chain** — the NestJS analogue of guards, pipes,
 interceptors and exception filters — composed **statically** per route and run in
 a deterministic order with no reflection.
@@ -6861,9 +7201,13 @@ const result = await runChain(chain, ctx, (c) => c.body);
 ## Cross-links
 
 - [Request pipeline](./web-pipeline.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-app': ok('Application Bootstrap & Lifecycle', 'Web Framework', `
+  'web-app': ok(
+    'Application Bootstrap & Lifecycle',
+    'Web Framework',
+    `
 \`createApp\` bootstraps an application from a root [module](./web-modules.html):
 it compiles the DI graph, builds the [router](./web-pipeline.html), and registers
 every controller's routes — **once**. It exposes lifecycle hooks and \`await using\`
@@ -6926,9 +7270,13 @@ await app.init();
 ## Cross-links
 
 - [Modules & providers](./web-modules.html) · [Request pipeline](./web-pipeline.html)
-`),
+`,
+  ),
 
-  'web-validation': ok('Validation & Serialization', 'Web Framework', `
+  'web-validation': ok(
+    'Validation & Serialization',
+    'Web Framework',
+    `
 First-class **pipes** that bind a route to schema-derived DTO validation and
 entity serialization — the NestJS \`ValidationPipe\` / \`ClassSerializerInterceptor\`
 analogues, but **zero-runtime-parser**: validation is your
@@ -6987,9 +7335,13 @@ const chain = dtoChain({
 ## Cross-links
 
 - [Guards, pipes, interceptors & filters](./web-middleware.html) · [Building an API with zmdb](./web-data-integration.html) · [AOT setup](./aot-setup.html)
-`),
+`,
+  ),
 
-  'web-openapi': ok('OpenAPI Generation', 'Web Framework', `
+  'web-openapi': ok(
+    'OpenAPI Generation',
+    'Web Framework',
+    `
 Generate an **OpenAPI 3.1** document from your [controllers](./web-controllers.html)
 and [schema-derived JSON Schemas](./openapi.html) — the \`@nestjs/swagger\`
 analogue, **deterministic** and reflection-free (it reads the route table + the
@@ -7056,9 +7408,13 @@ const openapi = serveOpenApi(doc); // a handler returning the doc, e.g. at /open
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [OpenAPI (schema-core)](./openapi.html)
-`),
+`,
+  ),
 
-  'web-gateways': ok('WebSockets & SSE', 'Web Framework', `
+  'web-gateways': ok(
+    'WebSockets & SSE',
+    'Web Framework',
+    `
 Real-time handlers use the same Stage-3 metadata + DI machinery as HTTP
 controllers. \`@Gateway\`/\`@Subscribe\` mark event handlers; a dispatcher routes
 messages with a typed context; \`sseStream\` frames an async iterable as
@@ -7129,9 +7485,13 @@ return new Response(sseStream(ticks()), {
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-testing': ok('Testing', 'Web Framework', `
+  'web-testing': ok(
+    'Testing',
+    'Web Framework',
+    `
 \`createTestApp\` builds an app from a [module](./web-modules.html) with **DI
 overrides** and drives routes **in-process** — no socket, no live server. It's
 the \`@nestjs/testing\` analogue: swap a provider for a fake, then assert on the
@@ -7187,9 +7547,13 @@ await app.init();          // runs onModuleInit hooks
 ## Cross-links
 
 - [Modules & providers](./web-modules.html) · [Application bootstrap](./web-app.html)
-`),
+`,
+  ),
 
-  'web-benchmarks': ok('Web Performance & Benchmarks', 'Web Framework', `
+  'web-benchmarks': ok(
+    'Web Performance & Benchmarks',
+    'Web Framework',
+    `
 \`@zmdb/web\` resolves each controller's route table **once** at
 \`register\`/\`compile\` time and never re-reads \`Symbol.metadata\` per request. This
 is the concrete, testable form of the "no per-request reflection" claim — and it
@@ -7269,10 +7633,14 @@ Consistent with the rest of the [benchmarks](../benchmarks/index.html):
 ## Cross-links
 
 - [Request pipeline](./web-pipeline.html) · [Controllers & routing](./web-controllers.html) · [Benchmarks (overview)](../benchmarks/index.html)
-`),
+`,
+  ),
 
   // ---------------- Reference ----------------
-  benchmarks: ok('Benchmarks', 'Reference', `
+  benchmarks: ok(
+    'Benchmarks',
+    'Reference',
+    `
 zmdb runs inside the **actual upstream benchmark harnesses** against the **real competitor libraries**:
 
 - **ORM** — the drizzle-benchmarks routes + k6 vs Drizzle/Kysely against real PostgreSQL 16. zmdb serves all 13 routes (0 DNF).
@@ -7281,9 +7649,13 @@ zmdb runs inside the **actual upstream benchmark harnesses** against the **real 
 DNF cases are enumerated individually, never summed or faked; we don't claim a "fastest" title we haven't earned across the full workload.
 
 📊 **Interactive dashboard:** [open the benchmarks →](../benchmarks/index.html)
-`),
+`,
+  ),
 
-  'anti-patterns': ok('Anti-patterns (deliberately excluded)', 'Reference', `
+  'anti-patterns': ok(
+    'Anti-patterns (deliberately excluded)',
+    'Reference',
+    `
 These docs incorporate the union of the MikroORM, Drizzle and Typia surfaces. A number of their pages describe patterns that are **fundamentally incompatible** with zmdb's design goal — a zero-overhead, no-proxy, AOT data layer. Those pages are **intentionally excluded**, not "TODO". Here is each one and why.
 
 ## Identity map
@@ -7312,8 +7684,12 @@ zmdb is SQL-first by design. We don't hide SQL behind a relational-only object A
 
 ## Runtime schema mutation (\`updateSchema()\`)
 Applying schema changes to a live database at runtime is rejected in favor of reviewable, diffed [migrations](./migrations.html).
-`),
-  'web-custom-decorators': ok('Custom Decorators', 'Web Framework — Guides', `
+`,
+  ),
+  'web-custom-decorators': ok(
+    'Custom Decorators',
+    'Web Framework — Guides',
+    `
 The \`@nestjs/common\` \`createParamDecorator\` analogue. Because routing runs on
 the **Stage-3 metadata baseline** (no \`reflect-metadata\`), a "custom decorator"
 is just a small function that reads from the typed [\`Ctx\`](./web-context.html) —
@@ -7376,9 +7752,13 @@ there is still **no reflection at request time**.
 ## Cross-links
 
 - [Typed request context](./web-context.html) · [Authorization](./web-authorization.html) · [Controllers & routing](./web-controllers.html)
-`),
+`,
+  ),
 
-  'web-exception-filters': ok('Exception Filters', 'Web Framework — Guides', `
+  'web-exception-filters': ok(
+    'Exception Filters',
+    'Web Framework — Guides',
+    `
 The \`@nestjs/common\` exception-filter analogue. An \`ExceptionFilter\` catches
 errors thrown anywhere in the [request pipeline](./web-pipeline.html) and maps
 them to a response — the last link in \`runChain\`.
@@ -7420,9 +7800,13 @@ const app = createApp({ controllers: [UsersController], filters: [new HttpErrorF
 ## Cross-links
 
 - [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Request pipeline](./web-pipeline.html)
-`),
+`,
+  ),
 
-  'web-dynamic-modules': ok('Dynamic Modules', 'Web Framework — Guides', `
+  'web-dynamic-modules': ok(
+    'Dynamic Modules',
+    'Web Framework — Guides',
+    `
 The \`@Module.forRoot()/forFeature()\` analogue. A dynamic module is a function
 that returns a \`ModuleDef\` parameterized by options, feeding
 [\`compileModule\`](./web-modules.html). Configuration is a **value provider**
@@ -7460,9 +7844,13 @@ const app = compileModule(Module({ imports: [MailerModule({ apiKey: process.env.
 ## Cross-links
 
 - [Modules & Providers](./web-modules.html) · [Dependency injection](./web-di.html) · [Configuration](./web-configuration.html)
-`),
+`,
+  ),
 
-  'web-injection-scopes': ok('Injection Scopes', 'Web Framework — Guides', `
+  'web-injection-scopes': ok(
+    'Injection Scopes',
+    'Web Framework — Guides',
+    `
 zmdb ships **singleton** (default) and **transient** provider scopes. There is
 **no request scope** — a deliberate design choice explained below.
 
@@ -7509,9 +7897,13 @@ the [benchmark](./web-benchmarks.html) guards.
 ## Cross-links
 
 - [Dependency injection](./web-di.html) · [Typed request context](./web-context.html) · [Anti-patterns](./anti-patterns.html)
-`),
+`,
+  ),
 
-  'web-async-providers': ok('Asynchronous Providers', 'Web Framework — Guides', `
+  'web-async-providers': ok(
+    'Asynchronous Providers',
+    'Web Framework — Guides',
+    `
 The \`useFactory\` + \`async\` bootstrap analogue. Providers that must \`await\`
 (open a pool, load a key) are resolved during **app bootstrap**, before the
 server accepts traffic — so request dispatch stays synchronous and reflection-free.
@@ -7554,9 +7946,13 @@ class UsersController {
 ## Cross-links
 
 - [Application bootstrap & lifecycle](./web-app.html) · [Modules & Providers](./web-modules.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-circular-dependency': ok('Circular Dependencies', 'Web Framework — Guides', `
+  'web-circular-dependency': ok(
+    'Circular Dependencies',
+    'Web Framework — Guides',
+    `
 Because the DI graph is resolved **once at boot**, dependency cycles are caught
 **at startup** — you get a clear error naming the cycle, not a runtime
 \`undefined\` or a \`forwardRef\` dance.
@@ -7593,9 +7989,13 @@ concern into a third provider both depend on:
 ## Cross-links
 
 - [Dependency injection](./web-di.html) · [Modules & Providers](./web-modules.html)
-`),
+`,
+  ),
 
-  'web-configuration': ok('Configuration', 'Web Framework — Guides', `
+  'web-configuration': ok(
+    'Configuration',
+    'Web Framework — Guides',
+    `
 The \`@nestjs/config\` \`ConfigService\` analogue — built from a
 [\`Token\`](./web-di.html) + factory. There is **no built-in ConfigModule**;
 configuration is just a typed provider, validated once at boot with your
@@ -7635,9 +8035,13 @@ Module({ providers: [{ provide: CONFIG, useFactory: loadConfig }] });
 ## Cross-links
 
 - [Dependency injection](./web-di.html) · [Dynamic modules](./web-dynamic-modules.html) · [assert()](./validators-assert.html)
-`),
+`,
+  ),
 
-  'web-authentication': ok('Authentication', 'Web Framework — Guides', `
+  'web-authentication': ok(
+    'Authentication',
+    'Web Framework — Guides',
+    `
 The \`AuthGuard\` analogue. Authentication is a [Guard](./web-middleware.html)
 that reads a credential from the typed [\`Ctx\`](./web-context.html), verifies it,
 and attaches a principal to \`ctx.state\` for downstream handlers.
@@ -7678,9 +8082,13 @@ const app = createApp({ controllers: [UsersController], guards: [new BearerAuth(
 ## Cross-links
 
 - [Authorization](./web-authorization.html) · [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Typed request context](./web-context.html)
-`),
+`,
+  ),
 
-  'web-authorization': ok('Authorization', 'Web Framework — Guides', `
+  'web-authorization': ok(
+    'Authorization',
+    'Web Framework — Guides',
+    `
 The \`RolesGuard\` analogue. Authorization is a [Guard](./web-middleware.html)
 that compares the principal (set by [authentication](./web-authentication.html))
 against **handler metadata** declared with a
@@ -7714,9 +8122,13 @@ class RolesGuard implements Guard {
 ## Cross-links
 
 - [Authentication](./web-authentication.html) · [Custom decorators](./web-custom-decorators.html) · [Guards, Pipes, Interceptors & Filters](./web-middleware.html)
-`),
+`,
+  ),
 
-  'web-cors': ok('CORS', 'Web Framework — Guides', `
+  'web-cors': ok(
+    'CORS',
+    'Web Framework — Guides',
+    `
 CORS is a header concern handled in the [pipeline](./web-pipeline.html) via an
 [Interceptor](./web-middleware.html) (or at the adapter edge) — there is no
 \`app.enableCors()\` global, because responses are transport-neutral descriptors.
@@ -7753,9 +8165,13 @@ const preflight = (o: string) => ({
 ## Cross-links
 
 - [Request pipeline & adapters](./web-pipeline.html) · [Security headers](./web-security-headers.html) · [Middleware](./web-middleware.html)
-`),
+`,
+  ),
 
-  'web-cookies-sessions': ok('Cookies & Sessions', 'Web Framework — Guides', `
+  'web-cookies-sessions': ok(
+    'Cookies & Sessions',
+    'Web Framework — Guides',
+    `
 Cookies are read/written through the typed [\`Ctx\`](./web-context.html) headers;
 sessions are a **bring-your-own store** wired as a DI provider. There is no
 built-in session middleware — the store is explicit, which keeps the request
@@ -7795,9 +8211,13 @@ const Sessions = createToken<SessionStore>('Sessions');
 ## Cross-links
 
 - [Typed request context](./web-context.html) · [Authentication](./web-authentication.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-rate-limiting': ok('Rate Limiting', 'Web Framework — Guides', `
+  'web-rate-limiting': ok(
+    'Rate Limiting',
+    'Web Framework — Guides',
+    `
 The \`@nestjs/throttler\` analogue — a [Guard](./web-middleware.html) keyed on a
 value from [\`Ctx\`](./web-context.html) (IP, principal, API key) backed by a
 counter store you provide.
@@ -7827,9 +8247,13 @@ class RateLimit implements Guard {
 ## Cross-links
 
 - [Guards, Pipes, Interceptors & Filters](./web-middleware.html) · [Authentication](./web-authentication.html)
-`),
+`,
+  ),
 
-  'web-security-headers': ok('Security Headers', 'Web Framework — Guides', `
+  'web-security-headers': ok(
+    'Security Headers',
+    'Web Framework — Guides',
+    `
 The \`helmet\` analogue — a small [Interceptor](./web-middleware.html) that merges
 hardening headers onto every response. No global plugin; it's one composable
 link so you can see exactly what's set.
@@ -7862,9 +8286,13 @@ const secure: Interceptor = {
 ## Cross-links
 
 - [CORS](./web-cors.html) · [Middleware](./web-middleware.html) · [Request pipeline](./web-pipeline.html)
-`),
+`,
+  ),
 
-  'web-caching': ok('Caching', 'Web Framework — Guides', `
+  'web-caching': ok(
+    'Caching',
+    'Web Framework — Guides',
+    `
 The \`CacheInterceptor\` analogue — an [Interceptor](./web-middleware.html) keyed
 on route + params, backed by a store you inject. There is **no built-in
 CacheModule** (a hidden cache would violate the zero-state default), so the
@@ -7899,9 +8327,13 @@ function cache(store: KV, ttlMs = 5_000): Interceptor {
 ## Cross-links
 
 - [Middleware](./web-middleware.html) · [Anti-patterns](./anti-patterns.html)
-`),
+`,
+  ),
 
-  'web-logging': ok('Logging', 'Web Framework — Guides', `
+  'web-logging': ok(
+    'Logging',
+    'Web Framework — Guides',
+    `
 The \`LoggerService\`/\`LoggingInterceptor\` analogue — a request logger is an
 [Interceptor](./web-middleware.html) around the chain. There is no global
 singleton logger by default; you inject the logger you want, which keeps output
@@ -7934,10 +8366,14 @@ function logging(log: (r: object) => void): Interceptor {
 ## Cross-links
 
 - [Middleware](./web-middleware.html) · [Testing](./web-testing.html) · [Dependency injection](./web-di.html)
-`),
+`,
+  ),
 
-  'web-file-upload': todo('File Upload', 'Web Framework — Guides',
-    'multipart/form-data parsing is not shipped — plug a Pipe at the body boundary.', `
+  'web-file-upload': todo(
+    'File Upload',
+    'Web Framework — Guides',
+    'multipart/form-data parsing is not shipped — plug a Pipe at the body boundary.',
+    `
 > **ToDo / feature gap.** \`@zmdb/web\` does not ship a multipart
 > (\`multipart/form-data\`) body parser (the \`FileInterceptor\` analogue). The
 > [pipeline](./web-pipeline.html) currently decodes JSON bodies.
@@ -7972,10 +8408,14 @@ then, terminate uploads at a proxy or use a Node adapter middleware that fills
 ## Cross-links
 
 - [Request pipeline & adapters](./web-pipeline.html) · [Middleware](./web-middleware.html)
-`),
+`,
+  ),
 
-  'web-versioning': todo('API Versioning', 'Web Framework — Guides',
-    'no built-in version negotiator; use controller/path prefixes today.', `
+  'web-versioning': todo(
+    'API Versioning',
+    'Web Framework — Guides',
+    'no built-in version negotiator; use controller/path prefixes today.',
+    `
 > **ToDo / partial.** There is no built-in \`VersioningType\` (URI/header/media-type)
 > negotiator like \`@nestjs/common\`. **URI versioning works today** via
 > controller path prefixes; header/media-type negotiation is roadmap.
@@ -8003,10 +8443,14 @@ resolution, not just branching in a Guard.
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [Middleware](./web-middleware.html)
-`),
+`,
+  ),
 
-  'web-graphql': todo('GraphQL', 'Web Framework — Guides',
-    'no GraphQL layer shipped; resolvers could sit on the DI container.', `
+  'web-graphql': todo(
+    'GraphQL',
+    'Web Framework — Guides',
+    'no GraphQL layer shipped; resolvers could sit on the DI container.',
+    `
 > **ToDo / feature gap.** \`@zmdb/web\` ships **HTTP + WebSocket/SSE**, not a
 > GraphQL layer (no \`@nestjs/graphql\` analogue, no schema-first/code-first
 > resolver decorators).
@@ -8030,10 +8474,14 @@ foundations it would build on already exist.
 ## Cross-links
 
 - [Controllers & routing](./web-controllers.html) · [Type derivation](./type-derivation.html) · [WebSockets & SSE](./web-gateways.html)
-`),
+`,
+  ),
 
-  'web-microservices': todo('Microservices', 'Web Framework — Guides',
-    'no transport-strategy layer shipped; adapters are the seam.', `
+  'web-microservices': todo(
+    'Microservices',
+    'Web Framework — Guides',
+    'no transport-strategy layer shipped; adapters are the seam.',
+    `
 > **ToDo / feature gap.** There is no \`@nestjs/microservices\` analogue — no
 > built-in TCP/NATS/Kafka/gRPC transport strategies or \`@MessagePattern\`
 > decorators.
@@ -8056,9 +8504,13 @@ story. It's deferred, not rejected — the adapter boundary and the
 ## Cross-links
 
 - [Request pipeline & adapters](./web-pipeline.html) · [WebSockets & SSE](./web-gateways.html)
-`),
+`,
+  ),
 
-  'web-faq': ok('FAQ — Migrating from NestJS', 'Web Framework — Guides', `
+  'web-faq': ok(
+    'FAQ — Migrating from NestJS',
+    'Web Framework — Guides',
+    `
 What maps 1:1 from NestJS, what's deliberately different, and the honest
 feature-gap list.
 
@@ -8099,5 +8551,6 @@ hidden magic and nothing to reflect.
 ## Cross-links
 
 - [Overview](./web-overview.html) · [Anti-patterns](./anti-patterns.html) · [Benchmarks](./web-benchmarks.html)
-`),
+`,
+  ),
 };

@@ -2,9 +2,12 @@
 
 // §1 lifecycle events
 export type LifecycleEvent =
-  | 'beforeCreate' | 'afterCreate'
-  | 'beforeUpdate' | 'afterUpdate'
-  | 'beforeDelete' | 'afterDelete';
+  | 'beforeCreate'
+  | 'afterCreate'
+  | 'beforeUpdate'
+  | 'afterUpdate'
+  | 'beforeDelete'
+  | 'afterDelete';
 
 export interface Subscriber {
   on: LifecycleEvent;

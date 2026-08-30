@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { seed, zmdbQueries, runOrmSuite, competitorDnf, type OrmEngine } from './adapter.ts';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { validateResult, validateCoverage, IN_SCOPE_CASES } from '../results.ts';
+import { seed, zmdbQueries, runOrmSuite, competitorDnf, type OrmEngine } from './adapter.ts';
 
 // #71: ORM-suite adapter + seed + query set, with honest DNF reporting.
 
 function sqliteEngine(db: DatabaseSync): OrmEngine {
   return {
-    exec: (sql) => db.exec(sql),
+    exec: sql => db.exec(sql),
     all: (sql, params) => db.prepare(sql).all(...(params as unknown[])) as Record<string, unknown>[],
   };
 }
@@ -50,7 +52,7 @@ describe('runOrmSuite honesty policy', () => {
     const results = runOrmSuite(engine, 20);
     const antiPatterns = ['lazy-relation-graph', 'identity-map-dedup', 'active-record-save'];
     for (const c of antiPatterns) {
-      const r = results.find((x) => x.case === c)!;
+      const r = results.find(x => x.case === c)!;
       expect(r.status).toBe('dnf');
       expect(r.dnfReason).toContain('anti-pattern');
     }
@@ -58,11 +60,11 @@ describe('runOrmSuite honesty policy', () => {
 
   it('supported cases are ok with ops/sec', () => {
     const supported = IN_SCOPE_CASES.orm.filter(
-      (c) => !['lazy-relation-graph', 'identity-map-dedup', 'active-record-save'].includes(c),
+      c => !['lazy-relation-graph', 'identity-map-dedup', 'active-record-save'].includes(c),
     );
     const results = runOrmSuite(engine, 20);
     for (const c of supported) {
-      const r = results.find((x) => x.case === c)!;
+      const r = results.find(x => x.case === c)!;
       expect(r.status).toBe('ok');
       expect(r.opsPerSec).toBeGreaterThan(0);
     }

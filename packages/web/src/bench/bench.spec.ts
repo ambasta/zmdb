@@ -2,8 +2,9 @@
 // exports absent). Init-time-resolution regression guard + microbench smoke.
 // Per packages/web/src/bench/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { Controller, Get } from '../routing/index.ts';
+
 import { createRouter } from '../pipeline/index.ts';
+import { Controller, Get } from '../routing/index.ts';
 import { benchmarkRouter, countMetadataReads } from './index.ts';
 
 @Controller('/x')

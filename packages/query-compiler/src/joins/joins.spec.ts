@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { joinableSelectFrom } from './index.ts';
 
 // RED PHASE (#84 spec freeze): join grammar + golden SQL.

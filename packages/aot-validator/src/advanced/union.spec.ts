@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { union, discriminated, evalRule } from './index.ts';
+
 import { tags } from '../index.ts';
+import { union, discriminated, evalRule } from './index.ts';
 
 // #48: union / discriminated-union compilation. Tests first (TDD).
 

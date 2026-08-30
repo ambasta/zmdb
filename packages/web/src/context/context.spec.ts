@@ -2,6 +2,7 @@
 // exports don't exist yet). Type-level derivation via expectTypeOf, plus runtime
 // extractParams. Per packages/web/src/context/SPEC.md.
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { extractParams, type PathParams, type Ctx, type HandlerFor } from './index.ts';
 
 describe('@zmdb/web context: PathParams derivation (type-level)', () => {
@@ -24,7 +25,7 @@ describe('@zmdb/web context: PathParams derivation (type-level)', () => {
 
 describe('@zmdb/web context: Ctx + HandlerFor (type-level)', () => {
   it('binds ctx.params to the route string', () => {
-    const handler: HandlerFor<'/users/:id', { name: string }> = (ctx) => {
+    const handler: HandlerFor<'/users/:id', { name: string }> = ctx => {
       expectTypeOf(ctx.params).toEqualTypeOf<{ id: string }>();
       expectTypeOf(ctx.body).toEqualTypeOf<{ name: string }>();
       return ctx.params.id;

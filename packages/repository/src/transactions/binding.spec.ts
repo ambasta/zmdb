@@ -1,7 +1,8 @@
+import type { CoreSchema } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
+
 import { BaseRepository, type Driver } from '../index.ts';
 import { createTransactionalDb, type TxConnection } from './index.ts';
-import type { CoreSchema } from '@zmdb/schema-core';
 
 // #37: transaction-scoped repository binding. Tests written BEFORE impl (TDD).
 
@@ -39,7 +40,7 @@ describe('transaction-scoped repository binding', () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async tx => {
       // Bind the repository to the transaction: all its SQL runs on tx.
       const users = new UserRepository({} as Driver).withTransaction(tx);
       await users.findById(1);
@@ -48,7 +49,7 @@ describe('transaction-scoped repository binding', () => {
     // Read happened between BEGIN and COMMIT, on the tx connection.
     expect(conn.log[0]).toBe('BEGIN');
     expect(conn.log.at(-1)).toBe('COMMIT');
-    expect(conn.log.some((l) => l.startsWith('EXEC:SELECT'))).toBe(true);
+    expect(conn.log.some(l => l.startsWith('EXEC:SELECT'))).toBe(true);
   });
 
   it('two writes in one tx both roll back on failure', async () => {
@@ -56,7 +57,7 @@ describe('transaction-scoped repository binding', () => {
     const db = createTransactionalDb(conn);
 
     await expect(
-      db.transaction(async (tx) => {
+      db.transaction(async tx => {
         const users = new UserRepository({} as Driver).withTransaction(tx);
         await users.findById(1);
         throw new Error('boom');

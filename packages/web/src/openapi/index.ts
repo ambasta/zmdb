@@ -47,14 +47,12 @@ type ControllerClass = abstract new (...args: never[]) => unknown;
 function toClass(controller: ControllerClass | object): ControllerClass | undefined {
   if (typeof controller === 'function') {
     // boundary: a controller class value; getRoutes reads its Symbol.metadata.
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     return controller as ControllerClass;
   }
   const ctor = controller.constructor;
   if (typeof ctor !== 'function') {
     return undefined;
   }
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return ctor as ControllerClass;
 }
 
@@ -73,7 +71,10 @@ function toOpenApiPath(path: string): { openapiPath: string; params: string[] } 
  * Generate an OpenAPI 3.1 document from controller routes (+ optional per-route
  * schemas). Deterministic: paths sorted, methods lowercased operation keys.
  */
-export function toOpenApi(controllers: readonly (ControllerClass | object)[], options: OpenApiOptions = {}): OpenApiDocument {
+export function toOpenApi(
+  controllers: readonly (ControllerClass | object)[],
+  options: OpenApiOptions = {},
+): OpenApiDocument {
   const info = options.info ?? { title: '@zmdb/web API', version: '0.0.0' };
   const schemas = options.schemas ?? {};
   const paths: Record<string, PathItem> = {};
@@ -90,20 +91,29 @@ export function toOpenApi(controllers: readonly (ControllerClass | object)[], op
       collected.push({ openapiPath, method: route.method.toLowerCase(), params, routePath: route.path });
     }
   }
-  collected.sort((a, b) => (a.openapiPath === b.openapiPath ? a.method.localeCompare(b.method) : a.openapiPath.localeCompare(b.openapiPath)));
+  collected.sort((a, b) =>
+    a.openapiPath === b.openapiPath ? a.method.localeCompare(b.method) : a.openapiPath.localeCompare(b.openapiPath),
+  );
 
   for (const entry of collected) {
     const item = paths[entry.openapiPath] ?? {};
     const operation: OpenApiOperation = { responses: { '200': { description: 'OK' } } };
     if (entry.params.length > 0) {
-      operation.parameters = entry.params.map((name) => ({ name, in: 'path', required: true, schema: { type: 'string' } }));
+      operation.parameters = entry.params.map(name => ({
+        name,
+        in: 'path',
+        required: true,
+        schema: { type: 'string' },
+      }));
     }
     const routeSchemas = schemas[entry.routePath];
     if (routeSchemas?.body !== undefined) {
       operation.requestBody = { content: { 'application/json': { schema: routeSchemas.body } } };
     }
     if (routeSchemas?.response !== undefined) {
-      operation.responses = { '200': { description: 'OK', content: { 'application/json': { schema: routeSchemas.response } } } };
+      operation.responses = {
+        '200': { description: 'OK', content: { 'application/json': { schema: routeSchemas.response } } },
+      };
     }
     item[entry.method] = operation;
     paths[entry.openapiPath] = item;

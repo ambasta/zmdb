@@ -1,4 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
+
 import {
   serial,
   text,

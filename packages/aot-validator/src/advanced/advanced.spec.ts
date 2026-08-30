@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { coerce, validateObject, refine } from './index.ts';
+
 import { tags } from '../index.ts';
+import { coerce, validateObject, refine } from './index.ts';
 
 // RED PHASE (#45 spec freeze): advanced validation semantics.
 
@@ -14,7 +15,7 @@ describe('object strictness modes', () => {
   it('strict rejects excess keys with a structured issue', () => {
     const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'strict');
     expect(r.success).toBe(false);
-    expect(r.issues.some((i) => i.path.includes('extra'))).toBe(true);
+    expect(r.issues.some(i => i.path.includes('extra'))).toBe(true);
   });
 
   it('strip accepts and drops excess keys', () => {

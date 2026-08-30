@@ -27,15 +27,16 @@ type ResultStatus = 'ok' | 'dnf';
 
 interface BenchResult {
   readonly suite: 'validation' | 'orm';
-  readonly case: string;        // stable case id, e.g. "safe-parse" or "orders-with-items"
-  readonly target: string;      // "zmdb" | "typia" | "zod" | "drizzle" | "prisma" | ...
+  readonly case: string; // stable case id, e.g. "safe-parse" or "orders-with-items"
+  readonly target: string; // "zmdb" | "typia" | "zod" | "drizzle" | "prisma" | ...
   readonly status: ResultStatus;
-  readonly opsPerSec?: number;  // present when status === 'ok'
-  readonly dnfReason?: string;  // required when status === 'dnf'
+  readonly opsPerSec?: number; // present when status === 'ok'
+  readonly dnfReason?: string; // required when status === 'dnf'
 }
 ```
 
 Rules:
+
 - `status: 'ok'` MUST carry `opsPerSec`.
 - `status: 'dnf'` MUST carry a non-empty `dnfReason`.
 - **DNF is a first-class value.** An in-scope case is NEVER silently omitted:
@@ -51,27 +52,27 @@ Rules:
 
 ## 4. Validation case matrix (moltar) — suite `validation`
 
-| case id | definition | zmdb entry point | expected status |
-|---------|-----------|------------------|-----------------|
-| `safe-parse` | validate + strip excess keys | `parse<T>` (strip) | ok |
-| `strict-parse` | validate + reject excess keys | `parse<T>` (strict) / `equals<T>` | ok |
-| `loose-assert` | assert, allow excess | `is<T>` / `assert<T>` | ok |
-| `strict-assert` | assert, reject excess (nested) | `assertEquals<T>` | ok |
+| case id         | definition                     | zmdb entry point                  | expected status |
+| --------------- | ------------------------------ | --------------------------------- | --------------- |
+| `safe-parse`    | validate + strip excess keys   | `parse<T>` (strip)                | ok              |
+| `strict-parse`  | validate + reject excess keys  | `parse<T>` (strict) / `equals<T>` | ok              |
+| `loose-assert`  | assert, allow excess           | `is<T>` / `assert<T>`             | ok              |
+| `strict-assert` | assert, reject excess (nested) | `assertEquals<T>`                 | ok              |
 
 Competitors: typia, zod, @sinclair/typebox, ajv. All four cases are in scope for zmdb.
 
 ## 5. ORM case matrix (drizzle) — suite `orm`
 
-| case id | definition | zmdb path | expected status |
-|---------|-----------|-----------|-----------------|
-| `customer-by-id` | point lookup by PK | `findById` | ok |
-| `products-search` | filtered list + pagination | query-compiler where/limit/offset | ok |
-| `order-with-items` | nested order + line items | relations `populate` (JOIN/batched) | ok |
-| `top-products` | aggregation (group/count) | query-compiler aggregate SQL | ok |
-| `prepared-reuse` | reuse a prepared statement | `CompiledQuery` reuse | ok |
-| `lazy-relation-graph` | proxy lazy-load traversal | — | dnf (anti-pattern) |
-| `identity-map-dedup` | shared refs within a request | — | dnf (anti-pattern) |
-| `active-record-save` | `entity.save()` mutation | — | dnf (anti-pattern) |
+| case id               | definition                   | zmdb path                           | expected status    |
+| --------------------- | ---------------------------- | ----------------------------------- | ------------------ |
+| `customer-by-id`      | point lookup by PK           | `findById`                          | ok                 |
+| `products-search`     | filtered list + pagination   | query-compiler where/limit/offset   | ok                 |
+| `order-with-items`    | nested order + line items    | relations `populate` (JOIN/batched) | ok                 |
+| `top-products`        | aggregation (group/count)    | query-compiler aggregate SQL        | ok                 |
+| `prepared-reuse`      | reuse a prepared statement   | `CompiledQuery` reuse               | ok                 |
+| `lazy-relation-graph` | proxy lazy-load traversal    | —                                   | dnf (anti-pattern) |
+| `identity-map-dedup`  | shared refs within a request | —                                   | dnf (anti-pattern) |
+| `active-record-save`  | `entity.save()` mutation     | —                                   | dnf (anti-pattern) |
 
 Competitors: drizzle, prisma, kysely.
 

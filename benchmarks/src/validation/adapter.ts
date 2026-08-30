@@ -2,6 +2,7 @@
 // Maps the moltar case model onto zmdb's aot-validator entry points and runs
 // a tiny in-process benchmark producing BenchResult[] (with any DNF).
 import { is, validate, type TypeDescriptor } from '@zmdb/aot-validator/utilities';
+
 import type { BenchResult } from '../results.ts';
 
 // Minimal high-resolution clock (Node 26 provides globalThis.performance;
@@ -14,7 +15,7 @@ declare const performance: { now(): number };
 function noExcessKeys(input: unknown, d: TypeDescriptor): boolean {
   if (d.kind !== 'object' || typeof input !== 'object' || input === null) return true;
   const allowed = new Set(Object.keys(d.fields ?? {}));
-  return Object.keys(input as Record<string, unknown>).every((k) => allowed.has(k));
+  return Object.keys(input as Record<string, unknown>).every(k => allowed.has(k));
 }
 
 // The four moltar cases, mapped to zmdb behavior.

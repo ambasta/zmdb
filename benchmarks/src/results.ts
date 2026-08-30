@@ -2,7 +2,6 @@
 // Implementation of the generator lands in #72; the schema validator here is
 // what the spec-freeze tests pin.
 
-
 export type ResultStatus = 'ok' | 'dnf';
 
 export interface BenchResult {
@@ -65,7 +64,10 @@ export function validateCoverage(
   }
   for (const c of IN_SCOPE_CASES[suite]) {
     if (!seen.has(c)) {
-      errors.push({ path: `${suite}.${c}.${target}`, message: `in-scope case "${c}" is missing (must be ok or dnf, never silently omitted)` });
+      errors.push({
+        path: `${suite}.${c}.${target}`,
+        message: `in-scope case "${c}" is missing (must be ok or dnf, never silently omitted)`,
+      });
     }
   }
   return errors;

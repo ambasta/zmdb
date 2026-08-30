@@ -1,13 +1,13 @@
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/repository — implementation.
 // #26 read methods (findById/findOne/findAll) implemented via injected driver
 // + query-compiler. #27 (create/update) and #28 (delete/hooks) remain
 // unimplemented; their tests stay red.
 import type { CoreSchema, Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
-import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
 import {
   compileWhere,
   applyOrderBy,
@@ -55,7 +55,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   withTransaction(tx: { execute: Driver['execute'] }): this {
     const scoped = Object.create(Object.getPrototypeOf(this)) as this;
     Object.assign(scoped, this);
-    scoped.driver = { execute: (q) => tx.execute(q) };
+    scoped.driver = { execute: q => tx.execute(q) };
     return scoped;
   }
 
@@ -78,7 +78,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   // subclass's static `relations` map), the parent is widened with the nested
   // relation(s). Batched IN query per relation; no proxies.
   async findById(id: unknown): Promise<Entity<S> | undefined>;
-  async findById(id: unknown, opts: { populate: readonly string[] }): Promise<(Entity<S> & Record<string, unknown>) | undefined>;
+  async findById(
+    id: unknown,
+    opts: { populate: readonly string[] },
+  ): Promise<(Entity<S> & Record<string, unknown>) | undefined>;
   async findById(id: unknown, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
     const q = this.qb.selectFrom(this.tableName).where(this.pkColumn, '=', id).limit(1).compile();
     const rows = await this.driver.execute(q);
@@ -96,10 +99,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
       const def = relations[name];
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? 'id';
-      const ids = parents.map((p) => p[parentKey]);
+      const ids = parents.map(p => p[parentKey]);
       // One batched query for all parents' children (OR chain = IN).
       let cb = this.qb.selectFrom(def.childTable);
-      ids.forEach((id, i) => { cb = i === 0 ? cb.where(def.childFk, '=', id) : cb.orWhere(def.childFk, '=', id); });
+      ids.forEach((id, i) => {
+        cb = i === 0 ? cb.where(def.childFk, '=', id) : cb.orWhere(def.childFk, '=', id);
+      });
       const children = await this.driver.execute(cb.compile());
       const toMany = def.cardinality === 'one-to-many' || def.cardinality === 'many-to-many';
       const byParent = new Map<unknown, Record<string, unknown>[]>();
@@ -163,12 +168,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     where?: { col: string; op: string; value: unknown },
   ): Promise<readonly Record<string, unknown>[]> {
     let b = joinableSelectFrom(this.tableName, this.dialect);
-    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(
-      b,
-      join.target,
-      join.leftCol,
-      join.rightCol,
-    );
+    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, join.target, join.leftCol, join.rightCol);
     if (where) b = b.where(where.col, where.op, where.value);
     return this.driver.execute(b.compile());
   }
@@ -177,7 +177,9 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   // returning typed computed columns. `build` receives the aggregate builder so
   // callers compose exactly the aggregate they need.
   async aggregate<R extends Record<string, unknown>>(
-    build: (agg: ReturnType<typeof aggregateSelectFrom>) => { compile(): { text: string; parameters: readonly unknown[] } },
+    build: (agg: ReturnType<typeof aggregateSelectFrom>) => {
+      compile(): { text: string; parameters: readonly unknown[] };
+    },
   ): Promise<readonly R[]> {
     const q = build(aggregateSelectFrom(this.tableName, this.dialect)).compile();
     return this.driver.execute(q) as Promise<readonly R[]>;
@@ -192,9 +194,9 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     childFk: string,
     parentKey = 'id',
   ): Promise<readonly Record<string, unknown>[]> {
-    const parents = [...(await this.findAll())].map((p) => ({ ...p }));
+    const parents = [...(await this.findAll())].map(p => ({ ...p }));
     if (parents.length === 0) return parents;
-    const ids = parents.map((p) => p[parentKey]);
+    const ids = parents.map(p => p[parentKey]);
     let cb = this.qb.selectFrom(childTable);
     // Build a single batched IN() via repeated OR on the FK (compiler-agnostic).
     ids.forEach((id, i) => {
@@ -219,9 +221,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
   async create(dto: CreateDTO<S>): Promise<Entity<S>> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
-    const rows = await this.driver.execute(
-      this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile(),
-    );
+    const rows = await this.driver.execute(this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile());
     const row = rows[0] ?? {};
     this.postInsert(row);
     return row as Entity<S>;
@@ -288,14 +288,17 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     }
 
     if (issues.length > 0) {
-      const e = new ValidationError(`validation failed: ${issues.map((i) => i.path).join(', ')}`);
+      const e = new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`);
       (e as { issues: unknown }).issues = issues;
       throw e;
     }
     return out;
   }
 
-  private valueMatchesColumn(value: unknown, col: { type: string; flags: { nullable: boolean; enum?: readonly string[] } }): boolean {
+  private valueMatchesColumn(
+    value: unknown,
+    col: { type: string; flags: { nullable: boolean; enum?: readonly string[] } },
+  ): boolean {
     if (value === null) return col.flags.nullable;
     switch (col.type) {
       case 'serial':

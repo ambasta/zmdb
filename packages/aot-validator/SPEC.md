@@ -20,14 +20,14 @@ Given `validate(tags.X(...), E)` where `E` is the checked expression, the
 transformer replaces the entire call expression with the inline check below.
 Emitted code MUST be allocation-free (no temporary objects/arrays).
 
-| Tag call | Emitted inline JS |
-|----------|-------------------|
-| `tags.Minimum(n)` | `(typeof E === "number" && E >= n)` |
-| `tags.Maximum(n)` | `(typeof E === "number" && E <= n)` |
+| Tag call            | Emitted inline JS                          |
+| ------------------- | ------------------------------------------ |
+| `tags.Minimum(n)`   | `(typeof E === "number" && E >= n)`        |
+| `tags.Maximum(n)`   | `(typeof E === "number" && E <= n)`        |
 | `tags.MinLength(n)` | `(typeof E === "string" && E.length >= n)` |
 | `tags.MaxLength(n)` | `(typeof E === "string" && E.length <= n)` |
-| `tags.Pattern(re)` | `(typeof E === "string" && /re/.test(E))` |
-| `tags.Enum(...v)` | `(E === v0 \|\| E === v1 \|\| …)` |
+| `tags.Pattern(re)`  | `(typeof E === "string" && /re/.test(E))`  |
+| `tags.Enum(...v)`   | `(E === v0 \|\| E === v1 \|\| …)`          |
 
 ## 3. Transform test harness
 

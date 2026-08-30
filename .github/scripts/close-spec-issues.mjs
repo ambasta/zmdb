@@ -13,12 +13,30 @@ const MAP = {
   16: { spec: 'packages/query-compiler/SPEC.md', tests: 'packages/query-compiler/src/query-compiler.spec.ts (8)' },
   21: { spec: 'packages/aot-validator/SPEC.md', tests: 'packages/aot-validator/src/aot-validator.spec.ts (7)' },
   25: { spec: 'packages/repository/SPEC.md', tests: 'packages/repository/src/repository.spec.ts (5)' },
-  30: { spec: 'packages/schema-core/src/relations/SPEC.md', tests: 'packages/schema-core/src/relations/relations.spec.ts (4)' },
-  35: { spec: 'packages/repository/src/transactions/SPEC.md', tests: 'packages/repository/src/transactions/transactions.spec.ts (4)' },
-  40: { spec: 'packages/query-compiler/src/migrations/SPEC.md', tests: 'packages/query-compiler/src/migrations/migrations.spec.ts (4)' },
-  45: { spec: 'packages/aot-validator/src/advanced/SPEC.md', tests: 'packages/aot-validator/src/advanced/advanced.spec.ts (4)' },
-  51: { spec: 'packages/aot-validator/src/serialization/SPEC.md', tests: 'packages/aot-validator/src/serialization/serialization.spec.ts (13)' },
-  56: { spec: 'packages/aot-validator/src/utilities/SPEC.md', tests: 'packages/aot-validator/src/utilities/utilities.spec.ts (6)' },
+  30: {
+    spec: 'packages/schema-core/src/relations/SPEC.md',
+    tests: 'packages/schema-core/src/relations/relations.spec.ts (4)',
+  },
+  35: {
+    spec: 'packages/repository/src/transactions/SPEC.md',
+    tests: 'packages/repository/src/transactions/transactions.spec.ts (4)',
+  },
+  40: {
+    spec: 'packages/query-compiler/src/migrations/SPEC.md',
+    tests: 'packages/query-compiler/src/migrations/migrations.spec.ts (4)',
+  },
+  45: {
+    spec: 'packages/aot-validator/src/advanced/SPEC.md',
+    tests: 'packages/aot-validator/src/advanced/advanced.spec.ts (4)',
+  },
+  51: {
+    spec: 'packages/aot-validator/src/serialization/SPEC.md',
+    tests: 'packages/aot-validator/src/serialization/serialization.spec.ts (13)',
+  },
+  56: {
+    spec: 'packages/aot-validator/src/utilities/SPEC.md',
+    tests: 'packages/aot-validator/src/utilities/utilities.spec.ts (6)',
+  },
 };
 
 const ROOT = 'packages'; // retained for reference; paths in MAP are already root-relative

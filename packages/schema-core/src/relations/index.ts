@@ -1,11 +1,7 @@
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
-export type Cardinality =
-  | 'many-to-one'
-  | 'one-to-many'
-  | 'one-to-one'
-  | 'many-to-many';
+export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
 export interface RelationMeta {
   readonly cardinality: Cardinality;

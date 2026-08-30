@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { transformSource, validate, tags } from './index.ts';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.

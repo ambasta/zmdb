@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineSchema, serial, integer, numeric, text } from '../index.ts';
 import { describeAggregate, type AggregateResult, type AggregateSpec } from './index.ts';
 

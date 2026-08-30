@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { zmdbAot } from './index.ts';
+
 import { is as runtimeIs, type TypeDescriptor } from '../utilities/index.ts';
+import { zmdbAot } from './index.ts';
 
 // #83: AOT acceptance gate. Enforces the frozen target from the epic:
 //   (a) AOT is >=5x the runtime path, and
@@ -21,7 +22,6 @@ const plugin = zmdbAot() as { transform: (code: string, id: string) => { code: s
 function buildAotCheck(): (input: unknown) => boolean {
   const src = 'const check = (input) => is<{ a: number; b: string; c: { d: number } }>(input);';
   const out = plugin.transform(src, '/fixture/gate.ts')!;
-  // eslint-disable-next-line no-new-func
   return new Function(`${out.code}; return check;`)() as (input: unknown) => boolean;
 }
 
@@ -43,7 +43,9 @@ describe('AOT acceptance gate (#83)', () => {
     const aotOps = bench(() => void aot(good), N);
     const runtimeOps = bench(() => void runtimeIs(good, desc), N);
     const ratio = aotOps / runtimeOps;
-    console.log(`gate(a): AOT ${aotOps.toLocaleString()} ops/s vs runtime ${runtimeOps.toLocaleString()} = ${ratio.toFixed(1)}x`);
+    console.log(
+      `gate(a): AOT ${aotOps.toLocaleString()} ops/s vs runtime ${runtimeOps.toLocaleString()} = ${ratio.toFixed(1)}x`,
+    );
     expect(ratio).toBeGreaterThanOrEqual(5);
   });
 

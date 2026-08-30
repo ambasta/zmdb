@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineSchema, serial, text, integer } from '../index.ts';
 import { getResult, type GetDTO } from './index.ts';
 

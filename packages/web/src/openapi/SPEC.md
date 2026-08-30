@@ -6,6 +6,7 @@
 ## Contract
 
 ### `toOpenApi(controllers, options?)`
+
 - Input: an array of controller **classes** (or instances), plus `options`:
   - `info?: { title; version }` (defaults provided),
   - `schemas?: Record<routePath, { body?; response? } schema>` — optional
@@ -20,15 +21,18 @@
 - **Deterministic**: paths and methods emitted in a stable (sorted) order.
 
 ### `serveOpenApi(doc)` (optional)
+
 A tiny helper returning a route handler (`Ctx → the doc`) so an app can expose
 `/openapi.json`.
 
 ## Invariants
+
 - Generation is **build/boot-time**, pure, and **reflection-free** (reads
   `getRoutes` + provided schemas).
 - **No `as`/`any`/`!` on the consumer surface.**
 
 ## Acceptance
+
 - `toOpenApi([UsersController])` yields a 3.1 doc whose `paths` include the
   controller's routes with `{param}` path params + a `parameters` array; methods
   are lowercased operation keys; output is deterministic.
@@ -36,5 +40,7 @@ A tiny helper returning a route handler (`Ctx → the doc`) so an app can expose
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
+
 Auto-deriving schemas from handler signatures (kept explicit via `options.schemas`
-+ schema-core's `toJsonSchema`).
+
+- schema-core's `toJsonSchema`).

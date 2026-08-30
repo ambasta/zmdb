@@ -3,26 +3,31 @@
   "version": "1.0.0-alpha.4",
   "description": "SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.",
   "keywords": [
-    "typescript",
-    "sql",
-    "query-builder",
-    "postgres",
-    "mysql",
-    "sqlite",
     "migrations",
+    "mysql",
+    "postgres",
+    "query-builder",
+    "sql",
+    "sqlite",
+    "typescript",
     "zmdb"
   ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
-  "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/query-compiler"
   },
-  "bugs": {
-    "url": "https://github.com/ambasta/zmdb/issues"
-  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -34,24 +39,19 @@
     "./set-ops": "./src/set-ops/index.ts",
     "./schema-objects": "./src/schema-objects/index.ts"
   },
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=26"
-  },
   "publishConfig": {
     "access": "public",
     "tag": "alpha"
   },
   "scripts": {
-    "test": "vitest run",
-    "build": "tsup"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "devDependencies": {
     "tsup": "8.5.0",
     "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

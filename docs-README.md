@@ -15,7 +15,7 @@ Every backend developer knows this pain:
 ```
 Database column change → 4-5 files to update
 ├── migrations.sql
-├── orm-entity.ts  
+├── orm-entity.ts
 ├── validation-schema.ts
 ├── create-dto.ts
 └── response-type.ts
@@ -60,11 +60,11 @@ async findAdmins() {
 
 ## Three Pillars
 
-| Pillar | What It Means |
-|--------|---------------|
-| **Zero-Overhead Runtime** | No proxies, no runtime reflection, no dynamic parsing. AOT transformer inlines validation. |
-| **Single Source of Truth** | One schema definition drives Entity, CreateDTO, UpdateDTO, ResponseDTO at compile-time. |
-| **Encapsulated Repository** | <10 lines to get full CRUD with auto-validation. Just extend and go. |
+| Pillar                      | What It Means                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| **Zero-Overhead Runtime**   | No proxies, no runtime reflection, no dynamic parsing. AOT transformer inlines validation. |
+| **Single Source of Truth**  | One schema definition drives Entity, CreateDTO, UpdateDTO, ResponseDTO at compile-time.    |
+| **Encapsulated Repository** | <10 lines to get full CRUD with auto-validation. Just extend and go.                       |
 
 ## Architecture
 
@@ -95,12 +95,12 @@ npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/rep
 
 ## Why Not [Existing Tool]?
 
-| Tool | Limitation |
-|------|------------|
-| **Zod/Valibot** | Runtime parsing, not AOT |
-| **Kysely** | Runtime type resolution, no schema derivation |
-| **Drizzle** | No automatic DTO generation |
-| **Mikro-ORM** | Identity maps, runtime overhead |
+| Tool            | Limitation                                    |
+| --------------- | --------------------------------------------- |
+| **Zod/Valibot** | Runtime parsing, not AOT                      |
+| **Kysely**      | Runtime type resolution, no schema derivation |
+| **Drizzle**     | No automatic DTO generation                   |
+| **Mikro-ORM**   | Identity maps, runtime overhead               |
 
 This is the **fastest possible path** from schema definition to database operation — with zero ongoing maintenance.
 

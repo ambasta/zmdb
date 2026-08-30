@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
+
 import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
+import { describe, it, expect, vi } from 'vitest';
+
 import { BaseRepository } from '../index.ts';
-import { sqliteDriver } from './sqlite.ts';
 import { pgDriver, type PgQueryable } from './pg.ts';
+import { sqliteDriver } from './sqlite.ts';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),

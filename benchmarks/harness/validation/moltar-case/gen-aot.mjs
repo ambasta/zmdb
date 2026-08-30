@@ -1,12 +1,14 @@
+import { writeFileSync } from 'node:fs';
+
 // Generate the zmdb-aot validators for the moltar model by running the REAL
 // transform (@zmdb/aot-validator plugin's transformTypeChecks) over is<T>()/
 // assert<T>() source — so the benchmarked code is transformer-produced, not
 // hand-written. Writes ./zmdb-aot-generated.mjs.
 import { transformTypeChecks } from '../../../../packages/aot-validator/src/plugin/index.ts';
-import { writeFileSync } from 'node:fs';
 
 // The moltar data type, expressed as a TS type literal the transformer inlines.
-const T = '{ number: number; negNumber: number; maxNumber: number; string: string; longString: string; boolean: boolean; deeplyNested: { foo: string; num: number; bool: boolean } }';
+const T =
+  '{ number: number; negNumber: number; maxNumber: number; string: string; longString: string; boolean: boolean; deeplyNested: { foo: string; num: number; bool: boolean } }';
 
 // is<T> and equals-equivalent (strict) source. The transformer turns each into
 // a straight-line inline boolean expression.

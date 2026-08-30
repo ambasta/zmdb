@@ -29,7 +29,9 @@ const subs = [
       'Freeze the ORM case matrix (point lookup, list/pagination, joins, aggregation, prepared reuse) + the anti-pattern DNF rows.',
       'Freeze DNF rules: anti-pattern -> "dnf (anti-pattern)"; supported-but-unimplemented -> "dnf (not implemented)"; never silently skipped.',
     ],
-    tests: ['Failing tests: a results-schema validator accepts a golden results fixture including DNF rows; rejects a fixture that omits an in-scope case (must be present as ok or dnf).'],
+    tests: [
+      'Failing tests: a results-schema validator accepts a golden results fixture including DNF rows; rejects a fixture that omits an in-scope case (must be present as ok or dnf).',
+    ],
     accept: [
       'Committed benchmarks/SPEC.md with layout, result schema, case matrices, and DNF rules.',
       'Test file compiles and all tests FAIL (no implementation yet).',
@@ -43,7 +45,9 @@ const subs = [
       'Adapter maps Safe Parsing->parse(strip), Strict Parsing->parse(strict)/equals, Loose Assertion->is/assert, Strict Assertion->assertEquals.',
       'Runner benchmarks each case, emits Result[] including any DNF.',
     ],
-    tests: ['Tests: adapter produces correct pass/fail for a known-good and known-bad payload per case; runner emits a Result per case.'],
+    tests: [
+      'Tests: adapter produces correct pass/fail for a known-good and known-bad payload per case; runner emits a Result per case.',
+    ],
     accept: ['Validation adapter + runner tests green; all four cases report ok (no DNF expected here).'],
   },
   {
@@ -55,7 +59,9 @@ const subs = [
       'Query set: point lookups, filtered list/pagination, nested order+items via populate, aggregations, prepared reuse.',
       'Anti-pattern cases (lazy proxy graphs, identity-map dedup, active-record save) are wired as explicit DNF(anti-pattern) entries.',
     ],
-    tests: ['Tests: each supported query returns correct rows against a seeded ephemeral DB; DNF entries present for anti-pattern cases.'],
+    tests: [
+      'Tests: each supported query returns correct rows against a seeded ephemeral DB; DNF entries present for anti-pattern cases.',
+    ],
     accept: ['ORM adapter tests green; supported queries correct; anti-pattern cases emit DNF(anti-pattern).'],
   },
   {
@@ -67,7 +73,9 @@ const subs = [
       'DNF rows render explicitly with reason; never omitted.',
       'Any in-scope case missing from inputs is surfaced as an error, not skipped.',
     ],
-    tests: ['Tests: generator renders a fixture Result[] (mixed ok + DNF) to the expected Markdown; errors if an in-scope case is absent.'],
+    tests: [
+      'Tests: generator renders a fixture Result[] (mixed ok + DNF) to the expected Markdown; errors if an in-scope case is absent.',
+    ],
     accept: ['Report generator tests green; RESULTS.md shows ok + DNF rows deterministically.'],
   },
   {
@@ -88,10 +96,16 @@ function buildBody(sub, _idx) {
   const L = [];
   L.push(`Parent epic: #${PARENT} (${TITLE})`, '');
   L.push('## Goal', sub.goal, '');
-  L.push('## Depends on', sub.depends === 'none' ? 'Nothing — this is the spec-freeze starting point (TDD).' : `Previous sub-issue(s): ${sub.depends}.`, '');
-  L.push('## Spec / Behavior', ...sub.spec.map((s) => `- ${s}`), '');
-  L.push('## TDD Test Plan (write failing tests first)', ...sub.tests.map((t) => `- ${t}`), '');
-  L.push('## Acceptance Criteria', ...sub.accept.map((a) => `- [ ] ${a}`), '');
+  L.push(
+    '## Depends on',
+    sub.depends === 'none'
+      ? 'Nothing — this is the spec-freeze starting point (TDD).'
+      : `Previous sub-issue(s): ${sub.depends}.`,
+    '',
+  );
+  L.push('## Spec / Behavior', ...sub.spec.map(s => `- ${s}`), '');
+  L.push('## TDD Test Plan (write failing tests first)', ...sub.tests.map(t => `- ${t}`), '');
+  L.push('## Acceptance Criteria', ...sub.accept.map(a => `- [ ] ${a}`), '');
   L.push('## Definition of Done');
   L.push('- [ ] Tests written first and initially failing (red).');
   L.push('- [ ] Implementation makes tests pass (green).');
@@ -103,15 +117,22 @@ const created = [];
 subs.forEach((sub, idx) => {
   const title = `[${TITLE}] ${idx === 0 ? 'Spec Freeze: ' : ''}${sub.t}`;
   const labels = idx === 0 ? 'sub-issue,spec' : 'sub-issue';
-  const url = gh(['issue', 'create', '--repo', `${OWNER}/${REPO}`, '--title', title, '--body-file', '-', '--label', labels], buildBody(sub, idx));
+  const url = gh(
+    ['issue', 'create', '--repo', `${OWNER}/${REPO}`, '--title', title, '--body-file', '-', '--label', labels],
+    buildBody(sub, idx),
+  );
   const num = Number(url.split('/').pop());
   created.push({ num, title });
   console.log(`created #${num} ${title}`);
 });
 
 const id = {};
-for (const n of [PARENT, ...created.map((c) => c.num)]) {
-  const r = graphql('query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}', { o: OWNER, r: REPO, n });
+for (const n of [PARENT, ...created.map(c => c.num)]) {
+  const r = graphql('query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}', {
+    o: OWNER,
+    r: REPO,
+    n,
+  });
   id[n] = r.data.repository.issue.id;
 }
 const ADD_SUB = 'mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){issue{number}}}';

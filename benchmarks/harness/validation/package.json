@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "zod": "3.25.76",
     "@sinclair/typebox": "0.34.52",
     "ajv": "8.20.0",
+    "tinybench": "3.1.0",
     "valibot": "1.4.2",
-    "tinybench": "3.1.0"
+    "zod": "3.25.76"
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { snapshot } from './index.ts';
+
 import type { CoreSchema } from '../index.ts';
+import { snapshot } from './index.ts';
 
 // #41: schema snapshot serializer. Tests written BEFORE implementation (TDD).
 
@@ -19,8 +20,8 @@ describe('snapshot serializer', () => {
   it('produces a version-1 snapshot with tables sorted by name and columns sorted by name', () => {
     const snap = snapshot([UserSchema]);
     expect(snap.version).toBe(1);
-    expect(snap.tables.map((t) => t.name)).toEqual(['users']);
-    expect(snap.tables[0]?.columns.map((c) => c.name)).toEqual(['email', 'id']);
+    expect(snap.tables.map(t => t.name)).toEqual(['users']);
+    expect(snap.tables[0]?.columns.map(c => c.name)).toEqual(['email', 'id']);
   });
 
   it('captures type/nullable/primaryKey per column', () => {

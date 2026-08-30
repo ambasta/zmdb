@@ -23,7 +23,7 @@ export function validationPipe<T>(validator: (raw: unknown) => T): Pipe<unknown,
  * (default: identity — the pipeline JSON-encodes downstream). Pass an entity
  * serializer to shape the response from `Entity<S>`.
  */
-export function serializationInterceptor(serialize: (result: unknown) => unknown = (r) => r): Interceptor {
+export function serializationInterceptor(serialize: (result: unknown) => unknown = r => r): Interceptor {
   return {
     async intercept(_ctx, next): Promise<unknown> {
       const result = await next();

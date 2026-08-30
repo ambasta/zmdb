@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { compilePopulate, manyToOne, oneToMany } from './index.ts';
 
 // #33: JOIN / batched-select compilation for populate. Tests first (TDD).
@@ -8,9 +9,7 @@ describe('compilePopulate — to-one (JOIN)', () => {
     const rel = manyToOne('users', 'userId');
     const q = compilePopulate('orders', 'user', rel, 'postgres');
     expect(q.kind).toBe('join');
-    expect(q.sql).toBe(
-      'SELECT * FROM "orders" INNER JOIN "users" ON "orders"."userId" = "users"."id"',
-    );
+    expect(q.sql).toBe('SELECT * FROM "orders" INNER JOIN "users" ON "orders"."userId" = "users"."id"');
   });
 });
 

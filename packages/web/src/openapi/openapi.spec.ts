@@ -2,6 +2,7 @@
 // Deterministic 3.1 doc: paths, {param} conversion, parameters, method keys.
 // Per packages/web/src/openapi/SPEC.md.
 import { describe, it, expect } from 'vitest';
+
 import { Controller, Get, Post } from '../routing/index.ts';
 import { toOpenApi } from './index.ts';
 

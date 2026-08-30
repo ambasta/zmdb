@@ -12,15 +12,16 @@ typed flat rows. Compile-time only (no proxies/identity map).
 
 ```ts
 // A relation map ties relation names to { cardinality, entity } shapes.
-interface RelationEntry<E> { cardinality: Cardinality; entity: E; }
+interface RelationEntry<E> {
+  cardinality: Cardinality;
+  entity: E;
+}
 type RelationMap = Record<string, RelationEntry<unknown>>;
 
 // Populated<Base, R, K>: Base widened with the selected relation keys K.
 // to-one/one-to-one → entity object (nullable); to-many/many-to-many → entity[].
 type Populated<Base, R extends RelationMap, K extends keyof R> = Base & {
-  [P in K]: R[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
-    ? R[P]['entity'][]
-    : R[P]['entity'] | null;
+  [P in K]: R[P]['cardinality'] extends 'one-to-many' | 'many-to-many' ? R[P]['entity'][] : R[P]['entity'] | null;
 };
 ```
 
@@ -28,11 +29,10 @@ type Populated<Base, R extends RelationMap, K extends keyof R> = Base & {
   relation attached (plain object; never mutates the input).
 - Typed join rows: `JoinRow<Base, Joined>` = `Base & Partial<Joined>` for a LEFT
   join (joined side may be absent), `Base & Joined` for INNER. `aliasRow(row,
-  map)` renames aliased columns per a `{ alias: outKey }` map, stable order.
+map)` renames aliased columns per a `{ alias: outKey }` map, stable order.
   Frozen: `aliasRow` renames each mapped key to its out key (dropping the
   original), keeps un-mapped keys as-is, applies renames in `map` key order, and
   never mutates the input row.
-
 
 ```ts
 manyToOne(target: string, fk: string): RelationMeta
@@ -46,11 +46,11 @@ manyToMany(target: string, through: string): RelationMeta
 ```ts
 interface RelationMeta {
   readonly cardinality: 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
-  readonly target: string;                 // target table
-  readonly fk?: string;                     // owning-side FK column
-  readonly mappedBy?: string;               // inverse side field
-  readonly through?: string;                // join table (m:n)
-  readonly owning: boolean;                 // true where the FK is stored
+  readonly target: string; // target table
+  readonly fk?: string; // owning-side FK column
+  readonly mappedBy?: string; // inverse side field
+  readonly through?: string; // join table (m:n)
+  readonly owning: boolean; // true where the FK is stored
 }
 ```
 

@@ -32,10 +32,19 @@
 
 import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
-import { Controller, Get, Post, getRoutes, extractParams, validateWith, type Ctx } from '../../../packages/web/dist/index.js';
+
+import { assert, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
 import { defineSchema, serial, text } from '../../../packages/schema-core/src/index.ts';
 import type { CoreSchema, ColumnMeta, CreateDTO } from '../../../packages/schema-core/src/index.ts';
-import { assert, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
+import {
+  Controller,
+  Get,
+  Post,
+  getRoutes,
+  extractParams,
+  validateWith,
+  type Ctx,
+} from '../../../packages/web/dist/index.js';
 
 // Ensure the well-known Symbol.metadata exists before the decorated class is
 // evaluated. @zmdb/web ships this polyfill, but the package is `sideEffects:
@@ -186,5 +195,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.info(`@zmdb/web benchmark app on :${PORT} (${routes.length} routes, AOT-validated POST /user from one schema)`);
+  console.info(
+    `@zmdb/web benchmark app on :${PORT} (${routes.length} routes, AOT-validated POST /user from one schema)`,
+  );
 });

@@ -22,7 +22,7 @@ explicit descriptor argument for testing.
 
 ```ts
 interface ValidationIssue {
-  readonly path: string;      // exact path, e.g. input.orders[2].totalPrice
+  readonly path: string; // exact path, e.g. input.orders[2].totalPrice
   readonly expected: string;
   readonly value: unknown;
   readonly message: string;

@@ -30,7 +30,9 @@ const subs = [
       'Define relation → $ref / items:{$ref} mapping and toOpenApiComponents aggregation.',
       'Freeze determinism rules (stable key ordering) + golden fixtures.',
     ],
-    tests: ['Failing golden tests: toJsonSchema output for a sample schema matches the frozen fixture; determinism (generate twice → identical).'],
+    tests: [
+      'Failing golden tests: toJsonSchema output for a sample schema matches the frozen fixture; determinism (generate twice → identical).',
+    ],
     accept: [
       'Committed SPEC.md in packages/schema-core/src/openapi with mapping table + golden fixtures.',
       'Test file compiles and all tests FAIL (no implementation yet).',
@@ -40,7 +42,9 @@ const subs = [
     t: 'Implement toJsonSchema for scalar/enum/nullable columns',
     goal: 'Emit JSON Schema for a table Entity covering scalar types, enums, and nullability.',
     depends: 'the spec-freeze sub-issue',
-    spec: ['serial/integer/numeric→number, text/varchar→string, boolean→boolean, timestamp→string(format:date-time), jsonEnum→enum; nullable→type union with null.'],
+    spec: [
+      'serial/integer/numeric→number, text/varchar→string, boolean→boolean, timestamp→string(format:date-time), jsonEnum→enum; nullable→type union with null.',
+    ],
     tests: ['Make scalar/enum/nullable golden tests pass; required[] excludes hasDefault/nullable per spec.'],
     accept: ['Scalar/enum/nullable JSON Schema tests green.'],
   },
@@ -49,14 +53,18 @@ const subs = [
     goal: 'Fold column validation tags into the emitted JSON Schema keywords.',
     depends: 'toJsonSchema scalars',
     spec: ['Minimum/Maximum/MinLength/MaxLength/Pattern/Enum map to their JSON Schema keywords on the right property.'],
-    tests: ['Golden tests: a column with tags.Minimum(0)+tags.MaxLength(255) emits minimum/maxLength on that property.'],
+    tests: [
+      'Golden tests: a column with tags.Minimum(0)+tags.MaxLength(255) emits minimum/maxLength on that property.',
+    ],
     accept: ['Tag→keyword mapping tests green.'],
   },
   {
     t: 'Implement DTO-aware generation + relation $refs',
     goal: 'Generate distinct schemas for CreateDTO/UpdateDTO/Entity and emit relation $refs.',
     depends: 'tag→keyword mapping',
-    spec: ['CreateDTO omits autoIncrement + makes hasDefault optional; UpdateDTO is all-optional; relations → $ref (to-one) / items:{$ref} (to-many).'],
+    spec: [
+      'CreateDTO omits autoIncrement + makes hasDefault optional; UpdateDTO is all-optional; relations → $ref (to-one) / items:{$ref} (to-many).',
+    ],
     tests: ['Golden tests: Create vs Update vs Entity differ correctly; relation emits $ref to the target component.'],
     accept: ['DTO-aware + relation $ref tests green.'],
   },
@@ -64,9 +72,16 @@ const subs = [
     t: 'Implement toOpenApiComponents + determinism + E2E golden document',
     goal: 'Aggregate multiple schemas into components.schemas and prove a full deterministic OpenAPI 3.1 fragment.',
     depends: 'DTO-aware generation',
-    spec: ['toOpenApiComponents([...]) builds components.schemas with stable ordering; output is byte-stable across runs.'],
-    tests: ['E2E golden test: [UserSchema, OrderSchema] → committed OpenAPI components fixture; determinism test (twice → identical).'],
-    accept: ['E2E OpenAPI golden + determinism tests green.', 'Closing this + prior subs fully resolves the parent epic.'],
+    spec: [
+      'toOpenApiComponents([...]) builds components.schemas with stable ordering; output is byte-stable across runs.',
+    ],
+    tests: [
+      'E2E golden test: [UserSchema, OrderSchema] → committed OpenAPI components fixture; determinism test (twice → identical).',
+    ],
+    accept: [
+      'E2E OpenAPI golden + determinism tests green.',
+      'Closing this + prior subs fully resolves the parent epic.',
+    ],
   },
 ];
 
@@ -74,10 +89,16 @@ function buildBody(sub) {
   const L = [];
   L.push(`Parent epic: #${PARENT} (${TITLE})`, '');
   L.push('## Goal', sub.goal, '');
-  L.push('## Depends on', sub.depends === 'none' ? 'Nothing — this is the spec-freeze starting point (TDD).' : `Previous sub-issue(s): ${sub.depends}.`, '');
-  L.push('## Spec / Behavior', ...sub.spec.map((s) => `- ${s}`), '');
-  L.push('## TDD Test Plan (write failing tests first)', ...sub.tests.map((t) => `- ${t}`), '');
-  L.push('## Acceptance Criteria', ...sub.accept.map((a) => `- [ ] ${a}`), '');
+  L.push(
+    '## Depends on',
+    sub.depends === 'none'
+      ? 'Nothing — this is the spec-freeze starting point (TDD).'
+      : `Previous sub-issue(s): ${sub.depends}.`,
+    '',
+  );
+  L.push('## Spec / Behavior', ...sub.spec.map(s => `- ${s}`), '');
+  L.push('## TDD Test Plan (write failing tests first)', ...sub.tests.map(t => `- ${t}`), '');
+  L.push('## Acceptance Criteria', ...sub.accept.map(a => `- [ ] ${a}`), '');
   L.push('## Definition of Done');
   L.push('- [ ] Tests written first and initially failing (red).');
   L.push('- [ ] Implementation makes tests pass (green).');
@@ -90,7 +111,10 @@ const created = [];
 subs.forEach((sub, idx) => {
   const title = `[${TITLE}] ${idx === 0 ? 'Spec Freeze: ' : ''}${sub.t}`;
   const labels = idx === 0 ? 'sub-issue,spec' : 'sub-issue';
-  const url = gh(['issue', 'create', '--repo', `${OWNER}/${REPO}`, '--title', title, '--body-file', '-', '--label', labels], buildBody(sub));
+  const url = gh(
+    ['issue', 'create', '--repo', `${OWNER}/${REPO}`, '--title', title, '--body-file', '-', '--label', labels],
+    buildBody(sub),
+  );
   const num = Number(url.split('/').pop());
   created.push({ num, title });
   console.log(`created #${num} ${title}`);
@@ -98,8 +122,12 @@ subs.forEach((sub, idx) => {
 
 // 2. Resolve node IDs.
 const id = {};
-for (const n of [PARENT, ...created.map((c) => c.num)]) {
-  const r = graphql('query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}', { o: OWNER, r: REPO, n });
+for (const n of [PARENT, ...created.map(c => c.num)]) {
+  const r = graphql('query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}', {
+    o: OWNER,
+    r: REPO,
+    n,
+  });
   id[n] = r.data.repository.issue.id;
 }
 

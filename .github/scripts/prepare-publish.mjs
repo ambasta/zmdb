@@ -9,27 +9,33 @@ const VERSION = '1.0.0-alpha.4';
 
 const META = {
   'schema-core': {
-    description: 'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.',
+    description:
+      'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.',
     keywords: ['typescript', 'orm', 'schema', 'dto', 'type-derivation', 'openapi', 'zmdb'],
   },
   'query-compiler': {
-    description: 'SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.',
+    description:
+      'SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.',
     keywords: ['typescript', 'sql', 'query-builder', 'postgres', 'mysql', 'sqlite', 'migrations', 'zmdb'],
   },
   'aot-validator': {
-    description: 'Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.',
+    description:
+      'Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.',
     keywords: ['typescript', 'validation', 'aot', 'runtime-types', 'json', 'serialization', 'zmdb'],
   },
   repository: {
-    description: 'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
+    description:
+      'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
     keywords: ['typescript', 'repository', 'crud', 'transactions', 'data-layer', 'zmdb'],
   },
   web: {
-    description: 'Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.',
+    description:
+      'Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.',
     keywords: ['typescript', 'web-framework', 'decorators', 'stage-3', 'dependency-injection', 'zmdb'],
   },
   zmdb: {
-    description: 'The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.',
+    description:
+      'The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.',
     keywords: ['typescript', 'orm', 'data-layer', 'schema', 'validation', 'sql', 'zmdb'],
   },
 };
@@ -66,7 +72,7 @@ for (const [name, m] of Object.entries(META)) {
 
   // Per-package README.
   const exportList = Object.keys(pkg.exports || { '.': '' })
-    .map((e) => (e === '.' ? `\`${pkg.name}\`` : `\`${pkg.name}/${e.replace('./', '')}\``))
+    .map(e => (e === '.' ? `\`${pkg.name}\`` : `\`${pkg.name}/${e.replace('./', '')}\``))
     .join(', ');
   const readme = `# ${pkg.name}
 

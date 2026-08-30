@@ -11,11 +11,6 @@
       "@zmdb/query-compiler/aggregations": ["../query-compiler/dist/aggregations.d.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "**/*.spec.ts",
-    "dist"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "dist"]
 }

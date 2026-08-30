@@ -30,6 +30,7 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 ## Baseline contract (this issue)
 
 ### Package
+
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other
   packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
 - `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/repository`
@@ -39,6 +40,7 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
   exactly like the sibling packages).
 
 ### tsconfig
+
 - Extends `../../tsconfig.base.json`.
 - Adds `rootDir: src`, `outDir: dist`, and `paths` to the sibling packages' built
   `.d.ts` (mirroring `packages/repository/tsconfig.json`).
@@ -46,6 +48,7 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
   `emitDecoratorMetadata: false`. (`strict` etc. come from base.)
 
 ### Build & publish wiring
+
 - `tsup.config.ts` with `entry: { index: 'src/index.ts' }`, `format: ['esm']`,
   `dts: true`, `external: [/^@zmdb\//]`.
 - Registered in `.github/scripts/prepare-publish.mjs` `META` (description +
@@ -56,6 +59,7 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
   `packages/zmdb`).
 
 ### Baseline symbol
+
 - A zero-dependency **`Symbol.metadata` polyfill** (`src/polyfill.ts`), imported
   first by the entry, installing the well-known symbol when the runtime lacks it.
 - `metadataOf(target)` — a tiny, typed accessor that reads the Stage-3

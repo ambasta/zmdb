@@ -1,6 +1,7 @@
 // Load the FULL Northwind dataset (all tables) from the drizzle-benchmarks
 // SQLite DB into PostgreSQL, so the exact upstream query set (p1–p13) can run.
 import { DatabaseSync } from 'node:sqlite';
+
 import pg from 'pg';
 
 const sqlite = new DatabaseSync('northwind.db');
@@ -39,11 +40,74 @@ async function load(table, cols) {
 }
 
 const counts = {};
-counts.customers = await load('customers', ['id', 'company_name', 'contact_name', 'contact_title', 'address', 'city', 'postal_code', 'region', 'country', 'phone', 'fax']);
-counts.employees = await load('employees', ['id', 'last_name', 'first_name', 'title', 'title_of_courtesy', 'birth_date', 'hire_date', 'address', 'city', 'postal_code', 'country', 'home_phone', 'extension', 'notes', 'recipient_id']);
-counts.suppliers = await load('suppliers', ['id', 'company_name', 'contact_name', 'contact_title', 'address', 'city', 'region', 'postal_code', 'country', 'phone']);
-counts.products = await load('products', ['id', 'name', 'qt_per_unit', 'unit_price', 'units_in_stock', 'units_on_order', 'reorder_level', 'discontinued', 'supplier_id']);
-counts.orders = await load('orders', ['id', 'order_date', 'required_date', 'shipped_date', 'ship_via', 'freight', 'ship_name', 'ship_city', 'ship_region', 'ship_postal_code', 'ship_country', 'customer_id', 'employee_id']);
+counts.customers = await load('customers', [
+  'id',
+  'company_name',
+  'contact_name',
+  'contact_title',
+  'address',
+  'city',
+  'postal_code',
+  'region',
+  'country',
+  'phone',
+  'fax',
+]);
+counts.employees = await load('employees', [
+  'id',
+  'last_name',
+  'first_name',
+  'title',
+  'title_of_courtesy',
+  'birth_date',
+  'hire_date',
+  'address',
+  'city',
+  'postal_code',
+  'country',
+  'home_phone',
+  'extension',
+  'notes',
+  'recipient_id',
+]);
+counts.suppliers = await load('suppliers', [
+  'id',
+  'company_name',
+  'contact_name',
+  'contact_title',
+  'address',
+  'city',
+  'region',
+  'postal_code',
+  'country',
+  'phone',
+]);
+counts.products = await load('products', [
+  'id',
+  'name',
+  'qt_per_unit',
+  'unit_price',
+  'units_in_stock',
+  'units_on_order',
+  'reorder_level',
+  'discontinued',
+  'supplier_id',
+]);
+counts.orders = await load('orders', [
+  'id',
+  'order_date',
+  'required_date',
+  'shipped_date',
+  'ship_via',
+  'freight',
+  'ship_name',
+  'ship_city',
+  'ship_region',
+  'ship_postal_code',
+  'ship_country',
+  'customer_id',
+  'employee_id',
+]);
 counts.order_details = await load('order_details', ['unit_price', 'quantity', 'discount', 'order_id', 'product_id']);
 await client.query('ANALYZE');
 console.log('loaded:', JSON.stringify(counts));

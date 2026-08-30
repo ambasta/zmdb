@@ -31,7 +31,7 @@ Malformed JSON or validation failure yields `success:false` with issues.
 
 `parse` (and the transformer's generated `aotParseSafe`) must **not rebuild** the
 value — for a plain structural type there is no transform/coercion, so the
-parsed input *is* the result. Frozen invariants:
+parsed input _is_ the result. Frozen invariants:
 
 - `parse(JSON.stringify(obj))` on success returns `data` that is **structurally
   equal** to `obj` (deep-equal), with **no wasteful clone** — the shipped `parse`

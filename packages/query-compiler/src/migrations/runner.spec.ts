@@ -1,25 +1,34 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { up, down, status, runCli, type Migration, type MigrationConnection } from './runner.ts';
 
 // #44: migration runner + CLI + version tracking + E2E (real SQLite).
 
 function sqliteMigrationConn(db: DatabaseSync): MigrationConnection {
   return {
-    exec: (sql) => db.exec(sql),
+    exec: sql => db.exec(sql),
     appliedVersions: () =>
       (db.prepare('SELECT version FROM _zmdb_migrations ORDER BY version').all() as { version: number }[]).map(
-        (r) => r.version,
+        r => r.version,
       ),
     recordApplied: (version, name) =>
-      db.prepare('INSERT INTO _zmdb_migrations(version, name, applied_at) VALUES (?, ?, ?)').run(version, name, Date.now()),
-    recordReverted: (version) => db.prepare('DELETE FROM _zmdb_migrations WHERE version = ?').run(version),
+      db
+        .prepare('INSERT INTO _zmdb_migrations(version, name, applied_at) VALUES (?, ?, ?)')
+        .run(version, name, Date.now()),
+    recordReverted: version => db.prepare('DELETE FROM _zmdb_migrations WHERE version = ?').run(version),
   };
 }
 
 const migrations: Migration[] = [
   { version: 1, name: 'create_users', up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)', down: 'DROP TABLE users' },
-  { version: 2, name: 'add_email', up: 'ALTER TABLE users ADD COLUMN email TEXT', down: 'ALTER TABLE users DROP COLUMN email' },
+  {
+    version: 2,
+    name: 'add_email',
+    up: 'ALTER TABLE users ADD COLUMN email TEXT',
+    down: 'ALTER TABLE users DROP COLUMN email',
+  },
 ];
 
 let db: DatabaseSync;
@@ -30,7 +39,7 @@ beforeEach(() => {
 });
 
 function tableInfo(): string[] {
-  return (db.prepare("PRAGMA table_info('users')").all() as { name: string }[]).map((r) => r.name);
+  return (db.prepare("PRAGMA table_info('users')").all() as { name: string }[]).map(r => r.name);
 }
 
 describe('migration runner E2E (real SQLite)', () => {

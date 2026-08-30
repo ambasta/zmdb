@@ -1,6 +1,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import { buildSearchResult, type SearchDTO, type SearchHit } from './index.ts';
+
 import { defineSchema, serial, text } from '../index.ts';
+import { buildSearchResult, type SearchDTO, type SearchHit } from './index.ts';
 
 const DocSchema = defineSchema('docs', {
   id: serial().primaryKey(),

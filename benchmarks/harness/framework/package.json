@@ -1,8 +1,8 @@
 {
   "name": "framework-bench",
   "private": true,
-  "type": "module",
   "description": "the-benchmarker/web-frameworks contract app for @zmdb/web",
+  "type": "module",
   "scripts": {
     "start": "node --experimental-strip-types app.ts"
   },

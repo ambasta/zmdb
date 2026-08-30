@@ -1,500 +1,905 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>zmdb — Benchmarks</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-  :root { --bg:#0d1117; --panel:#161b22; --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --zmdb:#3fb950; --line:#30363d; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
-  header { padding:28px 24px 8px; }
-  h1 { margin:0 0 4px; font-size:26px; }
-  .sub { color:var(--muted); max-width:900px; }
-  main { padding:16px 24px 60px; max-width:1000px; margin:0 auto; }
-  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:18px 0; }
-  h2 { margin:0 0 6px; font-size:19px; }
-  .note { color:var(--muted); font-size:13px; margin:6px 0 14px; }
-  .tabs { display:flex; gap:8px; margin:8px 0 16px; }
-  .tab { background:#21262d; border:1px solid var(--line); color:var(--fg); padding:6px 14px; border-radius:6px; cursor:pointer; }
-  .tab.active { background:var(--accent); color:#0d1117; border-color:var(--accent); font-weight:600; }
-  .rtbadge { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:20px; color:#0d1117; }
-  canvas { max-height:340px; }
-  table { border-collapse:collapse; width:100%; font-size:14px; margin-top:8px; }
-  th,td { border:1px solid var(--line); padding:6px 10px; text-align:right; }
-  th:first-child,td:first-child { text-align:left; }
-  .yes { color:var(--zmdb); font-weight:600; } .no { color:#f85149; }
-  code { background:#21262d; padding:1px 5px; border-radius:4px; }
-  .cfg { font-size:13px; color:var(--muted); }
-  .cfg b { color:var(--fg); }
-  a { color:var(--accent); }
-  .honest { border-left:3px solid var(--accent); padding-left:12px; }
-</style>
-</head>
-<body>
-<header>
-  <h1>zmdb — Benchmarks</h1>
-  <p class="sub">zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
-  (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
-  <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
-  <a href="https://github.com/the-benchmarker/web-frameworks">the-benchmarker/web-frameworks</a> HTTP). Numbers are indicative of the
-  generating machine, not an official ranking. <b>DNF</b> = the library cannot express that case (never summed into a score).</p>
-</header>
-<main>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>zmdb — Benchmarks</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --zmdb: #3fb950;
+        --line: #30363d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.5 -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      header {
+        padding: 28px 24px 8px;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 26px;
+      }
+      .sub {
+        color: var(--muted);
+        max-width: 900px;
+      }
+      main {
+        padding: 16px 24px 60px;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin: 18px 0;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font-size: 19px;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 6px 0 14px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 16px;
+      }
+      .tab {
+        background: #21262d;
+        border: 1px solid var(--line);
+        color: var(--fg);
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .tab.active {
+        background: var(--accent);
+        color: #0d1117;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .rtbadge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 1px 8px;
+        border-radius: 20px;
+        color: #0d1117;
+      }
+      canvas {
+        max-height: 340px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 6px 10px;
+        text-align: right;
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      .yes {
+        color: var(--zmdb);
+        font-weight: 600;
+      }
+      .no {
+        color: #f85149;
+      }
+      code {
+        background: #21262d;
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .cfg {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .cfg b {
+        color: var(--fg);
+      }
+      a {
+        color: var(--accent);
+      }
+      .honest {
+        border-left: 3px solid var(--accent);
+        padding-left: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>zmdb — Benchmarks</h1>
+      <p class="sub">
+        zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b> (<a
+          href="https://github.com/moltar/typescript-runtime-type-benchmarks"
+          >moltar</a
+        >
+        validation, <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
+        <a href="https://github.com/the-benchmarker/web-frameworks">the-benchmarker/web-frameworks</a> HTTP). Numbers
+        are indicative of the generating machine, not an official ranking. <b>DNF</b> = the library cannot express that
+        case (never summed into a score).
+      </p>
+    </header>
+    <main>
+      <section id="framework">
+        <h2>Framework (HTTP) — the-benchmarker/web-frameworks (<code>@zmdb/web</code>)</h2>
+        <p class="note" id="fwMethod"></p>
+        <table id="fwContract"></table>
+        <p class="note honest" id="fwVerdict"></p>
 
-<section id="framework">
-  <h2>Framework (HTTP) — the-benchmarker/web-frameworks (<code>@zmdb/web</code>)</h2>
-  <p class="note" id="fwMethod"></p>
-  <table id="fwContract"></table>
-  <p class="note honest" id="fwVerdict"></p>
+        <div id="fwLoad">
+          <h3 style="margin: 20px 0 4px; font-size: 16px">Throughput &amp; latency — per route, per concurrency</h3>
+          <p class="note" id="fwRunMeta"></p>
+          <div class="tabs" id="fwLevelTabs"></div>
+          <canvas id="fwChart"></canvas>
+          <table id="fwTable"></table>
+          <p class="note">
+            Click a column header to sort. Latencies shown in <b>ms</b> (oha reports seconds; converted here).
+            <code>req/s</code> higher = better; latencies lower = better.
+          </p>
 
-  <div id="fwLoad">
-    <h3 style="margin:20px 0 4px;font-size:16px;">Throughput &amp; latency — per route, per concurrency</h3>
-    <p class="note" id="fwRunMeta"></p>
-    <div class="tabs" id="fwLevelTabs"></div>
-    <canvas id="fwChart"></canvas>
-    <table id="fwTable"></table>
-    <p class="note">Click a column header to sort. Latencies shown in <b>ms</b> (oha reports seconds; converted here). <code>req/s</code> higher = better; latencies lower = better.</p>
+          <h3 style="margin: 22px 0 4px; font-size: 16px">Measured here — apples-to-apples head-to-head</h3>
+          <p class="note" id="fwPeersNote"></p>
+          <div class="tabs" id="fwPeersLevelTabs"></div>
+          <div class="tabs" id="fwPeersRouteTabs"></div>
+          <canvas id="fwPeersChart"></canvas>
+          <table id="fwPeersTable"></table>
+          <p class="note" id="fwPeersSkipped"></p>
 
-    <h3 style="margin:22px 0 4px;font-size:16px;">Measured here — apples-to-apples head-to-head</h3>
-    <p class="note" id="fwPeersNote"></p>
-    <div class="tabs" id="fwPeersLevelTabs"></div>
-    <div class="tabs" id="fwPeersRouteTabs"></div>
-    <canvas id="fwPeersChart"></canvas>
-    <table id="fwPeersTable"></table>
-    <p class="note" id="fwPeersSkipped"></p>
+          <h3 style="margin: 22px 0 4px; font-size: 16px">
+            Context — upstream peer set (published, different machine)
+          </h3>
+          <p class="note" id="fwRefNote"></p>
+          <div class="tabs" id="fwRefLevelTabs"></div>
+          <canvas id="fwRefChart"></canvas>
+        </div>
+        <p class="note" id="fwThroughput"></p>
+      </section>
 
-    <h3 style="margin:22px 0 4px;font-size:16px;">Context — upstream peer set (published, different machine)</h3>
-    <p class="note" id="fwRefNote"></p>
-    <div class="tabs" id="fwRefLevelTabs"></div>
-    <canvas id="fwRefChart"></canvas>
-  </div>
-  <p class="note" id="fwThroughput"></p>
-</section>
+      <section>
+        <h2>Validation — ops/sec across runtimes</h2>
+        <p class="note">
+          Same code under <b>Node</b>, <b>Bun</b>, and <b>Deno</b> (like the moltar site). <code>zmdb-aot</code> is
+          transformer-produced (the real <code>@zmdb/aot-validator</code> transform); <code>zmdb (runtime)</code> is the
+          shipped descriptor validator. Higher = faster.
+        </p>
+        <div class="tabs" id="rtTabs"></div>
+        <div class="tabs" id="caseTabs"></div>
+        <canvas id="valChart"></canvas>
+        <p class="note" id="valCaveat"></p>
+      </section>
 
+      <section>
+        <h2>ORM — throughput & latency (full 13-route k6 vs Drizzle / Kysely, real PostgreSQL)</h2>
+        <p class="note" id="ormCfg"></p>
+        <canvas id="ormChart"></canvas>
+        <table id="ormTable"></table>
+        <p class="note honest">
+          Honest read: <b>zmdb leads throughput (2,916 req/s) and average latency (102ms)</b>; drizzle keeps the
+          <b>best tail</b> (p95 173.8ms vs zmdb 215.5). With server-side prepared statements
+          (<code>ZMDB_PREPARED=1</code>, below) zmdb rises to 3,068 req/s / 97ms avg and narrows the tail to p95 209.5 —
+          a real, reproducible gain, though drizzle still owns the tail. All ORMs: 0 failed requests.
+        </p>
+      </section>
 
-<section>
-  <h2>Validation — ops/sec across runtimes</h2>
-  <p class="note">Same code under <b>Node</b>, <b>Bun</b>, and <b>Deno</b> (like the moltar site). <code>zmdb-aot</code> is
-  transformer-produced (the real <code>@zmdb/aot-validator</code> transform); <code>zmdb (runtime)</code> is the shipped
-  descriptor validator. Higher = faster.</p>
-  <div class="tabs" id="rtTabs"></div>
-  <div class="tabs" id="caseTabs"></div>
-  <canvas id="valChart"></canvas>
-  <p class="note" id="valCaveat"></p>
-</section>
+      <section>
+        <h2>ORM — prepared-statement head-to-head (the tail-latency lever)</h2>
+        <p class="note">
+          Same zmdb server, <code>ZMDB_PREPARED=1</code> makes Postgres cache the query plan server-side (stable
+          statement name per compiled SQL). Two back-to-back runs to show reproducibility:
+        </p>
+        <table id="prepTable"></table>
+        <p class="note honest" id="prepVerdict"></p>
+      </section>
 
-<section>
-  <h2>ORM — throughput & latency (full 13-route k6 vs Drizzle / Kysely, real PostgreSQL)</h2>
-  <p class="note" id="ormCfg"></p>
-  <canvas id="ormChart"></canvas>
-  <table id="ormTable"></table>
-  <p class="note honest">Honest read: <b>zmdb leads throughput (2,916 req/s) and average latency (102ms)</b>;
-  drizzle keeps the <b>best tail</b> (p95 173.8ms vs zmdb 215.5). With server-side prepared statements
-  (<code>ZMDB_PREPARED=1</code>, below) zmdb rises to 3,068 req/s / 97ms avg and narrows the tail to p95 209.5 —
-  a real, reproducible gain, though drizzle still owns the tail. All ORMs: 0 failed requests.</p>
-</section>
+      <section>
+        <h2>ORM — feature coverage (each route, not summed)</h2>
+        <table id="covTable"></table>
+        <p class="note" id="dnfNote"></p>
+      </section>
 
-<section>
-  <h2>ORM — prepared-statement head-to-head (the tail-latency lever)</h2>
-  <p class="note">Same zmdb server, <code>ZMDB_PREPARED=1</code> makes Postgres cache the query plan
-  server-side (stable statement name per compiled SQL). Two back-to-back runs to show reproducibility:</p>
-  <table id="prepTable"></table>
-  <p class="note honest" id="prepVerdict"></p>
-</section>
+      <section id="gaps">
+        <h2>Where we don't win — gaps &amp; design trade-offs (honest)</h2>
+        <p class="note">
+          We do <b>not</b> win every case in every runtime. This table is generated from the same matrix above: for each
+          runtime × case it shows <code>zmdb-aot</code>'s rank and, when behind, the leader and the gap. Below it, each
+          recurring gap is explained — separating <b>fixable deficiencies</b> from <b>deliberate design trade-offs</b>.
+        </p>
+        <div class="tabs" id="gapRtTabs"></div>
+        <table id="gapTable"></table>
 
-<section>
-  <h2>ORM — feature coverage (each route, not summed)</h2>
-  <table id="covTable"></table>
-  <p class="note" id="dnfNote"></p>
-</section>
+        <h3 style="margin: 22px 0 4px; font-size: 16px">Validation trade-offs</h3>
+        <ul class="note" style="line-height: 1.7">
+          <li>
+            <b>Fixed: parse no longer rebuilds the object.</b> The parse case used to allocate a fresh result object;
+            the shipped <code>parse&lt;T&gt;</code> contract returns the validated input as-is (no transform/coercion
+            for a plain structural type — same as typia's <code>assertParse</code>). A low-noise probe measured this at
+            <b>153M vs 98M ops/s (1.56×)</b>. After the fix
+            <b>Node leads parseStrict/assertLoose/assertStrict and Deno leads all four cases</b>; Node parseSafe is
+            within ~1.05× of typia (run-to-run noise).
+          </li>
+          <li>
+            <b>parse vs typia is now noise-level.</b> Our <code>is</code>-check is byte-identical to typia's inline;
+            after removing the rebuild the two <b>trade the parse/strict lead run-to-run</b> on a shared box. No
+            structural gap remains — see the fixable-item issue
+            <a href="https://github.com/ambasta/zmdb/issues/162">#162</a>.
+          </li>
+          <li>
+            <b>assertLoose is NOT a real gap.</b> We measured our single boolean-chain <code>is()</code> at
+            <b>352M ops/s — faster than <code>new Function()</code> JIT (124M)</b>, early-return (126M) and hoisted
+            (89M) variants. Our static, source-visible, CSP-safe emission already beats the JIT approach; the earlier
+            "1.13× behind TypeBox-JIT" was harness/wrapper measurement noise, now reclassified.
+          </li>
+          <li>
+            <b>Strict (excess-key) cost ~40–60M is a property of the problem.</b> Rejecting excess keys must enumerate
+            own keys (inlined <code>for-in</code> with early-exit — no helper call, no
+            <code>Object.keys()</code> allocation). typia sits in the same band; we lead Node/Deno strict.
+          </li>
+          <li>
+            <b>Bun strict favours typia (~2.4×).</b> On Bun's JIT specifically, typia's strict emission wins the two
+            strict cases — the same Bun JIT that <em>dead-code-eliminates</em> our no-op <code>assertLoose</code> (942M,
+            not real). Runtime-specific JIT behaviour, flagged, not a portable gap (Node and Deno both lead strict).
+          </li>
+          <li>
+            <b>The shipped default is the runtime path.</b> Without the AOT transform wired in,
+            <code>zmdb (runtime)</code> loses to zod v4 on most cases. Peak numbers require the build plugin — a
+            deliberate "opt-in for peak, correct-by-default" stance.
+          </li>
+        </ul>
 
-<section id="gaps">
-  <h2>Where we don't win — gaps &amp; design trade-offs (honest)</h2>
-  <p class="note">We do <b>not</b> win every case in every runtime. This table is generated from the
-  same matrix above: for each runtime × case it shows <code>zmdb-aot</code>'s rank and, when behind, the
-  leader and the gap. Below it, each recurring gap is explained — separating <b>fixable deficiencies</b>
-  from <b>deliberate design trade-offs</b>.</p>
-  <div class="tabs" id="gapRtTabs"></div>
-  <table id="gapTable"></table>
+        <h3 style="margin: 22px 0 4px; font-size: 16px">ORM trade-off — tail latency</h3>
+        <p class="note" style="line-height: 1.7">
+          On the re-run (real Northwind, 427k-request replay),
+          <b>zmdb leads throughput (2,916 req/s) and average (102ms)</b>; drizzle keeps the <b>best tail</b> (p95 173.8
+          vs zmdb 215.5). We investigated the cause: the per-request query compile is ~254ns — negligible against a
+          ~100ms round-trip — so the tail is round-trip + pool contention + GC variance under load, inherent to the
+          <b>stateless, no-identity-map, no-hidden-cache</b> design. We then <b>empirically tested the real lever</b>:
+          <code>ZMDB_PREPARED=1</code> (server-side prepared statements) reproducibly lifts zmdb to
+          <b>3,068 req/s / 97ms avg</b> and cuts the tail by ~11ms p90 / ~10ms p95 (see the head-to-head table above).
+          So the tail can be improved — we keep it an <b>explicit opt-in</b> rather than a hidden cache, preserving the
+          zero-state guarantee by default. drizzle still owns the tail; that remains an honest trade-off. See
+          <a href="../docs/anti-patterns.html">Anti-patterns</a> for why implicit caches are excluded.
+        </p>
+      </section>
+    </main>
+    <script>
+      const CASES = ['parseSafe', 'parseStrict', 'assertLoose', 'assertStrict'];
+      const fmt = n => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n.toLocaleString());
+      let VAL = {},
+        RUNTIME = 'node',
+        CASE = 'assertStrict',
+        valChart,
+        ormChart;
+      let GAP_RT = 'node';
 
-  <h3 style="margin:22px 0 4px;font-size:16px;">Validation trade-offs</h3>
-  <ul class="note" style="line-height:1.7">
-    <li><b>Fixed: parse no longer rebuilds the object.</b> The parse case used to allocate a fresh
-      result object; the shipped <code>parse&lt;T&gt;</code> contract returns the validated input as-is
-      (no transform/coercion for a plain structural type — same as typia's <code>assertParse</code>).
-      A low-noise probe measured this at <b>153M vs 98M ops/s (1.56×)</b>. After the fix <b>Node leads
-      parseStrict/assertLoose/assertStrict and Deno leads all four cases</b>; Node parseSafe is within
-      ~1.05× of typia (run-to-run noise).</li>
-    <li><b>parse vs typia is now noise-level.</b> Our <code>is</code>-check is byte-identical to typia's
-      inline; after removing the rebuild the two <b>trade the parse/strict lead run-to-run</b> on a shared
-      box. No structural gap remains — see the fixable-item issue <a href="https://github.com/ambasta/zmdb/issues/162">#162</a>.</li>
-    <li><b>assertLoose is NOT a real gap.</b> We measured our single boolean-chain <code>is()</code> at
-      <b>352M ops/s — faster than <code>new Function()</code> JIT (124M)</b>, early-return (126M) and
-      hoisted (89M) variants. Our static, source-visible, CSP-safe emission already beats the JIT approach;
-      the earlier "1.13× behind TypeBox-JIT" was harness/wrapper measurement noise, now reclassified.</li>
-    <li><b>Strict (excess-key) cost ~40–60M is a property of the problem.</b> Rejecting excess keys must
-      enumerate own keys (inlined <code>for-in</code> with early-exit — no helper call, no
-      <code>Object.keys()</code> allocation). typia sits in the same band; we lead Node/Deno strict.</li>
-    <li><b>Bun strict favours typia (~2.4×).</b> On Bun's JIT specifically, typia's strict emission wins
-      the two strict cases — the same Bun JIT that <em>dead-code-eliminates</em> our no-op
-      <code>assertLoose</code> (942M, not real). Runtime-specific JIT behaviour, flagged, not a portable gap
-      (Node and Deno both lead strict).</li>
-    <li><b>The shipped default is the runtime path.</b> Without the AOT transform wired in,
-      <code>zmdb (runtime)</code> loses to zod v4 on most cases. Peak numbers require the build plugin —
-      a deliberate "opt-in for peak, correct-by-default" stance.</li>
-  </ul>
+      async function load() {
+        VAL = await (await fetch('./validation-matrix.json')).json();
+        const orm = await (await fetch('./orm-results.json')).json();
+        buildRuntimeTabs();
+        buildCaseTabs();
+        drawVal();
+        drawOrm(orm);
+        buildGapTabs();
+        drawGap();
+        try {
+          drawFramework(await (await fetch('./framework-results.json')).json());
+        } catch (e) {
+          /* optional */
+        }
+        try {
+          drawPeers(await (await fetch('./peers-results.json')).json());
+        } catch (e) {
+          var el = document.getElementById('fwPeersNote');
+          if (el) el.textContent = '';
+        }
+      }
 
-  <h3 style="margin:22px 0 4px;font-size:16px;">ORM trade-off — tail latency</h3>
-  <p class="note" style="line-height:1.7">
-    On the re-run (real Northwind, 427k-request replay), <b>zmdb leads throughput (2,916 req/s) and average
-    (102ms)</b>; drizzle keeps the <b>best tail</b> (p95 173.8 vs zmdb 215.5). We investigated the cause: the
-    per-request query compile is ~254ns — negligible against a ~100ms round-trip — so the tail is
-    round-trip + pool contention + GC variance under load, inherent to the <b>stateless, no-identity-map,
-    no-hidden-cache</b> design. We then <b>empirically tested the real lever</b>: <code>ZMDB_PREPARED=1</code>
-    (server-side prepared statements) reproducibly lifts zmdb to <b>3,068 req/s / 97ms avg</b> and cuts the
-    tail by ~11ms p90 / ~10ms p95 (see the head-to-head table above). So the tail can be improved — we keep it
-    an <b>explicit opt-in</b> rather than a hidden cache, preserving the zero-state guarantee by default.
-    drizzle still owns the tail; that remains an honest trade-off. See
-    <a href="../docs/anti-patterns.html">Anti-patterns</a> for why implicit caches are excluded.
-  </p>
-</section>
+      // --- Framework (HTTP) — the-benchmarker/web-frameworks contract + methodology ---
+      let FW = null,
+        FW_LEVEL = null,
+        FW_REF_LEVEL = null,
+        FW_SORT = { key: 'rps', dir: -1 },
+        fwChart,
+        fwRefChart;
+      const secs2ms = s => (s == null ? null : s * 1000);
 
-</main>
-<script>
-const CASES = ['parseSafe','parseStrict','assertLoose','assertStrict'];
-const fmt = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n.toLocaleString();
-let VAL = {}, RUNTIME = 'node', CASE = 'assertStrict', valChart, ormChart;
-let GAP_RT = 'node';
+      function drawFramework(fw) {
+        FW = fw;
+        const method = document.getElementById('fwMethod');
+        if (method) {
+          method.innerHTML =
+            `<code>@zmdb/web</code> participates in the ` +
+            `<a href="${fw.upstream}">the-benchmarker/web-frameworks</a> suite under its exact shared contract ` +
+            `(port <b>${fw.port}</b>). ${fw.methodology}`;
+        }
+        const t = document.getElementById('fwContract');
+        if (t) {
+          t.innerHTML =
+            '<tr><th>Method</th><th style="text-align:left">Route</th><th>Status</th>' +
+            '<th style="text-align:left">Body</th><th>Contract</th></tr>' +
+            fw.contract
+              .map(
+                r =>
+                  `<tr><td>${r.method}</td><td style="text-align:left"><code>${r.route}</code></td>` +
+                  `<td>${r.status}</td><td style="text-align:left">${r.body}</td>` +
+                  `<td class="${r.pass ? 'yes' : 'no'}">${r.pass ? '✓' : '✗'}</td></tr>`,
+              )
+              .join('');
+        }
+        const v = document.getElementById('fwVerdict');
+        if (v) v.textContent = fw.contractVerdict;
 
-async function load() {
-  VAL = await (await fetch('./validation-matrix.json')).json();
-  const orm = await (await fetch('./orm-results.json')).json();
-  buildRuntimeTabs(); buildCaseTabs(); drawVal();
-  drawOrm(orm);
-  buildGapTabs(); drawGap();
-  try { drawFramework(await (await fetch('./framework-results.json')).json()); } catch (e) { /* optional */ }
-  try { drawPeers(await (await fetch('./peers-results.json')).json()); } catch (e) { var el=document.getElementById('fwPeersNote'); if(el) el.textContent=''; }
-}
+        const load = document.getElementById('fwLoad');
+        const tp = document.getElementById('fwThroughput');
+        const measured =
+          fw.throughput && fw.throughput.measured === true && Array.isArray(fw.metrics) && fw.metrics.length;
+        if (!measured) {
+          if (load) load.style.display = 'none';
+          if (tp)
+            tp.innerHTML =
+              `<b>Throughput/latency:</b> not measured in this dataset — ` +
+              `${(fw.throughput && fw.throughput.reason) || 'oha not available on the generating machine'}. ` +
+              `Reproduce with <code>${(fw.throughput && fw.throughput.reproduce) || 'bash benchmarks/harness/framework/run.sh'}</code>.`;
+          return;
+        }
+        if (tp) tp.innerHTML = '';
+        const meta = document.getElementById('fwRunMeta');
+        if (meta)
+          meta.innerHTML =
+            `Measured on <b>${fw.machine || 'this machine'}</b>` +
+            (fw.generatedAt ? ` at <b>${fw.generatedAt}</b>` : '') +
+            `. Real <code>oha</code> output — no fabricated numbers. Every route returned 0 HTTP errors.`;
 
-// --- Framework (HTTP) — the-benchmarker/web-frameworks contract + methodology ---
-let FW = null, FW_LEVEL = null, FW_REF_LEVEL = null, FW_SORT = { key: 'rps', dir: -1 }, fwChart, fwRefChart;
-const secs2ms = s => (s == null ? null : s * 1000);
+        const levels = [...new Set(fw.metrics.map(m => m.level))].sort((a, b) => a - b);
+        FW_LEVEL = levels.includes(64) ? 64 : levels[0];
+        buildFwLevelTabs(levels);
+        drawFwLevel();
 
-function drawFramework(fw) {
-  FW = fw;
-  const method = document.getElementById('fwMethod');
-  if (method) {
-    method.innerHTML = `<code>@zmdb/web</code> participates in the ` +
-      `<a href="${fw.upstream}">the-benchmarker/web-frameworks</a> suite under its exact shared contract ` +
-      `(port <b>${fw.port}</b>). ${fw.methodology}`;
-  }
-  const t = document.getElementById('fwContract');
-  if (t) {
-    t.innerHTML = '<tr><th>Method</th><th style="text-align:left">Route</th><th>Status</th>' +
-      '<th style="text-align:left">Body</th><th>Contract</th></tr>' +
-      fw.contract.map(r =>
-        `<tr><td>${r.method}</td><td style="text-align:left"><code>${r.route}</code></td>` +
-        `<td>${r.status}</td><td style="text-align:left">${r.body}</td>` +
-        `<td class="${r.pass ? 'yes' : 'no'}">${r.pass ? '✓' : '✗'}</td></tr>`).join('');
-  }
-  const v = document.getElementById('fwVerdict');
-  if (v) v.textContent = fw.contractVerdict;
+        // Upstream reference context.
+        const ref = fw.upstreamReference;
+        const refNote = document.getElementById('fwRefNote');
+        if (ref && ref.frameworks && ref.frameworks.length) {
+          if (refNote) refNote.innerHTML = ref.note + ` <a href="${ref.source.split(' ')[0]}">source</a>.`;
+          const refLevels = [...new Set(ref.frameworks.flatMap(f => Object.keys(f.byLevel).map(Number)))].sort(
+            (a, b) => a - b,
+          );
+          FW_REF_LEVEL = refLevels.includes(64) ? 64 : refLevels[0];
+          buildFwRefLevelTabs(refLevels);
+          drawFwRef();
+        } else {
+          const rc = document.getElementById('fwRefChart');
+          if (rc) rc.style.display = 'none';
+        }
+      }
 
-  const load = document.getElementById('fwLoad');
-  const tp = document.getElementById('fwThroughput');
-  const measured = fw.throughput && fw.throughput.measured === true && Array.isArray(fw.metrics) && fw.metrics.length;
-  if (!measured) {
-    if (load) load.style.display = 'none';
-    if (tp) tp.innerHTML = `<b>Throughput/latency:</b> not measured in this dataset — ` +
-      `${(fw.throughput && fw.throughput.reason) || 'oha not available on the generating machine'}. ` +
-      `Reproduce with <code>${(fw.throughput && fw.throughput.reproduce) || 'bash benchmarks/harness/framework/run.sh'}</code>.`;
-    return;
-  }
-  if (tp) tp.innerHTML = '';
-  const meta = document.getElementById('fwRunMeta');
-  if (meta) meta.innerHTML = `Measured on <b>${fw.machine || 'this machine'}</b>` +
-    (fw.generatedAt ? ` at <b>${fw.generatedAt}</b>` : '') + `. Real <code>oha</code> output — no fabricated numbers. Every route returned 0 HTTP errors.`;
+      function fwRoutes() {
+        return [...new Set(FW.metrics.map(m => m.route))];
+      }
+      function fwVal(level, route, label) {
+        const m = FW.metrics.find(x => x.level === level && x.route === route && x.label === label);
+        return m ? m.value : null;
+      }
+      function buildFwLevelTabs(levels) {
+        const el = document.getElementById('fwLevelTabs');
+        if (!el) return;
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
+        for (const lv of levels) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (lv === FW_LEVEL ? ' active' : '');
+          b.textContent = 'c=' + lv;
+          b.onclick = () => {
+            FW_LEVEL = lv;
+            buildFwLevelTabs(levels);
+            drawFwLevel();
+          };
+          el.appendChild(b);
+        }
+      }
+      function drawFwLevel() {
+        const routes = fwRoutes();
+        const rows = routes.map(r => ({
+          route: r,
+          rps: fwVal(FW_LEVEL, r, 'total_requests_per_s'),
+          avg: secs2ms(fwVal(FW_LEVEL, r, 'average_latency')),
+          p50: secs2ms(fwVal(FW_LEVEL, r, 'percentile50')),
+          p90: secs2ms(fwVal(FW_LEVEL, r, 'percentile90')),
+          p99: secs2ms(fwVal(FW_LEVEL, r, 'percentile99')),
+          err: fwVal(FW_LEVEL, r, 'http_errors'),
+        }));
+        rows.sort((a, b) => (a[FW_SORT.key] - b[FW_SORT.key]) * FW_SORT.dir);
+        const ms = n => (n == null ? '—' : n.toFixed(3));
+        const cols = [
+          ['route', 'Route'],
+          ['rps', 'req/s'],
+          ['avg', 'avg ms'],
+          ['p50', 'p50 ms'],
+          ['p90', 'p90 ms'],
+          ['p99', 'p99 ms'],
+          ['err', 'errors'],
+        ];
+        const t = document.getElementById('fwTable');
+        if (t) {
+          t.innerHTML =
+            '<tr>' +
+            cols
+              .map(
+                ([k, l]) =>
+                  `<th data-k="${k}" style="cursor:pointer${k === 'route' ? ';text-align:left' : ''}">${l}${FW_SORT.key === k ? (FW_SORT.dir < 0 ? ' ▼' : ' ▲') : ''}</th>`,
+              )
+              .join('') +
+            '</tr>' +
+            rows
+              .map(
+                row =>
+                  '<tr>' +
+                  `<td style="text-align:left"><code>${row.route}</code></td>` +
+                  `<td>${row.rps == null ? '—' : Math.round(row.rps).toLocaleString()}</td>` +
+                  `<td>${ms(row.avg)}</td><td>${ms(row.p50)}</td><td>${ms(row.p90)}</td><td>${ms(row.p99)}</td>` +
+                  `<td class="${row.err ? 'no' : 'yes'}">${row.err == null ? '—' : Math.round(row.err)}</td></tr>`,
+              )
+              .join('');
+          t.querySelectorAll('th[data-k]').forEach(
+            th =>
+              (th.onclick = () => {
+                const k = th.dataset.k;
+                if (FW_SORT.key === k) FW_SORT.dir *= -1;
+                else FW_SORT = { key: k, dir: k === 'route' ? 1 : -1 };
+                drawFwLevel();
+              }),
+          );
+        }
+        // Chart: req/s per route at this level.
+        if (fwChart) fwChart.destroy();
+        fwChart = new Chart(document.getElementById('fwChart'), {
+          type: 'bar',
+          data: {
+            labels: routes,
+            datasets: [
+              {
+                label: `req/s @ c=${FW_LEVEL}`,
+                data: routes.map(r => fwVal(FW_LEVEL, r, 'total_requests_per_s')),
+                backgroundColor: '#3fb950',
+              },
+            ],
+          },
+          options: {
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: c => Math.round(c.raw).toLocaleString() + ' req/s' } },
+            },
+            scales: {
+              x: { ticks: { color: '#8b949e', callback: fmt }, grid: { color: '#30363d' } },
+              y: { ticks: { color: '#e6edf3' }, grid: { display: false } },
+            },
+          },
+        });
+      }
+      function buildFwRefLevelTabs(levels) {
+        const el = document.getElementById('fwRefLevelTabs');
+        if (!el) return;
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
+        for (const lv of levels) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (lv === FW_REF_LEVEL ? ' active' : '');
+          b.textContent = 'c=' + lv;
+          b.onclick = () => {
+            FW_REF_LEVEL = lv;
+            buildFwRefLevelTabs(levels);
+            drawFwRef();
+          };
+          el.appendChild(b);
+        }
+      }
+      function drawFwRef() {
+        const ref = FW.upstreamReference.frameworks
+          .map(f => ({ label: f.label, language: f.language, rps: f.byLevel[FW_REF_LEVEL]?.rps }))
+          .filter(f => f.rps != null)
+          .sort((a, b) => b.rps - a.rps);
+        const labels = ref.map(f => `${f.label} (${f.language})`);
+        const colors = ref.map(f => (f.label.includes('nest') ? '#f0883e' : '#58a6ff'));
+        if (fwRefChart) fwRefChart.destroy();
+        fwRefChart = new Chart(document.getElementById('fwRefChart'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: `upstream req/s @ c=${FW_REF_LEVEL}`, data: ref.map(f => f.rps), backgroundColor: colors },
+            ],
+          },
+          options: {
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: c => Math.round(c.raw).toLocaleString() + ' req/s (published)' } },
+            },
+            scales: {
+              x: { ticks: { color: '#8b949e', callback: fmt }, grid: { color: '#30363d' } },
+              y: { ticks: { color: '#e6edf3', font: { size: 11 } }, grid: { display: false } },
+            },
+          },
+        });
+      }
 
-  const levels = [...new Set(fw.metrics.map(m => m.level))].sort((a,b)=>a-b);
-  FW_LEVEL = levels.includes(64) ? 64 : levels[0];
-  buildFwLevelTabs(levels);
-  drawFwLevel();
+      // --- Same-machine head-to-head (peers-results.json + @zmdb/web's own metrics) ---
+      let PEERS = null,
+        PEERS_LEVEL = null,
+        PEERS_ROUTE = null,
+        PEERS_SORT = { key: 'rps', dir: -1 },
+        fwPeersChart;
+      const RT_COLOR = { javascript: '#f7df1e', go: '#00add8', rust: '#dea584', python: '#3572a5', zmdb: '#3fb950' };
+      function drawPeers(pd) {
+        PEERS = pd;
+        const note = document.getElementById('fwPeersNote');
+        if (note)
+          note.innerHTML = `Every framework below was built and load-tested on <b>this same machine</b> (${pd.machine}) with the <b>identical</b> <code>oha</code> invocation, ${pd.duration} per route, and the same 3-route contract — a true apples-to-apples ranking. Each peer's contract was verified before its numbers were recorded. <code>@zmdb/web</code> is highlighted.`;
 
-  // Upstream reference context.
-  const ref = fw.upstreamReference;
-  const refNote = document.getElementById('fwRefNote');
-  if (ref && ref.frameworks && ref.frameworks.length) {
-    if (refNote) refNote.innerHTML = ref.note + ` <a href="${ref.source.split(' ')[0]}">source</a>.`;
-    const refLevels = [...new Set(ref.frameworks.flatMap(f => Object.keys(f.byLevel).map(Number)))].sort((a,b)=>a-b);
-    FW_REF_LEVEL = refLevels.includes(64) ? 64 : refLevels[0];
-    buildFwRefLevelTabs(refLevels);
-    drawFwRef();
-  } else {
-    const rc = document.getElementById('fwRefChart'); if (rc) rc.style.display = 'none';
-  }
-}
+        // Build the combined metric list: peers + @zmdb/web (from FW.metrics, if measured).
+        const rows = (pd.metrics || []).map(m => ({
+          id: m.id,
+          runtime: m.runtime,
+          language: m.language,
+          level: m.level,
+          route: m.route,
+          label: m.label,
+          value: m.value,
+        }));
+        if (FW && Array.isArray(FW.metrics) && FW.throughput && FW.throughput.measured) {
+          for (const m of FW.metrics)
+            rows.push({
+              id: '@zmdb/web',
+              runtime: 'zmdb',
+              language: 'typescript',
+              level: m.level,
+              route: m.route,
+              label: m.label,
+              value: m.value,
+            });
+        }
+        PEERS._rows = rows;
+        const levels = [...new Set(rows.map(r => r.level))].sort((a, b) => a - b);
+        const routes = [...new Set(rows.map(r => r.route))];
+        PEERS_LEVEL = levels.includes(64) ? 64 : levels[0];
+        PEERS_ROUTE = routes[0];
+        peersLevelTabs(levels);
+        peersRouteTabs(routes);
+        drawPeersLevel();
 
-function fwRoutes() { return [...new Set(FW.metrics.map(m => m.route))]; }
-function fwVal(level, route, label) {
-  const m = FW.metrics.find(x => x.level === level && x.route === route && x.label === label);
-  return m ? m.value : null;
-}
-function buildFwLevelTabs(levels) {
-  const el = document.getElementById('fwLevelTabs'); if (!el) return;
-  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
-  for (const lv of levels) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (lv === FW_LEVEL ? ' active' : ''); b.textContent = 'c=' + lv;
-    b.onclick = () => { FW_LEVEL = lv; buildFwLevelTabs(levels); drawFwLevel(); };
-    el.appendChild(b);
-  }
-}
-function drawFwLevel() {
-  const routes = fwRoutes();
-  const rows = routes.map(r => ({
-    route: r,
-    rps: fwVal(FW_LEVEL, r, 'total_requests_per_s'),
-    avg: secs2ms(fwVal(FW_LEVEL, r, 'average_latency')),
-    p50: secs2ms(fwVal(FW_LEVEL, r, 'percentile50')),
-    p90: secs2ms(fwVal(FW_LEVEL, r, 'percentile90')),
-    p99: secs2ms(fwVal(FW_LEVEL, r, 'percentile99')),
-    err: fwVal(FW_LEVEL, r, 'http_errors'),
-  }));
-  rows.sort((a,b) => (a[FW_SORT.key] - b[FW_SORT.key]) * FW_SORT.dir);
-  const ms = n => n == null ? '—' : n.toFixed(3);
-  const cols = [['route','Route'],['rps','req/s'],['avg','avg ms'],['p50','p50 ms'],['p90','p90 ms'],['p99','p99 ms'],['err','errors']];
-  const t = document.getElementById('fwTable');
-  if (t) {
-    t.innerHTML = '<tr>' + cols.map(([k,l]) =>
-      `<th data-k="${k}" style="cursor:pointer${k==='route'?';text-align:left':''}">${l}${FW_SORT.key===k?(FW_SORT.dir<0?' ▼':' ▲'):''}</th>`).join('') + '</tr>' +
-      rows.map(row => '<tr>' +
-        `<td style="text-align:left"><code>${row.route}</code></td>` +
-        `<td>${row.rps==null?'—':Math.round(row.rps).toLocaleString()}</td>` +
-        `<td>${ms(row.avg)}</td><td>${ms(row.p50)}</td><td>${ms(row.p90)}</td><td>${ms(row.p99)}</td>` +
-        `<td class="${row.err?'no':'yes'}">${row.err==null?'—':Math.round(row.err)}</td></tr>`).join('');
-    t.querySelectorAll('th[data-k]').forEach(th => th.onclick = () => {
-      const k = th.dataset.k;
-      if (FW_SORT.key === k) FW_SORT.dir *= -1; else FW_SORT = { key: k, dir: k==='route'?1:-1 };
-      drawFwLevel();
-    });
-  }
-  // Chart: req/s per route at this level.
-  if (fwChart) fwChart.destroy();
-  fwChart = new Chart(document.getElementById('fwChart'), {
-    type: 'bar',
-    data: { labels: routes, datasets: [{ label: `req/s @ c=${FW_LEVEL}`, data: routes.map(r => fwVal(FW_LEVEL, r, 'total_requests_per_s')), backgroundColor: '#3fb950' }] },
-    options: { indexAxis: 'y', plugins: { legend: { display:false }, tooltip: { callbacks: { label: c => Math.round(c.raw).toLocaleString()+' req/s' } } },
-      scales: { x: { ticks: { color:'#8b949e', callback: fmt }, grid:{ color:'#30363d' } }, y: { ticks:{ color:'#e6edf3' }, grid:{ display:false } } } }
-  });
-}
-function buildFwRefLevelTabs(levels) {
-  const el = document.getElementById('fwRefLevelTabs'); if (!el) return;
-  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
-  for (const lv of levels) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (lv === FW_REF_LEVEL ? ' active' : ''); b.textContent = 'c=' + lv;
-    b.onclick = () => { FW_REF_LEVEL = lv; buildFwRefLevelTabs(levels); drawFwRef(); };
-    el.appendChild(b);
-  }
-}
-function drawFwRef() {
-  const ref = FW.upstreamReference.frameworks
-    .map(f => ({ label: f.label, language: f.language, rps: f.byLevel[FW_REF_LEVEL]?.rps }))
-    .filter(f => f.rps != null).sort((a,b) => b.rps - a.rps);
-  const labels = ref.map(f => `${f.label} (${f.language})`);
-  const colors = ref.map(f => f.label.includes('nest') ? '#f0883e' : '#58a6ff');
-  if (fwRefChart) fwRefChart.destroy();
-  fwRefChart = new Chart(document.getElementById('fwRefChart'), {
-    type: 'bar',
-    data: { labels, datasets: [{ label: `upstream req/s @ c=${FW_REF_LEVEL}`, data: ref.map(f=>f.rps), backgroundColor: colors }] },
-    options: { indexAxis: 'y', plugins: { legend: { display:false }, tooltip: { callbacks: { label: c => Math.round(c.raw).toLocaleString()+' req/s (published)' } } },
-      scales: { x: { ticks: { color:'#8b949e', callback: fmt }, grid:{ color:'#30363d' } }, y: { ticks:{ color:'#e6edf3', font:{ size:11 } }, grid:{ display:false } } } }
-  });
-}
+        const skipped = (pd.peers || []).filter(p => p.status === 'skipped');
+        const ok = (pd.peers || []).filter(p => p.status === 'ok');
+        const sk = document.getElementById('fwPeersSkipped');
+        if (sk)
+          sk.innerHTML =
+            `<b>${ok.length}</b> peers ran; ` +
+            (skipped.length
+              ? `skipped (honestly, never faked): ` + skipped.map(p => `<b>${p.id}</b> — ${p.reason}`).join('; ') + '.'
+              : 'no peers skipped.');
+      }
+      function peersRows() {
+        return PEERS._rows.filter(r => r.level === PEERS_LEVEL && r.route === PEERS_ROUTE);
+      }
+      function peersLevelTabs(levels) {
+        const el = document.getElementById('fwPeersLevelTabs');
+        if (!el) return;
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
+        for (const lv of levels) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (lv === PEERS_LEVEL ? ' active' : '');
+          b.textContent = 'c=' + lv;
+          b.onclick = () => {
+            PEERS_LEVEL = lv;
+            peersLevelTabs(levels);
+            drawPeersLevel();
+          };
+          el.appendChild(b);
+        }
+      }
+      function peersRouteTabs(routes) {
+        const el = document.getElementById('fwPeersRouteTabs');
+        if (!el) return;
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">route:</span>';
+        for (const rt of routes) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (rt === PEERS_ROUTE ? ' active' : '');
+          b.textContent = rt;
+          b.onclick = () => {
+            PEERS_ROUTE = rt;
+            peersRouteTabs(routes);
+            drawPeersLevel();
+          };
+          el.appendChild(b);
+        }
+      }
+      function drawPeersLevel() {
+        const rs = peersRows();
+        const byId = {};
+        for (const r of rs) {
+          (byId[r.id] ??= { id: r.id, runtime: r.runtime, language: r.language })[r.label] = r.value;
+        }
+        let list = Object.values(byId).map(o => ({
+          id: o.id,
+          runtime: o.runtime,
+          language: o.language,
+          rps: o.total_requests_per_s,
+          avg: secs2ms(o.average_latency),
+          p50: secs2ms(o.percentile50),
+          p90: secs2ms(o.percentile90),
+          p99: secs2ms(o.percentile99),
+          err: o.http_errors,
+        }));
+        list.sort((a, b) => {
+          const d = (a[PEERS_SORT.key] - b[PEERS_SORT.key]) * PEERS_SORT.dir;
+          return isNaN(d) ? 0 : d;
+        });
+        const ms = n => (n == null ? '—' : n.toFixed(3));
+        const cols = [
+          ['id', 'Framework'],
+          ['runtime', 'Runtime'],
+          ['rps', 'req/s'],
+          ['avg', 'avg ms'],
+          ['p50', 'p50 ms'],
+          ['p90', 'p90 ms'],
+          ['p99', 'p99 ms'],
+          ['err', 'errors'],
+        ];
+        const t = document.getElementById('fwPeersTable');
+        if (t) {
+          t.innerHTML =
+            '<tr>' +
+            cols
+              .map(
+                ([k, l]) =>
+                  `<th data-k="${k}" style="cursor:pointer${k === 'id' || k === 'runtime' ? ';text-align:left' : ''}">${l}${PEERS_SORT.key === k ? (PEERS_SORT.dir < 0 ? ' ▼' : ' ▲') : ''}</th>`,
+              )
+              .join('') +
+            '</tr>' +
+            list
+              .map(r => {
+                const me = r.id === '@zmdb/web';
+                return (
+                  `<tr${me ? ' style="background:rgba(63,185,80,.12)"' : ''}>` +
+                  `<td style="text-align:left">${me ? '<b>' : ''}${r.id}${me ? '</b>' : ''}</td>` +
+                  `<td style="text-align:left"><span class="rtbadge" style="background:${RT_COLOR[r.runtime] || '#58a6ff'}">${r.language}</span></td>` +
+                  `<td>${r.rps == null ? '—' : Math.round(r.rps).toLocaleString()}</td>` +
+                  `<td>${ms(r.avg)}</td><td>${ms(r.p50)}</td><td>${ms(r.p90)}</td><td>${ms(r.p99)}</td>` +
+                  `<td class="${r.err ? 'no' : 'yes'}">${r.err == null ? '—' : Math.round(r.err)}</td></tr>`
+                );
+              })
+              .join('');
+          t.querySelectorAll('th[data-k]').forEach(
+            th =>
+              (th.onclick = () => {
+                const k = th.dataset.k;
+                if (PEERS_SORT.key === k) PEERS_SORT.dir *= -1;
+                else PEERS_SORT = { key: k, dir: k === 'id' || k === 'runtime' ? 1 : -1 };
+                drawPeersLevel();
+              }),
+          );
+        }
+        // chart: req/s ranked, @zmdb/web highlighted
+        const ranked = [...list].filter(r => r.rps != null).sort((a, b) => b.rps - a.rps);
+        if (fwPeersChart) fwPeersChart.destroy();
+        fwPeersChart = new Chart(document.getElementById('fwPeersChart'), {
+          type: 'bar',
+          data: {
+            labels: ranked.map(r => r.id),
+            datasets: [
+              {
+                label: `req/s @ c=${PEERS_LEVEL} ${PEERS_ROUTE}`,
+                data: ranked.map(r => r.rps),
+                backgroundColor: ranked.map(r => (r.id === '@zmdb/web' ? '#3fb950' : RT_COLOR[r.runtime] || '#58a6ff')),
+              },
+            ],
+          },
+          options: {
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: c => Math.round(c.raw).toLocaleString() + ' req/s' } },
+            },
+            scales: {
+              x: { ticks: { color: '#8b949e', callback: fmt }, grid: { color: '#30363d' } },
+              y: { ticks: { color: '#e6edf3', font: { size: 11 } }, grid: { display: false } },
+            },
+          },
+        });
+      }
 
-// --- Same-machine head-to-head (peers-results.json + @zmdb/web's own metrics) ---
-let PEERS = null, PEERS_LEVEL = null, PEERS_ROUTE = null, PEERS_SORT = { key:'rps', dir:-1 }, fwPeersChart;
-const RT_COLOR = { javascript:'#f7df1e', go:'#00add8', rust:'#dea584', python:'#3572a5', 'zmdb':'#3fb950' };
-function drawPeers(pd) {
-  PEERS = pd;
-  const note = document.getElementById('fwPeersNote');
-  if (note) note.innerHTML = `Every framework below was built and load-tested on <b>this same machine</b> (${pd.machine}) with the <b>identical</b> <code>oha</code> invocation, ${pd.duration} per route, and the same 3-route contract — a true apples-to-apples ranking. Each peer's contract was verified before its numbers were recorded. <code>@zmdb/web</code> is highlighted.`;
+      // --- Gaps: rank zmdb-aot per case for the selected runtime, show leader+gap ---
+      function buildGapTabs() {
+        const el = document.getElementById('gapRtTabs');
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">runtime:</span>';
+        for (const rt of Object.keys(VAL)) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (rt === GAP_RT ? ' active' : '');
+          b.textContent = rt;
+          b.onclick = () => {
+            GAP_RT = rt;
+            buildGapTabs();
+            drawGap();
+          };
+          el.appendChild(b);
+        }
+      }
+      function drawGap() {
+        const m = VAL[GAP_RT];
+        const rowsHtml = CASES.map(c => {
+          const ranked = Object.entries(m)
+            .filter(([, v]) => v[c] != null)
+            .map(([n, v]) => [n, v[c]])
+            .sort((a, b) => b[1] - a[1]);
+          const idx = ranked.findIndex(([n]) => n === 'zmdb-aot');
+          if (idx === -1) return '';
+          const us = ranked[idx][1];
+          const leads = idx === 0;
+          const leader = ranked[0];
+          // Bun assertLoose is a DCE artifact — annotate rather than claim a win.
+          const dce = GAP_RT === 'bun' && c === 'assertLoose';
+          const verdict = dce
+            ? '<span style="color:var(--muted)">leads (DCE artifact — not real)</span>'
+            : leads
+              ? '<span class="yes">LEADS</span>'
+              : `#${idx + 1} — behind <code>${leader[0]}</code> by <b>${(leader[1] / us).toFixed(2)}×</b>`;
+          return `<tr><td><code>${c}</code></td><td>${fmt(us)}</td><td style="text-align:left">${verdict}</td></tr>`;
+        }).join('');
+        document.getElementById('gapTable').innerHTML =
+          '<tr><th>case</th><th>zmdb-aot ops/s</th><th style="text-align:left">rank</th></tr>' + rowsHtml;
+      }
 
-  // Build the combined metric list: peers + @zmdb/web (from FW.metrics, if measured).
-  const rows = (pd.metrics || []).map(m => ({ id:m.id, runtime:m.runtime, language:m.language, level:m.level, route:m.route, label:m.label, value:m.value }));
-  if (FW && Array.isArray(FW.metrics) && FW.throughput && FW.throughput.measured) {
-    for (const m of FW.metrics) rows.push({ id:'@zmdb/web', runtime:'zmdb', language:'typescript', level:m.level, route:m.route, label:m.label, value:m.value });
-  }
-  PEERS._rows = rows;
-  const levels = [...new Set(rows.map(r => r.level))].sort((a,b)=>a-b);
-  const routes = [...new Set(rows.map(r => r.route))];
-  PEERS_LEVEL = levels.includes(64) ? 64 : levels[0];
-  PEERS_ROUTE = routes[0];
-  peersLevelTabs(levels); peersRouteTabs(routes); drawPeersLevel();
-
-  const skipped = (pd.peers || []).filter(p => p.status === 'skipped');
-  const ok = (pd.peers || []).filter(p => p.status === 'ok');
-  const sk = document.getElementById('fwPeersSkipped');
-  if (sk) sk.innerHTML = `<b>${ok.length}</b> peers ran; ` + (skipped.length
-    ? `skipped (honestly, never faked): ` + skipped.map(p => `<b>${p.id}</b> — ${p.reason}`).join('; ') + '.'
-    : 'no peers skipped.');
-}
-function peersRows() {
-  return PEERS._rows.filter(r => r.level === PEERS_LEVEL && r.route === PEERS_ROUTE);
-}
-function peersLevelTabs(levels){
-  const el=document.getElementById('fwPeersLevelTabs'); if(!el) return;
-  el.innerHTML='<span class="note" style="margin:6px 8px 0 0">concurrency:</span>';
-  for(const lv of levels){const b=document.createElement('button');b.className='tab'+(lv===PEERS_LEVEL?' active':'');b.textContent='c='+lv;b.onclick=()=>{PEERS_LEVEL=lv;peersLevelTabs(levels);drawPeersLevel();};el.appendChild(b);}
-}
-function peersRouteTabs(routes){
-  const el=document.getElementById('fwPeersRouteTabs'); if(!el) return;
-  el.innerHTML='<span class="note" style="margin:6px 8px 0 0">route:</span>';
-  for(const rt of routes){const b=document.createElement('button');b.className='tab'+(rt===PEERS_ROUTE?' active':'');b.textContent=rt;b.onclick=()=>{PEERS_ROUTE=rt;peersRouteTabs(routes);drawPeersLevel();};el.appendChild(b);}
-}
-function drawPeersLevel(){
-  const rs=peersRows();
-  const byId={};
-  for(const r of rs){(byId[r.id] ??= {id:r.id,runtime:r.runtime,language:r.language})[r.label]=r.value;}
-  let list=Object.values(byId).map(o=>({id:o.id,runtime:o.runtime,language:o.language,
-    rps:o.total_requests_per_s, avg:secs2ms(o.average_latency), p50:secs2ms(o.percentile50), p90:secs2ms(o.percentile90), p99:secs2ms(o.percentile99), err:o.http_errors}));
-  list.sort((a,b)=>{const d=(a[PEERS_SORT.key]-b[PEERS_SORT.key])*PEERS_SORT.dir; return isNaN(d)?0:d;});
-  const ms=n=>n==null?'—':n.toFixed(3);
-  const cols=[['id','Framework'],['runtime','Runtime'],['rps','req/s'],['avg','avg ms'],['p50','p50 ms'],['p90','p90 ms'],['p99','p99 ms'],['err','errors']];
-  const t=document.getElementById('fwPeersTable');
-  if(t){
-    t.innerHTML='<tr>'+cols.map(([k,l])=>`<th data-k="${k}" style="cursor:pointer${(k==='id'||k==='runtime')?';text-align:left':''}">${l}${PEERS_SORT.key===k?(PEERS_SORT.dir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>'+
-      list.map(r=>{const me=r.id==='@zmdb/web';return `<tr${me?' style="background:rgba(63,185,80,.12)"':''}>`+
-        `<td style="text-align:left">${me?'<b>':''}${r.id}${me?'</b>':''}</td>`+
-        `<td style="text-align:left"><span class="rtbadge" style="background:${RT_COLOR[r.runtime]||'#58a6ff'}">${r.language}</span></td>`+
-        `<td>${r.rps==null?'—':Math.round(r.rps).toLocaleString()}</td>`+
-        `<td>${ms(r.avg)}</td><td>${ms(r.p50)}</td><td>${ms(r.p90)}</td><td>${ms(r.p99)}</td>`+
-        `<td class="${r.err?'no':'yes'}">${r.err==null?'—':Math.round(r.err)}</td></tr>`;}).join('');
-    t.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(PEERS_SORT.key===k)PEERS_SORT.dir*=-1;else PEERS_SORT={key:k,dir:(k==='id'||k==='runtime')?1:-1};drawPeersLevel();});
-  }
-  // chart: req/s ranked, @zmdb/web highlighted
-  const ranked=[...list].filter(r=>r.rps!=null).sort((a,b)=>b.rps-a.rps);
-  if(fwPeersChart)fwPeersChart.destroy();
-  fwPeersChart=new Chart(document.getElementById('fwPeersChart'),{
-    type:'bar',
-    data:{labels:ranked.map(r=>r.id),datasets:[{label:`req/s @ c=${PEERS_LEVEL} ${PEERS_ROUTE}`,data:ranked.map(r=>r.rps),
-      backgroundColor:ranked.map(r=>r.id==='@zmdb/web'?'#3fb950':(RT_COLOR[r.runtime]||'#58a6ff'))}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>Math.round(c.raw).toLocaleString()+' req/s'}}},
-      scales:{x:{ticks:{color:'#8b949e',callback:fmt},grid:{color:'#30363d'}},y:{ticks:{color:'#e6edf3',font:{size:11}},grid:{display:false}}}}
-  });
-}
-
-
-
-// --- Gaps: rank zmdb-aot per case for the selected runtime, show leader+gap ---
-function buildGapTabs() {
-  const el = document.getElementById('gapRtTabs');
-  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">runtime:</span>';
-  for (const rt of Object.keys(VAL)) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (rt === GAP_RT ? ' active' : ''); b.textContent = rt;
-    b.onclick = () => { GAP_RT = rt; buildGapTabs(); drawGap(); };
-    el.appendChild(b);
-  }
-}
-function drawGap() {
-  const m = VAL[GAP_RT];
-  const rowsHtml = CASES.map(c => {
-    const ranked = Object.entries(m).filter(([,v]) => v[c] != null)
-      .map(([n,v]) => [n, v[c]]).sort((a,b) => b[1]-a[1]);
-    const idx = ranked.findIndex(([n]) => n === 'zmdb-aot');
-    if (idx === -1) return '';
-    const us = ranked[idx][1];
-    const leads = idx === 0;
-    const leader = ranked[0];
-    // Bun assertLoose is a DCE artifact — annotate rather than claim a win.
-    const dce = (GAP_RT === 'bun' && c === 'assertLoose');
-    const verdict = dce
-      ? '<span style="color:var(--muted)">leads (DCE artifact — not real)</span>'
-      : leads
-        ? '<span class="yes">LEADS</span>'
-        : `#${idx+1} — behind <code>${leader[0]}</code> by <b>${(leader[1]/us).toFixed(2)}×</b>`;
-    return `<tr><td><code>${c}</code></td><td>${fmt(us)}</td><td style="text-align:left">${verdict}</td></tr>`;
-  }).join('');
-  document.getElementById('gapTable').innerHTML =
-    '<tr><th>case</th><th>zmdb-aot ops/s</th><th style="text-align:left">rank</th></tr>' + rowsHtml;
-}
-
-function buildRuntimeTabs() {
-  const el = document.getElementById('rtTabs');
-  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">runtime:</span>';
-  for (const rt of Object.keys(VAL)) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (rt === RUNTIME ? ' active' : ''); b.textContent = rt;
-    b.onclick = () => { RUNTIME = rt; buildRuntimeTabs(); drawVal(); };
-    el.appendChild(b);
-  }
-}
-function buildCaseTabs() {
-  const el = document.getElementById('caseTabs');
-  el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">case:</span>';
-  for (const c of CASES) {
-    const b = document.createElement('button');
-    b.className = 'tab' + (c === CASE ? ' active' : ''); b.textContent = c;
-    b.onclick = () => { CASE = c; buildCaseTabs(); drawVal(); };
-    el.appendChild(b);
-  }
-}
-function drawVal() {
-  const libs = Object.keys(VAL[RUNTIME]).filter(l => VAL[RUNTIME][l][CASE] != null);
-  const rows = libs.map(l => ({ l, v: VAL[RUNTIME][l][CASE] })).sort((a,b) => b.v - a.v);
-  const labels = rows.map(r => r.l), data = rows.map(r => r.v);
-  const colors = labels.map(l => l.startsWith('zmdb') ? '#3fb950' : '#58a6ff');
-  if (valChart) valChart.destroy();
-  valChart = new Chart(document.getElementById('valChart'), {
-    type: 'bar',
-    data: { labels, datasets: [{ label: `${CASE} ops/sec (${RUNTIME})`, data, backgroundColor: colors }] },
-    options: { indexAxis: 'y', plugins: { legend: { display:false }, tooltip: { callbacks: { label: c => fmt(c.raw)+' ops/s' } } },
-      scales: { x: { ticks: { color:'#8b949e', callback: fmt }, grid:{ color:'#30363d' } }, y: { ticks:{ color:'#e6edf3' }, grid:{ display:false } } } }
-  });
-  const cav = document.getElementById('valCaveat');
-  cav.textContent = RUNTIME === 'bun'
-    ? "Note: Bun's JIT can dead-code-eliminate no-op benchmark bodies (e.g. assertLoose), producing implausibly high numbers — treat Bun's extreme values with caution."
-    : '';
-}
-function drawOrm(orm) {
-  document.getElementById('ormCfg').innerHTML = Object.entries(orm.config).map(([k,v]) => `<b>${k}:</b> ${v}`).join('<br>');
-  const rows = orm.overall;
-  if (ormChart) ormChart.destroy();
-  ormChart = new Chart(document.getElementById('ormChart'), {
-    type: 'bar',
-    data: { labels: rows.map(r=>r.orm), datasets: [
-      { label:'req/s', data: rows.map(r=>r.reqs), backgroundColor:'#58a6ff', yAxisID:'y' },
-      { label:'p95 ms', data: rows.map(r=>r.p95), backgroundColor:'#f0883e', yAxisID:'y1' },
-    ]},
-    options: { plugins:{ legend:{ labels:{ color:'#e6edf3' } } },
-      scales:{ x:{ ticks:{ color:'#e6edf3' }, grid:{display:false} },
-        y:{ position:'left', title:{display:true,text:'req/s',color:'#58a6ff'}, ticks:{ color:'#8b949e' }, grid:{color:'#30363d'} },
-        y1:{ position:'right', title:{display:true,text:'p95 ms',color:'#f0883e'}, ticks:{ color:'#8b949e' }, grid:{display:false} } } }
-  });
-  const t = document.getElementById('ormTable');
-  t.innerHTML = '<tr><th>ORM</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th><th>failed</th></tr>' +
-    rows.map(r => `<tr><td>${r.orm}</td><td>${r.reqs}</td><td>${r.avg}</td><td>${r.p90}</td><td>${r.p95}</td><td>${r.failed}</td></tr>`).join('');
-  // Prepared-statement head-to-head (if present).
-  const prep = document.getElementById('prepTable');
-  if (prep && orm.prepared) {
-    prep.innerHTML =
-      '<tr><th>run</th><th>variant</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th></tr>' +
-      orm.prepared.rows.map(r =>
-        `<tr><td>${r.run}</td><td>zmdb default</td><td>${r.default.reqs}</td><td>${r.default.avg}</td><td>${r.default.p90}</td><td>${r.default.p95}</td></tr>` +
-        `<tr><td>${r.run}</td><td><b>zmdb prepared</b></td><td><b>${r.prepared.reqs}</b></td><td><b>${r.prepared.avg}</b></td><td><b>${r.prepared.p90}</b></td><td><b>${r.prepared.p95}</b></td></tr>`
-      ).join('');
-    const pv = document.getElementById('prepVerdict');
-    if (pv) pv.innerHTML = orm.prepared.verdict;
-  }
-  const c = document.getElementById('covTable');
-  c.innerHTML = '<tr><th>Route</th><th>drizzle</th><th>kysely</th><th>zmdb</th></tr>' +
-    orm.coverage.map(r => `<tr><td><code>${r.route}</code></td>${['drizzle','kysely','zmdb'].map(k=>`<td class="${r[k]?'yes':'no'}">${r[k]?'✅':'DNF'}</td>`).join('')}</tr>`).join('');
-  document.getElementById('dnfNote').innerHTML = 'DNF (not run here): ' + orm.dnf.map(d=>`<b>${d.target}</b> — ${d.reason}`).join('; ') + '.';
-}
-load();
-</script>
-</body>
+      function buildRuntimeTabs() {
+        const el = document.getElementById('rtTabs');
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">runtime:</span>';
+        for (const rt of Object.keys(VAL)) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (rt === RUNTIME ? ' active' : '');
+          b.textContent = rt;
+          b.onclick = () => {
+            RUNTIME = rt;
+            buildRuntimeTabs();
+            drawVal();
+          };
+          el.appendChild(b);
+        }
+      }
+      function buildCaseTabs() {
+        const el = document.getElementById('caseTabs');
+        el.innerHTML = '<span class="note" style="margin:6px 8px 0 0">case:</span>';
+        for (const c of CASES) {
+          const b = document.createElement('button');
+          b.className = 'tab' + (c === CASE ? ' active' : '');
+          b.textContent = c;
+          b.onclick = () => {
+            CASE = c;
+            buildCaseTabs();
+            drawVal();
+          };
+          el.appendChild(b);
+        }
+      }
+      function drawVal() {
+        const libs = Object.keys(VAL[RUNTIME]).filter(l => VAL[RUNTIME][l][CASE] != null);
+        const rows = libs.map(l => ({ l, v: VAL[RUNTIME][l][CASE] })).sort((a, b) => b.v - a.v);
+        const labels = rows.map(r => r.l),
+          data = rows.map(r => r.v);
+        const colors = labels.map(l => (l.startsWith('zmdb') ? '#3fb950' : '#58a6ff'));
+        if (valChart) valChart.destroy();
+        valChart = new Chart(document.getElementById('valChart'), {
+          type: 'bar',
+          data: { labels, datasets: [{ label: `${CASE} ops/sec (${RUNTIME})`, data, backgroundColor: colors }] },
+          options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) + ' ops/s' } } },
+            scales: {
+              x: { ticks: { color: '#8b949e', callback: fmt }, grid: { color: '#30363d' } },
+              y: { ticks: { color: '#e6edf3' }, grid: { display: false } },
+            },
+          },
+        });
+        const cav = document.getElementById('valCaveat');
+        cav.textContent =
+          RUNTIME === 'bun'
+            ? "Note: Bun's JIT can dead-code-eliminate no-op benchmark bodies (e.g. assertLoose), producing implausibly high numbers — treat Bun's extreme values with caution."
+            : '';
+      }
+      function drawOrm(orm) {
+        document.getElementById('ormCfg').innerHTML = Object.entries(orm.config)
+          .map(([k, v]) => `<b>${k}:</b> ${v}`)
+          .join('<br>');
+        const rows = orm.overall;
+        if (ormChart) ormChart.destroy();
+        ormChart = new Chart(document.getElementById('ormChart'), {
+          type: 'bar',
+          data: {
+            labels: rows.map(r => r.orm),
+            datasets: [
+              { label: 'req/s', data: rows.map(r => r.reqs), backgroundColor: '#58a6ff', yAxisID: 'y' },
+              { label: 'p95 ms', data: rows.map(r => r.p95), backgroundColor: '#f0883e', yAxisID: 'y1' },
+            ],
+          },
+          options: {
+            plugins: { legend: { labels: { color: '#e6edf3' } } },
+            scales: {
+              x: { ticks: { color: '#e6edf3' }, grid: { display: false } },
+              y: {
+                position: 'left',
+                title: { display: true, text: 'req/s', color: '#58a6ff' },
+                ticks: { color: '#8b949e' },
+                grid: { color: '#30363d' },
+              },
+              y1: {
+                position: 'right',
+                title: { display: true, text: 'p95 ms', color: '#f0883e' },
+                ticks: { color: '#8b949e' },
+                grid: { display: false },
+              },
+            },
+          },
+        });
+        const t = document.getElementById('ormTable');
+        t.innerHTML =
+          '<tr><th>ORM</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th><th>failed</th></tr>' +
+          rows
+            .map(
+              r =>
+                `<tr><td>${r.orm}</td><td>${r.reqs}</td><td>${r.avg}</td><td>${r.p90}</td><td>${r.p95}</td><td>${r.failed}</td></tr>`,
+            )
+            .join('');
+        // Prepared-statement head-to-head (if present).
+        const prep = document.getElementById('prepTable');
+        if (prep && orm.prepared) {
+          prep.innerHTML =
+            '<tr><th>run</th><th>variant</th><th>req/s</th><th>avg ms</th><th>p90</th><th>p95</th></tr>' +
+            orm.prepared.rows
+              .map(
+                r =>
+                  `<tr><td>${r.run}</td><td>zmdb default</td><td>${r.default.reqs}</td><td>${r.default.avg}</td><td>${r.default.p90}</td><td>${r.default.p95}</td></tr>` +
+                  `<tr><td>${r.run}</td><td><b>zmdb prepared</b></td><td><b>${r.prepared.reqs}</b></td><td><b>${r.prepared.avg}</b></td><td><b>${r.prepared.p90}</b></td><td><b>${r.prepared.p95}</b></td></tr>`,
+              )
+              .join('');
+          const pv = document.getElementById('prepVerdict');
+          if (pv) pv.innerHTML = orm.prepared.verdict;
+        }
+        const c = document.getElementById('covTable');
+        c.innerHTML =
+          '<tr><th>Route</th><th>drizzle</th><th>kysely</th><th>zmdb</th></tr>' +
+          orm.coverage
+            .map(
+              r =>
+                `<tr><td><code>${r.route}</code></td>${['drizzle', 'kysely', 'zmdb'].map(k => `<td class="${r[k] ? 'yes' : 'no'}">${r[k] ? '✅' : 'DNF'}</td>`).join('')}</tr>`,
+            )
+            .join('');
+        document.getElementById('dnfNote').innerHTML =
+          'DNF (not run here): ' + orm.dnf.map(d => `<b>${d.target}</b> — ${d.reason}`).join('; ') + '.';
+      }
+      load();
+    </script>
+  </body>
 </html>

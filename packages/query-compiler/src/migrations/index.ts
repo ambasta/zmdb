@@ -1,7 +1,6 @@
 // Migrations — API stubs (red phase). Implementation in #41–#44.
 import type { Dialect } from '../index.ts';
 
-
 export interface ColumnSnapshot {
   readonly name: string;
   readonly type: string;
@@ -34,7 +33,7 @@ export type ChangeOp =
 
 export function snapshot(schemas: readonly unknown[]): SchemaSnapshot {
   const tables: TableSnapshot[] = schemas
-    .map((s) => {
+    .map(s => {
       const schema = s as {
         table: string;
         columns: Record<string, { type: string; flags: { nullable: boolean; primaryKey?: boolean } }>;
@@ -56,8 +55,8 @@ export function snapshot(schemas: readonly unknown[]): SchemaSnapshot {
 
 export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly ChangeOp[] {
   const ops: ChangeOp[] = [];
-  const prevTables = new Map(prev.tables.map((t) => [t.name, t]));
-  const nextTables = new Map(next.tables.map((t) => [t.name, t]));
+  const prevTables = new Map(prev.tables.map(t => [t.name, t]));
+  const nextTables = new Map(next.tables.map(t => [t.name, t]));
 
   // Dropped tables.
   for (const t of prev.tables) {
@@ -70,8 +69,8 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
       ops.push({ kind: 'create_table', table: t.name, columns: t.columns });
       continue;
     }
-    const beforeCols = new Map(before.columns.map((c) => [c.name, c]));
-    const afterCols = new Map(t.columns.map((c) => [c.name, c]));
+    const beforeCols = new Map(before.columns.map(c => [c.name, c]));
+    const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
       if (!afterCols.has(c.name)) ops.push({ kind: 'drop_column', table: t.name, column: c.name });
     }
@@ -103,7 +102,7 @@ function quote(d: Dialect, ident: string): string {
 export function emitUp(op: ChangeOp, dialect: Dialect): string {
   switch (op.kind) {
     case 'create_table':
-      return `CREATE TABLE ${quote(dialect, op.table)} (${op.columns.map((c) => columnDdl(dialect, c)).join(', ')})`;
+      return `CREATE TABLE ${quote(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c)).join(', ')})`;
     case 'drop_table':
       return `DROP TABLE ${quote(dialect, op.table)}`;
     case 'add_column':

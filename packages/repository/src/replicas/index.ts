@@ -1,6 +1,7 @@
+import type { CompiledQuery } from '@zmdb/query-compiler';
+
 // Read-replica routing — see ./SPEC.md.
 import type { Driver } from '../index.ts';
-import type { CompiledQuery } from '@zmdb/query-compiler';
 
 export interface ReplicaOptions {
   primary: Driver;

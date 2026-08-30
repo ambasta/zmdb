@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineSchema, serial, text, integer } from '../index.ts';
 import type { Entity } from '../index.ts';
 import { project, type Projection } from './index.ts';

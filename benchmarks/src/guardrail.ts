@@ -27,7 +27,7 @@ export function checkRegressions(
   current: readonly BenchResult[],
   dropThreshold: number,
 ): Regression[] {
-  const prev = new Map(previous.map((r) => [key(r), r]));
+  const prev = new Map(previous.map(r => [key(r), r]));
   const regressions: Regression[] = [];
 
   for (const cur of current) {

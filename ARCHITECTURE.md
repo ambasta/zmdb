@@ -20,9 +20,9 @@ There are exactly two, in priority order. When they conflict, **(1) wins**, and
 the conflict is documented at the call site.
 
 1. **Fastest possible runtime for the consuming application.** Every design
-   choice is measured by its cost in the *user's* hot path — per request, per
+   choice is measured by its cost in the _user's_ hot path — per request, per
    query, per validation. Work that can happen at build time, install time, or
-   type-check time must *not* happen at runtime. Allocation, indirection,
+   type-check time must _not_ happen at runtime. Allocation, indirection,
    reflection, and dynamic dispatch on the hot path are defects, not trade-offs.
 
 2. **Maintainability.** The framework must stay small, legible, and changeable by
@@ -73,13 +73,13 @@ rejected regardless of how convenient it is.
    and non-null `!` in framework code are **defects**. If a type can't be
    proven, redesign the type, don't assert it. The only permitted assertions are
    a small, enumerated, individually-justified set of **boundary casts**
-   (§2.1) — each commented with *why it is sound*. Consumer-facing APIs must be
+   (§2.1) — each commented with _why it is sound_. Consumer-facing APIs must be
    assertion-free: a user should never need `as` to use zmdb correctly.
 6. **ESM-only, no dual publishing.** One module format. `"type": "module"`,
    single `exports` map, no `.cjs`.
 7. **Zero required runtime dependencies.** Packages depend only on other `@zmdb/*`
    packages and Node built-ins. Third-party integrations (a `pg` driver, a Hono
-   adapter) are *optional* and structurally typed so the dep is never forced.
+   adapter) are _optional_ and structurally typed so the dep is never forced.
 8. **Honest measurement.** Performance claims are backed by the real upstream
    benchmark harnesses; gaps and trade-offs are enumerated individually, never
    averaged into a flattering score, never silently skipped (see the benchmarks
@@ -96,15 +96,15 @@ shape." The policy:
 - **Consumer code: zero assertions.** If a user must write `as` to satisfy our
   API, that is our bug.
 - **Framework code: assertions are a reviewed, enumerated exception**, allowed
-  *only* at a trust boundary (driver row → `Entity<S>`, parsed JSON → `T`,
+  _only_ at a trust boundary (driver row → `Entity<S>`, parsed JSON → `T`,
   metadata slot → typed record), each with a `// boundary:` comment stating the
   runtime guarantee that makes it sound. We prefer, in order: (a) a type-guard
-  function that *proves* the shape, (b) a generic that carries the type without
+  function that _proves_ the shape, (b) a generic that carries the type without
   assertion, (c) a `satisfies` check, and only then (d) a commented boundary
   cast. New assertions require justification in review; the count is tracked and
   driven toward zero.
 
-> This is the honest position: we make the *public surface* assertion-free and
+> This is the honest position: we make the _public surface_ assertion-free and
 > hold framework internals to a documented, shrinking exception list — rather
 > than claim an absolute we'd have to fake with hidden `any`.
 
@@ -112,7 +112,7 @@ shape." The policy:
 
 ## 3. Package architecture & separation of responsibility
 
-### 3.1 The splitting doctrine — *when* a concern earns its own package
+### 3.1 The splitting doctrine — _when_ a concern earns its own package
 
 We split aggressively along **responsibility seams**, not by file count. A new
 package is justified **only** when it satisfies most of these tests:
@@ -120,7 +120,7 @@ package is justified **only** when it satisfies most of these tests:
 1. **Distinct responsibility.** It owns one clearly-nameable concern that the
    others should not know about (e.g. "compile SQL" vs "derive types" vs
    "validate at the boundary").
-2. **Independent consumability.** A real user would install it *alone* — e.g.
+2. **Independent consumability.** A real user would install it _alone_ — e.g.
    someone who wants only the query compiler, or only the AOT validator, with no
    interest in the rest.
 3. **Independent versioning value.** Its API changes on a different cadence than
@@ -173,6 +173,7 @@ refactor.
 ```
 
 **Rules enforced by this DAG:**
+
 - **schema-core is the root and depends on nothing.** It is the Single Source of
   Truth; everything derives downward. It must never import a sibling.
 - **query-compiler and aot-validator are siblings that do not know about each
@@ -186,16 +187,17 @@ refactor.
 
 ### 3.3 Current + planned package map
 
-| Package | Responsibility | Runtime deps |
-|---------|----------------|--------------|
-| `@zmdb/schema-core` | Schema DSL, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas | none |
-| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects | none |
-| `@zmdb/aot-validator` | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De | none (ts is a devDep) |
-| `@zmdb/repository` | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers** | schema-core, query-compiler |
-| `@zmdb/web` | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |
-| `zmdb` | Umbrella meta-package (curated root + subpath re-exports) | all of the above |
+| Package                | Responsibility                                                                                                                                                                                                                                                          | Runtime deps                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `@zmdb/schema-core`    | Schema DSL, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas                                                                                                                                | none                                   |
+| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects                                                                                                                                        | none                                   |
+| `@zmdb/aot-validator`  | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                                                                                                           | none (ts is a devDep)                  |
+| `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                | schema-core, query-compiler            |
+| `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |
+| `zmdb`                 | Umbrella meta-package (curated root + subpath re-exports)                                                                                                                                                                                                               | all of the above                       |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
+
 - `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime
   fallback** if the plugin grows a heavy `typescript` coupling that hurts the
   runtime package's install weight.
@@ -211,7 +213,7 @@ refactor.
 
 **We target the TypeScript ecosystem; we are not obligated to implement in
 TypeScript.** The public surface (types, DSL, decorators) is and will remain
-TypeScript, because that is the *product*. But the *implementation* of any hot
+TypeScript, because that is the _product_. But the _implementation_ of any hot
 path is chosen purely by north star (1): whatever gives the consumer the fastest
 runtime while remaining maintainable.
 
@@ -220,9 +222,9 @@ runtime while remaining maintainable.
 For each unit of work, pick the leftmost option that meets the perf bar:
 
 1. **Type-level (0 runtime).** If it can be a compile-time type, it is not code.
-   *(derivation, path-param typing, DI-graph checks, domain state machines)*
+   _(derivation, path-param typing, DI-graph checks, domain state machines)_
 2. **AOT-generated JS (0 marginal runtime).** If it can be inlined at the
-   consumer's build, emit straight-line JavaScript. *(validation, static SQL)*
+   consumer's build, emit straight-line JavaScript. _(validation, static SQL)_
 3. **Hand-written modern JS/TS (fast enough, most maintainable).** The default
    for everything not on a measured hot path. Node 26's V8 is the target; write
    monomorphic, allocation-light code.
@@ -235,9 +237,9 @@ For each unit of work, pick the leftmost option that meets the perf bar:
 Because native code trades maintainability for speed, it is gated:
 
 - **Must be justified by a committed benchmark** showing the JS path is the
-  bottleneck in a *consumer* hot path (not a micro-benchmark of our internals).
+  bottleneck in a _consumer_ hot path (not a micro-benchmark of our internals).
 - **Must ship as an optional, separately-versioned artifact** with a **pure-JS
-  fallback of identical behaviour** — installs must never *require* a native
+  fallback of identical behaviour** — installs must never _require_ a native
   build, and consumers on any platform must work (slower) without it.
 - **WASM is preferred over N-API** for portability (no node-gyp, no per-platform
   binaries, works in edge runtimes), unless N-API is measurably faster for the
@@ -250,9 +252,9 @@ Because native code trades maintainability for speed, it is gated:
 
 Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` via `tsup`,
 and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The
-AOT validator's inlined output *is* our "generated JS" tier. **No native/WASM
+AOT validator's inlined output _is_ our "generated JS" tier. **No native/WASM
 kernel exists or is currently justified.** The policy above is the rule we'll
-apply *if and when* a measured bottleneck appears — we do not add native
+apply _if and when_ a measured bottleneck appears — we do not add native
 complexity speculatively (north star 2). The realistic first candidates, should
 they ever be needed, are the AOT validator's JS emitter and the query compiler's
 string assembly — both pure, both boundary-clean.

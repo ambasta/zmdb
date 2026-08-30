@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { toJsonSchema, toOpenApiComponents } from './index.ts';
+
 import type { CoreSchema } from '../index.ts';
+import { toJsonSchema, toOpenApiComponents } from './index.ts';
 
 // RED PHASE (#63 spec freeze): JSON Schema / OpenAPI golden fixtures.
 

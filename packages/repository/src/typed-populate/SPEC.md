@@ -49,6 +49,7 @@ find<K extends keyof R>(where: WhereDTO<S>, opts?: { populate?: readonly K[] })
 - The old `findAllWithMany` is **deprecated** (kept working) in favour of this.
 
 ## Acceptance
+
 - Type-level: `findById(1, { populate: ['orders'] })` result has
   `orders: Entity<Order>[]`; without populate it's plain `Entity<S>`.
 - Runtime: a fake recording driver shows parents query + one batched child

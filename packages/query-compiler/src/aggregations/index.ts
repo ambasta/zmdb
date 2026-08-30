@@ -4,14 +4,17 @@ import type { CompiledQuery, Dialect } from '../index.ts';
 
 const QUOTE: Record<Dialect, string> = { postgres: '"', mysql: '`', sqlite: '"' };
 const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
-  postgres: (n) => `$${n}`,
+  postgres: n => `$${n}`,
   mysql: () => '?',
   sqlite: () => '?',
 };
 
 function quoteCol(d: Dialect, col: string): string {
   const q = QUOTE[d];
-  return col.split('.').map((p) => `${q}${p}${q}`).join('.');
+  return col
+    .split('.')
+    .map(p => `${q}${p}${q}`)
+    .join('.');
 }
 
 type SelectItem =
@@ -50,7 +53,7 @@ function make(d: Dialect, s: State): AggregateSelect {
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
   return {
-    select: (cols) => next({ items: [...s.items, ...cols.map((c) => ({ kind: 'col', col: c }) as SelectItem)] }),
+    select: cols => next({ items: [...s.items, ...cols.map(c => ({ kind: 'col', col: c }) as SelectItem)] }),
     count: (e, a) => agg('COUNT', e, a),
     sum: (e, a) => agg('SUM', e, a),
     avg: (e, a) => agg('AVG', e, a),
@@ -60,27 +63,27 @@ function make(d: Dialect, s: State): AggregateSelect {
     groupBy: (...cols) => next({ groups: [...s.groups, ...cols] }),
     having: (col, op, value) => next({ havings: [...s.havings, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
-    limit: (n) => next({ limitN: n }),
-    offset: (n) => next({ offsetN: n }),
+    limit: n => next({ limitN: n }),
+    offset: n => next({ offsetN: n }),
     compile: () => {
       const q = QUOTE[d];
       const params: unknown[] = [];
-      const cols = s.items.map((it) => {
+      const cols = s.items.map(it => {
         if (it.kind === 'col') return quoteCol(d, it.col);
         if (it.kind === 'agg') return `${it.fn}(${quoteCol(d, it.col)}) AS ${q}${it.alias}${q}`;
         return `${it.raw} AS ${q}${it.alias}${q}`;
       });
       let text = `SELECT ${cols.join(', ')} FROM ${q}${s.table}${q}`;
-      if (s.groups.length > 0) text += ` GROUP BY ${s.groups.map((c) => quoteCol(d, c)).join(', ')}`;
+      if (s.groups.length > 0) text += ` GROUP BY ${s.groups.map(c => quoteCol(d, c)).join(', ')}`;
       if (s.havings.length > 0) {
-        const parts = s.havings.map((h) => {
+        const parts = s.havings.map(h => {
           params.push(h.value);
           return `${quoteCol(d, h.col)} ${h.op} ${PLACEHOLDER[d](params.length)}`;
         });
         text += ` HAVING ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map((o) => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;

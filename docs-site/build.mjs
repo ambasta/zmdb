@@ -5,6 +5,7 @@
 import { mkdirSync, writeFileSync, cpSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { NAV, PAGES } from './manifest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -17,16 +18,29 @@ const DASH = join(here, '..', 'benchmarks', 'site'); // existing benchmarks dash
 // (> [!NOTE] / [!TIP] / [!WARNING] / [!IMPORTANT]), tables, and paragraphs.
 // Collects h2/h3 headings for an "On this page" TOC.
 function slugify(s) {
-  return s.toLowerCase().replace(/`/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  return s
+    .toLowerCase()
+    .replace(/`/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
 }
 function renderInline(s) {
   return s
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
     .replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 }
-const ADMONITION = { NOTE: '📝 Note', TIP: '💡 Tip', WARNING: '⚠️ Warning', IMPORTANT: '❗ Important', DANGER: '🛑 Danger' };
+const ADMONITION = {
+  NOTE: '📝 Note',
+  TIP: '💡 Tip',
+  WARNING: '⚠️ Warning',
+  IMPORTANT: '❗ Important',
+  DANGER: '🛑 Danger',
+};
 
 function mdToHtml(md) {
   const lines = md.split('\n');
@@ -40,12 +54,18 @@ function mdToHtml(md) {
     let out = ordered ? '<ol>' : '<ul>';
     while (i < lines.length) {
       const l = lines[i];
-      if (l.trim() === '') { i++; continue; }
+      if (l.trim() === '') {
+        i++;
+        continue;
+      }
       const m = l.match(/^(\s*)(?:[-*]|\d+\.)\s+(.*)$/);
       if (!m) break;
       const ind = m[1].length;
       if (ind < indent) break;
-      if (ind > indent) { out += parseList(ind); continue; }
+      if (ind > indent) {
+        out += parseList(ind);
+        continue;
+      }
       i++;
       let item = renderInline(m[2]);
       // nested list directly under this item?
@@ -100,19 +120,43 @@ function mdToHtml(md) {
       continue;
     }
     // lists
-    if (/^(\s*)(?:[-*]|\d+\.)\s+/.test(l)) { html += parseList(l.match(/^(\s*)/)[1].length); continue; }
+    if (/^(\s*)(?:[-*]|\d+\.)\s+/.test(l)) {
+      html += parseList(l.match(/^(\s*)/)[1].length);
+      continue;
+    }
     // table
     if (l.startsWith('|')) {
       const tbl = [];
       while (i < lines.length && lines[i].startsWith('|')) tbl.push(lines[i++]);
-      const rows = tbl.filter((r) => !/^\|[-\s|:]+\|$/.test(r)).map((r) => r.split('|').slice(1, -1).map((c) => c.trim()));
-      html += '<table>' + rows.map((cells, ri) => '<tr>' + cells.map((c) => (ri === 0 ? `<th>${renderInline(c)}</th>` : `<td>${renderInline(c)}</td>`)).join('') + '</tr>').join('') + '</table>';
+      const rows = tbl
+        .filter(r => !/^\|[-\s|:]+\|$/.test(r))
+        .map(r =>
+          r
+            .split('|')
+            .slice(1, -1)
+            .map(c => c.trim()),
+        );
+      html +=
+        '<table>' +
+        rows
+          .map(
+            (cells, ri) =>
+              '<tr>' +
+              cells.map(c => (ri === 0 ? `<th>${renderInline(c)}</th>` : `<td>${renderInline(c)}</td>`)).join('') +
+              '</tr>',
+          )
+          .join('') +
+        '</table>';
       continue;
     }
-    if (l.trim() === '') { i++; continue; }
+    if (l.trim() === '') {
+      i++;
+      continue;
+    }
     // paragraph
     let para = '';
-    while (i < lines.length && lines[i].trim() !== '' && !/^(#{1,4}\s|(\s*)(?:[-*]|\d+\.)\s|```|\||>)/.test(lines[i])) para += (para ? ' ' : '') + lines[i++];
+    while (i < lines.length && lines[i].trim() !== '' && !/^(#{1,4}\s|(\s*)(?:[-*]|\d+\.)\s|```|\||>)/.test(lines[i]))
+      para += (para ? ' ' : '') + lines[i++];
     html += `<p>${renderInline(para)}</p>`;
   }
   return { html, toc };
@@ -189,16 +233,17 @@ pre:hover .copy-btn{opacity:1}.copy-btn:hover{color:var(--fg);border-color:var(-
 `;
 
 // Flat page order (from NAV) for prev/next navigation.
-const FLAT = NAV.flatMap((g) => g.pages).filter((s) => PAGES[s]);
+const FLAT = NAV.flatMap(g => g.pages).filter(s => PAGES[s]);
 
 function pageHtml(slug, p) {
-  const todoBanner = p.status === 'todo'
-    ? `<div class="todo-banner"><b>🚧 TODO — not yet implemented.</b> This capability is on the roadmap and is <em>not</em> an anti-pattern for zmdb; it simply isn't built yet. ${p.note ? p.note : ''} Track / contribute via the issue tracker.</div>`
-    : '';
+  const todoBanner =
+    p.status === 'todo'
+      ? `<div class="todo-banner"><b>🚧 TODO — not yet implemented.</b> This capability is on the roadmap and is <em>not</em> an anti-pattern for zmdb; it simply isn't built yet. ${p.note ? p.note : ''} Track / contribute via the issue tracker.</div>`
+      : '';
   const { html: body, toc } = mdToHtml(p.md);
   const tocHtml = toc.length
     ? `<nav class="toc"><div class="toc-title">On this page</div>${toc
-        .map((t) => `<a class="lvl${t.lvl}" href="#${t.id}">${t.text}</a>`)
+        .map(t => `<a class="lvl${t.lvl}" href="#${t.id}">${t.text}</a>`)
         .join('')}</nav>`
     : '<div></div>';
   // prev / next
@@ -208,9 +253,13 @@ function pageHtml(slug, p) {
   const pn =
     prev || next
       ? `<div class="prevnext">${
-          prev ? `<a href="./${prev}.html"><div class="dir">← Previous</div><div>${PAGES[prev].title}</div></a>` : '<span></span>'
+          prev
+            ? `<a href="./${prev}.html"><div class="dir">← Previous</div><div>${PAGES[prev].title}</div></a>`
+            : '<span></span>'
         }${
-          next ? `<a class="nxt" href="./${next}.html"><div class="dir">Next →</div><div>${PAGES[next].title}</div></a>` : '<span></span>'
+          next
+            ? `<a class="nxt" href="./${next}.html"><div class="dir">Next →</div><div>${PAGES[next].title}</div></a>`
+            : '<span></span>'
         }</div>`
       : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
@@ -280,7 +329,7 @@ for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-result
 // existing dashboard source so the interactivity is preserved verbatim. ---
 function buildBenchmarksPage() {
   const raw = existsSync(join(DASH, 'index.html')) ? readFileSync(join(DASH, 'index.html'), 'utf8') : '';
-  const sections = [...raw.matchAll(/<section[\s\S]*?<\/section>/g)].map((m) => m[0]).join('\n');
+  const sections = [...raw.matchAll(/<section[\s\S]*?<\/section>/g)].map(m => m[0]).join('\n');
   const script = (raw.match(/<script>[\s\S]*?<\/script>/) || [''])[0];
   const intro = `<p>zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
     (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
@@ -458,7 +507,14 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
   <h2>Documentation</h2>
   <p class="lead">Incorporates the union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a> and <a href="https://typia.io/docs">Typia</a> doc surfaces. Every capability page is written in full — features that are anti-patterns for a zero-overhead, no-proxy, AOT layer are <a href="./docs/anti-patterns.html">excluded and explained</a>.</p>
   <div class="grid">
-    ${NAV.map((g) => `<div class="card"><h4>${g.title}</h4><p>${g.pages.filter((s) => PAGES[s]).slice(0, 6).map((s) => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`).join(' · ')}</p></div>`).join('')}
+    ${NAV.map(
+      g =>
+        `<div class="card"><h4>${g.title}</h4><p>${g.pages
+          .filter(s => PAGES[s])
+          .slice(0, 6)
+          .map(s => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`)
+          .join(' · ')}</p></div>`,
+    ).join('')}
   </div>
 </section>
 
@@ -466,4 +522,6 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 </body></html>`;
 writeFileSync(join(OUT, 'index.html'), landing);
 
-console.log(`built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`);
+console.log(
+  `built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`,
+);

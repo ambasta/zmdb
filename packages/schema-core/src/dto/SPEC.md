@@ -10,11 +10,18 @@ Epics: #163 (read/query DTO family), #177 (typed query & filter surface).
 
 ```ts
 type FieldOps<V> = {
-  eq?: V; ne?: V;
-  lt?: V; lte?: V; gt?: V; gte?: V;      // comparison
-  in?: readonly V[]; nin?: readonly V[]; // membership
-  like?: string; ilike?: string;          // string match (V must be string)
-  isNull?: boolean; notNull?: boolean;    // null checks
+  eq?: V;
+  ne?: V;
+  lt?: V;
+  lte?: V;
+  gt?: V;
+  gte?: V; // comparison
+  in?: readonly V[];
+  nin?: readonly V[]; // membership
+  like?: string;
+  ilike?: string; // string match (V must be string)
+  isNull?: boolean;
+  notNull?: boolean; // null checks
 };
 
 type WhereDTO<S> = {
@@ -31,15 +38,16 @@ type WhereDTO<S> = {
 - `like`/`ilike` are only valid when the field type is `string` (enforced by `FieldOps<V>`: those keys accept `string`).
 
 ### Runtime: `compileWhere(where, apply)`
+
 Deterministically folds a `WhereDTO` into a query-compiler `SelectBuilder` by
 calling `.where(col, op, value)` / `.orWhere(...)`. Operator mapping:
 
-| DTO op | SQL |
-|--------|-----|
-| eq | `=` · ne → `!=` · lt `<` · lte `<=` · gt `>` · gte `>=` |
-| in | `IN` · nin → `NOT IN` |
-| like | `LIKE` · ilike → `ILIKE` (pg) / `LIKE` (others, documented) |
-| isNull:true | `IS NULL` · notNull:true → `IS NOT NULL` |
+| DTO op      | SQL                                                         |
+| ----------- | ----------------------------------------------------------- |
+| eq          | `=` · ne → `!=` · lt `<` · lte `<=` · gt `>` · gte `>=`     |
+| in          | `IN` · nin → `NOT IN`                                       |
+| like        | `LIKE` · ilike → `ILIKE` (pg) / `LIKE` (others, documented) |
+| isNull:true | `IS NULL` · notNull:true → `IS NOT NULL`                    |
 
 - Field/operator order within a group is stable (object key order) for golden SQL.
 - Empty WhereDTO ⇒ no predicate added.
@@ -63,6 +71,7 @@ type PaginationDTO<S> = OffsetPage | CursorPage<S>;
   OrderBy; documented that cursor needs a total order — typically the PK).
 
 ### Golden (postgres)
+
 - `applyOrderBy(b, [{column:'age',dir:'desc'},{column:'id'}])` ⇒ `ORDER BY "age" DESC, "id" ASC`.
 - `applyPagination(b, {limit:20,offset:40})` ⇒ `LIMIT 20 OFFSET 40`.
 - `applyPagination(b, {limit:20})` ⇒ `LIMIT 20` (no OFFSET clause).
@@ -86,9 +95,13 @@ type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 ## 4. GetDTO + Projection (#164/#165/#166)
 
 ```ts
-interface GetOptions<S> { select?: readonly (keyof Entity<S>)[]; populate?: readonly string[]; }
-type GetDTO<S, O extends GetOptions<S> = {}> =
-  O['select'] extends readonly (infer K extends keyof Entity<S>)[] ? Projection<S, K> : Entity<S>;
+interface GetOptions<S> {
+  select?: readonly (keyof Entity<S>)[];
+  populate?: readonly string[];
+}
+type GetDTO<S, O extends GetOptions<S> = {}> = O['select'] extends readonly (infer K extends keyof Entity<S>)[]
+  ? Projection<S, K>
+  : Entity<S>;
 ```
 
 - No options ⇒ `Entity<S>`. `select` narrows to the picked columns.
@@ -100,21 +113,37 @@ type GetDTO<S, O extends GetOptions<S> = {}> =
 ## 5. ListDTO + ListResult (#167/#168/#169)
 
 ```ts
-interface ListDTO<S> { where?: WhereDTO<S>; orderBy?: OrderByDTO<S>; page?: PaginationDTO<S>; select?: readonly (keyof Entity<S>)[]; }
-interface ListResult<Row> { readonly items: readonly Row[]; readonly total?: number; readonly hasMore: boolean; readonly cursor?: string; }
+interface ListDTO<S> {
+  where?: WhereDTO<S>;
+  orderBy?: OrderByDTO<S>;
+  page?: PaginationDTO<S>;
+  select?: readonly (keyof Entity<S>)[];
+}
+interface ListResult<Row> {
+  readonly items: readonly Row[];
+  readonly total?: number;
+  readonly hasMore: boolean;
+  readonly cursor?: string;
+}
 ```
 
 - `total` present only when an offset page requests it (extra COUNT query) — opt-in.
 - `hasMore` computed by fetching `limit+1` and trimming (no COUNT needed).
 - Runtime `buildListResult(rows, { limit, select, total? })`: if `rows.length >
-  limit`, set `hasMore=true` and drop the extra row; project each item by
+limit`, set `hasMore=true` and drop the extra row; project each item by
   `select`; attach `total` when provided. Frozen: with no `limit`, `hasMore=false`
   and all rows are returned.
 
 ## 6. SearchDTO (#170/#171/#172)
 
 ```ts
-interface SearchDTO<S> { query: string; columns: readonly (keyof Entity<S>)[]; where?: WhereDTO<S>; page?: PaginationDTO<S>; rank?: boolean; }
+interface SearchDTO<S> {
+  query: string;
+  columns: readonly (keyof Entity<S>)[];
+  where?: WhereDTO<S>;
+  page?: PaginationDTO<S>;
+  rank?: boolean;
+}
 type SearchHit<Row> = Row & { readonly _score?: number };
 type SearchResult<Row> = ListResult<SearchHit<Row>>;
 ```
@@ -134,6 +163,7 @@ type SearchResult<Row> = ListResult<SearchHit<Row>>;
 - Deterministic key ordering; build-time only.
 
 ## Acceptance
+
 - Type-level (`expectTypeOf`) assertions for each derived type.
 - Runtime golden SQL for `compileWhere`, order/pagination.
 - No proxies/identity map; parameterized SQL.
@@ -146,16 +176,19 @@ interface AggregateSpec<S> {
   groupBy?: readonly (keyof Entity<S>)[];
   computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<S> }>>;
 }
-type AggComputedType<S, C> = C extends { fn: 'count' } ? number
-  : C extends { fn: 'sum' | 'avg' } ? number | null
-  : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> } ? Entity<S>[Col] | null
-  : number | null;
+type AggComputedType<S, C> = C extends { fn: 'count' }
+  ? number
+  : C extends { fn: 'sum' | 'avg' }
+    ? number | null
+    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> }
+      ? Entity<S>[Col] | null
+      : number | null;
 
 type AggregateResult<S, Spec extends AggregateSpec<S>> =
   // groupBy key columns, typed from the entity
-  { [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K] }
-  // one typed field per computed aggregate
-  & { [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]> };
+  {
+    [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K];
+  } & { [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]> }; // one typed field per computed aggregate
 ```
 
 - `count` ⇒ `number`; `sum`/`avg` ⇒ `number | null`; `min`/`max` ⇒ the source

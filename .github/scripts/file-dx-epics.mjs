@@ -38,7 +38,13 @@ const EPICS = [
       { key: 'A4', kind: 'spec', title: 'Typed create/update (CreateDTO/UpdateDTO → Entity)', blockedBy: [] },
       { key: 'A5', kind: 'tests', title: 'Typed create/update', blockedBy: ['A4'] },
       { key: 'A6', kind: 'impl', title: 'Typed create/update', blockedBy: ['A5'] },
-      { key: 'A7', kind: 'docs', title: 'Document the typed repository', pages: ['repository', 'crud'], blockedBy: ['A3', 'A6'] },
+      {
+        key: 'A7',
+        kind: 'docs',
+        title: 'Document the typed repository',
+        pages: ['repository', 'crud'],
+        blockedBy: ['A3', 'A6'],
+      },
     ],
   },
   {
@@ -75,7 +81,13 @@ const EPICS = [
       { key: 'C1', kind: 'spec', title: 'Typed populate option + result typing', blockedBy: ['A1'] },
       { key: 'C2', kind: 'tests', title: 'Typed populate', blockedBy: ['C1'] },
       { key: 'C3', kind: 'impl', title: 'Typed populate on read methods', blockedBy: ['C2', 'A3'] },
-      { key: 'C4', kind: 'docs', title: 'Document typed populate', pages: ['relations', 'populate-results'], blockedBy: ['C3'] },
+      {
+        key: 'C4',
+        kind: 'docs',
+        title: 'Document typed populate',
+        pages: ['relations', 'populate-results'],
+        blockedBy: ['C3'],
+      },
     ],
   },
   {
@@ -93,7 +105,13 @@ const EPICS = [
       { key: 'D1', kind: 'spec', title: 'Quickstart contract + wiring helper API', blockedBy: ['A1', 'B1'] },
       { key: 'D2', kind: 'tests', title: 'Runnable node:sqlite example as an E2E spec', blockedBy: ['D1'] },
       { key: 'D3', kind: 'impl', title: 'Wiring helper + examples app', blockedBy: ['D2', 'A3', 'B3', 'C3'] },
-      { key: 'D4', kind: 'docs', title: 'Rewrite Quick Start to the runnable flow', pages: ['quick-start', 'installation'], blockedBy: ['D3'] },
+      {
+        key: 'D4',
+        kind: 'docs',
+        title: 'Rewrite Quick Start to the runnable flow',
+        pages: ['quick-start', 'installation'],
+        blockedBy: ['D3'],
+      },
     ],
   },
 ];
@@ -102,10 +120,13 @@ const EPICS = [
 // every sub is explicit, so just flatten.
 function subTitle(epicKey, s) {
   const prefix =
-    s.kind === 'spec' ? '[sub-issue] [Spec Freeze] '
-    : s.kind === 'tests' ? '[sub-issue] [Tests Freeze] '
-    : s.kind === 'docs' ? '[sub-issue] [Docs] '
-    : '[sub-issue] ';
+    s.kind === 'spec'
+      ? '[sub-issue] [Spec Freeze] '
+      : s.kind === 'tests'
+        ? '[sub-issue] [Tests Freeze] '
+        : s.kind === 'docs'
+          ? '[sub-issue] [Docs] '
+          : '[sub-issue] ';
   return `${prefix}${s.title}`.slice(0, 250);
 }
 function subLabels(s, hasUnmetBlockers) {
@@ -117,7 +138,7 @@ function subLabels(s, hasUnmetBlockers) {
 }
 
 // A sub is "blocked at filing time" if it has ANY blocker (nothing is closed yet).
-const isBlockedAtFiling = (s) => (s.blockedBy && s.blockedBy.length > 0);
+const isBlockedAtFiling = s => s.blockedBy && s.blockedBy.length > 0;
 
 function tddGate(kind) {
   if (kind === 'spec')
@@ -134,10 +155,13 @@ function subBody(epicNum, epicTitle, s, blockersText) {
     `Parent epic: ${epicNum ? '#' + epicNum : '(epic)'} (${epicTitle})`,
     '',
     `## Goal`,
-    s.kind === 'spec' ? `Freeze the spec for: **${s.title}** (SPEC & TDD first — no implementation).`
-      : s.kind === 'tests' ? `Author FAILING tests for: **${s.title}** (red), including type-level assertions.`
-      : s.kind === 'docs' ? `Document: **${s.title}** — pages ${(s.pages || []).map((p) => '`' + p + '`').join(', ')}.`
-      : `Implement: **${s.title}**.`,
+    s.kind === 'spec'
+      ? `Freeze the spec for: **${s.title}** (SPEC & TDD first — no implementation).`
+      : s.kind === 'tests'
+        ? `Author FAILING tests for: **${s.title}** (red), including type-level assertions.`
+        : s.kind === 'docs'
+          ? `Document: **${s.title}** — pages ${(s.pages || []).map(p => '`' + p + '`').join(', ')}.`
+          : `Implement: **${s.title}**.`,
     '',
     blockersText || '',
     tddGate(s.kind),
@@ -146,17 +170,26 @@ function subBody(epicNum, epicTitle, s, blockersText) {
 
 // ---- run ----
 let existing = [];
-if (RUN) existing = JSON.parse(gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '600', '--json', 'number,title']));
-const byTitle = (t) => existing.find((i) => i.title === t);
+if (RUN)
+  existing = JSON.parse(
+    gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '600', '--json', 'number,title']),
+  );
+const byTitle = t => existing.find(i => i.title === t);
 
 const keyToNum = {}; // sub key -> issue number
 let planned = 0;
 
 function create({ title, body, labels }) {
   planned++;
-  if (!RUN) { console.log(`  [dry] [${labels.join(',')}] ${title}`); return 0; }
+  if (!RUN) {
+    console.log(`  [dry] [${labels.join(',')}] ${title}`);
+    return 0;
+  }
   const found = byTitle(title);
-  if (found) { console.log(`  = #${found.number} ${title}`); return found.number; }
+  if (found) {
+    console.log(`  = #${found.number} ${title}`);
+    return found.number;
+  }
   const args = ['issue', 'create', '--repo', REPO, '--title', title, '--body-file', '-'];
   for (const l of labels) args.push('--label', l);
   const num = Number(gh(args, body).split('/').pop());
@@ -174,7 +207,11 @@ for (const e of EPICS) {
   const enum_ = create({ title: e.title, body: epicBody, labels: ['epic', ...e.parity] });
   epicNums[e.key] = enum_;
   for (const s of e.subs) {
-    const num = create({ title: subTitle(e.key, s), body: subBody(enum_, e.title, s, ''), labels: subLabels(s, isBlockedAtFiling(s)) });
+    const num = create({
+      title: subTitle(e.key, s),
+      body: subBody(enum_, e.title, s, ''),
+      labels: subLabels(s, isBlockedAtFiling(s)),
+    });
     keyToNum[s.key] = num;
   }
 }
@@ -186,15 +223,19 @@ if (RUN) {
   for (const e of EPICS) for (const s of e.subs) for (const b of s.blockedBy || []) (blocks[b] ||= []).push(s.key);
   for (const e of EPICS) {
     for (const s of e.subs) {
-      const bb = (s.blockedBy || []).map((k) => `#${keyToNum[k]}`).join(', ');
-      const bl = (blocks[s.key] || []).map((k) => `#${keyToNum[k]}`).join(', ');
-      const blockersText =
-        (bb ? `## Blocked by\n${bb}\n\n` : '') + (bl ? `## Blocks\n${bl}\n\n` : '');
+      const bb = (s.blockedBy || []).map(k => `#${keyToNum[k]}`).join(', ');
+      const bl = (blocks[s.key] || []).map(k => `#${keyToNum[k]}`).join(', ');
+      const blockersText = (bb ? `## Blocked by\n${bb}\n\n` : '') + (bl ? `## Blocks\n${bl}\n\n` : '');
       const body = subBody(epicNums[e.key], e.title, s, blockersText);
       gh(['issue', 'edit', String(keyToNum[s.key]), '--repo', REPO, '--body-file', '-'], body);
     }
     // epic checklist
-    const list = e.subs.map((s) => `- [ ] #${keyToNum[s.key]}${(s.blockedBy || []).length ? ` (blocked by ${(s.blockedBy).map((k) => '#' + keyToNum[k]).join(', ')})` : ''}`).join('\n');
+    const list = e.subs
+      .map(
+        s =>
+          `- [ ] #${keyToNum[s.key]}${(s.blockedBy || []).length ? ` (blocked by ${s.blockedBy.map(k => '#' + keyToNum[k]).join(', ')})` : ''}`,
+      )
+      .join('\n');
     const epicBody = `# ${e.title}\n\n## Motivation\n${e.motivation}\n\n## Definition of Done\n${e.dod.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n\n## Process\nSPEC & TDD first: spec-freeze → tests-freeze → implementation → docs; sub-issues block each other. No proxies / no identity map.\n\n## Sub-issues\n${list}`;
     gh(['issue', 'edit', String(epicNums[e.key]), '--repo', REPO, '--body-file', '-'], epicBody);
     console.log(`  ~ wired blocking + checklist for epic #${epicNums[e.key]}`);

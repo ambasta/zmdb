@@ -17,7 +17,7 @@ for (const n of ISSUES) {
   const body = gh(['issue', 'view', String(n), '--repo', REPO, '--json', 'body', '-q', '.body']);
   const out = body
     .split('\n')
-    .map((line) => {
+    .map(line => {
       if (!line.startsWith('- [ ]')) return line;
       // Preserve the deliberately-deferred green line as unchecked.
       if (line.includes('makes tests pass (green)')) return line;

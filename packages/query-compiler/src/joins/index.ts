@@ -7,7 +7,7 @@ export type JoinKind = 'inner' | 'left' | 'right';
 
 const QUOTE: Record<Dialect, string> = { postgres: '"', mysql: '`', sqlite: '"' };
 const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
-  postgres: (n) => `$${n}`,
+  postgres: n => `$${n}`,
   mysql: () => '?',
   sqlite: () => '?',
 };
@@ -24,7 +24,7 @@ function quoteCol(d: Dialect, col: string): string {
   const q = QUOTE[d];
   return col
     .split('.')
-    .map((p) => `${q}${p}${q}`)
+    .map(p => `${q}${p}${q}`)
     .join('.');
 }
 
@@ -69,8 +69,8 @@ function make(d: Dialect, s: State): JoinableSelect {
     rightJoin: (t, l, r) => addJoin('right', t, l, r),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
-    limit: (n) => next({ limitN: n }),
-    offset: (n) => next({ offsetN: n }),
+    limit: n => next({ limitN: n }),
+    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
       let text = `SELECT * FROM ${quoteTable(d, s.table)}`;
@@ -79,14 +79,14 @@ function make(d: Dialect, s: State): JoinableSelect {
         text += ` ${kw} ${quoteTable(d, j.target)} ON ${quoteCol(d, j.leftCol)} = ${quoteCol(d, j.rightCol)}`;
       }
       if (s.wheres.length > 0) {
-        const parts = s.wheres.map((w) => {
+        const parts = s.wheres.map(w => {
           params.push(w.value);
           return `${quoteCol(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
         });
         text += ` WHERE ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map((o) => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;

@@ -9,12 +9,61 @@ const ROOT = new URL('../..', import.meta.url).pathname;
 
 // entry subpath -> dist basename (matches the tsup entry keys)
 const ENTRIES = {
-  'schema-core': { '.': 'index', './dto': 'dto', './custom-types': 'custom-types', './seeding': 'seeding', './llm': 'llm' },
-  'query-compiler': { '.': 'index', './fts': 'fts', './joins': 'joins', './aggregations': 'aggregations', './migrations': 'migrations', './set-ops': 'set-ops', './schema-objects': 'schema-objects' },
-  'aot-validator': { '.': 'index', './advanced': 'advanced', './serialization': 'serialization', './utilities': 'utilities', './plugin': 'plugin' },
-  repository: { '.': 'index', './transactions': 'transactions', './replicas': 'replicas', './integrations': 'integrations', './entity-modeling': 'entity-modeling' },
-  web: { '.': 'index', './routing': 'routing', './context': 'context', './di': 'di', './state': 'state', './pipeline': 'pipeline', './data': 'data', './modules': 'modules', './middleware': 'middleware', './app': 'app', './dto-pipes': 'dto-pipes', './openapi': 'openapi', './gateways': 'gateways', './testing': 'testing', './bench': 'bench' },
-  zmdb: { '.': 'index', './dto': 'dto', './relations': 'relations', './drivers/sqlite': 'drivers-sqlite', './drivers/pg': 'drivers-pg', './web': 'web' },
+  'schema-core': {
+    '.': 'index',
+    './dto': 'dto',
+    './custom-types': 'custom-types',
+    './seeding': 'seeding',
+    './llm': 'llm',
+  },
+  'query-compiler': {
+    '.': 'index',
+    './fts': 'fts',
+    './joins': 'joins',
+    './aggregations': 'aggregations',
+    './migrations': 'migrations',
+    './set-ops': 'set-ops',
+    './schema-objects': 'schema-objects',
+  },
+  'aot-validator': {
+    '.': 'index',
+    './advanced': 'advanced',
+    './serialization': 'serialization',
+    './utilities': 'utilities',
+    './plugin': 'plugin',
+  },
+  repository: {
+    '.': 'index',
+    './transactions': 'transactions',
+    './replicas': 'replicas',
+    './integrations': 'integrations',
+    './entity-modeling': 'entity-modeling',
+  },
+  web: {
+    '.': 'index',
+    './routing': 'routing',
+    './context': 'context',
+    './di': 'di',
+    './state': 'state',
+    './pipeline': 'pipeline',
+    './data': 'data',
+    './modules': 'modules',
+    './middleware': 'middleware',
+    './app': 'app',
+    './dto-pipes': 'dto-pipes',
+    './openapi': 'openapi',
+    './gateways': 'gateways',
+    './testing': 'testing',
+    './bench': 'bench',
+  },
+  zmdb: {
+    '.': 'index',
+    './dto': 'dto',
+    './relations': 'relations',
+    './drivers/sqlite': 'drivers-sqlite',
+    './drivers/pg': 'drivers-pg',
+    './web': 'web',
+  },
 };
 
 for (const [name, entries] of Object.entries(ENTRIES)) {
@@ -51,4 +100,3 @@ for (const [name, entries] of Object.entries(ENTRIES)) {
   console.log(`repointed ${pkg.name} → dist (${Object.keys(entries).length} entries)`);
 }
 console.log('DONE — package.json now points at dist (CI publish state)');
-

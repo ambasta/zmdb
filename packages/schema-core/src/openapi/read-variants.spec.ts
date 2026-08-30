@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { defineSchema, serial, text } from '../index.ts';
 import { toJsonSchema, toListSchema, toSearchSchema } from './index.ts';
 
@@ -8,7 +9,7 @@ const UserSchema = defineSchema('users', {
 });
 
 describe('OpenAPI get/list/search variants (#174)', () => {
-  it("get variant equals the entity response schema", () => {
+  it('get variant equals the entity response schema', () => {
     expect(toJsonSchema(UserSchema, 'get')).toEqual(toJsonSchema(UserSchema, 'entity'));
   });
 

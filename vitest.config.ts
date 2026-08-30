@@ -1,6 +1,6 @@
-import { defineConfig } from 'vitest/config';
 import { transform as esbuildTransform } from 'esbuild';
 import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // --- Stage-3 decorator transform for vitest -------------------------------
 // The bumped toolchain (Vitest 4 / Vite 8 / Rolldown + oxc 0.147) does NOT lower

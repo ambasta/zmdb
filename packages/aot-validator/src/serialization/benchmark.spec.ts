@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { stringify } from './index.ts';
 
 // #55: benchmark vs JSON.stringify + E2E correctness at scale.
@@ -31,8 +32,8 @@ describe('stringify vs JSON.stringify', () => {
   });
 
   it('exposes a micro-benchmark producing ops/sec for both', () => {
-    const zmdb = bench('zmdb.stringify', () => void rows.map((r) => stringify(r)), 200);
-    const native = bench('JSON.stringify', () => void rows.map((r) => JSON.stringify(r)), 200);
+    const zmdb = bench('zmdb.stringify', () => void rows.map(r => stringify(r)), 200);
+    const native = bench('JSON.stringify', () => void rows.map(r => JSON.stringify(r)), 200);
     expect(zmdb.opsPerSec).toBeGreaterThan(0);
     expect(native.opsPerSec).toBeGreaterThan(0);
     // Report only — do not assert a speed ordering (environment-dependent).

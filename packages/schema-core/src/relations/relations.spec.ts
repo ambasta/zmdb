@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { manyToOne, oneToMany, manyToMany } from './index.ts';
 
 // RED PHASE (#30 spec freeze): relation metadata fixtures.

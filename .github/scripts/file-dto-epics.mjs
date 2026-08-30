@@ -17,16 +17,24 @@ function gh(args, input) {
 let existing = [];
 function loadExisting() {
   if (!RUN) return;
-  existing = JSON.parse(gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '500', '--json', 'number,title']));
+  existing = JSON.parse(
+    gh(['issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '500', '--json', 'number,title']),
+  );
 }
-const findByTitle = (t) => existing.find((i) => i.title === t);
+const findByTitle = t => existing.find(i => i.title === t);
 
 let planned = 0;
 function createIssue({ title, body, labels }) {
   planned++;
-  if (!RUN) { console.log(`  [dry] would create [${labels.join(',')}] ${title}`); return 0; }
+  if (!RUN) {
+    console.log(`  [dry] would create [${labels.join(',')}] ${title}`);
+    return 0;
+  }
   const found = findByTitle(title);
-  if (found) { console.log(`  = exists #${found.number}: ${title}`); return found.number; }
+  if (found) {
+    console.log(`  = exists #${found.number}: ${title}`);
+    return found.number;
+  }
   const args = ['issue', 'create', '--repo', REPO, '--title', title, '--body-file', '-'];
   for (const l of labels) args.push('--label', l);
   const url = gh(args, body);
@@ -52,14 +60,51 @@ const EPICS = [
       'OpenAPI: `get`/`list`/`search` variants alongside the existing entity/create/update.',
     ],
     subs: [
-      { kind: 'spec', title: 'GetDTO + Projection', behavior: 'Freeze `GetDTO<S,Opts>` and `Projection<S,K>` — result narrowing by selected columns, widening by populate; nullability rules; golden type-level examples.' },
-      { kind: 'impl', title: 'GetDTO + Projection', behavior: 'Implement the derived types + retype findById/findOne to return them; type-level (tsd/expect-type) tests green.' },
-      { kind: 'spec', title: 'ListDTO + ListResult (pagination metadata)', behavior: 'Freeze the list query DTO (limit/offset/order/filter/projection) and the ListResult envelope (items + total/hasMore/cursor).' },
-      { kind: 'impl', title: 'ListDTO + ListResult', behavior: 'Implement + retype findAll into a paged, ordered, projected list returning ListResult.' },
-      { kind: 'spec', title: 'SearchDTO (query + filters + ranking)', behavior: 'Freeze the search DTO: full-text query + typed filters + paging + optional score/rank field on the result rows.' },
-      { kind: 'impl', title: 'SearchDTO', behavior: 'Implement + retype findByFullText to consume SearchDTO and return ranked, typed results.' },
-      { kind: 'spec', title: 'OpenAPI get/list/search variants', behavior: 'Freeze how the new read DTOs map to OpenAPI response/query schemas (extend Variant beyond entity/create/update).' },
-      { kind: 'impl', title: 'OpenAPI get/list/search variants', behavior: 'Implement the new OpenAPI variants deterministically.' },
+      {
+        kind: 'spec',
+        title: 'GetDTO + Projection',
+        behavior:
+          'Freeze `GetDTO<S,Opts>` and `Projection<S,K>` — result narrowing by selected columns, widening by populate; nullability rules; golden type-level examples.',
+      },
+      {
+        kind: 'impl',
+        title: 'GetDTO + Projection',
+        behavior:
+          'Implement the derived types + retype findById/findOne to return them; type-level (tsd/expect-type) tests green.',
+      },
+      {
+        kind: 'spec',
+        title: 'ListDTO + ListResult (pagination metadata)',
+        behavior:
+          'Freeze the list query DTO (limit/offset/order/filter/projection) and the ListResult envelope (items + total/hasMore/cursor).',
+      },
+      {
+        kind: 'impl',
+        title: 'ListDTO + ListResult',
+        behavior: 'Implement + retype findAll into a paged, ordered, projected list returning ListResult.',
+      },
+      {
+        kind: 'spec',
+        title: 'SearchDTO (query + filters + ranking)',
+        behavior:
+          'Freeze the search DTO: full-text query + typed filters + paging + optional score/rank field on the result rows.',
+      },
+      {
+        kind: 'impl',
+        title: 'SearchDTO',
+        behavior: 'Implement + retype findByFullText to consume SearchDTO and return ranked, typed results.',
+      },
+      {
+        kind: 'spec',
+        title: 'OpenAPI get/list/search variants',
+        behavior:
+          'Freeze how the new read DTOs map to OpenAPI response/query schemas (extend Variant beyond entity/create/update).',
+      },
+      {
+        kind: 'impl',
+        title: 'OpenAPI get/list/search variants',
+        behavior: 'Implement the new OpenAPI variants deterministically.',
+      },
       { kind: 'docs', title: 'Document the read/query DTO family', pages: ['read-dtos', 'projections'] },
     ],
   },
@@ -76,12 +121,39 @@ const EPICS = [
       'Repository read methods retyped to consume these instead of Record<string,unknown>.',
     ],
     subs: [
-      { kind: 'spec', title: 'WhereDTO + operator set', behavior: 'Freeze the typed filter grammar (per-column value types, operator set, AND/OR nesting) and its compilation to parameterized SQL.' },
-      { kind: 'impl', title: 'WhereDTO + operator set', behavior: 'Implement WhereDTO typing + compilation; retype findOne/findAll to accept it; parameterized SQL golden tests.' },
-      { kind: 'spec', title: 'OrderByDTO + PaginationDTO', behavior: 'Freeze typed ordering (column+dir, multi-key) and pagination (offset + keyset/cursor) contracts + golden SQL.' },
-      { kind: 'impl', title: 'OrderByDTO + PaginationDTO', behavior: 'Implement ordering + pagination; wire into list reads.' },
-      { kind: 'spec', title: 'Typed select()/projection narrowing', behavior: 'Freeze how select(cols) narrows the returned row type and composes with Where/Order/Pagination.' },
-      { kind: 'impl', title: 'Typed select()/projection narrowing', behavior: 'Implement the narrowing select on the query builder + repository.' },
+      {
+        kind: 'spec',
+        title: 'WhereDTO + operator set',
+        behavior:
+          'Freeze the typed filter grammar (per-column value types, operator set, AND/OR nesting) and its compilation to parameterized SQL.',
+      },
+      {
+        kind: 'impl',
+        title: 'WhereDTO + operator set',
+        behavior:
+          'Implement WhereDTO typing + compilation; retype findOne/findAll to accept it; parameterized SQL golden tests.',
+      },
+      {
+        kind: 'spec',
+        title: 'OrderByDTO + PaginationDTO',
+        behavior:
+          'Freeze typed ordering (column+dir, multi-key) and pagination (offset + keyset/cursor) contracts + golden SQL.',
+      },
+      {
+        kind: 'impl',
+        title: 'OrderByDTO + PaginationDTO',
+        behavior: 'Implement ordering + pagination; wire into list reads.',
+      },
+      {
+        kind: 'spec',
+        title: 'Typed select()/projection narrowing',
+        behavior: 'Freeze how select(cols) narrows the returned row type and composes with Where/Order/Pagination.',
+      },
+      {
+        kind: 'impl',
+        title: 'Typed select()/projection narrowing',
+        behavior: 'Implement the narrowing select on the query builder + repository.',
+      },
       { kind: 'docs', title: 'Document filters, ordering & pagination', pages: ['filters', 'pagination'] },
     ],
   },
@@ -97,9 +169,23 @@ const EPICS = [
       'No proxies/identity-map — populated children remain plain typed objects.',
     ],
     subs: [
-      { kind: 'spec', title: 'Populated<S,K> result typing', behavior: 'Freeze how populate options map to the augmented parent type (to-one → object, to-many → array), nullability, and multi-relation populate.' },
-      { kind: 'impl', title: 'Populated<S,K> result typing', behavior: 'Implement the derived type + populate overloads on the repository; type-level tests green.' },
-      { kind: 'spec', title: 'Typed join result rows', behavior: 'Freeze the typed row shape produced by findJoined (base + joined/aliased columns) and its interaction with projection.' },
+      {
+        kind: 'spec',
+        title: 'Populated<S,K> result typing',
+        behavior:
+          'Freeze how populate options map to the augmented parent type (to-one → object, to-many → array), nullability, and multi-relation populate.',
+      },
+      {
+        kind: 'impl',
+        title: 'Populated<S,K> result typing',
+        behavior: 'Implement the derived type + populate overloads on the repository; type-level tests green.',
+      },
+      {
+        kind: 'spec',
+        title: 'Typed join result rows',
+        behavior:
+          'Freeze the typed row shape produced by findJoined (base + joined/aliased columns) and its interaction with projection.',
+      },
       { kind: 'impl', title: 'Typed join result rows', behavior: 'Implement typed join results; retype findJoined.' },
       { kind: 'docs', title: 'Document typed populate & join results', pages: ['populate-results'] },
     ],
@@ -115,8 +201,18 @@ const EPICS = [
       'Correct numeric/nullable typing for count vs sum/avg/min/max.',
     ],
     subs: [
-      { kind: 'spec', title: 'AggregateResult<S,Spec>', behavior: 'Freeze how a groupBy + aggregate spec derives the result row type (key columns + computed columns, correct number/nullable typing) with golden type-level examples.' },
-      { kind: 'impl', title: 'AggregateResult<S,Spec>', behavior: 'Implement the derived type + infer aggregate() result from the builder spec; type-level tests green.' },
+      {
+        kind: 'spec',
+        title: 'AggregateResult<S,Spec>',
+        behavior:
+          'Freeze how a groupBy + aggregate spec derives the result row type (key columns + computed columns, correct number/nullable typing) with golden type-level examples.',
+      },
+      {
+        kind: 'impl',
+        title: 'AggregateResult<S,Spec>',
+        behavior:
+          'Implement the derived type + infer aggregate() result from the builder spec; type-level tests green.',
+      },
       { kind: 'docs', title: 'Document typed aggregate results', pages: ['aggregate-results'] },
     ],
   },
@@ -205,7 +301,7 @@ ${sub.behavior}
   return `Parent epic: ${parentRef} (${epicTitle})
 
 ## Goal
-Document the shipped capability with real examples: ${sub.pages.map((p) => `docs page \`${p}\``).join(', ')}.
+Document the shipped capability with real examples: ${sub.pages.map(p => `docs page \`${p}\``).join(', ')}.
 
 ## Depends on
 All implementation sub-issues in this epic being green.
@@ -233,10 +329,13 @@ for (const e of EPICS) {
   const created = [];
   for (const s of expanded) {
     const prefix =
-      s.kind === 'spec' ? '[sub-issue] [Spec Freeze] '
-      : s.kind === 'tests' ? '[sub-issue] [Tests Freeze] '
-      : s.kind === 'docs' ? '[sub-issue] [Docs] '
-      : '[sub-issue] ';
+      s.kind === 'spec'
+        ? '[sub-issue] [Spec Freeze] '
+        : s.kind === 'tests'
+          ? '[sub-issue] [Tests Freeze] '
+          : s.kind === 'docs'
+            ? '[sub-issue] [Docs] '
+            : '[sub-issue] ';
     const title = `${prefix}${s.title}`.slice(0, 250);
     const labels = ['sub-issue'];
     if (s.kind === 'spec' || s.kind === 'tests') labels.push('spec');
@@ -245,8 +344,11 @@ for (const e of EPICS) {
     created.push({ num, title });
   }
   if (RUN) {
-    const checklist = created.map((c) => `- [ ] #${c.num}`).join('\n');
-    gh(['issue', 'edit', String(epicNum), '--repo', REPO, '--body-file', '-'], epicBody(e).replace('_(populated below as they are filed)_', checklist));
+    const checklist = created.map(c => `- [ ] #${c.num}`).join('\n');
+    gh(
+      ['issue', 'edit', String(epicNum), '--repo', REPO, '--body-file', '-'],
+      epicBody(e).replace('_(populated below as they are filed)_', checklist),
+    );
     console.log(`  ~ updated epic #${epicNum} with ${created.length} sub-issue links`);
   }
 }

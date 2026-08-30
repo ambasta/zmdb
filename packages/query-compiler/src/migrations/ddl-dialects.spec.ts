@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { emitUp, emitDown, type ChangeOp } from './index.ts';
 
 // #43: DDL emitter per dialect (Postgres/MySQL/SQLite).

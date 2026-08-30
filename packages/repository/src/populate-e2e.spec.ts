@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { BaseRepository, type Driver } from './index.ts';
+
 import { defineSchema, serial, text, integer, primaryKey, notNull } from '@zmdb/schema-core';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { BaseRepository, type Driver } from './index.ts';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
 
@@ -41,7 +43,9 @@ let db: DatabaseSync;
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL)');
-  db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)');
+  db.exec(
+    'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)',
+  );
 });
 
 describe('populate to-many E2E (real SQLite)', () => {
@@ -57,7 +61,7 @@ describe('populate to-many E2E (real SQLite)', () => {
     await orders.create({ userId: u2.id, total: 30 });
 
     const populated = await users.findAllWithMany('orders', 'orders', 'userId');
-    const byId = new Map(populated.map((p) => [p.id, p]));
+    const byId = new Map(populated.map(p => [p.id, p]));
 
     expect((byId.get(u1.id)!.orders as unknown[]).length).toBe(2);
     expect((byId.get(u2.id)!.orders as unknown[]).length).toBe(1);

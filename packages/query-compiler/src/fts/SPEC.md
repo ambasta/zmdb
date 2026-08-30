@@ -8,7 +8,7 @@
 ## 1. Grammar
 
 ```ts
-qb.selectFrom(table).whereMatch(column, term).compile()
+qb.selectFrom(table).whereMatch(column, term).compile();
 ```
 
 `whereMatch` adds a full-text-search predicate. Composes with existing where/
@@ -16,11 +16,11 @@ limit/offset. Immutable, parameterized.
 
 ## 2. Per-dialect compilation (frozen)
 
-| dialect | whereMatch(col, term) → |
-|---------|-------------------------|
-| postgres | `to_tsvector('english', "col") @@ to_tsquery('english', $n)` |
-| mysql | `MATCH("col") AGAINST(? IN NATURAL LANGUAGE MODE)` |
-| sqlite | **DNF** — no built-in FTS on an arbitrary column (FTS5 needs a virtual table); documented, not faked |
+| dialect  | whereMatch(col, term) →                                                                              |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| postgres | `to_tsvector('english', "col") @@ to_tsquery('english', $n)`                                         |
+| mysql    | `MATCH("col") AGAINST(? IN NATURAL LANGUAGE MODE)`                                                   |
+| sqlite   | **DNF** — no built-in FTS on an arbitrary column (FTS5 needs a virtual table); documented, not faked |
 
 The term is always a bound parameter (`$n` / `?`).
 

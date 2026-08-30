@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+
 import { createQueryCompiler } from '../index.ts';
 import { batch } from './index.ts';
 

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { transformSource, validate, tags } from './index.ts';
 
 // #24: runtime-safety fallback + build integration.
@@ -9,7 +10,6 @@ import { transformSource, validate, tags } from './index.ts';
 function evalInlined(expr: string, input: unknown): boolean {
   // The transformer turns `validate(tags.X(...), E)` into a bare boolean expr.
   const src = transformSource(`validate(${expr}, input)`);
-  // eslint-disable-next-line no-new-func
   return new Function('input', `return (${src});`)(input) as boolean;
 }
 

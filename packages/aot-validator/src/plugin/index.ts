@@ -5,18 +5,17 @@
 // packaging is #81; this string harness pins & implements the emitted-JS
 // contract the spec froze.)
 
-
 // A parsed TS type: primitives or a flat/nested object type literal.
-type PType =
-  | { kind: 'number' | 'string' | 'boolean' }
-  | { kind: 'object'; fields: { name: string; type: PType }[] };
+type PType = { kind: 'number' | 'string' | 'boolean' } | { kind: 'object'; fields: { name: string; type: PType }[] };
 
 // Minimal parser for the subset of TS type syntax the moltar model uses:
 // primitives and `{ a: T; b: U }` object literals (nesting supported).
 function parseType(src: string): PType {
   let i = 0;
   const s = src.trim();
-  function ws() { while (i < s.length && /\s/.test(s[i]!)) i++; }
+  function ws() {
+    while (i < s.length && /\s/.test(s[i]!)) i++;
+  }
   function parse(): PType {
     ws();
     if (s[i] === '{') {
@@ -80,10 +79,17 @@ function rewriteCall(code: string, fn: 'is' | 'assert'): string {
   const needle = `${fn}<`;
   while (i < code.length) {
     const at = code.indexOf(needle, i);
-    if (at === -1) { out += code.slice(i); break; }
+    if (at === -1) {
+      out += code.slice(i);
+      break;
+    }
     // boundary check (avoid matching `xis<`)
     const prev = at > 0 ? code[at - 1]! : '';
-    if (/[A-Za-z0-9_$.]/.test(prev)) { out += code.slice(i, at + needle.length); i = at + needle.length; continue; }
+    if (/[A-Za-z0-9_$.]/.test(prev)) {
+      out += code.slice(i, at + needle.length);
+      i = at + needle.length;
+      continue;
+    }
     out += code.slice(i, at);
     // parse the <...> type argument (balanced angle brackets)
     let j = at + needle.length;
@@ -105,9 +111,7 @@ function rewriteCall(code: string, fn: 'is' | 'assert'): string {
     const expr = code.slice(exprStart, j - 1).trim();
     const t = parseType(typeSrc);
     const check = `(${emitCheck(t, expr)})`;
-    out += fn === 'is'
-      ? check
-      : `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+    out += fn === 'is' ? check : `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
     i = j;
   }
   return out;

@@ -31,9 +31,7 @@ The schema is the **single source of truth**. You write it once; every derived
 type flows from it. Backed by `packages/schema-core/SPEC.md`.
 
 ```ts
-import {
-  defineSchema, serial, text, integer, numeric, jsonEnum, timestamp,
-} from '@zmdb/schema-core';
+import { defineSchema, serial, text, integer, numeric, jsonEnum, timestamp } from '@zmdb/schema-core';
 import { tags } from '@zmdb/aot-validator';
 
 export const UserSchema = defineSchema('users', {
@@ -63,7 +61,7 @@ No hand-written DTOs. Types are derived at compile time (schema-core §4).
 ```ts
 import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 
-type User       = Entity<typeof UserSchema>;
+type User = Entity<typeof UserSchema>;
 // { id: number; email: string; role: 'admin'|'user'|'guest'; createdAt: Date }
 
 type CreateUser = CreateDTO<typeof UserSchema>;
@@ -102,15 +100,15 @@ const users = new UserRepository(driver); // driver injected (see §5 for driver
 const u = await users.create({ email: 'a@b.com', role: 'user' });
 
 // READ — returns plain objects
-const one  = await users.findById(u.id);       // Entity | undefined
+const one = await users.findById(u.id); // Entity | undefined
 const some = await users.findOne({ role: 'admin' });
-const all  = await users.findAll();             // readonly Entity[]
+const all = await users.findAll(); // readonly Entity[]
 
 // UPDATE — partial payload validated against UpdateDTO<S>
 const updated = await users.update(u.id, { role: 'admin' });
 
 // DELETE
-const ok = await users.delete(u.id);            // boolean
+const ok = await users.delete(u.id); // boolean
 ```
 
 If a payload is invalid, `create`/`update` throw a structured `ValidationError`
@@ -138,12 +136,12 @@ layer and identity map entirely, which is where the zero-overhead guarantee come
 
 Coming from a "load, mutate, flush" workflow, the translation is:
 
-| Mikro-ORM | zmdb |
-|-----------|------|
-| `const u = em.findOne(User, 1)` | `const u = await users.findById(1)` |
-| `u.email = 'x'` | *(prepare a patch object)* `const patch = { email: 'x' }` |
-| `await em.flush()` | `await users.update(1, patch)` |
-| unit-of-work across many entities | `db.transaction(...)` (see §5) |
+| Mikro-ORM                         | zmdb                                                      |
+| --------------------------------- | --------------------------------------------------------- |
+| `const u = em.findOne(User, 1)`   | `const u = await users.findById(1)`                       |
+| `u.email = 'x'`                   | _(prepare a patch object)_ `const patch = { email: 'x' }` |
+| `await em.flush()`                | `await users.update(1, patch)`                            |
+| unit-of-work across many entities | `db.transaction(...)` (see §5)                            |
 
 ---
 
@@ -158,10 +156,11 @@ import { createTransactionalDb } from '@zmdb/repository/transactions';
 
 const db = createTransactionalDb(connection);
 
-await db.transaction(async (tx) => {
-  const user  = await tx.repo(UserRepository).create({ email: 'a@b.com' });
+await db.transaction(async tx => {
+  const user = await tx.repo(UserRepository).create({ email: 'a@b.com' });
   const order = await tx.repo(OrderRepository).create({
-    userId: user.id, totalPrice: 42,
+    userId: user.id,
+    totalPrice: 42,
   });
   // If anything throws here → ROLLBACK; nothing persists.
   // On clean return → COMMIT.
@@ -197,13 +196,13 @@ import { defineSchema, serial, integer, oneToMany, manyToOne } from '@zmdb/schem
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
-  orders: oneToMany('orders', 'userId'),   // inverse side
+  orders: oneToMany('orders', 'userId'), // inverse side
 });
 
 const OrderSchema = defineSchema('orders', {
   id: serial().primaryKey(),
   userId: integer().notNull(),
-  user: manyToOne('users', 'userId'),      // owning side (holds FK)
+  user: manyToOne('users', 'userId'), // owning side (holds FK)
 });
 
 // Related data loads ONLY when populated (explicit):
@@ -236,10 +235,12 @@ Utility surface (typia-style), backed by the validator-utilities spec:
 ```ts
 import { is, assert, validate } from '@zmdb/aot-validator';
 
-if (is<CreateUser>(payload)) { /* narrowed */ }
+if (is<CreateUser>(payload)) {
+  /* narrowed */
+}
 
-const user = assert<CreateUser>(payload);           // throws AssertError with exact path
-const res  = validate<CreateUser>(payload);         // { success, data?, errors? }
+const user = assert<CreateUser>(payload); // throws AssertError with exact path
+const res = validate<CreateUser>(payload); // { success, data?, errors? }
 // res.errors[i] = { path: 'input.email', expected, value, message }
 ```
 
@@ -314,8 +315,8 @@ implementation in #64–#67).
 import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
 
 // Variant-aware: 'entity' (default) | 'create' | 'update'
-const userEntity = toJsonSchema(UserSchema);            // response shape
-const userCreate = toJsonSchema(UserSchema, 'create');  // request-body shape
+const userEntity = toJsonSchema(UserSchema); // response shape
+const userCreate = toJsonSchema(UserSchema, 'create'); // request-body shape
 // { type: 'object', properties: { ... }, required: [...] }  (draft 2020-12)
 
 const components = toOpenApiComponents([UserSchema, OrderSchema]);
@@ -323,6 +324,7 @@ const components = toOpenApiComponents([UserSchema, OrderSchema]);
 ```
 
 Frozen behavior:
+
 - Build-time generation only — **no runtime reflection**.
 - `create`/`update` variants for request bodies, `entity` for responses.
 - Validation tags map to keywords: `Minimum→minimum`, `Maximum→maximum`,
@@ -370,13 +372,21 @@ The read side is fully typed via `@zmdb/schema-core/dto` — no more
 
 ```ts
 import {
-  compileWhere, applyOrderBy, applyPagination, project, buildListResult,
-  type WhereDTO, type OrderByDTO, type ListResult,
+  compileWhere,
+  applyOrderBy,
+  applyPagination,
+  project,
+  buildListResult,
+  type WhereDTO,
+  type OrderByDTO,
+  type ListResult,
 } from '@zmdb/schema-core/dto';
 
 // Typed filter (per-column value types + operator set):
 const where: WhereDTO<typeof UserSchema> = {
-  age: { gte: 18 }, role: 'admin', email: { like: '%@corp.com' },
+  age: { gte: 18 },
+  role: 'admin',
+  email: { like: '%@corp.com' },
 };
 
 // Compose into the query builder, then assemble a typed ListResult:

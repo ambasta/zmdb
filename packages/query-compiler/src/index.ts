@@ -3,7 +3,6 @@
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like' | 'in';
 export type Direction = 'asc' | 'desc';
@@ -19,9 +18,9 @@ interface DialectStrategy {
 }
 
 const DIALECTS: Record<Dialect, DialectStrategy> = {
-  postgres: { quote: (i) => `"${i}"`, placeholder: (n) => `$${n}` },
-  mysql: { quote: (i) => `\`${i}\``, placeholder: () => `?` },
-  sqlite: { quote: (i) => `"${i}"`, placeholder: () => `?` },
+  postgres: { quote: i => `"${i}"`, placeholder: n => `$${n}` },
+  mysql: { quote: i => `\`${i}\``, placeholder: () => `?` },
+  sqlite: { quote: i => `"${i}"`, placeholder: () => `?` },
 };
 
 interface WhereClause {
@@ -61,19 +60,16 @@ function makeSelect(d: DialectStrategy, state: SelectState): SelectBuilder {
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
-    select: (columns) => (columns === undefined ? next({}) : next({ columns })),
+    select: columns => (columns === undefined ? next({}) : next({ columns })),
     where: (col, op, value) => addWhere('AND', col, op, value),
     andWhere: (col, op, value) => addWhere('AND', col, op, value),
     orWhere: (col, op, value) => addWhere('OR', col, op, value),
     orderBy: (col, dir) => next({ orderBys: [...state.orderBys, { col, dir }] }),
-    limit: (n) => next({ limitN: n }),
-    offset: (n) => next({ offsetN: n }),
+    limit: n => next({ limitN: n }),
+    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
-      const cols =
-        state.columns && state.columns.length > 0
-          ? state.columns.map((c) => d.quote(c)).join(', ')
-          : '*';
+      const cols = state.columns && state.columns.length > 0 ? state.columns.map(c => d.quote(c)).join(', ') : '*';
       let text = `SELECT ${cols} FROM ${d.quote(state.table)}`;
 
       if (state.wheres.length > 0) {
@@ -86,9 +82,7 @@ function makeSelect(d: DialectStrategy, state: SelectState): SelectBuilder {
       }
 
       if (state.orderBys.length > 0) {
-        const ob = state.orderBys
-          .map((o) => `${d.quote(o.col)} ${o.dir.toUpperCase()}`)
-          .join(', ');
+        const ob = state.orderBys.map(o => `${d.quote(o.col)} ${o.dir.toUpperCase()}`).join(', ');
         text += ` ORDER BY ${ob}`;
       }
       if (state.limitN !== undefined) text += ` LIMIT ${state.limitN}`;
@@ -125,7 +119,7 @@ export interface QueryCompiler {
 
 function returningClause(d: DialectStrategy, cols?: readonly string[]): string {
   if (!cols || cols.length === 0) return '';
-  return ` RETURNING ${cols.map((c) => (c === '*' ? '*' : d.quote(c))).join(', ')}`;
+  return ` RETURNING ${cols.map(c => (c === '*' ? '*' : d.quote(c))).join(', ')}`;
 }
 
 function makeInsert(
@@ -135,13 +129,13 @@ function makeInsert(
   ret?: readonly string[],
 ): InsertBuilder {
   return {
-    values: (r) => makeInsert(d, table, r, ret),
-    returning: (cols) => makeInsert(d, table, row, cols ?? []),
+    values: r => makeInsert(d, table, r, ret),
+    returning: cols => makeInsert(d, table, row, cols ?? []),
     compile: () => {
       if (!row) throw new Error('insertInto requires values()');
       const keys = Object.keys(row);
-      const params = keys.map((k) => row[k]);
-      const cols = keys.map((k) => d.quote(k)).join(', ');
+      const params = keys.map(k => row[k]);
+      const cols = keys.map(k => d.quote(k)).join(', ');
       const placeholders = keys.map((_, i) => d.placeholder(i + 1)).join(', ');
       const text = `INSERT INTO ${d.quote(table)} (${cols}) VALUES (${placeholders})${returningClause(d, ret)}`;
       return Object.freeze({ text, parameters: Object.freeze(params) });
@@ -157,15 +151,14 @@ function makeUpdate(
   ret?: readonly string[],
 ): UpdateBuilder {
   return {
-    set: (r) => makeUpdate(d, table, r, wheres, ret),
-    where: (col, op, value) =>
-      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
-    returning: (cols) => makeUpdate(d, table, row, wheres, cols ?? []),
+    set: r => makeUpdate(d, table, r, wheres, ret),
+    where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
       const params: unknown[] = [];
       const sets = Object.keys(row)
-        .map((k) => {
+        .map(k => {
           params.push(row[k]);
           return `${d.quote(k)} = ${d.placeholder(params.length)}`;
         })
@@ -192,9 +185,8 @@ function makeDelete(
   ret?: readonly string[],
 ): DeleteBuilder {
   return {
-    where: (col, op, value) =>
-      makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
-    returning: (cols) => makeDelete(d, table, wheres, cols ?? []),
+    where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];
       let text = `DELETE FROM ${d.quote(table)}`;
@@ -215,9 +207,9 @@ function makeDelete(
 export function createQueryCompiler(dialect: Dialect = 'postgres'): QueryCompiler {
   const d = DIALECTS[dialect];
   return {
-    selectFrom: (table) => makeSelect(d, { table, wheres: [], orderBys: [] }),
-    insertInto: (table) => makeInsert(d, table),
-    updateTable: (table) => makeUpdate(d, table),
-    deleteFrom: (table) => makeDelete(d, table),
+    selectFrom: table => makeSelect(d, { table, wheres: [], orderBys: [] }),
+    insertInto: table => makeInsert(d, table),
+    updateTable: table => makeUpdate(d, table),
+    deleteFrom: table => makeDelete(d, table),
   };
 }

@@ -1,7 +1,8 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
 import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
 import type { Entity } from '@zmdb/schema-core';
 import type { WhereDTO, ListResult } from '@zmdb/schema-core/dto';
+import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { BaseRepository, type Driver } from '../index.ts';
 
 const UserSchema = defineSchema('users', {
@@ -15,7 +16,7 @@ type S = typeof UserSchema;
 // Recording driver: captures compiled queries, returns canned rows.
 function recorder(rows: Record<string, unknown>[] = []) {
   const calls: { text: string; parameters: readonly unknown[] }[] = [];
-  const driver: Driver = { execute: async (q) => (calls.push({ text: q.text, parameters: q.parameters }), rows) };
+  const driver: Driver = { execute: async q => (calls.push({ text: q.text, parameters: q.parameters }), rows) };
   return { driver, calls };
 }
 

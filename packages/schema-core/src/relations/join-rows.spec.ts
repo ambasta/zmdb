@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { aliasRow, type JoinRow } from './index.ts';
 
 interface Emp {

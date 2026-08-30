@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { buildListResult, type ListResult } from './index.ts';
 
 const rows = [
@@ -12,7 +13,7 @@ describe('ListDTO + ListResult (#168)', () => {
     const r = buildListResult(rows, { limit: 2 });
     expect(r.items).toHaveLength(2);
     expect(r.hasMore).toBe(true);
-    expect(r.items.map((x) => x.id)).toEqual([1, 2]);
+    expect(r.items.map(x => x.id)).toEqual([1, 2]);
   });
 
   it('rows within limit ⇒ hasMore false', () => {

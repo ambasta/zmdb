@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createQueryCompiler } from '../index.ts';
 import { setOperation } from './index.ts';
 

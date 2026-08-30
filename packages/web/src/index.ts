@@ -68,7 +68,15 @@ export {
 export { extractParams, type PathParams, type QueryValues, type Ctx, type HandlerFor } from './context/index.ts';
 
 // Compile-time dependency injection: Container + @Inject. See ./di.
-export { Container, createToken, Inject, UnresolvedTokenError, type Token, type Constructor, type Scope } from './di/index.ts';
+export {
+  Container,
+  createToken,
+  Inject,
+  UnresolvedTokenError,
+  type Token,
+  type Constructor,
+  type Scope,
+} from './di/index.ts';
 
 // Compile-time domain state machines (branded/phantom types). See ./state.
 export { defineState, transition, type Brand, type State } from './state/index.ts';
@@ -110,21 +118,10 @@ export {
 } from './middleware/index.ts';
 
 // Application bootstrap & lifecycle. See ./app.
-export {
-  createApp,
-  type App,
-  type OnModuleInit,
-  type OnApplicationBootstrap,
-  type OnShutdown,
-} from './app/index.ts';
+export { createApp, type App, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './app/index.ts';
 
 // DTO validation & serialization pipes. See ./dto-pipes.
-export {
-  validationPipe,
-  serializationInterceptor,
-  dtoChain,
-  type DtoChainOptions,
-} from './dto-pipes/index.ts';
+export { validationPipe, serializationInterceptor, dtoChain, type DtoChainOptions } from './dto-pipes/index.ts';
 
 // OpenAPI 3.1 generation from routes + schemas. See ./openapi.
 export {

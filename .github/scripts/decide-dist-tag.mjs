@@ -14,7 +14,10 @@ import { execFileSync } from 'node:child_process';
 
 const pkg = process.argv[2];
 const version = process.argv[3];
-if (!pkg || !version) { console.error('usage: decide-dist-tag.mjs <pkg> <version>'); process.exit(2); }
+if (!pkg || !version) {
+  console.error('usage: decide-dist-tag.mjs <pkg> <version>');
+  process.exit(2);
+}
 
 function rank(v) {
   if (!v.includes('-')) return 4;
@@ -31,13 +34,19 @@ function channelOf(v) {
 // (stable > rc > beta > alpha), and only within the same channel does the
 // numeric/prerelease version decide. Returns >0 if a should rank above b.
 function gt(a, b) {
-  const ra = rank(a), rb = rank(b);
+  const ra = rank(a),
+    rb = rank(b);
   if (ra !== rb) return ra - rb; // precedence first
-  const parse = (v) => { const [c, pre = ''] = v.split('-'); return { n: c.split('.').map(Number), p: pre ? pre.split('.').map((x) => (isNaN(+x) ? x : +x)) : [] }; };
-  const pa = parse(a), pb = parse(b);
+  const parse = v => {
+    const [c, pre = ''] = v.split('-');
+    return { n: c.split('.').map(Number), p: pre ? pre.split('.').map(x => (isNaN(+x) ? x : +x)) : [] };
+  };
+  const pa = parse(a),
+    pb = parse(b);
   for (let i = 0; i < 3; i++) if ((pa.n[i] || 0) !== (pb.n[i] || 0)) return (pa.n[i] || 0) - (pb.n[i] || 0);
-  const la = pa.p.at(-1) ?? 0, lb = pb.p.at(-1) ?? 0;
-  return (typeof la === 'number' && typeof lb === 'number') ? la - lb : String(la).localeCompare(String(lb));
+  const la = pa.p.at(-1) ?? 0,
+    lb = pb.p.at(-1) ?? 0;
+  return typeof la === 'number' && typeof lb === 'number' ? la - lb : String(la).localeCompare(String(lb));
 }
 
 let existing = [];

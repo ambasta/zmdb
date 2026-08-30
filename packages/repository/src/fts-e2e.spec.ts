@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import pg from 'pg';
-import { BaseRepository, type Driver } from './index.ts';
 import type { CoreSchema } from '@zmdb/schema-core';
+import pg from 'pg';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { BaseRepository, type Driver } from './index.ts';
 
 // #96: full-text search repository integration + E2E on REAL PostgreSQL.
 // (SQLite has no arbitrary-column FTS — that path is an honest DNF — so this
@@ -47,7 +48,7 @@ class DocRepository extends BaseRepository<typeof DocSchema> {
 }
 
 function pgDriver(p: pg.Pool): Driver {
-  return { execute: async (q) => (await p.query(q.text, q.parameters as unknown[])).rows };
+  return { execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows };
 }
 
 describe('FTS repository integration (real Postgres)', () => {
@@ -58,7 +59,7 @@ describe('FTS repository integration (real Postgres)', () => {
     }
     const repo = new DocRepository(pgDriver(pool!), 'postgres');
     const hits = await repo.findByFullText('company_name', 'ltd');
-    const names = hits.map((r) => r.company_name).toSorted();
+    const names = hits.map(r => r.company_name).toSorted();
     // 'Acme Trading Ltd' and 'Initech Ltd' match 'ltd'; others do not.
     expect(names).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
   });
@@ -67,6 +68,6 @@ describe('FTS repository integration (real Postgres)', () => {
     if (!reachable) return;
     const repo = new DocRepository(pgDriver(pool!), 'postgres');
     const hits = await repo.findByFullText('company_name', 'globex');
-    expect(hits.map((r) => r.company_name)).toEqual(['Globex Corporation']);
+    expect(hits.map(r => r.company_name)).toEqual(['Globex Corporation']);
   });
 });

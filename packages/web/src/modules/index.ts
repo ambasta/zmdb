@@ -104,7 +104,7 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
 }
 
 function isOverridden(overrides: readonly ProviderDef[], provider: ProviderDef): boolean {
-  return overrides.some((o) => o.token === provider.token);
+  return overrides.some(o => o.token === provider.token);
 }
 
 function registerProvider(container: Container, provider: ProviderDef): void {

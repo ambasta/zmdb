@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=26"
+  "scripts": {
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:*",
@@ -13,7 +13,7 @@
   "devDependencies": {
     "kysely": "^0.29.0"
   },
-  "scripts": {
-    "test": "vitest run"
+  "engines": {
+    "node": ">=26"
   }
 }

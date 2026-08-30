@@ -3,8 +3,8 @@
 // does not re-read metadata per request. No `as` on the consumer surface.
 
 import '../polyfill.ts';
-import { Controller, Get } from '../routing/index.ts';
 import { createRouter } from '../pipeline/index.ts';
+import { Controller, Get } from '../routing/index.ts';
 
 /** A probe that counts reads of a class's Symbol.metadata. */
 export interface MetadataReadCounter {
@@ -110,7 +110,7 @@ function methodContext(name: string, cls: abstract new (...args: never[]) => unk
     name,
     static: false,
     private: false,
-    access: { has: () => true, get: (obj) => Reflect.get(Object(obj), name) },
+    access: { has: () => true, get: obj => Reflect.get(Object(obj), name) },
     metadata,
     addInitializer: noop,
   };
@@ -122,7 +122,12 @@ function ensureMetadata(cls: abstract new (...args: never[]) => unknown): Decora
     return existing;
   }
   const created: DecoratorMetadata = Object.create(null);
-  Object.defineProperty(cls, Symbol.metadata, { value: created, configurable: true, enumerable: false, writable: false });
+  Object.defineProperty(cls, Symbol.metadata, {
+    value: created,
+    configurable: true,
+    enumerable: false,
+    writable: false,
+  });
   return created;
 }
 
@@ -130,6 +135,5 @@ function ensureMetadata(cls: abstract new (...args: never[]) => unknown): Decora
 // decorator; it is a function by construction (§2.1).
 function readProtoMethod(proto: object, name: string): (...args: never[]) => unknown {
   const value = Reflect.get(proto, name);
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return value as (...args: never[]) => unknown;
 }

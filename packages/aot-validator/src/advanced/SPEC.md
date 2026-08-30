@@ -8,6 +8,7 @@
 ```ts
 refine(predicateSource: string, message: string): Rule
 ```
+
 Emitted inline: the predicate expression is inlined verbatim against the value;
 on failure a structured error carrying `message` is produced. Predicates MUST be
 pure and synchronous.
@@ -17,6 +18,7 @@ pure and synchronous.
 ```ts
 transform(fnSource: string): Rule   // pure, runs AFTER validation passes
 ```
+
 Emitted inline as a direct conversion; output type is reflected at compile time.
 
 ## 3. Unions / discriminated unions
@@ -34,9 +36,9 @@ Emitted inline as a direct conversion; output type is reflected at compile time.
 
 ```ts
 interface ValidationIssue {
-  readonly path: string;      // exact, e.g. "input.orders[2].totalPrice"
-  readonly expected: string;  // e.g. "number (>= 0)"
-  readonly value: unknown;    // offending value
+  readonly path: string; // exact, e.g. "input.orders[2].totalPrice"
+  readonly expected: string; // e.g. "number (>= 0)"
+  readonly value: unknown; // offending value
   readonly message: string;
 }
 ```

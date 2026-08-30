@@ -1,6 +1,7 @@
-import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
 import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import { describe, it, expect, expectTypeOf, vi } from 'vitest';
+
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
 
 const UserSchema = defineSchema('users', {

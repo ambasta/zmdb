@@ -8,6 +8,7 @@
 ```ts
 db.transaction(async (tx) => { ... }): Promise<Result>
 ```
+
 - On successful resolution → `COMMIT`.
 - On throw → `ROLLBACK`, error re-thrown.
 - `tx` exposes a `TransactionContext` bound to a single connection.

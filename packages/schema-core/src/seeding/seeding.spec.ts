@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { defineSchema, serial, text, integer, boolean, jsonEnum } from '../index.ts';
 import { makeRng, seedRows } from './index.ts';
 

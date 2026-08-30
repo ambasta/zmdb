@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { attachPopulated, type PopulatedEntity, type RelationDef } from './index.ts';
 
 interface User {

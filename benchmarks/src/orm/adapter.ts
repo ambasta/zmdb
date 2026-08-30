@@ -5,6 +5,7 @@
 // DNF(not implemented) rather than faked. Anti-pattern cases are
 // DNF(anti-pattern).
 import { createQueryCompiler } from '@zmdb/query-compiler';
+
 import type { BenchResult } from '../results.ts';
 
 declare const performance: { now(): number };
@@ -22,7 +23,8 @@ export function seed(engine: OrmEngine, customers = 50, ordersPerCustomer = 4): 
   engine.exec('CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, price INTEGER NOT NULL)');
   engine.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY, customerId INTEGER NOT NULL, total INTEGER NOT NULL)');
   for (let i = 1; i <= customers; i++) engine.exec(`INSERT INTO customers(id,name) VALUES (${i}, 'cust${i}')`);
-  for (let i = 1; i <= 100; i++) engine.exec(`INSERT INTO products(id,name,price) VALUES (${i}, 'prod${i}', ${i * 10})`);
+  for (let i = 1; i <= 100; i++)
+    engine.exec(`INSERT INTO products(id,name,price) VALUES (${i}, 'prod${i}', ${i * 10})`);
   let oid = 1;
   for (let c = 1; c <= customers; c++) {
     for (let o = 0; o < ordersPerCustomer; o++) {

@@ -4,7 +4,6 @@
 // unimplemented; their tests stay red.
 import type { ValidationIssue } from '../advanced/index.ts';
 
-
 export interface TypeDescriptor {
   readonly kind: 'object' | 'string' | 'number' | 'boolean' | 'enum' | 'array';
   readonly fields?: Record<string, TypeDescriptor>;
@@ -116,10 +115,7 @@ export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor)
   return input as T;
 }
 
-export function validate<T = unknown>(
-  input: unknown,
-  descriptor?: TypeDescriptor,
-): ValidateResult<T> {
+export function validate<T = unknown>(input: unknown, descriptor?: TypeDescriptor): ValidateResult<T> {
   if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
@@ -168,7 +164,12 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
   if (issues.length === 0 && !hasNoExcessKeys(input, descriptor)) {
-    issues.push({ path: 'input', expected: 'no excess properties', value: input, message: 'excess properties present' });
+    issues.push({
+      path: 'input',
+      expected: 'no excess properties',
+      value: input,
+      message: 'excess properties present',
+    });
   }
   if (issues.length > 0) {
     const err = new AssertError(issues[0]!.message);

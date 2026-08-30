@@ -33,7 +33,10 @@ export interface FtsSelect {
 
 function quoteCol(d: Dialect, col: string): string {
   const q = QUOTE[d];
-  return col.split('.').map((p) => `${q}${p}${q}`).join('.');
+  return col
+    .split('.')
+    .map(p => `${q}${p}${q}`)
+    .join('.');
 }
 
 function make(d: Dialect, s: State): FtsSelect {
@@ -45,14 +48,14 @@ function make(d: Dialect, s: State): FtsSelect {
       return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }] });
     },
     where: (col, op, value) => next({ preds: [...s.preds, { kind: 'cmp', col, op, value }] }),
-    limit: (n) => next({ limitN: n }),
-    offset: (n) => next({ offsetN: n }),
+    limit: n => next({ limitN: n }),
+    offset: n => next({ offsetN: n }),
     compile: () => {
       const q = QUOTE[d];
       const params: unknown[] = [];
       let text = `SELECT * FROM ${q}${s.table}${q}`;
       if (s.preds.length > 0) {
-        const parts = s.preds.map((p) => {
+        const parts = s.preds.map(p => {
           params.push(p.value);
           if (p.kind === 'match') {
             if (d === 'postgres') {

@@ -2,6 +2,7 @@
 // absent). Type-level legal/illegal transitions + runtime identity/narrowing.
 // Per packages/web/src/state/SPEC.md.
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineState, transition, type Brand } from './index.ts';
 
 interface Order {
@@ -13,7 +14,7 @@ const Draft = defineState<'Draft', Order>();
 const Paid = defineState<'Paid', Order>();
 
 // pay: Draft -> Paid
-const pay = transition(Draft, Paid, (o) => ({ ...o }));
+const pay = transition(Draft, Paid, o => ({ ...o }));
 
 describe('@zmdb/web state: branding (type-level)', () => {
   it('two brands of the same base are not mutually assignable', () => {

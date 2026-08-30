@@ -13,11 +13,6 @@
       "@zmdb/repository": ["../repository/dist/index.d.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "**/*.spec.ts",
-    "dist"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "dist"]
 }

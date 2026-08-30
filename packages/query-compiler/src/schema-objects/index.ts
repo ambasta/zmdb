@@ -18,7 +18,7 @@ export interface IndexDef {
   where?: string;
 }
 export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
-  const cols = def.columns.map((c) => quoteId(dialect, c)).join(', ');
+  const cols = def.columns.map(c => quoteId(dialect, c)).join(', ');
   const unique = def.unique ? 'UNIQUE ' : '';
   const where = def.where ? ` WHERE ${def.where}` : '';
   return `CREATE ${unique}INDEX ${quoteId(dialect, def.name)} ON ${quoteId(dialect, def.table)} (${cols})${where}`;

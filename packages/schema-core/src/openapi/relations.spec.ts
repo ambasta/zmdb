@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { toJsonSchemaWithRelations } from './index.ts';
+
 import type { CoreSchema } from '../index.ts';
 import { manyToOne, oneToMany } from '../relations/index.ts';
+import { toJsonSchemaWithRelations } from './index.ts';
 
 // #66: DTO-aware generation + relation $refs. Tests first (TDD).
 

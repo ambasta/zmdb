@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { checkRegressions, RegressionKind } from './guardrail.ts';
 import type { BenchResult } from './results.ts';
 

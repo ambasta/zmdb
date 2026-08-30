@@ -1,3 +1,6 @@
+import { Type } from '@sinclair/typebox';
+import { TypeCompiler } from '@sinclair/typebox/compiler';
+import Ajv from 'ajv';
 // Focused, honest validation benchmark that reuses moltar's exact data model
 // and the four case kinds (parseSafe / parseStrict / assertLoose / assertStrict).
 // Competitors: zod, @sinclair/typebox, ajv, valibot — all run as real installed
@@ -7,10 +10,6 @@
 // typia is intentionally excluded: it cannot run without its own AOT transform
 // build step, so including it untransformed would misrepresent it.
 import { Bench } from 'tinybench';
-import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
-import { Type } from '@sinclair/typebox';
-import { TypeCompiler } from '@sinclair/typebox/compiler';
-import Ajv from 'ajv';
 import {
   object as vObject,
   number as vNumber,
@@ -19,6 +18,8 @@ import {
   parse as vParse,
   is as vIs,
 } from 'valibot';
+import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
+
 import { is, equals, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
 import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './zmdb-aot.ts';
 
@@ -44,9 +45,11 @@ const zodLoose = zObject({
   boolean: zBoolean(),
   deeplyNested: zObject({ foo: zString(), num: zNumber(), bool: zBoolean() }),
 });
-const zodStrict = zodLoose.extend({
-  deeplyNested: zObject({ foo: zString(), num: zNumber(), bool: zBoolean() }).strict(),
-}).strict();
+const zodStrict = zodLoose
+  .extend({
+    deeplyNested: zObject({ foo: zString(), num: zNumber(), bool: zBoolean() }).strict(),
+  })
+  .strict();
 
 // --- typebox (compiled — its intended fast path) ---
 const tbSchema = Type.Object({
@@ -155,13 +158,11 @@ for (const kind of cases) {
     if (fn) bench.add(`${lib}`, fn);
   }
   await bench.run();
-  const rows = bench.tasks
-    .map((t) => ({ name: t.name, hz: t.result?.hz ?? 0 }))
-    .toSorted((a, b) => b.hz - a.hz);
+  const rows = bench.tasks.map(t => ({ name: t.name, hz: t.result?.hz ?? 0 })).toSorted((a, b) => b.hz - a.hz);
   console.log(`\n### ${kind}`);
   for (const r of rows) {
     console.log(`  ${r.name.padEnd(16)} ${Math.round(r.hz).toLocaleString().padStart(14)} ops/s`);
   }
-  const notRun = Object.keys(impls).filter((lib) => !impls[lib]![kind]);
+  const notRun = Object.keys(impls).filter(lib => !impls[lib]![kind]);
   if (notRun.length) console.log(`  (n/a for this case: ${notRun.join(', ')})`);
 }

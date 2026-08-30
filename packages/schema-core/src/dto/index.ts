@@ -110,7 +110,10 @@ export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderByDT
   for (const { column, dir } of order) b = b.orderBy(String(column), dir ?? 'asc');
   return b as B;
 }
-export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationDTO<CoreSchema<string>> | undefined): B {
+export function applyPagination<B extends OrderTarget>(
+  builder: B,
+  page: PaginationDTO<CoreSchema<string>> | undefined,
+): B {
   if (!page) return builder;
   let b: OrderTarget = builder.limit(page.limit);
   if ('offset' in page && typeof page.offset === 'number') b = b.offset(page.offset);
@@ -175,7 +178,7 @@ export function buildListResult<Row extends Record<string, unknown>>(
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;
   const kept = hasMore ? rows.slice(0, limit) : rows;
-  const items = opts?.select ? kept.map((r) => project(r, opts.select)) : kept;
+  const items = opts?.select ? kept.map(r => project(r, opts.select)) : kept;
   const result: ListResult<Row | Partial<Row>> = { items, hasMore };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
@@ -212,7 +215,7 @@ export type AggregateResult<S, Spec extends AggregateSpec<S>> = {
 
 /** Ordered field list for an aggregate spec: group-key cols then computed keys. */
 export function describeAggregate<S>(spec: AggregateSpec<S>): readonly string[] {
-  const keys = (spec.groupBy ?? []).map((k) => String(k));
+  const keys = (spec.groupBy ?? []).map(k => String(k));
   return [...keys, ...Object.keys(spec.computed)];
 }
 /** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
@@ -223,7 +226,7 @@ export function buildSearchResult<Row extends Record<string, unknown>>(
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;
   const kept = hasMore ? rows.slice(0, limit) : rows;
-  const items = kept.map((hit) => {
+  const items = kept.map(hit => {
     const base = opts?.select ? project(hit as Row, opts.select) : hit;
     // preserve the ranking score on the projected hit
     return hit._score !== undefined ? { ...base, _score: hit._score } : base;

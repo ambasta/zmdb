@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
 import type { CoreSchema } from '@zmdb/schema-core';
+import { describe, it, expect, vi } from 'vitest';
+
+import { BaseRepository, ValidationError, type Driver } from './index.ts';
 
 // RED PHASE (#25 spec freeze): repository CRUD + validation interception.
 
@@ -24,7 +25,7 @@ function fakeDriver(rows: Record<string, unknown>[] = []): Driver & { calls: unk
   const calls: unknown[] = [];
   return {
     calls,
-    execute: vi.fn(async (q) => {
+    execute: vi.fn(async q => {
       calls.push(q);
       return rows;
     }),

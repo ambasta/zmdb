@@ -1,4 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
+
 import type { RelationMeta, PopulatedEntity } from './index.ts';
 
 // #32: compile-time relation type derivation. Type-level tests (TDD).

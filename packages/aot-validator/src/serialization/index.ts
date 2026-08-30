@@ -3,7 +3,6 @@
 import type { ValidationIssue } from '../advanced/index.ts';
 import { assert, AssertError, type TypeDescriptor } from '../utilities/index.ts';
 
-
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
 // values; bigint throws TypeError (documented policy). The AOT transformer will
 // later emit straight-line concatenation for known shapes, but the observable
