@@ -1,89 +1,90 @@
 // Query-builder aggregations — implementation (#90). count/sum/avg/min/max +
 // expr() computed columns + groupBy + having, dialect-aware, parameterized.
 import type { CompiledQuery, Dialect } from '../index.ts';
+import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
-const QUOTE: Record<Dialect, string> = { postgres: '"', mysql: '`', sqlite: '"' };
 const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
   postgres: n => `$${n}`,
   mysql: () => '?',
   sqlite: () => '?',
 };
 
-function quoteCol(d: Dialect, col: string): string {
-  const q = QUOTE[d];
-  return col
-    .split('.')
-    .map(p => `${q}${p}${q}`)
-    .join('.');
-}
-
 type SelectItem =
   | { kind: 'col'; col: string }
   | { kind: 'agg'; fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; col: string; alias: string }
-  | { kind: 'expr'; raw: string; alias: string };
+  | { kind: 'raw'; raw: string; alias: string };
+
+interface Where {
+  col: string;
+  op: string;
+  value: unknown;
+}
+
+interface OrderBy {
+  col: string;
+  dir: 'asc' | 'desc';
+}
 
 interface State {
   table: string;
   items: SelectItem[];
   groups: string[];
-  havings: { col: string; op: string; value: unknown }[];
-  orderBys: { col: string; dir: 'asc' | 'desc' }[];
+  havings: Where[];
+  orderBys: OrderBy[];
   limitN?: number;
   offsetN?: number;
 }
 
-export interface AggregateSelect {
-  select(cols: readonly string[]): AggregateSelect;
-  count(expr: string, alias: string): AggregateSelect;
-  sum(expr: string, alias: string): AggregateSelect;
-  avg(expr: string, alias: string): AggregateSelect;
-  min(expr: string, alias: string): AggregateSelect;
-  max(expr: string, alias: string): AggregateSelect;
-  expr(rawExpr: string, alias: string): AggregateSelect;
-  groupBy(...cols: string[]): AggregateSelect;
-  having(col: string, op: string, value: unknown): AggregateSelect;
-  orderBy(col: string, dir: 'asc' | 'desc'): AggregateSelect;
-  limit(n: number): AggregateSelect;
-  offset(n: number): AggregateSelect;
+export interface AggregationBuilder {
+  select(...cols: (string | readonly string[])[]): AggregationBuilder;
+  count(col: string, alias: string): AggregationBuilder;
+  sum(col: string, alias: string): AggregationBuilder;
+  avg(col: string, alias: string): AggregationBuilder;
+  min(col: string, alias: string): AggregationBuilder;
+  max(col: string, alias: string): AggregationBuilder;
+  expr(raw: string, alias: string): AggregationBuilder;
+  groupBy(...cols: string[]): AggregationBuilder;
+  having(col: string, op: string, value: unknown): AggregationBuilder;
+  orderBy(col: string, dir: 'asc' | 'desc'): AggregationBuilder;
+  limit(n: number): AggregationBuilder;
+  offset(n: number): AggregationBuilder;
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): AggregateSelect {
-  const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p });
-  const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
-    next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
+function make(d: Dialect, s: State): AggregationBuilder {
+  const next = (p: Partial<State>): AggregationBuilder => make(d, { ...s, ...p });
   return {
-    select: cols => next({ items: [...s.items, ...cols.map((c): SelectItem => ({ kind: 'col', col: c }))] }),
-    count: (e, a) => agg('COUNT', e, a),
-    sum: (e, a) => agg('SUM', e, a),
-    avg: (e, a) => agg('AVG', e, a),
-    min: (e, a) => agg('MIN', e, a),
-    max: (e, a) => agg('MAX', e, a),
-    expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
+    select: (...cols) =>
+      next({ items: [...s.items, ...(cols.flat() as string[]).map(col => ({ kind: 'col' as const, col }))] }),
+    count: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'COUNT', col, alias }] }),
+    sum: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'SUM', col, alias }] }),
+    avg: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'AVG', col, alias }] }),
+    min: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'MIN', col, alias }] }),
+    max: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'MAX', col, alias }] }),
+    expr: (raw, alias) => next({ items: [...s.items, { kind: 'raw', raw, alias }] }),
     groupBy: (...cols) => next({ groups: [...s.groups, ...cols] }),
     having: (col, op, value) => next({ havings: [...s.havings, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
     limit: n => next({ limitN: n }),
     offset: n => next({ offsetN: n }),
     compile: () => {
-      const q = QUOTE[d];
       const params: unknown[] = [];
       const cols = s.items.map(it => {
-        if (it.kind === 'col') return quoteCol(d, it.col);
-        if (it.kind === 'agg') return `${it.fn}(${quoteCol(d, it.col)}) AS ${q}${it.alias}${q}`;
-        return `${it.raw} AS ${q}${it.alias}${q}`;
+        if (it.kind === 'col') return quoteColumn(d, it.col);
+        if (it.kind === 'agg') return `${it.fn}(${quoteColumn(d, it.col)}) AS ${quoteIdentifier(d, it.alias)}`;
+        return `${it.raw} AS ${quoteIdentifier(d, it.alias)}`;
       });
-      let text = `SELECT ${cols.join(', ')} FROM ${q}${s.table}${q}`;
-      if (s.groups.length > 0) text += ` GROUP BY ${s.groups.map(c => quoteCol(d, c)).join(', ')}`;
+      let text = `SELECT ${cols.join(', ')} FROM ${quoteTable(d, s.table)}`;
+      if (s.groups.length > 0) text += ` GROUP BY ${s.groups.map(c => quoteColumn(d, c)).join(', ')}`;
       if (s.havings.length > 0) {
         const parts = s.havings.map(h => {
           params.push(h.value);
-          return `${quoteCol(d, h.col)} ${h.op} ${PLACEHOLDER[d](params.length)}`;
+          return `${quoteColumn(d, h.col)} ${h.op} ${PLACEHOLDER[d](params.length)}`;
         });
         text += ` HAVING ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map(o => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;
@@ -92,6 +93,9 @@ function make(d: Dialect, s: State): AggregateSelect {
   };
 }
 
-export function aggregateSelectFrom(table: string, dialect: Dialect = 'postgres'): AggregateSelect {
+export function selectAggregations(table: string, dialect: Dialect = 'postgres'): AggregationBuilder {
   return make(dialect, { table, items: [], groups: [], havings: [], orderBys: [] });
 }
+
+export type AggregateSelect = AggregationBuilder;
+export const aggregateSelectFrom = selectAggregations;
