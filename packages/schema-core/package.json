@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./dto": "./src/dto/index.ts",
     "./custom-types": "./src/custom-types/index.ts",
-    "./seeding": "./src/seeding/index.ts"
+    "./seeding": "./src/seeding/index.ts",
+    "./llm": "./src/llm/index.ts"
   },
   "engines": {
     "node": ">=26"

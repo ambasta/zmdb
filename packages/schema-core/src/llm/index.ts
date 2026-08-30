@@ -9,11 +9,12 @@ export interface ToolSpec {
 }
 
 export function toolFromSchema(
-  _name: string,
-  _schema: CoreSchema<string>,
-  _opts?: { description?: string },
+  name: string,
+  schema: CoreSchema<string>,
+  opts?: { description?: string },
 ): ToolSpec {
-  throw new Error('not implemented');
+  const parameters = toJsonSchema(schema, 'create');
+  return opts?.description ? { name, description: opts.description, parameters } : { name, parameters };
 }
 
 export interface ParseResult<T> {
@@ -22,8 +23,25 @@ export interface ParseResult<T> {
   errors?: readonly string[];
 }
 
-export function lenientParse<T = unknown>(_text: string, _coerce?: (v: unknown) => T): ParseResult<T> {
-  throw new Error('not implemented');
+export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): ParseResult<T> {
+  // strip a leading/trailing markdown code fence (```json … ```)
+  const stripped = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripped);
+  } catch (err) {
+    return { success: false, errors: [err instanceof Error ? err.message : 'invalid JSON'] };
+  }
+  if (!coerce) return { success: true, data: parsed as T };
+  try {
+    return { success: true, data: coerce(parsed) };
+  } catch (err) {
+    return { success: false, errors: [err instanceof Error ? err.message : 'coercion failed'] };
+  }
 }
 
 // re-exported for impl reuse
