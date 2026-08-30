@@ -5,8 +5,9 @@
 > Environment: local dev box, Node 26.8.1, real PostgreSQL 16 (podman).
 >
 > 📊 **Interactive dashboard** (charts, Node/Bun/Deno tabs):
-> https://ambasta.github.io/zmdb/ — source in [`site/`](./site), deployed via
-> GitHub Pages.
+> https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site),
+> built + deployed via GitHub Pages (docs at the root, benchmarks under
+> `/benchmarks/`).
 
 ---
 

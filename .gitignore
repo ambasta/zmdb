@@ -27,3 +27,6 @@ benchmarks/.internal-results.md
 
 # Benchmark harness local data (not committed)
 benchmarks/harness/orm/northwind.db
+
+# Generated docs+benchmarks Pages output (built in CI from docs-site/)
+/site/

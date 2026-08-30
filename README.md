@@ -41,6 +41,22 @@ class UserRepository extends BaseRepository<typeof UserSchema> {
 }
 ```
 
+## Documentation
+
+📚 **Full documentation site:** **https://ambasta.github.io/zmdb/** — schema,
+CRUD, relations, transactions, migrations, the query builder, validators and
+Ser/De are written up in full. The docs incorporate the union of the
+[MikroORM](https://mikro-orm.io/docs/guide),
+[Drizzle](https://orm.drizzle.team/docs/overview) and
+[Typia](https://typia.io/docs) documentation surfaces: capabilities we don't yet
+have are shown as **TODO** (roadmap, not dead-ends), and features that are
+**anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map,
+unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately
+excluded and explained on the
+[Anti-patterns](https://ambasta.github.io/zmdb/docs/anti-patterns.html) page.
+
+See also [ARCHITECTURE.md](./ARCHITECTURE.md) and the [COOKBOOK.md](./COOKBOOK.md).
+
 ## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the
@@ -80,7 +96,7 @@ Full results + per-route/per-case DNF listings:
 k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
 
 📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream
-sites): **https://ambasta.github.io/zmdb/**
+sites): **https://ambasta.github.io/zmdb/benchmarks/**
 
 ## Requirements
 
