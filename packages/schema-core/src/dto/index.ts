@@ -212,8 +212,9 @@ export type AggregateResult<S, Spec extends AggregateSpec<S>> = {
 };
 
 /** Ordered field list for an aggregate spec: group-key cols then computed keys. */
-export function describeAggregate<S>(_spec: AggregateSpec<S>): readonly string[] {
-  throw new Error('not implemented');
+export function describeAggregate<S>(spec: AggregateSpec<S>): readonly string[] {
+  const keys = (spec.groupBy ?? []).map((k) => String(k));
+  return [...keys, ...Object.keys(spec.computed)];
 }
 /** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
 export function buildSearchResult<Row extends Record<string, unknown>>(
