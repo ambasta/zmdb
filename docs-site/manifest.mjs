@@ -1138,6 +1138,42 @@ await db.transaction(async (tx) => {
 
 - SQL ordering is deterministic: \`BEGIN … COMMIT\` on success, \`BEGIN … ROLLBACK\` on throw.
 - Nested \`tx.savepoint(fn)\` maps to \`SAVEPOINT\`/\`RELEASE\`/\`ROLLBACK TO SAVEPOINT\`.
+
+## Emitted SQL
+
+\`\`\`sql
+BEGIN;
+INSERT INTO "users" (...) VALUES (...);
+INSERT INTO "orders" (...) VALUES (...);
+COMMIT;   -- or ROLLBACK; if the callback threw
+\`\`\`
+
+## Savepoints (nested)
+
+\`\`\`ts
+await db.transaction(async (tx) => {
+  await tx.repo(UserRepository).create({ email: 'a@b.com' });
+  await tx.savepoint(async (sp) => {
+    await sp.repo(OrderRepository).create({ userId: 1, total: 42 });
+    // a throw here rolls back to the savepoint, keeping the outer tx alive
+  });
+});
+\`\`\`
+
+\`\`\`sql
+BEGIN;
+INSERT INTO "users" ...;
+SAVEPOINT sp_1;
+INSERT INTO "orders" ...;
+RELEASE SAVEPOINT sp_1;   -- or ROLLBACK TO SAVEPOINT sp_1;
+COMMIT;
+\`\`\`
+
+> [!IMPORTANT]
+> There is no implicit flush. A write happens only when you call
+> \`create\`/\`update\`/\`delete\` — inside a transaction those run on the tx
+> connection. This replaces the unit-of-work/auto-flush model (an
+> [anti-pattern](./anti-patterns.html) here) with explicit, predictable writes.
 `),
 
   batch: ok('Batch API', 'Transactions', `
@@ -1205,17 +1241,45 @@ Values respect each column's type (text⇒string, integer⇒int, boolean⇒bool,
 
   // ---------------- Validation ----------------
   'validators-is': ok('is()', 'Validation', `
-A compile-time type guard. Narrows the input on success.
+A compile-time type guard: \`is<T>(value)\` returns \`boolean\` and **narrows** the
+input on success. With the [AOT transform](./aot-setup.html) it inlines to the
+exact structural checks \`T\` implies — no runtime schema, no reflection.
+
+## Usage
 
 \`\`\`ts
 import { is } from '@zmdb/aot-validator';
 
 if (is<CreateUser>(payload)) {
   // payload is narrowed to CreateUser here
+  await users.create(payload);
 }
 \`\`\`
 
-With the [AOT transform](./aot-setup.html) enabled, this inlines to the exact structural checks \`CreateUser\` implies — no runtime schema, no reflection.
+## What the transform emits
+
+For a type like \`{ email: string; age: number }\`, the call site compiles to a
+straight-line boolean expression:
+
+\`\`\`ts
+// authored
+is<{ email: string; age: number }>(d)
+// compiled (AOT)
+(typeof d === "object" && d !== null &&
+ typeof d.email === "string" && typeof d.age === "number")
+\`\`\`
+
+> [!NOTE]
+> This is the same single boolean-chain shape typia emits — and in our
+> [benchmarks](../benchmarks/index.html) it out-performs \`new Function()\` JIT
+> validators. Without the transform wired in, \`is\` falls back to a slower runtime
+> walk of the type descriptor.
+
+## Related
+
+- [assert()](./validators-assert.html) — throw with the failing path
+- [validate()](./validators-validate.html) — collect every error
+- [Special tags](./validators-tags.html) — constraints like \`Minimum\`/\`Pattern\`
 `),
 
   'validators-assert': ok('assert()', 'Validation', `
