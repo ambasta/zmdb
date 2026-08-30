@@ -27,8 +27,8 @@
     "LICENSE"
   ],
   "type": "module",
-  "types": "./src/index.ts",
   "sideEffects": false,
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "types": "./src/index.ts",
