@@ -47,7 +47,7 @@ jobs:
       - name: Build dist for every package (dependency order)
         run: |
           set -e
-          for pkg in schema-core query-compiler aot-validator repository zmdb; do
+          for pkg in schema-core query-compiler aot-validator repository web zmdb; do
             echo "=== build @zmdb/$pkg ==="
             yarn workspace "@zmdb/$pkg" build
           done
@@ -74,7 +74,7 @@ jobs:
           # it under --tag latest (the only way to move `latest` under OIDC, since
           # `npm dist-tag` is not OIDC-authorized). Otherwise we publish under its
           # channel tag (alpha/beta/rc).
-          for pkg in schema-core query-compiler aot-validator repository zmdb; do
+          for pkg in schema-core query-compiler aot-validator repository web zmdb; do
             echo "=== packages/$pkg ==="
             eval "$(node .github/scripts/decide-dist-tag.mjs "@zmdb/$pkg" "$VER")"
             if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi

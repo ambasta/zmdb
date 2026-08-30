@@ -19,9 +19,12 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
    Decorators use **Stage 3** semantics and store data only in `context.metadata`
    (`Symbol.metadata`).
 3. **Stage 3 decorators**: tsconfig sets `experimentalDecorators: false` and must
-   compile standard decorators. `Symbol.metadata` is assumed present on Node 26;
-   a zero-dependency polyfill is installed **only if** the runtime lacks it, and
-   it assigns the well-known symbol without mutating any other global.
+   compile standard decorators. `Symbol.metadata` is **not yet exposed by Node 26
+   / V8** (`Symbol.metadata === undefined` as of v26.8), so a zero-dependency
+   polyfill installs the well-known symbol when absent (a no-op once a runtime
+   ships it natively). It assigns only `Symbol.metadata` and mutates no other
+   global, and is imported for its side effect before any decorated class is
+   evaluated.
 4. **ESM-only, Node 26+, TS 7+.** `"type": "module"`, single `exports` map, no CJS.
 
 ## Baseline contract (this issue)
@@ -53,6 +56,8 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
   `packages/zmdb`).
 
 ### Baseline symbol
+- A zero-dependency **`Symbol.metadata` polyfill** (`src/polyfill.ts`), imported
+  first by the entry, installing the well-known symbol when the runtime lacks it.
 - `metadataOf(target)` — a tiny, typed accessor that reads the Stage-3
   `Symbol.metadata` record off a decorated class/prototype and returns a
   `DecoratorMetadata` object (never `undefined`; returns an empty frozen record

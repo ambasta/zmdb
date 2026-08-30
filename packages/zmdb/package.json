@@ -8,13 +8,15 @@
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
-    "./drivers/pg": "./src/drivers-pg.ts"
+    "./drivers/pg": "./src/drivers-pg.ts",
+    "./web": "./src/web.ts"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
-    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/web": "workspace:^"
   },
   "engines": {
     "node": ">=26"

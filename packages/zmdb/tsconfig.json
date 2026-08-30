@@ -13,7 +13,8 @@
       "@zmdb/aot-validator/utilities": ["../aot-validator/dist/utilities.d.ts"],
       "@zmdb/repository": ["../repository/dist/index.d.ts"],
       "@zmdb/repository/drivers/sqlite": ["../repository/dist/drivers-sqlite.d.ts"],
-      "@zmdb/repository/drivers/pg": ["../repository/dist/drivers-pg.d.ts"]
+      "@zmdb/repository/drivers/pg": ["../repository/dist/drivers-pg.d.ts"],
+      "@zmdb/web": ["../web/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts"],

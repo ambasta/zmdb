@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "lib": ["ES2024", "ESNext.Decorators"],
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    "paths": {
+      "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
+      "@zmdb/aot-validator": ["../aot-validator/dist/index.d.ts"],
+      "@zmdb/aot-validator/utilities": ["../aot-validator/dist/utilities.d.ts"],
+      "@zmdb/repository": ["../repository/dist/index.d.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "**/*.spec.ts",
+    "dist"
+  ]
+}

@@ -772,6 +772,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/web@workspace:^, @zmdb/web@workspace:packages/web":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/web@workspace:packages/web"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    tsup: "npm:8.5.0"
+    typescript: "npm:5.9.2"
+  languageName: unknown
+  linkType: soft
+
 "abbrev@npm:^5.0.0":
   version: 5.0.0
   resolution: "abbrev@npm:5.0.0"
@@ -2111,5 +2123,6 @@ __metadata:
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    "@zmdb/web": "workspace:^"
   languageName: unknown
   linkType: soft

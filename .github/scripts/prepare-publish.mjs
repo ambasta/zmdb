@@ -24,6 +24,10 @@ const META = {
     description: 'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
     keywords: ['typescript', 'repository', 'crud', 'transactions', 'data-layer', 'zmdb'],
   },
+  web: {
+    description: 'Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.',
+    keywords: ['typescript', 'web-framework', 'decorators', 'stage-3', 'dependency-injection', 'zmdb'],
+  },
   zmdb: {
     description: 'The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.',
     keywords: ['typescript', 'orm', 'data-layer', 'schema', 'validation', 'sql', 'zmdb'],

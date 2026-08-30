@@ -13,7 +13,8 @@ const ENTRIES = {
   'query-compiler': { '.': 'index', './fts': 'fts', './joins': 'joins', './aggregations': 'aggregations', './migrations': 'migrations', './set-ops': 'set-ops', './schema-objects': 'schema-objects' },
   'aot-validator': { '.': 'index', './advanced': 'advanced', './serialization': 'serialization', './utilities': 'utilities', './plugin': 'plugin' },
   repository: { '.': 'index', './transactions': 'transactions', './replicas': 'replicas', './integrations': 'integrations', './entity-modeling': 'entity-modeling' },
-  zmdb: { '.': 'index', './dto': 'dto', './relations': 'relations', './drivers/sqlite': 'drivers-sqlite', './drivers/pg': 'drivers-pg' },
+  web: { '.': 'index' },
+  zmdb: { '.': 'index', './dto': 'dto', './relations': 'relations', './drivers/sqlite': 'drivers-sqlite', './drivers/pg': 'drivers-pg', './web': 'web' },
 };
 
 for (const [name, entries] of Object.entries(ENTRIES)) {
