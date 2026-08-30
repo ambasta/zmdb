@@ -1,33 +1,35 @@
 import { tags as srcTags } from '@zmdb/aot-validator';
-import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
+import { assert as srcAssert, is as srcIs, validate as srcValidate } from '@zmdb/aot-validator/utilities';
 import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
 import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
 import {
-  defineSchema as srcDefineSchema,
-  serial as srcSerial,
-  integer as srcInteger,
-  text as srcText,
   boolean as srcBoolean,
-  timestamp as srcTimestamp,
+  defineSchema as srcDefineSchema,
+  integer as srcInteger,
   jsonEnum as srcJsonEnum,
+  sensitive as srcSensitive,
+  serial as srcSerial,
+  text as srcText,
+  timestamp as srcTimestamp,
 } from '@zmdb/schema-core';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
-  defineSchema,
-  serial,
-  integer,
-  text,
-  boolean,
-  timestamp,
-  jsonEnum,
-  createQueryCompiler,
-  is,
   assert,
-  validate,
-  tags,
   BaseRepository,
+  boolean,
+  createQueryCompiler,
   defineRepository,
+  defineSchema,
+  integer,
+  is,
+  jsonEnum,
+  sensitive,
+  serial,
+  tags,
+  text,
+  timestamp,
+  validate,
 } from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
@@ -39,6 +41,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(boolean).toBe(srcBoolean);
     expect(timestamp).toBe(srcTimestamp);
     expect(jsonEnum).toBe(srcJsonEnum);
+    expect(sensitive).toBe(srcSensitive);
   });
 
   it('re-exports createQueryCompiler', () => {

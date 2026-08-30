@@ -37,6 +37,7 @@ export interface ColumnFlags {
   readonly hasDefault?: boolean | undefined;
   readonly length?: number | undefined;
   readonly enum?: readonly string[] | undefined;
+  readonly sensitive?: boolean | undefined;
 }
 
 export interface ColumnMeta {
@@ -148,6 +149,7 @@ export interface Column<T extends SqlType = SqlType, F extends ColumnFlags = Col
   unique(): Column<T, SetFlags<F, { unique: true }>>;
   defaultTo(value: unknown): Column<T, SetFlags<F, { hasDefault: true }>>;
   validate(rule: ValidationRule): Column<T, F>;
+  sensitive(isSensitive?: boolean): Column<T, SetFlags<F, { sensitive: boolean }>>;
 }
 
 // Deep-freeze a column metadata object and wrap it with fluent methods.
@@ -191,6 +193,7 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
     defaultTo: (value: unknown) =>
       makeColumn<Column>({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
     validate: (rule: ValidationRule) => makeColumn<Column>({ ...base, validation: [...(base.validation ?? []), rule] }),
+    sensitive: (isSensitive: boolean = true) => withFlag({ sensitive: isSensitive !== false }),
   };
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
@@ -290,6 +293,12 @@ export function validate<T extends SqlType, F extends ColumnFlags>(
   rule: ValidationRule,
 ): Column<T, F> {
   return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
+}
+export function sensitive<T extends SqlType, F extends ColumnFlags>(
+  col: Column<T, F>,
+  isSensitive: boolean = true,
+): Column<T, SetFlags<F, { sensitive: boolean }>> {
+  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } });
 }
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
