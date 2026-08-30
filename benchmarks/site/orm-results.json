@@ -1,0 +1,33 @@
+{
+  "config": {
+    "database": "PostgreSQL 16 (podman)",
+    "dataset": "Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, 308,224 order_details",
+    "driver": "pg (node-postgres) pool max:10, identical across ORMs",
+    "load": "k6 ramping-VUs 0→200→400 (~25s), full 13-route requests.json replay",
+    "machine": "single local dev box, Node 26.8.1 (server + k6 co-located)",
+    "note": "Unlike the upstream 2-machine / 3000-VU rig, this is a single-box short-ramp run — treat relative ordering as indicative, absolute numbers as low."
+  },
+  "overall": [
+    { "orm": "zmdb", "reqs": 2491, "avg": 119.8, "p50": 112.2, "p90": 220.5, "p95": 256.0, "failed": 0 },
+    { "orm": "kysely", "reqs": 2394, "avg": 124.5, "p50": 132.7, "p90": 196.6, "p95": 220.3, "failed": 0 },
+    { "orm": "drizzle", "reqs": 2367, "avg": 126.1, "p50": 135.7, "p90": 188.4, "p95": 207.2, "failed": 0 }
+  ],
+  "coverage": [
+    { "route": "/customers", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/customer-by-id", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/employees", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/suppliers", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/supplier-by-id", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/products", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/order-with-details-and-products", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/employee-with-recipient", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/product-with-supplier", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/orders-with-details", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/order-with-details", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/search-customer", "drizzle": true, "kysely": true, "zmdb": true },
+    { "route": "/search-product", "drizzle": true, "kysely": true, "zmdb": true }
+  ],
+  "dnf": [
+    { "target": "prisma", "reason": "not implemented: engine/codegen not installed" }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "node": {
+    "zmdb": {
+      "parseSafe": 1617840,
+      "parseStrict": 1294175,
+      "assertLoose": 5682562,
+      "assertStrict": 1295224
+    },
+    "zmdb-aot": {
+      "parseSafe": 101677075,
+      "parseStrict": 40022611,
+      "assertLoose": 108934303,
+      "assertStrict": 42287002
+    },
+    "typia": {
+      "parseSafe": 99859218,
+      "parseStrict": 42431863,
+      "assertStrict": 38797947,
+      "assertLoose": 90809150
+    },
+    "zod4": {
+      "parseSafe": 8872885,
+      "parseStrict": 5052933,
+      "assertLoose": 4964250,
+      "assertStrict": 4828425
+    },
+    "zod": {
+      "parseSafe": 1120734,
+      "parseStrict": 1057942,
+      "assertLoose": 1104761,
+      "assertStrict": 1103971
+    },
+    "valibot": {
+      "assertLoose": 1629518,
+      "assertStrict": 1471736,
+      "parseSafe": 1929087,
+      "parseStrict": 1607271
+    },
+    "arktype": {
+      "assertLoose": 80212377,
+      "assertStrict": 5046586,
+      "parseStrict": 4324009
+    },
+    "myzod": {
+      "parseSafe": 3396126,
+      "parseStrict": 4016071,
+      "assertStrict": 4006659
+    },
+    "@sinclair/typebox-(just-in-time)": {
+      "assertLoose": 91320349,
+      "assertStrict": 38076966
+    },
+    "ajv": {
+      "assertLoose": 49843494,
+      "assertStrict": 29809195
+    }
+  },
+  "bun": {
+    "zmdb": {
+      "parseSafe": 2449955,
+      "parseStrict": 1182249,
+      "assertLoose": 2568876,
+      "assertStrict": 1167255
+    },
+    "zmdb-aot": {
+      "parseSafe": 45376333,
+      "parseStrict": 62591287,
+      "assertLoose": 1061918540,
+      "assertStrict": 97744266
+    },
+    "typia": {
+      "parseSafe": 44074047,
+      "parseStrict": 118996144,
+      "assertStrict": 118861561,
+      "assertLoose": 122397774
+    },
+    "zod4": {
+      "parseSafe": 7205289,
+      "parseStrict": 3162512,
+      "assertLoose": 3057009,
+      "assertStrict": 2960382
+    },
+    "zod": {
+      "parseSafe": 1659254,
+      "parseStrict": 1374653,
+      "assertLoose": 1371623,
+      "assertStrict": 1346285
+    },
+    "valibot": {
+      "assertLoose": 3234906,
+      "assertStrict": 2491244,
+      "parseSafe": 3233641,
+      "parseStrict": 2464219
+    },
+    "arktype": {
+      "assertLoose": 34351611,
+      "assertStrict": 15298072,
+      "parseStrict": 13742921
+    },
+    "myzod": {
+      "parseSafe": 6263230,
+      "parseStrict": 5494661,
+      "assertStrict": 5365392
+    },
+    "@sinclair/typebox-(just-in-time)": {
+      "assertLoose": 111521533,
+      "assertStrict": 60345440
+    },
+    "ajv": {
+      "assertLoose": 40922214,
+      "assertStrict": 16874361
+    }
+  },
+  "deno": {
+    "zmdb": {
+      "parseSafe": 1635725,
+      "parseStrict": 1296055,
+      "assertLoose": 5503139,
+      "assertStrict": 1275239
+    },
+    "zmdb-aot": {
+      "parseSafe": 132548340,
+      "parseStrict": 39531359,
+      "assertLoose": 63003160,
+      "assertStrict": 22730508
+    },
+    "typia": {
+      "parseSafe": 93028268,
+      "parseStrict": 40878520,
+      "assertStrict": 41587024,
+      "assertLoose": 149286083
+    },
+    "zod4": {
+      "parseSafe": 12310499,
+      "parseStrict": 6636608,
+      "assertLoose": 7036862,
+      "assertStrict": 7121664
+    },
+    "zod": {
+      "parseSafe": 1273112,
+      "parseStrict": 952995,
+      "assertLoose": 896712,
+      "assertStrict": 921458
+    },
+    "valibot": {
+      "assertLoose": 2104199,
+      "assertStrict": 1618308,
+      "parseSafe": 1751413,
+      "parseStrict": 1512384
+    },
+    "arktype": {
+      "assertLoose": 87966042,
+      "assertStrict": 5191974,
+      "parseStrict": 5302809
+    },
+    "myzod": {
+      "parseSafe": 3042820,
+      "parseStrict": 3991171,
+      "assertStrict": 3993224
+    },
+    "@sinclair/typebox-(just-in-time)": {
+      "assertLoose": 144655849,
+      "assertStrict": 40380719
+    },
+    "ajv": {
+      "assertLoose": 46879377,
+      "assertStrict": 26043969
+    }
+  }
+}
