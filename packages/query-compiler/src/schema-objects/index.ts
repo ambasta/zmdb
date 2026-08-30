@@ -74,11 +74,11 @@ export function generatedColumnDdl(col: GeneratedColumn, dialect: Dialect): stri
 }
 
 // §5 schemas / namespaces
-export function createSchemaDdl(_name: string, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function createSchemaDdl(name: string, dialect: Dialect): string {
+  return `CREATE SCHEMA ${quoteId(dialect, name)}`;
 }
-export function qualify(_schema: string, _object: string, _dialect: Dialect): string {
-  throw new Error('not implemented');
+export function qualify(schema: string, object: string, dialect: Dialect): string {
+  return `${quoteId(dialect, schema)}.${quoteId(dialect, object)}`;
 }
 
 // §6 RLS
