@@ -30,3 +30,6 @@ benchmarks/harness/orm/northwind.db
 
 # Generated docs+benchmarks Pages output (built in CI from docs-site/)
 /site/
+
+# Generated benchmark AOT case (produced by gen-aot.mjs)
+benchmarks/harness/validation/moltar-case/zmdb-aot-generated.ts
