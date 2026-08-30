@@ -13,11 +13,17 @@ export interface Subscriber {
 
 export class EventBus {
   private subs: Subscriber[] = [];
-  subscribe(_s: Subscriber): () => void {
-    throw new Error('not implemented');
+  subscribe(s: Subscriber): () => void {
+    this.subs.push(s);
+    return () => {
+      const i = this.subs.indexOf(s);
+      if (i >= 0) this.subs.splice(i, 1);
+    };
   }
-  async emit(_event: LifecycleEvent, _ctx: unknown): Promise<void> {
-    throw new Error('not implemented');
+  async emit(event: LifecycleEvent, ctx: unknown): Promise<void> {
+    for (const s of this.subs) {
+      if (s.on === event) await s.run(ctx);
+    }
   }
 }
 
