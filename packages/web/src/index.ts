@@ -117,3 +117,11 @@ export {
   type OnApplicationBootstrap,
   type OnShutdown,
 } from './app/index.ts';
+
+// DTO validation & serialization pipes. See ./dto-pipes.
+export {
+  validationPipe,
+  serializationInterceptor,
+  dtoChain,
+  type DtoChainOptions,
+} from './dto-pipes/index.ts';
