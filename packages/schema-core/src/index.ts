@@ -232,6 +232,9 @@ export function defineSchema<T extends string>(
   const frozenColumns: Record<string, ColumnMeta> = {};
 
   for (const [name, col] of Object.entries(columns)) {
+    if (col.type === 'serial' && col.flags.primaryKey !== true) {
+      throw new SchemaError(`serial column "${name}" in schema "${table}" must be designated as a primary key`);
+    }
     if (col.flags.primaryKey === true) primaryKey.push(name);
     if (col.references) references.push({ column: name, target: col.references.target });
     frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
