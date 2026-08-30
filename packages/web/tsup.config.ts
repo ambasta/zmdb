@@ -13,6 +13,7 @@ export default defineConfig({
     middleware: 'src/middleware/index.ts',
     app: 'src/app/index.ts',
     'dto-pipes': 'src/dto-pipes/index.ts',
+    openapi: 'src/openapi/index.ts',
   },
   format: ['esm'],
   dts: true,

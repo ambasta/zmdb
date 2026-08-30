@@ -125,3 +125,13 @@ export {
   dtoChain,
   type DtoChainOptions,
 } from './dto-pipes/index.ts';
+
+// OpenAPI 3.1 generation from routes + schemas. See ./openapi.
+export {
+  toOpenApi,
+  serveOpenApi,
+  type OpenApiDocument,
+  type OpenApiOptions,
+  type RouteSchemas,
+  type JsonSchema,
+} from './openapi/index.ts';
