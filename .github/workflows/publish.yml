@@ -1,8 +1,11 @@
 name: Publish @zmdb packages to npm
 
-# Builds conventional dist (.js + .d.ts) and publishes to npm. Gated: runs only
-# on a manual dispatch or a v* tag, and only if NPM_TOKEN is set. The @zmdb org
-# must already exist on npm. See PUBLISHING.md.
+# Publishes conventional dist (.js + .d.ts) to npm using TRUSTED PUBLISHING
+# (OIDC) — no NPM_TOKEN. Requires: (1) a Trusted Publisher configured for each
+# @zmdb package on npmjs.com pointing at this repo + workflow file `publish.yml`,
+# (2) npm CLI >= 11.5.1 (installed below). See PUBLISHING.md.
+#
+# Trigger: manual dispatch (dry-run by default) or a v* tag.
 on:
   workflow_dispatch:
     inputs:
@@ -15,11 +18,12 @@ on:
       - 'v*'
 
 permissions:
+  id-token: write # REQUIRED for OIDC trusted publishing
   contents: read
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # OIDC trusted publishing requires GitHub-hosted runners
     steps:
       - uses: actions/checkout@v4
 
@@ -31,14 +35,8 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Guard — require NPM_TOKEN
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is not set. Add it in repo Settings → Secrets → Actions. See PUBLISHING.md."
-            exit 1
-          fi
+      - name: Upgrade npm to a trusted-publishing-capable version (>= 11.5.1)
+        run: npm install -g npm@latest && npm --version
 
       - name: Install (yarn, immutable)
         run: yarn install --immutable
@@ -57,16 +55,15 @@ jobs:
       - name: Repoint package.json → dist (publish manifest)
         run: node .github/scripts/repoint-dist.mjs
 
-      - name: Publish (or dry-run) each package
+      - name: Publish via OIDC (or dry-run) each package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY: ${{ github.event.inputs.dry_run }}
-          # Bypass the root "packageManager: yarn" enforcement so the npm CLI can
-          # run inside the repo.
+          # Bypass the root "packageManager: yarn" enforcement so the npm CLI runs.
           COREPACK_ENABLE_PROJECT_SPEC: '0'
         run: |
           set -e
-          # Publish in dependency order so dependents resolve on the registry.
+          # Dependency order so dependents resolve on the registry. No token:
+          # npm detects the GitHub OIDC environment and authenticates itself.
           for pkg in schema-core query-compiler aot-validator repository; do
             echo "=== packages/$pkg ==="
             cd "packages/$pkg"

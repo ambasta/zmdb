@@ -1,60 +1,74 @@
-# Publishing zmdb to npm
+# Publishing zmdb to npm (Trusted Publishing / OIDC)
 
-Runbook for publishing the `@zmdb/*` packages as **conventional npm packages**
-(`.js` + `.d.ts`) via **GitHub CI**. All the build + metadata plumbing is done;
-what remains is your one-time npm setup and triggering the workflow.
+The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing
+(OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a
+short-lived OIDC credential, so there is no long-lived secret to leak, rotate, or
+2FA-bypass. Publishes from a public repo also get automatic **provenance**.
 
-## Current status (checked against the registry)
+> **Do not create an automation token.** npm itself recommends Trusted Publishing
+> over tokens for CI. There is no `NPM_TOKEN` secret in this setup.
 
-| name | availability |
-|------|--------------|
-| `@zmdb/schema-core` | ✅ available |
-| `@zmdb/query-compiler` | ✅ available |
-| `@zmdb/aot-validator` | ✅ available |
-| `@zmdb/repository` | ✅ available |
+## Requirements (already handled in the workflow)
 
-## How the packages are built
+- **npm CLI ≥ 11.5.1** and **Node ≥ 22.14.0** — the workflow upgrades npm.
+- **`permissions: id-token: write`** on the job — set.
+- **GitHub-hosted runner** (`ubuntu-latest`) — OIDC does not work on self-hosted.
+- **`registry-url: https://registry.npmjs.org`** on `setup-node` — set.
+- **`package.json` `repository.url` must exactly match the GitHub repo** — it is
+  `git+https://github.com/ambasta/zmdb.git` for every package.
+- Packages are built to conventional ESM `.js` + `.d.ts` (tsup) and the manifests
+  are repointed to `dist` before publish (see the build steps).
 
-The source uses **`.ts` import extensions** and cross-package `@zmdb/*` imports,
-so each package is bundled to conventional **ESM `.js` + `.d.ts`** with
-[`tsup`](https://tsup.egoist.dev) before publishing:
+## One-time setup (you, on npmjs.com)
 
-- `packages/<pkg>/tsup.config.ts` lists every entry point (one per `exports`
-  subpath), emits ESM `.js` + `.d.ts`, and keeps `@zmdb/*` **external**.
-- The committed `package.json` keeps `exports` on `./src` so local dev + `vitest`
-  resolve TypeScript source directly.
-- A CI step (`.github/scripts/repoint-dist.mjs`) flips
-  `exports`/`main`/`types`/`files` to `dist` and rewrites `workspace:^` deps to
-  `^<version>` immediately before publish.
+1. **Create the org** (once): `npm org create zmdb`.
+2. **Configure a Trusted Publisher for each package.** On npmjs.com → your
+   package → **Settings → Trusted Publisher → GitHub Actions**, enter:
+   - **Organization or user:** `ambasta`
+   - **Repository:** `zmdb`
+   - **Workflow filename:** `publish.yml`  *(filename only, with the extension)*
+   - **Environment name:** *(leave blank)*
+   - **Allowed actions:** `npm publish`
 
-Consumers therefore receive built JavaScript + type declarations — no TS-source
-requirement.
+   > ⚠️ **First publish of a brand-new package name.** npm only lets you add a
+   > Trusted Publisher to a package that **already exists**. For the very first
+   > `0.1.0` of each new `@zmdb/*` name you must do **one** initial publish to
+   > create the package, then attach the trusted publisher for all future
+   > releases. Two options for that first publish:
+   >
+   > - **Locally, once, with your logged-in account** (you said you're logged in):
+   >   ```bash
+   >   for p in schema-core query-compiler aot-validator repository; do
+   >     ( cd "packages/$p" && yarn build ); done
+   >   node .github/scripts/repoint-dist.mjs
+   >   for p in schema-core query-compiler aot-validator repository; do
+   >     ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public )
+   >   done
+   >   git checkout packages/*/package.json   # restore dev state
+   >   ```
+   >   (publish in that order so dependents resolve; you'll get a normal 2FA/OTP
+   >   prompt — that's fine for a manual publish).
+   > - **Or** temporarily use a short-lived token for just the first CI run, then
+   >   switch to OIDC. The token path is discouraged, so prefer the manual first
+   >   publish above.
+   >
+   > After each name exists once, add its Trusted Publisher and **all subsequent
+   > releases go through OIDC with no token**.
+3. **(Recommended) Lock it down**: once trusted publishing works, in each
+   package's **Settings → Publishing access** choose **“Require two-factor
+   authentication and disallow tokens.”** Trusted publishing keeps working (it
+   uses OIDC, not tokens).
 
-## One-time setup (you)
+## Releasing (after trusted publishers are configured)
 
-1. **Create the `@zmdb` org** on npm (once): `npm org create zmdb`.
-2. **Add the token secret**: npmjs.com → *Access Tokens* → generate an
-   **Automation** token → GitHub repo *Settings → Secrets and variables →
-   Actions → New repository secret* → name **`NPM_TOKEN`**, value = the token.
-
-## Publish via CI
-
-The workflow is `.github/workflows/publish.yml`. It installs, tests, builds
-`dist` for all four packages (dependency order), repoints the manifests to
-`dist`, then publishes each with `NPM_TOKEN`. It is **gated** (manual dispatch or
-`v*` tag) and defaults to a **dry run**.
-
-- **Dry run first** (recommended): Actions tab → *Publish @zmdb packages to npm*
-  → *Run workflow* → leave `dry_run = true`. Builds + `npm pack --dry-run`s each
-  package so you can inspect the tarball contents without publishing.
-- **Real publish**: run the workflow with `dry_run = false`, **or** push a
-  version tag:
+- **Dry run** (recommended): Actions tab → *Publish @zmdb packages to npm* → Run
+  workflow → leave `dry_run = true`. Builds + `npm pack --dry-run` each package.
+- **Real publish**: run with `dry_run = false`, or push a tag:
   ```bash
   git tag v0.1.0 && git push --tags
   ```
-
-Packages are published in dependency order (schema-core → query-compiler →
-aot-validator → repository) so dependents resolve on the registry.
+  The workflow installs → tests → builds `dist` (dependency order) → repoints
+  manifests → `npm publish` each via OIDC. No secrets involved.
 
 ## What ends up in each tarball
 
@@ -65,36 +79,23 @@ packages/<pkg>/dist/
 README.md
 LICENSE
 ```
-- `exports` map each subpath to `{ types, import }`.
-- `files` = `['dist', 'README.md', 'LICENSE']` (source/specs/tests are excluded).
-- Cross-package deps are concrete `^0.1.0` ranges (`aot-validator` → schema-core;
-  `repository` → schema-core + query-compiler).
-
-## Local build / dry-run (optional)
-
-```bash
-# build every package (dependency order)
-for p in schema-core query-compiler aot-validator repository; do
-  yarn workspace "@zmdb/$p" build
-done
-
-# flip manifests to the publish shape, then inspect a tarball
-node .github/scripts/repoint-dist.mjs
-cd packages/schema-core && npm pack --dry-run && cd -
-
-# restore the dev-state manifests afterwards
-git checkout packages/*/package.json
-```
-
-> `repoint-dist.mjs` mutates the committed `package.json` to the publish shape —
-> run it only in CI or a throwaway checkout, then restore with the `git checkout`
-> above. (This repo pins yarn via `packageManager`; the CI runner uses the
-> npm registry `.npmrc` that `setup-node` writes with your token.)
+`exports` map each subpath to `{ types, import }`; `files` is
+`['dist','README.md','LICENSE']`; cross-package deps become concrete `^0.1.0`
+ranges (`aot-validator` → schema-core; `repository` → schema-core + query-compiler).
 
 ## Verify after publish
 
 ```bash
 npm view @zmdb/schema-core version
 npm view @zmdb/repository dependencies
-npm view @zmdb/schema-core exports
+# provenance badge should appear on the package page (public repo + public pkg)
 ```
+
+## Troubleshooting (from npm's docs)
+
+- **ENEEDAUTH / "Unable to authenticate"** → the Trusted Publisher's workflow
+  filename must match `publish.yml` exactly (case-sensitive, with extension), the
+  repo/owner must match, and `id-token: write` must be present.
+- **repository.url mismatch** → publishing via OIDC requires `package.json`
+  `repository.url` to match the GitHub repo exactly (it does here).
+- Provenance is **not** generated for private repos (n/a — this repo is public).
