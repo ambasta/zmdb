@@ -131,17 +131,29 @@ export function validate<T = unknown>(
 function hasNoExcessKeys(value: unknown, d: TypeDescriptor): boolean {
   if (d.kind === 'object') {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return true;
-    const allowed = new Set(Object.keys(d.fields ?? {}));
+    const fields = d.fields ?? {};
     const obj = value as Record<string, unknown>;
-    for (const k of Object.keys(obj)) {
-      if (!allowed.has(k)) return false;
-      const fd = d.fields?.[k];
-      if (fd && !hasNoExcessKeys(obj[k], fd)) return false;
+    // Fast path: this function is only reached after the structural `matches`
+    // check has confirmed every declared field is present. So "no excess keys"
+    // reduces to a key-count equality — no Set, no includes(). We only recurse
+    // into nested objects/arrays (which need their own excess check).
+    let declared = 0;
+    for (const key in fields) {
+      declared++;
+      const fd = fields[key]!;
+      if ((fd.kind === 'object' || fd.kind === 'array') && !hasNoExcessKeys(obj[key], fd)) {
+        return false;
+      }
     }
-    return true;
+    // Count own enumerable keys without allocating an array.
+    let actual = 0;
+    for (const _ in obj) actual++;
+    return actual === declared;
   }
   if (d.kind === 'array' && Array.isArray(value) && d.of) {
-    return value.every((item) => hasNoExcessKeys(item, d.of!));
+    const of = d.of;
+    for (let i = 0; i < value.length; i++) if (!hasNoExcessKeys(value[i], of)) return false;
+    return true;
   }
   return true;
 }
