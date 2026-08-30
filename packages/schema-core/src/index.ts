@@ -43,8 +43,8 @@ export interface ColumnMeta {
   readonly type: SqlType;
   readonly flags: ColumnFlags;
   readonly default?: unknown;
-  readonly references?: { readonly target: string };
-  readonly validation?: readonly ValidationRule[];
+  readonly references?: { readonly target: string } | undefined;
+  readonly validation?: readonly ValidationRule[] | undefined;
   readonly __payload?: unknown;
 }
 
@@ -132,8 +132,20 @@ export type UpdateDTO<S> = {
 
 export class SchemaError extends Error {}
 
-/** Overwrite flags `P` on flag map `F` (last write wins, no `never` collisions). */
-type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, keyof P> & P;
+export type UpdateFlags<F, P> = Omit<F, keyof P> & P;
+
+export type UpdateColumnFlags<M, P extends Partial<ColumnFlags>> = Omit<M, 'flags'> & {
+  flags: UpdateFlags<M extends { flags: infer F } ? F : ColumnFlags, P>;
+};
+
+export interface ColumnMethods<M extends ColumnMeta = ColumnMeta> {
+  notNull(): Column<UpdateColumnFlags<M, { nullable: false }>>;
+  nullable(): Column<UpdateColumnFlags<M, { nullable: true }>>;
+  primaryKey(): Column<UpdateColumnFlags<M, { primaryKey: true; hasDefault: true }>>;
+  unique(): Column<UpdateColumnFlags<M, { unique: true }>>;
+  defaultTo<V>(value: V): Column<UpdateColumnFlags<M, { hasDefault: true }> & { default: V }>;
+  validate(rule: ValidationRule): Column<M & { validation: readonly ValidationRule[] }>;
+}
 
 // Chainable column: ColumnMeta + fluent modifier methods.
 //
@@ -145,32 +157,11 @@ type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, k
 // Note: `references` is intentionally NOT a fluent method — it would collide
 // with the `ColumnMeta.references` metadata field. Use the function-style
 // `references(col, target)` modifier for foreign keys.
-export interface Column<T extends SqlType = SqlType, F extends ColumnFlags = ColumnFlags, P = unknown> {
-  readonly type: T;
-  readonly flags: F;
-  readonly default?: unknown;
-  readonly references?: { readonly target: string };
-  readonly validation?: readonly ValidationRule[];
-  readonly __payload?: P;
-  notNull(): Column<T, SetFlags<F, { nullable: false }>, P>;
-  nullable(): Column<T, SetFlags<F, { nullable: true }>, P>;
-  primaryKey(): Column<T, SetFlags<F, { primaryKey: true }>, P>;
-  unique(): Column<T, SetFlags<F, { unique: true }>, P>;
-  defaultTo(value: unknown): Column<T, SetFlags<F, { hasDefault: true }>, P>;
-  validate(rule: ValidationRule): Column<T, F, P>;
-}
+export type Column<M extends ColumnMeta = ColumnMeta> = M & ColumnMethods<M>;
 
 // Deep-freeze a column metadata object and wrap it with fluent methods.
 // Each fluent method returns a NEW frozen column (immutability preserved).
-//
-// Generic in the *result* column type, inferred from the caller's contextual
-// return type. Every builder and modifier below declares a precise
-// `Column<T, F>`, and this generic lets them `return makeColumn(...)` directly:
-// previously each of the 19 of them ended in its own `as never`, because a
-// non-generic `makeColumn(): Column` erases `T`/`F` on the way out. Those 19
-// assertions are now this one, which is also the only place that can argue for
-// its own soundness.
-function makeColumn<C extends Column>(meta: ColumnMeta): C {
+function makeColumn<M extends ColumnMeta>(meta: M): Column<M> {
   const frozenFlags = Object.freeze({ ...meta.flags });
   const base: ColumnMeta = Object.freeze({
     ...meta,
@@ -178,29 +169,21 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
     ...(meta.validation ? { validation: Object.freeze([...meta.validation]) } : {}),
   });
 
-  const withFlag = (patch: Partial<ColumnFlags>): Column =>
-    makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
+  const withFlag = (patch: Partial<ColumnFlags>): unknown =>
+    makeColumn({ ...base, flags: { ...base.flags, ...patch } });
 
   // Metadata is the enumerable surface (so `toEqual` compares metadata only).
-  // boundary: the fluent methods are attached *below* via defineProperty (they
-  // must be non-enumerable), so the object is not a `Column` until this function
-  // returns; and `C`'s `type`/`flags` are exactly the literal types of the `meta`
-  // the caller passed — the builders below are the only callers, and each pairs
-  // its declared `Column<T, F>` with a matching literal `meta`. Neither
-  // `Object.defineProperties` nor "these two literals agree" is expressible as a
-  // type-changing operation, hence the one assertion here.
-  const column = { ...base } as unknown as C;
+  const column = { ...base } as unknown as Column<M>;
 
   // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
   // columns with equal metadata compare deep-equal regardless of build style.
-  const methods: Record<string, (...args: never[]) => Column> = {
+  const methods: Record<string, (...args: never[]) => unknown> = {
     notNull: () => withFlag({ nullable: false }),
     nullable: () => withFlag({ nullable: true }),
-    primaryKey: () => withFlag({ primaryKey: true }),
+    primaryKey: () => withFlag({ primaryKey: true, hasDefault: true }),
     unique: () => withFlag({ unique: true }),
-    defaultTo: (value: unknown) =>
-      makeColumn<Column>({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
-    validate: (rule: ValidationRule) => makeColumn<Column>({ ...base, validation: [...(base.validation ?? []), rule] }),
+    defaultTo: (value: unknown) => makeColumn({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
+    validate: (rule: ValidationRule) => makeColumn({ ...base, validation: [...(base.validation ?? []), rule] }),
   };
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
@@ -210,90 +193,85 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
 
 // Column builders --------------------------------------------------------
 // Builders return literal-typed metadata so downstream type derivation
-// (Entity/CreateDTO/UpdateDTO) can read `type` and enum literals. The runtime is
-// `makeColumn` in every case; the declared `Column<T, F>` is what `makeColumn`'s
-// result type parameter is inferred from, so no builder needs an assertion.
+// (Entity/CreateDTO/UpdateDTO) can read `type` and enum literals. Runtime is
+// unchanged (makeColumn); the precise return type is a cast over it.
+export type Typed<M extends ColumnMeta> = Column<M>;
 
-export function serial(): Column<
-  'serial',
-  { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true }
-> {
+export function serial(): Column<{
+  type: 'serial';
+  flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true };
+}> {
   return makeColumn({
     type: 'serial',
     flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
   });
 }
-export function integer(): Column<'integer', { nullable: false }> {
+export function integer(): Column<{ type: 'integer'; flags: { nullable: false } }> {
   return makeColumn({ type: 'integer', flags: { nullable: false } });
 }
-export function bigint(): Column<'bigint', { nullable: false }> {
+export function bigint(): Column<{ type: 'bigint'; flags: { nullable: false } }> {
   return makeColumn({ type: 'bigint', flags: { nullable: false } });
 }
-export function numeric(): Column<'numeric', { nullable: false }> {
+export function numeric(): Column<{ type: 'numeric'; flags: { nullable: false } }> {
   return makeColumn({ type: 'numeric', flags: { nullable: false } });
 }
-export function text(): Column<'text', { nullable: false }> {
+export function text(): Column<{ type: 'text'; flags: { nullable: false } }> {
   return makeColumn({ type: 'text', flags: { nullable: false } });
 }
-export function varchar(length: number): Column<'varchar', { nullable: false; length: number }> {
+export function varchar<L extends number>(
+  length: L,
+): Column<{ type: 'varchar'; flags: { nullable: false; length: L } }> {
   return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
 }
-export function boolean(): Column<'boolean', { nullable: false }> {
+export function boolean(): Column<{ type: 'boolean'; flags: { nullable: false } }> {
   return makeColumn({ type: 'boolean', flags: { nullable: false } });
 }
-export function timestamp(): Column<'timestamp', { nullable: false }> {
+export function timestamp(): Column<{ type: 'timestamp'; flags: { nullable: false } }> {
   return makeColumn({ type: 'timestamp', flags: { nullable: false } });
 }
-export function json<T = unknown>(): Column<'json', { nullable: false }, T> {
+export function json<T = unknown>(): Column<{ type: 'json'; flags: { nullable: false }; __payload?: T }> {
   return makeColumn({ type: 'json', flags: { nullable: false } });
 }
 export function jsonEnum<const V extends readonly string[]>(
   values: V,
-): Column<'jsonEnum', { nullable: false; enum: V }> {
+): Column<{ type: 'jsonEnum'; flags: { nullable: false; enum: V } }> {
   return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } });
 }
 
 // Function-style modifiers (pure; never mutate input) --------------------
-// These mirror the fluent methods exactly — same `SetFlags` overwrite semantics,
-// same return type — so `primaryKey(serial())` and `serial().primaryKey()` derive
-// identical types (asserted in `type-derivation.type-test.ts`).
-export function notNull<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { nullable: false }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } });
+// Function-style modifiers preserve the input column's literal metadata and
+// merge in the new flag, so type derivation sees the narrowed result.
+export function notNull<C extends ColumnMeta>(col: C): Column<UpdateColumnFlags<C, { nullable: false }>> {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } }) as never;
 }
-export function nullable<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { nullable: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } });
+export function nullable<C extends ColumnMeta>(col: C): Column<UpdateColumnFlags<C, { nullable: true }>> {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } }) as never;
 }
-export function primaryKey<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { primaryKey: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } });
+export function primaryKey<C extends ColumnMeta>(
+  col: C,
+): Column<UpdateColumnFlags<C, { primaryKey: true; hasDefault: true }>> {
+  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true, hasDefault: true } }) as never;
 }
-export function unique<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { unique: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
+export function unique<C extends ColumnMeta>(col: C): Column<UpdateColumnFlags<C, { unique: true }>> {
+  return makeColumn({ ...col, flags: { ...col.flags, unique: true } }) as never;
 }
-export function references<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-  target: string,
-): Column<T, F, P> & { readonly references: { readonly target: string } } {
-  return makeColumn({ ...col, references: { target } });
+export function references<C extends ColumnMeta, T extends string>(
+  col: C,
+  target: T,
+): Column<Omit<C, 'references'> & { references: { target: T } }> {
+  return makeColumn({ ...col, references: { target } }) as never;
 }
-export function defaultTo<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-  value: unknown,
-): Column<T, SetFlags<F, { hasDefault: true }>, P> {
-  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } });
+export function defaultTo<C extends ColumnMeta, V>(
+  col: C,
+  value: V,
+): Column<UpdateColumnFlags<C, { hasDefault: true }> & { default: V }> {
+  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } }) as never;
 }
-export function validate<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
+export function validate<C extends ColumnMeta>(
+  col: C,
   rule: ValidationRule,
-): Column<T, F, P> {
-  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
+): Column<Omit<C, 'validation'> & { validation: readonly ValidationRule[] }> {
+  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as never;
 }
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column

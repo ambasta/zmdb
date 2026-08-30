@@ -90,6 +90,26 @@ describe('modifiers', () => {
     const functional = validate(notNull(text()), { kind: 'minLength', value: 3 });
     expect(fluent).toEqual(functional);
   });
+
+  it('fluent chaining primaryKey sets primaryKey and hasDefault flags', () => {
+    const col = text().primaryKey();
+    expect(col.type).toBe('text');
+    expect(col.flags.primaryKey).toBe(true);
+    expect(col.flags.hasDefault).toBe(true);
+  });
+
+  it('fluent chaining notNull narrows nullable flag from true to false', () => {
+    const nullableCol = text().nullable();
+    expect(nullableCol.flags.nullable).toBe(true);
+    const notNullCol = nullableCol.notNull();
+    expect(notNullCol.flags.nullable).toBe(false);
+  });
+
+  it('fluent chaining defaultTo sets default value and hasDefault flag', () => {
+    const col = text().defaultTo('default-val');
+    expect(col.default).toBe('default-val');
+    expect(col.flags.hasDefault).toBe(true);
+  });
 });
 
 describe('defineSchema', () => {
