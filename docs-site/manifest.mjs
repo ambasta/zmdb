@@ -122,22 +122,39 @@ type UpdateUser = UpdateDTO<typeof UserSchema>;   //  Partial<CreateUser>
 
 ## 4. CRUD through a repository
 
-A repository is a one-line schema binding. Every write is validated **before**
-any SQL runs.
+A repository binds your schema to a driver. The fastest way is the
+**\`defineRepository\`** helper (no subclass, no hand-written driver) with the
+built-in \`node:sqlite\` driver — a genuinely zero-dependency setup:
+
+\`\`\`ts
+import { DatabaseSync } from 'node:sqlite';
+import { defineRepository } from '@zmdb/repository';
+import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+
+const db = new DatabaseSync('app.db'); // or ':memory:'
+const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+
+const u       = await users.create({ email: 'a@b.com' });    // validated vs CreateDTO<S>
+const one     = await users.findById(u.id);                  // Entity<S> | undefined
+const admins  = await users.find({ role: 'admin' });         // typed WhereDTO<S>
+const page    = await users.list({ page: { limit: 20 } });   // ListResult<Entity<S>>
+const updated = await users.update(u.id, { role: 'admin' }); // validated vs UpdateDTO<S>
+const gone    = await users.delete(u.id);                    // boolean
+\`\`\`
+
+Prefer a class? Subclassing works identically:
 
 \`\`\`ts
 import { BaseRepository } from '@zmdb/repository';
-
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static readonly schema = UserSchema;
 }
-const users = new UserRepository(driver); // inject your Driver — see Drivers page
-
-const u       = await users.create({ email: 'a@b.com' });   // validated vs CreateDTO
-const one     = await users.findById(u.id);                 // Entity | undefined
-const updated = await users.update(u.id, { role: 'admin' }); // validated vs UpdateDTO
-const gone    = await users.delete(u.id);                    // boolean
+const users = new UserRepository(sqliteDriver(db), 'sqlite');
 \`\`\`
+
+> [!TIP]
+> Use \`pgDriver\` from \`@zmdb/repository/drivers/pg\` for PostgreSQL. A full
+> runnable example lives at \`examples/quickstart.ts\`. See [Drivers](./drivers.html).
 
 > [!IMPORTANT]
 > Rows you read back are **plain, inert objects**. Mutating \`user.email = 'x'\`
