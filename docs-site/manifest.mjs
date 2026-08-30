@@ -15,7 +15,7 @@ export const NAV = [
   { title: 'JSON & Serialization', pages: ['json-stringify', 'json-parse', 'json-schema', 'openapi', 'random'] },
   { title: 'Advanced', pages: ['custom-types', 'set-operations', 'lifecycle-hooks', 'embeddables', 'inheritance'] },
   { title: 'Integrations', pages: ['drivers', 'framework-integrations', 'llm-function-calling'] },
-  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways', 'web-testing'] },
+  { title: 'Web Framework', pages: ['web-overview', 'web-controllers', 'web-context', 'web-di', 'web-domain-state', 'web-pipeline', 'web-data-integration', 'web-modules', 'web-middleware', 'web-app', 'web-validation', 'web-openapi', 'web-gateways', 'web-testing', 'web-benchmarks'] },
   { title: 'Reference', pages: ['anti-patterns', 'benchmarks'] },
 ];
 
@@ -7186,6 +7186,61 @@ await app.init();          // runs onModuleInit hooks
 ## Cross-links
 
 - [Modules & providers](./web-modules.html) · [Application bootstrap](./web-app.html)
+`),
+
+  'web-benchmarks': ok('Web Performance & Benchmarks', 'Web Framework', `
+\`@zmdb/web\` resolves each controller's route table **once** at
+\`register\`/\`compile\` time and never re-reads \`Symbol.metadata\` per request. This
+is the concrete, testable form of the "no per-request reflection" claim — and it
+is the key difference from \`reflect-metadata\`-based frameworks that call
+\`Reflect.getMetadata()\` on every request.
+
+## The init-time-resolution guarantee (verified)
+
+A regression guard instruments a controller's \`Symbol.metadata\` with a counting
+getter, then asserts it is read at \`register\` and **zero additional times** across
+many \`handle\` calls:
+
+\`\`\`ts
+import { countMetadataReads } from '@zmdb/web/bench';
+import { createRouter } from '@zmdb/web';
+
+const counter = countMetadataReads(XController);
+const router = createRouter();
+router.register(new XController());
+const atRegister = counter.count();          // resolved once
+
+for (let i = 0; i < 50; i++) await router.handle(req);
+counter.count() === atRegister;               // ✅ no per-request metadata reads
+\`\`\`
+
+This test ships in the suite, so the guarantee cannot silently regress.
+
+## Microbench harness
+
+\`benchmarkRouter\` returns **raw timings** — deliberately no composite "score":
+
+\`\`\`ts
+import { benchmarkRouter } from '@zmdb/web/bench';
+
+const { iters, totalMs, opsPerSec } = await benchmarkRouter({ routes: 20, iters: 100_000 });
+\`\`\`
+
+## Honesty policy
+
+Consistent with the rest of the [benchmarks](../benchmarks/index.html):
+
+- We report **real timings** from real runs; we do **not** fabricate
+  cross-framework numbers in the test suite.
+- The meaningful, machine-checked claim is **architectural**: route resolution is
+  init-time (0 per-request metadata reads), unlike \`emitDecoratorMetadata\` +
+  \`reflect-metadata\` designs that reflect per request.
+- We make **no "fastest framework"** claim we have not earned across a full,
+  reproducible workload.
+
+## Cross-links
+
+- [Request pipeline](./web-pipeline.html) · [Controllers & routing](./web-controllers.html) · [Benchmarks (overview)](../benchmarks/index.html)
 `),
 
   // ---------------- Reference ----------------
