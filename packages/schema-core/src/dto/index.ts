@@ -105,11 +105,17 @@ export interface OrderTarget {
 export type OffsetPage = { limit: number; offset?: number };
 export type PaginationDTO<S> = OffsetPage | { limit: number; after?: unknown; before?: unknown };
 
-export function applyOrderBy<B extends OrderTarget>(_builder: B, _order: OrderByDTO<CoreSchema<string>> | undefined): B {
-  throw new Error('not implemented');
+export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderByDTO<CoreSchema<string>> | undefined): B {
+  if (!order) return builder;
+  let b: OrderTarget = builder;
+  for (const { column, dir } of order) b = b.orderBy(String(column), dir ?? 'asc');
+  return b as B;
 }
-export function applyPagination<B extends OrderTarget>(_builder: B, _page: PaginationDTO<CoreSchema<string>> | undefined): B {
-  throw new Error('not implemented');
+export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationDTO<CoreSchema<string>> | undefined): B {
+  if (!page) return builder;
+  let b: OrderTarget = builder.limit(page.limit);
+  if ('offset' in page && typeof page.offset === 'number') b = b.offset(page.offset);
+  return b as B;
 }
 
 // ---------------------------------------------------------------------------
