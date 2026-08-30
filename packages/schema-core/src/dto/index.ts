@@ -125,10 +125,13 @@ export type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 
 /** Narrow a row to `cols` (new object, stable order); passthrough when undefined. */
 export function project<Row extends Record<string, unknown>, K extends keyof Row>(
-  _row: Row,
-  _cols: readonly K[] | undefined,
+  row: Row,
+  cols: readonly K[] | undefined,
 ): Row | Pick<Row, K> {
-  throw new Error('not implemented');
+  if (!cols) return row;
+  const out = {} as Pick<Row, K>;
+  for (const c of cols) out[c] = row[c];
+  return out;
 }
 
 // ---------------------------------------------------------------------------
