@@ -47,7 +47,6 @@ export interface ColumnMeta {
   readonly validation?: readonly ValidationRule[];
 }
 
-/** Erased view of a column map — the default `CoreSchema` argument. */
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
 /**
@@ -294,7 +293,7 @@ export function validate<T extends SqlType, F extends ColumnFlags>(
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
 // metadata, deeply freeze, and register. Throws SchemaError on no primary key.
-const SCHEMA_REGISTRY = new Map<string, CoreSchema<string>>();
+const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, any>>();
 
 // `C` is inferred from the argument, so the returned schema keeps the literal
 // column map instead of the erased `Record<string, ColumnMeta>`. Without it the
@@ -380,3 +379,15 @@ export type Expect<T extends true> = T;
 
 /** Negative form: `ExpectNot<Equal<X, Y>>` fails to compile if X = Y. */
 export type ExpectNot<T extends false> = T;
+
+// Relation DSL builders & derivation types re-export
+export {
+  manyToOne,
+  oneToMany,
+  oneToOne,
+  manyToMany,
+  type RelationMeta,
+  type RelationDef,
+  type RelationsMap,
+  type PopulatedEntity,
+} from './relations/index.ts';
