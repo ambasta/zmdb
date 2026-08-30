@@ -170,10 +170,15 @@ export interface ListResult<Row> {
 }
 /** Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total. */
 export function buildListResult<Row extends Record<string, unknown>>(
-  _rows: readonly Row[],
-  _opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+  rows: readonly Row[],
+  opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
 ): ListResult<Row | Partial<Row>> {
-  throw new Error('not implemented');
+  const limit = opts?.limit;
+  const hasMore = typeof limit === 'number' && rows.length > limit;
+  const kept = hasMore ? rows.slice(0, limit) : rows;
+  const items = opts?.select ? kept.map((r) => project(r, opts.select)) : kept;
+  const result: ListResult<Row | Partial<Row>> = { items, hasMore };
+  return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
 export interface SearchDTO<S> {
   query: string;
