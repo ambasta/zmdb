@@ -151,3 +151,12 @@ export {
 
 // Testing utilities: in-process app + provider overrides. See ./testing.
 export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.ts';
+
+// Router benchmark & perf verification. See ./bench.
+export {
+  benchmarkRouter,
+  countMetadataReads,
+  type BenchmarkOptions,
+  type BenchmarkResult,
+  type MetadataReadCounter,
+} from './bench/index.ts';

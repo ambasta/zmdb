@@ -16,6 +16,7 @@ export default defineConfig({
     openapi: 'src/openapi/index.ts',
     gateways: 'src/gateways/index.ts',
     testing: 'src/testing/index.ts',
+    bench: 'src/bench/index.ts',
   },
   format: ['esm'],
   dts: true,
