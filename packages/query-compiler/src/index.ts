@@ -3,7 +3,6 @@
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-const NOT_IMPL = 'not implemented';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like' | 'in';

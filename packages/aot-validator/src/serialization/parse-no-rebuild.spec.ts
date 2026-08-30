@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { parse } from './index.ts';
 
 // #162 — parse must NOT rebuild the value: the parsed input IS the result for a
@@ -41,7 +42,7 @@ describe('parse no-rebuild invariant (#162)', () => {
     const wide = { ...obj, extraA: 1, extraB: { nested: [1, 2, 3] }, extraC: null };
     const r = parse<typeof wide>(JSON.stringify(wide));
     expect(r.success).toBe(true);
-    expect(Object.keys(r.data as object).sort()).toEqual(Object.keys(wide).sort());
+    expect(Object.keys(r.data as object).toSorted()).toEqual(Object.keys(wide).toSorted());
     // deep-nested key on the top-level object is preserved (a rebuild reconstructs
     // only listed nested fields; passthrough keeps the whole subtree).
     expect((r.data as typeof wide).extraB).toEqual({ nested: [1, 2, 3] });

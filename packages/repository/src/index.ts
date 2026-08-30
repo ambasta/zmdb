@@ -16,6 +16,9 @@ import {
   type WhereDTO,
   type ListDTO,
   type ListResult,
+  type OrderByDTO,
+  type OrderTarget,
+  type PaginationDTO,
 } from '@zmdb/schema-core/dto';
 
 export interface Driver {
@@ -131,13 +134,13 @@ export abstract class BaseRepository<S extends CoreSchema<string>> {
     let b = this.qb.selectFrom(this.tableName);
     if (query?.where) b = compileWhere(b, query.where as WhereDTO<CoreSchema<string>>);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (query?.orderBy) b = applyOrderBy(b as any, query.orderBy as any) as typeof b;
+    if (query?.orderBy) b = applyOrderBy(b as OrderTarget, query.orderBy as OrderByDTO<CoreSchema<string>>) as typeof b;
     // Fetch limit+1 so buildListResult can compute hasMore by trimming.
     const limit = query?.page && 'limit' in query.page ? query.page.limit : undefined;
     if (query?.page) {
       const probe = { ...query.page, limit: limit !== undefined ? limit + 1 : undefined } as typeof query.page;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      b = applyPagination(b as any, probe as any) as typeof b;
+      b = applyPagination(b as OrderTarget, probe as PaginationDTO<CoreSchema<string>>) as typeof b;
     }
     const rows = await this.driver.execute(b.compile());
     const opts = limit !== undefined ? { limit } : {};

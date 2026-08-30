@@ -84,7 +84,7 @@ const subs = [
   },
 ];
 
-function buildBody(sub, idx) {
+function buildBody(sub, _idx) {
   const L = [];
   L.push(`Parent epic: #${PARENT} (${TITLE})`, '');
   L.push('## Goal', sub.goal, '');

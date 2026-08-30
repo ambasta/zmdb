@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   serial,
   integer,
@@ -13,6 +14,8 @@ import {
   validate,
   defineSchema,
   SchemaError,
+  unique,
+  references as references_,
 } from './index.ts';
 
 // RED PHASE (#11 spec freeze): these tests encode the frozen spec and MUST
@@ -112,7 +115,6 @@ describe('defineSchema', () => {
 });
 
 // local helpers using the public API (kept explicit to avoid import churn)
-import { unique, references as references_ } from './index.ts';
 function unique_pk(c: ReturnType<typeof integer>) {
   return unique(primaryKey(c));
 }

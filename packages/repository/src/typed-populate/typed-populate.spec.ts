@@ -39,7 +39,7 @@ describe('typed populate (#217)', () => {
     const user = await repo.findById(1, { populate: ['orders'] });
     expect(user?.name).toBe('Ada');
     expect(user?.orders).toHaveLength(2);
-    expect((user?.orders as Order[]).map((o) => o.total).sort()).toEqual([5, 7]);
+    expect((user!.orders as Order[]).map((o) => o.total).toSorted()).toEqual([5, 7]);
   });
 
   it('without populate, the result is a plain entity (no relation key)', async () => {

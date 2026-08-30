@@ -7,11 +7,18 @@
 // typia is intentionally excluded: it cannot run without its own AOT transform
 // build step, so including it untransformed would misrepresent it.
 import { Bench } from 'tinybench';
-import * as z from 'zod';
+import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
 import { Type } from '@sinclair/typebox';
 import { TypeCompiler } from '@sinclair/typebox/compiler';
 import Ajv from 'ajv';
-import * as v from 'valibot';
+import {
+  object as vObject,
+  number as vNumber,
+  string as vString,
+  boolean as vBoolean,
+  parse as vParse,
+  is as vIs,
+} from 'valibot';
 import { is, equals, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
 import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './zmdb-aot.ts';
 
@@ -28,17 +35,17 @@ const validateData = Object.freeze({
 });
 
 // --- zod ---
-const zodLoose = z.object({
-  number: z.number(),
-  negNumber: z.number(),
-  maxNumber: z.number(),
-  string: z.string(),
-  longString: z.string(),
-  boolean: z.boolean(),
-  deeplyNested: z.object({ foo: z.string(), num: z.number(), bool: z.boolean() }),
+const zodLoose = zObject({
+  number: zNumber(),
+  negNumber: zNumber(),
+  maxNumber: zNumber(),
+  string: zString(),
+  longString: zString(),
+  boolean: zBoolean(),
+  deeplyNested: zObject({ foo: zString(), num: zNumber(), bool: zBoolean() }),
 });
 const zodStrict = zodLoose.extend({
-  deeplyNested: z.object({ foo: z.string(), num: z.number(), bool: z.boolean() }).strict(),
+  deeplyNested: zObject({ foo: zString(), num: zNumber(), bool: zBoolean() }).strict(),
 }).strict();
 
 // --- typebox (compiled — its intended fast path) ---
@@ -74,14 +81,14 @@ const ajvValidate = ajv.compile({
 });
 
 // --- valibot ---
-const vSchema = v.object({
-  number: v.number(),
-  negNumber: v.number(),
-  maxNumber: v.number(),
-  string: v.string(),
-  longString: v.string(),
-  boolean: v.boolean(),
-  deeplyNested: v.object({ foo: v.string(), num: v.number(), bool: v.boolean() }),
+const vSchema = vObject({
+  number: vNumber(),
+  negNumber: vNumber(),
+  maxNumber: vNumber(),
+  string: vString(),
+  longString: vString(),
+  boolean: vBoolean(),
+  deeplyNested: vObject({ foo: vString(), num: vNumber(), bool: vBoolean() }),
 });
 
 // --- zmdb (runtime path) ---
@@ -121,8 +128,8 @@ const impls: Record<string, Partial<Record<CaseKind, () => void>>> = {
     assertStrict: () => void ajvValidate(validateData),
   },
   valibot: {
-    parseSafe: () => void v.parse(vSchema, validateData),
-    assertLoose: () => void v.is(vSchema, validateData),
+    parseSafe: () => void vParse(vSchema, validateData),
+    assertLoose: () => void vIs(vSchema, validateData),
   },
   'zmdb (aot)': {
     assertLoose: () => void aotIs(validateData),
@@ -150,7 +157,7 @@ for (const kind of cases) {
   await bench.run();
   const rows = bench.tasks
     .map((t) => ({ name: t.name, hz: t.result?.hz ?? 0 }))
-    .sort((a, b) => b.hz - a.hz);
+    .toSorted((a, b) => b.hz - a.hz);
   console.log(`\n### ${kind}`);
   for (const r of rows) {
     console.log(`  ${r.name.padEnd(16)} ${Math.round(r.hz).toLocaleString().padStart(14)} ops/s`);

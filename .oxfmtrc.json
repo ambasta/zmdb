@@ -1,0 +1,33 @@
+{
+  "arrowParens": "avoid",
+  "bracketSpacing": true,
+  "endOfLine": "lf",
+  "ignorePatterns": [
+    ".git/**",
+    ".pnp.*",
+    ".yarn/**",
+    "**/.cache/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "site/**",
+    "benchmarks/harness/framework/.bin/**",
+    "benchmarks/harness/framework/peers/**",
+    "**/.results/**",
+    "**/*.app.mjs"
+  ],
+  "insertFinalNewline": true,
+  "objectWrap": "preserve",
+  "printWidth": 120,
+  "proseWrap": "preserve",
+  "quoteProps": "as-needed",
+  "semi": true,
+  "singleQuote": true,
+  "sortImports": true,
+  "sortPackageJson": {
+    "sortScripts": true
+  },
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "useTabs": false
+}

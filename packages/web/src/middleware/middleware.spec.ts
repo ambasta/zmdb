@@ -5,7 +5,6 @@ import { describe, it, expect } from 'vitest';
 import type { Ctx } from '../context/index.ts';
 import {
   runChain,
-  ChainError,
   type Guard,
   type Pipe,
   type Interceptor,

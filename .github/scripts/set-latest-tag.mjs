@@ -41,7 +41,7 @@ function cmp(a, b) {
 
 function chooseLatest(versions) {
   // Best = highest rank; within that, highest semver.
-  return [...versions].sort((a, b) => {
+  return [...versions].toSorted((a, b) => {
     const ra = rank(a), rb = rank(b);
     if (ra !== rb) return rb - ra;         // prefer higher channel
     return cmp(b, a);                       // then newest

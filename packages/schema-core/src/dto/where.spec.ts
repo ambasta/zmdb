@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineSchema, serial, text, integer, jsonEnum } from '../index.ts';
 import type { Entity } from '../index.ts';
 import { compileWhere, type WhereDTO, type FieldOps } from './index.ts';
@@ -14,7 +15,12 @@ type S = typeof UserSchema;
 // Fake builder that records the where/orWhere calls (compiler-agnostic).
 function recorder() {
   const calls: [string, string, string, unknown][] = [];
-  const mk = (): any => ({
+  interface B {
+    where(c: string, o: string, v: unknown): B;
+    orWhere(c: string, o: string, v: unknown): B;
+    calls: typeof calls;
+  }
+  const mk = (): B => ({
     where: (c: string, o: string, v: unknown) => (calls.push(['and', c, o, v]), mk()),
     orWhere: (c: string, o: string, v: unknown) => (calls.push(['or', c, o, v]), mk()),
     calls,

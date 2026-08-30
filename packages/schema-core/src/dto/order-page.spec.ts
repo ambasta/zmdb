@@ -1,4 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
+
 import { defineSchema, serial, text, integer } from '../index.ts';
 import { applyOrderBy, applyPagination, type OrderByDTO, type PaginationDTO } from './index.ts';
 
@@ -12,7 +13,12 @@ type S = typeof UserSchema;
 // Fake builder recording orderBy/limit/offset calls.
 function recorder() {
   const calls: [string, ...unknown[]][] = [];
-  const mk = (): any => ({
+  interface B {
+    orderBy(c: string, d: string): B;
+    limit(n: number): B;
+    offset(n: number): B;
+  }
+  const mk = (): B => ({
     orderBy: (c: string, d: string) => (calls.push(['orderBy', c, d]), mk()),
     limit: (n: number) => (calls.push(['limit', n]), mk()),
     offset: (n: number) => (calls.push(['offset', n]), mk()),

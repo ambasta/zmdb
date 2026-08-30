@@ -15,10 +15,7 @@ function sortKey(r: BenchResult): string {
 // targets are only compared on the cases we actually run them on, so they are
 // not required to cover the full matrix — but every emitted result (any target)
 // must still be schema-valid.
-export function assertNoSilentSkips(
-  results: readonly BenchResult[],
-  primaryTarget = 'zmdb',
-): void {
+export function assertNoSilentSkips(results: readonly BenchResult[], primaryTarget = 'zmdb'): void {
   const primaryCases = new Map<string, Set<string>>(); // suite -> cases (primary only)
   for (const r of results) {
     const schemaErrors = validateResult(r);
@@ -46,13 +43,13 @@ export function assertNoSilentSkips(
 
 export function toJson(results: readonly BenchResult[]): string {
   assertNoSilentSkips(results);
-  const sorted = [...results].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const sorted = [...results].toSorted((a, b) => sortKey(a).localeCompare(sortKey(b)));
   return JSON.stringify(sorted, null, 2);
 }
 
 export function toMarkdown(results: readonly BenchResult[]): string {
   assertNoSilentSkips(results);
-  const sorted = [...results].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const sorted = [...results].toSorted((a, b) => sortKey(a).localeCompare(sortKey(b)));
   const row = (r: BenchResult) =>
     `| ${r.suite} | ${r.case} | ${r.target} | ${r.status === 'ok' ? `${r.opsPerSec} ops/s` : r.dnfReason} |`;
   return [

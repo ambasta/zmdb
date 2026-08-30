@@ -46,10 +46,10 @@ export function snapshot(schemas: readonly unknown[]): SchemaSnapshot {
           nullable: meta.flags.nullable,
           primaryKey: meta.flags.primaryKey === true,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .toSorted((a, b) => a.name.localeCompare(b.name));
       return { name: schema.table, columns };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .toSorted((a, b) => a.name.localeCompare(b.name));
 
   return { version: 1, tables };
 }

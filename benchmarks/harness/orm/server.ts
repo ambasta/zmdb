@@ -26,7 +26,7 @@ const products = pgTable('products', { id: integer('id').primaryKey(), name: tex
 const orders = pgTable('orders', { id: integer('id').primaryKey() });
 const details = pgTable('order_details', { orderId: integer('order_id'), productId: integer('product_id'), quantity: integer('quantity'), unitPrice: numeric('unit_price') });
 const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
-const k = new Kysely<any>({ dialect: new PostgresDialect({ pool }) });
+const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
 const qc = createQueryCompiler('postgres');
 // zmdb query execution. With ZMDB_PREPARED=1 we pass a stable statement `name`
 // derived from the compiled SQL text, so Postgres caches the plan server-side
@@ -36,9 +36,9 @@ const qc = createQueryCompiler('postgres');
 const PREPARED = process.env.ZMDB_PREPARED === '1';
 const stmtNames = new Map<string, string>();
 let stmtSeq = 0;
-const nameFor = (text: string) => {
-  let n = stmtNames.get(text);
-  if (!n) { n = 'z' + (stmtSeq++).toString(36); stmtNames.set(text, n); }
+const nameFor = (stmtText: string) => {
+  let n = stmtNames.get(stmtText);
+  if (!n) { n = 'z' + (stmtSeq++).toString(36); stmtNames.set(stmtText, n); }
   return n;
 };
 const zq = (t: string, p: unknown[]) =>
@@ -111,7 +111,7 @@ const routes: Record<string, Record<string, H | null>> = {
     drizzle: async (q) => ddb.select().from(orders).leftJoin(details, eq(details.orderId, orders.id)).where(eq(orders.id, num(q.get('id') ?? undefined))),
     kysely: async (q) => k.selectFrom('orders').leftJoin('order_details', 'order_details.order_id', 'orders.id').selectAll().where('orders.id', '=', num(q.get('id') ?? undefined)).execute(),
     // zmdb idiom: explicit parent + batched children (two CRUD queries).
-    zmdb: async (q) => { const id = num(q.get('id') ?? undefined); const o = qc.selectFrom('orders').where('id', '=', id).compile(); const parent = await zq(o.text, o.parameters as unknown[]); const d = qc.selectFrom('order_details').where('order_id', '=', id).compile(); const kids = await zq(d.text, d.parameters as unknown[]); return { ...(parent[0] ?? {}), details: kids }; },
+    zmdb: async (q) => { const id = num(q.get('id') ?? undefined); const o = qc.selectFrom('orders').where('id', '=', id).compile(); const parent = await zq(o.text, o.parameters as unknown[]); const d = qc.selectFrom('order_details').where('order_id', '=', id).compile(); const kids = await zq(d.text, d.parameters as unknown[]); return { ...parent[0], details: kids }; },
   },
   // #97 — /search-* now served by zmdb via the FTS builder (was DNF).
   '/search-customer': {

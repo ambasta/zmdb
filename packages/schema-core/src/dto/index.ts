@@ -1,8 +1,7 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { CoreSchema } from '../index.ts';
-import type { Entity } from '../index.ts';
+import type { CoreSchema, Entity } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // §1 WhereDTO + operator set
@@ -103,7 +102,7 @@ export interface OrderTarget {
   offset(n: number): OrderTarget;
 }
 export type OffsetPage = { limit: number; offset?: number };
-export type PaginationDTO<S> = OffsetPage | { limit: number; after?: unknown; before?: unknown };
+export type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>>; before?: Partial<Entity<S>> };
 
 export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderByDTO<CoreSchema<string>> | undefined): B {
   if (!order) return builder;

@@ -66,9 +66,7 @@ type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' |
             : unknown;
 
 // Apply nullability.
-type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true }
-  ? BaseTsType<C> | null
-  : BaseTsType<C>;
+type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
 
 type ColumnsOf<S> = S extends { columns: infer C } ? C : never;
 
@@ -90,14 +88,14 @@ export type Entity<S> = {
 // CreateDTO<S>: omit auto-increment columns; columns with defaults are optional.
 export type CreateDTO<S, C = ColumnsOf<S>> = {
   // required: not auto-increment, no default
-  [K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K]: C[K] extends ColumnMeta
-    ? TsType<C[K]>
-    : never;
+  [
+    K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K
+  ]: C[K] extends ColumnMeta ? TsType<C[K]> : never;
 } & {
   // optional: has a default (and not auto-increment)
-  [K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never]?: C[K] extends ColumnMeta
-    ? TsType<C[K]>
-    : never;
+  [
+    K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never
+  ]?: C[K] extends ColumnMeta ? TsType<C[K]> : never;
 };
 
 // UpdateDTO<S>: fully partial CreateDTO.
@@ -128,8 +126,7 @@ function makeColumn(meta: ColumnMeta): Column {
     ...(meta.validation ? { validation: Object.freeze([...meta.validation]) } : {}),
   });
 
-  const withFlag = (patch: Partial<ColumnFlags>): Column =>
-    makeColumn({ ...base, flags: { ...base.flags, ...patch } });
+  const withFlag = (patch: Partial<ColumnFlags>): Column => makeColumn({ ...base, flags: { ...base.flags, ...patch } });
 
   // Metadata is the enumerable surface (so `toEqual` compares metadata only).
   const column = { ...base } as unknown as Column;
@@ -158,7 +155,10 @@ function makeColumn(meta: ColumnMeta): Column {
 // unchanged (makeColumn); the precise return type is a cast over it.
 type Typed<M extends ColumnMeta> = Column & M;
 
-export function serial(): Typed<{ type: 'serial'; flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true } }> {
+export function serial(): Typed<{
+  type: 'serial';
+  flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true };
+}> {
   return makeColumn({
     type: 'serial',
     flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
@@ -212,7 +212,10 @@ export function unique<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & 
 export function references<C extends ColumnMeta>(col: C, target: string): C & { references: { target: string } } {
   return makeColumn({ ...col, references: { target } }) as never;
 }
-export function defaultTo<C extends ColumnMeta>(col: C, value: unknown): C & { flags: C['flags'] & { hasDefault: true } } {
+export function defaultTo<C extends ColumnMeta>(
+  col: C,
+  value: unknown,
+): C & { flags: C['flags'] & { hasDefault: true } } {
   return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } }) as never;
 }
 export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C {
@@ -223,29 +226,26 @@ export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C 
 // metadata, deeply freeze, and register. Throws SchemaError on no primary key.
 const SCHEMA_REGISTRY = new Map<string, CoreSchema<string>>();
 
-export function defineSchema<T extends string>(
-  table: T,
-  columns: Record<string, ColumnMeta>,
-): CoreSchema<T> {
-  const primaryKey: string[] = [];
-  const references: { column: string; target: string }[] = [];
+export function defineSchema<T extends string>(table: T, columns: Record<string, ColumnMeta>): CoreSchema<T> {
+  const primaryKeys: string[] = [];
+  const refs: { column: string; target: string }[] = [];
   const frozenColumns: Record<string, ColumnMeta> = {};
 
   for (const [name, col] of Object.entries(columns)) {
-    if (col.flags.primaryKey === true) primaryKey.push(name);
-    if (col.references) references.push({ column: name, target: col.references.target });
+    if (col.flags.primaryKey === true) primaryKeys.push(name);
+    if (col.references) refs.push({ column: name, target: col.references.target });
     frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
   }
 
-  if (primaryKey.length === 0) {
+  if (primaryKeys.length === 0) {
     throw new SchemaError(`schema "${table}" must declare at least one primary key`);
   }
 
   const schema: CoreSchema<T> = Object.freeze({
     table,
     columns: Object.freeze(frozenColumns),
-    primaryKey: Object.freeze(primaryKey),
-    references: Object.freeze(references),
+    primaryKey: Object.freeze(primaryKeys),
+    references: Object.freeze(refs),
   });
 
   SCHEMA_REGISTRY.set(table, schema);

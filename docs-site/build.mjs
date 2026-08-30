@@ -102,9 +102,9 @@ function mdToHtml(md) {
     // lists
     if (/^(\s*)(?:[-*]|\d+\.)\s+/.test(l)) { html += parseList(l.match(/^(\s*)/)[1].length); continue; }
     // table
-    if (/^\|/.test(l)) {
+    if (l.startsWith('|')) {
       const tbl = [];
-      while (i < lines.length && /^\|/.test(lines[i])) tbl.push(lines[i++]);
+      while (i < lines.length && lines[i].startsWith('|')) tbl.push(lines[i++]);
       const rows = tbl.filter((r) => !/^\|[-\s|:]+\|$/.test(r)).map((r) => r.split('|').slice(1, -1).map((c) => c.trim()));
       html += '<table>' + rows.map((cells, ri) => '<tr>' + cells.map((c) => (ri === 0 ? `<th>${renderInline(c)}</th>` : `<td>${renderInline(c)}</td>`)).join('') + '</tr>').join('') + '</table>';
       continue;
@@ -300,7 +300,6 @@ main section table th:first-child,main section table td:first-child{text-align:l
 .yes{color:var(--ok);font-weight:600}.no{color:#f85149}
 .note{color:var(--muted);font-size:13px;margin:6px 0 14px}
 .honest{border-left:3px solid var(--accent);padding-left:12px}`;
-  const p = { title: 'Benchmarks', group: 'Reference', status: 'supported' };
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Benchmarks — zmdb docs</title>

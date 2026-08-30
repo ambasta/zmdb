@@ -5,7 +5,7 @@
 
 import { compileModule, type ModuleClass } from '../modules/index.ts';
 import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
-import { Container } from '../di/index.ts';
+import type { Container } from '../di/index.ts';
 
 /** Called after a controller/provider is constructed. */
 export interface OnModuleInit {

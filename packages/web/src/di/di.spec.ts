@@ -2,7 +2,8 @@
 // register/resolve/has, UnresolvedTokenError, type-level token match, and
 // @Inject field population via container.build. Per packages/web/src/di/SPEC.md.
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import { Container, createToken, Inject, UnresolvedTokenError, type Token } from './index.ts';
+
+import { Container, createToken, Inject, UnresolvedTokenError } from './index.ts';
 
 class Logger {
   log(msg: string): string {

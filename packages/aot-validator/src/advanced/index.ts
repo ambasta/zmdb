@@ -5,7 +5,6 @@
 // have no runtime-fallback tests in this suite and are left as thin stubs.
 import type { Rule } from '../index.ts';
 
-const NOT_IMPL = 'not implemented';
 
 export interface ValidationIssue {
   readonly path: string;

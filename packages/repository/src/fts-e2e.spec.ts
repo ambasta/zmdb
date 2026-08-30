@@ -58,7 +58,7 @@ describe('FTS repository integration (real Postgres)', () => {
     }
     const repo = new DocRepository(pgDriver(pool!), 'postgres');
     const hits = await repo.findByFullText('company_name', 'ltd');
-    const names = hits.map((r) => r.company_name).sort();
+    const names = hits.map((r) => r.company_name).toSorted();
     // 'Acme Trading Ltd' and 'Initech Ltd' match 'ltd'; others do not.
     expect(names).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
   });

@@ -560,7 +560,7 @@ const EPICS = [
   },
 ];
 
-function buildBody(epic, sub, idx) {
+function buildBody(epic, sub, _idx) {
   const lines = [];
   lines.push(`Parent epic: #${epic.parent} (${epic.title})`);
   lines.push('');
