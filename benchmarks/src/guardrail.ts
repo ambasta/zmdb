@@ -5,6 +5,7 @@
 //   • missing/omitted benchmark cases
 // Improvements, dnf→ok, and newly-added cases are never flagged.
 import { readFileSync, existsSync } from 'node:fs';
+
 import type { BenchResult } from './results.ts';
 
 export const RegressionKind = {
@@ -113,16 +114,16 @@ export function parseMarkdownResults(content: string): BenchResult[] {
     const cells = trimmed
       .slice(1, -1)
       .split('|')
-      .map((c) => c.trim());
+      .map(c => c.trim());
 
-    if (cells.every((c) => /^:?-+:?$/.test(c))) {
+    if (cells.every(c => /^:?-+:?$/.test(c))) {
       // separator row
       inTable = true;
       continue;
     }
 
     if (!inTable) {
-      headers = cells.map((c) => c.toLowerCase());
+      headers = cells.map(c => c.toLowerCase());
       inTable = true;
       continue;
     }
@@ -132,7 +133,7 @@ export function parseMarkdownResults(content: string): BenchResult[] {
       const suiteIdx = headers.indexOf('suite');
       const caseIdx = headers.indexOf('case');
       const targetIdx = headers.indexOf('target');
-      const resultIdx = headers.findIndex((h) => h === 'result' || h.includes('ops') || h.includes('status'));
+      const resultIdx = headers.findIndex(h => h === 'result' || h.includes('ops') || h.includes('status'));
 
       if (suiteIdx !== -1 && caseIdx !== -1 && targetIdx !== -1 && resultIdx !== -1) {
         const suite = cells[suiteIdx]?.toLowerCase();

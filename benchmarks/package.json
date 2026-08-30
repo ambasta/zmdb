@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "guardrail": "node --experimental-strip-types src/cli.ts"
+    "guardrail": "node --experimental-strip-types src/cli.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:*",
