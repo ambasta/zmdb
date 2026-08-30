@@ -38,3 +38,5 @@ function rowToSubtype(sti, row): { type: string; data: Record<string, unknown> }
 - Single-table inheritance: one table, a discriminator column selects the subtype;
   subtype-specific columns listed per type.
 - `rowToSubtype` reads the discriminator and returns the subtype tag + its columns.
+
+<!-- §2 embeddables frozen: flatten/lift by column prefix, round-trip law. -->
