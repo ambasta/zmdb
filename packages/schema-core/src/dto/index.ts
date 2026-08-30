@@ -189,3 +189,10 @@ export interface SearchDTO<S> {
 }
 export type SearchHit<Row> = Row & { readonly _score?: number };
 export type SearchResult<Row> = ListResult<SearchHit<Row>>;
+/** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
+export function buildSearchResult<Row extends Record<string, unknown>>(
+  _rows: readonly SearchHit<Row>[],
+  _opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+): SearchResult<Row | Partial<Row>> {
+  throw new Error('not implemented');
+}
