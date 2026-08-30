@@ -117,8 +117,12 @@ export type JoinRow<Base, Joined, Kind extends 'inner' | 'left' = 'left'> = Kind
 
 /** Rename aliased columns per a { alias: outKey } map (stable, non-mutating). */
 export function aliasRow<Row extends Record<string, unknown>>(
-  _row: Row,
-  _map: Readonly<Record<string, string>>,
+  row: Row,
+  map: Readonly<Record<string, string>>,
 ): Record<string, unknown> {
-  throw new Error('not implemented');
+  const out: Record<string, unknown> = { ...row };
+  for (const [alias, outKey] of Object.entries(map)) {
+    if (alias in out) out[outKey] = out[alias];
+  }
+  return out;
 }
