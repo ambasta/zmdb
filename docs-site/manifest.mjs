@@ -6,7 +6,7 @@
 // anti-patterns page with rationale.
 
 export const NAV = [
-  { title: 'Getting Started', pages: ['introduction', 'installation', 'aot-setup', 'pure-typescript'] },
+  { title: 'Getting Started', pages: ['introduction', 'quick-start', 'installation', 'aot-setup', 'pure-typescript'] },
   { title: 'Schema', pages: ['schema-declaration', 'column-types', 'type-derivation', 'relations', 'indexes-constraints', 'views', 'sequences', 'generated-columns', 'schemas-namespaces', 'rls'] },
   { title: 'Data Access', pages: ['crud', 'repository', 'select', 'insert', 'update', 'delete', 'filters', 'pagination', 'read-dtos', 'projections', 'joins', 'populate-results', 'aggregations', 'aggregate-results', 'full-text-search', 'aliases', 'inert-rows'] },
   { title: 'Transactions', pages: ['transactions', 'batch', 'read-replicas'] },
@@ -56,6 +56,148 @@ export const UserSchema = defineSchema('users', {
 - [Benchmarks](../benchmarks/index.html)
 `),
 
+  'quick-start': ok('Quick Start', 'Getting Started', `
+This guide takes you from an empty project to a validated, type-safe data layer
+in a few minutes. By the end you will have defined a schema, derived its types,
+run CRUD through a repository, and issued a typed query.
+
+> [!NOTE]
+> zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. It never
+> opens a database connection itself — you inject a small \`Driver\`, so it works
+> with \`pg\`, \`mysql2\`, \`better-sqlite3\`, or \`node:sqlite\`.
+
+## 1. Install
+
+\`\`\`bash
+npm add @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
+\`\`\`
+
+For the AOT-inlined validators (the fast path), wire the transformer once — see
+[AOT setup](./aot-setup.html). Without it, validation still works via a runtime
+fallback.
+
+## 2. Define your schema once
+
+The schema is the single source of truth. Everything else derives from it.
+
+\`\`\`ts
+import { defineSchema, serial, text, integer, numeric, jsonEnum, timestamp } from '@zmdb/schema-core';
+import { tags } from '@zmdb/aot-validator';
+
+export const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\\\.[^@]+$')),
+  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
+  createdAt: timestamp().notNull().defaultTo('now'),
+});
+
+export const OrderSchema = defineSchema('orders', {
+  id: serial().primaryKey(),
+  userId: integer().notNull().references('users.id'),
+  total: numeric().notNull().validate(tags.Minimum(0)),
+});
+\`\`\`
+
+Builders return **frozen** column metadata and modifiers are pure and chainable,
+so a schema is a plain, inert value — no decorators, no global registry.
+
+## 3. Types derive automatically
+
+\`\`\`ts
+import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+
+type User       = Entity<typeof UserSchema>;
+//   { id: number; email: string; role: 'admin' | 'user'; createdAt: Date }
+
+type CreateUser = CreateDTO<typeof UserSchema>;
+//   { email: string; role?: 'admin' | 'user' }   ← id auto-omitted; defaulted → optional
+
+type UpdateUser = UpdateDTO<typeof UserSchema>;   //  Partial<CreateUser>
+\`\`\`
+
+> [!TIP]
+> Change a column and every derived type updates. Any call site that no longer
+> satisfies them **fails to compile** — that compile error is the anti-drift
+> guarantee. See [Type derivation](./type-derivation.html).
+
+## 4. CRUD through a repository
+
+A repository is a one-line schema binding. Every write is validated **before**
+any SQL runs.
+
+\`\`\`ts
+import { BaseRepository } from '@zmdb/repository';
+
+class UserRepository extends BaseRepository<typeof UserSchema> {
+  static readonly schema = UserSchema;
+}
+const users = new UserRepository(driver); // inject your Driver — see Drivers page
+
+const u       = await users.create({ email: 'a@b.com' });   // validated vs CreateDTO
+const one     = await users.findById(u.id);                 // Entity | undefined
+const updated = await users.update(u.id, { role: 'admin' }); // validated vs UpdateDTO
+const gone    = await users.delete(u.id);                    // boolean
+\`\`\`
+
+> [!IMPORTANT]
+> Rows you read back are **plain, inert objects**. Mutating \`user.email = 'x'\`
+> persists nothing — writes only happen through \`create\`/\`update\`/\`delete\`.
+> This is deliberate; see [Why fetched rows are inert](./inert-rows.html).
+
+## 5. Query your data (typed)
+
+\`\`\`ts
+import { compileWhere, applyOrderBy, buildListResult } from '@zmdb/schema-core/dto';
+
+let qb = users.query.selectFrom('users');
+qb = compileWhere(qb, { role: 'admin', createdAt: { gte: since } });
+qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }]);
+const rows = await driver.execute(qb.limit(21).compile());
+const page = buildListResult(rows, { limit: 20 }); // { items, hasMore }
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM "users"
+WHERE "role" = $1 AND "createdAt" >= $2
+ORDER BY "createdAt" DESC
+LIMIT 21
+\`\`\`
+
+The filter, ordering and pagination are all typed against \`UserSchema\`. See
+[Filters](./filters.html), [Ordering & pagination](./pagination.html) and the
+[Read/Query DTOs](./read-dtos.html).
+
+## 6. Atomic writes with transactions
+
+\`\`\`ts
+import { createTransactionalDb } from '@zmdb/repository/transactions';
+
+const db = createTransactionalDb(connection);
+await db.transaction(async (tx) => {
+  const user  = await tx.repo(UserRepository).create({ email: 'a@b.com' });
+  const order = await tx.repo(OrderRepository).create({ userId: user.id, total: 42 });
+  // throw here → ROLLBACK; clean return → COMMIT
+});
+\`\`\`
+
+## 7. Validate at the boundary
+
+\`\`\`ts
+import { assert } from '@zmdb/aot-validator';
+
+// In an HTTP handler: validate the inbound body against the derived Create DTO.
+const payload = assert<CreateDTO<typeof UserSchema>>(await req.json());
+const user = await users.create(payload);
+\`\`\`
+
+## Where to go next
+
+- [Schema declaration](./schema-declaration.html) and [Column types](./column-types.html)
+- [Relations](./relations.html) and [typed populate/join results](./populate-results.html)
+- [Migrations](./migrations.html) — diffed from the schema
+- [Validators](./validators-is.html) and [JSON / Ser-De](./json-stringify.html)
+- [Anti-patterns](./anti-patterns.html) — what zmdb deliberately does *not* do, and why
+`),
   installation: ok('Installation', 'Getting Started', `
 zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**.
 
