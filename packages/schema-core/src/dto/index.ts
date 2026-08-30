@@ -123,6 +123,14 @@ export function applyPagination<B extends OrderTarget>(builder: B, page: Paginat
 // ---------------------------------------------------------------------------
 export type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 
+/** Narrow a row to `cols` (new object, stable order); passthrough when undefined. */
+export function project<Row extends Record<string, unknown>, K extends keyof Row>(
+  _row: Row,
+  _cols: readonly K[] | undefined,
+): Row | Pick<Row, K> {
+  throw new Error('not implemented');
+}
+
 // ---------------------------------------------------------------------------
 // §4–6 Get/List/Search DTOs (types; result assembly in #166/#169/#172)
 // ---------------------------------------------------------------------------
