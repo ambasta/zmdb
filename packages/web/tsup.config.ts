@@ -11,6 +11,7 @@ export default defineConfig({
     data: 'src/data/index.ts',
     modules: 'src/modules/index.ts',
     middleware: 'src/middleware/index.ts',
+    app: 'src/app/index.ts',
   },
   format: ['esm'],
   dts: true,

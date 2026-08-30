@@ -108,3 +108,12 @@ export {
   type Chain,
   type ChainHandler,
 } from './middleware/index.ts';
+
+// Application bootstrap & lifecycle. See ./app.
+export {
+  createApp,
+  type App,
+  type OnModuleInit,
+  type OnApplicationBootstrap,
+  type OnShutdown,
+} from './app/index.ts';
