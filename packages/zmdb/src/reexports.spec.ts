@@ -1,6 +1,6 @@
 import { tags as srcTags } from '@zmdb/aot-validator';
 import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
-import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
+import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
 import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
 import {
   defineSchema as srcDefineSchema,
@@ -24,6 +24,7 @@ import {
   json,
   jsonEnum,
   createQueryCompiler,
+  UnsupportedFeatureError,
   is,
   assert,
   validate,
@@ -44,8 +45,9 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(jsonEnum).toBe(srcJsonEnum);
   });
 
-  it('re-exports createQueryCompiler', () => {
+  it('re-exports createQueryCompiler and UnsupportedFeatureError', () => {
     expect(createQueryCompiler).toBe(srcQC);
+    expect(UnsupportedFeatureError).toBe(srcUFE);
   });
 
   it('re-exports validators is/assert/validate/tags', () => {

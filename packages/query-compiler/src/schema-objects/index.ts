@@ -1,8 +1,9 @@
+import { UnsupportedFeatureError } from '../errors.ts';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.ts';
 import { quoteIdentifier } from '../quoting.ts';
 
-export class UnsupportedFeatureError extends Error {}
+export { UnsupportedFeatureError };
 
 export function quoteId(dialect: Dialect, id: string): string {
   return quoteIdentifier(dialect, id);
@@ -34,14 +35,14 @@ export interface ViewDef {
 }
 export function createViewDdl(def: ViewDef, dialect: Dialect): string {
   if (def.materialized && dialect !== 'postgres') {
-    throw new UnsupportedFeatureError(`materialized views are not supported on ${dialect}`);
+    throw new UnsupportedFeatureError('materialized views', dialect);
   }
   const mat = def.materialized ? 'MATERIALIZED ' : '';
   return `CREATE ${mat}VIEW ${quoteId(dialect, def.name)} AS ${def.select}`;
 }
 export function dropViewDdl(name: string, dialect: Dialect, materialized?: boolean): string {
   if (materialized && dialect !== 'postgres') {
-    throw new UnsupportedFeatureError(`materialized views are not supported on ${dialect}`);
+    throw new UnsupportedFeatureError('materialized views', dialect);
   }
   const mat = materialized ? 'MATERIALIZED ' : '';
   return `DROP ${mat}VIEW IF EXISTS ${quoteId(dialect, name)}`;
@@ -88,11 +89,11 @@ export interface RlsPolicy {
   command?: 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
 }
 export function enableRlsDdl(table: string, dialect: Dialect): string {
-  if (dialect !== 'postgres') throw new UnsupportedFeatureError(`RLS is postgres-only (got ${dialect})`);
+  if (dialect !== 'postgres') throw new UnsupportedFeatureError('row-level security', dialect);
   return `ALTER TABLE ${quoteId(dialect, table)} ENABLE ROW LEVEL SECURITY`;
 }
 export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
-  if (dialect !== 'postgres') throw new UnsupportedFeatureError(`RLS is postgres-only (got ${dialect})`);
+  if (dialect !== 'postgres') throw new UnsupportedFeatureError('row-level security', dialect);
   const cmd = p.command ?? 'ALL';
   return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
 }
