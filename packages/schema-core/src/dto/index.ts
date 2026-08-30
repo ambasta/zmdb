@@ -189,6 +189,32 @@ export interface SearchDTO<S> {
 }
 export type SearchHit<Row> = Row & { readonly _score?: number };
 export type SearchResult<Row> = ListResult<SearchHit<Row>>;
+
+// ---------------------------------------------------------------------------
+// §8 AggregateResult
+// ---------------------------------------------------------------------------
+export type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
+export interface AggregateSpec<S> {
+  groupBy?: readonly (keyof Entity<S>)[];
+  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<S> }>>;
+}
+type AggComputedType<S, C> = C extends { fn: 'count' }
+  ? number
+  : C extends { fn: 'sum' | 'avg' }
+    ? number | null
+    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> }
+      ? Entity<S>[Col] | null
+      : number | null;
+export type AggregateResult<S, Spec extends AggregateSpec<S>> = {
+  [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K];
+} & {
+  [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]>;
+};
+
+/** Ordered field list for an aggregate spec: group-key cols then computed keys. */
+export function describeAggregate<S>(_spec: AggregateSpec<S>): readonly string[] {
+  throw new Error('not implemented');
+}
 /** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
 export function buildSearchResult<Row extends Record<string, unknown>>(
   rows: readonly SearchHit<Row>[],
