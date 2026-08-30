@@ -33,3 +33,5 @@ function batch(statements: readonly CompiledQuery[]): { statements; execute(runn
   not called.
 - No implicit transaction — batching is a transport concern; wrap in
   `db.transaction` for atomicity.
+- Golden: `batch([a,b]).statements` === `[a,b]`; `execute(runner)` calls
+  `runner` exactly once with all statements and returns its results in order.
