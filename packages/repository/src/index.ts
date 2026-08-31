@@ -1984,16 +1984,28 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
     specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
+    maybeBuildOrOptions?: ReadOptions | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
     options?: ReadOptions,
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
     const targetFilterNames = new Set<string>();
     const targetKnownNames = new Set<string>();
 
-    if (typeof specOrBuild === 'function') {
-      const builder = this.createRepositoryAggregateBuilder(options, targetFilterNames, targetKnownNames);
-      const res = specOrBuild(builder);
-      q = this.compileRead('aggregate', options, () => res ?? builder, {
+    const buildFn =
+      typeof maybeBuildOrOptions === 'function'
+        ? maybeBuildOrOptions
+        : typeof specOrBuild === 'function'
+          ? specOrBuild
+          : undefined;
+    const opts =
+      typeof maybeBuildOrOptions === 'function'
+        ? options
+        : (maybeBuildOrOptions as ReadOptions | undefined);
+
+    if (buildFn) {
+      const builder = this.createRepositoryAggregateBuilder(opts, targetFilterNames, targetKnownNames);
+      const res = buildFn(builder);
+      q = this.compileRead('aggregate', opts, () => res ?? builder, {
         additionalFilterNames: [...targetFilterNames],
         additionalKnownNames: [...targetKnownNames],
       });
