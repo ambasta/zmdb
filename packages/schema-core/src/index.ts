@@ -321,7 +321,6 @@ export function references(
     references: { readonly target: string };
   };
 }
-}
 export function defaultTo<T extends SqlType, F extends ColumnFlags, P>(
   col: Column<T, F, P>,
   value: unknown,
