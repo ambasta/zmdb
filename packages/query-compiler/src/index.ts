@@ -7,8 +7,8 @@ export { UnsupportedFeatureError } from './errors.ts';
 
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 
-export type { Dialect };
-export { quoteIdentifier, quoteColumn, quoteTable, formatIdentifier, formatPlaceholder, renumberPlaceholders };
+export type Dialect = 'postgres' | 'mysql' | 'sqlite';
+export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
 export type Operator =
   | '='
   | '!='
