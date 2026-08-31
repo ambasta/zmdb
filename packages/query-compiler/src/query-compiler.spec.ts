@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler, sanitizeKeys, chunkArray } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray, QueryCompilerError } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -262,5 +262,89 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
         .onConflict('id')
         .doUpdate([]);
     }).toThrow('Empty updateFields array is not allowed in doUpdate()');
+  });
+});
+
+describe('array parameter IN expansion', () => {
+  it('expands array parameters into parameterized IN clauses for postgres with sequential placeholders', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('id', 'in', [10, 20, 30])
+      .andWhere('status', '=', 'active')
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN ($1, $2, $3) AND "status" = $4');
+    expect(q.parameters).toEqual([10, 20, 30, 'active']);
+  });
+
+  it('expands array parameters into parameterized IN clauses for mysql', () => {
+    const q = createQueryCompiler('mysql').selectFrom('users').where('id', '=', [10, 20]).compile();
+    expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
+    expect(q.parameters).toEqual([10, 20]);
+  });
+
+  it('expands array parameters into parameterized IN clauses for sqlite', () => {
+    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN (?, ?, ?)');
+    expect(q.parameters).toEqual([1, 2, 3]);
+  });
+
+  it('handles NOT IN / nin array expansion', () => {
+    const q = createQueryCompiler('postgres').selectFrom('users').where('role', 'nin', ['admin', 'super']).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
+    expect(q.parameters).toEqual(['admin', 'super']);
+  });
+
+  it('handles empty array parameters cleanly (false / true)', () => {
+    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', 'in', []).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
+    expect(q1.parameters).toEqual([]);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', 'nin', []).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(q2.parameters).toEqual([]);
+  });
+});
+
+describe('Operator validation & Operator union round-tripping', () => {
+  it('validates each spelling in Operator union and produces expected SQL', () => {
+    const qb = createQueryCompiler('postgres');
+    const ops: [string, string][] = [
+      ['=', '='],
+      ['!=', '!='],
+      ['<', '<'],
+      ['<=', '<='],
+      ['>', '>'],
+      ['>=', '>='],
+      ['like', 'LIKE'],
+      ['LIKE', 'LIKE'],
+      ['ilike', 'ILIKE'],
+      ['ILIKE', 'ILIKE'],
+      ['in', 'IN'],
+      ['IN', 'IN'],
+      ['not in', 'NOT IN'],
+      ['NOT IN', 'NOT IN'],
+      ['nin', 'NOT IN'],
+      ['NIN', 'NOT IN'],
+    ];
+
+    for (const [op, expectedSqlOp] of ops) {
+      if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
+        const q = qb.selectFrom('users').where('col', op, [1, 2]).compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
+      } else {
+        const q = qb.selectFrom('users').where('col', op, 'val').compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
+      }
+    }
+  });
+
+  it('rejects unsupported operators by throwing QueryCompilerError', () => {
+    const qb = createQueryCompiler('postgres');
+    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(
+      QueryCompilerError,
+    );
+    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(
+      "Unsupported operator 'INVALID_OP'",
+    );
   });
 });
