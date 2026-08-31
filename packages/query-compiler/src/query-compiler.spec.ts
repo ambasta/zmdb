@@ -107,3 +107,118 @@ describe('subquery & EXISTS compilation', () => {
     expect(outer.parameters).toEqual([10, 50, 'failed']);
   });
 });
+
+describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
+  it('compiles PostgreSQL ON CONFLICT DO UPDATE (default non-target columns)', () => {
+    const q = createQueryCompiler('postgres')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com', role: 'user' })
+      .onConflict('id')
+      .doUpdate()
+      .returning(['*'])
+      .compile();
+    expect(q.text).toBe(
+      'INSERT INTO "users" ("id", "email", "role") VALUES ($1, $2, $3) ON CONFLICT ("id") DO UPDATE SET "email" = EXCLUDED."email", "role" = EXCLUDED."role" RETURNING *',
+    );
+    expect(q.parameters).toEqual([1, 'a@b.com', 'user']);
+  });
+
+  it('compiles PostgreSQL ON CONFLICT DO UPDATE with specific update columns', () => {
+    const q = createQueryCompiler('postgres')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com', role: 'user' })
+      .onConflict('id')
+      .doUpdate(['role'])
+      .compile();
+    expect(q.text).toBe(
+      'INSERT INTO "users" ("id", "email", "role") VALUES ($1, $2, $3) ON CONFLICT ("id") DO UPDATE SET "role" = EXCLUDED."role"',
+    );
+    expect(q.parameters).toEqual([1, 'a@b.com', 'user']);
+  });
+
+  it('compiles PostgreSQL ON CONFLICT DO UPDATE with custom field values', () => {
+    const q = createQueryCompiler('postgres')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com' })
+      .onConflict('id')
+      .doUpdate({ role: 'admin' })
+      .compile();
+    expect(q.text).toBe(
+      'INSERT INTO "users" ("id", "email") VALUES ($1, $2) ON CONFLICT ("id") DO UPDATE SET "role" = $3',
+    );
+    expect(q.parameters).toEqual([1, 'a@b.com', 'admin']);
+  });
+
+  it('compiles PostgreSQL ON CONFLICT DO NOTHING with and without target', () => {
+    const q1 = createQueryCompiler('postgres')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com' })
+      .onConflict('id')
+      .doNothing()
+      .compile();
+    expect(q1.text).toBe('INSERT INTO "users" ("id", "email") VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING');
+
+    const q2 = createQueryCompiler('postgres')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com' })
+      .onConflict()
+      .doNothing()
+      .compile();
+    expect(q2.text).toBe('INSERT INTO "users" ("id", "email") VALUES ($1, $2) ON CONFLICT DO NOTHING');
+  });
+
+  it('compiles MySQL ON DUPLICATE KEY UPDATE and INSERT IGNORE', () => {
+    const qUpdate = createQueryCompiler('mysql')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com', role: 'user' })
+      .onConflict('id')
+      .doUpdate()
+      .compile();
+    expect(qUpdate.text).toBe(
+      'INSERT INTO `users` (`id`, `email`, `role`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`), `role` = VALUES(`role`)',
+    );
+    expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
+
+    const qIgnore = createQueryCompiler('mysql')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com' })
+      .onConflict()
+      .doNothing()
+      .compile();
+    expect(qIgnore.text).toBe('INSERT IGNORE INTO `users` (`id`, `email`) VALUES (?, ?)');
+    expect(qIgnore.parameters).toEqual([1, 'a@b.com']);
+  });
+
+  it('compiles SQLite ON CONFLICT DO UPDATE and DO NOTHING', () => {
+    const qUpdate = createQueryCompiler('sqlite')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com', role: 'user' })
+      .onConflict('id')
+      .doUpdate()
+      .returning(['*'])
+      .compile();
+    expect(qUpdate.text).toBe(
+      'INSERT INTO "users" ("id", "email", "role") VALUES (?, ?, ?) ON CONFLICT ("id") DO UPDATE SET "email" = EXCLUDED."email", "role" = EXCLUDED."role" RETURNING *',
+    );
+    expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
+
+    const qIgnore = createQueryCompiler('sqlite')
+      .insertInto('users')
+      .values({ id: 1, email: 'a@b.com' })
+      .onConflict('id')
+      .doNothing()
+      .compile();
+    expect(qIgnore.text).toBe('INSERT INTO "users" ("id", "email") VALUES (?, ?) ON CONFLICT ("id") DO NOTHING');
+    expect(qIgnore.parameters).toEqual([1, 'a@b.com']);
+  });
+
+  it('throws an error when doUpdate is called with an empty updateFields array', () => {
+    expect(() => {
+      createQueryCompiler('postgres')
+        .insertInto('users')
+        .values({ id: 1, email: 'a@b.com' })
+        .onConflict('id')
+        .doUpdate([]);
+    }).toThrow('Empty updateFields array is not allowed in doUpdate()');
+  });
+});

@@ -1,3 +1,4 @@
+import type { CompiledQuery } from '@zmdb/query-compiler';
 import { defineSchema, serial, text, integer, json, jsonEnum, nullable } from '@zmdb/schema-core';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
@@ -146,5 +147,54 @@ describe('typed create/update (#206)', () => {
         ValidationError,
       );
     });
+  });
+});
+
+describe('typed single-record upsert', () => {
+  it('upsert validates payload, triggers pre/post insert hooks, and calls driver with conflict SQL', async () => {
+    const preHook = vi.fn();
+    const postHook = vi.fn();
+
+    class HookedUsers extends Users {
+      protected override preInsert(row: Record<string, unknown>): void {
+        preHook(row);
+      }
+      protected override postInsert(row: Record<string, unknown>): void {
+        postHook(row);
+      }
+    }
+
+    const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
+    const repo = new HookedUsers({ execute } as Driver);
+
+    const out = await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<S>);
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    const query = execute.mock.calls[0]![0];
+    expect(query.text).toContain('ON CONFLICT ("id") DO UPDATE SET');
+
+    expect(preHook).toHaveBeenCalledWith({ email: 'a@b.com', age: 30 });
+    expect(postHook).toHaveBeenCalledWith({ id: 1, email: 'a@b.com', age: 30, role: 'user' });
+    expect(out?.id).toBe(1);
+  });
+
+  it('upsert throws ValidationError prior to query generation & driver execution on invalid input', async () => {
+    const execute = vi.fn(async () => []);
+    const repo = new Users({ execute } as Driver);
+
+    // Missing required field 'age'
+    await expect(repo.upsert({ email: 'a@b.com' } as unknown as CreateDTO<S>)).rejects.toBeInstanceOf(ValidationError);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('upsert formats target and updateFields SQL', async () => {
+    const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
+    const repo = new Users({ execute } as Driver);
+
+    await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<S>, { target: 'email', updateFields: ['age'] });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    const query = execute.mock.calls[0]![0];
+    expect(query.text).toContain('ON CONFLICT ("email") DO UPDATE SET "age" = EXCLUDED."age"');
   });
 });

@@ -126,6 +126,11 @@ export type Populated<S, R extends RelationsLike, K extends keyof R = keyof R> =
 
 export { ValidationError, type ValidationIssue };
 
+export interface UpsertOptions {
+  readonly target?: string | readonly string[] | undefined;
+  readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
+}
+
 /**
  * The base repository.
  *
@@ -665,6 +670,20 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     );
     const row = rows[0];
     if (!row) throw new Error(`insert into ${this.tableName} returned no row`);
+    this.postInsert(row);
+    return row;
+  }
+
+  async upsert(dto: CreateDTO<S>, opts?: UpsertOptions): Promise<Entity<S> | undefined> {
+    const clean = this.validatePayload(dto, 'create');
+    this.preInsert(clean);
+    const target = opts?.target ?? this.pkColumn;
+    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(opts?.updateFields);
+    const rows = await this.rows<EntityRow<S>>(ib.returning(['*']).compile());
+    const row = rows[0];
+    if (!row) {
+      return undefined;
+    }
     this.postInsert(row);
     return row;
   }
