@@ -1,4 +1,4 @@
-import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
+import { defineSchema, serial, text, integer, json, jsonEnum, nullable } from '@zmdb/schema-core';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -57,5 +57,94 @@ describe('typed create/update (#206)', () => {
     const query = execute.mock.calls[0]?.[0] as { text: string; parameters: unknown[] } | undefined;
     expect(query?.text).toContain('UPDATE "users" SET "age" = $1 WHERE "id" = $2');
     expect(query?.parameters).toEqual([32, 1]);
+  });
+
+  describe('json column runtime validation', () => {
+    interface Config {
+      theme: string;
+    }
+    const ConfigSchema = defineSchema('configs', {
+      id: serial().primaryKey(),
+      settings: json<Config>(),
+      tags: json<string[]>(),
+      optionalNotes: nullable(json<{ note: string }>()),
+    });
+    type CS = typeof ConfigSchema;
+
+    class ConfigRepo extends BaseRepository<CS> {
+      static override readonly schema = ConfigSchema;
+    }
+
+    it('accepts valid object and array payloads for json columns on create and update', async () => {
+      const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => [
+        { id: 1, settings: { theme: 'dark' }, tags: ['a', 'b'], optionalNotes: null },
+      ]);
+      const repo = new ConfigRepo({ execute } as Driver);
+
+      const created = await repo.create({
+        settings: { theme: 'dark' },
+        tags: ['a', 'b'],
+        optionalNotes: null,
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(created.settings).toEqual({ theme: 'dark' });
+
+      execute.mockResolvedValueOnce([
+        { id: 1, settings: { theme: 'light' }, tags: ['a'], optionalNotes: { note: 'x' } },
+      ]);
+      const updated = await repo.update(1, {
+        settings: { theme: 'light' },
+        optionalNotes: { note: 'x' },
+      });
+
+      expect(updated?.settings).toEqual({ theme: 'light' });
+    });
+
+    it('rejects primitive scalar values for json columns on create and update', async () => {
+      const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => []);
+      const repo = new ConfigRepo({ execute } as Driver);
+
+      // Number primitive supplied to settings
+      await expect(
+        repo.create({ settings: 123 as unknown as Config, tags: ['a'], optionalNotes: null }),
+      ).rejects.toBeInstanceOf(ValidationError);
+
+      // String primitive supplied to settings
+      await expect(
+        repo.create({ settings: 'not-an-object' as unknown as Config, tags: ['a'], optionalNotes: null }),
+      ).rejects.toBeInstanceOf(ValidationError);
+
+      // Boolean primitive supplied to tags
+      await expect(
+        repo.create({ settings: { theme: 'dark' }, tags: true as unknown as string[], optionalNotes: null }),
+      ).rejects.toBeInstanceOf(ValidationError);
+
+      // Primitive scalar on update
+      await expect(repo.update(1, { settings: 'invalid-string' as unknown as Config })).rejects.toBeInstanceOf(
+        ValidationError,
+      );
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('allows explicit null for nullable json columns while rejecting primitives', async () => {
+      const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => [
+        { id: 1, settings: { theme: 'dark' }, tags: [], optionalNotes: null },
+      ]);
+      const repo = new ConfigRepo({ execute } as Driver);
+
+      await expect(repo.create({ settings: { theme: 'dark' }, tags: [], optionalNotes: null })).resolves.toBeDefined();
+
+      // Null on non-nullable settings column throws ValidationError
+      await expect(
+        repo.create({ settings: null as unknown as Config, tags: [], optionalNotes: null }),
+      ).rejects.toBeInstanceOf(ValidationError);
+
+      // Primitive on nullable optionalNotes column throws ValidationError
+      await expect(repo.update(1, { optionalNotes: 456 as unknown as { note: string } })).rejects.toBeInstanceOf(
+        ValidationError,
+      );
+    });
   });
 });
