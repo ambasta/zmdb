@@ -79,12 +79,35 @@ describe('migration runner E2E (real SQLite connection)', () => {
   });
 
   it('status reflects applied vs pending asynchronously', async () => {
-    await up(conn, [migrations[0]!]); // only v1
+    const first = migrations[0];
+    if (!first) throw new Error('Expected first migration');
+    await up(conn, [first]); // only v1
     const s = await status(conn, migrations);
     expect(s).toEqual([
       { version: 1, name: 'create_users', applied: true },
       { version: 2, name: 'add_email', applied: false },
     ]);
+  });
+
+  it('executes migrations in ascending version order regardless of input array ordering', async () => {
+    const unorderedMigrations: Migration[] = [
+      {
+        version: 2,
+        name: 'add_email',
+        up: 'ALTER TABLE users ADD COLUMN email TEXT',
+        down: 'ALTER TABLE users DROP COLUMN email',
+      },
+      { version: 1, name: 'create_users', up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)', down: 'DROP TABLE users' },
+    ];
+
+    const applied = await up(conn, unorderedMigrations);
+    expect(applied).toEqual([1, 2]);
+
+    const st = await status(conn, unorderedMigrations);
+    expect(st.map(s => s.version)).toEqual([1, 2]);
+
+    const reverted = await down(conn, unorderedMigrations);
+    expect(reverted).toBe(2);
   });
 
   it('CLI dispatch: up → status → down', async () => {
