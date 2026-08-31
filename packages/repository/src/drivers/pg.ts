@@ -34,7 +34,9 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
             const oldestName = names.get(oldestKey);
             names.delete(oldestKey);
             if (oldestName) {
-              client.query(`DEALLOCATE ${oldestName}`).catch(() => {});
+              client.query(`DEALLOCATE ${oldestName}`).catch(err => {
+                console.debug?.(`[zmdb:pgDriver] DEALLOCATE ${oldestName} failed:`, err);
+              });
             }
           }
         }

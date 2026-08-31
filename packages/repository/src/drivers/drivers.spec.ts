@@ -163,4 +163,21 @@ describe('pgDriver (#211)', () => {
     const name2_new = (calls[calls.length - 1] as { name?: string }).name;
     expect(name2_new).not.toBe(name2_orig);
   });
+
+  it('handles and logs DEALLOCATE failure when server deallocation fails', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const query = vi.fn(async (arg: unknown) => {
+      if (typeof arg === 'string' && arg.startsWith('DEALLOCATE')) {
+        throw new Error('connection dead');
+      }
+      return { rows: [] };
+    });
+    const d = pgDriver({ query } as unknown as PgQueryable, { prepared: true, maxCacheSize: 1 });
+
+    await d.execute({ text: 'SELECT 1', parameters: [] });
+    await d.execute({ text: 'SELECT 2', parameters: [] }); // evicts SELECT 1 and triggers failing DEALLOCATE
+
+    expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining('[zmdb:pgDriver] DEALLOCATE'), expect.any(Error));
+    debugSpy.mockRestore();
+  });
 });
