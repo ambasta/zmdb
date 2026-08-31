@@ -88,7 +88,7 @@ function make(d: Dialect, s: State): FtsSelect {
 
           const parts = s.preds.map(p => {
             if (p.kind === 'match') {
-              const colName = p.col.includes('.') ? p.col.split('.').pop()! : p.col;
+              const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
               params.push(escapeFts5Term(p.value as string));
               return `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ?`;
             }
