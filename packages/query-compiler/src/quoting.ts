@@ -27,21 +27,36 @@ export function quoteColumn(dialect: Dialect, col: string): string {
     .join('.');
 }
 
+function isWhitespace(ch: string): boolean {
+  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+}
+
 /**
  * Safely quote a table specification, which may be a table name (optionally dot-qualified)
  * or a table alias expression (e.g. `table as alias` or `schema.table AS alias`).
  */
 export function quoteTable(dialect: Dialect, tableSpec: string): string {
   const trimmed = tableSpec.trim();
-  const aliasMatch = /\s+as\s+/i.exec(trimmed);
-  if (aliasMatch) {
-    const tableStr = trimmed.slice(0, aliasMatch.index).trim();
-    const aliasStr = trimmed.slice(aliasMatch.index + aliasMatch[0].length).trim();
-    if (tableStr.length > 0 && aliasStr.length > 0) {
-      const tablePart = quoteColumn(dialect, tableStr);
-      const aliasPart = quoteIdentifier(dialect, aliasStr);
-      return `${tablePart} AS ${aliasPart}`;
+  const lower = trimmed.toLowerCase();
+  let searchIndex = 0;
+  while (searchIndex < lower.length) {
+    const asIndex = lower.indexOf('as', searchIndex);
+    if (asIndex === -1) {
+      break;
     }
+    const hasSpaceBefore = asIndex > 0 && isWhitespace(trimmed[asIndex - 1]!);
+    const hasSpaceAfter = asIndex + 2 < trimmed.length && isWhitespace(trimmed[asIndex + 2]!);
+
+    if (hasSpaceBefore && hasSpaceAfter) {
+      const tableStr = trimmed.slice(0, asIndex).trim();
+      const aliasStr = trimmed.slice(asIndex + 2).trim();
+      if (tableStr.length > 0 && aliasStr.length > 0) {
+        const tablePart = quoteColumn(dialect, tableStr);
+        const aliasPart = quoteIdentifier(dialect, aliasStr);
+        return `${tablePart} AS ${aliasPart}`;
+      }
+    }
+    searchIndex = asIndex + 2;
   }
   return quoteColumn(dialect, trimmed);
 }
