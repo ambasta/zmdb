@@ -59,16 +59,22 @@ describe('transformer inlining (golden fixtures)', () => {
     expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
   });
 
-  it('inlines Pattern containing template literal substitution using new RegExp()', () => {
+  it('inlines Pattern containing template literal substitution using hoisted new RegExp()', () => {
     const src = 'const ok = validate(tags.Pattern(`prefix_${id}_suffix`), input.val);';
     const out = transformSource(src);
-    expect(norm(out)).toContain('typeof input.val === "string" && new RegExp(`prefix_${id}_suffix`).test(input.val)');
+    expect(norm(out)).toContain('let _p1;');
+    expect(norm(out)).toContain(
+      'typeof input.val === "string" && (_p1 ??= new RegExp(`prefix_${id}_suffix`)).test(input.val)',
+    );
   });
 
-  it('inlines Pattern dynamic variable expression using new RegExp()', () => {
+  it('inlines Pattern dynamic variable expression using hoisted new RegExp()', () => {
     const src = 'const ok = validate(tags.Pattern(myCustomPattern), input.val);';
     const out = transformSource(src);
-    expect(norm(out)).toContain('typeof input.val === "string" && new RegExp(myCustomPattern).test(input.val)');
+    expect(norm(out)).toContain('let _p1;');
+    expect(norm(out)).toContain(
+      'typeof input.val === "string" && (_p1 ??= new RegExp(myCustomPattern)).test(input.val)',
+    );
   });
 
   it('inlines Pattern backtick template literal when it contains no substitutions', () => {
@@ -119,6 +125,43 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
         const compiledRes = Boolean(compiledFn({ val }));
         expect(compiledRes).toBe(runtimeRes);
       }
+    }
+  });
+
+  it('Pattern evaluation parity for dynamic patterns (variable and template literal)', () => {
+    const myCustomPattern = '^[0-9]{3}-[0-9]{3}$';
+    const id = 'abc';
+    const testInputs = ['123-456', '123456', 'prefix_abc_suffix', 'prefix_xyz_suffix'];
+
+    // Test dynamic variable pattern
+    const srcVar = `
+      const myCustomPattern = "${myCustomPattern}";
+      const ok = validate(tags.Pattern(myCustomPattern), input.val);
+      return ok;
+    `;
+    const compiledVarSrc = transformSource(srcVar);
+    const compiledVarFn = new Function('input', compiledVarSrc);
+
+    for (const val of testInputs) {
+      const runtimeRes = validate(tags.Pattern(myCustomPattern), val);
+      const compiledRes = Boolean(compiledVarFn({ val }));
+      expect(compiledRes).toBe(runtimeRes);
+    }
+
+    // Test template literal substitution pattern
+    const srcTpl = `
+      const id = "${id}";
+      const ok = validate(tags.Pattern(\`prefix_\${id}_suffix\`), input.val);
+      return ok;
+    `;
+    const compiledTplSrc = transformSource(srcTpl);
+    const compiledTplFn = new Function('input', compiledTplSrc);
+
+    const patternStr = `prefix_${id}_suffix`;
+    for (const val of testInputs) {
+      const runtimeRes = validate(tags.Pattern(patternStr), val);
+      const compiledRes = Boolean(compiledTplFn({ val }));
+      expect(compiledRes).toBe(runtimeRes);
     }
   });
 });
