@@ -38,7 +38,10 @@ export function manyToOne<
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
 >(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
-export function manyToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'many-to-one'> {
+export function manyToOne(
+  target: { table: string } | string,
+  fk: string,
+): RelationMeta<unknown, string, 'many-to-one'> {
   return Object.freeze({ cardinality: 'many-to-one', target: getTableName(target), fk, owning: true });
 }
 
@@ -48,8 +51,14 @@ export function oneToMany<
     | { columns: Record<string, ColumnMeta> }
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
->(target: TargetSchema | string, mappedBy: MappedBy): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy, 'one-to-many'>;
-export function oneToMany(target: { table: string } | string, mappedBy: string): RelationMeta<unknown, string, 'one-to-many'> {
+>(
+  target: TargetSchema | string,
+  mappedBy: MappedBy,
+): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy, 'one-to-many'>;
+export function oneToMany(
+  target: { table: string } | string,
+  mappedBy: string,
+): RelationMeta<unknown, string, 'one-to-many'> {
   return Object.freeze({ cardinality: 'one-to-many', target: getTableName(target), mappedBy, owning: false });
 }
 
@@ -71,7 +80,10 @@ export function manyToMany<
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   Through extends string = string,
 >(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
-export function manyToMany(target: { table: string } | string, through: string): RelationMeta<unknown, string, 'many-to-many'> {
+export function manyToMany(
+  target: { table: string } | string,
+  through: string,
+): RelationMeta<unknown, string, 'many-to-many'> {
   return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
 }
 

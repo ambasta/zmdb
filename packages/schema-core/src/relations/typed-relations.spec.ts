@@ -32,7 +32,7 @@ describe('Typed Foreign Keys & Schema Generic Constraints', () => {
     it('allows foreign key reference with generic target type', () => {
       const OrderSchema = defineSchema('orders', {
         id: serial().primaryKey(),
-        userId: references<typeof UserSchema, 'id'>(integer(), 'users.id'),
+        userId: references(integer(), 'users.id'),
       });
 
       expect(OrderSchema.references).toContainEqual({
