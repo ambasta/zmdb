@@ -1,4 +1,3 @@
-/// <reference types="node" />
 // node:sqlite driver adapter — see ../drivers/SPEC.md.
 import type { Driver } from '../index.ts';
 
