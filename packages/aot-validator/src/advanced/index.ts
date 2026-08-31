@@ -164,8 +164,7 @@ export function validateObject(
 
   // Excess-key handling for strict mode.
   if (mode === 'strict') {
-    for (const key in obj) {
-      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    for (const key of Object.keys(obj)) {
       if (!(key in rules)) {
         issues.push({
           path: `input.${key}`,
@@ -177,9 +176,7 @@ export function validateObject(
     }
   }
 
-  for (const key in rules) {
-    if (!Object.prototype.hasOwnProperty.call(rules, key)) continue;
-    const rule = rules[key]!;
+  for (const [key, rule] of Object.entries(rules)) {
     const res = checkRule(rule, obj[key]);
     if (!res.ok) {
       issues.push({ path: `input.${key}`, expected: res.expected, value: obj[key], message: res.message });
