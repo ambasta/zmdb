@@ -18,21 +18,26 @@ function parseTableSpec(spec: string): { baseName: string; alias?: string } {
   return { baseName: spec.trim() };
 }
 
+export interface FtsOptions {
+  ftsTable?: string | boolean | undefined;
+}
+
 interface Predicate {
   kind: 'match' | 'cmp';
   col: string;
-  op?: string;
+  op?: string | undefined;
   value: unknown;
 }
 interface State {
   table: string;
   preds: Predicate[];
-  limitN?: number;
-  offsetN?: number;
+  ftsTable?: string | boolean | undefined;
+  limitN?: number | undefined;
+  offsetN?: number | undefined;
 }
 
 export interface FtsSelect {
-  whereMatch(column: string, term: string): FtsSelect;
+  whereMatch(column: string, term: string, options?: FtsOptions | string | boolean): FtsSelect;
   where(col: string, op: string, value: unknown): FtsSelect;
   limit(n: number): FtsSelect;
   offset(n: number): FtsSelect;
@@ -42,8 +47,10 @@ export interface FtsSelect {
 function make(d: Dialect, s: State): FtsSelect {
   const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p });
   return {
-    whereMatch: (column, term) => {
-      return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }] });
+    whereMatch: (column, term, options) => {
+      const ftsTable =
+        s.ftsTable ?? (typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable);
+      return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }], ftsTable });
     },
     where: (col, op, value) => next({ preds: [...s.preds, { kind: 'cmp', col, op, value }] }),
     limit: n => next({ limitN: n }),
@@ -59,12 +66,15 @@ function make(d: Dialect, s: State): FtsSelect {
 
         const hasMatch = s.preds.some(p => p.kind === 'match');
         if (hasMatch) {
-          const ftsTable = `${baseName}_fts`;
+          if (!s.ftsTable) {
+            throw new UnsupportedFeatureError('full-text search', 'sqlite');
+          }
+          const ftsTableName = typeof s.ftsTable === 'string' ? s.ftsTable : `${baseName}_fts`;
           const ftsAlias = alias ? `${alias}_fts` : undefined;
           const quotedFtsTable = ftsAlias
-            ? `${quoteColumn(d, ftsTable)} AS ${quoteIdentifier(d, ftsAlias)}`
-            : quoteColumn(d, ftsTable);
-          const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTable);
+            ? `${quoteColumn(d, ftsTableName)} AS ${quoteIdentifier(d, ftsAlias)}`
+            : quoteColumn(d, ftsTableName);
+          const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
 
           text = `SELECT * FROM ${quotedBaseTable} INNER JOIN ${quotedFtsTable} ON ${baseRef}.${quoteIdentifier(d, 'rowid')} = ${ftsRef}.${quoteIdentifier(d, 'rowid')}`;
         } else {
@@ -72,9 +82,9 @@ function make(d: Dialect, s: State): FtsSelect {
         }
 
         if (s.preds.length > 0) {
-          const ftsTable = `${baseName}_fts`;
+          const ftsTableName = typeof s.ftsTable === 'string' ? s.ftsTable : `${baseName}_fts`;
           const ftsAlias = alias ? `${alias}_fts` : undefined;
-          const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTable);
+          const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
 
           const parts = s.preds.map(p => {
             if (p.kind === 'match') {
@@ -113,6 +123,11 @@ function make(d: Dialect, s: State): FtsSelect {
   };
 }
 
-export function ftsSelectFrom(table: string, dialect: Dialect = 'postgres'): FtsSelect {
-  return make(dialect, { table, preds: [] });
+export function ftsSelectFrom(
+  table: string,
+  dialect: Dialect = 'postgres',
+  options?: FtsOptions | string | boolean,
+): FtsSelect {
+  const ftsTable = typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable;
+  return make(dialect, { table, preds: [], ftsTable });
 }

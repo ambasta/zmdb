@@ -39,10 +39,25 @@ const DocSchema = {
   },
   primaryKey: ['id'],
   references: [],
+  ftsTable: 'fts_docs_fts',
+} as unknown as CoreSchema<'fts_docs'>;
+
+const PlainDocSchema = {
+  table: 'fts_docs',
+  columns: {
+    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
+    company_name: { type: 'text', flags: { nullable: false } },
+  },
+  primaryKey: ['id'],
+  references: [],
 } as unknown as CoreSchema<'fts_docs'>;
 
 class DocRepository extends BaseRepository<typeof DocSchema> {
   static override readonly schema = DocSchema;
+}
+
+class PlainDocRepository extends BaseRepository<typeof PlainDocSchema> {
+  static override readonly schema = PlainDocSchema;
 }
 
 function pgDriver(p: Pool): Driver {
@@ -115,5 +130,12 @@ describe('FTS repository integration (real SQLite with FTS5)', () => {
   it('findByFullText works with dot-qualified column names', async () => {
     const hits = await repo.findByFullText('fts_docs.company_name', 'globex');
     expect(hits.map(r => r.company_name)).toEqual(['Globex Corporation']);
+  });
+
+  it('findByFullText on plain SQLite table without ftsTable declared throws UnsupportedFeatureError', async () => {
+    const plainRepo = new PlainDocRepository(sqliteDriver(sqliteDb), 'sqlite');
+    await expect(plainRepo.findByFullText('company_name', 'ltd')).rejects.toThrow(
+      'full-text search is not supported on dialect "sqlite"',
+    );
   });
 });
