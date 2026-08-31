@@ -235,7 +235,7 @@ export function numeric(): Column<'numeric', { nullable: false }> {
 export function text(): Column<'text', { nullable: false }> {
   return makeColumn({ type: 'text', flags: { nullable: false } });
 }
-export function varchar(length: number): Column<'varchar', { nullable: false; length: number }> {
+export function varchar<L extends number>(length: L): Column<'varchar', { nullable: false; length: L }> {
   return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
 }
 export function boolean(): Column<'boolean', { nullable: false }> {
