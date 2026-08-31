@@ -41,3 +41,20 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
   }
   return quoteColumn(dialect, trimmed);
 }
+
+/**
+ * Generates dialect-specific 1-based parameter placeholders:
+ * - PostgreSQL uses stateful sequential indices (`$1`, `$2`, ...)
+ * - MySQL and SQLite use stateless tokens (`?`)
+ */
+export function formatPlaceholder(dialect: Dialect, index: number): string {
+  return dialect === 'postgres' ? `$${index}` : '?';
+}
+
+/**
+ * Renumbers positional parameter placeholders ($n) in SQL text by adding an offset.
+ * Used when combining parameter sets (e.g. set operations like UNION).
+ */
+export function renumberPlaceholders(text: string, offset: number): string {
+  return text.replace(/\$(\d+)/g, (_match, n: string) => `$${offset + Number(n)}`);
+}

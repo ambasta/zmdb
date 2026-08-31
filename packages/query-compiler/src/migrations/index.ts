@@ -115,36 +115,32 @@ function columnDdl(d: Dialect, col: ColumnSnapshot): string {
   return `${quoteIdentifier(d, col.name)} ${col.type}${pk}${nn}`;
 }
 
-function quote(d: Dialect, ident: string): string {
-  return quoteIdentifier(d, ident);
-}
-
 export function emitUp(op: ChangeOp, dialect: Dialect): string {
   switch (op.kind) {
     case 'create_table':
-      return `CREATE TABLE ${quote(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c)).join(', ')})`;
+      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c)).join(', ')})`;
     case 'drop_table':
-      return `DROP TABLE ${quote(dialect, op.table)}`;
+      return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'add_column':
-      return `ALTER TABLE ${quote(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column)}`;
     case 'drop_column':
-      return `ALTER TABLE ${quote(dialect, op.table)} DROP COLUMN ${quote(dialect, op.column)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quote(dialect, op.table)} ALTER COLUMN ${quote(dialect, op.column)} TYPE ${op.to}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${op.to}`;
   }
 }
 
 export function emitDown(op: ChangeOp, dialect: Dialect): string {
   switch (op.kind) {
     case 'create_table':
-      return `DROP TABLE ${quote(dialect, op.table)}`;
+      return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'drop_table':
-      return `CREATE TABLE ${quote(dialect, op.table)} ()`;
+      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} ()`;
     case 'add_column':
-      return `ALTER TABLE ${quote(dialect, op.table)} DROP COLUMN ${quote(dialect, op.column.name)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column.name)}`;
     case 'drop_column':
-      return `ALTER TABLE ${quote(dialect, op.table)} ADD COLUMN ${quote(dialect, op.column)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quote(dialect, op.table)} ALTER COLUMN ${quote(dialect, op.column)} TYPE ${op.from}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${op.from}`;
   }
 }

@@ -1,15 +1,9 @@
 // Query-builder aggregations — implementation (#90). count/sum/avg/min/max +
 // expr() computed columns + groupBy + having, dialect-aware, parameterized.
 import type { CompiledQuery, Dialect } from '../index.ts';
-import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
-
-const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
-  postgres: n => `$${n}`,
-  mysql: () => '?',
-  sqlite: () => '?',
-};
 
 type SelectItem =
   | { kind: 'col'; col: string }
@@ -107,7 +101,7 @@ function make(d: Dialect, s: State): AggregateSelect {
       if (s.wheres.length > 0) {
         const parts = s.wheres.map(w => {
           params.push(w.value);
-          return `${quoteColumn(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
+          return `${quoteColumn(d, w.col)} ${w.op} ${formatPlaceholder(d, params.length)}`;
         });
         text += ` WHERE ${parts.join(' AND ')}`;
       }
@@ -133,7 +127,7 @@ function make(d: Dialect, s: State): AggregateSelect {
             return `${quoteColumn(d, h.col)} ${h.op} (${subText})`;
           }
           params.push(h.value);
-          return `${quoteColumn(d, h.col)} ${h.op} ${PLACEHOLDER[d](params.length)}`;
+          return `${quoteColumn(d, h.col)} ${h.op} ${formatPlaceholder(d, params.length)}`;
         });
         text += ` HAVING ${parts.join(' AND ')}`;
       }

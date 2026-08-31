@@ -58,7 +58,7 @@ jobs:
       - name: Build dist for every package (dependency order)
         run: |
           set -e
-          for pkg in schema-core query-compiler aot-validator repository web zmdb; do
+          for pkg in query-compiler schema-core aot-validator repository web; do
             echo "=== build @zmdb/$pkg ==="
             yarn workspace "@zmdb/$pkg" build
           done

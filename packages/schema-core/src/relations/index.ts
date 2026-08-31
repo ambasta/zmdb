@@ -1,3 +1,5 @@
+import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-compiler';
+
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
@@ -87,20 +89,12 @@ export function manyToMany(
   return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
 }
 
-export type PopulateDialect = 'postgres' | 'mysql' | 'sqlite';
+export type PopulateDialect = Dialect;
 
 export interface PopulateQuery {
   readonly kind: 'join' | 'batched';
   readonly sql: string;
   readonly parameters: readonly unknown[];
-}
-
-function q(dialect: PopulateDialect, ident: string): string {
-  const c = dialect === 'mysql' ? '`' : '"';
-  return `${c}${ident}${c}`;
-}
-function placeholder(dialect: PopulateDialect, i: number): string {
-  return dialect === 'postgres' ? `$${i}` : '?';
 }
 
 // #33 — compile a populate hint into deterministic SQL.
@@ -117,14 +111,14 @@ export function compilePopulate(
   if (toOne) {
     const fk = rel.fk ?? 'id';
     const sql =
-      `SELECT * FROM ${q(dialect, baseTable)} INNER JOIN ${q(dialect, rel.target)} ` +
-      `ON ${q(dialect, baseTable)}.${q(dialect, fk)} = ${q(dialect, rel.target)}.${q(dialect, 'id')}`;
+      `SELECT * FROM ${quoteIdentifier(dialect, baseTable)} INNER JOIN ${quoteIdentifier(dialect, rel.target)} ` +
+      `ON ${quoteIdentifier(dialect, baseTable)}.${quoteIdentifier(dialect, fk)} = ${quoteIdentifier(dialect, rel.target)}.${quoteIdentifier(dialect, 'id')}`;
     return { kind: 'join', sql, parameters: [] };
   }
   // to-many: batched IN() select against the inverse FK on the target table.
   const fk = rel.mappedBy ?? 'id';
-  const inList = parentIds.map((_, i) => placeholder(dialect, i + 1)).join(', ');
-  const sql = `SELECT * FROM ${q(dialect, rel.target)} WHERE ${q(dialect, fk)} IN (${inList})`;
+  const inList = parentIds.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
+  const sql = `SELECT * FROM ${quoteIdentifier(dialect, rel.target)} WHERE ${quoteIdentifier(dialect, fk)} IN (${inList})`;
   return { kind: 'batched', sql, parameters: [...parentIds] };
 }
 

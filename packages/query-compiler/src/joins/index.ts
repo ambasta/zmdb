@@ -2,15 +2,9 @@
 // qualified columns + table aliasing, dialect-aware, parameterized. Pure string
 // compilation (no runtime type resolution).
 import type { CompiledQuery, Dialect } from '../index.ts';
-import { quoteColumn, quoteTable } from '../quoting.ts';
+import { formatPlaceholder, quoteColumn, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
-
-const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
-  postgres: n => `$${n}`,
-  mysql: () => '?',
-  sqlite: () => '?',
-};
 
 interface Join {
   kind: JoinKind;
@@ -83,7 +77,7 @@ function make(d: Dialect, s: State): JoinableSelect {
             return `${quoteColumn(d, w.col)} ${w.op} (${subText})`;
           }
           params.push(w.value);
-          return `${quoteColumn(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
+          return `${quoteColumn(d, w.col)} ${w.op} ${formatPlaceholder(d, params.length)}`;
         });
         text += ` WHERE ${parts.join(' AND ')}`;
       }

@@ -5,7 +5,7 @@ import { ftsSelectFrom } from './fts/index.ts';
 import { createQueryCompiler } from './index.ts';
 import { joinableSelectFrom } from './joins/index.ts';
 import { emitUp } from './migrations/index.ts';
-import { quoteColumn, quoteIdentifier, quoteTable } from './quoting.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 import {
   createIndexDdl,
   createPolicyDdl,
@@ -88,6 +88,25 @@ describe('Centralized Identifier Quoting Engine', () => {
     it('escapes quote characters in aliased table expressions', () => {
       expect(quoteTable('postgres', 'usr"tbl as u"al')).toBe('"usr""tbl" AS "u""al"');
       expect(quoteTable('mysql', 'usr`tbl as u`al')).toBe('`usr``tbl` AS `u``al`');
+    });
+  });
+
+  describe('formatPlaceholder', () => {
+    it('generates stateful $n placeholders for postgres', () => {
+      expect(formatPlaceholder('postgres', 1)).toBe('$1');
+      expect(formatPlaceholder('postgres', 5)).toBe('$5');
+    });
+
+    it('generates stateless ? placeholders for mysql and sqlite', () => {
+      expect(formatPlaceholder('mysql', 1)).toBe('?');
+      expect(formatPlaceholder('sqlite', 3)).toBe('?');
+    });
+  });
+
+  describe('renumberPlaceholders', () => {
+    it('renumbers $n placeholders by applying offset', () => {
+      const sql = 'SELECT * FROM "users" WHERE "id" = $1 AND "tenant_id" = $2';
+      expect(renumberPlaceholders(sql, 2)).toBe('SELECT * FROM "users" WHERE "id" = $3 AND "tenant_id" = $4');
     });
   });
 
