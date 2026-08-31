@@ -94,7 +94,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '26'
-          cache: 'yarn'
 
       - name: Audit dependencies
         run: yarn npm audit --all --recursive --severity high --no-deprecations
