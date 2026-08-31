@@ -16,7 +16,7 @@ import {
   manyToOne,
   oneToMany,
   oneToOne,
-  attachPopulated,
+  type attachPopulated,
   type JoinRow,
   type PopulatedEntity,
   type RelationMeta,
@@ -39,7 +39,7 @@ type ProfileEntity = Entity<typeof ProfileSchema>;
 
 // 1. Foreign key type checking with references(...)
 const validFk = references(integer(), UserSchema, 'id');
-type TestValidFk = Expect<typeof validFk['references'] extends { target: string } ? true : false>;
+export type TestValidFk = Expect<(typeof validFk)['references'] extends { target: string } ? true : false>;
 
 // @ts-expect-error - 'invalid_col' does not exist on UserSchema
 references(integer(), UserSchema, 'invalid_col');
@@ -47,7 +47,7 @@ references(integer(), UserSchema, 'invalid_col');
 // Foreign key type mismatch returns branded error object
 const textCol = text();
 const mismatchRef = references(textCol, UserSchema, 'id');
-type TestMismatchError = Expect<Equal<typeof mismatchRef, { __error: 'Referenced column type does not match' }>>;
+export type TestMismatchError = Expect<Equal<typeof mismatchRef, { __error: 'Referenced column type does not match' }>>;
 
 // Assigning a mismatched reference to a ColumnMeta property fails type check
 // @ts-expect-error - Referenced column type does not match
@@ -75,13 +75,13 @@ type Relations = {
 
 type PopulatedOrder = PopulatedEntity<OrderBase, Relations, 'user' | 'profiles'>;
 
-type TestPopulatedUser = Expect<Equal<PopulatedOrder['user'], UserEntity>>;
-type TestPopulatedProfiles = Expect<Equal<PopulatedOrder['profiles'], ProfileEntity[]>>;
+export type TestPopulatedUser = Expect<Equal<PopulatedOrder['user'], UserEntity>>;
+export type TestPopulatedProfiles = Expect<Equal<PopulatedOrder['profiles'], ProfileEntity[]>>;
 
 // Bare relation metadata (without entity) resolves to never in PopulatedEntity
 type BareRel = RelationMeta<unknown>;
 type PopulatedBare = PopulatedEntity<OrderBase, { bare: BareRel }, 'bare'>;
-type TestBareRejected = Expect<Equal<PopulatedBare['bare'], never>>;
+export type TestBareRejected = Expect<Equal<PopulatedBare['bare'], never>>;
 
 // --- PopulatedEntity basic shapes ------------------------------------------
 interface User {
@@ -94,8 +94,8 @@ interface Order {
 }
 
 type UserRelations = {
-  orders: { meta: RelationMeta; entity: Order; cardinality: 'one-to-many' };
-  manager: { meta: RelationMeta; entity: User; cardinality: 'many-to-one' };
+  orders: RelationDef<Order> & { cardinality: 'one-to-many' };
+  manager: RelationDef<User> & { cardinality: 'many-to-one' };
 };
 
 type Populated = PopulatedEntity<User, UserRelations, 'orders'>;
@@ -105,8 +105,8 @@ export type _Pop3 = Expect<Equal<PopulatedEntity<User, UserRelations, 'manager'>
 export type _Pop4 = Expect<Equal<keyof PopulatedEntity<User, UserRelations, never>, keyof User>>;
 
 interface IndexedRelations {
-  orders: RelationDef & { cardinality: 'one-to-many'; entity: Order };
-  [k: string]: RelationDef;
+  orders: RelationDef<Order> & { cardinality: 'one-to-many' };
+  [k: string]: RelationDef<unknown>;
 }
 export type _Pop5 = Expect<Equal<PopulatedEntity<User, IndexedRelations, 'orders'>['orders'], Order[]>>;
 

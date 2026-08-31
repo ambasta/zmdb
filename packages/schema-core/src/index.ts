@@ -337,7 +337,7 @@ export function validate<T extends SqlType, F extends ColumnFlags, P>(
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
 // metadata, deeply freeze, and register. Throws SchemaError on no primary key.
-const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, any>>();
+const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, ColumnsMap>>();
 
 // `C` is inferred from the argument, so the returned schema keeps the literal
 // column map instead of the erased `Record<string, ColumnMeta>`. Without it the
