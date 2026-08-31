@@ -22,8 +22,23 @@ export {
   references,
   validate as validateColumn,
   sensitive,
+  defineStateTransitions,
+  defineEntityStateMachine,
+  createStateUpdatePayload,
 } from '@zmdb/schema-core';
-export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta, ValidationIssue } from '@zmdb/schema-core';
+export type {
+  Entity,
+  CreateDTO,
+  UpdateDTO,
+  CoreSchema,
+  ColumnMeta,
+  ValidationIssue,
+  StateTransitions,
+  AllowedTargetStates,
+  StateUpdateDTO,
+  EntityStateMachineOptions,
+  EntityStateMachine,
+} from '@zmdb/schema-core';
 
 // Query compiler & Migrations.
 export { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
@@ -34,6 +49,21 @@ export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
 export { is, assert, validate } from '@zmdb/aot-validator/utilities';
 export { tags } from '@zmdb/aot-validator';
 
-// Repository.
-export { BaseRepository, defineRepository, ValidationError } from '@zmdb/repository';
-export type { Driver } from '@zmdb/repository';
+// Repository & Transactions.
+export {
+  BaseRepository,
+  defineRepository,
+  ValidationError,
+  createTransactionalDb,
+  batch,
+  markTransactionClosed,
+} from '@zmdb/repository';
+export type {
+  Driver,
+  TransactionContext,
+  TransactionState,
+  ActiveTransactionContext,
+  ClosedTransactionContext,
+  TransactionalDb,
+  TxConnection,
+} from '@zmdb/repository';

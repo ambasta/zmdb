@@ -749,3 +749,5 @@ export function defineRepository<S extends CoreSchema<string>, R extends Relatio
   }
   return new Repo(driver, opts?.dialect ?? 'postgres');
 }
+
+export * from './transactions/index.ts';

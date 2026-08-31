@@ -8,7 +8,11 @@ import {
   status as srcStatus,
   runCli as srcRunCli,
 } from '@zmdb/query-compiler/migrations';
-import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
+import {
+  BaseRepository as SrcBaseRepository,
+  defineRepository as srcDefineRepository,
+  markTransactionClosed as srcMarkTransactionClosed,
+} from '@zmdb/repository';
 import {
   boolean as srcBoolean,
   defineSchema as srcDefineSchema,
@@ -19,6 +23,9 @@ import {
   serial as srcSerial,
   text as srcText,
   timestamp as srcTimestamp,
+  defineStateTransitions as srcDefineStateTransitions,
+  defineEntityStateMachine as srcDefineEntityStateMachine,
+  createStateUpdatePayload as srcCreateStateUpdatePayload,
 } from '@zmdb/schema-core';
 import { describe, expect, it } from 'vitest';
 
@@ -41,6 +48,10 @@ import {
   timestamp,
   UnsupportedFeatureError,
   validate,
+  defineStateTransitions,
+  defineEntityStateMachine,
+  createStateUpdatePayload,
+  markTransactionClosed,
 } from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
@@ -54,6 +65,9 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(json).toBe(srcJson);
     expect(jsonEnum).toBe(srcJsonEnum);
     expect(sensitive).toBe(srcSensitive);
+    expect(defineStateTransitions).toBe(srcDefineStateTransitions);
+    expect(defineEntityStateMachine).toBe(srcDefineEntityStateMachine);
+    expect(createStateUpdatePayload).toBe(srcCreateStateUpdatePayload);
   });
 
   it('re-exports createQueryCompiler and UnsupportedFeatureError', () => {
@@ -68,9 +82,10 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(tags).toBe(srcTags);
   });
 
-  it('re-exports the repository surface (BaseRepository, defineRepository)', () => {
+  it('re-exports the repository surface (BaseRepository, defineRepository, markTransactionClosed)', () => {
     expect(BaseRepository).toBe(SrcBaseRepository);
     expect(defineRepository).toBe(srcDefineRepository);
+    expect(markTransactionClosed).toBe(srcMarkTransactionClosed);
   });
 
   it('re-exports unplugin zmdbAot via zmdb/unplugin', async () => {

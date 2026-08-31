@@ -324,12 +324,11 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
 }
 
 class BranchTarget implements WhereTarget {
+  private b: WhereTarget;
   private firstCallInBranch: boolean;
 
-  constructor(
-    private b: WhereTarget,
-    isFirstBranch: boolean,
-  ) {
+  constructor(b: WhereTarget, isFirstBranch: boolean) {
+    this.b = b;
     this.firstCallInBranch = !isFirstBranch;
   }
 
