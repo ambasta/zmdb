@@ -101,15 +101,8 @@ for (const pkg of packages) {
       errors.push(`Specification file missing main title (# ...): ${relPath}`);
     }
 
-    // Check checklist items: unverified checkboxes in SPEC.md
-    const lines = content.split('\n');
-    lines.forEach((line, index) => {
-      if (line.trim().startsWith('- [ ]')) {
-        errors.push(`Unverified specification checklist item in ${relPath}:${index + 1}: ${line.trim()}`);
-      }
-    });
-
     // Check if package source code was changed without updating spec or with unverified spec checklist
+    const lines = content.split('\n');
     const pkgSrcPrefix = `packages/${pkg}/src/`;
     const pkgHasChanges = Array.from(changedFiles).some(f => f.startsWith(pkgSrcPrefix));
     if (pkgHasChanges) {

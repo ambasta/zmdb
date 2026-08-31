@@ -1010,7 +1010,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
+"@types/node@npm:*, @types/node@npm:^26.4.0":
   version: 26.4.0
   resolution: "@types/node@npm:26.4.0"
   dependencies:
@@ -1285,7 +1285,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/repository@workspace:packages/repository"
   dependencies:
-    "@types/node": "npm:*"
     "@types/pg": "npm:^8.23.1"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -3010,7 +3009,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zmdb-monorepo@workspace:."
   dependencies:
-    "@types/node": "npm:*"
+    "@types/node": "npm:^26.4.0"
     esbuild: "npm:^0.28.2"
     oxfmt: "npm:^0.65.0"
     oxlint: "npm:^1.80.0"

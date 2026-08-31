@@ -10,6 +10,7 @@
     "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "vitest run",
@@ -18,7 +19,7 @@
     "validate:spec": "node .github/scripts/validate-specs.mjs"
   },
   "devDependencies": {
-    "@types/node": "*",
+    "@types/node": "^26.4.0",
     "esbuild": "^0.28.2",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
