@@ -107,6 +107,10 @@ export function validate(r: Rule, expr: unknown): boolean {
       return typeof expr === 'string' && typeof arg === 'string' && getCachedRegExp(arg).test(expr);
     case 'Enum':
       return getEnumSet(r.args).has(expr);
+    case 'refine': {
+      const pred = (r as unknown as { predicate?: (v: unknown) => boolean }).predicate;
+      return typeof pred === 'function' ? Boolean(pred(expr)) : true;
+    }
     default:
       throw new Error(`unknown rule kind: ${r.kind}`);
   }
