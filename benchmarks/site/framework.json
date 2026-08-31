@@ -1,7 +1,7 @@
 {
   "suite": "framework (the-benchmarker/web-frameworks)",
   "upstreamCommit": "2968d22c8d57de527e2bef92d89fc1e6c53473d5",
-  "generatedAt": "2026-08-31T09:58:15.537Z",
+  "generatedAt": "2026-08-31T10:50:11.168Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
@@ -34,8 +34,16 @@
   "peerDuration": "15s",
   "measuredAt": "2026-08-30T21:39:34Z",
   "peersMeasuredAt": "2026-08-30T21:36:50Z",
-  "levels": [64, 256, 512],
-  "routes": ["GET:/", "GET:/user/42", "POST:/user"],
+  "levels": [
+    64,
+    256,
+    512
+  ],
+  "routes": [
+    "GET:/",
+    "GET:/user/42",
+    "POST:/user"
+  ],
   "upstreamReference": {
     "note": "Upstream the-benchmarker/web-frameworks published results for a curated peer set, blended across the shared routes on the upstream CI machine. Shown for context only — different hardware than the same-machine runs; compare shapes/orders of magnitude.",
     "source": "https://github.com/the-benchmarker/web-frameworks (data.min.json)",

@@ -2,11 +2,14 @@
 	path = benchmarks/upstream/typescript-runtime-type-benchmarks
 	url = https://github.com/moltar/typescript-runtime-type-benchmarks.git
 	branch = master
+	ignore = dirty
 [submodule "benchmarks/upstream/drizzle-benchmarks"]
 	path = benchmarks/upstream/drizzle-benchmarks
 	url = https://github.com/drizzle-team/drizzle-benchmarks.git
 	branch = main
+	ignore = dirty
 [submodule "benchmarks/upstream/web-frameworks"]
 	path = benchmarks/upstream/web-frameworks
 	url = https://github.com/the-benchmarker/web-frameworks.git
 	branch = develop
+	ignore = dirty
