@@ -26,7 +26,7 @@ function tokenize(src: string): Token[] {
   const len = src.length;
 
   while (i < len) {
-    const ch = src[i]!;
+    const ch = src.charAt(i);
 
     // Whitespace
     if (/\s/.test(ch)) {
@@ -35,17 +35,17 @@ function tokenize(src: string): Token[] {
     }
 
     // Single-line comment
-    if (ch === '/' && src[i + 1] === '/') {
+    if (ch === '/' && src.charAt(i + 1) === '/') {
       i += 2;
-      while (i < len && src[i] !== '\n') i++;
+      while (i < len && src.charAt(i) !== '\n') i++;
       continue;
     }
 
     // Multi-line comment
-    if (ch === '/' && src[i + 1] === '*') {
+    if (ch === '/' && src.charAt(i + 1) === '*') {
       const startIdx = i;
       i += 2;
-      while (i < len && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      while (i < len && !(src.charAt(i) === '*' && src.charAt(i + 1) === '/')) i++;
       if (i >= len) {
         throw new SyntaxError(`Unterminated multi-line comment starting at index ${startIdx}`);
       }
@@ -59,16 +59,16 @@ function tokenize(src: string): Token[] {
       const startIdx = i;
       i++;
       let val = '';
-      while (i < len && src[i] !== quote) {
-        if (src[i] === '\\' && i + 1 < len) {
+      while (i < len && src.charAt(i) !== quote) {
+        if (src.charAt(i) === '\\' && i + 1 < len) {
           i++;
-          const esc = src[i]!;
+          const esc = src.charAt(i);
           if (esc === 'n') val += '\n';
           else if (esc === 'r') val += '\r';
           else if (esc === 't') val += '\t';
           else val += esc;
         } else {
-          val += src[i]!;
+          val += src.charAt(i);
         }
         i++;
       }
@@ -81,15 +81,16 @@ function tokenize(src: string): Token[] {
     }
 
     // Numbers
-    if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src[i + 1] || ''))) {
+    if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src.charAt(i + 1)))) {
       const startIdx = i;
       let numStr = '';
-      while (i < len && /[0-9._eE+-]/.test(src[i]!)) {
+      while (i < len && /[0-9._eE+-]/.test(src.charAt(i))) {
         // Guard against matching operator + or - if not exponent
-        if ((src[i] === '+' || src[i] === '-') && !/[eE]$/.test(numStr)) {
+        if ((src.charAt(i) === '+' || src.charAt(i) === '-') && !/[eE]$/.test(numStr)) {
           break;
         }
-        numStr += src[i++]!;
+        numStr += src.charAt(i);
+        i++;
       }
       const numVal = Number(numStr);
       if (Number.isNaN(numVal)) {
@@ -102,8 +103,9 @@ function tokenize(src: string): Token[] {
     // Identifiers & Keywords
     if (/[A-Za-z_$]/.test(ch)) {
       let ident = '';
-      while (i < len && /[A-Za-z0-9_$]/.test(src[i]!)) {
-        ident += src[i++]!;
+      while (i < len && /[A-Za-z0-9_$]/.test(src.charAt(i))) {
+        ident += src.charAt(i);
+        i++;
       }
       if (ident === 'typeof') {
         tokens.push({ type: 'OP', value: 'typeof' });
@@ -115,7 +117,7 @@ function tokenize(src: string): Token[] {
 
     // Multi-char operators
     if (src.startsWith('===', i)) {
-      if (src[i + 3] === '=') {
+      if (src.charAt(i + 3) === '=') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 4)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '===' });
@@ -123,7 +125,7 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (src.startsWith('!==', i)) {
-      if (src[i + 3] === '=') {
+      if (src.charAt(i + 3) === '=') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 4)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '!==' });
@@ -132,7 +134,7 @@ function tokenize(src: string): Token[] {
     }
 
     if (src.startsWith('??', i)) {
-      if (src[i + 2] === '?') {
+      if (src.charAt(i + 2) === '?') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '??' });
@@ -140,7 +142,7 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (src.startsWith('&&', i)) {
-      if (src[i + 2] === '&') {
+      if (src.charAt(i + 2) === '&') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '&&' });
@@ -148,7 +150,7 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (src.startsWith('||', i)) {
-      if (src[i + 2] === '|') {
+      if (src.charAt(i + 2) === '|') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '||' });
@@ -156,7 +158,7 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (src.startsWith('==', i)) {
-      if (src[i + 2] === '=') {
+      if (src.charAt(i + 2) === '=') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '==' });
@@ -164,7 +166,7 @@ function tokenize(src: string): Token[] {
       continue;
     }
     if (src.startsWith('!=', i)) {
-      if (src[i + 2] === '=') {
+      if (src.charAt(i + 2) === '=') {
         throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
       }
       tokens.push({ type: 'OP', value: '!=' });
@@ -244,6 +246,9 @@ export class Parser {
     if (tok.type === 'PUNCT' && tok.value === p) {
       return this.consume();
     }
+    if (tok.type === 'EOF') {
+      throw new SyntaxError(`Unexpected end of input, expected punctuation '${p}'`);
+    }
     throw new SyntaxError(`Expected punctuation '${p}', found '${tok.value}' (type: ${tok.type})`);
   }
 
@@ -264,6 +269,9 @@ export class Parser {
     if (this.matchOp('?')) {
       const consequent = this.parseExpression();
       if (!this.matchPunct(':') && !this.matchOp(':')) {
+        if (this.peek().type === 'EOF') {
+          throw new SyntaxError("Unexpected end of input, expected ':' in conditional expression");
+        }
         throw new SyntaxError("Expected ':' in conditional expression");
       }
       const alternate = this.parseExpression();
@@ -383,6 +391,9 @@ export class Parser {
           const property: ASTNode = { type: 'Identifier', name: propTok.value };
           expr = { type: 'MemberExpression', object: expr, property, computed: false };
         } else {
+          if (propTok.type === 'EOF') {
+            throw new SyntaxError("Unexpected end of input after '.'");
+          }
           throw new SyntaxError(`Expected identifier after '.', found '${propTok.value}'`);
         }
       } else if (this.matchPunct('[')) {
@@ -458,9 +469,15 @@ export class Parser {
           if (keyTok.type === 'IDENT' || keyTok.type === 'STRING') {
             key = this.consume().value;
           } else {
+            if (keyTok.type === 'EOF') {
+              throw new SyntaxError('Unexpected end of input in object literal');
+            }
             throw new SyntaxError(`Expected property key in object literal, found '${keyTok.value}'`);
           }
           if (!this.matchPunct(':') && !this.matchOp(':')) {
+            if (this.peek().type === 'EOF') {
+              throw new SyntaxError(`Unexpected end of input after property key '${key}'`);
+            }
             throw new SyntaxError(`Expected ':' after property key '${key}'`);
           }
           const val = this.parseExpression();
@@ -471,6 +488,10 @@ export class Parser {
         }
       }
       return { type: 'ObjectExpression', properties };
+    }
+
+    if (tok.type === 'EOF') {
+      throw new SyntaxError('Unexpected end of input');
     }
 
     throw new SyntaxError(`Unexpected token '${tok.value}' (type: ${tok.type})`);

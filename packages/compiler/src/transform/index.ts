@@ -528,7 +528,7 @@ export class Rewriter {
 export function splitTopLevelComma(s: string): [string, string] {
   const parts = splitLexical(s, 1);
   if (parts.length >= 2) {
-    return [parts[0]!, parts.slice(1).join(',')];
+    return [parts[0] ?? '', parts.slice(1).join(',')];
   }
   return [s, ''];
 }
@@ -546,7 +546,7 @@ function splitLexical(s: string, maxSplits: number): string[] {
   let inComment: 'line' | 'block' | null = null;
 
   for (let k = 0; k < s.length; k++) {
-    const ch = s[k]!;
+    const ch = s.charAt(k);
     const next = s[k + 1];
 
     if (inComment === 'line') {
