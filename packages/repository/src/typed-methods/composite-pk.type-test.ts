@@ -1,4 +1,5 @@
 import { defineSchema, text, integer, primaryKey } from '@zmdb/schema-core';
+
 import { BaseRepository, type Driver } from '../index.ts';
 
 type Expect<T extends true> = T;
@@ -30,8 +31,12 @@ const compRepo = new TenantUsersRepo(driver);
 const prodRepo = new ProductsRepo(driver);
 
 // 1. Composite key repo findById / delete parameter types
-export type _testCompFind = Expect<Equal<Parameters<typeof compRepo.findById>[0], { tenantId: string; userId: number }>>;
-export type _testCompDelete = Expect<Equal<Parameters<typeof compRepo.delete>[0], { tenantId: string; userId: number }>>;
+export type _testCompFind = Expect<
+  Equal<Parameters<typeof compRepo.findById>[0], { tenantId: string; userId: number }>
+>;
+export type _testCompDelete = Expect<
+  Equal<Parameters<typeof compRepo.delete>[0], { tenantId: string; userId: number }>
+>;
 
 // 2. Single key repo findById / delete parameter types
 export type _testSingleFind = Expect<Equal<Parameters<typeof prodRepo.findById>[0], number>>;
