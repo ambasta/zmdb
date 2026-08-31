@@ -3,25 +3,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { defineSchema, serial, text, jsonEnum, primaryKey, notNull } from '@zmdb/schema-core';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.ts';
+import { BaseRepository, ValidationError } from './index.ts';
 
 // #29: end-to-end integration — a <10-line repository performing real CRUD
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).
-
-// A real SQLite driver: executes CompiledQuery (text + positional `?` params).
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as unknown[];
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
-}
 
 // The single source of truth.
 const UserSchema = defineSchema('users', {
@@ -61,6 +47,10 @@ describe('repository E2E (real SQLite)', () => {
   });
 
   it('rejects an invalid create with ValidationError and writes nothing', async () => {
+    // @ts-expect-error — deliberately invalid input: `email` is missing and `role`
+    // is not a member of the enum. Now that specs are inside the typecheck program
+    // this directive is itself an assertion: the derived `CreateDTO` must reject
+    // this literal, and the runtime validator must reject it too.
     await expect(users.create({ role: 'nope' })).rejects.toBeInstanceOf(ValidationError);
     expect(await users.findAll()).toEqual([]);
   });

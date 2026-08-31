@@ -53,7 +53,7 @@ function make(d: Dialect, s: State): AggregateSelect {
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
   return {
-    select: cols => next({ items: [...s.items, ...cols.map(c => ({ kind: 'col', col: c }) as SelectItem)] }),
+    select: cols => next({ items: [...s.items, ...cols.map((c): SelectItem => ({ kind: 'col', col: c }))] }),
     count: (e, a) => agg('COUNT', e, a),
     sum: (e, a) => agg('SUM', e, a),
     avg: (e, a) => agg('AVG', e, a),

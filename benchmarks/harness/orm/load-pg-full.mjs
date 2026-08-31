@@ -2,10 +2,10 @@
 // SQLite DB into PostgreSQL, so the exact upstream query set (p1–p13) can run.
 import { DatabaseSync } from 'node:sqlite';
 
-import pg from 'pg';
+import { Client } from 'pg';
 
 const sqlite = new DatabaseSync('northwind.db');
-const client = new pg.Client({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench' });
+const client = new Client({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench' });
 await client.connect();
 
 // integer date columns kept as BIGINT where numeric, TEXT where ISO strings.

@@ -8,7 +8,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { pgTable, integer, text, numeric } from 'drizzle-orm/pg-core';
 import { Hono } from 'hono';
 import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
-import pg from 'pg';
+import { Pool } from 'pg';
 
 import { aggregateSelectFrom } from '../../../packages/query-compiler/src/aggregations/index.ts';
 import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.ts';
@@ -17,7 +17,7 @@ import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/i
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);
-const pool = new pg.Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 12 });
+const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 12 });
 
 // drizzle schema
 const customers = pgTable('customers', { id: integer('id').primaryKey(), companyName: text('company_name') });

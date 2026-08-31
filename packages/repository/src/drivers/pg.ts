@@ -29,7 +29,7 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
   };
   return {
     async execute(q) {
-      const params = q.parameters as unknown[];
+      const params = q.parameters;
       const res = opts?.prepared
         ? await client.query({ name: nameFor(q.text), text: q.text, values: params })
         : await client.query(q.text, params);

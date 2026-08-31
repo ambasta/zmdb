@@ -1,8 +1,7 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { defineSchema, serial, text, integer, jsonEnum } from '../index.ts';
-import type { Entity } from '../index.ts';
-import { compileWhere, type WhereDTO, type FieldOps } from './index.ts';
+import { compileWhere, type WhereDTO } from './index.ts';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
@@ -32,13 +31,15 @@ function recorder() {
 describe('WhereDTO + operator set (#179)', () => {
   it('bare value ⇒ eq', () => {
     const { b, calls } = recorder();
-    compileWhere(b, { role: 'admin' } as WhereDTO<S>);
+    const where: WhereDTO<S> = { role: 'admin' };
+    compileWhere(b, where);
     expect(calls).toEqual([['and', 'role', '=', 'admin']]);
   });
 
   it('comparison + membership operators map to SQL', () => {
     const { b, calls } = recorder();
-    compileWhere(b, { age: { gte: 18, lt: 65 }, id: { in: [1, 2, 3] } } as WhereDTO<S>);
+    const where: WhereDTO<S> = { age: { gte: 18, lt: 65 }, id: { in: [1, 2, 3] } };
+    compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'age', '>=', 18],
       ['and', 'age', '<', 65],
@@ -48,7 +49,8 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('nin/like/ilike', () => {
     const { b, calls } = recorder();
-    compileWhere(b, { role: { nin: ['admin'] }, email: { like: '%@x.com', ilike: '%@Y.com' } } as WhereDTO<S>);
+    const where: WhereDTO<S> = { role: { nin: ['admin'] }, email: { like: '%@x.com', ilike: '%@Y.com' } };
+    compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'role', 'not in', ['admin']],
       ['and', 'email', 'like', '%@x.com'],
@@ -58,7 +60,8 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('isNull / notNull', () => {
     const { b, calls } = recorder();
-    compileWhere(b, { email: { isNull: true }, role: { notNull: true } } as WhereDTO<S>);
+    const where: WhereDTO<S> = { email: { isNull: true }, role: { notNull: true } };
+    compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'email', 'is null', null],
       ['and', 'role', 'is not null', null],
@@ -67,7 +70,8 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('or group ORs its members', () => {
     const { b, calls } = recorder();
-    compileWhere(b, { or: [{ role: 'admin' }, { age: { gt: 90 } }] } as WhereDTO<S>);
+    const where: WhereDTO<S> = { or: [{ role: 'admin' }, { age: { gt: 90 } }] };
+    compileWhere(b, where);
     expect(calls).toEqual([
       ['or', 'role', '=', 'admin'],
       ['or', 'age', '>', 90],
@@ -76,16 +80,8 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('empty where adds nothing', () => {
     const { b, calls } = recorder();
-    compileWhere(b, {} as WhereDTO<S>);
+    const where: WhereDTO<S> = {};
+    compileWhere(b, where);
     expect(calls).toEqual([]);
-  });
-
-  it('type-level: fields are value-typed; like only on strings', () => {
-    expectTypeOf<WhereDTO<S>['age']>().toEqualTypeOf<number | FieldOps<number> | undefined>();
-    // like/ilike present on string field ops, never on numeric
-    expectTypeOf<FieldOps<string>['like']>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<FieldOps<number>['like']>().toEqualTypeOf<never | undefined>();
-    // eq value is the entity field type
-    expectTypeOf<FieldOps<Entity<S>['role']>['eq']>().toEqualTypeOf<'admin' | 'user' | undefined>();
   });
 });

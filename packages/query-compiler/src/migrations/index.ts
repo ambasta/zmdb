@@ -1,4 +1,6 @@
-// Migrations — API stubs (red phase). Implementation in #41–#44.
+// Migrations (#41–#44): snapshot a set of schemas, diff two snapshots into
+// change ops, and emit up/down DDL per dialect. Deterministic throughout —
+// tables and columns are sorted by name so a snapshot is byte-stable.
 import type { Dialect } from '../index.ts';
 
 export interface ColumnSnapshot {
@@ -31,13 +33,31 @@ export type ChangeOp =
       readonly to: string;
     };
 
-export function snapshot(schemas: readonly unknown[]): SchemaSnapshot {
+/**
+ * The slice of a schema a snapshot reads.
+ *
+ * Declared structurally rather than importing `CoreSchema`: this package sits
+ * *below* `@zmdb/schema-core` in the dependency DAG, and a `CoreSchema` satisfies
+ * this shape by construction. It replaces a `schemas: readonly unknown[]`
+ * parameter whose body immediately asserted this very type — i.e. an escape hatch
+ * that moved the requirement out of the signature and into a comment.
+ */
+export interface SnapshotableSchema {
+  readonly table: string;
+  readonly columns: Readonly<
+    Record<
+      string,
+      {
+        readonly type: string;
+        readonly flags: { readonly nullable: boolean; readonly primaryKey?: boolean | undefined };
+      }
+    >
+  >;
+}
+
+export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot {
   const tables: TableSnapshot[] = schemas
-    .map(s => {
-      const schema = s as {
-        table: string;
-        columns: Record<string, { type: string; flags: { nullable: boolean; primaryKey?: boolean } }>;
-      };
+    .map(schema => {
       const columns: ColumnSnapshot[] = Object.entries(schema.columns)
         .map(([name, meta]) => ({
           name,

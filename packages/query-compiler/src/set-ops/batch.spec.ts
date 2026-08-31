@@ -16,7 +16,7 @@ describe('batch API (#123)', () => {
     const runner = vi.fn(async (stmts: readonly unknown[]) => stmts.map((_, i) => ({ i })));
     const out = await batch([a, b]).execute(runner);
     expect(runner).toHaveBeenCalledTimes(1);
-    expect(runner.mock.calls[0][0]).toEqual([a, b]);
+    expect(runner.mock.calls[0]?.[0]).toEqual([a, b]);
     expect(out).toEqual([{ i: 0 }, { i: 1 }]);
   });
 

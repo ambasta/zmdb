@@ -1,16 +1,22 @@
-// @zmdb/benchmarks — results schema + report helpers (red phase, #69).
-// Implementation of the generator lands in #72; the schema validator here is
-// what the spec-freeze tests pin.
+// @zmdb/benchmarks — results schema + report helpers (#69, #72).
+// `validateResult` below is the frozen schema: every in-scope case must appear
+// for every target, as `ok` (with ops/sec) or `dnf` (with a reason) — never
+// silently omitted.
 
 export type ResultStatus = 'ok' | 'dnf';
 
+// The two optional members admit `undefined` explicitly: a `dnf` row *has* no
+// ops/sec, and under `exactOptionalPropertyTypes` a bare `?: number` rejects
+// writing that fact down as `opsPerSec: undefined` (only omitting the key is
+// allowed). Since `validateResult` keys off `typeof r.opsPerSec !== 'number'`,
+// both spellings are equally valid input and the type should say so.
 export interface BenchResult {
   readonly suite: 'validation' | 'orm';
   readonly case: string;
   readonly target: string;
   readonly status: ResultStatus;
-  readonly opsPerSec?: number;
-  readonly dnfReason?: string;
+  readonly opsPerSec?: number | undefined;
+  readonly dnfReason?: string | undefined;
 }
 
 // The set of in-scope case ids per suite (frozen in SPEC.md). Every in-scope

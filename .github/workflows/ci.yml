@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test + Typecheck + Benchmarks
+    name: Lint + Typecheck + Test + Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,12 +25,19 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Typecheck (all packages + benchmarks)
-        run: |
-          for p in schema-core query-compiler aot-validator repository web zmdb; do
-            yarn tsc --noEmit -p packages/$p/tsconfig.json
-          done
-          yarn tsc --noEmit -p benchmarks/tsconfig.json
+      - name: Lint
+        run: yarn lint
+
+      - name: Format check
+        run: yarn fmt:check
+
+      # `yarn typecheck` discovers packages/*/tsconfig.json (plus benchmarks), so
+      # a new package is covered without editing this file. The hand-maintained
+      # loop it replaced listed four packages and skipped `web` and `zmdb`.
+      # Specs and `*.type-test.ts` files are inside the program, so the
+      # type-level assertions (Equal/Expect, @ts-expect-error) are gated here.
+      - name: Typecheck (all projects, incl. specs and type-tests)
+        run: yarn typecheck
 
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run

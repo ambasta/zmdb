@@ -1,5 +1,5 @@
 import type { CoreSchema } from '@zmdb/schema-core';
-import pg from 'pg';
+import { Pool } from 'pg';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
@@ -7,12 +7,12 @@ import { BaseRepository, type Driver } from './index.ts';
 // #87: JOIN repository integration + E2E on REAL PostgreSQL.
 
 const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
-let pool: pg.Pool | undefined;
+let pool: Pool | undefined;
 let reachable = false;
 
 beforeAll(async () => {
   try {
-    pool = new pg.Pool({ connectionString: CONN, max: 2 });
+    pool = new Pool({ connectionString: CONN, max: 2 });
     await pool.query('SELECT 1');
     await pool.query('DROP TABLE IF EXISTS j_products, j_suppliers');
     await pool.query('CREATE TABLE j_suppliers (id INT PRIMARY KEY, name TEXT NOT NULL)');
@@ -43,7 +43,7 @@ const ProductSchema = {
 class ProductRepository extends BaseRepository<typeof ProductSchema> {
   static override readonly schema = ProductSchema;
 }
-const driver = (p: pg.Pool): Driver => ({
+const driver = (p: Pool): Driver => ({
   execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows,
 });
 

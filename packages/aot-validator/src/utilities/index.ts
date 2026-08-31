@@ -4,6 +4,14 @@
 // unimplemented; their tests stay red.
 import type { ValidationIssue } from '../advanced/index.ts';
 
+// Local (not imported from @zmdb/schema-core, which exports the same guard):
+// this package deliberately has no *runtime* cross-package import, so an emitted
+// validator never drags the schema layer into a browser bundle for a one-liner.
+/** True for a non-null, non-array object — proves a keyed read is safe. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export interface TypeDescriptor {
   readonly kind: 'object' | 'string' | 'number' | 'boolean' | 'enum' | 'array';
   readonly fields?: Record<string, TypeDescriptor>;
@@ -21,7 +29,19 @@ export interface ValidateResult<T> {
 }
 
 export class AssertError extends Error {
-  readonly issues: readonly ValidationIssue[] = [];
+  readonly issues: readonly ValidationIssue[];
+
+  constructor(message: string, issues: readonly ValidationIssue[] = []) {
+    super(message);
+    this.name = 'AssertError';
+    this.issues = issues;
+  }
+}
+
+/** Throw an AssertError carrying `issues` (first issue supplies the message). */
+function failWith(issues: readonly ValidationIssue[]): never {
+  const first = issues[0];
+  throw new AssertError(first ? first.message : 'validation failed', issues);
 }
 
 // Core structural check used by is<T>. Returns a boolean; allocation-free on
@@ -46,10 +66,9 @@ function matches(value: unknown, d: TypeDescriptor): boolean {
       for (const item of value) if (!matches(item, d.of)) return false;
       return true;
     case 'object': {
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-      const obj = value as Record<string, unknown>;
+      if (!isRecord(value)) return false;
       for (const [key, fd] of Object.entries(d.fields ?? {})) {
-        if (!matches(obj[key], fd)) return false;
+        if (!matches(value[key], fd)) return false;
       }
       return true;
     }
@@ -86,15 +105,16 @@ function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: Val
     case 'enum':
       if (typeof value !== 'string' || !(d.values?.includes(value) ?? false)) fail(`enum ${JSON.stringify(d.values)}`);
       return;
-    case 'array':
-      if (!Array.isArray(value) || !d.of) return fail('array');
-      value.forEach((item, idx) => collectIssues(item, d.of!, `${path}[${idx}]`, out));
+    case 'array': {
+      const of = d.of;
+      if (!Array.isArray(value) || !of) return fail('array');
+      value.forEach((item, idx) => collectIssues(item, of, `${path}[${idx}]`, out));
       return;
+    }
     case 'object': {
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) return fail('object');
-      const obj = value as Record<string, unknown>;
+      if (!isRecord(value)) return fail('object');
       for (const [key, fd] of Object.entries(d.fields ?? {})) {
-        collectIssues(obj[key], fd, `${path}.${key}`, out);
+        collectIssues(value[key], fd, `${path}.${key}`, out);
       }
       return;
     }
@@ -107,11 +127,10 @@ export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor)
   if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
-  if (issues.length > 0) {
-    const err = new AssertError(issues[0]!.message);
-    (err as { issues: readonly ValidationIssue[] }).issues = issues;
-    throw err;
-  }
+  if (issues.length > 0) failWith(issues);
+  // boundary: `T` is the caller's compile-time type and `descriptor` is its
+  // runtime witness; `collectIssues` having found nothing is the proof. This is
+  // the certification point of the whole package — the assertion IS the API.
   return input as T;
 }
 
@@ -119,6 +138,7 @@ export function validate<T = unknown>(input: unknown, descriptor?: TypeDescripto
   if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
+  // boundary: same certification as `assert`, returned instead of thrown.
   return issues.length === 0 ? { success: true, data: input as T } : { success: false, errors: issues };
 }
 
@@ -126,9 +146,9 @@ export function validate<T = unknown>(input: unknown, descriptor?: TypeDescripto
 // no-excess-keys check; assertEquals is the throwing form.
 function hasNoExcessKeys(value: unknown, d: TypeDescriptor): boolean {
   if (d.kind === 'object') {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) return true;
+    if (!isRecord(value)) return true;
     const fields = d.fields ?? {};
-    const obj = value as Record<string, unknown>;
+    const obj = value;
     // Fast path: this function is only reached after the structural `matches`
     // check has confirmed every declared field is present. So "no excess keys"
     // reduces to a key-count equality — no Set, no includes(). We only recurse
@@ -136,8 +156,8 @@ function hasNoExcessKeys(value: unknown, d: TypeDescriptor): boolean {
     let declared = 0;
     for (const key in fields) {
       declared++;
-      const fd = fields[key]!;
-      if ((fd.kind === 'object' || fd.kind === 'array') && !hasNoExcessKeys(obj[key], fd)) {
+      const fd = fields[key];
+      if (fd && (fd.kind === 'object' || fd.kind === 'array') && !hasNoExcessKeys(obj[key], fd)) {
         return false;
       }
     }
@@ -171,11 +191,8 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
       message: 'excess properties present',
     });
   }
-  if (issues.length > 0) {
-    const err = new AssertError(issues[0]!.message);
-    (err as { issues: readonly ValidationIssue[] }).issues = issues;
-    throw err;
-  }
+  if (issues.length > 0) failWith(issues);
+  // boundary: see `assert` — validated input, certified once.
   return input as T;
 }
 
@@ -207,9 +224,10 @@ function randomFor(d: TypeDescriptor): unknown {
       return values[Math.floor(Math.random() * values.length)];
     }
     case 'array': {
-      if (!d.of) return [];
+      const of = d.of;
+      if (!of) return [];
       const n = Math.floor(Math.random() * 3) + 1;
-      return Array.from({ length: n }, () => randomFor(d.of!));
+      return Array.from({ length: n }, () => randomFor(of));
     }
     case 'object': {
       const out: Record<string, unknown> = {};
@@ -223,5 +241,7 @@ function randomFor(d: TypeDescriptor): unknown {
 
 export function random<T = unknown>(descriptor?: TypeDescriptor): T {
   if (!descriptor) throw new Error('runtime descriptor required in test/fallback mode');
+  // boundary: `randomFor` builds the value FROM the descriptor, so it satisfies
+  // it by construction (the `is(random(d), d)` property test guards this).
   return randomFor(descriptor) as T;
 }

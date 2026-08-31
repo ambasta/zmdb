@@ -26,7 +26,7 @@ describe('object strictness modes', () => {
 
 describe('structured error paths', () => {
   it('reports exact nested path', () => {
-    const rule = refine('typeof v === "number" && v >= 0', 'must be >= 0');
+    const rule = refine(v => typeof v === 'number' && v >= 0, 'must be >= 0');
     const r = validateObject({ totalPrice: -1 }, { totalPrice: rule }, 'strict');
     expect(r.success).toBe(false);
     expect(r.issues[0]?.path).toBe('input.totalPrice');

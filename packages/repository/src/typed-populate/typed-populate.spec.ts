@@ -1,9 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import type { Entity } from '@zmdb/schema-core';
 import { oneToMany } from '@zmdb/schema-core/relations';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository } from '../index.ts';
@@ -17,20 +16,24 @@ const OrderSchema = defineSchema('orders', {
   userId: integer().notNull(),
   total: integer().notNull(),
 });
-type Order = Entity<typeof OrderSchema>;
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+// Declared as a const rather than inline in the class body: a class cannot refer
+// to its own statics in its own `extends` clause, and `BaseRepository`'s second
+// type argument is what makes `populate` typed.
+const userRelations = {
+  orders: {
+    meta: oneToMany('orders', 'userId'),
+    entity: OrderSchema,
+    cardinality: 'one-to-many',
+    childTable: 'orders',
+    childFk: 'userId',
+    parentKey: 'id',
+  },
+} as const;
+
+class UserRepository extends BaseRepository<typeof UserSchema, typeof userRelations> {
   static override readonly schema = UserSchema;
-  static readonly relations = {
-    orders: {
-      meta: oneToMany('orders', 'userId'),
-      entity: OrderSchema,
-      cardinality: 'one-to-many',
-      childTable: 'orders',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-  } as const;
+  static readonly relations = userRelations;
 }
 
 function seed(): DatabaseSync {
@@ -44,13 +47,22 @@ function seed(): DatabaseSync {
   return db;
 }
 
+// The result *types* are asserted in `typed-populate.type-test.ts`; note that
+// `o.total` below needs no cast, which is the ergonomic half of the same claim.
 describe('typed populate (#217)', () => {
   it('findById(id, { populate }) attaches the typed to-many relation', async () => {
     const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
     const user = await repo.findById(1, { populate: ['orders'] });
     expect(user?.name).toBe('Ada');
     expect(user?.orders).toHaveLength(2);
-    expect((user!.orders as Order[]).map(o => o.total).toSorted()).toEqual([5, 7]);
+    expect(user?.orders.map(o => o.total).toSorted()).toEqual([5, 7]);
+  });
+
+  it('find(where, { populate }) attaches relations to every matching row', async () => {
+    const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
+    const rows = await repo.find({}, { populate: ['orders'] });
+    expect(rows).toHaveLength(2);
+    expect(rows.map(r => r.orders.length).toSorted()).toEqual([1, 2]);
   });
 
   it('without populate, the result is a plain entity (no relation key)', async () => {
@@ -59,9 +71,10 @@ describe('typed populate (#217)', () => {
     expect(user).not.toHaveProperty('orders');
   });
 
-  it('type-level: populated result carries the relation as an array', () => {
+  it('an unknown relation name is rejected at runtime too', async () => {
     const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
-    // The populated overload returns a parent widened with `orders: ...`.
-    expectTypeOf(repo.findById(1, { populate: ['orders'] })).resolves.toHaveProperty('orders');
+    // @ts-expect-error — 'nope' is not a key of the relations map. The runtime
+    // guard below is the defence for callers who reach this method untyped.
+    await expect(repo.findById(1, { populate: ['nope'] })).rejects.toThrow(/unknown relation "nope"/);
   });
 });

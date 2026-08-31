@@ -7,12 +7,12 @@ import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 // so a query a tool cannot express with its builder is honestly DNF.
 // zmdb's query-compiler is deliberately CRUD-focused (no joins/aggregates/FTS
 // builder) — those are DNF for zmdb, which is exactly the feature-gap metric.
-import pg from 'pg';
+import { Pool } from 'pg';
 import { Bench } from 'tinybench';
 
 import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
 
-const pool = new pg.Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 10 });
+const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 10 });
 
 // --- drizzle schema (minimal, for its query builder) ---
 const customers = pgTable('customers', { id: integer('id').primaryKey(), companyName: text('company_name') });

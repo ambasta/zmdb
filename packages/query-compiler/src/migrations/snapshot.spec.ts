@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
-import type { CoreSchema } from '../index.ts';
 import { snapshot } from './index.ts';
 
-// #41: schema snapshot serializer. Tests written BEFORE implementation (TDD).
+// #41: schema snapshot serializer.
 
+// A stand-in for a `CoreSchema`: this package sits below `@zmdb/schema-core` in
+// the DAG, so the fixture is a plain object with the same shape (including the
+// fields `snapshot` ignores). It needs no cast — `snapshot` takes
+// `SnapshotableSchema`, the structural slice it actually reads.
 const UserSchema = {
   table: 'users',
   columns: {
@@ -14,7 +17,7 @@ const UserSchema = {
   },
   primaryKey: ['id'],
   references: [],
-} as unknown as CoreSchema<'users'>;
+};
 
 describe('snapshot serializer', () => {
   it('produces a version-1 snapshot with tables sorted by name and columns sorted by name', () => {
