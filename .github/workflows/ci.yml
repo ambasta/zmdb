@@ -44,6 +44,9 @@ jobs:
       - name: Typecheck (all projects, incl. specs and type-tests)
         run: yarn typecheck
 
+      - name: Verify export manifests
+        run: yarn verify:exports
+
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
 
