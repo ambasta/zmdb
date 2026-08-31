@@ -1,7 +1,7 @@
 import type { CoreSchema } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
-import { BaseRepository, type Driver } from '../index.ts';
+import { BaseRepository, defineRepository, type Driver } from '../index.ts';
 import { createTransactionalDb, type TxConnection } from './index.ts';
 
 // #37: transaction-scoped repository binding. Tests written BEFORE impl (TDD).
@@ -18,6 +18,30 @@ const UserSchema = {
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;
+}
+
+class CustomRepoWithPrivateState extends BaseRepository<typeof UserSchema> {
+  static override readonly schema = UserSchema;
+  #privatePrefix = 'USER';
+  #privateCounter = 0;
+
+  #formatEmail(email: string) {
+    this.#privateCounter++;
+    return `${this.#privatePrefix}:${this.#privateCounter}:${email}`;
+  }
+
+  async findFormatted(id: number) {
+    const user = await this.findById(id);
+    if (!user) return undefined;
+    return {
+      ...user,
+      formattedEmail: this.#formatEmail((user as { email: string }).email),
+    };
+  }
+
+  getFormattedArrow = async (id: number) => {
+    return this.findFormatted(id);
+  };
 }
 
 // A connection that records every raw + executed statement in order.
@@ -65,5 +89,73 @@ describe('transaction-scoped repository binding', () => {
     ).rejects.toThrow('boom');
 
     expect(conn.log.at(-1)).toBe('ROLLBACK');
+  });
+
+  it('accesses private instance variables and methods without throwing runtime errors', async () => {
+    const conn = recordingConn();
+    const db = createTransactionalDb(conn);
+    const parent = new CustomRepoWithPrivateState({} as Driver);
+
+    await db.transaction(async tx => {
+      const scoped = parent.withTransaction(tx);
+      const res = await scoped.findFormatted(1);
+      expect(res).toEqual({ id: 1, email: 'a@b.com', formattedEmail: 'USER:1:a@b.com' });
+      const res2 = await scoped.getFormattedArrow(1);
+      expect(res2).toEqual({ id: 1, email: 'a@b.com', formattedEmail: 'USER:2:a@b.com' });
+    });
+  });
+
+  it('leaves parent repository instance and driver state completely unmodified', async () => {
+    const parentLog: string[] = [];
+    const parentDriver: Driver = {
+      async execute(q) {
+        parentLog.push(q.text);
+        return [];
+      },
+    };
+    const parent = new UserRepository(parentDriver);
+
+    const conn = recordingConn();
+    const db = createTransactionalDb(conn);
+
+    await db.transaction(async tx => {
+      const scoped = parent.withTransaction(tx);
+      await scoped.findById(1);
+    });
+
+    // Parent driver should NOT have logged any queries
+    expect(parentLog).toHaveLength(0);
+    expect(conn.log.some(l => l.startsWith('EXEC:SELECT'))).toBe(true);
+  });
+
+  it('retains schema and relation metadata on dynamically generated and hand-written subclasses', async () => {
+    const relationsDef = {
+      orders: {
+        cardinality: 'one-to-many' as const,
+        childTable: 'orders',
+        childFk: 'user_id',
+        entity: UserSchema,
+      },
+    };
+    const dynamicParent = defineRepository(UserSchema, {} as Driver, {
+      dialect: 'sqlite',
+      relations: relationsDef,
+    });
+
+    const conn = recordingConn();
+    const db = createTransactionalDb(conn);
+
+    await db.transaction(async tx => {
+      const scoped = dynamicParent.withTransaction(tx);
+
+      // Verify schema and relation metadata preserved
+      expect((scoped as unknown as { schema: unknown }).schema).toBe(UserSchema);
+      expect((scoped.constructor as unknown as { relations: unknown }).relations).toEqual(relationsDef);
+
+      // Verify findById executes on tx driver with sqlite qb dialect
+      await scoped.findById(1);
+    });
+
+    expect(conn.log.some(l => l.startsWith('EXEC:SELECT'))).toBe(true);
   });
 });
