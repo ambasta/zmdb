@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { transformSource, validate, tags, escapePattern } from './index.ts';
+import { transformSource, validate, tags, escapePattern, getRegExp } from './index.ts';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.
 
@@ -134,5 +134,14 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       expect(validate(enumRule, 'beta')).toBe(true);
       expect(validate(enumRule, 'delta')).toBe(false);
     }
+  });
+
+  it('bounds RegExp cache with LRU eviction', () => {
+    const firstRegexp = getRegExp('pattern_0');
+    for (let i = 1; i <= 1005; i++) {
+      getRegExp(`pattern_${i}`);
+    }
+    const newFirstRegexp = getRegExp('pattern_0');
+    expect(newFirstRegexp).not.toBe(firstRegexp);
   });
 });

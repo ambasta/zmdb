@@ -92,7 +92,9 @@ function emitExcessKeyGuards(t: PType, expr: string, varPrefix = '_c'): string[]
   if (t.kind !== 'object') return [];
   const guards: string[] = [];
   const topCount = t.fields.length;
-  guards.push(`let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`);
+  guards.push(
+    `let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`,
+  );
   let idx = 0;
   for (const f of t.fields) {
     if (f.type.kind === 'object') {
