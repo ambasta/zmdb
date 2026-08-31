@@ -107,6 +107,13 @@ shape." The policy:
 > This is the honest position: we make the _public surface_ assertion-free and
 > hold framework internals to a documented, shrinking exception list — rather
 > than claim an absolute we'd have to fake with hidden `any`.
+>
+> **Where that stands (2026-08-31):** 23 assertions across `packages/*/src`, all
+> 23 carrying a `// boundary:` comment; 0 `any`, 0 non-null `!`, 0 lint
+> suppressions, 0 consumer-facing `as` in the docs. Down from 91 assertions with
+> 14 comments, which is the measurement the policy needed — see PRD §9.4 for the
+> table and the four structural fixes. The count is **not yet ratcheted in CI**,
+> so it is a snapshot, not an invariant (PRD RISK-7).
 
 ---
 
@@ -281,7 +288,11 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 6. Cross-cutting standards (every package)
 
 - **`SPEC.md` per concern, frozen before code** (spec → failing tests → impl →
-  docs). Type-level behaviour is tested with `expectTypeOf`/`@ts-expect-error`.
+  docs). Type-level behaviour is tested in a `*.type-test.ts` file next to the
+  module with `Expect<Equal<…>>` and `@ts-expect-error`, never with
+  `expectTypeOf`: vitest only _runs_ specs, so `expectTypeOf(...)` there is a
+  runtime no-op. Those files hold no runtime code — they are a **compilation**
+  gate, run by `yarn typecheck` (which is what CI runs). See PRD §9.6.
 - **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
   `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins
   `noImplicitAny` and asserts `experimentalDecorators: false`.
