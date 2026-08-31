@@ -264,7 +264,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       let cursorValues: Record<string, unknown>;
       if (typeof page.after === 'string') {
         cursorValues = decodeCursor(page.after);
-      } else if (typeof page.after === 'object') {
+      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
+        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
         cursorValues = page.after as Record<string, unknown>;
       } else {
         throw new Error('Invalid cursor parameter: expected string or object');
