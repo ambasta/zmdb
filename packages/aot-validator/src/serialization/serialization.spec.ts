@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { stringify, parse } from './index.ts';
 
 // RED PHASE (#51 spec freeze): serializer correctness vs JSON.

@@ -14,7 +14,7 @@ for (const n of ISSUES) {
   const body = gh(['issue', 'view', String(n), '--repo', REPO, '--json', 'body', '-q', '.body']);
   const out = body
     .split('\n')
-    .map((line) => (line.startsWith('- [ ]') ? line.replace('- [ ]', '- [x]') : line))
+    .map(line => (line.startsWith('- [ ]') ? line.replace('- [ ]', '- [x]') : line))
     .join('\n');
   if (out === body) {
     console.log(`#${n}: already all-checked`);

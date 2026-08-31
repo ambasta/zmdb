@@ -21,14 +21,22 @@ const EPICS = {
 for (const [epic, title] of Object.entries(EPICS)) {
   // Confirm zero open sub-issues before closing.
   const open = JSON.parse(
-    gh(['api', 'graphql', '-f', `query=query{repository(owner:"ambasta",name:"zmdb"){issue(number:${epic}){subIssues(first:20){nodes{state}}}}}`]),
-  ).data.repository.issue.subIssues.nodes.filter((n) => n.state === 'OPEN').length;
+    gh([
+      'api',
+      'graphql',
+      '-f',
+      `query=query{repository(owner:"ambasta",name:"zmdb"){issue(number:${epic}){subIssues(first:20){nodes{state}}}}}`,
+    ]),
+  ).data.repository.issue.subIssues.nodes.filter(n => n.state === 'OPEN').length;
   if (open > 0) {
     console.log(`SKIP epic #${epic}: still has ${open} open sub-issue(s)`);
     continue;
   }
   const body = gh(['issue', 'view', epic, '--repo', REPO, '--json', 'body', '-q', '.body']);
-  const checked = body.split('\n').map((l) => (l.startsWith('- [ ]') ? l.replace('- [ ]', '- [x]') : l)).join('\n');
+  const checked = body
+    .split('\n')
+    .map(l => (l.startsWith('- [ ]') ? l.replace('- [ ]', '- [x]') : l))
+    .join('\n');
   if (checked !== body) gh(['issue', 'edit', epic, '--repo', REPO, '--body-file', '-'], checked);
   const comment = [
     '## Epic complete ✅',

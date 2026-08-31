@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { diff, emitUp, emitDown, type SchemaSnapshot } from './index.ts';
 
 // RED PHASE (#40 spec freeze): diff engine + DDL emitter goldens.
@@ -49,9 +50,7 @@ describe('DDL emitter (postgres)', () => {
   };
 
   it('emits up SQL for add_column', () => {
-    expect(emitUp(addAge, 'postgres')).toBe(
-      'ALTER TABLE "users" ADD COLUMN "age" integer NOT NULL',
-    );
+    expect(emitUp(addAge, 'postgres')).toBe('ALTER TABLE "users" ADD COLUMN "age" integer NOT NULL');
   });
 
   it('down reverses up for add_column', () => {

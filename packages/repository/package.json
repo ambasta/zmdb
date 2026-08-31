@@ -3,24 +3,29 @@
   "version": "1.0.0-alpha.4",
   "description": "Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.",
   "keywords": [
-    "typescript",
-    "repository",
     "crud",
-    "transactions",
     "data-layer",
+    "repository",
+    "transactions",
+    "typescript",
     "zmdb"
   ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
-  "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/repository"
   },
-  "bugs": {
-    "url": "https://github.com/ambasta/zmdb/issues"
-  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -32,30 +37,25 @@
     "./drivers/sqlite": "./src/drivers/sqlite.ts",
     "./drivers/pg": "./src/drivers/pg.ts"
   },
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=26"
-  },
   "publishConfig": {
     "access": "public",
     "tag": "alpha"
   },
   "scripts": {
-    "test": "vitest run",
-    "build": "tsup"
-  },
-  "devDependencies": {
-    "@types/pg": "^8",
-    "pg": "8.13.1",
-    "tsup": "8.5.0",
-    "typescript": "5.9.2"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "8.23.0",
+    "tsup": "8.5.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

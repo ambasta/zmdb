@@ -3,9 +3,9 @@
 // hooks + `await using` graceful shutdown. Per-request path is unchanged. No
 // reflection per request; no `as` on the consumer surface.
 
+import type { Container } from '../di/index.ts';
 import { compileModule, type ModuleClass } from '../modules/index.ts';
 import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
-import { Container } from '../di/index.ts';
 
 /** Called after a controller/provider is constructed. */
 export interface OnModuleInit {
@@ -54,8 +54,8 @@ export function createApp(rootModule: ModuleClass): App {
 
   return {
     container,
-    handle: (req) => router.handle(req),
-    fetch: (request) => fetchHandler(request),
+    handle: req => router.handle(req),
+    fetch: request => fetchHandler(request),
     async init(): Promise<void> {
       for (const controller of controllers) {
         if (hasModuleInit(controller)) {

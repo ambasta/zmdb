@@ -5,6 +5,7 @@
 // DNF(not implemented) rather than faked. Anti-pattern cases are
 // DNF(anti-pattern).
 import { createQueryCompiler } from '@zmdb/query-compiler';
+
 import type { BenchResult } from '../results.ts';
 
 declare const performance: { now(): number };
@@ -15,6 +16,33 @@ export interface OrmEngine {
   all(sql: string, params: readonly unknown[]): Record<string, unknown>[];
 }
 
+/**
+ * Minimal structural view of a `node:sqlite` database — the same trick as
+ * `@zmdb/repository`'s sqlite driver: methods are bivariant, so a real
+ * `DatabaseSync` is assignable and nothing here depends on ambient Node types.
+ */
+export interface SqliteLike {
+  exec(sql: string): void;
+  prepare(sql: string): { all(...params: unknown[]): unknown[] };
+}
+
+/**
+ * The `OrmEngine` backed by an in-process node:sqlite database.
+ *
+ * Shipped here rather than rebuilt per spec file: it was inlined (identically)
+ * in two of them, each with its own `params as unknown[]` cast to get past
+ * `SQLInputValue`.
+ */
+export function sqliteEngine(db: SqliteLike): OrmEngine {
+  return {
+    exec: sql => db.exec(sql),
+    // boundary: rows leave the database untyped — `all()` is declared
+    // `unknown[]` (the widest shape every @types/node version agrees on) and
+    // node:sqlite always yields plain row objects for a row-returning statement.
+    all: (sql, params) => db.prepare(sql).all(...params) as Record<string, unknown>[],
+  };
+}
+
 // Seed a small e-commerce dataset (nano size — reproducible; the real suite
 // uses 370k rows on Postgres, which is out of scope for the in-process run).
 export function seed(engine: OrmEngine, customers = 50, ordersPerCustomer = 4): void {
@@ -22,7 +50,8 @@ export function seed(engine: OrmEngine, customers = 50, ordersPerCustomer = 4): 
   engine.exec('CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, price INTEGER NOT NULL)');
   engine.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY, customerId INTEGER NOT NULL, total INTEGER NOT NULL)');
   for (let i = 1; i <= customers; i++) engine.exec(`INSERT INTO customers(id,name) VALUES (${i}, 'cust${i}')`);
-  for (let i = 1; i <= 100; i++) engine.exec(`INSERT INTO products(id,name,price) VALUES (${i}, 'prod${i}', ${i * 10})`);
+  for (let i = 1; i <= 100; i++)
+    engine.exec(`INSERT INTO products(id,name,price) VALUES (${i}, 'prod${i}', ${i * 10})`);
   let oid = 1;
   for (let c = 1; c <= customers; c++) {
     for (let o = 0; o < ordersPerCustomer; o++) {

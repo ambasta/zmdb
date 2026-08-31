@@ -2,6 +2,7 @@
 // round-trips through `metadataOf()` — no reflect-metadata, no `as` on the
 // consumer surface. Proves the @zmdb/web decorator baseline.
 import { describe, it, expect } from 'vitest';
+
 import { metadataOf } from './index.ts';
 
 // A trivial Stage-3 class decorator that records a value in context.metadata.
@@ -25,7 +26,9 @@ describe('@zmdb/web baseline: Symbol.metadata round-trip', () => {
   });
 
   it('returns an empty frozen record for an undecorated class (never undefined)', () => {
-    class Plain {}
+    class Plain {
+      value = 0;
+    }
     const meta = metadataOf(Plain);
     expect(meta).toBeDefined();
     expect(Object.keys(meta)).toHaveLength(0);

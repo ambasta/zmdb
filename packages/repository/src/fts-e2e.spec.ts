@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import pg from 'pg';
-import { BaseRepository, type Driver } from './index.ts';
 import type { CoreSchema } from '@zmdb/schema-core';
+import { Pool } from 'pg';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { BaseRepository, type Driver } from './index.ts';
 
 // #96: full-text search repository integration + E2E on REAL PostgreSQL.
 // (SQLite has no arbitrary-column FTS — that path is an honest DNF — so this
@@ -9,12 +10,12 @@ import type { CoreSchema } from '@zmdb/schema-core';
 
 const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
 
-let pool: pg.Pool | undefined;
+let pool: Pool | undefined;
 let reachable = false;
 
 beforeAll(async () => {
   try {
-    pool = new pg.Pool({ connectionString: CONN, max: 2 });
+    pool = new Pool({ connectionString: CONN, max: 2 });
     await pool.query('SELECT 1');
     await pool.query('DROP TABLE IF EXISTS fts_docs');
     await pool.query('CREATE TABLE fts_docs (id INT PRIMARY KEY, company_name TEXT NOT NULL)');
@@ -46,8 +47,8 @@ class DocRepository extends BaseRepository<typeof DocSchema> {
   static override readonly schema = DocSchema;
 }
 
-function pgDriver(p: pg.Pool): Driver {
-  return { execute: async (q) => (await p.query(q.text, q.parameters as unknown[])).rows };
+function pgDriver(p: Pool): Driver {
+  return { execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows };
 }
 
 describe('FTS repository integration (real Postgres)', () => {
@@ -58,7 +59,7 @@ describe('FTS repository integration (real Postgres)', () => {
     }
     const repo = new DocRepository(pgDriver(pool!), 'postgres');
     const hits = await repo.findByFullText('company_name', 'ltd');
-    const names = hits.map((r) => r.company_name).sort();
+    const names = hits.map(r => r.company_name).toSorted();
     // 'Acme Trading Ltd' and 'Initech Ltd' match 'ltd'; others do not.
     expect(names).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
   });
@@ -67,6 +68,6 @@ describe('FTS repository integration (real Postgres)', () => {
     if (!reachable) return;
     const repo = new DocRepository(pgDriver(pool!), 'postgres');
     const hits = await repo.findByFullText('company_name', 'globex');
-    expect(hits.map((r) => r.company_name)).toEqual(['Globex Corporation']);
+    expect(hits.map(r => r.company_name)).toEqual(['Globex Corporation']);
   });
 });

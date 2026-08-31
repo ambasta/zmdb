@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createTransactionalDb, type TxConnection } from './index.ts';
 
 // RED PHASE (#35 spec freeze): transaction lifecycle SQL ordering.
@@ -21,7 +22,7 @@ describe('transaction lifecycle', () => {
   it('commits on success (BEGIN … COMMIT)', async () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
-    await db.transaction(async (tx) => {
+    await db.transaction(async tx => {
       await tx.execute({ text: 'X', parameters: [] });
     });
     expect(conn.log).toEqual(['BEGIN', 'EXEC', 'COMMIT']);
@@ -41,35 +42,25 @@ describe('transaction lifecycle', () => {
   it('savepoint releases on success', async () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
-    await db.transaction(async (tx) => {
-      await tx.savepoint(async (inner) => {
+    await db.transaction(async tx => {
+      await tx.savepoint(async inner => {
         await inner.execute({ text: 'X', parameters: [] });
       });
     });
-    expect(conn.log).toEqual([
-      'BEGIN',
-      'SAVEPOINT s1',
-      'EXEC',
-      'RELEASE SAVEPOINT s1',
-      'COMMIT',
-    ]);
+    expect(conn.log).toEqual(['BEGIN', 'SAVEPOINT s1', 'EXEC', 'RELEASE SAVEPOINT s1', 'COMMIT']);
   });
 
   it('savepoint rolls back to savepoint on inner throw, outer commits', async () => {
     const conn = recordingConn();
     const db = createTransactionalDb(conn);
-    await db.transaction(async (tx) => {
+    await db.transaction(async tx => {
       await tx.execute({ text: 'OUTER', parameters: [] });
-      await tx.savepoint(async () => {
-        throw new Error('inner');
-      }).catch(() => {});
+      await tx
+        .savepoint(async () => {
+          throw new Error('inner');
+        })
+        .catch(() => {});
     });
-    expect(conn.log).toEqual([
-      'BEGIN',
-      'EXEC',
-      'SAVEPOINT s1',
-      'ROLLBACK TO SAVEPOINT s1',
-      'COMMIT',
-    ]);
+    expect(conn.log).toEqual(['BEGIN', 'EXEC', 'SAVEPOINT s1', 'ROLLBACK TO SAVEPOINT s1', 'COMMIT']);
   });
 });

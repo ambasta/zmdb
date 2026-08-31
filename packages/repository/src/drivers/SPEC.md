@@ -14,19 +14,23 @@ function sqliteDriver(db: DatabaseSync): Driver;
 
 // pg (node-postgres) — pass a Pool or Client
 import type { Pool, Client } from 'pg';
-interface PgOptions { prepared?: boolean } // opt-in server-side prepared stmts
+interface PgOptions {
+  prepared?: boolean;
+} // opt-in server-side prepared stmts
 function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 ```
 
 ## Frozen behaviour
 
 ### sqliteDriver (#212)
+
 - `execute(q)`: `db.prepare(q.text)`, spread positional `?` params.
 - If the SQL is a read (`^\s*SELECT`) or has `RETURNING`, return `stmt.all(...params)`
   as rows; otherwise `stmt.run(...params)` and return `[]`.
 - Synchronous under the hood, wrapped in a resolved Promise.
 
 ### pgDriver (#213)
+
 - `execute(q)`: `client.query(q.text, q.parameters)` → return `result.rows`.
 - With `opts.prepared === true`, use a stable statement `name` derived from the
   SQL text so Postgres caches the plan (server-side prepared statement). Kept
@@ -34,12 +38,14 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 - Never mutates the pool/client; no connection lifecycle management.
 
 ## Packaging
+
 - Exposed as `@zmdb/repository/drivers/sqlite` and `@zmdb/repository/drivers/pg`.
 - `pg` is an **optional peer/dev** dependency of the repo (the sqlite driver has
   zero external deps); importing the pg driver without `pg` installed fails
   clearly, not silently.
 
 ## Acceptance
+
 - sqlite driver: E2E against an in-memory `node:sqlite` DB — create/find/list/
   update/delete round-trips (always runs, no external service).
 - pg driver: unit test with a fake `query` recorder asserts it calls

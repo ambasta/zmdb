@@ -19,6 +19,7 @@ abstract class BaseRepository<S extends CoreSchema<string>> {
 ```
 
 Frozen behaviour:
+
 - `findById` / `findAll` keep their current SQL; return type is now `Entity<S>`.
 - `findOne(where)` and `find(where)` accept a typed **`WhereDTO<S>`** (per-column
   value-typed operator object; see the DTO spec) and compile it via
@@ -46,6 +47,7 @@ delete(id: unknown): Promise<boolean>;
 ```
 
 Frozen behaviour:
+
 - `create` accepts `CreateDTO<S>` (auto-increment omitted, defaulted optional),
   validates against the schema **before** any SQL (throws `ValidationError`,
   driver never called on invalid input), returns the inserted `Entity<S>`.
@@ -56,6 +58,7 @@ Frozen behaviour:
   signatures tighten.
 
 ## Acceptance
+
 - Type-level (`expectTypeOf`) assertions: `findById`→`Entity<S>|undefined`,
   `find`/`findOne` accept `WhereDTO<S>` and return `Entity<S>`, `list`→
   `ListResult<Entity<S>>`, `create` accepts `CreateDTO<S>`→`Entity<S>`,

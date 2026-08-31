@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { defineSchema, serial, text, integer, boolean, jsonEnum } from '../index.ts';
 import { makeRng, seedRows } from './index.ts';
 
@@ -25,7 +26,9 @@ describe('seeding (#138)', () => {
   });
 
   it('generated values respect column types; auto-inc id omitted', () => {
-    const [row] = seedRows(UserSchema, { seed: 1, count: 1 });
+    const rows = seedRows(UserSchema, { seed: 1, count: 1 });
+    expect(rows).toHaveLength(1);
+    const row = rows[0] ?? {};
     expect(row).not.toHaveProperty('id'); // serial PK omitted (CreateDTO shape)
     expect(typeof row.email).toBe('string');
     expect(typeof row.age).toBe('number');

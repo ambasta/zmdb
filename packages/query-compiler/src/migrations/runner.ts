@@ -37,7 +37,7 @@ export function ensureVersionTable(conn: MigrationConnection): void {
 export function up(conn: MigrationConnection, migrations: readonly Migration[]): number[] {
   ensureVersionTable(conn);
   const applied = new Set(conn.appliedVersions());
-  const pending = [...migrations].filter((m) => !applied.has(m.version)).sort((a, b) => a.version - b.version);
+  const pending = [...migrations].filter(m => !applied.has(m.version)).toSorted((a, b) => a.version - b.version);
   const done: number[] = [];
   for (const m of pending) {
     conn.exec(m.up);
@@ -50,10 +50,10 @@ export function up(conn: MigrationConnection, migrations: readonly Migration[]):
 // Roll back the single most-recently applied migration.
 export function down(conn: MigrationConnection, migrations: readonly Migration[]): number | undefined {
   ensureVersionTable(conn);
-  const applied = [...conn.appliedVersions()].sort((a, b) => b - a);
+  const applied = [...conn.appliedVersions()].toSorted((a, b) => b - a);
   const latest = applied[0];
   if (latest === undefined) return undefined;
-  const m = migrations.find((x) => x.version === latest);
+  const m = migrations.find(x => x.version === latest);
   if (!m) throw new Error(`no migration definition for applied version ${latest}`);
   conn.exec(m.down);
   conn.recordReverted(latest);
@@ -64,8 +64,8 @@ export function status(conn: MigrationConnection, migrations: readonly Migration
   ensureVersionTable(conn);
   const applied = new Set(conn.appliedVersions());
   return [...migrations]
-    .sort((a, b) => a.version - b.version)
-    .map((m) => ({ version: m.version, name: m.name, applied: applied.has(m.version) }));
+    .toSorted((a, b) => a.version - b.version)
+    .map(m => ({ version: m.version, name: m.name, applied: applied.has(m.version) }));
 }
 
 // Thin CLI dispatch (verb → runner call). Returns a human-readable line.
@@ -83,7 +83,7 @@ export function runCli(
     }
     case 'status':
       return status(conn, migrations)
-        .map((s) => `${s.applied ? '[x]' : '[ ]'} ${s.version} ${s.name}`)
+        .map(s => `${s.applied ? '[x]' : '[ ]'} ${s.version} ${s.name}`)
         .join('\n');
   }
 }

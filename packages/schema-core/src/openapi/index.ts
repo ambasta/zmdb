@@ -79,15 +79,12 @@ function scalarSchema(col: ColumnMeta): Record<string, unknown> {
   return base;
 }
 
-export function toJsonSchema(
-  schema: CoreSchema<string>,
-  variant: Variant = 'entity',
-): JsonSchemaObject {
+export function toJsonSchema(schema: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
   const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   const entries = Object.entries(schema.columns)
     // create/update omit auto-increment columns; response variants keep all.
     .filter(([, col]) => (isResponse ? true : col.flags.autoIncrement !== true))
-    .sort(([a], [b]) => a.localeCompare(b));
+    .toSorted(([a], [b]) => a.localeCompare(b));
 
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
@@ -103,7 +100,7 @@ export function toJsonSchema(
     }
   }
 
-  return { type: 'object', properties, required: required.sort() };
+  return { type: 'object', properties, required: required.toSorted() };
 }
 
 function pascalCase(table: string): string {
@@ -134,11 +131,11 @@ export function toJsonSchemaWithRelations(
   return { type: 'object', properties, required: base.required };
 }
 
-export function toOpenApiComponents(
-  schemas: readonly CoreSchema<string>[],
-): { schemas: Record<string, JsonSchemaObject> } {
+export function toOpenApiComponents(schemas: readonly CoreSchema<string>[]): {
+  schemas: Record<string, JsonSchemaObject>;
+} {
   const out: Record<string, JsonSchemaObject> = {};
-  for (const s of [...schemas].sort((a, b) => a.table.localeCompare(b.table))) {
+  for (const s of [...schemas].toSorted((a, b) => a.table.localeCompare(b.table))) {
     out[pascalCase(s.table)] = toJsonSchema(s, 'entity');
   }
   return { schemas: out };

@@ -1,6 +1,7 @@
-import { describe, it, expect, expectTypeOf, vi } from 'vitest';
 import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
-import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import { describe, it, expect, vi } from 'vitest';
+
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
 
 const UserSchema = defineSchema('users', {
@@ -12,14 +13,17 @@ const UserSchema = defineSchema('users', {
 type S = typeof UserSchema;
 
 class Users extends BaseRepository<S> {
-  static readonly schema = UserSchema;
+  static override readonly schema = UserSchema;
 }
 
+// The DTO signatures these tests exercise are asserted in
+// `typed-methods.type-test.ts` — this file covers validation and the driver calls.
 describe('typed create/update (#206)', () => {
   it('create validates then inserts, returning the row', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
     const repo = new Users({ execute } as Driver);
-    const out = await repo.create({ email: 'a@b.com', age: 30 } as CreateDTO<S>);
+    const dto: CreateDTO<S> = { email: 'a@b.com', age: 30 };
+    const out = await repo.create(dto);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out.id).toBe(1);
   });
@@ -27,7 +31,10 @@ describe('typed create/update (#206)', () => {
   it('create throws ValidationError and does NOT call the driver on invalid input', async () => {
     const execute = vi.fn(async () => []);
     const repo = new Users({ execute } as Driver);
-    // age missing (required, no default) → invalid
+    // age missing (required, no default) → invalid. The cast is the point of the
+    // test: it models untrusted input reaching a typed API at runtime, which is
+    // what the validator has to catch. The compile-time half is asserted in
+    // `typed-methods.type-test.ts`.
     await expect(repo.create({ email: 'a@b.com' } as unknown as CreateDTO<S>)).rejects.toBeInstanceOf(ValidationError);
     expect(execute).not.toHaveBeenCalled();
   });
@@ -35,16 +42,20 @@ describe('typed create/update (#206)', () => {
   it('update validates a partial patch then updates', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 31, role: 'admin' }]);
     const repo = new Users({ execute } as Driver);
-    const out = await repo.update(1, { role: 'admin' } as UpdateDTO<S>);
+    const patch: UpdateDTO<S> = { role: 'admin' };
+    const out = await repo.update(1, patch);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out?.role).toBe('admin');
   });
-
-  it('type-level: create/update accept the derived DTOs and return Entity', () => {
-    const repo = new Users({ execute: async () => [] } as Driver);
-    expectTypeOf(repo.create).parameter(0).toEqualTypeOf<CreateDTO<S>>();
-    expectTypeOf(repo.create).returns.resolves.toEqualTypeOf<Entity<S>>();
-    expectTypeOf(repo.update).parameter(1).toEqualTypeOf<UpdateDTO<S>>();
-    expectTypeOf(repo.update).returns.resolves.toEqualTypeOf<Entity<S> | undefined>();
+  it('update strips explicit undefined properties before payload validation', async () => {
+    const execute = vi.fn(async (_q: unknown) => [{ id: 1, email: 'a@b.com', age: 32, role: 'user' }]);
+    const repo = new Users({ execute } as Driver);
+    const out = await repo.update(1, { age: 32, email: undefined } as UpdateDTO<S>);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(out?.age).toBe(32);
+    // Check compiled SQL parameter only contains age, not email
+    const query = execute.mock.calls[0]?.[0] as { text: string; parameters: unknown[] } | undefined;
+    expect(query?.text).toContain('UPDATE "users" SET "age" = $1 WHERE "id" = $2');
+    expect(query?.parameters).toEqual([32, 1]);
   });
 });

@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { zmdbAdapter, runValidationSuite } from './adapter.ts';
-import { validateResult, validateCoverage, type BenchResult } from '../results.ts';
 import type { TypeDescriptor } from '@zmdb/aot-validator/utilities';
+import { describe, it, expect } from 'vitest';
+
+import { validateResult, validateCoverage, type BenchResult } from '../results.ts';
+import { zmdbAdapter, runValidationSuite } from './adapter.ts';
 
 // #70: validation-suite adapter + runner.
 

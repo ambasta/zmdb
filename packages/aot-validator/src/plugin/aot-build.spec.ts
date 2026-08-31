@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { zmdbAot } from './index.ts';
+
 import { is as runtimeIs, type TypeDescriptor } from '../utilities/index.ts';
+import { zmdbAot } from './index.ts';
 
 // #82: verify the AOT BUILD (the #81 unplugin transform) produces a WORKING,
 // inlined validator — i.e. run the transform over a fixture module, execute the
@@ -19,7 +20,6 @@ function buildValidatorFromSource(): (input: unknown) => boolean {
   // The emitted code has NO runtime call — it is a straight-line inline check.
   expect(out.code).not.toContain('is<');
   expect(out.code).toContain('typeof input.nested.a === "number"');
-  // eslint-disable-next-line no-new-func
   return new Function(`${out.code}; return check;`)() as (input: unknown) => boolean;
 }
 
@@ -61,7 +61,9 @@ describe('AOT build produces a working inlined validator (#82)', () => {
     const N = 200_000;
     const aotOps = bench(() => void check(good), N);
     const runtimeOps = bench(() => void runtimeIs(good, desc), N);
-    console.log(`AOT-build ops/s=${aotOps.toLocaleString()} runtime ops/s=${runtimeOps.toLocaleString()} (${(aotOps / runtimeOps).toFixed(1)}x)`);
+    console.log(
+      `AOT-build ops/s=${aotOps.toLocaleString()} runtime ops/s=${runtimeOps.toLocaleString()} (${(aotOps / runtimeOps).toFixed(1)}x)`,
+    );
     expect(aotOps).toBeGreaterThan(runtimeOps); // inlined path must be faster
   });
 });

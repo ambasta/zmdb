@@ -81,10 +81,7 @@ export function Controller(prefix = '') {
 // Build a method decorator for a given HTTP verb.
 function methodDecorator(method: HttpMethod) {
   return function (path = '') {
-    return function (
-      _target: (...args: never[]) => unknown,
-      context: ClassMethodDecoratorContext,
-    ): void {
+    return function (_target: (...args: never[]) => unknown, context: ClassMethodDecoratorContext): void {
       const handlerName = typeof context.name === 'string' ? context.name : context.name.toString();
       pushRoute(context.metadata, { method, path, handlerName });
     };
@@ -117,7 +114,7 @@ export function getRoutes(controller: abstract new (...args: never[]) => unknown
     return [];
   }
   const prefix = view[PREFIX] ?? '';
-  return routes.map((route) => ({
+  return routes.map(route => ({
     method: route.method,
     path: normalizePath(prefix, route.path),
     handlerName: route.handlerName,

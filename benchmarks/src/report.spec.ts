@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { toMarkdown, toJson, assertNoSilentSkips, ReportError } from './report.ts';
 import { IN_SCOPE_CASES, type BenchResult } from './results.ts';
 
@@ -6,7 +7,7 @@ import { IN_SCOPE_CASES, type BenchResult } from './results.ts';
 
 // A full, valid result set for one target in each suite.
 function fullResults(): BenchResult[] {
-  const validation: BenchResult[] = IN_SCOPE_CASES.validation.map((c) => ({
+  const validation: BenchResult[] = IN_SCOPE_CASES.validation.map(c => ({
     suite: 'validation',
     case: c,
     target: 'zmdb',
@@ -14,7 +15,7 @@ function fullResults(): BenchResult[] {
     opsPerSec: 1000,
   }));
   const antiPattern = new Set(['lazy-relation-graph', 'identity-map-dedup', 'active-record-save']);
-  const orm: BenchResult[] = IN_SCOPE_CASES.orm.map((c) =>
+  const orm: BenchResult[] = IN_SCOPE_CASES.orm.map(c =>
     antiPattern.has(c)
       ? { suite: 'orm', case: c, target: 'zmdb', status: 'dnf', dnfReason: 'dnf (anti-pattern): rejected' }
       : { suite: 'orm', case: c, target: 'zmdb', status: 'ok', opsPerSec: 500 },
@@ -40,14 +41,12 @@ describe('report generator', () => {
 
 describe('honesty guard (no silent skips)', () => {
   it('throws ReportError when an in-scope case is missing', () => {
-    const missing = fullResults().filter((r) => r.case !== 'customer-by-id');
+    const missing = fullResults().filter(r => r.case !== 'customer-by-id');
     expect(() => assertNoSilentSkips(missing)).toThrow(ReportError);
   });
 
   it('throws when a result is schema-invalid (ok without opsPerSec)', () => {
-    const bad = fullResults().map((r) =>
-      r.case === 'customer-by-id' ? { ...r, opsPerSec: undefined } : r,
-    );
+    const bad = fullResults().map(r => (r.case === 'customer-by-id' ? { ...r, opsPerSec: undefined } : r));
     expect(() => assertNoSilentSkips(bad)).toThrow(ReportError);
   });
 

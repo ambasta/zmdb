@@ -30,7 +30,6 @@ export function defineState<B extends string, T>(): State<B, T> {
       // runtime representation), so returning the value unchanged as the branded
       // type is sound. This is the single enumerated brand-attach boundary
       // (ARCHITECTURE.md §2.1); it never appears on the consumer surface.
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       return value as Brand<T, B>;
     },
     is(value: unknown): value is Brand<T, B> {

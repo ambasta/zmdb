@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    name: Test + Typecheck + Benchmarks
+    name: Lint + Typecheck + Test + Benchmarks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -24,12 +29,19 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Typecheck (all packages + benchmarks)
-        run: |
-          for p in schema-core query-compiler aot-validator repository; do
-            yarn tsc --noEmit -p packages/$p/tsconfig.json
-          done
-          yarn tsc --noEmit -p benchmarks/tsconfig.json
+      - name: Lint
+        run: yarn lint
+
+      - name: Format check
+        run: yarn fmt:check
+
+      # `yarn typecheck` discovers packages/*/tsconfig.json (plus benchmarks), so
+      # a new package is covered without editing this file. The hand-maintained
+      # loop it replaced listed four packages and skipped `web` and `zmdb`.
+      # Specs and `*.type-test.ts` files are inside the program, so the
+      # type-level assertions (Equal/Expect, @ts-expect-error) are gated here.
+      - name: Typecheck (all projects, incl. specs and type-tests)
+        run: yarn typecheck
 
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
@@ -49,6 +61,8 @@ jobs:
     name: Benchmark regression guardrail
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - run: corepack enable
@@ -62,3 +76,66 @@ jobs:
       # regression; here we run the guardrail test suite as the gate.
       - name: Guardrail checks
         run: yarn vitest run benchmarks/src/guardrail.spec.ts
+
+  audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Audit dependencies
+        run: yarn npm audit --all --recursive --severity high --no-deprecations
+
+  codeql:
+    name: CodeQL SAST Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  secret-scan:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

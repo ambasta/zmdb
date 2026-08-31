@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  is,
-  assert,
-  validate,
-  equals,
-  random,
-  AssertError,
-  type TypeDescriptor,
-} from './index.ts';
+
+import { is, assert, validate, equals, random, AssertError, type TypeDescriptor } from './index.ts';
 
 // RED PHASE (#56 spec freeze): validator utility surface.
 

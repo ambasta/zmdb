@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { defineSchema, serial, text, jsonEnum } from '../index.ts';
 import { toolFromSchema, lenientParse } from './index.ts';
 
@@ -32,9 +33,11 @@ describe('LLM function-calling harness (#159)', () => {
   });
 
   it('lenientParse applies coerce; a throwing coerce ⇒ failure', () => {
-    const ok = lenientParse<{ n: number }>('{"n":"5"}', (v) => ({ n: Number((v as any).n) }));
+    const ok = lenientParse<{ n: number }>('{"n":"5"}', v => ({ n: Number((v as { n: unknown }).n) }));
     expect(ok.data).toEqual({ n: 5 });
-    const bad = lenientParse('{}', () => { throw new Error('coerce fail'); });
+    const bad = lenientParse('{}', () => {
+      throw new Error('coerce fail');
+    });
     expect(bad.success).toBe(false);
   });
 });

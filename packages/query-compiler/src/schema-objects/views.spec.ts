@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createViewDdl, dropViewDdl, UnsupportedFeatureError } from './index.ts';
 
 describe('views DDL (#103)', () => {

@@ -71,7 +71,6 @@ throughput table in RESULTS.md therefore compares only the shared CRUD routes
 (engine not installed). `orm-full.bench.ts` is a quick in-process cross-check;
 `server.ts` + k6 is the authoritative path.
 
-
 ## Framework (HTTP) — the actual the-benchmarker/web-frameworks methodology
 
 `@zmdb/web` (the Stage-3 decorator web framework) participates in

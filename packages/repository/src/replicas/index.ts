@@ -1,6 +1,7 @@
+import type { CompiledQuery } from '@zmdb/query-compiler';
+
 // Read-replica routing — see ./SPEC.md.
 import type { Driver } from '../index.ts';
-import type { CompiledQuery } from '@zmdb/query-compiler';
 
 export interface ReplicaOptions {
   primary: Driver;
@@ -20,9 +21,12 @@ export function withReplicas(opts: ReplicaOptions): Driver {
   return {
     execute(query: CompiledQuery) {
       if (isWrite(query.text) || replicas.length === 0) return primary.execute(query);
-      const driver = opts.pick ? opts.pick(replicas, rr) : replicas[rr % replicas.length]!;
+      const driver = opts.pick ? opts.pick(replicas, rr) : replicas[rr % replicas.length];
       rr = (rr + 1) % replicas.length;
-      return driver.execute(query);
+      // `replicas` is non-empty here (checked above), so the modulo index always
+      // hits — but a custom `pick` is caller code, so fall back to the primary
+      // rather than crashing on a bad index.
+      return (driver ?? primary).execute(query);
     },
   };
 }

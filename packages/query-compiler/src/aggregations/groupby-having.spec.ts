@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { aggregateSelectFrom } from './index.ts';
 
 // #91: groupBy + having (dedicated coverage).

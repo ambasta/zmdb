@@ -8,11 +8,11 @@ the same methodology the upstream suite uses.
 
 Every implementation listens on port **`3000`** and provides exactly:
 
-| Method | Route        | Expected status | Expected body            |
-|--------|--------------|-----------------|--------------------------|
-| `GET`  | `/`          | `2xx`           | Empty                    |
-| `GET`  | `/user/:id`  | `2xx`           | The `id` path parameter  |
-| `POST` | `/user`      | `2xx`           | Empty                    |
+| Method | Route       | Expected status | Expected body           |
+| ------ | ----------- | --------------- | ----------------------- |
+| `GET`  | `/`         | `2xx`           | Empty                   |
+| `GET`  | `/user/:id` | `2xx`           | The `id` path parameter |
+| `POST` | `/user`     | `2xx`           | Empty                   |
 
 Before benchmarking, the routes are validated by a shared correctness contract
 (upstream uses an RSpec spec; we ship the Node equivalent `contract-check.mjs`).

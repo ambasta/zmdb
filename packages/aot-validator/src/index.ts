@@ -106,6 +106,16 @@ function splitTopLevelComma(s: string): [string, string] {
   return [s, ''];
 }
 
+// Dedicated escaping helper to sanitize pattern inputs before embedding into compiled regex literals.
+export function escapePattern(pattern: string): string {
+  return pattern
+    .replace(/(?<!\\)(?:\\\\)*\//g, match => match.slice(0, -1) + '\\/')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\u2028', '\\u2028')
+    .replaceAll('\u2029', '\\u2029');
+}
+
 function inlineCheck(ruleSrc: string, expr: string): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`; // leave untouched if unrecognized
@@ -121,12 +131,28 @@ function inlineCheck(ruleSrc: string, expr: string): string {
     case 'MaxLength':
       return `(typeof ${expr} === "string" && ${expr}.length <= ${args})`;
     case 'Pattern': {
-      const re = args.replace(/^["'`]|["'`]$/g, '');
+      let raw = args.trim();
+      const first = raw[0];
+      const last = raw[raw.length - 1];
+      const isQuoted =
+        raw.length >= 2 &&
+        ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
+
+      if (!isQuoted) {
+        return `validate(${ruleSrc}, ${expr})`;
+      }
+
+      if (first === '`' && raw.includes('${')) {
+        return `validate(${ruleSrc}, ${expr})`;
+      }
+
+      raw = raw.slice(1, -1);
+      const re = escapePattern(raw);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;
     }
     case 'Enum': {
       const values = splitArgs(args);
-      return `(${values.map((v) => `${expr} === ${v}`).join(' || ')})`;
+      return `(${values.map(v => `${expr} === ${v}`).join(' || ')})`;
     }
     default:
       return `validate(${ruleSrc}, ${expr})`;

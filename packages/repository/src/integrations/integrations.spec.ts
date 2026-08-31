@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { makeEndpoint } from './index.ts';
 
 interface CreateUser {
@@ -15,7 +16,7 @@ describe('framework integration contract (#154)', () => {
   it('valid input ⇒ 200 with serialized handler output', async () => {
     const ep = makeEndpoint<CreateUser, { id: number; email: string }>({
       validate,
-      handle: async (u) => ({ id: 1, email: u.email }),
+      handle: async u => ({ id: 1, email: u.email }),
     });
     const res = await ep({ email: 'a@b.com' });
     expect(res.status).toBe(200);
@@ -36,8 +37,8 @@ describe('framework integration contract (#154)', () => {
   it('custom serialize is used', async () => {
     const ep = makeEndpoint<CreateUser, { email: string }>({
       validate,
-      handle: async (u) => ({ email: u.email }),
-      serialize: (o) => `email=${o.email}`,
+      handle: async u => ({ email: u.email }),
+      serialize: o => `email=${o.email}`,
     });
     const res = await ep({ email: 'x@y.com' });
     expect(res.body).toBe('email=x@y.com');

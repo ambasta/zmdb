@@ -62,7 +62,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error('contract check error:', err);
   process.exit(1);
 });

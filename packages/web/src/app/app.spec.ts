@@ -2,9 +2,10 @@
 // createApp routes a request; init runs hooks in order; dispose runs onShutdown
 // reversed. Per packages/web/src/app/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { Controller, Get } from '../routing/index.ts';
-import { Module } from '../modules/index.ts';
+
 import type { Ctx } from '../context/index.ts';
+import { Module } from '../modules/index.ts';
+import { Controller, Get } from '../routing/index.ts';
 import { createApp, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './index.ts';
 
 const order: string[] = [];

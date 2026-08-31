@@ -1,31 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
+
 import { defineSchema, serial, text, jsonEnum, primaryKey, notNull } from '@zmdb/schema-core';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { sqliteDriver } from './drivers/sqlite.ts';
+import { BaseRepository, ValidationError } from './index.ts';
 
 // #29: end-to-end integration — a <10-line repository performing real CRUD
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).
-
-// A real SQLite driver: executes CompiledQuery (text + positional `?` params).
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as unknown[];
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
-}
 
 // The single source of truth.
 const UserSchema = defineSchema('users', {
   id: primaryKey(serial()),
   email: notNull(text()),
-  role: jsonEnum(['admin', 'user']),
+  role: jsonEnum(['admin', 'user']).nullable(),
 });
 
 // The ENTIRE repository — well under 10 lines.
@@ -58,7 +46,25 @@ describe('repository E2E (real SQLite)', () => {
     expect(await users.findById(id)).toBeUndefined();
   });
 
+  it('update payload with explicit undefined strips undefined, preserves nulls and leaves omitted fields unchanged', async () => {
+    const created = await users.create({ email: 'a@b.com', role: 'admin' });
+    const id = created.id;
+
+    // Passing explicit undefined for email and explicit null for role (role is nullable in UserSchema)
+    const updated = await users.update(id, { email: undefined, role: null });
+    expect(updated).toMatchObject({ id, email: 'a@b.com', role: null });
+
+    // Verify in database that email was unchanged and role was set to SQL NULL
+    const reloaded = await users.findById(id);
+    expect(reloaded?.email).toBe('a@b.com');
+    expect(reloaded?.role).toBeNull();
+  });
+
   it('rejects an invalid create with ValidationError and writes nothing', async () => {
+    // @ts-expect-error — deliberately invalid input: `email` is missing and `role`
+    // is not a member of the enum. Now that specs are inside the typecheck program
+    // this directive is itself an assertion: the derived `CreateDTO` must reject
+    // this literal, and the runtime validator must reject it too.
     await expect(users.create({ role: 'nope' })).rejects.toBeInstanceOf(ValidationError);
     expect(await users.findAll()).toEqual([]);
   });

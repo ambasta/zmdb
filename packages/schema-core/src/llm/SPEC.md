@@ -7,10 +7,18 @@ Epic #157.
 ## API
 
 ```ts
-interface ToolSpec { name: string; description?: string; parameters: JsonSchemaObject; }
+interface ToolSpec {
+  name: string;
+  description?: string;
+  parameters: JsonSchemaObject;
+}
 function toolFromSchema<S>(name: string, schema: S, opts?: { description?: string }): ToolSpec;
 
-interface ParseResult<T> { success: boolean; data?: T; errors?: readonly string[]; }
+interface ParseResult<T> {
+  success: boolean;
+  data?: T;
+  errors?: readonly string[];
+}
 function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): ParseResult<T>;
 ```
 
@@ -19,7 +27,7 @@ function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): Pa
 - `toolFromSchema(name, schema)` returns `{ name, description?, parameters }`
   where `parameters` is the schema's `create`-variant JSON Schema (input shape).
 - `lenientParse(text)`:
-  - strips Markdown code fences (```json … ```) before parsing,
+  - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a
     plain `JSON.parse`,
   - on parse failure returns `{ success:false, errors:[msg] }`,

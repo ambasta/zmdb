@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
+
 import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
+import { describe, it, expect, vi } from 'vitest';
+
 import { BaseRepository } from '../index.ts';
-import { sqliteDriver } from './sqlite.ts';
 import { pgDriver, type PgQueryable } from './pg.ts';
+import { sqliteDriver } from './sqlite.ts';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
@@ -45,13 +47,20 @@ describe('pgDriver (#211)', () => {
   });
 
   it('prepared:true passes a stable statement name', async () => {
-    const query = vi.fn(async () => ({ rows: [] }));
+    // The configs are captured here rather than read back off `query.mock.calls`:
+    // `vi.fn(async () => …)` infers a zero-parameter mock, so `calls[0][0]` is an
+    // out-of-bounds read on an empty tuple that only a cast could silence.
+    const configs: { name?: string; text: string }[] = [];
+    const query = vi.fn(async (config: { name?: string; text: string }) => {
+      configs.push(config);
+      return { rows: [] };
+    });
     const d = pgDriver({ query } as unknown as PgQueryable, { prepared: true });
     await d.execute({ text: 'SELECT $1', parameters: [1] });
     await d.execute({ text: 'SELECT $1', parameters: [2] });
-    const c0 = query.mock.calls[0][0] as { name?: string; text: string };
-    const c1 = query.mock.calls[1][0] as { name?: string; text: string };
-    expect(typeof c0.name).toBe('string');
-    expect(c0.name).toBe(c1.name); // same SQL → same statement name
+    expect(configs).toHaveLength(2);
+    const [c0, c1] = configs;
+    expect(typeof c0?.name).toBe('string');
+    expect(c0?.name).toBe(c1?.name); // same SQL → same statement name
   });
 });

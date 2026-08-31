@@ -1,33 +1,59 @@
-import { describe, it, expect } from 'vitest';
-import * as zmdb from './index.ts';
-import * as schemaCore from '@zmdb/schema-core';
-import * as repository from '@zmdb/repository';
-import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
-import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
 import { tags as srcTags } from '@zmdb/aot-validator';
+import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
+import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
+import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
+import {
+  defineSchema as srcDefineSchema,
+  serial as srcSerial,
+  integer as srcInteger,
+  text as srcText,
+  boolean as srcBoolean,
+  timestamp as srcTimestamp,
+  jsonEnum as srcJsonEnum,
+} from '@zmdb/schema-core';
+import { describe, it, expect } from 'vitest';
+
+import {
+  defineSchema,
+  serial,
+  integer,
+  text,
+  boolean,
+  timestamp,
+  jsonEnum,
+  createQueryCompiler,
+  is,
+  assert,
+  validate,
+  tags,
+  BaseRepository,
+  defineRepository,
+} from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports the curated schema-core surface, identical to source', () => {
-    for (const name of ['defineSchema', 'serial', 'integer', 'text', 'boolean', 'timestamp', 'jsonEnum']) {
-      expect((zmdb as Record<string, unknown>)[name], name).toBe((schemaCore as Record<string, unknown>)[name]);
-    }
+    expect(defineSchema).toBe(srcDefineSchema);
+    expect(serial).toBe(srcSerial);
+    expect(integer).toBe(srcInteger);
+    expect(text).toBe(srcText);
+    expect(boolean).toBe(srcBoolean);
+    expect(timestamp).toBe(srcTimestamp);
+    expect(jsonEnum).toBe(srcJsonEnum);
   });
 
   it('re-exports createQueryCompiler', () => {
-    expect((zmdb as Record<string, unknown>).createQueryCompiler).toBe(srcQC);
+    expect(createQueryCompiler).toBe(srcQC);
   });
 
   it('re-exports validators is/assert/validate/tags', () => {
-    const z = zmdb as Record<string, unknown>;
-    expect(z.is).toBe(srcIs);
-    expect(z.assert).toBe(srcAssert);
-    expect(z.validate).toBe(srcValidate);
-    expect(z.tags).toBe(srcTags);
+    expect(is).toBe(srcIs);
+    expect(assert).toBe(srcAssert);
+    expect(validate).toBe(srcValidate);
+    expect(tags).toBe(srcTags);
   });
 
   it('re-exports the repository surface (BaseRepository, defineRepository)', () => {
-    const z = zmdb as Record<string, unknown>;
-    expect(z.BaseRepository).toBe((repository as Record<string, unknown>).BaseRepository);
-    expect(z.defineRepository).toBe((repository as Record<string, unknown>).defineRepository);
+    expect(BaseRepository).toBe(SrcBaseRepository);
+    expect(defineRepository).toBe(srcDefineRepository);
   });
 });

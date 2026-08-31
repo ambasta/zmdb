@@ -4,8 +4,8 @@
 // deps). No reflection; no `as` on the consumer surface.
 
 import '../polyfill.ts';
-import { getRoutes, type ResolvedRoute } from '../routing/index.ts';
 import { extractParams, type Ctx, type QueryValues } from '../context/index.ts';
+import { getRoutes, type ResolvedRoute } from '../routing/index.ts';
 
 export type { Ctx } from '../context/index.ts';
 
@@ -67,9 +67,7 @@ export function createRouter(): Router {
         }
         const opts = options[route.handlerName];
         routes.push(
-          opts?.validateBody === undefined
-            ? { route, handler }
-            : { route, handler, validateBody: opts.validateBody },
+          opts?.validateBody === undefined ? { route, handler } : { route, handler, validateBody: opts.validateBody },
         );
       }
     },
@@ -122,7 +120,6 @@ function controllerCtor(controller: object): ControllerCtor | undefined {
   if (typeof ctor !== 'function') {
     return undefined;
   }
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return ctor as ControllerCtor;
 }
 
@@ -136,7 +133,6 @@ function readHandler(controller: object, name: string): Handler | undefined {
     return undefined;
   }
   const bound = value.bind(controller);
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return bound as Handler;
 }
 
@@ -163,7 +159,7 @@ interface NodeResLike {
 export function toNodeHandler(router: Router): (req: NodeReqLike, res: NodeResLike) => void {
   return function (req: NodeReqLike, res: NodeResLike): void {
     const chunks: string[] = [];
-    req.on('data', (chunk) => {
+    req.on('data', chunk => {
       chunks.push(String(chunk));
     });
     req.on('end', () => {

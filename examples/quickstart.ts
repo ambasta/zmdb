@@ -3,10 +3,11 @@
 // Defines a schema, wires a typed repository with defineRepository + the built-in
 // sqlite driver, and does typed CRUD + list + populate. No proxies, no identity map.
 import { DatabaseSync } from 'node:sqlite';
-import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import { oneToMany } from '@zmdb/schema-core/relations';
+
 import { defineRepository } from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
+import { oneToMany } from '@zmdb/schema-core/relations';
 
 // 1 — define your schema once
 const UserSchema = defineSchema('users', {
@@ -29,8 +30,14 @@ db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEG
 const users = defineRepository(UserSchema, sqliteDriver(db), {
   dialect: 'sqlite',
   relations: {
-    orders: { meta: oneToMany('orders', 'userId'), entity: OrderSchema,
-              cardinality: 'one-to-many', childTable: 'orders', childFk: 'userId', parentKey: 'id' },
+    orders: {
+      meta: oneToMany('orders', 'userId'),
+      entity: OrderSchema,
+      cardinality: 'one-to-many',
+      childTable: 'orders',
+      childFk: 'userId',
+      parentKey: 'id',
+    },
   },
 });
 

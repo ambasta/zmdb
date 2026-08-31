@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { BaseRepository, type Driver } from './index.ts';
 import type { CoreSchema } from '@zmdb/schema-core';
+import { describe, it, expect, vi } from 'vitest';
+
+import { BaseRepository, type Driver } from './index.ts';
 
 // #28: delete + pre/post lifecycle hooks.
 

@@ -6,6 +6,7 @@
 ## Contract
 
 ### `createApp(RootModule): App`
+
 - Compiles the module graph (via `compileModule`), builds a `Router`, and
   registers every module controller's routes on it — **once, at bootstrap**.
 - Returns an `App`:
@@ -19,15 +20,18 @@
     reverse order; enables `await using app = createApp(...)`.
 
 ### Lifecycle hook interfaces
+
 - **`OnModuleInit`** — `{ onModuleInit(): void | Promise<void> }`.
 - **`OnApplicationBootstrap`** — `{ onApplicationBootstrap(): void | Promise<void> }`.
 - **`OnShutdown`** — `{ onShutdown(): void | Promise<void> }`.
 
 ### Order
+
 - `init()`: `onModuleInit` (all, deps-first) then `onApplicationBootstrap` (all).
 - shutdown: `onShutdown` in **reverse** registration order.
 
 ## Invariants
+
 - Everything (DI graph, routes) wired **at bootstrap**; the per-request path is
   the W6 dispatcher unchanged — **no reflection per request.**
 - **No `as`/`any`/`!` on the consumer surface.** Hook detection uses typed
@@ -35,10 +39,12 @@
 - Uses Stage-3 `Symbol.asyncDispose` for `await using` graceful shutdown.
 
 ## Acceptance
+
 - `createApp(Root)` handles a request routed to a module controller (200).
 - `init()` calls `onModuleInit`/`onApplicationBootstrap` on implementers, in
   order; `await using` (dispose) calls `onShutdown` in reverse.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
+
 WS/SSE gateways (epic #307), testing harness (#312).

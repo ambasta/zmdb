@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { createQueryCompiler } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
@@ -6,15 +7,8 @@ import { createQueryCompiler } from './index.ts';
 describe('postgres SELECT compilation', () => {
   it('compiles where + orderBy + limit', () => {
     const qb = createQueryCompiler('postgres');
-    const q = qb
-      .selectFrom('users')
-      .where('email', '=', 'a@b.com')
-      .orderBy('createdAt', 'desc')
-      .limit(10)
-      .compile();
-    expect(q.text).toBe(
-      'SELECT * FROM "users" WHERE "email" = $1 ORDER BY "createdAt" DESC LIMIT 10',
-    );
+    const q = qb.selectFrom('users').where('email', '=', 'a@b.com').orderBy('createdAt', 'desc').limit(10).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "email" = $1 ORDER BY "createdAt" DESC LIMIT 10');
     expect(q.parameters).toEqual(['a@b.com']);
   });
 
@@ -41,18 +35,12 @@ describe('postgres write compilation', () => {
       .values({ email: 'a@b.com', role: 'user' })
       .returning(['id'])
       .compile();
-    expect(q.text).toBe(
-      'INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING "id"',
-    );
+    expect(q.text).toBe('INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING "id"');
     expect(q.parameters).toEqual(['a@b.com', 'user']);
   });
 
   it('UPDATE ... SET ... WHERE', () => {
-    const q = createQueryCompiler('postgres')
-      .updateTable('users')
-      .set({ role: 'admin' })
-      .where('id', '=', 1)
-      .compile();
+    const q = createQueryCompiler('postgres').updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
     expect(q.text).toBe('UPDATE "users" SET "role" = $1 WHERE "id" = $2');
     expect(q.parameters).toEqual(['admin', 1]);
   });
@@ -72,17 +60,12 @@ describe('dialect placeholder + quoting', () => {
       .orderBy('createdAt', 'desc')
       .limit(10)
       .compile();
-    expect(q.text).toBe(
-      'SELECT * FROM `users` WHERE `email` = ? ORDER BY `createdAt` DESC LIMIT 10',
-    );
+    expect(q.text).toBe('SELECT * FROM `users` WHERE `email` = ? ORDER BY `createdAt` DESC LIMIT 10');
     expect(q.parameters).toEqual(['a@b.com']);
   });
 
   it('sqlite uses ? and double quotes', () => {
-    const q = createQueryCompiler('sqlite')
-      .selectFrom('users')
-      .where('id', '=', 1)
-      .compile();
+    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', '=', 1).compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "id" = ?');
     expect(q.parameters).toEqual([1]);
   });

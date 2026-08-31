@@ -7,7 +7,7 @@
 ## 1. toJsonSchema(schema, variant?)
 
 ```ts
-type Variant = 'entity' | 'create' | 'update';           // default 'entity'
+type Variant = 'entity' | 'create' | 'update'; // default 'entity'
 function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchemaObject;
 ```
 
@@ -24,36 +24,36 @@ type Variant = 'entity' | 'create' | 'update' | 'get' | 'list' | 'search';
 
 - `get` → the entity response schema (same shape as `entity`).
 - `list` → an envelope `{ items: { type:'array', items: entity }, total?: integer,
-  hasMore: boolean, cursor?: string }` via `toListSchema(schema)`.
+hasMore: boolean, cursor?: string }` via `toListSchema(schema)`.
 - `search` → `list` whose item schema also carries an optional `_score` number,
   via `toSearchSchema(schema)`.
 - Deterministic key ordering; build-time only; no runtime reflection.
 
 ## 2. Column type → JSON Schema mapping
 
-| Column type | JSON Schema |
-|-------------|-------------|
-| serial / integer | `{ "type": "integer" }` |
-| bigint | `{ "type": "integer", "format": "int64" }` |
-| numeric | `{ "type": "number" }` |
-| text / varchar | `{ "type": "string" }` (varchar adds `maxLength` from `length`) |
-| boolean | `{ "type": "boolean" }` |
-| timestamp | `{ "type": "string", "format": "date-time" }` |
-| json | `{}` (any) |
-| jsonEnum(values) | `{ "type": "string", "enum": values }` |
+| Column type      | JSON Schema                                                     |
+| ---------------- | --------------------------------------------------------------- |
+| serial / integer | `{ "type": "integer" }`                                         |
+| bigint           | `{ "type": "integer", "format": "int64" }`                      |
+| numeric          | `{ "type": "number" }`                                          |
+| text / varchar   | `{ "type": "string" }` (varchar adds `maxLength` from `length`) |
+| boolean          | `{ "type": "boolean" }`                                         |
+| timestamp        | `{ "type": "string", "format": "date-time" }`                   |
+| json             | `{}` (any)                                                      |
+| jsonEnum(values) | `{ "type": "string", "enum": values }`                          |
 
 Nullable columns → `{ "type": ["<t>", "null"] }`.
 
 ## 3. Validation tag → keyword mapping
 
-| Tag | Keyword |
-|-----|---------|
-| `Minimum(n)` | `minimum: n` |
-| `Maximum(n)` | `maximum: n` |
+| Tag            | Keyword        |
+| -------------- | -------------- |
+| `Minimum(n)`   | `minimum: n`   |
+| `Maximum(n)`   | `maximum: n`   |
 | `MinLength(n)` | `minLength: n` |
 | `MaxLength(n)` | `maxLength: n` |
-| `Pattern(re)` | `pattern: re` |
-| `Enum(...v)` | `enum: v` |
+| `Pattern(re)`  | `pattern: re`  |
+| `Enum(...v)`   | `enum: v`      |
 
 ## 4. Variant rules (DTO-aware)
 
@@ -88,9 +88,9 @@ Deterministic: same input → byte-identical output.
     "createdAt": { "type": "string", "format": "date-time" },
     "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\.[^@]+$" },
     "id": { "type": "integer" },
-    "role": { "type": "string", "enum": ["admin", "user", "guest"] }
+    "role": { "type": "string", "enum": ["admin", "user", "guest"] },
   },
-  "required": ["createdAt", "email", "id", "role"]
+  "required": ["createdAt", "email", "id", "role"],
 }
 ```
 

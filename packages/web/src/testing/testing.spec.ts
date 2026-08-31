@@ -2,10 +2,11 @@
 // createTestApp applies overrides, drives requests in-process, exposes get.
 // Per packages/web/src/testing/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { Controller, Get } from '../routing/index.ts';
-import { Module } from '../modules/index.ts';
-import { createToken, Inject } from '../di/index.ts';
+
 import type { Ctx } from '../context/index.ts';
+import { createToken, Inject } from '../di/index.ts';
+import { Module } from '../modules/index.ts';
+import { Controller, Get } from '../routing/index.ts';
 import { createTestApp } from './index.ts';
 
 interface Greeter {

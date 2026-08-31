@@ -3,25 +3,30 @@
   "version": "1.0.0-alpha.4",
   "description": "Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.",
   "keywords": [
+    "controllers",
+    "decorators",
+    "dependency-injection",
+    "stage-3",
     "typescript",
     "web-framework",
-    "decorators",
-    "stage-3",
-    "dependency-injection",
-    "controllers",
     "zmdb"
   ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
-  "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/web"
   },
-  "bugs": {
-    "url": "https://github.com/ambasta/zmdb/issues"
-  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -41,29 +46,24 @@
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts"
   },
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=26"
-  },
   "publishConfig": {
     "access": "public",
     "tag": "alpha"
   },
   "scripts": {
-    "test": "vitest run",
-    "build": "tsup"
-  },
-  "devDependencies": {
-    "tsup": "8.5.0",
-    "typescript": "5.9.2"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

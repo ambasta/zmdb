@@ -2,6 +2,7 @@
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
 import { describe, it, expect } from 'vitest';
+
 import { Controller, Get, Post } from '../routing/index.ts';
 import { createRouter, toFetchHandler, type Ctx } from './index.ts';
 
@@ -23,7 +24,7 @@ function makeRouter() {
   const controller = new UsersController();
   router.register(controller, {
     create: {
-      validateBody: (raw) => {
+      validateBody: raw => {
         if (typeof raw !== 'object' || raw === null || typeof Reflect.get(Object(raw), 'name') !== 'string') {
           throw new Error('name required');
         }

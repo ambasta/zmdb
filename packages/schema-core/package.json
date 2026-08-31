@@ -3,25 +3,30 @@
   "version": "1.0.0-alpha.4",
   "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.",
   "keywords": [
-    "typescript",
+    "dto",
+    "openapi",
     "orm",
     "schema",
-    "dto",
     "type-derivation",
-    "openapi",
+    "typescript",
     "zmdb"
   ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
-  "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/schema-core"
   },
-  "bugs": {
-    "url": "https://github.com/ambasta/zmdb/issues"
-  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -32,24 +37,19 @@
     "./seeding": "./src/seeding/index.ts",
     "./llm": "./src/llm/index.ts"
   },
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=26"
-  },
   "publishConfig": {
     "access": "public",
     "tag": "alpha"
   },
   "scripts": {
-    "test": "vitest run",
-    "build": "tsup"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "tsup": "8.5.0",
-    "typescript": "5.9.2"
+    "tsup": "8.5.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

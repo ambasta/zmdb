@@ -5,19 +5,32 @@
 // packaging is #81; this string harness pins & implements the emitted-JS
 // contract the spec froze.)
 
-
 // A parsed TS type: primitives or a flat/nested object type literal.
-type PType =
-  | { kind: 'number' | 'string' | 'boolean' }
-  | { kind: 'object'; fields: { name: string; type: PType }[] };
+type PType = { kind: 'number' | 'string' | 'boolean' } | { kind: 'object'; fields: { name: string; type: PType }[] };
 
 // Minimal parser for the subset of TS type syntax the moltar model uses:
 // primitives and `{ a: T; b: U }` object literals (nesting supported).
-function parseType(src: string): PType {
+// `undefined` = "not in the supported subset". Callers must then leave the call
+// site untouched: emitting a check for a type we did not understand would be a
+// silently-wrong validator, which PRD P4 rules out. (Previously an unknown
+// primitive was cast to a `kind` the emitter has no case for, and the emission
+// became the literal string `undefined` — always falsy. That is the bug this
+// return type removes.) Widening the subset is #81's job, not this parser's.
+function primType(prim: string): PType | undefined {
+  return prim === 'number' || prim === 'string' || prim === 'boolean' ? { kind: prim } : undefined;
+}
+
+function parseType(src: string): PType | undefined {
   let i = 0;
   const s = src.trim();
-  function ws() { while (i < s.length && /\s/.test(s[i]!)) i++; }
-  function parse(): PType {
+  // Cursor read as a string: every call site is already bounded by `i < s.length`,
+  // and `''` fails every character class below, so the empty default terminates
+  // the same loops that the bound does — no `s[i]!` needed.
+  const at = (k: number): string => s[k] ?? '';
+  function ws() {
+    while (i < s.length && /\s/.test(at(i))) i++;
+  }
+  function parse(): PType | undefined {
     ws();
     if (s[i] === '{') {
       i++; // consume {
@@ -27,19 +40,20 @@ function parseType(src: string): PType {
         ws();
         // field name
         let name = '';
-        while (i < s.length && /[A-Za-z0-9_$]/.test(s[i]!)) name += s[i++]!;
+        while (i < s.length && /[A-Za-z0-9_$]/.test(at(i))) name += at(i++);
         ws();
         if (s[i] === ':') i++; // consume :
         // field type: recurse (handles nested {}), stop at ; or , or } at depth 0
         ws();
-        let type: PType;
+        let type: PType | undefined;
         if (s[i] === '{') {
           type = parse();
         } else {
           let prim = '';
-          while (i < s.length && /[A-Za-z]/.test(s[i]!)) prim += s[i++]!;
-          type = { kind: prim as 'number' | 'string' | 'boolean' };
+          while (i < s.length && /[A-Za-z]/.test(at(i))) prim += at(i++);
+          type = primType(prim);
         }
+        if (!type) return undefined; // unsupported field type ⇒ unsupported object
         fields.push({ name, type });
         ws();
         if (s[i] === ';' || s[i] === ',') i++;
@@ -50,8 +64,8 @@ function parseType(src: string): PType {
     }
     // primitive
     let prim = '';
-    while (i < s.length && /[A-Za-z]/.test(s[i]!)) prim += s[i++]!;
-    return { kind: prim as 'number' | 'string' | 'boolean' };
+    while (i < s.length && /[A-Za-z]/.test(at(i))) prim += at(i++);
+    return primType(prim);
   }
   return parse();
 }
@@ -80,10 +94,17 @@ function rewriteCall(code: string, fn: 'is' | 'assert'): string {
   const needle = `${fn}<`;
   while (i < code.length) {
     const at = code.indexOf(needle, i);
-    if (at === -1) { out += code.slice(i); break; }
+    if (at === -1) {
+      out += code.slice(i);
+      break;
+    }
     // boundary check (avoid matching `xis<`)
-    const prev = at > 0 ? code[at - 1]! : '';
-    if (/[A-Za-z0-9_$.]/.test(prev)) { out += code.slice(i, at + needle.length); i = at + needle.length; continue; }
+    const prev = at > 0 ? (code[at - 1] ?? '') : '';
+    if (/[A-Za-z0-9_$.]/.test(prev)) {
+      out += code.slice(i, at + needle.length);
+      i = at + needle.length;
+      continue;
+    }
     out += code.slice(i, at);
     // parse the <...> type argument (balanced angle brackets)
     let j = at + needle.length;
@@ -104,10 +125,16 @@ function rewriteCall(code: string, fn: 'is' | 'assert'): string {
     }
     const expr = code.slice(exprStart, j - 1).trim();
     const t = parseType(typeSrc);
+    if (!t) {
+      // Outside the supported subset (e.g. a named interface). Copy the call
+      // through verbatim so it keeps its runtime-descriptor semantics; the build
+      // succeeds and nothing wrong is emitted.
+      out += code.slice(at, j);
+      i = j;
+      continue;
+    }
     const check = `(${emitCheck(t, expr)})`;
-    out += fn === 'is'
-      ? check
-      : `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+    out += fn === 'is' ? check : `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
     i = j;
   }
   return out;

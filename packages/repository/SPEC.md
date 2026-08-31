@@ -10,6 +10,7 @@ interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 ```
+
 The repository never opens connections itself; a `Driver` is injected. Results are
 plain objects — **no proxies, no identity map**.
 
@@ -18,12 +19,12 @@ plain objects — **no proxies, no identity map**.
 ```ts
 abstract class BaseRepository<S extends CoreSchema<string>> {
   constructor(driver: Driver);
-  static readonly schema: CoreSchema<string>;   // bound by subclass
+  static readonly schema: CoreSchema<string>; // bound by subclass
 
   findById(id: unknown): Promise<Entity<S> | undefined>;
   findOne(where: Partial<Entity<S>>): Promise<Entity<S> | undefined>;
   findAll(): Promise<readonly Entity<S>[]>;
-  create(payload: unknown): Promise<Entity<S>>;   // validates CreateDTO<S>
+  create(payload: unknown): Promise<Entity<S>>; // validates CreateDTO<S>
   update(id: unknown, payload: unknown): Promise<Entity<S> | undefined>; // UpdateDTO<S>
   delete(id: unknown): Promise<boolean>;
 }
@@ -36,6 +37,7 @@ class UserRepository extends BaseRepository<typeof UserSchema> {
   static readonly schema = UserSchema;
 }
 ```
+
 That is the entire required body to obtain full validated CRUD.
 
 ## 3. Validation interception

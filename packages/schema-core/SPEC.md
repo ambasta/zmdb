@@ -8,31 +8,31 @@
 Every builder is a zero-argument (or fixed-argument) function returning a **frozen
 column metadata object**. Builders never mutate shared state.
 
-| Builder | `type` | Default flags |
-|---------|--------|---------------|
-| `serial()` | `'serial'` | `{ autoIncrement: true, primaryKey: false, nullable: false, hasDefault: true }` |
-| `integer()` | `'integer'` | `{ nullable: false }` |
-| `bigint()` | `'bigint'` | `{ nullable: false }` |
-| `numeric()` | `'numeric'` | `{ nullable: false }` |
-| `text()` | `'text'` | `{ nullable: false }` |
-| `varchar(n)` | `'varchar'` | `{ nullable: false, length: n }` |
-| `boolean()` | `'boolean'` | `{ nullable: false }` |
-| `timestamp()` | `'timestamp'` | `{ nullable: false }` |
-| `json()` | `'json'` | `{ nullable: false }` |
-| `jsonEnum(values)` | `'jsonEnum'` | `{ nullable: false, enum: values }` |
+| Builder            | `type`        | Default flags                                                                   |
+| ------------------ | ------------- | ------------------------------------------------------------------------------- |
+| `serial()`         | `'serial'`    | `{ autoIncrement: true, primaryKey: false, nullable: false, hasDefault: true }` |
+| `integer()`        | `'integer'`   | `{ nullable: false }`                                                           |
+| `bigint()`         | `'bigint'`    | `{ nullable: false }`                                                           |
+| `numeric()`        | `'numeric'`   | `{ nullable: false }`                                                           |
+| `text()`           | `'text'`      | `{ nullable: false }`                                                           |
+| `varchar(n)`       | `'varchar'`   | `{ nullable: false, length: n }`                                                |
+| `boolean()`        | `'boolean'`   | `{ nullable: false }`                                                           |
+| `timestamp()`      | `'timestamp'` | `{ nullable: false }`                                                           |
+| `json()`           | `'json'`      | `{ nullable: false }`                                                           |
+| `jsonEnum(values)` | `'jsonEnum'`  | `{ nullable: false, enum: values }`                                             |
 
 ### Metadata object shape
 
 ```ts
 interface ColumnMeta {
-  readonly type: SqlType;              // one of the `type` strings above
+  readonly type: SqlType; // one of the `type` strings above
   readonly flags: {
     readonly nullable: boolean;
     readonly primaryKey?: boolean;
     readonly unique?: boolean;
     readonly autoIncrement?: boolean;
     readonly hasDefault?: boolean;
-    readonly length?: number;          // varchar only
+    readonly length?: number; // varchar only
     readonly enum?: readonly string[]; // jsonEnum only
   };
   readonly default?: unknown;
@@ -50,15 +50,15 @@ Each modifier is a **pure function** `(col: ColumnMeta, ...args) => ColumnMeta`
 returning a **new frozen object**. Chaining is order-independent for flag-setting
 modifiers. The input object is never mutated.
 
-| Modifier | Effect |
-|----------|--------|
-| `notNull(col)` | `flags.nullable = false` |
-| `nullable(col)` | `flags.nullable = true` |
-| `primaryKey(col)` | `flags.primaryKey = true` |
-| `unique(col)` | `flags.unique = true` |
-| `references(col, target)` | `references = { target }` |
-| `defaultTo(col, value)` | `default = value`, `flags.hasDefault = true` |
-| `validate(col, rule)` | append `rule` to `validation[]` |
+| Modifier                  | Effect                                       |
+| ------------------------- | -------------------------------------------- |
+| `notNull(col)`            | `flags.nullable = false`                     |
+| `nullable(col)`           | `flags.nullable = true`                      |
+| `primaryKey(col)`         | `flags.primaryKey = true`                    |
+| `unique(col)`             | `flags.unique = true`                        |
+| `references(col, target)` | `references = { target }`                    |
+| `defaultTo(col, value)`   | `default = value`, `flags.hasDefault = true` |
+| `validate(col, rule)`     | append `rule` to `validation[]`              |
 
 A fluent wrapper is also exposed so builders can be chained method-style:
 `serial().primaryKey()`, `text().notNull().validate(rule)`. Method-style and
@@ -67,10 +67,7 @@ function-style MUST produce deep-equal metadata.
 ## 3. `defineSchema`
 
 ```ts
-function defineSchema<T extends string>(
-  table: T,
-  columns: Record<string, ColumnMeta>,
-): CoreSchema<T>;
+function defineSchema<T extends string>(table: T, columns: Record<string, ColumnMeta>): CoreSchema<T>;
 ```
 
 `CoreSchema<T>` shape (frozen):
@@ -79,12 +76,13 @@ function defineSchema<T extends string>(
 interface CoreSchema<T extends string> {
   readonly table: T;
   readonly columns: Readonly<Record<string, ColumnMeta>>;
-  readonly primaryKey: readonly string[];   // derived from flags.primaryKey
+  readonly primaryKey: readonly string[]; // derived from flags.primaryKey
   readonly references: readonly { readonly column: string; readonly target: string }[];
 }
 ```
 
 Rules:
+
 - `primaryKey` is derived by scanning columns where `flags.primaryKey === true`.
 - Throws `SchemaError` if **zero** primary keys.
 - Throws `SchemaError` if a `serial()` column is not marked primary and no other PK exists (documented; enforced in #15).

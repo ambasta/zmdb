@@ -1,8 +1,8 @@
 {
   "name": "zmdb",
   "version": "1.0.0-alpha.4",
-  "type": "module",
   "license": "GPL-3.0-or-later",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./dto": "./src/dto.ts",
@@ -10,6 +10,9 @@
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
     "./web": "./src/web.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
@@ -20,8 +23,5 @@
   },
   "engines": {
     "node": ">=26"
-  },
-  "scripts": {
-    "test": "vitest run"
   }
 }

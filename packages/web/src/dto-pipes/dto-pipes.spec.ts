@@ -2,8 +2,9 @@
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
 // Per packages/web/src/dto-pipes/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { runChain } from '../middleware/index.ts';
+
 import type { Ctx } from '../context/index.ts';
+import { runChain } from '../middleware/index.ts';
 import { validationPipe, serializationInterceptor, dtoChain } from './index.ts';
 
 interface CreateUser {
@@ -23,13 +24,13 @@ function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
 describe('@zmdb/web dto-pipes: validationPipe', () => {
   it('passes a valid body through (typed)', async () => {
     const chain = { guards: [], pipes: [validationPipe(assertCreateUser)], interceptors: [], filters: [] };
-    const result = await runChain(chain, ctxWith({ name: 'ada' }), (ctx) => ctx.body);
+    const result = await runChain(chain, ctxWith({ name: 'ada' }), ctx => ctx.body);
     expect(result).toEqual({ name: 'ada' });
   });
 
   it('rejects an invalid body via the chain (400)', async () => {
     const chain = { guards: [], pipes: [validationPipe(assertCreateUser)], interceptors: [], filters: [] };
-    await expect(runChain(chain, ctxWith({ nope: 1 }), (ctx) => ctx.body)).rejects.toMatchObject({ status: 400 });
+    await expect(runChain(chain, ctxWith({ nope: 1 }), ctx => ctx.body)).rejects.toMatchObject({ status: 400 });
   });
 });
 
@@ -38,7 +39,7 @@ describe('@zmdb/web dto-pipes: serializationInterceptor', () => {
     const chain = {
       guards: [],
       pipes: [],
-      interceptors: [serializationInterceptor((v) => ({ wrapped: v }))],
+      interceptors: [serializationInterceptor(v => ({ wrapped: v }))],
       filters: [],
     };
     const result = await runChain(chain, ctxWith({}), () => ({ id: 1 }));
@@ -48,8 +49,8 @@ describe('@zmdb/web dto-pipes: serializationInterceptor', () => {
 
 describe('@zmdb/web dto-pipes: dtoChain', () => {
   it('composes validation + serialization', async () => {
-    const chain = dtoChain({ validate: assertCreateUser, serialize: (v) => ({ data: v }) });
-    const result = await runChain(chain, ctxWith({ name: 'grace' }), (ctx) => ctx.body);
+    const chain = dtoChain({ validate: assertCreateUser, serialize: v => ({ data: v }) });
+    const result = await runChain(chain, ctxWith({ name: 'grace' }), ctx => ctx.body);
     expect(result).toEqual({ data: { name: 'grace' } });
   });
 });

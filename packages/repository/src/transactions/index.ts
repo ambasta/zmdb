@@ -21,7 +21,7 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
   let savepointSeq = 0;
 
   const makeContext = (): TransactionContext => ({
-    execute: (query) => conn.execute(query),
+    execute: query => conn.execute(query),
     savepoint: async <R>(fn: (tx: TransactionContext) => Promise<R>): Promise<R> => {
       const name = `s${++savepointSeq}`;
       await conn.raw(`SAVEPOINT ${name}`);
@@ -55,11 +55,8 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
 // #39 — explicit write-batching helper. Runs the given operations inside a
 // single transaction / one flush: all-or-nothing. Each op receives the tx
 // context and performs its own execute(s).
-export function batch<R>(
-  db: TransactionalDb,
-  ops: readonly ((tx: TransactionContext) => Promise<R>)[],
-): Promise<R[]> {
-  return db.transaction(async (tx) => {
+export function batch<R>(db: TransactionalDb, ops: readonly ((tx: TransactionContext) => Promise<R>)[]): Promise<R[]> {
+  return db.transaction(async tx => {
     const results: R[] = [];
     for (const op of ops) results.push(await op(tx));
     return results;

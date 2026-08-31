@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { decode } from './index.ts';
+
 import type { TypeDescriptor } from '../utilities/index.ts';
+import { decode } from './index.ts';
 
 // #54: typed parse<T> / decode path. Tests first (TDD).
 

@@ -2,9 +2,9 @@
 // applies provider overrides, then drives routes in-process (no socket). No `as`
 // on the consumer surface.
 
+import type { Container, Token } from '../di/index.ts';
 import { compileModule, type ModuleClass, type ProviderDef } from '../modules/index.ts';
 import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
-import type { Container, Token } from '../di/index.ts';
 
 /** Options for `createTestApp`. */
 export interface TestAppOptions {
@@ -45,7 +45,7 @@ export function createTestApp(rootModule: ModuleClass, options: TestAppOptions =
   const resolve = <T>(token: Token<T>): T => resolveFrom(container, token);
 
   return {
-    request: (req) => router.handle(req),
+    request: req => router.handle(req),
     get: resolve,
     async init(): Promise<void> {
       for (const controller of controllers) {

@@ -12,15 +12,24 @@ import { defineRepository } from '@zmdb/repository';
 // No subclassing required — bind schema + driver (+ optional relations) in one call.
 const users = defineRepository(UserSchema, sqliteDriver(db), {
   dialect: 'sqlite',
-  relations: { orders: { meta: oneToMany('orders','userId'), entity: OrderSchema,
-                         cardinality: 'one-to-many', childTable: 'orders', childFk: 'userId', parentKey: 'id' } },
+  relations: {
+    orders: {
+      meta: oneToMany('orders', 'userId'),
+      entity: OrderSchema,
+      cardinality: 'one-to-many',
+      childTable: 'orders',
+      childFk: 'userId',
+      parentKey: 'id',
+    },
+  },
 });
 
-await users.create({ email: 'a@b.com', age: 30 });     // typed CreateDTO<S>
+await users.create({ email: 'a@b.com', age: 30 }); // typed CreateDTO<S>
 const list = await users.list({ page: { limit: 20 } }); // typed ListResult<Entity<S>>
 ```
 
 Frozen behaviour:
+
 - `defineRepository(schema, driver, opts?)` returns a **fully typed repository
   instance** with the same surface as a `BaseRepository<typeof schema>` subclass
   (findById/findOne/find/list/create/update/delete + populate), without writing a
@@ -32,12 +41,16 @@ Frozen behaviour:
 ## 2. Runnable example / E2E (#222)
 
 A `node:sqlite` script (zero external deps) that:
+
 1. defines a schema, 2. creates the table, 3. wires a repo via `defineRepository`
-+ `sqliteDriver`, 4. does typed create → findById → list → update → delete, and
+
+- `sqliteDriver`, 4. does typed create → findById → list → update → delete, and
+
 5. populates a relation. Runs as a vitest spec (always, no external service) and
-is mirrored as an `examples/` file users can copy.
+   is mirrored as an `examples/` file users can copy.
 
 ## Acceptance
+
 - Type-level: `defineRepository(UserSchema, driver)` has `create` accepting
   `CreateDTO<typeof UserSchema>` and `findById` returning `Entity<...> | undefined`.
 - Runtime: the example E2E round-trips against in-memory `node:sqlite` and is green.

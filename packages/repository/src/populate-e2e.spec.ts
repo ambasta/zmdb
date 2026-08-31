@@ -1,23 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { BaseRepository, type Driver } from './index.ts';
+
 import { defineSchema, serial, text, integer, primaryKey, notNull } from '@zmdb/schema-core';
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { sqliteDriver } from './drivers/sqlite.ts';
+import { BaseRepository } from './index.ts';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
-
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as unknown[];
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
-}
 
 const UserSchema = defineSchema('users', {
   id: primaryKey(serial()),
@@ -41,7 +30,9 @@ let db: DatabaseSync;
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL)');
-  db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)');
+  db.exec(
+    'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)',
+  );
 });
 
 describe('populate to-many E2E (real SQLite)', () => {
@@ -57,7 +48,7 @@ describe('populate to-many E2E (real SQLite)', () => {
     await orders.create({ userId: u2.id, total: 30 });
 
     const populated = await users.findAllWithMany('orders', 'orders', 'userId');
-    const byId = new Map(populated.map((p) => [p.id, p]));
+    const byId = new Map(populated.map(p => [p.id, p]));
 
     expect((byId.get(u1.id)!.orders as unknown[]).length).toBe(2);
     expect((byId.get(u2.id)!.orders as unknown[]).length).toBe(1);

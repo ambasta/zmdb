@@ -7,7 +7,7 @@
 
 ```ts
 interface CompiledQuery {
-  readonly text: string;          // SQL with placeholders
+  readonly text: string; // SQL with placeholders
   readonly parameters: readonly unknown[]; // positional, in placeholder order
 }
 ```
@@ -37,11 +37,11 @@ Builders are immutable: each method returns a new builder.
 
 ## 3. Placeholder policy (per dialect)
 
-| Dialect | Placeholder | Identifier quote |
-|---------|-------------|------------------|
-| postgres (default) | `$1, $2, …` | `"ident"` |
-| mysql | `?` | `` `ident` `` |
-| sqlite | `?` | `"ident"` |
+| Dialect            | Placeholder | Identifier quote |
+| ------------------ | ----------- | ---------------- |
+| postgres (default) | `$1, $2, …` | `"ident"`        |
+| mysql              | `?`         | `` `ident` ``    |
+| sqlite             | `?`         | `"ident"`        |
 
 `createQueryCompiler(dialect?: 'postgres' | 'mysql' | 'sqlite')` — default `postgres`.
 
@@ -72,6 +72,7 @@ deleteFrom('users').where('id','=',1)
 ### mysql / sqlite placeholder variants
 
 Same builder as the first SELECT above but with mysql:
+
 ```
 => text: SELECT * FROM `users` WHERE `email` = ? ORDER BY `createdAt` DESC LIMIT 10
 ```

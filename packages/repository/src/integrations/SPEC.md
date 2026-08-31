@@ -8,7 +8,7 @@ dependency. Epic #152.
 
 ```ts
 interface Handler<In, Out> {
-  validate: (raw: unknown) => In;   // e.g. assert<CreateDTO>
+  validate: (raw: unknown) => In; // e.g. assert<CreateDTO>
   handle: (input: In) => Promise<Out>;
   serialize?: (out: Out) => string; // default JSON.stringify
 }

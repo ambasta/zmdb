@@ -5,7 +5,6 @@
 > prerelease by default. Users opt in with `npm install @zmdb/x@alpha`. Bump the
 > prerelease (`alpha.1`, `alpha.2`, … then `beta.0`, then `1.0.0`) as it matures.
 
-
 The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing
 (OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a
 short-lived OIDC credential, so there is no long-lived secret to leak, rotate, or
@@ -32,8 +31,8 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
    package → **Settings → Trusted Publisher → GitHub Actions**, enter:
    - **Organization or user:** `ambasta`
    - **Repository:** `zmdb`
-   - **Workflow filename:** `publish.yml`  *(filename only, with the extension)*
-   - **Environment name:** *(leave blank)*
+   - **Workflow filename:** `publish.yml` _(filename only, with the extension)_
+   - **Environment name:** _(leave blank)_
    - **Allowed actions:** `npm publish`
 
    > ⚠️ **First publish of a brand-new package name.** npm only lets you add a
@@ -60,6 +59,7 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
    >
    > After each name exists once, add its Trusted Publisher and **all subsequent
    > releases go through OIDC with no token**.
+
 3. **(Recommended) Lock it down**: once trusted publishing works, in each
    package's **Settings → Publishing access** choose **“Require two-factor
    authentication and disallow tokens.”** Trusted publishing keeps working (it
@@ -67,7 +67,7 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
 
 ## Releasing (after trusted publishers are configured)
 
-- **Dry run** (recommended): Actions tab → *Publish @zmdb packages to npm* → Run
+- **Dry run** (recommended): Actions tab → _Publish @zmdb packages to npm_ → Run
   workflow → leave `dry_run = true`. Builds + `npm pack --dry-run` each package.
 - **Real publish**: run with `dry_run = false`, or push a tag:
   ```bash
@@ -85,6 +85,7 @@ packages/<pkg>/dist/
 README.md
 LICENSE
 ```
+
 `exports` map each subpath to `{ types, import }`; `files` is
 `['dist','README.md','LICENSE']`; cross-package deps become the exact prerelease `1.0.0-alpha.0`
 ranges (`aot-validator` → schema-core; `repository` → schema-core + query-compiler).
@@ -120,7 +121,7 @@ Future releases are fully automated via CI OIDC — no token, no manual build:
    OIDC under the `alpha` tag, with automatic provenance. (A tag push always
    publishes; a manual `workflow_dispatch` defaults to a dry run.)
 
->  **dist-tags policy (automated):** CI publishes each release under its *channel*
+> **dist-tags policy (automated):** CI publishes each release under its _channel_
 > tag derived from the version — `alpha` / `beta` / `rc`, or `latest` for a
 > stable version. After publishing, `set-latest-tag.mjs` repoints **`latest`** to
 > the highest-precedence published version: **stable > rc > beta > alpha** (and

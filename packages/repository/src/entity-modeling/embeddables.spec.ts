@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { flattenEmbeddable, liftEmbeddable } from './index.ts';
 
 describe('embeddables (#146)', () => {

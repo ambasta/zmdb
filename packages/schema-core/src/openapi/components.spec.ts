@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { toOpenApiComponents } from './index.ts';
+
 import type { CoreSchema } from '../index.ts';
+import { toOpenApiComponents } from './index.ts';
 
 // #67: toOpenApiComponents + determinism + E2E golden document.
 

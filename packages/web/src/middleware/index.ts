@@ -55,11 +55,7 @@ export type ChainHandler = (ctx: AnyCtx) => unknown;
  * offered to the exception filters — a matching filter's response is returned,
  * otherwise the error rethrows for the pipeline to serialize.
  */
-export async function runChain(
-  chain: Chain,
-  ctx: AnyCtx,
-  handler: ChainHandler,
-): Promise<unknown> {
+export async function runChain(chain: Chain, ctx: AnyCtx, handler: ChainHandler): Promise<unknown> {
   // 1) guards
   for (const guard of chain.guards) {
     const allowed = await guard.canActivate(ctx);

@@ -5,5 +5,11 @@ import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './zmdb-aot-gener
 
 addCase('zmdb-aot', 'parseSafe', d => aotParseSafe(d));
 addCase('zmdb-aot', 'parseStrict', d => aotParseStrict(d));
-addCase('zmdb-aot', 'assertLoose', d => { if (!aotIs(d)) throw new Error('wrong type.'); return true; });
-addCase('zmdb-aot', 'assertStrict', d => { if (!aotEquals(d)) throw new Error('wrong type.'); return true; });
+addCase('zmdb-aot', 'assertLoose', d => {
+  if (!aotIs(d)) throw new Error('wrong type.');
+  return true;
+});
+addCase('zmdb-aot', 'assertStrict', d => {
+  if (!aotEquals(d)) throw new Error('wrong type.');
+  return true;
+});

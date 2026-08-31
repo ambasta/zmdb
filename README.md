@@ -10,13 +10,13 @@
 
 ## Packages
 
-| Package | Status | Description |
-|---------|--------|-------------|
-| [`@zmdb/schema-core`](./packages/schema-core) | ✅ | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI) |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅ | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner |
-| [`@zmdb/aot-validator`](./packages/aot-validator) | ✅ | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De |
-| [`@zmdb/repository`](./packages/repository) | ✅ | Auto-validating CRUD + hooks + transactions + populate |
-| [`@zmdb/web`](./packages/web) | ✅ | Stage-3 decorator web framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
+| Package                                             | Status | Description                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI)                                                                                                                                                                                                                               |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner                                                                                                                                                                                                                           |
+| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De                                                                                                                                                                                                                                               |
+| [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                    |
+| [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
 > All capability epics are complete — **every tracked issue is closed** across
@@ -55,9 +55,9 @@ export const UserSchema = defineSchema('users', {
 // Wire a fully typed repository in one call — no subclass, no hand-written driver
 const users = defineRepository(UserSchema, sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
 
-await users.create({ email: 'a@b.com' });              // validated vs CreateDTO<S>
-const admins = await users.find({ role: 'admin' });    // typed WhereDTO<S>
-const page   = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
+await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
+const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
+const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 ```
 
 Prefer granular installs (`@zmdb/schema-core`, …) and subclassing `BaseRepository`?

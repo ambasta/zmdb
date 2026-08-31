@@ -1,11 +1,7 @@
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
-export type Cardinality =
-  | 'many-to-one'
-  | 'one-to-many'
-  | 'one-to-one'
-  | 'many-to-many';
+export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
 export interface RelationMeta {
   readonly cardinality: Cardinality;
@@ -107,6 +103,9 @@ export function attachPopulated<P extends Record<string, unknown>, N extends str
   name: N,
   value: V,
 ): P & { [K in N]: V } {
+  // boundary: a computed key in an object literal widens to `string`, so TS types
+  // this spread as `P & { [x: string]: V }`. `name` is the literal `N` at the call
+  // site, which is what the return type states.
   return { ...parent, [name]: value } as P & { [K in N]: V };
 }
 

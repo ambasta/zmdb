@@ -49,6 +49,19 @@ function diView(metadata: DecoratorMetadata): DiMetadata {
 // `finally`, so there is no persistent global request-time state.
 let currentContainer: Container | undefined;
 
+// Run `fn` with `container` set as the active (building) container, restoring the
+// previous one afterward. Keeps the swap out of `Container.build` so the method
+// body never aliases `this` to a variable.
+function withActiveContainer<T>(container: Container, fn: () => T): T {
+  const previous = currentContainer;
+  currentContainer = container;
+  try {
+    return fn();
+  } finally {
+    currentContainer = previous;
+  }
+}
+
 /**
  * Field decorator: resolve `token` from the container that is building this
  * instance. The field's declared type must be assignable from the token type,
@@ -127,13 +140,7 @@ export class Container {
    * Resolution happens here (once), then is cached on the instance.
    */
   build<T>(Ctor: Constructor<T>): T {
-    const previous = currentContainer;
-    currentContainer = this;
-    try {
-      return new Ctor();
-    } finally {
-      currentContainer = previous;
-    }
+    return withActiveContainer(this, () => new Ctor());
   }
 }
 
@@ -144,7 +151,6 @@ export class Container {
 // the assertion is isolated here with the soundness argument, and never appears
 // at a call site or on the consumer surface.
 function readBinding<T>(bindings: ReadonlyMap<Token<unknown>, unknown>, token: Token<T>): T {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return bindings.get(token) as T;
 }
 
@@ -152,6 +158,5 @@ function readBinding<T>(bindings: ReadonlyMap<Token<unknown>, unknown>, token: T
 // construction; widening its `unknown` result to T is sound. Same enumerated DI
 // boundary as readBinding (ARCHITECTURE.md §2.1); never on the consumer surface.
 function narrowFactoryValue<T>(value: unknown): T {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   return value as T;
 }

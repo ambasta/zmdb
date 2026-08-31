@@ -6,6 +6,7 @@
 ## Contract
 
 ### Route registration
+
 - **`createRouter()`** → a `Router`.
 - **`router.register(controllerInstance)`** — read the controller's routes via
   `getRoutes(controllerInstance.constructor)` (built once at register time) and
@@ -15,6 +16,7 @@
   handler is **not** called and the pipeline yields a 400.
 
 ### Incoming request → response
+
 - **`router.handle(req: WebRequest): Promise<WebResponse>`** where:
   - `WebRequest = { method: string; path: string; headers; rawBody?: unknown; query? }`
   - `WebResponse = { status: number; body: string; headers }`
@@ -30,6 +32,7 @@
 - No per-request reflection; one `Ctx` + one result object allocated per request.
 
 ### Adapters (thin, optional, structurally typed — no hard deps)
+
 - **`toNodeHandler(router)`** → an \`(req, res) => void\` compatible with
   \`node:http\` (reads method/url/headers, buffers the body, writes the response).
   Typed structurally so \`node:http\` is not a dependency.
@@ -38,12 +41,14 @@
   \`Response\` (Node 26 has them) — no Hono dependency.
 
 ## Invariants
+
 - **No `as`/`any`/`!` on the consumer surface.** Internal boundary reads (matched
   route handler, JSON parse) are commented boundaries per ARCHITECTURE.md §2.1.
 - No reflection; validation via an injected hook (AOT `assert` fits) — no runtime
   parser baked in.
 
 ## Acceptance
+
 - A registered controller's route dispatches: correct handler, params extracted,
   body validated before the handler (invalid → 400, handler not called),
   serialized 200 result; unknown path → 404; throwing handler → 500.
@@ -51,4 +56,5 @@
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
+
 Guards/pipes/interceptors/filters (epic #287), modules (#282), OpenAPI (#302).

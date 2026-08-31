@@ -24,27 +24,31 @@ function rank(v) {
 
 // crude but sufficient semver compare (x.y.z with optional -chan.n)
 function cmp(a, b) {
-  const parse = (v) => {
+  const parse = v => {
     const [core, pre = ''] = v.split('-');
     const nums = core.split('.').map(Number);
-    const preNums = pre ? pre.split('.').map((x) => (isNaN(+x) ? x : +x)) : [];
+    const preNums = pre ? pre.split('.').map(x => (isNaN(+x) ? x : +x)) : [];
     return { nums, pre, preNums };
   };
-  const pa = parse(a), pb = parse(b);
+  const pa = parse(a),
+    pb = parse(b);
   for (let i = 0; i < 3; i++) if (pa.nums[i] !== pb.nums[i]) return pa.nums[i] - pb.nums[i];
-  const ra = rank(a), rb = rank(b);
+  const ra = rank(a),
+    rb = rank(b);
   if (ra !== rb) return ra - rb;
   // same channel: compare the trailing prerelease counter
-  const la = pa.preNums.at(-1) ?? 0, lb = pb.preNums.at(-1) ?? 0;
-  return (typeof la === 'number' && typeof lb === 'number') ? la - lb : String(la).localeCompare(String(lb));
+  const la = pa.preNums.at(-1) ?? 0,
+    lb = pb.preNums.at(-1) ?? 0;
+  return typeof la === 'number' && typeof lb === 'number' ? la - lb : String(la).localeCompare(String(lb));
 }
 
 function chooseLatest(versions) {
   // Best = highest rank; within that, highest semver.
-  return [...versions].sort((a, b) => {
-    const ra = rank(a), rb = rank(b);
-    if (ra !== rb) return rb - ra;         // prefer higher channel
-    return cmp(b, a);                       // then newest
+  return [...versions].toSorted((a, b) => {
+    const ra = rank(a),
+      rb = rank(b);
+    if (ra !== rb) return rb - ra; // prefer higher channel
+    return cmp(b, a); // then newest
   })[0];
 }
 

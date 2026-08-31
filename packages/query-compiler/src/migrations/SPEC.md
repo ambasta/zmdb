@@ -35,6 +35,7 @@ type ChangeOp =
   | { kind: 'drop_column'; table: string; column: string }
   | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string };
 ```
+
 `diff(x, x)` returns `[]`.
 
 ## 3. DDL emitter (per dialect)

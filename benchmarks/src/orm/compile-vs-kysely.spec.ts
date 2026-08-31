@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { Kysely, DummyDriver, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { Kysely, DummyDriver, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+import { describe, it, expect } from 'vitest';
 
 // #20: zero-overhead query-compilation benchmark vs Kysely.
 // Both compile the SAME query to parameterized SQL WITHOUT a live DB; we assert
@@ -18,7 +18,7 @@ const k = new Kysely<DB>({
   dialect: {
     createAdapter: () => new PostgresAdapter(),
     createDriver: () => new DummyDriver(),
-    createIntrospector: (db) => new PostgresIntrospector(db),
+    createIntrospector: db => new PostgresIntrospector(db),
     createQueryCompiler: () => new PostgresQueryCompiler(),
   },
 });
@@ -32,10 +32,7 @@ function bench(fn: () => void, iterations: number): number {
 
 describe('query compilation vs Kysely', () => {
   it('both compile a SELECT to equivalent parameterized SQL', () => {
-    const zmdb = createQueryCompiler('postgres')
-      .selectFrom('users')
-      .where('email', '=', 'a@b.com')
-      .compile();
+    const zmdb = createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.com').compile();
     const kc = k.selectFrom('users').selectAll().where('email', '=', 'a@b.com').compile();
 
     // Same parameters and same essential SQL shape.

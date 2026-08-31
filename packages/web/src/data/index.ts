@@ -2,8 +2,9 @@
 // Typed DI token for a repository + an adapter turning a validator into the
 // pipeline's validateBody hook. No consumer `as`, no runtime parser.
 
-import type { CoreSchema } from '@zmdb/schema-core';
 import type { BaseRepository } from '@zmdb/repository';
+import type { CoreSchema } from '@zmdb/schema-core';
+
 import { createToken, type Token } from '../di/index.ts';
 
 /**

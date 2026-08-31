@@ -21,14 +21,14 @@ harness in `harness/orm/`.
 
 **Benchmark config** (like the upstream dashboards, stated for reproducibility):
 
-| | |
-|-|-|
-| Database | PostgreSQL 16 (podman), same instance for all ORMs |
-| Dataset | Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, **308,224 order_details** |
-| Driver | `pg` (node-postgres) pool, `max: 10` — identical across ORMs |
-| Load | k6 ramping-VUs 0→200→400, ~25s; full `requests.json` replay (13 routes incl. `/search-*`) |
-| ORMs | drizzle-orm 0.36 (node-postgres), kysely 0.29 (PostgresDialect), zmdb query-compiler |
-| Machine | single local dev box, Node 26.8.1 (server + k6 co-located, so absolute numbers are lower than the upstream 2-machine / 3000-VU rig) |
+|          |                                                                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Database | PostgreSQL 16 (podman), same instance for all ORMs                                                                                  |
+| Dataset  | Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, **308,224 order_details**                          |
+| Driver   | `pg` (node-postgres) pool, `max: 10` — identical across ORMs                                                                        |
+| Load     | k6 ramping-VUs 0→200→400, ~25s; full `requests.json` replay (13 routes incl. `/search-*`)                                           |
+| ORMs     | drizzle-orm 0.36 (node-postgres), kysely 0.29 (PostgresDialect), zmdb query-compiler                                                |
+| Machine  | single local dev box, Node 26.8.1 (server + k6 co-located, so absolute numbers are lower than the upstream 2-machine / 3000-VU rig) |
 
 > ⚠️ Unlike the upstream dashboards (2 machines, 1GB ethernet, ramp to 3000 VUs
 > over ~10 min), this runs server + load on one box with a short ramp — so treat
@@ -40,21 +40,21 @@ Every upstream route is listed on its own — no scoring, no aggregation into a
 single number. All 13 are now served (HTTP 200 with correct data); the "why"
 column records how each formerly-DNF route was closed.
 
-| Route | drizzle | kysely | zmdb | how the zmdb gap was closed |
-|-------|:-------:|:------:|:----:|--------------|
-| `/customers` (list+paginate) | ✅ | ✅ | ✅ | (already served) |
-| `/customer-by-id` | ✅ | ✅ | ✅ | (already served) |
-| `/employees` | ✅ | ✅ | ✅ | (already served) |
-| `/suppliers` | ✅ | ✅ | ✅ | (already served) |
-| `/supplier-by-id` | ✅ | ✅ | ✅ | (already served) |
-| `/products` | ✅ | ✅ | ✅ | (already served) |
-| `/order-with-details-and-products` | ✅ | ✅ | ✅ | 2-query populate |
-| `/employee-with-recipient` | ✅ | ✅ | ✅ | JOIN builder (self-join, #88) |
-| `/product-with-supplier` | ✅ | ✅ | ✅ | JOIN builder (#88) |
-| `/orders-with-details` (agg list) | ✅ | ✅ | ✅ | aggregate builder, GROUP BY on FK (#93) |
-| `/order-with-details` (agg by id) | ✅ | ✅ | ✅ | aggregate builder, GROUP BY on FK (#93) |
-| `/search-customer` (full-text) | ✅ | ✅ | ✅ | FTS builder `whereMatch` (#97) |
-| `/search-product` (full-text) | ✅ | ✅ | ✅ | FTS builder `whereMatch` (#97) |
+| Route                              | drizzle | kysely | zmdb | how the zmdb gap was closed             |
+| ---------------------------------- | :-----: | :----: | :--: | --------------------------------------- |
+| `/customers` (list+paginate)       |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/customer-by-id`                  |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/employees`                       |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/suppliers`                       |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/supplier-by-id`                  |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/products`                        |   ✅    |   ✅   |  ✅  | (already served)                        |
+| `/order-with-details-and-products` |   ✅    |   ✅   |  ✅  | 2-query populate                        |
+| `/employee-with-recipient`         |   ✅    |   ✅   |  ✅  | JOIN builder (self-join, #88)           |
+| `/product-with-supplier`           |   ✅    |   ✅   |  ✅  | JOIN builder (#88)                      |
+| `/orders-with-details` (agg list)  |   ✅    |   ✅   |  ✅  | aggregate builder, GROUP BY on FK (#93) |
+| `/order-with-details` (agg by id)  |   ✅    |   ✅   |  ✅  | aggregate builder, GROUP BY on FK (#93) |
+| `/search-customer` (full-text)     |   ✅    |   ✅   |  ✅  | FTS builder `whereMatch` (#97)          |
+| `/search-product` (full-text)      |   ✅    |   ✅   |  ✅  | FTS builder `whereMatch` (#97)          |
 
 **As originally measured, zmdb served only 7 of the 13 upstream routes** — the 6
 join/aggregate/FTS routes were DNF, and in the actual replay those routes are
@@ -66,6 +66,7 @@ a real, significant feature gap.
 > full-text-search (`ftsSelectFrom`, #95) builders, and every previously-DNF
 > route is now wired and returns **HTTP 200 with correct data**, verified against
 > real Postgres:
+>
 > - **FTS** `/search-customer`, `/search-product` — FTS builder (#97).
 > - **JOIN** `/employee-with-recipient` (self-join), `/product-with-supplier` —
 >   JOIN builder (#88). Repository `findJoined` also passes E2E (#87).
@@ -90,12 +91,12 @@ queries, 426,999 requests); all three ORMs return 200 on every request. Latency
 in ms, from the same k6 run (ramp to 400 VUs). p50 omitted — k6
 `--summary-export` does not emit it; avg/p90/p95 are the measured percentiles.
 
-| ORM | req/s | avg | p90 | p95 | failed |
-|-----|------:|----:|----:|----:|-------:|
-| **zmdb (prepared)** | **3,068** | **97.3** | 179.5 | 209.5 | 0 |
-| **zmdb** (default) | 2,916 | 102.4 | 192.8 | 215.5 | 0 |
-| drizzle | 2,795 | 106.8 | **157.6** | **173.8** | 0 |
-| kysely | 2,733 | 109.3 | 176.8 | 200.8 | 0 |
+| ORM                 |     req/s |      avg |       p90 |       p95 | failed |
+| ------------------- | --------: | -------: | --------: | --------: | -----: |
+| **zmdb (prepared)** | **3,068** | **97.3** |     179.5 |     209.5 |      0 |
+| **zmdb** (default)  |     2,916 |    102.4 |     192.8 |     215.5 |      0 |
+| drizzle             |     2,795 |    106.8 | **157.6** | **173.8** |      0 |
+| kysely              |     2,733 |    109.3 |     176.8 |     200.8 |      0 |
 
 - **Honest read (mixed):** zmdb (default) leads on **throughput (2,916 req/s)**
   and **average latency (102 ms)**; **drizzle keeps the best tail** (p95 173.8 vs
@@ -107,12 +108,12 @@ in ms, from the same k6 run (ramp to 400 VUs). p50 omitted — k6
 Same zmdb server with `ZMDB_PREPARED=1` — Postgres caches the query plan
 server-side (a stable statement name per compiled SQL). Two back-to-back runs:
 
-| run | variant | req/s | avg | p90 | p95 |
-|-----|---------|------:|----:|----:|----:|
-| 1 | default | 2,916 | 102.4 | 192.8 | 215.5 |
-| 1 | **prepared** | **3,068** | **97.3** | **179.5** | **209.5** |
-| 2 | default | 2,903 | 102.8 | 193.7 | 220.3 |
-| 2 | **prepared** | **3,010** | **99.2** | **182.6** | **206.5** |
+| run | variant      |     req/s |      avg |       p90 |       p95 |
+| --- | ------------ | --------: | -------: | --------: | --------: |
+| 1   | default      |     2,916 |    102.4 |     192.8 |     215.5 |
+| 1   | **prepared** | **3,068** | **97.3** | **179.5** | **209.5** |
+| 2   | default      |     2,903 |    102.8 |     193.7 |     220.3 |
+| 2   | **prepared** | **3,010** | **99.2** | **182.6** | **206.5** |
 
 - **Verdict:** `ZMDB_PREPARED=1` reproducibly improves zmdb — **+4–5% req/s,
   −3–4% avg, ~−11 ms p90, ~−9–14 ms p95.** The tail-latency lever documented as
@@ -143,18 +144,18 @@ zmdb added as **two** cases in the upstream runner (`ts-node index.ts run …`):
 produced by the real transformer). Per-case ops/s; `DNF` = case the library does
 not register:
 
-| library | parseSafe | parseStrict | assertLoose | assertStrict | DNF cases |
-|---------|----------:|------------:|------------:|-------------:|-----------|
-| typia (AOT) | 100,673,513 | 38,869,470 | 78,128,590 | 31,056,106 | — |
-| **zmdb-aot** (transformer-built¹) | 101,677,075 | 40,022,611 | 108,934,303 | 42,287,002 | — |
-| @sinclair/typebox (JIT) | DNF | DNF | 88,070,252 | 29,157,066 | parseSafe, parseStrict |
-| ajv | DNF | DNF | 43,363,522 | 29,246,420 | parseSafe, parseStrict |
-| zod (v4) | 8,711,299 | 4,895,742 | 4,173,432 | 4,172,722 | — |
-| arktype | DNF | 3,998,596 | 64,604,434 | 3,983,815 | parseSafe |
-| myzod | 3,364,233 | 3,837,054 | DNF | 3,872,625 | assertLoose |
-| valibot | 1,757,211 | 1,370,568 | 1,801,433 | 1,530,501 | — |
-| **zmdb** (runtime, shipped) | 1,430,813 | 1,101,908 | 5,173,050 | 1,162,280 | — |
-| zod (v3) | 1,087,654 | 970,236 | 1,051,654 | 1,014,129 | — |
+| library                           |   parseSafe | parseStrict | assertLoose | assertStrict | DNF cases              |
+| --------------------------------- | ----------: | ----------: | ----------: | -----------: | ---------------------- |
+| typia (AOT)                       | 100,673,513 |  38,869,470 |  78,128,590 |   31,056,106 | —                      |
+| **zmdb-aot** (transformer-built¹) | 101,677,075 |  40,022,611 | 108,934,303 |   42,287,002 | —                      |
+| @sinclair/typebox (JIT)           |         DNF |         DNF |  88,070,252 |   29,157,066 | parseSafe, parseStrict |
+| ajv                               |         DNF |         DNF |  43,363,522 |   29,246,420 | parseSafe, parseStrict |
+| zod (v4)                          |   8,711,299 |   4,895,742 |   4,173,432 |    4,172,722 | —                      |
+| arktype                           |         DNF |   3,998,596 |  64,604,434 |    3,983,815 | parseSafe              |
+| myzod                             |   3,364,233 |   3,837,054 |         DNF |    3,872,625 | assertLoose            |
+| valibot                           |   1,757,211 |   1,370,568 |   1,801,433 |    1,530,501 | —                      |
+| **zmdb** (runtime, shipped)       |   1,430,813 |   1,101,908 |   5,173,050 |    1,162,280 | —                      |
+| zod (v3)                          |   1,087,654 |     970,236 |   1,051,654 |    1,014,129 | —                      |
 
 ¹ **`zmdb-aot` numbers are transformer-PRODUCED.** The validators were generated
 by running the real `@zmdb/aot-validator` transform (`transformTypeChecks`) over
@@ -188,11 +189,11 @@ upstream moltar runner. Not hand-written. The shipped default is still the
 The full per-library × per-runtime matrix is in the interactive dashboard
 ([benchmarks/site](./site), published to GitHub Pages). `zmdb-aot` summary:
 
-| runtime | parseSafe | parseStrict | assertLoose | assertStrict |
-|---------|----------:|------------:|------------:|-------------:|
-| node 26 | 87,600,000 | 44,600,000 | 102,200,000 | 49,900,000 |
-| bun 1.4 | 100,600,000 | 40,700,000 | 942,400,000² | 41,600,000 |
-| deno 2  | 174,500,000 | 67,600,000 | 182,000,000 | 60,300,000 |
+| runtime |   parseSafe | parseStrict |  assertLoose | assertStrict |
+| ------- | ----------: | ----------: | -----------: | -----------: |
+| node 26 |  87,600,000 |  44,600,000 |  102,200,000 |   49,900,000 |
+| bun 1.4 | 100,600,000 |  40,700,000 | 942,400,000² |   41,600,000 |
+| deno 2  | 174,500,000 |  67,600,000 |  182,000,000 |   60,300,000 |
 
 ² Bun's JIT eliminates the no-op `assertLoose` body — implausible, flagged.
 
@@ -203,20 +204,20 @@ object-rebuild from the parse path (the shipped `parse<T>` returns the validated
 input as-is — measured **1.56x** faster in a low-noise probe) closed most gaps.
 Ranking `zmdb-aot` against the whole field (leader shown when we're behind):
 
-| runtime | case | zmdb-aot rank |
-|---------|------|---------------|
-| node | parseSafe | #2 — typia 1.05x *(noise)* |
-| node | parseStrict | **leads** |
-| node | assertLoose | **leads** |
-| node | assertStrict | **leads** |
-| bun | parseSafe | **leads** |
-| bun | parseStrict | #2 — typia 2.45x *(Bun JIT)* |
-| bun | assertLoose | leads *(DCE artifact — not real)* |
-| bun | assertStrict | #3 — typia 2.48x *(Bun JIT)* |
-| deno | parseSafe | **leads** |
-| deno | parseStrict | **leads** |
-| deno | assertLoose | **leads** |
-| deno | assertStrict | **leads** |
+| runtime | case         | zmdb-aot rank                     |
+| ------- | ------------ | --------------------------------- |
+| node    | parseSafe    | #2 — typia 1.05x _(noise)_        |
+| node    | parseStrict  | **leads**                         |
+| node    | assertLoose  | **leads**                         |
+| node    | assertStrict | **leads**                         |
+| bun     | parseSafe    | **leads**                         |
+| bun     | parseStrict  | #2 — typia 2.45x _(Bun JIT)_      |
+| bun     | assertLoose  | leads _(DCE artifact — not real)_ |
+| bun     | assertStrict | #3 — typia 2.48x _(Bun JIT)_      |
+| deno    | parseSafe    | **leads**                         |
+| deno    | parseStrict  | **leads**                         |
+| deno    | assertLoose  | **leads**                         |
+| deno    | assertStrict | **leads**                         |
 
 Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/benchmarks/#gaps)):
 
@@ -224,7 +225,7 @@ Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/
   after dropping the rebuild the two trade the lead run-to-run. **Node/Deno now
   lead all real cases.** #162 tracks any residual micro-tuning.
 - **assertLoose — NOT a real gap.** Measured our single boolean-chain `is()` at
-  **352M ops/s**, *faster* than `new Function()` JIT (124M), early-return (126M),
+  **352M ops/s**, _faster_ than `new Function()` JIT (124M), early-return (126M),
   hoisted (89M). Static CSP-safe emission already beats the JIT approach; the
   earlier "1.13x behind TypeBox-JIT" was harness noise — reclassified.
 - **Strict caps ~40-60M** — property of excess-key enumeration; we lead
@@ -252,35 +253,63 @@ concurrency + routes). Harness: [`harness/framework/`](./harness/framework)
 
 The app on port `3000` passes all shared-contract assertions before any load run:
 
-| Method | Route | Status | Body | Result |
-|--------|-------|--------|------|--------|
-| `GET`  | `/`         | 200 | empty        | ✓ |
-| `GET`  | `/user/:id` | 200 | the `id`     | ✓ (42, 99999) |
-| `POST` | `/user`     | 200 | empty        | ✓ |
+| Method | Route       | Status | Body     | Result        |
+| ------ | ----------- | ------ | -------- | ------------- |
+| `GET`  | `/`         | 200    | empty    | ✓             |
+| `GET`  | `/user/:id` | 200    | the `id` | ✓ (42, 99999) |
+| `POST` | `/user`     | 200    | empty    | ✓             |
 
 `contract-check.mjs` → **PASSED — app fulfills the-benchmarker/web-frameworks
 contract.** The app is built on `@zmdb/web`'s real routing (Stage-3
 `@Controller`/`@Get`/`@Post`, `getRoutes` resolved once at boot, `extractParams`).
 
-### Throughput & latency — not run here (stated, not faked)
+### Throughput & latency — measured (real oha, `oha` auto-downloaded)
 
-`oha` is **not installed in this environment**, so req/s + p50/p75/p90/p99 are
-**not reported** rather than fabricated. `run.sh` produces them (oha JSON →
-req/s, total data, duration, p50/p75/p90/p99) on any machine with `oha` + `jq`:
+`run.sh` auto-downloads a pinned `oha` prebuilt binary (linux amd64/arm64) when
+absent, then runs the upstream methodology — concurrency **64/256/512** × the
+three contract routes, keep-alive disabled, latency-corrected — and emits
+`framework-results.json` in the-benchmarker `data.min.json` shape (req/s,
+average, p50/p75/p90/p99/p99999, totals, `http_errors`, stddev, duration). The
+shipped dataset was measured on **Linux x86_64, Node 26.8.1**, every route
+returning **0 HTTP errors**.
 
 ```sh
-bash benchmarks/harness/framework/run.sh          # GET / 15s, c=64 (upstream default)
-CONCURRENCIES=64,256,512 ROUTES='GET:/,GET:/user/42,POST:/user' \
-  bash benchmarks/harness/framework/run.sh        # upstream-style knobs
+bash benchmarks/harness/framework/run.sh          # levels 64/256/512, 3 routes, 15s each
 ```
 
-Read any published number in the context of its machine, benchmark revision, and
-runtime variant — and remember this is a **minimal HTTP** test, not a full-app
-workload (the upstream caveat). The separate architectural claim — route
-resolution is **init-time, zero per-request reflection** — is machine-checked by
-the unit guard in `packages/web/src/bench`, not by this HTTP harness.
+### Same-machine, apples-to-apples peer head-to-head
 
----
+Because "context, different machine" numbers only go so far, `peers/peers-run.sh`
+builds and load-tests **17 real peer frameworks on this same box** with the
+**identical** `oha` invocation, levels, routes, and duration as `@zmdb/web`, and
+verifies each peer's shared contract **before** recording a single number:
+
+| Runtime | Peers                                        |
+| ------- | -------------------------------------------- |
+| Node    | fastify, hono, express, koa                  |
+| Bun     | elysia, hono                                 |
+| Deno    | hono, oak                                    |
+| Go      | gin, fasthttp, chi, net/http                 |
+| Rust    | actix, axum                                  |
+| Python  | fastapi (uvicorn), flask + django (gunicorn) |
+
+Each peer is staged **outside** the Corepack/Yarn-PnP monorepo (into `/tmp`) so
+its native toolchain behaves normally. Peers whose toolchain/build/contract is
+unavailable are recorded as **skipped with a reason — never faked**
+(Ruby/Elixir/.NET are out of scope on this machine). Results land in
+`peers-results.json` and render on the dashboard as a sortable, per-level,
+per-route ranking with `@zmdb/web` highlighted — a genuine head-to-head, kept
+**separate** from the "published, different machine" upstream context panel.
+
+```sh
+bash benchmarks/harness/framework/peers/peers-run.sh   # all available peers, same knobs
+ONLY=fastify,gin,actix bash benchmarks/harness/framework/peers/peers-run.sh
+```
+
+Read this as a **minimal-HTTP routing** comparison on one machine, not a full-app
+verdict (the upstream caveat holds). The separate architectural claim — route
+resolution is **init-time, zero per-request reflection** — is machine-checked by
+the unit guard in `packages/web/src/bench`, independent of this HTTP harness.
 
 ---
 

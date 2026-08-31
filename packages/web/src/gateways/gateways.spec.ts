@@ -2,6 +2,7 @@
 // Subscription metadata, dispatch with typed message ctx, SSE framing.
 // Per packages/web/src/gateways/SPEC.md.
 import { describe, it, expect } from 'vitest';
+
 import { Gateway, Subscribe, getSubscriptions, createGatewayDispatcher, sseStream, type MessageCtx } from './index.ts';
 
 @Gateway('chat')

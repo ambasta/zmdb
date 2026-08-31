@@ -2,6 +2,7 @@
 // Module graph wiring, provider scopes, imports/exports visibility, cycle
 // detection. Per packages/web/src/modules/SPEC.md.
 import { describe, it, expect } from 'vitest';
+
 import { createToken, Inject } from '../di/index.ts';
 import { Module, compileModule } from './index.ts';
 
@@ -37,7 +38,7 @@ class AppModule {}
 describe('@zmdb/web modules: compileModule', () => {
   it('builds controllers with providers resolved from imports', () => {
     const compiled = compileModule(AppModule);
-    const svc = compiled.controllers.find((c) => c instanceof TimeService);
+    const svc = compiled.controllers.find(c => c instanceof TimeService);
     expect(svc).toBeInstanceOf(TimeService);
     expect(svc instanceof TimeService ? svc.read() : 0).toBe(42);
   });

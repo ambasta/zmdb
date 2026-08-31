@@ -3,25 +3,30 @@
   "version": "1.0.0-alpha.4",
   "description": "Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.",
   "keywords": [
+    "aot",
+    "json",
+    "runtime-types",
+    "serialization",
     "typescript",
     "validation",
-    "aot",
-    "runtime-types",
-    "json",
-    "serialization",
     "zmdb"
   ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
   "author": "zmdb contributors",
-  "homepage": "https://github.com/ambasta/zmdb#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/aot-validator"
   },
-  "bugs": {
-    "url": "https://github.com/ambasta/zmdb/issues"
-  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -31,27 +36,22 @@
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts"
   },
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=26"
-  },
   "publishConfig": {
     "access": "public",
     "tag": "alpha"
   },
   "scripts": {
-    "test": "vitest run",
-    "build": "tsup"
-  },
-  "devDependencies": {
-    "tsup": "8.5.0",
-    "typescript": "5.9.2"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

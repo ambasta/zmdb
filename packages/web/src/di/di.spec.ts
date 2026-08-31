@@ -1,8 +1,10 @@
-// Tests (#264) for compile-time DI — RED first (di exports absent). Container
-// register/resolve/has, UnresolvedTokenError, type-level token match, and
-// @Inject field population via container.build. Per packages/web/src/di/SPEC.md.
-import { describe, it, expect, expectTypeOf } from 'vitest';
-import { Container, createToken, Inject, UnresolvedTokenError, type Token } from './index.ts';
+// Tests (#264) for compile-time DI: Container register/resolve/has,
+// UnresolvedTokenError, and @Inject field population via container.build. The
+// token → instance-type binding is asserted in `di.type-test.ts`.
+// Per packages/web/src/di/SPEC.md.
+import { describe, it, expect } from 'vitest';
+
+import { Container, createToken, Inject, UnresolvedTokenError } from './index.ts';
 
 class Logger {
   log(msg: string): string {
@@ -24,12 +26,6 @@ describe('@zmdb/web DI: Container', () => {
     const c = new Container();
     expect(() => c.resolve(LoggerToken)).toThrow(UnresolvedTokenError);
     expect(c.has(LoggerToken)).toBe(false);
-  });
-
-  it('resolve returns the token type (type-level)', () => {
-    const c = new Container();
-    c.register(LoggerToken, new Logger());
-    expectTypeOf(c.resolve(LoggerToken)).toEqualTypeOf<Logger>();
   });
 
   it('rejects a mismatched instance at compile time', () => {

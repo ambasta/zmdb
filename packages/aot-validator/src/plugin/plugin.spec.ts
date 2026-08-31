@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { transformTypeChecks } from './index.ts';
 
 // RED PHASE (#79 spec freeze): the AOT plugin's emitted-JS contract.

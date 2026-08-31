@@ -1,21 +1,8 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
-import { attachPopulated, type PopulatedEntity, type RelationDef } from './index.ts';
+import { describe, it, expect } from 'vitest';
 
-interface User {
-  id: number;
-  name: string;
-}
-interface Order {
-  id: number;
-  total: number;
-}
+import { attachPopulated } from './index.ts';
 
-// A relation map: users have many orders.
-interface UserRelations {
-  orders: RelationDef & { cardinality: 'one-to-many'; entity: Order };
-  [k: string]: RelationDef;
-}
-
+// `PopulatedEntity`'s widening is asserted in `relations.type-test.ts`.
 describe('Populated<S,K> result typing (#190)', () => {
   it('attachPopulated attaches a to-many relation (non-mutating)', () => {
     const user = { id: 1, name: 'a' };
@@ -28,11 +15,5 @@ describe('Populated<S,K> result typing (#190)', () => {
     const order = { id: 10, total: 5 };
     const populated = attachPopulated(order, 'user', { id: 1, name: 'a' });
     expect(populated.user).toEqual({ id: 1, name: 'a' });
-  });
-
-  it('type-level: PopulatedEntity widens Base with the relation field', () => {
-    type P = PopulatedEntity<User, UserRelations, 'orders'>;
-    expectTypeOf<P['orders']>().toEqualTypeOf<Order[]>();
-    expectTypeOf<P['id']>().toEqualTypeOf<number>();
   });
 });

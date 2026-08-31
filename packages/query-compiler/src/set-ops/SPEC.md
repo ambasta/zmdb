@@ -23,8 +23,11 @@ function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect): Co
 ## 2. Batch API (#122/#123/#124)
 
 ```ts
-interface BatchStatement { text: string; parameters: readonly unknown[]; }
-function batch(statements: readonly CompiledQuery[]): { statements; execute(runner) }
+interface BatchStatement {
+  text: string;
+  parameters: readonly unknown[];
+}
+function batch(statements: readonly CompiledQuery[]): { statements; execute(runner) };
 ```
 
 - Bundles N statements for a single round-trip where the driver supports it.

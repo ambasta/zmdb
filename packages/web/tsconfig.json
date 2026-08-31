@@ -1,23 +1,19 @@
 {
   "extends": "../../tsconfig.base.json",
+  "comment": [
+    "No `paths` override: this project used to remap the `@zmdb/*` imports to",
+    "`../*/dist/*.d.ts`, i.e. to build artifacts that are gitignored (unresolvable",
+    "in a fresh CI checkout) and stale whenever a sibling source changed without a",
+    "rebuild. The source-based paths in tsconfig.base.json are the single source of",
+    "truth. No `rootDir`/`outDir` either: this project is `noEmit` (tsup owns",
+    "emission) and a rootDir of `src` makes every cross-package import a TS6059.",
+    "Specs are not excluded — they are part of the typecheck gate."
+  ],
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "experimentalDecorators": false,
-    "emitDecoratorMetadata": false,
-    "paths": {
-      "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
-      "@zmdb/aot-validator": ["../aot-validator/dist/index.d.ts"],
-      "@zmdb/aot-validator/utilities": ["../aot-validator/dist/utilities.d.ts"],
-      "@zmdb/repository": ["../repository/dist/index.d.ts"]
-    }
+    "emitDecoratorMetadata": false
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "**/*.spec.ts",
-    "dist"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist"]
 }

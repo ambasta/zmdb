@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
-import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.ts';
+import { fileURLToPath } from 'node:url';
+
+import { describe, it, expect } from 'vitest';
+
+import { seed, runOrmSuite, competitorDnf, sqliteEngine } from './orm/adapter.ts';
 import { toMarkdown } from './report.ts';
 import type { BenchResult } from './results.ts';
+import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
 
 // Generates benchmarks/RESULTS.md from LIVE runs (validation + ORM against
 // node:sqlite), using the #72 report generator (single source of truth for
@@ -19,11 +21,7 @@ function generate(): BenchResult[] {
   };
   const valid = runValidationSuite('zmdb', zmdbAdapter, desc, { id: 1, email: 'a@b.com' }, 500);
 
-  const db = new DatabaseSync(':memory:');
-  const engine: OrmEngine = {
-    exec: (s) => db.exec(s),
-    all: (s, p) => db.prepare(s).all(...(p as unknown[])) as Record<string, unknown>[],
-  };
+  const engine = sqliteEngine(new DatabaseSync(':memory:'));
   seed(engine, 50, 4);
   const orm = [...runOrmSuite(engine, 200), ...competitorDnf()];
   return [...valid, ...orm];

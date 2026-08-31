@@ -51,6 +51,7 @@ packages, so nothing is lost:
   on the others being on the registry).
 
 ## Acceptance
+
 - Runtime test: every curated root export is present and `===` its source.
 - Type-level: `import { defineSchema, BaseRepository } from 'zmdb'` type-checks
   and the types equal the source types.

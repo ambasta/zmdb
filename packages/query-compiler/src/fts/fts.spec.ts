@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { ftsSelectFrom, UnsupportedFeatureError } from './index.ts';
 
 // RED PHASE (#94 spec freeze): FTS predicate golden SQL + per-dialect DNF.
@@ -14,9 +15,7 @@ describe('full-text search compilation', () => {
 
   it('mysql MATCH ... AGAINST', () => {
     const q = ftsSelectFrom('customers', 'mysql').whereMatch('company_name', 'ltd').compile();
-    expect(q.text).toBe(
-      'SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(? IN NATURAL LANGUAGE MODE)',
-    );
+    expect(q.text).toBe('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(? IN NATURAL LANGUAGE MODE)');
   });
 
   it('sqlite is an honest DNF (throws UnsupportedFeatureError)', () => {

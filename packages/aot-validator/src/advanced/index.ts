@@ -5,8 +5,6 @@
 // have no runtime-fallback tests in this suite and are left as thin stubs.
 import type { Rule } from '../index.ts';
 
-const NOT_IMPL = 'not implemented';
-
 export interface ValidationIssue {
   readonly path: string;
   readonly expected: string;
@@ -20,70 +18,105 @@ export interface ValidationIssue {
 declare const __brand: unique symbol;
 export type Brand<Base, Tag extends string> = Base & { readonly [__brand]: Tag };
 
-// A refinement rule carries an inlineable predicate source + a message.
-// The runtime fallback compiles the predicate with `v` in scope.
-interface RefineRule extends Rule {
+/** True for a non-null, non-array object — proves a keyed read is safe. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export type RefinePredicate = (v: unknown) => boolean;
+export type TransformFn = (v: unknown) => unknown;
+
+/**
+ * A refinement rule: a real predicate plus its source text for AOT inlining.
+ *
+ * The predicate is passed in as a *function value*, not a source string that we
+ * `new Function()` at import time. Two reasons: (1) the string form needs
+ * `unsafe-eval`, which contradicts the whole point of ahead-of-time emission —
+ * see PRD §9.5; (2) a function is typechecked at the call site, whereas a string
+ * predicate can only fail at runtime. `source` is recovered from
+ * `Function.prototype.toString`, so the transformer can still inline the body.
+ */
+export interface RefineRule extends Rule {
   readonly kind: 'refine';
-  readonly predicateSource: string;
+  readonly source: string;
   readonly message: string;
-  readonly predicate: (v: unknown) => boolean;
+  readonly predicate: RefinePredicate;
 }
-
-export function refine(predicateSource: string, message: string): Rule {
-  // eslint-disable-next-line no-new-func
-  const predicate = new Function('v', `return (${predicateSource});`) as (v: unknown) => boolean;
-  return Object.freeze({
-    kind: 'refine',
-    args: Object.freeze([predicateSource, message]),
-    predicateSource,
-    message,
-    predicate,
-  } satisfies RefineRule);
+/** A post-validation conversion. Same function-not-source rule as {@link RefineRule}. */
+export interface TransformRule extends Rule {
+  readonly kind: 'transform';
+  readonly source: string;
+  readonly apply: TransformFn;
 }
-
-export function transform(fnSource: string): Rule {
-  // eslint-disable-next-line no-new-func
-  const apply = new Function('v', `return (${fnSource});`) as (v: unknown) => unknown;
-  return Object.freeze({
-    kind: 'transform',
-    args: Object.freeze([fnSource]),
-    apply,
-  } as unknown as Rule);
-}
-
-interface UnionRule extends Rule {
+export interface UnionRule extends Rule {
   readonly kind: 'union';
   readonly branches: readonly Rule[];
 }
-interface DiscriminatedRule extends Rule {
+export interface DiscriminatedRule extends Rule {
   readonly kind: 'discriminated';
   readonly key: string;
   readonly map: Record<string, Rule>;
 }
 
-export function union(...rules: readonly Rule[]): Rule {
-  return Object.freeze({ kind: 'union', args: Object.freeze(rules), branches: rules } as unknown as UnionRule);
+export function refine(predicate: RefinePredicate, message: string): RefineRule {
+  const source = predicate.toString();
+  return Object.freeze({
+    kind: 'refine',
+    args: Object.freeze([source, message]),
+    source,
+    message,
+    predicate,
+  } satisfies RefineRule);
 }
 
-export function discriminated(key: string, map: Record<string, Rule>): Rule {
-  return Object.freeze({ kind: 'discriminated', args: Object.freeze([key]), key, map } as unknown as DiscriminatedRule);
+export function transform(apply: TransformFn): TransformRule {
+  const source = apply.toString();
+  return Object.freeze({
+    kind: 'transform',
+    args: Object.freeze([source]),
+    source,
+    apply,
+  } satisfies TransformRule);
+}
+
+export function union(...rules: readonly Rule[]): UnionRule {
+  return Object.freeze({ kind: 'union', args: Object.freeze(rules), branches: rules } satisfies UnionRule);
+}
+
+export function discriminated(key: string, map: Record<string, Rule>): DiscriminatedRule {
+  return Object.freeze({
+    kind: 'discriminated',
+    args: Object.freeze([key]),
+    key,
+    map,
+  } satisfies DiscriminatedRule);
+}
+
+// `Rule` is an open interface (any package may add a kind), so `rule.kind === x`
+// cannot narrow it the way a closed union would. These guards check the tag *and*
+// the payload it implies, which is what makes the narrowing sound without a cast.
+function isRefine(rule: Rule): rule is RefineRule {
+  return rule.kind === 'refine' && 'predicate' in rule && typeof rule.predicate === 'function';
+}
+function isUnion(rule: Rule): rule is UnionRule {
+  return rule.kind === 'union' && 'branches' in rule && Array.isArray(rule.branches);
+}
+function isDiscriminated(rule: Rule): rule is DiscriminatedRule {
+  return rule.kind === 'discriminated' && 'key' in rule && typeof rule.key === 'string' && 'map' in rule;
 }
 
 // Runtime evaluator (the fallback the transformer's inline emission mirrors).
 export function evalRule(rule: Rule, value: unknown): boolean {
-  switch (rule.kind) {
-    case 'union':
-      return (rule as UnionRule).branches.some((b) => evalRule(b, value));
-    case 'discriminated': {
-      const r = rule as DiscriminatedRule;
-      if (typeof value !== 'object' || value === null) return false;
-      const disc = (value as Record<string, unknown>)[r.key];
-      if (typeof disc !== 'string' || !(disc in r.map)) return false;
-      return evalRule(r.map[disc]!, (value as Record<string, unknown>).value);
-    }
-    default:
-      return checkRule(rule, value).ok;
+  if (isUnion(rule)) return rule.branches.some(b => evalRule(b, value));
+  if (isDiscriminated(rule)) {
+    if (!isRecord(value)) return false;
+    const disc = value[rule.key];
+    if (typeof disc !== 'string') return false;
+    const branch = rule.map[disc];
+    if (!branch) return false;
+    return evalRule(branch, value.value);
   }
+  return checkRule(rule, value).ok;
 }
 
 export const coerce = {
@@ -98,22 +131,21 @@ export type ObjectMode = 'strict' | 'strip' | 'passthrough';
 
 function checkRule(rule: Rule, value: unknown): { ok: boolean; expected: string; message: string } {
   // Refinement rule.
-  if ((rule as RefineRule).kind === 'refine') {
-    const r = rule as RefineRule;
-    return { ok: r.predicate(value), expected: r.predicateSource, message: r.message };
+  if (isRefine(rule)) {
+    return { ok: rule.predicate(value), expected: rule.source, message: rule.message };
   }
   // Primitive tag rules (mirror the aot-validator runtime fallback).
   const [arg] = rule.args;
   switch (rule.kind) {
     case 'Minimum':
       return {
-        ok: typeof value === 'number' && value >= (arg as number),
+        ok: typeof value === 'number' && typeof arg === 'number' && value >= arg,
         expected: `number >= ${String(arg)}`,
         message: `must be >= ${String(arg)}`,
       };
     case 'MaxLength':
       return {
-        ok: typeof value === 'string' && value.length <= (arg as number),
+        ok: typeof value === 'string' && typeof arg === 'number' && value.length <= arg,
         expected: `string length <= ${String(arg)}`,
         message: `length must be <= ${String(arg)}`,
       };
@@ -128,7 +160,7 @@ export function validateObject(
   mode: ObjectMode,
 ): { success: boolean; issues: readonly ValidationIssue[] } {
   const issues: ValidationIssue[] = [];
-  const obj = (value ?? {}) as Record<string, unknown>;
+  const obj = isRecord(value) ? value : {};
 
   // Excess-key handling for strict mode.
   if (mode === 'strict') {

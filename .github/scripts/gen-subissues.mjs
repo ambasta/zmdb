@@ -50,8 +50,12 @@ const EPICS = [
         t: 'Implement column builders',
         goal: 'Implement all column builder functions to satisfy the frozen spec.',
         depends: 'the spec-freeze sub-issue',
-        spec: ['Implement serial/integer/bigint/numeric/text/varchar/boolean/timestamp/json/jsonEnum returning frozen metadata.'],
-        tests: ['Make the column-builder tests from the spec sub-issue pass. Add edge cases: varchar length propagation, jsonEnum value capture.'],
+        spec: [
+          'Implement serial/integer/bigint/numeric/text/varchar/boolean/timestamp/json/jsonEnum returning frozen metadata.',
+        ],
+        tests: [
+          'Make the column-builder tests from the spec sub-issue pass. Add edge cases: varchar length propagation, jsonEnum value capture.',
+        ],
         accept: ['All column-builder unit tests green.', 'No runtime deps introduced.'],
       },
       {
@@ -84,7 +88,10 @@ const EPICS = [
         depends: 'type derivation',
         spec: ['defineSchema(table, columns) validates uniqueness of primary key and returns frozen CoreSchema.'],
         tests: ['Test defineSchema returns matching snapshot; throws on zero/duplicate primary keys.'],
-        accept: ['defineSchema tests green; snapshot matches frozen spec.', 'Closing this + prior subs fully resolves the parent epic.'],
+        accept: [
+          'defineSchema tests green; snapshot matches frozen spec.',
+          'Closing this + prior subs fully resolves the parent epic.',
+        ],
       },
     ],
   },
@@ -138,7 +145,10 @@ const EPICS = [
         depends: 'dialects',
         spec: ['Benchmark compile() throughput; assert no retained metadata objects for a simple query.'],
         tests: ['Add a benchmark + a test asserting compile() allocates below an agreed threshold (heap sample).'],
-        accept: ['Benchmark committed with baseline numbers.', 'Closing this + prior subs fully resolves the parent epic.'],
+        accept: [
+          'Benchmark committed with baseline numbers.',
+          'Closing this + prior subs fully resolves the parent epic.',
+        ],
       },
     ],
   },
@@ -156,7 +166,9 @@ const EPICS = [
           'Define emitted-JS contract for each primitive tag (Minimum/Maximum/MinLength/MaxLength/Pattern/Enum).',
           'Define the before→after code transform examples as golden fixtures.',
         ],
-        tests: ['Failing transform golden tests: given input .ts, expect specific emitted JS (string compare of transformer output).'],
+        tests: [
+          'Failing transform golden tests: given input .ts, expect specific emitted JS (string compare of transformer output).',
+        ],
         accept: ['Committed SPEC.md with before/after fixtures.', 'Tests compile and FAIL.'],
       },
       {
@@ -179,9 +191,16 @@ const EPICS = [
         t: 'Runtime-safety fallback + build integration',
         goal: 'Ensure code still type-checks/runs pre-transform (dev) and integrates with tsc build.',
         depends: 'primitive tag inlining',
-        spec: ['Provide a no-op runtime implementation of validate() for pre-transform execution; document ttypescript/ts-patch wiring.'],
-        tests: ['Integration test: compile a fixture project with the transformer; assert validate() calls are gone from output and behavior matches.'],
-        accept: ['End-to-end transform integration test green.', 'Closing this + prior subs fully resolves the parent epic.'],
+        spec: [
+          'Provide a no-op runtime implementation of validate() for pre-transform execution; document ttypescript/ts-patch wiring.',
+        ],
+        tests: [
+          'Integration test: compile a fixture project with the transformer; assert validate() calls are gone from output and behavior matches.',
+        ],
+        accept: [
+          'End-to-end transform integration test green.',
+          'Closing this + prior subs fully resolves the parent epic.',
+        ],
       },
     ],
   },
@@ -214,8 +233,12 @@ const EPICS = [
         t: 'Implement create/update with AOT validation interception',
         goal: 'create/update validate payloads via aot-validator before executing writes.',
         depends: 'read methods',
-        spec: ['create(payload) validates against CreateDTO; update(id, payload) against UpdateDTO; invalid input throws structured error.'],
-        tests: ['Tests: valid payload → correct INSERT/UPDATE SQL; invalid payload → structured validation error, no SQL executed.'],
+        spec: [
+          'create(payload) validates against CreateDTO; update(id, payload) against UpdateDTO; invalid input throws structured error.',
+        ],
+        tests: [
+          'Tests: valid payload → correct INSERT/UPDATE SQL; invalid payload → structured validation error, no SQL executed.',
+        ],
         accept: ['Write + validation tests green.'],
       },
       {
@@ -250,7 +273,9 @@ const EPICS = [
           'Define populate([...]) semantics and how related types attach to Entity<T> only when populated.',
           'Define JOIN vs batched-select strategy selection.',
         ],
-        tests: ['Failing tests: relation builders produce documented metadata; type test that populate adds relation field to result type.'],
+        tests: [
+          'Failing tests: relation builders produce documented metadata; type test that populate adds relation field to result type.',
+        ],
         accept: ['Committed SPEC.md with relation examples.', 'Tests compile and FAIL.'],
       },
       {
@@ -301,7 +326,9 @@ const EPICS = [
           'Define tx-scoped repository binding.',
           'Define nested transaction → savepoint mapping and isolation-level option.',
         ],
-        tests: ['Failing tests: transaction callback commits on success, rolls back on throw (fake driver records BEGIN/COMMIT/ROLLBACK).'],
+        tests: [
+          'Failing tests: transaction callback commits on success, rolls back on throw (fake driver records BEGIN/COMMIT/ROLLBACK).',
+        ],
         accept: ['Committed SPEC.md.', 'Tests compile and FAIL.'],
       },
       {
@@ -436,7 +463,9 @@ const EPICS = [
         goal: 'Opt-in coercion, nominal brands, and strict/strip/passthrough object modes.',
         depends: 'union compilation',
         spec: ['Coercion emitted as inline conversion; brands compile-time only; strictness controls excess keys.'],
-        tests: ['Behavior tests: coerce string→number; brand type test; strict rejects excess keys, strip removes them.'],
+        tests: [
+          'Behavior tests: coerce string→number; brand type test; strict rejects excess keys, strip removes them.',
+        ],
         accept: ['Coercion/brand/strictness tests green.'],
       },
       {
@@ -560,7 +589,7 @@ const EPICS = [
   },
 ];
 
-function buildBody(epic, sub, idx) {
+function buildBody(epic, sub, _idx) {
   const lines = [];
   lines.push(`Parent epic: #${epic.parent} (${epic.title})`);
   lines.push('');
@@ -568,7 +597,11 @@ function buildBody(epic, sub, idx) {
   lines.push(sub.goal);
   lines.push('');
   lines.push('## Depends on');
-  lines.push(sub.depends === 'none' ? 'Nothing — this is the spec-freeze starting point (TDD).' : `Previous sub-issue(s): ${sub.depends}.`);
+  lines.push(
+    sub.depends === 'none'
+      ? 'Nothing — this is the spec-freeze starting point (TDD).'
+      : `Previous sub-issue(s): ${sub.depends}.`,
+  );
   lines.push('');
   lines.push('## Spec / Behavior');
   for (const s of sub.spec) lines.push(`- ${s}`);
@@ -593,10 +626,7 @@ for (const epic of EPICS) {
     const title = `[${epic.title}] ${idx === 0 ? 'Spec Freeze: ' : ''}${sub.t}`;
     const body = buildBody(epic, sub, idx);
     const labels = idx === 0 ? 'sub-issue,spec' : 'sub-issue';
-    const url = gh(
-      ['issue', 'create', '--repo', REPO, '--title', title, '--body-file', '-', '--label', labels],
-      body,
-    );
+    const url = gh(['issue', 'create', '--repo', REPO, '--title', title, '--body-file', '-', '--label', labels], body);
     const num = url.split('/').pop();
     created[epic.parent].push({ num, title });
     console.log(`created #${num} ${title}`);
@@ -607,7 +637,13 @@ for (const epic of EPICS) {
 for (const epic of EPICS) {
   const subs = created[epic.parent];
   const existing = gh(['issue', 'view', String(epic.parent), '--repo', REPO, '--json', 'body', '-q', '.body']);
-  const checklist = ['', '---', '', '## Sub-issues (complete in order; all must close to resolve this epic)', ...subs.map((s) => `- [ ] #${s.num} — ${s.title}`)].join('\n');
+  const checklist = [
+    '',
+    '---',
+    '',
+    '## Sub-issues (complete in order; all must close to resolve this epic)',
+    ...subs.map(s => `- [ ] #${s.num} — ${s.title}`),
+  ].join('\n');
   gh(['issue', 'edit', String(epic.parent), '--repo', REPO, '--body-file', '-'], existing + '\n' + checklist);
   console.log(`linked ${subs.length} subs into epic #${epic.parent}`);
 }

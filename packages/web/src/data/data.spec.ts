@@ -1,14 +1,16 @@
+import { DatabaseSync } from 'node:sqlite';
+
+import { defineRepository, type BaseRepository } from '@zmdb/repository';
+import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+import { defineSchema, serial, integer, numeric } from '@zmdb/schema-core';
 // Tests (#279) for zmdb data-layer integration — RED first (data exports absent).
 // Orders end-to-end on node:sqlite: controller injects a repository via DI, body
 // validated before persist, typed response. Per packages/web/src/data/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { DatabaseSync } from 'node:sqlite';
-import { defineSchema, serial, integer, numeric } from '@zmdb/schema-core';
-import { defineRepository, type BaseRepository } from '@zmdb/repository';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+
 import { Container, Inject } from '../di/index.ts';
-import { Controller, Get, Post } from '../routing/index.ts';
 import { createRouter, type Ctx } from '../pipeline/index.ts';
+import { Controller, Get, Post } from '../routing/index.ts';
 import { repositoryToken, validateWith } from './index.ts';
 
 const OrderSchema = defineSchema('orders', {
@@ -45,7 +47,9 @@ class OrdersController {
 
 function setup() {
   const db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)');
+  db.exec(
+    'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)',
+  );
   const repo = defineRepository(OrderSchema, sqliteDriver(db), { dialect: 'sqlite' });
   const container = new Container();
   container.register(OrderRepoToken, repo);
@@ -58,7 +62,12 @@ function setup() {
 describe('@zmdb/web data: Orders end-to-end (node:sqlite)', () => {
   it('creates then reads an order', async () => {
     const router = setup();
-    const created = await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { userId: 1, total: 42 } });
+    const created = await router.handle({
+      method: 'POST',
+      path: '/orders',
+      headers: {},
+      rawBody: { userId: 1, total: 42 },
+    });
     expect(created.status).toBe(200);
     const order = JSON.parse(created.body);
     expect(order.userId).toBe(1);

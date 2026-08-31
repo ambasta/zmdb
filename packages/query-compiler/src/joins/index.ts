@@ -2,31 +2,15 @@
 // qualified columns + table aliasing, dialect-aware, parameterized. Pure string
 // compilation (no runtime type resolution).
 import type { CompiledQuery, Dialect } from '../index.ts';
+import { quoteColumn, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
-const QUOTE: Record<Dialect, string> = { postgres: '"', mysql: '`', sqlite: '"' };
 const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
-  postgres: (n) => `$${n}`,
+  postgres: n => `$${n}`,
   mysql: () => '?',
   sqlite: () => '?',
 };
-
-// Quote a table spec that may be `table` or `table as alias`.
-function quoteTable(d: Dialect, spec: string): string {
-  const q = QUOTE[d];
-  const m = /^(\S+)\s+as\s+(\S+)$/i.exec(spec.trim());
-  if (m) return `${q}${m[1]}${q} AS ${q}${m[2]}${q}`;
-  return `${q}${spec.trim()}${q}`;
-}
-// Quote a possibly-qualified column `x.y` → "x"."y", or `y` → "y".
-function quoteCol(d: Dialect, col: string): string {
-  const q = QUOTE[d];
-  return col
-    .split('.')
-    .map((p) => `${q}${p}${q}`)
-    .join('.');
-}
 
 interface Join {
   kind: JoinKind;
@@ -69,24 +53,24 @@ function make(d: Dialect, s: State): JoinableSelect {
     rightJoin: (t, l, r) => addJoin('right', t, l, r),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
-    limit: (n) => next({ limitN: n }),
-    offset: (n) => next({ offsetN: n }),
+    limit: n => next({ limitN: n }),
+    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
       let text = `SELECT * FROM ${quoteTable(d, s.table)}`;
       for (const j of s.joins) {
         const kw = j.kind === 'inner' ? 'INNER JOIN' : j.kind === 'left' ? 'LEFT JOIN' : 'RIGHT JOIN';
-        text += ` ${kw} ${quoteTable(d, j.target)} ON ${quoteCol(d, j.leftCol)} = ${quoteCol(d, j.rightCol)}`;
+        text += ` ${kw} ${quoteTable(d, j.target)} ON ${quoteColumn(d, j.leftCol)} = ${quoteColumn(d, j.rightCol)}`;
       }
       if (s.wheres.length > 0) {
-        const parts = s.wheres.map((w) => {
+        const parts = s.wheres.map(w => {
           params.push(w.value);
-          return `${quoteCol(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
+          return `${quoteColumn(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
         });
         text += ` WHERE ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map((o) => `${quoteCol(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;
