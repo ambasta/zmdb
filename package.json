@@ -18,7 +18,6 @@
     "test:watch": "vitest",
     "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
-    "verify-exports": "node .github/scripts/verify-exports.mjs",
     "verify:exports": "node .github/scripts/verify-exports.mjs"
   },
   "devDependencies": {
