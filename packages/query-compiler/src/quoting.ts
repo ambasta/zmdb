@@ -27,8 +27,8 @@ export function quoteColumn(dialect: Dialect, col: string): string {
     .join('.');
 }
 
-function isWhitespace(ch: string): boolean {
-  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+function isWhitespace(ch: string | undefined): boolean {
+  return ch !== undefined && (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r');
 }
 
 /**
@@ -44,8 +44,8 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
     if (asIndex === -1) {
       break;
     }
-    const hasSpaceBefore = asIndex > 0 && isWhitespace(trimmed[asIndex - 1]!);
-    const hasSpaceAfter = asIndex + 2 < trimmed.length && isWhitespace(trimmed[asIndex + 2]!);
+    const hasSpaceBefore = isWhitespace(trimmed[asIndex - 1]);
+    const hasSpaceAfter = isWhitespace(trimmed[asIndex + 2]);
 
     if (hasSpaceBefore && hasSpaceAfter) {
       const tableStr = trimmed.slice(0, asIndex).trim();

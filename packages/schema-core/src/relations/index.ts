@@ -1,5 +1,4 @@
 import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-compiler';
-
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
