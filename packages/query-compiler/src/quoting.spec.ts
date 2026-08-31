@@ -89,6 +89,11 @@ describe('Centralized Identifier Quoting Engine', () => {
       expect(quoteTable('postgres', 'usr"tbl as u"al')).toBe('"usr""tbl" AS "u""al"');
       expect(quoteTable('mysql', 'usr`tbl as u`al')).toBe('`usr``tbl` AS `u``al`');
     });
+
+    it('handles long inputs with excessive whitespace in linear time without ReDoS', () => {
+      const longPayload = 'users' + ' '.repeat(50000) + 'AS' + ' '.repeat(50000) + 'u';
+      expect(quoteTable('postgres', longPayload)).toBe('"users" AS "u"');
+    });
   });
 
   describe('formatPlaceholder', () => {
