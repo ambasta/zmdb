@@ -332,13 +332,13 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     }
 
     const rows = await this.rows<EntityRow<S>>(b.compile());
-    const opts2 = {
+    const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
-      select: query?.select,
+      ...(query?.select ? { select: query.select } : {}),
       orderBy: effectiveOrderBy,
       pkColumn,
     };
-    const res = buildListResult(rows, opts2);
+    const res = buildListResult(rows, listOpts);
     if (opts?.populate?.length) {
       await this.attachRelations(res.items, opts.populate);
     }
