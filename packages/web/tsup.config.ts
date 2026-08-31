@@ -19,7 +19,7 @@ export default defineConfig({
     bench: 'src/bench/index.ts',
   },
   format: ['esm'],
-  dts: false,
+  dts: true,
   clean: true,
   target: 'node22',
   external: [/^@zmdb\//],

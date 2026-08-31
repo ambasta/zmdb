@@ -9,7 +9,7 @@ export default defineConfig({
     plugin: 'src/plugin/index.ts',
   },
   format: ['esm'],
-  dts: false,
+  dts: true,
   clean: true,
   target: 'node22',
   external: [/^@zmdb\//],

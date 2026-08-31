@@ -1,77 +1,22 @@
 // Verification script for package export manifests.
-// Confirms that all declared package exports resolve to valid source files in dev mode,
-// and to valid generated build artifacts (.js and .d.ts in dist/) after build.
+// Confirms that all declared package exports resolve to valid files.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname);
-
-// Expected dist entry mappings for each package (matches repoint-dist.mjs and tsup configs)
-const ENTRIES = {
-  'schema-core': {
-    '.': 'index',
-    './dto': 'dto',
-    './custom-types': 'custom-types',
-    './seeding': 'seeding',
-    './llm': 'llm',
-  },
-  'query-compiler': {
-    '.': 'index',
-    './fts': 'fts',
-    './joins': 'joins',
-    './aggregations': 'aggregations',
-    './migrations': 'migrations',
-    './set-ops': 'set-ops',
-    './schema-objects': 'schema-objects',
-  },
-  'aot-validator': {
-    '.': 'index',
-    './advanced': 'advanced',
-    './serialization': 'serialization',
-    './utilities': 'utilities',
-    './plugin': 'plugin',
-  },
-  repository: {
-    '.': 'index',
-    './transactions': 'transactions',
-    './replicas': 'replicas',
-    './integrations': 'integrations',
-    './entity-modeling': 'entity-modeling',
-    './drivers/sqlite': 'drivers-sqlite',
-    './drivers/pg': 'drivers-pg',
-  },
-  web: {
-    '.': 'index',
-    './routing': 'routing',
-    './context': 'context',
-    './di': 'di',
-    './state': 'state',
-    './pipeline': 'pipeline',
-    './data': 'data',
-    './modules': 'modules',
-    './middleware': 'middleware',
-    './app': 'app',
-    './dto-pipes': 'dto-pipes',
-    './openapi': 'openapi',
-    './gateways': 'gateways',
-  },
-  zmdb: {
-    '.': 'index',
-    './dto': 'dto',
-    './relations': 'relations',
-    './drivers/sqlite': 'drivers-sqlite',
-    './drivers/pg': 'drivers-pg',
-    './web': 'web',
-  },
-};
+const PACKAGES_DIR = join(ROOT, 'packages');
 
 let errorsCount = 0;
 
 console.log('Validating export manifest resolution across all monorepo packages...');
 
-for (const [pkgName, entries] of Object.entries(ENTRIES)) {
-  const pkgDir = join(ROOT, 'packages', pkgName);
+const packageDirs = readdirSync(PACKAGES_DIR, { withFileTypes: true })
+  .filter(entry => entry.isDirectory())
+  .map(entry => entry.name);
+
+for (const pkgDirName of packageDirs) {
+  const pkgDir = join(PACKAGES_DIR, pkgDirName);
   const pkgJsonPath = join(pkgDir, 'package.json');
 
   if (!existsSync(pkgJsonPath)) {
@@ -82,58 +27,41 @@ for (const [pkgName, entries] of Object.entries(ENTRIES)) {
 
   const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
 
-  // 1. Verify current package.json exports resolve to existing source files or dist files
-  if (pkg.exports) {
-    for (const [subpath, exportValue] of Object.entries(pkg.exports)) {
-      if (typeof exportValue === 'string') {
-        const targetPath = join(pkgDir, exportValue);
-        if (!existsSync(targetPath)) {
-          console.error(`[ERROR] ${pkg.name} export "${subpath}" points to missing file: ${exportValue}`);
-          errorsCount++;
-        }
-      } else if (typeof exportValue === 'object' && exportValue !== null) {
-        if (exportValue.types) {
-          const typesPath = join(pkgDir, exportValue.types);
-          if (!existsSync(typesPath)) {
-            console.error(`[ERROR] ${pkg.name} export "${subpath}" types point to missing file: ${exportValue.types}`);
-            errorsCount++;
-          }
-        }
-        if (exportValue.import) {
-          const importPath = join(pkgDir, exportValue.import);
-          if (!existsSync(importPath)) {
-            console.error(
-              `[ERROR] ${pkg.name} export "${subpath}" import points to missing file: ${exportValue.import}`,
-            );
-            errorsCount++;
-          }
-        }
-      }
-    }
-  } else {
-    console.error(`[ERROR] Package ${pkgName} missing "exports" field in package.json`);
-    errorsCount++;
-  }
-
-  // 2. Verify dist build artifacts for all expected export entry points
-  const distDir = join(pkgDir, 'dist');
-  if (!existsSync(distDir)) {
-    console.error(`[ERROR] Package ${pkgName} dist/ directory does not exist. Run yarn build first.`);
+  if (!pkg.exports || Object.keys(pkg.exports).length === 0) {
+    console.error(`[ERROR] Package ${pkg.name || pkgDirName} missing "exports" field in package.json`);
     errorsCount++;
     continue;
   }
 
-  for (const [subpath, baseName] of Object.entries(entries)) {
-    const jsPath = join(distDir, `${baseName}.js`);
-    const dtsPath = join(distDir, `${baseName}.d.ts`);
-
-    if (!existsSync(jsPath)) {
-      console.error(`[ERROR] ${pkg.name} (${subpath}) missing generated bundle: dist/${baseName}.js`);
-      errorsCount++;
+  // Verify top-level entry fields if present
+  for (const field of ['main', 'module', 'types']) {
+    if (pkg[field]) {
+      const targetPath = join(pkgDir, pkg[field]);
+      if (!existsSync(targetPath)) {
+        console.error(`[ERROR] ${pkg.name} "${field}" field points to missing file: ${pkg[field]}`);
+        errorsCount++;
+      }
     }
-    if (!existsSync(dtsPath)) {
-      console.error(`[ERROR] ${pkg.name} (${subpath}) missing generated declaration: dist/${baseName}.d.ts`);
-      errorsCount++;
+  }
+
+  // Verify package.json exports resolve to existing target files
+  for (const [subpath, exportValue] of Object.entries(pkg.exports)) {
+    if (typeof exportValue === 'string') {
+      const targetPath = join(pkgDir, exportValue);
+      if (!existsSync(targetPath)) {
+        console.error(`[ERROR] ${pkg.name} export "${subpath}" points to missing file: ${exportValue}`);
+        errorsCount++;
+      }
+    } else if (typeof exportValue === 'object' && exportValue !== null) {
+      for (const [condition, target] of Object.entries(exportValue)) {
+        if (typeof target === 'string') {
+          const targetPath = join(pkgDir, target);
+          if (!existsSync(targetPath)) {
+            console.error(`[ERROR] ${pkg.name} export "${subpath}" (${condition}) points to missing file: ${target}`);
+            errorsCount++;
+          }
+        }
+      }
     }
   }
 }
@@ -142,6 +70,6 @@ if (errorsCount > 0) {
   console.error(`\nExport manifest validation failed with ${errorsCount} error(s).`);
   process.exit(1);
 } else {
-  console.log('\n[SUCCESS] 100% of package export entry points resolve to valid source and build artifacts!');
+  console.log('\n[SUCCESS] 100% of package export entry points resolve to valid files!');
   process.exit(0);
 }

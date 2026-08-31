@@ -41,7 +41,7 @@ jobs:
       # loop it replaced listed four packages and skipped `web` and `zmdb`.
       # Specs and `*.type-test.ts` files are inside the program, so the
       # type-level assertions (Equal/Expect, @ts-expect-error) are gated here.
-      - name: Build and Typecheck (all packages + benchmarks)
+      - name: Typecheck (all projects, incl. specs and type-tests)
         run: yarn typecheck
 
       - name: Verify export manifests

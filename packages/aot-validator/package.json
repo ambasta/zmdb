@@ -43,8 +43,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run"
   },
   "dependencies": {
     "@zmdb/schema-core": "workspace:^"

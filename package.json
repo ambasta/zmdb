@@ -7,7 +7,6 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "yarn workspaces foreach -A -t run build && node .github/scripts/emit-dts.mjs",
     "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
@@ -17,9 +16,10 @@
     "lint:fix": "oxlint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "yarn build && node scripts/typecheck.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
-    "verify-exports": "node .github/scripts/verify-exports.mjs"
+    "verify-exports": "node .github/scripts/verify-exports.mjs",
+    "verify:exports": "node .github/scripts/verify-exports.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",

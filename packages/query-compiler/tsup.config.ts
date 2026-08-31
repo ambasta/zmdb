@@ -11,7 +11,7 @@ export default defineConfig({
     'schema-objects': 'src/schema-objects/index.ts',
   },
   format: ['esm'],
-  dts: false,
+  dts: true,
   clean: true,
   target: 'node22',
   external: [/^@zmdb\//],

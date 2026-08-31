@@ -45,8 +45,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run"
   },
   "devDependencies": {
     "tsup": "8.5.1",
