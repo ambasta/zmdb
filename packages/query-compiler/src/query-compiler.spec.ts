@@ -276,6 +276,32 @@ describe('array parameter IN expansion', () => {
     expect(q.parameters).toEqual([10, 20, 30, 'active']);
   });
 
+  it('correctly renumbers placeholders when an IN list sits between other predicates in postgres', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .where('tenantId', '=', 100)
+      .whereIn('status', ['pending', 'shipped'])
+      .andWhere('total', '>', 500)
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "orders" WHERE "tenantId" = $1 AND "status" IN ($2, $3) AND "total" > $4');
+    expect(q.parameters).toEqual([100, 'pending', 'shipped', 500]);
+  });
+
+  it('correctly renumbers placeholders when multiple IN lists sit between standard predicates', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .where('orgId', '=', 1)
+      .whereIn('status', ['a', 'b'])
+      .where('category', '=', 'elec')
+      .whereNotIn('tag', ['x', 'y', 'z'])
+      .where('active', '=', true)
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "orders" WHERE "orgId" = $1 AND "status" IN ($2, $3) AND "category" = $4 AND "tag" NOT IN ($5, $6, $7) AND "active" = $8',
+    );
+    expect(q.parameters).toEqual([1, 'a', 'b', 'elec', 'x', 'y', 'z', true]);
+  });
+
   it('expands array parameters into parameterized IN clauses for mysql', () => {
     const q = createQueryCompiler('mysql').selectFrom('users').where('id', '=', [10, 20]).compile();
     expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');

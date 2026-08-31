@@ -124,8 +124,9 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     ).attachRelations(parents, ['orders']);
 
     expect(executedQueries.length).toBe(1);
-    expect(executedQueries[0]!.text).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
-    expect(executedQueries[0]!.params).toEqual([10, 20]);
+    const executedQuery = executedQueries[0];
+    expect(executedQuery?.text).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
+    expect(executedQuery?.params).toEqual([10, 20]);
   });
 
   it('issues set-based IN queries instead of OR condition chains during relational population', async () => {
@@ -206,8 +207,9 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
         orders: { id: number; userId: number; total: number }[];
       };
       expect(parent.orders.length).toBe(1);
-      expect(parent.orders[0]!.userId).toBe(parent.id);
-      expect(parent.orders[0]!.total).toBe(parent.id * 10);
+      const firstOrder = parent.orders[0];
+      expect(firstOrder?.userId).toBe(parent.id);
+      expect(firstOrder?.total).toBe(parent.id * 10);
     }
   });
 
@@ -238,8 +240,9 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     for (let i = 0; i < totalUsers; i++) {
       const row = result[i] as { id: number; orders: { userId: number; total: number }[] };
       expect(row.orders.length).toBe(1);
-      expect(row.orders[0]!.userId).toBe(row.id);
-      expect(row.orders[0]!.total).toBe(row.id * 100);
+      const firstOrder = row.orders[0];
+      expect(firstOrder?.userId).toBe(row.id);
+      expect(firstOrder?.total).toBe(row.id * 100);
     }
   });
 });
