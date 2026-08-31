@@ -21,6 +21,7 @@ export {
   defaultTo,
   references,
   validate as validateColumn,
+  sensitive,
 } from '@zmdb/schema-core';
 export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta } from '@zmdb/schema-core';
 

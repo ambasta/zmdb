@@ -3,34 +3,36 @@ import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb
 import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
 import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
 import {
-  defineSchema as srcDefineSchema,
-  serial as srcSerial,
-  integer as srcInteger,
-  text as srcText,
   boolean as srcBoolean,
-  timestamp as srcTimestamp,
+  defineSchema as srcDefineSchema,
+  integer as srcInteger,
   json as srcJson,
   jsonEnum as srcJsonEnum,
+  sensitive as srcSensitive,
+  serial as srcSerial,
+  text as srcText,
+  timestamp as srcTimestamp,
 } from '@zmdb/schema-core';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
-  defineSchema,
-  serial,
-  integer,
-  text,
+  assert,
+  BaseRepository,
   boolean,
-  timestamp,
+  createQueryCompiler,
+  defineRepository,
+  defineSchema,
+  integer,
+  is,
   json,
   jsonEnum,
-  createQueryCompiler,
-  UnsupportedFeatureError,
-  is,
-  assert,
-  validate,
+  sensitive,
+  serial,
   tags,
-  BaseRepository,
-  defineRepository,
+  text,
+  timestamp,
+  UnsupportedFeatureError,
+  validate,
 } from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
@@ -43,6 +45,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(timestamp).toBe(srcTimestamp);
     expect(json).toBe(srcJson);
     expect(jsonEnum).toBe(srcJsonEnum);
+    expect(sensitive).toBe(srcSensitive);
   });
 
   it('re-exports createQueryCompiler and UnsupportedFeatureError', () => {
