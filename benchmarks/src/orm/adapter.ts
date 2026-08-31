@@ -16,6 +16,33 @@ export interface OrmEngine {
   all(sql: string, params: readonly unknown[]): Record<string, unknown>[];
 }
 
+/**
+ * Minimal structural view of a `node:sqlite` database — the same trick as
+ * `@zmdb/repository`'s sqlite driver: methods are bivariant, so a real
+ * `DatabaseSync` is assignable and nothing here depends on ambient Node types.
+ */
+export interface SqliteLike {
+  exec(sql: string): void;
+  prepare(sql: string): { all(...params: unknown[]): unknown[] };
+}
+
+/**
+ * The `OrmEngine` backed by an in-process node:sqlite database.
+ *
+ * Shipped here rather than rebuilt per spec file: it was inlined (identically)
+ * in two of them, each with its own `params as unknown[]` cast to get past
+ * `SQLInputValue`.
+ */
+export function sqliteEngine(db: SqliteLike): OrmEngine {
+  return {
+    exec: sql => db.exec(sql),
+    // boundary: rows leave the database untyped — `all()` is declared
+    // `unknown[]` (the widest shape every @types/node version agrees on) and
+    // node:sqlite always yields plain row objects for a row-returning statement.
+    all: (sql, params) => db.prepare(sql).all(...params) as Record<string, unknown>[],
+  };
+}
+
 // Seed a small e-commerce dataset (nano size — reproducible; the real suite
 // uses 370k rows on Postgres, which is out of scope for the in-process run).
 export function seed(engine: OrmEngine, customers = 50, ordersPerCustomer = 4): void {

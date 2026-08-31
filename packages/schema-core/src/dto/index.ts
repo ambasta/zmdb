@@ -1,7 +1,8 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { CoreSchema, Entity } from '../index.ts';
+import { isRecord } from '../index.ts';
+import type { Entity } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // §1 WhereDTO + operator set
@@ -28,10 +29,29 @@ export type WhereDTO<S> = {
   or?: readonly WhereDTO<S>[];
 };
 
-// Minimal structural view of the query-compiler SelectBuilder we drive.
+/**
+ * Minimal structural view of the query-compiler SelectBuilder we drive.
+ *
+ * The methods return `this` (not `WhereTarget`), so folding a DTO into a builder
+ * preserves the caller's concrete builder type. That is what lets `compileWhere`
+ * return `B` without asserting: previously the chain widened to `WhereTarget` and
+ * every helper ended in `return b as B`.
+ */
 export interface WhereTarget {
-  where(col: string, op: string, value: unknown): WhereTarget;
-  orWhere(col: string, op: string, value: unknown): WhereTarget;
+  where(col: string, op: string, value: unknown): this;
+  orWhere(col: string, op: string, value: unknown): this;
+}
+
+/**
+ * Record view of a value, or `undefined` if it is not a plain object.
+ *
+ * Taking `unknown` is deliberate: narrowing a *generic* DTO (`WhereDTO<S>`) in
+ * place leaves the mapped type, which has no string index signature, so keyed
+ * reads would need `as Record<string, unknown>`. Routing through `unknown` lets
+ * the guard do the widening instead of an assertion.
+ */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return isRecord(value) ? value : undefined;
 }
 
 const OP_SQL: Record<string, string> = {
@@ -52,14 +72,14 @@ const OP_SQL: Record<string, string> = {
  * Fields/operators are applied in stable object-key order (golden SQL).
  * `and`/`or` groups compose; `or` members are ORed.
  */
-export function compileWhere<B extends WhereTarget>(builder: B, where: WhereDTO<CoreSchema<string>> | undefined): B {
+export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereDTO<S> | undefined): B {
   if (!where) return builder;
-  let b: WhereTarget = builder;
+  let b: B = builder;
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
     const add = (op: string, value: unknown) =>
       (b = connector === 'or' ? b.orWhere(col, op, value) : b.where(col, op, value));
-    if (spec !== null && typeof spec === 'object' && !Array.isArray(spec)) {
-      const ops = spec as Record<string, unknown>;
+    const ops = asRecord(spec);
+    if (ops) {
       for (const [op, value] of Object.entries(ops)) {
         if (op === 'isNull') {
           if (value) add('is null', null);
@@ -76,18 +96,25 @@ export function compileWhere<B extends WhereTarget>(builder: B, where: WhereDTO<
       add('=', spec);
     }
   };
-  for (const [key, val] of Object.entries(where)) {
+  // `and`/`or` are read from the typed DTO (no `val as readonly WhereDTO[]`),
+  // while the guard proves the string-keyed field reads are safe. Keys are still
+  // visited in insertion order, which the golden-SQL tests depend on.
+  const { and, or } = where;
+  const fields = asRecord(where);
+  if (!fields) return b;
+  for (const key of Object.keys(fields)) {
     if (key === 'and') {
-      for (const sub of val as readonly WhereDTO<CoreSchema<string>>[]) b = compileWhere(b as B, sub);
+      if (and) for (const sub of and) b = compileWhere(b, sub);
     } else if (key === 'or') {
-      for (const sub of val as readonly Record<string, unknown>[]) {
-        for (const [col, spec] of Object.entries(sub)) applyField(col, spec, 'or');
+      for (const sub of or ?? []) {
+        const group = asRecord(sub);
+        if (group) for (const [col, spec] of Object.entries(group)) applyField(col, spec, 'or');
       }
     } else {
-      applyField(key, val, 'and');
+      applyField(key, fields[key], 'and');
     }
   }
-  return b as B;
+  return b;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,28 +123,38 @@ export function compileWhere<B extends WhereTarget>(builder: B, where: WhereDTO<
 export type OrderDir = 'asc' | 'desc';
 export type OrderByDTO<S> = ReadonlyArray<{ column: keyof Entity<S>; dir?: OrderDir }>;
 
+/** Like {@link WhereTarget}: `this`-returning so folding preserves the builder type. */
 export interface OrderTarget {
-  orderBy(col: string, dir: OrderDir): OrderTarget;
-  limit(n: number): OrderTarget;
-  offset(n: number): OrderTarget;
+  orderBy(col: string, dir: OrderDir): this;
+  limit(n: number): this;
+  offset(n: number): this;
 }
 export type OffsetPage = { limit: number; offset?: number };
 export type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>>; before?: Partial<Entity<S>> };
 
-export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderByDTO<CoreSchema<string>> | undefined): B {
+/**
+ * Schema-agnostic views of the order/page DTOs — exactly the fields the folders
+ * read. `OrderByDTO<S>`/`PaginationDTO<S>` are structurally assignable to these
+ * for *any* `S`, so callers pass their own typed DTO with no
+ * `as OrderByDTO<CoreSchema<string>>` widening cast (which is what leaked into
+ * consumer code, cf. COOKBOOK "sorting" example).
+ */
+export type OrderBySpec = ReadonlyArray<{ column: PropertyKey; dir?: OrderDir }>;
+// `offset?: number | undefined` (not `offset?: number`) so callers under
+// `exactOptionalPropertyTypes` can forward a possibly-absent offset positionally.
+export type PaginationSpec = { limit: number; offset?: number | undefined };
+
+export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySpec | undefined): B {
   if (!order) return builder;
-  let b: OrderTarget = builder;
+  let b = builder;
   for (const { column, dir } of order) b = b.orderBy(String(column), dir ?? 'asc');
-  return b as B;
+  return b;
 }
-export function applyPagination<B extends OrderTarget>(
-  builder: B,
-  page: PaginationDTO<CoreSchema<string>> | undefined,
-): B {
+export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationSpec | undefined): B {
   if (!page) return builder;
-  let b: OrderTarget = builder.limit(page.limit);
-  if ('offset' in page && typeof page.offset === 'number') b = b.offset(page.offset);
-  return b as B;
+  let b = builder.limit(page.limit);
+  if (typeof page.offset === 'number') b = b.offset(page.offset);
+  return b;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,11 +163,24 @@ export function applyPagination<B extends OrderTarget>(
 export type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 
 /** Narrow a row to `cols` (new object, stable order); passthrough when undefined. */
+export function project<Row extends Record<string, unknown>>(row: Row, cols: undefined): Row;
+export function project<Row extends Record<string, unknown>, K extends keyof Row>(
+  row: Row,
+  cols: readonly K[],
+): Pick<Row, K>;
+export function project<Row extends Record<string, unknown>, K extends keyof Row>(
+  row: Row,
+  cols: readonly K[] | undefined,
+): Row | Pick<Row, K>;
 export function project<Row extends Record<string, unknown>, K extends keyof Row>(
   row: Row,
   cols: readonly K[] | undefined,
 ): Row | Pick<Row, K> {
   if (!cols) return row;
+  // boundary: a `Pick` is built key-by-key, so it is only complete once the loop
+  // ends — there is no expression form that types a partially-filled mapped
+  // type. The loop below writes exactly `cols`, which is what `Pick<Row, K>`
+  // claims; `noUncheckedIndexedAccess` keeps the reads honest.
   const out = {} as Pick<Row, K>;
   for (const c of cols) out[c] = row[c];
   return out;
@@ -170,7 +220,25 @@ export interface ListResult<Row> {
   readonly hasMore: boolean;
   readonly cursor?: string;
 }
-/** Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total. */
+/**
+ * Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total.
+ *
+ * Overloaded on `select` so the no-projection call keeps `ListResult<Row>` instead
+ * of widening to `ListResult<Row | Partial<Row>>` — the widening is what forced
+ * `as ListResult<Entity<S>>` in `@zmdb/repository`'s `list()`.
+ */
+export function buildListResult<Row extends Record<string, unknown>>(
+  rows: readonly Row[],
+  opts?: { limit?: number; total?: number },
+): ListResult<Row>;
+export function buildListResult<Row extends Record<string, unknown>, K extends keyof Row>(
+  rows: readonly Row[],
+  opts: { limit?: number; total?: number; select: readonly K[] },
+): ListResult<Pick<Row, K>>;
+export function buildListResult<Row extends Record<string, unknown>>(
+  rows: readonly Row[],
+  opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+): ListResult<Row | Partial<Row>>;
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
   opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
@@ -227,7 +295,9 @@ export function buildSearchResult<Row extends Record<string, unknown>>(
   const hasMore = typeof limit === 'number' && rows.length > limit;
   const kept = hasMore ? rows.slice(0, limit) : rows;
   const items = kept.map(hit => {
-    const base = opts?.select ? project(hit as Row, opts.select) : hit;
+    // `SearchHit<Row>` is `Row & {_score?}`, so it *is* a `Row` for projection
+    // purposes — no `hit as Row` needed once `project` is keyed on the argument.
+    const base = opts?.select ? project(hit, opts.select) : hit;
     // preserve the ranking score on the projected hit
     return hit._score !== undefined ? { ...base, _score: hit._score } : base;
   });

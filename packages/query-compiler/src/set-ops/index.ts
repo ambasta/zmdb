@@ -16,8 +16,9 @@ export const SET_KEYWORD: Record<SetOp, string> = {
  * for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
  */
 export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: Dialect): CompiledQuery {
-  if (queries.length === 0) throw new Error('setOperation requires at least one query');
-  if (queries.length === 1) return queries[0]!;
+  const [first] = queries;
+  if (!first) throw new Error('setOperation requires at least one query');
+  if (queries.length === 1) return first;
   const params: unknown[] = [];
   const fragments = queries.map(q => {
     let text = q.text;

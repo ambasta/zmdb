@@ -53,6 +53,10 @@ function toClass(controller: ControllerClass | object): ControllerClass | undefi
   if (typeof ctor !== 'function') {
     return undefined;
   }
+  // boundary: `.constructor` is typed `Function`, which carries no construct
+  // signature. The `typeof ctor === 'function'` guard above plus the fact that it
+  // came off an instance make it a constructor; `getRoutes` only ever reads its
+  // `Symbol.metadata`, never calls it.
   return ctor as ControllerClass;
 }
 

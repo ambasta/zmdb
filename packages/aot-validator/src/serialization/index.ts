@@ -31,8 +31,18 @@ export interface ParseResult<T> {
   readonly issues?: readonly ValidationIssue[];
 }
 
+/**
+ * Parse JSON without rebuilding the object graph. Reports malformed input as
+ * structured issues instead of throwing.
+ *
+ * `T` is an *unvalidated* claim about the payload — exactly as much as
+ * `JSON.parse` gives you, and no more. Use {@link decode} when you need the
+ * claim checked against a descriptor.
+ */
 export function parse<T = unknown>(text: string): ParseResult<T> {
   try {
+    // boundary: JSON.parse is `any` by definition; the caller's `T` is asserted,
+    // not proven. `decode` is the proving variant.
     const data = JSON.parse(text) as T;
     return { success: true, data };
   } catch (err) {

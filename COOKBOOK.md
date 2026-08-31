@@ -392,7 +392,8 @@ const where: WhereDTO<typeof UserSchema> = {
 // Compose into the query builder, then assemble a typed ListResult:
 let qb = users.query.selectFrom('users');
 qb = compileWhere(qb, where);
-qb = applyOrderBy(qb, [{ column: 'age', dir: 'desc' }] as OrderByDTO<typeof UserSchema>);
+const orderBy: OrderByDTO<typeof UserSchema> = [{ column: 'age', dir: 'desc' }];
+qb = applyOrderBy(qb, orderBy);
 qb = applyPagination(qb, { limit: 20 });
 const rows = await driver.execute(qb.compile());
 const page: ListResult<User> = buildListResult(rows, { limit: 20 }); // { items, hasMore, ... }
