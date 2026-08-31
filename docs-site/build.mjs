@@ -317,10 +317,96 @@ ${tocHtml}
 mkdirSync(join(OUT, 'docs'), { recursive: true });
 mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 
-// Copy the benchmark data files into site/benchmarks/ (the page fetches them via ./).
+// Defensive fallback benchmark asset structures when benchmark artifacts are absent.
+const FALLBACK_BENCHMARKS = {
+  'validation-matrix.json': JSON.stringify(
+    {
+      node: {
+        zmdb: { parseSafe: 0, parseStrict: 0, assertLoose: 0, assertStrict: 0 },
+        'zmdb-aot': { parseSafe: 0, parseStrict: 0, assertLoose: 0, assertStrict: 0 },
+      },
+    },
+    null,
+    2,
+  ),
+  'orm-results.json': JSON.stringify(
+    {
+      config: {
+        database: 'Fallback / Pending benchmark data',
+        dataset: 'N/A',
+        driver: 'N/A',
+        load: 'N/A',
+        machine: 'N/A',
+        note: 'Benchmark data unavailable in current build environment',
+      },
+      overall: [{ orm: 'zmdb', reqs: 0, avg: 0, p90: 0, p95: 0, failed: 0 }],
+      prepared: {
+        note: 'Benchmark data pending',
+        rows: [],
+        verdict: 'N/A',
+      },
+      coverage: [],
+      dnf: [],
+    },
+    null,
+    2,
+  ),
+  'framework-results.json': JSON.stringify(
+    {
+      suite: 'the-benchmarker/web-frameworks',
+      framework: '@zmdb/web',
+      contractVerdict: 'Pending / Benchmark data unavailable in current build environment',
+      throughput: {
+        measured: false,
+        reason: 'Benchmark data pending in current build environment',
+      },
+    },
+    null,
+    2,
+  ),
+  'peers-results.json': JSON.stringify(
+    {
+      suite: 'same-machine-head-to-head',
+      note: 'Benchmark data pending in current build environment',
+      results: [],
+    },
+    null,
+    2,
+  ),
+};
+
+// Copy the benchmark data files into site/benchmarks/ or emit defensive fallbacks.
 for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-results.json', 'peers-results.json']) {
   const src = join(DASH, f);
-  if (existsSync(src)) cpSync(src, join(OUT, 'benchmarks', f));
+  const dest = join(OUT, 'benchmarks', f);
+  if (existsSync(src)) {
+    cpSync(src, dest);
+  } else {
+    writeFileSync(dest, FALLBACK_BENCHMARKS[f]);
+  }
+}
+
+function extractTags(html, tagName) {
+  const results = [];
+  const lower = html.toLowerCase();
+  const openTag = `<${tagName.toLowerCase()}`;
+  const closeTag = `</${tagName.toLowerCase()}>`;
+  let pos = 0;
+  while (pos < html.length) {
+    const start = lower.indexOf(openTag, pos);
+    if (start === -1) break;
+    const nextChar = lower[start + openTag.length];
+    if (nextChar && !/[\s>]/.test(nextChar)) {
+      pos = start + openTag.length;
+      continue;
+    }
+    const end = lower.indexOf(closeTag, start);
+    if (end === -1) break;
+    const fullEnd = end + closeTag.length;
+    results.push(html.slice(start, fullEnd));
+    pos = fullEnd;
+  }
+  return results;
 }
 
 // --- Unified benchmarks page: rendered inside the docs shell (same sidebar +
@@ -328,9 +414,15 @@ for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-result
 // Extract the <section>…</section> body and the <script>…</script> from the
 // existing dashboard source so the interactivity is preserved verbatim. ---
 function buildBenchmarksPage() {
-  const raw = existsSync(join(DASH, 'index.html')) ? readFileSync(join(DASH, 'index.html'), 'utf8') : '';
-  const sections = [...raw.matchAll(/<section[\s\S]*?<\/section>/g)].map(m => m[0]).join('\n');
-  const script = (raw.match(/<script>[\s\S]*?<\/script>/) || [''])[0];
+  const dashIndex = join(DASH, 'index.html');
+  const raw = existsSync(dashIndex) ? readFileSync(dashIndex, 'utf8') : '';
+  const matchedSections = extractTags(raw, 'section').join('\n');
+  const matchedScript = extractTags(raw, 'script')[0] || '';
+
+  const sections =
+    matchedSections ||
+    `<section><h2>Benchmarks Pending</h2><p>Benchmark dashboard source HTML is currently unavailable in this environment.</p></section>`;
+  const script = matchedScript || `<script>console.warn("Benchmark interactive scripts unavailable.");</script>`;
   const intro = `<p>zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
     (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
     <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
