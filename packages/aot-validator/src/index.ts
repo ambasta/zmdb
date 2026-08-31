@@ -112,7 +112,7 @@ export function transformSource(code: string): string {
     if (!hasRegexCache) {
       hasRegexCache = true;
       hoisted.push(
-        'const _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (!re) { re = new RegExp(p); _regexCache.set(p, re); } return re; }',
+        'const _MAX_REGEX_CACHE_SIZE = 1000;\nconst _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (re) { _regexCache.delete(p); _regexCache.set(p, re); return re; } if (_regexCache.size >= _MAX_REGEX_CACHE_SIZE) { const k = _regexCache.keys().next().value; if (k !== undefined) _regexCache.delete(k); } re = new RegExp(p); _regexCache.set(p, re); return re; }',
       );
     }
   };

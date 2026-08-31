@@ -216,4 +216,34 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
     expect(compiledFn({ val: 'abc' })).toEqual([true, false]);
     expect(compiledFn({ val: '123' })).toEqual([false, true]);
   });
+
+  it('Pattern evaluation parity when calling a single compiled validator multiple times with different pattern values', () => {
+    const src = `
+      const ok = validate(tags.Pattern(\`^\${input.prefix}_\\\\d+$\`), input.val);
+      return ok;
+    `;
+    const compiledSrc = transformSource(src);
+    const compiledFn = new Function('input', compiledSrc);
+
+    expect(compiledFn({ prefix: 'alpha', val: 'alpha_123' })).toBe(true);
+    expect(compiledFn({ prefix: 'alpha', val: 'beta_123' })).toBe(false);
+
+    expect(compiledFn({ prefix: 'beta', val: 'beta_123' })).toBe(true);
+    expect(compiledFn({ prefix: 'beta', val: 'alpha_123' })).toBe(false);
+  });
+
+  it('bounds emitted _regexCache with LRU eviction in compiled validator code', () => {
+    const src = `
+      const ok = validate(tags.Pattern(input.pat), input.val);
+      return { ok, cacheSize: _regexCache.size };
+    `;
+    const compiledSrc = transformSource(src);
+    const compiledFn = new Function('input', compiledSrc);
+
+    for (let i = 0; i < 1005; i++) {
+      compiledFn({ pat: `^pat_${i}$`, val: `pat_${i}` });
+    }
+    const res = compiledFn({ pat: '^pat_1004$', val: 'pat_1004' });
+    expect(res.cacheSize).toBeLessThanOrEqual(1000);
+  });
 });
