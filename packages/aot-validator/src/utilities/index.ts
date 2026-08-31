@@ -68,13 +68,8 @@ function matches(value: unknown, d: TypeDescriptor): boolean {
       return true;
     case 'object': {
       if (!isRecord(value)) return false;
-      const fields = d.fields;
-      if (fields) {
-        for (const key in fields) {
-          if (Object.prototype.hasOwnProperty.call(fields, key)) {
-            if (!matches(value[key], fields[key]!)) return false;
-          }
-        }
+      for (const [key, fd] of Object.entries(d.fields ?? {})) {
+        if (!matches(value[key], fd)) return false;
       }
       return true;
     }
@@ -120,13 +115,8 @@ function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: Val
     }
     case 'object': {
       if (!isRecord(value)) return fail('object');
-      const fields = d.fields;
-      if (fields) {
-        for (const key in fields) {
-          if (Object.prototype.hasOwnProperty.call(fields, key)) {
-            collectIssues(value[key], fields[key]!, `${path}.${key}`, out);
-          }
-        }
+      for (const [key, fd] of Object.entries(d.fields ?? {})) {
+        collectIssues(value[key], fd, `${path}.${key}`, out);
       }
       return;
     }
@@ -167,21 +157,15 @@ function hasNoExcessKeys(value: unknown, d: TypeDescriptor): boolean {
     // into nested objects/arrays (which need their own excess check).
     let declared = 0;
     for (const key in fields) {
-      if (Object.prototype.hasOwnProperty.call(fields, key)) {
-        declared++;
-        const fd = fields[key];
-        if (fd && (fd.kind === 'object' || fd.kind === 'array') && !hasNoExcessKeys(obj[key], fd)) {
-          return false;
-        }
+      declared++;
+      const fd = fields[key];
+      if (fd && (fd.kind === 'object' || fd.kind === 'array') && !hasNoExcessKeys(obj[key], fd)) {
+        return false;
       }
     }
     // Count own enumerable keys without allocating an array.
     let actual = 0;
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        actual++;
-      }
-    }
+    for (const _ in obj) actual++;
     return actual === declared;
   }
   if (d.kind === 'array' && Array.isArray(value) && d.of) {
@@ -249,14 +233,7 @@ function randomFor(d: TypeDescriptor): unknown {
     }
     case 'object': {
       const out: Record<string, unknown> = {};
-      const fields = d.fields;
-      if (fields) {
-        for (const key in fields) {
-          if (Object.prototype.hasOwnProperty.call(fields, key)) {
-            out[key] = randomFor(fields[key]!);
-          }
-        }
-      }
+      for (const [key, fd] of Object.entries(d.fields ?? {})) out[key] = randomFor(fd);
       return out;
     }
     default:
