@@ -103,9 +103,79 @@ export function toJsonSchema(schema: CoreSchema<string>, variant: Variant = 'ent
   return { type: 'object', properties, required: required.toSorted() };
 }
 
+function singularizeWord(word: string): string {
+  if (!word) return word;
+  const lower = word.toLowerCase();
+
+  // 1. Invariant / already singular endings or specific singular words ending in 's'
+  if (
+    lower.endsWith('ss') ||
+    lower.endsWith('us') ||
+    lower.endsWith('is') ||
+    lower.endsWith('as') ||
+    lower.endsWith('os') ||
+    lower === 'series' ||
+    lower === 'species' ||
+    lower === 'news' ||
+    lower === 'lens'
+  ) {
+    return word;
+  }
+
+  // 2. Irregular plurals
+  if (lower === 'people') return 'person';
+  if (lower === 'children') return 'child';
+  if (lower === 'men') return 'man';
+  if (lower === 'women') return 'woman';
+  if (lower === 'matrices') return 'matrix';
+  if (lower === 'indices') return 'index';
+
+  // 3. Plurals ending in -ies (preceded by consonant, e.g. categories -> category)
+  if (/([^aeiou])ies$/i.test(word)) {
+    return word.slice(0, -3) + 'y';
+  }
+
+  // 4. Plurals ending in -ves (e.g. shelves -> shelf, knives -> knife, wives -> wife, leaves -> leaf)
+  if (/lves$/i.test(word)) {
+    return word.slice(0, -4) + 'lf';
+  }
+  if (/(kn|w)ives$/i.test(word)) {
+    return word.slice(0, -4) + 'ife';
+  }
+  if (/eaves$/i.test(word)) {
+    return word.slice(0, -5) + 'eaf';
+  }
+
+  // 5. Plurals ending in -es after sibilants or special endings
+  // e.g. addresses -> address, processes -> process, statuses -> status, aliases -> alias
+  if (/sses$/i.test(word) || /statuses$/i.test(word) || /aliases$/i.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (/ises$/i.test(word)) {
+    return word.slice(0, -4) + 'is';
+  }
+  // e.g. boxes -> box, churches -> church, dishes -> dish, quizzes -> quiz
+  if (/(xes|ches|shes|zzes)$/i.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (/([aeiou])zes$/i.test(word)) {
+    return word.slice(0, -1);
+  }
+
+  // 6. Generic trailing -s trimming (e.g. users -> user, orders -> order, houses -> house, cases -> case)
+  if (word.endsWith('s') && !word.endsWith('ss')) {
+    return word.slice(0, -1);
+  }
+
+  return word;
+}
+
 function pascalCase(table: string): string {
-  const singular = table.endsWith('s') ? table.slice(0, -1) : table;
-  return singular.charAt(0).toUpperCase() + singular.slice(1);
+  return table
+    .split(/[-_]+/)
+    .map(word => singularizeWord(word))
+    .map(word => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ''))
+    .join('');
 }
 
 // #66 — DTO-aware generation + relation $refs.
