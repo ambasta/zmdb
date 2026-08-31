@@ -317,9 +317,10 @@ export function references(
 ): ColumnMeta & { references: { readonly target: string } } {
   const tableName = typeof target === 'string' ? target : target.table;
   const targetStr = targetColumn ? `${tableName}.${targetColumn}` : tableName;
-  return makeColumn({ ...col, references: { target: targetStr } }) as ColumnMeta & {
-    references: { readonly target: string };
-  };
+  return makeColumn<Column & { references: { readonly target: string } }>({
+    ...col,
+    references: { target: targetStr },
+  });
 }
 export function defaultTo<T extends SqlType, F extends ColumnFlags, P>(
   col: Column<T, F, P>,

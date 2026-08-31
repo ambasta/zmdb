@@ -387,7 +387,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     const issues: ValidationIssue[] = [];
     const out: Record<string, unknown> = {};
 
-    for (const [name, col] of Object.entries(this.schema.columns as Record<string, ColumnMeta>)) {
+    for (const [name, col] of Object.entries(this.schema.columns)) {
       if (col.flags.autoIncrement) continue; // never accepted from payloads
       const present = name in obj;
       const value = obj[name];
