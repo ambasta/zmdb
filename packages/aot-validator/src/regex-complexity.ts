@@ -16,7 +16,7 @@ export function validatePatternComplexity(pattern: string): void {
 }
 
 const MAX_FALLBACK_INPUT_LENGTH = 10000;
-const MAX_PATTERN_CACHE_SIZE = 1000;
+export const MAX_REGEX_CACHE_SIZE = 1000;
 const patternCache = new Map<string, RegExp>();
 
 export function getCachedRegExp(pattern: string): RegExp {
@@ -27,7 +27,7 @@ export function getCachedRegExp(pattern: string): RegExp {
     return re;
   }
   validatePatternComplexity(pattern);
-  if (patternCache.size >= MAX_PATTERN_CACHE_SIZE) {
+  if (patternCache.size >= MAX_REGEX_CACHE_SIZE) {
     const oldestKey = patternCache.keys().next().value;
     if (oldestKey !== undefined) {
       patternCache.delete(oldestKey);
