@@ -187,6 +187,20 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
   }
 }
 
+type MatchKind = 'validate' | 'is' | 'assert' | 'equals' | 'assertEquals';
+
+const MATCH_KINDS: Record<string, MatchKind> = {
+  validate: 'validate',
+  is: 'is',
+  assert: 'assert',
+  equals: 'equals',
+  assertEquals: 'assertEquals',
+};
+
+function getMatchKind(text: string): MatchKind | undefined {
+  return MATCH_KINDS[text];
+}
+
 /**
  * Single-pass AST scanner-based transformation engine.
  * Scans code ONCE for all supported validation tags and generic type assertions.
@@ -195,9 +209,6 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
 export function transformCode(code: string): string {
   const scanner = createScanner(false, LanguageVariant.Standard);
   scanner.setText(code);
-
-  type MatchKind = 'validate' | 'is' | 'assert' | 'equals' | 'assertEquals';
-  const targets = new Set<string>(['validate', 'is', 'assert', 'equals', 'assertEquals']);
 
   let out = '';
   let lastPos = 0;
@@ -225,8 +236,9 @@ export function transformCode(code: string): string {
     }
 
     const text = scanner.getTokenText();
+    const kind = getMatchKind(text);
 
-    if ((token === SyntaxKind.Identifier || targets.has(text)) && targets.has(text)) {
+    if (kind !== undefined) {
       const prevChar = tokenStart > 0 ? (code[tokenStart - 1] ?? '') : '';
       if (prevChar && /[A-Za-z0-9_$.]/.test(prevChar)) {
         token = scanner.scan();
@@ -264,7 +276,11 @@ export function transformCode(code: string): string {
         }
         if (depth === 0) {
           const argSrc = code.slice(argStart, i - 1);
-          const kind = text as MatchKind;
+          // boundary: kind is safely narrowed from MatchKind | undefined via getMatchKind(text) lookup above
+          if (kind === undefined) {
+            token = scanner.scan();
+            continue;
+          }
 
           let replacement: string | null = null;
           if (kind === 'validate' && !typeSrc) {

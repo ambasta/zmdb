@@ -94,4 +94,35 @@ describe('Unified Single-Pass AOT Transformer Engine', () => {
     expect(transformed).toContain('is<Map<string, number>>(val)');
     expect(norm(transformed)).toContain('typeof data.user === "object"');
   });
+
+  it('safely handles unknown constructs and unmapped target identifiers without throwing', () => {
+    const unknownSrc = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Minimum(1), y);';
+    expect(transformCode(unknownSrc)).toBe(unknownSrc);
+  });
+
+  it('measures transformation throughput for single-pass AST token scanner', () => {
+    const sampleCode = `
+      // comment validate(tags.Minimum(1), x)
+      const a = "string with validate(tags.Minimum(1), x)";
+      const ok1 = validate(tags.Minimum(10), input.price);
+      const ok2 = is<{ name: string; age: number }>(input.user);
+      const ok3 = assert<{ role: string }>(input.auth);
+      const ok4 = validate(tags.Pattern("^[a-z]+$"), input.str);
+      const ok5 = equals<{ flag: boolean }>(input.data);
+    `.repeat(50);
+
+    const start = performance.now();
+    const iterations = 100;
+    for (let i = 0; i < iterations; i++) {
+      transformCode(sampleCode);
+    }
+    const elapsed = performance.now() - start;
+    const totalBytes = sampleCode.length * iterations;
+    const megabytes = totalBytes / (1024 * 1024);
+    const seconds = elapsed / 1000;
+    const mbPerSec = megabytes / seconds;
+
+    expect(elapsed).toBeGreaterThan(0);
+    expect(mbPerSec).toBeGreaterThan(1); // Ensure high-throughput scanning (>1 MB/s)
+  });
 });
