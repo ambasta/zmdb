@@ -6,13 +6,7 @@
 
 import { MAX_REGEX_CACHE_SIZE, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 
-export {
-  MAX_REGEX_CACHE_SIZE,
-  ValidationError,
-  getCachedRegExp,
-  safeTestPattern,
-  validatePatternComplexity,
-} from './regex-complexity.ts';
+export { ValidationError, getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 
 export interface Rule {
   readonly kind: string;
