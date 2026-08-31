@@ -490,3 +490,169 @@ export type {
   Populated,
   JoinRow,
 } from './relations/index.ts';
+
+// ---------------------------------------------------------------------------
+// Entity State Machine & State Transition Helpers
+// ---------------------------------------------------------------------------
+
+export type StateTransitions<StateValues extends string | number | symbol = string> = {
+  readonly [From in StateValues]?: readonly StateValues[];
+};
+
+export function defineStateTransitions<
+  StateValues extends string,
+  const T extends { readonly [From in StateValues]?: readonly StateValues[] },
+>(transitions: T): T {
+  return transitions;
+}
+
+export type AllowedTargetStates<Transitions, From extends string> = Transitions extends {
+  readonly [k in From]?: readonly (infer To extends string)[];
+}
+  ? To
+  : never;
+
+export type StateUpdateDTO<
+  S,
+  StateField extends string,
+  FromState extends string,
+  Transitions,
+  AllowedFields extends keyof UpdateDTO<S> = keyof UpdateDTO<S>,
+> = Pick<UpdateDTO<S>, Exclude<AllowedFields, StateField>> & {
+  [P in StateField]?: AllowedTargetStates<Transitions, FromState>;
+};
+
+export interface EntityStateMachineOptions<
+  S,
+  StateField extends string,
+  Transitions extends Record<string, readonly string[]>,
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+> {
+  schema?: S;
+  stateField: StateField;
+  transitions: Transitions;
+  allowedFields?: FieldRestrictions | undefined;
+}
+
+export interface EntityStateMachine<
+  S,
+  StateField extends string,
+  Transitions extends Record<string, readonly string[]>,
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+> {
+  readonly stateField: StateField;
+  readonly transitions: Transitions;
+  readonly allowedFields?: FieldRestrictions | undefined;
+  canTransition<From extends keyof Transitions & string>(from: From, to: string): boolean;
+  createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
+    from: From,
+    to: To,
+    patch?: [
+      Exclude<
+        FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+          ? FieldRestrictions[From][number]
+          : keyof UpdateDTO<S>,
+        StateField
+      >,
+    ] extends [never]
+      ? Record<string, never>
+      : Omit<
+          Pick<
+            UpdateDTO<S>,
+            FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+              ? FieldRestrictions[From][number]
+              : keyof UpdateDTO<S>
+          >,
+          StateField
+        >,
+  ): StateUpdateDTO<
+    S,
+    StateField,
+    From,
+    Transitions,
+    FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+      ? FieldRestrictions[From][number]
+      : keyof UpdateDTO<S>
+  >;
+}
+
+export function createStateUpdatePayload<
+  S,
+  StateField extends string,
+  From extends keyof Transitions & string,
+  const Transitions extends Record<string, readonly string[]>,
+  AllowedFields extends keyof UpdateDTO<S> = keyof UpdateDTO<S>,
+>(
+  stateField: StateField,
+  transitions: Transitions,
+  from: From,
+  to: Transitions[From][number],
+  patch?: Omit<Pick<UpdateDTO<S>, AllowedFields>, StateField> | Record<string, never>,
+): StateUpdateDTO<S, StateField, From, Transitions, AllowedFields> {
+  const allowed = transitions[from];
+  if (!Array.isArray(allowed) || !allowed.includes(to)) {
+    throw new Error(`Invalid state transition from "${from}" to "${to}" for field "${stateField}"`);
+  }
+  const payload = {
+    ...patch,
+    [stateField]: to,
+  };
+  // boundary: return value is certified as StateUpdateDTO after runtime transition validation.
+  return payload as StateUpdateDTO<S, StateField, From, Transitions, AllowedFields>;
+}
+
+export function defineEntityStateMachine<
+  S,
+  StateField extends string,
+  const Transitions extends Record<string, readonly string[]>,
+  const FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+>(
+  options: EntityStateMachineOptions<S, StateField, Transitions, FieldRestrictions>,
+): EntityStateMachine<S, StateField, Transitions, FieldRestrictions> {
+  const { stateField, transitions, allowedFields } = options;
+
+  return {
+    stateField,
+    transitions,
+    allowedFields,
+    canTransition(from: keyof Transitions & string, to: string): boolean {
+      const allowed = transitions[from];
+      return Array.isArray(allowed) && allowed.includes(to);
+    },
+    createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
+      from: From,
+      to: To,
+      patch?: [
+        Exclude<
+          FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+            ? FieldRestrictions[From][number]
+            : keyof UpdateDTO<S>,
+          StateField
+        >,
+      ] extends [never]
+        ? Record<string, never>
+        : Omit<
+            Pick<
+              UpdateDTO<S>,
+              FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+                ? FieldRestrictions[From][number]
+                : keyof UpdateDTO<S>
+            >,
+            StateField
+          >,
+    ) {
+      return createStateUpdatePayload<
+        S,
+        StateField,
+        From,
+        Transitions,
+        FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+          ? FieldRestrictions[From][number]
+          : keyof UpdateDTO<S>
+      >(stateField, transitions, from, to, patch);
+    },
+  };
+}
+
+export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.ts';
+export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.ts';
