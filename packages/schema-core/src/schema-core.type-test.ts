@@ -60,3 +60,10 @@ type _TestUpdateDTO = Simplify<UpdateDTO<S>>;
 type _TestUpdateDTOEmail = Expect<Equal<_TestUpdateDTO['email'], string | undefined>>;
 type _TestUpdateDTOPayload = Expect<Equal<_TestUpdateDTO['payload'], unknown | undefined>>;
 type _TestUpdateDTOConfig = Expect<Equal<_TestUpdateDTO['config'], UserConfig | null | undefined>>;
+
+// 3. Natural primary key (text().primaryKey()) is required in CreateDTO (does not set hasDefault)
+const naturalPkColumns = {
+  id: text().primaryKey(),
+};
+type NaturalPkSchema = { columns: typeof naturalPkColumns };
+type _TestNaturalPkCreateDTO = Expect<Equal<CreateDTO<NaturalPkSchema>['id'], string>>;

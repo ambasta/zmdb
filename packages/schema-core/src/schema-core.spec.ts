@@ -91,11 +91,10 @@ describe('modifiers', () => {
     expect(fluent).toEqual(functional);
   });
 
-  it('fluent chaining primaryKey sets primaryKey and hasDefault flags', () => {
+  it('fluent chaining primaryKey sets primaryKey flag without hasDefault', () => {
     const col = text().primaryKey();
     expect(col.type).toBe('text');
-    expect(col.flags.primaryKey).toBe(true);
-    expect(col.flags.hasDefault).toBe(true);
+    expect(col.flags).toEqual({ nullable: false, primaryKey: true });
   });
 
   it('fluent chaining notNull narrows nullable flag from true to false', () => {
