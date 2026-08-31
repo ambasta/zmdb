@@ -168,31 +168,23 @@ export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySp
 }
 
 function base64Encode(str: string): string {
-  const g = globalThis as unknown as {
-    Buffer?: { from: (s: string, e?: string) => { toString: (e?: string) => string } };
-    btoa?: (s: string) => string;
-  };
-  if (g.Buffer) {
-    return g.Buffer.from(str, 'utf-8').toString('base64url');
+  if (globalThis.Buffer) {
+    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
   }
-  if (g.btoa) {
-    return g.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (globalThis.btoa) {
+    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   throw new Error('No base64 encoder available');
 }
 
 function base64Decode(str: string): string {
-  const g = globalThis as unknown as {
-    Buffer?: { from: (s: string, e?: string) => { toString: (e?: string) => string } };
-    atob?: (s: string) => string;
-  };
-  if (g.Buffer) {
-    return g.Buffer.from(str, 'base64').toString('utf-8');
+  if (globalThis.Buffer) {
+    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
   }
-  if (g.atob) {
+  if (globalThis.atob) {
     let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
     while (base64.length % 4) base64 += '=';
-    return g.atob(base64);
+    return globalThis.atob(base64);
   }
   throw new Error('No base64 decoder available');
 }
@@ -211,6 +203,7 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       throw new Error('Invalid cursor payload');
     }
+    // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
     return parsed as Record<string, unknown>;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Invalid cursor')) {
@@ -299,6 +292,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     currentBuilder = target.getBuilder();
   }
 
+  // boundary: BranchTarget wraps B (implementing WhereTarget); getBuilder() returns the mutated query builder B.
   return currentBuilder as B;
 }
 
@@ -425,7 +419,8 @@ export function buildListResult<Row extends Record<string, unknown>>(
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;
   const kept = hasMore ? rows.slice(0, limit) : rows;
-  const items = opts?.select ? kept.map(r => project(r, opts.select!)) : kept;
+  const select = opts?.select;
+  const items = select ? kept.map(r => project(r, select)) : kept;
 
   let computedCursor: string | undefined = opts?.cursor;
   if (!computedCursor && hasMore && kept.length > 0) {
@@ -448,10 +443,11 @@ export function buildListResult<Row extends Record<string, unknown>>(
       }
     }
   }
-  const result: ListResult<Row | Partial<Row>> = { items, hasMore };
-  if (computedCursor !== undefined) {
-    (result as { cursor?: string }).cursor = computedCursor;
-  }
+  const result: ListResult<Row | Partial<Row>> = {
+    items,
+    hasMore,
+    ...(computedCursor !== undefined ? { cursor: computedCursor } : {}),
+  };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
 export interface SearchDTO<S> {
