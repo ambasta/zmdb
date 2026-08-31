@@ -10,6 +10,7 @@
     "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "guardrail": "node --experimental-strip-types benchmarks/src/cli.ts",
     "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

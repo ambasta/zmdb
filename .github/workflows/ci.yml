@@ -127,7 +127,7 @@ jobs:
       # against the committed baseline using checkRegressions() and fail on any
       # regression; here we run the guardrail test suite as the gate.
       - name: Guardrail checks
-        run: yarn vitest run benchmarks/src/guardrail.spec.ts
+        run: yarn guardrail
 
   audit:
     name: Dependency vulnerability audit

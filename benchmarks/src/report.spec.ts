@@ -34,7 +34,7 @@ describe('report generator', () => {
 
   it('emits JSON that round-trips to the same sorted set', () => {
     const json = toJson(fullResults());
-    const parsed = JSON.parse(json) as BenchResult[];
+    const parsed: BenchResult[] = JSON.parse(json);
     expect(parsed.length).toBe(fullResults().length);
   });
 });

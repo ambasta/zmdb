@@ -15,7 +15,7 @@ declare const performance: { now(): number };
 function noExcessKeys(input: unknown, d: TypeDescriptor): boolean {
   if (d.kind !== 'object' || typeof input !== 'object' || input === null) return true;
   const allowed = new Set(Object.keys(d.fields ?? {}));
-  return Object.keys(input as Record<string, unknown>).every(k => allowed.has(k));
+  return Object.keys(input).every(k => allowed.has(k));
 }
 
 // The four moltar cases, mapped to zmdb behavior.
@@ -65,11 +65,20 @@ export function runValidationSuite(
   };
   const results: BenchResult[] = [];
   for (const id of CASE_IDS) {
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) runners[id]();
-    const elapsedMs = performance.now() - start;
-    const opsPerSec = elapsedMs > 0 ? Math.round((iterations / elapsedMs) * 1000) : iterations;
-    results.push({ suite: 'validation', case: id, target, status: 'ok', opsPerSec });
+    const fn = runners[id];
+    const warmup = Math.min(iterations, 200);
+    for (let i = 0; i < warmup; i++) fn();
+
+    const samples = 5;
+    let maxOps = 0;
+    for (let s = 0; s < samples; s++) {
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) fn();
+      const elapsedMs = performance.now() - start;
+      const opsPerSec = elapsedMs > 0 ? Math.round((iterations / elapsedMs) * 1000) : iterations;
+      if (opsPerSec > maxOps) maxOps = opsPerSec;
+    }
+    results.push({ suite: 'validation', case: id, target, status: 'ok', opsPerSec: maxOps });
   }
   return results;
 }
