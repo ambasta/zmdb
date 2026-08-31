@@ -7,16 +7,18 @@
   ],
   "type": "module",
   "scripts": {
+    "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "validate:spec": "node .github/scripts/validate-specs.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.27.7",
+    "esbuild": "^0.28.2",
     "tsup": "8.5.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
