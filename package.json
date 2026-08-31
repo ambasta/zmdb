@@ -16,7 +16,7 @@
     "typecheck": "node scripts/typecheck.mjs"
   },
   "devDependencies": {
-    "@types/node": "*",
+    "@types/node": "^26.4.0",
     "esbuild": "^0.28.2",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
