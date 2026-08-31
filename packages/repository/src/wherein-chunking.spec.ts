@@ -159,6 +159,57 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     expect(executedQueries[0]).toContain('WHERE "userId" IN ($1, $2, $3)');
   });
 
+  it('executes chunk queries sequentially rather than concurrently in attachRelations', async () => {
+    const queryExecutionLog: { query: string; time: number }[] = [];
+    let queryCount = 0;
+
+    const mockDriver: Driver = {
+      async execute(q) {
+        queryCount++;
+        const currentQuery = queryCount;
+        queryExecutionLog.push({ query: `start_${currentQuery}`, time: Date.now() });
+        // Simulate slight delay to detect concurrent vs sequential execution
+        await new Promise(resolve => setTimeout(resolve, 10));
+        queryExecutionLog.push({ query: `end_${currentQuery}`, time: Date.now() });
+
+        if (q.text.includes('orders')) {
+          return [
+            { id: 101, userId: 1, total: 50 },
+            { id: 102, userId: 2, total: 75 },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const repo = defineRepository(UsersSchema, mockDriver, {
+      relations: {
+        orders: {
+          cardinality: 'one-to-many',
+          childTable: 'orders',
+          childFk: 'userId',
+          entity: OrdersSchema,
+        },
+      },
+    });
+
+    // Create 5 parent IDs
+    const parents = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `User ${i + 1}` }));
+
+    // Mock DIALECT_PARAM_LIMITS temporarily or test attachRelations
+    await (
+      repo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
+    ).attachRelations(parents, ['orders']);
+
+    // Check log sequence: start_1 -> end_1 -> start_2 ... (strictly sequential, never concurrent start_1 -> start_2 -> end_1)
+    for (let i = 0; i < queryExecutionLog.length; i += 2) {
+      expect(queryExecutionLog[i]?.query).toBe(`start_${i / 2 + 1}`);
+      expect(queryExecutionLog[i + 1]?.query).toBe(`end_${i / 2 + 1}`);
+    }
+  });
+
   it('splits requests exceeding parameter thresholds into chunked queries and aggregates seamlessly (real SQLite)', async () => {
     const db = new DatabaseSync(':memory:');
     db.exec(`

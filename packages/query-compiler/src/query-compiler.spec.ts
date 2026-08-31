@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler, sanitizeKeys, chunkArray, QueryCompilerError } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -303,9 +303,19 @@ describe('array parameter IN expansion', () => {
   });
 
   it('expands array parameters into parameterized IN clauses for mysql', () => {
-    const q = createQueryCompiler('mysql').selectFrom('users').where('id', '=', [10, 20]).compile();
+    const q = createQueryCompiler('mysql').selectFrom('users').whereIn('id', [10, 20]).compile();
     expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
     expect(q.parameters).toEqual([10, 20]);
+  });
+
+  it('does not silently reinterpret = or != with array parameters as IN or NOT IN', () => {
+    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', '=', [10, 20]).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "id" = $1');
+    expect(q1.parameters).toEqual([[10, 20]]);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', '!=', [10, 20]).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE "id" != $1');
+    expect(q2.parameters).toEqual([[10, 20]]);
   });
 
   it('expands array parameters into parameterized IN clauses for sqlite', () => {
@@ -331,8 +341,8 @@ describe('array parameter IN expansion', () => {
   });
 });
 
-describe('Operator validation & Operator union round-tripping', () => {
-  it('validates each spelling in Operator union and produces expected SQL', () => {
+describe('Operator normalization & raw operator fall-through', () => {
+  it('validates normalized canonical operators and produces expected SQL', () => {
     const qb = createQueryCompiler('postgres');
     const ops: [string, string][] = [
       ['=', '='],
@@ -364,11 +374,21 @@ describe('Operator validation & Operator union round-tripping', () => {
     }
   });
 
-  it('rejects unsupported operators by throwing QueryCompilerError', () => {
+  it('allows unmapped raw Postgres/SQL operators to fall through as-written', () => {
     const qb = createQueryCompiler('postgres');
-    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(QueryCompilerError);
-    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(
-      "Unsupported operator 'INVALID_OP'",
-    );
+    const q1 = qb.selectFrom('users').where('tags', '@>', ['a', 'b']).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "tags" @> $1');
+    expect(q1.parameters).toEqual([['a', 'b']]);
+
+    const q2 = qb.selectFrom('events').where('duration', '&&', '[2020-01-01,2020-01-02]').compile();
+    expect(q2.text).toBe('SELECT * FROM "events" WHERE "duration" && $1');
+    expect(q2.parameters).toEqual(['[2020-01-01,2020-01-02]']);
+  });
+
+  it('is safe against prototype property lookups', () => {
+    const qb = createQueryCompiler('postgres');
+    const q = qb.selectFrom('users').where('col', 'toString', 'val').compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "col" toString $1');
+    expect(q.parameters).toEqual(['val']);
   });
 });

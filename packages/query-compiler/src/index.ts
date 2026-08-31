@@ -21,12 +21,7 @@ export type Operator =
   | 'ilike'
   | 'in'
   | 'not in'
-  | 'IN'
-  | 'NOT IN'
   | 'nin'
-  | 'NIN'
-  | 'EXISTS'
-  | 'NOT EXISTS'
   | 'exists'
   | 'not exists'
   | (string & {});
@@ -75,7 +70,7 @@ export interface CompiledQuery {
 
 interface WhereClause {
   readonly col: string;
-  readonly op: Operator | string;
+  readonly op: Operator;
   readonly value: unknown;
   readonly connector: 'AND' | 'OR';
 }
@@ -91,9 +86,9 @@ interface SelectState {
 
 export interface SelectBuilder<T = unknown> {
   select(columns?: readonly string[]): SelectBuilder<T>;
-  where(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
-  andWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
-  orWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
