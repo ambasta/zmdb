@@ -32,12 +32,14 @@ function getTableName(target: { table: string } | string): string {
   return typeof target === 'string' ? target : target.table;
 }
 
+/** What the relation builders accept as a target: a full schema, anything carrying a `columns` bag, or a bare columns map. */
+type RelationTarget = CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap;
+/** The column names of a relation target, which is what an fk / mappedBy has to name. */
+type ColumnNameOf<Target> = keyof ExtractColumns<Target> & string;
+
 export function manyToOne<
-  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
-    string,
-    ColumnsMap
-  >,
-  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
 export function manyToOne(
   target: { table: string } | string,
@@ -47,11 +49,8 @@ export function manyToOne(
 }
 
 export function oneToMany<
-  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
-    string,
-    ColumnsMap
-  >,
-  MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  MappedBy extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(
   target: TargetSchema | string,
   mappedBy: MappedBy,
@@ -64,21 +63,15 @@ export function oneToMany(
 }
 
 export function oneToOne<
-  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
-    string,
-    ColumnsMap
-  >,
-  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'one-to-one'>;
 export function oneToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'one-to-one'> {
   return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
 }
 
 export function manyToMany<
-  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
-    string,
-    ColumnsMap
-  >,
+  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
   Through extends string = string,
 >(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
 export function manyToMany(

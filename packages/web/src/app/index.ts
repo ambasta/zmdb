@@ -4,21 +4,11 @@
 // reflection per request; no `as` on the consumer surface.
 
 import type { Container } from '../di/index.ts';
+import { runInit, runShutdown } from '../lifecycle.ts';
 import { compileModule, type ModuleClass } from '../modules/index.ts';
 import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
 
-/** Called after a controller/provider is constructed. */
-export interface OnModuleInit {
-  onModuleInit(): void | Promise<void>;
-}
-/** Called after all modules are initialized. */
-export interface OnApplicationBootstrap {
-  onApplicationBootstrap(): void | Promise<void>;
-}
-/** Called on graceful shutdown (via `await using` / dispose). */
-export interface OnShutdown {
-  onShutdown(): void | Promise<void>;
-}
+export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.ts';
 
 /** A bootstrapped application. */
 export interface App extends AsyncDisposable {
@@ -26,17 +16,6 @@ export interface App extends AsyncDisposable {
   handle(req: WebRequest): Promise<WebResponse>;
   fetch(request: Request): Promise<Response>;
   init(): Promise<void>;
-}
-
-// Structural hook detection — no casts, just `in`-narrowing on the instance.
-function hasModuleInit(x: object): x is OnModuleInit {
-  return 'onModuleInit' in x && typeof x.onModuleInit === 'function';
-}
-function hasBootstrap(x: object): x is OnApplicationBootstrap {
-  return 'onApplicationBootstrap' in x && typeof x.onApplicationBootstrap === 'function';
-}
-function hasShutdown(x: object): x is OnShutdown {
-  return 'onShutdown' in x && typeof x.onShutdown === 'function';
 }
 
 /**
@@ -56,25 +35,7 @@ export function createApp(rootModule: ModuleClass): App {
     container,
     handle: req => router.handle(req),
     fetch: request => fetchHandler(request),
-    async init(): Promise<void> {
-      for (const controller of controllers) {
-        if (hasModuleInit(controller)) {
-          await controller.onModuleInit();
-        }
-      }
-      for (const controller of controllers) {
-        if (hasBootstrap(controller)) {
-          await controller.onApplicationBootstrap();
-        }
-      }
-    },
-    async [Symbol.asyncDispose](): Promise<void> {
-      for (let i = controllers.length - 1; i >= 0; i -= 1) {
-        const controller = controllers[i];
-        if (controller !== undefined && hasShutdown(controller)) {
-          await controller.onShutdown();
-        }
-      }
-    },
+    init: () => runInit(controllers),
+    [Symbol.asyncDispose]: () => runShutdown(controllers),
   };
 }

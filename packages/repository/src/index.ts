@@ -245,13 +245,42 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     opts: { populate: readonly K[] },
   ): Promise<Populated<S, R, K> | undefined>;
   async findById(id: PrimaryKey<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
-    const where = this.buildKeyWhere(id);
+    return this.firstMatching(this.buildKeyWhere(id), opts?.populate);
+  }
+
+  /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
+  private async firstMatching(where: WhereDTO<S>, populate?: readonly string[]): Promise<Entity<S> | undefined> {
     const q = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
     const rows = await this.rows<EntityRow<S>>(q);
     const row = rows[0];
-    if (!row || !opts?.populate?.length) return row;
-    const [populated] = await this.attachRelations([row], opts.populate);
+    if (!row || !populate?.length) return row;
+    const [populated] = await this.attachRelations([row], populate);
     return populated;
+  }
+
+  /**
+   * The children of every parent in one query — an OR chain of FK equalities,
+   * which is how this layer says IN — grouped by FK value. A parent with no
+   * children is simply absent from the map.
+   */
+  private async childrenByParent(
+    childTable: string,
+    childFk: string,
+    parentIds: readonly unknown[],
+  ): Promise<Map<unknown, Record<string, unknown>[]>> {
+    let cb = this.qb.selectFrom(childTable);
+    parentIds.forEach((id, i) => {
+      cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
+    });
+    const children = await this.driver.execute(cb.compile());
+    const byParent = new Map<unknown, Record<string, unknown>[]>();
+    for (const c of children) {
+      const key = c[childFk];
+      const list = byParent.get(key) ?? [];
+      list.push({ ...c });
+      byParent.set(key, list);
+    }
+    return byParent;
   }
 
   /** Batch-load and attach named relations to parent rows without mutating inputs. */
@@ -274,22 +303,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
 
-      const ids = current.map(p => p[parentKey]);
-      // One batched query for all parents' children (OR chain = IN).
-      let cb = this.qb.selectFrom(childTable);
-      ids.forEach((id, i) => {
-        cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
-      });
-      const children = await this.driver.execute(cb.compile());
       const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
-      const byParent = new Map<unknown, Record<string, unknown>[]>();
-      for (const c of children) {
-        const key = c[childFk];
-        const list = byParent.get(key) ?? [];
-        // boundary: driver returns opaque record objects.
-        list.push(c as Record<string, unknown>);
-        byParent.set(key, list);
-      }
+      const byParent = await this.childrenByParent(
+        childTable,
+        childFk,
+        current.map(p => p[parentKey]),
+      );
       current = current.map(p => {
         const list = byParent.get(p[parentKey]) ?? [];
         return {
@@ -309,12 +328,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   ): Promise<Populated<S, R, K> | undefined>;
   async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined>;
   async findOne(where: WhereDTO<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
-    const b = compileWhere(this.qb.selectFrom(this.tableName), where);
-    const rows = await this.rows<EntityRow<S>>(b.limit(1).compile());
-    const row = rows[0];
-    if (!row || !opts?.populate?.length) return row;
-    const [populated] = await this.attachRelations([row], opts.populate);
-    return populated;
+    return this.firstMatching(where, opts?.populate);
   }
 
   async find(where: WhereDTO<S>): Promise<readonly Entity<S>[]>;
@@ -668,30 +682,21 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     childFk?: string,
     parentKey = 'id',
   ): Promise<readonly Record<string, unknown>[]> {
-    if (childTable && childFk) {
-      const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
-      if (fetched.length === 0) return fetched;
-      const ids = fetched.map(p => p[parentKey]);
-      let cb = this.qb.selectFrom(childTable);
-      ids.forEach((id, i) => {
-        cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
-      });
-      const children = await this.driver.execute(cb.compile());
-      const byParent = new Map<unknown, Record<string, unknown>[]>();
-      for (const c of children) {
-        const key = c[childFk];
-        const list = byParent.get(key) ?? [];
-        list.push({ ...c });
-        byParent.set(key, list);
-      }
-      return fetched.map(p => ({
-        ...p,
-        [relationName]: byParent.get(p[parentKey]) ?? [],
-      }));
-    }
     const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
     if (fetched.length === 0) return fetched;
-    return this.attachRelations(fetched, [relationName]);
+    // Without an explicit child table/FK the relation has to be looked up, which
+    // is what attachRelations does; with one, the caller has already told us
+    // everything the batched fetch needs.
+    if (!childTable || !childFk) return this.attachRelations(fetched, [relationName]);
+    const byParent = await this.childrenByParent(
+      childTable,
+      childFk,
+      fetched.map(p => p[parentKey]),
+    );
+    return fetched.map(p => ({
+      ...p,
+      [relationName]: byParent.get(p[parentKey]) ?? [],
+    }));
   }
 
   // #207 — typed create/update. Signatures are the derived DTOs; runtime reuses

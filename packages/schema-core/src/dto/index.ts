@@ -342,14 +342,13 @@ class BranchTarget implements WhereTarget {
     return this;
   }
 
+  // A keyset branch is a conjunction that is OR'd onto the branches before it,
+  // so the branch spends its OR on the first predicate and conjoins the rest —
+  // which is the same whichever method the caller reaches for. An OR *inside*
+  // the user's own where therefore flattens into the branch's AND; expressing it
+  // faithfully needs predicate grouping, which WhereTarget has no way to say.
   orWhere(col: string, op: string, value: unknown): this {
-    if (this.firstCallInBranch) {
-      this.firstCallInBranch = false;
-      this.b = this.b.orWhere(col, op, value);
-    } else {
-      this.b = this.b.where(col, op, value);
-    }
-    return this;
+    return this.where(col, op, value);
   }
 
   getBuilder(): WhereTarget {
@@ -475,6 +474,14 @@ export interface ListResult<Row> {
   readonly hasMore: boolean;
   readonly cursor?: string;
 }
+/** Everything `buildListResult` accepts except `select`, which is what its overloads differ on. */
+interface ListOptions {
+  limit?: number;
+  total?: number;
+  cursor?: string;
+  orderBy?: OrderBySpec;
+  pkColumn?: string;
+}
 /**
  * Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total, opaque cursor.
  *
@@ -484,46 +491,19 @@ export interface ListResult<Row> {
  */
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: {
-    limit?: number;
-    total?: number;
-    cursor?: string;
-    orderBy?: OrderBySpec;
-    pkColumn?: string;
-  },
+  opts?: ListOptions,
 ): ListResult<Row>;
 export function buildListResult<Row extends Record<string, unknown>, K extends keyof Row>(
   rows: readonly Row[],
-  opts: {
-    limit?: number;
-    select: readonly K[];
-    total?: number;
-    cursor?: string;
-    orderBy?: OrderBySpec;
-    pkColumn?: string;
-  },
+  opts: ListOptions & { select: readonly K[] },
 ): ListResult<Pick<Row, K>>;
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: {
-    limit?: number;
-    select?: readonly (keyof Row)[];
-    total?: number;
-    cursor?: string;
-    orderBy?: OrderBySpec;
-    pkColumn?: string;
-  },
+  opts?: ListOptions & { select?: readonly (keyof Row)[] },
 ): ListResult<Row | Partial<Row>>;
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: {
-    limit?: number;
-    select?: readonly (keyof Row)[];
-    total?: number;
-    cursor?: string;
-    orderBy?: OrderBySpec;
-    pkColumn?: string;
-  },
+  opts?: ListOptions & { select?: readonly (keyof Row)[] },
 ): ListResult<Row | Partial<Row>> {
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;

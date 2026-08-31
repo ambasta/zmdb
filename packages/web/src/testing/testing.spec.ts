@@ -48,4 +48,37 @@ describe('@zmdb/web testing: createTestApp', () => {
     expect(JSON.parse(res.body)).toEqual({ msg: 'stubbed' });
     expect(app.get(GreeterToken)).toBe(stub);
   });
+
+  // SPEC.md: "lifecycle, same as App" — every hook createApp runs, in the same
+  // order, so a test can exercise startup work rather than only routes.
+  it('runs the same lifecycle hooks as createApp, in order', async () => {
+    const calls: string[] = [];
+
+    @Controller('/lifecycle')
+    class LifecycleController {
+      onModuleInit() {
+        calls.push('init');
+      }
+      onApplicationBootstrap() {
+        calls.push('bootstrap');
+      }
+      onShutdown() {
+        calls.push('shutdown');
+      }
+      @Get()
+      get(_ctx: Ctx) {
+        return {};
+      }
+    }
+
+    @Module({ controllers: [LifecycleController] })
+    class LifecycleModule {}
+
+    {
+      await using app = createTestApp(LifecycleModule);
+      await app.init();
+      expect(calls).toEqual(['init', 'bootstrap']);
+    }
+    expect(calls).toEqual(['init', 'bootstrap', 'shutdown']);
+  });
 });

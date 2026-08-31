@@ -539,6 +539,31 @@ export type StateUpdateDTO<
   [P in StateField]?: AllowedTargetStates<Transitions, FromState>;
 };
 
+/** What a transition out of `From` is allowed to patch: the declared restriction if there is one, otherwise every updatable field. */
+type PatchableFields<
+  S,
+  Transitions extends Record<string, readonly string[]>,
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] },
+  From extends keyof Transitions & string,
+> = FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+  ? FieldRestrictions[From][number]
+  : keyof UpdateDTO<S>;
+
+/**
+ * The `patch` argument of a transition out of `From`. When the only patchable
+ * field is the state field itself there is nothing left to pass, so the argument
+ * narrows to `Record<string, never>` and any property is a type error.
+ */
+type TransitionPatch<
+  S,
+  StateField extends string,
+  Transitions extends Record<string, readonly string[]>,
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] },
+  From extends keyof Transitions & string,
+> = [Exclude<PatchableFields<S, Transitions, FieldRestrictions, From>, StateField>] extends [never]
+  ? Record<string, never>
+  : Omit<Pick<UpdateDTO<S>, PatchableFields<S, Transitions, FieldRestrictions, From>>, StateField>;
+
 export interface EntityStateMachineOptions<
   S,
   StateField extends string,
@@ -564,33 +589,8 @@ export interface EntityStateMachine<
   createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
     from: From,
     to: To,
-    patch?: [
-      Exclude<
-        FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-          ? FieldRestrictions[From][number]
-          : keyof UpdateDTO<S>,
-        StateField
-      >,
-    ] extends [never]
-      ? Record<string, never>
-      : Omit<
-          Pick<
-            UpdateDTO<S>,
-            FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-              ? FieldRestrictions[From][number]
-              : keyof UpdateDTO<S>
-          >,
-          StateField
-        >,
-  ): StateUpdateDTO<
-    S,
-    StateField,
-    From,
-    Transitions,
-    FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-      ? FieldRestrictions[From][number]
-      : keyof UpdateDTO<S>
-  >;
+    patch?: TransitionPatch<S, StateField, Transitions, FieldRestrictions, From>,
+  ): StateUpdateDTO<S, StateField, From, Transitions, PatchableFields<S, Transitions, FieldRestrictions, From>>;
 }
 
 export function createStateUpdatePayload<
@@ -639,33 +639,14 @@ export function defineEntityStateMachine<
     createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
       from: From,
       to: To,
-      patch?: [
-        Exclude<
-          FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-            ? FieldRestrictions[From][number]
-            : keyof UpdateDTO<S>,
-          StateField
-        >,
-      ] extends [never]
-        ? Record<string, never>
-        : Omit<
-            Pick<
-              UpdateDTO<S>,
-              FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-                ? FieldRestrictions[From][number]
-                : keyof UpdateDTO<S>
-            >,
-            StateField
-          >,
+      patch?: TransitionPatch<S, StateField, Transitions, FieldRestrictions, From>,
     ) {
       return createStateUpdatePayload<
         S,
         StateField,
         From,
         Transitions,
-        FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
-          ? FieldRestrictions[From][number]
-          : keyof UpdateDTO<S>
+        PatchableFields<S, Transitions, FieldRestrictions, From>
       >(stateField, transitions, from, to, patch);
     },
   };
