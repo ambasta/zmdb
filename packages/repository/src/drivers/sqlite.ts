@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // node:sqlite driver adapter — see ../drivers/SPEC.md.
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 
