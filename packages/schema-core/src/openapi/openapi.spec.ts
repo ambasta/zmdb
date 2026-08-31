@@ -111,9 +111,10 @@ describe('sensitive field redaction in OpenAPI specs', () => {
   it('omits sensitive fields from toOpenApiComponents', () => {
     const c = toOpenApiComponents([SchemaWithSecret]);
     const userSchema = c.schemas.User;
-    expect(userSchema.properties).not.toHaveProperty('passwordHash');
-    expect(userSchema.properties).not.toHaveProperty('apiToken');
-    expect(userSchema.required).not.toContain('passwordHash');
+    expect(userSchema).toBeDefined();
+    expect(userSchema!.properties).not.toHaveProperty('passwordHash');
+    expect(userSchema!.properties).not.toHaveProperty('apiToken');
+    expect(userSchema!.required).not.toContain('passwordHash');
   });
 
   it('omits sensitive fields from toJsonSchemaWithRelations', () => {
