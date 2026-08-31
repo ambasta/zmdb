@@ -35,13 +35,23 @@ export const tags = {
 } as const;
 
 // Caches for zero-allocation fallback validation.
+const MAX_REGEX_CACHE_SIZE = 1000;
 const regexCache = new Map<string, RegExp>();
 export function getRegExp(pattern: string): RegExp {
   let re = regexCache.get(pattern);
-  if (!re) {
-    re = new RegExp(pattern);
+  if (re) {
+    regexCache.delete(pattern);
     regexCache.set(pattern, re);
+    return re;
   }
+  if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
+    const oldestKey = regexCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      regexCache.delete(oldestKey);
+    }
+  }
+  re = new RegExp(pattern);
+  regexCache.set(pattern, re);
   return re;
 }
 
