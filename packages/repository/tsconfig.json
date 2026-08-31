@@ -1,14 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": "../..",
     "outDir": "dist",
     "paths": {
-      "@zmdb/schema-core": ["../schema-core/dist/index.d.ts"],
-      "@zmdb/query-compiler": ["../query-compiler/dist/index.d.ts"],
-      "@zmdb/query-compiler/fts": ["../query-compiler/dist/fts.d.ts"],
-      "@zmdb/query-compiler/joins": ["../query-compiler/dist/joins.d.ts"],
-      "@zmdb/query-compiler/aggregations": ["../query-compiler/dist/aggregations.d.ts"]
+      "@zmdb/schema-core": ["../schema-core/src/index.ts"],
+      "@zmdb/schema-core/*": ["../schema-core/src/*/index.ts", "../schema-core/src/*.ts"],
+      "@zmdb/query-compiler": ["../query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/*": ["../query-compiler/src/*/index.ts", "../query-compiler/src/*.ts"]
     }
   },
   "include": ["src/**/*.ts"],

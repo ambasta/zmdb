@@ -1,7 +1,17 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": "..",
+    "paths": {
+      "@zmdb/schema-core": ["../packages/schema-core/src/index.ts"],
+      "@zmdb/schema-core/*": ["../packages/schema-core/src/*/index.ts", "../packages/schema-core/src/*.ts"],
+      "@zmdb/query-compiler": ["../packages/query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/*": ["../packages/query-compiler/src/*/index.ts", "../packages/query-compiler/src/*.ts"],
+      "@zmdb/aot-validator": ["../packages/aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/*": ["../packages/aot-validator/src/*/index.ts", "../packages/aot-validator/src/*.ts"],
+      "@zmdb/repository": ["../packages/repository/src/index.ts"],
+      "@zmdb/repository/*": ["../packages/repository/src/*/index.ts", "../packages/repository/src/*.ts"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["**/*.spec.ts"]
