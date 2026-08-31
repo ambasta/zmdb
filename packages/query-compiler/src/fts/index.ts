@@ -1,13 +1,10 @@
+import { UnsupportedFeatureError } from '../errors.ts';
 // Query-builder full-text search — implementation (#95). Per-dialect whereMatch:
 // pg to_tsvector/@@/to_tsquery; mysql MATCH...AGAINST; sqlite = honest DNF.
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { quoteColumn, quoteTable } from '../quoting.ts';
 
-export class UnsupportedFeatureError extends Error {
-  constructor(feature: string, dialect: string) {
-    super(`${feature} is not supported on dialect "${dialect}"`);
-  }
-}
+export { UnsupportedFeatureError };
 
 interface Predicate {
   kind: 'match' | 'cmp';

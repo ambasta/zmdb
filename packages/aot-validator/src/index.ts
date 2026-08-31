@@ -34,22 +34,58 @@ export const tags = {
   },
 } as const;
 
+// Caches for zero-allocation fallback validation.
+const MAX_REGEX_CACHE_SIZE = 1000;
+const regexCache = new Map<string, RegExp>();
+export function getRegExp(pattern: string): RegExp {
+  let re = regexCache.get(pattern);
+  if (re) {
+    regexCache.delete(pattern);
+    regexCache.set(pattern, re);
+    return re;
+  }
+  if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
+    const oldestKey = regexCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      regexCache.delete(oldestKey);
+    }
+  }
+  re = new RegExp(pattern);
+  regexCache.set(pattern, re);
+  return re;
+}
+
+const enumSetCache = new WeakMap<readonly unknown[], Set<unknown>>();
+export function getEnumSet(values: readonly unknown[]): Set<unknown> {
+  let set = enumSetCache.get(values);
+  if (!set) {
+    set = new Set(values);
+    enumSetCache.set(values, set);
+  }
+  return set;
+}
+
 // Runtime-safety fallback: identical boolean semantics to the inlined form.
 // This is what executes pre-transform (dev / ts-node).
 export function validate(r: Rule, expr: unknown): boolean {
+  // `args` is `readonly unknown[]` (any package may define a kind), so the bound
+  // is re-checked rather than asserted: `typeof arg === 'number'` costs nothing a
+  // JIT can't fold, and this is the fallback path — the AOT emission is what the
+  // benchmarks measure.
+  const [arg] = r.args;
   switch (r.kind) {
     case 'Minimum':
-      return typeof expr === 'number' && expr >= (r.args[0] as number);
+      return typeof expr === 'number' && typeof arg === 'number' && expr >= arg;
     case 'Maximum':
-      return typeof expr === 'number' && expr <= (r.args[0] as number);
+      return typeof expr === 'number' && typeof arg === 'number' && expr <= arg;
     case 'MinLength':
-      return typeof expr === 'string' && expr.length >= (r.args[0] as number);
+      return typeof expr === 'string' && typeof arg === 'number' && expr.length >= arg;
     case 'MaxLength':
-      return typeof expr === 'string' && expr.length <= (r.args[0] as number);
+      return typeof expr === 'string' && typeof arg === 'number' && expr.length <= arg;
     case 'Pattern':
-      return typeof expr === 'string' && new RegExp(r.args[0] as string).test(expr);
+      return typeof expr === 'string' && typeof arg === 'string' && getRegExp(arg).test(expr);
     case 'Enum':
-      return r.args.includes(expr);
+      return getEnumSet(r.args).has(expr);
     default:
       throw new Error(`unknown rule kind: ${r.kind}`);
   }

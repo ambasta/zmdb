@@ -1,4 +1,6 @@
 // @zmdb/query-compiler — implementation.
+export { UnsupportedFeatureError } from './errors.ts';
+
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.

@@ -83,17 +83,26 @@ export const zmdbQueries = {
 };
 
 function benchOps(fn: () => void, iterations: number): number {
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn();
-  const ms = performance.now() - start;
-  return ms > 0 ? Math.round((iterations / ms) * 1000) : iterations;
+  const warmup = Math.min(iterations, 200);
+  for (let i = 0; i < warmup; i++) fn();
+
+  const samples = 5;
+  let maxOps = 0;
+  for (let s = 0; s < samples; s++) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) fn();
+    const ms = performance.now() - start;
+    const ops = ms > 0 ? Math.round((iterations / ms) * 1000) : iterations;
+    if (ops > maxOps) maxOps = ops;
+  }
+  return maxOps;
 }
 
 // Run the ORM suite for zmdb against a seeded engine. Emits a BenchResult for
 // EVERY in-scope ORM case: supported cases as `ok`, anti-pattern cases as
 // `dnf (anti-pattern)`, and the live-Postgres competitor comparison as
 // `dnf (not implemented)`. No in-scope case is silently omitted.
-export function runOrmSuite(engine: OrmEngine, iterations = 200): BenchResult[] {
+export function runOrmSuite(engine: OrmEngine, iterations = 1000): BenchResult[] {
   const ok = (c: string, fn: () => void): BenchResult => ({
     suite: 'orm',
     case: c,

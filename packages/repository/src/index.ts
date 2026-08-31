@@ -15,9 +15,12 @@ import {
   applyOrderBy,
   applyPagination,
   buildListResult,
+  decodeCursor,
+  applyKeysetFilter,
   type WhereDTO,
   type ListDTO,
   type ListResult,
+  type OrderBySpec,
 } from '@zmdb/schema-core/dto';
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
@@ -238,16 +241,55 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
 
   async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>> {
     let b = this.qb.selectFrom(this.tableName);
-    if (query?.where) b = compileWhere(b, query.where);
-    if (query?.orderBy) b = applyOrderBy(b, query.orderBy);
-    // Fetch limit+1 so buildListResult can compute hasMore by trimming.
+    const pkColumn = this.pkColumn;
+
+    const userOrderBy = query?.orderBy;
+    const effectiveOrderBy: OrderBySpec = userOrderBy
+      ? userOrderBy.some(item => String(item.column) === pkColumn)
+        ? userOrderBy
+        : [...userOrderBy, { column: pkColumn, dir: 'asc' }]
+      : [{ column: pkColumn, dir: 'asc' }];
+
+    b = applyOrderBy(b, effectiveOrderBy);
+
     const page = query?.page;
-    const limit = page?.limit;
-    if (page) {
-      b = applyPagination(b, { limit: page.limit + 1, offset: 'offset' in page ? page.offset : undefined });
+    const limit = page && 'limit' in page ? page.limit : undefined;
+
+    if (page && 'after' in page && page.after !== undefined && page.after !== null) {
+      let cursorValues: Record<string, unknown>;
+      if (typeof page.after === 'string') {
+        cursorValues = decodeCursor(page.after);
+      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
+        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
+        cursorValues = page.after as Record<string, unknown>;
+      } else {
+        throw new Error('Invalid cursor parameter: expected string or object');
+      }
+
+      b = applyKeysetFilter(b, cursorValues, effectiveOrderBy, query?.where);
+
+      if (limit !== undefined) {
+        b = b.limit(limit + 1);
+      }
+    } else {
+      if (query?.where) {
+        b = compileWhere(b, query.where);
+      }
+      if (page) {
+        b = applyPagination(b, {
+          limit: limit !== undefined ? limit + 1 : page.limit,
+          offset: 'offset' in page ? page.offset : undefined,
+        });
+      }
     }
+
     const rows = await this.rows<EntityRow<S>>(b.compile());
-    const opts = limit !== undefined ? { limit } : {};
+    const opts = {
+      ...(limit !== undefined ? { limit } : {}),
+      select: query?.select,
+      orderBy: effectiveOrderBy,
+      pkColumn,
+    };
     return buildListResult(rows, opts);
   }
 
@@ -425,6 +467,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       case 'jsonEnum':
         return typeof value === 'string' && (col.flags.enum?.includes(value) ?? false);
       case 'json':
+        return typeof value === 'object';
       default:
         return true;
     }

@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { defineSchema, jsonEnum, notNull, primaryKey, sensitive, serial, text } from '@zmdb/schema-core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
 import { BaseRepository, ValidationError } from './index.ts';

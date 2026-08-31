@@ -45,9 +45,10 @@ describe('runOrmSuite honesty policy', () => {
     const results = runOrmSuite(engine, 20);
     const antiPatterns = ['lazy-relation-graph', 'identity-map-dedup', 'active-record-save'];
     for (const c of antiPatterns) {
-      const r = results.find(x => x.case === c)!;
-      expect(r.status).toBe('dnf');
-      expect(r.dnfReason).toContain('anti-pattern');
+      const r = results.find(x => x.case === c);
+      expect(r).toBeDefined();
+      expect(r?.status).toBe('dnf');
+      expect(r?.dnfReason).toContain('anti-pattern');
     }
   });
 
@@ -57,9 +58,10 @@ describe('runOrmSuite honesty policy', () => {
     );
     const results = runOrmSuite(engine, 20);
     for (const c of supported) {
-      const r = results.find(x => x.case === c)!;
-      expect(r.status).toBe('ok');
-      expect(r.opsPerSec).toBeGreaterThan(0);
+      const r = results.find(x => x.case === c);
+      expect(r).toBeDefined();
+      expect(r?.status).toBe('ok');
+      expect(r?.opsPerSec).toBeGreaterThan(0);
     }
   });
 });

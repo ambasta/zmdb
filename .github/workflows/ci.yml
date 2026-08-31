@@ -58,6 +58,50 @@ jobs:
           name: benchmark-results
           path: benchmarks/RESULTS.md
 
+  docs:
+    name: Documentation Site Generation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'yarn'
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Build docs site
+        run: yarn build:docs
+
+  spec-validation:
+    name: Specification Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'yarn'
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Validate specifications
+        run: yarn validate:spec
+
   regression-guardrail:
     name: Benchmark regression guardrail
     runs-on: ubuntu-latest
@@ -66,18 +110,24 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
         with:
           node-version: '26'
           cache: 'yarn'
-      - run: yarn install --immutable
+
+      - name: Install
+        run: yarn install --immutable
       # The guardrail unit tests assert the ok→DNF and throughput-drop detection
       # logic. A real pipeline would diff the freshly-generated RESULTS.md
       # against the committed baseline using checkRegressions() and fail on any
       # regression; here we run the guardrail test suite as the gate.
       - name: Guardrail checks
-        run: yarn vitest run benchmarks/src/guardrail.spec.ts
+        run: yarn guardrail
 
   audit:
     name: Dependency vulnerability audit

@@ -24,6 +24,7 @@ benchmarks/harness/**/node_modules
 benchmarks/harness/**/package-lock.json
 
 benchmarks/.internal-results.md
+benchmarks/.test-tmp
 
 # Benchmark harness local data (not committed)
 benchmarks/harness/orm/northwind.db
