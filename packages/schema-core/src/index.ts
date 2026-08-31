@@ -230,17 +230,22 @@ export function defineSchema<T extends string>(table: T, columns: Record<string,
   const primaryKeys: string[] = [];
   const refs: { column: string; target: string }[] = [];
   const frozenColumns: Record<string, ColumnMeta> = {};
+  const unMarkedSerialColumns: string[] = [];
 
   for (const [name, col] of Object.entries(columns)) {
-    if (col.type === 'serial' && col.flags.primaryKey !== true) {
-      throw new SchemaError(`serial column "${name}" in schema "${table}" must be designated as a primary key`);
+    if (col.flags.primaryKey === true) {
+      primaryKeys.push(name);
+    } else if (col.type === 'serial') {
+      unMarkedSerialColumns.push(name);
     }
-    if (col.flags.primaryKey === true) primaryKeys.push(name);
     if (col.references) refs.push({ column: name, target: col.references.target });
     frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
   }
 
   if (primaryKeys.length === 0) {
+    if (unMarkedSerialColumns.length > 0) {
+      throw new SchemaError(`serial column "${unMarkedSerialColumns[0]}" in schema "${table}" must be designated as a primary key`);
+    }
     throw new SchemaError(`schema "${table}" must declare at least one primary key`);
   }
 
