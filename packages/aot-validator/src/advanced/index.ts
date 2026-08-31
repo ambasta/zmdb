@@ -46,7 +46,7 @@ export function transform(fnSource: string): Rule {
     kind: 'transform',
     args: Object.freeze([fnSource]),
     apply,
-  } as unknown as Rule);
+  } as Rule);
 }
 
 interface UnionRule extends Rule {
@@ -60,11 +60,11 @@ interface DiscriminatedRule extends Rule {
 }
 
 export function union(...rules: readonly Rule[]): Rule {
-  return Object.freeze({ kind: 'union', args: Object.freeze(rules), branches: rules } as unknown as UnionRule);
+  return Object.freeze({ kind: 'union', args: Object.freeze(rules), branches: rules } as UnionRule);
 }
 
 export function discriminated(key: string, map: Record<string, Rule>): Rule {
-  return Object.freeze({ kind: 'discriminated', args: Object.freeze([key]), key, map } as unknown as DiscriminatedRule);
+  return Object.freeze({ kind: 'discriminated', args: Object.freeze([key]), key, map } as DiscriminatedRule);
 }
 
 // Runtime evaluator (the fallback the transformer's inline emission mirrors).
