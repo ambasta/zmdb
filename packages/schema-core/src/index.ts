@@ -50,6 +50,10 @@ export interface ColumnMeta {
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
+export interface SchemaOptions {
+  readonly ftsTable?: string | boolean | undefined;
+}
+
 /**
  * A defined schema.
  *
@@ -63,6 +67,7 @@ export interface CoreSchema<T extends string, C extends ColumnsMap = ColumnsMap>
   readonly columns: C;
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
+  readonly ftsTable?: string | boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,7 +371,11 @@ const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, ColumnsMap>>();
 // column map instead of the erased `Record<string, ColumnMeta>`. Without it the
 // whole derived-type family (`Entity`, `CreateDTO`, `UpdateDTO`, and every read
 // DTO) collapses to `{ [x: string]: unknown }` at the `defineSchema` seam.
-export function defineSchema<T extends string, C extends ColumnsMap>(table: T, columns: C): CoreSchema<T, C> {
+export function defineSchema<T extends string, C extends ColumnsMap>(
+  table: T,
+  columns: C,
+  options?: SchemaOptions,
+): CoreSchema<T, C> {
   const primaryKeys: string[] = [];
   const refs: { column: string; target: string }[] = [];
   const frozenColumns: Record<string, ColumnMeta> = {};
@@ -401,6 +410,7 @@ export function defineSchema<T extends string, C extends ColumnsMap>(table: T, c
     columns: Object.freeze(frozenColumns) as C,
     primaryKey: Object.freeze(primaryKeys),
     references: Object.freeze(refs),
+    ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
   });
 
   SCHEMA_REGISTRY.set(table, schema);

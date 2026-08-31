@@ -324,11 +324,13 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return buildListResult(rows, opts);
   }
 
-  // #96 — full-text search integration. Uses the query-compiler FTS builder;
-  // on dialects without arbitrary-column FTS (sqlite) this throws an honest
-  // UnsupportedFeatureError (never a silently-wrong query).
+  // #96 — full-text search integration. Uses the query-compiler FTS builder.
+  // SQLite compiles FTS5 virtual table JOINs when ftsTable is declared on the
+  // schema; querying plain SQLite columns without a declared virtual table
+  // throws UnsupportedFeatureError (never a silently-wrong query).
   async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
-    const q = ftsSelectFrom(this.tableName, this.dialect).whereMatch(column, term).compile();
+    const ftsTable = (this.constructor as typeof BaseRepository).schema?.ftsTable;
+    const q = ftsSelectFrom(this.tableName, this.dialect, { ftsTable }).whereMatch(column, term).compile();
     return this.driver.execute(q);
   }
 
