@@ -1,22 +1,6 @@
-import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
-import type { Entity, CreateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect } from '@zmdb/schema-core';
 
-import type { BaseRepository } from '../index.ts';
-
-type Expect<T extends true> = T;
-type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
-type S = typeof UserSchema;
-
-declare class Users extends BaseRepository<S> {
-  static readonly schema: typeof UserSchema;
-}
+import type { Users, S } from './fixtures.ts';
 
 declare const repo: Users;
 

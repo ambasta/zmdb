@@ -1,22 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import { createTransactionalDb, type TxConnection } from './index.ts';
+import { createTransactionalDb } from './index.ts';
+import { recordingConn } from './recording-conn.ts';
 
 // #38: savepoints / nested transactions.
-
-function recordingConn(): TxConnection & { log: string[] } {
-  const log: string[] = [];
-  return {
-    log,
-    async raw(sql: string) {
-      log.push(sql);
-    },
-    async execute() {
-      log.push('EXEC');
-      return [];
-    },
-  };
-}
 
 describe('nested transactions / savepoints', () => {
   it('nested savepoints use distinct names and release on success', async () => {

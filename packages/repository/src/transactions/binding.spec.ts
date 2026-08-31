@@ -1,20 +1,16 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { defineSchema, serial, text } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, defineRepository, type Driver } from '../index.ts';
-import { createTransactionalDb, type TxConnection } from './index.ts';
+import { createTransactionalDb } from './index.ts';
+import { recordingConn } from './recording-conn.ts';
 
-// #37: transaction-scoped repository binding. Tests written BEFORE impl (TDD).
+// #37: transaction-scoped repository binding.
 
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    email: { type: 'text', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+});
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;
@@ -45,23 +41,11 @@ class CustomRepoWithPrivateState extends BaseRepository<typeof UserSchema> {
 }
 
 // A connection that records every raw + executed statement in order.
-function recordingConn(): TxConnection & { log: string[] } {
-  const log: string[] = [];
-  return {
-    log,
-    async raw(sql: string) {
-      log.push(sql);
-    },
-    async execute(q) {
-      log.push(`EXEC:${q.text}`);
-      return [{ id: 1, email: 'a@b.com' }];
-    },
-  };
-}
+const boundConn = () => recordingConn({ label: q => `EXEC:${q.text}`, rows: [{ id: 1, email: 'a@b.com' }] });
 
 describe('transaction-scoped repository binding', () => {
   it('routes repository SQL through the active transaction', async () => {
-    const conn = recordingConn();
+    const conn = boundConn();
     const db = createTransactionalDb(conn);
 
     await db.transaction(async tx => {
@@ -77,7 +61,7 @@ describe('transaction-scoped repository binding', () => {
   });
 
   it('two writes in one tx both roll back on failure', async () => {
-    const conn = recordingConn();
+    const conn = boundConn();
     const db = createTransactionalDb(conn);
 
     await expect(
@@ -92,7 +76,7 @@ describe('transaction-scoped repository binding', () => {
   });
 
   it('accesses private instance variables and methods without throwing runtime errors', async () => {
-    const conn = recordingConn();
+    const conn = boundConn();
     const db = createTransactionalDb(conn);
     const parent = new CustomRepoWithPrivateState({} as Driver);
 
@@ -115,7 +99,7 @@ describe('transaction-scoped repository binding', () => {
     };
     const parent = new UserRepository(parentDriver);
 
-    const conn = recordingConn();
+    const conn = boundConn();
     const db = createTransactionalDb(conn);
 
     await db.transaction(async tx => {
@@ -142,7 +126,7 @@ describe('transaction-scoped repository binding', () => {
       relations: relationsDef,
     });
 
-    const conn = recordingConn();
+    const conn = boundConn();
     const db = createTransactionalDb(conn);
 
     await db.transaction(async tx => {

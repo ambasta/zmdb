@@ -1,49 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import { oneToMany, manyToOne } from '@zmdb/schema-core/relations';
 import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository, defineRepository } from '../index.ts';
+import { OrderSchema, UserSchema, userJoinRelations, userRelations } from './fixtures.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
-
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
-
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text().notNull(),
-});
-
-class UserRepository extends BaseRepository<typeof UserSchema, typeof UserRepository.relations> {
+class UserRepository extends BaseRepository<typeof UserSchema, typeof userJoinRelations> {
   static override readonly schema = UserSchema;
-  static readonly relations = {
-    orders: {
-      meta: oneToMany('orders', 'userId'),
-      entity: OrderSchema,
-      cardinality: 'one-to-many',
-      childTable: 'orders',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-    profile: {
-      meta: manyToOne('profiles', 'userId'),
-      entity: ProfileSchema,
-      cardinality: 'many-to-one',
-      childTable: 'profiles',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-  } as const;
+  static readonly relations = userJoinRelations;
 }
 
 class PlainUserRepository extends BaseRepository<typeof UserSchema> {
@@ -123,16 +88,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
     const db = seedDatabase();
     const repo = defineRepository(UserSchema, sqliteDriver(db), {
       dialect: 'sqlite',
-      relations: {
-        orders: {
-          meta: oneToMany('orders', 'userId'),
-          entity: OrderSchema,
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          parentKey: 'id',
-        },
-      },
+      relations: userRelations,
     });
 
     const userWithOrders = await repo.findById(1, { populate: ['orders'] });

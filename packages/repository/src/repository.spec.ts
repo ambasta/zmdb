@@ -1,21 +1,15 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { defineSchema, jsonEnum, serial, text, type CreateDTO } from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from './index.ts';
 
-// RED PHASE (#25 spec freeze): repository CRUD + validation interception.
+// #25: repository CRUD + validation interception.
 
-// A hand-built schema literal (defineSchema is itself unimplemented).
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    email: { type: 'text', flags: { nullable: false } },
-    role: { type: 'jsonEnum', flags: { nullable: false, enum: ['admin', 'user'] } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+  role: jsonEnum(['admin', 'user']).notNull(),
+});
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;
@@ -63,7 +57,10 @@ describe('BaseRepository create/update validation interception', () => {
     const repo = new UserRepository(driver);
     let error: ValidationError | undefined;
     try {
-      await repo.create({ role: 'nope' });
+      // The cast is the point: untrusted input reaching a typed API at runtime.
+      // `email` missing and `role` off-enum are both compile errors now that the
+      // schema comes from `defineSchema` — the validator has to catch them anyway.
+      await repo.create({ role: 'nope' } as unknown as CreateDTO<typeof UserSchema>);
     } catch (e) {
       if (e instanceof ValidationError) error = e;
     }

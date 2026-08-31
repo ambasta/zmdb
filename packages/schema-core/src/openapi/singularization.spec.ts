@@ -1,18 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import type { CoreSchema } from '../index.ts';
+import { defineSchema, serial } from '../index.ts';
 import { manyToOne, oneToMany } from '../relations/index.ts';
 import { toOpenApiComponents, toJsonSchemaWithRelations } from './index.ts';
 
-function createDummySchema<T extends string>(table: T): CoreSchema<T> {
-  return {
-    table,
-    columns: {
-      id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    },
-    primaryKey: ['id'],
-    references: [],
-  } as unknown as CoreSchema<T>;
+/** The table name is all these tests care about — one id column is enough schema. */
+function createDummySchema<T extends string>(table: T) {
+  return defineSchema(table, { id: serial().primaryKey() });
 }
 
 describe('OpenAPI schema singularization', () => {

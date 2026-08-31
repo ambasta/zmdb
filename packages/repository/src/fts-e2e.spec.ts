@@ -1,53 +1,38 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import type { CoreSchema } from '@zmdb/schema-core';
-import { Pool } from 'pg';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { BaseRepository, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.ts';
+import { BaseRepository } from './index.ts';
+import { usePostgres } from './pg-fixture.ts';
 
-const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
-
-let pool: Pool | undefined;
-let reachable = false;
-
-beforeAll(async () => {
-  try {
-    pool = new Pool({ connectionString: CONN, max: 2 });
-    await pool.query('SELECT 1');
-    await pool.query('DROP TABLE IF EXISTS fts_docs');
-    await pool.query('CREATE TABLE fts_docs (id INT PRIMARY KEY, company_name TEXT NOT NULL)');
-    await pool.query(
-      `INSERT INTO fts_docs (id, company_name) VALUES
-        (1, 'Acme Trading Ltd'), (2, 'Globex Corporation'), (3, 'Initech Ltd'), (4, 'Umbrella Foods')`,
-    );
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
+const pg = usePostgres(async pool => {
+  await pool.query('DROP TABLE IF EXISTS fts_docs');
+  await pool.query('CREATE TABLE fts_docs (id INT PRIMARY KEY, company_name TEXT NOT NULL)');
+  await pool.query(
+    `INSERT INTO fts_docs (id, company_name) VALUES
+      (1, 'Acme Trading Ltd'), (2, 'Globex Corporation'), (3, 'Initech Ltd'), (4, 'Umbrella Foods')`,
+  );
 });
 
-afterAll(async () => {
-  await pool?.end();
-});
+const docColumns = {
+  id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
+  company_name: { type: 'text', flags: { nullable: false } },
+};
 
 const DocSchema = {
   table: 'fts_docs',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    company_name: { type: 'text', flags: { nullable: false } },
-  },
+  columns: docColumns,
   primaryKey: ['id'],
   references: [],
   ftsTable: 'fts_docs_fts',
 } as unknown as CoreSchema<'fts_docs'>;
 
+// The same table with no `ftsTable`, which is what makes full-text search refuse.
 const PlainDocSchema = {
   table: 'fts_docs',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    company_name: { type: 'text', flags: { nullable: false } },
-  },
+  columns: docColumns,
   primaryKey: ['id'],
   references: [],
 } as unknown as CoreSchema<'fts_docs'>;
@@ -60,31 +45,13 @@ class PlainDocRepository extends BaseRepository<typeof PlainDocSchema> {
   static override readonly schema = PlainDocSchema;
 }
 
-function pgDriver(p: Pool): Driver {
-  return { execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows };
-}
-
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as Parameters<typeof stmt.all>;
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
-}
-
 describe('FTS repository integration (real Postgres)', () => {
   it('findByFullText returns rows matching the term', async () => {
-    if (!reachable) {
-      console.warn('[skip] Postgres not reachable at ' + CONN);
+    if (!pg.reachable()) {
+      console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new DocRepository(pgDriver(pool!), 'postgres');
+    const repo = new DocRepository(pg.driver(), 'postgres');
     const hits = await repo.findByFullText('company_name', 'ltd');
     const names = hits.map(r => r.company_name).toSorted();
     // 'Acme Trading Ltd' and 'Initech Ltd' match 'ltd'; others do not.
@@ -92,8 +59,8 @@ describe('FTS repository integration (real Postgres)', () => {
   });
 
   it('findByFullText excludes non-matching rows', async () => {
-    if (!reachable) return;
-    const repo = new DocRepository(pgDriver(pool!), 'postgres');
+    if (!pg.reachable()) return;
+    const repo = new DocRepository(pg.driver(), 'postgres');
     const hits = await repo.findByFullText('company_name', 'globex');
     expect(hits.map(r => r.company_name)).toEqual(['Globex Corporation']);
   });

@@ -4,6 +4,7 @@ import { defineSchema, serial, integer, text, numeric, manyToOne } from '@zmdb/s
 import type { AggregateSpec } from '@zmdb/schema-core/dto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+import { sqliteDriver } from './drivers/sqlite.ts';
 import { BaseRepository, defineRepository, type Driver } from './index.ts';
 
 const CategorySchema = defineSchema('categories', {
@@ -39,18 +40,24 @@ function recordingDriver(
   };
 }
 
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = (q.parameters ?? []) as Parameters<typeof stmt.all>;
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
+/**
+ * The one grouped, joined SELECT both aggregate entry points — the builder
+ * callback and a declarative `AggregateSpec` — have to compile to. They are two
+ * front doors onto the same query; asserting the same string twice is the point.
+ */
+const GROUPED_JOIN_SQL =
+  'SELECT "category"."name" AS "category.name", COUNT("id") AS "count", SUM("price") AS "sum" FROM "products" INNER JOIN "categories" AS "category" ON "products"."categoryId" = "category"."id" GROUP BY "category"."name"';
+
+/** Asserts the aggregate took exactly one roundtrip, with that SQL. */
+function expectOneQuery(driver: { queries: { text: string }[] }, sql: string) {
+  expect(driver.queries.map(q => q.text)).toEqual([sql]);
+}
+
+function onlyRow<T>(rows: readonly T[]): T {
+  expect(rows).toHaveLength(1);
+  const [row] = rows;
+  if (!row) throw new Error('expected exactly one row');
+  return row;
 }
 
 describe('Relation-Aware Repository Aggregations', () => {
@@ -67,16 +74,8 @@ describe('Relation-Aware Repository Aggregations', () => {
         .groupBy('category.name'),
     );
 
-    expect(driver.queries.length).toBe(1);
-    const q0 = driver.queries[0];
-    if (!q0) throw new Error('Expected query to be recorded');
-    expect(q0.text).toBe(
-      'SELECT "category"."name" AS "category.name", COUNT("id") AS "count", SUM("price") AS "sum" FROM "products" INNER JOIN "categories" AS "category" ON "products"."categoryId" = "category"."id" GROUP BY "category"."name"',
-    );
-    expect(rows).toHaveLength(1);
-    const r0 = rows[0];
-    if (!r0) throw new Error('Expected 1 row');
-    expect(r0).toMatchObject({ 'category.name': 'Electronics', count: 2, sum: 1500 });
+    expectOneQuery(driver, GROUPED_JOIN_SQL);
+    expect(onlyRow(rows)).toMatchObject({ 'category.name': 'Electronics', count: 2, sum: 1500 });
   });
 
   it('AggregateSpec auto-resolves joins from relation references or explicit spec.joins in a single roundtrip', async () => {
@@ -95,15 +94,8 @@ describe('Relation-Aware Repository Aggregations', () => {
 
     const rows = await repo.aggregate(spec);
 
-    expect(driver.queries.length).toBe(1);
-    const q0 = driver.queries[0];
-    if (!q0) throw new Error('Expected query to be recorded');
-    expect(q0.text).toBe(
-      'SELECT "category"."name" AS "category.name", COUNT("id") AS "count", SUM("price") AS "sum" FROM "products" INNER JOIN "categories" AS "category" ON "products"."categoryId" = "category"."id" GROUP BY "category"."name"',
-    );
-    const r0 = rows[0];
-    if (!r0) throw new Error('Expected 1 row');
-    expect(r0).toMatchObject({ 'category.name': 'Books', count: 1, sum: 20 });
+    expectOneQuery(driver, GROUPED_JOIN_SQL);
+    expect(onlyRow(rows)).toMatchObject({ 'category.name': 'Books', count: 1, sum: 20 });
   });
 
   it('throws a descriptive error when referencing an undeclared relation', async () => {

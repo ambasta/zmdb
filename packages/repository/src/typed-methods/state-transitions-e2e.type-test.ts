@@ -1,10 +1,7 @@
 import { defineSchema, serial, text, defineEntityStateMachine } from '@zmdb/schema-core';
+import type { Equal, Expect } from '@zmdb/schema-core';
 
 import { markTransactionClosed, type ActiveTransactionContext, type ClosedTransactionContext } from '../index.ts';
-
-export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
-
-export type Expect<T extends true> = T;
 
 // Closed context type assertion
 declare const activeTx: ActiveTransactionContext;

@@ -8,22 +8,10 @@
 // A repository whose methods had degraded to `Record<string, unknown>` would have
 // passed the suite green.
 import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
-import { defineSchema, integer, jsonEnum, serial, text } from '@zmdb/schema-core';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
-import { BaseRepository } from '../index.ts';
+import type { Users, S } from './fixtures.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
-type S = typeof UserSchema;
-
-class Users extends BaseRepository<S> {
-  static override readonly schema = UserSchema;
-}
 declare const repo: Users;
 
 // --- reads (#203) ----------------------------------------------------------

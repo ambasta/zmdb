@@ -1,30 +1,7 @@
-import { defineSchema, text, integer, primaryKey } from '@zmdb/schema-core';
+import type { Equal, Expect } from '@zmdb/schema-core';
 
-import { BaseRepository, type Driver } from '../index.ts';
-
-type Expect<T extends true> = T;
-type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
-
-const CompositeSchema = defineSchema('tenant_users', {
-  tenantId: primaryKey(text()),
-  userId: primaryKey(integer()),
-  role: text().notNull(),
-});
-type CompositeS = typeof CompositeSchema;
-
-const SinglePkSchema = defineSchema('products', {
-  id: primaryKey(integer()),
-  name: text().notNull(),
-});
-type SingleS = typeof SinglePkSchema;
-
-class TenantUsersRepo extends BaseRepository<CompositeS> {
-  static override readonly schema = CompositeSchema;
-}
-
-class ProductsRepo extends BaseRepository<SingleS> {
-  static override readonly schema = SinglePkSchema;
-}
+import type { Driver } from '../index.ts';
+import { ProductsRepo, TenantUsersRepo } from './fixtures.ts';
 
 declare const driver: Driver;
 const compRepo = new TenantUsersRepo(driver);

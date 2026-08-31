@@ -12,10 +12,9 @@ import {
   type Entity,
   type CreateDTO,
   type UpdateDTO,
+  type Equal,
+  type Expect,
 } from './index.ts';
-
-export type Expect<T extends true> = T;
-export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
 
 type Simplify<T> = { [K in keyof T]: T[K] };
 

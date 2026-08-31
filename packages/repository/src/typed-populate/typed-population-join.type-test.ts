@@ -1,54 +1,17 @@
 // Type-level tests for typed population and join derivation.
 // No runtime code: this file is a *compilation* gate run by `yarn typecheck`.
 import type { Entity, Equal, Expect } from '@zmdb/schema-core';
-import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
-import { manyToOne, oneToMany } from '@zmdb/schema-core/relations';
 
 import { BaseRepository, type defineRepository } from '../index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
-
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
-
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text().notNull(),
-});
+import { OrderSchema, UserSchema, userJoinRelations, type ProfileSchema } from './fixtures.ts';
 
 type User = Entity<typeof UserSchema>;
 type Order = Entity<typeof OrderSchema>;
 type Profile = Entity<typeof ProfileSchema>;
 
-const userRelations = {
-  orders: {
-    meta: oneToMany('orders', 'userId'),
-    entity: OrderSchema,
-    cardinality: 'one-to-many',
-    childTable: 'orders',
-    childFk: 'userId',
-    parentKey: 'id',
-  },
-  profile: {
-    meta: manyToOne('profiles', 'userId'),
-    entity: ProfileSchema,
-    cardinality: 'many-to-one',
-    childTable: 'profiles',
-    childFk: 'userId',
-    parentKey: 'id',
-  },
-} as const;
-
-class UserRepository extends BaseRepository<typeof UserSchema, typeof userRelations> {
+class UserRepository extends BaseRepository<typeof UserSchema, typeof userJoinRelations> {
   static override readonly schema = UserSchema;
-  static readonly relations = userRelations;
+  static readonly relations = userJoinRelations;
 }
 
 class PlainUserRepository extends BaseRepository<typeof UserSchema> {
@@ -116,7 +79,7 @@ export type _LeftName = Expect<Equal<(typeof leftJoined)[number]['name'], string
 export type _LeftTotal = Expect<Equal<(typeof leftJoined)[number]['total'], number | undefined>>;
 
 // --- defineRepository factory ---------------------------------------------
-declare const definedRepo: ReturnType<typeof defineRepository<typeof UserSchema, typeof userRelations>>;
+declare const definedRepo: ReturnType<typeof defineRepository<typeof UserSchema, typeof userJoinRelations>>;
 export const _pDefined = definedRepo.findById(1, { populate: ['orders'] });
 declare const definedUserWithOrders: NonNullable<Awaited<typeof _pDefined>>;
 export type _DefinedPopOrders = Expect<Equal<(typeof definedUserWithOrders)['orders'], readonly Order[]>>;

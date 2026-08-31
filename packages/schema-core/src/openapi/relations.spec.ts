@@ -1,29 +1,17 @@
 import { describe, it, expect } from 'vitest';
 
-import type { CoreSchema } from '../index.ts';
+import { defineSchema, integer, serial } from '../index.ts';
 import { manyToOne, oneToMany } from '../relations/index.ts';
 import { toJsonSchemaWithRelations } from './index.ts';
 
-// #66: DTO-aware generation + relation $refs. Tests first (TDD).
+// #66: DTO-aware generation + relation $refs.
 
-const OrderSchema = {
-  table: 'orders',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    userId: { type: 'integer', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'orders'>;
+const OrderSchema = defineSchema('orders', {
+  id: serial().primaryKey(),
+  userId: integer().notNull(),
+});
 
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+const UserSchema = defineSchema('users', { id: serial().primaryKey() });
 
 describe('relation $refs', () => {
   it('emits a $ref for a to-one relation', () => {

@@ -5,21 +5,9 @@
 // subclass — DTOs, entity types and populate keys all still derive. It was
 // previously "checked" by `expectTypeOf` inside the E2E spec, a runtime no-op.
 import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
-import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
-import { oneToMany } from '@zmdb/schema-core/relations';
 
 import { defineRepository, type Driver } from '../index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+import { UserSchema, userRelations, type OrderSchema } from './fixtures.ts';
 
 declare const driver: Driver;
 
@@ -37,16 +25,7 @@ export const _dxNoRelations = users.findById(1, { populate: ['orders'] });
 // come out of the same object the caller wrote — no `typeof` plumbing needed.
 const usersWithOrders = defineRepository(UserSchema, driver, {
   dialect: 'sqlite',
-  relations: {
-    orders: {
-      meta: oneToMany('orders', 'userId'),
-      entity: OrderSchema,
-      cardinality: 'one-to-many',
-      childTable: 'orders',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-  },
+  relations: userRelations,
 });
 declare const populated: NonNullable<Awaited<ReturnType<typeof usersWithOrders.findById<'orders'>>>>;
 export type _Dx4 = Expect<Equal<(typeof populated)['orders'], readonly Entity<typeof OrderSchema>[]>>;

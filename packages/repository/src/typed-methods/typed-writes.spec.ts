@@ -1,21 +1,10 @@
 import type { CompiledQuery } from '@zmdb/query-compiler';
-import { defineSchema, serial, text, integer, json, jsonEnum, nullable } from '@zmdb/schema-core';
+import { defineSchema, serial, json, nullable } from '@zmdb/schema-core';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
-type S = typeof UserSchema;
-
-class Users extends BaseRepository<S> {
-  static override readonly schema = UserSchema;
-}
+import { Users, type S } from './fixtures.ts';
 
 // The DTO signatures these tests exercise are asserted in
 // `typed-methods.type-test.ts` — this file covers validation and the driver calls.

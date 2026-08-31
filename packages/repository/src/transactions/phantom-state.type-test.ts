@@ -1,13 +1,11 @@
+import type { Equal, Expect } from '@zmdb/schema-core';
+
 import {
   markTransactionClosed,
   type TransactionContext,
   type ActiveTransactionContext,
   type ClosedTransactionContext,
 } from './index.ts';
-
-export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
-
-export type Expect<T extends true> = T;
 
 // 1. TransactionContext defaults to 'active'
 type _TestDefaultTxContext = Expect<Equal<TransactionContext, TransactionContext<'active'>>>;

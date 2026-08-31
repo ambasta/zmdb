@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, sensitive, serial, text, type CoreSchema } from '../index.ts';
+import { defineSchema, jsonEnum, sensitive, serial, text, timestamp, type CoreSchema } from '../index.ts';
 import {
   toJsonSchema,
   toJsonSchemaWithRelations,
@@ -10,24 +10,14 @@ import {
   type Variant,
 } from './index.ts';
 
-// RED PHASE (#63 spec freeze): JSON Schema / OpenAPI golden fixtures.
+// #63: JSON Schema / OpenAPI golden fixtures.
 
-// Hand-built schema literal (defineSchema is itself unimplemented).
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    email: {
-      type: 'text',
-      flags: { nullable: false },
-      validation: [{ kind: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$' }],
-    },
-    role: { type: 'jsonEnum', flags: { nullable: false, hasDefault: true, enum: ['admin', 'user', 'guest'] } },
-    createdAt: { type: 'timestamp', flags: { nullable: false, hasDefault: true } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull().validate({ kind: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$' }),
+  role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
+  createdAt: timestamp().notNull().defaultTo('now()'),
+});
 
 describe('toJsonSchema (entity)', () => {
   it('matches the frozen golden fixture', () => {

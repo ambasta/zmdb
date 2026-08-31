@@ -1,17 +1,8 @@
 // Compile-time type assertions for relations and foreign key constraints.
 // Checked by `yarn typecheck`.
 
-import {
-  defineSchema,
-  serial,
-  text,
-  integer,
-  references,
-  type ColumnMeta,
-  type Entity,
-  type Equal,
-  type Expect,
-} from '../index.ts';
+import { text, integer, references, type ColumnMeta, type Entity, type Equal, type Expect } from '../index.ts';
+import { ProfileSchema, UserSchema } from './fixtures.ts';
 import {
   manyToOne,
   oneToMany,
@@ -22,17 +13,6 @@ import {
   type RelationMeta,
   type RelationDef,
 } from './index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
-
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text(),
-});
 
 type UserEntity = Entity<typeof UserSchema>;
 type ProfileEntity = Entity<typeof ProfileSchema>;

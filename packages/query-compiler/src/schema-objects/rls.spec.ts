@@ -2,6 +2,20 @@ import { describe, it, expect } from 'vitest';
 
 import { enableRlsDdl, createPolicyDdl, UnsupportedFeatureError } from './index.ts';
 
+/** RLS is Postgres-only, so every other dialect must refuse by name rather than emit something. */
+function expectRefused(dialect: string, emit: () => unknown) {
+  let thrown: unknown;
+  try {
+    emit();
+  } catch (err) {
+    thrown = err;
+  }
+  expect(thrown).toBeInstanceOf(UnsupportedFeatureError);
+  const e = thrown as UnsupportedFeatureError;
+  expect(e.feature).toBe('row-level security');
+  expect(e.dialect).toBe(dialect);
+}
+
 describe('RLS DDL (#115)', () => {
   it('enables RLS on a table (pg)', () => {
     expect(enableRlsDdl('documents', 'postgres')).toBe('ALTER TABLE "documents" ENABLE ROW LEVEL SECURITY');
@@ -20,24 +34,7 @@ describe('RLS DDL (#115)', () => {
   });
 
   it('RLS on non-postgres throws', () => {
-    try {
-      enableRlsDdl('t', 'mysql');
-      expect.fail('should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(UnsupportedFeatureError);
-      const e = err as UnsupportedFeatureError;
-      expect(e.feature).toBe('row-level security');
-      expect(e.dialect).toBe('mysql');
-    }
-
-    try {
-      createPolicyDdl({ name: 'p', table: 't', using: 'x' }, 'sqlite');
-      expect.fail('should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(UnsupportedFeatureError);
-      const e = err as UnsupportedFeatureError;
-      expect(e.feature).toBe('row-level security');
-      expect(e.dialect).toBe('sqlite');
-    }
+    expectRefused('mysql', () => enableRlsDdl('t', 'mysql'));
+    expectRefused('sqlite', () => createPolicyDdl({ name: 'p', table: 't', using: 'x' }, 'sqlite'));
   });
 });

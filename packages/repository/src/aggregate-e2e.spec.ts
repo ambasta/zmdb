@@ -1,30 +1,16 @@
 import type { CoreSchema } from '@zmdb/schema-core';
-import { Pool } from 'pg';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-import { BaseRepository, type Driver } from './index.ts';
+import { BaseRepository } from './index.ts';
+import { usePostgres } from './pg-fixture.ts';
 
 // #92: aggregation repository integration + E2E on REAL PostgreSQL.
 
-const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
-let pool: Pool | undefined;
-let reachable = false;
-
-beforeAll(async () => {
-  try {
-    pool = new Pool({ connectionString: CONN, max: 2 });
-    await pool.query('SELECT 1');
-    await pool.query('DROP TABLE IF EXISTS agg_sales');
-    await pool.query('CREATE TABLE agg_sales (id INT PRIMARY KEY, region TEXT NOT NULL, amount INT NOT NULL)');
-    await pool.query(`INSERT INTO agg_sales (id,region,amount) VALUES
-      (1,'north',10),(2,'north',20),(3,'south',5),(4,'south',5),(5,'south',15)`);
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-});
-afterAll(async () => {
-  await pool?.end();
+const pg = usePostgres(async pool => {
+  await pool.query('DROP TABLE IF EXISTS agg_sales');
+  await pool.query('CREATE TABLE agg_sales (id INT PRIMARY KEY, region TEXT NOT NULL, amount INT NOT NULL)');
+  await pool.query(`INSERT INTO agg_sales (id,region,amount) VALUES
+    (1,'north',10),(2,'north',20),(3,'south',5),(4,'south',5),(5,'south',15)`);
 });
 
 const SalesSchema = {
@@ -36,17 +22,13 @@ const SalesSchema = {
 class SalesRepository extends BaseRepository<typeof SalesSchema> {
   static override readonly schema = SalesSchema;
 }
-const driver = (p: Pool): Driver => ({
-  execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows,
-});
-
 describe('aggregation repository integration (real Postgres)', () => {
   it('grouped count + sum returns typed computed columns', async () => {
-    if (!reachable || !pool) {
+    if (!pg.reachable()) {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new SalesRepository(driver(pool), 'postgres');
+    const repo = new SalesRepository(pg.driver(), 'postgres');
     const rows = await repo.aggregate<{ region: string; n: number; total: number }>(agg =>
       agg.select(['region']).count('id', 'n').sum('amount', 'total').groupBy('region').orderBy('region', 'asc'),
     );
@@ -64,8 +46,8 @@ describe('aggregation repository integration (real Postgres)', () => {
   });
 
   it('having filters grouped results', async () => {
-    if (!reachable || !pool) return;
-    const repo = new SalesRepository(driver(pool), 'postgres');
+    if (!pg.reachable()) return;
+    const repo = new SalesRepository(pg.driver(), 'postgres');
     const rows = await repo.aggregate<{ region: string }>(agg =>
       agg.select(['region']).count('id', 'n').groupBy('region').having('region', '=', 'north'),
     );

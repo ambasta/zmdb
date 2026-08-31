@@ -1,22 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import { oneToMany } from '@zmdb/schema-core/relations';
 import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { defineRepository } from '../index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+import { UserSchema, userRelations } from './fixtures.ts';
 
 function db() {
   const d = new DatabaseSync(':memory:');
@@ -31,16 +19,7 @@ describe('DX quickstart via defineRepository (#222)', () => {
     const d = db();
     const users = defineRepository(UserSchema, sqliteDriver(d), {
       dialect: 'sqlite',
-      relations: {
-        orders: {
-          meta: oneToMany('orders', 'userId'),
-          entity: OrderSchema,
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          parentKey: 'id',
-        },
-      },
+      relations: userRelations,
     });
 
     const u = await users.create({ email: 'a@b.com', age: 30 });

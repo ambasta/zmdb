@@ -1,14 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text, integer } from '../index.ts';
+import { type UserS as S } from './fixtures.ts';
 import { applyOrderBy, applyPagination, type OrderByDTO, type PaginationDTO } from './index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
-type S = typeof UserSchema;
 
 // Fake builder recording orderBy/limit/offset calls.
 function recorder() {

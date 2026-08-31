@@ -1,35 +1,8 @@
-import { defineSchema, text, integer, primaryKey } from '@zmdb/schema-core';
 import type { PrimaryKey } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from '../index.ts';
-
-const CompositeSchema = defineSchema('tenant_users', {
-  tenantId: primaryKey(text()),
-  userId: primaryKey(integer()),
-  role: text().notNull(),
-});
-type CompositeS = typeof CompositeSchema;
-
-const SinglePkSchema = defineSchema('products', {
-  id: primaryKey(integer()),
-  name: text().notNull(),
-});
-type SingleS = typeof SinglePkSchema;
-
-function recorder(rows: Record<string, unknown>[] = []) {
-  const calls: { text: string; parameters: readonly unknown[] }[] = [];
-  const driver: Driver = { execute: async q => (calls.push({ text: q.text, parameters: q.parameters }), rows) };
-  return { driver, calls };
-}
-
-class TenantUsersRepo extends BaseRepository<CompositeS> {
-  static override readonly schema = CompositeSchema;
-}
-
-class ProductsRepo extends BaseRepository<SingleS> {
-  static override readonly schema = SinglePkSchema;
-}
+import { ValidationError } from '../index.ts';
+import { ProductsRepo, recorder, TenantUsersRepo, type CompositeS } from './fixtures.ts';
 
 describe('Composite Primary Key Repository Operations', () => {
   it('findById compiles parameterized multi-column SQL predicates', async () => {

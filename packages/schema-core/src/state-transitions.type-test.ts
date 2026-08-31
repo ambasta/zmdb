@@ -7,12 +7,10 @@ import {
   createStateUpdatePayload,
   type StateUpdateDTO,
   type UpdateDTO,
+  type Equal,
+  type Expect,
+  type Extends,
 } from './index.ts';
-
-export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
-
-export type Expect<T extends true> = T;
-export type ExpectExtends<Value, Target> = Value extends Target ? true : false;
 
 const ArticleSchema = defineSchema('articles', {
   id: serial().primaryKey(),
@@ -36,7 +34,7 @@ type _TestDraftStatus = Expect<Equal<DraftUpdatePayload['status'], 'review' | 'p
 
 // Test 2: DraftUpdatePayload assignable to ArticleUpdate
 declare const validPayload: DraftUpdatePayload;
-type _TestDraftPayloadAssignable = Expect<ExpectExtends<typeof validPayload, ArticleUpdate>>;
+type _TestDraftPayloadAssignable = Expect<Extends<typeof validPayload, ArticleUpdate>>;
 
 // Test 3: ReviewStateUpdate keys
 type ReviewStateUpdate = StateUpdateDTO<

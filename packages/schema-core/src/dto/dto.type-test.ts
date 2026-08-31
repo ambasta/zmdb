@@ -6,7 +6,7 @@
 // package tsconfig excludes `**/*.spec.ts` — so nothing checked them. Here a
 // wrong derived type is a build error.
 import type { Entity, Equal, Expect, Extends } from '../index.ts';
-import { defineSchema, serial, text, integer, jsonEnum, numeric } from '../index.ts';
+import type { OrderSchema, UserS as S } from './fixtures.ts';
 import type {
   AggregateResult,
   FieldOps,
@@ -21,14 +21,6 @@ import type {
   WhereDTO,
 } from './index.ts';
 import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-});
-type S = typeof UserSchema;
 
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.
@@ -66,12 +58,6 @@ export type _Search1 = Expect<Equal<SearchDTO<S>['query'], string>>;
 export type _Search2 = Expect<Equal<SearchHit<{ id: number }>['_score'], number | undefined>>;
 
 // --- AggregateResult (#198) ------------------------------------------------
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  customerId: integer().notNull(),
-  total: numeric().notNull(),
-  status: text().notNull(),
-});
 type AggSpec = {
   groupBy: readonly ['customerId'];
   computed: {

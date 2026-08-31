@@ -1,16 +1,8 @@
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text, integer, jsonEnum } from '../index.ts';
+import type { UserS as S } from './fixtures.ts';
 import { compileWhere, type WhereDTO, type WhereTarget } from './index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-});
-type S = typeof UserSchema;
 
 // Fake builder that records the where/orWhere calls (compiler-agnostic).
 function recorder() {

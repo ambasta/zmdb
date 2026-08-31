@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { is as runtimeIs, type TypeDescriptor } from '../utilities/index.ts';
-import { zmdbAot } from './index.ts';
+import { buildInlinedCheck, opsPerSecond } from './inline-bench.ts';
 
 // #83: AOT acceptance gate. Enforces the frozen target from the epic:
 //   (a) AOT is >=5x the runtime path, and
@@ -15,34 +15,20 @@ import { zmdbAot } from './index.ts';
 // Verdict: gate (a) PASSES; (b) competitive on parse-safe/assert-loose, but
 // BEHIND typia/TypeBox on the strict cases — recorded honestly, not overclaimed.
 
-declare const performance: { now(): number };
-
-const plugin = zmdbAot() as { transform: (code: string, id: string) => { code: string } | null };
-
-function buildAotCheck(): (input: unknown) => boolean {
-  const src = 'const check = (input) => is<{ a: number; b: string; c: { d: number } }>(input);';
-  const out = plugin.transform(src, '/fixture/gate.ts')!;
-  return new Function(`${out.code}; return check;`)() as (input: unknown) => boolean;
-}
+const src = 'const check = (input) => is<{ a: number; b: string; c: { d: number } }>(input);';
 
 const desc: TypeDescriptor = {
   kind: 'object',
   fields: { a: { kind: 'number' }, b: { kind: 'string' }, c: { kind: 'object', fields: { d: { kind: 'number' } } } },
 };
 const good = { a: 1, b: 'x', c: { d: 2 } };
-const bench = (fn: () => void, n: number) => {
-  for (let i = 0; i < 10_000; i++) fn();
-  const s = performance.now();
-  for (let i = 0; i < n; i++) fn();
-  return Math.round((n / (performance.now() - s)) * 1000);
-};
 
 describe('AOT acceptance gate (#83)', () => {
   it('gate (a): AOT is at least 5x the runtime validator', () => {
-    const aot = buildAotCheck();
+    const { check: aot } = buildInlinedCheck(src, '/fixture/gate.ts');
     const N = 200_000;
-    const aotOps = bench(() => void aot(good), N);
-    const runtimeOps = bench(() => void runtimeIs(good, desc), N);
+    const aotOps = opsPerSecond(() => void aot(good), N);
+    const runtimeOps = opsPerSecond(() => void runtimeIs(good, desc), N);
     const ratio = aotOps / runtimeOps;
     console.log(
       `gate(a): AOT ${aotOps.toLocaleString()} ops/s vs runtime ${runtimeOps.toLocaleString()} = ${ratio.toFixed(1)}x`,

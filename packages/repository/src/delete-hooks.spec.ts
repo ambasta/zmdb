@@ -1,19 +1,14 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { defineSchema, serial, text } from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
 
 // #28: delete + pre/post lifecycle hooks.
 
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    email: { type: 'text', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+const UserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+});
 
 function fakeDriver(rows: Record<string, unknown>[] = []): Driver {
   return { execute: vi.fn(async () => rows) };

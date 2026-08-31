@@ -8,42 +8,11 @@
 // the populate overload returned `Entity<S> & Record<string, unknown>`, so
 // `user.orders` was `unknown` and every caller cast it.
 import type { Entity, Equal, Expect } from '@zmdb/schema-core';
-import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
-import { manyToOne, oneToMany } from '@zmdb/schema-core/relations';
 
 import { BaseRepository } from '../index.ts';
+import { OrderSchema, UserSchema, orderRelations, userRelations } from './fixtures.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
 type Order = Entity<typeof OrderSchema>;
-
-const userRelations = {
-  orders: {
-    meta: oneToMany('orders', 'userId'),
-    entity: OrderSchema,
-    cardinality: 'one-to-many',
-    childTable: 'orders',
-    childFk: 'userId',
-    parentKey: 'id',
-  },
-} as const;
-const orderRelations = {
-  user: {
-    meta: manyToOne('users', 'userId'),
-    entity: UserSchema,
-    cardinality: 'many-to-one',
-    childTable: 'users',
-    childFk: 'id',
-    parentKey: 'userId',
-  },
-} as const;
 
 class Users extends BaseRepository<typeof UserSchema, typeof userRelations> {
   static override readonly schema = UserSchema;

@@ -93,13 +93,16 @@ describe('Composite Keyset Cursor Utilities', () => {
   });
 
   describe('applyKeysetFilter', () => {
+    // A composite sort with one descending and one ascending column: enough to
+    // pin both inequality directions and the tie-break branch.
+    const orderBy: OrderBySpec = [
+      { column: 'age', dir: 'desc' },
+      { column: 'id', dir: 'asc' },
+    ];
+    const cursorValues = { age: 30, id: 100 };
+
     it('constructs multi-column inequality conditions for composite sort (age DESC, id ASC)', () => {
       const { builder, calls } = createWhereRecorder();
-      const orderBy: OrderBySpec = [
-        { column: 'age', dir: 'desc' },
-        { column: 'id', dir: 'asc' },
-      ];
-      const cursorValues = { age: 30, id: 100 };
 
       applyKeysetFilter(builder, cursorValues, orderBy);
 
@@ -112,11 +115,6 @@ describe('Composite Keyset Cursor Utilities', () => {
 
     it('combines with userWhere filtering', () => {
       const { builder, calls } = createWhereRecorder();
-      const orderBy: OrderBySpec = [
-        { column: 'age', dir: 'desc' },
-        { column: 'id', dir: 'asc' },
-      ];
-      const cursorValues = { age: 30, id: 100 };
       const userWhere = { status: 'active' } as WhereDTO<unknown>;
 
       applyKeysetFilter(builder, cursorValues, orderBy, userWhere);
@@ -132,13 +130,8 @@ describe('Composite Keyset Cursor Utilities', () => {
 
     it('throws error if a sort column is missing from cursorValues', () => {
       const { builder } = createWhereRecorder();
-      const orderBy: OrderBySpec = [
-        { column: 'age', dir: 'desc' },
-        { column: 'id', dir: 'asc' },
-      ];
-      const missingCursorValues = { age: 30 };
 
-      expect(() => applyKeysetFilter(builder, missingCursorValues, orderBy)).toThrow(
+      expect(() => applyKeysetFilter(builder, { age: 30 }, orderBy)).toThrow(
         /Invalid cursor: missing value for column "id"/,
       );
     });

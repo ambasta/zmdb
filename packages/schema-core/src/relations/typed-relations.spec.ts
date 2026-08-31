@@ -1,19 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text, integer, references } from '../index.ts';
+import { defineSchema, serial, integer, references } from '../index.ts';
+import { ProfileSchema, UserSchema } from './fixtures.ts';
 import { manyToOne, oneToMany, oneToOne, manyToMany } from './index.ts';
-
-// Target Schemas for testing
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
-
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text(),
-});
 
 describe('Typed Foreign Keys & Schema Generic Constraints', () => {
   describe('references validation', () => {
