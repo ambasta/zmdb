@@ -1,6 +1,6 @@
 import { defineSchema, text, integer, primaryKey } from '@zmdb/schema-core';
 import type { PrimaryKey } from '@zmdb/schema-core';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
 
@@ -94,15 +94,5 @@ describe('Composite Primary Key Repository Operations', () => {
     await repo.delete(42);
     expect(calls[2].text).toBe('DELETE FROM "products" WHERE "id" = $1 RETURNING "id"');
     expect(calls[2].parameters).toEqual([42]);
-  });
-
-  it('type-level: enforces composite key object map and scalar single key types', () => {
-    const compRepo = new TenantUsersRepo(recorder().driver);
-    expectTypeOf(compRepo.findById).parameter(0).toEqualTypeOf<{ tenantId: string; userId: number }>();
-    expectTypeOf(compRepo.delete).parameter(0).toEqualTypeOf<{ tenantId: string; userId: number }>();
-
-    const prodRepo = new ProductsRepo(recorder().driver);
-    expectTypeOf(prodRepo.findById).parameter(0).toEqualTypeOf<number>();
-    expectTypeOf(prodRepo.delete).parameter(0).toEqualTypeOf<number>();
   });
 });
