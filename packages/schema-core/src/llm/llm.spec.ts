@@ -20,16 +20,16 @@ describe('LLM function-calling harness (#159)', () => {
     expect(tool.parameters.properties).toHaveProperty('email');
   });
 
-  it('toolFromSchema omits sensitive fields from parameter schemas', () => {
+  it('toolFromSchema includes sensitive fields in parameter schemas for create variant', () => {
     const SensitiveSchema = defineSchema('users', {
       id: serial().primaryKey(),
       email: text().notNull(),
       apiKey: sensitive(text().notNull()),
     });
     const tool = toolFromSchema('createUser', SensitiveSchema);
-    expect(tool.parameters.properties).not.toHaveProperty('apiKey');
+    expect(tool.parameters.properties).toHaveProperty('apiKey');
     expect(tool.parameters.properties).toHaveProperty('email');
-    expect(tool.parameters.required).not.toContain('apiKey');
+    expect(tool.parameters.required).toContain('apiKey');
     expect(tool.parameters.required).toContain('email');
   });
 
