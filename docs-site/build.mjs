@@ -1,13 +1,20 @@
 // zmdb docs static-site generator.
+//
 // Reads manifest.mjs (nav + per-page {status, md}) and emits static HTML into
-// ../site/docs/<slug>.html + ../site/index.html, sharing a dark theme with the
-// benchmarks dashboard. No framework — a tiny markdown subset renderer.
-import { mkdirSync, writeFileSync, cpSync, existsSync, readFileSync } from 'node:fs';
+// ../site/docs/<slug>.html, ../site/index.html and ../site/benchmarks/index.html.
+// No framework and no build step beyond `node`: a small markdown renderer here,
+// build-time syntax highlighting in highlight.mjs, and the shared chrome (theme,
+// sidebar, ⌘K search) in shell.mjs. Everything a page needs is inlined into it,
+// except the search index, which is one lazily-loaded file shared by every page.
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { benchmarkHighlights, buildBenchmarksPage } from './benchmarks.mjs';
+import { highlight } from './highlight.mjs';
 import { NAV, PAGES } from './manifest.mjs';
 import { generateOpenApiSpec } from './openapi-spec.mjs';
+import { PALETTE_HTML, SHELL_CSS, THEME_BOOT, searchIndexScript, shellJs, topbarHtml } from './shell.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, '..', 'site');
@@ -89,7 +96,9 @@ function mdToHtml(md) {
       let code = '';
       while (i < lines.length && !lines[i].startsWith('```')) code += lines[i++] + '\n';
       i++;
-      html += `<pre class="lang-${lang}"><code>${code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+      // Tokenised here rather than in the browser: no highlighter to download, and
+      // no flash of uncoloured code on a slow connection.
+      html += `<pre class="lang-${lang}"><code>${highlight(code.replace(/\n$/, ''), lang)}</code></pre>`;
       continue;
     }
     // admonition: > [!NOTE] ...  (consumes following > lines)
@@ -116,7 +125,10 @@ function mdToHtml(md) {
       const text = l.replace(/^#+\s/, '');
       const id = slugify(text);
       if (lvl === 2 || lvl === 3) toc.push({ lvl, id, text: text.replace(/`/g, '') });
-      html += `<h${lvl} id="${id}">${renderInline(text)}</h${lvl}>`;
+      // A linkable heading is how people cite a doc; h1 is the page itself, which
+      // already has a URL.
+      const anchor = lvl > 1 ? `<a class="anchor" href="#${id}" aria-label="Link to this section">#</a>` : '';
+      html += `<h${lvl} id="${id}">${renderInline(text)}${anchor}</h${lvl}>`;
       i++;
       continue;
     }
@@ -168,70 +180,29 @@ const STATUS_BADGE = {
   todo: '<span class="badge todo">TODO</span>',
 };
 
+// 26 groups and 274 pages do not fit on a screen, so groups collapse. The group
+// holding the current page is the one opened — on the benchmarks page, which is in
+// no group, everything starts closed and the reader expands what they want.
 function navHtml(activeSlug, base = './') {
   let h = '';
   for (const group of NAV) {
-    h += `<div class="nav-group"><div class="nav-title">${group.title}</div>`;
-    for (const slug of group.pages) {
+    const pages = group.pages.filter(slug => PAGES[slug] !== undefined);
+    if (pages.length === 0) continue;
+    const open = pages.includes(activeSlug) ? ' open' : '';
+    h += `<details class="nav-group"${open}><summary class="nav-title">${group.title}<span class="count">${pages.length}</span></summary>`;
+    for (const slug of pages) {
       const p = PAGES[slug];
-      if (!p) continue;
-      const badge = p.status === 'todo' ? ' <span class="dot todo"></span>' : '';
+      const badge = p.status === 'todo' ? '<span class="dot todo" title="On the roadmap"></span>' : '';
       h += `<a class="nav-link${slug === activeSlug ? ' active' : ''}" href="${base}${slug}.html">${p.title}${badge}</a>`;
     }
-    h += '</div>';
+    h += '</details>';
   }
   return h;
 }
 
-const CSS = `
-:root{--bg:#0d1117;--panel:#161b22;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--ok:#3fb950;--todo:#d29922;--line:#30363d}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif}
-a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.layout{display:grid;grid-template-columns:280px minmax(0,1fr) 220px;min-height:100vh}
-aside{border-right:1px solid var(--line);padding:20px 14px;overflow-y:auto;position:sticky;top:0;height:100vh;background:var(--panel)}
-.brand{font-size:20px;font-weight:700;padding:0 8px 14px}
-.brand small{display:block;font-size:12px;color:var(--muted);font-weight:400}
-.nav-group{margin:14px 0}.nav-title{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:0 8px 4px}
-.nav-link{display:block;padding:5px 8px;border-radius:6px;color:var(--fg);font-size:14px}
-.nav-link:hover{background:#21262d;text-decoration:none}.nav-link.active{background:var(--accent);color:#0d1117;font-weight:600}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%}.dot.todo{background:var(--todo)}
-main{padding:34px 48px 60px;max-width:860px;min-width:0}
-h1{margin:0 0 4px;font-size:30px}h2{margin:32px 0 10px;font-size:22px;border-bottom:1px solid var(--line);padding-bottom:6px;scroll-margin-top:20px}h3{margin:22px 0 6px;font-size:17px;scroll-margin-top:20px}
-p{margin:10px 0}
-code{background:#21262d;padding:1px 6px;border-radius:4px;font-size:13px}
-pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto}pre code{background:none;padding:0;font-size:13px;line-height:1.55}
-pre.lang-sql{border-left:3px solid #a371f7}pre.lang-bash{border-left:3px solid #3fb950}
-table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
-th{background:#161b22}
-ul,ol{margin:10px 0;padding-left:24px}li{margin:4px 0}li>ul,li>ol{margin:4px 0}
-blockquote{margin:12px 0;padding:2px 16px;border-left:3px solid var(--line);color:var(--muted)}
-.admonition{margin:16px 0;border-radius:8px;padding:12px 16px;border:1px solid var(--line);border-left-width:4px;background:#12171d}
-.admonition .adm-title{font-weight:700;font-size:13px;margin-bottom:4px}
-.admonition.note{border-left-color:var(--accent)}.admonition.tip{border-left-color:var(--ok)}
-.admonition.warning,.admonition.important{border-left-color:var(--todo)}.admonition.danger{border-left-color:#f85149}
-.admonition p{margin:4px 0}
-.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 10px;border-radius:20px;vertical-align:middle;margin-left:10px}
-.badge.ok{background:rgba(63,185,80,.15);color:var(--ok)}.badge.todo{background:rgba(210,153,34,.15);color:var(--todo)}
-.todo-banner{background:rgba(210,153,34,.1);border:1px solid var(--todo);border-radius:8px;padding:14px 16px;margin:16px 0;color:#e6edf3}
-.todo-banner b{color:var(--todo)}
-.navsearch{width:100%;margin:0 0 6px;padding:7px 10px;background:#0b0f14;border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:13px}
-.navsearch:focus{outline:none;border-color:var(--accent)}
-.nav-group.hidden,.nav-link.hidden{display:none}
-.nav-empty{color:var(--muted);font-size:13px;padding:8px}
-pre{position:relative}
-.copy-btn{position:absolute;top:8px;right:8px;background:#21262d;border:1px solid var(--line);color:var(--muted);font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .12s}
-pre:hover .copy-btn{opacity:1}.copy-btn:hover{color:var(--fg);border-color:var(--accent)}.copy-btn.ok{color:var(--ok);border-color:var(--ok)}
-.crumbs{color:var(--muted);font-size:13px;margin-bottom:10px}
-.toc{position:sticky;top:0;height:100vh;overflow-y:auto;padding:34px 16px;font-size:13px;border-left:1px solid var(--line)}
-.toc-title{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:11px;margin-bottom:8px}
-.toc a{display:block;color:var(--muted);padding:3px 0}.toc a:hover{color:var(--fg)}.toc a.lvl3{padding-left:12px;font-size:12px}
-.prevnext{display:flex;justify-content:space-between;gap:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:20px}
-.prevnext a{display:block;flex:1;border:1px solid var(--line);border-radius:8px;padding:12px 16px}
-.prevnext a:hover{border-color:var(--accent);text-decoration:none}
-.prevnext .dir{color:var(--muted);font-size:12px}.prevnext .nxt{text-align:right}
-@media(max-width:1100px){.layout{grid-template-columns:240px 1fr}.toc{display:none}}
-@media(max-width:800px){.layout{grid-template-columns:1fr}aside{display:none}}
-`;
+// The docs pages and the benchmarks dashboard share one stylesheet, so a change
+// to the theme cannot land on one of them and not the other.
+const CSS = SHELL_CSS;
 
 // Flat page order (from NAV) for prev/next navigation.
 const FLAT = NAV.flatMap(g => g.pages).filter(s => PAGES[s]);
@@ -263,18 +234,26 @@ function pageHtml(slug, p) {
             : '<span></span>'
         }</div>`
       : '';
+  // The first paragraph of the page, as its meta description: written prose beats a
+  // boilerplate line, and search engines and link previews both use it.
+  const firstPara = /<p>([\s\S]*?)<\/p>/.exec(body);
+  const description = (firstPara?.[1] ?? `${p.title} — zmdb documentation.`).replace(/<[^>]+>/g, '').slice(0, 180);
+
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${p.title} — zmdb docs</title><style>${CSS}</style></head><body>
+<title>${p.title} — zmdb docs</title>
+<meta name="description" content="${description.replace(/"/g, '&quot;')}"/>
+<script>${THEME_BOOT}</script>
+<style>${CSS}</style></head><body>
+${topbarHtml({ base: '../', active: 'docs', withNavToggle: true })}
 <div class="layout">
-<aside><div class="brand">zmdb<small>zero-maintenance data layer</small></div>
-<input class="navsearch" type="search" placeholder="Filter docs… (/)" aria-label="Filter documentation" />
-<a class="nav-link" href="../index.html">← Home</a>
-<a class="nav-link" href="../benchmarks/index.html">📊 Benchmarks</a>
-<a class="nav-link" href="../openapi.json" target="_blank" download="openapi.json">📄 OpenAPI Spec</a>
+<aside>
+<input class="navsearch" type="search" placeholder="Filter these titles…" aria-label="Filter documentation titles" />
+<a class="nav-link nav-top" href="../benchmarks/index.html">Benchmarks</a>
+<a class="nav-link nav-top" href="../openapi.json" target="_blank" download="openapi.json">OpenAPI spec</a>
 ${navHtml(slug)}</aside>
 <main>
-<div class="crumbs">Docs / ${p.group ?? ''}</div>
+<div class="crumbs"><a href="../index.html">Docs</a> / ${p.group ?? ''}</div>
 <h1>${p.title}${STATUS_BADGE[p.status] ?? ''}</h1>
 ${todoBanner}
 ${body}
@@ -282,36 +261,9 @@ ${pn}
 </main>
 ${tocHtml}
 </div>
-<script>
-(function(){
-  // Nav filter: hide non-matching links + empty groups; focus with "/".
-  var box=document.querySelector('.navsearch');
-  var groups=[].slice.call(document.querySelectorAll('aside .nav-group'));
-  if(box){
-    box.addEventListener('input',function(){
-      var q=box.value.trim().toLowerCase();
-      groups.forEach(function(g){
-        var links=[].slice.call(g.querySelectorAll('.nav-link'));var any=false;
-        links.forEach(function(a){var hit=!q||a.textContent.toLowerCase().indexOf(q)>=0;a.classList.toggle('hidden',!hit);if(hit)any=true;});
-        g.classList.toggle('hidden',!any);
-      });
-    });
-    document.addEventListener('keydown',function(e){
-      if(e.key==='/'&&document.activeElement!==box){e.preventDefault();box.focus();}
-      if(e.key==='Escape'&&document.activeElement===box){box.value='';box.dispatchEvent(new Event('input'));box.blur();}
-    });
-  }
-  // Copy buttons on code blocks.
-  document.querySelectorAll('pre').forEach(function(pre){
-    var b=document.createElement('button');b.className='copy-btn';b.type='button';b.textContent='Copy';
-    b.addEventListener('click',function(){
-      var code=pre.querySelector('code');var text=(code||pre).innerText;
-      navigator.clipboard.writeText(text).then(function(){b.textContent='Copied';b.classList.add('ok');setTimeout(function(){b.textContent='Copy';b.classList.remove('ok');},1200);});
-    });
-    pre.appendChild(b);
-  });
-})();
-</script>
+<div class="scrim"></div>
+${PALETTE_HTML}
+<script>${shellJs('../')}</script>
 </body></html>`;
 }
 
@@ -319,161 +271,79 @@ ${tocHtml}
 mkdirSync(join(OUT, 'docs'), { recursive: true });
 mkdirSync(join(OUT, 'benchmarks'), { recursive: true });
 
-// Defensive fallback benchmark asset structures when benchmark artifacts are absent.
-const FALLBACK_BENCHMARKS = {
-  'validation-matrix.json': JSON.stringify(
-    {
-      node: {
-        zmdb: { parseSafe: 0, parseStrict: 0, assertLoose: 0, assertStrict: 0 },
-        'zmdb-aot': { parseSafe: 0, parseStrict: 0, assertLoose: 0, assertStrict: 0 },
-      },
-    },
-    null,
-    2,
-  ),
-  'orm-results.json': JSON.stringify(
-    {
-      config: {
-        database: 'Fallback / Pending benchmark data',
-        dataset: 'N/A',
-        driver: 'N/A',
-        load: 'N/A',
-        machine: 'N/A',
-        note: 'Benchmark data unavailable in current build environment',
-      },
-      overall: [{ orm: 'zmdb', reqs: 0, avg: 0, p90: 0, p95: 0, failed: 0 }],
-      prepared: {
-        note: 'Benchmark data pending',
-        rows: [],
-        verdict: 'N/A',
-      },
-      coverage: [],
-      dnf: [],
-    },
-    null,
-    2,
-  ),
-  'framework-results.json': JSON.stringify(
-    {
-      suite: 'the-benchmarker/web-frameworks',
-      framework: '@zmdb/web',
-      contractVerdict: 'Pending / Benchmark data unavailable in current build environment',
-      throughput: {
-        measured: false,
-        reason: 'Benchmark data pending in current build environment',
-      },
-    },
-    null,
-    2,
-  ),
-  'peers-results.json': JSON.stringify(
-    {
-      suite: 'same-machine-head-to-head',
-      note: 'Benchmark data pending in current build environment',
-      results: [],
-    },
-    null,
-    2,
-  ),
-};
-
-// Copy the benchmark data files into site/benchmarks/ or emit defensive fallbacks.
-for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-results.json', 'peers-results.json']) {
+// Copy the raw and normalised benchmark data next to the dashboard so every number
+// on the page can be downloaded and checked. A file that is not there is not
+// replaced by a fallback: benchmarks.mjs renders an explicit "not measured" panel
+// naming the command that produces it, because a placeholder zero is a claim.
+const BENCH_DATA = [
+  'validation.json',
+  'orm.json',
+  'framework.json',
+  'validation-matrix.json',
+  'orm-results.json',
+  'framework-results.json',
+  'peers-results.json',
+];
+const missingData = [];
+for (const f of BENCH_DATA) {
   const src = join(DASH, f);
   const dest = join(OUT, 'benchmarks', f);
   if (existsSync(src)) {
     cpSync(src, dest);
   } else {
-    writeFileSync(dest, FALLBACK_BENCHMARKS[f]);
+    // Delete rather than leave behind: an earlier build's copy would sit next to a
+    // panel saying the suite was not measured, which is the sort of contradiction
+    // people resolve by trusting the file.
+    rmSync(dest, { force: true });
+    missingData.push(f);
   }
 }
 
-function extractTags(html, tagName) {
-  const results = [];
-  const lower = html.toLowerCase();
-  const openTag = `<${tagName.toLowerCase()}`;
-  const closeTag = `</${tagName.toLowerCase()}>`;
-  let pos = 0;
-  while (pos < html.length) {
-    const start = lower.indexOf(openTag, pos);
-    if (start === -1) break;
-    const nextChar = lower[start + openTag.length];
-    if (nextChar && !/[\s>]/.test(nextChar)) {
-      pos = start + openTag.length;
-      continue;
-    }
-    const end = lower.indexOf(closeTag, start);
-    if (end === -1) break;
-    const fullEnd = end + closeTag.length;
-    results.push(html.slice(start, fullEnd));
-    pos = fullEnd;
-  }
-  return results;
-}
-
-// --- Unified benchmarks page: rendered inside the docs shell (same sidebar +
-// theme + header), with the interactive Chart.js sections + script inlined.
-// Extract the <section>…</section> body and the <script>…</script> from the
-// existing dashboard source so the interactivity is preserved verbatim. ---
-function buildBenchmarksPage() {
-  const dashIndex = join(DASH, 'index.html');
-  const raw = existsSync(dashIndex) ? readFileSync(dashIndex, 'utf8') : '';
-  const matchedSections = extractTags(raw, 'section').join('\n');
-  const matchedScript = extractTags(raw, 'script')[0] || '';
-
-  const sections =
-    matchedSections ||
-    `<section><h2>Benchmarks Pending</h2><p>Benchmark dashboard source HTML is currently unavailable in this environment.</p></section>`;
-  const script = matchedScript || `<script>console.warn("Benchmark interactive scripts unavailable.");</script>`;
-  const intro = `<p>zmdb run inside the <b>actual upstream benchmark suites</b> against <b>real competitor libraries</b>
-    (<a href="https://github.com/moltar/typescript-runtime-type-benchmarks">moltar</a> validation,
-    <a href="https://github.com/drizzle-team/drizzle-benchmarks">drizzle-benchmarks</a> ORM,
-    <a href="https://github.com/the-benchmarker/web-frameworks">the-benchmarker/web-frameworks</a> HTTP). Numbers are indicative of the
-    generating machine, not an official ranking. <b>DNF</b> = the library cannot express that case (never summed into a score).</p>`;
-  // Benchmarks-page-scoped styling for the chart widgets, layered on the docs CSS.
-  const bmCss = `
-main section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:18px 0}
-main section h2{border:0;margin:0 0 6px}
-.tabs{display:flex;gap:8px;margin:8px 0 16px;flex-wrap:wrap}
-.tab{background:#21262d;border:1px solid var(--line);color:var(--fg);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:14px}
-.tab.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
-canvas{max-height:340px}
-main section table th,main section table td{text-align:right}
-main section table th:first-child,main section table td:first-child{text-align:left}
-.yes{color:var(--ok);font-weight:600}.no{color:#f85149}
-.note{color:var(--muted);font-size:13px;margin:6px 0 14px}
-.honest{border-left:3px solid var(--accent);padding-left:12px}`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Benchmarks — zmdb docs</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>${CSS}${bmCss}</style></head><body>
-<div class="layout">
-<aside><div class="brand">zmdb<small>zero-maintenance data layer</small></div>
-<a class="nav-link" href="../index.html">← Home</a>
-<a class="nav-link active" href="./index.html">📊 Benchmarks</a>
-<a class="nav-link" href="../openapi.json" target="_blank" download="openapi.json">📄 OpenAPI Spec</a>
-${navHtml(null, '../docs/')}</aside>
-<main>
-<div class="crumbs">Docs / Reference</div>
-<h1>Benchmarks</h1>
-${intro}
-${sections}
-</main>
-<div></div>
-</div>
-${script}
-</body></html>`;
-}
-writeFileSync(join(OUT, 'benchmarks', 'index.html'), buildBenchmarksPage());
+writeFileSync(join(OUT, 'benchmarks', 'index.html'), buildBenchmarksPage({ css: CSS, navHtml, dashDir: DASH }));
 
 // Emit docs pages.
 for (const [slug, p] of Object.entries(PAGES)) {
   writeFileSync(join(OUT, 'docs', `${slug}.html`), pageHtml(slug, p));
 }
 
+// The search index: one file, shared by every page, loaded only when someone
+// actually opens the palette. Inlining it into 274 pages would multiply it by 274;
+// putting it behind a service would mean the docs stop working offline.
+const searchIndex = searchIndexScript(PAGES, NAV);
+writeFileSync(join(OUT, 'search-index.js'), searchIndex);
+
 // Landing page — polished marketing home (drizzle/typia-style hero).
 const counts = Object.values(PAGES).reduce((a, p) => ((a[p.status] = (a[p.status] || 0) + 1), a), {});
+
+// Landing-page figures. Everything here is either counted from the page registry
+// or read out of the normalised benchmark files — nothing is typed in by hand, so
+// a stale claim is not something this page can express.
+const highlights = benchmarkHighlights(DASH);
+const STATS = [
+  { n: Object.keys(PAGES).length, l: `docs pages · ${counts.todo ?? 0} on the roadmap` },
+  highlights.aotSpeedup === null ? null : { n: highlights.aotSpeedup, l: 'AOT vs runtime validation' },
+  highlights.validationLibraries === null
+    ? null
+    : { n: highlights.validationLibraries, l: 'validation libraries measured head-to-head' },
+  highlights.ormCoverage === null
+    ? null
+    : {
+        n: `${highlights.ormCoverage.covered}/${highlights.ormCoverage.total}`,
+        l: 'ORM benchmark routes expressible',
+      },
+  highlights.frameworkPeers === null
+    ? null
+    : { n: highlights.frameworkPeers, l: 'web frameworks benchmarked on one box' },
+].filter(s => s !== null);
+// The reading order a newcomer should actually follow, which is not the same as
+// the sidebar order — the sidebar is exhaustive, this is a path through it.
+const START_HERE = [
+  ['quick-start', 'Install, define a schema, run your first validated query.'],
+  ['schema-declaration', 'The one definition everything else is derived from.'],
+  ['crud', 'Create, read, update, delete — validated before any SQL is sent.'],
+  ['aot-setup', 'Wire the transformer so validation compiles to straight-line code.'],
+];
+
 const heroCode = mdToHtml(`
 \`\`\`ts
 import { defineSchema, serial, text, jsonEnum } from '@zmdb/schema-core';
@@ -499,61 +369,47 @@ await new Users(driver).create({ email: 'a@b.com' }); // validated before any SQ
 \`\`\`
 `).html;
 
+// Landing-specific layout only. The palette, typography, code colours and the
+// light/dark variables all come from SHELL_CSS, so the landing page cannot drift
+// from the docs — the gradients are the one thing that is only used here.
 const LANDING_CSS = `
-:root{--bg:#0a0d12;--panel:#111721;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--ok:#3fb950;--line:#232b36;--grad1:#58a6ff;--grad2:#a371f7;--grad3:#3fb950}
-*{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-code{background:#1b2230;padding:1px 6px;border-radius:4px;font-size:.85em}
-pre{background:#0d131c;border:1px solid var(--line);border-radius:12px;padding:18px 20px;overflow-x:auto;margin:0}
-pre code{background:none;padding:0;font-size:13.5px;line-height:1.6}
-.nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:22px;padding:14px 6vw;background:rgba(10,13,18,.8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.nav .logo{font-weight:800;font-size:19px;letter-spacing:-.02em}
-.nav .logo span{background:linear-gradient(90deg,var(--grad1),var(--grad2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.nav a.navlink{color:var(--muted);font-size:14px;font-weight:500}.nav a.navlink:hover{color:var(--fg);text-decoration:none}
-.nav .spacer{flex:1}
-.nav .gh{border:1px solid var(--line);padding:7px 14px;border-radius:8px;color:var(--fg)}
-.hero{max-width:1080px;margin:0 auto;padding:72px 6vw 40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.hero .pill{display:inline-block;font-size:12px;font-weight:600;color:var(--grad3);background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);padding:4px 12px;border-radius:20px;margin-bottom:18px}
+:root{--grad1:var(--accent);--grad2:#a371f7;--grad3:var(--ok)}
+:root[data-theme=light]{--grad2:#8250df}
+body{font-size:16px}
+.hero{max-width:1080px;margin:0 auto;padding:64px 6vw 40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.hero .pill{display:inline-block;font-size:12px;font-weight:600;color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent);border:1px solid color-mix(in srgb,var(--ok) 25%,transparent);padding:4px 12px;border-radius:20px;margin-bottom:18px}
 .hero h1{font-size:52px;line-height:1.05;margin:0 0 16px;letter-spacing:-.03em}
 .hero h1 .g{background:linear-gradient(90deg,var(--grad1),var(--grad2) 60%,var(--grad3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hero p.tag{font-size:18px;color:var(--muted);margin:0 0 28px;max-width:34ch}
+.hero pre{margin:0;border-radius:12px;padding:18px 20px}
 .cta{display:flex;gap:12px;flex-wrap:wrap}
-.cta a{display:inline-block;padding:12px 20px;border-radius:10px;border:1px solid var(--line);font-weight:600;font-size:15px}
-.cta a.primary{background:linear-gradient(90deg,var(--grad1),var(--grad2));color:#0a0d12;border:none}
-.cta a:hover{text-decoration:none}
+.cta a{display:inline-block;padding:12px 20px;border-radius:10px;border:1px solid var(--line);font-weight:600;font-size:15px;color:var(--fg)}
+.cta a.primary{background:linear-gradient(90deg,var(--grad1),var(--grad2));color:#fff;border:none}
+.cta a:hover{text-decoration:none;border-color:var(--accent)}
 .section{max-width:1080px;margin:0 auto;padding:48px 6vw}
-.section h2{font-size:30px;letter-spacing:-.02em;text-align:center;margin:0 0 6px}
-.section .lead{color:var(--muted);text-align:center;max-width:60ch;margin:0 auto 32px}
+.section h2{font-size:30px;letter-spacing:-.02em;text-align:center;margin:0 0 6px;border:none;padding:0}
+.section .lead{color:var(--muted);text-align:center;max-width:62ch;margin:0 auto 32px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
 .card{border:1px solid var(--line);border-radius:14px;padding:22px;background:var(--panel)}
 .card .ic{font-size:22px;margin-bottom:10px}
 .card h4{margin:0 0 8px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:14px}
 .pkgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:24px}
 .pkg{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--panel)}
-.pkg code{font-size:13px;color:var(--grad1);background:none;padding:0}
+.pkg code{font-size:13px;color:var(--accent);background:none;padding:0}
 .pkg p{margin:6px 0 0;color:var(--muted);font-size:13px}
-.stats{display:flex;justify-content:center;gap:48px;flex-wrap:wrap;margin-top:8px}
+.stats{display:flex;justify-content:center;gap:44px;flex-wrap:wrap;margin-top:8px}
 .stat{text-align:center}.stat .n{font-size:34px;font-weight:800;background:linear-gradient(90deg,var(--grad1),var(--grad3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.stat .l{color:var(--muted);font-size:13px}
+.stat .l{color:var(--muted);font-size:13px;max-width:22ch}
 .foot{border-top:1px solid var(--line);padding:28px 6vw;color:var(--muted);font-size:13px;text-align:center}
-@media(max-width:820px){.hero{grid-template-columns:1fr;padding-top:40px}.hero h1{font-size:38px}.nav .navlink{display:none}}
+@media(max-width:860px){.hero{grid-template-columns:1fr;padding-top:32px}.hero h1{font-size:36px}}
 `;
 const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>zmdb — the zero-maintenance TypeScript data layer</title>
 <meta name="description" content="Define your schema once. Entities, DTOs, validation, serialization, OpenAPI and repository CRUD all derive at compile time — zero runtime proxies, AOT-inlined validation, SQL-first."/>
-<style>${LANDING_CSS}</style></head><body>
-<nav class="nav">
-  <div class="logo"><span>zmdb</span></div>
-  <a class="navlink" href="./docs/introduction.html">Docs</a>
-  <a class="navlink" href="./docs/quick-start.html">Quick start</a>
-  <a class="navlink" href="./benchmarks/index.html">Benchmarks</a>
-  <a class="navlink" href="./openapi.json" target="_blank" download="openapi.json">OpenAPI Spec</a>
-  <a class="navlink" href="./docs/anti-patterns.html">Anti-patterns</a>
-  <div class="spacer"></div>
-  <a class="gh" href="https://github.com/ambasta/zmdb">GitHub ↗</a>
-</nav>
+<script>${THEME_BOOT}</script>
+<style>${CSS}${LANDING_CSS}</style></head><body>
+${topbarHtml({ base: './' })}
 
 <section class="hero">
   <div>
@@ -580,11 +436,10 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 </section>
 
 <section class="section" style="padding-top:0">
-  <div class="stats">
-    <div class="stat"><div class="n">300</div><div class="l">tests, all green</div></div>
-    <div class="stat"><div class="n">${counts.supported ?? 0}</div><div class="l">docs pages · 0 TODO</div></div>
-    <div class="stat"><div class="n">~40–100×</div><div class="l">AOT vs runtime validation</div></div>
-    <div class="stat"><div class="n">0</div><div class="l">DNF benchmark routes</div></div>
+  <div class="stats">${STATS.map(
+    s => `
+    <div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`,
+  ).join('')}
   </div>
 </section>
 
@@ -600,21 +455,33 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 </section>
 
 <section class="section">
-  <h2>Documentation</h2>
-  <p class="lead">Incorporates the union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a> and <a href="https://typia.io/docs">Typia</a> doc surfaces. Every capability page is written in full — features that are anti-patterns for a zero-overhead, no-proxy, AOT layer are <a href="./docs/anti-patterns.html">excluded and explained</a>.</p>
+  <h2>Start here</h2>
+  <p class="lead">Four pages get you from nothing to a validated, typed, queried table.</p>
   <div class="grid">
-    ${NAV.map(
-      g =>
-        `<div class="card"><h4>${g.title}</h4><p>${g.pages
-          .filter(s => PAGES[s])
-          .slice(0, 6)
-          .map(s => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`)
-          .join(' · ')}</p></div>`,
+    ${START_HERE.map(
+      ([slug, blurb], n) =>
+        `<a class="card" href="./docs/${slug}.html" style="color:inherit"><div class="ic">${n + 1}</div><h4>${PAGES[slug]?.title ?? slug}</h4><p>${blurb}</p></a>`,
     ).join('')}
   </div>
 </section>
 
+<section class="section">
+  <h2>${Object.keys(PAGES).length} pages of documentation</h2>
+  <p class="lead">The union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a>, <a href="https://typia.io/docs">Typia</a> and <a href="https://docs.nestjs.com/">NestJS</a> doc surfaces. Every capability page is written in full; the ones that are anti-patterns for a zero-overhead, no-proxy, AOT layer are <a href="./docs/anti-patterns.html">excluded and explained</a> rather than quietly missing. Press <span class="kbd">⌘K</span> to search all of it.</p>
+  <div class="grid">
+    ${NAV.map(g => {
+      const pages = g.pages.filter(s => PAGES[s] !== undefined);
+      if (pages.length === 0) return '';
+      const shown = pages.slice(0, 5).map(s => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`);
+      const rest = pages.length - shown.length;
+      return `<div class="card"><h4>${g.title} <span style="color:var(--muted);font-weight:400">${pages.length}</span></h4><p>${shown.join(' · ')}${rest > 0 ? ` · <a href="./docs/${pages[0]}.html">+${rest} more</a>` : ''}</p></div>`;
+    }).join('')}
+  </div>
+</section>
+
 <div class="foot">GPL-3.0-or-later · Node 26+ · TypeScript 7 · ESM-only · <a href="https://github.com/ambasta/zmdb">github.com/ambasta/zmdb</a></div>
+${PALETTE_HTML}
+<script>${shellJs('./')}</script>
 </body></html>`;
 writeFileSync(join(OUT, 'index.html'), landing);
 
@@ -628,3 +495,6 @@ console.log(`published openapi spec: site/openapi.json (${openApiJson.length} by
 console.log(
   `built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`,
 );
+if (missingData.length > 0) {
+  console.log(`benchmarks: not measured on this build — ${missingData.join(', ')} (run \`yarn bench\`)`);
+}

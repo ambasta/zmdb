@@ -1,29 +1,38 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
 const SITE_DIR = join(ROOT, 'site');
+const DASH_DIR = join(ROOT, 'benchmarks', 'site');
 
-describe('Documentation Site Generator with Fallback Assets', () => {
-  beforeEach(() => {
-    if (existsSync(SITE_DIR)) {
-      rmSync(SITE_DIR, { recursive: true, force: true });
-    }
+function build() {
+  execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
+}
+
+function benchmarksHtml() {
+  return readFileSync(join(SITE_DIR, 'benchmarks', 'index.html'), 'utf8');
+}
+
+// The dashboard embeds its data rather than fetching it, so the page works from
+// file:// — which also means the test can read exactly what the browser would.
+function embeddedData(html: string): Record<string, unknown> {
+  const match = /window\.__ZMDB_BENCH__=(\{[\s\S]*?\});<\/script>/.exec(html);
+  expect(match).not.toBeNull();
+  return JSON.parse((match as RegExpExecArray)[1].replace(/\\u003c/g, '<')) as Record<string, unknown>;
+}
+
+describe('docs site generator', () => {
+  afterAll(() => {
+    // Leave the tree in a built state; other checks and the pages workflow expect it.
+    build();
   });
 
-  afterEach(() => {
-    // Re-run build to leave site directory populated
-    try {
-      execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
-    } catch {}
-  });
-
-  it('generates site including docs and fallback benchmark assets when benchmark site files are missing', () => {
-    // Build docs site
-    execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
+  it('emits the landing page, every docs page, the benchmarks dashboard and the OpenAPI spec', () => {
+    rmSync(SITE_DIR, { recursive: true, force: true });
+    build();
 
     expect(existsSync(join(SITE_DIR, 'index.html'))).toBe(true);
     expect(existsSync(join(SITE_DIR, 'docs', 'quick-start.html'))).toBe(true);
@@ -31,45 +40,78 @@ describe('Documentation Site Generator with Fallback Assets', () => {
     expect(existsSync(join(SITE_DIR, 'openapi.json'))).toBe(true);
     expect(existsSync(join(SITE_DIR, 'docs', 'openapi.json'))).toBe(true);
 
-    const openApiSpec = JSON.parse(readFileSync(join(SITE_DIR, 'openapi.json'), 'utf8'));
-    expect(openApiSpec.openapi).toBe('3.0.3');
-    expect(openApiSpec.paths['/users']).toBeDefined();
-    expect(openApiSpec.components.schemas.User).toBeDefined();
-
-    const valMatrixPath = join(SITE_DIR, 'benchmarks', 'validation-matrix.json');
-    const ormResultsPath = join(SITE_DIR, 'benchmarks', 'orm-results.json');
-
-    expect(existsSync(valMatrixPath)).toBe(true);
-    expect(existsSync(ormResultsPath)).toBe(true);
-
-    const valMatrix = JSON.parse(readFileSync(valMatrixPath, 'utf8'));
-    const ormResults = JSON.parse(readFileSync(ormResultsPath, 'utf8'));
-
-    expect(valMatrix).toBeDefined();
-    expect(ormResults).toBeDefined();
+    const spec = JSON.parse(readFileSync(join(SITE_DIR, 'openapi.json'), 'utf8'));
+    expect(spec.openapi).toBe('3.0.3');
+    expect(spec.paths['/users']).toBeDefined();
+    expect(spec.components.schemas.User).toBeDefined();
   });
 
-  it('extracts section and script elements including uppercase tags and tags with attributes', () => {
-    const dashDir = join(ROOT, 'benchmarks', 'site');
-    const dashIndex = join(dashDir, 'index.html');
-    mkdirSync(dashDir, { recursive: true });
+  it('renders each measured suite from its normalised JSON, with provenance', () => {
+    build();
+    const html = benchmarksHtml();
+    const data = embeddedData(html);
 
-    const htmlContent = `<!DOCTYPE html><html><body>
-      <SECTION id="test-sec"><h2>Test Section</h2></SECTION>
-      <SCRIPT type="text/javascript">console.log("hello");</SCRIPT>
-    </body></html>`;
+    for (const suite of ['validation', 'orm', 'framework']) {
+      const measured = existsSync(join(DASH_DIR, `${suite}.json`));
+      expect(html).toContain(`id="suite-${suite}"`);
+      // A suite is either rendered from real data or explicitly reported as not
+      // measured. There is no third state, and in particular no zero-filled one.
+      if (measured) {
+        expect(data[suite]).not.toBeNull();
+        expect(html).not.toContain(`No <code>benchmarks/site/${suite}.json</code>`);
+      } else {
+        expect(data[suite]).toBeNull();
+        expect(html).toContain(`No <code>benchmarks/site/${suite}.json</code>`);
+      }
+    }
 
-    writeFileSync(dashIndex, htmlContent, 'utf8');
+    // Provenance is part of the claim, not decoration.
+    expect(html).toContain('Provenance &amp; methodology');
+    expect(html).toContain('Grafted commit');
+    // The dashboard must not depend on a CDN: the docs site is meant to be usable
+    // offline and from a file:// path.
+    expect(html).not.toMatch(/<script[^>]+src=/);
+  });
 
+  it('reports a suite as not measured instead of inventing zeroes', () => {
+    const missing = join(DASH_DIR, 'framework.json');
+    const backup = `${missing}.spec-backup`;
+    const had = existsSync(missing);
+    if (had) cpSync(missing, backup);
     try {
-      execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
-
-      const builtBmHtml = readFileSync(join(SITE_DIR, 'benchmarks', 'index.html'), 'utf8');
-      expect(builtBmHtml).toContain('Test Section');
-      expect(builtBmHtml).toContain('console.log("hello")');
+      rmSync(missing, { force: true });
+      build();
+      const html = benchmarksHtml();
+      expect(html).toContain('Not measured on this build');
+      expect(html).toContain('yarn bench:framework');
+      expect(embeddedData(html).framework).toBeNull();
+      expect(existsSync(join(SITE_DIR, 'benchmarks', 'framework.json'))).toBe(false);
     } finally {
-      if (existsSync(dashIndex)) {
-        rmSync(dashIndex, { force: true });
+      if (had) {
+        cpSync(backup, missing);
+        rmSync(backup, { force: true });
+      }
+    }
+  });
+
+  it('survives an unparseable results file rather than emitting a half-rendered panel', () => {
+    const target = join(DASH_DIR, 'orm.json');
+    const backup = `${target}.spec-backup`;
+    const had = existsSync(target);
+    if (had) cpSync(target, backup);
+    try {
+      mkdirSync(DASH_DIR, { recursive: true });
+      writeFileSync(target, '{ not json');
+      build();
+      const html = benchmarksHtml();
+      expect(html).toContain('Not measured on this build');
+      expect(embeddedData(html).orm).toBeNull();
+    } finally {
+      if (had) {
+        cpSync(backup, target);
+        rmSync(backup, { force: true });
+      } else {
+        rmSync(target, { force: true });
       }
     }
   });
