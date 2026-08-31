@@ -177,6 +177,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return this.schema.table;
   }
 
+  private get pkColumn(): string {
+    const pk = this.schema.primaryKey[0];
+    if (!pk) throw new Error(`schema ${this.tableName} has no primary key`);
+    return pk;
+  }
+
   /**
    * The one row-shape trust boundary in this package (ARCHITECTURE §2.1).
    *
