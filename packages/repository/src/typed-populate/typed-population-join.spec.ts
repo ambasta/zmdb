@@ -1,9 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import type { Entity } from '@zmdb/schema-core';
 import { oneToMany, manyToOne } from '@zmdb/schema-core/relations';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository, defineRepository } from '../index.ts';
@@ -24,10 +23,6 @@ const ProfileSchema = defineSchema('profiles', {
   userId: integer().notNull(),
   bio: text().notNull(),
 });
-
-type User = Entity<typeof UserSchema>;
-type Order = Entity<typeof OrderSchema>;
-type Profile = Entity<typeof ProfileSchema>;
 
 class UserRepository extends BaseRepository<typeof UserSchema, typeof UserRepository.relations> {
   static override readonly schema = UserSchema;
@@ -69,43 +64,8 @@ function seedDatabase(): DatabaseSync {
   return db;
 }
 
-function _compileTimeTypeChecks(repo: UserRepository, txRepo: UserRepository) {
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.findById(1, { populate: ['invalid'] });
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.find({ name: 'Ada' }, { populate: ['invalid'] });
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.findOne({ name: 'Ada' }, { populate: ['invalid'] });
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.findAll({ populate: ['invalid'] });
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.list(undefined, { populate: ['invalid'] });
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  repo.findAllWithMany('invalid');
-
-  // @ts-expect-error - invalid relation key 'invalid' is rejected at compile time
-  txRepo.findById(1, { populate: ['invalid'] });
-}
-
+// Result types and compile error assertions live in `typed-population-join.type-test.ts`.
 describe('Balanced Typed Population and Join Derivation', () => {
-  it('rejects invalid relation keys at compile time in entity lookups', async () => {
-    const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
-
-    // Valid relation keys compile cleanly
-    await repo.findById(1, { populate: ['orders'] });
-    await repo.find({ name: 'Ada' }, { populate: ['profile'] });
-    await repo.findOne({ name: 'Ada' }, { populate: ['orders'] });
-    await repo.findAll({ populate: ['profile'] });
-    await repo.list(undefined, { populate: ['orders'] });
-    await repo.findAllWithMany('orders');
-  });
-
   it('populates to-many and to-one relations returning widened entity types', async () => {
     const db = seedDatabase();
     const repo = new UserRepository(sqliteDriver(db), 'sqlite');
@@ -115,19 +75,12 @@ describe('Balanced Typed Population and Join Derivation', () => {
     expect(userWithOrders?.orders).toHaveLength(2);
     expect(userWithOrders?.orders.map(o => o.total).toSorted((a, b) => a - b)).toEqual([50, 75]);
 
-    expectTypeOf(userWithOrders?.orders).toEqualTypeOf<readonly Order[] | undefined>();
-
     const userWithProfile = await repo.findById(1, { populate: ['profile'] });
     expect(userWithProfile?.profile?.bio).toBe('Pioneer in computing');
-
-    expectTypeOf(userWithProfile?.profile).toEqualTypeOf<Profile | null | undefined>();
 
     const userWithBoth = await repo.findById(1, { populate: ['orders', 'profile'] });
     expect(userWithBoth?.orders).toHaveLength(2);
     expect(userWithBoth?.profile?.bio).toBe('Pioneer in computing');
-
-    expectTypeOf(userWithBoth?.orders).toEqualTypeOf<readonly Order[] | undefined>();
-    expectTypeOf(userWithBoth?.profile).toEqualTypeOf<Profile | null | undefined>();
   });
 
   it('enforces declared relation names and returns typed relation collections for batch relation loading', async () => {
@@ -140,8 +93,6 @@ describe('Balanced Typed Population and Join Derivation', () => {
     const ada = usersWithOrders.find(u => u.id === 1);
     expect(ada?.orders).toHaveLength(2);
     expect(ada?.orders[0]?.total).toBeDefined();
-
-    expectTypeOf(usersWithOrders[0]!.orders).toEqualTypeOf<readonly Order[]>();
   });
 
   it('accepts target schema configurations for join operations and derives typed join result rows', async () => {
@@ -157,9 +108,6 @@ describe('Balanced Typed Population and Join Derivation', () => {
     expect(innerJoined[0]!.name).toBe('Ada');
     expect(innerJoined[0]!.total).toBe(50);
 
-    expectTypeOf(innerJoined[0]!.name).toEqualTypeOf<string>();
-    expectTypeOf(innerJoined[0]!.total).toEqualTypeOf<number>();
-
     const leftJoined = await repo.findJoined({
       target: OrderSchema,
       leftCol: 'users.id',
@@ -168,8 +116,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
     });
 
     expect(leftJoined.length).toBeGreaterThan(0);
-    expectTypeOf(leftJoined[0]!.name).toEqualTypeOf<string>();
-    expectTypeOf(leftJoined[0]!.total).toEqualTypeOf<number | undefined>();
+    expect(leftJoined[0]!.name).toBe('Ada');
   });
 
   it('factory functions retain declared relation types when constructing repository instances', async () => {
@@ -190,8 +137,6 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
     const userWithOrders = await repo.findById(1, { populate: ['orders'] });
     expect(userWithOrders?.orders).toHaveLength(2);
-
-    expectTypeOf(userWithOrders?.orders).toEqualTypeOf<readonly Order[] | undefined>();
   });
 
   it('subclasses without defined static relations build successfully with empty relation defaults', async () => {
@@ -203,9 +148,6 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
     const all = await repo.findAll();
     expect(all).toHaveLength(2);
-
-    expectTypeOf(user).toEqualTypeOf<User | undefined>();
-    expectTypeOf(all).toEqualTypeOf<readonly User[]>();
   });
 
   it('preserves generic relation declarations across transaction helpers', async () => {
@@ -218,7 +160,5 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
     const userWithOrders = await txRepo.findById(1, { populate: ['orders'] });
     expect(userWithOrders?.orders).toHaveLength(2);
-
-    expectTypeOf(userWithOrders?.orders).toEqualTypeOf<readonly Order[] | undefined>();
   });
 });
