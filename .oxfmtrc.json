@@ -12,6 +12,7 @@
     "**/node_modules/**",
     "site/**",
     "benchmarks/harness/framework/.bin/**",
+    "benchmarks/upstream/**",
     "benchmarks/harness/framework/peers/**",
     "**/.results/**",
     "**/*.app.mjs"

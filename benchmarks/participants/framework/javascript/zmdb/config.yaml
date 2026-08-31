@@ -1,0 +1,27 @@
+# the-benchmarker/web-frameworks participant config for @zmdb/web.
+#
+# The language layer (javascript/config.yaml) installs with npm and runs
+# `node cluster.mjs`. @zmdb/web is written with Stage-3 decorators, which Node 26
+# does not execute natively, so the bootstrap is overridden to bundle the app with
+# esbuild first — the decorators are lowered at build time, exactly as a real
+# deployment of this framework would do it. Nothing is installed from a registry:
+# the bundle is produced from this repository's sources.
+framework:
+  website: https://ambasta.github.io/zmdb/
+  version: 1.0.0-alpha.4
+
+  files:
+    - entry.ts
+    - cluster.mjs
+    - package.json
+
+  bootstrap:
+    - npx --yes esbuild entry.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/app.js
+
+language:
+  engines:
+    node:
+      environment:
+        NODE_ENV: production
+        NODE_APP: dist/app.js
+      command: node cluster.mjs

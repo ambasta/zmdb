@@ -7,6 +7,13 @@
   ],
   "type": "module",
   "scripts": {
+    "bench": "node benchmarks/scripts/bench.mjs all",
+    "bench:framework": "node benchmarks/scripts/bench.mjs framework",
+    "bench:graft": "node benchmarks/scripts/graft.mjs",
+    "bench:graft:check": "node benchmarks/scripts/graft.mjs --check",
+    "bench:normalize": "node benchmarks/scripts/bench.mjs all --normalize-only",
+    "bench:orm": "node benchmarks/scripts/bench.mjs orm",
+    "bench:validation": "node benchmarks/scripts/bench.mjs validation --install",
     "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",

@@ -1,0 +1,1193 @@
+{
+  "suite": "validation (moltar/typescript-runtime-type-benchmarks)",
+  "upstreamCommit": "25a1d18491daf11e2d04c8f749b188fed28773d3",
+  "generatedAt": "2026-08-31T10:18:51.872Z",
+  "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
+  "host": "lander",
+  "upstream": "https://github.com/moltar/typescript-runtime-type-benchmarks",
+  "methodology": "Upstream runner, one forked process per library. Four cases over the suite's fixed data model: parseSafe, parseStrict, assertLoose, assertStrict. ops/sec with the runner's own error margin. `zmdb` is the runtime (descriptor-walking) validator; `zmdb-aot` is the same code with the transformer applied.",
+  "runtime": "node v26.8.1",
+  "kinds": ["parseSafe", "parseStrict", "assertLoose", "assertStrict"],
+  "libraries": [
+    {
+      "name": "typia",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 100300015,
+        "parseStrict": 43465150,
+        "assertLoose": 90147536,
+        "assertStrict": 39898395
+      },
+      "margin": {
+        "parseSafe": 3.16,
+        "parseStrict": 1.24,
+        "assertLoose": 2.34,
+        "assertStrict": 1.22
+      },
+      "dnf": []
+    },
+    {
+      "name": "zmdb-aot",
+      "isZmdb": true,
+      "ops": {
+        "parseSafe": 99413415,
+        "parseStrict": 43857275,
+        "assertLoose": 102361330,
+        "assertStrict": 39442876
+      },
+      "margin": {
+        "parseSafe": 3.64,
+        "parseStrict": 2.94,
+        "assertLoose": 3.32,
+        "assertStrict": 2.92
+      },
+      "dnf": []
+    },
+    {
+      "name": "@ts-runtypes",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 94391427,
+        "parseStrict": 47948580,
+        "assertLoose": 96487499,
+        "assertStrict": 50094235
+      },
+      "margin": {
+        "parseSafe": 5.71,
+        "parseStrict": 3.53,
+        "assertLoose": 3,
+        "assertStrict": 2.02
+      },
+      "dnf": []
+    },
+    {
+      "name": "rescript-schema",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 79530350,
+        "parseStrict": 36895646,
+        "assertLoose": 82614219,
+        "assertStrict": 33920141
+      },
+      "margin": {
+        "parseSafe": 2.33,
+        "parseStrict": 0.87,
+        "assertLoose": 2.33,
+        "assertStrict": 1.18
+      },
+      "dnf": []
+    },
+    {
+      "name": "@sx3/gate",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 79104155,
+        "parseStrict": 38784951,
+        "assertLoose": 80070425,
+        "assertStrict": 38344592
+      },
+      "margin": {
+        "parseSafe": 2.41,
+        "parseStrict": 1.19,
+        "assertLoose": 2.09,
+        "assertStrict": 1.7
+      },
+      "dnf": []
+    },
+    {
+      "name": "sury",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 77463707,
+        "parseStrict": 35415144,
+        "assertLoose": 80518896,
+        "assertStrict": 32666938
+      },
+      "margin": {
+        "parseSafe": 2.76,
+        "parseStrict": 1.19,
+        "assertLoose": 1.81,
+        "assertStrict": 0.92
+      },
+      "dnf": []
+    },
+    {
+      "name": "zod-compiled",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 63499493,
+        "parseStrict": 29097481,
+        "assertLoose": 29878556,
+        "assertStrict": 21315442
+      },
+      "margin": {
+        "parseSafe": 2.13,
+        "parseStrict": 0.95,
+        "assertLoose": 0.96,
+        "assertStrict": 0.88
+      },
+      "dnf": []
+    },
+    {
+      "name": "paseri-(ahead-of-time)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 62351611,
+        "parseStrict": 52080535,
+        "assertLoose": 80949408,
+        "assertStrict": 44876885
+      },
+      "margin": {
+        "parseSafe": 1.71,
+        "parseStrict": 1.13,
+        "assertLoose": 2.12,
+        "assertStrict": 2.12
+      },
+      "dnf": []
+    },
+    {
+      "name": "spectypes",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 44712538,
+        "parseStrict": 36183963,
+        "assertLoose": 96362262,
+        "assertStrict": 34900777
+      },
+      "margin": {
+        "parseSafe": 1.59,
+        "parseStrict": 1.26,
+        "assertLoose": 3.11,
+        "assertStrict": 1.12
+      },
+      "dnf": []
+    },
+    {
+      "name": "pure-parse (JIT compiled)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 32509409,
+        "parseStrict": 11619102,
+        "assertLoose": 60229336,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 1.23,
+        "parseStrict": 0.7,
+        "assertLoose": 1.64,
+        "assertStrict": null
+      },
+      "dnf": ["assertStrict"]
+    },
+    {
+      "name": "jet-validators",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 25232249,
+        "parseStrict": 7793037,
+        "assertLoose": 8266789,
+        "assertStrict": 7574400
+      },
+      "margin": {
+        "parseSafe": 1.08,
+        "parseStrict": 0.58,
+        "assertLoose": 0.77,
+        "assertStrict": 0.66
+      },
+      "dnf": []
+    },
+    {
+      "name": "zod",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 15945136,
+        "parseStrict": 7851488,
+        "assertLoose": 7624972,
+        "assertStrict": 7719202
+      },
+      "margin": {
+        "parseSafe": 1.36,
+        "parseStrict": 0.72,
+        "assertLoose": 0.65,
+        "assertStrict": 0.56
+      },
+      "dnf": []
+    },
+    {
+      "name": "valita",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 8529809,
+        "parseStrict": 8612651,
+        "assertLoose": 8928032,
+        "assertStrict": 7124696
+      },
+      "margin": {
+        "parseSafe": 0.57,
+        "parseStrict": 0.48,
+        "assertLoose": 0.53,
+        "assertStrict": 0.49
+      },
+      "dnf": []
+    },
+    {
+      "name": "paseri",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 7992775,
+        "parseStrict": 8119051,
+        "assertLoose": 8094364,
+        "assertStrict": 8171130
+      },
+      "margin": {
+        "parseSafe": 0.73,
+        "parseStrict": 0.54,
+        "assertLoose": 0.53,
+        "assertStrict": 0.62
+      },
+      "dnf": []
+    },
+    {
+      "name": "deepkit",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 6847807,
+        "parseStrict": null,
+        "assertLoose": 36400821,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.86,
+        "parseStrict": null,
+        "assertLoose": 1.15,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertStrict"]
+    },
+    {
+      "name": "$mol_data",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 4613456,
+        "parseStrict": null,
+        "assertLoose": 4603861,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.55,
+        "parseStrict": null,
+        "assertLoose": 0.47,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertStrict"]
+    },
+    {
+      "name": "simple-runtypes",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 4126422,
+        "parseStrict": 4796227,
+        "assertLoose": null,
+        "assertStrict": 4825472
+      },
+      "margin": {
+        "parseSafe": 0.62,
+        "parseStrict": 0.57,
+        "assertLoose": null,
+        "assertStrict": 0.49
+      },
+      "dnf": ["assertLoose"]
+    },
+    {
+      "name": "pure-parse",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 4018040,
+        "parseStrict": 3331329,
+        "assertLoose": 5260056,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.64,
+        "parseStrict": 0.64,
+        "assertLoose": 1.13,
+        "assertStrict": null
+      },
+      "dnf": ["assertStrict"]
+    },
+    {
+      "name": "banditypes",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 3984692,
+        "parseStrict": null,
+        "assertLoose": 4018360,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.68,
+        "parseStrict": null,
+        "assertLoose": 0.57,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertStrict"]
+    },
+    {
+      "name": "@mojotech/json-type-validation",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 3739055,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.54,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "myzod",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 3337095,
+        "parseStrict": 3955665,
+        "assertLoose": null,
+        "assertStrict": 4005504
+      },
+      "margin": {
+        "parseSafe": 0.5,
+        "parseStrict": 0.58,
+        "assertLoose": null,
+        "assertStrict": 0.5
+      },
+      "dnf": ["assertLoose"]
+    },
+    {
+      "name": "parse-dont-validate (named parameters)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 3057163,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.6,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "purify-ts",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2903608,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.58,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "r-assign",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2718096,
+        "parseStrict": 2364934,
+        "assertLoose": 2730450,
+        "assertStrict": 2344686
+      },
+      "margin": {
+        "parseSafe": 0.65,
+        "parseStrict": 0.56,
+        "assertLoose": 0.6,
+        "assertStrict": 0.71
+      },
+      "dnf": []
+    },
+    {
+      "name": "computed-types",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2325276,
+        "parseStrict": 1824793,
+        "assertLoose": null,
+        "assertStrict": 1828755
+      },
+      "margin": {
+        "parseSafe": 0.55,
+        "parseStrict": 0.54,
+        "assertLoose": null,
+        "assertStrict": 0.54
+      },
+      "dnf": ["assertLoose"]
+    },
+    {
+      "name": "json-decoder",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2267482,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.84,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "effect-schema",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2152487,
+        "parseStrict": 478757,
+        "assertLoose": 1950520,
+        "assertStrict": 488266
+      },
+      "margin": {
+        "parseSafe": 1.3,
+        "parseStrict": 1.41,
+        "assertLoose": 4.26,
+        "assertStrict": 1.03
+      },
+      "dnf": []
+    },
+    {
+      "name": "rulr",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 2011028,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.63,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "valibot",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1899083,
+        "parseStrict": 1551349,
+        "assertLoose": 1882704,
+        "assertStrict": 1556223
+      },
+      "margin": {
+        "parseSafe": 0.42,
+        "parseStrict": 0.42,
+        "assertLoose": 0.51,
+        "assertStrict": 0.49
+      },
+      "dnf": []
+    },
+    {
+      "name": "io-ts",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1845097,
+        "parseStrict": null,
+        "assertLoose": 4028700,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.63,
+        "parseStrict": null,
+        "assertLoose": 0.8,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertStrict"]
+    },
+    {
+      "name": "aeria",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1571822,
+        "parseStrict": 1568632,
+        "assertLoose": 1505512,
+        "assertStrict": 1549614
+      },
+      "margin": {
+        "parseSafe": 0.46,
+        "parseStrict": 0.52,
+        "assertLoose": 0.52,
+        "assertStrict": 0.56
+      },
+      "dnf": []
+    },
+    {
+      "name": "zmdb",
+      "isZmdb": true,
+      "ops": {
+        "parseSafe": 1435731,
+        "parseStrict": 3579249,
+        "assertLoose": 5075170,
+        "assertStrict": 3614100
+      },
+      "margin": {
+        "parseSafe": 3.12,
+        "parseStrict": 3.88,
+        "assertLoose": 2.17,
+        "assertStrict": 1.87
+      },
+      "dnf": []
+    },
+    {
+      "name": "tson",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1383110,
+        "parseStrict": 1487473,
+        "assertLoose": 1521178,
+        "assertStrict": 1538260
+      },
+      "margin": {
+        "parseSafe": 0.65,
+        "parseStrict": 0.55,
+        "assertLoose": 0.56,
+        "assertStrict": 0.67
+      },
+      "dnf": []
+    },
+    {
+      "name": "zod3",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1233672,
+        "parseStrict": 1135872,
+        "assertLoose": 1138403,
+        "assertStrict": 1064235
+      },
+      "margin": {
+        "parseSafe": 0.79,
+        "parseStrict": 0.52,
+        "assertLoose": 0.63,
+        "assertStrict": 3.24
+      },
+      "dnf": []
+    },
+    {
+      "name": "parse-dont-validate (chained function)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 1092470,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 19.89,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "decoders",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 591593,
+        "parseStrict": 374361,
+        "assertLoose": null,
+        "assertStrict": 371157
+      },
+      "margin": {
+        "parseSafe": 0.74,
+        "parseStrict": 0.57,
+        "assertLoose": null,
+        "assertStrict": 0.64
+      },
+      "dnf": ["assertLoose"]
+    },
+    {
+      "name": "ts-utils",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 502198,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 0.6,
+        "parseStrict": null,
+        "assertLoose": null,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+    },
+    {
+      "name": "@sapphire/shapeshift",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 469527,
+        "parseStrict": 448360,
+        "assertLoose": 420101,
+        "assertStrict": 449626
+      },
+      "margin": {
+        "parseSafe": 0.51,
+        "parseStrict": 0.68,
+        "assertLoose": 0.61,
+        "assertStrict": 0.68
+      },
+      "dnf": []
+    },
+    {
+      "name": "bueno",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 449219,
+        "parseStrict": 446313,
+        "assertLoose": 814980,
+        "assertStrict": 815844
+      },
+      "margin": {
+        "parseSafe": 0.69,
+        "parseStrict": 0.67,
+        "assertLoose": 0.71,
+        "assertStrict": 0.69
+      },
+      "dnf": []
+    },
+    {
+      "name": "vality",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 387895,
+        "parseStrict": 364664,
+        "assertLoose": 357088,
+        "assertStrict": 330257
+      },
+      "margin": {
+        "parseSafe": 0.62,
+        "parseStrict": 0.66,
+        "assertLoose": 2.82,
+        "assertStrict": 2.33
+      },
+      "dnf": []
+    },
+    {
+      "name": "joi",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 363268,
+        "parseStrict": 364375,
+        "assertLoose": 359734,
+        "assertStrict": 341318
+      },
+      "margin": {
+        "parseSafe": 0.68,
+        "parseStrict": 0.75,
+        "assertLoose": 0.7,
+        "assertStrict": 0.71
+      },
+      "dnf": []
+    },
+    {
+      "name": "to-typed",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 169058,
+        "parseStrict": 4880684,
+        "assertLoose": 6689145,
+        "assertStrict": 5290250
+      },
+      "margin": {
+        "parseSafe": 1.32,
+        "parseStrict": 0.61,
+        "assertLoose": 0.5,
+        "assertStrict": 1.15
+      },
+      "dnf": []
+    },
+    {
+      "name": "yup",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": 110558,
+        "parseStrict": null,
+        "assertLoose": 116775,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": 2.32,
+        "parseStrict": null,
+        "assertLoose": 3.71,
+        "assertStrict": null
+      },
+      "dnf": ["parseStrict", "assertStrict"]
+    },
+    {
+      "name": "ajv",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 52805099,
+        "assertStrict": 30426073
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 1.65,
+        "assertStrict": 0.92
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "arktype",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 4351775,
+        "assertLoose": 78417690,
+        "assertStrict": 4942598
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.47,
+        "assertLoose": 2.53,
+        "assertStrict": 0.51
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "ata",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 76022424,
+        "assertStrict": 44941817
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.25,
+        "assertStrict": 1.7
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "caketype",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 308141,
+        "assertLoose": 400856,
+        "assertStrict": 309409
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.59,
+        "assertLoose": 0.56,
+        "assertStrict": 0.49
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "class-transformer-validator-sync",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 134610,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.75,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "cleaners",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 3687189,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.73,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "jointz",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 1347785,
+        "assertLoose": 1014057,
+        "assertStrict": 1027086
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.35,
+        "assertLoose": 0.94,
+        "assertStrict": 0.95
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "ok-computer",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 351310,
+        "assertStrict": 332291
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.4,
+        "assertStrict": 0.53
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "runtypes",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 256201,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.99,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "@sinclair/typebox-(ahead-of-time)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 106886667,
+        "assertStrict": 43106010
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.83,
+        "assertStrict": 1.34
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "@sinclair/typebox-(dynamic)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 3096215,
+        "assertStrict": 2589253
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.61,
+        "assertStrict": 0.76
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "@sinclair/typebox-(just-in-time)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 87135635,
+        "assertStrict": 39487069
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.81,
+        "assertStrict": 1
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "@sinclair/typemap/valibot",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 81408973,
+        "assertStrict": 35579322
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.73,
+        "assertStrict": 1.12
+      },
+      "dnf": ["parseSafe", "parseStrict"]
+    },
+    {
+      "name": "stnl (just-in-time)",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 92485895,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.51,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "succulent",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 871167,
+        "assertLoose": 1501601,
+        "assertStrict": 857050
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.55,
+        "assertLoose": 0.5,
+        "assertStrict": 0.59
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "superstruct",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 272056,
+        "assertLoose": 353025,
+        "assertStrict": 268770
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.62,
+        "assertLoose": 0.81,
+        "assertStrict": 0.82
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "suretype",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 61494656,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 1.63,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "tiny-schema-validator",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 2707718,
+        "assertLoose": null,
+        "assertStrict": 2702823
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.51,
+        "assertLoose": null,
+        "assertStrict": 0.55
+      },
+      "dnf": ["parseSafe", "assertLoose"]
+    },
+    {
+      "name": "toi",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 1172840,
+        "assertLoose": null,
+        "assertStrict": 1117233
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 16.3,
+        "assertLoose": null,
+        "assertStrict": 14.07
+      },
+      "dnf": ["parseSafe", "assertLoose"]
+    },
+    {
+      "name": "ts-interface-checker",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 5281928,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 0.74,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "ts-json-validator",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 50166681,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 4.15,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "ts-runtime-checks",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 27569208,
+        "assertLoose": 107081586,
+        "assertStrict": 30097845
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 14.65,
+        "assertLoose": 2.59,
+        "assertStrict": 12.68
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "@typeofweb/schema",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 2482724,
+        "assertLoose": 2481399,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.47,
+        "assertLoose": 0.53,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "assertStrict"]
+    },
+    {
+      "name": "unknownutil",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": 5949923,
+        "assertLoose": 8048923,
+        "assertStrict": 5994011
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": 0.75,
+        "assertLoose": 0.51,
+        "assertStrict": 0.52
+      },
+      "dnf": ["parseSafe"]
+    },
+    {
+      "name": "ts-auto-guard",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 103432819,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 3.97,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    },
+    {
+      "name": "type-predicate-generator",
+      "isZmdb": false,
+      "ops": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 107589255,
+        "assertStrict": null
+      },
+      "margin": {
+        "parseSafe": null,
+        "parseStrict": null,
+        "assertLoose": 2.85,
+        "assertStrict": null
+      },
+      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+    }
+  ],
+  "notRun": [
+    {
+      "name": "mondrian-framework",
+      "reports": ["mondrian-framework"],
+      "reason": "requested but produced no result — the upstream runner skipped it (build or load error on this runtime)"
+    }
+  ]
+}

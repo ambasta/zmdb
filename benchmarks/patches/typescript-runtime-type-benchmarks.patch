@@ -1,0 +1,77 @@
+diff --git a/cases/index.ts b/cases/index.ts
+index e5d026dc8..aa806d12a 100644
+--- a/cases/index.ts
++++ b/cases/index.ts
+@@ -59,6 +59,8 @@ export const cases = [
+   'zod',
+   'zod-compiled',
+   'zod3',
++  'zmdb',
++  'zmdb-aot',
+   'deepkit',
+   'effect-schema',
+   'sx3-gate',
+diff --git a/index.ts b/index.ts
+index 006dd7d61..9e0e23ac4 100644
+--- a/index.ts
++++ b/index.ts
+@@ -51,6 +51,16 @@ async function main() {
+               stdio: 'inherit',
+             });
+           }
++          if (c === 'zmdb') {
++            childProcess.execSync('npm run compile:zmdb', {
++              stdio: 'inherit',
++            });
++          }
++          if (c === 'zmdb-aot') {
++            childProcess.execSync('npm run compile:zmdb-aot', {
++              stdio: 'inherit',
++            });
++          }
+           if (c === 'paseri') {
+             childProcess.execSync('npm run compile:paseri', {
+               stdio: 'inherit',
+diff --git a/package.json b/package.json
+index 682406fd5..6f294fa95 100644
+--- a/package.json
++++ b/package.json
+@@ -14,8 +14,8 @@
+     "start": "ts-node index.ts",
+     "start:bun": "bun index.ts",
+     "start:deno": "deno -A index.ts",
+-    "test:build": "npm run compile:spectypes && npm run compile:ts-runtime-checks && npm run compile:typebox && npm run compile:typia && npm run compile:deepkit && npm run compile:ts-auto-guard && npm run compile:type-predicate-generator && npm run compile:paseri && npm run compile:paseri-aot && npm run compile:ts-runtypes && tsc --noEmit",
+-    "test": "npm run compile:spectypes && npm run compile:ts-runtime-checks && npm run compile:typebox && npm run compile:typia && npm run compile:deepkit && npm run compile:ts-auto-guard && npm run compile:type-predicate-generator && npm run compile:paseri && npm run compile:paseri-aot && npm run compile:ts-runtypes && vitest run",
++    "test:build": "npm run compile:spectypes && npm run compile:ts-runtime-checks && npm run compile:typebox && npm run compile:typia && npm run compile:deepkit && npm run compile:ts-auto-guard && npm run compile:type-predicate-generator && npm run compile:paseri && npm run compile:paseri-aot && npm run compile:ts-runtypes && npm run compile:zmdb && npm run compile:zmdb-aot && tsc --noEmit",
++    "test": "npm run compile:spectypes && npm run compile:ts-runtime-checks && npm run compile:typebox && npm run compile:typia && npm run compile:deepkit && npm run compile:ts-auto-guard && npm run compile:type-predicate-generator && npm run compile:paseri && npm run compile:paseri-aot && npm run compile:ts-runtypes && npm run compile:zmdb && npm run compile:zmdb-aot && vitest run",
+     "compile:deepkit": "deepkit-type-install && rimraf cases/deepkit/build && tsc -p cases/deepkit/tsconfig.json",
+     "compile:paseri": "rimraf cases/paseri/build && esbuild cases/paseri/src/index.ts --bundle --minify --platform=node --outdir=cases/paseri/build && tsc --emitDeclarationOnly cases/paseri/src/index.ts --outDir cases/paseri/build",
+     "compile:paseri-aot": "rimraf cases/paseri-aot/build cases/paseri-aot/src/generated && esbuild cases/paseri-aot/src/generate.ts --bundle --platform=node --format=cjs --outfile=cases/paseri-aot/build/generate.cjs && node cases/paseri-aot/build/generate.cjs && esbuild cases/paseri-aot/src/index.ts --bundle --minify --platform=node --outdir=cases/paseri-aot/build && tsc --emitDeclarationOnly --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom --skipLibCheck cases/paseri-aot/src/index.ts --outDir cases/paseri-aot/build",
+@@ -27,7 +27,9 @@
+     "compile:type-predicate-generator": "./cases/type-predicate-generator/compile.sh",
+     "compile:ts-runtypes": "rimraf cases/ts-runtypes/build && node cases/ts-runtypes/build.mjs && tsc --emitDeclarationOnly --declaration --noEmit false --rootDir cases/ts-runtypes/src --outDir cases/ts-runtypes/build cases/ts-runtypes/src/index.ts",
+     "prepare": "ts-patch install",
+-    "download-packages-popularity": "ts-node download-packages-popularity.ts"
++    "download-packages-popularity": "ts-node download-packages-popularity.ts",
++    "compile:zmdb": "rimraf cases/zmdb/build && esbuild cases/zmdb/src/index.ts --bundle --platform=node --format=cjs --outdir=cases/zmdb/build",
++    "compile:zmdb-aot": "rimraf cases/zmdb-aot/build cases/zmdb-aot/src/generated.ts && esbuild cases/zmdb-aot/src/generate.ts --bundle --platform=node --format=cjs --outfile=cases/zmdb-aot/build/generate.cjs && node cases/zmdb-aot/build/generate.cjs cases/zmdb-aot/src/generated.ts && esbuild cases/zmdb-aot/src/index.ts --bundle --platform=node --format=cjs --outdir=cases/zmdb-aot/build"
+   },
+   "dependencies": {
+     "@aeriajs/validation": "0.0.162",
+diff --git a/tsconfig.json b/tsconfig.json
+index 3c2cb1c35..0a94cddf1 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -9,5 +9,11 @@
+     "skipLibCheck": true
+   },
+   "include": ["**/*.ts"],
+-  "exclude": ["cases/paseri/src/*.ts", "cases/paseri-aot/src/**/*.ts", "docs"]
++  "exclude": [
++    "cases/paseri/src/*.ts",
++    "cases/paseri-aot/src/**/*.ts",
++    "cases/zmdb/src/**/*.ts",
++    "cases/zmdb-aot/src/**/*.ts",
++    "docs"
++  ]
+ }

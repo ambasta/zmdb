@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - 'docs-site/**'
+      # The dashboard renders benchmarks/site/*.json, and the landing-page stats
+      # are derived from the same files, so new measurements must redeploy.
       - 'benchmarks/site/**'
+      - 'benchmarks/RESULTS.md'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

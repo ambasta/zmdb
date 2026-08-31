@@ -1,0 +1,266 @@
+{
+  "suite": "orm (drizzle-team/drizzle-benchmarks)",
+  "upstreamCommit": "2ae27415a69f00b4f0f734ebb0a98e7799008819",
+  "generatedAt": "2026-08-31T09:58:15.447Z",
+  "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
+  "host": "lander",
+  "upstream": "https://github.com/drizzle-team/drizzle-benchmarks",
+  "methodology": "k6 ramping-VUs 0→200→400 (~25s), full 13-route requests.json replay (426,999 requests)",
+  "caveat": "Unlike the upstream 2-machine / 3000-VU rig, this is a single-box short-ramp run — treat relative ordering as indicative, absolute numbers as low. p50 omitted (k6 --summary-export does not emit it); avg/p90/p95 are the measured percentiles.",
+  "database": "PostgreSQL 16 (podman)",
+  "dataset": "Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, 308,224 order_details",
+  "driver": "pg (node-postgres) pool max:12, identical across ORMs",
+  "rig": "single local dev box, Node 26.8.1 (server + k6 co-located)",
+  "measuredAt": null,
+  "metrics": [
+    {
+      "key": "requestsPerSecond",
+      "label": "req/s",
+      "better": "higher"
+    },
+    {
+      "key": "averageLatency",
+      "label": "avg ms",
+      "better": "lower"
+    },
+    {
+      "key": "p90",
+      "label": "p90 ms",
+      "better": "lower"
+    },
+    {
+      "key": "p95",
+      "label": "p95 ms",
+      "better": "lower"
+    }
+  ],
+  "targets": [
+    {
+      "rank": 1,
+      "target": "zmdb (prepared)",
+      "isZmdb": true,
+      "requestsPerSecond": 3068,
+      "averageLatency": 97.3,
+      "p90": 179.5,
+      "p95": 209.5,
+      "failedRequests": 0
+    },
+    {
+      "rank": 2,
+      "target": "zmdb",
+      "isZmdb": true,
+      "requestsPerSecond": 2916,
+      "averageLatency": 102.4,
+      "p90": 192.8,
+      "p95": 215.5,
+      "failedRequests": 0
+    },
+    {
+      "rank": 3,
+      "target": "drizzle",
+      "isZmdb": false,
+      "requestsPerSecond": 2795,
+      "averageLatency": 106.8,
+      "p90": 157.6,
+      "p95": 173.8,
+      "failedRequests": 0
+    },
+    {
+      "rank": 4,
+      "target": "kysely",
+      "isZmdb": false,
+      "requestsPerSecond": 2733,
+      "averageLatency": 109.3,
+      "p90": 176.8,
+      "p95": 200.8,
+      "failedRequests": 0
+    }
+  ],
+  "coverage": {
+    "routes": [
+      "/customers",
+      "/customer-by-id",
+      "/employees",
+      "/suppliers",
+      "/supplier-by-id",
+      "/products",
+      "/order-with-details-and-products",
+      "/employee-with-recipient",
+      "/product-with-supplier",
+      "/orders-with-details",
+      "/order-with-details",
+      "/search-customer",
+      "/search-product"
+    ],
+    "participants": ["drizzle", "kysely", "zmdb"],
+    "supported": {
+      "drizzle": [
+        "/customers",
+        "/customer-by-id",
+        "/employees",
+        "/suppliers",
+        "/supplier-by-id",
+        "/products",
+        "/order-with-details-and-products",
+        "/employee-with-recipient",
+        "/product-with-supplier",
+        "/orders-with-details",
+        "/order-with-details",
+        "/search-customer",
+        "/search-product"
+      ],
+      "kysely": [
+        "/customers",
+        "/customer-by-id",
+        "/employees",
+        "/suppliers",
+        "/supplier-by-id",
+        "/products",
+        "/order-with-details-and-products",
+        "/employee-with-recipient",
+        "/product-with-supplier",
+        "/orders-with-details",
+        "/order-with-details",
+        "/search-customer",
+        "/search-product"
+      ],
+      "zmdb": [
+        "/customers",
+        "/customer-by-id",
+        "/employees",
+        "/suppliers",
+        "/supplier-by-id",
+        "/products",
+        "/order-with-details-and-products",
+        "/employee-with-recipient",
+        "/product-with-supplier",
+        "/orders-with-details",
+        "/order-with-details",
+        "/search-customer",
+        "/search-product"
+      ]
+    },
+    "matrix": [
+      {
+        "route": "/customers",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/customer-by-id",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/employees",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/suppliers",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/supplier-by-id",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/products",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/order-with-details-and-products",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/employee-with-recipient",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/product-with-supplier",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/orders-with-details",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/order-with-details",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/search-customer",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      },
+      {
+        "route": "/search-product",
+        "drizzle": true,
+        "kysely": true,
+        "zmdb": true
+      }
+    ]
+  },
+  "prepared": {
+    "note": "Head-to-head: same zmdb server with ZMDB_PREPARED=1 (server-side prepared statements — stable statement name per compiled SQL, so Postgres caches the plan). Reproducible across 2 runs.",
+    "rows": [
+      {
+        "run": 1,
+        "default": {
+          "reqs": 2916,
+          "avg": 102.4,
+          "p90": 192.8,
+          "p95": 215.5
+        },
+        "prepared": {
+          "reqs": 3068,
+          "avg": 97.3,
+          "p90": 179.5,
+          "p95": 209.5
+        }
+      },
+      {
+        "run": 2,
+        "default": {
+          "reqs": 2903,
+          "avg": 102.8,
+          "p90": 193.7,
+          "p95": 220.3
+        },
+        "prepared": {
+          "reqs": 3010,
+          "avg": 99.2,
+          "p90": 182.6,
+          "p95": 206.5
+        }
+      }
+    ],
+    "verdict": "ZMDB_PREPARED=1 reproducibly improves zmdb: +4–5% req/s, −3–4% avg, ~−11ms p90, ~−9–14ms p95. The tail-latency lever works — kept opt-in to preserve the zero-state default."
+  },
+  "dnf": [
+    {
+      "target": "prisma",
+      "reason": "not implemented: engine/codegen not installed"
+    }
+  ]
+}

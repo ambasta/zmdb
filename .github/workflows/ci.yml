@@ -115,6 +115,39 @@ jobs:
       - name: Validate specifications
         run: yarn validate:spec
 
+  benchmark-graft:
+    name: Benchmark graft applies to upstream
+    runs-on: ubuntu-latest
+    steps:
+      # The three upstream benchmark suites are submodules pinned to a commit.
+      # This job answers one question: does zmdb still graft into them cleanly?
+      # It is the only thing that can break silently when a submodule is bumped —
+      # our participants are whole files and cannot conflict, but the small
+      # patches that register them in upstream's own lists can.
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'yarn'
+
+      # Copies the participants in and applies the patches with `git apply --3way`,
+      # which fails loudly on real drift instead of half-applying.
+      - name: Graft zmdb into the upstream suites
+        run: yarn bench:graft
+
+      # Independently re-derives the state: patches reverse-apply cleanly and every
+      # expected participant file is present. A graft that silently no-ops would
+      # otherwise surface much later as an unexplained missing participant.
+      - name: Verify the graft
+        run: yarn bench:graft:check
+
   regression-guardrail:
     name: Benchmark regression guardrail
     runs-on: ubuntu-latest

@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index eddbfea..d566bc8 100644
+--- a/package.json
++++ b/package.json
+@@ -12,7 +12,8 @@
+     "prepare:prisma": "prisma generate --schema src/schema.prisma",
+     "prepare:prisma:sqlite": "prisma generate --schema src/sqlite/schema.prisma",
+     "start:prisma": "tsx ./src/prisma-server-node.ts",
+-    "start:drizzle": "tsx ./src/drizzle-server-node.ts"
++    "start:drizzle": "tsx ./src/drizzle-server-node.ts",
++    "start:zmdb": "tsx ./src/zmdb-server-node.ts"
+   },
+   "keywords": [],
+   "author": "",
