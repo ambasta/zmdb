@@ -78,9 +78,10 @@ describe('Centralized Identifier Quoting Engine', () => {
       expect(quoteTable('mysql', 'mydb.users')).toBe('`mydb`.`users`');
     });
 
-    it('parses and quotes table aliasing syntax with as/AS', () => {
+    it('parses and quotes table aliasing syntax with as/AS using various whitespace characters', () => {
       expect(quoteTable('postgres', 'users as u')).toBe('"users" AS "u"');
       expect(quoteTable('postgres', 'public.users AS u')).toBe('"public"."users" AS "u"');
+      expect(quoteTable('postgres', 'users\fas\fu')).toBe('"users" AS "u"');
       expect(quoteTable('mysql', 'users as u')).toBe('`users` AS `u`');
       expect(quoteTable('mysql', 'mydb.users AS u')).toBe('`mydb`.`users` AS `u`');
     });
@@ -97,12 +98,12 @@ describe('Centralized Identifier Quoting Engine', () => {
   });
 
   describe('formatPlaceholder', () => {
-    it('generates stateful $n placeholders for postgres', () => {
+    it('generates numbered $n placeholders for postgres', () => {
       expect(formatPlaceholder('postgres', 1)).toBe('$1');
       expect(formatPlaceholder('postgres', 5)).toBe('$5');
     });
 
-    it('generates stateless ? placeholders for mysql and sqlite', () => {
+    it('generates positional ? placeholders for mysql and sqlite', () => {
       expect(formatPlaceholder('mysql', 1)).toBe('?');
       expect(formatPlaceholder('sqlite', 3)).toBe('?');
     });

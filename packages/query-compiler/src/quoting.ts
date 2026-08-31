@@ -28,7 +28,7 @@ export function quoteColumn(dialect: Dialect, col: string): string {
 }
 
 function isWhitespace(ch: string | undefined): boolean {
-  return ch !== undefined && (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r');
+  return ch !== undefined && /\s/.test(ch);
 }
 
 /**
@@ -66,8 +66,8 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
 
 /**
  * Generates dialect-specific 1-based parameter placeholders:
- * - PostgreSQL uses stateful sequential indices (`$1`, `$2`, ...)
- * - MySQL and SQLite use stateless tokens (`?`)
+ * - PostgreSQL uses numbered sequential indices (`$1`, `$2`, ...)
+ * - MySQL and SQLite use positional tokens (`?`)
  */
 export function formatPlaceholder(dialect: Dialect, index: number): string {
   return dialect === 'postgres' ? `$${index}` : '?';
