@@ -12,6 +12,12 @@ const UsersSchema = defineSchema('users', {
   name: text().notNull(),
 });
 
+const OrdersSchema = defineSchema('orders', {
+  id: serial().primaryKey(),
+  userId: serial().notNull(),
+  total: serial().notNull(),
+});
+
 describe('Native Builder whereIn with Parameter Chunking', () => {
   it('exposes dedicated set-matching methods that output parameterized SQL IN clauses', () => {
     const qb = createQueryCompiler('postgres');
@@ -57,6 +63,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
           cardinality: 'one-to-many',
           childTable: 'orders',
           childFk: 'userId',
+          entity: OrdersSchema,
         },
       },
     });
@@ -78,10 +85,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     expect(executedQueries[0]).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
 
     // Verify parents mapped correctly
-    expect((parents[0] as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
-    expect((parents[1] as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[2] as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[3] as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
+    expect((parents[0] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
+    expect((parents[1] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((parents[2] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((parents[3] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
   });
 
   it('deduplicates duplicate key values before query construction', async () => {
@@ -99,6 +106,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
           cardinality: 'one-to-many',
           childTable: 'orders',
           childFk: 'userId',
+          entity: OrdersSchema,
         },
       },
     });
@@ -135,6 +143,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
           cardinality: 'one-to-many',
           childTable: 'orders',
           childFk: 'userId',
+          entity: OrdersSchema,
         },
       },
     });
@@ -162,6 +171,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
           cardinality: 'one-to-many',
           childTable: 'orders',
           childFk: 'userId',
+          entity: OrdersSchema,
         },
       },
     });
@@ -191,7 +201,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     // Verify all 2,500 parents received their corresponding orders seamlessly
     expect(mutableParents.length).toBe(totalUsers);
     for (let i = 0; i < totalUsers; i++) {
-      const parent = mutableParents[i] as { id: number; orders: { id: number; userId: number; total: number }[] };
+      const parent = mutableParents[i] as unknown as {
+        id: number;
+        orders: { id: number; userId: number; total: number }[];
+      };
       expect(parent.orders.length).toBe(1);
       expect(parent.orders[0]!.userId).toBe(parent.id);
       expect(parent.orders[0]!.total).toBe(parent.id * 10);
