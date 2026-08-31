@@ -1,4 +1,4 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect, Operator } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
@@ -339,7 +339,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // objects — no proxies). Uses the query-compiler JOIN builder.
   async findJoined(
     join: { target: string; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
   ): Promise<readonly Record<string, unknown>[]> {
     let b = joinableSelectFrom(this.tableName, this.dialect);
     b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, join.target, join.leftCol, join.rightCol);
@@ -517,7 +517,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
         for (const [col, val] of Object.entries(spec.where)) {
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(col, op === 'eq' ? '=' : op, opVal);
+              builder = builder.where(col, (op === 'eq' ? '=' : op) as Operator, opVal);
             }
           } else {
             builder = builder.where(col, '=', val);
@@ -526,7 +526,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       }
 
       if (spec.having) {
-        builder = builder.having(String(spec.having.column), spec.having.op, spec.having.value);
+        builder = builder.having(String(spec.having.column), spec.having.op as Operator, spec.having.value);
       }
 
       if (spec.orderBy) {

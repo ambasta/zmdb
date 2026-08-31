@@ -491,7 +491,11 @@ export interface AggregateSpec<S, R = unknown> {
   where?: WhereDTO<S> | Record<string, unknown>;
   groupBy?: readonly AggregateColumn<S, R>[];
   computed: Record<string, ComputedSpec<S, R>>;
-  having?: Readonly<{ column: AggregateColumn<S, R>; op: string; value: unknown }>;
+  having?: Readonly<{
+    column: AggregateColumn<S, R>;
+    op: '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like' | 'in' | (string & {});
+    value: unknown;
+  }>;
   orderBy?: ReadonlyArray<{ column: AggregateColumn<S, R>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;

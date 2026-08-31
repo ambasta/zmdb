@@ -1,6 +1,6 @@
 // Query-builder aggregations — implementation (#90). count/sum/avg/min/max +
 // expr() computed columns + groupBy + having, dialect-aware, parameterized.
-import type { CompiledQuery, Dialect } from '../index.ts';
+import type { CompiledQuery, Dialect, Operator } from '../index.ts';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
@@ -25,7 +25,7 @@ interface Join {
 
 interface Where {
   col: string;
-  op: string;
+  op: Operator;
   value: unknown;
 }
 
@@ -35,7 +35,7 @@ interface State {
   joins: Join[];
   wheres: Where[];
   groups: string[];
-  havings: { col: string; op: string; value: unknown }[];
+  havings: { col: string; op: Operator; value: unknown }[];
   orderBys: { col: string; dir: 'asc' | 'desc' }[];
   limitN?: number;
   offsetN?: number;
@@ -52,9 +52,9 @@ export interface AggregateSelect {
   innerJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
   leftJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
   rightJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
-  where(col: string, op: string, value: unknown): AggregateSelect;
+  where(col: string, op: Operator, value: unknown): AggregateSelect;
   groupBy(...cols: string[]): AggregateSelect;
-  having(col: string, op: string, value: unknown): AggregateSelect;
+  having(col: string, op: Operator, value: unknown): AggregateSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): AggregateSelect;
   limit(n: number): AggregateSelect;
   offset(n: number): AggregateSelect;

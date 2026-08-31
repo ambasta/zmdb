@@ -21,6 +21,7 @@ qb.selectFrom(table)
 - Aliasing: `selectFrom('employees as e')` and `innerJoin('employees as r', ...)`.
 - Builders remain immutable; compilation is pure string building (no runtime
   type resolution), parameterized, dialect-aware.
+- `RIGHT JOIN` is supported across all dialects; executing `RIGHT JOIN` on SQLite requires SQLite 3.39.0+ (2022).
 
 ## 2. Golden SQL (postgres)
 

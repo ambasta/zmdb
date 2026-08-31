@@ -1,7 +1,7 @@
 // Query-builder JOINs — implementation (#85). inner/left/right join + on() with
 // qualified columns + table aliasing, dialect-aware, parameterized. Pure string
 // compilation (no runtime type resolution).
-import type { CompiledQuery, Dialect } from '../index.ts';
+import type { CompiledQuery, Dialect, Operator } from '../index.ts';
 import { quoteColumn, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
@@ -20,7 +20,7 @@ interface Join {
 }
 interface Where {
   col: string;
-  op: string;
+  op: Operator;
   value: unknown;
 }
 interface State {
@@ -36,7 +36,7 @@ export interface JoinableSelect {
   innerJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
   leftJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
   rightJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
-  where(col: string, op: string, value: unknown): JoinableSelect;
+  where(col: string, op: Operator, value: unknown): JoinableSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): JoinableSelect;
   limit(n: number): JoinableSelect;
   offset(n: number): JoinableSelect;

@@ -20,7 +20,8 @@ qb.selectFrom(table)
 ```
 
 Composes with the JOIN builder (#84). Immutable, pure string compilation,
-parameterized, dialect-aware.
+parameterized, dialect-aware. Note: `RIGHT JOIN` support across dialects assumes
+SQLite 3.39.0+ (2022) when executing on SQLite targets.
 
 ## 2. Golden SQL (postgres)
 
