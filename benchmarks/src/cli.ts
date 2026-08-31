@@ -26,28 +26,29 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
     }
   }
 
+  let resolvedBaselinePath: string;
   if (!baselinePath) {
     if (existsSync(resolve('benchmarks/baseline.json'))) {
-      baselinePath = resolve('benchmarks/baseline.json');
+      resolvedBaselinePath = resolve('benchmarks/baseline.json');
     } else if (existsSync(resolve('benchmarks/RESULTS.md'))) {
-      baselinePath = resolve('benchmarks/RESULTS.md');
+      resolvedBaselinePath = resolve('benchmarks/RESULTS.md');
     } else {
       console.error('[BENCHMARK GUARDRAIL] ERROR: No baseline file found or specified.');
       return 1;
     }
   } else {
-    baselinePath = resolve(baselinePath);
+    resolvedBaselinePath = resolve(baselinePath);
   }
 
-  if (!existsSync(baselinePath)) {
-    console.error(`[BENCHMARK GUARDRAIL] ERROR: Baseline file does not exist: ${baselinePath}`);
+  if (!existsSync(resolvedBaselinePath)) {
+    console.error(`[BENCHMARK GUARDRAIL] ERROR: Baseline file does not exist: ${resolvedBaselinePath}`);
     return 1;
   }
 
-  console.log(`[BENCHMARK GUARDRAIL] Loading baseline from: ${baselinePath}`);
+  console.log(`[BENCHMARK GUARDRAIL] Loading baseline from: ${resolvedBaselinePath}`);
   let baselineResults: BenchResult[];
   try {
-    baselineResults = parseResultsFile(baselinePath);
+    baselineResults = parseResultsFile(resolvedBaselinePath);
   } catch (err: unknown) {
     console.error(
       `[BENCHMARK GUARDRAIL] ERROR: Failed to parse baseline file: ${err instanceof Error ? err.message : String(err)}`,

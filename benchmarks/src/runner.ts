@@ -4,6 +4,19 @@ import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.
 import type { BenchResult } from './results.ts';
 import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
 
+function toSqlInput(val: unknown): string | number | bigint | Uint8Array | null {
+  if (
+    typeof val === 'string' ||
+    typeof val === 'number' ||
+    typeof val === 'bigint' ||
+    val === null ||
+    val instanceof Uint8Array
+  ) {
+    return val;
+  }
+  return String(val);
+}
+
 /**
  * Runs live benchmark suites (validation + ORM against node:sqlite) and returns
  * the array of BenchResult records.
@@ -18,7 +31,7 @@ export function runLiveBenchmarks(): BenchResult[] {
   const db = new DatabaseSync(':memory:');
   const engine: OrmEngine = {
     exec: s => db.exec(s),
-    all: (s, p) => db.prepare(s).all(...p),
+    all: (s, p) => db.prepare(s).all(...p.map(toSqlInput)),
   };
   seed(engine, 50, 4);
   const orm = [...runOrmSuite(engine, 1000), ...competitorDnf()];
