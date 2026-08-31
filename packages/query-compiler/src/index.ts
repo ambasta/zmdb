@@ -1,5 +1,5 @@
-// Minimal SQL query builder skeleton. Currently produces Postgres SELECT $1 (or
-// $1, $2, etc. for parameterized wheres — enough to unblock tests in #18 & #19,
+// @zmdb/query-compiler — implementation.
+// #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
@@ -20,7 +20,7 @@ interface DialectStrategy {
   quoteTable(spec: string): string;
   quoteCol(col: string): string;
   quoteIdent(ident: string): string;
-  placeholder(index: number): string;
+  placeholder(index: number): string; // 1-based
 }
 
 const DIALECTS: Record<Dialect, DialectStrategy> = {
@@ -45,49 +45,47 @@ const DIALECTS: Record<Dialect, DialectStrategy> = {
 };
 
 interface WhereClause {
-  col: string;
-  op: Operator;
-  value: unknown;
-  connector: 'AND' | 'OR';
-}
-
-interface OrderByClause {
-  col: string;
-  dir: Direction;
+  readonly col: string;
+  readonly op: Operator;
+  readonly value: unknown;
+  readonly connector: 'AND' | 'OR';
 }
 
 interface SelectState {
-  table: string;
-  columns?: readonly string[];
-  wheres: WhereClause[];
-  orderBys: OrderByClause[];
-  limitN?: number;
-  offsetN?: number;
+  readonly table: string;
+  readonly columns?: readonly string[];
+  readonly wheres: readonly WhereClause[];
+  readonly orderBys: readonly { col: string; dir: Direction }[];
+  readonly limitN?: number;
+  readonly offsetN?: number;
 }
 
-export interface SelectQueryBuilder {
-  select(...cols: (string | readonly string[])[]): SelectQueryBuilder;
-  where(col: string, op: Operator, value: unknown): SelectQueryBuilder;
-  andWhere(col: string, op: Operator, value: unknown): SelectQueryBuilder;
-  orWhere(col: string, op: Operator, value: unknown): SelectQueryBuilder;
-  orderBy(col: string, dir?: Direction): SelectQueryBuilder;
-  limit(n: number): SelectQueryBuilder;
-  offset(n: number): SelectQueryBuilder;
+export interface SelectBuilder {
+  select(columns?: readonly string[]): SelectBuilder;
+  where(col: string, op: Operator, value: unknown): SelectBuilder;
+  andWhere(col: string, op: Operator, value: unknown): SelectBuilder;
+  orWhere(col: string, op: Operator, value: unknown): SelectBuilder;
+  orderBy(col: string, dir: Direction): SelectBuilder;
+  limit(n: number): SelectBuilder;
+  offset(n: number): SelectBuilder;
   compile(): CompiledQuery;
 }
 
-function makeSelect(d: DialectStrategy, state: SelectState): SelectQueryBuilder {
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
-    makeSelect(d, { ...state, wheres: [...state.wheres, { col, op, value, connector }] });
+function opSql(op: Operator): string {
+  return op === 'like' ? 'LIKE' : op === 'in' ? 'IN' : op.toUpperCase() === op ? op : op;
+}
 
-  const next = (patch: Partial<SelectState>): SelectQueryBuilder => makeSelect(d, { ...state, ...patch });
+function makeSelect(d: DialectStrategy, state: SelectState): SelectBuilder {
+  const next = (patch: Partial<SelectState>): SelectBuilder => makeSelect(d, { ...state, ...patch });
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
+    next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
-    select: (...cols) => next({ columns: cols.flat() as string[] }),
+    select: columns => (columns === undefined ? next({}) : next({ columns })),
     where: (col, op, value) => addWhere('AND', col, op, value),
     andWhere: (col, op, value) => addWhere('AND', col, op, value),
     orWhere: (col, op, value) => addWhere('OR', col, op, value),
-    orderBy: (col, dir = 'asc') => next({ orderBys: [...state.orderBys, { col, dir }] }),
+    orderBy: (col, dir) => next({ orderBys: [...state.orderBys, { col, dir }] }),
     limit: n => next({ limitN: n }),
     offset: n => next({ offsetN: n }),
     compile: () => {
@@ -98,8 +96,8 @@ function makeSelect(d: DialectStrategy, state: SelectState): SelectQueryBuilder 
       if (state.wheres.length > 0) {
         const parts = state.wheres.map((w, i) => {
           params.push(w.value);
-          const prefix = i === 0 ? '' : `${w.connector} `;
-          return `${prefix}${d.quoteCol(w.col)} ${w.op} ${d.placeholder(params.length)}`;
+          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+          return i === 0 ? cond : `${w.connector} ${cond}`;
         });
         text += ` WHERE ${parts.join(' ')}`;
       }
@@ -111,10 +109,7 @@ function makeSelect(d: DialectStrategy, state: SelectState): SelectQueryBuilder 
       if (state.limitN !== undefined) text += ` LIMIT ${state.limitN}`;
       if (state.offsetN !== undefined) text += ` OFFSET ${state.offsetN}`;
 
-      return Object.freeze({
-        text,
-        parameters: Object.freeze(params),
-      });
+      return Object.freeze({ text, parameters: Object.freeze(params) });
     },
   };
 }
@@ -124,14 +119,12 @@ export interface InsertBuilder {
   returning(cols?: readonly string[]): InsertBuilder;
   compile(): CompiledQuery;
 }
-
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
   where(col: string, op: Operator, value: unknown): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
-
 export interface DeleteBuilder {
   where(col: string, op: Operator, value: unknown): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
@@ -139,7 +132,7 @@ export interface DeleteBuilder {
 }
 
 export interface QueryCompiler {
-  selectFrom(table: string): SelectQueryBuilder;
+  selectFrom(table: string): SelectBuilder;
   insertInto(table: string): InsertBuilder;
   updateTable(table: string): UpdateBuilder;
   deleteFrom(table: string): DeleteBuilder;
@@ -175,7 +168,7 @@ function makeUpdate(
   d: DialectStrategy,
   table: string,
   row?: Record<string, unknown>,
-  wheres: WhereClause[] = [],
+  wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
 ): UpdateBuilder {
   return {
@@ -195,8 +188,8 @@ function makeUpdate(
       if (wheres.length > 0) {
         const parts = wheres.map((w, i) => {
           params.push(w.value);
-          const prefix = i === 0 ? '' : `${w.connector} `;
-          return `${prefix}${d.quoteCol(w.col)} ${w.op} ${d.placeholder(params.length)}`;
+          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+          return i === 0 ? cond : `${w.connector} ${cond}`;
         });
         text += ` WHERE ${parts.join(' ')}`;
       }
@@ -209,7 +202,7 @@ function makeUpdate(
 function makeDelete(
   d: DialectStrategy,
   table: string,
-  wheres: WhereClause[] = [],
+  wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
 ): DeleteBuilder {
   return {
@@ -221,8 +214,8 @@ function makeDelete(
       if (wheres.length > 0) {
         const parts = wheres.map((w, i) => {
           params.push(w.value);
-          const prefix = i === 0 ? '' : `${w.connector} `;
-          return `${prefix}${d.quoteCol(w.col)} ${w.op} ${d.placeholder(params.length)}`;
+          const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
+          return i === 0 ? cond : `${w.connector} ${cond}`;
         });
         text += ` WHERE ${parts.join(' ')}`;
       }

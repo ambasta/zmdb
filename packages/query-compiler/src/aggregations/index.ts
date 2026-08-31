@@ -12,56 +12,46 @@ const PLACEHOLDER: Record<Dialect, (n: number) => string> = {
 type SelectItem =
   | { kind: 'col'; col: string }
   | { kind: 'agg'; fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; col: string; alias: string }
-  | { kind: 'raw'; raw: string; alias: string };
-
-interface Where {
-  col: string;
-  op: string;
-  value: unknown;
-}
-
-interface OrderBy {
-  col: string;
-  dir: 'asc' | 'desc';
-}
+  | { kind: 'expr'; raw: string; alias: string };
 
 interface State {
   table: string;
   items: SelectItem[];
   groups: string[];
-  havings: Where[];
-  orderBys: OrderBy[];
+  havings: { col: string; op: string; value: unknown }[];
+  orderBys: { col: string; dir: 'asc' | 'desc' }[];
   limitN?: number;
   offsetN?: number;
 }
 
-export interface AggregationBuilder {
-  select(...cols: (string | readonly string[])[]): AggregationBuilder;
-  count(col: string, alias: string): AggregationBuilder;
-  sum(col: string, alias: string): AggregationBuilder;
-  avg(col: string, alias: string): AggregationBuilder;
-  min(col: string, alias: string): AggregationBuilder;
-  max(col: string, alias: string): AggregationBuilder;
-  expr(raw: string, alias: string): AggregationBuilder;
-  groupBy(...cols: string[]): AggregationBuilder;
-  having(col: string, op: string, value: unknown): AggregationBuilder;
-  orderBy(col: string, dir: 'asc' | 'desc'): AggregationBuilder;
-  limit(n: number): AggregationBuilder;
-  offset(n: number): AggregationBuilder;
+export interface AggregateSelect {
+  select(cols: readonly string[]): AggregateSelect;
+  count(expr: string, alias: string): AggregateSelect;
+  sum(expr: string, alias: string): AggregateSelect;
+  avg(expr: string, alias: string): AggregateSelect;
+  min(expr: string, alias: string): AggregateSelect;
+  max(expr: string, alias: string): AggregateSelect;
+  expr(rawExpr: string, alias: string): AggregateSelect;
+  groupBy(...cols: string[]): AggregateSelect;
+  having(col: string, op: string, value: unknown): AggregateSelect;
+  orderBy(col: string, dir: 'asc' | 'desc'): AggregateSelect;
+  limit(n: number): AggregateSelect;
+  offset(n: number): AggregateSelect;
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): AggregationBuilder {
-  const next = (p: Partial<State>): AggregationBuilder => make(d, { ...s, ...p });
+function make(d: Dialect, s: State): AggregateSelect {
+  const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p });
+  const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
+    next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
   return {
-    select: (...cols) =>
-      next({ items: [...s.items, ...(cols.flat() as string[]).map(col => ({ kind: 'col' as const, col }))] }),
-    count: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'COUNT', col, alias }] }),
-    sum: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'SUM', col, alias }] }),
-    avg: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'AVG', col, alias }] }),
-    min: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'MIN', col, alias }] }),
-    max: (col, alias) => next({ items: [...s.items, { kind: 'agg', fn: 'MAX', col, alias }] }),
-    expr: (raw, alias) => next({ items: [...s.items, { kind: 'raw', raw, alias }] }),
+    select: cols => next({ items: [...s.items, ...cols.map(c => ({ kind: 'col', col: c }) as SelectItem)] }),
+    count: (e, a) => agg('COUNT', e, a),
+    sum: (e, a) => agg('SUM', e, a),
+    avg: (e, a) => agg('AVG', e, a),
+    min: (e, a) => agg('MIN', e, a),
+    max: (e, a) => agg('MAX', e, a),
+    expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
     groupBy: (...cols) => next({ groups: [...s.groups, ...cols] }),
     having: (col, op, value) => next({ havings: [...s.havings, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
@@ -93,9 +83,6 @@ function make(d: Dialect, s: State): AggregationBuilder {
   };
 }
 
-export function selectAggregations(table: string, dialect: Dialect = 'postgres'): AggregationBuilder {
+export function aggregateSelectFrom(table: string, dialect: Dialect = 'postgres'): AggregateSelect {
   return make(dialect, { table, items: [], groups: [], havings: [], orderBys: [] });
 }
-
-export type AggregateSelect = AggregationBuilder;
-export const aggregateSelectFrom = selectAggregations;

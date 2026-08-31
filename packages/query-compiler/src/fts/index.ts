@@ -1,6 +1,5 @@
-// Full-text search (FTS) query builder (#92). Match expressions + ranking/snippet
-// placeholders across Postgres (to_tsvector/to_tsquery/websearch_to_tsquery/phraseto_tsquery/
-// ts_rank/ts_headline), SQLite (MATCH operator, bm25, snippet), MySQL (MATCH...AGAINST IN BOOLEAN MODE/NATURAL LANGUAGE MODE).
+// Query-builder full-text search — implementation (#95). Per-dialect whereMatch:
+// pg to_tsvector/@@/to_tsquery; mysql MATCH...AGAINST; sqlite = honest DNF.
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { quoteColumn, quoteTable } from '../quoting.ts';
 
@@ -10,24 +9,12 @@ export class UnsupportedFeatureError extends Error {
   }
 }
 
-type MatchKind = 'plain' | 'phrase' | 'web' | 'boolean';
-
-interface MatchPred {
-  kind: 'match';
+interface Predicate {
+  kind: 'match' | 'cmp';
   col: string;
-  value: string;
-  mode?: MatchKind;
-}
-
-interface CmpPred {
-  kind: 'cmp';
-  col: string;
-  op: string;
+  op?: string;
   value: unknown;
 }
-
-type Predicate = MatchPred | CmpPred;
-
 interface State {
   table: string;
   preds: Predicate[];
@@ -36,7 +23,6 @@ interface State {
 }
 
 export interface FtsSelect {
-  match(column: string, term: string, mode?: MatchKind): FtsSelect;
   whereMatch(column: string, term: string): FtsSelect;
   where(col: string, op: string, value: unknown): FtsSelect;
   limit(n: number): FtsSelect;
@@ -47,12 +33,8 @@ export interface FtsSelect {
 function make(d: Dialect, s: State): FtsSelect {
   const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p });
   return {
-    match: (column, term, mode) => {
-      if (d === 'sqlite') throw new UnsupportedFeatureError('full-text search', 'sqlite');
-      if (mode) return next({ preds: [...s.preds, { kind: 'match', col: column, value: term, mode }] });
-      return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }] });
-    },
     whereMatch: (column, term) => {
+      // Honest per-dialect DNF: sqlite has no arbitrary-column FTS predicate.
       if (d === 'sqlite') throw new UnsupportedFeatureError('full-text search', 'sqlite');
       return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }] });
     },
@@ -67,15 +49,10 @@ function make(d: Dialect, s: State): FtsSelect {
           params.push(p.value);
           if (p.kind === 'match') {
             if (d === 'postgres') {
-              const fn =
-                p.mode === 'web' ? 'websearch_to_tsquery' : p.mode === 'phrase' ? 'phraseto_tsquery' : 'to_tsquery';
-              return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ ${fn}('english', $${params.length})`;
+              return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', $${params.length})`;
             }
-            if (d === 'mysql') {
-              const modeStr = p.mode === 'boolean' ? 'BOOLEAN MODE' : 'NATURAL LANGUAGE MODE';
-              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(? IN ${modeStr})`;
-            }
-            return `${quoteColumn(d, p.col)} MATCH ?`;
+            // mysql
+            return `MATCH(${quoteColumn(d, p.col)}) AGAINST(? IN NATURAL LANGUAGE MODE)`;
           }
           const ph = d === 'postgres' ? `$${params.length}` : '?';
           return `${quoteColumn(d, p.col)} ${p.op} ${ph}`;
@@ -89,8 +66,6 @@ function make(d: Dialect, s: State): FtsSelect {
   };
 }
 
-export function searchFts(table: string, dialect: Dialect = 'postgres'): FtsSelect {
+export function ftsSelectFrom(table: string, dialect: Dialect = 'postgres'): FtsSelect {
   return make(dialect, { table, preds: [] });
 }
-
-export const ftsSelectFrom = searchFts;

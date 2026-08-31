@@ -1,4 +1,6 @@
-// Join query builder (#91). innerJoin / leftJoin / rightJoin + table aliasing.
+// Query-builder JOINs — implementation (#85). inner/left/right join + on() with
+// qualified columns + table aliasing, dialect-aware, parameterized. Pure string
+// compilation (no runtime type resolution).
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { quoteColumn, quoteTable } from '../quoting.ts';
 
@@ -16,46 +18,39 @@ interface Join {
   leftCol: string;
   rightCol: string;
 }
-
 interface Where {
   col: string;
   op: string;
   value: unknown;
 }
-
-interface OrderBy {
-  col: string;
-  dir: 'asc' | 'desc';
-}
-
 interface State {
   table: string;
   joins: Join[];
   wheres: Where[];
-  orderBys: OrderBy[];
+  orderBys: { col: string; dir: 'asc' | 'desc' }[];
   limitN?: number;
   offsetN?: number;
 }
 
-export interface JoinBuilder {
-  innerJoin(target: string, leftCol: string, rightCol: string): JoinBuilder;
-  leftJoin(target: string, leftCol: string, rightCol: string): JoinBuilder;
-  rightJoin(target: string, leftCol: string, rightCol: string): JoinBuilder;
-  where(col: string, op: string, value: unknown): JoinBuilder;
-  orderBy(col: string, dir: 'asc' | 'desc'): JoinBuilder;
-  limit(n: number): JoinBuilder;
-  offset(n: number): JoinBuilder;
+export interface JoinableSelect {
+  innerJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
+  leftJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
+  rightJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
+  where(col: string, op: string, value: unknown): JoinableSelect;
+  orderBy(col: string, dir: 'asc' | 'desc'): JoinableSelect;
+  limit(n: number): JoinableSelect;
+  offset(n: number): JoinableSelect;
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): JoinBuilder {
-  const next = (p: Partial<State>): JoinBuilder => make(d, { ...s, ...p });
+function make(d: Dialect, s: State): JoinableSelect {
+  const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch });
+  const addJoin = (kind: JoinKind, target: string, leftCol: string, rightCol: string) =>
+    next({ joins: [...s.joins, { kind, target, leftCol, rightCol }] });
   return {
-    innerJoin: (target, leftCol, rightCol) =>
-      next({ joins: [...s.joins, { kind: 'inner', target, leftCol, rightCol }] }),
-    leftJoin: (target, leftCol, rightCol) => next({ joins: [...s.joins, { kind: 'left', target, leftCol, rightCol }] }),
-    rightJoin: (target, leftCol, rightCol) =>
-      next({ joins: [...s.joins, { kind: 'right', target, leftCol, rightCol }] }),
+    innerJoin: (t, l, r) => addJoin('inner', t, l, r),
+    leftJoin: (t, l, r) => addJoin('left', t, l, r),
+    rightJoin: (t, l, r) => addJoin('right', t, l, r),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
     orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
     limit: n => next({ limitN: n }),
@@ -84,9 +79,6 @@ function make(d: Dialect, s: State): JoinBuilder {
   };
 }
 
-export function selectWithJoins(table: string, dialect: Dialect = 'postgres'): JoinBuilder {
+export function joinableSelectFrom(table: string, dialect: Dialect = 'postgres'): JoinableSelect {
   return make(dialect, { table, joins: [], wheres: [], orderBys: [] });
 }
-
-export type JoinableSelect = JoinBuilder;
-export const joinableSelectFrom = selectWithJoins;
