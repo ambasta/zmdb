@@ -89,11 +89,35 @@ export function checkRegressions(
 }
 
 export function parseJsonResults(content: string): BenchResult[] {
-  const parsed = JSON.parse(content);
+  const parsed: unknown = JSON.parse(content);
   if (!Array.isArray(parsed)) {
     throw new Error('Invalid JSON benchmark format: expected array');
   }
-  return parsed as BenchResult[];
+  const results: BenchResult[] = [];
+  for (const item of parsed) {
+    if (
+      typeof item === 'object' &&
+      item !== null &&
+      'suite' in item &&
+      'case' in item &&
+      'target' in item &&
+      'status' in item &&
+      (item.suite === 'validation' || item.suite === 'orm') &&
+      typeof item.case === 'string' &&
+      typeof item.target === 'string' &&
+      (item.status === 'ok' || item.status === 'dnf')
+    ) {
+      results.push({
+        suite: item.suite,
+        case: item.case,
+        target: item.target,
+        status: item.status,
+        opsPerSec: typeof item.opsPerSec === 'number' ? item.opsPerSec : undefined,
+        dnfReason: typeof item.dnfReason === 'string' ? item.dnfReason : undefined,
+      });
+    }
+  }
+  return results;
 }
 
 export function parseMarkdownResults(content: string): BenchResult[] {
@@ -141,24 +165,25 @@ export function parseMarkdownResults(content: string): BenchResult[] {
         const target = cells[targetIdx];
         const resText = cells[resultIdx] ?? '';
 
-        if (suite === 'validation' || suite === 'orm') {
+        if ((suite === 'validation' || suite === 'orm') && caseName && target) {
           if (resText.toLowerCase().includes('dnf')) {
             results.push({
               suite,
-              case: caseName!,
-              target: target!,
+              case: caseName,
+              target,
               status: 'dnf',
               dnfReason: resText,
             });
           } else {
             const match = resText.replace(/,/g, '').match(/[\d.]+/);
-            if (match) {
+            const valStr = match?.[0];
+            if (valStr) {
               results.push({
                 suite,
-                case: caseName!,
-                target: target!,
+                case: caseName,
+                target,
                 status: 'ok',
-                opsPerSec: parseFloat(match[0]),
+                opsPerSec: parseFloat(valStr),
               });
             }
           }
@@ -169,7 +194,11 @@ export function parseMarkdownResults(content: string): BenchResult[] {
       const libRaw = cells[0] || '';
       let target = libRaw.replace(/[*_]/g, '').trim();
       if (target.includes('(')) {
-        target = target.split('(')[0]!.trim();
+        const parts = target.split('(');
+        const prefix = parts[0];
+        if (prefix) {
+          target = prefix.trim();
+        }
       }
 
       const caseMap: Record<string, string> = {
@@ -181,27 +210,30 @@ export function parseMarkdownResults(content: string): BenchResult[] {
 
       for (let i = 1; i < cells.length; i++) {
         const colHeader = headers[i]?.toLowerCase();
-        if (colHeader && caseMap[colHeader]) {
-          const caseName = caseMap[colHeader]!;
-          const cellVal = cells[i] || '';
-          if (cellVal.toLowerCase().includes('dnf') || cellVal === '—') {
-            results.push({
-              suite: 'validation',
-              case: caseName,
-              target,
-              status: 'dnf',
-              dnfReason: cellVal,
-            });
-          } else {
-            const match = cellVal.replace(/,/g, '').match(/[\d.]+/);
-            if (match) {
+        if (colHeader) {
+          const caseName = caseMap[colHeader];
+          if (caseName) {
+            const cellVal = cells[i] || '';
+            if (cellVal.toLowerCase().includes('dnf') || cellVal === '—') {
               results.push({
                 suite: 'validation',
                 case: caseName,
                 target,
-                status: 'ok',
-                opsPerSec: parseFloat(match[0]),
+                status: 'dnf',
+                dnfReason: cellVal,
               });
+            } else {
+              const match = cellVal.replace(/,/g, '').match(/[\d.]+/);
+              const valStr = match?.[0];
+              if (valStr) {
+                results.push({
+                  suite: 'validation',
+                  case: caseName,
+                  target,
+                  status: 'ok',
+                  opsPerSec: parseFloat(valStr),
+                });
+              }
             }
           }
         }

@@ -18,7 +18,7 @@ export function runLiveBenchmarks(): BenchResult[] {
   const db = new DatabaseSync(':memory:');
   const engine: OrmEngine = {
     exec: s => db.exec(s),
-    all: (s, p) => db.prepare(s).all(...(p as unknown as never[])) as Record<string, unknown>[],
+    all: (s, p) => db.prepare(s).all(...p),
   };
   seed(engine, 50, 4);
   const orm = [...runOrmSuite(engine, 1000), ...competitorDnf()];

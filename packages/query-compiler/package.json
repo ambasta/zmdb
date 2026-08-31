@@ -30,36 +30,14 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
-    "./fts": {
-      "types": "./src/fts/index.ts",
-      "default": "./src/fts/index.ts"
-    },
-    "./joins": {
-      "types": "./src/joins/index.ts",
-      "default": "./src/joins/index.ts"
-    },
-    "./aggregations": {
-      "types": "./src/aggregations/index.ts",
-      "default": "./src/aggregations/index.ts"
-    },
-    "./migrations": {
-      "types": "./src/migrations/index.ts",
-      "default": "./src/migrations/index.ts"
-    },
-    "./set-ops": {
-      "types": "./src/set-ops/index.ts",
-      "default": "./src/set-ops/index.ts"
-    },
-    "./schema-objects": {
-      "types": "./src/schema-objects/index.ts",
-      "default": "./src/schema-objects/index.ts"
-    }
+    ".": "./src/index.ts",
+    "./fts": "./src/fts/index.ts",
+    "./joins": "./src/joins/index.ts",
+    "./aggregations": "./src/aggregations/index.ts",
+    "./migrations": "./src/migrations/index.ts",
+    "./set-ops": "./src/set-ops/index.ts",
+    "./schema-objects": "./src/schema-objects/index.ts"
   },
   "publishConfig": {
     "access": "public",
