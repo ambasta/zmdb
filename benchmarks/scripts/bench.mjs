@@ -361,7 +361,7 @@ const framework = {
     const rows = new Map();
     const pivot = (id, runtime, language, isZmdb, metrics) => {
       for (const m of metrics) {
-        const key = `${id} ${m.level} ${m.route}`;
+        const key = `${id}\u0000${m.level}\u0000${m.route}`;
         const row = rows.get(key) ?? { id, runtime, language, isZmdb, level: m.level, route: m.route, metrics: {} };
         row.metrics[m.label] = m.value;
         rows.set(key, row);
