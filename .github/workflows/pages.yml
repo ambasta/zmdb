@@ -26,13 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Must precede setup-node: `cache: yarn` resolves the cache directory by
-      # shelling out to the global `yarn`, which is 1.x on the runner and exits
-      # non-zero against this repo's `packageManager: yarn@4`.
-      - name: Enable Corepack (yarn 4)
-        run: corepack enable
-
       - uses: actions/setup-node@v4
         with:
           node-version: '26'
