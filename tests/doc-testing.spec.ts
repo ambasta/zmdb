@@ -3,37 +3,125 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { transformSync } from 'esbuild';
-import { describe, test, expect } from 'vitest';
+import { describe, test } from 'vitest';
 
 import { PAGES } from '../docs-site/manifest.mjs';
-import * as aotValidatorAdvanced from '../packages/aot-validator/src/advanced/index.ts';
-import * as aotValidator from '../packages/aot-validator/src/index.ts';
-import * as aotValidatorPlugin from '../packages/aot-validator/src/plugin/index.ts';
-import * as aotValidatorSer from '../packages/aot-validator/src/serialization/index.ts';
-import * as aotValidatorUtils from '../packages/aot-validator/src/utilities/index.ts';
-import * as queryCompilerAggregations from '../packages/query-compiler/src/aggregations/index.ts';
-import * as queryCompilerFts from '../packages/query-compiler/src/fts/index.ts';
-import * as queryCompiler from '../packages/query-compiler/src/index.ts';
-import * as queryCompilerJoins from '../packages/query-compiler/src/joins/index.ts';
-import * as queryCompilerMigrations from '../packages/query-compiler/src/migrations/index.ts';
-import * as queryCompilerSchemaObjects from '../packages/query-compiler/src/schema-objects/index.ts';
-import * as queryCompilerSetOps from '../packages/query-compiler/src/set-ops/index.ts';
+import {
+  tags as aotTags,
+  transformSource as aotTransformSource,
+  validate as aotValidate,
+} from '../packages/aot-validator/src/index.ts';
+import {
+  assertStringify,
+  decode,
+  encode,
+  parse,
+  stringify,
+} from '../packages/aot-validator/src/serialization/index.ts';
+import {
+  assert as aotAssert,
+  assertEquals as aotAssertEquals,
+  equals as aotEquals,
+  is as aotIs,
+  random as aotRandom,
+  validate as aotUtilsValidate,
+} from '../packages/aot-validator/src/utilities/index.ts';
+import { avg, count, max, min, sum } from '../packages/query-compiler/src/aggregations/index.ts';
+import { createQueryCompiler as createCompiler } from '../packages/query-compiler/src/index.ts';
+import { batch as setOpsBatch } from '../packages/query-compiler/src/set-ops/index.ts';
 import { pgDriver } from '../packages/repository/src/drivers/pg.ts';
 import { sqliteDriver } from '../packages/repository/src/drivers/sqlite.ts';
-import * as repositoryEntityModeling from '../packages/repository/src/entity-modeling/index.ts';
-import * as repository from '../packages/repository/src/index.ts';
-import * as repositoryIntegrations from '../packages/repository/src/integrations/index.ts';
-import * as repositoryReplicas from '../packages/repository/src/replicas/index.ts';
-import * as repositoryTransactions from '../packages/repository/src/transactions/index.ts';
-import { createTransactionalDb } from '../packages/repository/src/transactions/index.ts';
-import * as schemaCoreCustomTypes from '../packages/schema-core/src/custom-types/index.ts';
-import * as schemaCoreDto from '../packages/schema-core/src/dto/index.ts';
-import * as schemaCore from '../packages/schema-core/src/index.ts';
-import * as schemaCoreLlm from '../packages/schema-core/src/llm/index.ts';
-import * as schemaCoreOpenApi from '../packages/schema-core/src/openapi/index.ts';
-import * as schemaCoreRelations from '../packages/schema-core/src/relations/index.ts';
-import * as schemaCoreSeeding from '../packages/schema-core/src/seeding/index.ts';
-import * as web from '../packages/web/src/index.ts';
+import {
+  discriminatorFor,
+  flattenEmbeddable,
+  liftEmbeddable,
+  rowToSubtype,
+} from '../packages/repository/src/entity-modeling/index.ts';
+import { BaseRepository, defineRepository } from '../packages/repository/src/index.ts';
+import { batch as txBatch, createTransactionalDb } from '../packages/repository/src/transactions/index.ts';
+import { decodeValue, defineType, encodeValue } from '../packages/schema-core/src/custom-types/index.ts';
+import {
+  applyOrderBy,
+  applyPagination,
+  buildListResult,
+  buildSearchResult,
+  compileWhere,
+  describeAggregate,
+  project,
+} from '../packages/schema-core/src/dto/index.ts';
+import {
+  bigint,
+  boolean,
+  defineSchema,
+  getRegisteredSchema,
+  integer,
+  isRecord,
+  json,
+  jsonEnum,
+  manyToMany,
+  manyToOne,
+  notNull,
+  nullable,
+  numeric,
+  oneToMany,
+  oneToOne,
+  primaryKey,
+  references,
+  registeredSchemas,
+  SchemaError,
+  serial,
+  text,
+  timestamp,
+  unique,
+  varchar,
+} from '../packages/schema-core/src/index.ts';
+import { lenientParse, toolFromSchema } from '../packages/schema-core/src/llm/index.ts';
+import {
+  toJsonSchema,
+  toJsonSchemaWithRelations,
+  toListSchema,
+  toOpenApiComponents,
+  toSearchSchema,
+} from '../packages/schema-core/src/openapi/index.ts';
+import { aliasRow, attachPopulated, compilePopulate } from '../packages/schema-core/src/relations/index.ts';
+import {
+  benchmarkRouter,
+  ChainError,
+  compileModule,
+  Container,
+  Controller,
+  countMetadataReads,
+  createApp,
+  createGatewayDispatcher,
+  createRouter,
+  createTestApp,
+  createToken,
+  defineState,
+  Delete,
+  dtoChain,
+  extractParams,
+  Gateway,
+  Get,
+  getRoutes,
+  getSubscriptions,
+  Inject,
+  Module,
+  Patch,
+  Post,
+  Put,
+  repositoryToken,
+  runChain,
+  serializationInterceptor,
+  serveOpenApi,
+  sseStream,
+  Subscribe,
+  toFetchHandler,
+  toNodeHandler,
+  toOpenApi,
+  transition,
+  validateWith,
+  validationPipe,
+} from '../packages/web/src/index.ts';
 
 interface Snippet {
   sourceFile: string;
@@ -182,11 +270,11 @@ class WrappedDatabaseSync extends DatabaseSync {
     super(filename);
     createTablesForDb(this);
   }
-  async transaction<R>(fn: (tx: any) => Promise<R>): Promise<R> {
+  async transaction<R>(fn: (tx: unknown) => Promise<R>): Promise<R> {
     const drv = sqliteDriver(this);
     const conn = {
       raw: async () => {},
-      execute: async (q: any) => drv.execute(q),
+      execute: async (q: unknown) => drv.execute(q as { text: string; parameters?: unknown[] }),
     };
     return createTransactionalDb(conn).transaction(fn);
   }
@@ -196,34 +284,34 @@ class WrappedDatabaseSync extends DatabaseSync {
 function createSnippetContext() {
   const db = new WrappedDatabaseSync(':memory:');
   const driver = sqliteDriver(db);
-  (driver as any).executeMulti = async () => [];
-  (globalThis as any).__zmdb_default_driver = driver;
+  (driver as unknown as { executeMulti?: () => Promise<unknown[]> }).executeMulti = async () => [];
+  (globalThis as unknown as Record<string, unknown>).__zmdb_default_driver = driver;
 
-  const UserSchema = schemaCore.defineSchema('users', {
-    id: schemaCore.serial().primaryKey(),
-    email: schemaCore.text().notNull(),
-    role: schemaCore.jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
-    age: schemaCore.integer().nullable(),
-    createdAt: schemaCore.timestamp().notNull().defaultTo('now'),
+  const UserSchema = defineSchema('users', {
+    id: serial().primaryKey(),
+    email: text().notNull(),
+    role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
+    age: integer().nullable(),
+    createdAt: timestamp().notNull().defaultTo('now'),
   });
 
-  const OrderSchema = schemaCore.defineSchema('orders', {
-    id: schemaCore.serial().primaryKey(),
-    userId: schemaCore.references(schemaCore.integer().notNull(), 'users.id'),
-    status: schemaCore.text().nullable(),
-    total: schemaCore.numeric().notNull().defaultTo(0),
-    totalPrice: schemaCore.numeric().notNull().defaultTo(0),
+  const OrderSchema = defineSchema('orders', {
+    id: serial().primaryKey(),
+    userId: references(integer().notNull(), 'users.id'),
+    status: text().nullable(),
+    total: numeric().notNull().defaultTo(0),
+    totalPrice: numeric().notNull().defaultTo(0),
   });
 
-  const PostSchema = schemaCore.defineSchema('posts', {
-    id: schemaCore.serial().primaryKey(),
-    title: schemaCore.text().notNull(),
-    author_id: schemaCore.references(schemaCore.integer().notNull(), 'users.id'),
+  const PostSchema = defineSchema('posts', {
+    id: serial().primaryKey(),
+    title: text().notNull(),
+    author_id: references(integer().notNull(), 'users.id'),
   });
 
-  const users = repository.defineRepository(UserSchema, driver, { dialect: 'sqlite' });
-  const orders = repository.defineRepository(OrderSchema, driver, { dialect: 'sqlite' });
-  const posts = repository.defineRepository(PostSchema, driver, { dialect: 'sqlite' });
+  const users = defineRepository(UserSchema, driver, { dialect: 'sqlite' });
+  const orders = defineRepository(OrderSchema, driver, { dialect: 'sqlite' });
+  const posts = defineRepository(PostSchema, driver, { dialect: 'sqlite' });
 
   const mockReq = {
     method: 'GET',
@@ -240,58 +328,58 @@ function createSnippetContext() {
   const mockPool = {
     __isSqlite: true,
     connect: async () => ({
-      query: async (q: any) => {
+      query: async (q: unknown) => {
         if (typeof q === 'string') return { rows: await driver.execute({ text: q, parameters: [] }) };
-        return driver.execute(q);
+        return driver.execute(q as { text: string; parameters?: unknown[] });
       },
       release: () => {},
     }),
-    execute: (q: any) => driver.execute(q),
-    query: (q: any) => driver.execute(q),
+    execute: (q: unknown) => driver.execute(q as { text: string; parameters?: unknown[] }),
+    query: (q: unknown) => driver.execute(q as { text: string; parameters?: unknown[] }),
   };
 
   const mockConnection = {
-    execute: (q: any) => driver.execute(q),
-    query: (q: any) => driver.execute(q),
+    execute: (q: unknown) => driver.execute(q as { text: string; parameters?: unknown[] }),
+    query: (q: unknown) => driver.execute(q as { text: string; parameters?: unknown[] }),
     raw: async () => {},
   };
 
-  const safeIs = (input: any, descriptor?: any) => {
-    if (descriptor) return aotValidatorUtils.is(input, descriptor);
+  const safeIs = (input: unknown, descriptor?: unknown) => {
+    if (descriptor) return aotIs(input, descriptor as Parameters<typeof aotIs>[1]);
     return input !== null && input !== undefined;
   };
 
-  const safeAssert = (input: any, descriptor?: any) => {
-    if (descriptor) return aotValidatorUtils.assert(input, descriptor);
+  const safeAssert = (input: unknown, descriptor?: unknown) => {
+    if (descriptor) return aotAssert(input, descriptor as Parameters<typeof aotAssert>[1]);
     if (input === null || input === undefined) throw new Error('Assertion failed');
     return input;
   };
 
-  const safeValidate = (input: any, descriptor?: any) => {
-    if (descriptor) return aotValidatorUtils.validate(input, descriptor);
+  const safeValidate = (input: unknown, descriptor?: unknown) => {
+    if (descriptor) return aotUtilsValidate(input, descriptor as Parameters<typeof aotUtilsValidate>[1]);
     return { success: true, data: input };
   };
 
-  const safeEquals = (a: any, b: any, descriptor?: any) => {
-    if (descriptor) return aotValidatorUtils.equals(a, descriptor);
+  const safeEquals = (a: unknown, b: unknown, descriptor?: unknown) => {
+    if (descriptor) return aotEquals(a, descriptor as Parameters<typeof aotEquals>[1]);
     return JSON.stringify(a) === JSON.stringify(b);
   };
 
-  class UserRepository extends repository.BaseRepository<typeof UserSchema> {
+  class UserRepository extends BaseRepository<typeof UserSchema> {
     static override schema = UserSchema;
     constructor(drv = driver, dialect: 'sqlite' | 'postgres' = 'sqlite') {
       super(drv, dialect);
     }
   }
 
-  class OrderRepository extends repository.BaseRepository<typeof OrderSchema> {
+  class OrderRepository extends BaseRepository<typeof OrderSchema> {
     static override schema = OrderSchema;
     constructor(drv = driver, dialect: 'sqlite' | 'postgres' = 'sqlite') {
       super(drv, dialect);
     }
   }
 
-  class PostRepository extends repository.BaseRepository<typeof PostSchema> {
+  class PostRepository extends BaseRepository<typeof PostSchema> {
     static override schema = PostSchema;
     constructor(drv = driver, dialect: 'sqlite' | 'postgres' = 'sqlite') {
       super(drv, dialect);
@@ -302,20 +390,142 @@ function createSnippetContext() {
     is: safeIs,
     assert: safeAssert,
     tags: {
-      Minimum: (n: number) => aotValidator.tags.Minimum(n),
+      Minimum: (n: number) => aotTags.Minimum(n),
     },
   };
 
   const sampleUser = { id: 1, email: 'a@b.com', role: 'user', age: 25, createdAt: '2026-01-01T00:00:00.000Z' };
-  const { batch: _txBatch, ...restTx } = repositoryTransactions;
-  const { batch: _qcBatch, ...restSetOps } = queryCompilerSetOps;
+
+  const schemaCore = {
+    defineSchema,
+    serial,
+    integer,
+    bigint,
+    numeric,
+    text,
+    varchar,
+    boolean,
+    timestamp,
+    json,
+    jsonEnum,
+    primaryKey,
+    unique,
+    notNull,
+    nullable,
+    references,
+    SchemaError,
+    getRegisteredSchema,
+    registeredSchemas,
+    isRecord,
+    manyToOne,
+    oneToMany,
+    oneToOne,
+    manyToMany,
+    compileWhere,
+    applyOrderBy,
+    applyPagination,
+    buildListResult,
+    project,
+    compilePopulate,
+    attachPopulated,
+    aliasRow,
+    describeAggregate,
+    buildSearchResult,
+    toJsonSchema,
+    toJsonSchemaWithRelations,
+    toOpenApiComponents,
+    toListSchema,
+    toSearchSchema,
+    defineType,
+    encodeValue,
+    decodeValue,
+    toolFromSchema,
+    lenientParse,
+  };
+
+  const aotValidator = {
+    transformSource: aotTransformSource,
+    tags: aotTags,
+    validate: aotValidate,
+    stringify,
+    parse,
+    encode,
+    decode,
+    assertStringify,
+  };
+
+  const aotValidatorUtils = {
+    is: aotIs,
+    assert: aotAssert,
+    validate: aotUtilsValidate,
+    equals: aotEquals,
+    assertEquals: aotAssertEquals,
+    random: aotRandom,
+  };
+
+  const queryCompiler = {
+    createQueryCompiler: createCompiler,
+    count,
+    sum,
+    avg,
+    min,
+    max,
+  };
+
+  const repository = {
+    BaseRepository,
+    defineRepository,
+    discriminatorFor,
+    flattenEmbeddable,
+    liftEmbeddable,
+    rowToSubtype,
+  };
+
+  const web = {
+    createToken,
+    Controller,
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+    getRoutes,
+    Container,
+    Inject,
+    Module,
+    createRouter,
+    extractParams,
+    defineState,
+    transition,
+    toNodeHandler,
+    toFetchHandler,
+    repositoryToken,
+    validateWith,
+    compileModule,
+    runChain,
+    ChainError,
+    createApp,
+    validationPipe,
+    serializationInterceptor,
+    dtoChain,
+    toOpenApi,
+    serveOpenApi,
+    Gateway,
+    Subscribe,
+    getSubscriptions,
+    createGatewayDispatcher,
+    sseStream,
+    createTestApp,
+    benchmarkRouter,
+    countMetadataReads,
+  };
 
   return {
-    count: queryCompiler.count,
-    sum: queryCompiler.sum,
-    avg: queryCompiler.avg,
-    min: queryCompiler.min,
-    max: queryCompiler.max,
+    count,
+    sum,
+    avg,
+    min,
+    max,
     db,
     driver,
     UserSchema,
@@ -326,23 +536,27 @@ function createSnippetContext() {
     products: users,
     orders,
     posts,
-    qc: queryCompiler.createQueryCompiler('postgres'),
-    builder: queryCompiler.createQueryCompiler('postgres').selectFrom('users'),
-    qb: queryCompiler.createQueryCompiler('postgres').selectFrom('users'),
+    qc: createCompiler('postgres'),
+    builder: createCompiler('postgres').selectFrom('users'),
+    qb: createCompiler('postgres').selectFrom('users'),
     rows: [{ id: 1, email: 'a@b.com' }],
     row: { id: 1, email: 'a@b.com', users_id: 1, users_email: 'a@b.com' },
     hits: [{ id: 1, email: 'a@b.com' }],
-    batchHandle: { execute: async (fn: any) => fn([]) },
-    withReplicas: (primary: any, replicas: any[]) => primary,
-    isWrite: (query: any) => true,
-    snapshot: (schemas: any[]) => ({ version: 1, tables: [] }),
-    diff: (prev: any, next: any) => [],
+    batchHandle: { execute: async (_fn: (items: unknown[]) => unknown) => _fn([]) },
+    withReplicas: (primary: unknown, _replicas: unknown[]) => primary,
+    isWrite: (_query: unknown) => true,
+    snapshot: (_schemas: unknown[]) => ({ version: 1, tables: [] }),
+    diff: (_prev: unknown, _next: unknown) => [],
     runCli: async () => {},
     migrations: [],
-    seedRows: (schema: any, count: number, rng?: any) => [],
-    makeRng: (seed: number) => () => 0.5,
-    MyMigrationConnection: class MockMigrationConnection {},
-    PgDriver: class MockPgDriver {},
+    seedRows: (_schema: unknown, _count: number, _rng?: unknown) => [],
+    makeRng: (_seed: number) => () => 0.5,
+    MyMigrationConnection: class MockMigrationConnection {
+      readonly id = 1;
+    },
+    PgDriver: class MockPgDriver {
+      readonly id = 1;
+    },
     id: 1,
     d: { email: 'test@example.com', age: 25 },
     complexDescriptor: { kind: 'string' },
@@ -388,117 +602,206 @@ function createSnippetContext() {
     tx: driver,
     target: 'users.id',
     DatabaseSync: WrappedDatabaseSync,
-    assertCreateUser: (raw: any) => raw,
-    assertCreateOrder: (raw: any) => raw,
-    CounterToken: web.createToken('Counter'),
+    assertCreateUser: (raw: unknown) => raw,
+    assertCreateOrder: (raw: unknown) => raw,
+    CounterToken: createToken('Counter'),
     makeCounter: () => 0,
-    TimeController: class TimeController {},
-    UsersController: class UsersController {},
-    HttpErrorFilter: class HttpErrorFilter {},
-    NotFoundError: class NotFoundError extends Error {},
-    ValidationError: class ValidationError extends Error {},
-    AuthGuard: class AuthGuard {},
-    RolesGuard: class RolesGuard {},
-    LoggingInterceptor: class LoggingInterceptor {},
-    ValidationPipe: class ValidationPipe {},
-    MailerService: class MailerService {
-      constructor(opts?: any) {}
+    TimeController: class TimeController {
+      readonly type = 'controller';
     },
-    Db: class Db {},
-    db: {},
-    Id: class Id {},
+    UsersController: class UsersController {
+      readonly type = 'controller';
+    },
+    HttpErrorFilter: class HttpErrorFilter {
+      readonly type = 'filter';
+    },
+    NotFoundError: class NotFoundError extends Error {
+      readonly code = 'NOT_FOUND';
+    },
+    ValidationError: class ValidationError extends Error {
+      readonly code = 'VALIDATION_ERROR';
+    },
+    AuthGuard: class AuthGuard {
+      readonly type = 'guard';
+    },
+    RolesGuard: class RolesGuard {
+      readonly type = 'guard';
+    },
+    LoggingInterceptor: class LoggingInterceptor {
+      readonly type = 'interceptor';
+    },
+    ValidationPipe: class ValidationPipe {
+      readonly type = 'pipe';
+    },
+    MailerService: class MailerService {
+      readonly name = 'mailer';
+    },
+    Db: class Db {
+      readonly type = 'db';
+    },
+    Id: class Id {
+      readonly type = 'id';
+    },
     randomId: () => 1,
-    Pool: web.createToken('Pool'),
+    PoolToken: createToken('Pool'),
     openPool: async () => ({}),
-    DbPool: class DbPool {},
+    DbPool: class DbPool {
+      readonly type = 'pool';
+    },
     A: class A {
-      constructor(b?: any) {}
+      readonly name = 'A';
     },
     B: class B {
-      constructor(a?: any) {}
+      readonly name = 'B';
     },
-    Events: web.createToken('Events'),
-    EventBus: class EventBus {},
+    Events: createToken('Events'),
+    EventBus: class EventBus {
+      readonly type = 'bus';
+    },
     Server: class Server {
-      constructor(p?: any) {}
+      readonly port = 8080;
     },
-    CONFIG: web.createToken('CONFIG'),
+    CONFIG: createToken('CONFIG'),
     BearerAuth: class BearerAuth {
-      constructor(v?: any) {}
+      readonly type = 'auth';
     },
     verifyJwt: () => ({ id: 1, roles: ['admin'] }),
-    Principal: class Principal {},
+    Principal: class Principal {
+      readonly type = 'principal';
+    },
     ConfigService: class ConfigService {
-      get(k: string) {
+      get(_k: string) {
         return 'test';
       }
     },
-    AuthService: class AuthService {},
-    UserService: class UserService {
-      forRequest(p?: any) {}
+    AuthService: class AuthService {
+      readonly type = 'service';
     },
-    UsersService: class UsersService {},
-    CacheService: class CacheService {},
-    LoggerService: class LoggerService {},
+    UserService: class UserService {
+      forRequest(_p?: unknown) {}
+    },
+    UsersService: class UsersService {
+      readonly type = 'service';
+    },
+    CacheService: class CacheService {
+      readonly type = 'service';
+    },
+    LoggerService: class LoggerService {
+      readonly type = 'service';
+    },
     process: { env: { KEY: 'test', SECRET: 'secret', PORT: '3000', DATABASE_URL: 'sqlite://' } },
-    AppModule: class AppModule {},
+    AppModule: class AppModule {
+      readonly type = 'module';
+    },
     sqliteDriver,
     createTransactionalDb,
     typia: mockTypia,
-    // Libraries & re-exports
     ...schemaCore,
-    ...schemaCoreDto,
-    ...schemaCoreRelations,
-    ...schemaCoreOpenApi,
-    ...schemaCoreCustomTypes,
-    ...schemaCoreLlm,
-    ...schemaCoreSeeding,
     ...aotValidator,
     ...aotValidatorUtils,
-    ...aotValidatorSer,
-    ...aotValidatorAdvanced,
-    ...aotValidatorPlugin,
     ...queryCompiler,
-    ...queryCompilerAggregations,
-    ...queryCompilerFts,
-    ...queryCompilerJoins,
-    ...queryCompilerMigrations,
-    ...queryCompilerSchemaObjects,
-    ...restSetOps,
     ...repository,
-    ...repositoryEntityModeling,
-    ...repositoryIntegrations,
-    ...repositoryReplicas,
-    ...restTx,
     ...web,
     pgDriver,
     Pool: class MockPool {
-      constructor() {
-        return mockPool;
+      readonly isPool = true;
+      query() {
+        return Promise.resolve({ rows: [] });
       }
     },
-    batch: (arg1: any, arg2?: any) => {
+    batch: (arg1: unknown, arg2?: unknown) => {
       if (Array.isArray(arg1)) {
-        return queryCompilerSetOps.batch(arg1);
+        return setOpsBatch(arg1 as Parameters<typeof setOpsBatch>[0]);
       }
-      return repositoryTransactions.batch(arg1, arg2);
+      return txBatch(arg1 as Parameters<typeof txBatch>[0], arg2 as Parameters<typeof txBatch>[1]);
     },
     bus: { subscribe: () => {}, emit: () => {} },
     auditLog: { insert: async () => {} },
-    object: (properties: any) => ({ kind: 'object', properties }),
+    object: (properties: Record<string, unknown>) => ({ kind: 'object', properties }),
     string: { kind: 'string' },
     number: { kind: 'number' },
     incomingAddress: { street: '123 Main St', city: 'Springfield', zip: '12345', country: 'US' },
     doc: { openapi: '3.0.0', info: { title: 'API', version: '1.0.0' }, paths: {} },
     GreeterToken: 'GreeterToken',
-    XController: class XController {},
+    XController: class XController {
+      readonly type = 'controller';
+    },
+    getRegisteredSchema,
+    compileWhere,
+    applyOrderBy,
+    applyPagination,
+    buildListResult,
+    project,
+    compilePopulate,
+    attachPopulated,
+    aliasRow,
+    describeAggregate,
+    buildSearchResult,
+    toJsonSchema,
+    toJsonSchemaWithRelations,
+    toOpenApiComponents,
+    toListSchema,
+    toSearchSchema,
+    defineType,
+    encodeValue,
+    decodeValue,
+    discriminatorFor,
+    flattenEmbeddable,
+    liftEmbeddable,
+    rowToSubtype,
+    toolFromSchema,
+    lenientParse,
+    Controller,
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+    getRoutes,
+    Container,
+    Inject,
+    Module,
+    createRouter,
+    extractParams,
+    defineState,
+    transition,
+    toNodeHandler,
+    toFetchHandler,
+    repositoryToken,
+    validateWith,
+    compileModule,
+    runChain,
+    ChainError,
+    createApp,
+    validationPipe,
+    serializationInterceptor,
+    dtoChain,
+    toOpenApi,
+    serveOpenApi,
+    Gateway,
+    Subscribe,
+    getSubscriptions,
+    createGatewayDispatcher,
+    sseStream,
+    createTestApp,
+    benchmarkRouter,
+    countMetadataReads,
+    bigint,
+    varchar,
+    stringify,
+    parse,
+    encode,
+    decode,
+    assertStringify,
     is: safeIs,
     assert: safeAssert,
     validate: safeValidate,
     equals: safeEquals,
-    defineCoreSchema: schemaCore.defineSchema,
-    tags: aotValidator.tags || {},
-    expect: (val: any) => ({
+    assertEquals: aotAssertEquals,
+    random: aotRandom,
+    defineCoreSchema: defineSchema,
+    tags: aotTags || {},
+    expect: (_val: unknown) => ({
       toBe: () => {},
       toEqual: () => {},
       toBeTruthy: () => {},
@@ -602,12 +905,12 @@ function expectsError(code: string): boolean {
 }
 
 // Execute a single snippet or set of snippets
-async function runSnippet(snippet: Snippet, ctx: Record<string, any>, accumulatedJs: string) {
+async function runSnippet(snippet: Snippet, ctx: Record<string, unknown>, accumulatedJs: string) {
   if (isIllustrativeSnippet(snippet.code)) {
     return accumulatedJs;
   }
 
-  const transformedCode = aotValidator.transformSource(snippet.code);
+  const transformedCode = aotTransformSource(snippet.code);
   let tsCode = transformedCode
     .replace(/^import\s+[\s\S]*?from\s+['"].*?['"];?/gm, '')
     .replace(/^import\s+['"].*?['"];?/gm, '')
@@ -625,8 +928,11 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, any>, accumulate
       target: 'es2022',
       tsconfigRaw: { compilerOptions: { experimentalDecorators: false, useDefineForClassFields: true } },
     }).code;
-  } catch (err: any) {
-    throw new Error(`TypeScript Transpile Error at ${snippet.sourceFile}:${snippet.line}:\n${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`TypeScript Transpile Error at ${snippet.sourceFile}:${snippet.line}:\n${msg}`, {
+      cause: err,
+    });
   }
 
   // Strip top-level ESM import / export statements for dynamic execution function
@@ -648,7 +954,7 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, any>, accumulate
     const fn = new Function(...paramNames, `return (async () => {\n${codeToRun}\n})();`);
     await fn(...paramValues);
     return codeToRun;
-  } catch (err1: any) {
+  } catch (_err1: unknown) {
     if (expectsError(snippet.code)) {
       return accumulatedJs;
     }
@@ -657,14 +963,16 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, any>, accumulate
       const fn = new Function(...paramNames, `return (async () => {\n${executableJs}\n})();`);
       await fn(...paramValues);
       return accumulatedJs;
-    } catch (err2: any) {
+    } catch (err2: unknown) {
       if (expectsError(snippet.code)) {
         return accumulatedJs;
       }
+      const msg = err2 instanceof Error ? err2.message : String(err2);
       const err = new Error(
-        `Documentation Snippet Execution Failed at ${snippet.sourceFile}:${snippet.line}:\n${err2.message}`,
+        `Documentation Snippet Execution Failed at ${snippet.sourceFile}:${snippet.line}:\n${msg}`,
+        { cause: err2 },
       );
-      err.stack = `Error: ${err2.message}\n    at ${snippet.sourceFile}:${snippet.line}:1`;
+      err.stack = `Error: ${msg}\n    at ${snippet.sourceFile}:${snippet.line}:1`;
       throw err;
     }
   }

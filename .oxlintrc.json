@@ -41,8 +41,7 @@
     "**/*.zmdb.*",
     "benchmarks/harness/framework/peers/**",
     "**/.results/**",
-    "**/*.app.mjs",
-    "tests/**"
+    "**/*.app.mjs"
   ],
   "options": {
     "maxWarnings": 0,
