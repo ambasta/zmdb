@@ -1,6 +1,6 @@
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 
-import { validatePatternComplexity } from './regex-complexity.ts';
+import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.ts';
 
 // Unified Single-Pass AOT Transformer Engine using TypeScript Token Scanner
 // Scans TS/JS source code ONCE for all supported validation call expressions:
@@ -220,7 +220,7 @@ export function transformCode(code: string): string {
     if (!hasRegexCache) {
       hasRegexCache = true;
       hoisted.push(
-        'const _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (!re) { re = new RegExp(p); _regexCache.set(p, re); } return re; }',
+        `const _MAX_REGEX_CACHE_SIZE = ${MAX_REGEX_CACHE_SIZE};\nconst _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (re) { _regexCache.delete(p); _regexCache.set(p, re); return re; } if (_regexCache.size >= _MAX_REGEX_CACHE_SIZE) { const k = _regexCache.keys().next().value; if (k !== undefined) _regexCache.delete(k); } re = new RegExp(p); _regexCache.set(p, re); return re; }`,
       );
     }
   };
