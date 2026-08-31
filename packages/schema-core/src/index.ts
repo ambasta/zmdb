@@ -139,6 +139,8 @@ export class SchemaError extends Error {}
 export interface ValidationIssue {
   readonly path: string;
   readonly message: string;
+  readonly expected?: string;
+  readonly value?: unknown;
 }
 
 export class ValidationError extends Error {

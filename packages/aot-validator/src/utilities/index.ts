@@ -2,7 +2,8 @@
 // #57 is<T> boolean guard implemented over the runtime TypeDescriptor.
 // #58 assert, #59 validate, #60 equals/assertEquals, #61 random remain
 // unimplemented; their tests stay red.
-import type { ValidationIssue } from '../advanced/index.ts';
+import type { ValidationIssue } from '@zmdb/schema-core';
+
 import { getEnumSet } from '../index.ts';
 import { safeTestPattern } from '../regex-complexity.ts';
 
