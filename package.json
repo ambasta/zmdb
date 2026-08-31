@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
+    "verify:bench": "node .github/scripts/verify-bench-results.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
     "verify:exports": "node .github/scripts/verify-exports.mjs"
   },

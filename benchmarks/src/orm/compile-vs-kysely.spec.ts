@@ -2,12 +2,16 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 import { Kysely, DummyDriver, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { describe, it, expect } from 'vitest';
 
-// #20: zero-overhead query-compilation benchmark vs Kysely.
-// Both compile the SAME query to parameterized SQL WITHOUT a live DB; we assert
-// equivalence of the compiled output and expose an ops/sec micro-benchmark.
-// (Speed ordering is reported, not asserted — timing is environment-dependent.)
-
-declare const performance: { now(): number };
+// #20: zero-overhead query compilation vs Kysely.
+// Both compile the SAME query to parameterized SQL WITHOUT a live DB, and this
+// asserts the two outputs are equivalent — the property that makes the
+// comparison meaningful at all.
+//
+// The ops/sec half of this file used to live here too, asserting only that both
+// numbers were greater than zero. That is not a measurement: it ran on whatever
+// machine CI gave us and could not fail. The head-to-head throughput comparison
+// is `yarn bench`, run locally, and its numbers are committed under
+// benchmarks/site/.
 
 interface DB {
   users: { id: number; email: string; role: string };
@@ -23,13 +27,6 @@ const k = new Kysely<DB>({
   },
 });
 
-function bench(fn: () => void, iterations: number): number {
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn();
-  const ms = performance.now() - start;
-  return ms > 0 ? Math.round((iterations / ms) * 1000) : iterations;
-}
-
 describe('query compilation vs Kysely', () => {
   it('both compile a SELECT to equivalent parameterized SQL', () => {
     const zmdb = createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.com').compile();
@@ -43,19 +40,5 @@ describe('query compilation vs Kysely', () => {
     // is a parameterized select over the same table/column.
     expect(kc.sql.toLowerCase()).toContain('from "users"');
     expect(kc.sql).toContain('$1');
-  });
-
-  it('exposes ops/sec for both compilers', () => {
-    const zmdbOps = bench(
-      () => void createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.com').compile(),
-      2000,
-    );
-    const kyselyOps = bench(
-      () => void k.selectFrom('users').selectAll().where('email', '=', 'a@b.com').compile(),
-      2000,
-    );
-    expect(zmdbOps).toBeGreaterThan(0);
-    expect(kyselyOps).toBeGreaterThan(0);
-    // Reported only — no speed assertion.
   });
 });

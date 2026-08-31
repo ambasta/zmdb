@@ -62,7 +62,11 @@ we have not wired yet is reported `DNF (not implemented)`.
 2. Validation-suite adapter (zmdb entry points as a benchmarked "library") + runner.
 3. ORM-suite adapter (server + query set + seed) + k6 runner integration.
 4. DNF reporting + comparative results table generator (Markdown/JSON), committed to `benchmarks/RESULTS.md`.
-5. CI job that runs both suites and publishes results (+ regression guardrails).
+5. Measurement is local, publication is CI. Suites are run by a human on named
+   hardware (`yarn bench`, `yarn guardrail --live`) and the resulting JSON is
+   committed; CI only verifies what was committed (`yarn verify:bench`) and renders
+   it. A shared runner cannot produce a number worth committing, and a regression
+   threshold measured on one reports its neighbours rather than our code.
 
 ## Constraints
 

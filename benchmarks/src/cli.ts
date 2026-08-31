@@ -9,11 +9,14 @@ import { runLiveBenchmarks } from './runner.ts';
 export function runCli(args: string[] = process.argv.slice(2)): number {
   let baselinePath: string | undefined;
   let currentPath: string | undefined;
+  let live = false;
   let threshold = parseFloat(process.env.BENCHMARK_DROP_THRESHOLD ?? '0.20');
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--baseline' && i + 1 < args.length) {
+    if (arg === '--live') {
+      live = true;
+    } else if (arg === '--baseline' && i + 1 < args.length) {
       baselinePath = args[++i];
     } else if (arg === '--current' && i + 1 < args.length) {
       currentPath = args[++i];
@@ -72,7 +75,7 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
       );
       return 1;
     }
-  } else {
+  } else if (live) {
     console.log('[BENCHMARK GUARDRAIL] Executing live benchmarks to extract current metrics...');
     try {
       currentResults = runLiveBenchmarks();
@@ -82,6 +85,17 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
       );
       return 1;
     }
+  } else {
+    // Measuring has to be asked for. This used to be the default, which meant an
+    // automated caller with no arguments would time a suite on whatever machine
+    // it happened to be on and compare that to a number measured elsewhere —
+    // the comparison then reports hardware, not a regression.
+    console.error(
+      '[BENCHMARK GUARDRAIL] ERROR: No current results given. Pass --current <file> to compare a\n' +
+        '  committed results file, or --live to measure now (local machines only — a shared CI runner\n' +
+        '  cannot produce a number worth comparing).',
+    );
+    return 1;
   }
 
   // Enforce full suite reporting and honesty policy on current results

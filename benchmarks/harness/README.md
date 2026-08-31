@@ -152,3 +152,34 @@ was grafted, the machine, the runtime, the load profile and the measurement's ow
 timestamp. `docs-site/benchmarks.mjs` renders those files and nothing else, so a
 figure on the docs site can always be traced to a file you can download from the
 same page.
+
+Those JSON files are **committed**. That is the whole handover between measuring
+and publishing.
+
+## Nothing here runs in CI
+
+Measuring happens on a machine someone can name. A GitHub runner is a shared VM
+of unstated hardware with neighbours competing for the same cores, so a number
+from one is not worth committing, and a throughput threshold against one fails on
+runner variance rather than on a regression — which is how a guardrail teaches
+people to ignore it.
+
+So the split is:
+
+| Locally, by a human                                   | In CI                                          |
+| ----------------------------------------------------- | ---------------------------------------------- |
+| `yarn bench` — graft, measure, normalise              | `yarn verify:bench` — check what was committed |
+| `yarn guardrail --live` — measure now vs the baseline | Pages renders `../site/*.json` as-is           |
+| commit `../site/*.json` + `../RESULTS.md`             | —                                              |
+
+`yarn verify:bench` (`.github/scripts/verify-bench-results.mjs`) measures nothing.
+It checks that each committed JSON still names its machine, methodology and
+timestamp, that it has rows including a zmdb one, that `../RESULTS.md` covers every
+in-scope case, and that each file's `upstreamCommit` still matches the submodule
+pinned in the tree. That last check is the one with teeth: bumping an upstream
+submodule invalidates every number measured against the old one, and CI will say
+so instead of publishing stale figures under a new commit.
+
+`yarn guardrail` needs `--current <file>` or an explicit `--live`. It used to
+measure when given neither, which is exactly the accident this arrangement is
+meant to prevent.
