@@ -1,7 +1,7 @@
 import { UnsupportedFeatureError } from '../errors.ts';
-import { quoteIdentifier } from '../dialect.ts';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.ts';
+import { quoteIdentifier } from '../quoting.ts';
 
 export { UnsupportedFeatureError };
 

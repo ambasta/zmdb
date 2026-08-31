@@ -5,15 +5,7 @@ export { UnsupportedFeatureError } from './errors.ts';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import {
-  type Dialect,
-  quoteIdentifier,
-  quoteColumn,
-  quoteTable,
-  formatIdentifier,
-  formatPlaceholder,
-  renumberPlaceholders,
-} from './dialect.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 
 export type { Dialect };
 export { quoteIdentifier, quoteColumn, quoteTable, formatIdentifier, formatPlaceholder, renumberPlaceholders };

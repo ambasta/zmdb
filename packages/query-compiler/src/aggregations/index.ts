@@ -1,7 +1,5 @@
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
-// Query-builder aggregations — implementation (#90). count/sum/avg/min/max +
-// expr() computed columns + groupBy + having, dialect-aware, parameterized.
 import type { CompiledQuery, Dialect } from '../index.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
@@ -127,12 +125,12 @@ function make(d: Dialect, s: State): AggregateSelect {
             return `${quoteColumn(d, h.col)} ${h.op} (${subText})`;
           }
           params.push(h.value);
-          return `${formatIdentifier(d, h.col)} ${h.op} ${formatPlaceholder(d, params.length)}`;
+          return `${quoteColumn(d, h.col)} ${h.op} ${formatPlaceholder(d, params.length)}`;
         });
         text += ` HAVING ${parts.join(' AND ')}`;
       }
       if (s.orderBys.length > 0) {
-        text += ` ORDER BY ${s.orderBys.map(o => `${formatIdentifier(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
+        text += ` ORDER BY ${s.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ')}`;
       }
       if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
       if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;
