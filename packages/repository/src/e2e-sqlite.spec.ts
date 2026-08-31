@@ -26,7 +26,7 @@ let users: UserRepository;
 
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, role TEXT)');
+  db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, role TEXT)');
   users = new UserRepository(sqliteDriver(db), 'sqlite');
 });
 
@@ -107,7 +107,6 @@ describe('repository E2E (real SQLite)', () => {
     const found = await sRepo.findById(user.id);
     expect(found?.passwordHash).toBe('hashed_secret_123');
   });
-
   it('filters using subqueries and EXISTS conditions on real SQLite', async () => {
     db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, total REAL, status TEXT)');
     db.exec("INSERT INTO orders VALUES (10, 1, 150.0, 'shipped'), (20, 2, 50.0, 'pending')");
@@ -127,5 +126,34 @@ describe('repository E2E (real SQLite)', () => {
       exists: { table: 'orders', where: { status: 'shipped' } },
     });
     expect(matchingExists).toHaveLength(2);
+  });
+
+  it('upsert atomically inserts or updates single record on conflict', async () => {
+    // 1. First call inserts new record
+    const r1 = await users.upsert({ email: 'upsert@b.com', role: 'user' }, { target: 'email' });
+    expect(r1).toMatchObject({ email: 'upsert@b.com', role: 'user' });
+
+    // 2. Second call with same unique column (email) updates the record atomically
+    const r2 = await users.upsert({ email: 'upsert@b.com', role: 'admin' }, { target: 'email' });
+    expect(r2).toMatchObject({ id: r1!.id, email: 'upsert@b.com', role: 'admin' });
+
+    // 3. Verify database state
+    const found = await users.findById(r1!.id);
+    expect(found).toMatchObject({ id: r1!.id, email: 'upsert@b.com', role: 'admin' });
+  });
+
+  it('upsert with specific updateFields selectively updates columns on conflict', async () => {
+    const r1 = await users.upsert({ email: 'selective@b.com', role: 'user' }, { target: 'email' });
+
+    // Attempt upsert updating only role
+    const r2 = await users.upsert(
+      { email: 'selective@b.com', role: 'admin' },
+      { target: 'email', updateFields: ['role'] },
+    );
+    expect(r2).toMatchObject({ id: r1!.id, email: 'selective@b.com', role: 'admin' });
+
+    // Verify database state
+    const found = await users.findById(r1!.id);
+    expect(found).toMatchObject({ id: r1!.id, email: 'selective@b.com', role: 'admin' });
   });
 });

@@ -67,4 +67,5 @@ export type {
   ClosedTransactionContext,
   TransactionalDb,
   TxConnection,
+  UpsertOptions,
 } from '@zmdb/repository';
