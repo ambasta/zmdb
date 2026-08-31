@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -17,13 +17,13 @@ describe('Documentation Site Generator with Fallback Assets', () => {
   afterEach(() => {
     // Re-run build to leave site directory populated
     try {
-      execSync('node docs-site/build.mjs', { cwd: ROOT, stdio: 'pipe' });
+      execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
     } catch {}
   });
 
   it('generates site including docs and fallback benchmark assets when benchmark site files are missing', () => {
     // Build docs site
-    execSync('node docs-site/build.mjs', { cwd: ROOT, stdio: 'pipe' });
+    execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
 
     expect(existsSync(join(SITE_DIR, 'index.html'))).toBe(true);
     expect(existsSync(join(SITE_DIR, 'docs', 'quick-start.html'))).toBe(true);
@@ -55,7 +55,7 @@ describe('Documentation Site Generator with Fallback Assets', () => {
     writeFileSync(dashIndex, htmlContent, 'utf8');
 
     try {
-      execSync('node docs-site/build.mjs', { cwd: ROOT, stdio: 'pipe' });
+      execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
 
       const builtBmHtml = readFileSync(join(SITE_DIR, 'benchmarks', 'index.html'), 'utf8');
       expect(builtBmHtml).toContain('Test Section');

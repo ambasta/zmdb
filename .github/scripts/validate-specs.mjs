@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 /**
  * Specification Validation Script
  * Verifies specification presence, structure, and checklist tracking alignment across packages.
  */
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
 const PACKAGES_DIR = join(ROOT, 'packages');
@@ -46,24 +46,32 @@ let changedFiles = new Set();
 try {
   // Check diff against origin/main, or HEAD~1, or staged/unstaged changes
   let diffOutput = '';
+  let isPorcelain = false;
   try {
-    diffOutput = execSync('git diff --name-only origin/main...HEAD', {
+    diffOutput = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
     });
   } catch {
     try {
-      diffOutput = execSync('git diff --name-only HEAD~1 HEAD', {
+      diffOutput = execFileSync('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'], {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'ignore'],
       });
     } catch {
-      diffOutput = execSync('git status --porcelain', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+      diffOutput = execFileSync('git', ['status', '--porcelain'], {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      isPorcelain = true;
     }
   }
   diffOutput
     .split('\n')
-    .map(l => l.trim().replace(/^..\s+/, ''))
+    .map(l => {
+      const trimmed = l.trim();
+      return isPorcelain ? trimmed.replace(/^..\s+/, '') : trimmed;
+    })
     .filter(Boolean)
     .forEach(f => changedFiles.add(f));
 } catch (e) {
@@ -88,7 +96,7 @@ for (const pkg of packages) {
   const specFiles = findSpecFiles(pkgDir);
   for (const specPath of specFiles) {
     checkedSpecsCount++;
-    const relPath = specPath.replace(ROOT + '/', '');
+    const relPath = relative(ROOT, specPath);
     const content = readFileSync(specPath, 'utf8');
 
     if (!content.trim()) {

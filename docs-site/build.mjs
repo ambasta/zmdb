@@ -386,6 +386,29 @@ for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-result
   }
 }
 
+function extractTags(html, tagName) {
+  const results = [];
+  const lower = html.toLowerCase();
+  const openTag = `<${tagName.toLowerCase()}`;
+  const closeTag = `</${tagName.toLowerCase()}>`;
+  let pos = 0;
+  while (pos < html.length) {
+    const start = lower.indexOf(openTag, pos);
+    if (start === -1) break;
+    const nextChar = lower[start + openTag.length];
+    if (nextChar && !/[\s>]/.test(nextChar)) {
+      pos = start + openTag.length;
+      continue;
+    }
+    const end = lower.indexOf(closeTag, start);
+    if (end === -1) break;
+    const fullEnd = end + closeTag.length;
+    results.push(html.slice(start, fullEnd));
+    pos = fullEnd;
+  }
+  return results;
+}
+
 // --- Unified benchmarks page: rendered inside the docs shell (same sidebar +
 // theme + header), with the interactive Chart.js sections + script inlined.
 // Extract the <section>…</section> body and the <script>…</script> from the
@@ -393,8 +416,8 @@ for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-result
 function buildBenchmarksPage() {
   const dashIndex = join(DASH, 'index.html');
   const raw = existsSync(dashIndex) ? readFileSync(dashIndex, 'utf8') : '';
-  const matchedSections = [...raw.matchAll(/<section\b[\s\S]*?<\/section>/gi)].map(m => m[0]).join('\n');
-  const matchedScript = (raw.match(/<script\b[\s\S]*?<\/script>/i) || [''])[0];
+  const matchedSections = extractTags(raw, 'section').join('\n');
+  const matchedScript = extractTags(raw, 'script')[0] || '';
 
   const sections =
     matchedSections ||

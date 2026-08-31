@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +9,7 @@ const ROOT = process.cwd();
 
 describe('Specification Validation Script', () => {
   it('passes on the current repository specifications', () => {
-    const result = execSync('node .github/scripts/validate-specs.mjs', { cwd: ROOT, encoding: 'utf8' });
+    const result = execFileSync('node', ['.github/scripts/validate-specs.mjs'], { cwd: ROOT, encoding: 'utf8' });
     expect(result).toContain('All specifications and checklist items validated successfully.');
   });
 
@@ -20,7 +20,7 @@ describe('Specification Validation Script', () => {
       mkdirSync(pkgDir, { recursive: true });
       writeFileSync(join(pkgDir, 'SPEC.md'), '# Demo Spec\n\n- [ ] Unfinished task\n- [x] Finished task\n');
 
-      const result = execSync(`node ${join(ROOT, '.github/scripts/validate-specs.mjs')}`, {
+      const result = execFileSync('node', [join(ROOT, '.github/scripts/validate-specs.mjs')], {
         cwd: tempDir,
         encoding: 'utf8',
       });
@@ -39,7 +39,7 @@ describe('Specification Validation Script', () => {
 
       let failed = false;
       try {
-        execSync(`node ${join(ROOT, '.github/scripts/validate-specs.mjs')}`, {
+        execFileSync('node', [join(ROOT, '.github/scripts/validate-specs.mjs')], {
           cwd: tempDir,
           encoding: 'utf8',
           stdio: 'pipe',
