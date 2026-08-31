@@ -172,7 +172,7 @@ function rewriteCall(code: string, fn: SupportedFn): string {
         out += `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
         break;
       case 'validate':
-        out += `((() => { const _ok = ${check}; return _ok ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "${typeSrc.replace(/"/g, '\\"')}", value: ${expr}, message: "validation failed" }] }; })())`;
+        out += `((() => { const _ok = ${check}; return _ok ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "${typeSrc.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", value: ${expr}, message: "validation failed" }] }; })())`;
         break;
       case 'equals':
         out += `(${equalsCheck})`;
