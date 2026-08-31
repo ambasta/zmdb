@@ -88,12 +88,23 @@ describe('Static AST Execution for Refinements & Transforms (CSP Enforcement)', 
 
   it('throws SyntaxError on invalid operators or unknown characters', () => {
     expect(() => parseExpression('v ??? 5')).toThrow(SyntaxError);
+    expect(() => parseExpression('v ==== 5')).toThrow(SyntaxError);
+    expect(() => parseExpression('v &&& 5')).toThrow(SyntaxError);
+    expect(() => parseExpression('v ||| 5')).toThrow(SyntaxError);
     expect(() => parseExpression('v @ 5')).toThrow(SyntaxError);
     expect(() => parseExpression('v # 5')).toThrow(SyntaxError);
   });
 
-  it('throws SyntaxError on malformed expressions or unexpected tokens', () => {
+  it('throws SyntaxError on malformed expressions, missing colons, or missing delimiters', () => {
     expect(() => parseExpression('v +')).toThrow(SyntaxError);
     expect(() => parseExpression('v ===')).toThrow(SyntaxError);
+    expect(() => parseExpression('v ? 1')).toThrow(SyntaxError);
+    expect(() => parseExpression('{ a 1 }')).toThrow(SyntaxError);
+    expect(() => parseExpression('{ a: 1')).toThrow(SyntaxError);
+    expect(() => parseExpression('[1, 2')).toThrow(SyntaxError);
+    expect(() => parseExpression('(1 + 2')).toThrow(SyntaxError);
+    expect(() => parseExpression('v.')).toThrow(SyntaxError);
+    expect(() => parseExpression('"unclosed string')).toThrow(SyntaxError);
+    expect(() => parseExpression('/* unterminated comment')).toThrow(SyntaxError);
   });
 });

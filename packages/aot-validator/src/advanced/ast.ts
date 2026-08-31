@@ -43,15 +43,20 @@ function tokenize(src: string): Token[] {
 
     // Multi-line comment
     if (ch === '/' && src[i + 1] === '*') {
+      const startIdx = i;
       i += 2;
       while (i < len && !(src[i] === '*' && src[i + 1] === '/')) i++;
-      if (i < len) i += 2;
+      if (i >= len) {
+        throw new SyntaxError(`Unterminated multi-line comment starting at index ${startIdx}`);
+      }
+      i += 2;
       continue;
     }
 
     // String literals: "...", '...', `...`
     if (ch === '"' || ch === "'" || ch === '`') {
       const quote = ch;
+      const startIdx = i;
       i++;
       let val = '';
       while (i < len && src[i] !== quote) {
@@ -67,13 +72,17 @@ function tokenize(src: string): Token[] {
         }
         i++;
       }
-      if (i < len) i++; // consume closing quote
+      if (i >= len) {
+        throw new SyntaxError(`Unclosed string literal starting at index ${startIdx}`);
+      }
+      i++; // consume closing quote
       tokens.push({ type: 'STRING', value: val });
       continue;
     }
 
     // Numbers
     if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src[i + 1] || ''))) {
+      const startIdx = i;
       let numStr = '';
       while (i < len && /[0-9._eE+-]/.test(src[i]!)) {
         // Guard against matching operator + or - if not exponent
@@ -81,6 +90,10 @@ function tokenize(src: string): Token[] {
           break;
         }
         numStr += src[i++]!;
+      }
+      const numVal = Number(numStr);
+      if (Number.isNaN(numVal)) {
+        throw new SyntaxError(`Invalid number literal '${numStr}' at index ${startIdx}`);
       }
       tokens.push({ type: 'NUMBER', value: numStr });
       continue;
@@ -101,16 +114,70 @@ function tokenize(src: string): Token[] {
     }
 
     // Multi-char operators
-    const three = src.slice(i, i + 3);
-    if (three === '===' || three === '!==') {
-      tokens.push({ type: 'OP', value: three });
+    if (src.startsWith('===', i)) {
+      if (src[i + 3] === '=') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 4)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '===' });
+      i += 3;
+      continue;
+    }
+    if (src.startsWith('!==', i)) {
+      if (src[i + 3] === '=') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 4)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '!==' });
       i += 3;
       continue;
     }
 
-    const two = src.slice(i, i + 2);
-    if (['==', '!=', '<=', '>=', '&&', '||', '??'].includes(two)) {
-      tokens.push({ type: 'OP', value: two });
+    if (src.startsWith('??', i)) {
+      if (src[i + 2] === '?') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '??' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('&&', i)) {
+      if (src[i + 2] === '&') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '&&' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('||', i)) {
+      if (src[i + 2] === '|') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '||' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('==', i)) {
+      if (src[i + 2] === '=') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '==' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('!=', i)) {
+      if (src[i + 2] === '=') {
+        throw new SyntaxError(`Unexpected operator '${src.slice(i, i + 3)}' at index ${i}`);
+      }
+      tokens.push({ type: 'OP', value: '!=' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('<=', i)) {
+      tokens.push({ type: 'OP', value: '<=' });
+      i += 2;
+      continue;
+    }
+    if (src.startsWith('>=', i)) {
+      tokens.push({ type: 'OP', value: '>=' });
       i += 2;
       continue;
     }
@@ -172,6 +239,14 @@ export class Parser {
     return false;
   }
 
+  private expectPunct(p: string): Token {
+    const tok = this.peek();
+    if (tok.type === 'PUNCT' && tok.value === p) {
+      return this.consume();
+    }
+    throw new SyntaxError(`Expected punctuation '${p}', found '${tok.value}' (type: ${tok.type})`);
+  }
+
   parse(): ASTNode {
     const node = this.parseExpression();
     if (this.peek().type !== 'EOF') {
@@ -189,7 +264,7 @@ export class Parser {
     if (this.matchOp('?')) {
       const consequent = this.parseExpression();
       if (!this.matchPunct(':') && !this.matchOp(':')) {
-        // accept : as punct or op
+        throw new SyntaxError("Expected ':' in conditional expression");
       }
       const alternate = this.parseExpression();
       return { type: 'ConditionalExpression', test, consequent, alternate };
@@ -308,11 +383,11 @@ export class Parser {
           const property: ASTNode = { type: 'Identifier', name: propTok.value };
           expr = { type: 'MemberExpression', object: expr, property, computed: false };
         } else {
-          break;
+          throw new SyntaxError(`Expected identifier after '.', found '${propTok.value}'`);
         }
       } else if (this.matchPunct('[')) {
         const indexExpr = this.parseExpression();
-        this.matchPunct(']');
+        this.expectPunct(']');
         expr = { type: 'MemberExpression', object: expr, property: indexExpr, computed: true };
       } else if (this.matchPunct('(')) {
         const args: ASTNode[] = [];
@@ -320,7 +395,7 @@ export class Parser {
           while (true) {
             args.push(this.parseExpression());
             if (this.matchPunct(',')) continue;
-            this.matchPunct(')');
+            this.expectPunct(')');
             break;
           }
         }
@@ -357,7 +432,7 @@ export class Parser {
 
     if (this.matchPunct('(')) {
       const expr = this.parseExpression();
-      this.matchPunct(')');
+      this.expectPunct(')');
       return expr;
     }
 
@@ -367,7 +442,7 @@ export class Parser {
         while (true) {
           elements.push(this.parseExpression());
           if (this.matchPunct(',')) continue;
-          this.matchPunct(']');
+          this.expectPunct(']');
           break;
         }
       }
@@ -382,16 +457,16 @@ export class Parser {
           let key = '';
           if (keyTok.type === 'IDENT' || keyTok.type === 'STRING') {
             key = this.consume().value;
-          }
-          if (this.matchPunct(':')) {
-            // matched ':'
           } else {
-            this.matchOp(':');
+            throw new SyntaxError(`Expected property key in object literal, found '${keyTok.value}'`);
+          }
+          if (!this.matchPunct(':') && !this.matchOp(':')) {
+            throw new SyntaxError(`Expected ':' after property key '${key}'`);
           }
           const val = this.parseExpression();
           properties.push({ key, value: val });
           if (this.matchPunct(',')) continue;
-          this.matchPunct('}');
+          this.expectPunct('}');
           break;
         }
       }
