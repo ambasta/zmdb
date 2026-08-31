@@ -39,6 +39,27 @@ describe('toJsonSchema (entity)', () => {
   it('is deterministic (twice → identical)', () => {
     expect(toJsonSchema(UserSchema)).toEqual(toJsonSchema(UserSchema));
   });
+
+  it('preserves raw unescaped pattern strings with slashes and quotes for OpenAPI definitions', () => {
+    const RawPatternSchema = {
+      table: 'files',
+      columns: {
+        path: {
+          type: 'text',
+          flags: { nullable: false },
+          validation: [{ kind: 'Pattern', args: ['^/usr/local/"bin"/.*$'] }],
+        },
+      },
+      primaryKey: [],
+      references: [],
+    } as unknown as CoreSchema<'files'>;
+
+    const schema = toJsonSchema(RawPatternSchema, 'entity');
+    expect(schema.properties.path).toEqual({
+      type: 'string',
+      pattern: '^/usr/local/"bin"/.*$',
+    });
+  });
 });
 
 describe('toJsonSchema variants', () => {

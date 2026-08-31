@@ -37,22 +37,17 @@ export const tags = {
 // Runtime-safety fallback: identical boolean semantics to the inlined form.
 // This is what executes pre-transform (dev / ts-node).
 export function validate(r: Rule, expr: unknown): boolean {
-  // `args` is `readonly unknown[]` (any package may define a kind), so the bound
-  // is re-checked rather than asserted: `typeof arg === 'number'` costs nothing a
-  // JIT can't fold, and this is the fallback path — the AOT emission is what the
-  // benchmarks measure.
-  const [arg] = r.args;
   switch (r.kind) {
     case 'Minimum':
-      return typeof expr === 'number' && typeof arg === 'number' && expr >= arg;
+      return typeof expr === 'number' && expr >= (r.args[0] as number);
     case 'Maximum':
-      return typeof expr === 'number' && typeof arg === 'number' && expr <= arg;
+      return typeof expr === 'number' && expr <= (r.args[0] as number);
     case 'MinLength':
-      return typeof expr === 'string' && typeof arg === 'number' && expr.length >= arg;
+      return typeof expr === 'string' && expr.length >= (r.args[0] as number);
     case 'MaxLength':
-      return typeof expr === 'string' && typeof arg === 'number' && expr.length <= arg;
+      return typeof expr === 'string' && expr.length <= (r.args[0] as number);
     case 'Pattern':
-      return typeof expr === 'string' && typeof arg === 'string' && new RegExp(arg).test(expr);
+      return typeof expr === 'string' && new RegExp(r.args[0] as string).test(expr);
     case 'Enum':
       return r.args.includes(expr);
     default:
@@ -76,7 +71,7 @@ export function transformSource(code: string): string {
       break;
     }
     // Guard against matching `assertValidate(` etc.: require a boundary before.
-    const prev = at > 0 ? (code[at - 1] ?? '') : '';
+    const prev = at > 0 ? code[at - 1]! : '';
     if (/[A-Za-z0-9_$.]/.test(prev)) {
       out += code.slice(i, at + NEEDLE.length);
       i = at + NEEDLE.length;
@@ -111,14 +106,21 @@ function splitTopLevelComma(s: string): [string, string] {
   return [s, ''];
 }
 
+// Dedicated escaping helper to sanitize pattern inputs before embedding into compiled regex literals.
+export function escapePattern(pattern: string): string {
+  return pattern
+    .replace(/(?<!\\)(?:\\\\)*\//g, match => match.slice(0, -1) + '\\/')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\u2028', '\\u2028')
+    .replaceAll('\u2029', '\\u2029');
+}
+
 function inlineCheck(ruleSrc: string, expr: string): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`; // leave untouched if unrecognized
-  // A successful match of a 2-group regex has both groups; `?? ''` states that
-  // without a non-null assertion (an unmatched group would leave the rule
-  // untouched below, never crash).
-  const kind = m[1] ?? '';
-  const args = (m[2] ?? '').trim();
+  const kind = m[1]!;
+  const args = m[2]!.trim();
   switch (kind) {
     case 'Minimum':
       return `(typeof ${expr} === "number" && ${expr} >= ${args})`;
@@ -129,7 +131,23 @@ function inlineCheck(ruleSrc: string, expr: string): string {
     case 'MaxLength':
       return `(typeof ${expr} === "string" && ${expr}.length <= ${args})`;
     case 'Pattern': {
-      const re = args.replace(/^["'`]|["'`]$/g, '');
+      let raw = args.trim();
+      const first = raw[0];
+      const last = raw[raw.length - 1];
+      const isQuoted =
+        raw.length >= 2 &&
+        ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
+
+      if (!isQuoted) {
+        return `validate(${ruleSrc}, ${expr})`;
+      }
+
+      if (first === '`' && raw.includes('${')) {
+        return `validate(${ruleSrc}, ${expr})`;
+      }
+
+      raw = raw.slice(1, -1);
+      const re = escapePattern(raw);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;
     }
     case 'Enum': {
