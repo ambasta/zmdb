@@ -224,8 +224,9 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
   // boundary: the fluent methods are attached *below* via defineProperty (they
   // must be non-enumerable), so the object is not a `Column` until this function
   // returns; and `C`'s `type`/`flags` are exactly the literal types of the `meta`
-  // the caller passed — the builders below are the only callers, and each pairs
-  // its declared `Column<T, F>` with a matching literal `meta`. Neither
+  // the caller passed — the builders and modifiers in this file are the only
+  // callers, and each pairs its declared `Column<T, F>` with a matching literal
+  // or a spread of another column's metadata. Neither
   // `Object.defineProperties` nor "these two literals agree" is expressible as a
   // type-changing operation, hence the one assertion here.
   const column = { ...base } as unknown as C;
