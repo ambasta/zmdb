@@ -65,11 +65,15 @@ export function transformSource(code: string): string {
   let i = 0;
   const NEEDLE = 'validate(';
   const hoisted: string[] = [];
-  let patternCount = 0;
+  let hasRegexCache = false;
 
-  const nextVar = () => {
-    patternCount++;
-    return `_p${patternCount}`;
+  const ensureRegexCache = () => {
+    if (!hasRegexCache) {
+      hasRegexCache = true;
+      hoisted.push(
+        'const _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (!re) { re = new RegExp(p); _regexCache.set(p, re); } return re; }',
+      );
+    }
   };
 
   while (i < code.length) {
@@ -96,7 +100,7 @@ export function transformSource(code: string): string {
     }
     const inner = code.slice(argStart, j - 1); // between the outer parens
     const [ruleSrc, exprSrc] = splitTopLevelComma(inner);
-    out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), hoisted, nextVar);
+    out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
     i = j;
   }
 
@@ -128,7 +132,7 @@ export function escapePattern(pattern: string): string {
     .replaceAll('\u2029', '\\u2029');
 }
 
-function inlineCheck(ruleSrc: string, expr: string, hoisted?: string[], nextVar?: () => string): string {
+function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => void): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`; // leave untouched if unrecognized
   const kind = m[1]!;
@@ -151,10 +155,9 @@ function inlineCheck(ruleSrc: string, expr: string, hoisted?: string[], nextVar?
         ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
 
       if (!isQuoted || (first === '`' && raw.includes('${'))) {
-        if (hoisted && nextVar) {
-          const varName = nextVar();
-          hoisted.push(`let ${varName};`);
-          return `(typeof ${expr} === "string" && (${varName} ??= new RegExp(${raw})).test(${expr}))`;
+        if (ensureRegexCache) {
+          ensureRegexCache();
+          return `(typeof ${expr} === "string" && _getRegExp(${raw}).test(${expr}))`;
         }
         return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
       }

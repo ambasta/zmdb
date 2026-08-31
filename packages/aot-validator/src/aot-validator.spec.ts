@@ -59,22 +59,20 @@ describe('transformer inlining (golden fixtures)', () => {
     expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
   });
 
-  it('inlines Pattern containing template literal substitution using hoisted new RegExp()', () => {
+  it('inlines Pattern containing template literal substitution using hoisted pattern-keyed regex cache', () => {
     const src = 'const ok = validate(tags.Pattern(`prefix_${id}_suffix`), input.val);';
     const out = transformSource(src);
-    expect(norm(out)).toContain('let _p1;');
-    expect(norm(out)).toContain(
-      'typeof input.val === "string" && (_p1 ??= new RegExp(`prefix_${id}_suffix`)).test(input.val)',
-    );
+    expect(norm(out)).toContain('const _regexCache = new Map();');
+    expect(norm(out)).toContain('function _getRegExp(p)');
+    expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(`prefix_${id}_suffix`).test(input.val)');
   });
 
-  it('inlines Pattern dynamic variable expression using hoisted new RegExp()', () => {
+  it('inlines Pattern dynamic variable expression using hoisted pattern-keyed regex cache', () => {
     const src = 'const ok = validate(tags.Pattern(myCustomPattern), input.val);';
     const out = transformSource(src);
-    expect(norm(out)).toContain('let _p1;');
-    expect(norm(out)).toContain(
-      'typeof input.val === "string" && (_p1 ??= new RegExp(myCustomPattern)).test(input.val)',
-    );
+    expect(norm(out)).toContain('const _regexCache = new Map();');
+    expect(norm(out)).toContain('function _getRegExp(p)');
+    expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(myCustomPattern).test(input.val)');
   });
 
   it('inlines Pattern backtick template literal when it contains no substitutions', () => {
@@ -163,5 +161,36 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const compiledRes = Boolean(compiledTplFn({ val }));
       expect(compiledRes).toBe(runtimeRes);
     }
+  });
+
+  it('Pattern evaluation parity when dynamic pattern substitutions change across iterations in a loop', () => {
+    const src = `
+      const results = [];
+      for (const prefix of ['a', 'b', 'a']) {
+        const ok = validate(tags.Pattern(\`^\${prefix}\\\\d+$\`), input.val);
+        results.push(ok);
+      }
+      return results;
+    `;
+    const compiledSrc = transformSource(src);
+    const compiledFn = new Function('input', compiledSrc);
+
+    expect(compiledFn({ val: 'a123' })).toEqual([true, false, true]);
+    expect(compiledFn({ val: 'b123' })).toEqual([false, true, false]);
+  });
+
+  it('Pattern evaluation parity when dynamic pattern variable is reassigned', () => {
+    const src = `
+      let pat = '^[a-z]+$';
+      const res1 = validate(tags.Pattern(pat), input.val);
+      pat = '^[0-9]+$';
+      const res2 = validate(tags.Pattern(pat), input.val);
+      return [res1, res2];
+    `;
+    const compiledSrc = transformSource(src);
+    const compiledFn = new Function('input', compiledSrc);
+
+    expect(compiledFn({ val: 'abc' })).toEqual([true, false]);
+    expect(compiledFn({ val: '123' })).toEqual([false, true]);
   });
 });
