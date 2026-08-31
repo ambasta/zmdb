@@ -37,6 +37,13 @@ jobs:
         with:
           node-version: '26'
           cache: 'yarn'
+
+      # The build imports @zmdb/schema-core and @zmdb/aot-validator to derive
+      # site/openapi.json from real schema definitions, so it needs the
+      # workspace symlinks. Without this the build dies on ERR_MODULE_NOT_FOUND.
+      - name: Install
+        run: yarn install --immutable
+
       - name: Build docs site (docs at root, benchmarks at /benchmarks/)
         run: node docs-site/build.mjs
       - uses: actions/configure-pages@v5
