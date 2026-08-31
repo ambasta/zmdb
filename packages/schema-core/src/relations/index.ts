@@ -5,8 +5,12 @@ import type { ColumnMeta, CoreSchema, Entity, ExtractColumns } from '../index.ts
 
 export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
-export interface RelationMeta<TargetEntity = unknown, _Key extends string = string> {
-  readonly cardinality: Cardinality;
+export interface RelationMeta<
+  TargetEntity = unknown,
+  _Key extends string = string,
+  C extends Cardinality = Cardinality,
+> {
+  readonly cardinality: C;
   readonly target: string;
   readonly fk?: string;
   readonly mappedBy?: string;
@@ -33,8 +37,8 @@ export function manyToOne<
     | { columns: Record<string, ColumnMeta> }
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
->(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
-export function manyToOne(target: { table: string } | string, fk: string): RelationMeta {
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
+export function manyToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'many-to-one'> {
   return Object.freeze({ cardinality: 'many-to-one', target: getTableName(target), fk, owning: true });
 }
 
@@ -44,8 +48,8 @@ export function oneToMany<
     | { columns: Record<string, ColumnMeta> }
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
->(target: TargetSchema | string, mappedBy: MappedBy): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy>;
-export function oneToMany(target: { table: string } | string, mappedBy: string): RelationMeta {
+>(target: TargetSchema | string, mappedBy: MappedBy): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy, 'one-to-many'>;
+export function oneToMany(target: { table: string } | string, mappedBy: string): RelationMeta<unknown, string, 'one-to-many'> {
   return Object.freeze({ cardinality: 'one-to-many', target: getTableName(target), mappedBy, owning: false });
 }
 
@@ -55,8 +59,8 @@ export function oneToOne<
     | { columns: Record<string, ColumnMeta> }
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
->(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK>;
-export function oneToOne(target: { table: string } | string, fk: string): RelationMeta {
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'one-to-one'>;
+export function oneToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'one-to-one'> {
   return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
 }
 
@@ -66,8 +70,8 @@ export function manyToMany<
     | { columns: Record<string, ColumnMeta> }
     | Record<string, ColumnMeta> = CoreSchema<string, Record<string, ColumnMeta>>,
   Through extends string = string,
->(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through>;
-export function manyToMany(target: { table: string } | string, through: string): RelationMeta {
+>(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
+export function manyToMany(target: { table: string } | string, through: string): RelationMeta<unknown, string, 'many-to-many'> {
   return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
 }
 
@@ -132,13 +136,17 @@ export type PopulatedEntity<
   K extends keyof Relations,
 > = Base & {
   [P in K]: Relations[P] extends RelationDef<infer E>
-    ? Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
-      ? E[]
-      : E
-    : Relations[P] extends RelationMeta<infer E>
-      ? Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
+    ? [unknown] extends [E]
+      ? never
+      : Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
         ? E[]
         : E
+    : Relations[P] extends RelationMeta<infer E>
+      ? [unknown] extends [E]
+        ? never
+        : Relations[P]['cardinality'] extends 'one-to-many' | 'many-to-many'
+          ? E[]
+          : E
       : never;
 };
 
