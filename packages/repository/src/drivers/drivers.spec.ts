@@ -35,14 +35,82 @@ describe('sqliteDriver (#211)', () => {
     expect(ok).toBe(true);
     expect(await users.findById(created.id)).toBeUndefined();
   });
+
+  it('reuses prepared statement references and runs regex at most once per unique query string', async () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)');
+    const prepareSpy = vi.spyOn(db, 'prepare');
+    const testSpy = vi.spyOn(RegExp.prototype, 'test');
+
+    const d = sqliteDriver(db);
+    const query = { text: 'SELECT * FROM items WHERE id = ?', parameters: [1] };
+
+    testSpy.mockClear();
+
+    // First execution compiles statement & tests regex
+    await d.execute(query);
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+    const testCountAfterFirst = testSpy.mock.calls.length;
+
+    // Subsequent executions reuse prepared statement and skip regex checks
+    await d.execute({ text: 'SELECT * FROM items WHERE id = ?', parameters: [2] });
+    await d.execute({ text: 'SELECT * FROM items WHERE id = ?', parameters: [3] });
+
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+    expect(testSpy.mock.calls.length).toBe(testCountAfterFirst);
+
+    testSpy.mockRestore();
+  });
+
+  it('evicts oldest statement from cache when maxCacheSize is exceeded (LRU)', async () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY)');
+    const prepareSpy = vi.spyOn(db, 'prepare');
+
+    const d = sqliteDriver(db, { maxCacheSize: 2 });
+
+    await d.execute({ text: 'SELECT 1', parameters: [] }); // cached
+    await d.execute({ text: 'SELECT 2', parameters: [] }); // cached
+    expect(prepareSpy).toHaveBeenCalledTimes(2);
+
+    // Re-access SELECT 1 so SELECT 2 becomes oldest
+    await d.execute({ text: 'SELECT 1', parameters: [] });
+    expect(prepareSpy).toHaveBeenCalledTimes(2);
+
+    // Execute SELECT 3 -> evicts SELECT 2
+    await d.execute({ text: 'SELECT 3', parameters: [] });
+    expect(prepareSpy).toHaveBeenCalledTimes(3);
+
+    // SELECT 1 should still be cached
+    await d.execute({ text: 'SELECT 1', parameters: [] });
+    expect(prepareSpy).toHaveBeenCalledTimes(3);
+
+    // SELECT 2 was evicted -> triggers prepare again
+    await d.execute({ text: 'SELECT 2', parameters: [] });
+    expect(prepareSpy).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe('pgDriver (#211)', () => {
-  it('calls query(text, params) and returns rows', async () => {
-    const query = vi.fn(async () => ({ rows: [{ id: 1 }] }));
+  it('calls query(text, params) and returns rows by default (prepared: false)', async () => {
+    const query = vi.fn(async (_text: string, _params?: readonly unknown[]) => ({ rows: [{ id: 1 }] }));
     const d = pgDriver({ query } as unknown as PgQueryable);
-    const out = await d.execute({ text: 'SELECT 1', parameters: [] });
-    expect(query).toHaveBeenCalledWith('SELECT 1', []);
+    const out = await d.execute({ text: 'SELECT 1', parameters: [10] });
+
+    expect(query).toHaveBeenCalledWith('SELECT 1', [10]);
+    expect(out).toEqual([{ id: 1 }]);
+  });
+
+  it('runs as prepared statement when prepared: true is passed', async () => {
+    const query = vi.fn(async () => ({ rows: [{ id: 1 }] }));
+    const d = pgDriver({ query } as unknown as PgQueryable, { prepared: true });
+    const out = await d.execute({ text: 'SELECT 1', parameters: [10] });
+
+    expect(query).toHaveBeenCalledWith({
+      name: expect.any(String),
+      text: 'SELECT 1',
+      values: [10],
+    });
     expect(out).toEqual([{ id: 1 }]);
   });
 
@@ -62,5 +130,37 @@ describe('pgDriver (#211)', () => {
     const [c0, c1] = configs;
     expect(typeof c0?.name).toBe('string');
     expect(c0?.name).toBe(c1?.name); // same SQL → same statement name
+  });
+
+  it('evicts oldest statement name and issues DEALLOCATE on server when maxCacheSize is exceeded (LRU)', async () => {
+    const calls: unknown[] = [];
+    const query = vi.fn(async (arg: unknown) => {
+      calls.push(arg);
+      return { rows: [] };
+    });
+    const d = pgDriver({ query } as unknown as PgQueryable, { prepared: true, maxCacheSize: 2 });
+
+    await d.execute({ text: 'SELECT 1', parameters: [] }); // name 1
+    await d.execute({ text: 'SELECT 2', parameters: [] }); // name 2
+    const name1_orig = (calls[0] as { name?: string }).name;
+    const name2_orig = (calls[1] as { name?: string }).name;
+
+    // Access SELECT 1 to refresh LRU order
+    await d.execute({ text: 'SELECT 1', parameters: [] });
+
+    // Execute SELECT 3 -> evicts SELECT 2 and issues DEALLOCATE <name2_orig>
+    await d.execute({ text: 'SELECT 3', parameters: [] });
+
+    expect(calls).toContain(`DEALLOCATE ${name2_orig}`);
+
+    // Access SELECT 1 -> should keep name1_orig
+    await d.execute({ text: 'SELECT 1', parameters: [] });
+    const name1_recheck = (calls[calls.length - 1] as { name?: string }).name;
+    expect(name1_recheck).toBe(name1_orig);
+
+    // Access SELECT 2 -> was evicted, so gets a new name
+    await d.execute({ text: 'SELECT 2', parameters: [] });
+    const name2_new = (calls[calls.length - 1] as { name?: string }).name;
+    expect(name2_new).not.toBe(name2_orig);
   });
 });
