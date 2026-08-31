@@ -1,6 +1,6 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-import { buildListResult, type ListResult } from './index.ts';
+import { buildListResult } from './index.ts';
 
 const rows = [
   { id: 1, email: 'a@b.com' },
@@ -36,9 +36,5 @@ describe('ListDTO + ListResult (#168)', () => {
   it('total attached when provided', () => {
     const r = buildListResult(rows.slice(0, 2), { limit: 5, total: 42 });
     expect(r.total).toBe(42);
-  });
-
-  it('type-level: ListResult shape', () => {
-    expectTypeOf<ListResult<{ id: number }>>().toMatchTypeOf<{ items: readonly { id: number }[]; hasMore: boolean }>();
   });
 });

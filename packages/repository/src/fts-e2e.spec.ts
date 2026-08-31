@@ -1,5 +1,5 @@
 import type { CoreSchema } from '@zmdb/schema-core';
-import pg from 'pg';
+import { Pool } from 'pg';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
@@ -10,12 +10,12 @@ import { BaseRepository, type Driver } from './index.ts';
 
 const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
 
-let pool: pg.Pool | undefined;
+let pool: Pool | undefined;
 let reachable = false;
 
 beforeAll(async () => {
   try {
-    pool = new pg.Pool({ connectionString: CONN, max: 2 });
+    pool = new Pool({ connectionString: CONN, max: 2 });
     await pool.query('SELECT 1');
     await pool.query('DROP TABLE IF EXISTS fts_docs');
     await pool.query('CREATE TABLE fts_docs (id INT PRIMARY KEY, company_name TEXT NOT NULL)');
@@ -47,7 +47,7 @@ class DocRepository extends BaseRepository<typeof DocSchema> {
   static override readonly schema = DocSchema;
 }
 
-function pgDriver(p: pg.Pool): Driver {
+function pgDriver(p: Pool): Driver {
   return { execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows };
 }
 

@@ -1,16 +1,8 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-import { aliasRow, type JoinRow } from './index.ts';
+import { aliasRow } from './index.ts';
 
-interface Emp {
-  id: number;
-  recipient_id: number;
-}
-interface Recipient {
-  r_id: number;
-  r_name: string;
-}
-
+// `JoinRow`'s left/inner typing is asserted in `relations.type-test.ts`.
 describe('typed join result rows (#193)', () => {
   it('aliasRow renames mapped columns, keeps others, non-mutating', () => {
     const row = { id: 1, recipient_id: 2, r_id: 2, r_name: 'x' };
@@ -22,10 +14,5 @@ describe('typed join result rows (#193)', () => {
   it('aliasRow with empty map returns an equal object', () => {
     const row = { id: 1 };
     expect(aliasRow(row, {})).toEqual({ id: 1 });
-  });
-
-  it('type-level: JoinRow left ⇒ joined partial; inner ⇒ joined required', () => {
-    expectTypeOf<JoinRow<Emp, Recipient, 'left'>['r_name']>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<JoinRow<Emp, Recipient, 'inner'>['r_name']>().toEqualTypeOf<string>();
   });
 });

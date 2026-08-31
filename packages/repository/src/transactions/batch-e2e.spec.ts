@@ -2,23 +2,20 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { sqliteDriver } from '../drivers/sqlite.ts';
 import { createTransactionalDb, batch, type TxConnection } from './index.ts';
 
 // #39: explicit write-batching helper + E2E (real SQLite atomicity).
 
-// A TxConnection backed by node:sqlite.
+// A TxConnection backed by node:sqlite: the shipped driver plus `raw` for the
+// transaction control statements (BEGIN/COMMIT/ROLLBACK).
 function sqliteTxConn(db: DatabaseSync): TxConnection {
+  const driver = sqliteDriver(db);
   return {
     async raw(sql: string) {
       db.exec(sql);
     },
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as unknown[];
-      if (/^\s*SELECT/i.test(q.text)) return stmt.all(...params) as Record<string, unknown>[];
-      stmt.run(...params);
-      return [];
-    },
+    execute: q => driver.execute(q),
   };
 }
 

@@ -1,5 +1,5 @@
 import type { CoreSchema } from '@zmdb/schema-core';
-import pg from 'pg';
+import { Pool } from 'pg';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
@@ -7,12 +7,12 @@ import { BaseRepository, type Driver } from './index.ts';
 // #92: aggregation repository integration + E2E on REAL PostgreSQL.
 
 const CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';
-let pool: pg.Pool | undefined;
+let pool: Pool | undefined;
 let reachable = false;
 
 beforeAll(async () => {
   try {
-    pool = new pg.Pool({ connectionString: CONN, max: 2 });
+    pool = new Pool({ connectionString: CONN, max: 2 });
     await pool.query('SELECT 1');
     await pool.query('DROP TABLE IF EXISTS agg_sales');
     await pool.query('CREATE TABLE agg_sales (id INT PRIMARY KEY, region TEXT NOT NULL, amount INT NOT NULL)');
@@ -36,7 +36,7 @@ const SalesSchema = {
 class SalesRepository extends BaseRepository<typeof SalesSchema> {
   static override readonly schema = SalesSchema;
 }
-const driver = (p: pg.Pool): Driver => ({
+const driver = (p: Pool): Driver => ({
   execute: async q => (await p.query(q.text, q.parameters as unknown[])).rows,
 });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { tags } from '../index.ts';
 import { coerce, validateObject, type Brand } from './index.ts';
@@ -12,15 +12,15 @@ describe('coercion', () => {
   });
 });
 
+// Nominality is asserted in `brands.type-test.ts`; what a *runtime* test can show
+// is the other half of the claim: a brand has no runtime footprint at all.
 describe('branded types (compile-time nominal)', () => {
-  it('a branded value is assignable to its base but not cross-brand', () => {
+  it('a branded value is its base value at runtime — zero footprint', () => {
     type UserId = Brand<number, 'UserId'>;
-    type OrderId = Brand<number, 'OrderId'>;
     const uid = 1 as UserId;
-    const asNumber: number = uid; // brand erases to base at runtime
+    const asNumber: number = uid;
     expect(asNumber).toBe(1);
-    // Cross-brand assignment must NOT typecheck.
-    expectTypeOf<UserId>().not.toEqualTypeOf<OrderId>();
+    expect(Object.keys(Object(uid))).toEqual([]); // no brand property exists
   });
 });
 

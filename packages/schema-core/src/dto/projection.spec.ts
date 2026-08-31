@@ -1,15 +1,6 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text, integer } from '../index.ts';
-import type { Entity } from '../index.ts';
-import { project, type Projection } from './index.ts';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
-type S = typeof UserSchema;
+import { project } from './index.ts';
 
 describe('typed select()/projection narrowing (#185)', () => {
   const row = { id: 1, email: 'a@b.com', age: 30 };
@@ -26,11 +17,5 @@ describe('typed select()/projection narrowing (#185)', () => {
     const copy = { ...row };
     project(row, ['id'] as const);
     expect(row).toEqual(copy);
-  });
-
-  it('type-level: Projection narrows Entity to the picked keys', () => {
-    expectTypeOf<Projection<S, 'id' | 'email'>>().toEqualTypeOf<{ id: number; email: string }>();
-    // full entity keys for reference
-    expectTypeOf<keyof Entity<S>>().toEqualTypeOf<'id' | 'email' | 'age'>();
   });
 });

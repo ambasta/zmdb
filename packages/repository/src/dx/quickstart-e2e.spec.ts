@@ -1,9 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
-import type { CreateDTO, Entity } from '@zmdb/schema-core';
 import { oneToMany } from '@zmdb/schema-core/relations';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { defineRepository } from '../index.ts';
@@ -26,6 +25,7 @@ function db() {
   return d;
 }
 
+// The derived types are asserted in `quickstart.type-test.ts`.
 describe('DX quickstart via defineRepository (#222)', () => {
   it('wires a typed repo with no subclass and round-trips CRUD + list + populate', async () => {
     const d = db();
@@ -60,11 +60,5 @@ describe('DX quickstart via defineRepository (#222)', () => {
     const updated = await users.update(u.id, { age: 31 });
     expect(updated?.age).toBe(31);
     expect(await users.delete(u.id)).toBe(true);
-  });
-
-  it('type-level: defineRepository gives a typed create/findById', () => {
-    const users = defineRepository(UserSchema, sqliteDriver(db()), { dialect: 'sqlite' });
-    expectTypeOf(users.create).parameter(0).toEqualTypeOf<CreateDTO<typeof UserSchema>>();
-    expectTypeOf(users.findById(1)).resolves.toEqualTypeOf<Entity<typeof UserSchema> | undefined>();
   });
 });

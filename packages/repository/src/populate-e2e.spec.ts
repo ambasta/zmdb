@@ -3,23 +3,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { defineSchema, serial, text, integer, primaryKey, notNull } from '@zmdb/schema-core';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { BaseRepository, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.ts';
+import { BaseRepository } from './index.ts';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
-
-function sqliteDriver(db: DatabaseSync): Driver {
-  return {
-    async execute(q) {
-      const stmt = db.prepare(q.text);
-      const params = q.parameters as unknown[];
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
-        return stmt.all(...params) as Record<string, unknown>[];
-      }
-      stmt.run(...params);
-      return [];
-    },
-  };
-}
 
 const UserSchema = defineSchema('users', {
   id: primaryKey(serial()),
