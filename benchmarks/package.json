@@ -8,10 +8,8 @@
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:*",
-    "@zmdb/query-compiler": "workspace:*"
-  },
-  "devDependencies": {
-    "kysely": "^0.29.0"
+    "@zmdb/query-compiler": "workspace:*",
+    "kysely": "^0.29.5"
   },
   "engines": {
     "node": ">=26"
