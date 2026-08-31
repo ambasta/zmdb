@@ -57,6 +57,7 @@ describe('typed create/update (#206)', () => {
     const query = execute.mock.calls[0]?.[0] as { text: string; parameters: unknown[] } | undefined;
     expect(query?.text).toContain('UPDATE "users" SET "age" = $1 WHERE "id" = $2');
     expect(query?.parameters).toEqual([32, 1]);
+  });
 
   describe('json column runtime validation', () => {
     interface Config {
