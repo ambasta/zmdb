@@ -5,6 +5,7 @@ export { UnsupportedFeatureError } from './errors.ts';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
+import { frozenQuery, tailClause, whereClause } from './clauses.ts';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
@@ -31,34 +32,6 @@ export interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
 }
-
-interface DialectStrategy {
-  quoteTable(spec: string): string;
-  quoteCol(col: string): string;
-  quoteIdent(ident: string): string;
-  placeholder(index: number): string; // 1-based
-}
-
-const DIALECTS: Record<Dialect, DialectStrategy> = {
-  postgres: {
-    quoteTable: s => quoteTable('postgres', s),
-    quoteCol: c => quoteColumn('postgres', c),
-    quoteIdent: i => quoteIdentifier('postgres', i),
-    placeholder: n => formatPlaceholder('postgres', n),
-  },
-  mysql: {
-    quoteTable: s => quoteTable('mysql', s),
-    quoteCol: c => quoteColumn('mysql', c),
-    quoteIdent: i => quoteIdentifier('mysql', i),
-    placeholder: n => formatPlaceholder('mysql', n),
-  },
-  sqlite: {
-    quoteTable: s => quoteTable('sqlite', s),
-    quoteCol: c => quoteColumn('sqlite', c),
-    quoteIdent: i => quoteIdentifier('sqlite', i),
-    placeholder: n => formatPlaceholder('sqlite', n),
-  },
-};
 
 interface WhereClause {
   readonly col: string;
@@ -95,57 +68,13 @@ export interface SelectBuilder<T = unknown> {
   readonly _type?: T;
 }
 
-function opSql(op: Operator): string {
-  return op === 'like' ? 'LIKE' : op === 'in' ? 'IN' : op.toUpperCase() === op ? op : op;
-}
-
-function isSubqueryTarget(val: unknown): val is { compile(): CompiledQuery } {
-  return (
-    val !== null &&
-    typeof val === 'object' &&
-    'compile' in val &&
-    typeof (val as { compile?: unknown }).compile === 'function'
-  );
-}
-
-function compileWhereCondition(w: WhereClause, d: DialectStrategy, params: unknown[], i: number): string {
-  const opUpper = String(w.op).toUpperCase();
-  if (isSubqueryTarget(w.value)) {
-    const subCompiled = w.value.compile();
-    let subText = subCompiled.text;
-    const offset = params.length;
-    if (offset > 0 && /\$\d+/.test(subText)) {
-      subText = subText.replace(/\$(\d+)\b/g, (_, num) => `$${parseInt(num, 10) + offset}`);
-    }
-    params.push(...subCompiled.parameters);
-
-    let cond: string;
-    if (opUpper === 'EXISTS') {
-      cond = `EXISTS (${subText})`;
-    } else if (opUpper === 'NOT EXISTS') {
-      cond = `NOT EXISTS (${subText})`;
-    } else {
-      cond = `${d.quoteCol(w.col)} ${opSql(w.op)} (${subText})`;
-    }
-    return i === 0 ? cond : `${w.connector} ${cond}`;
-  } else {
-    params.push(w.value);
-    const cond = `${d.quoteCol(w.col)} ${opSql(w.op)} ${d.placeholder(params.length)}`;
-    return i === 0 ? cond : `${w.connector} ${cond}`;
-  }
-}
-
-function makeSelect<T = unknown>(
-  d: DialectStrategy,
-  state: SelectState,
-  dialect: Dialect = 'postgres',
-): SelectBuilder<T> {
-  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, dialect);
+function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<T> {
+  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch });
   const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
-    dialect,
+    dialect: d,
     select: columns => (columns === undefined ? next({}) : next({ columns })),
     where: (col, op, value) => addWhere('AND', col, op, value),
     andWhere: (col, op, value) => addWhere('AND', col, op, value),
@@ -161,22 +90,13 @@ function makeSelect<T = unknown>(
     offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
-      const cols = state.columns && state.columns.length > 0 ? state.columns.map(c => d.quoteCol(c)).join(', ') : '*';
-      let text = `SELECT ${cols} FROM ${d.quoteTable(state.table)}`;
-
-      if (state.wheres.length > 0) {
-        const parts = state.wheres.map((w, i) => compileWhereCondition(w, d, params, i));
-        text += ` WHERE ${parts.join(' ')}`;
-      }
-
-      if (state.orderBys.length > 0) {
-        const ob = state.orderBys.map(o => `${d.quoteCol(o.col)} ${o.dir.toUpperCase()}`).join(', ');
-        text += ` ORDER BY ${ob}`;
-      }
-      if (state.limitN !== undefined) text += ` LIMIT ${state.limitN}`;
-      if (state.offsetN !== undefined) text += ` OFFSET ${state.offsetN}`;
-
-      return Object.freeze({ text, parameters: Object.freeze(params) });
+      const cols =
+        state.columns && state.columns.length > 0 ? state.columns.map(c => quoteColumn(d, c)).join(', ') : '*';
+      const text =
+        `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
+        whereClause(d, state.wheres, params) +
+        tailClause(d, state);
+      return frozenQuery(text, params);
     },
   };
 }
@@ -213,9 +133,9 @@ export interface QueryCompiler {
   deleteFrom(table: string): DeleteBuilder;
 }
 
-function returningClause(d: DialectStrategy, cols?: readonly string[]): string {
+function returningClause(d: Dialect, cols?: readonly string[]): string {
   if (!cols || cols.length === 0) return '';
-  return ` RETURNING ${cols.map(c => (c === '*' ? '*' : d.quoteCol(c))).join(', ')}`;
+  return ` RETURNING ${cols.map(c => (c === '*' ? '*' : quoteColumn(d, c))).join(', ')}`;
 }
 
 interface ConflictState {
@@ -230,18 +150,35 @@ function normalizeTarget(target?: string | readonly string[]): readonly string[]
   return target;
 }
 
+/** ` (a, b)` for an explicit conflict target; '' when the server infers it. */
+function conflictTarget(d: Dialect, target?: readonly string[]): string {
+  if (!target || target.length === 0) return '';
+  return ` (${target.map(t => quoteIdentifier(d, t)).join(', ')})`;
+}
+
+/**
+ * `col = <the value this INSERT tried to write>` for each column. MySQL spells
+ * that VALUES(col) where postgres and sqlite say EXCLUDED.col. VALUES() is
+ * deprecated in MySQL 8.0.20+ in favour of a row alias (`AS new`), but keeping
+ * it means servers older than that still work.
+ */
+function upsertSetSql(d: Dialect, cols: readonly string[]): string {
+  const value = (c: string) =>
+    d === 'mysql' ? `VALUES(${quoteIdentifier(d, c)})` : `EXCLUDED.${quoteIdentifier(d, c)}`;
+  return cols.map(c => `${quoteIdentifier(d, c)} = ${value(c)}`).join(', ');
+}
+
 function makeInsert(
-  d: DialectStrategy,
-  dialect: Dialect,
+  d: Dialect,
   table: string,
   row?: Record<string, unknown>,
   ret?: readonly string[],
   conflict?: ConflictState,
 ): InsertBuilder {
-  const setConflict = (c: ConflictState) => makeInsert(d, dialect, table, row, ret, c);
+  const setConflict = (c: ConflictState) => makeInsert(d, table, row, ret, c);
   return {
-    values: r => makeInsert(d, dialect, table, r, ret, conflict),
-    returning: cols => makeInsert(d, dialect, table, row, cols ?? [], conflict),
+    values: r => makeInsert(d, table, r, ret, conflict),
+    returning: cols => makeInsert(d, table, row, cols ?? [], conflict),
     onConflict: target => {
       const normTarget = normalizeTarget(target);
       return {
@@ -260,80 +197,53 @@ function makeInsert(
       if (!row) throw new Error('insertInto requires values()');
       const keys = Object.keys(row);
       const params = keys.map(k => row[k]);
-      const cols = keys.map(k => d.quoteIdent(k)).join(', ');
-      const placeholders = keys.map((_, i) => d.placeholder(i + 1)).join(', ');
+      const cols = keys.map(k => quoteIdentifier(d, k)).join(', ');
+      const placeholders = keys.map((_, i) => formatPlaceholder(d, i + 1)).join(', ');
+      const insert = `INSERT INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`;
       let text: string;
 
       if (!conflict) {
-        text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders})`;
+        text = insert;
       } else if (conflict.action === 'ignore') {
-        if (dialect === 'mysql') {
-          text = `INSERT IGNORE INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders})`;
-        } else {
-          if (conflict.target && conflict.target.length > 0) {
-            const targetSql = conflict.target.map(t => d.quoteIdent(t)).join(', ');
-            text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT (${targetSql}) DO NOTHING`;
-          } else {
-            text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
-          }
-        }
+        text =
+          d === 'mysql'
+            ? `INSERT IGNORE INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`
+            : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO NOTHING`;
       } else {
         let setSql: string;
 
-        if (conflict.updateFields) {
-          if (Array.isArray(conflict.updateFields)) {
-            const updateCols = conflict.updateFields;
-            if (dialect === 'mysql') {
-              // Note: VALUES(col) is used for MySQL < 8.0.20 compatibility. In MySQL 8.0.20+, VALUES() is deprecated in favor of table/row aliases (e.g. AS new).
-              setSql = updateCols.map(c => `${d.quoteIdent(c)} = VALUES(${d.quoteIdent(c)})`).join(', ');
-            } else {
-              setSql = updateCols.map(c => `${d.quoteIdent(c)} = EXCLUDED.${d.quoteIdent(c)}`).join(', ');
-            }
-          } else {
-            const setClauses: string[] = [];
-            for (const [k, val] of Object.entries(conflict.updateFields)) {
+        if (Array.isArray(conflict.updateFields)) {
+          setSql = upsertSetSql(d, conflict.updateFields);
+        } else if (conflict.updateFields) {
+          setSql = Object.entries(conflict.updateFields)
+            .map(([k, val]) => {
               params.push(val);
-              setClauses.push(`${d.quoteIdent(k)} = ${d.placeholder(params.length)}`);
-            }
-            setSql = setClauses.join(', ');
-          }
+              return `${quoteIdentifier(d, k)} = ${formatPlaceholder(d, params.length)}`;
+            })
+            .join(', ');
         } else {
           const targetSet = new Set(conflict.target ?? []);
-          let updateCols = keys.filter(k => !targetSet.has(k));
-          if (updateCols.length === 0) {
-            // Deliberate fallback: if every inserted column is a conflict target, updateCols would be empty,
-            // resulting in invalid SQL (e.g. empty DO UPDATE SET). Updating all keys acts as a valid no-op.
-            updateCols = keys;
-          }
-
-          if (dialect === 'mysql') {
-            // Note: VALUES(col) is used for MySQL < 8.0.20 compatibility. In MySQL 8.0.20+, VALUES() is deprecated in favor of table/row aliases (e.g. AS new).
-            setSql = updateCols.map(c => `${d.quoteIdent(c)} = VALUES(${d.quoteIdent(c)})`).join(', ');
-          } else {
-            setSql = updateCols.map(c => `${d.quoteIdent(c)} = EXCLUDED.${d.quoteIdent(c)}`).join(', ');
-          }
+          const nonTarget = keys.filter(k => !targetSet.has(k));
+          // If every inserted column is a conflict target, nonTarget is empty and
+          // the SET list would be empty SQL. Setting them all back to what the
+          // INSERT carried is a valid no-op.
+          setSql = upsertSetSql(d, nonTarget.length > 0 ? nonTarget : keys);
         }
 
-        if (dialect === 'mysql') {
-          text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${setSql}`;
-        } else {
-          if (conflict.target && conflict.target.length > 0) {
-            const targetSql = conflict.target.map(t => d.quoteIdent(t)).join(', ');
-            text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT (${targetSql}) DO UPDATE SET ${setSql}`;
-          } else {
-            text = `INSERT INTO ${d.quoteTable(table)} (${cols}) VALUES (${placeholders}) ON CONFLICT DO UPDATE SET ${setSql}`;
-          }
-        }
+        text =
+          d === 'mysql'
+            ? `${insert} ON DUPLICATE KEY UPDATE ${setSql}`
+            : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO UPDATE SET ${setSql}`;
       }
 
       text += returningClause(d, ret);
-      return Object.freeze({ text, parameters: Object.freeze(params) });
+      return frozenQuery(text, params);
     },
   };
 }
 
 function makeUpdate(
-  d: DialectStrategy,
+  d: Dialect,
   table: string,
   row?: Record<string, unknown>,
   wheres: readonly WhereClause[] = [],
@@ -350,22 +260,18 @@ function makeUpdate(
       const sets = Object.keys(row)
         .map(k => {
           params.push(row[k]);
-          return `${d.quoteIdent(k)} = ${d.placeholder(params.length)}`;
+          return `${quoteIdentifier(d, k)} = ${formatPlaceholder(d, params.length)}`;
         })
         .join(', ');
-      let text = `UPDATE ${d.quoteTable(table)} SET ${sets}`;
-      if (wheres.length > 0) {
-        const parts = wheres.map((w, i) => compileWhereCondition(w, d, params, i));
-        text += ` WHERE ${parts.join(' ')}`;
-      }
-      text += returningClause(d, ret);
-      return Object.freeze({ text, parameters: Object.freeze(params) });
+      const text =
+        `UPDATE ${quoteTable(d, table)} SET ${sets}` + whereClause(d, wheres, params) + returningClause(d, ret);
+      return frozenQuery(text, params);
     },
   };
 }
 
 function makeDelete(
-  d: DialectStrategy,
+  d: Dialect,
   table: string,
   wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
@@ -376,23 +282,17 @@ function makeDelete(
     returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];
-      let text = `DELETE FROM ${d.quoteTable(table)}`;
-      if (wheres.length > 0) {
-        const parts = wheres.map((w, i) => compileWhereCondition(w, d, params, i));
-        text += ` WHERE ${parts.join(' ')}`;
-      }
-      text += returningClause(d, ret);
-      return Object.freeze({ text, parameters: Object.freeze(params) });
+      const text = `DELETE FROM ${quoteTable(d, table)}` + whereClause(d, wheres, params) + returningClause(d, ret);
+      return frozenQuery(text, params);
     },
   };
 }
 
 export function createQueryCompiler(dialect: Dialect = 'postgres'): QueryCompiler {
-  const d = DIALECTS[dialect];
   return {
-    selectFrom: table => makeSelect(d, { table, wheres: [], orderBys: [] }, dialect),
-    insertInto: table => makeInsert(d, dialect, table),
-    updateTable: table => makeUpdate(d, table),
-    deleteFrom: table => makeDelete(d, table),
+    selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }),
+    insertInto: table => makeInsert(dialect, table),
+    updateTable: table => makeUpdate(dialect, table),
+    deleteFrom: table => makeDelete(dialect, table),
   };
 }

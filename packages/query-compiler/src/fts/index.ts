@@ -1,3 +1,4 @@
+import { frozenQuery, renderPredicate, tailClause } from '../clauses.ts';
 import { UnsupportedFeatureError } from '../errors.ts';
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
@@ -90,8 +91,7 @@ function make(d: Dialect, s: State): FtsSelect {
               params.push(escapeFts5Term(p.value as string));
               return `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
             }
-            params.push(p.value);
-            return `${quoteColumn(d, p.col)} ${p.op} ${formatPlaceholder(d, params.length)}`;
+            return renderPredicate(d, { col: p.col, op: p.op ?? '=', value: p.value }, params);
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }
@@ -99,23 +99,22 @@ function make(d: Dialect, s: State): FtsSelect {
         text = `SELECT * FROM ${quoteTable(d, s.table)}`;
         if (s.preds.length > 0) {
           const parts = s.preds.map(p => {
-            params.push(p.value);
-            if (p.kind === 'match') {
-              if (d === 'postgres') {
-                return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
-              }
-              // mysql
-              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
+            if (p.kind !== 'match') {
+              return renderPredicate(d, { col: p.col, op: p.op ?? '=', value: p.value }, params);
             }
-            return `${quoteColumn(d, p.col)} ${p.op} ${formatPlaceholder(d, params.length)}`;
+            params.push(p.value);
+            if (d === 'postgres') {
+              return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
+            }
+            // mysql
+            return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }
       }
 
-      if (s.limitN !== undefined) text += ` LIMIT ${s.limitN}`;
-      if (s.offsetN !== undefined) text += ` OFFSET ${s.offsetN}`;
-      return Object.freeze({ text, parameters: Object.freeze(params) });
+      text += tailClause(d, s);
+      return frozenQuery(text, params);
     },
   };
 }
