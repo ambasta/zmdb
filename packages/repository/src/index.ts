@@ -15,9 +15,12 @@ import {
   applyOrderBy,
   applyPagination,
   buildListResult,
+  decodeCursor,
+  applyKeysetFilter,
   type WhereDTO,
   type ListDTO,
   type ListResult,
+  type OrderBySpec,
 } from '@zmdb/schema-core/dto';
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
@@ -199,7 +202,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   /** Batch-load and attach the named relations onto the given parent rows. */
-  private async attachRelations(parents: Record<string, unknown>[], names: readonly string[]): Promise<void> {
+  private async attachRelations<T extends Record<string, unknown>>(
+    parents: readonly T[],
+    names: readonly string[],
+  ): Promise<void> {
     if (parents.length === 0) return;
     // boundary: same static-side limitation as `schema` above; `relations` is the
     // optional half of the subclass contract.
@@ -215,7 +221,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       const cardinality = def.cardinality ?? (def.meta as { cardinality?: Cardinality } | undefined)?.cardinality;
       if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? 'id';
-      const ids = parents.map(p => p[parentKey]);
+      const ids = parents.map(p => (p as Record<string, unknown>)[parentKey]);
       // One batched query for all parents' children (OR chain = IN).
       let cb = this.qb.selectFrom(childTable);
       ids.forEach((id, i) => {
@@ -226,12 +232,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       const byParent = new Map<unknown, Record<string, unknown>[]>();
       for (const c of children) {
         const list = byParent.get(c[childFk]) ?? [];
-        list.push(c as Record<string, unknown>);
+        list.push(c);
         byParent.set(c[childFk], list);
       }
       for (const p of parents) {
-        const list = byParent.get(p[parentKey]) ?? [];
-        p[name] = toMany ? list : (list[0] ?? null);
+        const list = byParent.get((p as Record<string, unknown>)[parentKey]) ?? [];
+        (p as Record<string, unknown>)[name] = toMany ? list : (list[0] ?? null);
       }
     }
   }
@@ -283,21 +289,60 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>>;
   async list(query?: ListDTO<S>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<S>>> {
     let b = this.qb.selectFrom(this.tableName);
-    if (query?.where) b = compileWhere(b, query.where);
-    if (query?.orderBy) b = applyOrderBy(b, query.orderBy);
-    // Fetch limit+1 so buildListResult can compute hasMore by trimming.
+    const pkColumn = this.pkColumn;
+
+    const userOrderBy = query?.orderBy;
+    const effectiveOrderBy: OrderBySpec = userOrderBy
+      ? userOrderBy.some(item => String(item.column) === pkColumn)
+        ? userOrderBy
+        : [...userOrderBy, { column: pkColumn, dir: 'asc' }]
+      : [{ column: pkColumn, dir: 'asc' }];
+
+    b = applyOrderBy(b, effectiveOrderBy);
+
     const page = query?.page;
-    const limit = page?.limit;
-    if (page) {
-      b = applyPagination(b, { limit: page.limit + 1, offset: 'offset' in page ? page.offset : undefined });
+    const limit = page && 'limit' in page ? page.limit : undefined;
+
+    if (page && 'after' in page && page.after !== undefined && page.after !== null) {
+      let cursorValues: Record<string, unknown>;
+      if (typeof page.after === 'string') {
+        cursorValues = decodeCursor(page.after);
+      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
+        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
+        cursorValues = page.after as Record<string, unknown>;
+      } else {
+        throw new Error('Invalid cursor parameter: expected string or object');
+      }
+
+      b = applyKeysetFilter(b, cursorValues, effectiveOrderBy, query?.where);
+
+      if (limit !== undefined) {
+        b = b.limit(limit + 1);
+      }
+    } else {
+      if (query?.where) {
+        b = compileWhere(b, query.where);
+      }
+      if (page) {
+        b = applyPagination(b, {
+          limit: limit !== undefined ? limit + 1 : page.limit,
+          offset: 'offset' in page ? page.offset : undefined,
+        });
+      }
     }
+
     const rows = await this.rows<EntityRow<S>>(b.compile());
-    const opts2 = limit !== undefined ? { limit } : {};
-    const res = buildListResult(rows, opts2);
+    const listOpts = {
+      ...(limit !== undefined ? { limit } : {}),
+      ...(query?.select ? { select: query.select } : {}),
+      orderBy: effectiveOrderBy,
+      pkColumn,
+    };
+    const res = buildListResult(rows, listOpts);
     if (opts?.populate?.length) {
-      await this.attachRelations(res.items as Record<string, unknown>[], opts.populate);
+      await this.attachRelations(res.items, opts.populate);
     }
-    return res as ListResult<Entity<S>>;
+    return res;
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder;
@@ -496,6 +541,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       case 'jsonEnum':
         return typeof value === 'string' && (col.flags.enum?.includes(value) ?? false);
       case 'json':
+        return typeof value === 'object';
       default:
         return true;
     }

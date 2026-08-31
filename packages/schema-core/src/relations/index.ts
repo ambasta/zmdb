@@ -1,31 +1,90 @@
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
+import type { ColumnsMap, CoreSchema, Entity, ExtractColumns } from '../index.ts';
+
 export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
-export interface RelationMeta {
-  readonly cardinality: Cardinality;
+export interface RelationMeta<
+  TargetEntity = unknown,
+  _Key extends string = string,
+  C extends Cardinality = Cardinality,
+> {
+  readonly cardinality: C;
   readonly target: string;
   readonly fk?: string;
   readonly mappedBy?: string;
   readonly through?: string;
   readonly owning: boolean;
+  /** Compile-time phantom property preserving target entity type */
+  readonly _targetEntity?: TargetEntity;
 }
 
-export function manyToOne(target: string, fk: string): RelationMeta {
-  return Object.freeze({ cardinality: 'many-to-one', target, fk, owning: true });
+type TargetEntityOf<Target> =
+  Target extends CoreSchema<string, ColumnsMap>
+    ? Entity<Target>
+    : Target extends { columns: ColumnsMap }
+      ? Entity<Target>
+      : Target;
+
+function getTableName(target: { table: string } | string): string {
+  return typeof target === 'string' ? target : target.table;
 }
 
-export function oneToMany(target: string, mappedBy: string): RelationMeta {
-  return Object.freeze({ cardinality: 'one-to-many', target, mappedBy, owning: false });
+export function manyToOne<
+  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
+    string,
+    ColumnsMap
+  >,
+  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
+export function manyToOne(
+  target: { table: string } | string,
+  fk: string,
+): RelationMeta<unknown, string, 'many-to-one'> {
+  return Object.freeze({ cardinality: 'many-to-one', target: getTableName(target), fk, owning: true });
 }
 
-export function oneToOne(target: string, fk: string): RelationMeta {
-  return Object.freeze({ cardinality: 'one-to-one', target, fk, owning: true });
+export function oneToMany<
+  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
+    string,
+    ColumnsMap
+  >,
+  MappedBy extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(
+  target: TargetSchema | string,
+  mappedBy: MappedBy,
+): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy, 'one-to-many'>;
+export function oneToMany(
+  target: { table: string } | string,
+  mappedBy: string,
+): RelationMeta<unknown, string, 'one-to-many'> {
+  return Object.freeze({ cardinality: 'one-to-many', target: getTableName(target), mappedBy, owning: false });
 }
 
-export function manyToMany(target: string, through: string): RelationMeta {
-  return Object.freeze({ cardinality: 'many-to-many', target, through, owning: true });
+export function oneToOne<
+  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
+    string,
+    ColumnsMap
+  >,
+  FK extends keyof ExtractColumns<TargetSchema> & string = keyof ExtractColumns<TargetSchema> & string,
+>(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'one-to-one'>;
+export function oneToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'one-to-one'> {
+  return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
+}
+
+export function manyToMany<
+  TargetSchema extends CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap = CoreSchema<
+    string,
+    ColumnsMap
+  >,
+  Through extends string = string,
+>(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
+export function manyToMany(
+  target: { table: string } | string,
+  through: string,
+): RelationMeta<unknown, string, 'many-to-many'> {
+  return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
 }
 
 export type PopulateDialect = 'postgres' | 'mysql' | 'sqlite';
@@ -69,26 +128,44 @@ export function compilePopulate(
   return { kind: 'batched', sql, parameters: [...parentIds] };
 }
 
-import type { CoreSchema, Entity } from '../index.ts';
-
 // #32 — compile-time relation type derivation.
 // A relations map describes each relation's target entity + cardinality.
-export interface RelationDef {
-  readonly meta?: RelationMeta;
-  readonly entity?: unknown;
-  readonly cardinality?: Cardinality;
+export interface RelationDef<TargetEntity = unknown> {
+  readonly meta?: RelationMeta<TargetEntity> | undefined;
+  readonly entity?: TargetEntity | CoreSchema<string> | undefined;
+  readonly cardinality?: Cardinality | undefined;
 }
-export type RelationsMap = Record<string, RelationDef>;
+export type RelationsMap = Record<string, RelationDef | RelationMeta>;
 
 type DerivedEntity<T> = T extends CoreSchema<string> ? Entity<T> : T;
 
-type RelationField<R> = R extends { cardinality: infer C; entity: infer E }
-  ? C extends 'one-to-many' | 'many-to-many'
-    ? DerivedEntity<E>[]
-    : DerivedEntity<E>
-  : R extends { entity: infer E }
-    ? DerivedEntity<E>
-    : unknown;
+type RelationEntityFromDef<D> =
+  D extends RelationMeta<infer E>
+    ? [unknown] extends [E]
+      ? D extends { entity: infer Ent }
+        ? DerivedEntity<NonNullable<Ent>>
+        : never
+      : DerivedEntity<E>
+    : D extends RelationDef<infer E>
+      ? [unknown] extends [E]
+        ? D extends { entity: infer Ent }
+          ? DerivedEntity<NonNullable<Ent>>
+          : never
+        : DerivedEntity<E>
+      : D extends { entity: infer Ent }
+        ? DerivedEntity<NonNullable<Ent>>
+        : D extends { meta: RelationMeta<infer E> }
+          ? DerivedEntity<E>
+          : never;
+
+type RelationCardinalityFromDef<D> =
+  D extends RelationMeta<unknown, string, infer MC>
+    ? MC
+    : D extends { cardinality: infer C }
+      ? C
+      : D extends { meta: { cardinality: infer MC } }
+        ? MC
+        : never;
 
 // PopulatedEntity augments Base with related fields ONLY for populated keys K.
 // `Relations` is constrained structurally so plain interfaces work as relation
@@ -98,7 +175,9 @@ export type PopulatedEntity<
   Relations extends Record<string, unknown> | { [K: string]: unknown },
   K extends keyof Relations = keyof Relations,
 > = Base & {
-  [P in K]: Relations[P] extends RelationDef | Record<string, unknown> ? RelationField<Relations[P]> : never;
+  [P in K]: RelationCardinalityFromDef<Relations[P]> extends 'one-to-many' | 'many-to-many'
+    ? RelationEntityFromDef<Relations[P]>[]
+    : RelationEntityFromDef<Relations[P]>;
 };
 
 export type Populated<

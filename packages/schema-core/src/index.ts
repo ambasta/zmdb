@@ -45,10 +45,8 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
-  readonly __payload?: unknown;
 }
 
-/** Erased view of a column map — the default `CoreSchema` argument. */
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
 /**
@@ -93,7 +91,7 @@ type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' |
               : unknown;
 
 // Apply nullability.
-type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
+export type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
 
 type ColumnsOf<S> = S extends { columns: infer C } ? C : never;
 
@@ -277,11 +275,51 @@ export function unique<T extends SqlType, F extends ColumnFlags, P>(
 ): Column<T, SetFlags<F, { unique: true }>, P> {
   return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
 }
-export function references<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
+export type ExtractColumns<T> = T extends { readonly columns: infer C }
+  ? C
+  : T extends { columns: infer C }
+    ? C
+    : T extends Record<string, ColumnMeta>
+      ? T
+      : Record<string, ColumnMeta>;
+
+export type ValidateFkType<LocalCol extends ColumnMeta, TargetCol extends ColumnMeta> = [
+  NonNullable<TsType<LocalCol>>,
+] extends [NonNullable<TsType<TargetCol>>]
+  ? [NonNullable<TsType<TargetCol>>] extends [NonNullable<TsType<LocalCol>>]
+    ? true
+    : false
+  : false;
+
+export function references<
+  C extends ColumnMeta,
+  Target extends { readonly columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta>,
+  K extends keyof ExtractColumns<Target> & string,
+>(
+  col: C,
+  targetSchema: Target,
+  targetColumn: K,
+): ValidateFkType<C, ExtractColumns<Target>[K]> extends true
+  ? C & { references: { readonly target: string } }
+  : { __error: 'Referenced column type does not match' };
+
+export function references<C extends ColumnMeta>(
+  col: C,
   target: string,
-): Column<T, F, P> & { readonly references: { readonly target: string } } {
-  return makeColumn({ ...col, references: { target } });
+  targetColumn?: string,
+): C & { references: { readonly target: string } };
+
+export function references(
+  col: ColumnMeta,
+  target: { table: string } | string,
+  targetColumn?: string,
+): ColumnMeta & { references: { readonly target: string } } {
+  const tableName = typeof target === 'string' ? target : target.table;
+  const targetStr = targetColumn ? `${tableName}.${targetColumn}` : tableName;
+  return makeColumn<Column & { references: { readonly target: string } }>({
+    ...col,
+    references: { target: targetStr },
+  });
 }
 export function defaultTo<T extends SqlType, F extends ColumnFlags, P>(
   col: Column<T, F, P>,
@@ -298,7 +336,7 @@ export function validate<T extends SqlType, F extends ColumnFlags, P>(
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
 // metadata, deeply freeze, and register. Throws SchemaError on no primary key.
-const SCHEMA_REGISTRY = new Map<string, CoreSchema<string>>();
+const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, ColumnsMap>>();
 
 // `C` is inferred from the argument, so the returned schema keeps the literal
 // column map instead of the erased `Record<string, ColumnMeta>`. Without it the
@@ -395,5 +433,16 @@ export type Expect<T extends true> = T;
 /** Negative form: `ExpectNot<Equal<X, Y>>` fails to compile if X = Y. */
 export type ExpectNot<T extends false> = T;
 
-// Relations type re-exports
-export type { PopulatedEntity, Populated, JoinRow, RelationDef, RelationsMap } from './relations/index.ts';
+// Relation DSL builders & derivation types re-export
+export {
+  manyToOne,
+  oneToMany,
+  oneToOne,
+  manyToMany,
+  type RelationMeta,
+  type RelationDef,
+  type RelationsMap,
+  type PopulatedEntity,
+  type Populated,
+  type JoinRow,
+} from './relations/index.ts';

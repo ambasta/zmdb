@@ -44,7 +44,12 @@ export default defineConfig({
   plugins: [stage3Decorators()],
   test: {
     // All package tests live alongside sources under packages/*/src.
-    include: ['packages/*/src/**/*.spec.ts', 'benchmarks/src/**/*.spec.ts'],
+    include: [
+      'packages/*/src/**/*.spec.ts',
+      'benchmarks/src/**/*.spec.ts',
+      'docs-site/**/*.spec.ts',
+      '.github/**/*.spec.ts',
+    ],
     // Type-level tests are run with `tsc`, not vitest.
     passWithNoTests: false,
   },
