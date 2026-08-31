@@ -4984,6 +4984,8 @@ Use \`toOpenApiComponents\` to generate a map of schemas for an entire API:
 import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
 
 const schemas = toOpenApiComponents([UserSchema, OrderSchema, ProductSchema]);
+
+// Returns: { schemas: { User: {...}, Order: {...}, Product: {...} } }
 \`\`\`
 
 \`\`\`json
