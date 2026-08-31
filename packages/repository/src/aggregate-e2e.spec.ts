@@ -42,25 +42,30 @@ const driver = (p: Pool): Driver => ({
 
 describe('aggregation repository integration (real Postgres)', () => {
   it('grouped count + sum returns typed computed columns', async () => {
-    if (!reachable) {
+    if (!reachable || !pool) {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new SalesRepository(driver(pool!), 'postgres');
+    const repo = new SalesRepository(driver(pool), 'postgres');
     const rows = await repo.aggregate<{ region: string; n: number; total: number }>(agg =>
       agg.select(['region']).count('id', 'n').sum('amount', 'total').groupBy('region').orderBy('region', 'asc'),
     );
     // pg returns count as bigint string + numeric-ish; compare loosely.
     const byRegion = Object.fromEntries(rows.map(r => [r.region, r]));
-    expect(Number(byRegion.north!.n)).toBe(2);
-    expect(Number(byRegion.north!.total)).toBe(30);
-    expect(Number(byRegion.south!.n)).toBe(3);
-    expect(Number(byRegion.south!.total)).toBe(25);
+    const north = byRegion['north'];
+    const south = byRegion['south'];
+    if (!north || !south) {
+      throw new Error('expected north and south region aggregations to be defined');
+    }
+    expect(Number(north.n)).toBe(2);
+    expect(Number(north.total)).toBe(30);
+    expect(Number(south.n)).toBe(3);
+    expect(Number(south.total)).toBe(25);
   });
 
   it('having filters grouped results', async () => {
-    if (!reachable) return;
-    const repo = new SalesRepository(driver(pool!), 'postgres');
+    if (!reachable || !pool) return;
+    const repo = new SalesRepository(driver(pool), 'postgres');
     const rows = await repo.aggregate<{ region: string }>(agg =>
       agg.select(['region']).count('id', 'n').groupBy('region').having('region', '=', 'north'),
     );
