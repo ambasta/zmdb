@@ -110,6 +110,49 @@ describe('migration runner E2E (real SQLite connection)', () => {
     expect(reverted).toBe(2);
   });
 
+  it('handles failure partway through a batch: records completed migrations, halts remaining, and resumes after fix', async () => {
+    const batchMigrations: Migration[] = [
+      { version: 1, name: 'create_users', up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)', down: 'DROP TABLE users' },
+      { version: 2, name: 'bad_sql', up: 'INVALID SQL STATEMENT', down: 'SELECT 1' },
+      { version: 3, name: 'add_posts', up: 'CREATE TABLE posts (id INTEGER PRIMARY KEY)', down: 'DROP TABLE posts' },
+    ];
+
+    await expect(up(conn, batchMigrations)).rejects.toThrow();
+
+    // v1 succeeded and is recorded; v2 failed and is not recorded; v3 was not executed
+    expect(await conn.appliedVersions()).toEqual([1]);
+    expect(tableInfo()).toEqual(['id']);
+
+    // Fix v2 and re-run up
+    const fixedMigrations: Migration[] = [
+      { version: 1, name: 'create_users', up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)', down: 'DROP TABLE users' },
+      {
+        version: 2,
+        name: 'add_email',
+        up: 'ALTER TABLE users ADD COLUMN email TEXT',
+        down: 'ALTER TABLE users DROP COLUMN email',
+      },
+      { version: 3, name: 'add_posts', up: 'CREATE TABLE posts (id INTEGER PRIMARY KEY)', down: 'DROP TABLE posts' },
+    ];
+
+    const resumedApplied = await up(conn, fixedMigrations);
+    expect(resumedApplied).toEqual([2, 3]);
+    expect(await conn.appliedVersions()).toEqual([1, 2, 3]);
+    expect(tableInfo()).toEqual(['id', 'email']);
+  });
+
+  it('handles failure during down rollback: does not revert recorded version if execution fails', async () => {
+    await up(conn, migrations);
+
+    const badDownMigrations: Migration[] = [
+      { version: 1, name: 'create_users', up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)', down: 'DROP TABLE users' },
+      { version: 2, name: 'add_email', up: 'ALTER TABLE users ADD COLUMN email TEXT', down: 'INVALID ROLLBACK SQL' },
+    ];
+
+    await expect(down(conn, badDownMigrations)).rejects.toThrow();
+    expect(await conn.appliedVersions()).toEqual([1, 2]);
+  });
+
   it('CLI dispatch: up → status → down', async () => {
     expect(await runCli('up', conn, migrations)).toBe('applied: 1, 2');
     expect(await runCli('status', conn, migrations)).toContain('[x] 1 create_users');
