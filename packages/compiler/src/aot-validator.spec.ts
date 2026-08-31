@@ -200,7 +200,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
 
     for (const { pattern, inputs } of testCases) {
       const rule = tags.Pattern(pattern);
-      const srcCode = `const ok = validate(tags.Pattern("${pattern}"), input.val); return ok;`;
+      const srcCode = `const ok = validate(tags.Pattern(${JSON.stringify(pattern)}), input.val); return ok;`;
       const compiledSrc = transformCode(srcCode);
       const compiledFn = new Function('input', compiledSrc);
 
