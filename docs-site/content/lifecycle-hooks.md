@@ -1,0 +1,184 @@
+Lifecycle hooks let you react to entity events — `beforeCreate`, `afterCreate`, `beforeUpdate`, `afterUpdate`, `beforeDelete`, `afterDelete`. `EventBus` is a small pub/sub that gives you the seam; **the repository does not emit on its own**, which is the design decision this page is really about.
+
+## What is built
+
+```ts
+import { EventBus, type LifecycleEvent, type Subscriber } from '@zmdb/repository/entity-modeling';
+```
+
+```ts
+export type LifecycleEvent =
+  'beforeCreate' | 'afterCreate' | 'beforeUpdate' | 'afterUpdate' | 'beforeDelete' | 'afterDelete';
+
+export interface Subscriber {
+  on: LifecycleEvent;
+  run: (ctx: unknown) => void | Promise<void>;
+}
+
+class EventBus {
+  subscribe(s: Subscriber): () => void; // returns an unsubscribe
+  emit(event: LifecycleEvent, ctx: unknown): Promise<void>;
+}
+```
+
+That is the whole surface. Note the sub-path import — `EventBus` is not re-exported from the `@zmdb/repository` root.
+
+```ts
+const bus = new EventBus();
+
+const unsub = bus.subscribe({
+  on: 'beforeCreate',
+  run: ctx => {
+    console.log('about to create', ctx);
+  },
+});
+
+unsub(); // no longer called
+```
+
+`emit` walks subscribers in **registration order** and `await`s each one in turn — not `Promise.all`, so one slow subscriber delays the rest and delays the write.
+
+## Nothing emits for you
+
+There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
+
+```ts
+import { BaseRepository } from '@zmdb/repository';
+import { EventBus } from '@zmdb/repository/entity-modeling';
+import type { CreateDTO, UpdateDTO, Entity } from '@zmdb/schema-core';
+
+const bus = new EventBus();
+
+class UserRepository extends BaseRepository<typeof UserSchema> {
+  static override readonly schema = UserSchema;
+
+  override async create(dto: CreateDTO<typeof UserSchema>): Promise<Entity<typeof UserSchema>> {
+    await bus.emit('beforeCreate', dto);
+    const created = await super.create(dto);
+    await bus.emit('afterCreate', created);
+    return created;
+  }
+
+  override async update(
+    id: unknown,
+    patch: UpdateDTO<typeof UserSchema>,
+  ): Promise<Entity<typeof UserSchema> | undefined> {
+    await bus.emit('beforeUpdate', { id, patch });
+    const updated = await super.update(id, patch);
+    await bus.emit('afterUpdate', updated);
+    return updated;
+  }
+
+  override async delete(id: unknown): Promise<boolean> {
+    await bus.emit('beforeDelete', { id });
+    const deleted = await super.delete(id);
+    await bus.emit('afterDelete', { id, deleted });
+    return deleted;
+  }
+}
+```
+
+Verbose, and deliberately so — [the project's position](./why-zmdb.html) is that a write you can read top to bottom beats one whose side effects live in a registry somewhere else. The methods you did not override emit nothing, which is visible in this file rather than being a surprise at runtime.
+
+Match the base signatures exactly — `update(id: unknown, patch)` returns `Entity<S> | undefined` (undefined when no row matched) and `delete(id: unknown)` returns a `boolean`. Swallowing either in an override is how a hook starts lying about what happened.
+
+And note what is _not_ covered: `create`, `update` and `delete` are the only write methods on `BaseRepository`, so anything that writes another way — the [query compiler](./insert.html) directly, a raw `driver.execute`, a migration, another service — emits nothing. A hook is a convenience, never an invariant. Invariants belong in the database.
+
+## `ctx` is `unknown` — narrow it
+
+`Subscriber.run` takes `unknown`, so a handler typed `run: (ctx: { id: number }) => …` **does not compile**: `run` is a function-typed property, so its parameter is checked contravariantly. Narrow inside instead:
+
+```ts
+import { assert } from '@zmdb/aot-validator/utilities';
+
+bus.subscribe({
+  on: 'afterCreate',
+  run: async ctx => {
+    const user = assert<{ id: number; email: string }>(ctx);
+    await audit.create({ action: 'create', entity: 'user', subject: user.id, at: new Date() });
+  },
+});
+```
+
+`assert<T>` **returns** the narrowed value — it is not an `asserts input is T` predicate — so bind the result rather than calling it as a bare statement. It costs one generated validator call and buys you a real error at the boundary instead of `undefined` reaching your audit table. The alternative — one bus per repository, so the type is known by construction — is often the better answer:
+
+```ts
+class TypedBus<T> {
+  #subs: ((ctx: T) => void | Promise<void>)[] = [];
+  on(fn: (ctx: T) => void | Promise<void>): () => void {
+    /* … */
+  }
+  async emit(ctx: T): Promise<void> {
+    for (const fn of this.#subs) await fn(ctx);
+  }
+}
+```
+
+Twelve lines, fully typed, no narrowing. `EventBus` earns its keep when subscribers are registered by code that does not know the entity — plugins, an audit module, a generic outbox writer.
+
+## Ordering and failure
+
+```ts
+bus.subscribe({ on: 'beforeCreate', run: () => console.log('first') });
+bus.subscribe({ on: 'beforeCreate', run: () => console.log('second') });
+```
+
+Registration order, sequentially awaited.
+
+> [!IMPORTANT]
+> `emit` does not catch. A throwing subscriber aborts the remaining subscribers **and** propagates out of `emit`:
+>
+> - In a `before*` hook that runs before `super`, the write never happens — which is how you veto one.
+> - In an `after*` hook, the write has **already committed**. The caller sees an exception for an operation that succeeded, and nothing rolls back. Wrap `after*` work in its own `try`/`catch`, or move it into the same transaction.
+
+That second case is the bug worth designing against. If the follow-on work must be atomic with the write, it belongs in a [transaction](./transactions.html) beside it — or in the [transactional outbox](./transactional-outbox.html), which survives the process dying between the two.
+
+## Soft deletes: not a hook
+
+The tempting shape is a `beforeDelete` subscriber that updates `deletedAt` and throws to cancel the delete. Do not do that: it makes `delete()` throw on success, and every caller has to know which exception means "actually fine".
+
+A soft delete is a column and a predicate:
+
+```ts
+const users = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+  deletedAt: timestamp().nullable(),
+});
+```
+
+```ts
+class UserRepository extends BaseRepository<typeof users> {
+  static override readonly schema = users;
+
+  async softDelete(id: number) {
+    return this.update(id, { deletedAt: new Date() });
+  }
+
+  async findLive() {
+    return this.find({ deletedAt: { isNull: true } });
+  }
+}
+```
+
+Explicit method, explicit predicate, and the type checks — no `as any`, because `deletedAt` is a real nullable column in the schema.
+
+> **ToDo / feature gap.** There is no automatic soft-delete filter: every read must carry `deletedAt: { isNull: true }` itself, and forgetting it in one place resurrects deleted rows in that one endpoint. Schema-level [entity filters](./entity-filters.html) are the fix, and they are not built.
+
+## Timestamps: prefer a default
+
+`beforeCreate` setting `createdAt` is a hook that only fires when the write goes through your override. A column default fires always, including for migrations, bulk loads and anything writing outside your process:
+
+```ts
+createdAt: timestamp().notNull().defaultTo('now()'),
+```
+
+Reach for a hook when the value cannot come from the database — a slug derived from a title, an embedding, a call to another service.
+
+## Performance
+
+Every subscriber is awaited inside the write path, so a database call in a hook adds its latency to every affected operation, and a network call adds its failure modes too. For anything that is not required to be atomic with the write, record an outbox row and let a consumer do the work.
+
+---
+
+See also: [Repository](./repository.html) · [Transactional Outbox](./transactional-outbox.html) · [Embeddables](./embeddables.html) · [Transactions](./transactions.html)

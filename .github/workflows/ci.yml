@@ -79,6 +79,9 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      - name: Verify competitor docs coverage
+        run: yarn verify:docs-coverage
+
       - name: Build docs site
         run: yarn build:docs
 

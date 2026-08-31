@@ -1,0 +1,102 @@
+A compiled query is `{ text, parameters }`, and a driver takes exactly that. So raw SQL is a first-class path, not an escape hatch bolted on the side — you construct the same object the compiler would have.
+
+## Running a statement
+
+```ts
+const rows = await driver.execute({
+  text: `SELECT id, email FROM "users" WHERE "created_at" > $1 ORDER BY "created_at" DESC LIMIT 50`,
+  parameters: [since],
+});
+```
+
+`rows` is `readonly Record<string, unknown>[]`. Not typed, on purpose: nothing derived the column list, so nothing can honestly claim to know it.
+
+## Give the result a type you checked
+
+This is the part worth doing properly. Validate rather than cast, and the hand-written query gets the same guarantees as a compiled one:
+
+```ts
+import { assert } from '@zmdb/aot-validator/utilities';
+
+interface Row {
+  id: number;
+  email: string;
+}
+
+const rows = await driver.execute({ text: '...', parameters: [since] });
+const typed = rows.map(r => assert<Row>(r));
+```
+
+If the query and the interface drift — a renamed column, a `SUM` that comes back as a string — the failure names the field instead of surfacing as `undefined` three layers up. `as Row[]` would have hidden it.
+
+For a query returning whole rows of a known table, use the schema's own type:
+
+```ts
+const users = rows.map(r => assert<Entity<typeof usersSchema>>(r));
+```
+
+## Parameters, always
+
+```ts
+// yes
+{ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: [email] }
+
+// no
+{ text: `SELECT * FROM "users" WHERE "email" = '${email}'`, parameters: [] }
+```
+
+The placeholder syntax is the dialect's, because the text goes straight to the driver:
+
+| Dialect  | Placeholder   |
+| -------- | ------------- |
+| postgres | `$1`, `$2`, … |
+| mysql    | `?`           |
+| sqlite   | `?`           |
+
+If a query has to run on more than one dialect, generate the placeholders:
+
+```ts
+const ph = (i: number) => (dialect === 'postgres' ? `$${i + 1}` : '?');
+const list = ids.map((_, i) => ph(i)).join(', ');
+const text = `SELECT * FROM "users" WHERE "id" IN (${list})`;
+```
+
+Note that the interpolation there is over generated placeholders, never over values.
+
+## Mixing raw fragments with the builder
+
+The builder's `Operator` type is `... | (string & {})`, so an operator it does not know still compiles:
+
+```ts
+createQueryCompiler('postgres').selectFrom('documents').where('embedding', '<->', vec);
+```
+
+Handy for extension operators — see [Database Extensions](./db-extensions.html). Column and table names are still quoted by the compiler, so this widens the operator only, not the identifiers.
+
+## Inside a transaction
+
+`MigrationConnection` and the transactional db both take statements, so raw SQL participates normally:
+
+```ts
+await db.transaction(async () => {
+  await driver.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
+  await repo.create(dto);
+});
+```
+
+## When to reach for it
+
+Legitimately: `ON CONFLICT` ([upsert](./upsert.html)), window functions, recursive CTEs, `LATERAL`, expression updates ([increment](./guide-increment-decrement.html)), extension operators, and `EXPLAIN ANALYZE`.
+
+Not legitimately: as a workaround for not knowing the DTO. If you are hand-writing `SELECT * FROM users WHERE id = $1`, `findById` is shorter and stays correct when the table changes.
+
+## Keeping it honest
+
+Two habits make hand-written SQL maintainable:
+
+1. **One module.** Put raw queries in a `queries/` file per table rather than inline in handlers. When a column is renamed, that is where you grep.
+2. **A test per query, against a real database.** A compiled query is checked by the type system; a raw one is only checked by running it. See [Testing](./testing.html).
+
+---
+
+See also: [Query Compiler](./select.html) · [Query Utilities](./query-utils.html) · [Writing a Driver](./custom-driver.html)

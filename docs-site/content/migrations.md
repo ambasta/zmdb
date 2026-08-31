@@ -1,0 +1,85 @@
+Migrations manage schema evolution over time. zmdb provides snapshot and diff utilities that compare your in-code schema definitions against the live database, generating the DDL needed to align them.
+
+## Taking a Snapshot
+
+Capture the current state of your schemas:
+
+```ts
+import { snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+import { UserSchema, OrderSchema } from './schemas';
+
+const currentState: SchemaSnapshot = snapshot([UserSchema, OrderSchema]);
+
+// currentState.version => 1
+// currentState.tables => [{ name: 'users', columns: [...] }, ...]
+```
+
+The snapshot captures table names, column types, nullability, and primary key status.
+
+## Computing the Diff
+
+Compare two snapshots to generate change operations:
+
+```ts
+import { diff, type ChangeOp } from '@zmdb/query-compiler/migrations';
+
+// After adding a new column
+const newState = snapshot([UserSchema, OrderSchema, ProductSchema]);
+
+const changes: readonly ChangeOp[] = diff(currentState, newState);
+
+// changes => [
+//   { kind: 'create_table', table: 'products', columns: [...] },
+//   { kind: 'add_column', table: 'users', column: {...} }
+// ]
+```
+
+Change operations include:
+
+- `create_table` — new table with all columns
+- `drop_table` — removed table
+- `add_column` — new column in existing table
+- `drop_column` — removed column
+- `alter_column_type` — type change
+
+## Generating DDL
+
+Convert change operations to SQL for your dialect:
+
+```ts
+import { emitUp, emitDown } from '@zmdb/query-compiler/migrations';
+
+for (const op of changes) {
+  const upSql = emitUp(op, 'postgres');
+  const downSql = emitDown(op, 'postgres');
+
+  console.log('UP:', upSql);
+  console.log('DOWN:', downSql);
+}
+
+// Output:
+// UP: ALTER TABLE "users" ADD COLUMN "new_col" TEXT NOT NULL
+// DOWN: ALTER TABLE "users" DROP COLUMN "new_col"
+```
+
+> [!NOTE]
+> Column renames are not detected — they're treated as drop + add. Track renames manually or use a naming convention.
+
+## Version Table
+
+The migration runner creates a `_zmdb_migrations` table to track applied versions:
+
+```sql
+CREATE TABLE IF NOT EXISTS _zmdb_migrations (
+  version INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  applied_at INTEGER NOT NULL
+)
+```
+
+> [!TIP]
+> Always store migrations in version control. Pair with the CLI runner for local development.
+
+---
+
+See also: [Migrations CLI](./migrations-cli.html) · [Query Compiler](./select.html) · [Schema Core](./schema-declaration.html)

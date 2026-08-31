@@ -1,0 +1,53 @@
+Short, task-shaped answers to things people actually search for. Each one is a working snippet against the real API, plus the reason it is written that way.
+
+## Querying
+
+|                                                           |                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------- |
+| [Conditional filters](./guide-conditional-filters.html)   | Building a `where` from optional inputs without dropping `0` and `''` |
+| [Count rows](./guide-count-rows.html)                     | `list().total`, and when to use `aggregate` instead                   |
+| [Cursor-based pagination](./guide-cursor-pagination.html) | Keyset pagination, and why `OFFSET` gets slower                       |
+| [`EXISTS` subqueries](./guide-exists-subquery.html)       | `whereExists` and correlated subqueries                               |
+| [Dynamic queries](./dynamic-queries.html)                 | Composing a builder across functions                                  |
+
+## Writing
+
+|                                                           |                                                       |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| [Increment / decrement](./guide-increment-decrement.html) | **ToDo** — `set()` cannot reference the current value |
+| [Toggle a boolean](./guide-toggle-boolean.html)           | **ToDo** — same blocker                               |
+| [Bulk update](./guide-bulk-update.html)                   | **ToDo** — one statement per row today                |
+| [Upsert](./upsert.html)                                   | **ToDo** — no `ON CONFLICT`                           |
+
+Four of these share one cause: `UpdateBuilder.set()` takes values, not expressions. Each page has the workaround that works today and what the fix would need.
+
+## Schema
+
+|                                                                               |                                                              |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Array and JSON defaults](./guide-array-defaults.html)                        | `defaultTo` with a JSON value, and the shared-reference trap |
+| [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process   |
+| [Case-insensitive unique](./guide-case-insensitive-unique.html)               | **ToDo** — needs a functional index                          |
+| [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                          |
+| [Vector search](./guide-vector-search.html)                                   | **ToDo** — `SqlType` has no vector                           |
+| [PostGIS](./guide-postgis.html)                                               | **ToDo** — same                                              |
+
+## Local development
+
+|                                               |                                                      |
+| --------------------------------------------- | ---------------------------------------------------- |
+| [Local Postgres](./guide-local-postgres.html) | Docker, `psql`, and a test database that resets fast |
+| [Local MySQL](./guide-local-mysql.html)       | Same, plus the collation settings that matter        |
+| [PGlite](./connect-pglite.html)               | Postgres in-process, for tests                       |
+
+## The three facts behind most of these
+
+Worth knowing before reading any individual page:
+
+- **`Operator` is SQL, not an abbreviation.** `where('age', '>=', 18)`, not `'gte'`. The DTO form uses `{ age: { gte: 18 } }` — the two layers spell it differently, deliberately.
+- **`references` is a function.** `references(integer(), users, 'id').notNull()`. There is no `.references()` method on a column.
+- **The builder is immutable.** Every `where`/`orderBy`/`limit` returns a new builder, so `b.where(...)` without reassigning does nothing.
+
+---
+
+See also: [Tutorials](./tutorials.html) · [Query Builder](./select.html) · [Gotchas](./gotchas.html)

@@ -1,0 +1,124 @@
+There is no configuration file and no initialisation step. Everything zmdb needs is a function argument, which means a wrong configuration is usually a compile error rather than a runtime surprise.
+
+## What each layer takes
+
+```ts
+createQueryCompiler(dialect)                          // 'postgres' | 'mysql' | 'sqlite'
+defineSchema(table, columns, options?)                // options: { ftsTable? }
+defineRepository(schema, driver, { dialect?, relations? })
+createApp(rootModule)
+toOpenApi(controllers, { info?, schemas? })
+```
+
+That is the complete surface. No `zmdb.config.ts`, no discovery, no `reflect-metadata`, no boot-time metadata scan. See [Config File](./config-file.html) for why, and what a CLI would need.
+
+## A configuration module
+
+The useful pattern is one module that reads the environment and exports typed values:
+
+```ts
+// src/config.ts
+import { Pool } from 'pg';
+import { assert } from '@zmdb/aot-validator/utilities';
+import type { Driver, Dialect } from '@zmdb/query-compiler';
+
+interface Env {
+  DATABASE_URL: string;
+  PORT: number;
+  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+  DB_POOL_MAX: number;
+}
+
+export const env = assert<Env>({
+  DATABASE_URL: process.env.DATABASE_URL,
+  PORT: Number(process.env.PORT ?? 3000),
+  LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
+  DB_POOL_MAX: Number(process.env.DB_POOL_MAX ?? 10),
+});
+
+export const dialect: Dialect = 'postgres';
+
+const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  max: env.DB_POOL_MAX,
+  statement_timeout: 5_000,
+});
+
+export const driver: Driver = {
+  async execute(query) {
+    const result = await pool.query(query.text, [...query.parameters]);
+    return result.rows;
+  },
+};
+```
+
+Validating the environment once, at import, is the highest-value use of the validator in an application. A missing `DATABASE_URL` fails at startup naming the field, instead of at 3am as `undefined` inside a connection string.
+
+> [!WARNING]
+> `Number(undefined)` is `NaN`, and `NaN` is a `number` — so it passes a `number`
+> check. Default _before_ coercing, as above. `Number(process.env.PORT)` with no
+> `??` will validate cleanly and then bind to nothing.
+
+## Per-environment values
+
+Plain code, with no cascade to reason about:
+
+```ts
+const perEnv = {
+  development: { poolMax: 2, logQueries: true },
+  test: { poolMax: 1, logQueries: false },
+  production: { poolMax: 20, logQueries: false },
+} as const;
+
+export const settings = perEnv[env.NODE_ENV] ?? perEnv.development;
+```
+
+## Wiring it into the container
+
+Put the driver in DI so tests can replace it:
+
+```ts
+import { repositoryToken } from '@zmdb/web/data';
+
+export const DRIVER = createToken<Driver>('DRIVER');
+export const USERS = repositoryToken<typeof users>('USERS'); // Token<BaseRepository<typeof users>>
+
+@Module({
+  providers: [
+    { token: DRIVER, useValue: driver },
+    { token: USERS, useFactory: c => defineRepository(users, c.resolve(DRIVER), { dialect }) },
+  ],
+  controllers: [UsersController],
+})
+export class AppModule {}
+```
+
+```ts
+const app = createTestApp(AppModule, { overrides: [{ token: DRIVER, useValue: fakeDriver }] });
+```
+
+See [Providers & Tokens](./web-modules.html) and [Testing](./testing.html).
+
+## Secrets
+
+Read them from the environment or a secret manager; never from a committed file. And note that a validated `env` object makes them easy to log by accident:
+
+```ts
+console.log(env); // logs DATABASE_URL, including the password
+```
+
+Log a redacted projection instead, or mark the field and use [`sensitive()`](./schema-declaration.html) semantics for your own types.
+
+## Dialect at build time versus runtime
+
+`dialect` is a value, so it can come from the environment — which is how one codebase targets SQLite in tests and Postgres in production:
+
+```ts
+export const dialect = (process.env.DB_DIALECT ?? 'postgres') as Dialect;
+```
+
+The cost is that dialect differences become runtime differences. `ILIKE`, `RETURNING`, `ON CONFLICT` and transactional DDL all vary — see [Dialect: SQLite](./dialect-sqlite.html). Fine for a test suite; think carefully before shipping two dialects to production.
+
+---
+
+See also: [Config File](./config-file.html) · [Writing a Driver](./custom-driver.html) · [Providers & Tokens](./web-modules.html)

@@ -1,0 +1,219 @@
+A `Driver` is the whole database abstraction: one method that runs a compiled
+query and returns rows. Everything above it — repositories, transactions,
+replicas, logging, caching — composes around that one method.
+
+```ts
+import type { CompiledQuery } from '@zmdb/query-compiler';
+import type { Dialect } from '@zmdb/query-compiler';
+
+export interface Driver {
+  readonly dialect?: Dialect;
+  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+}
+```
+
+`CompiledQuery` is `{ text, parameters }`. The driver's job is to hand both to
+your client and return the rows; it is not to interpret, rewrite or inspect the
+SQL. `Driver` lives in `@zmdb/repository`, not in the compiler.
+
+## First-party drivers
+
+```ts
+// node:sqlite — no external dependency
+import { DatabaseSync } from 'node:sqlite';
+import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+import { defineRepository } from '@zmdb/repository';
+
+const db = new DatabaseSync('app.db');
+const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+```
+
+```ts
+// pg (node-postgres)
+import { Pool } from 'pg';
+import { pgDriver } from '@zmdb/repository/drivers/pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const users = defineRepository(UserSchema, pgDriver(pool), { dialect: 'postgres' });
+
+// opt-in server-side prepared statements (caches the plan per SQL text)
+const fast = pgDriver(pool, { prepared: true });
+```
+
+Both accept **structural** types — `SqliteDatabase` is `{ prepare(sql) }` and
+`PgQueryable` is `{ query(…) }` — so a real `DatabaseSync` or `Pool` is
+assignable without an adapter, and neither package is a hard dependency of
+`@zmdb/repository`. `pg` is optional; `node:sqlite` is built in, which is what
+keeps a zero-dependency setup working out of the box.
+
+> [!NOTE]
+> `sqliteDriver` sets `dialect: 'sqlite'` on the driver it returns, but
+> `defineRepository` reads the dialect from its **options**, defaulting to
+> `'postgres'`. Passing a sqlite driver without `{ dialect: 'sqlite' }` compiles
+> Postgres SQL against SQLite — `$1` placeholders and all. Pass the dialect
+> explicitly; the mismatch is a runtime syntax error, not a type error.
+
+Both drivers cache prepared statements keyed by SQL text, LRU-evicting at
+`maxCacheSize` (1000 by default). Since the compiler emits one text per query
+shape and parameterises the values, that cache has a bounded number of entries —
+unless you build SQL by string concatenation, which you should not be doing.
+
+## Writing your own
+
+Any database with a client that takes SQL plus parameters:
+
+```ts
+import type { Driver } from '@zmdb/repository';
+
+export function d1Driver(db: D1Database): Driver {
+  return {
+    dialect: 'sqlite',
+    async execute(query) {
+      const { results } = await db
+        .prepare(query.text)
+        .bind(...query.parameters)
+        .all();
+      return results;
+    },
+  };
+}
+```
+
+Three rules for a correct driver:
+
+- **Return rows, always.** An `INSERT` without `RETURNING` yields none — return
+  `[]`, not `undefined`. Every read path in the repository funnels through one
+  row-shape boundary that expects an array.
+- **Never touch `query.text`.** Rewriting SQL in a driver breaks the dialect
+  contract, and appending anything to it defeats the parameterisation that makes
+  the compiler injection-proof.
+- **Let errors through.** The repository does not translate driver errors, by
+  design: your client's native code (`23505`, `ER_DUP_ENTRY`) carries more
+  information than any wrapper class. Translate at the boundary where you know
+  what the code should become — see [Custom Driver](./custom-driver.html).
+
+## Composing drivers
+
+Because a driver is one method, a wrapper is a driver:
+
+```ts
+const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), store, 5_000), sink);
+```
+
+This is the extension point the framework leans on hardest. Logging, tracing,
+retries, a query budget, replica routing and per-tenant connections are all
+driver wrappers, so each one covers handlers, workers and CLI scripts alike
+rather than just the HTTP path. See [Logging](./web-logging.html),
+[Read Replicas](./read-replicas.html) and [Request Context](./web-request-context.html).
+
+## With a repository
+
+Either form works. `defineRepository` infers the schema and relations:
+
+```ts
+const users = defineRepository(UserSchema, driver, { dialect: 'postgres', relations: userRelations });
+```
+
+Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
+
+```ts
+import { BaseRepository } from '@zmdb/repository';
+
+class UserRepository extends BaseRepository<typeof UserSchema> {
+  static override readonly schema = UserSchema;
+}
+
+const users = new UserRepository(driver, 'sqlite'); // (driver, dialect?)
+```
+
+The constructor is `(driver: Driver, dialect: Dialect = 'postgres')`. Same
+default, same trap as above.
+
+## Transactions
+
+A transaction is a driver bound to one connection. `withTransaction` re-binds a
+repository onto it, so every method on the returned repository runs inside the
+transaction:
+
+```ts
+const client = await pool.connect();
+try {
+  await client.query('BEGIN');
+
+  const tx = { execute: (q: CompiledQuery) => client.query(q.text, [...q.parameters]).then(r => r.rows) };
+  const txUsers = users.withTransaction(tx);
+  const txAccounts = accounts.withTransaction(tx);
+
+  await txUsers.create({ email: 'ada@example.com' });
+  await txAccounts.update(1, { status: 'active' });
+
+  await client.query('COMMIT');
+} catch (error) {
+  await client.query('ROLLBACK');
+  throw error;
+} finally {
+  client.release();
+}
+```
+
+Two things to be careful about:
+
+- **Check out one client and use it for everything.** A `Pool` hands a different
+  connection to each `query`, so `BEGIN` on one connection and an `INSERT` on
+  another means the insert is not in the transaction and the rollback does
+  nothing. `withTransaction` exists to make that mistake structural rather than
+  silent.
+- **`ROLLBACK` can throw too** (a dead connection), which would mask the original
+  error. Log it and rethrow the original.
+
+`@zmdb/repository/transactions` wraps this pattern — see
+[Transactions](./transactions.html).
+
+> [!WARNING]
+> `UpdateBuilder.set()` takes plain values, so `balance = balance - $1` cannot be
+> expressed. A read-then-write is **not** equivalent: two concurrent transfers
+> both read 100, both write 90, and one debit vanishes. Until relative updates
+> land, either issue the arithmetic as raw SQL on the transaction's connection, or
+> `SELECT … FOR UPDATE` first so the second transaction blocks. See
+> [Increment & Decrement](./guide-increment-decrement.html).
+
+## Connection strings
+
+zmdb parses none — that is your client's job, and every client already does it.
+`new Pool({ connectionString })` and `createPool({ uri })` both accept a URL
+directly.
+
+```ts
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10 });
+```
+
+> [!WARNING]
+> Read credentials from the environment or a secret manager, never from source.
+> And never `ssl: { rejectUnauthorized: false }` — it disables certificate
+> verification entirely, which turns TLS into obfuscation and makes a
+> man-in-the-middle attack on your database traffic trivial. Supply the CA
+> certificate instead.
+
+Pool sizing, PgBouncer and serverless connection limits are on
+[Connect to Postgres](./connect-postgres.html).
+
+## Testing without a database
+
+A driver is a function, so a fake is three lines:
+
+```ts
+const calls: CompiledQuery[] = [];
+const spy: Driver = { dialect: 'postgres', execute: async q => (calls.push(q), []) };
+
+await defineRepository(users, spy, { dialect: 'postgres' }).findAll();
+expect(calls[0]?.text).toContain('SELECT');
+```
+
+Asserting on the compiled SQL is the fastest test in the suite and catches the
+mistakes that matter — a missing `WHERE`, a wrong join, an unparameterised value.
+For end-to-end coverage, `node:sqlite` gives you a real database with no server;
+see [Testing](./testing.html).
+
+---
+
+See also: [Custom Driver](./custom-driver.html) · [Read Replicas](./read-replicas.html) · [Transactions](./transactions.html)
