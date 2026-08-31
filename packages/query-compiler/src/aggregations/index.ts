@@ -13,7 +13,7 @@ import {
   whereClause,
 } from '../clauses.js';
 import type { DialectTarget } from '../dialects/index.js';
-import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
+import type { CompiledQuery, Operator, QueryCompilerOptions } from '../index.js';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
@@ -25,7 +25,7 @@ type SelectItem =
 
 interface Comparison {
   col: string;
-  op: string;
+  op: Operator;
   value: unknown;
   connector?: 'AND' | 'OR';
 }
@@ -56,11 +56,11 @@ export interface AggregateSelect {
   leftJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
   rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
   rightJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
-  where(col: string, op: string, value: unknown): AggregateSelect;
-  orWhere(col: string, op: string, value: unknown): AggregateSelect;
+  where(col: string, op: Operator, value: unknown): AggregateSelect;
+  orWhere(col: string, op: Operator, value: unknown): AggregateSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): AggregateSelect;
   groupBy(...cols: string[]): AggregateSelect;
-  having(col: string, op: string, value: unknown): AggregateSelect;
+  having(col: string, op: Operator, value: unknown): AggregateSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): AggregateSelect;
   limit(n: number): AggregateSelect;
   offset(n: number): AggregateSelect;

@@ -1,5 +1,5 @@
 import { schemasFrom } from '@zmdb/compiler/testing';
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import { QueryCompilerError, type CompiledQuery, type Operator } from '@zmdb/query-compiler';
 import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
 import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
@@ -657,5 +657,52 @@ describe('stored routine integration (real Postgres, loudly gated)', () => {
     } finally {
       await routinePg.pool().query('DROP FUNCTION IF EXISTS zmdb_test_add_one(INTEGER)');
     }
+  });
+});
+
+describe('BaseRepository operator union and error handling', () => {
+  it('walks full Operator union and round-trips each operator in spec.where', async () => {
+    const allOperators: Operator[] = [
+      '=',
+      '!=',
+      '<',
+      '<=',
+      '>',
+      '>=',
+      'in',
+      'not in',
+      'like',
+      'ilike',
+      'is null',
+      'is not null',
+    ];
+
+    for (const op of allOperators) {
+      const driver = fakeDriver([]);
+      const repo = new UserRepository(driver);
+      await repo.aggregate({
+        where: { id: { [op]: 10 } as unknown as { '=': number } },
+        computed: {},
+      });
+      expect(driver.calls.length).toBe(1);
+    }
+  });
+
+  it('rejects unsupported operators in spec.where by throwing QueryCompilerError', async () => {
+    const driver = fakeDriver([]);
+    const repo = new UserRepository(driver);
+    await expect(
+      repo.aggregate({
+        where: { id: { 'IS NOT DISTINCT FROM': 10 } as unknown as { '=': number } },
+        computed: {},
+      }),
+    ).rejects.toThrowError(QueryCompilerError);
+
+    await expect(
+      repo.aggregate({
+        where: { id: { 'IS NOT DISTINCT FROM': 10 } as unknown as { '=': number } },
+        computed: {},
+      }),
+    ).rejects.toThrow("Unsupported operator 'IS NOT DISTINCT FROM' in where clause for column 'id'");
   });
 });
