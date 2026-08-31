@@ -27,17 +27,60 @@ export function quoteColumn(dialect: Dialect, col: string): string {
     .join('.');
 }
 
+function isWhitespace(ch: string | undefined): boolean {
+  return ch !== undefined && /\s/.test(ch);
+}
+
 /**
  * Safely quote a table specification, which may be a table name (optionally dot-qualified)
  * or a table alias expression (e.g. `table as alias` or `schema.table AS alias`).
+ *
+ * Uses manual scanning for `AS` boundaries to avoid polynomial regex backtracking (ReDoS)
+ * on arbitrary table specification inputs.
  */
 export function quoteTable(dialect: Dialect, tableSpec: string): string {
   const trimmed = tableSpec.trim();
-  const aliasMatch = /^(.+?)\s+as\s+(.+)$/i.exec(trimmed);
-  if (aliasMatch) {
-    const tablePart = quoteColumn(dialect, aliasMatch[1]!.trim());
-    const aliasPart = quoteIdentifier(dialect, aliasMatch[2]!.trim());
-    return `${tablePart} AS ${aliasPart}`;
+  const lower = trimmed.toLowerCase();
+  let searchIndex = 0;
+  while (searchIndex < lower.length) {
+    const asIndex = lower.indexOf('as', searchIndex);
+    if (asIndex === -1) {
+      break;
+    }
+    const hasSpaceBefore = isWhitespace(trimmed[asIndex - 1]);
+    const hasSpaceAfter = isWhitespace(trimmed[asIndex + 2]);
+
+    if (hasSpaceBefore && hasSpaceAfter) {
+      const tableStr = trimmed.slice(0, asIndex).trim();
+      const aliasStr = trimmed.slice(asIndex + 2).trim();
+      if (tableStr.length > 0 && aliasStr.length > 0) {
+        const tablePart = quoteColumn(dialect, tableStr);
+        const aliasPart = quoteIdentifier(dialect, aliasStr);
+        return `${tablePart} AS ${aliasPart}`;
+      }
+    }
+    searchIndex = asIndex + 2;
   }
   return quoteColumn(dialect, trimmed);
+}
+
+/**
+ * Generates dialect-specific 1-based parameter placeholders:
+ * - PostgreSQL uses numbered sequential indices (`$1`, `$2`, ...)
+ * - MySQL and SQLite use positional tokens (`?`)
+ */
+export function formatPlaceholder(dialect: Dialect, index: number): string {
+  return dialect === 'postgres' ? `$${index}` : '?';
+}
+
+/**
+ * Renumbers positional parameter placeholders ($n) in SQL text by adding an offset.
+ * Used when combining parameter sets (e.g. set operations like UNION).
+ *
+ * Note: Designed for compiler-generated SQL where literal values are always
+ * parameterized into positional placeholders ($N). Does not parse raw SQL string
+ * literals or comments where `$N` patterns might appear as literal text.
+ */
+export function renumberPlaceholders(text: string, offset: number): string {
+  return text.replace(/\$(\d+)/g, (_match, n: string) => `$${offset + Number(n)}`);
 }

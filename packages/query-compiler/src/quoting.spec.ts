@@ -5,7 +5,7 @@ import { ftsSelectFrom } from './fts/index.ts';
 import { createQueryCompiler } from './index.ts';
 import { joinableSelectFrom } from './joins/index.ts';
 import { emitUp } from './migrations/index.ts';
-import { quoteColumn, quoteIdentifier, quoteTable } from './quoting.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 import {
   createIndexDdl,
   createPolicyDdl,
@@ -78,9 +78,10 @@ describe('Centralized Identifier Quoting Engine', () => {
       expect(quoteTable('mysql', 'mydb.users')).toBe('`mydb`.`users`');
     });
 
-    it('parses and quotes table aliasing syntax with as/AS', () => {
+    it('parses and quotes table aliasing syntax with as/AS using various whitespace characters', () => {
       expect(quoteTable('postgres', 'users as u')).toBe('"users" AS "u"');
       expect(quoteTable('postgres', 'public.users AS u')).toBe('"public"."users" AS "u"');
+      expect(quoteTable('postgres', 'users\fas\fu')).toBe('"users" AS "u"');
       expect(quoteTable('mysql', 'users as u')).toBe('`users` AS `u`');
       expect(quoteTable('mysql', 'mydb.users AS u')).toBe('`mydb`.`users` AS `u`');
     });
@@ -88,6 +89,30 @@ describe('Centralized Identifier Quoting Engine', () => {
     it('escapes quote characters in aliased table expressions', () => {
       expect(quoteTable('postgres', 'usr"tbl as u"al')).toBe('"usr""tbl" AS "u""al"');
       expect(quoteTable('mysql', 'usr`tbl as u`al')).toBe('`usr``tbl` AS `u``al`');
+    });
+
+    it('handles long inputs with excessive whitespace in linear time without ReDoS', () => {
+      const longPayload = 'users' + ' '.repeat(50000) + 'AS' + ' '.repeat(50000) + 'u';
+      expect(quoteTable('postgres', longPayload)).toBe('"users" AS "u"');
+    });
+  });
+
+  describe('formatPlaceholder', () => {
+    it('generates numbered $n placeholders for postgres', () => {
+      expect(formatPlaceholder('postgres', 1)).toBe('$1');
+      expect(formatPlaceholder('postgres', 5)).toBe('$5');
+    });
+
+    it('generates positional ? placeholders for mysql and sqlite', () => {
+      expect(formatPlaceholder('mysql', 1)).toBe('?');
+      expect(formatPlaceholder('sqlite', 3)).toBe('?');
+    });
+  });
+
+  describe('renumberPlaceholders', () => {
+    it('renumbers $n placeholders by applying offset', () => {
+      const sql = 'SELECT * FROM "users" WHERE "id" = $1 AND "tenant_id" = $2';
+      expect(renumberPlaceholders(sql, 2)).toBe('SELECT * FROM "users" WHERE "id" = $3 AND "tenant_id" = $4');
     });
   });
 

@@ -1,8 +1,6 @@
 import { UnsupportedFeatureError } from '../errors.ts';
-// Query-builder full-text search — implementation (#95). Per-dialect whereMatch:
-// pg to_tsvector/@@/to_tsquery; mysql MATCH...AGAINST; sqlite FTS5 JOIN compilation.
 import type { CompiledQuery, Dialect } from '../index.ts';
-import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
 export { UnsupportedFeatureError };
 
@@ -90,10 +88,10 @@ function make(d: Dialect, s: State): FtsSelect {
             if (p.kind === 'match') {
               const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
               params.push(escapeFts5Term(p.value as string));
-              return `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ?`;
+              return `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
             }
             params.push(p.value);
-            return `${quoteColumn(d, p.col)} ${p.op} ?`;
+            return `${quoteColumn(d, p.col)} ${p.op} ${formatPlaceholder(d, params.length)}`;
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }
@@ -104,13 +102,12 @@ function make(d: Dialect, s: State): FtsSelect {
             params.push(p.value);
             if (p.kind === 'match') {
               if (d === 'postgres') {
-                return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', $${params.length})`;
+                return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
               }
               // mysql
-              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(? IN NATURAL LANGUAGE MODE)`;
+              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
             }
-            const ph = d === 'postgres' ? `$${params.length}` : '?';
-            return `${quoteColumn(d, p.col)} ${p.op} ${ph}`;
+            return `${quoteColumn(d, p.col)} ${p.op} ${formatPlaceholder(d, params.length)}`;
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }

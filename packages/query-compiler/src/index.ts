@@ -5,11 +5,10 @@ export { UnsupportedFeatureError } from './errors.ts';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { quoteColumn, quoteIdentifier, quoteTable } from './quoting.ts';
-
-export { quoteColumn, quoteIdentifier, quoteTable };
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
+export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
 export type Operator =
   | '='
   | '!='
@@ -45,19 +44,19 @@ const DIALECTS: Record<Dialect, DialectStrategy> = {
     quoteTable: s => quoteTable('postgres', s),
     quoteCol: c => quoteColumn('postgres', c),
     quoteIdent: i => quoteIdentifier('postgres', i),
-    placeholder: n => `$${n}`,
+    placeholder: n => formatPlaceholder('postgres', n),
   },
   mysql: {
     quoteTable: s => quoteTable('mysql', s),
     quoteCol: c => quoteColumn('mysql', c),
     quoteIdent: i => quoteIdentifier('mysql', i),
-    placeholder: () => '?',
+    placeholder: n => formatPlaceholder('mysql', n),
   },
   sqlite: {
     quoteTable: s => quoteTable('sqlite', s),
     quoteCol: c => quoteColumn('sqlite', c),
     quoteIdent: i => quoteIdentifier('sqlite', i),
-    placeholder: () => '?',
+    placeholder: n => formatPlaceholder('sqlite', n),
   },
 };
 

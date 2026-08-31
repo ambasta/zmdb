@@ -1,5 +1,6 @@
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { CompiledQuery, Dialect } from '../index.ts';
+import { renumberPlaceholders } from '../quoting.ts';
 
 export type SetOp = 'union' | 'unionAll' | 'intersect' | 'except';
 
@@ -25,7 +26,7 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     if (dialect === 'postgres') {
       // renumber each $n in this fragment to continue the combined sequence
       const offset = params.length;
-      text = text.replace(/\$(\d+)/g, (_m, n: string) => `$${offset + Number(n)}`);
+      text = renumberPlaceholders(text, offset);
     }
     for (const p of q.parameters) params.push(p);
     return text;
