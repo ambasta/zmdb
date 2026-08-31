@@ -13,7 +13,7 @@ import { BaseRepository, ValidationError } from './index.ts';
 const UserSchema = defineSchema('users', {
   id: primaryKey(serial()),
   email: notNull(text()),
-  role: jsonEnum(['admin', 'user']),
+  role: jsonEnum(['admin', 'user']).nullable(),
 });
 
 // The ENTIRE repository — well under 10 lines.
@@ -44,6 +44,20 @@ describe('repository E2E (real SQLite)', () => {
 
     expect(await users.delete(id)).toBe(true);
     expect(await users.findById(id)).toBeUndefined();
+  });
+
+  it('update payload with explicit undefined strips undefined, preserves nulls and leaves omitted fields unchanged', async () => {
+    const created = await users.create({ email: 'a@b.com', role: 'admin' });
+    const id = created.id;
+
+    // Passing explicit undefined for email and explicit null for role (role is nullable in UserSchema)
+    const updated = await users.update(id, { email: undefined, role: null });
+    expect(updated).toMatchObject({ id, email: 'a@b.com', role: null });
+
+    // Verify in database that email was unchanged and role was set to SQL NULL
+    const reloaded = await users.findById(id);
+    expect(reloaded?.email).toBe('a@b.com');
+    expect(reloaded?.role).toBeNull();
   });
 
   it('rejects an invalid create with ValidationError and writes nothing', async () => {

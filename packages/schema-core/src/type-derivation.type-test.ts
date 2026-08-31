@@ -55,6 +55,7 @@ export type _Cre4 = Expect<Equal<CreateDTO<S>['email'], string>>;
 // --- UpdateDTO -------------------------------------------------------------
 export type _Upd1 = Expect<Equal<UpdateDTO<S>['email'], string | undefined>>;
 export type _Upd2 = Expect<Equal<UpdateDTO<S>['role'], 'admin' | 'user' | undefined>>;
+export const _UpdUndefined: UpdateDTO<S> = { email: undefined, role: 'admin' };
 
 // --- The two modifier styles agree ----------------------------------------
 // Function-style modifiers (`primaryKey(serial())`) and fluent modifiers
