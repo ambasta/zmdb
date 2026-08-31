@@ -180,7 +180,12 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
   if (issues.length === 0 && !hasNoExcessKeys(input, descriptor)) {
-    issues.push({ path: 'input', expected: 'no excess properties', value: input, message: 'excess properties present' });
+    issues.push({
+      path: 'input',
+      expected: 'no excess properties',
+      value: input,
+      message: 'excess properties present',
+    });
   }
   if (issues.length > 0) {
     throw new AssertError(issues[0]!.message, issues);

@@ -1,8 +1,9 @@
+import { ValidationError } from '@zmdb/schema-core';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
 import { describe, it, expect } from 'vitest';
-import { ValidationError } from '@zmdb/schema-core';
+
 import { Controller, Get, Post } from '../routing/index.ts';
 import { createRouter, toFetchHandler, type Ctx } from './index.ts';
 
@@ -63,9 +64,7 @@ describe('@zmdb/web pipeline: dispatch', () => {
     expect(res.status).toBe(400);
     expect(JSON.parse(res.body)).toEqual({
       error: 'invalid user body',
-      issues: [
-        { path: 'input.name', message: 'name required', expected: 'string' },
-      ],
+      issues: [{ path: 'input.name', message: 'name required', expected: 'string' }],
     });
   });
 

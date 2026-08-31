@@ -1,13 +1,13 @@
+import type { ValidationIssue } from '@zmdb/schema-core';
+
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with
 // exact error paths). Coercion + object strictness (#49) are co-implemented
 // because the same validateObject drives them. #47 transform and #48 union
 // have no runtime-fallback tests in this suite and are left as thin stubs.
 import type { Rule } from '../index.ts';
-import type { ValidationIssue } from '@zmdb/schema-core';
 
 export type { ValidationIssue };
-
 
 // #49 — branded (nominal) types. Compile-time only; erases to the base type at
 // runtime (no footprint). `Brand<number, 'UserId'>` is assignable to `number`
