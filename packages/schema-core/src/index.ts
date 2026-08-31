@@ -62,7 +62,7 @@ export interface SchemaOptions {
  * the erased `ColumnsMap` so `CoreSchema<string>` still means "any schema" for
  * code that does not care about the columns (repositories, OpenAPI, seeding).
  */
-export interface CoreSchema<T extends string, C extends ColumnsMap = ColumnsMap> {
+export interface CoreSchema<T extends string = string, C extends ColumnsMap = ColumnsMap> {
   readonly table: T;
   readonly columns: C;
   readonly primaryKey: readonly string[];
@@ -134,6 +134,23 @@ export type UpdateDTO<S> = {
   [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
 };
 
+type PrimaryKeyKeys<C> = {
+  [K in keyof C]: C[K] extends ColumnMeta ? (C[K]['flags'] extends { primaryKey: true } ? K : never) : never;
+}[keyof C];
+
+type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+
+// PrimaryKey<S>: scalar for single-column keys, object map for composite keys, unknown if no PK.
+export type PrimaryKey<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]
+  ? unknown
+  : IsUnion<PrimaryKeyKeys<C>> extends true
+    ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }
+    : PrimaryKeyKeys<C> extends keyof C
+      ? C[PrimaryKeyKeys<C>] extends ColumnMeta
+        ? TsType<C[PrimaryKeyKeys<C>]>
+        : unknown
+      : unknown;
+
 export class SchemaError extends Error {}
 
 export interface ValidationIssue {
@@ -204,13 +221,9 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
     makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
 
   // Metadata is the enumerable surface (so `toEqual` compares metadata only).
-  // boundary: the fluent methods are attached *below* via defineProperty (they
-  // must be non-enumerable), so the object is not a `Column` until this function
-  // returns; and `C`'s `type`/`flags` are exactly the literal types of the `meta`
-  // the caller passed — the builders below are the only callers, and each pairs
-  // its declared `Column<T, F>` with a matching literal `meta`. Neither
-  // `Object.defineProperties` nor "these two literals agree" is expressible as a
-  // type-changing operation, hence the one assertion here.
+  // Fluent methods are attached non-enumerably via Object.defineProperty below.
+  //
+  // boundary: base spread carries ColumnMeta properties and lacks fluent modifier methods until Object.defineProperty attaches them below, guaranteeing the complete Column shape C.
   const column = { ...base } as unknown as C;
 
   // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
@@ -367,7 +380,7 @@ export function sensitive<T extends SqlType, F extends ColumnFlags, P>(
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
 // metadata, deeply freeze, and register. Throws SchemaError on no primary key.
-const SCHEMA_REGISTRY = new Map<string, CoreSchema<string, ColumnsMap>>();
+const SCHEMA_REGISTRY = new Map<string, CoreSchema>();
 
 // `C` is inferred from the argument, so the returned schema keeps the literal
 // column map instead of the erased `Record<string, ColumnMeta>`. Without it the
@@ -420,10 +433,10 @@ export function defineSchema<T extends string, C extends ColumnsMap>(
 }
 
 // Compile-time-friendly registry access (explicit; no runtime reflection).
-export function getRegisteredSchema(table: string): CoreSchema<string> | undefined {
+export function getRegisteredSchema(table: string): CoreSchema | undefined {
   return SCHEMA_REGISTRY.get(table);
 }
-export function registeredSchemas(): readonly CoreSchema<string>[] {
+export function registeredSchemas(): readonly CoreSchema[] {
   return [...SCHEMA_REGISTRY.values()];
 }
 

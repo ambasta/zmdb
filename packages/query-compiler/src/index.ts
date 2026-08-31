@@ -196,11 +196,13 @@ export interface InsertBuilder {
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
   where(col: string, op: Operator, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
   where(col: string, op: Operator, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
   compile(): CompiledQuery;
 }
@@ -300,6 +302,8 @@ function makeInsert(
           const targetSet = new Set(conflict.target ?? []);
           let updateCols = keys.filter(k => !targetSet.has(k));
           if (updateCols.length === 0) {
+            // Deliberate fallback: if every inserted column is a conflict target, updateCols would be empty,
+            // resulting in invalid SQL (e.g. empty DO UPDATE SET). Updating all keys acts as a valid no-op.
             updateCols = keys;
           }
 
@@ -339,6 +343,7 @@ function makeUpdate(
   return {
     set: r => makeUpdate(d, table, r, wheres, ret),
     where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    orWhere: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret),
     returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
@@ -368,6 +373,7 @@ function makeDelete(
 ): DeleteBuilder {
   return {
     where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret),
     returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];

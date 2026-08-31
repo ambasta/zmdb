@@ -15,6 +15,7 @@ import {
   type CoreSchema,
   type CreateDTO,
   type Entity,
+  type PrimaryKey,
   type UpdateDTO,
   type ValidationIssue,
   type JoinRow,
@@ -181,6 +182,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return this.schema.table;
   }
 
+  private get pkColumn(): string {
+    const pk = this.schema.primaryKey[0];
+    if (!pk) throw new Error(`schema ${this.tableName} has no primary key`);
+    return pk;
+  }
+
   /**
    * The one row-shape trust boundary in this package (ARCHITECTURE §2.1).
    *
@@ -195,10 +202,36 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return (await this.driver.execute(query)) as readonly Row[];
   }
 
-  private get pkColumn(): string {
-    const pk = this.schema.primaryKey[0];
-    if (!pk) throw new Error(`schema ${this.tableName} has no primary key`);
-    return pk;
+  private buildKeyWhere(id: PrimaryKey<S>): WhereDTO<S> {
+    const pkCols = this.schema.primaryKey;
+    if (!pkCols || pkCols.length === 0) {
+      throw new Error(`schema ${this.tableName} has no primary key`);
+    }
+
+    if (pkCols.length === 1) {
+      const [pkCol] = pkCols;
+      if (!pkCol) {
+        throw new Error(`schema ${this.tableName} has empty primary key column`);
+      }
+      // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<S>`
+      // preserves the repository's concrete schema type `S`.
+      return { [pkCol]: id } as WhereDTO<S>;
+    }
+
+    if (!isRecord(id) || id instanceof Date) {
+      throw new ValidationError(`composite primary key for schema ${this.tableName} requires an object map`);
+    }
+
+    const where: Record<string, unknown> = {};
+    for (const col of pkCols) {
+      if (!(col in id) || id[col] === undefined) {
+        throw new ValidationError(`missing composite primary key column "${col}" for schema ${this.tableName}`);
+      }
+      where[col] = id[col];
+    }
+    // boundary: `where` map is assembled at runtime from composite PK fields; asserting to `WhereDTO<S>`
+    // preserves the repository's concrete schema type `S`.
+    return where as WhereDTO<S>;
   }
 
   // #218 — typed populate. When `opts.populate` names relations (declared in the
@@ -206,13 +239,14 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // with those relations *and only those*. Batched IN query per relation; no
   // proxies. Populate keys are `keyof R`, so a misspelled relation is a compile
   // error rather than the runtime `unknown relation` throw below.
-  async findById(id: unknown): Promise<Entity<S> | undefined>;
+  async findById(id: PrimaryKey<S>): Promise<Entity<S> | undefined>;
   async findById<K extends keyof R & string>(
-    id: unknown,
+    id: PrimaryKey<S>,
     opts: { populate: readonly K[] },
   ): Promise<Populated<S, R, K> | undefined>;
-  async findById(id: unknown, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
-    const q = this.qb.selectFrom(this.tableName).where(this.pkColumn, '=', id).limit(1).compile();
+  async findById(id: PrimaryKey<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
+    const where = this.buildKeyWhere(id);
+    const q = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
     const rows = await this.rows<EntityRow<S>>(q);
     const row = rows[0];
     if (!row || !opts?.populate?.length) return row;
@@ -677,7 +711,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   async upsert(dto: CreateDTO<S>, opts?: UpsertOptions): Promise<Entity<S> | undefined> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
-    const target = opts?.target ?? this.pkColumn;
+    const target = opts?.target ?? this.schema.primaryKey;
     const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(opts?.updateFields);
     const rows = await this.rows<EntityRow<S>>(ib.returning(['*']).compile());
     const row = rows[0];
@@ -688,23 +722,25 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return row;
   }
 
-  async update(id: unknown, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
+  async update(id: PrimaryKey<S>, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
     const clean = this.validatePayload(patch, 'update');
     this.preUpdate(clean);
     if (Object.keys(clean).length === 0) {
       return this.findById(id);
     }
+    const where = this.buildKeyWhere(id);
     const rows = await this.rows<EntityRow<S>>(
-      this.qb.updateTable(this.tableName).set(clean).where(this.pkColumn, '=', id).returning(['*']).compile(),
+      compileWhere(this.qb.updateTable(this.tableName).set(clean), where).returning(['*']).compile(),
     );
     return rows[0];
   }
 
   // #28 — delete + lifecycle hooks.
-  async delete(id: unknown): Promise<boolean> {
+  async delete(id: PrimaryKey<S>): Promise<boolean> {
     this.preDelete(id);
+    const where = this.buildKeyWhere(id);
     const rows = await this.driver.execute(
-      this.qb.deleteFrom(this.tableName).where(this.pkColumn, '=', id).returning([this.pkColumn]).compile(),
+      compileWhere(this.qb.deleteFrom(this.tableName), where).returning(this.schema.primaryKey).compile(),
     );
     return rows.length > 0;
   }
@@ -714,7 +750,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected preInsert(_row: Record<string, unknown>): void {}
   protected postInsert(_row: Record<string, unknown>): void {}
   protected preUpdate(_row: Record<string, unknown>): void {}
-  protected preDelete(_id: unknown): void {}
+  protected preDelete(_id: PrimaryKey<S>): void {}
   protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     return rows;
   }
