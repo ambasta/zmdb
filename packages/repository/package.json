@@ -50,6 +50,7 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@types/node": "*",
     "@types/pg": "^8.23.1",
     "pg": "8.23.0",
     "tsup": "8.5.1",

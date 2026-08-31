@@ -7,17 +7,18 @@
   ],
   "type": "module",
   "scripts": {
+    "build:docs": "node docs-site/build.mjs",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "node scripts/typecheck.mjs"
+    "typecheck": "node scripts/typecheck.mjs",
+    "validate:spec": "node .github/scripts/validate-specs.mjs"
   },
   "devDependencies": {
-    "@types/node": "^26.4.0",
+    "@types/node": "*",
     "esbuild": "^0.28.2",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
