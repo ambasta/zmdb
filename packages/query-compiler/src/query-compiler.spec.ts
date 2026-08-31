@@ -366,9 +366,7 @@ describe('Operator validation & Operator union round-tripping', () => {
 
   it('rejects unsupported operators by throwing QueryCompilerError', () => {
     const qb = createQueryCompiler('postgres');
-    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(
-      QueryCompilerError,
-    );
+    expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(QueryCompilerError);
     expect(() => qb.selectFrom('users').where('col', 'INVALID_OP', 'val').compile()).toThrow(
       "Unsupported operator 'INVALID_OP'",
     );

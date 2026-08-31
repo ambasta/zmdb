@@ -33,9 +33,6 @@ export type Operator =
 
 export { OP_MAP } from './clauses.ts';
 
-=======
-  | 'NIN';
->>>>>>> 5334106 (fix(types): resolve Operator type definition and test assertions post-rebase)
 export type Direction = 'asc' | 'desc';
 
 /**

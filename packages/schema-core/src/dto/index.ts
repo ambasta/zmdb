@@ -126,7 +126,6 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
   const dialect = (builder as { dialect?: 'postgres' | 'mysql' | 'sqlite' }).dialect ?? 'postgres';
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
-<<<<<<< HEAD
     const add = (op: string, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
       if (connector === 'or') {

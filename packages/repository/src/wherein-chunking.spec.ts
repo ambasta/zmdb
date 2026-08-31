@@ -76,8 +76,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     ];
 
     // Call attachRelations via private access cast
-    await (
-      repo as unknown as { attachRelations(p: Record<string, unknown>[], r: string[]): Promise<void> }
+    const populated = await (
+      repo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
     ).attachRelations(parents, ['orders']);
 
     // Check that the executed query received ONLY [1, 2], not null or undefined
@@ -85,10 +87,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     expect(executedQueries[0]).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
 
     // Verify parents mapped correctly
-    expect((parents[0] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
-    expect((parents[1] as unknown as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[2] as unknown as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[3] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
+    expect((populated[0] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
+    expect((populated[1] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((populated[2] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((populated[3] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
   });
 
   it('deduplicates duplicate key values before query construction', async () => {
@@ -195,14 +197,16 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
 
     // Perform relation loading across all 2,500 parent records (SQLite param limit is 999)
     const mutableParents = allUsers.map(u => ({ ...u }));
-    await (
-      userRepo as unknown as { attachRelations(p: Record<string, unknown>[], r: string[]): Promise<void> }
+    const populated = await (
+      userRepo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
     ).attachRelations(mutableParents, ['orders']);
 
     // Verify all 2,500 parents received their corresponding orders seamlessly
-    expect(mutableParents.length).toBe(totalUsers);
+    expect(populated.length).toBe(totalUsers);
     for (let i = 0; i < totalUsers; i++) {
-      const parent = mutableParents[i] as unknown as {
+      const parent = populated[i] as unknown as {
         id: number;
         orders: { id: number; userId: number; total: number }[];
       };

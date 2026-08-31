@@ -301,13 +301,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
       const meta = def.rel ?? def.meta;
       const childTable = def.childTable ?? def.target ?? meta?.target ?? '';
-      const childFk =
-        def.childFk ??
-        def.fk ??
-        def.mappedBy ??
-        meta?.fk ??
-        meta?.mappedBy ??
-        '';
+      const childFk = def.childFk ?? def.fk ?? def.mappedBy ?? meta?.fk ?? meta?.mappedBy ?? '';
       if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
       const cardinality = def.cardinality ?? meta?.cardinality;
