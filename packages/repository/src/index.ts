@@ -1,3 +1,8 @@
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/repository — the repository layer: reads (#26), writes (#27), delete +
 // lifecycle hooks (#28), transactions (#37), typed populate (#217) and the
 // no-subclass wiring helper (#223). Every SQL statement comes from
@@ -13,12 +18,6 @@ import {
   type UpdateDTO,
   type ValidationIssue,
 } from '@zmdb/schema-core';
-
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 import {
   compileWhere,
   applyOrderBy,
