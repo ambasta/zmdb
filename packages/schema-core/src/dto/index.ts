@@ -129,8 +129,14 @@ export interface OrderTarget {
   limit(n: number): this;
   offset(n: number): this;
 }
-export type OffsetPage = { limit: number; offset?: number };
-export type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>>; before?: Partial<Entity<S>> };
+export type OffsetPage = { limit: number; offset?: number | undefined };
+export type PaginationDTO<S> =
+  | OffsetPage
+  | {
+      limit: number;
+      after?: Partial<Entity<S>> | string | undefined;
+      before?: Partial<Entity<S>> | string | undefined;
+    };
 
 /**
  * Schema-agnostic views of the order/page DTOs — exactly the fields the folders
@@ -142,14 +148,154 @@ export type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Ent
 export type OrderBySpec = ReadonlyArray<{ column: PropertyKey; dir?: OrderDir }>;
 // `offset?: number | undefined` (not `offset?: number`) so callers under
 // `exactOptionalPropertyTypes` can forward a possibly-absent offset positionally.
-export type PaginationSpec = { limit: number; offset?: number | undefined };
+export type PaginationSpec = {
+  limit: number;
+  offset?: number | undefined;
+  after?: Record<string, unknown> | string | undefined;
+  before?: Record<string, unknown> | string | undefined;
+};
 
-export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySpec | undefined): B {
-  if (!order) return builder;
+export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySpec | undefined, pkColumn?: string): B {
+  if (!order && !pkColumn) return builder;
   let b = builder;
-  for (const { column, dir } of order) b = b.orderBy(String(column), dir ?? 'asc');
+  const cols: { column: PropertyKey; dir?: OrderDir }[] = order ? [...order] : [];
+  if (pkColumn && !cols.some(item => String(item.column) === pkColumn)) {
+    cols.push({ column: pkColumn, dir: 'asc' });
+  }
+  if (cols.length === 0) return builder;
+  for (const { column, dir } of cols) b = b.orderBy(String(column), dir ?? 'asc');
   return b;
 }
+
+function base64Encode(str: string): string {
+  if (globalThis.Buffer) {
+    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
+  }
+  if (globalThis.btoa) {
+    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  throw new Error('No base64 encoder available');
+}
+
+function base64Decode(str: string): string {
+  if (globalThis.Buffer) {
+    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
+  }
+  if (globalThis.atob) {
+    let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    return globalThis.atob(base64);
+  }
+  throw new Error('No base64 decoder available');
+}
+
+export function encodeCursor(payload: Record<string, unknown>): string {
+  return base64Encode(JSON.stringify(payload));
+}
+
+export function decodeCursor(cursor: string): Record<string, unknown> {
+  if (typeof cursor !== 'string' || !cursor.trim()) {
+    throw new Error('Invalid cursor: must be a non-empty string');
+  }
+  try {
+    const json = base64Decode(cursor);
+    const parsed = JSON.parse(json);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('Invalid cursor payload');
+    }
+    // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
+    return parsed as Record<string, unknown>;
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('Invalid cursor')) {
+      throw err;
+    }
+    throw new Error(`Invalid cursor format: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+  }
+}
+
+class BranchTarget implements WhereTarget {
+  private firstCallInBranch: boolean;
+
+  constructor(
+    private b: WhereTarget,
+    isFirstBranch: boolean,
+  ) {
+    this.firstCallInBranch = !isFirstBranch;
+  }
+
+  where(col: string, op: string, value: unknown): this {
+    if (this.firstCallInBranch) {
+      this.firstCallInBranch = false;
+      this.b = this.b.orWhere(col, op, value);
+    } else {
+      this.b = this.b.where(col, op, value);
+    }
+    return this;
+  }
+
+  orWhere(col: string, op: string, value: unknown): this {
+    if (this.firstCallInBranch) {
+      this.firstCallInBranch = false;
+      this.b = this.b.orWhere(col, op, value);
+    } else {
+      this.b = this.b.where(col, op, value);
+    }
+    return this;
+  }
+
+  getBuilder(): WhereTarget {
+    return this.b;
+  }
+}
+
+export function applyKeysetFilter<B extends WhereTarget>(
+  builder: B,
+  cursorValues: Record<string, unknown>,
+  orderBy: OrderBySpec,
+  userWhere?: WhereDTO<unknown>,
+): B {
+  if (orderBy.length === 0) return builder;
+
+  for (const item of orderBy) {
+    if (!item) continue;
+    const colStr = String(item.column);
+    if (cursorValues[colStr] === undefined) {
+      throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
+    }
+  }
+
+  let currentBuilder: WhereTarget = builder;
+  const k = orderBy.length;
+
+  for (let i = 0; i < k; i++) {
+    const itemI = orderBy[i];
+    if (!itemI) continue;
+
+    const target = new BranchTarget(currentBuilder, i === 0);
+
+    if (userWhere) {
+      compileWhere(target, userWhere);
+    }
+
+    for (let j = 0; j < i; j++) {
+      const itemJ = orderBy[j];
+      if (!itemJ) continue;
+      const col = String(itemJ.column);
+      target.where(col, '=', cursorValues[col]);
+    }
+
+    const curCol = String(itemI.column);
+    const dir = itemI.dir ?? 'asc';
+    const op = dir === 'desc' ? '<' : '>';
+    target.where(curCol, op, cursorValues[curCol]);
+
+    currentBuilder = target.getBuilder();
+  }
+
+  // boundary: BranchTarget wraps B (implementing WhereTarget); getBuilder() returns the mutated query builder B.
+  return currentBuilder as B;
+}
+
 export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationSpec | undefined): B {
   if (!page) return builder;
   let b = builder.limit(page.limit);
@@ -221,7 +367,7 @@ export interface ListResult<Row> {
   readonly cursor?: string;
 }
 /**
- * Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total.
+ * Assemble a ListResult: limit+1 trim ⇒ hasMore, per-item projection, opt-in total, opaque cursor.
  *
  * Overloaded on `select` so the no-projection call keeps `ListResult<Row>` instead
  * of widening to `ListResult<Row | Partial<Row>>` — the widening is what forced
@@ -229,25 +375,79 @@ export interface ListResult<Row> {
  */
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: { limit?: number; total?: number },
+  opts?: {
+    limit?: number;
+    total?: number;
+    cursor?: string;
+    orderBy?: OrderBySpec;
+    pkColumn?: string;
+  },
 ): ListResult<Row>;
 export function buildListResult<Row extends Record<string, unknown>, K extends keyof Row>(
   rows: readonly Row[],
-  opts: { limit?: number; total?: number; select: readonly K[] },
+  opts: {
+    limit?: number;
+    select: readonly K[];
+    total?: number;
+    cursor?: string;
+    orderBy?: OrderBySpec;
+    pkColumn?: string;
+  },
 ): ListResult<Pick<Row, K>>;
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+  opts?: {
+    limit?: number;
+    select?: readonly (keyof Row)[];
+    total?: number;
+    cursor?: string;
+    orderBy?: OrderBySpec;
+    pkColumn?: string;
+  },
 ): ListResult<Row | Partial<Row>>;
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
-  opts?: { limit?: number; select?: readonly (keyof Row)[]; total?: number },
+  opts?: {
+    limit?: number;
+    select?: readonly (keyof Row)[];
+    total?: number;
+    cursor?: string;
+    orderBy?: OrderBySpec;
+    pkColumn?: string;
+  },
 ): ListResult<Row | Partial<Row>> {
   const limit = opts?.limit;
   const hasMore = typeof limit === 'number' && rows.length > limit;
   const kept = hasMore ? rows.slice(0, limit) : rows;
-  const items = opts?.select ? kept.map(r => project(r, opts.select)) : kept;
-  const result: ListResult<Row | Partial<Row>> = { items, hasMore };
+  const select = opts?.select;
+  const items = select ? kept.map(r => project(r, select)) : kept;
+
+  let computedCursor: string | undefined = opts?.cursor;
+  if (!computedCursor && hasMore && kept.length > 0) {
+    const lastRow = kept[kept.length - 1];
+    if (lastRow) {
+      const cursorObj: Record<string, unknown> = {};
+      const cols: { column: PropertyKey; dir?: OrderDir }[] = opts?.orderBy ? [...opts.orderBy] : [];
+      if (opts?.pkColumn && !cols.some(c => String(c.column) === opts.pkColumn)) {
+        cols.push({ column: opts.pkColumn, dir: 'asc' });
+      }
+      for (const item of cols) {
+        if (!item) continue;
+        const colStr = String(item.column);
+        if (colStr in lastRow) {
+          cursorObj[colStr] = lastRow[colStr];
+        }
+      }
+      if (Object.keys(cursorObj).length > 0) {
+        computedCursor = encodeCursor(cursorObj);
+      }
+    }
+  }
+  const result: ListResult<Row | Partial<Row>> = {
+    items,
+    hasMore,
+    ...(computedCursor !== undefined ? { cursor: computedCursor } : {}),
+  };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
 export interface SearchDTO<S> {

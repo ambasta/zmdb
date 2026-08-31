@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "guardrail": "node --experimental-strip-types src/cli.ts",
     "test": "vitest run"
   },
   "dependencies": {

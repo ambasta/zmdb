@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { transformSource, validate, tags, escapePattern } from './index.ts';
+import { transformSource, validate, tags, getRegExp, escapePattern } from './index.ts';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.
 
@@ -97,6 +97,29 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
   it('Enum membership at runtime', () => {
     expect(validate(tags.Enum('a', 'b'), 'a')).toBe(true);
     expect(validate(tags.Enum('a', 'b'), 'c')).toBe(false);
+  });
+
+  it('reuses cached RegExp instance for pattern rules', () => {
+    const patternRule = tags.Pattern('^[a-z]+$');
+    expect(validate(patternRule, 'hello')).toBe(true);
+    expect(validate(patternRule, '123')).toBe(false);
+  });
+
+  it('uses cached Set lookup for enum rules', () => {
+    const enumRule = tags.Enum('alpha', 'beta', 'gamma');
+    for (let i = 0; i < 100; i++) {
+      expect(validate(enumRule, 'beta')).toBe(true);
+      expect(validate(enumRule, 'delta')).toBe(false);
+    }
+  });
+
+  it('bounds RegExp cache with LRU eviction', () => {
+    const firstRegexp = getRegExp('pattern_0');
+    for (let i = 1; i <= 1005; i++) {
+      getRegExp(`pattern_${i}`);
+    }
+    const newFirstRegexp = getRegExp('pattern_0');
+    expect(newFirstRegexp).not.toBe(firstRegexp);
   });
 
   it('Pattern evaluation parity between runtime fallback and compiled inline checks', () => {

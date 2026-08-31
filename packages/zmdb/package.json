@@ -9,7 +9,8 @@
     "./relations": "./src/relations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
-    "./web": "./src/web.ts"
+    "./web": "./src/web.ts",
+    "./unplugin": "./src/unplugin.ts"
   },
   "scripts": {
     "test": "vitest run"

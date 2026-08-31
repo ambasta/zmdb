@@ -1,0 +1,191 @@
+[
+  {
+    "suite": "orm",
+    "case": "active-record-save",
+    "target": "zmdb",
+    "status": "dnf",
+    "dnfReason": "dnf (anti-pattern): active-record entity.save() rejected"
+  },
+  {
+    "suite": "orm",
+    "case": "customer-by-id",
+    "target": "drizzle",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "customer-by-id",
+    "target": "kysely",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "customer-by-id",
+    "target": "prisma",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "customer-by-id",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 46756
+  },
+  {
+    "suite": "orm",
+    "case": "identity-map-dedup",
+    "target": "zmdb",
+    "status": "dnf",
+    "dnfReason": "dnf (anti-pattern): identity map rejected by architecture"
+  },
+  {
+    "suite": "orm",
+    "case": "lazy-relation-graph",
+    "target": "zmdb",
+    "status": "dnf",
+    "dnfReason": "dnf (anti-pattern): proxy lazy-load rejected by architecture"
+  },
+  {
+    "suite": "orm",
+    "case": "order-with-items",
+    "target": "drizzle",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "order-with-items",
+    "target": "kysely",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "order-with-items",
+    "target": "prisma",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "order-with-items",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 34014
+  },
+  {
+    "suite": "orm",
+    "case": "prepared-reuse",
+    "target": "drizzle",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "prepared-reuse",
+    "target": "kysely",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "prepared-reuse",
+    "target": "prisma",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "prepared-reuse",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 45788
+  },
+  {
+    "suite": "orm",
+    "case": "products-search",
+    "target": "drizzle",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "products-search",
+    "target": "kysely",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "products-search",
+    "target": "prisma",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "products-search",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 29316
+  },
+  {
+    "suite": "orm",
+    "case": "top-products",
+    "target": "drizzle",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "top-products",
+    "target": "kysely",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "top-products",
+    "target": "prisma",
+    "status": "dnf",
+    "dnfReason": "dnf (not implemented): live-PostgreSQL + k6 competitor harness not wired in this environment"
+  },
+  {
+    "suite": "orm",
+    "case": "top-products",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 17057
+  },
+  {
+    "suite": "validation",
+    "case": "loose-assert",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 219627
+  },
+  {
+    "suite": "validation",
+    "case": "safe-parse",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 195096
+  },
+  {
+    "suite": "validation",
+    "case": "strict-assert",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 535755
+  },
+  {
+    "suite": "validation",
+    "case": "strict-parse",
+    "target": "zmdb",
+    "status": "ok",
+    "opsPerSec": 187231
+  }
+]

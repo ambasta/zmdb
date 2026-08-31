@@ -19,8 +19,9 @@ export function assertNoSilentSkips(results: readonly BenchResult[], primaryTarg
   const primaryCases = new Map<string, Set<string>>(); // suite -> cases (primary only)
   for (const r of results) {
     const schemaErrors = validateResult(r);
-    if (schemaErrors.length > 0) {
-      throw new ReportError(`invalid result for ${r.suite}/${r.case}/${r.target}: ${schemaErrors[0]!.message}`);
+    const firstErr = schemaErrors[0];
+    if (firstErr) {
+      throw new ReportError(`invalid result for ${r.suite}/${r.case}/${r.target}: ${firstErr.message}`);
     }
     if (r.target === primaryTarget) {
       const set = primaryCases.get(r.suite) ?? new Set<string>();

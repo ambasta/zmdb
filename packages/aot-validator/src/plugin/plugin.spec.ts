@@ -39,3 +39,26 @@ describe('AOT plugin: assert<T> inlining', () => {
     expect(n).toContain('throw'); // structured throw on failure
   });
 });
+
+describe('AOT plugin: validate<T>, equals<T>, assertEquals<T> inlining', () => {
+  it('inlines validate<T> into result object', () => {
+    const out = transformTypeChecks('const res = validate<{ n: number }>(input);');
+    const n = norm(out);
+    expect(n).toContain('success: true');
+    expect(n).toContain('typeof input.n === "number"');
+  });
+
+  it('inlines equals<T> into structural check with excess key loop', () => {
+    const out = transformTypeChecks('const ok = equals<{ a: number }>(input);');
+    const n = norm(out);
+    expect(n).toContain('typeof input.a === "number"');
+    expect(n).toContain('for (const _ in input)');
+  });
+
+  it('inlines assertEquals<T> into excess check with throw', () => {
+    const out = transformTypeChecks('const v = assertEquals<{ a: number }>(input);');
+    const n = norm(out);
+    expect(n).toContain('typeof input.a === "number"');
+    expect(n).toContain('throw');
+  });
+});

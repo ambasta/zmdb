@@ -16,9 +16,15 @@ describe('views DDL (#103)', () => {
   });
 
   it('materialized view on sqlite throws', () => {
-    expect(() => createViewDdl({ name: 'mv', select: 'SELECT 1', materialized: true }, 'sqlite')).toThrow(
-      UnsupportedFeatureError,
-    );
+    try {
+      createViewDdl({ name: 'mv', select: 'SELECT 1', materialized: true }, 'sqlite');
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnsupportedFeatureError);
+      const e = err as UnsupportedFeatureError;
+      expect(e.feature).toBe('materialized views');
+      expect(e.dialect).toBe('sqlite');
+    }
   });
 
   it('drops a view', () => {
