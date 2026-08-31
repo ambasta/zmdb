@@ -216,7 +216,7 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
     defaultTo: (value: unknown) =>
       makeColumn<Column>({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
     validate: (rule: ValidationRule) => makeColumn<Column>({ ...base, validation: [...(base.validation ?? []), rule] }),
-    sensitive: (isSensitive: boolean = true) => withFlag({ sensitive: isSensitive !== false }),
+    sensitive: (isSensitive: boolean = true) => withFlag({ sensitive: isSensitive }),
   };
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
