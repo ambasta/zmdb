@@ -38,8 +38,9 @@ describe('Composite Primary Key Repository Operations', () => {
     const key: PrimaryKey<CompositeS> = { tenantId: 't1', userId: 10 };
     const row = await repo.findById(key);
 
-    expect(calls[0]!.text).toBe('SELECT * FROM "tenant_users" WHERE "tenantId" = $1 AND "userId" = $2 LIMIT 1');
-    expect(calls[0]!.parameters).toEqual(['t1', 10]);
+    const [call] = calls;
+    expect(call?.text).toBe('SELECT * FROM "tenant_users" WHERE "tenantId" = $1 AND "userId" = $2 LIMIT 1');
+    expect(call?.parameters).toEqual(['t1', 10]);
     expect(row).toEqual({ tenantId: 't1', userId: 10, role: 'admin' });
   });
 
@@ -48,10 +49,11 @@ describe('Composite Primary Key Repository Operations', () => {
     const repo = new TenantUsersRepo(driver);
     const row = await repo.update({ tenantId: 't1', userId: 10 }, { role: 'editor' });
 
-    expect(calls[0]!.text).toBe(
+    const [call] = calls;
+    expect(call?.text).toBe(
       'UPDATE "tenant_users" SET "role" = $1 WHERE "tenantId" = $2 AND "userId" = $3 RETURNING *',
     );
-    expect(calls[0]!.parameters).toEqual(['editor', 't1', 10]);
+    expect(call?.parameters).toEqual(['editor', 't1', 10]);
     expect(row?.role).toBe('editor');
   });
 
@@ -60,10 +62,11 @@ describe('Composite Primary Key Repository Operations', () => {
     const repo = new TenantUsersRepo(driver);
     const deleted = await repo.delete({ tenantId: 't1', userId: 10 });
 
-    expect(calls[0]!.text).toBe(
+    const [call] = calls;
+    expect(call?.text).toBe(
       'DELETE FROM "tenant_users" WHERE "tenantId" = $1 AND "userId" = $2 RETURNING "tenantId", "userId"',
     );
-    expect(calls[0]!.parameters).toEqual(['t1', 10]);
+    expect(call?.parameters).toEqual(['t1', 10]);
     expect(deleted).toBe(true);
   });
 
@@ -83,16 +86,19 @@ describe('Composite Primary Key Repository Operations', () => {
     const repo = new ProductsRepo(driver);
 
     const product = await repo.findById(42);
-    expect(calls[0]!.text).toBe('SELECT * FROM "products" WHERE "id" = $1 LIMIT 1');
-    expect(calls[0]!.parameters).toEqual([42]);
+    const [call0] = calls;
+    expect(call0?.text).toBe('SELECT * FROM "products" WHERE "id" = $1 LIMIT 1');
+    expect(call0?.parameters).toEqual([42]);
     expect(product).toEqual({ id: 42, name: 'Widget' });
 
     await repo.update(42, { name: 'Super Widget' });
-    expect(calls[1]!.text).toBe('UPDATE "products" SET "name" = $1 WHERE "id" = $2 RETURNING *');
-    expect(calls[1]!.parameters).toEqual(['Super Widget', 42]);
+    const call1 = calls[1];
+    expect(call1?.text).toBe('UPDATE "products" SET "name" = $1 WHERE "id" = $2 RETURNING *');
+    expect(call1?.parameters).toEqual(['Super Widget', 42]);
 
     await repo.delete(42);
-    expect(calls[2]!.text).toBe('DELETE FROM "products" WHERE "id" = $1 RETURNING "id"');
-    expect(calls[2]!.parameters).toEqual([42]);
+    const call2 = calls[2];
+    expect(call2?.text).toBe('DELETE FROM "products" WHERE "id" = $1 RETURNING "id"');
+    expect(call2?.parameters).toEqual([42]);
   });
 });

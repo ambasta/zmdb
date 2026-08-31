@@ -198,7 +198,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     }
 
     if (pkCols.length === 1) {
-      const pkCol = pkCols[0]!;
+      const [pkCol] = pkCols;
+      if (!pkCol) {
+        throw new Error(`schema ${this.tableName} has empty primary key column`);
+      }
       return { [pkCol]: id } as WhereDTO<CoreSchema<string>>;
     }
 

@@ -221,13 +221,9 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
     makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
 
   // Metadata is the enumerable surface (so `toEqual` compares metadata only).
-  // boundary: the fluent methods are attached *below* via defineProperty (they
-  // must be non-enumerable), so the object is not a `Column` until this function
-  // returns; and `C`'s `type`/`flags` are exactly the literal types of the `meta`
-  // the caller passed — the builders below are the only callers, and each pairs
-  // its declared `Column<T, F>` with a matching literal `meta`. Neither
-  // `Object.defineProperties` nor "these two literals agree" is expressible as a
-  // type-changing operation, hence the one assertion here.
+  // Fluent methods are attached non-enumerably via Object.defineProperty below.
+  //
+  // boundary: base spread carries ColumnMeta properties and lacks fluent modifier methods until Object.defineProperty attaches them below, guaranteeing the complete Column shape C.
   const column = { ...base } as unknown as C;
 
   // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
