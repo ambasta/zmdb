@@ -25,9 +25,9 @@ export {
 } from '@zmdb/schema-core';
 export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta } from '@zmdb/schema-core';
 
-// Query compiler.
+// Query compiler & Migrations.
 export { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
-
+export * as migrations from '@zmdb/query-compiler/migrations';
 export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.

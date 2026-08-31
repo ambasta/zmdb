@@ -22,6 +22,7 @@ const ENTRIES = {
     './joins': 'joins',
     './aggregations': 'aggregations',
     './migrations': 'migrations',
+    './migrations/runner': 'migrations/runner',
     './set-ops': 'set-ops',
     './schema-objects': 'schema-objects',
   },

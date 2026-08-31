@@ -34,6 +34,7 @@ import {
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
 export interface Driver {
+  readonly dialect?: Dialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 

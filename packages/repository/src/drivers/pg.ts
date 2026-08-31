@@ -47,6 +47,7 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
     return n;
   };
   return {
+    dialect: 'postgres',
     async execute(q) {
       const params = q.parameters;
       const res = prepared
