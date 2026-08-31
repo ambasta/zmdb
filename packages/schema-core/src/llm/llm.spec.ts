@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { defineSchema, serial, text, jsonEnum } from '../index.ts';
+import { defineSchema, jsonEnum, sensitive, serial, text } from '../index.ts';
 import { toolFromSchema, lenientParse } from './index.ts';
 
 const UserSchema = defineSchema('users', {
@@ -18,6 +18,19 @@ describe('LLM function-calling harness (#159)', () => {
     // create variant omits the auto-increment id
     expect(tool.parameters.properties).not.toHaveProperty('id');
     expect(tool.parameters.properties).toHaveProperty('email');
+  });
+
+  it('toolFromSchema includes sensitive fields in parameter schemas for create variant', () => {
+    const SensitiveSchema = defineSchema('users', {
+      id: serial().primaryKey(),
+      email: text().notNull(),
+      apiKey: sensitive(text().notNull()),
+    });
+    const tool = toolFromSchema('createUser', SensitiveSchema);
+    expect(tool.parameters.properties).toHaveProperty('apiKey');
+    expect(tool.parameters.properties).toHaveProperty('email');
+    expect(tool.parameters.required).toContain('apiKey');
+    expect(tool.parameters.required).toContain('email');
   });
 
   it('lenientParse strips ```json fences and parses', () => {

@@ -3,14 +3,15 @@ import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb
 import { createQueryCompiler as srcQC } from '@zmdb/query-compiler';
 import { BaseRepository as SrcBaseRepository, defineRepository as srcDefineRepository } from '@zmdb/repository';
 import {
-  defineSchema as srcDefineSchema,
-  serial as srcSerial,
-  integer as srcInteger,
-  text as srcText,
   boolean as srcBoolean,
-  timestamp as srcTimestamp,
+  defineSchema as srcDefineSchema,
+  integer as srcInteger,
   json as srcJson,
   jsonEnum as srcJsonEnum,
+  sensitive as srcSensitive,
+  serial as srcSerial,
+  text as srcText,
+  timestamp as srcTimestamp,
 } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
@@ -23,6 +24,7 @@ import {
   timestamp,
   json,
   jsonEnum,
+  sensitive,
   createQueryCompiler,
   is,
   assert,
@@ -42,6 +44,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(timestamp).toBe(srcTimestamp);
     expect(json).toBe(srcJson);
     expect(jsonEnum).toBe(srcJsonEnum);
+    expect(sensitive).toBe(srcSensitive);
   });
 
   it('re-exports createQueryCompiler', () => {
