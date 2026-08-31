@@ -45,7 +45,6 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
-  readonly __payload?: unknown;
 }
 
 /** Erased view of a column map — the default `CoreSchema` argument. */
