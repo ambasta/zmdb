@@ -10,12 +10,16 @@ still never opens connections itself.
 ```ts
 // node:sqlite (built-in, zero external deps)
 import { DatabaseSync } from 'node:sqlite';
-function sqliteDriver(db: DatabaseSync): Driver;
+interface SqliteOptions {
+  maxCacheSize?: number;
+}
+function sqliteDriver(db: DatabaseSync, opts?: SqliteOptions): Driver;
 
 // pg (node-postgres) — pass a Pool or Client
 import type { Pool, Client } from 'pg';
 interface PgOptions {
   prepared?: boolean;
+  maxCacheSize?: number;
 } // opt-in server-side prepared stmts
 function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 ```
@@ -24,7 +28,10 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 
 ### sqliteDriver (#212)
 
-- `execute(q)`: `db.prepare(q.text)`, spread positional `?` params.
+- `execute(q)`: Reuses cached compiled `db.prepare(q.text)` statement handles and
+  cached read/write classification flags in memory, spreading positional `?` params.
+- Internal statement handle and classification cache is LRU-bounded (default 1000 entries).
+  When an entry is evicted, the `StatementSync` handle reference is dropped for garbage collection to free native memory.
 - If the SQL is a read (`^\s*SELECT`) or has `RETURNING`, return `stmt.all(...params)`
   as rows; otherwise `stmt.run(...params)` and return `[]`.
 - Synchronous under the hood, wrapped in a resolved Promise.
@@ -32,9 +39,8 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 ### pgDriver (#213)
 
 - `execute(q)`: `client.query(q.text, q.parameters)` → return `result.rows`.
-- With `opts.prepared === true`, use a stable statement `name` derived from the
-  SQL text so Postgres caches the plan (server-side prepared statement). Kept
-  opt-in to preserve the zero-state default (see the benchmarks tail trade-off).
+- With `opts.prepared === true`, use a stable statement `name` derived from the SQL text so Postgres caches the plan (server-side prepared statement). Kept opt-in to preserve the zero-state default (see the benchmarks tail trade-off).
+- Internal statement name cache is LRU-bounded (default 1000 entries); evicting a statement issues `DEALLOCATE <name>` to clean up server-side state.
 - Never mutates the pool/client; no connection lifecycle management.
 
 ## Packaging

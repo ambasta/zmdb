@@ -16,19 +16,49 @@ export interface SqliteDatabase {
   prepare(sql: string): SqliteStatement;
 }
 
+export interface SqliteOptions {
+  maxCacheSize?: number;
+}
+
+interface CachedStatement {
+  stmt: SqliteStatement;
+  isRead: boolean;
+}
+
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
-export function sqliteDriver(db: SqliteDatabase): Driver {
+export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Driver {
+  const maxCacheSize = opts?.maxCacheSize ?? 1000;
+  const cache = new Map<string, CachedStatement>();
+
   return {
     async execute(q) {
-      const stmt = db.prepare(q.text);
-      if (/^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text)) {
+      let entry = maxCacheSize > 0 ? cache.get(q.text) : undefined;
+      if (!entry) {
+        const isRead = /^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text);
+        const stmt = db.prepare(q.text);
+        entry = { stmt, isRead };
+        if (maxCacheSize > 0) {
+          if (cache.size >= maxCacheSize) {
+            const oldestKey = cache.keys().next().value;
+            if (oldestKey !== undefined) {
+              cache.delete(oldestKey);
+            }
+          }
+          cache.set(q.text, entry);
+        }
+      } else if (maxCacheSize > 0) {
+        cache.delete(q.text);
+        cache.set(q.text, entry);
+      }
+
+      if (entry.isRead) {
         // boundary: rows leave the database untyped. `all()` is declared
         // `unknown[]` (the widest shape every @types/node version agrees on);
         // node:sqlite always yields plain row objects for a row-returning
         // statement, and callers re-type them at the repository's row boundary.
-        return stmt.all(...q.parameters) as Record<string, unknown>[];
+        return entry.stmt.all(...q.parameters) as Record<string, unknown>[];
       }
-      stmt.run(...q.parameters);
+      entry.stmt.run(...q.parameters);
       return [];
     },
   };

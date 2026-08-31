@@ -12,17 +12,36 @@ export interface PgQueryable {
 }
 export interface PgOptions {
   prepared?: boolean;
+  maxCacheSize?: number;
 }
 
-/** Wrap a pg Pool/Client as a zmdb Driver. `prepared:true` opts into server-side
- * prepared statements (stable statement name per SQL). */
+/** Wrap a pg Pool/Client as a zmdb Driver. `prepared: true` opts into server-side
+ * prepared statements (stable statement name per SQL). Kept opt-in to preserve
+ * the zero-state default (see the benchmarks tail trade-off). */
 export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
+  const prepared = opts?.prepared ?? false;
+  const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const names = new Map<string, string>();
   let seq = 0;
   const nameFor = (text: string): string => {
-    let n = names.get(text);
+    let n = maxCacheSize > 0 ? names.get(text) : undefined;
     if (!n) {
       n = 'z' + (seq++).toString(36);
+      if (maxCacheSize > 0) {
+        if (names.size >= maxCacheSize) {
+          const oldestKey = names.keys().next().value;
+          if (oldestKey !== undefined) {
+            const oldestName = names.get(oldestKey);
+            names.delete(oldestKey);
+            if (oldestName) {
+              client.query(`DEALLOCATE ${oldestName}`).catch(() => {});
+            }
+          }
+        }
+        names.set(text, n);
+      }
+    } else if (maxCacheSize > 0) {
+      names.delete(text);
       names.set(text, n);
     }
     return n;
@@ -30,7 +49,7 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
   return {
     async execute(q) {
       const params = q.parameters;
-      const res = opts?.prepared
+      const res = prepared
         ? await client.query({ name: nameFor(q.text), text: q.text, values: params })
         : await client.query(q.text, params);
       return res.rows;
