@@ -1,6 +1,6 @@
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
-import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/repository — the repository layer: reads (#26), writes (#27), delete +
@@ -396,25 +396,36 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     let builder = aggregateSelectFrom(this.tableName, this.dialect);
     const resolveRelationJoin = (relationName: string) => this.resolveRelationJoin(relationName);
 
-    const wrap = (b: ReturnType<typeof aggregateSelectFrom>): RepositoryAggregateBuilder => {
+    const wrap = (b: AggregateSelect): RepositoryAggregateBuilder => {
       builder = b;
-      return new Proxy(builder, {
-        get(target, prop, receiver) {
+      const target: RepositoryAggregateBuilder = Object.assign(builder, {
+        joinRelation(relationName: string, kind: 'inner' | 'left' | 'right' = 'inner'): RepositoryAggregateBuilder {
+          const { targetTable, leftCol, rightCol } = resolveRelationJoin(relationName);
+          let nextB = builder;
+          if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol);
+          else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol);
+          else nextB = builder.innerJoin(targetTable, leftCol, rightCol);
+          return wrap(nextB);
+        },
+      });
+
+      return new Proxy<RepositoryAggregateBuilder>(target, {
+        get(t, prop, receiver) {
           if (prop === 'joinRelation') {
-            return (relationName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
-              const { targetTable, leftCol, rightCol } = resolveRelationJoin(relationName);
-              let nextB = builder;
-              if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol);
-              else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol);
-              else nextB = builder.innerJoin(targetTable, leftCol, rightCol);
-              return wrap(nextB);
-            };
+            return t.joinRelation;
           }
-          const val = Reflect.get(target, prop, receiver);
+          const val = Reflect.get(t, prop, receiver);
           if (typeof val === 'function') {
             return (...args: unknown[]) => {
-              const res = val.apply(target, args);
-              if (res && typeof res === 'object' && typeof res.compile === 'function') {
+              const res = val.apply(t, args);
+              if (
+                res &&
+                typeof res === 'object' &&
+                'compile' in res &&
+                typeof res.compile === 'function' &&
+                'select' in res &&
+                typeof res.select === 'function'
+              ) {
                 return wrap(res);
               }
               return res;
@@ -422,7 +433,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
           }
           return val;
         },
-      }) as RepositoryAggregateBuilder;
+      });
     };
 
     return wrap(builder);
@@ -439,11 +450,11 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       const builder = this.createRepositoryAggregateBuilder();
       const res = specOrBuild(builder);
       q =
-        res && typeof (res as { compile?: unknown }).compile === 'function'
-          ? (res as { compile(): CompiledQuery }).compile()
+        res && typeof res === 'object' && 'compile' in res && typeof res.compile === 'function'
+          ? res.compile()
           : builder.compile();
     } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
-      const spec = specOrBuild as AggregateSpec<S, unknown>;
+      const spec = specOrBuild;
       let builder = aggregateSelectFrom(this.tableName, this.dialect);
       const joinedRelations = new Set<string>();
 
@@ -470,7 +481,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       const candidateCols: string[] = [];
       if (spec.groupBy) candidateCols.push(...spec.groupBy.map(String));
       if (spec.computed) {
-        for (const comp of Object.values(spec.computed) as Array<{ fn: string; column?: unknown; raw?: string }>) {
+        for (const comp of Object.values(spec.computed)) {
           if (comp.column) candidateCols.push(String(comp.column));
         }
       }
@@ -493,15 +504,17 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       }
 
       if (spec.computed) {
-        for (const [alias, comp] of Object.entries(spec.computed) as Array<
-          [string, { fn: string; column?: unknown; raw?: string }]
-        >) {
+        for (const [alias, comp] of Object.entries(spec.computed)) {
           if (comp.raw) {
             builder = builder.expr(comp.raw, alias);
           } else {
-            const fn = comp.fn.toLowerCase() as 'count' | 'sum' | 'avg' | 'min' | 'max';
+            const fnLower = comp.fn.toLowerCase();
             const col = comp.column ? String(comp.column) : '*';
-            builder = builder[fn](col, alias);
+            if (fnLower === 'count') builder = builder.count(col, alias);
+            else if (fnLower === 'sum') builder = builder.sum(col, alias);
+            else if (fnLower === 'avg') builder = builder.avg(col, alias);
+            else if (fnLower === 'min') builder = builder.min(col, alias);
+            else if (fnLower === 'max') builder = builder.max(col, alias);
           }
         }
       }
@@ -509,7 +522,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (spec.where) {
         for (const [col, val] of Object.entries(spec.where)) {
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
-            for (const [op, opVal] of Object.entries(val as Record<string, unknown>)) {
+            for (const [op, opVal] of Object.entries(val)) {
               builder = builder.where(col, op === 'eq' ? '=' : op, opVal);
             }
           } else {
@@ -539,7 +552,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     const rawRows = await this.driver.execute(q);
 
     const mappedRows = rawRows.map(row => {
-      const out = { ...row };
+      const out: Record<string, unknown> = { ...row };
       for (const [k, v] of Object.entries(row)) {
         if (k.includes('.')) {
           const flatKey = k.replace('.', '_');
@@ -553,10 +566,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
           }
         }
       }
-      return out as Out;
+      return out;
     });
 
-    return mappedRows;
+    return mappedRows as readonly Out[];
   }
 
   // #34 — explicit populate for a to-many relation. Loads parents, then batches

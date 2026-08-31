@@ -480,11 +480,17 @@ type RelatedColumns<R> =
 
 export type AggregateColumn<S, R = unknown> = (keyof Entity<S> & string) | RelatedColumns<R> | (string & {});
 
+export interface ComputedSpec<S = unknown, R = unknown> {
+  fn: AggFn;
+  column?: AggregateColumn<S, R>;
+  raw?: string;
+}
+
 export interface AggregateSpec<S, R = unknown> {
   joins?: readonly (keyof R & string)[] | readonly { relation: keyof R & string; kind?: 'inner' | 'left' | 'right' }[];
   where?: WhereDTO<S> | Record<string, unknown>;
   groupBy?: readonly AggregateColumn<S, R>[];
-  computed: Readonly<Record<string, { fn: AggFn; column?: AggregateColumn<S, R>; raw?: string }>>;
+  computed: Record<string, ComputedSpec<S, R>>;
   having?: Readonly<{ column: AggregateColumn<S, R>; op: string; value: unknown }>;
   orderBy?: ReadonlyArray<{ column: AggregateColumn<S, R>; dir?: OrderDir }>;
   limit?: number;
