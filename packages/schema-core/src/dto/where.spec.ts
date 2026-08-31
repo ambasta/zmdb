@@ -1,9 +1,8 @@
 import { createQueryCompiler } from '@zmdb/query-compiler';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { defineSchema, serial, text, integer, jsonEnum } from '../index.ts';
-import type { Entity } from '../index.ts';
-import { compileWhere, type WhereDTO, type FieldOps, type SubqueryTarget } from './index.ts';
+import { compileWhere, type WhereDTO } from './index.ts';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
@@ -127,16 +126,5 @@ describe('WhereDTO + operator set (#179)', () => {
       'SELECT * FROM "users" WHERE "role" = $1 AND EXISTS (SELECT * FROM "orders" WHERE "total" >= $2)',
     );
     expect(compiled.parameters).toEqual(['admin', 500]);
-  });
-
-  it('type-level: fields are value-typed or subquery targets; like only on strings', () => {
-    expectTypeOf<WhereDTO<S>['age']>().toEqualTypeOf<number | FieldOps<number> | undefined>();
-    // like/ilike present on string field ops, never on numeric
-    expectTypeOf<FieldOps<string>['like']>().toEqualTypeOf<string | SubqueryTarget<string> | undefined>();
-    expectTypeOf<FieldOps<number>['like']>().toEqualTypeOf<never | undefined>();
-    // eq value accepts entity field type or SubqueryTarget
-    expectTypeOf<FieldOps<Entity<S>['role']>['eq']>().toEqualTypeOf<
-      'admin' | 'user' | SubqueryTarget<'admin' | 'user'> | undefined
-    >();
   });
 });

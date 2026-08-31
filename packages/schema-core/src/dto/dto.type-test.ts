@@ -38,6 +38,12 @@ export type _Where3 = Expect<Equal<FieldOps<number>['like'], undefined>>;
 export type _Where4 = Expect<
   Equal<FieldOps<Entity<S>['role']>['eq'], 'admin' | 'user' | SubqueryTarget<'admin' | 'user'> | undefined>
 >;
+export type _Where5 = Expect<
+  Equal<WhereDTO<S>['exists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+>;
+export type _Where6 = Expect<
+  Equal<WhereDTO<S>['notExists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+>;
 
 // --- OrderByDTO (#182) -----------------------------------------------------
 export type _Order1 = Expect<Equal<OrderByDTO<S>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;
