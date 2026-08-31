@@ -9,7 +9,7 @@
 // `CoreSchema<T>` with `columns: Record<string, ColumnMeta>`) without a single
 // failing test. They are asserted here against `defineSchema` itself, i.e. the
 // path every consumer actually takes.
-import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from './index.ts';
+import type { CreateDTO, Entity, Equal, Expect, PrimaryKey, UpdateDTO } from './index.ts';
 import {
   defaultTo,
   defineSchema,
@@ -32,6 +32,13 @@ const UserSchema = defineSchema('users', {
   createdAt: timestamp().defaultTo('now'),
 });
 type S = typeof UserSchema;
+
+const CompositeSchema = defineSchema('org_members', {
+  tenantId: primaryKey(text()),
+  userId: primaryKey(integer()),
+  role: text().notNull(),
+});
+type CompositeS = typeof CompositeSchema;
 
 // --- Entity ----------------------------------------------------------------
 export type _Ent1 = Expect<Equal<Entity<S>['id'], number>>;
@@ -56,6 +63,10 @@ export type _Cre4 = Expect<Equal<CreateDTO<S>['email'], string>>;
 export type _Upd1 = Expect<Equal<UpdateDTO<S>['email'], string | undefined>>;
 export type _Upd2 = Expect<Equal<UpdateDTO<S>['role'], 'admin' | 'user' | undefined>>;
 export const _UpdUndefined: UpdateDTO<S> = { email: undefined, role: 'admin' };
+
+// --- PrimaryKey ------------------------------------------------------------
+export type _Pk1 = Expect<Equal<PrimaryKey<S>, number>>;
+export type _Pk2 = Expect<Equal<PrimaryKey<CompositeS>, { tenantId: string; userId: number }>>;
 
 // --- The two modifier styles agree ----------------------------------------
 // Function-style modifiers (`primaryKey(serial())`) and fluent modifiers

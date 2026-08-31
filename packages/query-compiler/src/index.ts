@@ -189,11 +189,13 @@ export interface InsertBuilder {
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
   where(col: string, op: Operator, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
   where(col: string, op: Operator, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
   compile(): CompiledQuery;
 }
@@ -241,6 +243,7 @@ function makeUpdate(
   return {
     set: r => makeUpdate(d, table, r, wheres, ret),
     where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    orWhere: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret),
     returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
@@ -270,6 +273,7 @@ function makeDelete(
 ): DeleteBuilder {
   return {
     where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
+    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret),
     returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];

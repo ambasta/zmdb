@@ -1,13 +1,18 @@
 {
   "suite": "validation (moltar/typescript-runtime-type-benchmarks)",
   "upstreamCommit": "25a1d18491daf11e2d04c8f749b188fed28773d3",
-  "generatedAt": "2026-08-31T10:18:51.872Z",
+  "generatedAt": "2026-08-31T10:50:11.160Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/moltar/typescript-runtime-type-benchmarks",
   "methodology": "Upstream runner, one forked process per library. Four cases over the suite's fixed data model: parseSafe, parseStrict, assertLoose, assertStrict. ops/sec with the runner's own error margin. `zmdb` is the runtime (descriptor-walking) validator; `zmdb-aot` is the same code with the transformer applied.",
   "runtime": "node v26.8.1",
-  "kinds": ["parseSafe", "parseStrict", "assertLoose", "assertStrict"],
+  "kinds": [
+    "parseSafe",
+    "parseStrict",
+    "assertLoose",
+    "assertStrict"
+  ],
   "libraries": [
     {
       "name": "typia",
@@ -177,7 +182,9 @@
         "assertLoose": 1.64,
         "assertStrict": null
       },
-      "dnf": ["assertStrict"]
+      "dnf": [
+        "assertStrict"
+      ]
     },
     {
       "name": "jet-validators",
@@ -262,7 +269,10 @@
         "assertLoose": 1.15,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "$mol_data",
@@ -279,7 +289,10 @@
         "assertLoose": 0.47,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "simple-runtypes",
@@ -296,7 +309,9 @@
         "assertLoose": null,
         "assertStrict": 0.49
       },
-      "dnf": ["assertLoose"]
+      "dnf": [
+        "assertLoose"
+      ]
     },
     {
       "name": "pure-parse",
@@ -313,7 +328,9 @@
         "assertLoose": 1.13,
         "assertStrict": null
       },
-      "dnf": ["assertStrict"]
+      "dnf": [
+        "assertStrict"
+      ]
     },
     {
       "name": "banditypes",
@@ -330,7 +347,10 @@
         "assertLoose": 0.57,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "@mojotech/json-type-validation",
@@ -347,7 +367,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "myzod",
@@ -364,7 +388,9 @@
         "assertLoose": null,
         "assertStrict": 0.5
       },
-      "dnf": ["assertLoose"]
+      "dnf": [
+        "assertLoose"
+      ]
     },
     {
       "name": "parse-dont-validate (named parameters)",
@@ -381,7 +407,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "purify-ts",
@@ -398,7 +428,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "r-assign",
@@ -432,7 +466,9 @@
         "assertLoose": null,
         "assertStrict": 0.54
       },
-      "dnf": ["assertLoose"]
+      "dnf": [
+        "assertLoose"
+      ]
     },
     {
       "name": "json-decoder",
@@ -449,7 +485,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "effect-schema",
@@ -483,7 +523,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "valibot",
@@ -517,7 +561,10 @@
         "assertLoose": 0.8,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "aeria",
@@ -602,7 +649,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "decoders",
@@ -619,7 +670,9 @@
         "assertLoose": null,
         "assertStrict": 0.64
       },
-      "dnf": ["assertLoose"]
+      "dnf": [
+        "assertLoose"
+      ]
     },
     {
       "name": "ts-utils",
@@ -636,7 +689,11 @@
         "assertLoose": null,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertLoose", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertLoose",
+        "assertStrict"
+      ]
     },
     {
       "name": "@sapphire/shapeshift",
@@ -738,7 +795,10 @@
         "assertLoose": 3.71,
         "assertStrict": null
       },
-      "dnf": ["parseStrict", "assertStrict"]
+      "dnf": [
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "ajv",
@@ -755,7 +815,10 @@
         "assertLoose": 1.65,
         "assertStrict": 0.92
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "arktype",
@@ -772,7 +835,9 @@
         "assertLoose": 2.53,
         "assertStrict": 0.51
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "ata",
@@ -789,7 +854,10 @@
         "assertLoose": 2.25,
         "assertStrict": 1.7
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "caketype",
@@ -806,7 +874,9 @@
         "assertLoose": 0.56,
         "assertStrict": 0.49
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "class-transformer-validator-sync",
@@ -823,7 +893,11 @@
         "assertLoose": 0.75,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "cleaners",
@@ -840,7 +914,11 @@
         "assertLoose": 0.73,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "jointz",
@@ -857,7 +935,9 @@
         "assertLoose": 0.94,
         "assertStrict": 0.95
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "ok-computer",
@@ -874,7 +954,10 @@
         "assertLoose": 0.4,
         "assertStrict": 0.53
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "runtypes",
@@ -891,7 +974,11 @@
         "assertLoose": 0.99,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "@sinclair/typebox-(ahead-of-time)",
@@ -908,7 +995,10 @@
         "assertLoose": 2.83,
         "assertStrict": 1.34
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "@sinclair/typebox-(dynamic)",
@@ -925,7 +1015,10 @@
         "assertLoose": 0.61,
         "assertStrict": 0.76
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "@sinclair/typebox-(just-in-time)",
@@ -942,7 +1035,10 @@
         "assertLoose": 2.81,
         "assertStrict": 1
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "@sinclair/typemap/valibot",
@@ -959,7 +1055,10 @@
         "assertLoose": 2.73,
         "assertStrict": 1.12
       },
-      "dnf": ["parseSafe", "parseStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict"
+      ]
     },
     {
       "name": "stnl (just-in-time)",
@@ -976,7 +1075,11 @@
         "assertLoose": 2.51,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "succulent",
@@ -993,7 +1096,9 @@
         "assertLoose": 0.5,
         "assertStrict": 0.59
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "superstruct",
@@ -1010,7 +1115,9 @@
         "assertLoose": 0.81,
         "assertStrict": 0.82
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "suretype",
@@ -1027,7 +1134,11 @@
         "assertLoose": 1.63,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "tiny-schema-validator",
@@ -1044,7 +1155,10 @@
         "assertLoose": null,
         "assertStrict": 0.55
       },
-      "dnf": ["parseSafe", "assertLoose"]
+      "dnf": [
+        "parseSafe",
+        "assertLoose"
+      ]
     },
     {
       "name": "toi",
@@ -1061,7 +1175,10 @@
         "assertLoose": null,
         "assertStrict": 14.07
       },
-      "dnf": ["parseSafe", "assertLoose"]
+      "dnf": [
+        "parseSafe",
+        "assertLoose"
+      ]
     },
     {
       "name": "ts-interface-checker",
@@ -1078,7 +1195,11 @@
         "assertLoose": 0.74,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "ts-json-validator",
@@ -1095,7 +1216,11 @@
         "assertLoose": 4.15,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "ts-runtime-checks",
@@ -1112,7 +1237,9 @@
         "assertLoose": 2.59,
         "assertStrict": 12.68
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "@typeofweb/schema",
@@ -1129,7 +1256,10 @@
         "assertLoose": 0.53,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "assertStrict"
+      ]
     },
     {
       "name": "unknownutil",
@@ -1146,7 +1276,9 @@
         "assertLoose": 0.51,
         "assertStrict": 0.52
       },
-      "dnf": ["parseSafe"]
+      "dnf": [
+        "parseSafe"
+      ]
     },
     {
       "name": "ts-auto-guard",
@@ -1163,7 +1295,11 @@
         "assertLoose": 3.97,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     },
     {
       "name": "type-predicate-generator",
@@ -1180,13 +1316,19 @@
         "assertLoose": 2.85,
         "assertStrict": null
       },
-      "dnf": ["parseSafe", "parseStrict", "assertStrict"]
+      "dnf": [
+        "parseSafe",
+        "parseStrict",
+        "assertStrict"
+      ]
     }
   ],
   "notRun": [
     {
       "name": "mondrian-framework",
-      "reports": ["mondrian-framework"],
+      "reports": [
+        "mondrian-framework"
+      ],
       "reason": "requested but produced no result — the upstream runner skipped it (build or load error on this runtime)"
     }
   ]
