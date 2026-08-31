@@ -430,6 +430,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       case 'jsonEnum':
         return typeof value === 'string' && (col.flags.enum?.includes(value) ?? false);
       case 'json':
+        return typeof value === 'object';
       default:
         return true;
     }
