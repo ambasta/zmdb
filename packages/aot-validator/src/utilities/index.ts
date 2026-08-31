@@ -122,7 +122,7 @@ export function assert<T = unknown>(input: unknown, descriptor?: TypeDescriptor)
   const issues: ValidationIssue[] = [];
   collectIssues(input, descriptor, 'input', issues);
   if (issues.length > 0) {
-    throw new AssertError(issues[0]!.message, issues);
+    throw new AssertError(issues[0]?.message ?? 'validation failed', issues);
   }
   // boundary: `T` is the caller's compile-time type and `descriptor` is its
   // runtime witness; `collectIssues` having found nothing is the proof. This is
@@ -188,7 +188,7 @@ export function assertEquals<T = unknown>(input: unknown, descriptor?: TypeDescr
     });
   }
   if (issues.length > 0) {
-    throw new AssertError(issues[0]!.message, issues);
+    throw new AssertError(issues[0]?.message ?? 'validation failed', issues);
   }
   // boundary: see `assert` — validated input, certified once.
   return input as T;
