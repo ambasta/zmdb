@@ -105,6 +105,18 @@ export function transformSource(code: string): string {
   let out = '';
   let i = 0;
   const NEEDLE = 'validate(';
+  const hoisted: string[] = [];
+  let hasRegexCache = false;
+
+  const ensureRegexCache = () => {
+    if (!hasRegexCache) {
+      hasRegexCache = true;
+      hoisted.push(
+        'const _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (!re) { re = new RegExp(p); _regexCache.set(p, re); } return re; }',
+      );
+    }
+  };
+
   while (i < code.length) {
     const at = code.indexOf(NEEDLE, i);
     if (at === -1) {
@@ -129,8 +141,12 @@ export function transformSource(code: string): string {
     }
     const inner = code.slice(argStart, j - 1); // between the outer parens
     const [ruleSrc, exprSrc] = splitTopLevelComma(inner);
-    out += inlineCheck(ruleSrc.trim(), exprSrc.trim());
+    out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
     i = j;
+  }
+
+  if (hoisted.length > 0) {
+    return hoisted.join('\n') + '\n' + out;
   }
   return out;
 }
@@ -157,7 +173,7 @@ export function escapePattern(pattern: string): string {
     .replaceAll('\u2029', '\\u2029');
 }
 
-function inlineCheck(ruleSrc: string, expr: string): string {
+function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => void): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`; // leave untouched if unrecognized
   const kind = m[1]!;
@@ -179,12 +195,12 @@ function inlineCheck(ruleSrc: string, expr: string): string {
         raw.length >= 2 &&
         ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
 
-      if (!isQuoted) {
-        return `validate(${ruleSrc}, ${expr})`;
-      }
-
-      if (first === '`' && raw.includes('${')) {
-        return `validate(${ruleSrc}, ${expr})`;
+      if (!isQuoted || (first === '`' && raw.includes('${'))) {
+        if (ensureRegexCache) {
+          ensureRegexCache();
+          return `(typeof ${expr} === "string" && _getRegExp(${raw}).test(${expr}))`;
+        }
+        return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
       }
 
       raw = raw.slice(1, -1);
