@@ -17,6 +17,7 @@ import type {
   Projection,
   SearchDTO,
   SearchHit,
+  SubqueryTarget,
   WhereDTO,
 } from './index.ts';
 import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.ts';
@@ -32,9 +33,17 @@ type S = typeof UserSchema;
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.
 export type _Where1 = Expect<Equal<WhereDTO<S>['age'], number | FieldOps<number> | undefined>>;
-export type _Where2 = Expect<Equal<FieldOps<string>['like'], string | undefined>>;
+export type _Where2 = Expect<Equal<FieldOps<string>['like'], string | SubqueryTarget<string> | undefined>>;
 export type _Where3 = Expect<Equal<FieldOps<number>['like'], undefined>>;
-export type _Where4 = Expect<Equal<FieldOps<Entity<S>['role']>['eq'], 'admin' | 'user' | undefined>>;
+export type _Where4 = Expect<
+  Equal<FieldOps<Entity<S>['role']>['eq'], 'admin' | 'user' | SubqueryTarget<'admin' | 'user'> | undefined>
+>;
+export type _Where5 = Expect<
+  Equal<WhereDTO<S>['exists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+>;
+export type _Where6 = Expect<
+  Equal<WhereDTO<S>['notExists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+>;
 
 // --- OrderByDTO (#182) -----------------------------------------------------
 export type _Order1 = Expect<Equal<OrderByDTO<S>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;

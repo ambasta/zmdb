@@ -51,5 +51,7 @@ const usersWithOrders = defineRepository(UserSchema, driver, {
 declare const populated: NonNullable<Awaited<ReturnType<typeof usersWithOrders.findById<'orders'>>>>;
 export type _Dx4 = Expect<Equal<(typeof populated)['orders'], readonly Entity<typeof OrderSchema>[]>>;
 export type _Dx5 = Expect<Equal<(typeof populated)['orders'][number]['total'], number>>;
-// @ts-expect-error — 'customers' is not a declared relation.
-export const _dxUnknownRelation = usersWithOrders.findById(1, { populate: ['customers'] });
+export const _dxUnknownRelation = usersWithOrders.findById(1, {
+  // @ts-expect-error — 'customers' is not a declared relation.
+  populate: ['customers'],
+});

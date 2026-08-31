@@ -64,6 +64,24 @@ function make(d: Dialect, s: State): JoinableSelect {
       }
       if (s.wheres.length > 0) {
         const parts = s.wheres.map(w => {
+          if (
+            w.value !== null &&
+            typeof w.value === 'object' &&
+            'compile' in w.value &&
+            typeof (w.value as { compile?: unknown }).compile === 'function'
+          ) {
+            const subCompiled = (w.value as { compile(): CompiledQuery }).compile();
+            let subText = subCompiled.text;
+            const offset = params.length;
+            if (offset > 0 && /\$\d+/.test(subText)) {
+              subText = subText.replace(/\$(\d+)\b/g, (_, num) => `$${parseInt(num, 10) + offset}`);
+            }
+            params.push(...subCompiled.parameters);
+            const opUpper = String(w.op).toUpperCase();
+            if (opUpper === 'EXISTS') return `EXISTS (${subText})`;
+            if (opUpper === 'NOT EXISTS') return `NOT EXISTS (${subText})`;
+            return `${quoteColumn(d, w.col)} ${w.op} (${subText})`;
+          }
           params.push(w.value);
           return `${quoteColumn(d, w.col)} ${w.op} ${PLACEHOLDER[d](params.length)}`;
         });

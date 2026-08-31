@@ -1,7 +1,8 @@
+import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
 import { defineSchema, serial, text, integer, jsonEnum } from '../index.ts';
-import { compileWhere, type WhereDTO } from './index.ts';
+import { compileWhere, type WhereDTO, type WhereTarget } from './index.ts';
 
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
@@ -17,11 +18,19 @@ function recorder() {
   interface B {
     where(c: string, o: string, v: unknown): B;
     orWhere(c: string, o: string, v: unknown): B;
+    whereExists?(sub: unknown): B;
+    orWhereExists?(sub: unknown): B;
+    whereNotExists?(sub: unknown): B;
+    orWhereNotExists?(sub: unknown): B;
     calls: typeof calls;
   }
   const mk = (): B => ({
     where: (c: string, o: string, v: unknown) => (calls.push(['and', c, o, v]), mk()),
     orWhere: (c: string, o: string, v: unknown) => (calls.push(['or', c, o, v]), mk()),
+    whereExists: (sub: unknown) => (calls.push(['and', '', 'EXISTS', sub]), mk()),
+    orWhereExists: (sub: unknown) => (calls.push(['or', '', 'EXISTS', sub]), mk()),
+    whereNotExists: (sub: unknown) => (calls.push(['and', '', 'NOT EXISTS', sub]), mk()),
+    orWhereNotExists: (sub: unknown) => (calls.push(['or', '', 'NOT EXISTS', sub]), mk()),
     calls,
   });
   const b = mk();
@@ -38,7 +47,10 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('comparison + membership operators map to SQL', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = { age: { gte: 18, lt: 65 }, id: { in: [1, 2, 3] } };
+    const where: WhereDTO<S> = {
+      age: { gte: 18, lt: 65 },
+      id: { in: [1, 2, 3] },
+    };
     compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'age', '>=', 18],
@@ -49,7 +61,10 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('nin/like/ilike', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = { role: { nin: ['admin'] }, email: { like: '%@x.com', ilike: '%@Y.com' } };
+    const where: WhereDTO<S> = {
+      role: { nin: ['admin'] },
+      email: { like: '%@x.com', ilike: '%@Y.com' },
+    };
     compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'role', 'not in', ['admin']],
@@ -60,7 +75,10 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('isNull / notNull', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = { email: { isNull: true }, role: { notNull: true } };
+    const where: WhereDTO<S> = {
+      email: { isNull: true },
+      role: { notNull: true },
+    };
     compileWhere(b, where);
     expect(calls).toEqual([
       ['and', 'email', 'is null', null],
@@ -83,5 +101,54 @@ describe('WhereDTO + operator set (#179)', () => {
     const where: WhereDTO<S> = {};
     compileWhere(b, where);
     expect(calls).toEqual([]);
+  });
+
+  it('subquery comparison operators in FieldOps', () => {
+    const qb = createQueryCompiler('postgres');
+    const sub = qb.selectFrom('orders').select(['user_id']).where('total', '>', 100);
+    const builder = compileWhere(qb.selectFrom('users'), {
+      id: { in: sub },
+      age: { gt: { table: 'users_stats', select: ['avg_age'] } },
+    } as WhereDTO<S>);
+
+    const compiled = builder.compile();
+    expect(compiled.text).toBe(
+      'SELECT * FROM "users" WHERE "id" IN (SELECT "user_id" FROM "orders" WHERE "total" > $1) AND "age" > (SELECT "avg_age" FROM "users_stats")',
+    );
+    expect(compiled.parameters).toEqual([100]);
+  });
+
+  it('EXISTS operator containing nested filter definitions and subqueries', () => {
+    const qb = createQueryCompiler('postgres');
+    const builder = compileWhere(qb.selectFrom('users'), {
+      role: 'admin',
+      exists: {
+        table: 'orders',
+        where: {
+          total: { gte: 500 },
+        },
+      },
+    } as WhereDTO<S>);
+
+    const compiled = builder.compile();
+    expect(compiled.text).toBe(
+      'SELECT * FROM "users" WHERE "role" = $1 AND EXISTS (SELECT * FROM "orders" WHERE "total" >= $2)',
+    );
+    expect(compiled.parameters).toEqual(['admin', 500]);
+  });
+
+  it('throws an error if builder lacks whereExists support', () => {
+    const fakeBuilder = {
+      where: () => fakeBuilder,
+      orWhere: () => fakeBuilder,
+    };
+    expect(() =>
+      compileWhere(
+        fakeBuilder as unknown as WhereTarget,
+        {
+          exists: { table: 'orders' },
+        } as WhereDTO<S>,
+      ),
+    ).toThrow('Builder does not support whereExists');
   });
 });

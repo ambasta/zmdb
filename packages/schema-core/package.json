@@ -46,6 +46,9 @@
     "build": "tsup",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@zmdb/query-compiler": "workspace:^"
+  },
   "devDependencies": {
     "tsup": "8.5.1",
     "typescript": "7.0.2"

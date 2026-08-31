@@ -114,6 +114,24 @@ function make(d: Dialect, s: State): AggregateSelect {
       if (s.groups.length > 0) text += ` GROUP BY ${s.groups.map(c => quoteColumn(d, c)).join(', ')}`;
       if (s.havings.length > 0) {
         const parts = s.havings.map(h => {
+          if (
+            h.value !== null &&
+            typeof h.value === 'object' &&
+            'compile' in h.value &&
+            typeof (h.value as { compile?: unknown }).compile === 'function'
+          ) {
+            const subCompiled = (h.value as { compile(): CompiledQuery }).compile();
+            let subText = subCompiled.text;
+            const offset = params.length;
+            if (offset > 0 && /\$\d+/.test(subText)) {
+              subText = subText.replace(/\$(\d+)\b/g, (_, num) => `$${parseInt(num, 10) + offset}`);
+            }
+            params.push(...subCompiled.parameters);
+            const opUpper = String(h.op).toUpperCase();
+            if (opUpper === 'EXISTS') return `EXISTS (${subText})`;
+            if (opUpper === 'NOT EXISTS') return `NOT EXISTS (${subText})`;
+            return `${quoteColumn(d, h.col)} ${h.op} (${subText})`;
+          }
           params.push(h.value);
           return `${quoteColumn(d, h.col)} ${h.op} ${PLACEHOLDER[d](params.length)}`;
         });
