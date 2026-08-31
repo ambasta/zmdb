@@ -59,7 +59,7 @@ export default defineConfig({
       '@zmdb/aot-validator/serialization': path.resolve(__dirname, 'packages/aot-validator/src/serialization/index.ts'),
       '@zmdb/aot-validator/utilities': path.resolve(__dirname, 'packages/aot-validator/src/utilities/index.ts'),
       '@zmdb/aot-validator/plugin': path.resolve(__dirname, 'packages/aot-validator/src/plugin/index.ts'),
-      '@zmdb/aot-validator/unplugin': path.resolve(__dirname, 'packages/aot-validator/src/plugin/index.ts'),
+      '@zmdb/aot-validator/unplugin': path.resolve(__dirname, 'packages/aot-validator/src/unplugin.ts'),
       '@zmdb/aot-validator': path.resolve(__dirname, 'packages/aot-validator/src/index.ts'),
 
       '@zmdb/query-compiler/fts': path.resolve(__dirname, 'packages/query-compiler/src/fts/index.ts'),

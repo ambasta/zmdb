@@ -321,20 +321,6 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
         });
       return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
     },
-    execute: (drv?: { execute(q: CompiledQuery): Promise<readonly Record<string, unknown>[]> }) => {
-      const builder = makeSelect(d, state);
-      const compiled = builder.compile();
-      // boundary: Fallback default driver lookup from globalThis runtime execution context
-      const driver =
-        drv ??
-        (
-          globalThis as unknown as {
-            __zmdb_default_driver?: { execute(q: CompiledQuery): Promise<readonly Record<string, unknown>[]> };
-          }
-        ).__zmdb_default_driver;
-      if (!driver) throw new Error('No driver available for execution');
-      return driver.execute(compiled);
-    },
   };
 }
 

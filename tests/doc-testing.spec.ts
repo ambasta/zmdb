@@ -37,7 +37,13 @@ import {
   liftEmbeddable,
   rowToSubtype,
 } from '../packages/repository/src/entity-modeling/index.ts';
-import { BaseRepository, defineRepository } from '../packages/repository/src/index.ts';
+import {
+  BaseRepository,
+  defineRepository,
+  type DefineRepositoryOptions,
+  type NoRelations,
+  type RelationsLike,
+} from '../packages/repository/src/index.ts';
 import { batch as txBatch, createTransactionalDb } from '../packages/repository/src/transactions/index.ts';
 import { decodeValue, defineType, encodeValue } from '../packages/schema-core/src/custom-types/index.ts';
 import {
@@ -200,6 +206,7 @@ function parseManifestSnippets(): Snippet[] {
   const snippets: Snippet[] = [];
 
   for (const [pageKey, page] of Object.entries(PAGES)) {
+    if ((page as { status?: string }).status === 'todo') continue;
     const md = page.md || '';
     if (!md) continue;
 
@@ -285,7 +292,21 @@ function createSnippetContext() {
   const db = new WrappedDatabaseSync(':memory:');
   const driver = sqliteDriver(db);
   (driver as unknown as { executeMulti?: () => Promise<unknown[]> }).executeMulti = async () => [];
-  (globalThis as unknown as Record<string, unknown>).__zmdb_default_driver = driver;
+
+  class DefaultBaseRepository<
+    S extends CoreSchema<string> = CoreSchema<string>,
+    R extends RelationsLike = RelationsLike,
+  > extends BaseRepository<S, R> {
+    constructor(drv = driver, dialect: 'sqlite' | 'postgres' = 'sqlite') {
+      super(drv, dialect);
+    }
+  }
+
+  const safeDefineRepository = <S extends CoreSchema<string>, R extends RelationsLike = NoRelations>(
+    schema: S,
+    drv = driver,
+    opts?: DefineRepositoryOptions<R>,
+  ) => defineRepository(schema, drv ?? driver, opts);
 
   const UserSchema = defineSchema('users', {
     id: serial().primaryKey(),
@@ -473,8 +494,8 @@ function createSnippetContext() {
   };
 
   const repository = {
-    BaseRepository,
-    defineRepository,
+    BaseRepository: DefaultBaseRepository,
+    defineRepository: safeDefineRepository,
     discriminatorFor,
     flattenEmbeddable,
     liftEmbeddable,
