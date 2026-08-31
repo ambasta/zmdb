@@ -82,9 +82,8 @@ function scalarSchema(col: ColumnMeta): Record<string, unknown> {
 export function toJsonSchema(schema: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
   const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   const entries = Object.entries(schema.columns)
-    // Sensitive columns are omitted from all generated specification variants.
-    // create/update omit auto-increment columns; response variants keep all.
-    .filter(([, col]) => col.flags.sensitive !== true && (isResponse ? true : col.flags.autoIncrement !== true))
+    // Sensitive columns are omitted from response variants; create/update keep them (and omit autoIncrement).
+    .filter(([, col]) => (isResponse ? col.flags.sensitive !== true : col.flags.autoIncrement !== true))
     .toSorted(([a], [b]) => a.localeCompare(b));
 
   const properties: Record<string, unknown> = {};

@@ -130,21 +130,21 @@ function makeColumn(meta: ColumnMeta): Column {
 
   const withFlag = (patch: Partial<ColumnFlags>): Column => makeColumn({ ...base, flags: { ...base.flags, ...patch } });
 
-  // Metadata is the enumerable surface (so `toEqual` compares metadata only).
-  const column = { ...base } as unknown as Column;
+  // boundary: Attach non-enumerable fluent methods to metadata object.
+  const column = { ...base } as Column;
 
   // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
   // columns with equal metadata compare deep-equal regardless of build style.
-  const methods: Record<string, (...args: never[]) => Column> = {
+  const methods: Record<string, (...args: unknown[]) => Column> = {
     notNull: () => withFlag({ nullable: false }),
     nullable: () => withFlag({ nullable: true }),
     primaryKey: () => withFlag({ primaryKey: true }),
     unique: () => withFlag({ unique: true }),
-    defaultTo: ((value: unknown) =>
-      makeColumn({ ...base, default: value, flags: { ...base.flags, hasDefault: true } })) as never,
-    validate: ((rule: ValidationRule) =>
-      makeColumn({ ...base, validation: [...(base.validation ?? []), rule] })) as never,
-    sensitive: ((isSensitive: boolean = true) => withFlag({ sensitive: isSensitive })) as never,
+    defaultTo: (value: unknown) =>
+      makeColumn({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
+    validate: (rule: unknown) =>
+      makeColumn({ ...base, validation: [...(base.validation ?? []), rule as ValidationRule] }),
+    sensitive: (isSensitive: unknown) => withFlag({ sensitive: isSensitive !== false }),
   };
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
@@ -162,31 +162,63 @@ export function serial(): Typed<{
   type: 'serial';
   flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true };
 }> {
+  // boundary: Construct frozen Column for serial metadata.
   return makeColumn({
     type: 'serial',
     flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
-  }) as never;
+  }) as Typed<{
+    type: 'serial';
+    flags: { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true };
+  }>;
 }
 export function integer(): Typed<{ type: 'integer'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'integer', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for integer metadata.
+  return makeColumn({ type: 'integer', flags: { nullable: false } }) as Typed<{
+    type: 'integer';
+    flags: { nullable: false };
+  }>;
 }
 export function bigint(): Typed<{ type: 'bigint'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'bigint', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for bigint metadata.
+  return makeColumn({ type: 'bigint', flags: { nullable: false } }) as Typed<{
+    type: 'bigint';
+    flags: { nullable: false };
+  }>;
 }
 export function numeric(): Typed<{ type: 'numeric'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'numeric', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for numeric metadata.
+  return makeColumn({ type: 'numeric', flags: { nullable: false } }) as Typed<{
+    type: 'numeric';
+    flags: { nullable: false };
+  }>;
 }
 export function text(): Typed<{ type: 'text'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'text', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for text metadata.
+  return makeColumn({ type: 'text', flags: { nullable: false } }) as Typed<{
+    type: 'text';
+    flags: { nullable: false };
+  }>;
 }
 export function varchar(length: number): Typed<{ type: 'varchar'; flags: { nullable: false; length: number } }> {
-  return makeColumn({ type: 'varchar', flags: { nullable: false, length } }) as never;
+  // boundary: Construct frozen Column for varchar metadata.
+  return makeColumn({ type: 'varchar', flags: { nullable: false, length } }) as Typed<{
+    type: 'varchar';
+    flags: { nullable: false; length: number };
+  }>;
 }
 export function boolean(): Typed<{ type: 'boolean'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'boolean', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for boolean metadata.
+  return makeColumn({ type: 'boolean', flags: { nullable: false } }) as Typed<{
+    type: 'boolean';
+    flags: { nullable: false };
+  }>;
 }
 export function timestamp(): Typed<{ type: 'timestamp'; flags: { nullable: false } }> {
-  return makeColumn({ type: 'timestamp', flags: { nullable: false } }) as never;
+  // boundary: Construct frozen Column for timestamp metadata.
+  return makeColumn({ type: 'timestamp', flags: { nullable: false } }) as Typed<{
+    type: 'timestamp';
+    flags: { nullable: false };
+  }>;
 }
 export function json(): Column {
   return makeColumn({ type: 'json', flags: { nullable: false } });
@@ -194,41 +226,65 @@ export function json(): Column {
 export function jsonEnum<const V extends readonly string[]>(
   values: V,
 ): Typed<{ type: 'jsonEnum'; flags: { nullable: false; enum: V } }> {
-  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } }) as never;
+  // boundary: Construct frozen Column for jsonEnum metadata.
+  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } }) as Typed<{
+    type: 'jsonEnum';
+    flags: { nullable: false; enum: V };
+  }>;
 }
 
 // Function-style modifiers (pure; never mutate input) --------------------
 // Function-style modifiers preserve the input column's literal metadata and
 // merge in the new flag, so type derivation sees the narrowed result.
 export function notNull<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { nullable: false } } {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with nullable: false.
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } }) as unknown as C & {
+    flags: C['flags'] & { nullable: false };
+  };
 }
 export function nullable<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { nullable: true } } {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with nullable: true.
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } }) as unknown as C & {
+    flags: C['flags'] & { nullable: true };
+  };
 }
 export function primaryKey<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { primaryKey: true } } {
-  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with primaryKey: true.
+  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } }) as unknown as C & {
+    flags: C['flags'] & { primaryKey: true };
+  };
 }
 export function unique<C extends ColumnMeta>(col: C): C & { flags: C['flags'] & { unique: true } } {
-  return makeColumn({ ...col, flags: { ...col.flags, unique: true } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with unique: true.
+  return makeColumn({ ...col, flags: { ...col.flags, unique: true } }) as unknown as C & {
+    flags: C['flags'] & { unique: true };
+  };
 }
 export function references<C extends ColumnMeta>(col: C, target: string): C & { references: { target: string } } {
-  return makeColumn({ ...col, references: { target } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with references target.
+  return makeColumn({ ...col, references: { target } }) as unknown as C & { references: { target: string } };
 }
 export function defaultTo<C extends ColumnMeta>(
   col: C,
   value: unknown,
 ): C & { flags: C['flags'] & { hasDefault: true } } {
-  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with default value.
+  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } }) as unknown as C & {
+    flags: C['flags'] & { hasDefault: true };
+  };
 }
 export function validate<C extends ColumnMeta>(col: C, rule: ValidationRule): C {
-  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as never;
+  // boundary: Attach fluent methods to modified column metadata with appended validation rule.
+  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] }) as unknown as C;
 }
 export function sensitive<C extends ColumnMeta>(
   col: C,
   isSensitive: boolean = true,
 ): C & { flags: C['flags'] & { sensitive: boolean } } {
-  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } }) as never;
+  // boundary: Attach fluent methods to modified column metadata with sensitive flag.
+  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } }) as unknown as C & {
+    flags: C['flags'] & { sensitive: boolean };
+  };
 }
 
 // defineSchema (#15) — derive primaryKey[] and references[] from column
