@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+echo "=== Running Pre-Commit Hooks ==="
+
+echo "1/2 Running linter..."
+yarn lint
+
+echo "2/2 Checking code formatting..."
+yarn fmt:check
+
+echo "=== Pre-Commit Validation Passed ==="
