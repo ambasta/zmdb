@@ -6,7 +6,7 @@
 
 import { safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 
-export { getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
+export { ValidationError, getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 
 export interface Rule {
   readonly kind: string;
