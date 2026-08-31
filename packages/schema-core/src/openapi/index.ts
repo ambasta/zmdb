@@ -127,6 +127,8 @@ function singularizeWord(word: string): string {
   if (lower === 'children') return 'child';
   if (lower === 'men') return 'man';
   if (lower === 'women') return 'woman';
+  if (lower === 'matrices') return 'matrix';
+  if (lower === 'indices') return 'index';
 
   // 3. Plurals ending in -ies (preceded by consonant, e.g. categories -> category)
   if (/([^aeiou])ies$/i.test(word)) {

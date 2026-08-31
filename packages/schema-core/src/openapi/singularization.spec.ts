@@ -73,16 +73,26 @@ describe('OpenAPI schema singularization', () => {
     expect(Object.keys(components.schemas)).toEqual(['OrderStatus', 'ProductCategory', 'UserAddress']);
   });
 
-  it('correctly handles edge cases like houses, cases, knives, wives, and lens', () => {
+  it('correctly handles edge cases like houses, cases, knives, wives, lens, matrices, and indices', () => {
     const housesSchema = createDummySchema('houses');
     const casesSchema = createDummySchema('cases');
     const knivesSchema = createDummySchema('knives');
     const wivesSchema = createDummySchema('wives');
     const lensSchema = createDummySchema('lens');
+    const matricesSchema = createDummySchema('matrices');
+    const indicesSchema = createDummySchema('indices');
 
-    const components = toOpenApiComponents([housesSchema, casesSchema, knivesSchema, wivesSchema, lensSchema]);
+    const components = toOpenApiComponents([
+      housesSchema,
+      casesSchema,
+      knivesSchema,
+      wivesSchema,
+      lensSchema,
+      matricesSchema,
+      indicesSchema,
+    ]);
 
-    expect(Object.keys(components.schemas)).toEqual(['Case', 'House', 'Knife', 'Lens', 'Wife']);
+    expect(Object.keys(components.schemas)).toEqual(['Case', 'House', 'Index', 'Knife', 'Lens', 'Matrix', 'Wife']);
   });
 
   it('ensures relation $ref target pointers match singularized component schema keys', () => {
