@@ -481,8 +481,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       for (const col of candidateCols) {
         if (col.includes('.')) {
           const parts = col.split('.');
-          const relCandidate = parts[0]!;
-          if (relCandidate in relations) {
+          const relCandidate = parts[0];
+          if (relCandidate && relCandidate in relations) {
             applyJoin(relCandidate);
           }
         }

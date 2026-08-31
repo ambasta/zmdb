@@ -68,11 +68,15 @@ describe('Relation-Aware Repository Aggregations', () => {
     );
 
     expect(driver.queries.length).toBe(1);
-    expect(driver.queries[0]!.text).toBe(
+    const q0 = driver.queries[0];
+    if (!q0) throw new Error('Expected query to be recorded');
+    expect(q0.text).toBe(
       'SELECT "category"."name" AS "category.name", COUNT("id") AS "count", SUM("price") AS "sum" FROM "products" INNER JOIN "categories" AS "category" ON "products"."categoryId" = "category"."id" GROUP BY "category"."name"',
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ 'category.name': 'Electronics', count: 2, sum: 1500 });
+    const r0 = rows[0];
+    if (!r0) throw new Error('Expected 1 row');
+    expect(r0).toMatchObject({ 'category.name': 'Electronics', count: 2, sum: 1500 });
   });
 
   it('AggregateSpec auto-resolves joins from relation references or explicit spec.joins in a single roundtrip', async () => {
@@ -92,10 +96,14 @@ describe('Relation-Aware Repository Aggregations', () => {
     const rows = await repo.aggregate(spec);
 
     expect(driver.queries.length).toBe(1);
-    expect(driver.queries[0]!.text).toBe(
+    const q0 = driver.queries[0];
+    if (!q0) throw new Error('Expected query to be recorded');
+    expect(q0.text).toBe(
       'SELECT "category"."name" AS "category.name", COUNT("id") AS "count", SUM("price") AS "sum" FROM "products" INNER JOIN "categories" AS "category" ON "products"."categoryId" = "category"."id" GROUP BY "category"."name"',
     );
-    expect(rows[0]).toMatchObject({ 'category.name': 'Books', count: 1, sum: 20 });
+    const r0 = rows[0];
+    if (!r0) throw new Error('Expected 1 row');
+    expect(r0).toMatchObject({ 'category.name': 'Books', count: 1, sum: 20 });
   });
 
   it('throws a descriptive error when referencing an undeclared relation', async () => {
@@ -157,14 +165,17 @@ describe('Relation-Aware Repository Aggregations', () => {
       );
 
       expect(rows).toHaveLength(2);
-      expect(rows[0]!['category.name']).toBe('Electronics');
-      expect(rows[0]!.category_name).toBe('Electronics');
-      expect(Number(rows[0]!.product_count)).toBe(2);
-      expect(Number(rows[0]!.total_price)).toBe(1500);
+      const r0 = rows[0];
+      const r1 = rows[1];
+      if (!r0 || !r1) throw new Error('Expected 2 rows');
+      expect(r0['category.name']).toBe('Electronics');
+      expect(r0.category_name).toBe('Electronics');
+      expect(Number(r0.product_count)).toBe(2);
+      expect(Number(r0.total_price)).toBe(1500);
 
-      expect(rows[1]!['category.name']).toBe('Books');
-      expect(Number(rows[1]!.product_count)).toBe(1);
-      expect(Number(rows[1]!.total_price)).toBe(20);
+      expect(r1['category.name']).toBe('Books');
+      expect(Number(r1.product_count)).toBe(1);
+      expect(Number(r1.total_price)).toBe(20);
     });
 
     it('executes declarative AggregateSpec with parent attribute references', async () => {
@@ -177,8 +188,11 @@ describe('Relation-Aware Repository Aggregations', () => {
       });
 
       expect(rows).toHaveLength(2);
-      expect(rows[0]).toMatchObject({ 'category.name': 'Electronics', total: 1500 });
-      expect(rows[1]).toMatchObject({ 'category.name': 'Books', total: 20 });
+      const r0 = rows[0];
+      const r1 = rows[1];
+      if (!r0 || !r1) throw new Error('Expected 2 rows');
+      expect(r0).toMatchObject({ 'category.name': 'Electronics', total: 1500 });
+      expect(r1).toMatchObject({ 'category.name': 'Books', total: 20 });
     });
   });
 });
