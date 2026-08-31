@@ -72,8 +72,10 @@ jobs:
           node-version: '26'
           cache: 'yarn'
       - run: yarn install --immutable
-      # Run the CLI guardrail script against committed baseline documents to gate
-      # pull requests on performance drops, ok→DNF transitions, and omitted cases.
+      # The guardrail unit tests assert the ok→DNF and throughput-drop detection
+      # logic. A real pipeline would diff the freshly-generated RESULTS.md
+      # against the committed baseline using checkRegressions() and fail on any
+      # regression; here we run the guardrail test suite as the gate.
       - name: Guardrail checks
         run: yarn guardrail
 

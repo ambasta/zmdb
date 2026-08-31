@@ -21,7 +21,7 @@ describe('checkRegressions', () => {
     const cur = [r({ status: 'dnf', opsPerSec: undefined, dnfReason: 'dnf (not implemented): x' })];
     const regs = checkRegressions(prev, cur, 0.2);
     expect(regs).toHaveLength(1);
-    expect(regs[0]!.kind).toBe(RegressionKind.OkToDnf);
+    expect(regs[0]?.kind).toBe(RegressionKind.OkToDnf);
   });
 
   it('flags an ops/sec drop beyond the threshold', () => {
@@ -29,7 +29,7 @@ describe('checkRegressions', () => {
     const cur = [r({ opsPerSec: 700 })]; // 30% drop > 20% threshold
     const regs = checkRegressions(prev, cur, 0.2);
     expect(regs).toHaveLength(1);
-    expect(regs[0]!.kind).toBe(RegressionKind.ThroughputDrop);
+    expect(regs[0]?.kind).toBe(RegressionKind.ThroughputDrop);
   });
 
   it('does not flag a drop within the threshold', () => {
@@ -55,8 +55,8 @@ describe('checkRegressions', () => {
     const cur = [r({ case: 'customer-by-id', opsPerSec: 1000 })];
     const regs = checkRegressions(prev, cur, 0.2);
     expect(regs).toHaveLength(1);
-    expect(regs[0]!.kind).toBe(RegressionKind.MissingCase);
-    expect(regs[0]!.case).toBe('products-search');
+    expect(regs[0]?.kind).toBe(RegressionKind.MissingCase);
+    expect(regs[0]?.case).toBe('products-search');
   });
 });
 
@@ -65,7 +65,7 @@ describe('baseline result parsers', () => {
     const json = JSON.stringify([r({ suite: 'orm', case: 'customer-by-id', opsPerSec: 1500 })]);
     const res = parseJsonResults(json);
     expect(res).toHaveLength(1);
-    expect(res[0]!.opsPerSec).toBe(1500);
+    expect(res[0]?.opsPerSec).toBe(1500);
   });
 
   it('parses Markdown benchmark results tables', () => {

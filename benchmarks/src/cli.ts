@@ -18,7 +18,11 @@ export function runCli(args: string[] = process.argv.slice(2)): number {
     } else if (arg === '--current' && i + 1 < args.length) {
       currentPath = args[++i];
     } else if (arg === '--threshold' && i + 1 < args.length) {
-      threshold = parseFloat(args[++i]!);
+      i++;
+      const val = args[i];
+      if (val !== undefined) {
+        threshold = parseFloat(val);
+      }
     }
   }
 

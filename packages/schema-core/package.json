@@ -29,32 +29,13 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
-    "./dto": {
-      "types": "./src/dto/index.ts",
-      "default": "./src/dto/index.ts"
-    },
-    "./relations": {
-      "types": "./src/relations/index.ts",
-      "default": "./src/relations/index.ts"
-    },
-    "./custom-types": {
-      "types": "./src/custom-types/index.ts",
-      "default": "./src/custom-types/index.ts"
-    },
-    "./seeding": {
-      "types": "./src/seeding/index.ts",
-      "default": "./src/seeding/index.ts"
-    },
-    "./llm": {
-      "types": "./src/llm/index.ts",
-      "default": "./src/llm/index.ts"
-    }
+    ".": "./src/index.ts",
+    "./dto": "./src/dto/index.ts",
+    "./relations": "./src/relations/index.ts",
+    "./custom-types": "./src/custom-types/index.ts",
+    "./seeding": "./src/seeding/index.ts",
+    "./llm": "./src/llm/index.ts"
   },
   "publishConfig": {
     "access": "public",

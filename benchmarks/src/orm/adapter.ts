@@ -13,7 +13,7 @@ declare const performance: { now(): number };
 // Minimal synchronous SQL engine the adapter runs against.
 export interface OrmEngine {
   exec(sql: string): void;
-  all(sql: string, params: readonly unknown[]): Record<string, unknown>[];
+  all(sql: string, params: readonly (string | number | bigint | null | Uint8Array)[]): Record<string, unknown>[];
 }
 
 /**
