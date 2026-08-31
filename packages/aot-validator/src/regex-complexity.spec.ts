@@ -28,6 +28,15 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
       const re2 = getCachedRegExp('^[a-z]+$');
       expect(re1).toBe(re2);
     });
+
+    it('bounds pattern cache size and evicts oldest entries using LRU', () => {
+      const firstRegexp = getCachedRegExp('pattern_lru_0');
+      for (let i = 1; i <= 1005; i++) {
+        getCachedRegExp(`pattern_lru_${i}`);
+      }
+      const newFirstRegexp = getCachedRegExp('pattern_lru_0');
+      expect(newFirstRegexp).not.toBe(firstRegexp);
+    });
   });
 
   describe('Rule Instantiation Safety', () => {

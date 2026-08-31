@@ -130,6 +130,21 @@ export type UpdateDTO<S> = {
 
 export class SchemaError extends Error {}
 
+export interface ValidationIssue {
+  readonly path: string;
+  readonly message: string;
+}
+
+export class ValidationError extends Error {
+  readonly issues: readonly ValidationIssue[];
+
+  constructor(message: string, issues: readonly ValidationIssue[] = []) {
+    super(message);
+    this.name = 'ValidationError';
+    this.issues = issues;
+  }
+}
+
 /** Overwrite flags `P` on flag map `F` (last write wins, no `never` collisions). */
 type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, keyof P> & P;
 
