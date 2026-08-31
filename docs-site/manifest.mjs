@@ -4984,8 +4984,6 @@ Use \`toOpenApiComponents\` to generate a map of schemas for an entire API:
 import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
 
 const schemas = toOpenApiComponents([UserSchema, OrderSchema, ProductSchema]);
-
-// Returns: { schemas: { User: {...}, Order: {...}, Product: {...} } }
 \`\`\`
 
 \`\`\`json
@@ -5036,6 +5034,8 @@ const searchSchema = toSearchSchema(UserSchema);
     'JSON & Serialization',
     `
 The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from zmdb schema definitions. This enables automatic API documentation, client SDK generation, and validation layer interoperability.
+
+> 📄 **Download Specification:** [Download full OpenAPI 3.0 specification (openapi.json)](../openapi.json) generated directly from core schema definitions upon every site build.
 
 > [!NOTE]
 > OpenAPI schemas are derived at build time from your schema-core definitions. There's no runtime reflection — the generation is deterministic and happens during the build process.

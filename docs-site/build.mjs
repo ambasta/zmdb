@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { NAV, PAGES } from './manifest.mjs';
+import { generateOpenApiSpec } from './openapi-spec.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, '..', 'site');
@@ -270,6 +271,7 @@ function pageHtml(slug, p) {
 <input class="navsearch" type="search" placeholder="Filter docs… (/)" aria-label="Filter documentation" />
 <a class="nav-link" href="../index.html">← Home</a>
 <a class="nav-link" href="../benchmarks/index.html">📊 Benchmarks</a>
+<a class="nav-link" href="../openapi.json" target="_blank" download="openapi.json">📄 OpenAPI Spec</a>
 ${navHtml(slug)}</aside>
 <main>
 <div class="crumbs">Docs / ${p.group ?? ''}</div>
@@ -450,6 +452,7 @@ main section table th:first-child,main section table td:first-child{text-align:l
 <aside><div class="brand">zmdb<small>zero-maintenance data layer</small></div>
 <a class="nav-link" href="../index.html">← Home</a>
 <a class="nav-link active" href="./index.html">📊 Benchmarks</a>
+<a class="nav-link" href="../openapi.json" target="_blank" download="openapi.json">📄 OpenAPI Spec</a>
 ${navHtml(null, '../docs/')}</aside>
 <main>
 <div class="crumbs">Docs / Reference</div>
@@ -546,6 +549,7 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
   <a class="navlink" href="./docs/introduction.html">Docs</a>
   <a class="navlink" href="./docs/quick-start.html">Quick start</a>
   <a class="navlink" href="./benchmarks/index.html">Benchmarks</a>
+  <a class="navlink" href="./openapi.json" target="_blank" download="openapi.json">OpenAPI Spec</a>
   <a class="navlink" href="./docs/anti-patterns.html">Anti-patterns</a>
   <div class="spacer"></div>
   <a class="gh" href="https://github.com/ambasta/zmdb">GitHub ↗</a>
@@ -614,6 +618,13 @@ const landing = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 </body></html>`;
 writeFileSync(join(OUT, 'index.html'), landing);
 
+// Emit OpenAPI specification JSON to static site root (and docs directory).
+const openApiSpec = generateOpenApiSpec();
+const openApiJson = JSON.stringify(openApiSpec, null, 2);
+writeFileSync(join(OUT, 'openapi.json'), openApiJson);
+writeFileSync(join(OUT, 'docs', 'openapi.json'), openApiJson);
+
+console.log(`published openapi spec: site/openapi.json (${openApiJson.length} bytes)`);
 console.log(
   `built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`,
 );

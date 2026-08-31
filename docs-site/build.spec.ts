@@ -28,6 +28,13 @@ describe('Documentation Site Generator with Fallback Assets', () => {
     expect(existsSync(join(SITE_DIR, 'index.html'))).toBe(true);
     expect(existsSync(join(SITE_DIR, 'docs', 'quick-start.html'))).toBe(true);
     expect(existsSync(join(SITE_DIR, 'benchmarks', 'index.html'))).toBe(true);
+    expect(existsSync(join(SITE_DIR, 'openapi.json'))).toBe(true);
+    expect(existsSync(join(SITE_DIR, 'docs', 'openapi.json'))).toBe(true);
+
+    const openApiSpec = JSON.parse(readFileSync(join(SITE_DIR, 'openapi.json'), 'utf8'));
+    expect(openApiSpec.openapi).toBe('3.0.3');
+    expect(openApiSpec.paths['/users']).toBeDefined();
+    expect(openApiSpec.components.schemas.User).toBeDefined();
 
     const valMatrixPath = join(SITE_DIR, 'benchmarks', 'validation-matrix.json');
     const ormResultsPath = join(SITE_DIR, 'benchmarks', 'orm-results.json');
