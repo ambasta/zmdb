@@ -9,6 +9,7 @@ import {
   text as srcText,
   boolean as srcBoolean,
   timestamp as srcTimestamp,
+  json as srcJson,
   jsonEnum as srcJsonEnum,
 } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
@@ -20,6 +21,7 @@ import {
   text,
   boolean,
   timestamp,
+  json,
   jsonEnum,
   createQueryCompiler,
   is,
@@ -38,6 +40,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(text).toBe(srcText);
     expect(boolean).toBe(srcBoolean);
     expect(timestamp).toBe(srcTimestamp);
+    expect(json).toBe(srcJson);
     expect(jsonEnum).toBe(srcJsonEnum);
   });
 

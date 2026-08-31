@@ -2,6 +2,7 @@
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.
 import type { Dialect } from '../index.ts';
+import { quoteIdentifier } from '../quoting.ts';
 
 export interface ColumnSnapshot {
   readonly name: string;
@@ -107,16 +108,14 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
 }
 
 function columnDdl(d: Dialect, col: ColumnSnapshot): string {
-  const q = d === 'mysql' ? '`' : '"';
   // PRIMARY KEY implies NOT NULL, so we don't emit both.
   const pk = col.primaryKey ? ' PRIMARY KEY' : '';
   const nn = !col.primaryKey && !col.nullable ? ' NOT NULL' : '';
-  return `${q}${col.name}${q} ${col.type}${pk}${nn}`;
+  return `${quoteIdentifier(d, col.name)} ${col.type}${pk}${nn}`;
 }
 
 function quote(d: Dialect, ident: string): string {
-  const q = d === 'mysql' ? '`' : '"';
-  return `${q}${ident}${q}`;
+  return quoteIdentifier(d, ident);
 }
 
 export function emitUp(op: ChangeOp, dialect: Dialect): string {

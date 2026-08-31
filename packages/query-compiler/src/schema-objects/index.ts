@@ -1,12 +1,11 @@
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.ts';
+import { quoteIdentifier } from '../quoting.ts';
 
 export class UnsupportedFeatureError extends Error {}
 
-const Q: Record<Dialect, string> = { postgres: '"', mysql: '`', sqlite: '"' };
 export function quoteId(dialect: Dialect, id: string): string {
-  const q = Q[dialect];
-  return `${q}${id}${q}`;
+  return quoteIdentifier(dialect, id);
 }
 
 // §1 indexes & constraints

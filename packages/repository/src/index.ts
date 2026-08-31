@@ -338,7 +338,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   async update(id: unknown, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
     const clean = this.validatePayload(patch, 'update');
     this.preUpdate(clean);
-    const rows = await this.rows<Entity<S>>(
+    if (Object.keys(clean).length === 0) {
+      return this.findById(id);
+    }
+    const rows = await this.rows<EntityRow<S>>(
       this.qb.updateTable(this.tableName).set(clean).where(this.pkColumn, '=', id).returning(['*']).compile(),
     );
     return rows[0];
@@ -363,6 +366,16 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return rows;
   }
 
+  private sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
+    const clean: Record<string, unknown> = {};
+    for (const key of Object.keys(payload)) {
+      if (payload[key] !== undefined) {
+        clean[key] = payload[key];
+      }
+    }
+    return clean;
+  }
+
   // Runtime validation against the schema's column metadata. Mirrors the DTO
   // rules: create omits autoIncrement; both variants reject wrong-typed values,
   // out-of-enum values, and (for create) missing required fields.
@@ -370,7 +383,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     if (!isRecord(payload)) {
       throw new ValidationError('payload must be an object', [{ path: 'input', message: 'expected object' }]);
     }
-    const obj = payload;
+    const obj = this.sanitizePayload(payload);
     const issues: ValidationIssue[] = [];
     const out: Record<string, unknown> = {};
 
