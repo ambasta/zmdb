@@ -1,5 +1,7 @@
 // Framework-agnostic endpoint adapter — see ./SPEC.md.
 
+import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
+
 export interface Handler<In, Out> {
   validate: (raw: unknown) => In;
   handle: (input: In) => Promise<Out>;
@@ -18,10 +20,26 @@ export function makeEndpoint<In, Out>(h: Handler<In, Out>): (raw: unknown) => Pr
     try {
       input = h.validate(raw);
     } catch (err) {
-      return { status: 400, body: JSON.stringify({ error: err instanceof Error ? err.message : 'invalid input' }) };
+      const error = err instanceof Error ? err.message : 'invalid input';
+      const issues =
+        err instanceof ValidationError
+          ? err.issues
+          : err && typeof err === 'object' && 'issues' in err
+            ? (err as { issues: readonly ValidationIssue[] }).issues
+            : undefined;
+      return { status: 400, body: JSON.stringify(issues ? { error, issues } : { error }) };
     }
-    const out = await h.handle(input);
-    return { status: 200, body: serialize(out) };
+    try {
+      const out = await h.handle(input);
+      return { status: 200, body: serialize(out) };
+    } catch (err) {
+      if (err instanceof ValidationError || (err && typeof err === 'object' && 'issues' in err)) {
+        const error = err instanceof Error ? err.message : 'invalid input';
+        const issues = (err as { issues: readonly ValidationIssue[] }).issues;
+        return { status: 400, body: JSON.stringify(issues ? { error, issues } : { error }) };
+      }
+      throw err;
+    }
   };
 }
 

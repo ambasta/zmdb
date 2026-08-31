@@ -1,3 +1,4 @@
+import { ValidationError } from '@zmdb/schema-core';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
@@ -45,6 +46,26 @@ describe('@zmdb/web pipeline: dispatch', () => {
   it('validates the body before the handler (invalid → 400, handler skipped)', async () => {
     const res = await makeRouter().handle({ method: 'POST', path: '/users', headers: {}, rawBody: { nope: 1 } });
     expect(res.status).toBe(400);
+  });
+
+  it('formats ValidationError issues into 400 response body', async () => {
+    const router = createRouter();
+    const controller = new UsersController();
+    router.register(controller, {
+      create: {
+        validateBody: () => {
+          throw new ValidationError('invalid user body', [
+            { path: 'input.name', message: 'name required', expected: 'string' },
+          ]);
+        },
+      },
+    });
+    const res = await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: {} });
+    expect(res.status).toBe(400);
+    expect(JSON.parse(res.body)).toEqual({
+      error: 'invalid user body',
+      issues: [{ path: 'input.name', message: 'name required', expected: 'string' }],
+    });
   });
 
   it('passes a valid body through to the handler (201/200)', async () => {

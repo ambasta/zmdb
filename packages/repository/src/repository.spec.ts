@@ -61,8 +61,18 @@ describe('BaseRepository create/update validation interception', () => {
   it('invalid create throws ValidationError and executes NO SQL', async () => {
     const driver = fakeDriver();
     const repo = new UserRepository(driver);
-    await expect(repo.create({ role: 'nope' })).rejects.toBeInstanceOf(ValidationError);
+    let error: ValidationError | undefined;
+    try {
+      await repo.create({ role: 'nope' });
+    } catch (e) {
+      if (e instanceof ValidationError) error = e;
+    }
+    expect(error).toBeInstanceOf(ValidationError);
     expect(driver.calls.length).toBe(0);
+    expect(error?.issues).toEqual([
+      { path: 'input.email', message: 'missing required field "email"', expected: 'defined', value: undefined },
+      { path: 'input.role', message: 'invalid value for "role"', expected: 'jsonEnum', value: 'nope' },
+    ]);
   });
 });
 

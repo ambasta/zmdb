@@ -23,7 +23,7 @@ export {
   validate as validateColumn,
   sensitive,
 } from '@zmdb/schema-core';
-export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta } from '@zmdb/schema-core';
+export type { Entity, CreateDTO, UpdateDTO, CoreSchema, ColumnMeta, ValidationIssue } from '@zmdb/schema-core';
 
 // Query compiler & Migrations.
 export { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
