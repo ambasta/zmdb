@@ -8,8 +8,16 @@ import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // no-subclass wiring helper (#223). Every SQL statement comes from
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
-import { isRecord } from '@zmdb/schema-core';
-import type { ColumnMeta, CoreSchema, Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import {
+  isRecord,
+  ValidationError,
+  type ColumnMeta,
+  type CoreSchema,
+  type CreateDTO,
+  type Entity,
+  type UpdateDTO,
+  type ValidationIssue,
+} from '@zmdb/schema-core';
 import {
   compileWhere,
   applyOrderBy,
@@ -75,23 +83,7 @@ export type Populated<S, R extends RelationsLike, K extends keyof R> = Entity<S>
   readonly [P in K]: PopulatedField<R[P]>;
 };
 
-export interface ValidationIssue {
-  readonly path: string;
-  readonly message: string;
-}
-
-export class ValidationError extends Error {
-  readonly issues: readonly ValidationIssue[];
-
-  // Issues are constructor state, not a post-hoc field poke: assigning to a
-  // `readonly` field from outside needed `(e as { issues: unknown }).issues = …`,
-  // which also let an error escape with the field still empty.
-  constructor(message: string, issues: readonly ValidationIssue[] = []) {
-    super(message);
-    this.name = 'ValidationError';
-    this.issues = issues;
-  }
-}
+export { ValidationError, type ValidationIssue };
 
 /**
  * The base repository.

@@ -4,6 +4,10 @@
 // transformSource currently only performs the identity transform, so the
 // inlining golden tests stay red until #23.
 
+import { safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
+
+export { ValidationError, getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
+
 export interface Rule {
   readonly kind: string;
   readonly args: readonly unknown[];
@@ -27,6 +31,7 @@ export const tags = {
     return rule('MaxLength', n);
   },
   Pattern(re: string): Rule {
+    validatePatternComplexity(re);
     return rule('Pattern', re);
   },
   Enum(...values: readonly string[]): Rule {
@@ -83,7 +88,7 @@ export function validate(r: Rule, expr: unknown): boolean {
     case 'MaxLength':
       return typeof expr === 'string' && typeof arg === 'number' && expr.length <= arg;
     case 'Pattern':
-      return typeof expr === 'string' && typeof arg === 'string' && getRegExp(arg).test(expr);
+      return typeof expr === 'string' && safeTestPattern(r.args[0] as string, expr);
     case 'Enum':
       return getEnumSet(r.args).has(expr);
     default:
@@ -184,6 +189,7 @@ function inlineCheck(ruleSrc: string, expr: string): string {
 
       raw = raw.slice(1, -1);
       const re = escapePattern(raw);
+      validatePatternComplexity(re);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;
     }
     case 'Enum': {
