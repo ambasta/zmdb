@@ -197,7 +197,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return (await this.driver.execute(query)) as readonly Row[];
   }
 
-  private buildKeyWhere(id: PrimaryKey<S>): WhereDTO<CoreSchema<string>> {
+  private buildKeyWhere(id: PrimaryKey<S>): WhereDTO<S> {
     const pkCols = this.schema.primaryKey;
     if (!pkCols || pkCols.length === 0) {
       throw new Error(`schema ${this.tableName} has no primary key`);
@@ -208,22 +208,25 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (!pkCol) {
         throw new Error(`schema ${this.tableName} has empty primary key column`);
       }
-      return { [pkCol]: id } as WhereDTO<CoreSchema<string>>;
+      // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<S>`
+      // preserves the repository's concrete schema type `S`.
+      return { [pkCol]: id } as WhereDTO<S>;
     }
 
-    if (id === null || typeof id !== 'object' || id instanceof Date) {
+    if (!isRecord(id) || id instanceof Date) {
       throw new ValidationError(`composite primary key for schema ${this.tableName} requires an object map`);
     }
 
-    const idObj = id as Record<string, unknown>;
     const where: Record<string, unknown> = {};
     for (const col of pkCols) {
-      if (!(col in idObj) || idObj[col] === undefined) {
+      if (!(col in id) || id[col] === undefined) {
         throw new ValidationError(`missing composite primary key column "${col}" for schema ${this.tableName}`);
       }
-      where[col] = idObj[col];
+      where[col] = id[col];
     }
-    return where as WhereDTO<CoreSchema<string>>;
+    // boundary: `where` map is assembled at runtime from composite PK fields; asserting to `WhereDTO<S>`
+    // preserves the repository's concrete schema type `S`.
+    return where as WhereDTO<S>;
   }
 
   // #218 — typed populate. When `opts.populate` names relations (declared in the
