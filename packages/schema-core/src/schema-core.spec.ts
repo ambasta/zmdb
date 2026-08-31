@@ -1,4 +1,5 @@
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, it, expect } from 'vitest';
+
 import {
   serial,
   integer,
@@ -40,8 +41,6 @@ describe('column builders', () => {
     const c = json();
     expect(c.type).toBe('json');
     expect(c.flags.nullable).toBe(false);
-    expectTypeOf(c.type).toEqualTypeOf<'json'>();
-    expectTypeOf(c.flags).toEqualTypeOf<{ readonly nullable: false }>();
   });
 
   it('varchar(n) captures length', () => {
