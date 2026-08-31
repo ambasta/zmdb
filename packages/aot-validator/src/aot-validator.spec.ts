@@ -59,16 +59,16 @@ describe('transformer inlining (golden fixtures)', () => {
     expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
   });
 
-  it('falls back to validate() when Pattern contains template literal substitution', () => {
+  it('inlines Pattern containing template literal substitution using new RegExp()', () => {
     const src = 'const ok = validate(tags.Pattern(`prefix_${id}_suffix`), input.val);';
     const out = transformSource(src);
-    expect(out).toContain('validate(tags.Pattern(`prefix_${id}_suffix`), input.val)');
+    expect(norm(out)).toContain('typeof input.val === "string" && new RegExp(`prefix_${id}_suffix`).test(input.val)');
   });
 
-  it('falls back to validate() when Pattern argument is a dynamic variable expression', () => {
+  it('inlines Pattern dynamic variable expression using new RegExp()', () => {
     const src = 'const ok = validate(tags.Pattern(myCustomPattern), input.val);';
     const out = transformSource(src);
-    expect(out).toContain('validate(tags.Pattern(myCustomPattern), input.val)');
+    expect(norm(out)).toContain('typeof input.val === "string" && new RegExp(myCustomPattern).test(input.val)');
   });
 
   it('inlines Pattern backtick template literal when it contains no substitutions', () => {

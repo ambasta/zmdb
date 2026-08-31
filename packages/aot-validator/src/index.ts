@@ -138,12 +138,8 @@ function inlineCheck(ruleSrc: string, expr: string): string {
         raw.length >= 2 &&
         ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
 
-      if (!isQuoted) {
-        return `validate(${ruleSrc}, ${expr})`;
-      }
-
-      if (first === '`' && raw.includes('${')) {
-        return `validate(${ruleSrc}, ${expr})`;
+      if (!isQuoted || (first === '`' && raw.includes('${'))) {
+        return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
       }
 
       raw = raw.slice(1, -1);
