@@ -47,16 +47,6 @@ jobs:
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
 
-      - name: Build docs site & OpenAPI spec
-        run: node docs-site/build.mjs
-
-      - name: Publish OpenAPI spec artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: openapi-spec
-          path: site/openapi.json
-
       # Benchmarks run as part of the vitest suite (validation + ORM, plus the
       # Kysely head-to-head and the RESULTS.md generator). The report generator
       # enforces the honesty policy (assertNoSilentSkips) — an in-scope case
@@ -88,6 +78,13 @@ jobs:
 
       - name: Build docs site
         run: yarn build:docs
+
+      - name: Publish OpenAPI spec artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: site/openapi.json
 
   spec-validation:
     name: Specification Validation
