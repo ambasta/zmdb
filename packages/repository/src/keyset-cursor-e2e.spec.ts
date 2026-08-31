@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer, primaryKey, notNull } from '@zmdb/schema-core';
+import { defineSchema, serial, text, integer, primaryKey, notNull, type Entity } from '@zmdb/schema-core';
+import type { ListResult } from '@zmdb/schema-core/dto';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
@@ -56,7 +57,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
 
     do {
       pageCount++;
-      const res = await products.list({
+      const res: ListResult<Entity<typeof ProductSchema>> = await products.list({
         orderBy: [{ column: 'age', dir: 'desc' }],
         page: { limit: 6, after: currentCursor },
       });
@@ -97,7 +98,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
     let currentCursor: string | undefined = undefined;
 
     do {
-      const res = await products.list({
+      const res: ListResult<Entity<typeof ProductSchema>> = await products.list({
         where: { category: 'electronics' },
         orderBy: [{ column: 'age', dir: 'asc' }],
         page: { limit: 4, after: currentCursor },

@@ -467,4 +467,6 @@ export {
   type RelationDef,
   type RelationsMap,
   type PopulatedEntity,
+  type Populated,
+  type JoinRow,
 } from './relations/index.ts';
