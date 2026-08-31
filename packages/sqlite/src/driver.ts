@@ -87,6 +87,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
 
   const driver: TransactionalDriver<'sqlite'> = {
     dialect: sqlite,
+    __isSqlite: true,
     async execute(q, executeOpts) {
       const signal = executeOpts?.signal;
       signal?.throwIfAborted();

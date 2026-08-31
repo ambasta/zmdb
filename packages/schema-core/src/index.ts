@@ -70,7 +70,7 @@ export interface ColumnMeta {
   readonly type: SqlType | ExtensionType;
   readonly flags: ColumnFlags;
   readonly default?: unknown;
-  readonly references?: { readonly target: string };
+  readonly references?: { readonly target: string } | ((target: string) => Column);
   readonly validation?: readonly ValidationRule[];
 }
 

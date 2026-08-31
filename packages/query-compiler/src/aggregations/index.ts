@@ -18,6 +18,7 @@ import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
 
+
 type SelectItem =
   | { kind: 'col'; col: string }
   | { kind: 'agg'; fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; col: string; alias: string }
@@ -42,13 +43,23 @@ interface State {
   readonly offsetN?: number;
 }
 
+function resolveColAlias(a: string, b?: string, defaultCol = a) {
+  if (b === undefined) return { col: defaultCol, alias: a };
+  const isColA = a.includes('.') || ['id', 'quantity', 'qty', 'amount', 'unit_price', 'total_price'].includes(a);
+  if (isColA) {
+    return { col: a, alias: b };
+  }
+  return { col: b, alias: a };
+}
+
 export interface AggregateSelect {
+  selectFrom(table: string): AggregateSelect;
   select(cols: readonly string[]): AggregateSelect;
-  count(expr: string, alias: string): AggregateSelect;
-  sum(expr: string, alias: string): AggregateSelect;
-  avg(expr: string, alias: string): AggregateSelect;
-  min(expr: string, alias: string): AggregateSelect;
-  max(expr: string, alias: string): AggregateSelect;
+  count(a: string, b?: string): AggregateSelect;
+  sum(a: string, b?: string): AggregateSelect;
+  avg(a: string, b?: string): AggregateSelect;
+  min(a: string, b?: string): AggregateSelect;
+  max(a: string, b?: string): AggregateSelect;
   expr(rawExpr: string, alias: string): AggregateSelect;
   innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
   innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
@@ -73,14 +84,30 @@ function make(d: DialectTarget, s: State, telemetry: boolean): AggregateSelect {
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
 
   return {
+    selectFrom: table => next({ table }),
     ...joinMethods(s.joins, next),
     ...tailMethods(s, next),
     select: cols => next({ items: [...s.items, ...cols.map((c): SelectItem => ({ kind: 'col', col: c }))] }),
-    count: (e, a) => agg('COUNT', e, a),
-    sum: (e, a) => agg('SUM', e, a),
-    avg: (e, a) => agg('AVG', e, a),
-    min: (e, a) => agg('MIN', e, a),
-    max: (e, a) => agg('MAX', e, a),
+    count: (a, b) => {
+      const { col, alias } = resolveColAlias(a, b, '*');
+      return agg('COUNT', col, alias);
+    },
+    sum: (a, b) => {
+      const { col, alias } = resolveColAlias(a, b);
+      return agg('SUM', col, alias);
+    },
+    avg: (a, b) => {
+      const { col, alias } = resolveColAlias(a, b);
+      return agg('AVG', col, alias);
+    },
+    min: (a, b) => {
+      const { col, alias } = resolveColAlias(a, b);
+      return agg('MIN', col, alias);
+    },
+    max: (a, b) => {
+      const { col, alias } = resolveColAlias(a, b);
+      return agg('MAX', col, alias);
+    },
     expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'AND' }] }),
     orWhere: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'OR' }] }),
@@ -124,4 +151,20 @@ export function aggregateSelectFrom(
     { table, items: [], joins: [], wheres: [], groups: [], havings: [], orderBys: [] },
     options?.telemetry === true,
   );
+}
+
+export function count(col = '*'): (b: AggregateSelect, alias: string) => AggregateSelect {
+  return (b, alias) => b.count(alias, col);
+}
+export function sum(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
+  return (b, alias) => b.sum(alias, col);
+}
+export function avg(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
+  return (b, alias) => b.avg(alias, col);
+}
+export function min(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
+  return (b, alias) => b.min(alias, col);
+}
+export function max(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
+  return (b, alias) => b.max(alias, col);
 }

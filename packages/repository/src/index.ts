@@ -120,6 +120,7 @@ export interface Driver<Name extends string = string> {
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
+  readonly __isSqlite?: boolean;
 }
 
 export interface TransactionalDriver<Name extends string = string> extends Driver<Name> {
@@ -556,7 +557,7 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
  */
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
-  protected driver: Driver;
+  private _driver?: Driver | undefined;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: DialectTarget;
   protected readonly dialectCapabilities: ReturnType<typeof dialectCapabilities>;
@@ -640,14 +641,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }),
     );
     this.#onQuery = options?.onQuery;
-    this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
-    this.keyColumns = this.#rootSqlNames.keyColumns;
+    this.qb = createQueryCompiler(this.dialect, driver?.queryTelemetry === true ? { telemetry: true } : undefined);
+    this.keyColumns = Object.freeze([...(this.schema?.primaryKey ?? [])]);
     this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
 
     const seen = new Set<string>();
     for (const filter of this.#filterDefinitions) {
       if (filter.name.trim().length === 0) throw new ValidationError('filter names must not be empty');
-      const identity = `${filter.table ?? this.schema.table}\u0000${filter.name}`;
+      const identity = `${filter.table ?? this.schema.table} ${filter.name}`;
       if (seen.has(identity)) {
         throw new ValidationError(`filter \`${filter.name}\` is declared more than once for \`${filter.table}\``);
       }
