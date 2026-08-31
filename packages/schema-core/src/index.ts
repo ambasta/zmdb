@@ -530,7 +530,7 @@ export interface EntityStateMachineOptions<
   schema?: S;
   stateField: StateField;
   transitions: Transitions;
-  allowedFields?: FieldRestrictions;
+  allowedFields?: FieldRestrictions | undefined;
 }
 
 export interface EntityStateMachine<
@@ -541,7 +541,7 @@ export interface EntityStateMachine<
 > {
   readonly stateField: StateField;
   readonly transitions: Transitions;
-  readonly allowedFields?: FieldRestrictions;
+  readonly allowedFields?: FieldRestrictions | undefined;
   canTransition<From extends keyof Transitions & string>(from: From, to: string): boolean;
   createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
     from: From,
@@ -586,15 +586,14 @@ export function createStateUpdatePayload<
   transitions: Transitions,
   from: From,
   to: Transitions[From][number],
-  patch?: Omit<Pick<UpdateDTO<S>, AllowedFields>, StateField>,
+  patch?: Omit<Pick<UpdateDTO<S>, AllowedFields>, StateField> | Record<string, never>,
 ): StateUpdateDTO<S, StateField, From, Transitions, AllowedFields> {
   const allowed = transitions[from];
   if (!Array.isArray(allowed) || !allowed.includes(to)) {
     throw new Error(`Invalid state transition from "${from}" to "${to}" for field "${stateField}"`);
   }
-  // boundary: patch object properties are validated by type parameters for From state; spreading patch and attaching dynamic stateField property satisfies StateUpdateDTO structure.
   const payload = {
-    ...(patch as Record<string, unknown>),
+    ...patch,
     [stateField]: to,
   };
   // boundary: return value is certified as StateUpdateDTO after runtime transition validation.
@@ -611,7 +610,7 @@ export function defineEntityStateMachine<
 ): EntityStateMachine<S, StateField, Transitions, FieldRestrictions> {
   const { stateField, transitions, allowedFields } = options;
 
-  const machine = {
+  return {
     stateField,
     transitions,
     allowedFields,
@@ -619,16 +618,39 @@ export function defineEntityStateMachine<
       const allowed = transitions[from];
       return Array.isArray(allowed) && allowed.includes(to);
     },
-    createUpdatePayload(from: keyof Transitions & string, to: string, patch?: Record<string, unknown>) {
-      // boundary: delegate payload construction and runtime validation to createStateUpdatePayload, returning typed payload.
-      return createStateUpdatePayload(stateField, transitions, from, to as never, patch as never) as ReturnType<
-        EntityStateMachine<S, StateField, Transitions, FieldRestrictions>['createUpdatePayload']
-      >;
+    createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
+      from: From,
+      to: To,
+      patch?: [
+        Exclude<
+          FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+            ? FieldRestrictions[From][number]
+            : keyof UpdateDTO<S>,
+          StateField
+        >,
+      ] extends [never]
+        ? Record<string, never>
+        : Omit<
+            Pick<
+              UpdateDTO<S>,
+              FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+                ? FieldRestrictions[From][number]
+                : keyof UpdateDTO<S>
+            >,
+            StateField
+          >,
+    ) {
+      return createStateUpdatePayload<
+        S,
+        StateField,
+        From,
+        Transitions,
+        FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+          ? FieldRestrictions[From][number]
+          : keyof UpdateDTO<S>
+      >(stateField, transitions, from, to, patch);
     },
   };
-
-  // boundary: object literal constructed above conforms to EntityStateMachine interface for given state transitions and field restrictions.
-  return machine as EntityStateMachine<S, StateField, Transitions, FieldRestrictions>;
 }
 
 export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.ts';

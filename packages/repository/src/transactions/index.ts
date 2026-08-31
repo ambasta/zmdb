@@ -6,7 +6,7 @@ import type { CompiledQuery } from '@zmdb/query-compiler';
 export type TransactionState = 'active' | 'closed' | 'committed' | 'rolled_back' | string;
 
 export interface TransactionContext<State extends string = 'active'> {
-  readonly _state?: State;
+  readonly _state?: State | undefined;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
 }
@@ -17,8 +17,12 @@ export type ClosedTransactionContext = TransactionContext<'closed'>;
 export function markTransactionClosed<State extends string = 'active'>(
   tx: TransactionContext<State>,
 ): ClosedTransactionContext {
-  // boundary: _state is a phantom type parameter on TransactionContext; re-branding tx to ClosedTransactionContext updates the compile-time state brand to 'closed' without runtime overhead or object mutation.
-  return tx as ClosedTransactionContext;
+  return {
+    _state: 'closed',
+    execute: query => tx.execute(query),
+    savepoint: <R>(fn: (ctx: ClosedTransactionContext) => Promise<R>): Promise<R> =>
+      tx.savepoint(innerTx => fn(markTransactionClosed(innerTx))),
+  };
 }
 
 export interface TxConnection {
