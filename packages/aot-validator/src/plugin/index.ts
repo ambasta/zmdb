@@ -5,6 +5,7 @@
 // packaging is #81; this string harness pins & implements the emitted-JS
 // contract the spec froze.)
 
+import { transformSource } from '../index.ts';
 // A parsed TS type: primitives or a flat/nested object type literal.
 type PType = { kind: 'number' | 'string' | 'boolean' } | { kind: 'object'; fields: { name: string; type: PType }[] };
 
@@ -87,8 +88,35 @@ function emitCheck(t: PType, expr: string): string {
   }
 }
 
-// Find `fn<TYPE>(EXPR)` calls for fn in {is, assert} and rewrite them.
-function rewriteCall(code: string, fn: 'is' | 'assert'): string {
+function emitExcessKeyGuards(t: PType, expr: string, varPrefix = '_c'): string[] {
+  if (t.kind !== 'object') return [];
+  const guards: string[] = [];
+  const topCount = t.fields.length;
+  guards.push(
+    `let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`,
+  );
+  let idx = 0;
+  for (const f of t.fields) {
+    if (f.type.kind === 'object') {
+      guards.push(...emitExcessKeyGuards(f.type, `${expr}.${f.name}`, `${varPrefix}_${idx++}`));
+    }
+  }
+  return guards;
+}
+
+function emitEqualsCheck(t: PType, expr: string): string {
+  if (t.kind !== 'object') {
+    return emitCheck(t, expr);
+  }
+  const check = emitCheck(t, expr);
+  const excessGuards = emitExcessKeyGuards(t, expr).join(' ');
+  return `((() => { if (!(${check})) return false; ${excessGuards} return true; })())`;
+}
+
+type SupportedFn = 'is' | 'assert' | 'validate' | 'equals' | 'assertEquals';
+
+// Find `fn<TYPE>(EXPR)` calls for supported functions and rewrite them.
+function rewriteCall(code: string, fn: SupportedFn): string {
   let out = '';
   let i = 0;
   const needle = `${fn}<`;
@@ -134,21 +162,41 @@ function rewriteCall(code: string, fn: 'is' | 'assert'): string {
       continue;
     }
     const check = `(${emitCheck(t, expr)})`;
-    out += fn === 'is' ? check : `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+    const equalsCheck = emitEqualsCheck(t, expr);
+
+    switch (fn) {
+      case 'is':
+        out += check;
+        break;
+      case 'assert':
+        out += `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+        break;
+      case 'validate':
+        out += `((() => { const _ok = ${check}; return _ok ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "${typeSrc.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", value: ${expr}, message: "validation failed" }] }; })())`;
+        break;
+      case 'equals':
+        out += `(${equalsCheck})`;
+        break;
+      case 'assertEquals':
+        out += `((() => { if (!(${equalsCheck})) throw new Error("assertion failed"); return ${expr}; })())`;
+        break;
+    }
     i = j;
   }
   return out;
 }
 
 export function transformTypeChecks(code: string): string {
-  return rewriteCall(rewriteCall(code, 'is'), 'assert');
+  let out = code;
+  for (const fn of ['is', 'assert', 'validate', 'equals', 'assertEquals'] as const) {
+    out = rewriteCall(out, fn);
+  }
+  return out;
 }
 
 // unplugin-compatible plugin factory. The `transform` hook inlines
-// is<T>()/assert<T>() calls in source modules via transformTypeChecks. Shape is
-// what unplugin/vite/esbuild/rollup expect: { name, transform(code, id) }.
-// For ts-patch/ttypescript, use the program transformer (createTransformer, #81
-// follow-up) via tsconfig "plugins"; this hook covers the bundler path.
+// validator calls in source modules. Shape is what unplugin/vite/esbuild/rollup expect:
+// { name, transform(code, id) }.
 export interface UnpluginLike {
   readonly name: string;
   transform(code: string, id: string): { code: string } | null;
@@ -161,7 +209,8 @@ export function zmdbAot(): UnpluginLike {
       // Only source modules; never touch dependencies or declaration files.
       if (id.includes('node_modules')) return null;
       if (!/\.(ts|tsx|mts|cts|js|jsx|mjs)$/.test(id)) return null;
-      const out = transformTypeChecks(code);
+      let out = transformTypeChecks(code);
+      out = transformSource(out);
       return out === code ? null : { code: out };
     },
   };

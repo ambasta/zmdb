@@ -34,7 +34,8 @@
     "./advanced": "./src/advanced/index.ts",
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
-    "./plugin": "./src/plugin/index.ts"
+    "./plugin": "./src/plugin/index.ts",
+    "./unplugin": "./src/unplugin.ts"
   },
   "publishConfig": {
     "access": "public",

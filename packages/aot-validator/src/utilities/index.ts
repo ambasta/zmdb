@@ -3,6 +3,7 @@
 // #58 assert, #59 validate, #60 equals/assertEquals, #61 random remain
 // unimplemented; their tests stay red.
 import type { ValidationIssue } from '../advanced/index.ts';
+import { getRegExp, getEnumSet } from '../index.ts';
 
 // Local (not imported from @zmdb/schema-core, which exports the same guard):
 // this package deliberately has no *runtime* cross-package import, so an emitted
@@ -51,7 +52,7 @@ function matches(value: unknown, d: TypeDescriptor): boolean {
     case 'string':
       if (typeof value !== 'string') return false;
       if (d.maxLength !== undefined && value.length > d.maxLength) return false;
-      if (d.pattern !== undefined && !new RegExp(d.pattern).test(value)) return false;
+      if (d.pattern !== undefined && !getRegExp(d.pattern).test(value)) return false;
       return true;
     case 'number':
       if (typeof value !== 'number' || Number.isNaN(value)) return false;
@@ -60,7 +61,7 @@ function matches(value: unknown, d: TypeDescriptor): boolean {
     case 'boolean':
       return typeof value === 'boolean';
     case 'enum':
-      return typeof value === 'string' && (d.values?.includes(value) ?? false);
+      return typeof value === 'string' && (d.values ? getEnumSet(d.values).has(value) : false);
     case 'array':
       if (!Array.isArray(value) || !d.of) return false;
       for (const item of value) if (!matches(item, d.of)) return false;
@@ -93,7 +94,7 @@ function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: Val
     case 'string':
       if (typeof value !== 'string') return fail('string');
       if (d.maxLength !== undefined && value.length > d.maxLength) fail(`maxLength ${d.maxLength}`);
-      if (d.pattern !== undefined && !new RegExp(d.pattern).test(value)) fail(`pattern ${d.pattern}`);
+      if (d.pattern !== undefined && !getRegExp(d.pattern).test(value)) fail(`pattern ${d.pattern}`);
       return;
     case 'number':
       if (typeof value !== 'number' || Number.isNaN(value)) return fail('number');
@@ -103,7 +104,8 @@ function collectIssues(value: unknown, d: TypeDescriptor, path: string, out: Val
       if (typeof value !== 'boolean') fail('boolean');
       return;
     case 'enum':
-      if (typeof value !== 'string' || !(d.values?.includes(value) ?? false)) fail(`enum ${JSON.stringify(d.values)}`);
+      if (typeof value !== 'string' || !(d.values ? getEnumSet(d.values).has(value) : false))
+        fail(`enum ${JSON.stringify(d.values)}`);
       return;
     case 'array': {
       const of = d.of;
