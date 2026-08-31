@@ -98,10 +98,10 @@ describe('sensitive field redaction in OpenAPI specs', () => {
     apiToken: text().notNull().sensitive(),
   });
 
-  const variants: Variant[] = ['entity', 'create', 'update', 'get', 'list', 'search'];
+  const readVariants: Variant[] = ['entity', 'get', 'list', 'search'];
 
-  for (const variant of variants) {
-    it(`omits sensitive fields from toJsonSchema for variant "${variant}"`, () => {
+  for (const variant of readVariants) {
+    it(`omits sensitive fields from toJsonSchema for read variant "${variant}"`, () => {
       const s = toJsonSchema(SchemaWithSecret, variant);
       expect(s.properties).not.toHaveProperty('passwordHash');
       expect(s.properties).not.toHaveProperty('apiToken');
@@ -110,6 +110,24 @@ describe('sensitive field redaction in OpenAPI specs', () => {
       expect(s.required).not.toContain('apiToken');
     });
   }
+
+  it('includes sensitive fields for write variant "create"', () => {
+    const s = toJsonSchema(SchemaWithSecret, 'create');
+    expect(s.properties).toHaveProperty('passwordHash');
+    expect(s.properties).toHaveProperty('apiToken');
+    expect(s.properties).toHaveProperty('email');
+    expect(s.required).toContain('passwordHash');
+    expect(s.required).toContain('apiToken');
+    expect(s.required).toContain('email');
+  });
+
+  it('includes sensitive fields for write variant "update" as optional', () => {
+    const s = toJsonSchema(SchemaWithSecret, 'update');
+    expect(s.properties).toHaveProperty('passwordHash');
+    expect(s.properties).toHaveProperty('apiToken');
+    expect(s.properties).toHaveProperty('email');
+    expect(s.required).toEqual([]);
+  });
 
   it('omits sensitive fields from toOpenApiComponents', () => {
     const c = toOpenApiComponents([SchemaWithSecret]);
