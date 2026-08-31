@@ -24,7 +24,6 @@ export interface MigrationDriver {
   readonly dialect?: Dialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
-export type Driver = MigrationDriver;
 
 const VERSION_TABLE = `CREATE TABLE IF NOT EXISTS _zmdb_migrations (
   version INTEGER PRIMARY KEY,
@@ -67,9 +66,6 @@ export function driverMigrationConnection(
     },
   };
 }
-
-export const createMigrationConnection = driverMigrationConnection;
-export const driverAdapter = driverMigrationConnection;
 
 export async function ensureVersionTable(conn: MigrationConnection): Promise<void> {
   await conn.exec(VERSION_TABLE);

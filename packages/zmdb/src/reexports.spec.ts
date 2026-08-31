@@ -3,8 +3,6 @@ import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb
 import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
 import {
   driverMigrationConnection as srcDMC,
-  createMigrationConnection as srcCMC,
-  driverAdapter as srcDA,
   up as srcUp,
   down as srcDown,
   status as srcStatus,
@@ -35,20 +33,14 @@ import {
   is,
   json,
   jsonEnum,
+  migrations,
   sensitive,
   serial,
   tags,
   text,
   timestamp,
-  up,
   UnsupportedFeatureError,
   validate,
-  down,
-  status,
-  runCli,
-  driverMigrationConnection,
-  createMigrationConnection,
-  driverAdapter,
 } from './index.ts';
 
 describe('zmdb umbrella re-exports (#227)', () => {
@@ -86,13 +78,11 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(typeof unplugin.zmdbAot).toBe('function');
   });
 
-  it('re-exports migration runner and driver adapters', () => {
-    expect(up).toBe(srcUp);
-    expect(down).toBe(srcDown);
-    expect(status).toBe(srcStatus);
-    expect(runCli).toBe(srcRunCli);
-    expect(driverMigrationConnection).toBe(srcDMC);
-    expect(createMigrationConnection).toBe(srcCMC);
-    expect(driverAdapter).toBe(srcDA);
+  it('re-exports migration runner under migrations namespace', () => {
+    expect(migrations.up).toBe(srcUp);
+    expect(migrations.down).toBe(srcDown);
+    expect(migrations.status).toBe(srcStatus);
+    expect(migrations.runCli).toBe(srcRunCli);
+    expect(migrations.driverMigrationConnection).toBe(srcDMC);
   });
 });

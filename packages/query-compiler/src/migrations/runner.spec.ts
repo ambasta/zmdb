@@ -5,9 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.ts';
 import { sqliteDriver } from '../../../repository/src/drivers/sqlite.ts';
 import {
-  createMigrationConnection,
   down,
-  driverAdapter,
   driverMigrationConnection,
   runCli,
   status,
@@ -160,7 +158,7 @@ describe('migration runner E2E (real SQLite connection)', () => {
   });
 });
 
-describe('Native Driver Adapter (driverMigrationConnection / driverAdapter)', () => {
+describe('Native Driver Adapter (driverMigrationConnection)', () => {
   it('executes schema migrations asynchronously using SQLite driver instance', async () => {
     const sqliteDb = new DatabaseSync(':memory:');
     const driver = sqliteDriver(sqliteDb);
@@ -222,7 +220,7 @@ describe('Native Driver Adapter (driverMigrationConnection / driverAdapter)', ()
     };
 
     const driver = pgDriver(mockPgClient);
-    const adapterConn = driverAdapter(driver);
+    const adapterConn = driverMigrationConnection(driver);
 
     // Up
     const applied = await up(adapterConn, migrations);
@@ -248,10 +246,5 @@ describe('Native Driver Adapter (driverMigrationConnection / driverAdapter)', ()
     const deleteQuery = executedQueries.find(q => q.text.includes('DELETE FROM "_zmdb_migrations"'));
     expect(deleteQuery).toBeDefined();
     expect(deleteQuery?.text).toContain('$1');
-  });
-
-  it('exports createMigrationConnection, driverMigrationConnection, and driverAdapter aliases', () => {
-    expect(createMigrationConnection).toBe(driverMigrationConnection);
-    expect(driverAdapter).toBe(driverMigrationConnection);
   });
 });
