@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { tags, transformSource, validate } from './index.ts';
 import { getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 import { is, validate as utilityValidate } from './utilities/index.ts';

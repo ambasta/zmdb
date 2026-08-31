@@ -3,10 +3,10 @@
 
 export function validatePatternComplexity(pattern: string): void {
   try {
-    new RegExp(pattern);
+    RegExp(pattern);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Invalid regular expression pattern: ${msg}`);
+    throw new Error(`Invalid regular expression pattern: ${msg}`, { cause: err });
   }
 }
 
@@ -23,15 +23,9 @@ export function getCachedRegExp(pattern: string): RegExp {
   return re;
 }
 
-export function safeTestPattern(
-  pattern: string,
-  input: string,
-  maxInputLength = MAX_FALLBACK_INPUT_LENGTH,
-): boolean {
+export function safeTestPattern(pattern: string, input: string, maxInputLength = MAX_FALLBACK_INPUT_LENGTH): boolean {
   if (input.length > maxInputLength) {
-    throw new Error(
-      `Input length (${input.length}) exceeds maximum limit (${maxInputLength}) for pattern evaluation`,
-    );
+    throw new Error(`Input length (${input.length}) exceeds maximum limit (${maxInputLength}) for pattern evaluation`);
   }
   const re = getCachedRegExp(pattern);
   return re.test(input);
