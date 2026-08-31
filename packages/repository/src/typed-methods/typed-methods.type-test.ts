@@ -36,7 +36,9 @@ export type _Read4 = Expect<Equal<Awaited<ReturnType<Users['list']>>, ListResult
 // overload regardless of arguments. Assert at the value level instead, which
 // picks the overload by argument list exactly as a caller does.
 export const _readById: Promise<Entity<S> | undefined> = repo.findById(1);
-export const _readWhere: Promise<readonly Entity<S>[]> = repo.find({ role: 'admin' });
+export const _readWhere: Promise<readonly Entity<S>[]> = repo.find({
+  role: 'admin',
+});
 // This repository declares no relations, so there is nothing to populate.
 // @ts-expect-error — populate keys are `keyof R`, and `R` is empty here.
 export const _readByIdPopulated = repo.findById(1, { populate: ['orders'] });
@@ -58,8 +60,12 @@ export type _Write5 = Expect<Equal<Awaited<ReturnType<Users['delete']>>, boolean
 export const _createDto: CreateDTO<S> = { email: 'a@b.com', age: 30 };
 // @ts-expect-error — `age` is required (notNull, no default).
 export const _createMissingRequired: CreateDTO<S> = { email: 'a@b.com' };
-// @ts-expect-error — `role` is a jsonEnum, so only its members are accepted.
-export const _createBadEnum: CreateDTO<S> = { email: 'a@b.com', age: 30, role: 'nope' };
+export const _createBadEnum: CreateDTO<S> = {
+  email: 'a@b.com',
+  age: 30,
+  // @ts-expect-error — `role` is a jsonEnum, so only its members are accepted.
+  role: 'nope',
+};
 
 // `withTransaction` returns the *same* repository type (polymorphic `this`), so
 // a tx-scoped repo keeps every derived method signature.

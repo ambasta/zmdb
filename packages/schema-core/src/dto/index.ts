@@ -13,7 +13,12 @@ import { isRecord } from '../index.ts';
 export type SubqueryTarget<V = unknown> =
   | SelectBuilder<V>
   | { compile(): CompiledQuery; readonly _type?: V }
-  | { table: string; select?: readonly string[]; where?: WhereDTO<CoreSchema<string>>; readonly _type?: V };
+  | {
+      table: string;
+      select?: readonly string[];
+      where?: WhereDTO<CoreSchema<string>>;
+      readonly _type?: V;
+    };
 
 export interface FieldOps<V> {
   eq?: V | SubqueryTarget<V>;
@@ -89,7 +94,11 @@ function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 
     'table' in target &&
     typeof (target as { table: unknown }).table === 'string'
   ) {
-    const spec = target as { table: string; select?: readonly string[]; where?: WhereDTO<CoreSchema<string>> };
+    const spec = target as {
+      table: string;
+      select?: readonly string[];
+      where?: WhereDTO<CoreSchema<string>>;
+    };
     let sub = createQueryCompiler(dialect).selectFrom(spec.table);
     if (spec.select && spec.select.length > 0) {
       sub = sub.select(spec.select);
@@ -115,7 +124,11 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
     const add = (op: string, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
-      b = (connector === 'or' ? b.orWhere(col, op, value) : b.where(col, op, value)) as B;
+      if (connector === 'or') {
+        b = b.orWhere(col, op, value);
+      } else {
+        b = b.where(col, op, value);
+      }
     };
     if (
       spec !== null &&
@@ -150,15 +163,27 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
       const resolved = resolveSubqueryTarget(item, dialect);
       if (connector === 'or') {
         if (isNot) {
-          b = (b.orWhereNotExists ? b.orWhereNotExists(resolved) : b.orWhere('', 'NOT EXISTS', resolved)) as B;
+          if (!b.orWhereNotExists) {
+            throw new Error('Builder does not support orWhereNotExists');
+          }
+          b = b.orWhereNotExists(resolved);
         } else {
-          b = (b.orWhereExists ? b.orWhereExists(resolved) : b.orWhere('', 'EXISTS', resolved)) as B;
+          if (!b.orWhereExists) {
+            throw new Error('Builder does not support orWhereExists');
+          }
+          b = b.orWhereExists(resolved);
         }
       } else {
         if (isNot) {
-          b = (b.whereNotExists ? b.whereNotExists(resolved) : b.where('', 'NOT EXISTS', resolved)) as B;
+          if (!b.whereNotExists) {
+            throw new Error('Builder does not support whereNotExists');
+          }
+          b = b.whereNotExists(resolved);
         } else {
-          b = (b.whereExists ? b.whereExists(resolved) : b.where('', 'EXISTS', resolved)) as B;
+          if (!b.whereExists) {
+            throw new Error('Builder does not support whereExists');
+          }
+          b = b.whereExists(resolved);
         }
       }
     }
@@ -200,7 +225,10 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
 // §2 OrderBy + Pagination  (implemented in #183)
 // ---------------------------------------------------------------------------
 export type OrderDir = 'asc' | 'desc';
-export type OrderByDTO<S> = ReadonlyArray<{ column: keyof Entity<S>; dir?: OrderDir }>;
+export type OrderByDTO<S> = ReadonlyArray<{
+  column: keyof Entity<S>;
+  dir?: OrderDir;
+}>;
 
 /** Like {@link WhereTarget}: `this`-returning so folding preserves the builder type. */
 export interface OrderTarget {
@@ -224,7 +252,10 @@ export type PaginationDTO<S> =
  * `as OrderByDTO<CoreSchema<string>>` widening cast (which is what leaked into
  * consumer code, cf. COOKBOOK "sorting" example).
  */
-export type OrderBySpec = ReadonlyArray<{ column: PropertyKey; dir?: OrderDir }>;
+export type OrderBySpec = ReadonlyArray<{
+  column: PropertyKey;
+  dir?: OrderDir;
+}>;
 // `offset?: number | undefined` (not `offset?: number`) so callers under
 // `exactOptionalPropertyTypes` can forward a possibly-absent offset positionally.
 export type PaginationSpec = {
