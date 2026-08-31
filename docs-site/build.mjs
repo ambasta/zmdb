@@ -393,8 +393,8 @@ for (const f of ['validation-matrix.json', 'orm-results.json', 'framework-result
 function buildBenchmarksPage() {
   const dashIndex = join(DASH, 'index.html');
   const raw = existsSync(dashIndex) ? readFileSync(dashIndex, 'utf8') : '';
-  const matchedSections = [...raw.matchAll(/<section[\s\S]*?<\/section>/g)].map(m => m[0]).join('\n');
-  const matchedScript = (raw.match(/<script>[\s\S]*?<\/script>/) || [''])[0];
+  const matchedSections = [...raw.matchAll(/<section\b[\s\S]*?<\/section>/gi)].map(m => m[0]).join('\n');
+  const matchedScript = (raw.match(/<script\b[\s\S]*?<\/script>/i) || [''])[0];
 
   const sections =
     matchedSections ||
