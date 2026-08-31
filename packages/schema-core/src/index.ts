@@ -439,8 +439,17 @@ export {
   oneToMany,
   oneToOne,
   manyToMany,
-  type RelationMeta,
-  type RelationDef,
-  type RelationsMap,
-  type PopulatedEntity,
+  compilePopulate,
+  attachPopulated,
+  aliasRow,
+} from './relations/index.ts';
+export type {
+  Cardinality,
+  RelationMeta,
+  PopulateDialect,
+  PopulateQuery,
+  RelationDef,
+  RelationsMap,
+  PopulatedEntity,
+  JoinRow,
 } from './relations/index.ts';

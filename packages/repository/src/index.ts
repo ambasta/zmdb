@@ -21,6 +21,7 @@ import {
   type ListDTO,
   type ListResult,
   type OrderBySpec,
+  type AggregateSpec,
 } from '@zmdb/schema-core/dto';
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
@@ -44,12 +45,35 @@ type EntityRow<S> = Entity<S> & Record<string, unknown>;
  * carried for documentation/introspection — the runtime reads neither.
  */
 export interface RelationDefLike {
-  readonly cardinality: Cardinality;
-  readonly childTable: string;
-  readonly childFk: string;
+  readonly cardinality?: Cardinality | 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many';
+  readonly childTable?: string;
+  readonly childFk?: string;
   readonly parentKey?: string | undefined;
-  readonly meta?: RelationMeta | undefined;
-  readonly entity: CoreSchema<string>;
+  readonly target?: string;
+  readonly fk?: string;
+  readonly mappedBy?: string;
+  readonly rel?: {
+    cardinality?: 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many';
+    target?: string;
+    fk?: string;
+    mappedBy?: string;
+    parentKey?: string;
+  };
+  readonly meta?:
+    | RelationMeta
+    | {
+        cardinality?: 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many';
+        target?: string;
+        fk?: string;
+        mappedBy?: string;
+        parentKey?: string;
+      }
+    | undefined;
+  readonly entity?: CoreSchema<string>;
+}
+
+export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
+  joinRelation(relationName: string, kind?: 'inner' | 'left' | 'right'): RepositoryAggregateBuilder;
 }
 
 /** A repository's relations map: relation name → definition. */
@@ -60,9 +84,12 @@ export type NoRelations = Readonly<Record<never, never>>;
 
 // The value attached for one populated relation: an array of child entities for
 // to-many, a single child (or null, when the FK matches nothing) for to-one.
-type PopulatedField<D extends RelationDefLike> = D['cardinality'] extends 'one-to-many' | 'many-to-many'
-  ? readonly Entity<D['entity']>[]
-  : Entity<D['entity']> | null;
+type PopulatedField<D extends RelationDefLike> =
+  D['entity'] extends CoreSchema<string>
+    ? D['cardinality'] extends 'one-to-many' | 'many-to-many'
+      ? readonly Entity<D['entity']>[]
+      : Entity<D['entity']> | null
+    : unknown;
 
 /**
  * `Entity<S>` widened with exactly the relations that were populated (#217).
@@ -192,19 +219,31 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       const def = relations[name];
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
       const parentKey = def.parentKey ?? 'id';
+      const childTable = def.childTable ?? def.target ?? def.rel?.target ?? def.meta?.target ?? '';
+      const childFk =
+        def.childFk ??
+        def.fk ??
+        def.mappedBy ??
+        def.rel?.fk ??
+        def.rel?.mappedBy ??
+        def.meta?.fk ??
+        def.meta?.mappedBy ??
+        '';
       const ids = parents.map(p => p[parentKey]);
       // One batched query for all parents' children (OR chain = IN).
-      let cb = this.qb.selectFrom(def.childTable);
+      let cb = this.qb.selectFrom(childTable);
       ids.forEach((id, i) => {
-        cb = i === 0 ? cb.where(def.childFk, '=', id) : cb.orWhere(def.childFk, '=', id);
+        cb = i === 0 ? cb.where(childFk, '=', id) : cb.orWhere(childFk, '=', id);
       });
       const children = await this.driver.execute(cb.compile());
-      const toMany = def.cardinality === 'one-to-many' || def.cardinality === 'many-to-many';
+      const cardinality = def.cardinality ?? def.rel?.cardinality ?? def.meta?.cardinality;
+      const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
       const byParent = new Map<unknown, Record<string, unknown>[]>();
       for (const c of children) {
-        const list = byParent.get(c[def.childFk]) ?? [];
-        list.push(c);
-        byParent.set(c[def.childFk], list);
+        const key = c[childFk];
+        const list = byParent.get(key) ?? [];
+        list.push(c as Record<string, unknown>);
+        byParent.set(key, list);
       }
       for (const p of parents) {
         const list = byParent.get(p[parentKey]) ?? [];
@@ -314,16 +353,210 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return this.driver.execute(b.compile());
   }
 
-  // #92 — aggregation integration. Runs a grouped aggregate (count/sum/…)
-  // returning typed computed columns. `build` receives the aggregate builder so
-  // callers compose exactly the aggregate they need.
-  async aggregate<Row extends Record<string, unknown>>(
-    build: (agg: ReturnType<typeof aggregateSelectFrom>) => {
-      compile(): { text: string; parameters: readonly unknown[] };
-    },
-  ): Promise<readonly Row[]> {
-    const q = build(aggregateSelectFrom(this.tableName, this.dialect)).compile();
-    return this.rows<Row>(q);
+  /** Resolve relation definition into target table and left/right join columns. */
+  protected resolveRelationJoin(relationName: string): {
+    targetTable: string;
+    leftCol: string;
+    rightCol: string;
+  } {
+    const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+    const def = relations[relationName];
+    if (!def) {
+      throw new Error(`unknown relation "${relationName}" on ${this.tableName}`);
+    }
+    const meta = def.rel ?? def.meta;
+    const cardinality = def.cardinality ?? meta?.cardinality ?? 'many-to-one';
+    const rawTargetTable = def.childTable ?? def.target ?? meta?.target;
+    if (!rawTargetTable) {
+      throw new Error(`missing target table for relation "${relationName}" on ${this.tableName}`);
+    }
+    const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
+
+    const tableAlias = relationName.trim();
+    const targetTable =
+      rawTargetTable.toLowerCase() === tableAlias.toLowerCase() ? rawTargetTable : `${rawTargetTable} as ${tableAlias}`;
+
+    let leftCol: string;
+    let rightCol: string;
+
+    if (cardinality === 'many-to-one' || cardinality === 'one-to-one') {
+      const fk = def.fk ?? def.childFk ?? meta?.fk ?? `${relationName}Id`;
+      leftCol = `${this.tableName}.${fk}`;
+      rightCol = `${tableAlias}.${parentKey}`;
+    } else {
+      const childFk = def.mappedBy ?? def.childFk ?? meta?.mappedBy ?? `${this.tableName.replace(/s$/, '')}Id`;
+      leftCol = `${this.tableName}.${parentKey}`;
+      rightCol = `${tableAlias}.${childFk}`;
+    }
+
+    return { targetTable, leftCol, rightCol };
+  }
+
+  private createRepositoryAggregateBuilder(): RepositoryAggregateBuilder {
+    let builder = aggregateSelectFrom(this.tableName, this.dialect);
+    const resolveRelationJoin = (relationName: string) => this.resolveRelationJoin(relationName);
+
+    const wrap = (b: ReturnType<typeof aggregateSelectFrom>): RepositoryAggregateBuilder => {
+      builder = b;
+      return new Proxy(builder, {
+        get(target, prop, receiver) {
+          if (prop === 'joinRelation') {
+            return (relationName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
+              const { targetTable, leftCol, rightCol } = resolveRelationJoin(relationName);
+              let nextB = builder;
+              if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol);
+              else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol);
+              else nextB = builder.innerJoin(targetTable, leftCol, rightCol);
+              return wrap(nextB);
+            };
+          }
+          const val = Reflect.get(target, prop, receiver);
+          if (typeof val === 'function') {
+            return (...args: unknown[]) => {
+              const res = val.apply(target, args);
+              if (res && typeof res === 'object' && typeof res.compile === 'function') {
+                return wrap(res);
+              }
+              return res;
+            };
+          }
+          return val;
+        },
+      }) as RepositoryAggregateBuilder;
+    };
+
+    return wrap(builder);
+  }
+
+  // #92 & relation-aware aggregations. Runs a grouped aggregate (count/sum/…)
+  // returning typed computed columns or relation-aware flat output fields.
+  async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
+    specOrBuild: AggregateSpec<S, R> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
+  ): Promise<readonly Out[]> {
+    let q: CompiledQuery;
+
+    if (typeof specOrBuild === 'function') {
+      const builder = this.createRepositoryAggregateBuilder();
+      const res = specOrBuild(builder);
+      q =
+        res && typeof (res as { compile?: unknown }).compile === 'function'
+          ? (res as { compile(): CompiledQuery }).compile()
+          : builder.compile();
+    } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
+      const spec = specOrBuild as AggregateSpec<S, unknown>;
+      let builder = aggregateSelectFrom(this.tableName, this.dialect);
+      const joinedRelations = new Set<string>();
+
+      const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
+        if (joinedRelations.has(relName)) return;
+        joinedRelations.add(relName);
+        const { targetTable, leftCol, rightCol } = this.resolveRelationJoin(relName);
+        if (kind === 'left') builder = builder.leftJoin(targetTable, leftCol, rightCol);
+        else if (kind === 'right') builder = builder.rightJoin(targetTable, leftCol, rightCol);
+        else builder = builder.innerJoin(targetTable, leftCol, rightCol);
+      };
+
+      if (spec.joins) {
+        for (const item of spec.joins) {
+          if (typeof item === 'string') {
+            applyJoin(item);
+          } else if (item && typeof item === 'object') {
+            applyJoin(item.relation, item.kind);
+          }
+        }
+      }
+
+      const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+      const candidateCols: string[] = [];
+      if (spec.groupBy) candidateCols.push(...spec.groupBy.map(String));
+      if (spec.computed) {
+        for (const comp of Object.values(spec.computed) as Array<{ fn: string; column?: unknown; raw?: string }>) {
+          if (comp.column) candidateCols.push(String(comp.column));
+        }
+      }
+      if (spec.where) {
+        candidateCols.push(...Object.keys(spec.where));
+      }
+
+      for (const col of candidateCols) {
+        if (col.includes('.')) {
+          const parts = col.split('.');
+          const relCandidate = parts[0]!;
+          if (relCandidate in relations) {
+            applyJoin(relCandidate);
+          }
+        }
+      }
+
+      if (spec.groupBy && spec.groupBy.length > 0) {
+        builder = builder.select(spec.groupBy.map(String)).groupBy(...spec.groupBy.map(String));
+      }
+
+      if (spec.computed) {
+        for (const [alias, comp] of Object.entries(spec.computed) as Array<
+          [string, { fn: string; column?: unknown; raw?: string }]
+        >) {
+          if (comp.raw) {
+            builder = builder.expr(comp.raw, alias);
+          } else {
+            const fn = comp.fn.toLowerCase() as 'count' | 'sum' | 'avg' | 'min' | 'max';
+            const col = comp.column ? String(comp.column) : '*';
+            builder = builder[fn](col, alias);
+          }
+        }
+      }
+
+      if (spec.where) {
+        for (const [col, val] of Object.entries(spec.where)) {
+          if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
+            for (const [op, opVal] of Object.entries(val as Record<string, unknown>)) {
+              builder = builder.where(col, op === 'eq' ? '=' : op, opVal);
+            }
+          } else {
+            builder = builder.where(col, '=', val);
+          }
+        }
+      }
+
+      if (spec.having) {
+        builder = builder.having(String(spec.having.column), spec.having.op, spec.having.value);
+      }
+
+      if (spec.orderBy) {
+        for (const item of spec.orderBy) {
+          builder = builder.orderBy(String(item.column), item.dir ?? 'asc');
+        }
+      }
+
+      if (spec.limit !== undefined) builder = builder.limit(spec.limit);
+      if (spec.offset !== undefined) builder = builder.offset(spec.offset);
+
+      q = builder.compile();
+    } else {
+      throw new Error('aggregate requires a builder callback or AggregateSpec object');
+    }
+
+    const rawRows = await this.driver.execute(q);
+
+    const mappedRows = rawRows.map(row => {
+      const out = { ...row };
+      for (const [k, v] of Object.entries(row)) {
+        if (k.includes('.')) {
+          const flatKey = k.replace('.', '_');
+          if (!(flatKey in out)) {
+            out[flatKey] = v;
+          }
+        } else if (k.includes('_')) {
+          const dotKey = k.replace('_', '.');
+          if (!(dotKey in out)) {
+            out[dotKey] = v;
+          }
+        }
+      }
+      return out as Out;
+    });
+
+    return mappedRows;
   }
 
   // #34 — explicit populate for a to-many relation. Loads parents, then batches

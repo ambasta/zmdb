@@ -2,7 +2,7 @@
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
 import { isRecord } from '../index.ts';
-import type { Entity } from '../index.ts';
+import type { Entity, CoreSchema } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // §1 WhereDTO + operator set
@@ -464,10 +464,33 @@ export type SearchResult<Row> = ListResult<SearchHit<Row>>;
 // §8 AggregateResult
 // ---------------------------------------------------------------------------
 export type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
-export interface AggregateSpec<S> {
-  groupBy?: readonly (keyof Entity<S>)[];
-  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<S> }>>;
+
+type RelatedColumns<R> =
+  R extends Record<string, unknown>
+    ? {
+        [Rel in keyof R]: Rel extends string
+          ? R[Rel] extends { entity: infer E }
+            ? `${Rel}.${keyof Entity<E> & string}`
+            : R[Rel] extends CoreSchema<string>
+              ? `${Rel}.${keyof Entity<R[Rel]> & string}`
+              : `${Rel}.${string}`
+          : never;
+      }[keyof R]
+    : `${string}.${string}`;
+
+export type AggregateColumn<S, R = unknown> = (keyof Entity<S> & string) | RelatedColumns<R> | (string & {});
+
+export interface AggregateSpec<S, R = unknown> {
+  joins?: readonly (keyof R & string)[] | readonly { relation: keyof R & string; kind?: 'inner' | 'left' | 'right' }[];
+  where?: WhereDTO<S> | Record<string, unknown>;
+  groupBy?: readonly AggregateColumn<S, R>[];
+  computed: Readonly<Record<string, { fn: AggFn; column?: AggregateColumn<S, R>; raw?: string }>>;
+  having?: Readonly<{ column: AggregateColumn<S, R>; op: string; value: unknown }>;
+  orderBy?: ReadonlyArray<{ column: AggregateColumn<S, R>; dir?: OrderDir }>;
+  limit?: number;
+  offset?: number;
 }
+
 type AggComputedType<S, C> = C extends { fn: 'count' }
   ? number
   : C extends { fn: 'sum' | 'avg' }
@@ -475,14 +498,15 @@ type AggComputedType<S, C> = C extends { fn: 'count' }
     : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> }
       ? Entity<S>[Col] | null
       : number | null;
-export type AggregateResult<S, Spec extends AggregateSpec<S>> = {
+
+export type AggregateResult<S, Spec extends AggregateSpec<S, R>, R = unknown> = {
   [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K];
 } & {
   [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]>;
 };
 
 /** Ordered field list for an aggregate spec: group-key cols then computed keys. */
-export function describeAggregate<S>(spec: AggregateSpec<S>): readonly string[] {
+export function describeAggregate<S, R = unknown>(spec: AggregateSpec<S, R>): readonly string[] {
   const keys = (spec.groupBy ?? []).map(k => String(k));
   return [...keys, ...Object.keys(spec.computed)];
 }
