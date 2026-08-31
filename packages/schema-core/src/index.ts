@@ -195,7 +195,7 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
 
   // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
   // columns with equal metadata compare deep-equal regardless of build style.
-  const methods: Record<string, (...args: never[]) => Column> = {
+  const methods = {
     notNull: () => withFlag({ nullable: false }),
     nullable: () => withFlag({ nullable: true }),
     primaryKey: () => withFlag({ primaryKey: true }),
