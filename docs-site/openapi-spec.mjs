@@ -1,22 +1,9 @@
 // zmdb OpenAPI 3.0 specification generator for documentation site artifact publishing.
 // Derives OpenAPI components and path schemas directly from core schema definitions.
 
-import { tags } from '../packages/aot-validator/src/index.ts';
-import {
-  defineSchema,
-  serial,
-  text,
-  integer,
-  numeric,
-  jsonEnum,
-  references,
-} from '../packages/schema-core/src/index.ts';
-import {
-  toJsonSchema,
-  toOpenApiComponents,
-  toListSchema,
-  toSearchSchema,
-} from '../packages/schema-core/src/openapi/index.ts';
+import { tags } from '@zmdb/aot-validator';
+import { defineSchema, serial, text, integer, numeric, jsonEnum, references } from '@zmdb/schema-core';
+import { toJsonSchema, toOpenApiComponents, toListSchema, toSearchSchema } from '@zmdb/schema-core/openapi';
 
 export const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
