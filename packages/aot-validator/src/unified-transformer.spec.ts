@@ -66,4 +66,32 @@ describe('Unified Single-Pass AOT Transformer Engine', () => {
     const shadowed = 'const myValidate = customValidate(tags.Minimum(0), x); const axis = axis<{ a: number }>(y);';
     expect(transformCode(shadowed)).toBe(shadowed);
   });
+
+  it('ignores calls inside single-line and multi-line comments', () => {
+    const codeWithComments = `
+      // const x = is<string>(val);
+      /* const y = validate(tags.Minimum(5), z); */
+      // validate(tags.MaxLength(10), s);
+    `;
+    expect(transformCode(codeWithComments)).toBe(codeWithComments);
+  });
+
+  it('ignores calls inside string literals', () => {
+    const codeWithStrings = `
+      const s1 = "validate(tags.Minimum(5), y)";
+      const s2 = 'is<string>(x)';
+      const s3 = \`validate(tags.MaxLength(10), str)\`;
+    `;
+    expect(transformCode(codeWithStrings)).toBe(codeWithStrings);
+  });
+
+  it('handles nested generic type arguments correctly without crashing or mis-transforming', () => {
+    const codeWithNestedGenerics = `
+      const a = is<Map<string, number>>(val);
+      const b = validate<{ user: { name: string } }>(data);
+    `;
+    const transformed = transformCode(codeWithNestedGenerics);
+    expect(transformed).toContain('is<Map<string, number>>(val)');
+    expect(norm(transformed)).toContain('typeof data.user === "object"');
+  });
 });

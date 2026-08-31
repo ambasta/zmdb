@@ -1,4 +1,8 @@
-// Unified Single-Pass AOT Transformer Engine
+import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
+
+import { validatePatternComplexity } from './regex-complexity.ts';
+
+// Unified Single-Pass AOT Transformer Engine using TypeScript Token Scanner
 // Scans TS/JS source code ONCE for all supported validation call expressions:
 // validate(tags.X, expr), is<T>(expr), assert<T>(expr), equals<T>(expr), assertEquals<T>(expr).
 
@@ -13,7 +17,7 @@ function parseType(src: string): PType | undefined {
   let i = 0;
   const s = src.trim();
   function ws() {
-    while (i < s.length && /\s/.test(s[i]!)) i++;
+    while (i < s.length && /\s/.test(s[i] ?? '')) i++;
   }
   function parse(): PType | undefined {
     ws();
@@ -24,7 +28,10 @@ function parseType(src: string): PType | undefined {
       while (i < s.length && s[i] !== '}') {
         ws();
         let name = '';
-        while (i < s.length && /[A-Za-z0-9_$]/.test(s[i]!)) name += s[i++]!;
+        while (i < s.length && /[A-Za-z0-9_$]/.test(s[i] ?? '')) {
+          name += s[i] ?? '';
+          i++;
+        }
         ws();
         if (s[i] === ':') i++; // consume :
         ws();
@@ -33,7 +40,10 @@ function parseType(src: string): PType | undefined {
           type = parse();
         } else {
           let prim = '';
-          while (i < s.length && /[A-Za-z]/.test(s[i]!)) prim += s[i++]!;
+          while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+            prim += s[i] ?? '';
+            i++;
+          }
           type = primType(prim);
         }
         if (!type) return undefined;
@@ -46,7 +56,10 @@ function parseType(src: string): PType | undefined {
       return { kind: 'object', fields };
     }
     let prim = '';
-    while (i < s.length && /[A-Za-z]/.test(s[i]!)) prim += s[i++]!;
+    while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+      prim += s[i] ?? '';
+      i++;
+    }
     return primType(prim);
   }
   return parse();
@@ -68,10 +81,35 @@ function emitCheck(t: PType, expr: string): string {
   }
 }
 
+function emitExcessKeyGuards(t: PType, expr: string, varPrefix = '_c'): string[] {
+  if (t.kind !== 'object') return [];
+  const guards: string[] = [];
+  const topCount = t.fields.length;
+  guards.push(
+    `let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`,
+  );
+  let idx = 0;
+  for (const f of t.fields) {
+    if (f.type.kind === 'object') {
+      guards.push(...emitExcessKeyGuards(f.type, `${expr}.${f.name}`, `${varPrefix}_${idx++}`));
+    }
+  }
+  return guards;
+}
+
+function emitEqualsCheck(t: PType, expr: string): string {
+  if (t.kind !== 'object') {
+    return emitCheck(t, expr);
+  }
+  const check = emitCheck(t, expr);
+  const excessGuards = emitExcessKeyGuards(t, expr).join(' ');
+  return `((() => { if (!(${check})) return false; ${excessGuards} return true; })())`;
+}
+
 function splitTopLevelComma(s: string): [string, string] {
   let depth = 0;
   for (let k = 0; k < s.length; k++) {
-    const ch = s[k];
+    const ch = s[k] ?? '';
     if (ch === '(' || ch === '[') depth++;
     else if (ch === ')' || ch === ']') depth--;
     else if (ch === ',' && depth === 0) return [s.slice(0, k), s.slice(k + 1)];
@@ -105,11 +143,11 @@ export function escapePattern(pattern: string): string {
     .replaceAll('\u2029', '\\u2029');
 }
 
-function inlineCheck(ruleSrc: string, expr: string): string {
+function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => void): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`;
-  const kind = m[1]!;
-  const args = m[2]!.trim();
+  const kind = m[1] ?? '';
+  const args = (m[2] ?? '').trim();
   switch (kind) {
     case 'Minimum':
       return `(typeof ${expr} === "number" && ${expr} >= ${args})`;
@@ -121,22 +159,23 @@ function inlineCheck(ruleSrc: string, expr: string): string {
       return `(typeof ${expr} === "string" && ${expr}.length <= ${args})`;
     case 'Pattern': {
       let raw = args.trim();
-      const first = raw[0];
-      const last = raw[raw.length - 1];
+      const first = raw[0] ?? '';
+      const last = raw.length > 0 ? (raw[raw.length - 1] ?? '') : '';
       const isQuoted =
         raw.length >= 2 &&
         ((first === '"' && last === '"') || (first === "'" && last === "'") || (first === '`' && last === '`'));
 
-      if (!isQuoted) {
-        return `validate(${ruleSrc}, ${expr})`;
-      }
-
-      if (first === '`' && raw.includes('${')) {
-        return `validate(${ruleSrc}, ${expr})`;
+      if (!isQuoted || (first === '`' && raw.includes('${'))) {
+        if (ensureRegexCache) {
+          ensureRegexCache();
+          return `(typeof ${expr} === "string" && _getRegExp(${raw}).test(${expr}))`;
+        }
+        return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
       }
 
       raw = raw.slice(1, -1);
       const re = escapePattern(raw);
+      validatePatternComplexity(re);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;
     }
     case 'Enum': {
@@ -149,105 +188,125 @@ function inlineCheck(ruleSrc: string, expr: string): string {
 }
 
 /**
- * Single-pass transformation engine.
+ * Single-pass AST scanner-based transformation engine.
  * Scans code ONCE for all supported validation tags and generic type assertions.
+ * Ignores calls inside comments, string literals, and correctly balances nested generic type arguments.
  */
 export function transformCode(code: string): string {
-  let out = '';
-  let i = 0;
+  const scanner = createScanner(false, LanguageVariant.Standard);
+  scanner.setText(code);
 
   type MatchKind = 'validate' | 'is' | 'assert' | 'equals' | 'assertEquals';
+  const targets = new Set<string>(['validate', 'is', 'assert', 'equals', 'assertEquals']);
 
-  const candidates: { kind: MatchKind; needle: string }[] = [
-    { kind: 'assertEquals', needle: 'assertEquals<' },
-    { kind: 'assert', needle: 'assert<' },
-    { kind: 'equals', needle: 'equals<' },
-    { kind: 'is', needle: 'is<' },
-    { kind: 'validate', needle: 'validate(' },
-    { kind: 'validate', needle: 'validate<' },
-  ];
+  let out = '';
+  let lastPos = 0;
 
-  while (i < code.length) {
-    let bestAt = -1;
-    let bestKind: MatchKind = 'validate';
-    let bestNeedleLen = 0;
+  const hoisted: string[] = [];
+  let hasRegexCache = false;
 
-    for (const cand of candidates) {
-      const at = code.indexOf(cand.needle, i);
-      if (at !== -1) {
-        if (bestAt === -1 || at < bestAt || (at === bestAt && cand.needle.length > bestNeedleLen)) {
-          bestAt = at;
-          bestKind = cand.kind;
-          bestNeedleLen = cand.needle.length;
+  const ensureRegexCache = () => {
+    if (!hasRegexCache) {
+      hasRegexCache = true;
+      hoisted.push(
+        'const _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (!re) { re = new RegExp(p); _regexCache.set(p, re); } return re; }',
+      );
+    }
+  };
+
+  let token = scanner.scan();
+  while (token !== SyntaxKind.EndOfFile) {
+    const tokenStart = scanner.getTokenStart();
+    const tokenEnd = scanner.getTokenEnd();
+
+    if (tokenStart < lastPos) {
+      token = scanner.scan();
+      continue;
+    }
+
+    const text = scanner.getTokenText();
+
+    if ((token === SyntaxKind.Identifier || targets.has(text)) && targets.has(text)) {
+      const prevChar = tokenStart > 0 ? (code[tokenStart - 1] ?? '') : '';
+      if (prevChar && /[A-Za-z0-9_$.]/.test(prevChar)) {
+        token = scanner.scan();
+        continue;
+      }
+
+      let i = tokenEnd;
+      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
+
+      let typeSrc = '';
+      if (i < code.length && code[i] === '<') {
+        let depth = 1;
+        const typeStart = i + 1;
+        i++;
+        while (i < code.length && depth > 0) {
+          if (code[i] === '<') depth++;
+          else if (code[i] === '>') depth--;
+          i++;
+        }
+        if (depth === 0) {
+          typeSrc = code.slice(typeStart, i - 1);
+        }
+      }
+
+      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
+
+      if (i < code.length && code[i] === '(') {
+        let depth = 1;
+        const argStart = i + 1;
+        i++;
+        while (i < code.length && depth > 0) {
+          if (code[i] === '(') depth++;
+          else if (code[i] === ')') depth--;
+          i++;
+        }
+        if (depth === 0) {
+          const argSrc = code.slice(argStart, i - 1);
+          const kind = text as MatchKind;
+
+          let replacement: string | null = null;
+          if (kind === 'validate' && !typeSrc) {
+            const [ruleSrc, exprSrc] = splitTopLevelComma(argSrc);
+            if (ruleSrc && exprSrc) {
+              replacement = inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
+            }
+          } else if (typeSrc) {
+            const t = parseType(typeSrc);
+            if (t) {
+              const expr = argSrc.trim();
+              const check = `(${emitCheck(t, expr)})`;
+              if (kind === 'is') {
+                replacement = check;
+              } else if (kind === 'equals') {
+                replacement = `(${emitEqualsCheck(t, expr)})`;
+              } else if (kind === 'assert') {
+                replacement = `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+              } else if (kind === 'assertEquals') {
+                const eq = emitEqualsCheck(t, expr);
+                replacement = `((() => { if (!(${eq})) throw new Error("assertion failed"); return ${expr}; })())`;
+              } else if (kind === 'validate') {
+                replacement = `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
+              }
+            }
+          }
+
+          if (replacement !== null) {
+            out += code.slice(lastPos, tokenStart);
+            out += replacement;
+            lastPos = i;
+          }
         }
       }
     }
 
-    if (bestAt === -1) {
-      out += code.slice(i);
-      break;
-    }
-
-    // Boundary check: ensure match is not part of a larger identifier
-    const prev = bestAt > 0 ? code[bestAt - 1]! : '';
-    if (/[A-Za-z0-9_$.]/.test(prev)) {
-      out += code.slice(i, bestAt + bestNeedleLen);
-      i = bestAt + bestNeedleLen;
-      continue;
-    }
-
-    out += code.slice(i, bestAt);
-
-    if (bestKind === 'validate' && code.slice(bestAt, bestAt + 9) === 'validate(') {
-      // Non-generic validate(ruleSrc, exprSrc)
-      const argStart = bestAt + 9;
-      let depth = 1;
-      let j = argStart;
-      for (; j < code.length && depth > 0; j++) {
-        if (code[j] === '(') depth++;
-        else if (code[j] === ')') depth--;
-      }
-      const inner = code.slice(argStart, j - 1);
-      const [ruleSrc, exprSrc] = splitTopLevelComma(inner);
-      out += inlineCheck(ruleSrc.trim(), exprSrc.trim());
-      i = j;
-    } else {
-      // Generic call: is<T>(expr), assert<T>(expr), equals<T>(expr), assertEquals<T>(expr), validate<T>(expr)
-      let j = bestAt + bestNeedleLen;
-      let depth = 1;
-      const typeStart = j;
-      for (; j < code.length && depth > 0; j++) {
-        if (code[j] === '<') depth++;
-        else if (code[j] === '>') depth--;
-      }
-      const typeSrc = code.slice(typeStart, j - 1);
-
-      while (j < code.length && code[j] !== '(') j++;
-      const exprStart = ++j;
-      let pdepth = 1;
-      for (; j < code.length && pdepth > 0; j++) {
-        if (code[j] === '(') pdepth++;
-        else if (code[j] === ')') pdepth--;
-      }
-      const expr = code.slice(exprStart, j - 1).trim();
-      const t = parseType(typeSrc);
-      if (!t) {
-        out += code.slice(bestAt, j);
-        i = j;
-        continue;
-      }
-      const check = `(${emitCheck(t, expr)})`;
-
-      if (bestKind === 'is' || bestKind === 'equals') {
-        out += check;
-      } else if (bestKind === 'assert' || bestKind === 'assertEquals') {
-        out += `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
-      } else if (bestKind === 'validate') {
-        out += `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
-      }
-      i = j;
-    }
+    token = scanner.scan();
   }
 
+  out += code.slice(lastPos);
+  if (hoisted.length > 0) {
+    return hoisted.join('\n') + '\n' + out;
+  }
   return out;
 }
