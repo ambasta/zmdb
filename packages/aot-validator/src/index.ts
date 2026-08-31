@@ -4,9 +4,15 @@
 // transformSource currently only performs the identity transform, so the
 // inlining golden tests stay red until #23.
 
-import { safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
+import { MAX_REGEX_CACHE_SIZE, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
 
-export { ValidationError, getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
+export {
+  MAX_REGEX_CACHE_SIZE,
+  ValidationError,
+  getCachedRegExp,
+  safeTestPattern,
+  validatePatternComplexity,
+} from './regex-complexity.ts';
 
 export interface Rule {
   readonly kind: string;
@@ -40,7 +46,6 @@ export const tags = {
 } as const;
 
 // Caches for zero-allocation fallback validation.
-const MAX_REGEX_CACHE_SIZE = 1000;
 const regexCache = new Map<string, RegExp>();
 export function getRegExp(pattern: string): RegExp {
   let re = regexCache.get(pattern);
@@ -112,7 +117,7 @@ export function transformSource(code: string): string {
     if (!hasRegexCache) {
       hasRegexCache = true;
       hoisted.push(
-        'const _MAX_REGEX_CACHE_SIZE = 1000;\nconst _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (re) { _regexCache.delete(p); _regexCache.set(p, re); return re; } if (_regexCache.size >= _MAX_REGEX_CACHE_SIZE) { const k = _regexCache.keys().next().value; if (k !== undefined) _regexCache.delete(k); } re = new RegExp(p); _regexCache.set(p, re); return re; }',
+        `const _MAX_REGEX_CACHE_SIZE = ${MAX_REGEX_CACHE_SIZE};\nconst _regexCache = new Map();\nfunction _getRegExp(p) { let re = _regexCache.get(p); if (re) { _regexCache.delete(p); _regexCache.set(p, re); return re; } if (_regexCache.size >= _MAX_REGEX_CACHE_SIZE) { const k = _regexCache.keys().next().value; if (k !== undefined) _regexCache.delete(k); } re = new RegExp(p); _regexCache.set(p, re); return re; }`,
       );
     }
   };
