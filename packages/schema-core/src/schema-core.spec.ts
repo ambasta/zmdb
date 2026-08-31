@@ -167,10 +167,11 @@ describe('defineSchema', () => {
     expect(s.references).toContainEqual({ column: 'userId', target: 'users.id' });
   });
 
-  it('returns a deeply frozen schema', () => {
-    const s = defineSchema('users', { id: primaryKey(serial()) });
+  it('returns a deeply frozen schema with optional ftsTable property', () => {
+    const s = defineSchema('users', { id: primaryKey(serial()) }, { ftsTable: 'users_fts' });
     expect(Object.isFrozen(s)).toBe(true);
     expect(Object.isFrozen(s.columns)).toBe(true);
+    expect(s.ftsTable).toBe('users_fts');
   });
 });
 

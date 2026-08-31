@@ -14,6 +14,7 @@ export type {
   AggFn,
   AggregateResult,
   AggregateSpec,
+  ComputedSpec,
   FieldOps,
   GetDTO,
   GetOptions,

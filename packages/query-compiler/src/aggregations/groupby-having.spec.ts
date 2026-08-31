@@ -17,6 +17,26 @@ describe('groupBy', () => {
   });
 });
 
+describe('joins and wheres with groupBy and having', () => {
+  it('places JOIN and WHERE clauses before GROUP BY and HAVING in compiled SQL', () => {
+    const q = aggregateSelectFrom('orders')
+      .innerJoin('categories', 'orders.category_id', 'categories.id')
+      .select(['categories.name'])
+      .count('orders.id', 'n')
+      .sum('orders.amount', 'total')
+      .where('orders.status', '=', 'completed')
+      .groupBy('categories.name')
+      .having('orders.id', '>', 5)
+      .orderBy('total', 'desc')
+      .compile();
+
+    expect(q.text).toBe(
+      'SELECT "categories"."name" AS "categories.name", COUNT("orders"."id") AS "n", SUM("orders"."amount") AS "total" FROM "orders" INNER JOIN "categories" ON "orders"."category_id" = "categories"."id" WHERE "orders"."status" = $1 GROUP BY "categories"."name" HAVING "orders"."id" > $2 ORDER BY "total" DESC',
+    );
+    expect(q.parameters).toEqual(['completed', 5]);
+  });
+});
+
 describe('having', () => {
   it('multiple HAVING predicates are AND-joined and parameterized', () => {
     const q = aggregateSelectFrom('order_details')
