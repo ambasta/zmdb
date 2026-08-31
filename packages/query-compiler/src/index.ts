@@ -105,11 +105,15 @@ export type Operator =
   | '<='
   | '>'
   | '>='
-  | 'like'
-  | 'ilike'
   | 'in'
   | 'not in'
   | 'nin'
+  | 'like'
+  | 'ilike'
+  | 'is null'
+  | 'is not null'
+  | 'EXISTS'
+  | 'NOT EXISTS'
   | 'exists'
   | 'not exists'
   | 'is null'
@@ -119,7 +123,6 @@ export type Operator =
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';
 export type { ComparisonPredicate, Predicate, PredicateGroup } from './clauses.js';
-
 export type Direction = 'asc' | 'desc';
 
 /** A database column projected under an application-facing result key. */
