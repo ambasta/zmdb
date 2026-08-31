@@ -18,7 +18,6 @@ import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
 
-
 type SelectItem =
   | { kind: 'col'; col: string }
   | { kind: 'agg'; fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; col: string; alias: string }
@@ -45,11 +44,29 @@ interface State {
 
 function resolveColAlias(a: string, b?: string, defaultCol = a) {
   if (b === undefined) return { col: defaultCol, alias: a };
-  const isColA = a.includes('.') || ['id', 'quantity', 'qty', 'amount', 'unit_price', 'total_price'].includes(a);
-  if (isColA) {
+  const knownCols = new Set([
+    'id',
+    'quantity',
+    'qty',
+    'amount',
+    'unit_price',
+    'total_price',
+    'totalPrice',
+    'unitPrice',
+    'price',
+  ]);
+  const isColA = a.includes('.') || knownCols.has(a) || (a.includes('"') && !a.toLowerCase().includes('alias'));
+  const isColB = b.includes('.') || knownCols.has(b);
+  if (isColA && !isColB) {
     return { col: a, alias: b };
   }
-  return { col: b, alias: a };
+  if (isColB && !isColA) {
+    return { col: b, alias: a };
+  }
+  if (/^(avg|sum|min|max|count|total)/i.test(a) && isColB) {
+    return { col: b, alias: a };
+  }
+  return { col: a, alias: b };
 }
 
 export interface AggregateSelect {
@@ -154,17 +171,17 @@ export function aggregateSelectFrom(
 }
 
 export function count(col = '*'): (b: AggregateSelect, alias: string) => AggregateSelect {
-  return (b, alias) => b.count(alias, col);
+  return (b, alias) => b.count(col, alias);
 }
 export function sum(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
-  return (b, alias) => b.sum(alias, col);
+  return (b, alias) => b.sum(col, alias);
 }
 export function avg(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
-  return (b, alias) => b.avg(alias, col);
+  return (b, alias) => b.avg(col, alias);
 }
 export function min(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
-  return (b, alias) => b.min(alias, col);
+  return (b, alias) => b.min(col, alias);
 }
 export function max(col: string): (b: AggregateSelect, alias: string) => AggregateSelect {
-  return (b, alias) => b.max(alias, col);
+  return (b, alias) => b.max(col, alias);
 }
