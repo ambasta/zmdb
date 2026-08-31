@@ -29,32 +29,13 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
-    },
-    "./dto": {
-      "types": "./src/dto/index.ts",
-      "import": "./src/dto/index.ts"
-    },
-    "./relations": {
-      "types": "./src/relations/index.ts",
-      "import": "./src/relations/index.ts"
-    },
-    "./custom-types": {
-      "types": "./src/custom-types/index.ts",
-      "import": "./src/custom-types/index.ts"
-    },
-    "./seeding": {
-      "types": "./src/seeding/index.ts",
-      "import": "./src/seeding/index.ts"
-    },
-    "./llm": {
-      "types": "./src/llm/index.ts",
-      "import": "./src/llm/index.ts"
-    }
+    ".": "./src/index.ts",
+    "./dto": "./src/dto/index.ts",
+    "./relations": "./src/relations/index.ts",
+    "./custom-types": "./src/custom-types/index.ts",
+    "./seeding": "./src/seeding/index.ts",
+    "./llm": "./src/llm/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -65,8 +46,8 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "tsup": "8.5.1",
-    "typescript": "^7.0.2"
+    "tsup": "8.5.0",
+    "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=26"

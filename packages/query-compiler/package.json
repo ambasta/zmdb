@@ -30,36 +30,14 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
-    },
-    "./fts": {
-      "types": "./src/fts/index.ts",
-      "import": "./src/fts/index.ts"
-    },
-    "./joins": {
-      "types": "./src/joins/index.ts",
-      "import": "./src/joins/index.ts"
-    },
-    "./aggregations": {
-      "types": "./src/aggregations/index.ts",
-      "import": "./src/aggregations/index.ts"
-    },
-    "./migrations": {
-      "types": "./src/migrations/index.ts",
-      "import": "./src/migrations/index.ts"
-    },
-    "./set-ops": {
-      "types": "./src/set-ops/index.ts",
-      "import": "./src/set-ops/index.ts"
-    },
-    "./schema-objects": {
-      "types": "./src/schema-objects/index.ts",
-      "import": "./src/schema-objects/index.ts"
-    }
+    ".": "./src/index.ts",
+    "./fts": "./src/fts/index.ts",
+    "./joins": "./src/joins/index.ts",
+    "./aggregations": "./src/aggregations/index.ts",
+    "./migrations": "./src/migrations/index.ts",
+    "./set-ops": "./src/set-ops/index.ts",
+    "./schema-objects": "./src/schema-objects/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -70,8 +48,8 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "tsup": "8.5.1",
-    "typescript": "^7.0.2"
+    "tsup": "8.5.0",
+    "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=26"

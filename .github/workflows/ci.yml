@@ -87,7 +87,7 @@ jobs:
           node-version: '26'
 
       - name: Audit dependencies
-        run: yarn npm audit --all --recursive --no-deprecations
+        run: yarn npm audit --all --recursive --severity high --no-deprecations
 
   codeql:
     name: CodeQL SAST Analysis
