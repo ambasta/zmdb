@@ -344,7 +344,6 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
     return addWhere('OR', first, op, value);
   }
-
   const addHaving = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
     next({ havings: [...state.havings, { col, op, value, connector }] });
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
