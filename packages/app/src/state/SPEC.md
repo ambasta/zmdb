@@ -12,9 +12,19 @@ A nominal type: `T` tagged with a unique phantom brand `B`, so `Brand<Order, 'Dr
 
 Because the no-`as` rule forbids `value as Brand<...>` in consumer code, states are produced by a **checked factory**:
 
-\`\`\`ts const draft = defineState<'Draft', Order>(); // a State<'Draft', Order> maker const order = draft.create({ ...orderFields }); // Brand<Order, 'Draft'> — no cast \`\`\`
+```ts
+const draft = defineState<'Draft', Order>({
+  discriminant: ['status', 'draft'],
+  predicate: (order) => order.total > 0,
+}); // a State<'Draft', Order> maker
+const order = draft.create({ ...orderFields }); // Brand<Order, 'Draft'> — no cast
+```
 
-`draft.is(x)` is a type guard narrowing `unknown`/a base value to the branded state. The maker never asserts on the consumer surface.
+`draft.is(x)` is a type guard narrowing `unknown`/a base value to the branded
+state by checking discriminant fields and evaluating custom validation predicates.
+Calling `draft.create(x)` runs structural verification via `draft.is(x)` and returns
+the exact object reference (preserving identity with zero runtime object allocations).
+The maker never asserts on the consumer surface.
 
 ### `transition` — declared edges only
 
