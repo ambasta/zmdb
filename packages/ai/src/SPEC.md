@@ -40,7 +40,7 @@ function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a plain `JSON.parse`,
   - on parse failure returns `{ success:false, errors:[msg] }`,
-  - requires an explicit `coerce` validation callback as mandatory for typed parsing operations (`ParseResult<T>`); untyped calls without `coerce` return `ParseResult<unknown>`,
+  - requires an explicit `coerce` validation callback for typed parsing operations (`ParseResult<T>`); untyped calls without `coerce` return `ParseResult<unknown>`,
   - applies `coerce` to the parsed JSON; a throwing coerce ⇒ `{ success:false, errors:[msg] }`.
 - Deterministic; build-time schema generation + runtime lenient parse.
 
