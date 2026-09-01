@@ -1,5 +1,5 @@
-import { createQueryCompiler, type DialectTarget, type QueryCompilerOptions, type SelectBuilder } from '../index.js';
 import { UnsupportedFeatureError } from '../errors.js';
+import { createQueryCompiler, type DialectTarget, type QueryCompilerOptions, type SelectBuilder } from '../index.js';
 
 export { UnsupportedFeatureError };
 
