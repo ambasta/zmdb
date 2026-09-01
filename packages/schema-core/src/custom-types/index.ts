@@ -25,6 +25,8 @@ export interface CustomType<Wire, TS, DB = unknown> {
   readonly toWire: (value: TS) => Wire;
   /** Parse a JSON request body value. */
   readonly fromWire: (raw: Wire) => TS;
+  /** Validate untrusted write payload. */
+  readonly validate?: (value: unknown) => boolean | string;
 }
 
 export function defineType<Wire, TS, DB>(def: CustomType<Wire, TS, DB>): CustomType<Wire, TS, DB> {
