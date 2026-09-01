@@ -11,6 +11,10 @@ export {
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,
+  defineType,
+  encodeValue,
+  decodeValue,
+  customType,
 } from '@zmdb/schema-core';
 export type {
   Entity,
@@ -26,6 +30,7 @@ export type {
   StateUpdateDTO,
   EntityStateMachineOptions,
   EntityStateMachine,
+  CustomType,
 } from '@zmdb/schema-core';
 
 // Query compiler & Migrations.

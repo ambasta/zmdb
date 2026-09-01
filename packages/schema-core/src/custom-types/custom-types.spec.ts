@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { defineType, encodeValue, decodeValue, wireCodec } from './index.js';
+import { text, customType, withCustomType, defineSchema } from '../index.js';
 
 // The codec's TS-side/DB-side types are asserted in `custom-types.type-test.ts`.
 // (This file used to build its fixture inside a try/catch that fell back to a
@@ -47,5 +48,72 @@ describe('custom types & codecs (#133)', () => {
     expect(codec.decode('19.99')).toEqual({ cents: 1999 });
     expect(codec.encode({ cents: 1999 })).toBe('19.99');
     expect(codec.encode(codec.decode('0.05'))).toBe('0.05');
+  });
+
+  it('attaches customType metadata to schema columns via fluent and modifier syntax', () => {
+    interface Money {
+      amount: number;
+      currency: string;
+    }
+    const MoneyType = defineType<string, Money, string>({
+      sqlType: 'varchar(50)',
+      toDb: m => `${m.amount}:${m.currency}`,
+      fromDb: s => {
+        const [amount, currency] = s.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      toWire: m => `${m.amount}:${m.currency}`,
+      fromWire: s => {
+        const [amount, currency] = s.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      validate: m => {
+        if (typeof m !== 'object' || m === null) return 'must be object';
+        const money = m as Money;
+        return money.amount > 0 || 'amount must be positive';
+      },
+    });
+
+    const colFluent = text().withCustomType(MoneyType).notNull();
+    expect(colFluent.customType?.sqlType).toBe('varchar(50)');
+    expect(colFluent.customType?.toDb).toBe(MoneyType.toDb);
+
+    const colFunc = withCustomType(text(), MoneyType).notNull();
+    expect(colFunc.customType?.sqlType).toBe('varchar(50)');
+    expect(colFunc.customType?.toDb).toBe(MoneyType.toDb);
+
+    const colFuncAlias = customType(text(), MoneyType).notNull();
+    expect(colFuncAlias.customType?.sqlType).toBe('varchar(50)');
+
+    const schema = defineSchema('orders', {
+      id: text().primaryKey(),
+      price: text().withCustomType(MoneyType).notNull(),
+    });
+    expect(schema.columns.price.customType?.sqlType).toBe('varchar(50)');
+    expect(schema.columns.price.customType?.toDb).toBe(MoneyType.toDb);
+  });
+
+  it('compares metadata via toEqual without comparing method references', () => {
+    interface Money {
+      amount: number;
+      currency: string;
+    }
+    const MoneyType = defineType<string, Money, string>({
+      sqlType: 'varchar(50)',
+      toDb: m => `${m.amount}:${m.currency}`,
+      fromDb: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
+      toWire: m => `${m.amount}:${m.currency}`,
+      fromWire: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
+    });
+
+    const col1 = text().withCustomType(MoneyType).notNull();
+    const col2 = text().withCustomType(MoneyType).notNull();
+
+    expect(col1).toEqual(col2);
+    expect(Object.keys(col1)).toContain('customType');
+    expect(typeof col1.customType).toBe('object');
+    expect(typeof col1.withCustomType).toBe('function');
+    expect(Object.keys(col1)).not.toContain('withCustomType');
+  });
   });
 });

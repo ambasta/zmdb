@@ -1,7 +1,8 @@
 // Type-level tests for custom types & codecs (#133): the TS-side and DB-side
 // types must flow through `defineType`/`encodeValue`/`decodeValue` so a codec
 // cannot be wired up backwards. Compiled by `yarn typecheck`.
-import type { Equal, Expect } from '../index.js';
+import type { Equal, Expect, Entity, CreateDTO, UpdateDTO } from '../index.js';
+import { defineSchema, serial, text, json, customType, withCustomType } from '../index.js';
 import { defineType } from './index.js';
 // Referenced only in type position (`typeof`), hence the type-only import.
 import type { decodeValue, encodeValue } from './index.js';
@@ -31,3 +32,34 @@ export type _Codec6 = Expect<
 export type _Codec7 = Expect<Equal<Parameters<typeof jsonType.toWire>[0], Record<string, unknown>>>;
 export type _Codec8 = Expect<Equal<ReturnType<typeof jsonType.toWire>, string>>;
 export type _Codec9 = Expect<Equal<Parameters<typeof jsonType.fromWire>[0], string>>;
+
+interface Money {
+  amount: number;
+  currency: string;
+}
+const MoneyType = defineType<string, Money, string>({
+  sqlType: 'varchar(50)',
+  toDb: m => `${m.amount}:${m.currency}`,
+  fromDb: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
+  toWire: m => `${m.amount}:${m.currency}`,
+  fromWire: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
+});
+
+interface Config {
+  theme: string;
+}
+
+const CustomSchema = defineSchema('products', {
+  id: serial().primaryKey(),
+  price: text().withCustomType(MoneyType).notNull(),
+  discount: customType(text(), MoneyType).nullable(),
+  tax: withCustomType(text(), MoneyType).nullable(),
+  jsonWithCodec: json<Config>().withCustomType(MoneyType).notNull(),
+});
+type CS = typeof CustomSchema;
+
+export type _CustomEntityDiscount = Expect<Equal<Entity<CS>['discount'], Money | null>>;
+export type _CustomCreatePrice = Expect<Equal<CreateDTO<CS>['price'], Money>>;
+export type _CustomCreateDiscount = Expect<Equal<CreateDTO<CS>['discount'], Money | null>>;
+export type _CustomUpdatePrice = Expect<Equal<UpdateDTO<CS>['price'], Money | undefined>>;
+export type _CustomEntityJsonCodec = Expect<Equal<Entity<CS>['jsonWithCodec'], Money>>;

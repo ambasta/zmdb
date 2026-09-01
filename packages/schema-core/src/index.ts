@@ -18,6 +18,8 @@
 import type { DeclaredTable, UpdateDTO } from './derive/index.js';
 import type { ExtensionType, SchemaIR } from './ir/index.js';
 
+import type { CustomType } from './custom-types/index.js';
+
 export type SqlType =
   | 'serial'
   | 'integer'
@@ -72,6 +74,7 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
+  readonly customType?: CustomType<any, any>;
 }
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
@@ -114,6 +117,7 @@ export interface CoreSchema<T extends string = string> {
 // ---------------------------------------------------------------------------
 // The generated schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
+
 
 declare const zmdbEntity: unique symbol;
 
@@ -240,6 +244,285 @@ export function validationIssuesOf(error: unknown): readonly ValidationIssue[] |
   );
 }
 
+/** Overwrite flags `P` on flag map `F` (last write wins, no `never` collisions). */
+type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, keyof P> & P;
+
+// Chainable column: ColumnMeta + fluent modifier methods.
+export type Column<
+  T extends SqlType = SqlType,
+  F extends ColumnFlags = ColumnFlags,
+  P = unknown,
+  C = unknown,
+> = ColumnMeta & {
+  readonly type: T;
+  readonly flags: F;
+  readonly __payload?: P;
+  readonly __custom?: C;
+  notNull(): Column<T, SetFlags<F, { nullable: false }>, P, C>;
+  nullable(): Column<T, SetFlags<F, { nullable: true }>, P, C>;
+  primaryKey(): Column<T, SetFlags<F, { primaryKey: true }>, P, C>;
+  unique(): Column<T, SetFlags<F, { unique: true }>, P, C>;
+  defaultTo(value: unknown): Column<T, SetFlags<F, { hasDefault: true }>, P, C>;
+  validate(rule: ValidationRule): Column<T, F, P, C>;
+  sensitive(isSensitive?: boolean): Column<T, SetFlags<F, { sensitive: boolean }>, P, C>;
+  withCustomType<Wire, TS, DB>(type: CustomType<Wire, TS, DB>): Column<T, F, P, CustomType<Wire, TS, DB>>;
+  customType<Wire, TS, DB>(type: CustomType<Wire, TS, DB>): Column<T, F, P, CustomType<Wire, TS, DB>>;
+};
+
+function makeColumn<C extends Column>(meta: ColumnMeta): C {
+  const frozenFlags = Object.freeze({ ...meta.flags });
+  const base: ColumnMeta = Object.freeze({
+    ...meta,
+    flags: frozenFlags,
+    ...(meta.validation ? { validation: Object.freeze([...meta.validation]) } : {}),
+  });
+
+  const withFlag = (patch: Partial<ColumnFlags>): Column =>
+    makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
+
+  const withCustomTypeFn = (type: CustomType<any, any, any>) => makeColumn<Column>({ ...base, customType: type });
+
+  const column = { ...base } as unknown as C;
+
+  const methods: Record<string, (...args: never[]) => Column> = {
+    notNull: () => withFlag({ nullable: false }),
+    nullable: () => withFlag({ nullable: true }),
+    primaryKey: () => withFlag({ primaryKey: true }),
+    unique: () => withFlag({ unique: true }),
+    defaultTo: (value: unknown) =>
+      makeColumn<Column>({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
+    validate: (rule: ValidationRule) => makeColumn<Column>({ ...base, validation: [...(base.validation ?? []), rule] }),
+    sensitive: (isSensitive: boolean = true) => withFlag({ sensitive: isSensitive !== false }),
+    withCustomType: withCustomTypeFn as never,
+    customType: withCustomTypeFn as never,
+  };
+  for (const [name, fn] of Object.entries(methods)) {
+    Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
+  }
+  Object.defineProperty(column, 'customType', {
+    value: withCustomTypeFn,
+    enumerable: base.customType !== undefined,
+    writable: false,
+  });
+  return Object.freeze(column);
+}
+
+// Column builders --------------------------------------------------------
+export function serial(): Column<
+  'serial',
+  { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true }
+> {
+  return makeColumn({
+    type: 'serial',
+    flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
+  });
+}
+export function integer(): Column<'integer', { nullable: false }> {
+  return makeColumn({ type: 'integer', flags: { nullable: false } });
+}
+export function bigint(): Column<'bigint', { nullable: false }> {
+  return makeColumn({ type: 'bigint', flags: { nullable: false } });
+}
+export function numeric(): Column<'numeric', { nullable: false }> {
+  return makeColumn({ type: 'numeric', flags: { nullable: false } });
+}
+export function text(): Column<'text', { nullable: false }> {
+  return makeColumn({ type: 'text', flags: { nullable: false } });
+}
+export function varchar<L extends number>(length: L): Column<'varchar', { nullable: false; length: L }> {
+  return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
+}
+export function boolean(): Column<'boolean', { nullable: false }> {
+  return makeColumn({ type: 'boolean', flags: { nullable: false } });
+}
+export function timestamp(): Column<'timestamp', { nullable: false }> {
+  return makeColumn({ type: 'timestamp', flags: { nullable: false } });
+}
+export function json<T = unknown>(): Column<'json', { nullable: false }, T> {
+  return makeColumn({ type: 'json', flags: { nullable: false } });
+}
+export function jsonEnum<const V extends readonly string[]>(
+  values: V,
+): Column<'jsonEnum', { nullable: false; enum: V }> {
+  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } });
+}
+
+// Function-style modifiers ------------------------------------------------
+export function notNull<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+): Column<T, SetFlags<F, { nullable: false }>, P, C> {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } });
+}
+export function nullable<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+): Column<T, SetFlags<F, { nullable: true }>, P, C> {
+  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } });
+}
+export function primaryKey<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+): Column<T, SetFlags<F, { primaryKey: true }>, P, C> {
+  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } });
+}
+export function unique<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+): Column<T, SetFlags<F, { unique: true }>, P, C> {
+  return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
+}
+export type ExtractColumns<T> = T extends { readonly columns: infer C }
+  ? C
+  : T extends { columns: infer C }
+    ? C
+    : T extends Record<string, ColumnMeta>
+      ? T
+      : Record<string, ColumnMeta>;
+
+export type ValidateFkType<LocalCol extends ColumnMeta, TargetCol extends ColumnMeta> = [
+  NonNullable<TsType<LocalCol>>,
+] extends [NonNullable<TsType<TargetCol>>]
+  ? [NonNullable<TsType<TargetCol>>] extends [NonNullable<TsType<LocalCol>>]
+    ? true
+    : false
+  : false;
+
+export function references<
+  C extends ColumnMeta,
+  Target extends { readonly columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta>,
+  K extends keyof ExtractColumns<Target> & string,
+>(
+  col: C,
+  targetSchema: Target,
+  targetColumn: K,
+): ValidateFkType<C, ExtractColumns<Target>[K]> extends true
+  ? C & { references: { readonly target: string } }
+  : { __error: 'Referenced column type does not match' };
+
+export function references<C extends ColumnMeta>(
+  col: C,
+  target: string,
+  targetColumn?: string,
+): C & { references: { readonly target: string } };
+
+export function references(
+  col: ColumnMeta,
+  target: { table: string } | string,
+  targetColumn?: string,
+): ColumnMeta & { references: { readonly target: string } } {
+  const tableName = typeof target === 'string' ? target : target.table;
+  const targetStr = targetColumn ? `${tableName}.${targetColumn}` : tableName;
+  return makeColumn<Column & { references: { readonly target: string } }>({
+    ...col,
+    references: { target: targetStr },
+  });
+}
+export function defaultTo<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+  value: unknown,
+): Column<T, SetFlags<F, { hasDefault: true }>, P, C> {
+  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } });
+}
+export function validate<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+  rule: ValidationRule,
+): Column<T, F, P, C> {
+  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
+}
+export function sensitive<T extends SqlType, F extends ColumnFlags, P, C>(
+  col: Column<T, F, P, C>,
+  isSensitive: boolean = true,
+): Column<T, SetFlags<F, { sensitive: boolean }>, P, C> {
+  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } });
+}
+export function withCustomType<T extends SqlType, F extends ColumnFlags, P, C, Wire, TS, DB>(
+  col: Column<T, F, P, C>,
+  type: CustomType<Wire, TS, DB>,
+): Column<T, F, P, CustomType<Wire, TS, DB>> {
+  return makeColumn({ ...col, customType: type as unknown as CustomType });
+}
+export function customType<T extends SqlType, F extends ColumnFlags, P, C, Wire, TS, DB>(
+  col: Column<T, F, P, C>,
+  type: CustomType<Wire, TS, DB>,
+): Column<T, F, P, CustomType<Wire, TS, DB>> {
+  return withCustomType(col, type);
+}
+
+// defineSchema (#15)
+const SCHEMA_REGISTRY = new Map<string, CoreSchema>();
+
+export function defineSchema<T extends string, C extends ColumnsMap>(
+  table: T,
+  columns: C,
+  options?: SchemaOptions,
+): CoreSchema<T, C> {
+  const primaryKeys: string[] = [];
+  const refs: { column: string; target: string }[] = [];
+  const frozenColumns: Record<string, ColumnMeta> = {};
+  const unMarkedSerialColumns: string[] = [];
+
+  for (const [name, col] of Object.entries(columns)) {
+    if (col.flags.primaryKey === true) {
+      primaryKeys.push(name);
+    } else if (col.type === 'serial') {
+      unMarkedSerialColumns.push(name);
+    }
+    if (col.references) refs.push({ column: name, target: col.references.target });
+    frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
+  }
+
+  if (primaryKeys.length === 0) {
+    if (unMarkedSerialColumns.length > 0) {
+      throw new SchemaError(
+        `serial column "${unMarkedSerialColumns[0]}" in schema "${table}" must be designated as a primary key`,
+      );
+    }
+    throw new SchemaError(`schema "${table}" must declare at least one primary key`);
+  }
+
+  const irColumns: ColumnIR[] = Object.entries(frozenColumns).map(([colName, col]) => ({
+    name: colName,
+    sql: col.type,
+    nullable: col.flags.nullable ?? false,
+    primaryKey: col.flags.primaryKey ?? false,
+    serial: col.type === 'serial' || (col.flags.autoIncrement ?? false),
+    unique: col.flags.unique ?? false,
+    hasDefault: col.flags.hasDefault ?? false,
+    sensitive: col.flags.sensitive ?? false,
+    ...(col.flags.length !== undefined ? { length: col.flags.length } : {}),
+    ...(col.flags.enum !== undefined ? { enum: col.flags.enum } : {}),
+    ...(col.references !== undefined ? { references: col.references.target } : {}),
+    ...(col.customType !== undefined ? { codec: col.customType.sqlType ?? 'custom', payload: { kind: 'unknown' } } : {}),
+    constraints: {},
+    rules: [],
+  }));
+
+  const ir: SchemaIR = {
+    table,
+    columns: irColumns,
+    primaryKey: primaryKeys,
+    relations: [],
+    ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
+  };
+
+  const schema: CoreSchema<T, C> = Object.freeze({
+    table,
+    columns: Object.freeze(frozenColumns) as C,
+    primaryKey: Object.freeze(primaryKeys),
+    references: Object.freeze(refs),
+    ir: Object.freeze(ir),
+    ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
+  });
+
+  SCHEMA_REGISTRY.set(table, schema);
+  return schema;
+}
+
+export function getRegisteredSchema(table: string): CoreSchema | undefined {
+  return SCHEMA_REGISTRY.get(table);
+}
+export function registeredSchemas(): readonly CoreSchema[] {
+  return [...SCHEMA_REGISTRY.values()];
+}
+}
+
 /**
  * True for a non-null, non-array object.
  *
@@ -303,6 +586,8 @@ export type ExpectNot<T extends false> = T;
 export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.js';
 export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.js';
 export type { Populated, PopulatedEntity } from './derive/index.js';
+export { defineType, encodeValue, decodeValue } from './custom-types/index.js';
+export type { CustomType } from './custom-types/index.js';
 
 // ---------------------------------------------------------------------------
 // Entity State Machine & State Transition Helpers
