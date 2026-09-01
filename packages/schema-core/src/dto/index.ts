@@ -701,6 +701,7 @@ export interface ComputedSpec<T extends DeclaredTable = DeclaredTable> {
   fn: AggFn;
   column?: AggregateColumn<T>;
   raw?: string;
+  params?: readonly unknown[] | Record<string, unknown>;
 }
 
 export interface AggregateSpec<T extends DeclaredTable> {
