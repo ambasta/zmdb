@@ -31,10 +31,23 @@ export interface Product extends Table<'products'> {
   category: string & Sql<'text'>;
 }
 
-const { Product: ProductSchema } = schemasFrom<{ Product: Product }>(import.meta.url, ['Product']);
+export interface Article extends Table<'articles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  description: (string & Sql<'text'>) | null;
+}
+
+const { Product: ProductSchema, Article: ArticleSchema } = schemasFrom<{ Product: Product; Article: Article }>(
+  import.meta.url,
+  ['Product', 'Article'],
+);
 
 class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
+}
+
+class ArticleRepository extends BaseRepository<Article> {
+  static override readonly schema = ArticleSchema;
 }
 
 let db: DatabaseSync;
@@ -143,23 +156,14 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
   });
 
   it('throws descriptive runtime error when keyset cursor pagination uses a nullable sort column', async () => {
-    const ArticleSchema = defineSchema('articles', {
-      id: primaryKey(serial()),
-      title: notNull(text()),
-      description: text().nullable(),
-    });
-
-    class ArticleRepository extends BaseRepository<typeof ArticleSchema> {
-      static override readonly schema = ArticleSchema;
-    }
-
     db.exec('CREATE TABLE articles (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT)');
-    const articles = new ArticleRepository(sqliteDriver(db), 'sqlite');
+    const articles = new ArticleRepository(sqliteDriver(db), sqliteDialect);
 
     await articles.create({ title: 'Article 1', description: 'desc 1' });
     await articles.create({ title: 'Article 2', description: null });
 
-    // Keyset pagination on nullable 'description' must throw explicit runtime error
+    // Keyset pagination on nullable 'description' must throw explicit runtime error.
+    // Casting with `as unknown as Parameters<typeof articles.list>[0]` simulates untrusted client DTO input at runtime where compile-time types do not apply.
     await expect(
       articles.list({
         orderBy: [{ column: 'description', dir: 'asc' }],

@@ -330,14 +330,22 @@ export type OrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
   dir?: OrderDir;
 }>;
 
-export type NonNullableEntityKeys<S> = [string] extends [keyof Entity<S>]
-  ? keyof Entity<S>
+/**
+ * Extract keys of non-nullable entity properties.
+ *
+ * When S is unparameterized (e.g. CoreSchema<string>), Entity<S> degrades to an index
+ * signature Record<string, unknown> where every property type absorbs null, causing
+ * filtering to evaluate to never. The `[string] extends [keyof Entity<S>]` guard
+ * falls back to returning all keys in that unparameterized case.
+ */
+export type NonNullableEntityKeys<T extends DeclaredTable> = [string] extends [keyof Entity<T>]
+  ? keyof Entity<T>
   : {
-      [K in keyof Entity<S>]: null extends Entity<S>[K] ? never : K;
-    }[keyof Entity<S>];
+      [K in keyof Entity<T>]: null extends Entity<T>[K] ? never : K;
+    }[keyof Entity<T>];
 
-export type KeysetOrderByDTO<S> = ReadonlyArray<{
-  column: NonNullableEntityKeys<S>;
+export type KeysetOrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
+  column: NonNullableEntityKeys<T>;
   dir?: OrderDir;
 }>;
 
@@ -351,7 +359,6 @@ export type OffsetPage = { limit: number; offset?: number | undefined };
 export type KeysetCursorPage<T extends DeclaredTable> = {
   limit: number;
   after?: Partial<Pick<Entity<T>, NonNullableEntityKeys<T>>> | string | undefined;
-  before?: Partial<Pick<Entity<T>, NonNullableEntityKeys<T>>> | string | undefined;
 };
 export type PaginationDTO<T extends DeclaredTable> = OffsetPage | KeysetCursorPage<T>;
 
@@ -632,7 +639,7 @@ export function getResult<Row extends Record<string, unknown>>(
 export interface OffsetListDTO<T extends DeclaredTable> {
   where?: WhereDTO<T>;
   orderBy?: OrderByDTO<T>;
-  page?: OffsetPage | { limit: number };
+  page?: OffsetPage;
   select?: readonly (keyof Entity<T>)[];
 }
 
