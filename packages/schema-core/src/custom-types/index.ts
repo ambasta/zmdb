@@ -14,7 +14,7 @@ import type { Codec } from '../ir/index.js';
  * All four functions are required. A codec whose `toWire` was optional would be a
  * codec that sometimes converts, and the caller cannot tell which kind it has.
  */
-export interface CustomType<Wire, TS, DB = unknown> {
+export interface CustomType<Wire = unknown, TS = unknown, DB = unknown> {
   /** DDL type, e.g. `'jsonb'`. Dialect spelling is the emitter's business. */
   readonly sqlType: string;
   /** Serialise for the driver. */

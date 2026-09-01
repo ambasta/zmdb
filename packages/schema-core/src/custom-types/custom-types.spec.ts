@@ -4,10 +4,6 @@ import { defineType, encodeValue, decodeValue, wireCodec } from './index.js';
 import { text, customType, withCustomType, defineSchema } from '../index.js';
 
 // The codec's TS-side/DB-side types are asserted in `custom-types.type-test.ts`.
-// (This file used to build its fixture inside a try/catch that fell back to a
-// hand-cast `CustomType` "during red phase, when defineType throws" — a
-// placeholder that outlived the red phase and would have silently swallowed a
-// real `defineType` failure.)
 describe('custom types & codecs (#133)', () => {
   it('defineType returns a frozen descriptor', () => {
     const t = defineType<string, number, string>({
@@ -89,8 +85,8 @@ describe('custom types & codecs (#133)', () => {
       id: text().primaryKey(),
       price: text().withCustomType(MoneyType).notNull(),
     });
-    expect(schema.columns.price.customType?.sqlType).toBe('varchar(50)');
-    expect(schema.columns.price.customType?.toDb).toBe(MoneyType.toDb);
+    expect(schema.columns['price']?.customType?.sqlType).toBe('varchar(50)');
+    expect(schema.columns['price']?.customType?.toDb).toBe(MoneyType.toDb);
   });
 
   it('compares metadata via toEqual without comparing method references', () => {

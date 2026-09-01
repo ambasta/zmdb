@@ -3,6 +3,7 @@
 // cannot be wired up backwards. Compiled by `yarn typecheck`.
 import type { Equal, Expect, Entity, CreateDTO, UpdateDTO } from '../index.js';
 import { defineSchema, serial, text, json, customType, withCustomType } from '../index.js';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
 import { defineType } from './index.js';
 // Referenced only in type position (`typeof`), hence the type-only import.
 import type { decodeValue, encodeValue } from './index.js';
@@ -49,17 +50,24 @@ interface Config {
   theme: string;
 }
 
-const CustomSchema = defineSchema('products', {
+const _CustomSchema = defineSchema('products', {
   id: serial().primaryKey(),
   price: text().withCustomType(MoneyType).notNull(),
   discount: customType(text(), MoneyType).nullable(),
   tax: withCustomType(text(), MoneyType).nullable(),
   jsonWithCodec: json<Config>().withCustomType(MoneyType).notNull(),
 });
-type CS = typeof CustomSchema;
 
-export type _CustomEntityDiscount = Expect<Equal<Entity<CS>['discount'], Money | null>>;
-export type _CustomCreatePrice = Expect<Equal<CreateDTO<CS>['price'], Money>>;
-export type _CustomCreateDiscount = Expect<Equal<CreateDTO<CS>['discount'], Money | null>>;
-export type _CustomUpdatePrice = Expect<Equal<UpdateDTO<CS>['price'], Money | undefined>>;
-export type _CustomEntityJsonCodec = Expect<Equal<Entity<CS>['jsonWithCodec'], Money>>;
+interface ProductRow extends Table<'products'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  price: Money;
+  discount: Money | null;
+  tax: Money | null;
+  jsonWithCodec: Money;
+}
+
+export type _CustomEntityDiscount = Expect<Equal<Entity<ProductRow>['discount'], Money | null>>;
+export type _CustomCreatePrice = Expect<Equal<CreateDTO<ProductRow>['price'], Money>>;
+export type _CustomCreateDiscount = Expect<Equal<CreateDTO<ProductRow>['discount'], Money | null | undefined>>;
+export type _CustomUpdatePrice = Expect<Equal<UpdateDTO<ProductRow>['price'], Money | undefined>>;
+export type _CustomEntityJsonCodec = Expect<Equal<Entity<ProductRow>['jsonWithCodec'], Money>>;
