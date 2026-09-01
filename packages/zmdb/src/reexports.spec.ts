@@ -6,6 +6,7 @@ import {
   assertShallow as srcAssertShallow,
   validate as srcValidate,
   validateShallow as srcValidateShallow,
+  AssertError as srcAssertError,
 } from '@zmdb/aot-validator/utilities';
 import {
   coalesce as srcCoalesce,
@@ -42,6 +43,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assert,
   assertShallow,
+  AssertError,
   BaseRepository,
   coalesce,
   concat,
@@ -95,7 +97,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(proposed).toBe(srcProposed);
   });
 
-  it('exports the shallow validators from the umbrella package', () => {
+  it('exports the validators from the umbrella package', () => {
     expect(is).toBe(srcIs);
     expect(isShallow).toBe(srcIsShallow);
     expect(assert).toBe(srcAssert);
@@ -103,6 +105,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(validate).toBe(srcValidate);
     expect(validateShallow).toBe(srcValidateShallow);
     expect(tags).toBe(srcTags);
+    expect(AssertError).toBe(srcAssertError);
   });
 
   it('does not re-export the optional protobuf compiler calls', async () => {
