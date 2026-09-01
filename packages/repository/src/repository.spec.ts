@@ -1,7 +1,19 @@
 import { schemasFrom } from '@zmdb/compiler/testing';
 import type { CompiledQuery } from '@zmdb/query-compiler';
 import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
-import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type {
+  ManyToOne,
+  OneToMany,
+  References,
+  Length,
+  Max,
+  Min,
+  Pattern,
+  PrimaryKey,
+  Serial,
+  Sql,
+  Table,
+} from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { usePostgres } from '../../postgres/src/testing/fixture.js';
@@ -657,5 +669,79 @@ describe('stored routine integration (real Postgres, loudly gated)', () => {
     } finally {
       await routinePg.pool().query('DROP FUNCTION IF EXISTS zmdb_test_add_one(INTEGER)');
     }
+  });
+});
+
+export interface RelUser extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: string & Sql<'text'>;
+  orders?: RelOrder[] & OneToMany<'orders', 'userId'>;
+}
+
+export interface RelOrder extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  user?: RelUser & ManyToOne<'users', 'userId'>;
+}
+
+const { RelUser: RelUserSchema, RelOrder: RelOrderSchema } = schemasFrom<{
+  RelUser: RelUser;
+  RelOrder: RelOrder;
+}>(import.meta.url, ['RelUser', 'RelOrder']);
+
+class RelUserRepository extends BaseRepository<RelUser> {
+  static override readonly schema = RelUserSchema;
+}
+
+class RelOrderRepository extends BaseRepository<RelOrder> {
+  static override readonly schema = RelOrderSchema;
+}
+
+describe('FK harmonization and relation population delegation', () => {
+  it('produces matching FK column fallbacks across join execution and relation loading for one-to-many', async () => {
+    const userDriver = fakeDriver([{ id: 1, email: 'u1@test.com', role: 'user' }]);
+    const userRepo = new RelUserRepository(userDriver);
+
+    // 1. Join resolution
+    // @ts-expect-error access protected method for testing
+    const joinInfo = userRepo.resolveRelationJoin('orders');
+    expect(joinInfo.conditions[0]!.rightCol).toBe('orders.userId');
+
+    // 2. Relation loading (attachRelations via find/findAllWithMany)
+    const orderDriver = fakeDriver([{ id: 10, userId: 1 }]);
+    const repoWithOrderDriver = new RelUserRepository(orderDriver);
+    // Mock the driver to return parent user first, then order child
+    orderDriver.execute = vi.fn(async (q: { text: string }) => {
+      if (/users/i.test(q.text)) {
+        return [{ id: 1, email: 'u1@test.com', role: 'user' }];
+      }
+      return [{ id: 10, userId: 1 }];
+    });
+
+    const populated = await repoWithOrderDriver.find({ id: 1 }, { populate: ['orders'] as const });
+    expect(populated[0]).toHaveProperty('orders', [{ id: 10, userId: 1 }]);
+  });
+
+  it('produces matching FK column fallbacks across join execution and relation loading for many-to-one', async () => {
+    const orderRepo = new RelOrderRepository(fakeDriver());
+
+    // @ts-expect-error access protected method for testing
+    const joinInfo = orderRepo.resolveRelationJoin('user');
+    expect(joinInfo.conditions[0]!.leftCol).toBe('orders.userId');
+  });
+
+  it('delegates legacy findAllWithMany directly to primary population pipeline with multi-arg fallback', async () => {
+    const driver = fakeDriver();
+    driver.execute = vi.fn(async (q: { text: string }) => {
+      if (/users/i.test(q.text)) {
+        return [{ id: 1, email: 'u1@test.com', role: 'user' }];
+      }
+      return [{ id: 99, userId: 1 }];
+    });
+
+    const userRepo = new RelUserRepository(driver);
+    const results = await userRepo.findAllWithMany('orders', 'orders', 'userId', 'id');
+    expect(results[0]).toHaveProperty('orders', [{ id: 99, userId: 1 }]);
   });
 });
