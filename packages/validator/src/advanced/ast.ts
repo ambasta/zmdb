@@ -53,20 +53,60 @@ function tokenize(src: string): Token[] {
       continue;
     }
 
-    // String literals: "...", '...', `...`
-    if (ch === '"' || ch === "'" || ch === '`') {
+    // String literals: "...", '...'
+    if (ch === '"' || ch === "'") {
       const quote = ch;
       const startIdx = i;
       i++;
       let val = '';
       while (i < len && src.charAt(i) !== quote) {
-        if (src.charAt(i) === '\\' && i + 1 < len) {
+        if (src.charAt(i) === '\\') {
+          if (i + 1 >= len) {
+            throw new SyntaxError(`Unclosed string literal starting at index ${startIdx}`);
+          }
           i++;
           const esc = src.charAt(i);
           if (esc === 'n') val += '\n';
           else if (esc === 'r') val += '\r';
           else if (esc === 't') val += '\t';
-          else val += esc;
+          else if (esc === 'b') val += '\b';
+          else if (esc === 'f') val += '\f';
+          else if (esc === 'v') val += '\v';
+          else if (esc === '0' && !/[0-9]/.test(src.charAt(i + 1))) val += '\0';
+          else if (esc === 'x') {
+            const hex = src.slice(i + 1, i + 3);
+            if (!/^[0-9a-fA-F]{2}$/.test(hex)) {
+              throw new SyntaxError(`Invalid hexadecimal escape sequence '\\x${hex}' at index ${i - 1}`);
+            }
+            val += String.fromCharCode(parseInt(hex, 16));
+            i += 2;
+          } else if (esc === 'u') {
+            if (src.charAt(i + 1) === '{') {
+              const closeBrace = src.indexOf('}', i + 2);
+              if (closeBrace === -1) {
+                throw new SyntaxError(`Unclosed Unicode escape sequence at index ${i - 1}`);
+              }
+              const hex = src.slice(i + 2, closeBrace);
+              if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length === 0) {
+                throw new SyntaxError(`Invalid Unicode escape sequence '\\u{${hex}}' at index ${i - 1}`);
+              }
+              const codePoint = parseInt(hex, 16);
+              if (codePoint > 0x10ffff) {
+                throw new SyntaxError(`Unicode code point out of range '\\u{${hex}}' at index ${i - 1}`);
+              }
+              val += String.fromCodePoint(codePoint);
+              i = closeBrace;
+            } else {
+              const hex = src.slice(i + 1, i + 5);
+              if (!/^[0-9a-fA-F]{4}$/.test(hex)) {
+                throw new SyntaxError(`Invalid Unicode escape sequence '\\u${hex}' at index ${i - 1}`);
+              }
+              val += String.fromCharCode(parseInt(hex, 16));
+              i += 4;
+            }
+          } else {
+            val += esc;
+          }
         } else {
           val += src.charAt(i);
         }
@@ -78,6 +118,10 @@ function tokenize(src: string): Token[] {
       i++; // consume closing quote
       tokens.push({ type: 'STRING', value: val });
       continue;
+    }
+
+    if (ch === '`') {
+      throw new SyntaxError(`Template literals are not supported at index ${i}`);
     }
 
     // Numbers
@@ -498,6 +542,8 @@ export class Parser {
   }
 }
 
+const FORBIDDEN_PROPERTIES = new Set(['constructor', '__proto__', 'prototype']);
+
 export function parseExpression(src: string): ASTNode {
   return new Parser(src).parse();
 }
@@ -527,6 +573,9 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
     case 'MemberExpression': {
       const obj = evaluateAst(node.object, scope);
       const prop = node.computed ? evaluateAst(node.property, scope) : (node.property as { name: string }).name;
+      if (typeof prop === 'string' && FORBIDDEN_PROPERTIES.has(prop)) {
+        throw new Error(`Access to forbidden property '${prop}' is not allowed`);
+      }
       if (obj == null) return undefined;
       return (obj as Record<string | number | symbol, unknown>)[prop as string | number];
     }
@@ -537,6 +586,9 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
         const prop = node.callee.computed
           ? evaluateAst(node.callee.property, scope)
           : (node.callee.property as { name: string }).name;
+        if (typeof prop === 'string' && FORBIDDEN_PROPERTIES.has(prop)) {
+          throw new Error(`Access to forbidden property '${prop}' is not allowed`);
+        }
         const args = node.arguments.map(a => evaluateAst(a, scope));
         if (obj != null && typeof (obj as Record<string, unknown>)[prop as string] === 'function') {
           return ((obj as Record<string, Function>)[prop as string] as Function).apply(obj, args);
@@ -630,6 +682,9 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
     case 'ObjectExpression': {
       const res: Record<string, unknown> = {};
       for (const p of node.properties) {
+        if (FORBIDDEN_PROPERTIES.has(p.key)) {
+          throw new Error(`Access to forbidden property '${p.key}' is not allowed`);
+        }
         res[p.key] = evaluateAst(p.value, scope);
       }
       return res;
@@ -649,16 +704,42 @@ export function emitAstJs(node: ASTNode, vName: string): string {
       return node.name === 'v' ? vName : node.name;
 
     case 'MemberExpression': {
-      const obj = emitAstJs(node.object, vName);
-      if (node.computed) {
+      if (!node.computed) {
+        const prop = (node.property as { name: string }).name;
+        if (FORBIDDEN_PROPERTIES.has(prop)) {
+          throw new Error(`Access to forbidden property '${prop}' is not allowed`);
+        }
+        const obj = emitAstJs(node.object, vName);
+        return `${obj}.${prop}`;
+      } else {
+        if (
+          node.property.type === 'Literal' &&
+          typeof node.property.value === 'string' &&
+          FORBIDDEN_PROPERTIES.has(node.property.value)
+        ) {
+          throw new Error(`Access to forbidden property '${node.property.value}' is not allowed`);
+        }
+        const obj = emitAstJs(node.object, vName);
         const prop = emitAstJs(node.property, vName);
-        return `${obj}[${prop}]`;
+        return `((_o, _p) => { if (_p === "constructor" || _p === "__proto__" || _p === "prototype") throw new Error("Access to forbidden property '" + _p + "' is not allowed"); return _o == null ? undefined : _o[_p]; })(${obj}, ${prop})`;
       }
-      const prop = (node.property as { name: string }).name;
-      return `${obj}.${prop}`;
     }
 
     case 'CallExpression': {
+      if (node.callee.type === 'MemberExpression') {
+        if (!node.callee.computed) {
+          const prop = (node.callee.property as { name: string }).name;
+          if (FORBIDDEN_PROPERTIES.has(prop)) {
+            throw new Error(`Access to forbidden property '${prop}' is not allowed`);
+          }
+        } else if (
+          node.callee.property.type === 'Literal' &&
+          typeof node.callee.property.value === 'string' &&
+          FORBIDDEN_PROPERTIES.has(node.callee.property.value)
+        ) {
+          throw new Error(`Access to forbidden property '${node.callee.property.value}' is not allowed`);
+        }
+      }
       const callee = emitAstJs(node.callee, vName);
       const args = node.arguments.map(a => emitAstJs(a, vName)).join(', ');
       return `${callee}(${args})`;
@@ -697,6 +778,11 @@ export function emitAstJs(node: ASTNode, vName: string): string {
     }
 
     case 'ObjectExpression': {
+      for (const p of node.properties) {
+        if (FORBIDDEN_PROPERTIES.has(p.key)) {
+          throw new Error(`Access to forbidden property '${p.key}' is not allowed`);
+        }
+      }
       const props = node.properties.map(p => `${JSON.stringify(p.key)}: ${emitAstJs(p.value, vName)}`).join(', ');
       return `{ ${props} }`;
     }

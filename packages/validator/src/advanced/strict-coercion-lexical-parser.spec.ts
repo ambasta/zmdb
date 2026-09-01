@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { splitTopLevelComma, splitArgs, transformSource } from '../index.ts';
-import { parseExpression, evaluateAst } from './ast.ts';
+import { parseExpression, evaluateAst, emitAstJs } from './ast.ts';
 import { coerce, refine, transform } from './index.ts';
 
 describe('Strict Coercion Guards (coerce.number)', () => {
@@ -106,5 +106,41 @@ describe('Static AST Execution for Refinements & Transforms (CSP Enforcement)', 
     expect(() => parseExpression('v.')).toThrow(SyntaxError);
     expect(() => parseExpression('"unclosed string')).toThrow(SyntaxError);
     expect(() => parseExpression('/* unterminated comment')).toThrow(SyntaxError);
+  });
+
+  it('rejects forbidden properties (constructor, __proto__, prototype) and prevents eval reaching', () => {
+    const malicious = 'Object.constructor("return process.env")()';
+    const ast = parseExpression(malicious);
+
+    expect(() => evaluateAst(ast, {})).toThrow(/Access to forbidden property 'constructor' is not allowed/);
+    expect(() => emitAstJs(ast, 'v')).toThrow(/Access to forbidden property 'constructor' is not allowed/);
+
+    expect(() => evaluateAst(parseExpression('({}).constructor'), {})).toThrow(/constructor/);
+    expect(() => evaluateAst(parseExpression('v.__proto__'), { v: {} })).toThrow(/__proto__/);
+    expect(() => evaluateAst(parseExpression('Array.prototype'), {})).toThrow(/prototype/);
+    expect(() => evaluateAst(parseExpression('{ constructor: 123 }'), {})).toThrow(/constructor/);
+
+    expect(() => emitAstJs(parseExpression('v.__proto__'), 'v')).toThrow(/__proto__/);
+    expect(() => emitAstJs(parseExpression('Array.prototype'), 'v')).toThrow(/prototype/);
+  });
+
+  it('rejects backtick template literals with a SyntaxError', () => {
+    expect(() => parseExpression('`hello ${v}`')).toThrow(SyntaxError);
+    expect(() => parseExpression('`plain`')).toThrow(SyntaxError);
+  });
+
+  it('correctly handles \\xXX, \\uXXXX, and \\u{HEX} escapes and rejects invalid hex escapes', () => {
+    const ast1 = parseExpression('"\\x41"');
+    expect(evaluateAst(ast1, {})).toBe('A');
+
+    const ast2 = parseExpression('"\\u0041"');
+    expect(evaluateAst(ast2, {})).toBe('A');
+
+    const ast3 = parseExpression('"\\u{41}"');
+    expect(evaluateAst(ast3, {})).toBe('A');
+
+    expect(() => parseExpression('"\\xZZ"')).toThrow(SyntaxError);
+    expect(() => parseExpression('"\\u123"')).toThrow(SyntaxError);
+    expect(() => parseExpression('"\\u{110000}"')).toThrow(SyntaxError);
   });
 });
