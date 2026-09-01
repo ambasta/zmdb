@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { createQueryCompiler } from './index.ts';
 
 describe('Unified SelectBuilder & Facade Integration', () => {
