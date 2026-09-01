@@ -12,10 +12,16 @@
 // `compiler/src/reflect/reflect.spec.ts` is where it is covered. `SchemaError` itself is
 // gone: nothing threw it once `defineSchema` did not.
 
-import { isRecord, schemaOf } from '@zmdb/schema';
+import {
+  claimsValidationIssues,
+  isRecord,
+  schemaOf,
+  validationIssuesOf,
+  ValidationError,
+  type ValidationIssue,
+} from '@zmdb/schema';
 import { jsonSchemaForColumn, type ColumnIR, type ExtensionType } from '@zmdb/schema/ir';
-import { claimsValidationIssues, validationIssuesOf, ValidationError, type ValidationIssue } from '@zmdb/validator';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('schemaOf<T>()', () => {
   it('throws when the build transform did not run', () => {
@@ -42,6 +48,25 @@ describe('ValidationError and ValidationIssue contract', () => {
     expect(err.message).toBe('validation failed');
     expect(err.issues).toHaveLength(1);
     expect(err.issues[0]).toEqual(issue);
+  });
+
+  it('accessing legacy errors property on ValidationError issues deprecation warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const issue: ValidationIssue = { path: 'input.name', message: 'required' };
+    const err = new ValidationError('failed', [issue]);
+    expect(err.errors).toEqual([issue]);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('DeprecationWarning'));
+    spy.mockRestore();
+  });
+});
+
+describe('isRecord type guard', () => {
+  it('identifies non-null non-array objects', () => {
+    expect(isRecord({ a: 1 })).toBe(true);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord('str')).toBe(false);
+    expect(isRecord(123)).toBe(false);
   });
 });
 
