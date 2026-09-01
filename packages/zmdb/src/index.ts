@@ -45,6 +45,7 @@ export {
   sanitizeKeys,
   chunkArray,
   DIALECT_PARAM_LIMITS,
+  windowFunction,
 } from '@zmdb/query-compiler';
 export * as migrations from '@zmdb/query-compiler/migrations';
 export type {
