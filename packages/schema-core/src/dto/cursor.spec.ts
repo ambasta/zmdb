@@ -136,6 +136,14 @@ describe('Composite Keyset Cursor Utilities', () => {
         /Invalid cursor: missing value for column "id"/,
       );
     });
+
+    it('rejects tokens whose sort columns do not match the current query ordering', () => {
+      const { builder } = createWhereRecorder();
+
+      expect(() => applyKeysetFilter(builder, { age: 30, id: 100, name: 'Alice' }, orderBy)).toThrow(
+        /Invalid cursor: sort column "name" does not match active query ordering/,
+      );
+    });
   });
 
   describe('buildListResult cursor derivation', () => {
