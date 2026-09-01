@@ -1599,14 +1599,36 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
     const page = query?.page;
     const limit = page && 'limit' in page ? page.limit : undefined;
-    const keyset = page && 'after' in page && page.after !== undefined && page.after !== null;
+    const isKeyset =
+      page &&
+      (('after' in page && page.after !== undefined && page.after !== null) ||
+        ('before' in page && page.before !== undefined && page.before !== null));
+
     let cursorValues: Record<string, unknown> | undefined;
-    if (keyset) {
-      if (typeof page.after === 'string') {
-        cursorValues = decodeCursor(page.after);
-      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
-        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
-        cursorValues = page.after as Record<string, unknown>;
+    if (isKeyset) {
+      if (userOrderBy) {
+        for (const item of userOrderBy) {
+          if (!item) continue;
+          const colName = String(item.column);
+          const colMeta = this.schema.columns[colName];
+          if (colMeta && colMeta.flags?.nullable) {
+            throw new Error(`Invalid keyset sort column "${colName}": column is nullable`);
+          }
+        }
+      }
+
+      const rawCursor =
+        'after' in page && page.after !== undefined && page.after !== null
+          ? page.after
+          : 'before' in page
+            ? page.before
+            : undefined;
+
+      if (typeof rawCursor === 'string') {
+        cursorValues = decodeCursor(rawCursor);
+      } else if (typeof rawCursor === 'object' && rawCursor !== null && !Array.isArray(rawCursor)) {
+        // boundary: rawCursor is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
+        cursorValues = rawCursor as Record<string, unknown>;
       } else {
         throw new Error('Invalid cursor parameter: expected string or object');
       }
@@ -1626,7 +1648,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           undefined,
           column => this.physicalColumn(column),
         );
-        if (keyset && cursorValues !== undefined) {
+        if (isKeyset && cursorValues !== undefined) {
           builder = applyKeysetFilter(
             builder,
             cursorValues,
@@ -1636,6 +1658,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
               applyResolvedFilters(branch, filters);
             },
             column => this.physicalColumn(column),
+            this.schema,
           );
           if (limit !== undefined) builder = builder.limit(limit + 1);
           return builder;
@@ -1650,7 +1673,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         return builder;
       },
       {
-        filtersApplied: keyset === true,
+        filtersApplied: isKeyset === true,
         additionalKnownNames: this.populateFilterNames(opts?.populate),
       },
     );
