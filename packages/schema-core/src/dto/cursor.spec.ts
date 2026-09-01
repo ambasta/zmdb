@@ -141,20 +141,14 @@ describe('Composite Keyset Cursor Utilities', () => {
       const { builder } = createWhereRecorder();
       const schemaWithNullable = {
         columns: {
-          age: { flags: { nullable: false } },
-          bio: { flags: { nullable: true } },
+          age: { type: 'integer' as const, flags: { nullable: false } },
+          bio: { type: 'text' as const, flags: { nullable: true } },
         },
       };
       const nullableOrderBy: OrderBySpec = [{ column: 'bio', dir: 'asc' }];
 
       expect(() =>
-        applyKeysetFilter(
-          builder,
-          { bio: 'hello' },
-          nullableOrderBy,
-          undefined,
-          schemaWithNullable as unknown as Parameters<typeof applyKeysetFilter>[4],
-        ),
+        applyKeysetFilter(builder, { bio: 'hello' }, nullableOrderBy, undefined, schemaWithNullable),
       ).toThrow(/Invalid keyset sort column "bio": column is nullable/);
     });
 
