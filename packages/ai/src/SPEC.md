@@ -26,18 +26,22 @@ interface ParseResult<T> {
   data?: T;
   errors?: readonly string[];
 }
-function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): ParseResult<T>;
+function lenientParse(text: string): ParseResult<unknown>;
+function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T>;
 ```
 
 ## Frozen behavior
 
-- `toolFromSchema(name, schema)` returns `{ name, description?, parameters }` where `parameters` is the schema's `create`-variant JSON Schema (input shape).
-- `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen create document. The schema-value overload is the source-mode/runtime equivalent.
-- `lenientParse(text)`:
+- `toolFromSchema(name, schema)` returns `{ name, description?, parameters }`
+  where `parameters` is the schema's `create`-variant JSON Schema (input shape).
+- `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen
+  create document. The schema-value overload is the source-mode/runtime equivalent.
+- `lenientParse`:
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a plain `JSON.parse`,
   - on parse failure returns `{ success:false, errors:[msg] }`,
-  - applies `coerce` when provided; a throwing coerce ⇒ `success:false`.
+  - requires an explicit `coerce` validation callback as mandatory for typed parsing operations (`ParseResult<T>`); untyped calls without `coerce` return `ParseResult<unknown>`,
+  - applies `coerce` to the parsed JSON; a throwing coerce ⇒ `{ success:false, errors:[msg] }`.
 - Deterministic; build-time schema generation + runtime lenient parse.
 
 ## 1. What the document contains, which decides every question below
