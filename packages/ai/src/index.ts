@@ -1,4 +1,4 @@
-import { type CoreSchema } from '@zmdb/schema';
+import { type CoreSchema, type ValidationIssue } from '@zmdb/schema';
 
 import { toolFor, type ToolOptions, type ToolSpec } from './providers.js';
 
@@ -9,7 +9,30 @@ export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: 
 export interface ParseResult<T> {
   success: boolean;
   data?: T;
-  errors?: readonly string[];
+  issues?: readonly ValidationIssue[];
+  /** @deprecated Use `issues` instead. */
+  errors?: readonly ValidationIssue[];
+}
+
+function makeParseResult<T>(params: {
+  success: boolean;
+  data?: T;
+  issues?: readonly ValidationIssue[];
+}): ParseResult<T> {
+  const result: ParseResult<T> = {
+    success: params.success,
+    ...(params.data !== undefined ? { data: params.data } : {}),
+    ...(params.issues !== undefined ? { issues: params.issues } : {}),
+  };
+  Object.defineProperty(result, 'errors', {
+    get() {
+      console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+      return this.issues;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  return result;
 }
 
 export function lenientParse(text: string): ParseResult<unknown>;
@@ -25,14 +48,20 @@ export function lenientParse(text: string, coerce?: (v: unknown) => unknown): Pa
   try {
     parsed = JSON.parse(stripped);
   } catch (err) {
-    return { success: false, errors: [err instanceof Error ? err.message : 'invalid JSON'] };
+    return makeParseResult({
+      success: false,
+      issues: [{ path: 'input', message: err instanceof Error ? err.message : 'invalid JSON' }],
+    });
   }
   // Without a callback, the parsed payload remains unknown.
-  if (!coerce) return { success: true, data: parsed };
+  if (!coerce) return makeParseResult({ success: true, data: parsed });
   try {
-    return { success: true, data: coerce(parsed) };
+    return makeParseResult({ success: true, data: coerce(parsed) });
   } catch (err) {
-    return { success: false, errors: [err instanceof Error ? err.message : 'coercion failed'] };
+    return makeParseResult({
+      success: false,
+      issues: [{ path: 'input', message: err instanceof Error ? err.message : 'coercion failed' }],
+    });
   }
 }
 

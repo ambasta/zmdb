@@ -12,7 +12,7 @@ import {
   AssertError,
   type TypeIR,
 } from '@zmdb/validator';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // RED PHASE (#56 spec freeze): validator utility surface.
 
@@ -90,6 +90,18 @@ describe('assert<T>', () => {
       expect((e as AssertError).issues[0]?.path).toBe('input.id');
     }
   });
+
+  it('AssertError exposes legacy errors property with deprecation warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      assert({ id: -1, email: 'a@b.com', role: 'user' }, user);
+    } catch (e) {
+      const err = e as AssertError;
+      expect(err.errors).toEqual(err.issues);
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('DeprecationWarning'));
+    }
+    spy.mockRestore();
+  });
 });
 
 describe('failWith', () => {
@@ -130,7 +142,16 @@ describe('validate<T>', () => {
   it('collects all failures without throwing', () => {
     const r = validate({ id: -1, email: 123, role: 'nope' }, user);
     expect(r.success).toBe(false);
+    expect(r.issues?.length).toBe(3);
     expect(r.errors?.length).toBe(3);
+  });
+
+  it('exposes legacy errors accessor on result with deprecation warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = validate({ id: -1 }, user);
+    expect(r.errors).toEqual(r.issues);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('DeprecationWarning'));
+    spy.mockRestore();
   });
 });
 

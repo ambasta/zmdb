@@ -52,7 +52,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export interface ValidateResult<T> {
   readonly success: boolean;
   readonly data?: T;
+  readonly issues?: readonly ValidationIssue[];
+  /** @deprecated Use `issues` instead. */
   readonly errors?: readonly ValidationIssue[];
+}
+
+function makeValidateResult<T>(params: {
+  success: boolean;
+  data?: T;
+  issues?: readonly ValidationIssue[];
+}): ValidateResult<T> {
+  const result: ValidateResult<T> = {
+    success: params.success,
+    ...(params.data !== undefined ? { data: params.data } : {}),
+    ...(params.issues !== undefined ? { issues: params.issues } : {}),
+  };
+  Object.defineProperty(result, 'errors', {
+    get() {
+      console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+      return this.issues;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -655,10 +678,11 @@ export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
 export function validate<T = unknown>(input: unknown, schema?: TypeIR): ValidateResult<T> {
   const node = required(schema);
   const refs = refsOf(node);
-  if (matches(input, node, refs)) return { success: true, data: certified<T>(input) };
+  // boundary: same certification as `assert`, returned instead of thrown.
+  if (matches(input, node, refs)) return makeValidateResult<T>({ success: true, data: certified<T>(input) });
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs);
-  return { success: false, errors: issues };
+  return makeValidateResult<T>({ success: false, issues });
 }
 
 /**
@@ -691,10 +715,10 @@ export function validateShallow<T = unknown, D extends number = 1>(
   const node = required(schema);
   const refs = refsOf(node);
   const limit = shallowDepth(depth);
-  if (matches(input, node, refs, limit)) return { success: true, data: certified<T>(input) };
+  if (matches(input, node, refs, limit)) return makeValidateResult<T>({ success: true, data: certified<T>(input) });
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs, limit);
-  return { success: false, errors: issues };
+  return makeValidateResult<T>({ success: false, issues });
 }
 
 export function equals<T = unknown>(input: unknown, schema?: TypeIR): input is T {
