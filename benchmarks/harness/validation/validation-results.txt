@@ -1,0 +1,35 @@
+
+### parseSafe  (median of 5, 1,000 per timed call)
+  zmdb (aot)           65,421,756 ops/s   (spread 1.03x)
+  zmdb (runtime)        6,373,620 ops/s   (spread 1.03x)
+  valibot               2,114,867 ops/s   (spread 1.03x)
+  zod                   1,318,735 ops/s   (spread 1.03x)
+  (n/a for this case: typebox, ajv)
+
+### parseStrict  (median of 5, 1,000 per timed call)
+  zmdb (aot)           48,439,428 ops/s   (spread 1.03x)
+  zmdb (runtime)        4,478,499 ops/s   (spread 1.02x)
+  valibot               1,689,878 ops/s   (spread 1.02x)
+  zod                   1,211,890 ops/s   (spread 1.03x)
+  (n/a for this case: typebox, ajv)
+
+### assertLoose  (median of 5, 1,000 per timed call)
+  zmdb (aot)          139,186,453 ops/s   (spread 1.04x)
+  typebox             127,196,801 ops/s   (spread 1.04x)
+  ajv                  67,413,053 ops/s   (spread 1.01x)
+  zmdb (runtime)        6,270,537 ops/s   (spread 1.04x)
+  valibot               2,168,967 ops/s   (spread 1.02x)
+  zod                   1,333,949 ops/s   (spread 1.05x)
+
+### assertStrict  (median of 5, 1,000 per timed call)
+  zmdb (aot)           48,746,078 ops/s   (spread 1.03x)
+  typebox              47,175,714 ops/s   (spread 1.03x)
+  ajv                  36,591,451 ops/s   (spread 1.02x)
+  zmdb (runtime)        4,369,361 ops/s   (spread 1.03x)
+  valibot               1,757,477 ops/s   (spread 1.04x)
+  zod                   1,207,395 ops/s   (spread 1.04x)
+
+note: zod has no allocation-free assert (no `is`), so its assertLoose/assertStrict
+      rows necessarily include the cost of building the parsed output.
+
+results observed: sink=1962678000, sinkRef kept=true
