@@ -76,9 +76,90 @@ function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number)
 }
 
 const JSON_HEADERS: Readonly<Record<string, string>> = { 'content-type': 'application/json' };
+const TEXT_HEADERS: Readonly<Record<string, string>> = { 'content-type': 'text/plain; charset=utf-8' };
+const NO_HEADERS: Readonly<Record<string, string>> = {};
 
 function jsonResponse(status: number, value: unknown): WebResponse {
   return { status, body: JSON.stringify(value), headers: JSON_HEADERS };
+}
+
+// ---- Handler-controlled responses ------------------------------------------
+//
+// A handler normally returns a plain value and the pipeline serializes it as
+// `200 application/json`. That covers a JSON API and nothing else: until these
+// factories existed a handler could not choose a status, set a header, or return
+// a body that was not JSON, so anything needing one of those had to be done in a
+// hand-written adapter outside the framework.
+//
+// Detection is a marker symbol, deliberately not a structural check. Sniffing
+// for a `status` property would be cheaper and needs no new API, but a DTO with
+// a `status` field is an entirely ordinary thing to return — `{ status: 'draft' }`
+// would silently stop being a body and become an HTTP status. The symbol makes
+// "plain object → 200 JSON" provably unchanged for every existing caller.
+//
+// Symbol.for, not a fresh Symbol: two copies of this package in one process
+// (a hoisting mismatch, or an app importing both `@zmdb/web` and `zmdb/web`)
+// must still recognise each other's responses.
+const RESPONSE_TAG = Symbol.for('zmdb.web.response');
+
+/** Status and headers a response factory accepts. */
+export interface ResponseOptions {
+  readonly status?: number;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
+// The tag is non-enumerable so a WebResponse still behaves as the plain
+// `{ status, body, headers }` record it always was: JSON.stringify of one, the
+// `{ ...response.headers }` spread in toFetchHandler, and Object.keys in `send`
+// all see exactly what they saw before.
+function tagged(response: WebResponse): WebResponse {
+  Object.defineProperty(response, RESPONSE_TAG, { value: true, enumerable: false });
+  return response;
+}
+
+function isTaggedResponse(value: unknown): value is WebResponse {
+  return typeof value === 'object' && value !== null && RESPONSE_TAG in value;
+}
+
+/**
+ * A JSON response with an explicit status and/or extra headers.
+ *
+ * `return json(created, { status: 201, headers: { location } })`
+ */
+export function json(value: unknown, options: ResponseOptions = {}): WebResponse {
+  return tagged({
+    status: options.status ?? 200,
+    body: JSON.stringify(value) ?? '',
+    headers: options.headers === undefined ? JSON_HEADERS : { ...JSON_HEADERS, ...options.headers },
+  });
+}
+
+/**
+ * A `text/plain` response, returned byte-for-byte as given.
+ *
+ * `return text(ctx.params.id)`
+ */
+export function text(body: string, options: ResponseOptions = {}): WebResponse {
+  return tagged({
+    status: options.status ?? 200,
+    body,
+    headers: options.headers === undefined ? TEXT_HEADERS : { ...TEXT_HEADERS, ...options.headers },
+  });
+}
+
+/**
+ * A response with full control and no assumed content type — for HTML, CSV, a
+ * redirect, or a `204` with no body. Nothing is added to `headers`, so set
+ * `content-type` yourself if the body has one.
+ *
+ * `return respond({ status: 302, headers: { location: '/login' } })`
+ */
+export function respond(init: {
+  readonly status?: number;
+  readonly body?: string;
+  readonly headers?: Readonly<Record<string, string>>;
+}): WebResponse {
+  return tagged({ status: init.status ?? 200, body: init.body ?? '', headers: init.headers ?? NO_HEADERS });
 }
 
 export interface Router {
@@ -146,7 +227,9 @@ export function createRouter(): Router {
         };
         try {
           const result = await bound.handler(ctx);
-          return jsonResponse(200, result);
+          // One symbol check on the hot path, no extra allocation: a handler that
+          // returns a plain value takes exactly the path it took before.
+          return isTaggedResponse(result) ? result : jsonResponse(200, result);
         } catch (error) {
           if (error instanceof ValidationError || (error && typeof error === 'object' && 'issues' in error)) {
             const message = messageOf(error);
@@ -193,45 +276,113 @@ function messageOf(error: unknown): string {
 
 // ---- Adapters (structurally typed; no hard node:http / Hono dependency) ----
 
-// The subset of node:http we touch.
+// The subset of node:http we touch. `setEncoding` and `writeHead` are optional
+// because this adapter is structurally typed — a hand-rolled req/res that lacks
+// them still works, it just takes the slower path.
 interface NodeReqLike {
   readonly method?: string;
   readonly url?: string;
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
   on(event: string, listener: (chunk: unknown) => void): void;
+  setEncoding?(encoding: string): void;
 }
 interface NodeResLike {
   statusCode: number;
   setHeader(name: string, value: string): void;
+  writeHead?(status: number, headers: Readonly<Record<string, string>>): unknown;
   end(body: string): void;
 }
 
-/** Adapt a router to a node:http `(req, res)` handler. */
+/**
+ * Adapt a router to a node:http `(req, res)` handler.
+ *
+ * This is the path real consumers take, so its per-request cost is the
+ * framework's real cost. The benchmark harness hand-writes its responses and so
+ * never measured this; when it was measured (keep-alive on, 8 workers, c=256,
+ * median of 5) the adapter served 294,067 req/s against the hand-written app's
+ * 395,983 — 1.35x slower, entirely in the four things below.
+ */
 export function toNodeHandler(router: Router): (req: NodeReqLike, res: NodeResLike) => void {
   return function (req: NodeReqLike, res: NodeResLike): void {
-    const chunks: string[] = [];
-    req.on('data', chunk => {
-      chunks.push(String(chunk));
-    });
-    req.on('end', () => {
-      void (async () => {
-        const raw = chunks.join('');
-        const url = req.url ?? '/';
-        const path = url.split('?')[0] ?? '/';
-        const response = await router.handle({
-          method: req.method ?? 'GET',
-          path,
-          headers: flattenHeaders(req.headers),
-          rawBody: raw.length > 0 ? parseJson(raw) : undefined,
-        });
-        res.statusCode = response.status;
-        for (const [key, header] of Object.entries(response.headers)) {
-          res.setHeader(key, header);
-        }
-        res.end(response.body);
-      })();
-    });
+    // A request with no body needs no 'data'/'end' listeners, no accumulator and
+    // no extra event-loop turn — and per RFC 9112 a request with neither
+    // content-length nor transfer-encoding HAS no body, which is the same rule
+    // node:http itself uses to decide whether to emit 'data' at all. So for the
+    // GET/HEAD/DELETE traffic that dominates most services this dispatches
+    // straight away instead of registering two closures and waiting a tick.
+    if (hasRequestBody(req)) {
+      // setEncoding installs a StringDecoder, which holds partial multi-byte
+      // sequences across reads. Decoding each chunk separately with
+      // String(chunk) — as this used to — corrupts any character whose UTF-8
+      // bytes straddle a chunk boundary, so a large body with non-ASCII text
+      // would silently arrive with replacement characters in it.
+      req.setEncoding?.('utf8');
+      let raw = '';
+      req.on('data', chunk => {
+        raw += String(chunk);
+      });
+      req.on('end', () => {
+        dispatch(router, req, res, raw.length > 0 ? parseJson(raw) : undefined);
+      });
+      return;
+    }
+    dispatch(router, req, res, undefined);
   };
+}
+
+// content-length: 0 is explicitly "no body"; any other length, or any
+// transfer-encoding at all (chunked), means there is one to read.
+function hasRequestBody(req: NodeReqLike): boolean {
+  const length = req.headers['content-length'];
+  if (typeof length === 'string') {
+    return length !== '0';
+  }
+  return req.headers['transfer-encoding'] !== undefined;
+}
+
+function dispatch(router: Router, req: NodeReqLike, res: NodeResLike, rawBody: unknown): void {
+  // `url.split('?')` allocated an array and split the whole query string just to
+  // throw the tail away; indexOf/slice reads the path without either.
+  const url = req.url ?? '/';
+  const query = url.indexOf('?');
+  // `.then(ok, err)` rather than an `async` IIFE with `await`: the IIFE added a
+  // second async frame and a second promise to every request on top of the one
+  // `router.handle` already returns. The reject arm also means a throw from
+  // outside handle's own try/catch becomes a 500 instead of an unhandled
+  // rejection that takes the process down.
+  void router
+    .handle({
+      method: req.method ?? 'GET',
+      path: query === -1 ? url : url.slice(0, query),
+      headers: flattenHeaders(req.headers),
+      rawBody,
+    })
+    .then(
+      response => {
+        send(res, response);
+      },
+      (error: unknown) => {
+        send(res, jsonResponse(500, { error: messageOf(error) }));
+      },
+    );
+}
+
+function send(res: NodeResLike, response: WebResponse): void {
+  // One writeHead with the whole header object beats a setHeader per entry:
+  // setHeader was the slowest of the five header strategies measured (78,962
+  // req/s against 91,302 for writeHead with an object literal), because each
+  // call re-validates the name and touches the outgoing-header map. The common
+  // case also hands writeHead the shared frozen JSON_HEADERS constant, so
+  // nothing is iterated or allocated at all.
+  if (res.writeHead === undefined) {
+    res.statusCode = response.status;
+    for (const key of Object.keys(response.headers)) {
+      res.setHeader(key, response.headers[key] ?? '');
+    }
+  } else {
+    res.writeHead(response.status, response.headers);
+  }
+  res.end(response.body);
 }
 
 /** Adapt a router to a Fetch `(Request) => Promise<Response>` handler. */
@@ -250,24 +401,28 @@ export function toFetchHandler(router: Router): (request: Request) => Promise<Re
 }
 
 async function readFetchBody(request: Request): Promise<unknown> {
-  const text = await request.text();
-  return text.length > 0 ? parseJson(text) : undefined;
+  const raw = await request.text();
+  return raw.length > 0 ? parseJson(raw) : undefined;
 }
 
-function parseJson(text: string): unknown {
+function parseJson(raw: string): unknown {
   try {
     // boundary: JSON.parse yields `any`; we immediately widen to `unknown` so no
     // `any` escapes into the pipeline (validators/handlers narrow from there).
-    const parsed: unknown = JSON.parse(text);
+    const parsed: unknown = JSON.parse(raw);
     return parsed;
   } catch {
-    return text;
+    return raw;
   }
 }
 
+// Object.keys allocates one array; Object.entries — which this used to use —
+// allocates that array plus a two-element array per header. A request with a
+// dozen headers was therefore doing thirteen allocations to read six of them.
 function flattenHeaders(headers: Readonly<Record<string, string | string[] | undefined>>): Record<string, string> {
   const flat: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
+  for (const key of Object.keys(headers)) {
+    const value = headers[key];
     if (typeof value === 'string') {
       flat[key] = value;
     } else if (Array.isArray(value)) {

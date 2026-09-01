@@ -96,10 +96,14 @@ export {
   createRouter,
   toNodeHandler,
   toFetchHandler,
+  json,
+  text,
+  respond,
   type Router,
   type WebRequest,
   type WebResponse,
   type RouteOptions,
+  type ResponseOptions,
 } from './pipeline/index.ts';
 
 // zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.
