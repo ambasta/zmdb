@@ -16,6 +16,8 @@ export function stringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
+export { compileFastStringifier, compileStringifier } from './fast-stringifier.ts';
+
 // `TypeIR`: the witness a user has is the generated one, and there is no longer a
 // hand-written form of it to accept (REQ-TF-9).
 export function assertStringify(value: unknown, schema?: TypeIR): string {
@@ -51,7 +53,7 @@ export function decode<T = unknown>(text: string, schema?: TypeIR): ValidateResu
   const parsed = parse(text);
   if (!parsed.success) return parsed;
   try {
-    const data = assert<T>(parsed.data, schema);
+    const data = assert(parsed.data, schema) as T;
     return { success: true, data };
   } catch (err) {
     const issues =
