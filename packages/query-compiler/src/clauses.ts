@@ -46,28 +46,24 @@ const JOIN_KEYWORD: Record<JoinKind, string> = {
   right: 'RIGHT JOIN',
 };
 
-export const OP_MAP: Record<string, string> = Object.assign(Object.create(null), {
-  '=': '=',
-  '!=': '!=',
-  '<': '<',
-  '<=': '<=',
-  '>': '>',
-  '>=': '>=',
-  like: 'LIKE',
-  LIKE: 'LIKE',
-  ilike: 'ILIKE',
-  ILIKE: 'ILIKE',
-  in: 'IN',
-  IN: 'IN',
-  'not in': 'NOT IN',
-  'NOT IN': 'NOT IN',
-  nin: 'NOT IN',
-  NIN: 'NOT IN',
-  exists: 'EXISTS',
-  EXISTS: 'EXISTS',
-  'not exists': 'NOT EXISTS',
-  'NOT EXISTS': 'NOT EXISTS',
-});
+// Object.create(null) prevents prototype inheritance so an operator named 'constructor' cannot resolve through Object.prototype.
+export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
+  Object.assign(Object.create(null), {
+    '=': '=',
+    '!=': '!=',
+    '<': '<',
+    '<=': '<=',
+    '>': '>',
+    '>=': '>=',
+    like: 'LIKE',
+    ilike: 'ILIKE',
+    in: 'IN',
+    'not in': 'NOT IN',
+    nin: 'NOT IN',
+    exists: 'EXISTS',
+    'not exists': 'NOT EXISTS',
+  }),
+);
 
 /** Anything with a `compile()` — a builder from this package, or a caller's own. */
 export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
@@ -83,7 +79,7 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
  * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
  */
 export function sqlOperator(op: string): string {
-  const opNorm = String(op).toLowerCase().trim();
+  const opNorm = op.toLowerCase().trim();
   return Object.prototype.hasOwnProperty.call(OP_MAP, opNorm) ? OP_MAP[opNorm]! : op;
 }
 
@@ -106,7 +102,10 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
     const isNotIn = sqlOp === 'NOT IN';
-    const arr = Array.isArray(p.value) ? p.value : [p.value];
+    let arr = Array.isArray(p.value) ? p.value : [p.value];
+    if (isNotIn) {
+      arr = arr.filter(item => item !== null && item !== undefined);
+    }
     if (arr.length === 0) {
       return isNotIn ? '1 = 1' : '1 = 0';
     }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler, sanitizeKeys, chunkArray } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray, OP_MAP } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -42,6 +42,19 @@ describe('postgres SELECT compilation', () => {
     expect(q.parameters).toEqual([true, 'banned', 'guest']);
   });
 
+  it('compiles whereNotIn filtering null and undefined values to prevent three-valued logic traps', () => {
+    const q1 = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .whereNotIn('role', ['banned', null, undefined, 'guest'])
+      .compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
+    expect(q1.parameters).toEqual(['banned', 'guest']);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').whereNotIn('role', [null, undefined]).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(q2.parameters).toEqual([]);
+  });
+
   it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
     const qIn = createQueryCompiler('postgres').selectFrom('users').whereIn('id', []).compile();
     expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
@@ -67,6 +80,13 @@ describe('utility functions', () => {
   it('chunkArray splits an array into parameter-safe chunks', () => {
     const items = [1, 2, 3, 4, 5];
     expect(chunkArray(items, 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+
+  it('OP_MAP is a clean, readonly map protected against prototype lookup', () => {
+    expect(OP_MAP.constructor).toBeUndefined();
+    expect(Object.isFrozen(OP_MAP)).toBe(true);
+    expect(OP_MAP['in']).toBe('IN');
+    expect(OP_MAP['IN']).toBeUndefined();
   });
 });
 

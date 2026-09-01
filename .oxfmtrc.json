@@ -16,7 +16,8 @@
     "benchmarks/harness/framework/peers/**",
     "benchmarks/site/*.json",
     "**/.results/**",
-    "**/*.app.mjs"
+    "**/*.app.mjs",
+    ".jscpd.json"
   ],
   "insertFinalNewline": true,
   "objectWrap": "preserve",

@@ -269,6 +269,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   ): Promise<Map<unknown, Record<string, unknown>[]>> {
     const ids = sanitizeKeys(parentIds);
     if (ids.length === 0) return new Map();
+    // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
     const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
     const chunks = chunkArray(ids, limit);
     const children: Record<string, unknown>[] = [];

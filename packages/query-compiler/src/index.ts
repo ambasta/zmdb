@@ -31,10 +31,10 @@ export { OP_MAP } from './clauses.ts';
 export type Direction = 'asc' | 'desc';
 
 /**
- * Maximum bind parameter chunk sizes per SQL dialect, leaving headroom for non-IN query parameters.
- * - SQLite: SQLITE_MAX_VARIABLE_NUMBER default limit is 32,766 (since SQLite 3.32.0 in 2020). Capped at 30,000 for headroom.
- * - PostgreSQL: Int16 wire protocol limit is 65,535 parameters. Capped at 60,000 for headroom.
- * - MySQL: Prepared statement protocol cap is 65,535 parameters. Capped at 60,000 for headroom.
+ * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.
+ * These conservative limits (30,000 for SQLite, 60,000 for Postgres/MySQL) serve as
+ * list-length heuristics, leaving headroom below maximum driver parameter limits
+ * (32,766 for SQLite, 65,535 for Postgres/MySQL) for any additional query parameters.
  */
 export const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
   sqlite: 30000,
@@ -42,6 +42,13 @@ export const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
   mysql: 60000,
 };
 
+/**
+ * Collection utility that deduplicates keys while preserving insertion order AND
+ * filtering out `null` and `undefined` key values.
+ *
+ * Note: Dropping null/undefined key values is a semantic choice designed for batch key loading
+ * (parent rows with a null foreign key are silently omitted from relationship loading).
+ */
 export function sanitizeKeys<T>(keys: readonly T[]): T[] {
   const result: T[] = [];
   const seen = new Set<T>();
@@ -54,6 +61,10 @@ export function sanitizeKeys<T>(keys: readonly T[]): T[] {
   return result;
 }
 
+/**
+ * Collection utility that partitions an array into contiguous chunks of at most `chunkSize` elements.
+ * Used to split large batch parameter lists into parameter-safe sub-queries.
+ */
 export function chunkArray<T>(array: readonly T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) throw new Error('chunkSize must be greater than 0');
   const chunks: T[][] = [];
