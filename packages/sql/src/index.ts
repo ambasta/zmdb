@@ -107,7 +107,15 @@ export type {
   CatalogWarning,
 } from './introspect/types.js';
 
-import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
+import {
+  frozenQuery,
+  isUnsafeOperator,
+  queryTelemetry,
+  unsafeOperator,
+  whereClause,
+  type Predicate,
+  type UnsafeOperator,
+} from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
@@ -126,35 +134,25 @@ export type {
   VectorColumnOf,
 } from './extensions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export { isUnsafeOperator, unsafeOperator, type UnsafeOperator };
+
 export type Operator =
   | '='
   | '!='
+  | '<>'
   | '<'
   | '<='
   | '>'
   | '>='
   | 'like'
-  | 'LIKE'
   | 'ilike'
-  | 'ILIKE'
   | 'in'
-  | 'IN'
   | 'not in'
-  | 'NOT IN'
   | 'nin'
-  | 'NIN'
   | 'exists'
-  | 'EXISTS'
   | 'not exists'
-  | 'NOT EXISTS'
   | 'is null'
-  | 'IS NULL'
-  | 'is not null'
-  | 'IS NOT NULL'
-  | 'is'
-  | 'IS'
-  | 'is not'
-  | 'IS NOT';
+  | 'is not null';
 
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';
@@ -224,8 +222,8 @@ interface RuntimeInsertBuilder {
 }
 interface RuntimeUpdateBuilder {
   set(row: Record<string, unknown>): RuntimeUpdateBuilder;
-  where(col: string, op: Operator, value: unknown): RuntimeUpdateBuilder;
-  orWhere(col: string, op: Operator, value: unknown): RuntimeUpdateBuilder;
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): RuntimeUpdateBuilder;
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): RuntimeUpdateBuilder;
   whereGroup(predicates: readonly Predicate[]): RuntimeUpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): RuntimeUpdateBuilder;
   whereNotIn(col: string, values: readonly unknown[]): RuntimeUpdateBuilder;
@@ -233,12 +231,14 @@ interface RuntimeUpdateBuilder {
   compile(): CompiledQuery;
 }
 interface RuntimeDeleteBuilder {
-  where(col: string, op: Operator, value: unknown): RuntimeDeleteBuilder;
-  orWhere(col: string, op: Operator, value: unknown): RuntimeDeleteBuilder;
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): RuntimeDeleteBuilder;
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): RuntimeDeleteBuilder;
   whereGroup(predicates: readonly Predicate[]): RuntimeDeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): RuntimeDeleteBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeDeleteBuilder;
+  compile(): CompiledQuery;
+}
   compile(): CompiledQuery;
 }
 

@@ -54,6 +54,26 @@ export interface JoinSpec {
   readonly on?: readonly Predicate[];
 }
 
+export interface UnsafeOperator {
+  readonly __unsafeOperator: true;
+  readonly op: string;
+}
+
+export function unsafeOperator(op: string): UnsafeOperator {
+  return { __unsafeOperator: true, op };
+}
+
+export function isUnsafeOperator(value: unknown): value is UnsafeOperator {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    '__unsafeOperator' in value &&
+    value.__unsafeOperator === true &&
+    'op' in value &&
+    typeof value.op === 'string'
+  );
+}
+
 /**
  * One comparison in a WHERE or HAVING list. `connector` says how it attaches to
  * the predicate before it and is ignored on the first one; builders that only
@@ -62,7 +82,7 @@ export interface JoinSpec {
 export interface ComparisonPredicate {
   readonly kind?: 'comparison';
   readonly col: string;
-  readonly op: Operator | string;
+  readonly op: Operator | UnsafeOperator;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR' | undefined;
 }
@@ -119,8 +139,6 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
     nin: 'NOT IN',
     exists: 'EXISTS',
     'not exists': 'NOT EXISTS',
-    is: 'IS',
-    'is not': 'IS NOT',
     'is null': 'IS NULL',
     'is not null': 'IS NOT NULL',
     ...DISTANCE_OPERATORS,
@@ -151,26 +169,27 @@ export interface SubqueryTarget {
 
 /** Anything with a `compile()` — a builder from this package, or a caller's own. */
 export function isSubqueryTarget(value: unknown): value is SubqueryTarget {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'compile' in value &&
-    typeof (value as { compile?: unknown }).compile === 'function'
-  );
+  return value !== null && typeof value === 'object' && 'compile' in value && typeof value.compile === 'function';
 }
 
 /**
  * Normalizes supported operators to canonical SQL keywords.
  * Throws QueryCompilerError for invalid or unsupported operators.
  */
-export function sqlOperator(op: string, dialect: DialectTarget): string {
-  const normalized = op.toLowerCase().trim();
-  if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
-    throw new UnsupportedFeatureError(normalized, dialectName(dialect));
+export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: DialectTarget): string {
+  if (isUnsafeOperator(op)) {
+    return op.op;
   }
-  const mapped = OP_MAP[normalized];
-  if (mapped !== undefined) return mapped;
-  throw new QueryCompilerError(`Invalid query operator "${op}"`);
+  const opStr = typeof op === 'string' ? op : (op as string);
+  const opNorm = opStr.toLowerCase().trim();
+  if (isDistanceOp(opNorm) && !dialectTraits(dialect).vectorDistance) {
+    throw new UnsupportedFeatureError(opNorm, dialectName(dialect));
+  }
+  const mapped = OP_MAP[opNorm];
+  if (mapped !== undefined) {
+    return mapped;
+  }
+  throw new QueryCompilerError(`Invalid query operator "${typeof op === 'object' ? (op as UnsafeOperator).op : op}"`);
 }
 
 /**
@@ -182,7 +201,7 @@ export function processSubquery(
   target: SubqueryTarget,
   params: unknown[],
   effects?: EffectState,
-): { sql: string } {
+): string {
   if (
     target.dialect !== undefined &&
     dialectName(target.dialect) !== dialectName(parentDialect)
@@ -200,7 +219,7 @@ export function processSubquery(
   const sql = renumberPlaceholders(compiled.text, offset, parentDialect);
   params.push(...compiled.parameters);
 
-  return { sql };
+  return sql;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
@@ -234,7 +253,7 @@ export function renderPredicate(
     throw new UnsupportedFeatureError('full-text search', dialectName(dialect));
   }
   const column = expressions?.get(p.col) ?? quoteColumn(dialect, qualifyRootColumn(p.col, rootReference));
-  const normalized = p.op.toLowerCase().trim();
+  const normalized = isUnsafeOperator(p.op) ? p.op.op.toLowerCase().trim() : p.op.toLowerCase().trim();
   const sqlOp = sqlOperator(p.op, dialect);
 
   if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
@@ -251,7 +270,7 @@ export function renderPredicate(
   }
 
   if (isSubqueryTarget(p.value)) {
-    const { sql } = processSubquery(dialect, p.value, params, effects);
+    const sql = processSubquery(dialect, p.value, params, effects);
 
     if (sqlOp === 'EXISTS') return `EXISTS (${sql})`;
     if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${sql})`;

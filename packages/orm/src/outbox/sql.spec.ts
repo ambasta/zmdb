@@ -23,7 +23,14 @@ import {
   outboxTableDdl,
   type OutboxStatus,
 } from '@zmdb/orm/outbox';
-import { trustedTable, createQueryCompiler, quoteIdentifier, type CompiledQuery, type DialectTarget } from '@zmdb/sql';
+import {
+  createQueryCompiler,
+  quoteIdentifier,
+  trustedTable,
+  unsafeOperator,
+  type CompiledQuery,
+  type DialectTarget,
+} from '@zmdb/sql';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { describe, expect, it } from 'vitest';
 
@@ -409,7 +416,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
       createQueryCompiler(postgresDialect)
         .selectFrom(trustedTable(OUTBOX_TABLE))
         .select(['id'])
-        .where('deliveredAt', 'is null', null)
+        .where('deliveredAt', unsafeOperator('is'), null)
         .compile(),
     ).toMatchObject({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
   });
