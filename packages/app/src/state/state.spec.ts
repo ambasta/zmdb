@@ -86,6 +86,34 @@ describe('@zmdb/app state: transitions', () => {
   });
 });
 
+describe('@zmdb/web state: primitive branded types', () => {
+  it('supports primitive branded types (string, number) when no discriminant is defined', () => {
+    const UserId = defineState<'UserId', string>('UserId');
+    const id = UserId.create('usr_123');
+    expect(id).toBe('usr_123');
+    expect(UserId.is('usr_123')).toBe(true);
+    expect(UserId.is(123)).toBe(true);
+    expect(UserId.is(null)).toBe(false);
+    expect(UserId.is(undefined)).toBe(false);
+
+    expect(() => UserId.create(null as unknown as string)).toThrow(
+      'Invalid state payload for "UserId": expected non-nullish value, got null',
+    );
+  });
+
+  it('supports primitive branded types with custom predicate validation', () => {
+    const NonEmptyString = defineState<'NonEmptyString', string>('NonEmptyString', {
+      predicate: s => s.length > 0,
+    });
+    expect(NonEmptyString.is('hello')).toBe(true);
+    expect(NonEmptyString.is('')).toBe(false);
+    expect(NonEmptyString.create('hello')).toBe('hello');
+    expect(() => NonEmptyString.create('')).toThrow(
+      'Invalid state payload for "NonEmptyString": custom predicate validation failed',
+    );
+  });
+});
+
 describe('@zmdb/web state: discriminant & predicate state guard', () => {
   interface DiscrOrder {
     id: number;
@@ -122,12 +150,18 @@ describe('@zmdb/web state: discriminant & predicate state guard', () => {
     expect(DraftState.is({ id: 1, status: 'draft', total: 100 })).toBe(true);
   });
 
-  it('supports discriminant configuration as object or property key', () => {
-    const DraftObj = defineState<'Draft', DiscrOrder>({
-      discriminant: { key: 'status', value: 'draft' },
+  it('supports discriminant configuration as tuple or property key', () => {
+    const DraftTuple = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
     });
-    expect(DraftObj.is({ id: 1, status: 'draft', total: 50 })).toBe(true);
-    expect(DraftObj.is({ id: 1, status: 'paid', total: 50 })).toBe(false);
+    expect(DraftTuple.is({ id: 1, status: 'draft', total: 50 })).toBe(true);
+    expect(DraftTuple.is({ id: 1, status: 'paid', total: 50 })).toBe(false);
+
+    const DraftTupleKeyOnly = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status'],
+    });
+    expect(DraftTupleKeyOnly.is({ id: 1, status: 'draft', total: 50 })).toBe(true);
+    expect(DraftTupleKeyOnly.is({ id: 1, total: 50 })).toBe(false);
 
     const DraftKeyOnly = defineState<'Draft', DiscrOrder>({
       discriminant: 'status',
@@ -152,17 +186,60 @@ describe('@zmdb/web state: discriminant & predicate state guard', () => {
     expect(ValidatedDraft.is({ id: 1, status: 'draft', total: 25 })).toBe(true);
   });
 
-  it('creating state instances throws when structural verification fails', () => {
-    const ValidatedDraft = defineState<'Draft', DiscrOrder>({
+  it('explicitly shows create throwing on values that pass the base type contract but fail state guards (behavior change from unconditional identity)', () => {
+    // Before state guards, create was an unconditional identity for any T value.
+    // Now, create runs structural verification and throws if guards fail.
+    const DraftState = defineState<'Draft', DiscrOrder>('Draft', {
       discriminant: ['status', 'draft'],
       predicate: o => o.total > 0,
     });
 
-    expect(() => ValidatedDraft.create({ id: 1, status: 'paid', total: 10 } as unknown as DiscrOrder)).toThrow(
-      TypeError,
+    const validBaseOrder: DiscrOrder = { id: 1, status: 'paid', total: 100 };
+
+    // Valid base order object of type DiscrOrder, but status is 'paid' instead of 'draft'
+    expect(() => DraftState.create(validBaseOrder)).toThrow(
+      'Invalid state payload for "Draft": discriminant property "status" expected "draft", got "paid"',
     );
 
-    expect(() => ValidatedDraft.create({ id: 1, status: 'draft', total: -10 })).toThrow(TypeError);
+    const negativeTotalOrder: DiscrOrder = { id: 2, status: 'draft', total: -50 };
+    expect(() => DraftState.create(negativeTotalOrder)).toThrow(
+      'Invalid state payload for "Draft": custom predicate validation failed',
+    );
+  });
+
+  it('provides detailed diagnostic error messages specifying state name, property keys, and failure reasons', () => {
+    const NamedDraft = defineState<'Draft', DiscrOrder>('Draft', {
+      discriminant: ['status', 'draft'],
+      predicate: o => o.total > 0,
+    });
+
+    // Nullish input
+    expect(() => NamedDraft.create(null as unknown as DiscrOrder)).toThrow(
+      'Invalid state payload for "Draft": expected non-nullish value, got null',
+    );
+
+    // Primitive passed to discriminant state
+    expect(() => NamedDraft.create(123 as unknown as DiscrOrder)).toThrow(
+      'Invalid state payload for "Draft": expected object for discriminant key "status", got number',
+    );
+
+    // Missing discriminant property
+    expect(() => NamedDraft.create({ id: 1, total: 10 } as unknown as DiscrOrder)).toThrow(
+      'Invalid state payload for "Draft": missing discriminant property "status"',
+    );
+
+    // Discriminant value mismatch
+    expect(() => NamedDraft.create({ id: 1, status: 'shipped', total: 10 })).toThrow(
+      'Invalid state payload for "Draft": discriminant property "status" expected "draft", got "shipped"',
+    );
+
+    // Unnamed state diagnostic error message
+    const UnnamedDraft = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+    });
+    expect(() => UnnamedDraft.create({ id: 1, status: 'paid', total: 10 })).toThrow(
+      'Invalid state payload: discriminant property "status" expected "draft", got "paid"',
+    );
   });
 
   it('creating state instances and performing checks adds zero additional runtime object allocations and preserves object identity', () => {
@@ -187,7 +264,7 @@ describe('@zmdb/web state: discriminant & predicate state guard', () => {
     const DraftState = defineState<'Draft', DiscrOrder>({
       discriminant: ['status', 'draft'],
     });
-    const PaidState = defineState<'Paid', DiscrOrder>({
+    const PaidState = defineState<'Paid', DiscrOrder>('Paid', {
       discriminant: ['status', 'paid'],
       predicate: o => o.total > 0,
     });
@@ -210,6 +287,8 @@ describe('@zmdb/web state: discriminant & predicate state guard', () => {
       status: 'draft' as const, // Wrong status for PaidState
     }));
 
-    expect(() => badMarkPaid(draft)).toThrow(TypeError);
+    expect(() => badMarkPaid(draft)).toThrow(
+      'Invalid state payload for "Paid": discriminant property "status" expected "paid", got "draft"',
+    );
   });
 });
