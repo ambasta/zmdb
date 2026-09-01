@@ -7,12 +7,13 @@ Part of `@zmdb/schema-core`. User-defined column types with a SQL type + TS type
 ## API
 
 ```ts
-interface CustomType<Wire, TS, DB = unknown> {
+interface CustomType<Wire = unknown, TS = unknown, DB = unknown> {
   readonly sqlType: string; // DDL type, e.g. 'jsonb'
   readonly toDb: (value: TS) => DB; // serialize for the driver
   readonly fromDb: (raw: DB) => TS; // parse a driver row value
   readonly toWire: (value: TS) => Wire; // serialize for a JSON response
   readonly fromWire: (raw: Wire) => TS; // parse a JSON request body value
+  readonly validate?: (value: unknown) => boolean | string; // validate untrusted write payload
 }
 function defineType<Wire, TS, DB>(def: CustomType<Wire, TS, DB>): CustomType<Wire, TS, DB>;
 function encodeValue<Wire, TS, DB>(type: CustomType<Wire, TS, DB>, value: TS): DB;
@@ -31,4 +32,9 @@ Three types, because a column has three (plan D3). A codec that named two of the
   same round-trip law holds for `toWire`/`fromWire`.
 - The wire type is declared to the type system with `WireAs<W>` (see `../tags/SPEC.md`), which is what lets `Wire<T>` and the published document describe it.
 - The `sqlType` feeds migration DDL for columns declared with this type.
+- `validate` receives untrusted write payloads (`unknown`) before serialization.
+  - Return `true`: valid.
+  - Return `false`: invalid (default error message).
+  - Return `string`: invalid with custom error message.
+  - An explicit `boolean | string` return is required (falling off the end / returning `undefined` is rejected at compile time).
 - No global registry required — a custom type is a value you attach to a column.

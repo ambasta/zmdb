@@ -1,7 +1,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { inc, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
 import { defineSchema, serial, json, text, nullable, defineType, customType, withCustomType } from '@zmdb/schema-core';
-import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, UpdateDTO, TaggedSchema, DeclaredTable } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -80,7 +80,7 @@ describe('typed create/update (#206)', () => {
       currency: string;
     }
 
-    const MoneyType = defineType<Money, string>({
+    const MoneyType = defineType<string, Money, string>({
       sqlType: 'VARCHAR(50)',
       toDb: m => {
         if (!['USD', 'EUR', 'GBP'].includes(m.currency)) {
@@ -88,22 +88,28 @@ describe('typed create/update (#206)', () => {
         }
         return `${m.amount}:${m.currency}`;
       },
-      fromDb: raw => {
+      fromDb: (raw: string) => {
+        const [amount, currency] = raw.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      toWire: m => `${m.amount}:${m.currency}`,
+      fromWire: (raw: string) => {
         const [amount, currency] = raw.split(':');
         return { amount: Number(amount), currency: currency ?? 'USD' };
       },
       validate: m => {
         if (typeof m !== 'object' || m === null) return 'money payload must be an object';
-        if (m.amount <= 0) return 'money amount must be positive';
+        const money = m as Partial<Money>;
+        if (typeof money.amount !== 'number' || money.amount <= 0) return 'money amount must be positive';
         return true;
       },
     });
 
     const OrderSchema = defineSchema('orders', {
       id: serial().primaryKey(),
-      total: text().customType(MoneyType).notNull(),
+      total: text().withCustomType(MoneyType).notNull(),
       discount: customType(text(), MoneyType).nullable(),
-    });
+    }) as unknown as TaggedSchema<DeclaredTable>;
 
     it('validates custom-typed domain objects and encodes them prior to SQL compilation', async () => {
       const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, total: '100:USD', discount: null }]);
@@ -177,7 +183,7 @@ describe('typed create/update (#206)', () => {
           total: null as unknown as Money,
           discount: null,
         }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      ).rejects.toThrowError(/column "total" is not nullable/);
 
       expect(execute).not.toHaveBeenCalled();
     });

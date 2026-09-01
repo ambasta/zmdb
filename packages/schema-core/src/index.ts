@@ -16,7 +16,7 @@
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
 import type { DeclaredTable, UpdateDTO } from './derive/index.js';
-import type { ExtensionType, SchemaIR } from './ir/index.js';
+import type { ColumnIR, ExtensionType, SchemaIR } from './ir/index.js';
 
 import type { CustomType } from './custom-types/index.js';
 
@@ -74,8 +74,7 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
-  // oxlint-disable-next-line typescript/no-explicit-any
-  readonly customType?: CustomType<any, any>;
+  readonly customType?: CustomType;
 }
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
@@ -90,9 +89,20 @@ export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
  * in database vocabulary. The carried IR keeps declared names for derived types,
  * validation, payloads and result aliases.
  */
-export interface CoreSchema<T extends string = string> {
+export class SchemaError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SchemaError';
+  }
+}
+
+export interface SchemaOptions {
+  readonly ftsTable?: string;
+}
+
+export interface CoreSchema<T extends string = string, C extends ColumnsMap = ColumnsMap> {
   readonly table: T;
-  readonly columns: ColumnsMap;
+  readonly columns: C;
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
   readonly ftsTable?: string | boolean | undefined;
@@ -118,8 +128,6 @@ export interface CoreSchema<T extends string = string> {
 // ---------------------------------------------------------------------------
 // The generated schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
-
-
 
 declare const zmdbEntity: unique symbol;
 
@@ -302,11 +310,13 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
   for (const [name, fn] of Object.entries(methods)) {
     Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
   }
-  Object.defineProperty(column, 'customType', {
-    value: withCustomTypeFn,
-    enumerable: base.customType !== undefined,
-    writable: false,
-  });
+  if (base.customType !== undefined) {
+    Object.defineProperty(column, 'customType', {
+      value: base.customType,
+      enumerable: true,
+      writable: false,
+    });
+  }
   return Object.freeze(column);
 }
 
@@ -380,9 +390,9 @@ export type ExtractColumns<T> = T extends { readonly columns: infer C }
       : Record<string, ColumnMeta>;
 
 export type ValidateFkType<LocalCol extends ColumnMeta, TargetCol extends ColumnMeta> = [
-  NonNullable<TsType<LocalCol>>,
-] extends [NonNullable<TsType<TargetCol>>]
-  ? [NonNullable<TsType<TargetCol>>] extends [NonNullable<TsType<LocalCol>>]
+  NonNullable<LocalCol['type']>,
+] extends [NonNullable<TargetCol['type']>]
+  ? [NonNullable<TargetCol['type']>] extends [NonNullable<LocalCol['type']>]
     ? true
     : false
   : false;
@@ -492,7 +502,9 @@ export function defineSchema<T extends string, C extends ColumnsMap>(
     ...(col.flags.length !== undefined ? { length: col.flags.length } : {}),
     ...(col.flags.enum !== undefined ? { enum: col.flags.enum } : {}),
     ...(col.references !== undefined ? { references: col.references.target } : {}),
-    ...(col.customType !== undefined ? { codec: col.customType.sqlType ?? 'custom', payload: { kind: 'unknown' } } : {}),
+    ...(col.customType !== undefined
+      ? { codec: col.customType.sqlType ?? 'custom', payload: { kind: 'unknown' } }
+      : {}),
     constraints: {},
     rules: [],
   }));
@@ -523,7 +535,6 @@ export function getRegisteredSchema(table: string): CoreSchema | undefined {
 }
 export function registeredSchemas(): readonly CoreSchema[] {
   return [...SCHEMA_REGISTRY.values()];
-}
 }
 
 /**
