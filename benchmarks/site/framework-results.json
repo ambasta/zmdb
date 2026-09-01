@@ -3,9 +3,15 @@
   "framework": "@zmdb/web",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
   "port": 3000,
-  "methodology": "oha oha 1.16.0: per route for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
-  "generatedAt": "2026-08-30T21:39:34Z",
-  "machine": "Linux x86_64, Node v26.8.1",
+  "methodology": "oha oha 1.16.0: per route for 10s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 8 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
+  "concurrencyModel": {
+    "workers": 8,
+    "cores": 16,
+    "note": "Node is single-threaded, so worker count is the core count this framework can use. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
+  },
+  "repeats": 3,
+  "generatedAt": "2026-09-01T11:17:00Z",
+  "machine": "Linux x86_64, 16 cores, Node v26.8.1",
   "contract": [
     {
       "method": "GET",
@@ -37,49 +43,49 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 15560.048078623553,
+      "value": 93223.63859844964,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.0041086635483554915,
+      "value": 0.0006843615754160097,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.003293645,
+      "value": 0.000577283,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.004391179,
+      "value": 0.000727828,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.006667501,
+      "value": 0.001040259,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.014701131,
+      "value": 0.002359727,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.054541184,
+      "value": 0.006238226,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 233440,
+      "value": 932550,
       "route": "GET:/"
     },
     {
@@ -97,67 +103,85 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.055914427,
+      "value": 0.010788592,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15002.524338000001,
+      "value": 10003.364103999998,
+      "route": "GET:/"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_min",
+      "value": 92578.04069681757,
+      "route": "GET:/"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_max",
+      "value": 93925.60780667016,
+      "route": "GET:/"
+    },
+    {
+      "level": 64,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 13307.921180543022,
+      "value": 91997.84072942415,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.004802020670362464,
+      "value": 0.0006928753206405275,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.003805037,
+      "value": 0.000613062,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.004551982,
+      "value": 0.000680039,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.006782957,
+      "value": 0.000876231,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.022030757,
+      "value": 0.002401014,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.071129033,
+      "value": 0.005735669,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 199656,
+      "value": 920500,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_bytes_received",
-      "value": 399184,
+      "value": 1840884,
       "route": "GET:/user/42"
     },
     {
@@ -169,61 +193,79 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.07270768300000001,
+      "value": 0.012273597,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15002.793996999999,
+      "value": 10005.669619,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_min",
+      "value": 90879.3655354881,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_max",
+      "value": 92843.89739266329,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 64,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 15305.049967041074,
+      "value": 85094.94654697804,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.004178305179572724,
+      "value": 0.0007496350468769372,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.003590793,
+      "value": 0.00063571,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.004514261,
+      "value": 0.000797919,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.006298616,
+      "value": 0.001134338,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.011746874,
+      "value": 0.002350633,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.017931707,
+      "value": 0.005875049,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 229630,
+      "value": 851227,
       "route": "POST:/user"
     },
     {
@@ -241,61 +283,79 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.017736009,
+      "value": 0.011053509000000001,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15003.544614,
+      "value": 10003.261469,
+      "route": "POST:/user"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_min",
+      "value": 83835.00635524112,
+      "route": "POST:/user"
+    },
+    {
+      "level": 64,
+      "label": "requests_per_s_max",
+      "value": 87695.70075854682,
+      "route": "POST:/user"
+    },
+    {
+      "level": 64,
+      "label": "repeats",
+      "value": 3,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 13293.657143787772,
+      "value": 109105.32169627376,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.019263117281625653,
+      "value": 0.002342695836290242,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.014240384,
+      "value": 0.002240489,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.020942661,
+      "value": 0.002395875,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.032838525,
+      "value": 0.002743937,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.068073137,
+      "value": 0.004454839,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.114331955,
+      "value": 0.009297772,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 199445,
+      "value": 1091662,
       "route": "GET:/"
     },
     {
@@ -313,67 +373,85 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.116738281,
+      "value": 0.012479407999999999,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15003.019698999999,
+      "value": 10005.579774,
+      "route": "GET:/"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_min",
+      "value": 108638.66734528792,
+      "route": "GET:/"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_max",
+      "value": 109914.59091139845,
+      "route": "GET:/"
+    },
+    {
+      "level": 256,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 9600.348907094673,
+      "value": 93539.06508882374,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.026684069251839426,
+      "value": 0.0027329531520156602,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.016464788,
+      "value": 0.002641046,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.032583276,
+      "value": 0.002812142,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.053075008,
+      "value": 0.003200813,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.111802888,
+      "value": 0.004902096,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.165099523,
+      "value": 0.01050469,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 144046,
+      "value": 935764,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_bytes_received",
-      "value": 287580,
+      "value": 1871018,
       "route": "GET:/user/42"
     },
     {
@@ -385,61 +463,79 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.166718268,
+      "value": 0.014263437,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15004.246345,
+      "value": 10003.991371,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_min",
+      "value": 81549.89053364139,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_max",
+      "value": 93754.60292967023,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 256,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 8772.922889968424,
+      "value": 93254.9446736376,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.029202050138191164,
+      "value": 0.002740647029123431,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.021219241,
+      "value": 0.002569773,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.039912702,
+      "value": 0.002805123,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.058994201,
+      "value": 0.003459702,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.082328011,
+      "value": 0.005766392,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.102783525,
+      "value": 0.015436172,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 131624,
+      "value": 933037,
       "route": "POST:/user"
     },
     {
@@ -457,61 +553,79 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.104486117,
+      "value": 0.027258449,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15003.437469,
+      "value": 10005.228175999999,
+      "route": "POST:/user"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_min",
+      "value": 90003.0088345853,
+      "route": "POST:/user"
+    },
+    {
+      "level": 256,
+      "label": "requests_per_s_max",
+      "value": 98136.30469796232,
+      "route": "POST:/user"
+    },
+    {
+      "level": 256,
+      "label": "repeats",
+      "value": 3,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 13501.936136733508,
+      "value": 92993.56719269654,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.037707729541795916,
+      "value": 0.005496647272519621,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.029266287,
+      "value": 0.005161454,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.038179813,
+      "value": 0.005711935,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.062585518,
+      "value": 0.006649575,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.135530981,
+      "value": 0.011804245,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.189800738,
+      "value": 0.027864971,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 202718,
+      "value": 930464,
       "route": "GET:/"
     },
     {
@@ -529,67 +643,85 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.179194077,
+      "value": 0.034478216,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15013.994878,
+      "value": 10005.681340000001,
+      "route": "GET:/"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_min",
+      "value": 92375.55554257183,
+      "route": "GET:/"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_max",
+      "value": 93601.48657977904,
+      "route": "GET:/"
+    },
+    {
+      "level": 512,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 9868.912254510344,
+      "value": 85982.93314059821,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.05181534064462251,
+      "value": 0.005945453841059738,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.042977657,
+      "value": 0.005764047,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.056670281,
+      "value": 0.006322091,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.087136666,
+      "value": 0.00716401,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.164120505,
+      "value": 0.00954196,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.218257313,
+      "value": 0.02421106,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 148123,
+      "value": 860370,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_bytes_received",
-      "value": 295224,
+      "value": 1719740,
       "route": "GET:/user/42"
     },
     {
@@ -601,61 +733,79 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.21216154599999998,
+      "value": 0.03118706,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15009.050256,
+      "value": 10006.288092,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_min",
+      "value": 84616.29927648461,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_max",
+      "value": 86872.67215337692,
+      "route": "GET:/user/42"
+    },
+    {
+      "level": 512,
+      "label": "repeats",
+      "value": 3,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 14768.121980936463,
+      "value": 89897.06542870513,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.034639962029829545,
+      "value": 0.005684693107589455,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.028805019,
+      "value": 0.005494593,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.035425352,
+      "value": 0.006044583,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.055775158,
+      "value": 0.006829629,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.108310142,
+      "value": 0.008962848,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.165761392,
+      "value": 0.030644526,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 221638,
+      "value": 899569,
       "route": "POST:/user"
     },
     {
@@ -673,620 +823,32 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.150658315,
+      "value": 0.034438018,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15007.866287,
+      "value": 10006.667022,
+      "route": "POST:/user"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_min",
+      "value": 89245.44321238986,
+      "route": "POST:/user"
+    },
+    {
+      "level": 512,
+      "label": "requests_per_s_max",
+      "value": 90194.1562269431,
+      "route": "POST:/user"
+    },
+    {
+      "level": 512,
+      "label": "repeats",
+      "value": 3,
       "route": "POST:/user"
     }
-  ],
-  "upstreamReference": {
-    "note": "Upstream the-benchmarker/web-frameworks published results for a curated peer set, blended across the shared routes on the upstream CI machine. Shown for context only — different hardware than the same-machine runs; compare shapes/orders of magnitude.",
-    "source": "https://github.com/the-benchmarker/web-frameworks (data.min.json)",
-    "frameworks": [
-      {
-        "label": "agoo-c",
-        "language": "c",
-        "website": "https://github.com/ohler55/agoo-c",
-        "byLevel": {
-          "64": {
-            "avg": 0.00030093333333333335,
-            "p50": 0.0003356666666666667,
-            "p99": 0.0006196666666666667,
-            "rps": 212446
-          },
-          "256": {
-            "avg": 0.0010677666666666667,
-            "p50": 0.0010136666666666666,
-            "p99": 0.0017233333333333332,
-            "rps": 206104
-          },
-          "512": {
-            "avg": 0.0016761,
-            "p50": 0.0016396666666666667,
-            "p99": 0.0028483333333333334,
-            "rps": 182426
-          }
-        }
-      },
-      {
-        "label": "axum",
-        "language": "rust",
-        "website": "http://actix.rs",
-        "byLevel": {
-          "64": {
-            "avg": 0.00035196666666666664,
-            "p50": 0.00032733333333333334,
-            "p99": 0.0008226666666666666,
-            "rps": 181321
-          },
-          "256": {
-            "avg": 0.0016596666666666667,
-            "p50": 0.0016316666666666667,
-            "p99": 0.002617,
-            "rps": 153599
-          },
-          "512": {
-            "avg": 0.003034966666666667,
-            "p50": 0.0027103333333333333,
-            "p99": 0.0036483333333333333,
-            "rps": 144808
-          }
-        }
-      },
-      {
-        "label": "elysia-bun",
-        "language": "javascript",
-        "website": "https://elysiajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0003377666666666667,
-            "p50": 0.000322,
-            "p99": 0.0005976666666666667,
-            "rps": 178846
-          },
-          "256": {
-            "avg": 0.0012727333333333332,
-            "p50": 0.0010323333333333332,
-            "p99": 0.0021506666666666666,
-            "rps": 153232
-          },
-          "512": {
-            "avg": 0.0012315,
-            "p50": 0.000921,
-            "p99": 0.0021073333333333335,
-            "rps": 154326
-          }
-        }
-      },
-      {
-        "label": "uwebsockets",
-        "language": "javascript",
-        "website": "https://totaljs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0003224,
-            "p50": 0.000334,
-            "p99": 0.0005086666666666667,
-            "rps": 172563
-          },
-          "256": {
-            "avg": 0.0012448666666666666,
-            "p50": 0.000944,
-            "p99": 0.0023623333333333335,
-            "rps": 148573
-          },
-          "512": {
-            "avg": 0.0010438666666666666,
-            "p50": 0.0007183333333333333,
-            "p99": 0.002366333333333333,
-            "rps": 155048
-          }
-        }
-      },
-      {
-        "label": "actix",
-        "language": "rust",
-        "website": "http://actix.rs",
-        "byLevel": {
-          "64": {
-            "avg": 0.00031256666666666666,
-            "p50": 0.000311,
-            "p99": 0.0005353333333333333,
-            "rps": 172146
-          },
-          "256": {
-            "avg": 0.0011855666666666666,
-            "p50": 0.0008123333333333333,
-            "p99": 0.0023636666666666667,
-            "rps": 150754
-          },
-          "512": {
-            "avg": 0.0012401333333333332,
-            "p50": 0.0009216666666666667,
-            "p99": 0.002429,
-            "rps": 146157
-          }
-        }
-      },
-      {
-        "label": "vertx",
-        "language": "java",
-        "website": "https://vertx.io/docs/vertx-core/java/",
-        "byLevel": {
-          "64": {
-            "avg": 0.00038236666666666667,
-            "p50": 0.000368,
-            "p99": 0.0006026666666666667,
-            "rps": 166709
-          },
-          "256": {
-            "avg": 0.0017090333333333334,
-            "p50": 0.001744,
-            "p99": 0.0023803333333333333,
-            "rps": 142038
-          },
-          "512": {
-            "avg": 0.0017886,
-            "p50": 0.0017423333333333334,
-            "p99": 0.002689,
-            "rps": 138415
-          }
-        }
-      },
-      {
-        "label": "bun",
-        "language": "javascript",
-        "website": "https://adonisjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004114,
-            "p50": 0.00038666666666666667,
-            "p99": 0.000828,
-            "rps": 153138
-          },
-          "256": {
-            "avg": 0.0015468666666666668,
-            "p50": 0.001319,
-            "p99": 0.0028636666666666667,
-            "rps": 129263
-          },
-          "512": {
-            "avg": 0.0015354666666666666,
-            "p50": 0.00143,
-            "p99": 0.002603,
-            "rps": 129753
-          }
-        }
-      },
-      {
-        "label": "fasthttp",
-        "language": "go",
-        "website": "https://pkg.go.dev/github.com/valyala/fasthttp",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004185666666666667,
-            "p50": 0.0003373333333333333,
-            "p99": 0.0037256666666666666,
-            "rps": 152619
-          },
-          "256": {
-            "avg": 0.0019569,
-            "p50": 0.0017776666666666668,
-            "p99": 0.005423333333333333,
-            "rps": 130498
-          },
-          "512": {
-            "avg": 0.0038467666666666665,
-            "p50": 0.0035236666666666667,
-            "p99": 0.023592,
-            "rps": 132492
-          }
-        }
-      },
-      {
-        "label": "hyper-express",
-        "language": "javascript",
-        "website": "https://hono.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.00038596666666666665,
-            "p50": 0.00037966666666666666,
-            "p99": 0.0005576666666666667,
-            "rps": 146615
-          },
-          "256": {
-            "avg": 0.0014119666666666667,
-            "p50": 0.000989,
-            "p99": 0.002323,
-            "rps": 130453
-          },
-          "512": {
-            "avg": 0.0015612,
-            "p50": 0.0012796666666666666,
-            "p99": 0.002297,
-            "rps": 126783
-          }
-        }
-      },
-      {
-        "label": "gin",
-        "language": "go",
-        "website": "https://gin-gonic.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004848000000000001,
-            "p50": 0.0004583333333333333,
-            "p99": 0.0013943333333333334,
-            "rps": 131788
-          },
-          "256": {
-            "avg": 0.002274,
-            "p50": 0.0022756666666666667,
-            "p99": 0.003355,
-            "rps": 111955
-          },
-          "512": {
-            "avg": 0.0040895666666666665,
-            "p50": 0.003621,
-            "p99": 0.004699333333333333,
-            "rps": 109969
-          }
-        }
-      },
-      {
-        "label": "fastify",
-        "language": "javascript",
-        "website": "https://fastify.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0005979333333333333,
-            "p50": 0.0005796666666666667,
-            "p99": 0.0012013333333333333,
-            "rps": 104443
-          },
-          "256": {
-            "avg": 0.002088,
-            "p50": 0.0017846666666666666,
-            "p99": 0.0029863333333333335,
-            "rps": 97201
-          },
-          "512": {
-            "avg": 0.0023786666666666665,
-            "p50": 0.001632,
-            "p99": 0.003837,
-            "rps": 98680
-          }
-        }
-      },
-      {
-        "label": "hono-node",
-        "language": "javascript",
-        "website": "https://hono.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006355999999999999,
-            "p50": 0.0006053333333333334,
-            "p99": 0.0013563333333333333,
-            "rps": 100055
-          },
-          "256": {
-            "avg": 0.0022953,
-            "p50": 0.0020626666666666666,
-            "p99": 0.003079,
-            "rps": 94450
-          },
-          "512": {
-            "avg": 0.0024626,
-            "p50": 0.0018273333333333334,
-            "p99": 0.0038423333333333335,
-            "rps": 95190
-          }
-        }
-      },
-      {
-        "label": "h3",
-        "language": "javascript",
-        "website": "https://foxify.js.org",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006304333333333333,
-            "p50": 0.0006013333333333333,
-            "p99": 0.001363,
-            "rps": 99613
-          },
-          "256": {
-            "avg": 0.0022307333333333335,
-            "p50": 0.00198,
-            "p99": 0.0030396666666666666,
-            "rps": 96893
-          },
-          "512": {
-            "avg": 0.002421,
-            "p50": 0.0016053333333333334,
-            "p99": 0.0039503333333333335,
-            "rps": 95657
-          }
-        }
-      },
-      {
-        "label": "spring",
-        "language": "java",
-        "website": "https://spring.io/projects/spring-boot",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006242,
-            "p50": 0.0005743333333333334,
-            "p99": 0.001649,
-            "rps": 98622
-          },
-          "256": {
-            "avg": 0.0016669333333333334,
-            "p50": 0.0016693333333333334,
-            "p99": 0.003347,
-            "rps": 97991
-          },
-          "512": {
-            "avg": 0.0016688666666666667,
-            "p50": 0.001673,
-            "p99": 0.003572333333333333,
-            "rps": 97611
-          }
-        }
-      },
-      {
-        "label": "koa",
-        "language": "javascript",
-        "website": "https://koajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007064333333333333,
-            "p50": 0.0006546666666666667,
-            "p99": 0.001784,
-            "rps": 90414
-          },
-          "256": {
-            "avg": 0.0024687333333333335,
-            "p50": 0.0023436666666666666,
-            "p99": 0.003427,
-            "rps": 85075
-          },
-          "512": {
-            "avg": 0.0025826666666666667,
-            "p50": 0.002359,
-            "p99": 0.003894,
-            "rps": 84699
-          }
-        }
-      },
-      {
-        "label": "elysia-node",
-        "language": "javascript",
-        "website": "https://elysiajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007154,
-            "p50": 0.00066,
-            "p99": 0.0018833333333333334,
-            "rps": 89571
-          },
-          "256": {
-            "avg": 0.0028195,
-            "p50": 0.002703333333333333,
-            "p99": 0.0035643333333333334,
-            "rps": 84693
-          },
-          "512": {
-            "avg": 0.0026574,
-            "p50": 0.002576,
-            "p99": 0.003869333333333333,
-            "rps": 84000
-          }
-        }
-      },
-      {
-        "label": "express",
-        "language": "javascript",
-        "website": "https://expressjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007425333333333333,
-            "p50": 0.000674,
-            "p99": 0.002054,
-            "rps": 86089
-          },
-          "256": {
-            "avg": 0.002614166666666667,
-            "p50": 0.0026596666666666665,
-            "p99": 0.003928666666666666,
-            "rps": 82716
-          },
-          "512": {
-            "avg": 0.0029413,
-            "p50": 0.003092,
-            "p99": 0.004210666666666666,
-            "rps": 81514
-          }
-        }
-      },
-      {
-        "label": "nestjs-express",
-        "language": "javascript",
-        "website": "https://nestjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0010199,
-            "p50": 0.000838,
-            "p99": 0.004222,
-            "rps": 63262
-          },
-          "256": {
-            "avg": 0.003992,
-            "p50": 0.0036883333333333334,
-            "p99": 0.011196666666666667,
-            "rps": 64013
-          },
-          "512": {
-            "avg": 0.0069226,
-            "p50": 0.006272666666666667,
-            "p99": 0.020832,
-            "rps": 63496
-          }
-        }
-      },
-      {
-        "label": "fastify-bun",
-        "language": "javascript",
-        "website": "https://fastify.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0011941333333333332,
-            "p50": 0.0011136666666666667,
-            "p99": 0.0021496666666666665,
-            "rps": 53568
-          },
-          "256": {
-            "avg": 0.005151033333333333,
-            "p50": 0.004902,
-            "p99": 0.007574,
-            "rps": 49627
-          },
-          "512": {
-            "avg": 0.010278366666666667,
-            "p50": 0.010102666666666666,
-            "p99": 0.01366,
-            "rps": 49682
-          }
-        }
-      },
-      {
-        "label": "fastapi",
-        "language": "python",
-        "website": "http://fastapi.tiangolo.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0015290333333333333,
-            "p50": 0.001241,
-            "p99": 0.004868666666666667,
-            "rps": 42276
-          },
-          "256": {
-            "avg": 0.0051706,
-            "p50": 0.0045446666666666665,
-            "p99": 0.017312,
-            "rps": 49922
-          },
-          "512": {
-            "avg": 0.009900533333333334,
-            "p50": 0.008732666666666666,
-            "p99": 0.03824533333333333,
-            "rps": 52028
-          }
-        }
-      },
-      {
-        "label": "rails",
-        "language": "ruby",
-        "website": "http://rubyonrails.org",
-        "byLevel": {
-          "64": {
-            "avg": 0.003870233333333334,
-            "p50": 0.0028803333333333333,
-            "p99": 0.016865333333333333,
-            "rps": 16663
-          },
-          "256": {
-            "avg": 0.014482733333333334,
-            "p50": 0.013310666666666667,
-            "p99": 0.042021333333333334,
-            "rps": 17793
-          },
-          "512": {
-            "avg": 0.028870166666666666,
-            "p50": 0.026861333333333334,
-            "p99": 0.07034666666666667,
-            "rps": 17820
-          }
-        }
-      },
-      {
-        "label": "flask",
-        "language": "python",
-        "website": "http://www.palletsprojects.com/p/flask/",
-        "byLevel": {
-          "64": {
-            "avg": 0.012226666666666665,
-            "p50": 0.011220666666666667,
-            "p99": 0.036366666666666665,
-            "rps": 7583
-          },
-          "256": {
-            "avg": 0.040558866666666665,
-            "p50": 0.009309333333333333,
-            "p99": 0.28808533333333336,
-            "rps": 8953
-          },
-          "512": {
-            "avg": 0.08111503333333334,
-            "p50": 0.04986666666666666,
-            "p99": 0.41390933333333335,
-            "rps": 8308
-          }
-        }
-      },
-      {
-        "label": "laravel",
-        "language": "php",
-        "website": "http://laravel.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.017281366666666666,
-            "p50": 0.016776,
-            "p99": 0.025544,
-            "rps": 3734
-          },
-          "256": {
-            "avg": 0.0649383,
-            "p50": 0.06406933333333334,
-            "p99": 0.08122666666666667,
-            "rps": 3924
-          },
-          "512": {
-            "avg": 0.13024036666666666,
-            "p50": 0.12946133333333334,
-            "p99": 0.15848533333333334,
-            "rps": 3894
-          }
-        }
-      },
-      {
-        "label": "django",
-        "language": "python",
-        "website": "http://djangoproject.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.037815433333333336,
-            "p50": 0.031289333333333336,
-            "p99": 0.149024,
-            "rps": 1475
-          },
-          "256": {
-            "avg": 0.07527516666666667,
-            "p50": 0.038786666666666664,
-            "p99": 0.3433173333333333,
-            "rps": 4525
-          },
-          "512": {
-            "avg": 0.2606754,
-            "p50": 0.17570933333333333,
-            "p99": 1.06912,
-            "rps": 4407
-          }
-        }
-      }
-    ]
-  }
+  ]
 }
