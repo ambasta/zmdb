@@ -48,7 +48,7 @@ grammar. If a query has to behave the same on all six, that difference is worth 
 Postgres has a lot the builder does not model. All of them work through [raw SQL](./raw-sql.html):
 
 - `ON CONFLICT` — see [Upsert](./upsert.html)
-- `JSONB` operators (`->>`, `@>`, `?`) — see [JSON Properties](./json-properties.html)
+- `JSONB` operators (`->>`, `@>`, `?`) — via `unsafeOperator('@>')`, see [JSON Properties](./json-properties.html)
 - full-text search with `tsvector` — see [Full-Text Search](./full-text-search.html)
 - window functions, recursive CTEs, `LATERAL`
 - `FOR UPDATE SKIP LOCKED` — raw SQL only; the [Transactional Outbox](./transactional-outbox.html) deliberately uses a portable conditional lease update instead
