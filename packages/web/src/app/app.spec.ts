@@ -187,6 +187,17 @@ describe('@zmdb/web app: createApp', () => {
 
     expect(checks).toEqual([true, false]);
   });
+
+  it('configures security headers and CORS in createApp', async () => {
+    const app = createApp(AppModule, {
+      security: true,
+      cors: { origin: 'https://app.com' },
+    });
+    const res = await app.handle({ method: 'GET', path: '/ping', headers: { origin: 'https://app.com' } });
+    expect(res.status).toBe(200);
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['access-control-allow-origin']).toBe('https://app.com');
+  });
 });
 
 function orderId(raw: unknown): number {
