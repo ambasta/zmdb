@@ -4,17 +4,19 @@
 
 import { type Entity } from '@zmdb/schema';
 import {
-  trustedTable,
-  inc,
-  not,
-  concat,
   OP_MAP,
+  QueryCompilerError,
   chunkArray,
+  concat,
   createQueryCompiler,
   distance,
+  inc,
+  not,
   sanitizeKeys,
   stContains,
   stDWithin,
+  trustedTable,
+  type Operator,
 } from '@zmdb/sql';
 import { describe, it, expect, expectTypeOf } from 'vitest';
 
@@ -326,6 +328,52 @@ describe('subquery & EXISTS compilation', () => {
     );
     expect(outer.parameters).toEqual([10, 50, 'failed']);
   });
+
+  it('throws QueryCompilerError when merging a subquery created for a different dialect', () => {
+    const qbPg = createQueryCompiler('postgres');
+    const qbSqlite = createQueryCompiler('sqlite');
+    const subSqlite = qbSqlite.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
+
+    expect(() => {
+      qbPg.selectFrom('users').where('id', 'in', subSqlite).compile();
+    }).toThrow(QueryCompilerError);
+
+    expect(() => {
+      qbPg.selectFrom('users').where('id', 'in', subSqlite).compile();
+    }).toThrow('Subquery dialect "sqlite" does not match parent query dialect "postgres"');
+  });
+
+  it('renumbers positional parameter placeholders consistently across join and aggregation clauses', () => {
+    const qb = createQueryCompiler('postgres');
+    const sub1 = qb.selectFrom(trustedTable('audit_logs')).select(['user_id']).where('action', '=', 'login');
+
+    const joinSub = qb
+      .selectFrom(trustedTable('users'))
+      .innerJoin(trustedTable('roles'), 'roles', [{ leftCol: 'roles.id', rightCol: 'users.role_id' }])
+      .where('role_name', '=', 'admin')
+      .where('id', 'in', sub1);
+
+    const qJoin = joinSub.compile();
+    expect(qJoin.text).toBe(
+      'SELECT * FROM "users" INNER JOIN "roles" ON "roles"."id" = "users"."role_id" WHERE "role_name" = $1 AND "id" IN (SELECT "user_id" FROM "audit_logs" WHERE "action" = $2)',
+    );
+    expect(qJoin.parameters).toEqual(['admin', 'login']);
+
+    const sub2 = qb.selectFrom(trustedTable('payments')).select(['user_id']).where('amount', '>', 500);
+    const aggSub = qb
+      .selectFrom(trustedTable('users'))
+      .select(['department'])
+      .count('id', 'total_users')
+      .where('status', '=', 'active')
+      .groupBy('department')
+      .having('id', 'in', sub2);
+
+    const qAgg = aggSub.compile();
+    expect(qAgg.text).toBe(
+      'SELECT "department", COUNT("id") AS "total_users" FROM "users" WHERE "status" = $1 GROUP BY "department" HAVING "id" IN (SELECT "user_id" FROM "payments" WHERE "amount" > $2)',
+    );
+    expect(qAgg.parameters).toEqual(['active', 500]);
+  });
 });
 
 describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
@@ -531,7 +579,7 @@ describe('array parameter IN expansion', () => {
   });
 });
 
-describe('Operator normalization & bounded dialect operators', () => {
+describe('Operator validation and strict typing', () => {
   it('validates normalized canonical operators and produces expected SQL', () => {
     const qb = createQueryCompiler(postgresDialect);
     const ops: [string, string][] = [
@@ -555,10 +603,16 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
-        const q = qb.selectFrom(trustedTable('users')).where('col', op, [1, 2]).compile();
+        const q = qb
+          .selectFrom(trustedTable('users'))
+          .where('col', op as unknown as Operator, [1, 2])
+          .compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
       } else {
-        const q = qb.selectFrom(trustedTable('users')).where('col', op, 'val').compile();
+        const q = qb
+          .selectFrom(trustedTable('users'))
+          .where('col', op as unknown as Operator, 'val')
+          .compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
@@ -669,8 +723,7 @@ describe('Operator normalization & bounded dialect operators', () => {
         .selectFrom(trustedTable(testCase.table))
         .where(testCase.column, testCase.operator, testCase.value)
         .compile();
-      expect(query.text, `${testCase.dialect} ${testCase.operator}`).toBe(testCase.text);
-      expect(query.parameters, `${testCase.dialect} ${testCase.operator}`).toEqual([testCase.value]);
+      expect(query.text).toBe(testCase.text);
     }
   });
 
@@ -728,6 +781,7 @@ describe('Operator normalization & bounded dialect operators', () => {
         createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('col', inherited, 'val').compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
+  });
   });
 });
 

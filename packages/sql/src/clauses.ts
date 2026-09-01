@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import type { QueryEffects } from './compiled-query.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -16,7 +17,6 @@ import type { QueryEffects } from './compiled-query.js';
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
 import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
   encodePgVector,
@@ -24,7 +24,7 @@ import {
   renderSpatialPredicate,
   type SpatialPredicateNode,
 } from './extensions/index.js';
-import { type CompiledQuery, type QueryTelemetry } from './index.js';
+import { type CompiledQuery, type Operator, type QueryTelemetry } from './index.js';
 
 /** One compile traversal accumulates nested primary requirements alongside parameters. */
 export interface EffectState {
@@ -62,7 +62,7 @@ export interface JoinSpec {
 export interface ComparisonPredicate {
   readonly kind?: 'comparison';
   readonly col: string;
-  readonly op: string;
+  readonly op: Operator | string;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR' | undefined;
 }
@@ -119,6 +119,8 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
     nin: 'NOT IN',
     exists: 'EXISTS',
     'not exists': 'NOT EXISTS',
+    is: 'IS',
+    'is not': 'IS NOT',
     'is null': 'IS NULL',
     'is not null': 'IS NOT NULL',
     ...DISTANCE_OPERATORS,
@@ -142,15 +144,13 @@ function isUnmappedOperatorToken(op: string, dialect: DialectTarget): boolean {
   return dialectTraits(dialect).acceptsOperator(op);
 }
 
-/**
- * Anything with a `compile()` — a builder from this package, or a caller's own.
- *
- * boundary: the cast is inside the guard that the rest of the package relies on, and it
- * reads the one property the `in` check on the line above has just proven is there. Its
- * type is `unknown`, so the `typeof` is what establishes anything; a narrower cast would be
- * the claim this function exists to test.
- */
-export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
+export interface SubqueryTarget {
+  compile(): CompiledQuery;
+  readonly dialect?: DialectTarget | undefined;
+}
+
+/** Anything with a `compile()` — a builder from this package, or a caller's own. */
+export function isSubqueryTarget(value: unknown): value is SubqueryTarget {
   return (
     value !== null &&
     typeof value === 'object' &&
@@ -160,28 +160,47 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 }
 
 /**
- * Normalizes known operators to canonical SQL keywords and admits an unmapped
- * operator only when it is one bounded SQL token.
+ * Normalizes supported operators to canonical SQL keywords.
+ * Throws QueryCompilerError for invalid or unsupported operators.
  */
 export function sqlOperator(op: string, dialect: DialectTarget): string {
   const normalized = op.toLowerCase().trim();
   if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
     throw new UnsupportedFeatureError(normalized, dialectName(dialect));
   }
-  // A plain index read, and no own-property guard: `OP_MAP` has a null prototype, so
-  // `OP_MAP['constructor']` is already `undefined` rather than a function off
-  // `Object.prototype`. That is what makes `??` safe here, and it is why the map is built
-  // the way it is.
   const mapped = OP_MAP[normalized];
   if (mapped !== undefined) return mapped;
-  if (!isUnmappedOperatorToken(op, dialect)) {
-    const name = dialectName(dialect);
-    throw new TypeError(
-      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(name)}; expected ` +
-        'one non-comment operator token that does not conflict with the dialect placeholder syntax',
+  throw new QueryCompilerError(`Invalid query operator "${op}"`);
+}
+
+/**
+ * Single shared routine for subquery compilation, dialect validation,
+ * parameter merging, and positional parameter offset calculation.
+ */
+export function processSubquery(
+  parentDialect: DialectTarget,
+  target: SubqueryTarget,
+  params: unknown[],
+  effects?: EffectState,
+): { sql: string } {
+  if (
+    target.dialect !== undefined &&
+    dialectName(target.dialect) !== dialectName(parentDialect)
+  ) {
+    throw new QueryCompilerError(
+      `Subquery dialect "${dialectName(target.dialect)}" does not match parent query dialect "${dialectName(parentDialect)}"`,
     );
   }
-  return op;
+
+  const compiled = target.compile();
+  if (compiled.effects?.requiresPrimary && effects !== undefined) {
+    effects.requiresPrimary = true;
+  }
+  const offset = params.length;
+  const sql = renumberPlaceholders(compiled.text, offset, parentDialect);
+  params.push(...compiled.parameters);
+
+  return { sql };
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
@@ -232,16 +251,11 @@ export function renderPredicate(
   }
 
   if (isSubqueryTarget(p.value)) {
-    const sub = p.value.compile();
-    if (sub.effects.requiresPrimary && effects !== undefined) effects.requiresPrimary = true;
-    // Continue the outer statement's numbering. Positional placeholders are a
-    // no-op here, so the order of the pushes below is what matters.
-    const text = renumberPlaceholders(sub.text, params.length, dialect);
-    params.push(...sub.parameters);
+    const { sql } = processSubquery(dialect, p.value, params, effects);
 
-    if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
-    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    return `${column} ${sqlOp} (${text})`;
+    if (sqlOp === 'EXISTS') return `EXISTS (${sql})`;
+    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${sql})`;
+    return `${column} ${sqlOp} (${sql})`;
   }
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {

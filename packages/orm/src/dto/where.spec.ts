@@ -6,7 +6,7 @@ import { compileWhere, type WhereTarget } from '@zmdb/orm/dto';
 import { postgres } from '@zmdb/postgres';
 import { type WhereDTO } from '@zmdb/schema/dto';
 import { type Ext, type Sql, type Table } from '@zmdb/schema/tags';
-import { trustedTable, createQueryCompiler } from '@zmdb/sql';
+import { trustedTable, createQueryCompiler, type Operator } from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
 import { describe, it, expect } from 'vitest';
 
@@ -16,8 +16,8 @@ import type { User } from '../../../schema/src/dto/fixtures.js';
 function recorder() {
   const calls: [string, string, string, unknown][] = [];
   interface B {
-    where(c: string, o: string, v: unknown): B;
-    orWhere(c: string, o: string, v: unknown): B;
+    where(c: string, o: Operator, v: unknown): B;
+    orWhere(c: string, o: Operator, v: unknown): B;
     whereExists?(sub: unknown): B;
     orWhereExists?(sub: unknown): B;
     whereNotExists?(sub: unknown): B;
