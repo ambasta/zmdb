@@ -90,7 +90,7 @@ The library gives you the things that are reusable without choosing application 
 - **`toolFromSchema(name, schema, opts)`** — the unchanged provider-neutral JSON Schema form
 - **`langchainTool(...)`** — optional `@langchain/core` tool fields with validation before dispatch
 - **`aiSdkTool(...)`** — optional Vercel AI SDK tool fields using the SDK's own `jsonSchema`
-- **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
+- **`lenientParse(text, coerce)`** — recovery from model output formatting issues with mandatory validation callback for typed parsing
 - **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
 - **`anthropicDriver(opts)` from `@zmdb/ai-anthropic`** — a thin adapter over an injected optional Anthropic SDK client
