@@ -34,6 +34,7 @@ export {
   serializeComment,
   stContains,
   stDWithin,
+  windowFunction,
   withComments,
 } from '@zmdb/query-compiler';
 export type {

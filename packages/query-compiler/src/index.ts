@@ -1,5 +1,6 @@
 import type { CompiledQuery } from './compiled-query.js';
 // @zmdb/query-compiler — implementation.
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   dialectName,
   dialectTraits,
@@ -8,8 +9,6 @@ import {
   type ReturningStatement,
   type SqlDialect,
 } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
-
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
 export {
@@ -84,6 +83,7 @@ export type {
 
 import {
   frozenQuery,
+  isSubqueryTarget,
   queryTelemetry,
   tailClause,
   tailMethods,
@@ -150,11 +150,156 @@ export interface AliasedColumn {
   readonly alias: string;
 }
 
-type SelectedColumn = string | AliasedColumn | AliasedDistanceExpression;
-type ReturningColumn = string | AliasedColumn;
+export interface WindowProjectionNode {
+  readonly kind: 'window';
+  readonly functionName: string;
+  readonly args?: readonly string[];
+  readonly partitionBy?: readonly string[];
+  readonly orderBys?: readonly { col: string; dir: Direction }[];
+  readonly alias?: string;
+}
 
-function isAliasedColumn(column: SelectedColumn | ReturningColumn): column is AliasedColumn {
-  return typeof column === 'object' && 'column' in column && 'alias' in column;
+export interface WindowFunctionBuilder {
+  readonly kind: 'window';
+  functionName(fn: string): WindowFunctionBuilder;
+  args(...args: string[]): WindowFunctionBuilder;
+  partitionBy(...cols: (string | readonly string[])[]): WindowFunctionBuilder;
+  orderBy(col: string, dir?: Direction): WindowFunctionBuilder;
+  as(alias: string): WindowFunctionBuilder;
+  toNode(): WindowProjectionNode;
+  compile(dialect: Dialect): string;
+}
+
+export type ProjectionItem =
+  | string
+  | AliasedColumn
+  | WindowProjectionNode
+  | WindowFunctionBuilder
+  | AliasedDistanceExpression;
+
+export type SelectedColumn = ProjectionItem;
+export type ReturningColumn = string | AliasedColumn;
+
+function isAliasedColumn(column: unknown): column is AliasedColumn {
+  return typeof column === 'object' && column !== null && 'column' in column && 'alias' in column;
+}
+
+export type SubqueryInput =
+  | SelectBuilder<unknown>
+  | { compile(): CompiledQuery }
+  | ((builder: QueryCompiler) => SelectBuilder<unknown> | { compile(): CompiledQuery });
+
+export interface CteSpec {
+  readonly name: string;
+  readonly subquery: SubqueryInput;
+  readonly recursive?: boolean;
+}
+
+const SUPPORTED_DIALECTS: ReadonlySet<Dialect> = new Set(['postgres', 'mysql', 'sqlite']);
+
+export function checkDialectCapability(dialect: Dialect, feature: string): void {
+  if (!SUPPORTED_DIALECTS.has(dialect)) {
+    throw new UnsupportedFeatureError(feature, dialect);
+  }
+}
+
+export function isWindowProjectionNode(value: unknown): value is WindowProjectionNode {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    (value as { kind?: string }).kind === 'window' &&
+    typeof (value as { functionName?: unknown }).functionName === 'string'
+  );
+}
+
+export function isWindowFunctionBuilder(value: unknown): value is WindowFunctionBuilder {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    (value as { kind?: string }).kind === 'window' &&
+    typeof (value as { toNode?: unknown }).toNode === 'function'
+  );
+}
+
+export function assertNoWindowFunction(value: unknown, context: string): void {
+  if (isWindowProjectionNode(value) || isWindowFunctionBuilder(value)) {
+    throw new QueryCompilerError(`Window functions are restricted to projection selection lists (${context})`);
+  }
+  if (typeof value === 'string' && /\bOVER\s*\(/i.test(value)) {
+    throw new QueryCompilerError(`Window functions are restricted to projection selection lists (${context})`);
+  }
+}
+
+export function renderWindowProjectionNode(d: Dialect, item: WindowProjectionNode | WindowFunctionBuilder): string {
+  const node = isWindowFunctionBuilder(item) ? item.toNode() : item;
+  const fnName = node.functionName.toUpperCase();
+
+  let argsSql = '';
+  if (node.args && node.args.length > 0) {
+    argsSql = node.args.map(a => (a === '*' ? '*' : quoteColumn(d, a))).join(', ');
+  }
+
+  const overParts: string[] = [];
+  if (node.partitionBy && node.partitionBy.length > 0) {
+    const partitions = node.partitionBy.map(p => quoteColumn(d, p)).join(', ');
+    overParts.push(`PARTITION BY ${partitions}`);
+  }
+  if (node.orderBys && node.orderBys.length > 0) {
+    const orders = node.orderBys.map(o => `${quoteColumn(d, o.col)} ${o.dir.toUpperCase()}`).join(', ');
+    overParts.push(`ORDER BY ${orders}`);
+  }
+
+  const overClause = overParts.length > 0 ? `OVER (${overParts.join(' ')})` : 'OVER ()';
+  const sql = `${fnName}(${argsSql}) ${overClause}`;
+
+  if (node.alias) {
+    return `${sql} AS ${quoteIdentifier(d, node.alias)}`;
+  }
+  return sql;
+}
+
+export function windowFunction(fnName: string, args: readonly string[] = []): WindowFunctionBuilder {
+  let node: WindowProjectionNode = {
+    kind: 'window',
+    functionName: fnName,
+    args: [...args],
+    partitionBy: [],
+    orderBys: [],
+  };
+
+  const builder: WindowFunctionBuilder = {
+    kind: 'window',
+    functionName(fn: string) {
+      node = { ...node, functionName: fn };
+      return builder;
+    },
+    args(...a: string[]) {
+      node = { ...node, args: a };
+      return builder;
+    },
+    partitionBy(...cols: (string | readonly string[])[]) {
+      const flattened = cols.flatMap(c => (Array.isArray(c) ? c : [c]));
+      node = { ...node, partitionBy: [...(node.partitionBy ?? []), ...flattened] };
+      return builder;
+    },
+    orderBy(col: string, dir: Direction = 'asc') {
+      node = { ...node, orderBys: [...(node.orderBys ?? []), { col, dir }] };
+      return builder;
+    },
+    as(alias: string) {
+      node = { ...node, alias };
+      return builder;
+    },
+    toNode() {
+      return node;
+    },
+    compile(d: Dialect) {
+      return renderWindowProjectionNode(d, node);
+    },
+  };
+
+  return builder;
+}
 }
 
 /**
@@ -198,8 +343,9 @@ export interface QueryCompilerOptions {
 }
 
 interface SelectState {
+  readonly ctes?: readonly CteSpec[];
   readonly table: string;
-  readonly columns?: readonly SelectedColumn[];
+  readonly columns?: readonly ProjectionItem[];
   readonly wheres: readonly Predicate[];
   readonly orderBys: readonly { col: string | DistanceExpression; dir: Direction }[];
   readonly limitN?: number;
@@ -207,13 +353,16 @@ interface SelectState {
 }
 
 export interface SelectBuilder<T = unknown> {
-  select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
+  with(name: string, subquery: SubqueryInput): SelectBuilder<T>;
+  withRecursive(name: string, subquery: SubqueryInput): SelectBuilder<T>;
+  select(columns?: readonly ProjectionItem[]): SelectBuilder<T>;
+  selectWindow(windowFn: WindowFunctionBuilder | WindowProjectionNode): SelectBuilder<T>;
   where(predicate: SpatialPredicate): SelectBuilder<T>;
-  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  where(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
   andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
   orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
   whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -238,32 +387,48 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
-    next({ wheres: [...state.wheres, { col, op, value, connector }] });
+
+  const addWhere = (connector: 'AND' | 'OR', col: string | ProjectionItem, op: Operator, value: unknown) => {
+    assertNoWindowFunction(col, 'WHERE clause');
+    assertNoWindowFunction(value, 'WHERE clause');
+    return next({ wheres: [...state.wheres, { col: String(col), op, value, connector }] });
+  };
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
   const addGroup = (connector: 'AND' | 'OR', predicates: readonly ComparisonPredicate[]) =>
     next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
-  function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function where(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function where(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
+  function where(
+    first: string | ProjectionItem | SpatialPredicate,
+    op?: Operator,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function andWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function andWhere(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
+  function andWhere(
+    first: string | ProjectionItem | SpatialPredicate,
+    op?: Operator,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('andWhere(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function orWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function orWhere(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
+  function orWhere(
+    first: string | ProjectionItem | SpatialPredicate,
+    op?: Operator,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('OR', first);
     if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
     return addWhere('OR', first, op, value);
@@ -272,18 +437,39 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
   return {
     ...tailMethods(state, next),
     dialect: d,
+    with: (name, subquery) => next({ ctes: [...(state.ctes ?? []), { name, subquery }] }),
+    withRecursive: (name, subquery) => next({ ctes: [...(state.ctes ?? []), { name, subquery, recursive: true }] }),
     select: columns => (columns === undefined ? next({}) : next({ columns })),
+    selectWindow: windowFn => next({ columns: [...(state.columns ?? []), windowFn] }),
     where,
     andWhere,
     orWhere,
     whereGroup: predicates => addGroup('AND', predicates),
     orWhereGroup: predicates => addGroup('OR', predicates),
-    whereIn: (col, values) => addWhere('AND', col, 'in', values),
-    andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
-    orWhereIn: (col, values) => addWhere('OR', col, 'in', values),
-    whereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
-    andWhereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
-    orWhereNotIn: (col, values) => addWhere('OR', col, 'not in', values),
+    whereIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE IN clause');
+      return addWhere('AND', col, 'in', values);
+    },
+    andWhereIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE IN clause');
+      return addWhere('AND', col, 'in', values);
+    },
+    orWhereIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE IN clause');
+      return addWhere('OR', col, 'in', values);
+    },
+    whereNotIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE NOT IN clause');
+      return addWhere('AND', col, 'not in', values);
+    },
+    andWhereNotIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE NOT IN clause');
+      return addWhere('AND', col, 'not in', values);
+    },
+    orWhereNotIn: (col, values) => {
+      assertNoWindowFunction(col, 'WHERE NOT IN clause');
+      return addWhere('OR', col, 'not in', values);
+    },
     whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
@@ -291,19 +477,77 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
     orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
     compile: () => {
+      if (state.ctes && state.ctes.length > 0) {
+        checkDialectCapability(d, 'common table expressions');
+      }
+
       const params: unknown[] = [];
-      const cols =
-        state.columns && state.columns.length > 0
-          ? state.columns
-              .map(column =>
-                isAliasedColumn(column)
-                  ? `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`
-                  : isAliasedDistanceExpression(column)
-                    ? renderAliasedDistanceExpression(d, column, params)
-                    : quoteColumn(d, column),
-              )
-              .join(', ')
-          : '*';
+      let cteClause = '';
+
+      if (state.ctes && state.ctes.length > 0) {
+        const isRecursive = state.ctes.some(c => c.recursive);
+        if (isRecursive) {
+          checkDialectCapability(d, 'recursive common table expressions');
+        }
+        const cteParts: string[] = [];
+        for (const cte of state.ctes) {
+          let sub: CompiledQuery;
+          if (typeof cte.subquery === 'function') {
+            const qc = createQueryCompiler(d);
+            const res = cte.subquery(qc);
+            sub = isSubqueryTarget(res) ? res.compile() : (res as CompiledQuery);
+          } else if (isSubqueryTarget(cte.subquery)) {
+            sub = cte.subquery.compile();
+          } else {
+            throw new QueryCompilerError(`Invalid subquery provided for CTE "${cte.name}"`);
+          }
+
+          const renumberedText = renumberPlaceholders(sub.text, params.length);
+          params.push(...sub.parameters);
+          cteParts.push(`${quoteIdentifier(d, cte.name)} AS (${renumberedText})`);
+        }
+        const keyword = isRecursive ? 'WITH RECURSIVE' : 'WITH';
+        cteClause = `${keyword} ${cteParts.join(', ')} `;
+      }
+
+      let cols = '*';
+      if (state.columns && state.columns.length > 0) {
+        cols = state.columns
+          .map(c => {
+            if (isWindowProjectionNode(c) || isWindowFunctionBuilder(c)) {
+              checkDialectCapability(d, 'window functions');
+              return renderWindowProjectionNode(d, c);
+            }
+            if (isAliasedColumn(c)) {
+              return `${quoteColumn(d, c.column)} AS ${quoteIdentifier(d, c.alias)}`;
+            }
+            if (isAliasedDistanceExpression(c)) {
+              return renderAliasedDistanceExpression(d, c, params);
+            }
+            if (typeof c === 'string') {
+              if (/\bOVER\s*\(/i.test(c)) {
+                checkDialectCapability(d, 'window functions');
+              }
+              const m = /^(\S+)\s+as\s+(\S+)$/i.exec(c.trim());
+              if (m && m[1] && m[2]) {
+                return `${quoteColumn(d, m[1])} AS ${quoteIdentifier(d, m[2])}`;
+              }
+              return quoteColumn(d, c);
+            }
+            return String(c);
+          })
+          .join(', ');
+      }
+
+      for (const w of state.wheres) {
+        if ('col' in w && w.col) {
+          assertNoWindowFunction(w.col, 'WHERE clause');
+        }
+        if ('value' in w && w.value) {
+          assertNoWindowFunction(w.value, 'WHERE clause');
+        }
+      }
+
       const predicates = whereClause(d, state.wheres, params);
       const orderBy =
         state.orderBys.length === 0
@@ -316,8 +560,9 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
                 return `${expression} ${order.dir.toUpperCase()}`;
               })
               .join(', ')}`;
+
       const text =
-        `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
+        `${cteClause}SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
         predicates +
         orderBy +
         tailClause(d, {
