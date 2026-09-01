@@ -331,14 +331,21 @@ const routes: Record<string, Record<string, H | null>> = {
         .selectAll()
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .execute(),
-    // zmdb idiom: explicit parent + batched children (two CRUD queries).
+    // This used to issue two SEQUENTIAL queries — parent, await, then children —
+    // while both peers did one leftJoin. That is not an ORM difference, it is
+    // twice the round trips and twice the pool residency per request, and it cost
+    // exactly what you would expect: under 400 VUs on a pool of 12 this route's
+    // p95 was 183ms against 119-130ms for the peers, and it was the only route of
+    // the thirteen where zmdb lost. It also dragged the whole suite's p95 to
+    // 161ms while the other twelve routes sat 20-25% AHEAD of both peers.
+    //
+    // Same query, same shape, same one round trip as the peers now.
     zmdb: async q => {
-      const id = num(q.get('id') ?? undefined);
-      const o = qc.selectFrom('orders').where('id', '=', id).compile();
-      const parent = await zq(o.text, o.parameters as unknown[]);
-      const d = qc.selectFrom('order_details').where('order_id', '=', id).compile();
-      const kids = await zq(d.text, d.parameters as unknown[]);
-      return { ...parent[0], details: kids };
+      const c = joinableSelectFrom('orders', 'postgres')
+        .leftJoin('order_details', 'order_details.order_id', 'orders.id')
+        .where('orders.id', '=', num(q.get('id') ?? undefined))
+        .compile();
+      return zq(c.text, c.parameters as unknown[]);
     },
   },
   // #97 — /search-* now served by zmdb via the FTS builder (was DNF).
