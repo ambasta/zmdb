@@ -1,19 +1,19 @@
 {
   "suite": "the-benchmarker/web-frameworks",
   "framework": "@zmdb/web",
-  "runtime": "node",
-  "runtimeVersion": "v26.8.1",
+  "runtime": "bun",
+  "runtimeVersion": "1.4.0",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
   "port": 3000,
-  "methodology": "Served on node v26.8.1. oha oha 1.16.0: per route for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 8 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
+  "methodology": "Served on bun 1.4.0. oha oha 1.16.0: per route for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 8 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
   "concurrencyModel": {
     "workers": 8,
     "cores": 16,
     "note": "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
   },
   "repeats": 3,
-  "generatedAt": "2026-09-01T19:50:24Z",
-  "machine": "Linux x86_64, 16 cores, node v26.8.1",
+  "generatedAt": "2026-09-01T20:11:33Z",
+  "machine": "Linux x86_64, 16 cores, bun 1.4.0",
   "contract": [
     {
       "method": "GET",
@@ -45,49 +45,49 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 93646.97564925296,
+      "value": 145995.34735548258,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.00068121920475454,
+      "value": 0.00043653949669044805,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.000585572,
+      "value": 0.000373865,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000736096,
+      "value": 0.000468021,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.00102005,
+      "value": 0.000724344,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.002202095,
+      "value": 0.001466974,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.005297622,
+      "value": 0.003295108,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1404978,
+      "value": 2190835,
       "route": "GET:/"
     },
     {
@@ -105,25 +105,25 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.010603941,
+      "value": 0.005946664000000001,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15002.919104,
+      "value": 15006.197387,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 92715.74044356593,
+      "value": 128664.63179095826,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 94390.17157652316,
+      "value": 152434.76985679424,
       "route": "GET:/"
     },
     {
@@ -135,55 +135,55 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 85843.5748934989,
+      "value": 126771.47797537288,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.000742499462739156,
+      "value": 0.0005029172655872354,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.00069611,
+      "value": 0.000392669,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000760352,
+      "value": 0.000561017,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.000889956,
+      "value": 0.000923049,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.001985267,
+      "value": 0.001921931,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.005043235,
+      "value": 0.00910785,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1288167,
+      "value": 1901787,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_bytes_received",
-      "value": 2576216,
+      "value": 3803458,
       "route": "GET:/user/42"
     },
     {
@@ -195,25 +195,25 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.00891319,
+      "value": 0.016242912999999998,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15005.980373,
+      "value": 15001.694626999999,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 84649.85389710897,
+      "value": 126549.11876003239,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 89472.57531596492,
+      "value": 129149.66961297754,
       "route": "GET:/user/42"
     },
     {
@@ -225,49 +225,49 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 81098.44813022987,
+      "value": 132229.31018851735,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.000786633771798919,
+      "value": 0.0004823002670431084,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.000671354,
+      "value": 0.000374276,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000858035,
+      "value": 0.000534838,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.001193157,
+      "value": 0.000885909,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.002475561,
+      "value": 0.001892596,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.007457101,
+      "value": 0.011293218,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1216823,
+      "value": 1983807,
       "route": "POST:/user"
     },
     {
@@ -285,25 +285,25 @@
     {
       "level": 64,
       "label": "standard_deviation",
-      "value": 0.011295518000000001,
+      "value": 0.020862728,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15004.269848,
+      "value": 15002.778107,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 78615.45087140813,
+      "value": 130922.49677886913,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 81427.45379214114,
+      "value": 143971.84870349048,
       "route": "POST:/user"
     },
     {
@@ -315,49 +315,49 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 97502.76791320836,
+      "value": 145628.492825437,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.002622165092433331,
+      "value": 0.0017553450204762203,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002505518,
+      "value": 0.001624923,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.002682401,
+      "value": 0.001905303,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003169127,
+      "value": 0.002403675,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.004849152,
+      "value": 0.004151281,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.009533823,
+      "value": 0.017039285,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1462951,
+      "value": 2185468,
       "route": "GET:/"
     },
     {
@@ -375,25 +375,25 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.012784976,
+      "value": 0.031350619999999996,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15004.199689,
+      "value": 15007.145632,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 83797.24097650062,
+      "value": 143852.78017230087,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 98741.23765850054,
+      "value": 151997.9431064785,
       "route": "GET:/"
     },
     {
@@ -405,55 +405,55 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 83104.87270539555,
+      "value": 150291.29266431538,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.003076228558498431,
+      "value": 0.0017006595964323156,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002885854,
+      "value": 0.00159217,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.003168026,
+      "value": 0.001786586,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003898933,
+      "value": 0.002278817,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.006317337,
+      "value": 0.003940227,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.01323302,
+      "value": 0.010890763,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1247289,
+      "value": 2255411,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_bytes_received",
-      "value": 2494080,
+      "value": 4510336,
       "route": "GET:/user/42"
     },
     {
@@ -465,25 +465,25 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.016481457999999997,
+      "value": 0.021546762,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15008.614529999999,
+      "value": 15006.930607999999,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 80103.89991632142,
+      "value": 150114.17787613673,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 86694.6613272382,
+      "value": 155337.3783522085,
       "route": "GET:/user/42"
     },
     {
@@ -495,49 +495,49 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 93697.49348147628,
+      "value": 142433.0251115136,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.002728409970150583,
+      "value": 0.0017947050588508165,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002583144,
+      "value": 0.001606666,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.002796758,
+      "value": 0.001907865,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003361341,
+      "value": 0.002487159,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.005460684,
+      "value": 0.005436802,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.01364065,
+      "value": 0.020038872,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1405974,
+      "value": 2137777,
       "route": "POST:/user"
     },
     {
@@ -555,25 +555,25 @@
     {
       "level": 256,
       "label": "standard_deviation",
-      "value": 0.023164386,
+      "value": 0.030622348,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15005.460101,
+      "value": 15008.998077,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 90491.72172786141,
+      "value": 142123.49028078868,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 97724.84806320608,
+      "value": 153046.94501691186,
       "route": "POST:/user"
     },
     {
@@ -585,49 +585,49 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 98319.03051333122,
+      "value": 140016.30193313194,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.005200445358062404,
+      "value": 0.003649936698133811,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.005071662,
+      "value": 0.003459184,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.00538928,
+      "value": 0.003868978,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.006052029,
+      "value": 0.004562678,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.00782103,
+      "value": 0.007806745,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.019805752,
+      "value": 0.022752367,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1475464,
+      "value": 2101542,
       "route": "GET:/"
     },
     {
@@ -645,25 +645,25 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.032033794,
+      "value": 0.034595416999999996,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15006.901434,
+      "value": 15009.266571,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 94703.11953144593,
+      "value": 138752.17779664192,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 98495.0807525765,
+      "value": 150640.81151223741,
       "route": "GET:/"
     },
     {
@@ -675,55 +675,55 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 75832.70042824761,
+      "value": 151209.84973906053,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.006743108565529906,
+      "value": 0.0033809500822183244,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.006431654,
+      "value": 0.003311153,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.007103851,
+      "value": 0.003586623,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.007973568,
+      "value": 0.004032756,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.012466733,
+      "value": 0.005474969,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.029808707,
+      "value": 0.013510544,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1138048,
+      "value": 2269194,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_bytes_received",
-      "value": 2275080,
+      "value": 4537480,
       "route": "GET:/user/42"
     },
     {
@@ -735,25 +735,25 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.030805242999999996,
+      "value": 0.021451032000000002,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15007.351625,
+      "value": 15006.919218000001,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 74543.36114761936,
+      "value": 151003.7581353405,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 79807.79731563204,
+      "value": 152326.11751486632,
       "route": "GET:/user/42"
     },
     {
@@ -765,49 +765,49 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 97978.40346363831,
+      "value": 155250.24740991276,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.005218763740191782,
+      "value": 0.0032932599885463,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.00508607,
+      "value": 0.003211233,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.005391055,
+      "value": 0.003497092,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.006090813,
+      "value": 0.003986556,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.008007844,
+      "value": 0.005408331,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.017421697,
+      "value": 0.012715866,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1470369,
+      "value": 2329922,
       "route": "POST:/user"
     },
     {
@@ -825,25 +825,25 @@
     {
       "level": 512,
       "label": "standard_deviation",
-      "value": 0.027387128,
+      "value": 0.024754805,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15007.072457,
+      "value": 15007.525198,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 97374.53559557573,
+      "value": 154443.13464551902,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 98217.72766181572,
+      "value": 156115.57770721937,
       "route": "POST:/user"
     },
     {

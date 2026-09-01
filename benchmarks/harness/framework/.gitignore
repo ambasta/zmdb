@@ -1,3 +1,6 @@
 .results/
 .app.mjs
 .bin/
+# interleaved-run.sh stages the HEAD version of app.ts here to build the
+# hand-written variant; it removes it on success but not if the run is killed.
+.app-handwritten.ts

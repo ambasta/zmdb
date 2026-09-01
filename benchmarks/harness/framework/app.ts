@@ -25,14 +25,30 @@
 // (compile-once, run-many) applied to the web layer. `@zmdb/web`'s
 // `validateWith` wraps that closure into the framework's `validateBody` hook.
 //
-// The upstream contract requires exact/plain bodies (a bare id, truly empty
-// responses) rather than JSON envelopes, so responses are written directly via
-// node:http here in the harness. The framework's route table + param extraction
-// are what is exercised — identical to what @zmdb/web's own dispatcher resolves.
+// THIS APP GOES THROUGH THE PUBLIC API, like every peer in the suite does.
+//
+// It used to hand-write its own node:http server: it borrowed @zmdb/web's
+// routing primitives (getRoutes/compilePattern/matchCompiled) but re-implemented
+// the bucket index and wrote responses itself with res.writeHead/res.end. That
+// made the published number an upper bound on a framework nobody can actually
+// call — the dispatcher, the adapter and the validation hook, all of which a real
+// user pays for, were outside the measurement.
+//
+// It was done because the contract needs a bare `0` from GET /user/0 and truly
+// empty bodies elsewhere, and the framework could only ever emit
+// `jsonResponse(200, result)` — `JSON.stringify('0')` is `"0"`, with quotes,
+// which fails the suite's own route spec. That gap is now closed by `text()` and
+// `respond()`, so the app is what a user would write and the harness measures
+// createRouter + toNodeHandler end to end.
+//
+// Every routed framework in the vendored suite does the same: express, fastify,
+// koa, hono, elysia, h3, polka, uWebSockets.js and the rest all register on their
+// own router and let the framework write the response. Raw byte-writing appears
+// only in implementations explicitly named `vanilla_*` and in routerless
+// primitives (hyper, may_minihttp, polkadot) where that IS the public API.
 
 import cluster from 'node:cluster';
 import { createServer } from 'node:http';
-import type { IncomingMessage } from 'node:http';
 import { availableParallelism } from 'node:os';
 
 import { assert, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
@@ -42,11 +58,15 @@ import {
   Controller,
   Get,
   Post,
+  createRouter,
   getRoutes,
-  compilePattern,
-  countSegments,
-  matchCompiled,
+  respond,
+  toFetchHandler,
+  toNodeHandler,
   validateWith,
+  // schema-core also exports `text` (a column builder), so the response factory
+  // is aliased rather than shadowing it.
+  text as textBody,
   type Ctx,
 } from '../../../packages/web/dist/index.js';
 
@@ -111,21 +131,28 @@ function createDtoDescriptor(schema: CoreSchema<string>): TypeDescriptor {
 const userCreateDescriptor = createDtoDescriptor(UserSchema);
 const validateUserCreate = validateWith<UserCreate>((raw: unknown) => assert<UserCreate>(raw, userCreateDescriptor));
 
+// An empty 2xx: no body and, deliberately, no content-type. The suite asserts the
+// body is byte-empty and never looks at the content type (`v/vanilla_epoll`
+// passes while announcing application/json for the same empty response).
+const EMPTY = respond({ status: 200 });
+
 @Controller()
 class BenchmarkController {
   @Get('/')
-  root(): void {}
+  root() {
+    return EMPTY;
+  }
 
   @Get('/user/:id')
-  getUser(ctx: Ctx<{ id: string }>): string {
-    return ctx.params.id;
+  getUser(ctx: Ctx<{ id: string }>) {
+    // `text`, not a plain return: the contract wants the three bytes of `0`, and
+    // a JSON-serialised string would be `"0"`.
+    return textBody(ctx.params.id);
   }
 
   @Post('/user')
-  createUser(ctx: Ctx<Record<never, string>, UserCreate | undefined>): void {
-    // Contract POST body is empty; when a body IS supplied, validate it on the
-    // hot path via the boot-compiled AOT validator (derived from UserSchema).
-    if (ctx.body !== undefined) validateUserCreate(ctx.body);
+  createUser() {
+    return EMPTY;
   }
 }
 
@@ -133,26 +160,20 @@ const controller = new BenchmarkController();
 const routes = getRoutes(BenchmarkController);
 const PORT = Number(process.env.PORT ?? 3000);
 
-// Route patterns are compile-time constants, so resolve their segments and
-// `:param` slots at BOOT and index them by (method, segment count) — the same
-// thing @zmdb/web's own dispatcher does in packages/web/src/pipeline. Matching a
-// request then compares only routes that could possibly match, and allocates
-// nothing at all for a route without params.
-interface Compiled {
-  readonly handlerName: string;
-  readonly pattern: ReturnType<typeof compilePattern>;
-}
-const buckets = new Map<string, Compiled[][]>();
-for (const route of routes) {
-  const pattern = compilePattern(route.path);
-  let bySegmentCount = buckets.get(route.method);
-  if (bySegmentCount === undefined) {
-    bySegmentCount = [];
-    buckets.set(route.method, bySegmentCount);
-  }
-  const bucket = (bySegmentCount[pattern.segmentCount] ??= []);
-  bucket.push({ handlerName: route.handlerName, pattern });
-}
+// The framework's own dispatcher, not a re-implementation of it: register()
+// resolves the route table and compiles each pattern once at boot, and handle()
+// buckets by (method, segment count) per request.
+//
+// Validation is registered as the route's `validateBody` hook so it runs where a
+// user's would — before the handler, inside the pipeline. The contract's POST
+// body is empty, so `undefined` passes straight through; a real payload is
+// checked by the boot-compiled AOT closure derived from UserSchema.
+const router = createRouter();
+router.register(controller, {
+  createUser: {
+    validateBody: (raw: unknown) => (raw === undefined ? undefined : validateUserCreate(raw)),
+  },
+});
 
 // How many processes to run. Node is single-threaded, so a lone process uses one
 // core while the Go and Rust peers in this suite default to every core
@@ -163,71 +184,53 @@ for (const route of routes) {
 // whatever is chosen is recorded in the results JSON.
 const WORKERS = Math.max(1, Number(process.env.WORKERS ?? availableParallelism()));
 
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise(resolve => {
-    let data = '';
-    req.on('data', chunk => (data += chunk));
-    req.on('end', () => resolve(data));
-    req.on('error', () => resolve(''));
-  });
+// Serving. Node has one option; bun and deno have two, and the choice is worth
+// 1.6x on bun and 2.7x on deno.
+//
+// `createServer(toNodeHandler(router))` is the only path on Node, and under bun or
+// deno it still works — via their `node:http` COMPATIBILITY layer, which is not
+// what either runtime is fast at. Same box, same bundle, one continuous session,
+// median of the nine (route x level) cells:
+//
+//              via node:http   via native serve
+//   bun, 8w           91,386            145,628   1.59x
+//   bun, 1w           43,266             59,672   1.38x
+//   deno, 8w          46,990            124,839   2.66x
+//   deno, 1w          20,553             53,879   2.62x
+//
+// `Bun.serve` / `Deno.serve` take a `Request -> Response` function, which is
+// exactly `toFetchHandler(router)` — also public API, also what hono/elysia/oak do
+// on these runtimes, so this is a like-for-like comparison rather than a special
+// case built for the benchmark. Both variants pass the byte-exact contract, which
+// is what proves `text()`/`respond()` work through the Fetch adapter as well as the
+// Node one. `reusePort` is the equivalent of the SCHED_NONE story below: without it
+// the cluster workers cannot all accept.
+// The two signatures differ — bun takes the handler as a `fetch` option, deno
+// takes it positionally — so this branches rather than pretending they are one
+// interface.
+type FetchHandler = (request: Request) => Promise<Response>;
+interface ServeOptions {
+  readonly port: number;
+  readonly hostname: string;
+  readonly reusePort: boolean;
 }
+const runtime = globalThis as {
+  Bun?: { serve(options: ServeOptions & { fetch: FetchHandler }): unknown };
+  Deno?: { serve(options: ServeOptions, handler: FetchHandler): unknown };
+};
 
-const server = createServer((req, res) => {
-  const method = req.method ?? 'GET';
-  const url = req.url ?? '/';
-  const queryAt = url.indexOf('?');
-  const path = queryAt === -1 ? url : url.slice(0, queryAt);
-
-  for (const route of buckets.get(method)?.[countSegments(path)] ?? []) {
-    const params = matchCompiled(route.pattern, path);
-    if (params === undefined) continue;
-
-    if (route.handlerName === 'getUser') {
-      req.resume(); // drain any request body (empty in the contract)
-      const id = controller.getUser({
-        params: { id: params.id ?? '' },
-        body: undefined,
-        query: {},
-        headers: {},
-        method,
-        path,
-      });
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end(id);
-    } else if (route.handlerName === 'createUser') {
-      // Read the (contract-empty) body; only parse+validate when non-empty so
-      // the AOT validator runs on the hot path for real payloads.
-      void readBody(req).then(raw => {
-        let body: UserCreate | undefined;
-        if (raw.length > 0) {
-          try {
-            body = JSON.parse(raw) as UserCreate;
-          } catch {
-            res.writeHead(400);
-            res.end();
-            return;
-          }
-        }
-        try {
-          controller.createUser({ params: {}, body, query: {}, headers: {}, method, path });
-        } catch {
-          res.writeHead(422);
-          res.end();
-          return;
-        }
-        res.writeHead(200);
-        res.end();
-      });
-    } else {
-      req.resume();
-      res.writeHead(200);
-      res.end();
-    }
+function listen(): void {
+  const options: ServeOptions = { port: PORT, hostname: '0.0.0.0', reusePort: true };
+  if (runtime.Bun !== undefined) {
+    runtime.Bun.serve({ ...options, fetch: toFetchHandler(router) });
     return;
   }
-  res.writeHead(404);
-  res.end();
-});
+  if (runtime.Deno !== undefined) {
+    runtime.Deno.serve(options, toFetchHandler(router));
+    return;
+  }
+  createServer(toNodeHandler(router)).listen(PORT, '0.0.0.0');
+}
 
 // node:cluster defaults to SCHED_RR, where the PRIMARY accepts every connection
 // and hands each one to a worker over IPC. That primary is single-threaded, and
@@ -267,11 +270,10 @@ if (WORKERS > 1 && cluster.isPrimary) {
   });
   console.info(`@zmdb/web benchmark app on :${PORT} (${WORKERS} workers, ${routes.length} routes)`);
 } else {
-  server.listen(PORT, '0.0.0.0', () => {
-    if (WORKERS === 1) {
-      console.info(
-        `@zmdb/web benchmark app on :${PORT} (single process, ${routes.length} routes, AOT-validated POST /user from one schema)`,
-      );
-    }
-  });
+  listen();
+  if (WORKERS === 1) {
+    console.info(
+      `@zmdb/web benchmark app on :${PORT} (single process, ${routes.length} routes, AOT-validated POST /user from one schema)`,
+    );
+  }
 }

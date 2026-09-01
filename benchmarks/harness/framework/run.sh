@@ -17,8 +17,13 @@
 # otherwise the contract is still verified and the load run is skipped (never
 # faked). `jq` is required to shape the JSON. @zmdb/web is built by this script.
 #
-# Output: ./framework-results.json (the-benchmarker-shaped, consumed by the
-# dashboard) + raw per-route oha JSON under ./.results/<level>/.
+# The serving runtime is selectable: RUNTIME=node (default) | bun | deno. The app
+# is bundled once and all three run the same bundle, so a cross-runtime comparison
+# varies only the runtime. Deno is auto-downloaded (pinned) into ./.bin like oha.
+#
+# Output: ./framework-results.json for node, ./framework-results-<runtime>.json
+# otherwise (the-benchmarker-shaped, consumed by the dashboard) + raw per-route
+# oha JSON under ./.results/<runtime>/<level>/.
 set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -30,6 +35,21 @@ DURATION="${DURATION:-15s}"
 CONCURRENCIES="${CONCURRENCIES:-64,256,512}"
 ROUTES="${ROUTES:-GET:/,GET:/user/42,POST:/user}"
 OHA_VERSION="${OHA_VERSION:-v1.16.0}"
+
+# Which JS runtime serves the app: node | bun | deno. esbuild bundles the app to
+# one ESM file, so all three run the same bytes — which is the point, since it
+# leaves the runtime as the only variable.
+#
+# All three do implement `node:cluster` well enough for this app: on this box each
+# forks and all workers bind the same port with no EADDRINUSE, so the shared-socket
+# accept the app relies on (see app.ts) works everywhere and no runtime has to be
+# pinned to WORKERS=1. Bun reports `cluster.SCHED_NONE` as undefined inside a
+# worker, which is harmless — only the primary's value is read before forking.
+#
+# The runtime and its version go into the results JSON, because "@zmdb/web does N
+# req/s" is not a claim you can make without naming which runtime served it.
+RUNTIME="${RUNTIME:-node}"
+DENO_VERSION="${DENO_VERSION:-v2.9.6}"
 # Repetition, because a single sample of this workload is not a measurement.
 # With --disable-keepalive every request opens a connection, so a run's result
 # depends on the kernel's ephemeral-port/TIME_WAIT state, which is *inherited*
@@ -88,6 +108,73 @@ resolve_oha() {
   rm -f "$cached"; echo "  (oha download failed — will skip load run)"; return 1
 }
 
+# ---- runtime acquisition -----------------------------------------------------
+# Deno gets the same treatment as oha: PATH, then the ./.bin cache, then a pinned
+# prebuilt. Unlike oha it is NOT optional — the run was asked for on a specific
+# runtime, and silently falling back to Node would publish a number under the
+# wrong label, which is worse than not publishing one.
+RUNTIME_BIN=""
+RUNTIME_ARGS=()
+resolve_deno() {
+  if command -v deno >/dev/null 2>&1; then RUNTIME_BIN="$(command -v deno)"; return 0; fi
+  local cached="$HERE/.bin/deno"
+  if [ -x "$cached" ]; then RUNTIME_BIN="$cached"; return 0; fi
+  local arch os asset
+  arch="$(uname -m)"; os="$(uname -s)"
+  case "$os/$arch" in
+    Linux/x86_64|Linux/amd64) asset="deno-x86_64-unknown-linux-gnu.zip" ;;
+    Linux/aarch64|Linux/arm64) asset="deno-aarch64-unknown-linux-gnu.zip" ;;
+    Darwin/arm64) asset="deno-aarch64-apple-darwin.zip" ;;
+    Darwin/x86_64) asset="deno-x86_64-apple-darwin.zip" ;;
+    *) echo "  (no prebuilt deno for $os/$arch — install deno manually)"; return 1 ;;
+  esac
+  command -v unzip >/dev/null 2>&1 || { echo "  (unzip required to unpack deno)"; return 1; }
+  echo "== fetching deno ${DENO_VERSION} (${asset}) =="
+  mkdir -p "$HERE/.bin"
+  local zip="$HERE/.bin/.deno.zip"
+  if curl -sSL -m 180 -o "$zip" \
+      "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/${asset}" 2>/dev/null \
+    && [ -s "$zip" ] && unzip -oq "$zip" -d "$HERE/.bin" 2>/dev/null; then
+    rm -f "$zip"; chmod +x "$cached" 2>/dev/null
+    if "$cached" --version >/dev/null 2>&1; then RUNTIME_BIN="$cached"; return 0; fi
+  fi
+  rm -f "$zip" "$cached"; return 1
+}
+
+resolve_runtime() {
+  case "$RUNTIME" in
+    node)
+      command -v node >/dev/null 2>&1 || { echo "RUNTIME=node but node is not on PATH"; return 1; }
+      RUNTIME_BIN="$(command -v node)" ;;
+    bun)
+      command -v bun >/dev/null 2>&1 || { echo "RUNTIME=bun but bun is not on PATH"; return 1; }
+      RUNTIME_BIN="$(command -v bun)"; RUNTIME_ARGS=(run) ;;
+    deno)
+      resolve_deno || { echo "RUNTIME=deno but deno could not be resolved"; return 1; }
+      # Deno sandboxes by default, so every capability the app uses is spelled out
+      # rather than reaching for `-A`. --allow-run is the non-obvious one:
+      # `cluster.fork()` under Deno spawns the deno binary itself, and without it
+      # the primary dies with NotCapable *after* announcing it is listening, so the
+      # only symptom is a connection refused from the contract check.
+      #
+      # --unstable-net is the other one. Each Deno worker calls `Deno.serve`
+      # itself, so they all need `reusePort` to bind the same port, and Deno still
+      # gates that behind the flag. Without it every worker prints "Unstable API"
+      # and none of them listens. Bun and Node need no equivalent: bun's
+      # `reusePort` is stable and the Node path shares one listening socket via
+      # cluster's SCHED_NONE.
+      RUNTIME_ARGS=(run --allow-net --allow-env --allow-read --allow-run --unstable-net) ;;
+    *)
+      echo "unknown RUNTIME='$RUNTIME' (expected node | bun | deno)"; return 1 ;;
+  esac
+  # `deno --version` prints "deno 2.9.6 (...)" while node prints "v26.8.1", so the
+  # tool name is stripped to keep "deno deno 2.9.6" out of the published JSON.
+  RUNTIME_VERSION="$("$RUNTIME_BIN" --version 2>/dev/null | head -1 | sed "s/^$RUNTIME //")"
+  return 0
+}
+RUNTIME_VERSION=""
+resolve_runtime || exit 1
+
 echo "== building @zmdb/web (Stage-3 decorators lowered by tsup) =="
 ( cd "$REPO_ROOT" && yarn workspace @zmdb/web build >/dev/null 2>&1 )
 if [ ! -f "$REPO_ROOT/packages/web/dist/index.js" ]; then
@@ -106,8 +193,8 @@ echo "== compiling the contract app (esbuild lowers the app's Stage-3 decorators
   ' ) || { echo "esbuild compile failed"; exit 1; }
 }
 
-echo "== starting the contract app on :$PORT ($WORKERS worker(s)) =="
-PORT="$PORT" WORKERS="$WORKERS" node "$HERE/.app.mjs" &
+echo "== starting the contract app on :$PORT ($WORKERS worker(s), $RUNTIME $RUNTIME_VERSION) =="
+PORT="$PORT" WORKERS="$WORKERS" "$RUNTIME_BIN" ${RUNTIME_ARGS[@]+"${RUNTIME_ARGS[@]}"} "$HERE/.app.mjs" &
 APP_PID=$!
 cleanup() {
   # The app may be a cluster primary, so kill the whole process group to avoid
@@ -148,7 +235,7 @@ emit() { # level label value route
 }
 
 for CONC in "${CONC_LIST[@]}"; do
-  OUTDIR="$HERE/.results/$CONC"
+  OUTDIR="$HERE/.results/$RUNTIME/$CONC"
   mkdir -p "$OUTDIR"
   for ROUTE in "${ROUTE_LIST[@]}"; do
     METHOD="${ROUTE%%:*}"
@@ -236,24 +323,35 @@ EOF
 done
 
 # Assemble the final framework-results.json (measured=true) in the-benchmarker shape.
+#
+# The default Node run keeps the canonical filename the dashboard already reads;
+# a bun or deno run writes its own file so it cannot clobber the published Node
+# number with one measured under a different label.
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 CORES="$(nproc 2>/dev/null || echo unknown)"
-MACHINE="$(uname -s) $(uname -m), ${CORES} cores, Node $(node -v 2>/dev/null)"
+MACHINE="$(uname -s) $(uname -m), ${CORES} cores, ${RUNTIME} ${RUNTIME_VERSION}"
+case "$RUNTIME" in
+  node) RESULTS="$HERE/framework-results.json" ;;
+  *)    RESULTS="$HERE/framework-results-${RUNTIME}.json" ;;
+esac
 jq -n \
   --arg now "$NOW" --arg machine "$MACHINE" --arg dur "$DURATION" \
   --arg oha "$("$OHA_BIN" --version 2>/dev/null)" \
+  --arg runtime "$RUNTIME" --arg runtimeVersion "$RUNTIME_VERSION" \
   --argjson workers "$WORKERS" --argjson cores "$CORES" --argjson repeats "$REPEATS" \
   --argjson metrics "$(grep -v '^$' "$METRICS_TMP" | jq -s '.')" \
   '{
      suite: "the-benchmarker/web-frameworks",
      framework: "@zmdb/web",
+     runtime: $runtime,
+     runtimeVersion: $runtimeVersion,
      upstream: "https://github.com/the-benchmarker/web-frameworks",
      port: 3000,
-     methodology: ("oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json."),
+     methodology: ("Served on " + $runtime + " " + $runtimeVersion + ". oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json."),
      concurrencyModel: {
        workers: $workers,
        cores: $cores,
-       note: "Node is single-threaded, so worker count is the core count this framework can use. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
+       note: "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
      },
      repeats: $repeats,
      generatedAt: $now,
@@ -266,11 +364,11 @@ jq -n \
      contractVerdict: "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
      throughput: { measured: true },
      metrics: $metrics
-   }' > "$HERE/framework-results.json"
+   }' > "$RESULTS"
 rm -f "$METRICS_TMP"
 
 # Mirror into the dashboard data dir so the site picks it up on next docs build.
-cp "$HERE/framework-results.json" "$REPO_ROOT/benchmarks/site/framework-results.json" 2>/dev/null || true
+cp "$RESULTS" "$REPO_ROOT/benchmarks/site/$(basename "$RESULTS")" 2>/dev/null || true
 
-echo "DONE — wrote $HERE/framework-results.json (measured, the-benchmarker-shaped);"
-echo "       raw oha JSON under $HERE/.results/<level>/; mirrored to benchmarks/site/."
+echo "DONE — wrote $RESULTS (measured on $RUNTIME, the-benchmarker-shaped);"
+echo "       raw oha JSON under $HERE/.results/$RUNTIME/<level>/; mirrored to benchmarks/site/."
