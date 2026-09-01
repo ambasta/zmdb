@@ -12,11 +12,21 @@ import type { ValidationIssue } from '@zmdb/schema-core';
 
 export class AssertError extends Error {
   readonly issues: readonly ValidationIssue[];
+  /** @deprecated Use `issues` instead. */
+  declare readonly errors?: readonly ValidationIssue[];
 
   constructor(message: string, issues: readonly ValidationIssue[] = []) {
     super(message);
     this.name = 'AssertError';
     this.issues = issues;
+    Object.defineProperty(this, 'errors', {
+      get() {
+        console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+        return this.issues;
+      },
+      enumerable: true,
+      configurable: true,
+    });
   }
 }
 
