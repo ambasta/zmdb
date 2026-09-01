@@ -1,7 +1,7 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { ComparisonPredicate, CompiledQuery, Operator, SelectBuilder, SqlDialect } from '@zmdb/query-compiler';
+import type { ComparisonPredicate, CompiledQuery, Operator, SelectBuilder, SqlDialect, UnsafeOperator } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
@@ -78,8 +78,8 @@ export type WhereDTO<T extends DeclaredTable> = {
  * every helper ended in `return b as B`.
  */
 export interface WhereTarget {
-  where(col: string, op: Operator, value: unknown): this;
-  orWhere(col: string, op: Operator, value: unknown): this;
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): this;
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): this;
   whereGroup?(predicates: readonly ComparisonPredicate[]): this;
   orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
   whereExists?(subquery: unknown): this;
@@ -437,7 +437,7 @@ class BranchTarget implements WhereTarget {
     this.firstCallInBranch = !isFirstBranch;
   }
 
-  where(col: string, op: Operator, value: unknown): this {
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
       this.b = this.b.orWhere(col, op, value);
@@ -452,7 +452,7 @@ class BranchTarget implements WhereTarget {
   // Repository filters use `whereGroup` below to preserve their own OR boundary;
   // compileWhere's user-authored `or` tree is still flat and remains a separate
   // predicate-tree problem.
-  orWhere(col: string, op: Operator, value: unknown): this {
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): this {
     return this.where(col, op, value);
   }
 

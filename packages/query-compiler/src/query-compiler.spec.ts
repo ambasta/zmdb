@@ -10,6 +10,7 @@ import {
   sanitizeKeys,
   stContains,
   stDWithin,
+  unsafeOperator,
   type Operator,
 } from './index.js';
 import { joinableSelectFrom } from './joins/index.js';
@@ -534,7 +535,7 @@ describe('array parameter IN expansion', () => {
 describe('Operator validation and strict typing', () => {
   it('validates normalized canonical operators and produces expected SQL', () => {
     const qb = createQueryCompiler(postgresDialect);
-    const ops: [string, string][] = [
+    const ops: [Operator, string][] = [
       ['=', '='],
       ['!=', '!='],
       ['<', '<'],
@@ -542,35 +543,51 @@ describe('Operator validation and strict typing', () => {
       ['>', '>'],
       ['>=', '>='],
       ['like', 'LIKE'],
-      ['LIKE', 'LIKE'],
       ['ilike', 'ILIKE'],
-      ['ILIKE', 'ILIKE'],
       ['in', 'IN'],
-      ['IN', 'IN'],
       ['not in', 'NOT IN'],
-      ['NOT IN', 'NOT IN'],
       ['nin', 'NOT IN'],
-      ['NIN', 'NOT IN'],
+      ['is null', 'IS NULL'],
+      ['is not null', 'IS NOT NULL'],
     ];
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
-        const q = qb
-          .selectFrom('users')
-          .where('col', op as unknown as Operator, [1, 2])
-          .compile();
+        const q = qb.selectFrom('users').where('col', op, [1, 2]).compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
+      } else if (expectedSqlOp === 'IS NULL' || expectedSqlOp === 'IS NOT NULL') {
+        const q = qb.selectFrom('users').where('col', op, null).compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp}`);
+        expect(q.parameters).toEqual([]);
       } else {
-        const q = qb
-          .selectFrom('users')
-          .where('col', op as unknown as Operator, 'val')
-          .compile();
+        const q = qb.selectFrom('users').where('col', op, 'val').compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
   });
 
-<<<<<<< HEAD
+  it('renders IS NULL and IS NOT NULL without parameters regardless of value passed', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    const q1 = qb.selectFrom('users').where('deleted_at', 'is null', true).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "deleted_at" IS NULL');
+    expect(q1.parameters).toEqual([]);
+
+    const q2 = qb.selectFrom('users').where('deleted_at', 'is not null', 'ignored').compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE "deleted_at" IS NOT NULL');
+    expect(q2.parameters).toEqual([]);
+  });
+
+  it('allows raw or unmapped operators when explicitly wrapped in unsafeOperator', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    const q1 = qb.selectFrom('users').where('tags', unsafeOperator('@>'), ['a', 'b']).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "tags" @> $1');
+    expect(q1.parameters).toEqual([['a', 'b']]);
+
+    const q2 = qb.selectFrom('events').where('duration', unsafeOperator('&&'), '[2020-01-01,2020-01-02]').compile();
+    expect(q2.text).toBe('SELECT * FROM "events" WHERE "duration" && $1');
+    expect(q2.parameters).toEqual(['[2020-01-01,2020-01-02]']);
+  });
+
   it('allows bounded dialect-specific operator tokens and keeps every value parameterized', () => {
     const cases = [
       {
@@ -728,7 +745,6 @@ describe('Operator validation and strict typing', () => {
         createQueryCompiler(postgresDialect).selectFrom('users').where('col', inherited, 'val').compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
-  });
   });
 });
 
