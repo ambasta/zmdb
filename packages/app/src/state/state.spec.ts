@@ -11,7 +11,8 @@ describe('@zmdb/app state: branding erases at runtime', () => {
   it('create returns the very object it was given (zero-cost brand)', () => {
     const base = { id: 1, total: 10 };
     const draft: Brand<Order, 'Draft'> = Draft.create(base);
-    expect(draft).toBe(base);
+    expect(draft).toEqual(base);
+    expect(draft).toBe(base); // object identity preserved
     expect(Object.keys(draft)).toEqual(['id', 'total']); // no brand property
   });
 });
@@ -82,5 +83,133 @@ describe('@zmdb/app state: transitions', () => {
   it('is() narrows a value to the branded state', () => {
     const draft = Draft.create({ id: 3, total: 30 });
     expect(Draft.is(draft)).toBe(true);
+  });
+});
+
+describe('@zmdb/web state: discriminant & predicate state guard', () => {
+  interface DiscrOrder {
+    id: number;
+    status: 'draft' | 'paid' | 'shipped';
+    total: number;
+  }
+
+  it('evaluating state guards against primitive values, null, or undefined returns false without throwing exceptions', () => {
+    const DraftState = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+      predicate: o => o.total > 0,
+    });
+
+    expect(DraftState.is(null)).toBe(false);
+    expect(DraftState.is(undefined)).toBe(false);
+    expect(DraftState.is(42)).toBe(false);
+    expect(DraftState.is('draft')).toBe(false);
+    expect(DraftState.is(true)).toBe(false);
+    expect(DraftState.is(Symbol('draft'))).toBe(false);
+  });
+
+  it('rejects plain non-nullish objects that do not contain expected discriminant key or value', () => {
+    const DraftState = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+    });
+
+    // Missing discriminant key
+    expect(DraftState.is({ id: 1, total: 100 })).toBe(false);
+
+    // Wrong discriminant value
+    expect(DraftState.is({ id: 1, status: 'paid', total: 100 })).toBe(false);
+
+    // Correct discriminant key and value
+    expect(DraftState.is({ id: 1, status: 'draft', total: 100 })).toBe(true);
+  });
+
+  it('supports discriminant configuration as object or property key', () => {
+    const DraftObj = defineState<'Draft', DiscrOrder>({
+      discriminant: { key: 'status', value: 'draft' },
+    });
+    expect(DraftObj.is({ id: 1, status: 'draft', total: 50 })).toBe(true);
+    expect(DraftObj.is({ id: 1, status: 'paid', total: 50 })).toBe(false);
+
+    const DraftKeyOnly = defineState<'Draft', DiscrOrder>({
+      discriminant: 'status',
+    });
+    expect(DraftKeyOnly.is({ id: 1, status: 'draft', total: 50 })).toBe(true);
+    expect(DraftKeyOnly.is({ id: 1, total: 50 })).toBe(false);
+  });
+
+  it('executes user-defined predicate functions when evaluating untyped inputs', () => {
+    const ValidatedDraft = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+      predicate: order => order.total > 0 && order.id > 0,
+    });
+
+    // Fails predicate (total <= 0)
+    expect(ValidatedDraft.is({ id: 1, status: 'draft', total: -5 })).toBe(false);
+
+    // Fails predicate (id <= 0)
+    expect(ValidatedDraft.is({ id: -1, status: 'draft', total: 10 })).toBe(false);
+
+    // Passes predicate and discriminant
+    expect(ValidatedDraft.is({ id: 1, status: 'draft', total: 25 })).toBe(true);
+  });
+
+  it('creating state instances throws when structural verification fails', () => {
+    const ValidatedDraft = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+      predicate: o => o.total > 0,
+    });
+
+    expect(() => ValidatedDraft.create({ id: 1, status: 'paid', total: 10 } as unknown as DiscrOrder)).toThrow(
+      TypeError,
+    );
+
+    expect(() => ValidatedDraft.create({ id: 1, status: 'draft', total: -10 })).toThrow(TypeError);
+  });
+
+  it('creating state instances and performing checks adds zero additional runtime object allocations and preserves object identity', () => {
+    const DraftState = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+      predicate: o => o.total > 0,
+    });
+
+    const rawInput: DiscrOrder = { id: 100, status: 'draft', total: 250 };
+    const keysBefore = Object.keys(rawInput);
+
+    expect(DraftState.is(rawInput)).toBe(true);
+    const created = DraftState.create(rawInput);
+
+    // Object identity preserved
+    expect(created).toBe(rawInput);
+    // Keys unmodified
+    expect(Object.keys(created)).toEqual(keysBefore);
+  });
+
+  it('state transitions pass returned values through structural verification while preserving object identity', () => {
+    const DraftState = defineState<'Draft', DiscrOrder>({
+      discriminant: ['status', 'draft'],
+    });
+    const PaidState = defineState<'Paid', DiscrOrder>({
+      discriminant: ['status', 'paid'],
+      predicate: o => o.total > 0,
+    });
+
+    const markPaid = transition(DraftState, PaidState, order => ({
+      ...order,
+      status: 'paid' as const,
+    }));
+
+    const draft = DraftState.create({ id: 1, status: 'draft', total: 99 });
+    const paid = markPaid(draft);
+
+    expect(PaidState.is(paid)).toBe(true);
+    expect(paid.status).toBe('paid');
+    expect(paid.total).toBe(99);
+
+    // If transition function fails structural verification of target state
+    const badMarkPaid = transition(DraftState, PaidState, order => ({
+      ...order,
+      status: 'draft' as const, // Wrong status for PaidState
+    }));
+
+    expect(() => badMarkPaid(draft)).toThrow(TypeError);
   });
 });
