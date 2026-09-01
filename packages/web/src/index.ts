@@ -75,6 +75,20 @@ export {
   type HandlerFor,
 } from './context/index.js';
 
+// Compile-time dependency injection: Container + @Inject. See ./di.
+export {
+  Container,
+  createToken,
+  Inject,
+  injectionsOf,
+  UnresolvedTokenError,
+  type Token,
+  type Constructor,
+  type Scope,
+} from './di/index.js';
+
+// Compile-time domain state machines (branded/phantom types). See ./state.
+export { defineState, transition, type Brand, type State, type StateOptions } from './state/index.js';
 // Request pipeline & runtime adapters. See ./pipeline.
 export {
   createRouter,
