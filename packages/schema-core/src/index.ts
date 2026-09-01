@@ -300,7 +300,7 @@ export type ExpectNot<T extends false> = T;
 // `./derive`, which reads the relation off the declared type — there is no relations map to
 // derive them from any more, and no `manyToOne`/`oneToMany`/`oneToOne`/`manyToMany` builder
 // to write one with.
-export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.js';
+export { compilePopulate, resolveRelation, inferFkName, attachPopulated, aliasRow } from './relations/index.js';
 export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.js';
 export type { Populated, PopulatedEntity } from './derive/index.js';
 
