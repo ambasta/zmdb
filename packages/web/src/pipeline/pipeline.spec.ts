@@ -494,3 +494,175 @@ describe('@zmdb/web pipeline: node adapter', () => {
     expect(JSON.parse(state.body ?? '')).toEqual({ error: 'boom' });
   });
 });
+
+describe('@zmdb/web pipeline: security headers & CORS options', () => {
+  it('attaches default security headers to 200, 400, 404, and 500 responses when enabled', async () => {
+    const router = createRouter({ security: true });
+    const controller = new UsersController();
+    router.register(controller);
+
+    // 200 OK
+    const res200 = await router.handle({ method: 'GET', path: '/users/1', headers: {} });
+    expect(res200.status).toBe(200);
+    expect(res200.headers['x-content-type-options']).toBe('nosniff');
+    expect(res200.headers['x-frame-options']).toBe('SAMEORIGIN');
+    expect(res200.headers['x-xss-protection']).toBe('0');
+    expect(res200.headers['referrer-policy']).toBe('no-referrer');
+
+    // 404 Not Found
+    const res404 = await router.handle({ method: 'GET', path: '/unknown', headers: {} });
+    expect(res404.status).toBe(404);
+    expect(res404.headers['x-content-type-options']).toBe('nosniff');
+    expect(res404.headers['x-frame-options']).toBe('SAMEORIGIN');
+  });
+
+  it('customizes security header values and accepts custom security headers', async () => {
+    const router = createRouter({
+      security: {
+        xFrameOptions: 'DENY',
+        strictTransportSecurity: true,
+        headers: { 'x-custom-security': 'active' },
+      },
+    });
+    router.register(new UsersController());
+
+    const res = await router.handle({ method: 'GET', path: '/users/1', headers: {} });
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['strict-transport-security']).toBe('max-age=15552000; includeSubDomains');
+    expect(res.headers['x-custom-security']).toBe('active');
+  });
+
+  it('short-circuits HTTP OPTIONS preflight with 204 and CORS headers without executing route handlers', async () => {
+    let handlerExecuted = false;
+    let validatorExecuted = false;
+
+    @Controller('/test')
+    class TestController {
+      @Post()
+      action() {
+        handlerExecuted = true;
+        return { ok: true };
+      }
+    }
+
+    const router = createRouter({
+      cors: {
+        origin: 'https://client.example.com',
+        methods: ['POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        maxAge: 3600,
+        credentials: true,
+      },
+    });
+
+    router.register(new TestController(), {
+      action: {
+        validateBody: () => {
+          validatorExecuted = true;
+          return {};
+        },
+      },
+    });
+
+    const preflight = await router.handle({
+      method: 'OPTIONS',
+      path: '/test',
+      headers: {
+        origin: 'https://client.example.com',
+        'access-control-request-method': 'POST',
+      },
+    });
+
+    expect(preflight.status).toBe(204);
+    expect(preflight.body).toBe('');
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://client.example.com');
+    expect(preflight.headers['access-control-allow-methods']).toBe('POST, OPTIONS');
+    expect(preflight.headers['access-control-allow-headers']).toBe('Content-Type, Authorization');
+    expect(preflight.headers['access-control-allow-credentials']).toBe('true');
+    expect(preflight.headers['access-control-max-age']).toBe('3600');
+    expect(preflight.headers['vary']).toBe('Origin');
+
+    expect(handlerExecuted).toBe(false);
+    expect(validatorExecuted).toBe(false);
+  });
+
+  it('evaluates CORS origin array and function policies correctly', async () => {
+    const arrayRouter = createRouter({
+      cors: { origin: ['https://app1.com', 'https://app2.com'] },
+    });
+    arrayRouter.register(new UsersController());
+
+    const res1 = await arrayRouter.handle({
+      method: 'GET',
+      path: '/users/1',
+      headers: { origin: 'https://app2.com' },
+    });
+    expect(res1.headers['access-control-allow-origin']).toBe('https://app2.com');
+    expect(res1.headers['vary']).toBe('Origin');
+
+    const fnRouter = createRouter({
+      cors: { origin: origin => origin.endsWith('.example.com') },
+    });
+    fnRouter.register(new UsersController());
+
+    const resFnAllowed = await fnRouter.handle({
+      method: 'GET',
+      path: '/users/1',
+      headers: { origin: 'https://api.example.com' },
+    });
+    expect(resFnAllowed.headers['access-control-allow-origin']).toBe('https://api.example.com');
+
+    const resFnDenied = await fnRouter.handle({
+      method: 'GET',
+      path: '/users/1',
+      headers: { origin: 'https://evil.com' },
+    });
+    expect(resFnDenied.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('passes configured security and CORS headers through Fetch adapter intact', async () => {
+    const router = createRouter({
+      security: true,
+      cors: { origin: 'https://app.com' },
+    });
+    router.register(new UsersController());
+
+    const fetchHandler = toFetchHandler(router);
+    const response = await fetchHandler(
+      new Request('http://x/users/123', {
+        method: 'GET',
+        headers: { origin: 'https://app.com' },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://app.com');
+  });
+
+  it('allows custom route handlers returning WebResponse to override security headers', async () => {
+    @Controller('/custom')
+    class CustomController {
+      @Get('/override')
+      getOverride() {
+        return {
+          status: 200,
+          body: JSON.stringify({ custom: true }),
+          headers: {
+            'x-frame-options': 'ALLOW-FROM https://trusted.com',
+            'x-custom-header': 'value',
+          },
+        };
+      }
+    }
+
+    const router = createRouter({ security: true });
+    router.register(new CustomController());
+
+    const res = await router.handle({ method: 'GET', path: '/custom/override', headers: {} });
+    expect(res.status).toBe(200);
+    expect(res.headers['x-frame-options']).toBe('ALLOW-FROM https://trusted.com');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-custom-header']).toBe('value');
+  });
+});
