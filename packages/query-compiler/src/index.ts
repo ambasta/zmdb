@@ -122,7 +122,7 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch });
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
@@ -170,16 +170,16 @@ export interface InsertBuilder {
 }
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
-  where(col: string, op: Operator | string, value: unknown): UpdateBuilder;
-  orWhere(col: string, op: Operator | string, value: unknown): UpdateBuilder;
+  where(col: string, op: Operator, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
-  where(col: string, op: Operator | string, value: unknown): DeleteBuilder;
-  orWhere(col: string, op: Operator | string, value: unknown): DeleteBuilder;
+  where(col: string, op: Operator, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
