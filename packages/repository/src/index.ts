@@ -1594,30 +1594,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
     const page = query?.page;
     const limit = page && 'limit' in page ? page.limit : undefined;
-    const isKeyset =
-      page &&
-      (('after' in page && page.after !== undefined && page.after !== null) ||
-        ('before' in page && page.before !== undefined && page.before !== null));
+    const isKeyset = page && 'after' in page && page.after !== undefined && page.after !== null;
 
     let cursorValues: Record<string, unknown> | undefined;
     if (isKeyset) {
-      if (userOrderBy) {
-        for (const item of userOrderBy) {
-          if (!item) continue;
-          const colName = String(item.column);
-          const colMeta = this.schema.columns[colName];
-          if (colMeta && colMeta.flags?.nullable) {
-            throw new Error(`Invalid keyset sort column "${colName}": column is nullable`);
-          }
-        }
-      }
-
-      const rawCursor =
-        'after' in page && page.after !== undefined && page.after !== null
-          ? page.after
-          : 'before' in page
-            ? page.before
-            : undefined;
+      const rawCursor = page.after;
 
       if (typeof rawCursor === 'string') {
         cursorValues = decodeCursor(rawCursor);
