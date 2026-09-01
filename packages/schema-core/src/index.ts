@@ -457,5 +457,17 @@ export function defineEntityStateMachine<
   };
 }
 
-export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.js';
-export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.js';
+export type {
+  WhereDTO,
+  ListDTO,
+  OffsetListDTO,
+  KeysetListDTO,
+  ListResult,
+  OrderByDTO,
+  KeysetOrderByDTO,
+  OrderTarget,
+  PaginationDTO,
+  KeysetCursorPage,
+  NonNullableEntityKeys,
+} from './dto/index.js';
+export { compileWhere, applyOrderBy, applyPagination, applyKeysetFilter, buildListResult } from './dto/index.js';
