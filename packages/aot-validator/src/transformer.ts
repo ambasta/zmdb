@@ -29,6 +29,7 @@ import {
   isPrefixUnaryExpression,
   isStringLiteral,
 } from 'typescript/unstable/ast/is';
+import { visitEachChild } from 'typescript/unstable/ast/visitor';
 import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
@@ -37,6 +38,9 @@ import { CALL_OWNERS, findOwnedCallSites, OWNED_CALLEES, type CallSite } from '.
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
+import type { TypeDescriptor } from './utilities/index.js';
+
+export { escapePattern };
 
 /**
  * The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`.
@@ -76,6 +80,14 @@ type EmissionDepth =
 const SHALLOW_CALLEES: ReadonlySet<string> = new Set(['isShallow', 'assertShallow', 'validateShallow']);
 const TOOL_PROVIDERS: ReadonlySet<string> = new Set(['openai', 'openai-strict', 'anthropic', 'gemini', 'json-schema']);
 type ToolProviderTarget = ToolProvider | 'dynamic';
+
+export interface TransformOptions {
+  sourceFile?: unknown;
+  checker?: unknown;
+  id?: string;
+}
+
+type PType = { kind: 'number' | 'string' | 'boolean' } | { kind: 'object'; fields: { name: string; type: PType }[] };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -466,6 +478,271 @@ function protobufName(type: Type): string {
   return symbol === undefined || symbol === '__type' ? 'Message' : symbol;
 }
 
+function primType(prim: string): PType | undefined {
+  return prim === 'number' || prim === 'string' || prim === 'boolean' ? { kind: prim } : undefined;
+}
+
+// Minimal parser for TS type syntax: primitives and `{ a: T; b: U }` object literals.
+function parseType(src: string): PType | undefined {
+  let i = 0;
+  const s = src.trim();
+  function ws() {
+    while (i < s.length && /\s/.test(s[i] ?? '')) i++;
+  }
+  function parse(): PType | undefined {
+    ws();
+    if (s[i] === '{') {
+      i++; // consume {
+      const fields: { name: string; type: PType }[] = [];
+      ws();
+      while (i < s.length && s[i] !== '}') {
+        ws();
+        let name = '';
+        while (i < s.length && /[A-Za-z0-9_$]/.test(s[i] ?? '')) {
+          name += s[i] ?? '';
+          i++;
+        }
+        ws();
+        if (s[i] === ':') i++; // consume :
+        ws();
+        let type: PType | undefined;
+        if (s[i] === '{') {
+          type = parse();
+        } else {
+          let prim = '';
+          while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+            prim += s[i] ?? '';
+            i++;
+          }
+          type = primType(prim);
+        }
+        if (!type) return undefined;
+        fields.push({ name, type });
+        ws();
+        if (s[i] === ';' || s[i] === ',') i++;
+        ws();
+      }
+      if (s[i] === '}') i++; // consume }
+      return { kind: 'object', fields };
+    }
+    let prim = '';
+    while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+      prim += s[i] ?? '';
+      i++;
+    }
+    return primType(prim);
+  }
+  return parse();
+}
+
+function pTypeToTypeDescriptor(t: PType): TypeDescriptor {
+  switch (t.kind) {
+    case 'number':
+    case 'string':
+    case 'boolean':
+      return { kind: t.kind };
+    case 'object': {
+      const fields: Record<string, TypeDescriptor> = {};
+      for (const f of t.fields) {
+        fields[f.name] = pTypeToTypeDescriptor(f.type);
+      }
+      return { kind: 'object', fields };
+    }
+  }
+}
+
+/**
+ * Maps a resolved TypeScript type (from ts.TypeChecker) to a TypeDescriptor IR.
+ */
+export function tsTypeToTypeDescriptor(
+  type: unknown,
+  checker: unknown,
+  locationNode?: unknown,
+  depth = 0,
+): TypeDescriptor | undefined {
+  if (!type || depth > 20) return undefined;
+  const tObj = type as Record<string, unknown>;
+  const cObj = checker as Record<string, unknown> | undefined;
+
+  if (typeof tObj['isErrorType'] === 'function' && (tObj['isErrorType'] as () => boolean)()) return undefined;
+
+  const typeStr =
+    cObj && typeof cObj['typeToString'] === 'function' ? (cObj['typeToString'] as (t: unknown) => string)(type) : '';
+  if (typeStr === 'any' || typeStr === 'unknown' || typeStr === 'never') return undefined;
+  if (typeStr === 'string') return { kind: 'string' };
+  if (typeStr === 'number') return { kind: 'number' };
+  if (typeStr === 'boolean') return { kind: 'boolean' };
+
+  if (typeof tObj['isStringLiteralType'] === 'function' && (tObj['isStringLiteralType'] as () => boolean)()) {
+    return { kind: 'enum', values: [String(tObj['value'])] };
+  }
+  if (typeof tObj['isNumberLiteralType'] === 'function' && (tObj['isNumberLiteralType'] as () => boolean)())
+    return { kind: 'number' };
+  if (typeof tObj['isBooleanLiteralType'] === 'function' && (tObj['isBooleanLiteralType'] as () => boolean)())
+    return { kind: 'boolean' };
+
+  const isArr =
+    cObj &&
+    ((typeof cObj['isArrayType'] === 'function' && (cObj['isArrayType'] as (t: unknown) => boolean)(type)) ||
+      (typeof cObj['isTupleType'] === 'function' && (cObj['isTupleType'] as (t: unknown) => boolean)(type)));
+  if (isArr) {
+    const typeArgs =
+      typeof cObj['getTypeArguments'] === 'function'
+        ? (cObj['getTypeArguments'] as (t: unknown) => unknown[])(type)
+        : undefined;
+    const elemType = typeArgs && typeArgs[0];
+    const ofDesc = elemType ? tsTypeToTypeDescriptor(elemType, checker, locationNode, depth + 1) : undefined;
+    return ofDesc ? { kind: 'array', of: ofDesc } : undefined;
+  }
+
+  if (typeof tObj['isUnionType'] === 'function' && (tObj['isUnionType'] as () => boolean)()) {
+    const types = typeof tObj['getTypes'] === 'function' ? (tObj['getTypes'] as () => unknown[])() : [];
+    const isAllStringLiterals =
+      types.length > 0 &&
+      types.every((t: unknown) => {
+        const item = t as Record<string, unknown>;
+        return typeof item['isStringLiteralType'] === 'function' && (item['isStringLiteralType'] as () => boolean)();
+      });
+    if (isAllStringLiterals) {
+      return { kind: 'enum', values: types.map((t: unknown) => String((t as Record<string, unknown>)['value'])) };
+    }
+    const branches: TypeDescriptor[] = [];
+    for (const b of types) {
+      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
+      if (!bDesc) return undefined;
+      branches.push(bDesc);
+    }
+    return { kind: 'union', branches };
+  }
+
+  if (typeof tObj['isIntersectionType'] === 'function' && (tObj['isIntersectionType'] as () => boolean)()) {
+    const types = typeof tObj['getTypes'] === 'function' ? (tObj['getTypes'] as () => unknown[])() : [];
+    const fields: Record<string, TypeDescriptor> = {};
+    for (const b of types) {
+      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
+      if (bDesc && bDesc.kind === 'object' && bDesc.fields) {
+        Object.assign(fields, bDesc.fields);
+      }
+    }
+    return { kind: 'object', fields };
+  }
+
+  const props =
+    cObj && typeof cObj['getPropertiesOfType'] === 'function'
+      ? (cObj['getPropertiesOfType'] as (t: unknown) => { name: string }[])(type)
+      : [];
+  if (
+    (props && props.length > 0) ||
+    (typeof tObj['isObjectType'] === 'function' && (tObj['isObjectType'] as () => boolean)())
+  ) {
+    const fields: Record<string, TypeDescriptor> = {};
+    for (const p of props) {
+      const propType =
+        locationNode && typeof cObj?.['getTypeOfSymbolAtLocation'] === 'function'
+          ? (cObj['getTypeOfSymbolAtLocation'] as (s: unknown, l: unknown) => unknown)(p, locationNode)
+          : typeof cObj?.['getTypeOfSymbol'] === 'function'
+            ? (cObj['getTypeOfSymbol'] as (s: unknown) => unknown)(p)
+            : undefined;
+      const fDesc = tsTypeToTypeDescriptor(propType, checker, locationNode, depth + 1);
+      if (!fDesc) return undefined;
+      fields[p.name] = fDesc;
+    }
+    return { kind: 'object', fields };
+  }
+
+  return undefined;
+}
+
+export function emitCheckFromDescriptor(d: TypeDescriptor, expr: string): string {
+  switch (d.kind) {
+    case 'number':
+      return `typeof ${expr} === "number"`;
+    case 'string':
+      return `typeof ${expr} === "string"`;
+    case 'boolean':
+      return `typeof ${expr} === "boolean"`;
+    case 'enum': {
+      const values = d.values ?? [];
+      return `(${values.map(v => `${expr} === ${JSON.stringify(v)}`).join(' || ')})`;
+    }
+    case 'array': {
+      const ofStr = d.of ? emitCheckFromDescriptor(d.of, '_i') : 'true';
+      return `Array.isArray(${expr}) && ((() => { for (const _i of ${expr}) { if (!(${ofStr})) return false; } return true; })())`;
+    }
+    case 'object': {
+      const parts = [`typeof ${expr} === "object"`, `${expr} !== null`];
+      for (const [key, fd] of Object.entries(d.fields ?? {})) {
+        parts.push(emitCheckFromDescriptor(fd, `${expr}.${key}`));
+      }
+      return parts.join(' && ');
+    }
+    case 'union': {
+      const branches = d.branches ?? [];
+      return `(${branches.map(b => `(${emitCheckFromDescriptor(b, expr)})`).join(' || ')})`;
+    }
+    default:
+      return 'false';
+  }
+}
+
+export function emitExcessKeyGuardsFromDescriptor(d: TypeDescriptor, expr: string, varPrefix = '_c'): string[] {
+  if (d.kind !== 'object' || !d.fields) return [];
+  const guards: string[] = [];
+  const fieldKeys = Object.keys(d.fields);
+  const topCount = fieldKeys.length;
+  guards.push(
+    `let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`,
+  );
+  let idx = 0;
+  for (const [key, fd] of Object.entries(d.fields)) {
+    if (fd.kind === 'object') {
+      guards.push(...emitExcessKeyGuardsFromDescriptor(fd, `${expr}.${key}`, `${varPrefix}_${idx++}`));
+    }
+  }
+  return guards;
+}
+
+export function emitEqualsCheckFromDescriptor(d: TypeDescriptor, expr: string): string {
+  if (d.kind !== 'object') return emitCheckFromDescriptor(d, expr);
+  const check = emitCheckFromDescriptor(d, expr);
+  const excess = emitExcessKeyGuardsFromDescriptor(d, expr).join(' ');
+  return `((() => { if (!(${check})) return false; ${excess} return true; })())`;
+}
+
+function findTypeArgNode(node: unknown, pos: number, typeSrc: string): unknown {
+  if (!node) return undefined;
+  const n = node as Record<string, unknown>;
+  const start = typeof n['getStart'] === 'function' ? (n['getStart'] as () => number)() : (n['pos'] as number);
+  const end = typeof n['getEnd'] === 'function' ? (n['getEnd'] as () => number)() : (n['end'] as number);
+  const typeArgs = n['typeArguments'] as { getText?: () => string }[] | undefined;
+  if (pos >= start - 20 && pos <= end + 20) {
+    if (n['kind'] === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+      return typeArgs[0];
+    }
+  }
+
+  if (n['kind'] === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+    if (typeof typeArgs[0]?.getText === 'function' && typeArgs[0].getText() === typeSrc) {
+      return typeArgs[0];
+    }
+  }
+
+  let found: unknown = undefined;
+  if (typeof n['forEachChild'] === 'function') {
+    (n['forEachChild'] as (cb: (child: unknown) => void) => void)((child: unknown) => {
+      const res = findTypeArgNode(child, pos, typeSrc);
+      if (res) found = res;
+    });
+  } else {
+    visitEachChild(n as unknown as Parameters<typeof visitEachChild>[0], (child: unknown) => {
+      const res = findTypeArgNode(child, pos, typeSrc);
+      if (res) found = res;
+      return child as Parameters<typeof visitEachChild>[0];
+    });
+  }
+  return found;
+}
+
 /** Hoisted helpers go at the top of the module, but after a shebang if there is one. */
 function withPrelude(code: string, prelude: string): string {
   if (!code.startsWith('#!')) return `${prelude}\n${code}`;
@@ -596,16 +873,24 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
   }
 }
 
+type MatchKind = 'validate' | 'is' | 'assert' | 'equals' | 'assertEquals';
+
+const MATCH_KINDS: Record<string, MatchKind> = {
+  validate: 'validate',
+  is: 'is',
+  assert: 'assert',
+  equals: 'equals',
+  assertEquals: 'assertEquals',
+};
+
+function getMatchKind(text: string): MatchKind | undefined {
+  return MATCH_KINDS[text];
+}
+
 /**
- * Inline `validate(tags.X(…), expr)`, and nothing else.
- *
- * A rule spelled at the call site needs no type information, which is why this survives
- * without a compiler: the scanner is here only to avoid rewriting the inside of a string
- * literal or a comment. `validate<T>(expr)` and every other type-argument form are left
- * for `transformFile`; this function does not look at type arguments at all beyond
- * skipping past them.
+ * Inline `validate(tags.X(…), expr)`, or type-checked checks when options/checker is present.
  */
-export function transformCode(code: string): string {
+export function transformCode(code: string, options?: TransformOptions): string {
   const scanner = createScanner(false, LanguageVariant.Standard);
   scanner.setText(code);
 
@@ -634,46 +919,105 @@ export function transformCode(code: string): string {
       continue;
     }
 
-    if (scanner.getTokenText() === 'validate') {
+    const tokenText = scanner.getTokenText();
+    const kind = getMatchKind(tokenText);
+
+    if (kind !== undefined) {
       const prevChar = tokenStart > 0 ? (code[tokenStart - 1] ?? '') : '';
-      if (prevChar && /[A-Za-z0-9_$.]/.test(prevChar)) {
-        token = scanner.scan();
-        continue;
-      }
+      if (!prevChar || !/[A-Za-z0-9_$.]/.test(prevChar)) {
+        let i = tokenEnd;
+        while (i < code.length && /\s/.test(code[i] ?? '')) i++;
 
-      let i = tokenEnd;
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
-
-      // A type argument means this is `validate<T>(…)`, which belongs to the checker.
-      let typed = false;
-      if (i < code.length && code[i] === '<') {
-        let depth = 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '<') depth++;
-          else if (code[i] === '>') depth--;
+        let typeSrc: string | undefined = undefined;
+        if (i < code.length && code[i] === '<') {
+          const typeStart = i + 1;
+          let depth = 1;
           i++;
+          while (i < code.length && depth > 0) {
+            if (code[i] === '<') depth++;
+            else if (code[i] === '>') depth--;
+            i++;
+          }
+          if (depth === 0) {
+            typeSrc = code.slice(typeStart, i - 1).trim();
+          }
         }
-        typed = depth === 0;
-      }
 
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
+        while (i < code.length && /\s/.test(code[i] ?? '')) i++;
 
-      if (!typed && i < code.length && code[i] === '(') {
-        let depth = 1;
-        const argStart = i + 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '(') depth++;
-          else if (code[i] === ')') depth--;
+        if (i < code.length && code[i] === '(') {
+          let depth = 1;
+          const argStart = i + 1;
           i++;
-        }
-        if (depth === 0) {
-          const [ruleSrc, exprSrc] = splitTopLevelComma(code.slice(argStart, i - 1));
-          if (ruleSrc && exprSrc) {
-            out += code.slice(lastPos, tokenStart);
-            out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
-            lastPos = i;
+          while (i < code.length && depth > 0) {
+            if (code[i] === '(') depth++;
+            else if (code[i] === ')') depth--;
+            i++;
+          }
+          if (depth === 0) {
+            const argSrc = code.slice(argStart, i - 1);
+            let replacement: string | null = null;
+
+            if (kind === 'validate' && !typeSrc) {
+              const [ruleSrc, exprSrc] = splitTopLevelComma(argSrc);
+              if (ruleSrc && exprSrc) {
+                replacement = inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
+              }
+            } else if (typeSrc) {
+              let descriptor: TypeDescriptor | undefined = undefined;
+              const t = parseType(typeSrc);
+              if (t) {
+                descriptor = pTypeToTypeDescriptor(t);
+              } else if (options?.checker && options?.sourceFile) {
+                const chk = options.checker as Record<string, unknown>;
+                const typeArgNode = findTypeArgNode(options.sourceFile, tokenStart, typeSrc);
+                if (typeArgNode) {
+                  const tsType =
+                    typeof chk['getTypeFromTypeNode'] === 'function'
+                      ? (chk['getTypeFromTypeNode'] as (node: unknown) => unknown)(typeArgNode)
+                      : undefined;
+                  descriptor = tsTypeToTypeDescriptor(tsType, options.checker, typeArgNode);
+                }
+                if (!descriptor && typeof chk['resolveName'] === 'function') {
+                  const sym = (chk['resolveName'] as (name: string, flags: number, location: unknown) => unknown)(
+                    typeSrc,
+                    524288,
+                    options.sourceFile,
+                  );
+                  if (sym && typeof chk['getDeclaredTypeOfSymbol'] === 'function') {
+                    const tsType = (chk['getDeclaredTypeOfSymbol'] as (symbol: unknown) => unknown)(sym);
+                    descriptor = tsTypeToTypeDescriptor(tsType, options.checker, options.sourceFile);
+                  }
+                }
+              }
+
+              if (descriptor) {
+                const expr = argSrc.trim();
+                const check = `(${emitCheckFromDescriptor(descriptor, expr)})`;
+                if (kind === 'is') {
+                  replacement = check;
+                } else if (kind === 'equals') {
+                  replacement = `(${emitEqualsCheckFromDescriptor(descriptor, expr)})`;
+                } else if (kind === 'assert') {
+                  replacement = `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+                } else if (kind === 'assertEquals') {
+                  const eq = emitEqualsCheckFromDescriptor(descriptor, expr);
+                  replacement = `((() => { if (!(${eq})) throw new Error("assertion failed"); return ${expr}; })())`;
+                } else if (kind === 'validate') {
+                  replacement = `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
+                }
+              } else {
+                console.warn(
+                  `[zmdb-aot] Warning: Could not resolve type '${typeSrc}' in ${options?.id ?? 'source file'}, falling back to runtime validation.`,
+                );
+              }
+            }
+
+            if (replacement !== null) {
+              out += code.slice(lastPos, tokenStart);
+              out += replacement;
+              lastPos = i;
+            }
           }
         }
       }

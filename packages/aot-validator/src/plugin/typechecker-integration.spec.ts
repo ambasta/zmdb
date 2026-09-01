@@ -1,0 +1,98 @@
+import { describe, it, expect, vi } from 'vitest';
+import { API } from 'typescript/unstable/sync';
+
+import { zmdbAot, transformTypeChecks } from './index.ts';
+import { transformCode, tsTypeToTypeDescriptor, emitCheckFromDescriptor } from '../transformer.ts';
+import type { TypeDescriptor } from '../utilities/index.ts';
+
+const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
+  const api = new API();
+  const snapshot = api.updateSnapshot({ openProjects: ['tsconfig.base.json'] });
+  const proj = snapshot.getProjects()[0]!;
+  const checker = proj.checker;
+
+  it('Requirement 1 & AC 1: extracts full structural type info for imported interfaces and generates static validation statements', () => {
+    // UserCreate is an imported interface/type alias in app.ts with fields name: string, email: string
+    const src = 'const ok = is<UserCreate>(input);';
+    const sourceFile = proj.program.getSourceFile('/app/zmdb/benchmarks/harness/framework/app.ts');
+
+    const out = transformTypeChecks(src, { sourceFile, checker, id: '/app/zmdb/benchmarks/harness/framework/app.ts' });
+    const n = norm(out);
+
+    expect(n).toBe('const ok = (typeof input === "object" && input !== null && typeof input.name === "string" && typeof input.email === "string");');
+  });
+
+  it('Requirement 3 & AC 2: type aliases imported across workspace package boundaries resolve via path configurations', () => {
+    const plugin = zmdbAot({ tsconfigPath: 'tsconfig.base.json' });
+    const appFilePath = '/app/zmdb/benchmarks/harness/framework/app.ts';
+    const sampleCode = 'const ok = assert<UserCreate>(payload);';
+
+    const transformed = plugin.transform(sampleCode, appFilePath);
+    expect(transformed).not.toBeNull();
+    const n = norm(transformed!.code);
+
+    expect(n).toContain('typeof payload === "object"');
+    expect(n).toContain('payload !== null');
+    expect(n).toContain('typeof payload.name === "string"');
+    expect(n).toContain('typeof payload.email === "string"');
+  });
+
+  it('Requirement 2 & AC 3: complex structural types (primitives, arrays, nested objects, unions) map into TypeDescriptor IR without data loss', () => {
+    const b1 = { isErrorType: () => false, isStringLiteralType: () => false, isNumberLiteralType: () => false, isBooleanLiteralType: () => false, isUnionType: () => false, isObjectType: () => false };
+    const b2 = { isErrorType: () => false, isStringLiteralType: () => false, isNumberLiteralType: () => false, isBooleanLiteralType: () => false, isUnionType: () => false, isObjectType: () => false };
+
+    const mockUnionType = {
+      isErrorType: () => false,
+      isStringLiteralType: () => false,
+      isNumberLiteralType: () => false,
+      isBooleanLiteralType: () => false,
+      isUnionType: () => true,
+      getTypes: () => [b1, b2],
+    };
+
+    const mockChecker = {
+      typeToString: (t: any) => (t === b1 ? 'string' : t === b2 ? 'number' : 'union'),
+      getPropertiesOfType: () => [],
+    };
+
+    const desc = tsTypeToTypeDescriptor(mockUnionType, mockChecker);
+    expect(desc).toEqual<TypeDescriptor>({
+      kind: 'union',
+      branches: [{ kind: 'string' }, { kind: 'number' }],
+    });
+
+    const inlineCheck = emitCheckFromDescriptor(desc!, 'val');
+    expect(norm(inlineCheck)).toBe('((typeof val === "string") || (typeof val === "number"))');
+  });
+
+  it('Requirement 4 & AC 4: non-imported inline primitive validations continue to transform without added compilation latency', () => {
+    const inlineSrc = 'const ok = is<{ a: boolean; b: number }>(input);';
+    const start = performance.now();
+    const iterations = 1000;
+    for (let i = 0; i < iterations; i++) {
+      transformCode(inlineSrc);
+    }
+    const duration = performance.now() - start;
+
+    const out = transformCode(inlineSrc);
+    expect(norm(out)).toContain('typeof input.a === "boolean" && typeof input.b === "number"');
+    expect(duration).toBeLessThan(500); // High throughput execution (<0.5ms per transform)
+  });
+
+  it('Requirement 5 & AC 5: unresolvable type references log a descriptive warning and fall back cleanly to runtime validation', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const code = 'const ok = is<UnknownNonExistentDTO>(input);';
+    const plugin = zmdbAot();
+    const res = plugin.transform(code, '/src/unknown.ts');
+
+    expect(res).toBeNull(); // Code left unchanged for runtime fallback
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[zmdb-aot] Warning: Could not resolve type 'UnknownNonExistentDTO' in /src/unknown.ts, falling back to runtime validation."),
+    );
+
+    warnSpy.mockRestore();
+  });
+});

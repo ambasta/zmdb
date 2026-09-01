@@ -111,3 +111,4 @@ export function validate(r: Rule, expr: unknown): boolean {
       throw new Error(`unknown rule kind: ${r.kind}`);
   }
 }
+

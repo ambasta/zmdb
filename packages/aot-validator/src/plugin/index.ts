@@ -14,11 +14,11 @@ import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/nami
 
 import type { EmitOptions } from '../emit/index.js';
 import { ReflectSession } from '../reflect/session.js';
-import { transformCode, transformFile, type TransformDiagnostic } from '../transformer.js';
+import { transformCode, transformFile, type TransformDiagnostic, type TransformOptions } from '../transformer.js';
 
 /** Inline `validate(tags.X(…), …)` with no compiler. Type arguments need `transformFile`. */
-export function transformTypeChecks(code: string): string {
-  return transformCode(code);
+export function transformTypeChecks(code: string, options?: TransformOptions): string {
+  return transformCode(code, options);
 }
 
 export interface UnpluginLike {
@@ -52,6 +52,7 @@ export interface ZmdbAotOptions {
    * `validate(tags.X(…), …)` form and leaves every `f<T>(…)` call alone.
    */
   readonly project?: string;
+  readonly tsconfigPath?: string;
   readonly cwd?: string;
   /** An already-open session. The caller keeps ownership, including closing it. */
   readonly session?: ReflectSession;
@@ -65,6 +66,9 @@ export interface ZmdbAotOptions {
    * use (plan D4).
    */
   readonly onDiagnostic?: (diagnostic: TransformDiagnostic) => void;
+  readonly program?: unknown;
+  readonly checker?: unknown;
+  readonly compilerOptions?: unknown;
 }
 
 const SOURCE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs)$/;
@@ -79,8 +83,9 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
 
   const ensureSession = (): ReflectSession | undefined => {
     if (session) return session;
-    if (options.project === undefined) return undefined;
-    session = ReflectSession.open({ project: options.project, ...(options.cwd ? { cwd: options.cwd } : {}) });
+    const projPath = options.project ?? options.tsconfigPath;
+    if (projPath === undefined) return undefined;
+    session = ReflectSession.open({ project: projPath, ...(options.cwd ? { cwd: options.cwd } : {}) });
     owned = true;
     return session;
   };
@@ -97,7 +102,13 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
 
       const open = ensureSession();
       if (!open) {
-        const out = transformCode(code);
+        if (options.checker) {
+          const optsProg = options.program as { getSourceFile?: (id: string) => unknown } | undefined;
+          const sourceFile = optsProg?.getSourceFile?.(id);
+          const out = transformCode(code, { sourceFile, checker: options.checker, id });
+          return out === code ? null : { code: out };
+        }
+        const out = transformCode(code, { id });
         return out === code ? null : { code: out };
       }
 
