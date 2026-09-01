@@ -36,6 +36,63 @@ function makeRouter() {
   return router;
 }
 
+// Routes are bucketed by (method, segment count) rather than scanned flat, so
+// these pin the two properties that bucketing could plausibly break: that
+// declaration order still decides between two routes that both match, and that
+// same-shape routes under different methods stay separate.
+@Controller('/shadow')
+class ShadowController {
+  @Get('/:id')
+  byId(ctx: Ctx<{ id: string }>) {
+    return { via: 'param', id: ctx.params.id };
+  }
+
+  @Get('/me')
+  me() {
+    return { via: 'static' };
+  }
+
+  @Post('/:id')
+  post(ctx: Ctx<{ id: string }>) {
+    return { via: 'post', id: ctx.params.id };
+  }
+}
+
+describe('@zmdb/web pipeline: route table', () => {
+  it('lets the first-declared route win when two match', async () => {
+    const router = createRouter();
+    router.register(new ShadowController());
+    // `/:id` is declared before `/me`, so it shadows it — as a flat scan did.
+    const shadowed = await router.handle({ method: 'GET', path: '/shadow/me', headers: {} });
+    expect(JSON.parse(shadowed.body)).toEqual({ via: 'param', id: 'me' });
+  });
+
+  it('keeps identically-shaped routes of different methods apart', async () => {
+    const router = createRouter();
+    router.register(new ShadowController());
+    const get = await router.handle({ method: 'GET', path: '/shadow/7', headers: {} });
+    const post = await router.handle({ method: 'POST', path: '/shadow/7', headers: {} });
+    expect(JSON.parse(get.body)).toEqual({ via: 'param', id: '7' });
+    expect(JSON.parse(post.body)).toEqual({ via: 'post', id: '7' });
+  });
+
+  it('404s a path whose segment count matches no route', async () => {
+    const router = createRouter();
+    router.register(new ShadowController());
+    const deep = await router.handle({ method: 'GET', path: '/shadow/7/extra/more', headers: {} });
+    expect(deep.status).toBe(404);
+    const shallow = await router.handle({ method: 'GET', path: '/shadow', headers: {} });
+    expect(shallow.status).toBe(404);
+  });
+
+  it('404s a known path under an unregistered method', async () => {
+    const router = createRouter();
+    router.register(new ShadowController());
+    const del = await router.handle({ method: 'DELETE', path: '/shadow/7', headers: {} });
+    expect(del.status).toBe(404);
+  });
+});
+
 describe('@zmdb/web pipeline: dispatch', () => {
   it('routes to the handler and extracts params (200)', async () => {
     const res = await makeRouter().handle({ method: 'GET', path: '/users/42', headers: {} });

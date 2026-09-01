@@ -6,7 +6,14 @@
 import '../polyfill.ts';
 import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
 
-import { extractParams, type Ctx, type QueryValues } from '../context/index.ts';
+import {
+  compilePattern,
+  countSegments,
+  matchCompiled,
+  type CompiledPattern,
+  type Ctx,
+  type QueryValues,
+} from '../context/index.ts';
 import { getRoutes, type ResolvedRoute } from '../routing/index.ts';
 
 export type { Ctx } from '../context/index.ts';
@@ -37,8 +44,35 @@ type Handler = (ctx: Ctx<Record<string, string>, unknown, QueryValues>) => unkno
 
 interface BoundRoute {
   readonly route: ResolvedRoute;
+  readonly pattern: CompiledPattern;
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
+}
+
+// Routes are indexed by method, then by segment count, because a route can only
+// match a path that agrees on both — so a request never looks at a route it
+// could not possibly match. `handle` used to scan every registered route and
+// re-split each one's pattern, which made matching O(routes) with a handful of
+// allocations per candidate; with a real route table that cost grows without
+// bound while the two keys below are known before any comparison happens.
+//
+// Within a bucket the registration order of `register` is preserved, so
+// first-registered-wins is unchanged: a `/user/:id` declared before `/user/me`
+// still shadows it, exactly as the flat scan did.
+type MethodBuckets = Map<string, BoundRoute[][]>;
+
+function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number): BoundRoute[] {
+  let bySegmentCount = buckets.get(method);
+  if (bySegmentCount === undefined) {
+    bySegmentCount = [];
+    buckets.set(method, bySegmentCount);
+  }
+  let bucket = bySegmentCount[segmentCount];
+  if (bucket === undefined) {
+    bucket = [];
+    bySegmentCount[segmentCount] = bucket;
+  }
+  return bucket;
 }
 
 const JSON_HEADERS: Readonly<Record<string, string>> = { 'content-type': 'application/json' };
@@ -54,7 +88,7 @@ export interface Router {
 
 /** Create a router. Routes are read from controllers once at register time. */
 export function createRouter(): Router {
-  const routes: BoundRoute[] = [];
+  const buckets: MethodBuckets = new Map();
 
   return {
     register(controller: object, options: Readonly<Record<string, RouteOptions>> = {}): void {
@@ -67,20 +101,23 @@ export function createRouter(): Router {
         if (handler === undefined) {
           continue;
         }
+        // Resolve the pattern's segments and `:param` slots once, here, rather
+        // than re-deriving them from the same constant string per request.
+        const pattern = compilePattern(route.path);
         const opts = options[route.handlerName];
-        routes.push(
-          opts?.validateBody === undefined ? { route, handler } : { route, handler, validateBody: opts.validateBody },
+        bucketFor(buckets, route.method, pattern.segmentCount).push(
+          opts?.validateBody === undefined
+            ? { route, pattern, handler }
+            : { route, pattern, handler, validateBody: opts.validateBody },
         );
       }
     },
 
     async handle(req: WebRequest): Promise<WebResponse> {
       const method = req.method.toUpperCase();
-      for (const bound of routes) {
-        if (bound.route.method !== method) {
-          continue;
-        }
-        const params = extractParams(bound.route.path, req.path);
+      const candidates = buckets.get(method)?.[countSegments(req.path)] ?? [];
+      for (const bound of candidates) {
+        const params = matchCompiled(bound.pattern, req.path);
         if (params === undefined) {
           continue;
         }

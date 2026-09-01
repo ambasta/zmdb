@@ -55,13 +55,25 @@ type HandlerFor<Path extends string, Body = unknown, Query ... = ..., Result = u
 - \`extractParams(pattern, path)\` — a small pure helper that, given a route
   pattern (\`/users/:id\`) and a concrete path (\`/users/42\`), returns the params
   record (\`{ id: '42' }\`) or \`undefined\` when the path doesn't match the pattern.
-  Used later by the dispatcher (#272); typed so its return matches
-  \`PathParams<Pattern>\` when the pattern is a literal.
+  Typed so its return matches \`PathParams<Pattern>\` when the pattern is a literal.
+  It compiles the pattern on each call, so it suits one-off matches.
+- \`compilePattern(pattern)\` / \`matchCompiled(compiled, path)\` — the two-phase form
+  the dispatcher (#272) uses. A route pattern is a compile-time constant, so its
+  segments and \`:param\` slots are resolved **once at registration** and each
+  request only walks the path. \`extractParams\` is these two composed.
+- \`countSegments(path)\` — a path's non-empty segment count, which the dispatcher
+  uses to skip routes that cannot match.
 
 ## Invariants
 
-- **Derivation is 100% compile-time** for the types; \`extractParams\` is the only
-  runtime code and allocates one params object.
+- **Derivation is 100% compile-time** for the types; matching is the only runtime
+  code.
+- **Matching allocates only what the result needs.** A pattern with no params
+  yields a shared frozen empty object and allocates nothing; one with params
+  allocates the params object and one string per param. No intermediate segment
+  arrays, and no re-parsing of the (constant) pattern per request.
+- **First-registered wins** among routes that both match; bucketing by
+  (method, segment count) must not reorder within a bucket.
 - **No `as`/`any`/`!`** on the consumer surface. Type-level tests use
   \`expectTypeOf\`/\`@ts-expect-error\`.
 - No reflection.
@@ -71,7 +83,11 @@ type HandlerFor<Path extends string, Body = unknown, Query ... = ..., Result = u
 - Type-level tests prove \`PathParams\` derivation for the cases above, that
   \`HandlerFor\` rejects unknown param names, and that \`Ctx\` defaults work.
 - \`extractParams\` matches/extracts correctly and returns \`undefined\` on mismatch
-  (runtime test).
+  (runtime test), including leading/trailing/duplicated slashes and a static
+  segment the same length as a param value.
+- \`compilePattern\`/\`matchCompiled\` agree with \`extractParams\`, are reusable across
+  many paths without one match's params leaking into the next, and share one
+  frozen object for param-free patterns.
 - No \`as\`; suite + typecheck green.
 
 ## Out of scope

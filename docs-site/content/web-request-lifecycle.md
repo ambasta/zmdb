@@ -3,7 +3,7 @@ What happens between a request arriving and a response leaving, in order, with n
 ## The order
 
 1. **Adapter** — `toNodeHandler` or `toFetchHandler` builds a `WebRequest`: method, path (query string stripped), flattened headers, and `rawBody` parsed as JSON when the text is non-empty.
-2. **Route match** — routes are scanned in registration order. Method must match exactly (uppercased); `extractParams` matches the path pattern and yields `params`, or `undefined` for no match.
+2. **Route match** — the method (uppercased) and the path's segment count select a bucket of candidate routes; those are tried in registration order, matched against patterns that were compiled at registration, and the first to match yields `params`. An empty or exhausted bucket means no match.
 3. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
 4. **Ctx construction** — `{ params, body, query, headers, method, path }`.
 5. **Handler** — awaited.

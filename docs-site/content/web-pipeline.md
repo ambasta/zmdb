@@ -35,12 +35,12 @@ router.register(new UsersController(), {
 
 `router.handle(req)` returns `{ status, body, headers }`:
 
-| step          | behavior                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------ |
-| **match**     | method + path against the cached table (params via `extractParams`); no match → **404**          |
-| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called |
-| **invoke**    | call the handler with the typed `Ctx`                                                            |
-| **serialize** | JSON-encode the result → **200**; a thrown handler → **500**                                     |
+| step          | behavior                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| **match**     | method + segment count select a bucket of the cached table, then `matchCompiled`; no match → **404** |
+| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called     |
+| **invoke**    | call the handler with the typed `Ctx`                                                                |
+| **serialize** | JSON-encode the result → **200**; a thrown handler → **500**                                         |
 
 ```ts
 await router.handle({ method: 'GET', path: '/users/42', headers: {} });

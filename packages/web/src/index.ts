@@ -65,7 +65,17 @@ export {
 } from './routing/index.ts';
 
 // Typed request context + compile-time path-param derivation. See ./context.
-export { extractParams, type PathParams, type QueryValues, type Ctx, type HandlerFor } from './context/index.ts';
+export {
+  extractParams,
+  compilePattern,
+  countSegments,
+  matchCompiled,
+  type CompiledPattern,
+  type PathParams,
+  type QueryValues,
+  type Ctx,
+  type HandlerFor,
+} from './context/index.ts';
 
 // Compile-time dependency injection: Container + @Inject. See ./di.
 export {

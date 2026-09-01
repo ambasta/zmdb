@@ -47,9 +47,8 @@ const getUser: HandlerFor<'/users/:id', never> = ctx => {
 
 ## Extracting params at runtime
 
-`extractParams(pattern, path)` is the small pure helper the dispatcher uses to
-turn a matched request path into the params object (or `undefined` on a
-mismatch):
+`extractParams(pattern, path)` turns a request path into the params object (or
+`undefined` on a mismatch):
 
 ```ts
 import { extractParams } from '@zmdb/web';
@@ -59,10 +58,30 @@ extractParams('/users/:id/posts/:postId', '/u/1/p/7'); // (mismatch) → undefin
 extractParams('/health', '/health'); // {}
 ```
 
+It compiles `pattern` on every call, which is what you want for a one-off match
+and not what you want in a hot loop. A route pattern is a constant, so the
+dispatcher splits the work in two and does the pattern half once, at
+registration:
+
+```ts
+import { compilePattern, countSegments, matchCompiled } from '@zmdb/web';
+
+const route = compilePattern('/users/:id'); // once, at boot
+route.segmentCount; // 2 — cheap pre-filter via countSegments(path)
+
+matchCompiled(route, '/users/42'); // { id: '42' }   per request
+matchCompiled(route, '/orders/42'); // undefined
+```
+
+Use this pair if you are building your own dispatcher over `getRoutes`.
+
 ## Design notes
 
-- **100% compile-time** param typing; `extractParams` is the only runtime code and
-  allocates a single params object.
+- **100% compile-time** param typing; matching is the only runtime code.
+- **Matching allocates only the result.** A pattern with no params returns a
+  shared frozen empty object and allocates nothing else; one with params
+  allocates the params object and one string per param. It never builds
+  intermediate segment arrays, and never re-parses the pattern.
 - **No `as` on the consumer surface** — params are typed by derivation, not by
   assertion.
 - Granular import: `import type { Ctx } from '@zmdb/web/context'`.

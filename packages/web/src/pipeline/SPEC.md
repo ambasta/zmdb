@@ -21,8 +21,11 @@
   - `WebRequest = { method: string; path: string; headers; rawBody?: unknown; query? }`
   - `WebResponse = { status: number; body: string; headers }`
 - Pipeline steps, in order:
-  1. **Match** method + path against the cached table (path-param extraction via
-     `extractParams`). No match → `404`.
+  1. **Match** — the method and the path's segment count (`countSegments`) select
+     a bucket of the cached table; candidates are tried in registration order
+     against patterns compiled once by `compilePattern` at register time, using
+     `matchCompiled`. No match → `404`. Routes that disagree on method or segment
+     count are never examined, so this is not a scan of the whole table.
   2. **Build `Ctx`** — params from the match, `body`/`query`/`headers`/`method`/
      `path` from the request.
   3. **Validate** — if the route has `validateBody`, run it on `rawBody`; on throw

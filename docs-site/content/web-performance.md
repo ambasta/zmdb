@@ -3,17 +3,17 @@ The framework does very little per request, and knowing exactly what it does is 
 ## What happens on a request
 
 1. The adapter builds a `WebRequest` — a string split for the path, headers passed through, body `JSON.parse`d.
-2. `Router.handle` scans registered routes in order, comparing method and matching the path segment by segment.
-3. `extractParams` builds the params object.
+2. `Router.handle` counts the path's segments and looks up the routes registered under that method **and** that segment count. Routes that cannot match are never examined.
+3. Each candidate's pattern — already resolved into segments and `:param` slots at registration — is matched against the path by character index. A route with no params allocates nothing; one with params allocates the params object and one string per param.
 4. Optional body validation (`validateBody`), which is AOT-compiled code, not reflection.
 5. The handler runs.
 6. `jsonResponse(200, result)` stringifies.
 
-No reflection, no metadata reads, no DI resolution, no middleware chain — controllers are constructed once at `compileModule` and the [chain is not wired in](./web-request-lifecycle.html). The framework overhead is a linear scan and two JSON operations.
+No reflection, no metadata reads, no DI resolution, no middleware chain — controllers are constructed once at `compileModule` and the [chain is not wired in](./web-request-lifecycle.html). The framework overhead is a bucketed match and two JSON operations.
 
 `countMetadataReads` from `@zmdb/web/bench` is the test that keeps this true: decorator metadata is read at registration, not per request, and a regression there shows up as a rising count.
 
-## The route scan is linear and first-match
+## Matching is bucketed, then first-match
 
 ```ts
 router.register(PostsController); // /posts/:id
@@ -22,7 +22,11 @@ router.register(AdminController); // /posts/admin
 
 `GET /posts/admin` matches `/posts/:id` with `id = 'admin'`, because matching is first-match in registration order with no specificity ranking. Register static paths before parameterised ones on the same prefix.
 
-The scan is O(routes). At 50 routes this is nanoseconds and not worth thinking about; at 5,000 it would be worth a trie. If you are there, group routes across [several apps](./web-multiple-servers.html) rather than one router with thousands of entries.
+A route can only match a path that agrees on both HTTP method and segment count, and both are known before any comparison happens — so routes are indexed by that pair and a request only ever looks at the handful of routes sharing its shape. Registration order is preserved _within_ a bucket, which is what keeps first-match behaving as above.
+
+The remaining scan is O(routes sharing your method and segment count), not O(all routes). For a table where most routes have two or three segments that is still a small linear scan; at several thousand routes a trie would beat it, and if you are there, group routes across [several apps](./web-multiple-servers.html) rather than one router with thousands of entries.
+
+Route patterns are constants, so their segments and `:param` positions are resolved once by `compilePattern` at registration rather than re-derived per request. If you are writing your own dispatcher on top of `getRoutes`, do the same — `compilePattern` at boot, `matchCompiled` per request. `extractParams(pattern, path)` compiles on every call, which is right for a one-off match and wrong in a hot loop.
 
 ## Where the time actually goes
 
