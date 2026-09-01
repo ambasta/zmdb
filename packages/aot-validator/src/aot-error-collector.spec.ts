@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { transformCode } from './transformer.ts';
 import { validate as runtimeValidate, type TypeDescriptor } from './utilities/index.ts';
 
@@ -39,7 +40,7 @@ describe('Hoisted File-Scope Error Collector', () => {
     expect(res.errors).toBeDefined();
     expect(res.errors.length).toBeGreaterThan(0);
 
-    const priceIssue = res.errors.find((e: any) => e.path === 'input.orders[1].totalPrice');
+    const priceIssue = res.errors.find((e: { path: string }) => e.path === 'input.orders[1].totalPrice');
     expect(priceIssue).toBeDefined();
     expect(priceIssue.expected).toBe('number');
     expect(priceIssue.value).toBe('invalid_price');
