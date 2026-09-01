@@ -62,6 +62,8 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
     nin: 'NOT IN',
     exists: 'EXISTS',
     'not exists': 'NOT EXISTS',
+    'is null': 'IS NULL',
+    'is not null': 'IS NOT NULL',
   }),
 );
 
@@ -98,6 +100,10 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
     if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
     return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
+  }
+
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
   }
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {

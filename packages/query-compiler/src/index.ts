@@ -24,6 +24,8 @@ export type Operator =
   | 'nin'
   | 'exists'
   | 'not exists'
+  | 'is null'
+  | 'is not null'
   | (string & {});
 
 export { OP_MAP } from './clauses.ts';

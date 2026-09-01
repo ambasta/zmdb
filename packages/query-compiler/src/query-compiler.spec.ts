@@ -441,17 +441,41 @@ describe('Operator normalization & raw operator fall-through', () => {
       ['NOT IN', 'NOT IN'],
       ['nin', 'NOT IN'],
       ['NIN', 'NOT IN'],
+      ['is null', 'IS NULL'],
+      ['IS NULL', 'IS NULL'],
+      ['is not null', 'IS NOT NULL'],
+      ['IS NOT NULL', 'IS NOT NULL'],
     ];
 
     for (const [op, expectedSqlOp] of ops) {
       if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
         const q = qb.selectFrom('users').where('col', op, [1, 2]).compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
+      } else if (expectedSqlOp === 'IS NULL' || expectedSqlOp === 'IS NOT NULL') {
+        const q = qb.selectFrom('users').where('col', op, null).compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp}`);
+        expect(q.parameters).toEqual([]);
       } else {
         const q = qb.selectFrom('users').where('col', op, 'val').compile();
         expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
       }
     }
+  });
+
+  it('compiles IS NULL and IS NOT NULL predicates without binding parameters', () => {
+    const qb = createQueryCompiler('postgres');
+
+    const q1 = qb.selectFrom('users').where('deletedAt', 'is null', null).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "deletedAt" IS NULL');
+    expect(q1.parameters).toEqual([]);
+
+    const q2 = qb.selectFrom('users').where('deletedAt', 'IS NOT NULL', undefined).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE "deletedAt" IS NOT NULL');
+    expect(q2.parameters).toEqual([]);
+
+    const q3 = qb.selectFrom('users').where('deletedAt', 'is null', null).where('active', '=', true).compile();
+    expect(q3.text).toBe('SELECT * FROM "users" WHERE "deletedAt" IS NULL AND "active" = $1');
+    expect(q3.parameters).toEqual([true]);
   });
 
   it('allows unmapped raw Postgres/SQL operators to fall through as-written', () => {
