@@ -115,5 +115,4 @@ describe('custom types & codecs (#133)', () => {
     expect(typeof col1.withCustomType).toBe('function');
     expect(Object.keys(col1)).not.toContain('withCustomType');
   });
-  });
 });

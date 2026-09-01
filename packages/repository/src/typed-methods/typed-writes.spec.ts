@@ -105,15 +105,12 @@ describe('typed create/update (#206)', () => {
       total: text().customType(MoneyType).notNull(),
       discount: customType(text(), MoneyType).nullable(),
     });
-    type OS = typeof OrderSchema;
 
     it('validates custom-typed domain objects and encodes them prior to SQL compilation', async () => {
-      const execute = vi.fn(async (_q: CompiledQuery) => [
-        { id: 1, total: '100:USD', discount: null },
-      ]);
+      const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, total: '100:USD', discount: null }]);
       const repo = defineRepository(OrderSchema, { execute } as Driver);
 
-      const created = await repo.create({
+      await repo.create({
         total: { amount: 100, currency: 'USD' },
         discount: null,
       });
