@@ -81,7 +81,15 @@ import {
   type DistanceExpression,
   type SpatialPredicate,
 } from './extensions/index.js';
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
+import {
+  formatPlaceholder,
+  quoteColumn,
+  quoteIdentifier,
+  quoteTable,
+  renumberPlaceholders,
+  sanitizeExpression,
+  type SanitizedExpression,
+} from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
 export type { ColumnExpr, SetValue } from './expressions/index.js';
@@ -97,7 +105,15 @@ export type {
   SpatialPredicate,
   VectorColumnOf,
 } from './extensions/index.js';
-export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export {
+  formatPlaceholder,
+  quoteColumn,
+  quoteIdentifier,
+  quoteTable,
+  renumberPlaceholders,
+  sanitizeExpression,
+};
+export type { SanitizedExpression };
 export type Operator =
   | '='
   | '!='
