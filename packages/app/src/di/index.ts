@@ -112,7 +112,8 @@ export type Constructor<T> = new () => T;
 /** Provider scope: a singleton is resolved once and cached; transient re-runs. */
 export type Scope = 'singleton' | 'transient';
 
-class ContainerImpl<RegisteredTokens = never> {
+/** The explicit, opt-in DI registry. Resolution is O(1) by token identity. */
+export class Container {
   // Keyed by token identity. Values are the registered instances; each key's
   // value type is guaranteed by `register`'s typed signature.
   readonly #bindings = new Map<Token<unknown>, unknown>();
@@ -120,20 +121,16 @@ class ContainerImpl<RegisteredTokens = never> {
   // their first result back into #bindings.
   readonly #factories = new Map<Token<unknown>, { factory: (c: Container) => unknown; scope: Scope }>();
 
-  /** Bind a token to an instance. Returns an updated container reference accumulating the token type. */
-  register<T, TToken extends Token<T> = Token<T>>(token: TToken, instance: T): Container<RegisteredTokens | TToken> {
+  /** Bind a token to an instance. Returns `this` for fluent chaining. */
+  register<T>(token: Token<T>, instance: T): this {
     this.#bindings.set(token, instance);
-    return this as unknown as Container<RegisteredTokens | TToken>;
+    return this;
   }
 
-  /** Bind a token to a factory with a scope (default singleton). Returns an updated container reference accumulating the token type. */
-  registerFactory<T, TToken extends Token<T> = Token<T>>(
-    token: TToken,
-    factory: (c: Container) => T,
-    scope: Scope = 'singleton',
-  ): Container<RegisteredTokens | TToken> {
+  /** Bind a token to a factory with a scope (default singleton). Returns `this` for fluent chaining. */
+  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): this {
     this.#factories.set(token, { factory, scope });
-    return this as unknown as Container<RegisteredTokens | TToken>;
+    return this;
   }
 
   /** True if the token is registered (as a value or a factory). */
@@ -141,20 +138,14 @@ class ContainerImpl<RegisteredTokens = never> {
     return this.#bindings.has(token) || this.#factories.has(token);
   }
 
-  /** Resolve a token to its instance, or throw UnresolvedTokenError. Rejects unregistered tokens at compile time for fluently constructed containers. */
-  resolve<T, TToken extends Token<T> = Token<T>>(
-    token: 0 extends 1 & RegisteredTokens
-      ? TToken
-      : [unknown] extends [RegisteredTokens]
-        ? TToken
-        : TToken & ([TToken] extends [RegisteredTokens] ? unknown : never),
-  ): T {
+  /** Resolve a token to its instance, or throw UnresolvedTokenError. */
+  resolve<T>(token: Token<T>): T {
     if (this.#bindings.has(token)) {
       return readBinding(this.#bindings, token);
     }
     const provider = this.#factories.get(token);
     if (provider !== undefined) {
-      const value = provider.factory(this as unknown as Container);
+      const value = provider.factory(this);
       if (provider.scope === 'singleton') {
         this.#bindings.set(token, value);
       }
@@ -168,27 +159,15 @@ class ContainerImpl<RegisteredTokens = never> {
    * Resolution happens here (once), then is cached on the instance.
    */
   build<T>(Ctor: Constructor<T>): T {
-    return withActiveContainer(this as unknown as Container, () => new Ctor());
+    return withActiveContainer(this, () => new Ctor());
   }
 }
 
-/** The explicit, opt-in DI registry. Resolution is O(1) by token identity. */
-export type Container<RegisteredTokens = unknown> = ContainerImpl<RegisteredTokens>;
-
-/** The Container constructor. Produces a container with no initial registered tokens. */
-export const Container: {
-  new (): Container<never>;
-  readonly prototype: Container<unknown>;
-} = ContainerImpl as unknown as {
-  new (): Container<never>;
-  readonly prototype: Container<unknown>;
-};
-
 // boundary: `register<T>` is the only writer and stores exactly the token's T
-// under that token key, so reading it back as T is sound. This is the single
-// enumerated boundary cast in the DI module (ARCHITECTURE.md §2.1) — a
+// under that token key, so reading it back as T is sound. This and narrowFactoryValue
+// are the enumerated boundary casts in the DI module (ARCHITECTURE.md §2.1) — a
 // heterogeneous token→instance Map cannot prove its value type structurally, so
-// the assertion is isolated here with the soundness argument, and never appears
+// the assertions are isolated here with soundness arguments, and never appear
 // at a call site or on the consumer surface.
 function readBinding<T>(bindings: ReadonlyMap<Token<unknown>, unknown>, token: Token<T>): T {
   return bindings.get(token) as T;
