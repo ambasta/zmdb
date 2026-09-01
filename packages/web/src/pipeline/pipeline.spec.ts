@@ -1,6 +1,6 @@
 import { StringDecoder } from 'node:string_decoder';
 
-import { ValidationError } from '@zmdb/schema-core';
+import { ValidationError, defineSchema, serial, text as textCol } from '@zmdb/schema-core';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
@@ -19,6 +19,12 @@ import {
   type Router,
 } from './index.js';
 
+const AccountSchema = defineSchema('accounts', {
+  id: serial().primaryKey(),
+  email: textCol().notNull(),
+  secretToken: textCol().sensitive(),
+});
+
 @Controller('/users')
 class UsersController {
   @Get('/:id')
@@ -29,6 +35,11 @@ class UsersController {
   @Post()
   create(ctx: Ctx<Record<never, string>, { name: string }>) {
     return { created: ctx.body.name };
+  }
+
+  @Get('/account/:id')
+  getAccount(ctx: Ctx<{ id: string }>) {
+    return { id: Number(ctx.params.id), email: 'user@example.com', secretToken: 'super-secret' };
   }
 }
 
@@ -43,6 +54,9 @@ function makeRouter() {
         }
         return raw;
       },
+    },
+    getAccount: {
+      schema: AccountSchema,
     },
   });
   return router;
@@ -102,6 +116,21 @@ describe('@zmdb/web pipeline: route table', () => {
     router.register(new ShadowController());
     const del = await router.handle({ method: 'DELETE', path: '/shadow/7', headers: {} });
     expect(del.status).toBe(404);
+  });
+});
+
+describe('@zmdb/web pipeline: schema fast stringification', () => {
+  it('formats schema-backed response and automatically excludes sensitive fields', async () => {
+    const res = await makeRouter().handle({ method: 'GET', path: '/users/account/10', headers: {} });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('{"id":10,"email":"user@example.com"}');
+    expect(res.body).not.toContain('secretToken');
+  });
+
+  it('falls back seamlessly to standard JSON serialization for non-schema routes', async () => {
+    const res = await makeRouter().handle({ method: 'GET', path: '/users/42', headers: {} });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('{"id":"42"}');
   });
 });
 

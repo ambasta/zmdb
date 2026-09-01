@@ -14,6 +14,7 @@ export {
   MAX_REGEX_CACHE_SIZE,
   validatePatternComplexity,
 } from './regex-complexity.js';
+export { compileFastStringifier, compileStringifier, stringify, assertStringify } from './serialization/index.js';
 
 export interface Rule {
   readonly kind: string;
