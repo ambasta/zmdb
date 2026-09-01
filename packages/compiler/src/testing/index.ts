@@ -52,7 +52,7 @@ import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 import { schemaIrFromType, type ReflectDiagnostic, type ReflectOptions } from '../reflect/index.js';
-import { ReflectSession } from '../reflect/session.js';
+import { withSession } from '../reflect/session.js';
 
 export interface SchemasFromOptions {
   /**
@@ -134,67 +134,70 @@ export function schemasFromFiles(
 ): readonly CoreSchema<string>[] {
   if (files.length === 0) throw new Error('the configured schema file set is empty');
 
-  using session = ReflectSession.open({ project: options.project });
-  const schemas = new Map<string, CoreSchema<string>>();
-  const diagnostics: ReflectDiagnostic[] = [];
+  return withSession({ project: options.project }, session => {
+    const schemas = new Map<string, CoreSchema<string>>();
+    const diagnostics: ReflectDiagnostic[] = [];
 
-  for (const file of files.toSorted()) {
-    const sourceFile = session.sourceFile(file);
-    if (!sourceFile) {
-      throw new Error(
-        `${file} is not part of ${options.project}; the configured schema files must belong to the project`,
-      );
-    }
-
-    const broken = session.diagnostics(file);
-    if (broken.length > 0) {
-      throw new Error(
-        `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
-          broken
-            .slice(0, 5)
-            .map(one => `  TS${String(one.code)}: ${one.text}`)
-            .join('\n'),
-      );
-    }
-
-    const moduleSymbol = session.checker.getSymbolAtLocation(sourceFile);
-    if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
-    const exported = session.checker
-      .getExportsOfModule(moduleSymbol)
-      .toSorted((left, right) => left.name.localeCompare(right.name));
-
-    for (const symbol of exported) {
-      const type = session.checker.getDeclaredTypeOfSymbol(symbol);
-      const reflected = schemaIrFromType(session.checker, type, sourceFile, reflectOptions(options));
-      const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
-      if (!isTable) continue;
-
-      diagnostics.push(...reflected.diagnostics);
-      const schema = schemaFromIR(reflected.ir);
-      const previous = schemas.get(schema.ir.table);
-      if (previous !== undefined) {
-        if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
-          throw new Error(`configured schema files export conflicting declarations for table ${schema.ir.table}`);
-        }
-        continue;
+    for (const file of files.toSorted()) {
+      const sourceFile = session.sourceFile(file);
+      if (!sourceFile) {
+        throw new Error(
+          `${file} is not part of ${options.project}; the configured schema files must belong to the project`,
+        );
       }
-      schemas.set(schema.ir.table, schema);
-    }
-  }
 
-  if (diagnostics.length > 0) {
-    if (options.onDiagnostics) options.onDiagnostics(diagnostics);
-    else {
+      const broken = session.diagnostics(file);
+      if (broken.length > 0) {
+        throw new Error(
+          `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
+            broken
+              .slice(0, 5)
+              .map(one => `  TS${String(one.code)}: ${one.text}`)
+              .join('\n'),
+        );
+      }
+
+      const moduleSymbol = session.checker.getSymbolAtLocation(sourceFile);
+      if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+      const exported = session.checker
+        .getExportsOfModule(moduleSymbol)
+        .toSorted((left, right) => left.name.localeCompare(right.name));
+
+      for (const symbol of exported) {
+        const type = session.checker.getDeclaredTypeOfSymbol(symbol);
+        const reflected = schemaIrFromType(session.checker, type, sourceFile, reflectOptions(options));
+        const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
+        if (!isTable) continue;
+
+        diagnostics.push(...reflected.diagnostics);
+        const schema = schemaFromIR(reflected.ir);
+        const previous = schemas.get(schema.ir.table);
+        if (previous !== undefined) {
+          if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
+            throw new Error(`configured schema files export conflicting declarations for table ${schema.ir.table}`);
+          }
+          continue;
+        }
+        schemas.set(schema.ir.table, schema);
+      }
+    }
+
+    if (diagnostics.length > 0) {
+      if (options.onDiagnostics) options.onDiagnostics(diagnostics);
+      else {
+        throw new Error(
+          `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
+            diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        );
+      }
+    }
+    if (schemas.size === 0) {
       throw new Error(
-        `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
-          diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        `the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`,
       );
     }
-  }
-  if (schemas.size === 0) {
-    throw new Error(`the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`);
-  }
-  return [...schemas.values()].toSorted((left, right) => left.ir.table.localeCompare(right.ir.table));
+    return [...schemas.values()].toSorted((left, right) => left.ir.table.localeCompare(right.ir.table));
+  });
 }
 
 /**
@@ -212,70 +215,71 @@ export function schemaIrsFrom<const Names extends readonly string[]>(
   const file = module.startsWith('file:') ? fileURLToPath(module) : resolve(module);
   const project = options.project ?? nearestProject(file);
 
-  using session = ReflectSession.open({ project });
-  const sourceFile = session.sourceFile(file);
-  if (!sourceFile) {
-    throw new Error(
-      `${file} is not part of ${project}. The tagged interfaces have to be in the program for ` +
-        'the checker to have a declared type for them.',
-    );
-  }
-
-  // Before anything is read off the type: a file that does not compile has error types in it,
-  // and an error type reflects as a refusal per column rather than as the one problem it is.
-  const broken = session.diagnostics(file);
-  if (broken.length > 0) {
-    throw new Error(
-      `${file} does not compile, so its types cannot be read (${broken.length} diagnostic(s)):\n` +
-        broken
-          .slice(0, 5)
-          .map(one => `  TS${String(one.code)}: ${one.text}`)
-          .join('\n'),
-    );
-  }
-
-  const { checker } = session;
-  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
-  if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
-  const exported = new Map(checker.getExportsOfModule(moduleSymbol).map(symbol => [symbol.name, symbol]));
-
-  const irs: Record<string, SchemaIR> = {};
-  const diagnostics: ReflectDiagnostic[] = [];
-  for (const name of names) {
-    const symbol = exported.get(name);
-    if (!symbol) {
-      // Naming the exports is worth the line: the usual cause is a missing `export`, and the
-      // message "User is not exported" is not obviously that when the interface is right there.
+  return withSession({ project }, session => {
+    const sourceFile = session.sourceFile(file);
+    if (!sourceFile) {
       throw new Error(
-        `${file} exports no \`${name}\`. It has to be \`export interface ${name}\` — the module's ` +
-          `export table is how the name is resolved. Exports found: ${[...exported.keys()].join(', ') || 'none'}.`,
+        `${file} is not part of ${project}. The tagged interfaces have to be in the program for ` +
+          'the checker to have a declared type for them.',
       );
     }
-    const type = checker.getDeclaredTypeOfSymbol(symbol);
-    // One reflector per name, which `schemaIrFromType` gives us: the node budget and the
-    // helper-name table are per-reflection state, and sharing them across unrelated tables
-    // would make one table's refusals show up against another's.
-    const result = schemaIrFromType(checker, type, sourceFile, reflectOptions(options));
-    irs[name] = result.ir;
-    diagnostics.push(...result.diagnostics);
-  }
 
-  if (diagnostics.length > 0) {
-    if (options.onDiagnostics) options.onDiagnostics(diagnostics);
-    else {
+    // Before anything is read off the type: a file that does not compile has error types in it,
+    // and an error type reflects as a refusal per column rather than as the one problem it is.
+    const broken = session.diagnostics(file);
+    if (broken.length > 0) {
       throw new Error(
-        `the reflection refused ${diagnostics.length} thing(s) in ${file}:\n` +
-          diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        `${file} does not compile, so its types cannot be read (${broken.length} diagnostic(s)):\n` +
+          broken
+            .slice(0, 5)
+            .map(one => `  TS${String(one.code)}: ${one.text}`)
+            .join('\n'),
       );
     }
-  }
 
-  // boundary: `irs` is filled in by the loop above, one key per member of `names`, and the
-  // loop throws rather than skipping when a name is not exported — so every key the return
-  // type promises is present by the time this runs. What the assertion buys is the *literal*
-  // keys: built from a `Record<string, SchemaIR>` because the names arrive as values, and no
-  // amount of building it differently makes the compiler read them back off the array.
-  return irs as { [Name in Names[number]]: SchemaIR };
+    const { checker } = session;
+    const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+    if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+    const exported = new Map(checker.getExportsOfModule(moduleSymbol).map(symbol => [symbol.name, symbol]));
+
+    const irs: Record<string, SchemaIR> = {};
+    const diagnostics: ReflectDiagnostic[] = [];
+    for (const name of names) {
+      const symbol = exported.get(name);
+      if (!symbol) {
+        // Naming the exports is worth the line: the usual cause is a missing `export`, and the
+        // message "User is not exported" is not obviously that when the interface is right there.
+        throw new Error(
+          `${file} exports no \`${name}\`. It has to be \`export interface ${name}\` — the module's ` +
+            `export table is how the name is resolved. Exports found: ${[...exported.keys()].join(', ') || 'none'}.`,
+        );
+      }
+      const type = checker.getDeclaredTypeOfSymbol(symbol);
+      // One reflector per name, which `schemaIrFromType` gives us: the node budget and the
+      // helper-name table are per-reflection state, and sharing them across unrelated tables
+      // would make one table's refusals show up against another's.
+      const result = schemaIrFromType(checker, type, sourceFile, reflectOptions(options));
+      irs[name] = result.ir;
+      diagnostics.push(...result.diagnostics);
+    }
+
+    if (diagnostics.length > 0) {
+      if (options.onDiagnostics) options.onDiagnostics(diagnostics);
+      else {
+        throw new Error(
+          `the reflection refused ${diagnostics.length} thing(s) in ${file}:\n` +
+            diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        );
+      }
+    }
+
+    // boundary: `irs` is filled in by the loop above, one key per member of `names`, and the
+    // loop throws rather than skipping when a name is not exported — so every key the return
+    // type promises is present by the time this runs. What the assertion buys is the *literal*
+    // keys: built from a `Record<string, SchemaIR>` because the names arrive as values, and no
+    // amount of building it differently makes the compiler read them back off the array.
+    return irs as { [Name in Names[number]]: SchemaIR };
+  });
 }
 
 /**
