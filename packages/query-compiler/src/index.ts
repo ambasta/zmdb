@@ -106,15 +106,27 @@ export type Operator =
   | '>'
   | '>='
   | 'like'
+  | 'LIKE'
   | 'ilike'
+  | 'ILIKE'
   | 'in'
+  | 'IN'
   | 'not in'
+  | 'NOT IN'
   | 'nin'
+  | 'NIN'
   | 'exists'
+  | 'EXISTS'
   | 'not exists'
+  | 'NOT EXISTS'
   | 'is null'
+  | 'IS NULL'
   | 'is not null'
-  | (string & {});
+  | 'IS NOT NULL'
+  | 'is'
+  | 'IS'
+  | 'is not'
+  | 'IS NOT';
 
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';

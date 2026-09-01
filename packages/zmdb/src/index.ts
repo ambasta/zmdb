@@ -54,6 +54,7 @@ export type {
   CommentPairs,
   CompiledQuery,
   Dialect,
+  Operator,
   SetValue,
 } from '@zmdb/query-compiler';
 

@@ -10,6 +10,7 @@ import type {
   ComparisonPredicate,
   CompiledQuery,
   DialectTarget,
+  Operator,
   Predicate,
   SelectBuilder,
   SetValue,
@@ -1743,17 +1744,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // objects — no proxies). Uses the query-compiler JOIN builder.
   async findJoined<Target extends DeclaredTable, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: TaggedSchema<Target>; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Entity<Target>, Kind>[]>;
   async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Joined, Kind>[]>;
   async findJoined(
     join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]> {
     const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
@@ -2072,12 +2073,26 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
       }
 
+      const OP_SQL: Record<string, Operator> = {
+        eq: '=',
+        ne: '!=',
+        lt: '<',
+        lte: '<=',
+        gt: '>',
+        gte: '>=',
+        in: 'in',
+        nin: 'not in',
+        like: 'like',
+        ilike: 'ilike',
+      };
+
       if (spec.where) {
         for (const [col, val] of Object.entries(spec.where)) {
           const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(physicalColumn, op === 'eq' ? '=' : op, opVal);
+              const mappedOp = OP_SQL[op] ?? (op as Operator);
+              builder = builder.where(physicalColumn, mappedOp, opVal);
             }
           } else {
             builder = builder.where(physicalColumn, '=', val);
