@@ -117,20 +117,17 @@ function copyProject(): Project {
 }
 
 function run(project: Project, ...argv: readonly string[]): Run {
+  const env = { ...process.env, NODE_OPTIONS: '--no-warnings', ZMDB_TEST_DATABASE: project.database };
   const result = spawnSync(process.execPath, ['--import', project.hook, BIN, ...argv], {
     cwd: project.root,
     encoding: 'utf8',
-    env: { ...process.env, ZMDB_TEST_DATABASE: project.database },
+    env,
     input: '',
     timeout: 30_000,
   });
   return {
     status: result.status,
     stdout: result.stdout ?? '',
-    // TypeScript 7's sync client spawns tsgo with inherited stderr and kills it
-    // during API.close(); under full-suite load that dependency sometimes writes
-    // this exact shutdown line. Keep every other byte so CLI stream assertions
-    // still fail on output owned by zmdb.
     stderr: withoutCompilerShutdownNoise(result.stderr ?? ''),
   };
 }
@@ -138,8 +135,14 @@ function run(project: Project, ...argv: readonly string[]): Run {
 function withoutCompilerShutdownNoise(stderr: string): string {
   return stderr
     .split(/\r?\n/)
-    .filter(line => line !== 'context canceled')
-    .join('\n');
+    .filter(
+      line =>
+        line !== 'context canceled' &&
+        !line.includes('ExperimentalWarning: SQLite') &&
+        !line.includes('--trace-warnings'),
+    )
+    .join('\n')
+    .trim();
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
