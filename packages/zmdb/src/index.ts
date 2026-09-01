@@ -42,7 +42,13 @@ export type {
 } from '@zmdb/schema-core';
 
 // Query compiler & Migrations.
-export { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
+export {
+  createQueryCompiler,
+  UnsupportedFeatureError,
+  sanitizeKeys,
+  chunkArray,
+  DIALECT_PARAM_LIMITS,
+} from '@zmdb/query-compiler';
 export * as migrations from '@zmdb/query-compiler/migrations';
 export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
 

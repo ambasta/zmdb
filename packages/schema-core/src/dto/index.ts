@@ -59,6 +59,10 @@ export interface WhereTarget {
   orWhereExists?(subquery: unknown): this;
   whereNotExists?(subquery: unknown): this;
   orWhereNotExists?(subquery: unknown): this;
+  whereIn?(col: string, values: readonly unknown[]): this;
+  orWhereIn?(col: string, values: readonly unknown[]): this;
+  whereNotIn?(col: string, values: readonly unknown[]): this;
+  orWhereNotIn?(col: string, values: readonly unknown[]): this;
 }
 
 /**
@@ -145,6 +149,14 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
             else add('is not null', null);
           } else if (op === 'notNull') {
             add(value ? 'is not null' : 'is null', null);
+          } else if (op === 'in' && Array.isArray(value)) {
+            if (connector === 'or' && b.orWhereIn) b = b.orWhereIn(col, value);
+            else if (connector !== 'or' && b.whereIn) b = b.whereIn(col, value);
+            else add('in', value);
+          } else if (op === 'nin' && Array.isArray(value)) {
+            if (connector === 'or' && b.orWhereNotIn) b = b.orWhereNotIn(col, value);
+            else if (connector !== 'or' && b.whereNotIn) b = b.whereNotIn(col, value);
+            else add('not in', value);
           } else {
             const sql = OP_SQL[op];
             if (sql) add(sql, value);

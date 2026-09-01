@@ -77,7 +77,12 @@ Same builder as the first SELECT above but with mysql:
 => text: SELECT * FROM `users` WHERE `email` = ? ORDER BY `createdAt` DESC LIMIT 10
 ```
 
-## 5. Non-goals / anti-patterns (rejected)
+## 5. Set Operations and Empty IN Lists
+
+- `whereIn(col, [])` and `IN` with an empty array compile to `1 = 0` so that an empty IN list matches no rows rather than raising a SQL syntax error.
+- `whereNotIn(col, [])` and `NOT IN` with an empty array (or an array containing only `null`/`undefined` values) compile to `1 = 1` so that an empty NOT IN list matches all rows without throwing a syntax error or triggering three-valued SQL NULL evaluation traps.
+
+## 6. Non-goals / anti-patterns (rejected)
 
 - No runtime type resolution (no reliance on schema types at runtime).
 - No retained per-query metadata objects beyond the returned CompiledQuery.

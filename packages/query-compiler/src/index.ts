@@ -1,5 +1,5 @@
 // @zmdb/query-compiler — implementation.
-export { UnsupportedFeatureError } from './errors.ts';
+export { QueryCompilerError, UnsupportedFeatureError } from './errors.ts';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
@@ -21,12 +21,58 @@ export type Operator =
   | 'ilike'
   | 'in'
   | 'not in'
-  | 'EXISTS'
-  | 'NOT EXISTS'
+  | 'nin'
   | 'exists'
   | 'not exists'
   | (string & {});
+
+export { OP_MAP } from './clauses.ts';
+
 export type Direction = 'asc' | 'desc';
+
+/**
+ * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.
+ * These conservative limits (30,000 for SQLite, 60,000 for Postgres/MySQL) serve as
+ * list-length heuristics, leaving headroom below maximum driver parameter limits
+ * (32,766 for SQLite, 65,535 for Postgres/MySQL) for any additional query parameters.
+ */
+export const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
+  sqlite: 30000,
+  postgres: 60000,
+  mysql: 60000,
+};
+
+/**
+ * Collection utility that deduplicates keys while preserving insertion order AND
+ * filtering out `null` and `undefined` key values.
+ *
+ * Note: Dropping null/undefined key values is a semantic choice designed for batch key loading
+ * (parent rows with a null foreign key are silently omitted from relationship loading).
+ */
+export function sanitizeKeys<T>(keys: readonly T[]): T[] {
+  const result: T[] = [];
+  const seen = new Set<T>();
+  for (const k of keys) {
+    if (k !== null && k !== undefined && !seen.has(k)) {
+      seen.add(k);
+      result.push(k);
+    }
+  }
+  return result;
+}
+
+/**
+ * Collection utility that partitions an array into contiguous chunks of at most `chunkSize` elements.
+ * Used to split large batch parameter lists into parameter-safe sub-queries.
+ */
+export function chunkArray<T>(array: readonly T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) throw new Error('chunkSize must be greater than 0');
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
 
 export interface CompiledQuery {
   readonly text: string;
@@ -54,6 +100,12 @@ export interface SelectBuilder<T = unknown> {
   where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+  andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+  orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+  whereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+  andWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+  orWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   whereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   andWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   orWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
@@ -70,7 +122,7 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch });
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
@@ -80,6 +132,12 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<
     where: (col, op, value) => addWhere('AND', col, op, value),
     andWhere: (col, op, value) => addWhere('AND', col, op, value),
     orWhere: (col, op, value) => addWhere('OR', col, op, value),
+    whereIn: (col, values) => addWhere('AND', col, 'in', values),
+    andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
+    orWhereIn: (col, values) => addWhere('OR', col, 'in', values),
+    whereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
+    andWhereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
+    orWhereNotIn: (col, values) => addWhere('OR', col, 'not in', values),
     whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
@@ -112,14 +170,18 @@ export interface InsertBuilder {
 }
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
-  where(col: string, op: Operator, value: unknown): UpdateBuilder;
-  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
+  where(col: string, op: Operator | string, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator | string, value: unknown): UpdateBuilder;
+  whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
+  whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
-  where(col: string, op: Operator, value: unknown): DeleteBuilder;
-  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
+  where(col: string, op: Operator | string, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator | string, value: unknown): DeleteBuilder;
+  whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
+  whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
   compile(): CompiledQuery;
 }
@@ -251,6 +313,10 @@ function makeUpdate(
     set: r => makeUpdate(d, table, r, wheres, ret),
     where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
     orWhere: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret),
+    whereIn: (col, values) =>
+      makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+    whereNotIn: (col, values) =>
+      makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
     returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
@@ -277,6 +343,10 @@ function makeDelete(
   return {
     where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
     orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret),
+    whereIn: (col, values) =>
+      makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+    whereNotIn: (col, values) =>
+      makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
     returning: cols => makeDelete(d, table, wheres, cols ?? []),
     compile: () => {
       const params: unknown[] = [];

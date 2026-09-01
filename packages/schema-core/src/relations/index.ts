@@ -89,6 +89,18 @@ export interface PopulateQuery {
   readonly parameters: readonly unknown[];
 }
 
+function sanitizeKeys<T>(keys: readonly T[]): T[] {
+  const result: T[] = [];
+  const seen = new Set<T>();
+  for (const k of keys) {
+    if (k !== null && k !== undefined && !seen.has(k)) {
+      seen.add(k);
+      result.push(k);
+    }
+  }
+  return result;
+}
+
 // #33 — compile a populate hint into deterministic SQL.
 // to-one (many-to-one / one-to-one) → INNER JOIN on the owning FK.
 // to-many (one-to-many / many-to-many) → batched IN() select on the FK.
@@ -108,10 +120,15 @@ export function compilePopulate(
     return { kind: 'join', sql, parameters: [] };
   }
   // to-many: batched IN() select against the inverse FK on the target table.
+  const sanitized = sanitizeKeys(parentIds);
   const fk = rel.mappedBy ?? 'id';
-  const inList = parentIds.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
+  if (sanitized.length === 0) {
+    const sql = `SELECT * FROM ${quoteIdentifier(dialect, rel.target)} WHERE 1 = 0`;
+    return { kind: 'batched', sql, parameters: [] };
+  }
+  const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
   const sql = `SELECT * FROM ${quoteIdentifier(dialect, rel.target)} WHERE ${quoteIdentifier(dialect, fk)} IN (${inList})`;
-  return { kind: 'batched', sql, parameters: [...parentIds] };
+  return { kind: 'batched', sql, parameters: [...sanitized] };
 }
 
 // #32 — compile-time relation type derivation.
