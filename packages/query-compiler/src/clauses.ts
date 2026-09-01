@@ -66,7 +66,7 @@ export function sqlOperator(op: string): string {
   return op;
 }
 
-/** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
+/** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery, or `col IN ($1, $2)` when IN array expansion is requested. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
@@ -79,10 +79,43 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     const opUpper = p.op.toUpperCase();
     if (opUpper === 'EXISTS') return `EXISTS (${text})`;
     if (opUpper === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    return `${quoteColumn(dialect, p.col)} ${sqlOperator(p.op)} (${text})`;
+    const lower = p.op.toLowerCase();
+    const sqlOp =
+      lower === 'like' ? 'LIKE' : lower === 'in' ? 'IN' : lower === 'nin' || lower === 'not in' ? 'NOT IN' : p.op;
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
   }
+
+  const lowerOp = p.op.toLowerCase();
+  const isInOp =
+    lowerOp === 'in' ||
+    lowerOp === 'nin' ||
+    lowerOp === 'not in' ||
+    (Array.isArray(p.value) && p.op !== '@>' && p.op !== '&&' && p.op !== '=');
+
+  if (isInOp) {
+    const isNotIn = lowerOp === 'nin' || lowerOp === 'not in';
+    const sqlOp = isNotIn ? 'NOT IN' : 'IN';
+    const valuesArray = Array.isArray(p.value) ? (p.value as unknown[]) : [p.value];
+
+    if (valuesArray.length === 0) {
+      return isNotIn ? '1 = 1' : '1 = 0';
+    }
+
+    const placeholders: string[] = [];
+    for (const val of valuesArray) {
+      params.push(val);
+      placeholders.push(formatPlaceholder(dialect, params.length));
+    }
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders.join(', ')})`;
+  }
+
+  if (lowerOp === 'is null' || lowerOp === 'is not null') {
+    return `${quoteColumn(dialect, p.col)} ${p.op.toUpperCase()}`;
+  }
+
   params.push(p.value);
-  return `${quoteColumn(dialect, p.col)} ${sqlOperator(p.op)} ${formatPlaceholder(dialect, params.length)}`;
+  const sqlOp = lowerOp === 'like' ? 'LIKE' : lowerOp === 'ilike' ? 'ILIKE' : p.op;
+  return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
 }
 
 function predicateList(dialect: Dialect, preds: readonly Predicate[], params: unknown[]): string {

@@ -71,6 +71,66 @@ describe('dialect placeholder + quoting', () => {
   });
 });
 
+describe('array parameter IN expansion', () => {
+  it('expands array parameters into parameterized IN clauses for postgres', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('id', 'in', [10, 20, 30])
+      .andWhere('status', '=', 'active')
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN ($1, $2, $3) AND "status" = $4');
+    expect(q.parameters).toEqual([10, 20, 30, 'active']);
+  });
+
+  it('expands array parameters into parameterized IN clauses for mysql', () => {
+    const q = createQueryCompiler('mysql').selectFrom('users').where('id', 'in', [10, 20]).compile();
+    expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
+    expect(q.parameters).toEqual([10, 20]);
+  });
+
+  it('preserves array operators (@>, &&, =) when value is an array', () => {
+    const qb = createQueryCompiler('postgres');
+
+    const q1 = qb.selectFrom('items').where('tags', '@>', ['a', 'b']).compile();
+    expect(q1.text).toBe('SELECT * FROM "items" WHERE "tags" @> $1');
+    expect(q1.parameters).toEqual([['a', 'b']]);
+
+    const q2 = qb.selectFrom('items').where('tags', '&&', ['a', 'b']).compile();
+    expect(q2.text).toBe('SELECT * FROM "items" WHERE "tags" && $1');
+    expect(q2.parameters).toEqual([['a', 'b']]);
+
+    const q3 = qb.selectFrom('items').where('tags', '=', ['a', 'b']).compile();
+    expect(q3.text).toBe('SELECT * FROM "items" WHERE "tags" = $1');
+    expect(q3.parameters).toEqual([['a', 'b']]);
+
+    const q4 = qb.selectFrom('items').where('tags', 'in', ['a', 'b']).compile();
+    expect(q4.text).toBe('SELECT * FROM "items" WHERE "tags" IN ($1, $2)');
+    expect(q4.parameters).toEqual(['a', 'b']);
+  });
+
+  it('expands array parameters into parameterized IN clauses for sqlite', () => {
+    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN (?, ?, ?)');
+    expect(q.parameters).toEqual([1, 2, 3]);
+  });
+
+  it('handles NOT IN / nin array expansion', () => {
+    const q = createQueryCompiler('postgres').selectFrom('users').where('role', 'nin', ['admin', 'super']).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
+    expect(q.parameters).toEqual(['admin', 'super']);
+  });
+
+  it('handles empty array parameters cleanly (false / true)', () => {
+    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', 'in', []).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
+    expect(q1.parameters).toEqual([]);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', 'nin', []).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(q2.parameters).toEqual([]);
+  });
+});
+
 describe('subquery & EXISTS compilation', () => {
   it('compiles scalar comparison and IN subqueries with sequential parameter offsets', () => {
     const qb = createQueryCompiler('postgres');
