@@ -133,9 +133,9 @@ export interface UpsertOptions {
 }
 
 const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
-  sqlite: 500,
-  postgres: 500,
-  mysql: 500,
+  sqlite: 30000,
+  postgres: 60000,
+  mysql: 60000,
 };
 
 function sanitizeKeys(keys: readonly unknown[]): unknown[] {
@@ -285,7 +285,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     const parentRows = parents as Record<string, unknown>[];
     // boundary: static side of subclass holds relations definition map; constructor is typed Function.
     const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
-    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 500;
+    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 30000;
 
     for (const name of names) {
       const def = relations[name];
@@ -697,7 +697,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (ids.length === 0) {
         return fetched.map(p => ({ ...p, [relationName]: [] }));
       }
-      const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 500;
+      const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 30000;
       const children: Record<string, unknown>[] = [];
       for (let i = 0; i < ids.length; i += limit) {
         const chunk = ids.slice(i, i + limit);

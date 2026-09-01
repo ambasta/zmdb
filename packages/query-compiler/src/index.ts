@@ -35,7 +35,7 @@ export interface CompiledQuery {
 
 interface WhereClause {
   readonly col: string;
-  readonly op: Operator | string;
+  readonly op: Operator;
   readonly value: unknown;
   readonly connector: 'AND' | 'OR';
 }
@@ -51,9 +51,9 @@ interface SelectState {
 
 export interface SelectBuilder<T = unknown> {
   select(columns?: readonly string[]): SelectBuilder<T>;
-  where(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
-  andWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
-  orWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -76,7 +76,7 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch });
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
@@ -124,9 +124,9 @@ export interface InsertBuilder {
 }
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
-  where(col: string, op: Operator | string, value: unknown): UpdateBuilder;
-  andWhere(col: string, op: Operator | string, value: unknown): UpdateBuilder;
-  orWhere(col: string, op: Operator | string, value: unknown): UpdateBuilder;
+  where(col: string, op: Operator, value: unknown): UpdateBuilder;
+  andWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   andWhereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   orWhereIn(col: string, values: readonly unknown[]): UpdateBuilder;
@@ -137,9 +137,9 @@ export interface UpdateBuilder {
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
-  where(col: string, op: Operator | string, value: unknown): DeleteBuilder;
-  andWhere(col: string, op: Operator | string, value: unknown): DeleteBuilder;
-  orWhere(col: string, op: Operator | string, value: unknown): DeleteBuilder;
+  where(col: string, op: Operator, value: unknown): DeleteBuilder;
+  andWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   andWhereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   orWhereIn(col: string, values: readonly unknown[]): DeleteBuilder;
@@ -273,7 +273,7 @@ function makeUpdate(
   wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
 ): UpdateBuilder {
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     makeUpdate(d, table, row, [...wheres, { col, op, value, connector }], ret);
 
   return {
@@ -310,7 +310,7 @@ function makeDelete(
   wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
 ): DeleteBuilder {
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     makeDelete(d, table, [...wheres, { col, op, value, connector }], ret);
 
   return {

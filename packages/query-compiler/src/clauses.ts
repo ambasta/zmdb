@@ -57,17 +57,24 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 }
 
 /**
- * The two operators we spell for the caller. Everything else is emitted as
+ * Normalize supported SQL operators to uppercase. Everything else is emitted as
  * written, which is what makes raw operators (`@>`, `&&`, `BETWEEN`) work.
  */
 export function sqlOperator(op: string): string {
-  if (op === 'like') return 'LIKE';
-  if (op === 'in') return 'IN';
+  const lower = op.toLowerCase();
+  if (lower === 'like') return 'LIKE';
+  if (lower === 'ilike') return 'ILIKE';
+  if (lower === 'in') return 'IN';
+  if (lower === 'nin' || lower === 'not in') return 'NOT IN';
+  if (lower === 'is null' || lower === 'is not null') return op.toUpperCase();
+  if (lower === 'exists' || lower === 'not exists') return op.toUpperCase();
   return op;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery, or `col IN ($1, $2)` when IN array expansion is requested. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
+  const sqlOp = sqlOperator(p.op);
+
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
     // Continue the outer statement's numbering. For mysql/sqlite the
@@ -76,25 +83,13 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     const text = renumberPlaceholders(sub.text, params.length);
     params.push(...sub.parameters);
 
-    const opUpper = p.op.toUpperCase();
-    if (opUpper === 'EXISTS') return `EXISTS (${text})`;
-    if (opUpper === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    const lower = p.op.toLowerCase();
-    const sqlOp =
-      lower === 'like' ? 'LIKE' : lower === 'in' ? 'IN' : lower === 'nin' || lower === 'not in' ? 'NOT IN' : p.op;
+    if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
+    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
     return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
   }
 
-  const lowerOp = p.op.toLowerCase();
-  const isInOp =
-    lowerOp === 'in' ||
-    lowerOp === 'nin' ||
-    lowerOp === 'not in' ||
-    (Array.isArray(p.value) && p.op !== '@>' && p.op !== '&&' && p.op !== '=');
-
-  if (isInOp) {
-    const isNotIn = lowerOp === 'nin' || lowerOp === 'not in';
-    const sqlOp = isNotIn ? 'NOT IN' : 'IN';
+  if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
+    const isNotIn = sqlOp === 'NOT IN';
     const valuesArray = Array.isArray(p.value) ? (p.value as unknown[]) : [p.value];
 
     if (valuesArray.length === 0) {
@@ -109,12 +104,11 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders.join(', ')})`;
   }
 
-  if (lowerOp === 'is null' || lowerOp === 'is not null') {
-    return `${quoteColumn(dialect, p.col)} ${p.op.toUpperCase()}`;
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
   }
 
   params.push(p.value);
-  const sqlOp = lowerOp === 'like' ? 'LIKE' : lowerOp === 'ilike' ? 'ILIKE' : p.op;
   return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
 }
 
