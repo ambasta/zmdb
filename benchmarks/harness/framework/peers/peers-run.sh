@@ -19,6 +19,13 @@ DURATION="${DURATION:-15s}"
 CONCURRENCIES="${CONCURRENCIES:-64,256,512}"
 ROUTES="${ROUTES:-GET:/,GET:/user/42,POST:/user}"
 OHA_VERSION="${OHA_VERSION:-v1.16.0}"
+# Same repetition treatment as ../run.sh — a warmup run to bring the kernel's
+# ephemeral-port table to steady state, then REPEATS recorded runs reduced by
+# median. Peers must get exactly this, or the head-to-head compares a median
+# against a single draw.
+REPEATS="${REPEATS:-3}"
+WARMUP="${WARMUP:-1}"
+SETTLE="${SETTLE:-2}"
 DENO_VERSION="${DENO_VERSION:-v2.9.6}"
 ONLY="${ONLY:-}"                                # optional CSV of peer ids to run
 export PATH="/usr/lib/go/bin:$PATH"             # Go lives here on this box
@@ -138,8 +145,28 @@ run_peer() {  # id runtime language dir need venv install start
   for CONC in "${CONC_LIST[@]}"; do
     for ROUTE in "${ROUTE_LIST[@]}"; do
       local M="${ROUTE%%:*}" P="${ROUTE#*:}"
-      local J="$OUT/c${CONC}_$(echo "${M}_${P}" | tr '/:' '__').json"
-      "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --latency-correction --no-tui --output-format json "$HOST$P" > "$J" 2>/dev/null || continue
+      local BASE="$OUT/c${CONC}_$(echo "${M}_${P}" | tr '/:' '__')"
+      local J="$BASE.json"
+      for _ in $(seq 1 "$WARMUP"); do
+        "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --latency-correction --no-tui --output-format json "$HOST$P" > "$BASE.warmup.json" 2>/dev/null || true
+        sleep "$SETTLE"
+      done
+      local REPS=() r RJ
+      for r in $(seq 1 "$REPEATS"); do
+        RJ="$BASE.run$r.json"
+        if "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --latency-correction --no-tui --output-format json "$HOST$P" > "$RJ" 2>/dev/null; then
+          REPS+=("$RJ")
+        fi
+        sleep "$SETTLE"
+      done
+      [ "${#REPS[@]}" -eq 0 ] && continue
+      # Median run, so each cell's percentiles come from the same real run as its throughput.
+      cp "$(for f in "${REPS[@]}"; do printf '%s\t%s\n' "$(jq -r '.summary.requestsPerSec' "$f")" "$f"; done | sort -g | awk -v n="${#REPS[@]}" 'NR==int((n+1)/2){print $2}')" "$J"
+      local RMIN RMAX
+      read -r RMIN RMAX <<EOF2
+$(for f in "${REPS[@]}"; do jq -r '.summary.requestsPerSec' "$f"; done | sort -g | awk 'NR==1{min=$1}END{print min"\t"$1}')
+EOF2
+      rm -f "$BASE.warmup.json"
       read -r RPS AVG P50 P90 P99 ERRS <<EOF
 $(jq -r '[ (.summary.requestsPerSec), (.summary.average), (.latencyPercentiles.p50), (.latencyPercentiles.p90), (.latencyPercentiles.p99), ([ .statusCodeDistribution|to_entries[]|select((.key|tonumber)>=400)|.value ]|add // 0) ] | @tsv' "$J")
 EOF
@@ -149,7 +176,9 @@ EOF
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile90","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P90" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile99","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P99" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"http_errors","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$ERRS" >> "$METRICS"
-      printf '  c=%-3s %-14s req/s=%.0f p99=%ss errs=%s\n' "$CONC" "$ROUTE" "$RPS" "$P99" "$ERRS"
+      printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"requests_per_s_min","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$RMIN" >> "$METRICS"
+      printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"requests_per_s_max","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$RMAX" >> "$METRICS"
+      printf '  c=%-3s %-14s median req/s=%.0f (min %.0f max %.0f of %s) p99=%ss errs=%s\n' "$CONC" "$ROUTE" "$RPS" "$RMIN" "$RMAX" "${#REPS[@]}" "$P99" "$ERRS"
     done
   done
   printf '{"id":"%s","runtime":"%s","language":"%s","version":%s,"status":"ok"}\n' "$id" "$runtime" "$language" "$(jq -Rn --arg v "$version" '$v')" >> "$PEERMETA"
@@ -174,12 +203,15 @@ grep -v '^$' "$METRICS" | jq -s '.' > "$METRICS_ARR"
 grep -v '^$' "$PEERMETA" | jq -s '.' > "$PEERS_ARR"
 jq -n \
   --arg now "$NOW" --arg machine "$MACHINE" --arg dur "$DURATION" --arg oha "$("$OHA_BIN" --version)" \
+  --argjson cores "$(nproc 2>/dev/null || echo 0)" --argjson repeats "$REPEATS" \
   --slurpfile metrics "$METRICS_ARR" \
   --slurpfile peers "$PEERS_ARR" \
   '{
      suite: "the-benchmarker/web-frameworks (same machine)",
      upstream: "https://github.com/the-benchmarker/web-frameworks",
-     methodology: ("Same box, same oha " + $oha + ", same contract + routes + levels as @zmdb/web. Per route for " + $dur + ", keep-alive disabled, latency-corrected. Each peer contract-verified before load."),
+     methodology: ("Same box, same oha " + $oha + ", same contract + routes + levels as @zmdb/web. Per route for " + $dur + ", keep-alive disabled, latency-corrected. Each cell run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max give the spread. Each peer contract-verified before load. CORE USAGE IS NOT NORMALIZED: Go peers use GOMAXPROCS (all " + ($cores|tostring) + " cores) and Rust peers num_cpus by default, while node/bun/deno peers use one core unless their app clusters — so cross-runtime rows are not per-core comparable."),
+     cores: $cores,
+     repeats: $repeats,
      generatedAt: $now, machine: $machine, duration: $dur,
      peers: $peers[0], metrics: $metrics[0]
    }' > "$HERE/peers-results.json"

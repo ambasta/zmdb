@@ -30,6 +30,39 @@ DURATION="${DURATION:-15s}"
 CONCURRENCIES="${CONCURRENCIES:-64,256,512}"
 ROUTES="${ROUTES:-GET:/,GET:/user/42,POST:/user}"
 OHA_VERSION="${OHA_VERSION:-v1.16.0}"
+# Repetition, because a single sample of this workload is not a measurement.
+# With --disable-keepalive every request opens a connection, so a run's result
+# depends on the kernel's ephemeral-port/TIME_WAIT state, which is *inherited*
+# from whatever ran before it: on this box ~26k of the 28k-port range sits in
+# TIME_WAIT under load. A discarded warmup run drives the port table to that
+# steady state before anything is recorded, and REPEATS runs are then reduced by
+# median so one unlucky draw cannot set the published number. The observed
+# min/max of the repeats is published alongside it, so a reader can see how much
+# of any gap is real. WORKERS is passed to the app (see app.ts).
+REPEATS="${REPEATS:-3}"
+WARMUP="${WARMUP:-1}"
+SETTLE="${SETTLE:-2}"
+
+# Leave half the cores to the load generator. oha runs on THIS box, so server
+# workers and the client compete for the same CPUs, and past a point another
+# worker costs the client more than it gains the server. Measured on the real
+# contract app, GET /, c=256, keep-alive off, median of 3:
+#
+#   workers    req/s   per-core   speedup
+#         1    30594      30594      1.00x
+#         2    48977      24488      1.60x
+#         4    77351      19338      2.53x
+#         8   109536      13692      3.58x   <- peak
+#        16    87604       5475      2.86x   <- client starved
+#
+# Throughput peaks at half the cores and falls off at all of them; over the full
+# 9-cell matrix, WORKERS=8 medians 74390 against WORKERS=16's 59523. The Go and
+# Rust peers do take every core (GOMAXPROCS / num_cpus) and are not hurt by it,
+# because they need far less CPU per request and so never starve the client.
+# That asymmetry is the finding, not a thing to hide: the chosen worker count and
+# the box's core count both go into the results JSON.
+CORES_AVAIL="$(node -e 'process.stdout.write(String(require("node:os").availableParallelism()))' 2>/dev/null || nproc)"
+WORKERS="${WORKERS:-$(( CORES_AVAIL / 2 > 0 ? CORES_AVAIL / 2 : 1 ))}"
 
 # ---- oha acquisition (pinned prebuilt binary; graceful if unavailable) -------
 OHA_BIN=""
@@ -73,10 +106,17 @@ echo "== compiling the contract app (esbuild lowers the app's Stage-3 decorators
   ' ) || { echo "esbuild compile failed"; exit 1; }
 }
 
-echo "== starting the contract app on :$PORT =="
-PORT="$PORT" node "$HERE/.app.mjs" &
+echo "== starting the contract app on :$PORT ($WORKERS worker(s)) =="
+PORT="$PORT" WORKERS="$WORKERS" node "$HERE/.app.mjs" &
 APP_PID=$!
-cleanup() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; rm -f "$HERE/.app.mjs"; }
+cleanup() {
+  # The app may be a cluster primary, so kill the whole process group to avoid
+  # leaving workers holding the port.
+  kill "$APP_PID" 2>/dev/null
+  wait "$APP_PID" 2>/dev/null
+  pkill -P "$APP_PID" 2>/dev/null
+  rm -f "$HERE/.app.mjs"
+}
 trap cleanup EXIT
 
 for _ in $(seq 1 40); do
@@ -115,12 +155,50 @@ for CONC in "${CONC_LIST[@]}"; do
     RPATH="${ROUTE#*:}"
     SAFE="$(echo "${METHOD}_${RPATH}" | tr '/:' '__')"
     JSON="$OUTDIR/${SAFE}.json"
-    echo "== oha ${METHOD} ${RPATH} c=${CONC} for ${DURATION} (keep-alive off, latency-corrected) =="
-    "$OHA_BIN" \
-      -z "$DURATION" -c "$CONC" -m "$METHOD" \
-      --disable-keepalive --latency-correction --no-tui \
-      --output-format json \
-      "$HOST$RPATH" > "$JSON" 2>/dev/null || { echo "oha run failed for $ROUTE"; continue; }
+    echo "== oha ${METHOD} ${RPATH} c=${CONC} for ${DURATION} × ${REPEATS} (keep-alive off, latency-corrected) =="
+
+    load() { # outfile
+      "$OHA_BIN" \
+        -z "$DURATION" -c "$CONC" -m "$METHOD" \
+        --disable-keepalive --latency-correction --no-tui \
+        --output-format json \
+        "$HOST$RPATH" > "$1" 2>/dev/null
+    }
+
+    # Warmup: discarded. Its only job is to leave the kernel's port table in the
+    # same saturated state every recorded run will see.
+    for _ in $(seq 1 "$WARMUP"); do
+      load "$OUTDIR/.warmup.json" || true
+      sleep "$SETTLE"
+    done
+
+    # Recorded repeats.
+    REP_FILES=()
+    for r in $(seq 1 "$REPEATS"); do
+      RJ="$OUTDIR/${SAFE}.run${r}.json"
+      if load "$RJ"; then
+        REP_FILES+=("$RJ")
+        printf '   run %s/%s req/s=%.0f\n' "$r" "$REPEATS" "$(jq -r '.summary.requestsPerSec' "$RJ")"
+      else
+        echo "   run $r/$REPEATS FAILED"
+      fi
+      sleep "$SETTLE"
+    done
+    if [ "${#REP_FILES[@]}" -eq 0 ]; then echo "oha run failed for $ROUTE"; continue; fi
+
+    # Reduce by median *run* (not per-metric median), so every published metric
+    # for a cell comes from one real run and the percentiles stay consistent
+    # with the throughput they were measured beside.
+    MEDIAN_JSON="$(
+      for f in "${REP_FILES[@]}"; do
+        printf '%s\t%s\n' "$(jq -r '.summary.requestsPerSec' "$f")" "$f"
+      done | sort -g | awk -v n="${#REP_FILES[@]}" 'NR==int((n+1)/2){print $2}'
+    )"
+    read -r RPS_MIN RPS_MAX <<EOF
+$(for f in "${REP_FILES[@]}"; do jq -r '.summary.requestsPerSec' "$f"; done | sort -g | awk 'NR==1{min=$1}END{print min"\t"$1}')
+EOF
+    cp "$MEDIAN_JSON" "$JSON"
+    rm -f "$OUTDIR/.warmup.json"
 
     # Map oha JSON -> upstream data.min.json labels (latency in seconds).
     read -r RPS AVG P50 P75 P90 P99 P99999 TOTREQ TOTDATA ERRS STDDEV DUR <<EOF
@@ -148,23 +226,36 @@ EOF
     emit "$CONC" http_errors "$ERRS" "$ROUTE"
     emit "$CONC" standard_deviation "$STDDEV" "$ROUTE"
     emit "$CONC" duration_ms "$DUR" "$ROUTE"
-    printf '  req/s=%.0f  p50=%ss p90=%ss p99=%ss  errors=%s\n' "$RPS" "$P50" "$P90" "$P99" "$ERRS"
+    # Publish the repeat spread so the dashboard can show what the median hides.
+    emit "$CONC" requests_per_s_min "$RPS_MIN" "$ROUTE"
+    emit "$CONC" requests_per_s_max "$RPS_MAX" "$ROUTE"
+    emit "$CONC" repeats "${#REP_FILES[@]}" "$ROUTE"
+    printf '  median req/s=%.0f (min %.0f, max %.0f of %s)  p50=%ss p90=%ss p99=%ss  errors=%s\n' \
+      "$RPS" "$RPS_MIN" "$RPS_MAX" "${#REP_FILES[@]}" "$P50" "$P90" "$P99" "$ERRS"
   done
 done
 
 # Assemble the final framework-results.json (measured=true) in the-benchmarker shape.
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-MACHINE="$(uname -s) $(uname -m), Node $(node -v 2>/dev/null)"
+CORES="$(nproc 2>/dev/null || echo unknown)"
+MACHINE="$(uname -s) $(uname -m), ${CORES} cores, Node $(node -v 2>/dev/null)"
 jq -n \
   --arg now "$NOW" --arg machine "$MACHINE" --arg dur "$DURATION" \
   --arg oha "$("$OHA_BIN" --version 2>/dev/null)" \
+  --argjson workers "$WORKERS" --argjson cores "$CORES" --argjson repeats "$REPEATS" \
   --argjson metrics "$(grep -v '^$' "$METRICS_TMP" | jq -s '.')" \
   '{
      suite: "the-benchmarker/web-frameworks",
      framework: "@zmdb/web",
      upstream: "https://github.com/the-benchmarker/web-frameworks",
      port: 3000,
-     methodology: ("oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json."),
+     methodology: ("oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json."),
+     concurrencyModel: {
+       workers: $workers,
+       cores: $cores,
+       note: "Node is single-threaded, so worker count is the core count this framework can use. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
+     },
+     repeats: $repeats,
      generatedAt: $now,
      machine: $machine,
      contract: [
