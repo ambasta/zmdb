@@ -270,6 +270,108 @@ export function decodeCursor(cursor: string, order: CursorOrderSpec): Record<str
   }
 }
 
+<<<<<<< HEAD:packages/schema/src/dto/index.ts
+=======
+class BranchTarget implements WhereTarget {
+  private b: WhereTarget;
+  private firstCallInBranch: boolean;
+
+  constructor(b: WhereTarget, isFirstBranch: boolean) {
+    this.b = b;
+    this.firstCallInBranch = !isFirstBranch;
+  }
+
+  where(col: string, op: Operator, value: unknown): this {
+    if (this.firstCallInBranch) {
+      this.firstCallInBranch = false;
+      this.b = this.b.orWhere(col, op, value);
+    } else {
+      this.b = this.b.where(col, op, value);
+    }
+    return this;
+  }
+
+  // A keyset branch is a conjunction that is OR'd onto the branches before it,
+  // so the branch spends its OR on the first predicate and conjoins the rest.
+  // Repository filters use `whereGroup` below to preserve their own OR boundary;
+  // compileWhere's user-authored `or` tree is still flat and remains a separate
+  // predicate-tree problem.
+  orWhere(col: string, op: Operator, value: unknown): this {
+    return this.where(col, op, value);
+  }
+
+  whereGroup(predicates: readonly ComparisonPredicate[]): this {
+    const method = this.firstCallInBranch ? this.b.orWhereGroup : this.b.whereGroup;
+    if (method === undefined) throw new Error('keyset filters require predicate-group support');
+    this.firstCallInBranch = false;
+    this.b = method.call(this.b, predicates);
+    return this;
+  }
+
+  getBuilder(): WhereTarget {
+    return this.b;
+  }
+}
+
+export function applyKeysetFilter<B extends WhereTarget>(
+  builder: B,
+  cursorValues: Record<string, unknown>,
+  orderBy: OrderBySpec,
+  userWhere?: WhereDTO<UnknownRow>,
+  additionalWhere?: (builder: WhereTarget) => void,
+  resolveColumn: (column: string) => string = column => column,
+): B {
+  if (orderBy.length === 0) return builder;
+
+  for (const item of orderBy) {
+    if (!item) continue;
+    const colStr = String(item.column);
+    if (cursorValues[colStr] === undefined) {
+      throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
+    }
+  }
+
+  let currentBuilder: WhereTarget = builder;
+  const k = orderBy.length;
+
+  for (let i = 0; i < k; i++) {
+    const itemI = orderBy[i];
+    if (!itemI) continue;
+
+    const target = new BranchTarget(currentBuilder, i === 0);
+
+    if (userWhere) {
+      compileWhere(target, userWhere, resolveColumn);
+    }
+    additionalWhere?.(target);
+
+    for (let j = 0; j < i; j++) {
+      const itemJ = orderBy[j];
+      if (!itemJ) continue;
+      const col = String(itemJ.column);
+      target.where(resolveColumn(col), '=', cursorValues[col]);
+    }
+
+    const curCol = String(itemI.column);
+    const dir = itemI.dir ?? 'asc';
+    const op = dir === 'desc' ? '<' : '>';
+    target.where(resolveColumn(curCol), op, cursorValues[curCol]);
+
+    currentBuilder = target.getBuilder();
+  }
+
+  // boundary: BranchTarget wraps B (implementing WhereTarget); getBuilder() returns the mutated query builder B.
+  return currentBuilder as B;
+}
+
+export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationSpec | undefined): B {
+  if (!page) return builder;
+  let b = builder.limit(page.limit);
+  if (typeof page.offset === 'number') b = b.offset(page.offset);
+  return b;
+}
+
+>>>>>>> 40037c14 (feat(query-compiler): enforce strict operator typing and centralized subquery compilation):packages/schema-core/src/dto/index.ts
 // ---------------------------------------------------------------------------
 // §3 Projection  (types only; narrowing wired in #186)
 // ---------------------------------------------------------------------------
@@ -455,7 +557,7 @@ export interface AggregateSpec<T extends DeclaredTable> {
   where?: WhereDTO<T> | Record<string, unknown>;
   groupBy?: readonly AggregateColumn<T>[];
   computed: Record<string, ComputedSpec<T>>;
-  having?: Readonly<{ column: AggregateColumn<T>; op: string; value: unknown }>;
+  having?: Readonly<{ column: AggregateColumn<T>; op: Operator; value: unknown }>;
   orderBy?: ReadonlyArray<{ column: AggregateColumn<T>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;
