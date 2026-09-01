@@ -74,6 +74,7 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
+  // oxlint-disable-next-line typescript/no-explicit-any
   readonly customType?: CustomType<any, any>;
 }
 
@@ -117,6 +118,7 @@ export interface CoreSchema<T extends string = string> {
 // ---------------------------------------------------------------------------
 // The generated schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
+
 
 
 declare const zmdbEntity: unique symbol;
@@ -280,6 +282,7 @@ function makeColumn<C extends Column>(meta: ColumnMeta): C {
   const withFlag = (patch: Partial<ColumnFlags>): Column =>
     makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
 
+  // oxlint-disable-next-line typescript/no-explicit-any
   const withCustomTypeFn = (type: CustomType<any, any, any>) => makeColumn<Column>({ ...base, customType: type });
 
   const column = { ...base } as unknown as C;
