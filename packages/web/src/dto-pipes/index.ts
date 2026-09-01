@@ -3,6 +3,8 @@
 // (an Interceptor), built on the middleware chain. Zero runtime parser (consumer
 // supplies the AOT assert); no `as` on the consumer surface.
 
+import { compileFastStringifier } from '@zmdb/aot-validator/serialization';
+
 import type { Chain, Pipe, Interceptor } from '../middleware/index.js';
 import { parseMultipart, type Multipart, type UploadLimits } from '../upload/index.js';
 
@@ -53,14 +55,25 @@ export function multipartPipe(limits: Partial<UploadLimits> = {}): Pipe<unknown,
 
 /**
  * A serialization interceptor: transforms the handler's result via `serialize`
- * (default: identity — the pipeline JSON-encodes downstream). Pass an entity
- * serializer to shape the response from `Entity<S>`.
+ * function or a compiled schema stringifier (default: identity — the pipeline
+ * JSON-encodes downstream). Pass an entity serializer or schema to shape the response.
  */
-export function serializationInterceptor(serialize: (result: unknown) => unknown = r => r): Interceptor {
+export function serializationInterceptor(
+  serializeOrSchema: ((result: unknown) => unknown) | unknown = (r: unknown) => r,
+): Interceptor {
+  let serializeFn: (result: unknown) => unknown;
+  if (typeof serializeOrSchema === 'function') {
+    serializeFn = serializeOrSchema as (result: unknown) => unknown;
+  } else if (serializeOrSchema !== null && typeof serializeOrSchema === 'object') {
+    serializeFn = compileFastStringifier(serializeOrSchema);
+  } else {
+    serializeFn = (r: unknown) => r;
+  }
+
   return {
     async intercept(_ctx, next): Promise<unknown> {
       const result = await next();
-      return serialize(result);
+      return serializeFn(result);
     },
   };
 }
@@ -70,7 +83,8 @@ export interface DtoChainOptions<T> {
   /** The wire→app decode, e.g. `wireDecoder(Schema, 'create')`. Runs before `validate`. */
   readonly decode?: (raw: unknown) => unknown;
   readonly validate: (raw: unknown) => T;
-  readonly serialize?: (result: unknown) => unknown;
+  readonly serialize?: ((result: unknown) => unknown) | unknown;
+  readonly schema?: unknown;
 }
 
 /**
@@ -79,6 +93,8 @@ export interface DtoChainOptions<T> {
  * one call.
  */
 export function dtoChain<T>(options: DtoChainOptions<T>): Chain {
+  const targetSerialize =
+    options.schema !== undefined && options.serialize === undefined ? options.schema : options.serialize;
   return {
     guards: [],
     // Decode first, then validate: the validator checks the app type, which is only what
@@ -87,7 +103,7 @@ export function dtoChain<T>(options: DtoChainOptions<T>): Chain {
       options.decode === undefined
         ? [validationPipe(options.validate)]
         : [decodePipe(options.decode), validationPipe(options.validate)],
-    interceptors: options.serialize === undefined ? [] : [serializationInterceptor(options.serialize)],
+    interceptors: targetSerialize === undefined ? [] : [serializationInterceptor(targetSerialize)],
     filters: [],
   };
 }

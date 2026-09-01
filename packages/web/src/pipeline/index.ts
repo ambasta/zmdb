@@ -9,6 +9,7 @@ import type { FileHandle } from 'node:fs/promises';
 import type { Constructor } from '@zmdb/app/di';
 import { fromTraceContext } from '@zmdb/app/observability';
 import type { Observability, Span, Tracer } from '@zmdb/app/observability';
+import { compileFastStringifier, stringify } from '@zmdb/aot-validator/serialization';
 import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 import {
@@ -58,12 +59,14 @@ export interface WebResponse {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-/** Per-handler pipeline, guard and OpenAPI options. */
+/** Per-handler pipeline, guard, schema, serializer, and OpenAPI options. */
 export interface RouteOptions {
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
   readonly security?: readonly SecurityRequirement[];
   readonly deprecated?: true;
+  readonly schema?: unknown;
+  readonly serialize?: (value: unknown) => string;
 }
 
 /** Router-wide guard configuration shared with OpenAPI generation. */
@@ -85,6 +88,7 @@ interface BoundRoute {
   readonly guards?: readonly Guard[];
   readonly neutral?: true;
   readonly versionJsonHeaders?: Readonly<Record<string, string>>;
+  readonly serialize?: (value: unknown) => string;
 }
 
 // Routes are indexed by method, then by segment count, because a route can only
@@ -581,9 +585,20 @@ const STANDARD_HTTP_METHODS = new Set(['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTI
 function jsonResponse(
   status: number,
   value: unknown,
+  serializer?: (v: unknown) => string,
   headers: Readonly<Record<string, string>> = JSON_HEADERS,
 ): WebResponse {
-  return { status, body: textBody(JSON.stringify(value) ?? ''), headers };
+  let bodyText: string;
+  if (serializer !== undefined) {
+    try {
+      bodyText = serializer(value);
+    } catch (_err) {
+      bodyText = JSON.stringify(value) ?? '';
+    }
+  } else {
+    bodyText = JSON.stringify(value) ?? '';
+  }
+  return { status, body: textBody(bodyText), headers };
 }
 
 function textBody(value: string): ResponseBody {
@@ -873,6 +888,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     handler: Handler,
     validateBody: ((raw: unknown) => unknown) | undefined,
     guards: readonly Guard[],
+    serialize?: (value: unknown) => string,
   ): void {
     const declaration = versionsOf(controller, route.handlerName);
 
@@ -889,6 +905,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         pattern,
         handler,
         ...(validateBody === undefined ? {} : { validateBody }),
+        ...(serialize === undefined ? {} : { serialize }),
         ...(guards.length === 0 ? {} : { guards }),
       });
       return;
@@ -909,6 +926,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           pattern,
           handler,
           ...(validateBody === undefined ? {} : { validateBody }),
+          ...(serialize === undefined ? {} : { serialize }),
           ...(guards.length === 0 ? {} : { guards }),
         });
         return;
@@ -923,6 +941,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           pattern,
           handler,
           ...(validateBody === undefined ? {} : { validateBody }),
+          ...(serialize === undefined ? {} : { serialize }),
           ...(guards.length === 0 ? {} : { guards }),
         });
       }
@@ -935,6 +954,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       pattern,
       handler,
       ...(validateBody === undefined ? {} : { validateBody }),
+      ...(serialize === undefined ? {} : { serialize }),
       ...(guards.length === 0 ? {} : { guards }),
     };
     if (declaration === 'neutral') {
@@ -1172,7 +1192,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         try {
           const result = await matched.handler(handlerCtx);
           response = mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result)
+              ? result
+              : jsonResponse(200, result, matched.serialize, matched.versionJsonHeaders ?? JSON_HEADERS),
             matched.versionJsonHeaders,
           );
           return response;
@@ -1241,6 +1263,14 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           continue;
         }
         const opts = options[route.handlerName];
+        let serializeFn: ((v: unknown) => string) | undefined = opts?.serialize;
+        if (serializeFn === undefined && opts?.schema !== undefined) {
+          try {
+            serializeFn = compileFastStringifier(opts.schema);
+          } catch (_e) {
+            serializeFn = (v: unknown) => stringify(v);
+          }
+        }
         const routeGuards = opts?.guards ?? [];
         const publicRoute = isPublic(ctor, route.handlerName);
         if (publicRoute && (routeGuards.length > 0 || (opts?.security !== undefined && opts.security.length > 0))) {
@@ -1249,7 +1279,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        addBoundRoute(ctor, route, handler, opts?.validateBody, guards);
+        addBoundRoute(ctor, route, handler, opts?.validateBody, guards, serializeFn);
       }
     },
 
@@ -1425,7 +1455,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           // One symbol check on the hot path, no extra allocation: a handler that
           // returns a plain value takes exactly the path it took before.
           return mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result)
+              ? result
+              : jsonResponse(200, result, bound.serialize, bound.versionJsonHeaders ?? JSON_HEADERS),
             bound.versionJsonHeaders,
           );
         } catch (error) {
