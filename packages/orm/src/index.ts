@@ -2317,7 +2317,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     );
     return fetched.map(p => ({
       ...p,
-      [relationName]: byParent.get(loaderKey([p[parentKey]])) ?? [],
+      [relationName]: (byParent.get(loaderKey([p[parentKey]])) ?? []).map(child => ({ ...child })),
     }));
   }
 
