@@ -27,6 +27,7 @@
     "hooks:install": "sh scripts/setup-hooks.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "postinstall": "sh scripts/setup-hooks.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "node scripts/typecheck.mjs",
