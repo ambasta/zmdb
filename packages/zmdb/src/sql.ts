@@ -38,6 +38,7 @@ export {
   serializeComment,
   stContains,
   stDWithin,
+  windowFunction,
   withComments,
 } from '@zmdb/sql';
 export {

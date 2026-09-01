@@ -7,6 +7,7 @@ import type { CoreSchema } from '@zmdb/schema';
 import {
   frozenQuery,
   havingClause,
+  isSubqueryTarget,
   joinClauses,
   queryTelemetry,
   tailClause,
@@ -20,7 +21,7 @@ import {
 } from './clauses.js';
 import { READ_EFFECTS, PRIMARY_READ_EFFECTS, type CompiledQuery } from './compiled-query.js';
 import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   isAliasedDistanceExpression,
   isDistanceExpression,
@@ -31,7 +32,22 @@ import {
   type DistanceExpression,
   type SpatialPredicate,
 } from './extensions/index.js';
-import type { AliasedColumn, Direction, Operator } from './index.js';
+import {
+  assertNoWindowFunction,
+  checkDialectCapability,
+  createQueryCompiler,
+  isWindowFunctionBuilder,
+  isWindowProjectionNode,
+  renderWindowProjectionNode,
+  type AliasedColumn,
+  type CteSpec,
+  type Direction,
+  type Operator,
+  type ProjectionItem,
+  type SubqueryInput,
+  type WindowFunctionBuilder,
+  type WindowProjectionNode,
+} from './index.js';
 import {
   bindTable,
   columnBinding,
@@ -41,15 +57,16 @@ import {
   type QueryBinding,
   type TrustedTable,
 } from './query-binding.js';
-import { qualifyRootColumn, quoteColumn, quoteIdentifier, quoteTable } from './quoting.js';
+import { qualifyRootColumn, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
-type SelectedColumn = string | AliasedColumn | AliasedDistanceExpression;
-type ResolvedColumn = string | (AliasedColumn & { readonly source?: string }) | AliasedDistanceExpression;
+type SelectedColumn = ProjectionItem;
+type ResolvedColumn = ProjectionItem | (AliasedColumn & { readonly source?: string });
 type ComputedColumn =
   | { readonly fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; readonly col: string; readonly alias: string }
   | { readonly raw: string; readonly alias: string };
 interface SelectState {
   readonly binding: QueryBinding;
+  readonly ctes?: readonly CteSpec[];
   readonly columns?: readonly ResolvedColumn[];
   readonly computed?: readonly ComputedColumn[];
   readonly wheres?: readonly RenderPredicate[];
@@ -84,7 +101,14 @@ export class SelectQuery {
   private column(column: string): string {
     return mapColumn(this.state.binding, column, this.state.targets);
   }
+  with(name: string, subquery: SubqueryInput): SelectQuery {
+    return this.next({ ctes: [...(this.state.ctes ?? []), { name, subquery }] });
+  }
+  withRecursive(name: string, subquery: SubqueryInput): SelectQuery {
+    return this.next({ ctes: [...(this.state.ctes ?? []), { name, subquery, recursive: true }] });
+  }
   private projection(column: SelectedColumn): ResolvedColumn {
+    if (isWindowProjectionNode(column) || isWindowFunctionBuilder(column)) return column;
     if (isAliasedDistanceExpression(column))
       return { ...column, expression: { ...column.expression, column: this.column(column.expression.column) } };
     const resolved = mapProjection(this.state.binding, column, this.state.targets);
@@ -92,6 +116,9 @@ export class SelectQuery {
   }
   select(columns?: readonly SelectedColumn[]): SelectQuery {
     return columns === undefined ? this : this.next({ columns: columns.map(column => this.projection(column)) });
+  }
+  selectWindow(windowFn: WindowFunctionBuilder | WindowProjectionNode): SelectQuery {
+    return this.next({ columns: [...(this.state.columns ?? []), windowFn as ResolvedColumn] });
   }
   private predicate(
     connector: 'AND' | 'OR',
@@ -103,6 +130,8 @@ export class SelectQuery {
       return this.next({
         wheres: [...(this.state.wheres ?? []), { ...first, col: this.column(first.col), connector }],
       });
+    assertNoWindowFunction(first, 'WHERE clause');
+    if (value !== undefined) assertNoWindowFunction(value, 'WHERE clause');
     if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
     return this.next({ wheres: [...(this.state.wheres ?? []), { col: this.column(first), op, value, connector }] });
   }
@@ -326,8 +355,39 @@ export class SelectQuery {
   compile(): CompiledQuery {
     const state = this.state;
     const dialect = this.dialect;
+    if (state.ctes && state.ctes.length > 0) {
+      checkDialectCapability(dialect, 'common table expressions');
+    }
+
     const params: unknown[] = [];
     const effects = { requiresPrimary: false };
+    let cteClause = '';
+
+    if (state.ctes && state.ctes.length > 0) {
+      const isRecursive = state.ctes.some(c => c.recursive);
+      if (isRecursive) {
+        checkDialectCapability(dialect, 'recursive common table expressions');
+      }
+      const cteParts: string[] = [];
+      for (const cte of state.ctes) {
+        let sub: CompiledQuery;
+        if (typeof cte.subquery === 'function') {
+          const qc = createQueryCompiler(dialect);
+          const res = cte.subquery(qc);
+          sub = isSubqueryTarget(res) ? res.compile() : (res as CompiledQuery);
+        } else if (isSubqueryTarget(cte.subquery)) {
+          sub = cte.subquery.compile();
+        } else {
+          throw new QueryCompilerError(`Invalid subquery provided for CTE "${cte.name}"`);
+        }
+
+        const renumberedText = renumberPlaceholders(sub.text, params.length);
+        params.push(...sub.parameters);
+        cteParts.push(`${quoteIdentifier(dialect, cte.name)} AS (${renumberedText})`);
+      }
+      const keyword = isRecursive ? 'WITH RECURSIVE' : 'WITH';
+      cteClause = `${keyword} ${cteParts.join(', ')} `;
+    }
     // Schema mapping established ownership at fluent input; the final SELECT context decides qualification.
     // A later ordinary or generated FTS join therefore also qualifies earlier root references.
     const rootReference =
@@ -350,15 +410,31 @@ export class SelectQuery {
                 : { ...column, column: `${state.binding.reference}.${column.column}` },
             );
     }
-    const projections = (columns ?? []).map(column =>
-      isAliasedDistanceExpression(column)
-        ? rootReference === undefined
+    const projections = (columns ?? []).map(column => {
+      if (isWindowProjectionNode(column) || isWindowFunctionBuilder(column)) {
+        checkDialectCapability(dialect, 'window functions');
+        return renderWindowProjectionNode(dialect, column);
+      }
+      if (isAliasedDistanceExpression(column)) {
+        return rootReference === undefined
           ? renderAliasedDistanceExpression(dialect, column, params)
-          : `${this.distanceSql(column.expression, params, rootReference)} AS ${quoteIdentifier(dialect, column.alias)}`
-        : typeof column === 'object'
-          ? `${quoteColumn(dialect, qualifyRootColumn(column.column, rootReference))} AS ${quoteIdentifier(dialect, column.alias)}`
-          : quoteColumn(dialect, qualifyRootColumn(column, rootReference)),
-    );
+          : `${this.distanceSql(column.expression, params, rootReference)} AS ${quoteIdentifier(dialect, column.alias)}`;
+      }
+      if (typeof column === 'string') {
+        if (/\bOVER\s*\(/i.test(column)) {
+          checkDialectCapability(dialect, 'window functions');
+        }
+        const m = /^(\S+)\s+as\s+(\S+)$/i.exec(column.trim());
+        if (m && m[1] && m[2]) {
+          return `${quoteColumn(dialect, qualifyRootColumn(m[1], rootReference))} AS ${quoteIdentifier(dialect, m[2])}`;
+        }
+        return quoteColumn(dialect, qualifyRootColumn(column, rootReference));
+      }
+      if (typeof column === 'object') {
+        return `${quoteColumn(dialect, qualifyRootColumn(column.column, rootReference))} AS ${quoteIdentifier(dialect, column.alias)}`;
+      }
+      return String(column);
+    });
     if (state.computed !== undefined)
       for (const item of state.computed) {
         // Trusted SQL can call a mutating routine; its text is never classified here.
@@ -368,6 +444,18 @@ export class SelectQuery {
     const joins = state.joins === undefined ? '' : joinClauses(dialect, state.joins, params, rootReference, effects);
     const ftsJoins =
       state.ftsJoins === undefined ? '' : joinClauses(dialect, state.ftsJoins, params, rootReference, effects);
+
+    if (state.wheres !== undefined) {
+      for (const w of state.wheres) {
+        if ('col' in w && w.col) {
+          assertNoWindowFunction(w.col, 'WHERE clause');
+        }
+        if ('value' in w && w.value) {
+          assertNoWindowFunction(w.value, 'WHERE clause');
+        }
+      }
+    }
+
     const where = state.wheres === undefined ? '' : whereClause(dialect, state.wheres, params, rootReference, effects);
     const group =
       state.groups === undefined
@@ -402,7 +490,7 @@ export class SelectQuery {
         ? ''
         : ` ORDER BY ${state.orderBys.map(item => `${isDistanceExpression(item.col) ? this.distanceSql(item.col, params, rootReference) : quoteColumn(dialect, item.outputAlias === true ? item.col : qualifyRootColumn(item.col, rootReference))} ${item.dir.toUpperCase()}`).join(', ')}`;
     const text =
-      `SELECT ${projections.length ? projections.join(', ') : '*'} FROM ${quoteTable(dialect, state.binding.table)}` +
+      `${cteClause}SELECT ${projections.length ? projections.join(', ') : '*'} FROM ${quoteTable(dialect, state.binding.table)}` +
       joins +
       ftsJoins +
       where +
