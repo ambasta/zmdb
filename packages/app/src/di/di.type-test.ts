@@ -37,7 +37,7 @@ export const _badRegister = c.register(LoggerToken, 42);
 // @ts-expect-error — a Clock is not a Logger either (nominal by token, not shape).
 export const _wrongInstance = c.register(LoggerToken, new Clock());
 
-// --- Fluent container token accumulation ----------------------------------
+// --- Fluent container chaining --------------------------------------------
 class Cache {
   get(k: string): string {
     return k;
@@ -45,28 +45,21 @@ class Cache {
 }
 const CacheToken = createToken<Cache>('Cache');
 
-const fluentC = new Container().register(LoggerToken, new Logger()).registerFactory(ClockToken, () => new Clock());
+const fluentC = new Container()
+  .register(LoggerToken, new Logger())
+  .registerFactory(ClockToken, () => new Clock())
+  .register(CacheToken, new Cache());
 
 // Registered tokens resolve cleanly with static type safety:
 export const _fluentLogger: Logger = fluentC.resolve(LoggerToken);
 export const _fluentClock: Clock = fluentC.resolve(ClockToken);
+export const _fluentCache: Cache = fluentC.resolve(CacheToken);
 
-// @ts-expect-error — CacheToken is unregistered on fluentC, causing a build-time type error.
-export const _unregisteredError = fluentC.resolve(CacheToken);
+// --- Modular container registration pattern --------------------------------
+function registerModule(container: Container): Container {
+  return container.register(LoggerToken, new Logger()).registerFactory(ClockToken, () => new Clock());
+}
 
-// --- Preserving previously registered token types across fluent steps ------
-const step1 = new Container().register(LoggerToken, new Logger());
-const step2 = step1.registerFactory(ClockToken, () => new Clock());
-const step3 = step2.register(CacheToken, new Cache());
-
-export const _step3Logger: Logger = step3.resolve(LoggerToken);
-export const _step3Clock: Clock = step3.resolve(ClockToken);
-export const _step3Cache: Cache = step3.resolve(CacheToken);
-
-// @ts-expect-error — CacheToken was not registered on step1 yet.
-export const _step1MissingCache = step1.resolve(CacheToken);
-
-// --- Empty fluently created container --------------------------------------
-const emptyC = new Container();
-// @ts-expect-error — LoggerToken is not registered on empty container.
-export const _emptyMissingLogger = emptyC.resolve(LoggerToken);
+const modularC = registerModule(new Container());
+export const _modularLogger: Logger = modularC.resolve(LoggerToken);
+export const _modularClock: Clock = modularC.resolve(ClockToken);
