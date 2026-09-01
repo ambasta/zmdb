@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
-import { API } from 'typescript/unstable/sync';
+import path from 'node:path';
 
-import { zmdbAot, transformTypeChecks } from './index.ts';
+import { API } from 'typescript/unstable/sync';
+import { describe, it, expect, vi } from 'vitest';
+
 import { transformCode, tsTypeToTypeDescriptor, emitCheckFromDescriptor } from '../transformer.ts';
 import type { TypeDescriptor } from '../utilities/index.ts';
+import { zmdbAot, transformTypeChecks } from './index.ts';
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -12,21 +14,23 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
   const snapshot = api.updateSnapshot({ openProjects: ['tsconfig.base.json'] });
   const proj = snapshot.getProjects()[0]!;
   const checker = proj.checker;
+  const appFilePath = path.resolve('benchmarks/harness/framework/app.ts');
 
   it('Requirement 1 & AC 1: extracts full structural type info for imported interfaces and generates static validation statements', () => {
     // UserCreate is an imported interface/type alias in app.ts with fields name: string, email: string
     const src = 'const ok = is<UserCreate>(input);';
-    const sourceFile = proj.program.getSourceFile('/app/zmdb/benchmarks/harness/framework/app.ts');
+    const sourceFile = proj.program.getSourceFile(appFilePath);
 
-    const out = transformTypeChecks(src, { sourceFile, checker, id: '/app/zmdb/benchmarks/harness/framework/app.ts' });
+    const out = transformTypeChecks(src, { sourceFile, checker, id: appFilePath });
     const n = norm(out);
 
-    expect(n).toBe('const ok = (typeof input === "object" && input !== null && typeof input.name === "string" && typeof input.email === "string");');
+    expect(n).toBe(
+      'const ok = (typeof input === "object" && input !== null && typeof input.name === "string" && typeof input.email === "string");',
+    );
   });
 
   it('Requirement 3 & AC 2: type aliases imported across workspace package boundaries resolve via path configurations', () => {
     const plugin = zmdbAot({ tsconfigPath: 'tsconfig.base.json' });
-    const appFilePath = '/app/zmdb/benchmarks/harness/framework/app.ts';
     const sampleCode = 'const ok = assert<UserCreate>(payload);';
 
     const transformed = plugin.transform(sampleCode, appFilePath);
@@ -40,8 +44,22 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
   });
 
   it('Requirement 2 & AC 3: complex structural types (primitives, arrays, nested objects, unions) map into TypeDescriptor IR without data loss', () => {
-    const b1 = { isErrorType: () => false, isStringLiteralType: () => false, isNumberLiteralType: () => false, isBooleanLiteralType: () => false, isUnionType: () => false, isObjectType: () => false };
-    const b2 = { isErrorType: () => false, isStringLiteralType: () => false, isNumberLiteralType: () => false, isBooleanLiteralType: () => false, isUnionType: () => false, isObjectType: () => false };
+    const b1 = {
+      isErrorType: () => false,
+      isStringLiteralType: () => false,
+      isNumberLiteralType: () => false,
+      isBooleanLiteralType: () => false,
+      isUnionType: () => false,
+      isObjectType: () => false,
+    };
+    const b2 = {
+      isErrorType: () => false,
+      isStringLiteralType: () => false,
+      isNumberLiteralType: () => false,
+      isBooleanLiteralType: () => false,
+      isUnionType: () => false,
+      isObjectType: () => false,
+    };
 
     const mockUnionType = {
       isErrorType: () => false,
@@ -53,7 +71,7 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
     };
 
     const mockChecker = {
-      typeToString: (t: any) => (t === b1 ? 'string' : t === b2 ? 'number' : 'union'),
+      typeToString: (t: unknown) => (t === b1 ? 'string' : t === b2 ? 'number' : 'union'),
       getPropertiesOfType: () => [],
     };
 
@@ -90,7 +108,9 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
 
     expect(res).toBeNull(); // Code left unchanged for runtime fallback
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[zmdb-aot] Warning: Could not resolve type 'UnknownNonExistentDTO' in /src/unknown.ts, falling back to runtime validation."),
+      expect.stringContaining(
+        "[zmdb-aot] Warning: Could not resolve type 'UnknownNonExistentDTO' in /src/unknown.ts, falling back to runtime validation.",
+      ),
     );
 
     warnSpy.mockRestore();
