@@ -281,7 +281,7 @@ class BranchTarget implements WhereTarget {
     this.firstCallInBranch = !isFirstBranch;
   }
 
-  where(col: string, op: Operator, value: unknown): this {
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
       this.b = this.b.orWhere(col, op, value);
@@ -296,7 +296,7 @@ class BranchTarget implements WhereTarget {
   // Repository filters use `whereGroup` below to preserve their own OR boundary;
   // compileWhere's user-authored `or` tree is still flat and remains a separate
   // predicate-tree problem.
-  orWhere(col: string, op: Operator, value: unknown): this {
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): this {
     return this.where(col, op, value);
   }
 

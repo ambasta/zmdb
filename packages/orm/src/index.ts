@@ -51,6 +51,8 @@ import {
   type SelectBuilder,
   type SetValue,
   type SqlDialect,
+  type UnsafeOperator,
+} from '@zmdb/sql';
   chunkArray,
   createQueryCompiler,
   dialectCapabilities,
@@ -1867,17 +1869,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // objects — no proxies). Uses the query-compiler JOIN builder.
   async findJoined<Target extends DeclaredTable, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: TaggedSchema<Target>; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: Operator; value: unknown },
+    where?: { col: string; op: Operator | UnsafeOperator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Entity<Target>, Kind>[]>;
   async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: Operator; value: unknown },
+    where?: { col: string; op: Operator | UnsafeOperator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Joined, Kind>[]>;
   async findJoined(
     join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
-    where?: { col: string; op: Operator; value: unknown },
+    where?: { col: string; op: Operator | UnsafeOperator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]> {
     const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
