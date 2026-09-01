@@ -6,20 +6,9 @@
 // that file, and `expectTypeOf(...)` is a runtime no-op.
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import { defineState, transition, type Brand } from './index.ts';
-
-interface Order {
-  id: number;
-  total: number;
-}
-
-const Draft = defineState<'Draft', Order>();
-const Paid = defineState<'Paid', Order>();
-const Shipped = defineState<'Shipped', Order>();
-
 // pay: Draft -> Paid, ship: Paid -> Shipped. There is no Draft -> Shipped edge.
-const pay = transition(Draft, Paid, o => ({ ...o }));
-const ship = transition(Paid, Shipped, o => ({ ...o }));
+import { Draft, pay, ship, type Order } from './fixtures.ts';
+import { type Brand } from './index.ts';
 
 // --- branding --------------------------------------------------------------
 export type _State1 = ExpectNot<Equal<Brand<Order, 'Draft'>, Brand<Order, 'Paid'>>>;

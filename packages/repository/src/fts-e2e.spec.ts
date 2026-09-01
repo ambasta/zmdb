@@ -45,17 +45,24 @@ class PlainDocRepository extends BaseRepository<typeof PlainDocSchema> {
   static override readonly schema = PlainDocSchema;
 }
 
+/**
+ * The claim both engines have to satisfy: 'ltd' matches the two Ltd companies and
+ * nothing else. Postgres answers it through `to_tsquery`, SQLite through an FTS5
+ * virtual-table join — one call, one answer, which is the point of asserting it
+ * on both rather than trusting the compiler's dialect branch.
+ */
+async function expectLtdMatches(repo: DocRepository) {
+  const hits = await repo.findByFullText('company_name', 'ltd');
+  expect(hits.map(r => r.company_name).toSorted()).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
+}
+
 describe('FTS repository integration (real Postgres)', () => {
   it('findByFullText returns rows matching the term', async () => {
     if (!pg.reachable()) {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new DocRepository(pg.driver(), 'postgres');
-    const hits = await repo.findByFullText('company_name', 'ltd');
-    const names = hits.map(r => r.company_name).toSorted();
-    // 'Acme Trading Ltd' and 'Initech Ltd' match 'ltd'; others do not.
-    expect(names).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
+    await expectLtdMatches(new DocRepository(pg.driver(), 'postgres'));
   });
 
   it('findByFullText excludes non-matching rows', async () => {
@@ -83,9 +90,7 @@ describe('FTS repository integration (real SQLite with FTS5)', () => {
   });
 
   it('findByFullText returns rows matching the term via FTS5 virtual table join', async () => {
-    const hits = await repo.findByFullText('company_name', 'ltd');
-    const names = hits.map(r => r.company_name).toSorted();
-    expect(names).toEqual(['Acme Trading Ltd', 'Initech Ltd']);
+    await expectLtdMatches(repo);
   });
 
   it('findByFullText handles search query containing special characters without syntax errors', async () => {
