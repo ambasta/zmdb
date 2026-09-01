@@ -4,6 +4,7 @@ import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.js';
+import { snapshot, type SchemaSnapshot } from './index.js';
 import {
   down,
   driverMigrationConnection,
@@ -14,6 +15,7 @@ import {
   type MigrationConnection,
   type MigrationDriver,
   up,
+  SnapshotMismatchError,
 } from './runner.js';
 
 // #44: async migration runner + CLI + version tracking + E2E (real SQLite & PG adapter).
@@ -457,5 +459,137 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
       'ALTER TABLE "_zmdb_migrations" ALTER COLUMN version TYPE BIGINT',
       'SELECT checksum FROM "_zmdb_migrations" WHERE 1 = 0',
     ]);
+  });
+});
+
+describe('Snapshot-Bound Migrations Validation', () => {
+  const UserSchemaV1 = {
+    table: 'users',
+    columns: {
+      id: { type: 'integer', flags: { nullable: false, primaryKey: true } },
+    },
+    primaryKey: ['id'],
+    references: [],
+  };
+
+  const UserSchemaV2 = {
+    table: 'users',
+    columns: {
+      id: { type: 'integer', flags: { nullable: false, primaryKey: true } },
+      email: { type: 'text', flags: { nullable: true } },
+    },
+    primaryKey: ['id'],
+    references: [],
+  };
+
+  const snapV1: SchemaSnapshot = snapshot([UserSchemaV1]);
+  const snapV2: SchemaSnapshot = snapshot([UserSchemaV2]);
+
+  it('validates snapshot compatibility and executes database changes for snapshot-bound migrations', async () => {
+    const boundMigrations: Migration[] = [
+      {
+        version: 1,
+        name: 'create_users',
+        up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+        down: 'DROP TABLE users',
+        targetSnapshot: snapV1,
+      },
+    ];
+
+    const done = await up(conn, boundMigrations, { targetSnapshot: snapV1 });
+    expect(done).toEqual([1]);
+    expect(await conn.appliedVersions()).toEqual([1]);
+    expect(tableInfo()).toEqual(['id']);
+  });
+
+  it('halts execution before database modification when a migration conflicts with its target snapshot contract', async () => {
+    const conflictingMigration: Migration = {
+      version: 1,
+      name: 'create_users_v1',
+      up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+      down: 'DROP TABLE users',
+      targetSnapshot: snapV1,
+    };
+
+    let caughtError: SnapshotMismatchError | undefined;
+    try {
+      await up(conn, [conflictingMigration], { targetSnapshot: snapV2 });
+    } catch (err) {
+      if (err instanceof SnapshotMismatchError) {
+        caughtError = err;
+      }
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(caughtError?.migrationVersion).toBe(1);
+    expect(caughtError?.migrationName).toBe('create_users_v1');
+    expect(caughtError?.expectedSnapshot).toEqual(snapV2);
+    expect(caughtError?.actualSnapshot).toEqual(snapV1);
+    expect(caughtError?.diffs).toEqual([
+      {
+        kind: 'add_column',
+        table: 'users',
+        column: { name: 'email', type: 'text', nullable: true, primaryKey: false },
+      },
+    ]);
+
+    // Tracking table must NOT update and SQL statement must NOT execute
+    expect(await conn.appliedVersions()).toEqual([]);
+  });
+
+  it('existing migrations without snapshot references execute normally without behavior changes', async () => {
+    const legacyMigrations: Migration[] = [
+      {
+        version: 1,
+        name: 'legacy_create',
+        up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+        down: 'DROP TABLE users',
+      },
+    ];
+
+    const done = await up(conn, legacyMigrations);
+    expect(done).toEqual([1]);
+    expect(await conn.appliedVersions()).toEqual([1]);
+  });
+
+  it('execution failure output identifies the specific snapshot contract that failed validation', async () => {
+    const invalidSnapMigration: Migration = {
+      version: 2,
+      name: 'invalid_snapshot',
+      up: 'CREATE TABLE posts (id INTEGER PRIMARY KEY)',
+      down: 'DROP TABLE posts',
+      targetSnapshot: { version: 99 as unknown as 1, tables: [], extensions: [] },
+    };
+
+    await expect(up(conn, [invalidSnapMigration])).rejects.toThrow(SnapshotMismatchError);
+  });
+
+  it('migration tracking tables update only after snapshot validation and execution succeed', async () => {
+    const batchMigrations: Migration[] = [
+      {
+        version: 1,
+        name: 'legacy_step_1',
+        up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+        down: 'DROP TABLE users',
+      },
+      {
+        version: 2,
+        name: 'mismatched_step_2',
+        up: 'ALTER TABLE users ADD COLUMN email TEXT',
+        down: 'ALTER TABLE users DROP COLUMN email',
+        targetSnapshot: snapV1,
+      },
+      {
+        version: 3,
+        name: 'legacy_step_3',
+        up: 'CREATE TABLE posts (id INTEGER PRIMARY KEY)',
+        down: 'DROP TABLE posts',
+      },
+    ];
+
+    await expect(up(conn, batchMigrations, { targetSnapshot: snapV2 })).rejects.toThrow(SnapshotMismatchError);
+
+    expect(await conn.appliedVersions()).toEqual([1]);
+    expect(tableInfo()).toEqual(['id']);
   });
 });

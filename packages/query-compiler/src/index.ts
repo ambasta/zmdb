@@ -11,7 +11,7 @@ import {
 } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 
-export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
+export { QueryCompilerError, UnsupportedFeatureError, SnapshotMismatchError } from './errors.js';
 export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
 export {
   DIALECTS,

@@ -2,13 +2,14 @@
 // Applies/rolls back ordered migrations against an async connection or
 // adapted database driver, recording applied versions in _zmdb_migrations.
 
+import { SnapshotMismatchError } from '../errors.js';
 import {
   createQueryCompiler,
   dialectCapabilities,
   dialectFamily,
   dialectName,
-  isSqlDialect,
   formatPlaceholder,
+  isSqlDialect,
   quoteIdentifier,
   quoteTable,
   type CompiledQuery,
@@ -16,12 +17,17 @@ import {
   type MigrationDriver as DialectMigrationDriver,
   type SqlDialect,
 } from '../index.js';
+import { diff, snapshot, type SchemaSnapshot, type SnapshotableSchema } from './index.js';
+
+export { SnapshotMismatchError };
 
 export interface Migration {
   readonly version: number;
   readonly name: string;
   readonly up: string;
   readonly down: string;
+  readonly targetSnapshot?: SchemaSnapshot | undefined;
+  readonly snapshot?: SchemaSnapshot | undefined;
 }
 
 export interface AppliedMigration {
@@ -29,6 +35,17 @@ export interface AppliedMigration {
   readonly name: string;
   /** `null` identifies a ledger row written before checksums were introduced. */
   readonly checksum: string | null;
+}
+
+export interface MigrationRunnerOptions {
+  readonly onWarning?: (message: string) => void;
+  readonly targetSnapshot?: SchemaSnapshot | undefined;
+  readonly targetSchemas?: readonly SnapshotableSchema[] | undefined;
+  readonly validateSnapshot?: (
+    migrationSnapshot: SchemaSnapshot,
+    targetSnapshot?: SchemaSnapshot | undefined,
+    migration?: Migration,
+  ) => boolean | string | void;
 }
 
 // Minimal async-compatible connection the runner needs.
@@ -66,6 +83,78 @@ export interface MigrationStatus {
   readonly version: number;
   readonly name: string;
   readonly applied: boolean;
+  readonly snapshotBound?: boolean | undefined;
+}
+
+function isSchemaSnapshot(options: MigrationRunnerOptions | SchemaSnapshot): options is SchemaSnapshot {
+  return 'version' in options && options.version === 1;
+}
+
+function normalizeOptions(options?: MigrationRunnerOptions | SchemaSnapshot): MigrationRunnerOptions | undefined {
+  if (!options) return undefined;
+  if (isSchemaSnapshot(options)) {
+    return { targetSnapshot: options };
+  }
+  return options;
+}
+
+export function validateSnapshotCompatibility(
+  m: Migration,
+  optionsInput?: MigrationRunnerOptions | SchemaSnapshot,
+): void {
+  const mSnap = m.targetSnapshot ?? m.snapshot;
+  if (!mSnap) {
+    // Legacy migration lacking snapshot contracts: bypass snapshot validation.
+    return;
+  }
+
+  if (typeof mSnap !== 'object' || mSnap === null || mSnap.version !== 1 || !Array.isArray(mSnap.tables)) {
+    throw new SnapshotMismatchError({
+      version: m.version,
+      migrationName: m.name,
+      actualSnapshot: mSnap,
+      message: `Snapshot contract validation failed for migration ${m.version} ("${m.name}"): invalid or missing version 1 schema snapshot`,
+    });
+  }
+
+  const options = normalizeOptions(optionsInput);
+  const targetSnap = options?.targetSnapshot ?? (options?.targetSchemas ? snapshot(options.targetSchemas) : undefined);
+
+  if (targetSnap) {
+    const ops = diff(mSnap, targetSnap);
+    if (ops.length > 0) {
+      throw new SnapshotMismatchError({
+        version: m.version,
+        migrationName: m.name,
+        expectedSnapshot: targetSnap,
+        actualSnapshot: mSnap,
+        diffs: ops,
+        message: `Snapshot contract validation failed for migration ${m.version} ("${m.name}"): migration snapshot conflicts with target schema snapshot (${ops.length} change op(s) detected)`,
+      });
+    }
+  }
+
+  if (options?.validateSnapshot) {
+    const result = options.validateSnapshot(mSnap, targetSnap, m);
+    if (result === false) {
+      throw new SnapshotMismatchError({
+        version: m.version,
+        migrationName: m.name,
+        expectedSnapshot: targetSnap,
+        actualSnapshot: mSnap,
+        message: `Snapshot contract validation failed for migration ${m.version} ("${m.name}"): custom snapshot validator returned false`,
+      });
+    }
+    if (typeof result === 'string') {
+      throw new SnapshotMismatchError({
+        version: m.version,
+        migrationName: m.name,
+        expectedSnapshot: targetSnap,
+        actualSnapshot: mSnap,
+        message: result,
+      });
+    }
+  }
 }
 
 const DEFAULT_VERSION_TABLE = `CREATE TABLE IF NOT EXISTS _zmdb_migrations (
@@ -233,19 +322,21 @@ export async function ensureVersionTable(conn: MigrationConnection): Promise<voi
 export async function up(
   conn: MigrationConnection,
   migrations: readonly Migration[],
-  options: MigrationRunOptions = {},
+  options?: MigrationRunnerOptions | SchemaSnapshot,
 ): Promise<number[]> {
   assertUniqueVersions(migrations);
   await ensureVersionTable(conn);
   const ledger = await verifiedLedger(conn, migrations);
   const applied = new Set(ledger.map(row => row.version));
   const pending = [...migrations].filter(migration => !applied.has(migration.version)).toSorted(byVersion);
+  const runnerOpts = normalizeOptions(options);
   if (pending.length > 0 && conn.transactionalDdl === false) {
-    options.onWarning?.(nonTransactionalDdlWarning(conn.dialect));
+    runnerOpts?.onWarning?.(nonTransactionalDdlWarning(conn.dialect));
   }
 
   const done: number[] = [];
   for (const migration of pending) {
+    validateSnapshotCompatibility(migration, options);
     const checksum = conn.checksum === undefined ? undefined : await conn.checksum(migration.up);
     try {
       await inTransaction(conn, async transaction => {
@@ -261,7 +352,11 @@ export async function up(
 }
 
 /** Roll back the single most-recently applied migration. */
-export async function down(conn: MigrationConnection, migrations: readonly Migration[]): Promise<number | undefined> {
+export async function down(
+  conn: MigrationConnection,
+  migrations: readonly Migration[],
+  _options?: MigrationRunnerOptions | SchemaSnapshot,
+): Promise<number | undefined> {
   assertUniqueVersions(migrations);
   await ensureVersionTable(conn);
   const applied = [...(await verifiedLedger(conn, migrations))].toSorted((left, right) => right.version - left.version);
@@ -301,13 +396,23 @@ export async function downTo(
   }
 }
 
-export async function status(conn: MigrationConnection, migrations: readonly Migration[]): Promise<MigrationStatus[]> {
+export async function status(
+  conn: MigrationConnection,
+  migrations: readonly Migration[],
+  _options?: MigrationRunnerOptions | SchemaSnapshot,
+): Promise<MigrationStatus[]> {
   assertUniqueVersions(migrations);
   await ensureVersionTable(conn);
   const applied = new Set((await verifiedLedger(conn, migrations)).map(row => row.version));
-  return [...migrations]
-    .toSorted(byVersion)
-    .map(migration => ({ version: migration.version, name: migration.name, applied: applied.has(migration.version) }));
+  return [...migrations].toSorted(byVersion).map(migration => {
+    const mSnap = migration.targetSnapshot ?? migration.snapshot;
+    return {
+      version: migration.version,
+      name: migration.name,
+      applied: applied.has(migration.version),
+      ...(mSnap !== undefined ? { snapshotBound: true } : {}),
+    };
+  });
 }
 
 // Thin CLI dispatch (verb → runner call). Returns a human-readable line.
@@ -315,18 +420,19 @@ export async function runCli(
   verb: 'up' | 'down' | 'status',
   conn: MigrationConnection,
   migrations: readonly Migration[],
+  options?: MigrationRunnerOptions | SchemaSnapshot,
 ): Promise<string> {
   switch (verb) {
     case 'up': {
-      const done = await up(conn, migrations);
+      const done = await up(conn, migrations, options);
       return `applied: ${done.join(', ') || '(none)'}`;
     }
     case 'down': {
-      const version = await down(conn, migrations);
+      const version = await down(conn, migrations, options);
       return version === undefined ? 'nothing to roll back' : `reverted: ${String(version)}`;
     }
     case 'status': {
-      const migrationStatus = await status(conn, migrations);
+      const migrationStatus = await status(conn, migrations, options);
       return migrationStatus
         .map(item => `${item.applied ? '[x]' : '[ ]'} ${String(item.version)} ${item.name}`)
         .join('\n');
