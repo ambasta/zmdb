@@ -95,8 +95,12 @@ const MENTIONS_FORWARDED_CALL = new RegExp(
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);
   if (options.session) return run(options.session, project, options);
-  using session = ReflectSession.open({ project });
-  return run(session, project, options);
+  const session = ReflectSession.open({ project });
+  try {
+    return run(session, project, options);
+  } finally {
+    session[Symbol.dispose]();
+  }
 }
 
 // -----------------------------------------------------------------------------
