@@ -5,7 +5,7 @@ export { UnsupportedFeatureError } from './errors.ts';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { frozenQuery, tailClause, whereClause } from './clauses.ts';
+import { frozenQuery, tailClause, tailMethods, whereClause } from './clauses.ts';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
@@ -74,6 +74,7 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
   return {
+    ...tailMethods(state, next),
     dialect: d,
     select: columns => (columns === undefined ? next({}) : next({ columns })),
     where: (col, op, value) => addWhere('AND', col, op, value),
@@ -85,9 +86,6 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<
     whereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
     andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
     orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
-    orderBy: (col, dir) => next({ orderBys: [...state.orderBys, { col, dir }] }),
-    limit: n => next({ limitN: n }),
-    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
       const cols =

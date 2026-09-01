@@ -137,3 +137,50 @@ export function tailClause(dialect: Dialect, tail: Tail): string {
 export function frozenQuery(text: string, params: readonly unknown[]): CompiledQuery {
   return Object.freeze({ text, parameters: Object.freeze([...params]) });
 }
+
+// --- builder wiring --------------------------------------------------------
+//
+// The rendering above is shared, but each builder still wired the same methods
+// onto its own state by hand. The two below are the ones that were identical in
+// three places (`orderBy`/`limit`/`offset`) and two (`innerJoin` and friends),
+// which is one drift away from the bugs the header describes.
+//
+// Both take the current value and the builder's own `next`, and hand back
+// methods returning whatever `next` returns — so each builder keeps its own
+// state type and its own return type, and no cast is needed in either
+// direction. That works because they ask for the *narrowest* patch they could
+// pass: `TailPatch` is assignable to every builder's `Partial<State>`, so
+// contravariance makes each builder's `next` acceptable here.
+//
+// It does require the state's arrays be `readonly`, which they should be
+// anyway: `next` replaces them, nothing appends in place.
+
+/**
+ * What {@link tailMethods} passes to a builder's `next`. Deliberately not
+ * `Partial<Tail>`: under `exactOptionalPropertyTypes` an optional property that
+ * also admits `undefined` is not assignable to one that doesn't, and no
+ * builder's state wants an explicit `undefined` written over its array.
+ */
+export interface TailPatch {
+  readonly orderBys?: readonly { readonly col: string; readonly dir: 'asc' | 'desc' }[];
+  readonly limitN?: number;
+  readonly offsetN?: number;
+}
+
+/** `orderBy` / `limit` / `offset`, for any state carrying a {@link Tail}. */
+export function tailMethods<B>(tail: Tail, next: (patch: TailPatch) => B) {
+  return {
+    orderBy: (col: string, dir: 'asc' | 'desc'): B => next({ orderBys: [...(tail.orderBys ?? []), { col, dir }] }),
+    limit: (n: number): B => next({ limitN: n }),
+    offset: (n: number): B => next({ offsetN: n }),
+  };
+}
+
+/** `innerJoin` / `leftJoin` / `rightJoin`, for any state carrying a join list. */
+export function joinMethods<B>(joins: readonly JoinSpec[], next: (patch: { joins: readonly JoinSpec[] }) => B) {
+  const add =
+    (kind: JoinKind) =>
+    (target: string, leftCol: string, rightCol: string): B =>
+      next({ joins: [...joins, { kind, target, leftCol, rightCol }] });
+  return { innerJoin: add('inner'), leftJoin: add('left'), rightJoin: add('right') };
+}
