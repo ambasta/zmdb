@@ -107,4 +107,6 @@ export type {
   NumericColumnOf,
   UpdatePatch,
   UpsertOptions,
+  CreateGraphDTO,
+  UpdateGraphDTO,
 } from '@zmdb/repository';
