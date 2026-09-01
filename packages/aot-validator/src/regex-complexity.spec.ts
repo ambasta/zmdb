@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { tags, validate, ValidationError } from './index.js';
+import { getRegExp, tags, validate, ValidationError } from './index.js';
 import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 import { transformCode } from './transformer.js';
 import { is, validate as utilityValidate } from './utilities/index.js';
@@ -97,6 +97,24 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
 
       const res = utilityValidate('hello', witness);
       expect(res.success).toBe(true);
+    });
+  });
+
+  describe('Standardized Runtime Caching & getRegExp Direct Alias', () => {
+    it('shares a single cache instance between getRegExp and getCachedRegExp', () => {
+      const reFromGetRegExp = getRegExp('^[0-9]+$');
+      const reFromGetCachedRegExp = getCachedRegExp('^[0-9]+$');
+      expect(reFromGetRegExp).toBe(reFromGetCachedRegExp);
+    });
+
+    it('enforces pattern complexity validation and throws ValidationError via getRegExp', () => {
+      expect(() => getRegExp('[a-z')).toThrow(ValidationError);
+      expect(() => getRegExp('[a-z')).toThrow(/Invalid regular expression/);
+      expect(() => getRegExp('+')).toThrow(ValidationError);
+    });
+
+    it('preserves public API function identity and behavior', () => {
+      expect(getRegExp).toBe(getCachedRegExp);
     });
   });
 });
