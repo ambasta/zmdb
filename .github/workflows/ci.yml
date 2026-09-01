@@ -422,9 +422,7 @@ jobs:
         # image-size@2.0.2 is still covered by these two denial-of-service
         # advisories, so no fixed version exists to select. Keep every other
         # high advisory fatal and name the exact temporary exceptions.
-        run: >
-          yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
+        run: node .github/scripts/audit-dependencies.mjs
 
   codeql:
     name: CodeQL SAST Analysis
