@@ -50,11 +50,18 @@ describe('LLM function-calling harness (#159)', () => {
   });
 
   it('lenientParse applies coerce; a throwing coerce ⇒ failure', () => {
-    const ok = lenientParse<{ n: number }>('{"n":"5"}', v => ({ n: Number((v as { n: unknown }).n) }));
+    const ok = lenientParse<{ n: number }>('{"n":"5"}', v => {
+      const obj = v as { n: unknown };
+      if (typeof obj.n !== 'string' && typeof obj.n !== 'number') throw new Error('invalid n');
+      return { n: Number(obj.n) };
+    });
+    expect(ok.success).toBe(true);
     expect(ok.data).toEqual({ n: 5 });
+
     const bad = lenientParse('{}', () => {
       throw new Error('coerce fail');
     });
     expect(bad.success).toBe(false);
+    expect(bad.errors).toEqual(['coerce fail']);
   });
 });
