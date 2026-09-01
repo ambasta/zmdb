@@ -10,8 +10,50 @@ export interface ReplicaOptions {
 }
 
 export function isWrite(sql: string): boolean {
-  const s = sql.trimStart().toUpperCase();
-  return s.startsWith('INSERT') || s.startsWith('UPDATE') || s.startsWith('DELETE');
+  let i = 0;
+  const len = sql.length;
+  while (i < len) {
+    const code = sql.charCodeAt(i);
+    if (code > 32 && code !== 0x00a0 && code !== 0xfeff) {
+      break;
+    }
+    i++;
+  }
+  if (len - i < 6) return false;
+
+  const c0 = sql.charCodeAt(i) | 32;
+  if (c0 === 105) {
+    // 'i' -> INSERT
+    return (
+      (sql.charCodeAt(i + 1) | 32) === 110 &&
+      (sql.charCodeAt(i + 2) | 32) === 115 &&
+      (sql.charCodeAt(i + 3) | 32) === 101 &&
+      (sql.charCodeAt(i + 4) | 32) === 114 &&
+      (sql.charCodeAt(i + 5) | 32) === 116
+    );
+  }
+  if (c0 === 117) {
+    // 'u' -> UPDATE
+    return (
+      (sql.charCodeAt(i + 1) | 32) === 112 &&
+      (sql.charCodeAt(i + 2) | 32) === 100 &&
+      (sql.charCodeAt(i + 3) | 32) === 97 &&
+      (sql.charCodeAt(i + 4) | 32) === 116 &&
+      (sql.charCodeAt(i + 5) | 32) === 101
+    );
+  }
+  if (c0 === 100) {
+    // 'd' -> DELETE
+    return (
+      (sql.charCodeAt(i + 1) | 32) === 101 &&
+      (sql.charCodeAt(i + 2) | 32) === 108 &&
+      (sql.charCodeAt(i + 3) | 32) === 101 &&
+      (sql.charCodeAt(i + 4) | 32) === 116 &&
+      (sql.charCodeAt(i + 5) | 32) === 101
+    );
+  }
+
+  return false;
 }
 
 /** Wrap primary+replicas into a single Driver that routes reads to replicas. */
