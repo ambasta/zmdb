@@ -48,7 +48,11 @@ list(ctx: Ctx<Record<never, string>, unknown>) {
 }
 ```
 
-Also note that a handler cannot set a response header, so an `x-cache: HIT` marker is not available from here. Add it in your adapter if you want one.
+For an `x-cache: HIT` marker, return the response explicitly instead of a plain value:
+
+```ts
+return json(hit, { headers: { 'x-cache': 'HIT' } });
+```
 
 ## The cache key is the whole risk
 

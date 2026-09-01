@@ -124,7 +124,16 @@ export class MetricsController {
 }
 ```
 
-The router returns JSON, so a Prometheus scraper cannot read this directly — Prometheus wants `text/plain` in its exposition format, and a handler cannot set `content-type`. Either serve `/metrics` from your adapter, outside `app.handle`, or push to a gateway instead.
+Prometheus wants `text/plain` in its exposition format, which a handler can now return directly:
+
+```ts
+@Get('/metrics')
+metrics() {
+  return text(renderExposition());
+}
+```
+
+Keep `/metrics` off your public listener, or require an auth header — it names every route and leaks traffic shape.
 
 > [!WARNING]
 > `/metrics` must not be publicly reachable. It reveals route inventory, traffic

@@ -1,7 +1,9 @@
 > **ToDo / feature gap.** There is no view layer — no `@Render`, no template
-> engine adapter, no `setViewEngine`. The router serialises a handler's return
-> value as JSON, and `WebResponse.body` is a `string` with a `content-type` the
-> handler cannot set.
+> engine adapter, no `setViewEngine`. A handler can return rendered HTML itself
+> with `respond({ body: html, headers: { 'content-type': 'text/html' } })`, so
+> this is a missing convenience rather than a wall; what does not exist is any
+> integration that resolves a template name, caches compiled templates, or wires
+> an engine into the router.
 
 ## What zmdb is for
 

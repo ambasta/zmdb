@@ -99,7 +99,7 @@ Terminate TLS at the proxy. Then:
 - **`x-forwarded-for`** is the client IP. `req.socket.remoteAddress` is the proxy. Trust the header only from a proxy you control, or an attacker sets it.
 - **`x-forwarded-proto`** tells you whether the original request was HTTPS.
 - **Set a body limit** at the proxy _and_ in your adapter — the framework has none, so a large body is a memory-exhaustion vector. See [Raw Body](./web-raw-body.html).
-- **Set security headers** at the proxy: `strict-transport-security`, `x-content-type-options: nosniff`, `x-frame-options: DENY`. A handler cannot set headers.
+- **Set security headers** at the proxy: `strict-transport-security`, `x-content-type-options: nosniff`, `x-frame-options: DENY`. A handler can set them per response via `json(value, { headers })`, but a proxy applies them to every response including errors, which is what you want here.
 
 ## The pre-flight checklist
 

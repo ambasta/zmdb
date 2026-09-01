@@ -2,11 +2,23 @@
 
 ## What the adapters do
 
-`toNodeHandler` collects the request stream, joins it as a string, and:
+`toNodeHandler` first decides whether there is a body to read at all. Per RFC
+9112 a request with neither `content-length` nor `transfer-encoding` has none, so
+those requests — most `GET`s, `HEAD`s and `DELETE`s — are dispatched immediately
+without attaching stream listeners. `content-length: 0` counts as no body too.
+
+When there is one, the adapter calls `req.setEncoding('utf8')` and accumulates
+the decoded string:
 
 ```ts
 rawBody: raw.length > 0 ? parseJson(raw) : undefined;
 ```
+
+`setEncoding` matters for correctness, not just speed: it installs a
+`StringDecoder`, which holds a partial multi-byte character across reads. Decoding
+each chunk on its own — which this adapter used to do — corrupts any character
+whose UTF-8 bytes straddle a chunk boundary, so a large body containing non-ASCII
+text would silently arrive with `�` in it.
 
 `parseJson` returns the parsed value — or, on a parse failure, **the original string**:
 

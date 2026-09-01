@@ -80,9 +80,18 @@ See [Raw Body](./web-raw-body.html).
 
 ## A 500 where you threw a 403
 
-`ChainError(403, …)` reaching the router serialises as a 500. The router produces exactly four outcomes — 200 (returned), 400 (threw something with `issues`), 404 (no route), 500 (anything else) — and a handler cannot choose. `ExceptionFilter.catch` returns a `WebResponse` the router never sees, because **the router does not call `runChain`**.
+`ChainError(403, …)` reaching the router serialises as a 500. A **thrown** error still has exactly three outcomes — 400 (it carries `issues`), 500 (anything else), plus 404 when no route matched — and the status it carries is ignored. `ExceptionFilter.catch` returns a `WebResponse` the router never sees, because **the router does not call `runChain`**.
 
-Throw a `ValidationError` (which has `issues`) for a 400, and map other statuses in your adapter. See [Request Lifecycle](./web-request-lifecycle.html).
+Catch it and return the status instead of throwing:
+
+```ts
+catch (error) {
+  if (error instanceof ChainError) return json({ error: error.message }, { status: error.status });
+  throw error;
+}
+```
+
+See [Request Lifecycle](./web-request-lifecycle.html).
 
 ## `this.repo is undefined` in a handler
 

@@ -100,9 +100,16 @@ today.
 
 ## Getting a 401 out
 
-The router has four outcomes: 200, 400 (a throw carrying `issues`), 404, 500. To
-produce a 401 or a 403, map it in your adapter — the one place that sets a
-status:
+Return the status rather than throwing it — a thrown error can only become a 400
+or a 500:
+
+```ts
+if (!user) return json({ error: 'unauthenticated' }, { status: 401 });
+if (!user.canRead(id)) return json({ error: 'forbidden' }, { status: 403 });
+```
+
+If you would rather keep handlers throwing domain errors, map them once in your
+adapter instead:
 
 ```ts
 const STATUS = new Map<string, number>([

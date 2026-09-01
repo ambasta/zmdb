@@ -1,6 +1,9 @@
 > **ToDo / feature gap.** There is no static file serving — no `ServeStaticModule`,
-> no `useStaticAssets`. `WebResponse.body` is a `string` and a handler cannot set
-> `content-type`, so serving a file through the framework is not possible.
+> no `useStaticAssets`. A handler can now set the status, headers and body via
+> `respond()`, so returning a small text asset is possible in userland; what is
+> still missing is a module that maps a directory to routes, and streaming —
+> `WebResponse.body` is a `string`, so the whole file is read into memory and
+> binary content has to be handled outside the framework.
 
 ## Serve them somewhere else
 

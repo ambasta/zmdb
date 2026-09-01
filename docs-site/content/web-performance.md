@@ -2,7 +2,7 @@ The framework does very little per request, and knowing exactly what it does is 
 
 ## What happens on a request
 
-1. The adapter builds a `WebRequest` — a string split for the path, headers passed through, body `JSON.parse`d.
+1. The adapter builds a `WebRequest` — the path read off the URL by index, headers flattened, body `JSON.parse`d. A request whose framing headers say it has no body skips the stream listeners entirely and dispatches straight away.
 2. `Router.handle` counts the path's segments and looks up the routes registered under that method **and** that segment count. Routes that cannot match are never examined.
 3. Each candidate's pattern — already resolved into segments and `:param` slots at registration — is matched against the path by character index. A route with no params allocates nothing; one with params allocates the params object and one string per param.
 4. Optional body validation (`validateBody`), which is AOT-compiled code, not reflection.
@@ -49,6 +49,17 @@ const [post, comments] = await Promise.all([this.posts.findById(id), this.commen
 Two round trips in the time of one. Do not do this inside a transaction on a single connection — the driver serialises them and you gain nothing.
 
 **Validation of very large payloads.** AOT validation is fast (see [JIT vs AOT](./jit-vs-aot.html)) but a 10MB array of objects is still work proportional to its size. Cap request sizes — see [Raw Body](./web-raw-body.html).
+
+**Node's HTTP stack, and not this framework.** Worth knowing before you tune anything here. Measured on one 16-core box, 8 workers, `GET /`, keep-alive off, c=256, median of 3, each layer adding one thing to the one above it:
+
+| layer                                  |   req/s | that layer's cost                               |
+| -------------------------------------- | ------: | ----------------------------------------------- |
+| raw TCP (`net`, canned response bytes) | 152,748 | the kernel's accept/close floor                 |
+| bare `node:http`, `res.end()`          | 114,438 | −38,310 (25%) — parser + stream objects         |
+| bare `node:http` + `writeHead({…})`    | 103,407 | −11,031 (10%) — serialising one header          |
+| a full routed app                      | 102,651 | −756 (**0.7%**) — routing, dispatch, validation |
+
+Everything the framework does is under 1% of the budget and `node:http` is a quarter of it. So if you are chasing throughput, the levers are the process count (below), keep-alive, and how many headers and bytes you send — not the router.
 
 ## Measuring, not guessing
 

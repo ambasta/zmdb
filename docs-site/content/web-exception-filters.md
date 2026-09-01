@@ -35,7 +35,7 @@ const result = await runChain({ guards: [], pipes: [], interceptors: [], filters
 > produces a 200 whose body contains the number 409. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
-The router has exactly four outcomes and a handler cannot choose:
+A **thrown** error has four outcomes, and the status it carries is not one of the inputs:
 
 | Status | Cause                                                 |
 | ------ | ----------------------------------------------------- |
@@ -43,6 +43,8 @@ The router has exactly four outcomes and a handler cannot choose:
 | 400    | the handler threw something with an `issues` property |
 | 404    | no route matched                                      |
 | 500    | the handler threw anything else                       |
+
+A handler that _returns_ `json(value, { status })`, `text(...)` or `respond(...)` picks its own status and headers — so catching an error and returning a response is the way to get a 403 or 409 today. What is still missing is the cross-cutting part: a filter that applies to every route without each handler repeating the `catch`.
 
 ## What to do today
 

@@ -131,7 +131,16 @@ try {
 }
 ```
 
-That produces a 400, not a 409. The router has four outcomes and a handler cannot choose the status — if you need 409 specifically, map it in your adapter. See [Request Lifecycle](./web-request-lifecycle.html).
+That produces a 400, not a 409. A _thrown_ error still maps to 400 or 500 — to answer 409, catch it and return the response instead of throwing:
+
+```ts
+catch (error) {
+  if (isUniqueViolation(error)) return json({ error: 'already exists' }, { status: 409 });
+  throw error;
+}
+```
+
+See [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Transactions
 

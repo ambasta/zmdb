@@ -56,15 +56,15 @@ When you need a token — a cookie-authenticated app supporting older browsers:
 ```ts
 @Post('/csrf')
 issue() {
-  return { token: randomBytes(32).toString('base64url') };
+  const token = randomBytes(32).toString('base64url');
+  return json(
+    { token },
+    { headers: { 'set-cookie': `csrf=${token}; Secure; SameSite=Lax; Path=/` } },
+  );
 }
 ```
 
-The client stores it and sends it as `x-csrf-token` on every mutation; you compare it against the same value in a non-`HttpOnly` cookie. The framework cannot set that cookie — the router controls headers — so do it in your adapter:
-
-```ts
-res.setHeader('set-cookie', `csrf=${token}; Secure; SameSite=Lax; Path=/`);
-```
+The client stores it and sends it as `x-csrf-token` on every mutation; you compare it against the same value in the non-`HttpOnly` cookie set above.
 
 ```ts
 function requireCsrf(ctx: Ctx<Record<string, string>, unknown>): void {

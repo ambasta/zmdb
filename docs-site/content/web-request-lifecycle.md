@@ -7,23 +7,33 @@ What happens between a request arriving and a response leaving, in order, with n
 3. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
 4. **Ctx construction** — `{ params, body, query, headers, method, path }`.
 5. **Handler** — awaited.
-6. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`.
+6. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text` or `respond`, which is sent as-is.
 7. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
 8. **No match** — **404** with `{ error: 'no route for GET /x' }`.
 
-## The consequence you need to know
+## Returning something other than a 200 JSON body
 
-**A handler cannot set the status code or headers.** Whatever it returns is serialised as a 200:
+Return a plain value and you get `200 application/json`. To choose anything else, return one of three factories:
 
 ```ts
-@Get('/:id')
-async byId(ctx: Ctx<{ id: string }>) {
-  const post = await this.repo.findById(Number(ctx.params.id));
-  return { status: 404, body: { error: 'not found' } };   // this is a 200 whose body is that object
-}
+import { json, text, respond } from '@zmdb/web';
+
+return json(created, { status: 201, headers: { location: `/posts/${id}` } });
+return text(ctx.params.id); // text/plain, body verbatim
+return respond({ status: 302, headers: { location: '/login' } }); // no assumed content-type
+return respond({ status: 204 }); // no body
 ```
 
-The only status codes a handler can produce are 200 (return), 400 (throw something with `issues`) and 500 (throw anything else).
+**A plain object is still a body, even if it has a `status` field.** This is the trap the design avoids:
+
+```ts
+return { status: 'draft', title: 'x' }; // a 200 whose JSON body is that object
+return respond({ status: 404, body: '{"error":"not found"}' }); // an actual 404
+```
+
+The framework recognises a real response by a marker symbol the factories attach, not by looking for a `status` property — so `{ status: 'draft' }` cannot accidentally become an HTTP status. A hand-built `{ status, body, headers }` object is therefore **not** a response; it is a body. Use the factories.
+
+Without them, the status codes a handler can produce are 200 (return), 400 (throw something with `issues`) and 500 (throw anything else).
 
 Signal a client error by throwing a validation-shaped error:
 
