@@ -466,6 +466,25 @@ class BranchTarget implements WhereTarget {
   }
 }
 
+export function validateCursorPayload(cursorValues: Record<string, unknown>, orderBy: OrderBySpec): void {
+  if (orderBy.length === 0) return;
+
+  const expectedCols = new Set(orderBy.map(item => String(item.column)));
+  const payloadKeys = Object.keys(cursorValues);
+
+  for (const colStr of expectedCols) {
+    if (cursorValues[colStr] === undefined) {
+      throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
+    }
+  }
+
+  for (const key of payloadKeys) {
+    if (!expectedCols.has(key)) {
+      throw new Error(`Invalid cursor: sort column "${key}" does not match active query ordering`);
+    }
+  }
+}
+
 export function applyKeysetFilter<B extends WhereTarget>(
   builder: B,
   cursorValues: Record<string, unknown>,
@@ -476,13 +495,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
 ): B {
   if (orderBy.length === 0) return builder;
 
-  for (const item of orderBy) {
-    if (!item) continue;
-    const colStr = String(item.column);
-    if (cursorValues[colStr] === undefined) {
-      throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
-    }
-  }
+  validateCursorPayload(cursorValues, orderBy);
 
   let currentBuilder: WhereTarget = builder;
   const k = orderBy.length;
