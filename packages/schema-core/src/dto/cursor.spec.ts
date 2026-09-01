@@ -136,6 +136,36 @@ describe('Composite Keyset Cursor Utilities', () => {
         /Invalid cursor: missing value for column "id"/,
       );
     });
+
+    it('throws error if a sort column is marked nullable in schema', () => {
+      const { builder } = createWhereRecorder();
+      const schemaWithNullable = {
+        columns: {
+          age: { flags: { nullable: false } },
+          bio: { flags: { nullable: true } },
+        },
+      };
+      const nullableOrderBy: OrderBySpec = [{ column: 'bio', dir: 'asc' }];
+
+      expect(() =>
+        applyKeysetFilter(
+          builder,
+          { bio: 'hello' },
+          nullableOrderBy,
+          undefined,
+          schemaWithNullable as unknown as Parameters<typeof applyKeysetFilter>[4],
+        ),
+      ).toThrow(/Invalid keyset sort column "bio": column is nullable/);
+    });
+
+    it('throws error if a cursor value is null', () => {
+      const { builder } = createWhereRecorder();
+      const nullableOrderBy: OrderBySpec = [{ column: 'age', dir: 'asc' }];
+
+      expect(() => applyKeysetFilter(builder, { age: null }, nullableOrderBy)).toThrow(
+        /Invalid keyset cursor value for column "age": keyset cursor values cannot be null/,
+      );
+    });
   });
 
   describe('buildListResult cursor derivation', () => {
