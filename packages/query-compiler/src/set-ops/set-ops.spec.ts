@@ -64,4 +64,31 @@ describe('set operations (#120)', () => {
     expect(res.text).toBe('SELECT * FROM "t" WHERE "x" = $1 INTERSECT SELECT * FROM "t" WHERE "y" = $2 AND "z" = $3');
     expect(res.parameters).toEqual(['val1', 'val2', 'val3']);
   });
+
+  it('correctly renumbers arbitrary external queries with repeated placeholders by value', () => {
+    const ext1 = { text: 'SELECT * FROM "t" WHERE "a" = $1 OR "b" = $1', parameters: ['x'] };
+    const ext2 = { text: 'SELECT * FROM "t" WHERE "c" = $1', parameters: ['y'] };
+
+    const res = setOperation('union', [ext1, ext2], 'postgres');
+    expect(res.text).toBe('SELECT * FROM "t" WHERE "a" = $1 OR "b" = $1 UNION SELECT * FROM "t" WHERE "c" = $2');
+    expect(res.parameters).toEqual(['x', 'y']);
+  });
+
+  it('correctly renumbers arbitrary external queries with reordered placeholders by value', () => {
+    const ext1 = { text: 'SELECT * FROM "t" WHERE "a" = $2 AND "b" = $1', parameters: ['val1', 'val2'] };
+    const ext2 = { text: 'SELECT * FROM "t" WHERE "c" = $1', parameters: ['val3'] };
+
+    const res = setOperation('union', [ext1, ext2], 'postgres');
+    expect(res.text).toBe('SELECT * FROM "t" WHERE "a" = $2 AND "b" = $1 UNION SELECT * FROM "t" WHERE "c" = $3');
+    expect(res.parameters).toEqual(['val1', 'val2', 'val3']);
+  });
+
+  it('preserves positional placeholders for mysql/sqlite without postgres renumbering', () => {
+    const qA = { text: 'SELECT * FROM `t` WHERE `a` = ?', parameters: [1] };
+    const qB = { text: 'SELECT * FROM `t` WHERE `b` = ?', parameters: [2] };
+
+    const res = setOperation('union', [qA, qB], 'mysql');
+    expect(res.text).toBe('SELECT * FROM `t` WHERE `a` = ? UNION SELECT * FROM `t` WHERE `b` = ?');
+    expect(res.parameters).toEqual([1, 2]);
+  });
 });

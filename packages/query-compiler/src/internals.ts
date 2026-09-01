@@ -1,7 +1,13 @@
 import type { CompiledQuery } from './index.js';
 
-export function getSegments(text: string): readonly string[] {
+export interface QuerySegments {
+  readonly segments: readonly string[];
+  readonly numbers: readonly number[];
+}
+
+export function getSegments(text: string): QuerySegments {
   const segments: string[] = [];
+  const numbers: number[] = [];
   let lastIndex = 0;
   let idx = 0;
   while ((idx = text.indexOf('$', lastIndex)) !== -1) {
@@ -14,15 +20,16 @@ export function getSegments(text: string): readonly string[] {
       continue;
     }
     segments.push(text.slice(lastIndex, idx));
+    numbers.push(Number(text.slice(idx + 1, numEnd)));
     lastIndex = numEnd;
   }
   segments.push(text.slice(lastIndex));
-  return segments;
+  return { segments, numbers };
 }
 
-const compiledQuerySegmentsMap = new WeakMap<CompiledQuery, readonly string[]>();
+const compiledQuerySegmentsMap = new WeakMap<CompiledQuery, QuerySegments>();
 
-export function getSegmentsForQuery(q: CompiledQuery): readonly string[] {
+export function getSegmentsForQuery(q: CompiledQuery): QuerySegments {
   const cached = compiledQuerySegmentsMap.get(q);
   if (cached) return cached;
   const segs = getSegments(q.text);
