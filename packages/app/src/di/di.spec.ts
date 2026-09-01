@@ -23,7 +23,6 @@ describe('@zmdb/app DI: Container', () => {
 
   it('throws UnresolvedTokenError for an unregistered token', () => {
     const c = new Container();
-    // @ts-expect-error — LoggerToken is unregistered on c
     expect(() => c.resolve(LoggerToken)).toThrow(UnresolvedTokenError);
     expect(c.has(LoggerToken)).toBe(false);
   });
@@ -39,6 +38,26 @@ describe('@zmdb/app DI: Container', () => {
     const logger = new Logger();
     const PortToken = createToken<number>('Port');
     const c = new Container().register(LoggerToken, logger).registerFactory(PortToken, () => 8080);
+
+    expect(c.resolve(LoggerToken)).toBe(logger);
+    expect(c.resolve(PortToken)).toBe(8080);
+  });
+
+  it('supports building container across modular registration functions', () => {
+    const logger = new Logger();
+    const PortToken = createToken<number>('Port');
+
+    function registerLogger(c: Container) {
+      return c.register(LoggerToken, logger);
+    }
+
+    function registerPort(c: Container) {
+      return c.registerFactory(PortToken, () => 8080);
+    }
+
+    const c = new Container();
+    registerLogger(c);
+    registerPort(c);
 
     expect(c.resolve(LoggerToken)).toBe(logger);
     expect(c.resolve(PortToken)).toBe(8080);
