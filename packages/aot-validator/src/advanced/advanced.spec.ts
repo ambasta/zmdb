@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { tags } from '../index.js';
 import { coerce, validateObject, refine } from './index.js';
@@ -12,15 +12,31 @@ describe('coercion', () => {
 });
 
 describe('object strictness modes', () => {
-  it('strict rejects excess keys with a structured issue', () => {
+  it('strict rejects excess keys with a structured issue and returns data payload', () => {
     const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strict');
     expect(r.success).toBe(false);
+    expect(r.data).toEqual({ a: 1, extra: 2 });
     expect(r.issues.some(i => i.path.includes('extra'))).toBe(true);
   });
 
-  it('strip accepts and drops excess keys', () => {
+  it('strip accepts and drops excess keys in data payload', () => {
     const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strip');
     expect(r.success).toBe(true);
+    expect(r.data).toEqual({ a: 1 });
+  });
+
+  it('passthrough keeps excess keys in data payload', () => {
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'passthrough');
+    expect(r.success).toBe(true);
+    expect(r.data).toEqual({ a: 1, extra: 2 });
+  });
+
+  it('validateObject exposes legacy errors accessor with deprecation warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = validateObject({ totalPrice: -1 }, { totalPrice: tags.Min(0) }, 'strict');
+    expect(r.errors).toEqual(r.issues);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('DeprecationWarning'));
+    spy.mockRestore();
   });
 });
 

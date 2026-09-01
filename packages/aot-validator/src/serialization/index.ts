@@ -31,6 +31,29 @@ export interface ParseResult<T> {
   readonly success: boolean;
   readonly data?: T;
   readonly issues?: readonly ValidationIssue[];
+  /** @deprecated Use `issues` instead. */
+  readonly errors?: readonly ValidationIssue[];
+}
+
+function makeParseResult<T>(params: {
+  success: boolean;
+  data?: T;
+  issues?: readonly ValidationIssue[];
+}): ParseResult<T> {
+  const result: ParseResult<T> = {
+    success: params.success,
+    ...(params.data !== undefined ? { data: params.data } : {}),
+    ...(params.issues !== undefined ? { issues: params.issues } : {}),
+  };
+  Object.defineProperty(result, 'errors', {
+    get() {
+      console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+      return this.issues;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  return result;
 }
 
 /**
@@ -46,9 +69,9 @@ export function parse<T = unknown>(text: string): ParseResult<T> {
     // boundary: JSON.parse is `any` by definition; the caller's `T` is asserted,
     // not proven. `decode` is the proving variant.
     const data = JSON.parse(text) as T;
-    return { success: true, data };
+    return makeParseResult<T>({ success: true, data });
   } catch (err) {
-    return {
+    return makeParseResult<T>({
       success: false,
       issues: [
         {
@@ -58,7 +81,7 @@ export function parse<T = unknown>(text: string): ParseResult<T> {
           message: err instanceof Error ? err.message : 'invalid JSON',
         },
       ],
-    };
+    });
   }
 }
 
@@ -70,9 +93,9 @@ export function decode<T = unknown>(text: string, schema?: TypeIR): ParseResult<
   if (!parsed.success) return parsed;
   try {
     const data = assert<T>(parsed.data, schema);
-    return { success: true, data };
+    return makeParseResult<T>({ success: true, data });
   } catch (err) {
     const issues = err instanceof AssertError ? err.issues : [];
-    return { success: false, issues };
+    return makeParseResult<T>({ success: false, issues });
   }
 }
