@@ -15,9 +15,10 @@ export const SET_KEYWORD: Record<SetOp, string> = {
 /**
  * Combine compiled queries with a set operator. Positional placeholders ($n)
  * are renumbered across the combined parameter list for postgres using numeric offset
- * arithmetic over pre-split segments; kept as `?` for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
+ * arithmetic matching each placeholder's numerical value; kept as `?` for mysql/sqlite.
+ * Single query ⇒ passthrough; empty ⇒ throw.
  */
-export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: DialectTarget = 'postgres'): CompiledQuery {
+export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: DialectTarget): CompiledQuery {
   const [first] = queries;
   if (!first) throw new Error('setOperation requires at least one query');
   if (queries.length === 1) return first;
@@ -27,11 +28,14 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     let text = q.text;
     if (dialect === 'postgres') {
       const offset = params.length;
-      const segments = getSegmentsForQuery(q);
-      if (segments.length > 1) {
+      const { segments, numbers } = getSegmentsForQuery(q);
+      if (numbers.length > 0) {
         let renumbered = segments[0] ?? '';
-        for (let j = 0; j < segments.length - 1; j++) {
-          renumbered += `$${offset + j + 1}${segments[j + 1] ?? ''}`;
+        for (let j = 0; j < numbers.length; j++) {
+          const num = numbers[j];
+          if (num !== undefined) {
+            renumbered += `$${offset + num}${segments[j + 1] ?? ''}`;
+          }
         }
         text = renumbered;
       }
