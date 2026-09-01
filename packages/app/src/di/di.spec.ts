@@ -15,15 +15,15 @@ const LoggerToken = createToken<Logger>('Logger');
 
 describe('@zmdb/app DI: Container', () => {
   it('registers and resolves an instance', () => {
-    const c = new Container();
     const logger = new Logger();
-    c.register(LoggerToken, logger);
+    const c = new Container().register(LoggerToken, logger);
     expect(c.resolve(LoggerToken)).toBe(logger);
     expect(c.has(LoggerToken)).toBe(true);
   });
 
   it('throws UnresolvedTokenError for an unregistered token', () => {
     const c = new Container();
+    // @ts-expect-error — LoggerToken is unregistered on c
     expect(() => c.resolve(LoggerToken)).toThrow(UnresolvedTokenError);
     expect(c.has(LoggerToken)).toBe(false);
   });
@@ -34,13 +34,21 @@ describe('@zmdb/app DI: Container', () => {
     c.register(LoggerToken, 42);
     expect(true).toBe(true);
   });
+
+  it('supports fluent chaining of register and registerFactory', () => {
+    const logger = new Logger();
+    const PortToken = createToken<number>('Port');
+    const c = new Container().register(LoggerToken, logger).registerFactory(PortToken, () => 8080);
+
+    expect(c.resolve(LoggerToken)).toBe(logger);
+    expect(c.resolve(PortToken)).toBe(8080);
+  });
 });
 
 describe('@zmdb/app DI: @Inject + container.build', () => {
   it('populates injected fields from the container', () => {
-    const c = new Container();
     const logger = new Logger();
-    c.register(LoggerToken, logger);
+    const c = new Container().register(LoggerToken, logger);
 
     class Service {
       @Inject(LoggerToken)
