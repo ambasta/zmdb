@@ -4,31 +4,17 @@
 // `quickstart.type-test.ts` asserts what `defineRepository` derives from them.
 // Both are claims about the same wiring, so they read it from one place.
 import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
-import { oneToMany } from '@zmdb/schema-core/relations';
 
+import { OrderSchema, ordersRelation } from '../orders-fixture.ts';
+
+// `email` and `age` are here because `quickstart-e2e.spec.ts` creates the table
+// with them; the population fixtures' `users` is deliberately a different shape.
 export const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull(),
   age: integer().notNull(),
 });
 
-export const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+export { OrderSchema };
 
-/**
- * users → orders. `as const` matters: `defineRepository` infers its `R` from this
- * object, and that inference is what makes `populate: ['orders']` typed.
- */
-export const userRelations = {
-  orders: {
-    meta: oneToMany('orders', 'userId'),
-    entity: OrderSchema,
-    cardinality: 'one-to-many',
-    childTable: 'orders',
-    childFk: 'userId',
-    parentKey: 'id',
-  },
-} as const;
+export const userRelations = { orders: ordersRelation } as const;

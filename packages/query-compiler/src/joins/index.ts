@@ -1,16 +1,24 @@
-import { type JoinSpec, frozenQuery, joinClauses, tailClause, whereClause } from '../clauses.ts';
+import {
+  type JoinSpec,
+  frozenQuery,
+  joinClauses,
+  joinMethods,
+  tailClause,
+  tailMethods,
+  whereClause,
+} from '../clauses.ts';
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { quoteTable } from '../quoting.ts';
 
 export type { JoinKind } from '../clauses.ts';
 
 interface State {
-  table: string;
-  joins: JoinSpec[];
-  wheres: { col: string; op: string; value: unknown }[];
-  orderBys: { col: string; dir: 'asc' | 'desc' }[];
-  limitN?: number;
-  offsetN?: number;
+  readonly table: string;
+  readonly joins: readonly JoinSpec[];
+  readonly wheres: readonly { col: string; op: string; value: unknown }[];
+  readonly orderBys: readonly { col: string; dir: 'asc' | 'desc' }[];
+  readonly limitN?: number;
+  readonly offsetN?: number;
 }
 
 export interface JoinableSelect {
@@ -26,16 +34,10 @@ export interface JoinableSelect {
 
 function make(d: Dialect, s: State): JoinableSelect {
   const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch });
-  const addJoin = (kind: JoinSpec['kind'], target: string, leftCol: string, rightCol: string) =>
-    next({ joins: [...s.joins, { kind, target, leftCol, rightCol }] });
   return {
-    innerJoin: (t, l, r) => addJoin('inner', t, l, r),
-    leftJoin: (t, l, r) => addJoin('left', t, l, r),
-    rightJoin: (t, l, r) => addJoin('right', t, l, r),
+    ...joinMethods(s.joins, next),
+    ...tailMethods(s, next),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
-    orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
-    limit: n => next({ limitN: n }),
-    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
       const text =

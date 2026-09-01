@@ -4,18 +4,8 @@
 // Per packages/web/src/state/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { defineState, transition, type Brand } from './index.ts';
-
-interface Order {
-  id: number;
-  total: number;
-}
-
-const Draft = defineState<'Draft', Order>();
-const Paid = defineState<'Paid', Order>();
-
-// pay: Draft -> Paid
-const pay = transition(Draft, Paid, o => ({ ...o }));
+import { Draft, Paid, pay, type Order } from './fixtures.ts';
+import { type Brand } from './index.ts';
 
 describe('@zmdb/web state: branding erases at runtime', () => {
   it('create returns the very object it was given (zero-cost brand)', () => {

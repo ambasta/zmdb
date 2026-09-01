@@ -12,7 +12,7 @@ and CRUD all derive at compile time.
 npm add @zmdb/repository@alpha
 ```
 
-> **Prerelease** (`1.0.0-alpha.0`, published under the `alpha` dist-tag). Requires
+> **Prerelease**, published under the `alpha` dist-tag. Requires
 > **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
 > `./dist`.
 

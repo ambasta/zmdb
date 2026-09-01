@@ -1,4 +1,13 @@
-import { type JoinSpec, frozenQuery, havingClause, joinClauses, tailClause, whereClause } from '../clauses.ts';
+import {
+  type JoinSpec,
+  frozenQuery,
+  havingClause,
+  joinClauses,
+  joinMethods,
+  tailClause,
+  tailMethods,
+  whereClause,
+} from '../clauses.ts';
 import type { CompiledQuery, Dialect } from '../index.ts';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
 
@@ -16,15 +25,15 @@ interface Comparison {
 }
 
 interface State {
-  table: string;
-  items: SelectItem[];
-  joins: JoinSpec[];
-  wheres: Comparison[];
-  groups: string[];
-  havings: Comparison[];
-  orderBys: { col: string; dir: 'asc' | 'desc' }[];
-  limitN?: number;
-  offsetN?: number;
+  readonly table: string;
+  readonly items: readonly SelectItem[];
+  readonly joins: readonly JoinSpec[];
+  readonly wheres: readonly Comparison[];
+  readonly groups: readonly string[];
+  readonly havings: readonly Comparison[];
+  readonly orderBys: readonly { col: string; dir: 'asc' | 'desc' }[];
+  readonly limitN?: number;
+  readonly offsetN?: number;
 }
 
 export interface AggregateSelect {
@@ -51,10 +60,10 @@ function make(d: Dialect, s: State): AggregateSelect {
   const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p });
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
-  const addJoin = (kind: JoinSpec['kind'], target: string, leftCol: string, rightCol: string) =>
-    next({ joins: [...s.joins, { kind, target, leftCol, rightCol }] });
 
   return {
+    ...joinMethods(s.joins, next),
+    ...tailMethods(s, next),
     select: cols => next({ items: [...s.items, ...cols.map((c): SelectItem => ({ kind: 'col', col: c }))] }),
     count: (e, a) => agg('COUNT', e, a),
     sum: (e, a) => agg('SUM', e, a),
@@ -62,15 +71,9 @@ function make(d: Dialect, s: State): AggregateSelect {
     min: (e, a) => agg('MIN', e, a),
     max: (e, a) => agg('MAX', e, a),
     expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
-    innerJoin: (t, l, r) => addJoin('inner', t, l, r),
-    leftJoin: (t, l, r) => addJoin('left', t, l, r),
-    rightJoin: (t, l, r) => addJoin('right', t, l, r),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
     groupBy: (...cols) => next({ groups: [...s.groups, ...cols] }),
     having: (col, op, value) => next({ havings: [...s.havings, { col, op, value }] }),
-    orderBy: (col, dir) => next({ orderBys: [...s.orderBys, { col, dir }] }),
-    limit: n => next({ limitN: n }),
-    offset: n => next({ offsetN: n }),
     compile: () => {
       const params: unknown[] = [];
       const cols = s.items.map(it => {

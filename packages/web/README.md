@@ -12,7 +12,7 @@ and CRUD all derive at compile time.
 npm add @zmdb/web@alpha
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
+> **Prerelease**, published under the `alpha` dist-tag. Requires
 > **Node.js 26+** and is **ESM-only**. Uses **Stage 3** standard decorators
 > (`experimentalDecorators: false`) and the well-known `Symbol.metadata` — no
 > `reflect-metadata`. Ships built ESM `.js` + `.d.ts` under `./dist`.
