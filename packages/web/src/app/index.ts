@@ -15,9 +15,11 @@ import type { GrpcServerOptions } from '../microservices/grpc/types.js';
 import {
   createRouter,
   toFetchHandler,
+  type CorsOptions,
   type GuardRegistry,
   type Router,
   type RouterOptions,
+  type SecurityHeadersOptions,
   type WebRequest,
   type WebResponse,
 } from '../pipeline/index.js';
@@ -31,7 +33,9 @@ export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app
  * Broker strategies attach through `ApplicationOptions.extensions`.
  */
 export interface WebApplicationOptions extends ApplicationOptions {
+  readonly cors?: CorsOptions | boolean;
   readonly guardRegistry?: GuardRegistry;
+  readonly security?: SecurityHeadersOptions | boolean;
   readonly versioning?: VersionStrategy;
   readonly grpc?: GrpcServerOptions;
 }
@@ -85,7 +89,9 @@ function routerOptions(options: WebApplicationOptions): RouterOptions {
   const observability = options.observability ?? {};
   return {
     ...observability,
+    ...(options.cors === undefined ? {} : { cors: options.cors }),
     ...(options.guardRegistry === undefined ? {} : { guardRegistry: options.guardRegistry }),
+    ...(options.security === undefined ? {} : { security: options.security }),
     ...(options.versioning === undefined ? {} : { versioning: options.versioning }),
   };
 }
