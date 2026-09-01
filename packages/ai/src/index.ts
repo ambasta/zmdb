@@ -27,8 +27,8 @@ export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) =>
   } catch (err) {
     return { success: false, errors: [err instanceof Error ? err.message : 'invalid JSON'] };
   }
-  // boundary: untyped parsing returns ParseResult<unknown>.
-  // Typed parsing requires an explicit `coerce` validation callback.
+  // boundary: line is only reachable through the single-argument overload where T is unknown,
+  // making `parsed as T` a no-op cast rather than an unproven narrowing.
   if (!coerce) return { success: true, data: parsed as T };
   try {
     return { success: true, data: coerce(parsed) };
