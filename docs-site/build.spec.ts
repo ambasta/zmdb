@@ -11,9 +11,10 @@ const DASH_DIR = join(ROOT, 'benchmarks', 'site');
 const BUILD_TIMEOUT = 30_000;
 
 function build() {
+  const flags = process.version.startsWith('v22.') ? ['--js-explicit-resource-management'] : [];
   // `--import`: the generator imports the packages' sources, which name their siblings as
   // `./x.js`. See `scripts/ts-specifier-hook.mjs` for why plain `node` needs help with that.
-  execFileSync('node', ['--import=./scripts/ts-specifier-hook.mjs', 'docs-site/build.mjs'], {
+  execFileSync(process.execPath, [...flags, '--import=./scripts/ts-specifier-hook.mjs', 'docs-site/build.mjs'], {
     cwd: ROOT,
     stdio: 'pipe',
   });
