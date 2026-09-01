@@ -1,0 +1,86 @@
+{
+  "suite": "the-benchmarker/web-frameworks (interleaved head-to-head)",
+  "generatedAt": "2026-09-01T21:41:41Z",
+  "machine": "Linux x86_64, 16 cores",
+  "route": "GET /",
+  "concurrency": 256,
+  "duration": "10s",
+  "keepAlive": "off",
+  "passes": 5,
+  "workersPerCandidate": 1,
+  "methodology": "Every pass visits every candidate once and the visiting order rotates between passes, so no candidate holds a fixed position in the thermal ramp. This machine throttles from 5.13 GHz to ~2.8 GHz under sustained load (a 1.85x clock swing), which biases any sequential benchmark toward whatever runs first; the identical code path medianed 76871 and 93647 req/s in two different sequential sessions. Per candidate the result is the MEDIAN over passes and passSpread is max/min - a margin inside the spreads is not a result. The CPU clock is sampled before every measurement and kept in measurements.csv. Each candidate serves from ONE process, because no peer app clusters.",
+  "results": [
+    {
+      "candidate": "elysia-bun",
+      "medianRequestsPerSec": 64507,
+      "passSpread": 1.10,
+      "passes": 5
+    },
+    {
+      "candidate": "hono-bun",
+      "medianRequestsPerSec": 58508,
+      "passSpread": 1.11,
+      "passes": 5
+    },
+    {
+      "candidate": "hono-deno",
+      "medianRequestsPerSec": 52413,
+      "passSpread": 1.13,
+      "passes": 5
+    },
+    {
+      "candidate": "zmdb-bun",
+      "medianRequestsPerSec": 51248,
+      "passSpread": 1.14,
+      "passes": 5
+    },
+    {
+      "candidate": "zmdb-deno",
+      "medianRequestsPerSec": 44230,
+      "passSpread": 1.25,
+      "passes": 5
+    },
+    {
+      "candidate": "oak-deno",
+      "medianRequestsPerSec": 38380,
+      "passSpread": 1.04,
+      "passes": 5
+    },
+    {
+      "candidate": "zmdb-node",
+      "medianRequestsPerSec": 29698,
+      "passSpread": 1.03,
+      "passes": 5
+    },
+    {
+      "candidate": "zmdb-node-handwritten",
+      "medianRequestsPerSec": 27930,
+      "passSpread": 1.08,
+      "passes": 5
+    },
+    {
+      "candidate": "fastify",
+      "medianRequestsPerSec": 25441,
+      "passSpread": 1.08,
+      "passes": 5
+    },
+    {
+      "candidate": "hono-node",
+      "medianRequestsPerSec": 22385,
+      "passSpread": 1.07,
+      "passes": 5
+    },
+    {
+      "candidate": "koa",
+      "medianRequestsPerSec": 20099,
+      "passSpread": 1.10,
+      "passes": 5
+    },
+    {
+      "candidate": "express",
+      "medianRequestsPerSec": 16440,
+      "passSpread": 1.09,
+      "passes": 5
+    }
+  ]
+}
