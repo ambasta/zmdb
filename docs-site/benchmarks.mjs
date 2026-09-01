@@ -43,7 +43,9 @@ const SUITE_META = {
     blurb:
       '@zmdb/web against the the-benchmarker/web-frameworks shared contract — <code>GET /</code>, <code>GET /user/:id</code>, ' +
       '<code>POST /user</code> — with every peer built and measured on this same machine, same load generator, same ' +
-      'concurrency levels. Each participant passes the contract check before any load is applied.',
+      'concurrency levels. Each participant passes the contract check before any load is applied. Our app is served on ' +
+      '<code>node</code>, <code>bun</code> and <code>deno</code> from one bundle, so those three rows differ only by the ' +
+      'runtime that ran them.',
     command: 'yarn bench:framework',
   },
 };
@@ -187,10 +189,32 @@ function frameworkPanel(data) {
   const routes = data.routes ?? [];
   const contract = data.contract ?? [];
   const reference = data.upstreamReference;
+  const runtimes = data.runtimesMeasured ?? [];
+  const interleaved = data.interleaved ?? null;
+
+  // Which runtimes our own app was served on, and on how many processes. This is
+  // stated above the table rather than left to a column, because the table mixes
+  // runtimes that do not use the machine the same way, and a reader who does not
+  // know that will read the ranking as a ranking.
+  const runtimeLine =
+    runtimes.length === 0
+      ? ''
+      : `<p class="note">Our app is measured on <b>${runtimes.length} runtime${runtimes.length === 1 ? '' : 's'}</b> —
+${runtimes.map(r => `<code>${escapeHtml(r.runtime)} ${escapeHtml(r.version ?? '')}</code>`).join(', ')} — from one bundle, so
+the runtime is the only thing that differs between those rows. A runtime that is missing here was never run; it is not a
+zero and not a node number wearing another label.</p>
+<div class="admonition warning"><div class="adm-title">⚠️ These rows do not all use the machine the same way</div>
+<p>Every <code>@zmdb/web</code> row is <b>${runtimes[0].workers ?? '?'} process</b>. The Go peers take all cores through
+<code>GOMAXPROCS</code> and the Rust peers through <code>num_cpus</code>, so ranking across languages here is a ranking of
+core counts as much as of frameworks${
+          interleaved === null ? '.' : ' — the per-core, order-rotated table further down is the like-for-like reading.'
+        }</p></div>`;
+
   return panel(
     'framework',
     data,
-    `<div class="controls">
+    `${runtimeLine}
+<div class="controls">
 <label>Concurrency<select id="fw-level">${levels
       .map((l, i) => `<option value="${l}"${i === levels.length - 1 ? ' selected' : ''}>${l}</option>`)
       .join('')}</select></label>
@@ -206,6 +230,20 @@ function frameworkPanel(data) {
 </div>
 <p class="note" id="fw-legend"></p>
 <div id="fw-table"></div>
+${
+  interleaved === null
+    ? ''
+    : `<h3>Per core, order-rotated — the JavaScript/TypeScript class</h3>
+<p class="note">A different experiment from the table above, and kept separate rather than folded into it:
+<code>${escapeHtml(String(interleaved.route ?? ''))}</code> at ${interleaved.concurrency} connections, keep-alive
+${escapeHtml(String(interleaved.keepAlive ?? ''))}, ${escapeHtml(String(interleaved.duration ?? ''))} per measurement, every
+candidate on <b>${interleaved.workersPerCandidate} process</b>. It runs <b>${interleaved.passes} passes</b> and rotates the
+visiting order between them, because this machine throttles under sustained load and a sequential run therefore favours
+whatever went first. Each figure is the median over passes, and the spread beside it is max/min:
+<b>a gap narrower than the two spreads is not a result.</b> Only the JS/TS field appears here — per core is the only way
+these runtimes compare like-for-like.</p>
+<div id="fw-interleaved"></div>`
+}
 ${
   contract.length === 0
     ? ''
@@ -464,15 +502,51 @@ const DASH_JS = String.raw`
       });
       html += '</table></div>';
       document.getElementById('fw-table').innerHTML = html;
+      // One rank per runtime we were measured on, not just the best of them: with
+      // three @zmdb/web rows in the table, quoting the highest and calling it "our
+      // rank" is the kind of summary that reads as the whole story.
+      var mineAll = set.filter(function(r){ return r.isZmdb; });
+      var ranks = mineAll.map(function(r){
+        return '#' + (set.indexOf(r) + 1) + ' on ' + r.runtime;
+      }).join(', ');
       document.getElementById('fw-legend').textContent =
         set.length + ' frameworks at ' + level + ' concurrent connections on ' + route +
-        (mine ? ', @zmdb/web ranked #' + (set.indexOf(mine) + 1) : ', @zmdb/web not measured at this level') +
+        (mineAll.length ? ', @zmdb/web ranked ' + ranks : ', @zmdb/web not measured at this level') +
         '. Latency columns are milliseconds. Any framework with a non-zero error count did not really serve that load.';
     }
     ['fw-level','fw-route','fw-sort','fw-language'].forEach(function(id){
       document.getElementById(id).addEventListener('change', drawFramework);
     });
     drawFramework();
+
+    // ---- per-core, order-rotated head-to-head ----
+    var inter = D.framework.interleaved;
+    var interEl = document.getElementById('fw-interleaved');
+    if (inter && interEl) {
+      var maxI = Math.max.apply(null, inter.results.map(function(r){ return r.requestsPerSecond; }));
+      // Each runtime is compared against OUR row on that same runtime, so the
+      // comparison column never crosses a runtime boundary. The hand-written
+      // control is compared the same way, which is what makes it an A/B.
+      var baseByRuntime = {};
+      inter.results.forEach(function(r){
+        if (r.isZmdb && !r.isControl) baseByRuntime[r.runtime] = r.requestsPerSecond;
+      });
+      interEl.innerHTML = '<div class="grid-scroll"><table><tr><th></th><th>Framework</th><th>Runtime</th>' +
+        '<th class="num">median req/s</th><th>relative</th><th class="num">pass spread</th>' +
+        '<th>vs @zmdb/web, same runtime</th></tr>' +
+        inter.results.map(function(r, i){
+          var base = baseByRuntime[r.runtime];
+          var isBase = r.isZmdb && !r.isControl;
+          return '<tr class="' + (r.isZmdb ? 'mine' : '') + '"><td class="rank">' + (i+1) + '</td>' +
+            '<td><code>' + esc(r.label) + '</code>' +
+            (r.isControl ? ' <span class="margin">hand-written node:http control</span>' : '') + '</td>' +
+            '<td>' + esc(r.runtime) + '</td>' +
+            '<td class="num">' + int.format(r.requestsPerSecond) + '</td>' +
+            '<td>' + bar(r.requestsPerSecond, maxI) + '</td>' +
+            '<td class="num">' + (r.passSpread ? f2.format(r.passSpread) + '\u00d7' : '—') + '</td>' +
+            '<td class="margin">' + (isBase || !base ? '—' : ratio(r.requestsPerSecond, base)) + '</td></tr>';
+        }).join('') + '</table></div>';
+    }
 
     var refEl = document.getElementById('fw-reference');
     var ref = D.framework.upstreamReference;
@@ -582,8 +656,13 @@ ${frameworkPanel(data.framework)}
 <a href="./orm.json" download>orm.json</a> ·
 <a href="./framework.json" download>framework.json</a> ·
 <a href="./orm-results.json" download>orm-results.json</a> ·
-<a href="./framework-results.json" download>framework-results.json</a> ·
+<a href="./framework-results.json" download>framework-results.json</a> (node) ·
+<a href="./framework-results-bun.json" download>framework-results-bun.json</a> ·
+<a href="./framework-results-deno.json" download>framework-results-deno.json</a> ·
 <a href="./peers-results.json" download>peers-results.json</a> ·
+<a href="./interleaved-results.json" download>interleaved-results.json</a> ·
+<a href="./interleaved-measurements.csv" download>interleaved-measurements.csv</a> (every individual measurement, with the
+CPU clock it was taken at) ·
 <a href="./validation-matrix.json" download>validation-matrix.json</a> (standalone harness cross-check)</p>
 </main>
 <div></div>

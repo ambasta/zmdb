@@ -282,7 +282,11 @@ const BENCH_DATA = [
   'validation-matrix.json',
   'orm-results.json',
   'framework-results.json',
+  'framework-results-bun.json',
+  'framework-results-deno.json',
   'peers-results.json',
+  'interleaved-results.json',
+  'interleaved-measurements.csv',
 ];
 const missingData = [];
 for (const f of BENCH_DATA) {

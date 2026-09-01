@@ -1,11 +1,11 @@
 {
   "suite": "framework (the-benchmarker/web-frameworks)",
   "upstreamCommit": "2968d22c8d57de527e2bef92d89fc1e6c53473d5",
-  "generatedAt": "2026-08-31T10:50:11.168Z",
+  "generatedAt": "2026-09-01T21:58:10.131Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
-  "methodology": "oha oha 1.16.0: per route for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
+  "methodology": "Served on node v26.8.1. oha oha 1.16.0: per route for 10s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 1 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
   "contract": [
     {
       "method": "GET",
@@ -30,10 +30,10 @@
     }
   ],
   "contractVerdict": "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
-  "peerMethodology": "Same box, same oha 1.16.0, same contract + routes + levels as @zmdb/web. Per route for 15s, keep-alive disabled, latency-corrected. Each peer contract-verified before load.",
-  "peerDuration": "15s",
-  "measuredAt": "2026-08-30T21:39:34Z",
-  "peersMeasuredAt": "2026-08-30T21:36:50Z",
+  "peerMethodology": "Same box, same oha oha 1.16.0, same contract + routes + levels as @zmdb/web. Per route for 8s, keep-alive disabled, latency-corrected. Each cell run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max give the spread. Each peer contract-verified before load. CORE USAGE IS NOT NORMALIZED: Go peers use GOMAXPROCS (all 16 cores) and Rust peers num_cpus by default, while node/bun/deno peers use one core unless their app clusters — so cross-runtime rows are not per-core comparable.",
+  "peerDuration": "8s",
+  "measuredAt": "2026-09-01T20:49:23Z",
+  "peersMeasuredAt": "2026-09-01T13:37:21Z",
   "levels": [
     64,
     256,
@@ -44,809 +44,260 @@
     "GET:/user/42",
     "POST:/user"
   ],
-  "upstreamReference": {
-    "note": "Upstream the-benchmarker/web-frameworks published results for a curated peer set, blended across the shared routes on the upstream CI machine. Shown for context only — different hardware than the same-machine runs; compare shapes/orders of magnitude.",
-    "source": "https://github.com/the-benchmarker/web-frameworks (data.min.json)",
-    "frameworks": [
-      {
-        "label": "agoo-c",
-        "language": "c",
-        "website": "https://github.com/ohler55/agoo-c",
-        "byLevel": {
-          "64": {
-            "avg": 0.00030093333333333335,
-            "p50": 0.0003356666666666667,
-            "p99": 0.0006196666666666667,
-            "rps": 212446
-          },
-          "256": {
-            "avg": 0.0010677666666666667,
-            "p50": 0.0010136666666666666,
-            "p99": 0.0017233333333333332,
-            "rps": 206104
-          },
-          "512": {
-            "avg": 0.0016761,
-            "p50": 0.0016396666666666667,
-            "p99": 0.0028483333333333334,
-            "rps": 182426
-          }
-        }
-      },
-      {
-        "label": "axum",
-        "language": "rust",
-        "website": "http://actix.rs",
-        "byLevel": {
-          "64": {
-            "avg": 0.00035196666666666664,
-            "p50": 0.00032733333333333334,
-            "p99": 0.0008226666666666666,
-            "rps": 181321
-          },
-          "256": {
-            "avg": 0.0016596666666666667,
-            "p50": 0.0016316666666666667,
-            "p99": 0.002617,
-            "rps": 153599
-          },
-          "512": {
-            "avg": 0.003034966666666667,
-            "p50": 0.0027103333333333333,
-            "p99": 0.0036483333333333333,
-            "rps": 144808
-          }
-        }
-      },
-      {
-        "label": "elysia-bun",
-        "language": "javascript",
-        "website": "https://elysiajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0003377666666666667,
-            "p50": 0.000322,
-            "p99": 0.0005976666666666667,
-            "rps": 178846
-          },
-          "256": {
-            "avg": 0.0012727333333333332,
-            "p50": 0.0010323333333333332,
-            "p99": 0.0021506666666666666,
-            "rps": 153232
-          },
-          "512": {
-            "avg": 0.0012315,
-            "p50": 0.000921,
-            "p99": 0.0021073333333333335,
-            "rps": 154326
-          }
-        }
-      },
-      {
-        "label": "uwebsockets",
-        "language": "javascript",
-        "website": "https://totaljs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0003224,
-            "p50": 0.000334,
-            "p99": 0.0005086666666666667,
-            "rps": 172563
-          },
-          "256": {
-            "avg": 0.0012448666666666666,
-            "p50": 0.000944,
-            "p99": 0.0023623333333333335,
-            "rps": 148573
-          },
-          "512": {
-            "avg": 0.0010438666666666666,
-            "p50": 0.0007183333333333333,
-            "p99": 0.002366333333333333,
-            "rps": 155048
-          }
-        }
-      },
-      {
-        "label": "actix",
-        "language": "rust",
-        "website": "http://actix.rs",
-        "byLevel": {
-          "64": {
-            "avg": 0.00031256666666666666,
-            "p50": 0.000311,
-            "p99": 0.0005353333333333333,
-            "rps": 172146
-          },
-          "256": {
-            "avg": 0.0011855666666666666,
-            "p50": 0.0008123333333333333,
-            "p99": 0.0023636666666666667,
-            "rps": 150754
-          },
-          "512": {
-            "avg": 0.0012401333333333332,
-            "p50": 0.0009216666666666667,
-            "p99": 0.002429,
-            "rps": 146157
-          }
-        }
-      },
-      {
-        "label": "vertx",
-        "language": "java",
-        "website": "https://vertx.io/docs/vertx-core/java/",
-        "byLevel": {
-          "64": {
-            "avg": 0.00038236666666666667,
-            "p50": 0.000368,
-            "p99": 0.0006026666666666667,
-            "rps": 166709
-          },
-          "256": {
-            "avg": 0.0017090333333333334,
-            "p50": 0.001744,
-            "p99": 0.0023803333333333333,
-            "rps": 142038
-          },
-          "512": {
-            "avg": 0.0017886,
-            "p50": 0.0017423333333333334,
-            "p99": 0.002689,
-            "rps": 138415
-          }
-        }
-      },
-      {
-        "label": "bun",
-        "language": "javascript",
-        "website": "https://adonisjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004114,
-            "p50": 0.00038666666666666667,
-            "p99": 0.000828,
-            "rps": 153138
-          },
-          "256": {
-            "avg": 0.0015468666666666668,
-            "p50": 0.001319,
-            "p99": 0.0028636666666666667,
-            "rps": 129263
-          },
-          "512": {
-            "avg": 0.0015354666666666666,
-            "p50": 0.00143,
-            "p99": 0.002603,
-            "rps": 129753
-          }
-        }
-      },
-      {
-        "label": "fasthttp",
-        "language": "go",
-        "website": "https://pkg.go.dev/github.com/valyala/fasthttp",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004185666666666667,
-            "p50": 0.0003373333333333333,
-            "p99": 0.0037256666666666666,
-            "rps": 152619
-          },
-          "256": {
-            "avg": 0.0019569,
-            "p50": 0.0017776666666666668,
-            "p99": 0.005423333333333333,
-            "rps": 130498
-          },
-          "512": {
-            "avg": 0.0038467666666666665,
-            "p50": 0.0035236666666666667,
-            "p99": 0.023592,
-            "rps": 132492
-          }
-        }
-      },
-      {
-        "label": "hyper-express",
-        "language": "javascript",
-        "website": "https://hono.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.00038596666666666665,
-            "p50": 0.00037966666666666666,
-            "p99": 0.0005576666666666667,
-            "rps": 146615
-          },
-          "256": {
-            "avg": 0.0014119666666666667,
-            "p50": 0.000989,
-            "p99": 0.002323,
-            "rps": 130453
-          },
-          "512": {
-            "avg": 0.0015612,
-            "p50": 0.0012796666666666666,
-            "p99": 0.002297,
-            "rps": 126783
-          }
-        }
-      },
-      {
-        "label": "gin",
-        "language": "go",
-        "website": "https://gin-gonic.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0004848000000000001,
-            "p50": 0.0004583333333333333,
-            "p99": 0.0013943333333333334,
-            "rps": 131788
-          },
-          "256": {
-            "avg": 0.002274,
-            "p50": 0.0022756666666666667,
-            "p99": 0.003355,
-            "rps": 111955
-          },
-          "512": {
-            "avg": 0.0040895666666666665,
-            "p50": 0.003621,
-            "p99": 0.004699333333333333,
-            "rps": 109969
-          }
-        }
-      },
-      {
-        "label": "fastify",
-        "language": "javascript",
-        "website": "https://fastify.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0005979333333333333,
-            "p50": 0.0005796666666666667,
-            "p99": 0.0012013333333333333,
-            "rps": 104443
-          },
-          "256": {
-            "avg": 0.002088,
-            "p50": 0.0017846666666666666,
-            "p99": 0.0029863333333333335,
-            "rps": 97201
-          },
-          "512": {
-            "avg": 0.0023786666666666665,
-            "p50": 0.001632,
-            "p99": 0.003837,
-            "rps": 98680
-          }
-        }
-      },
-      {
-        "label": "hono-node",
-        "language": "javascript",
-        "website": "https://hono.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006355999999999999,
-            "p50": 0.0006053333333333334,
-            "p99": 0.0013563333333333333,
-            "rps": 100055
-          },
-          "256": {
-            "avg": 0.0022953,
-            "p50": 0.0020626666666666666,
-            "p99": 0.003079,
-            "rps": 94450
-          },
-          "512": {
-            "avg": 0.0024626,
-            "p50": 0.0018273333333333334,
-            "p99": 0.0038423333333333335,
-            "rps": 95190
-          }
-        }
-      },
-      {
-        "label": "h3",
-        "language": "javascript",
-        "website": "https://foxify.js.org",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006304333333333333,
-            "p50": 0.0006013333333333333,
-            "p99": 0.001363,
-            "rps": 99613
-          },
-          "256": {
-            "avg": 0.0022307333333333335,
-            "p50": 0.00198,
-            "p99": 0.0030396666666666666,
-            "rps": 96893
-          },
-          "512": {
-            "avg": 0.002421,
-            "p50": 0.0016053333333333334,
-            "p99": 0.0039503333333333335,
-            "rps": 95657
-          }
-        }
-      },
-      {
-        "label": "spring",
-        "language": "java",
-        "website": "https://spring.io/projects/spring-boot",
-        "byLevel": {
-          "64": {
-            "avg": 0.0006242,
-            "p50": 0.0005743333333333334,
-            "p99": 0.001649,
-            "rps": 98622
-          },
-          "256": {
-            "avg": 0.0016669333333333334,
-            "p50": 0.0016693333333333334,
-            "p99": 0.003347,
-            "rps": 97991
-          },
-          "512": {
-            "avg": 0.0016688666666666667,
-            "p50": 0.001673,
-            "p99": 0.003572333333333333,
-            "rps": 97611
-          }
-        }
-      },
-      {
-        "label": "koa",
-        "language": "javascript",
-        "website": "https://koajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007064333333333333,
-            "p50": 0.0006546666666666667,
-            "p99": 0.001784,
-            "rps": 90414
-          },
-          "256": {
-            "avg": 0.0024687333333333335,
-            "p50": 0.0023436666666666666,
-            "p99": 0.003427,
-            "rps": 85075
-          },
-          "512": {
-            "avg": 0.0025826666666666667,
-            "p50": 0.002359,
-            "p99": 0.003894,
-            "rps": 84699
-          }
-        }
-      },
-      {
-        "label": "elysia-node",
-        "language": "javascript",
-        "website": "https://elysiajs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007154,
-            "p50": 0.00066,
-            "p99": 0.0018833333333333334,
-            "rps": 89571
-          },
-          "256": {
-            "avg": 0.0028195,
-            "p50": 0.002703333333333333,
-            "p99": 0.0035643333333333334,
-            "rps": 84693
-          },
-          "512": {
-            "avg": 0.0026574,
-            "p50": 0.002576,
-            "p99": 0.003869333333333333,
-            "rps": 84000
-          }
-        }
-      },
-      {
-        "label": "express",
-        "language": "javascript",
-        "website": "https://expressjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0007425333333333333,
-            "p50": 0.000674,
-            "p99": 0.002054,
-            "rps": 86089
-          },
-          "256": {
-            "avg": 0.002614166666666667,
-            "p50": 0.0026596666666666665,
-            "p99": 0.003928666666666666,
-            "rps": 82716
-          },
-          "512": {
-            "avg": 0.0029413,
-            "p50": 0.003092,
-            "p99": 0.004210666666666666,
-            "rps": 81514
-          }
-        }
-      },
-      {
-        "label": "nestjs-express",
-        "language": "javascript",
-        "website": "https://nestjs.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0010199,
-            "p50": 0.000838,
-            "p99": 0.004222,
-            "rps": 63262
-          },
-          "256": {
-            "avg": 0.003992,
-            "p50": 0.0036883333333333334,
-            "p99": 0.011196666666666667,
-            "rps": 64013
-          },
-          "512": {
-            "avg": 0.0069226,
-            "p50": 0.006272666666666667,
-            "p99": 0.020832,
-            "rps": 63496
-          }
-        }
-      },
-      {
-        "label": "fastify-bun",
-        "language": "javascript",
-        "website": "https://fastify.dev",
-        "byLevel": {
-          "64": {
-            "avg": 0.0011941333333333332,
-            "p50": 0.0011136666666666667,
-            "p99": 0.0021496666666666665,
-            "rps": 53568
-          },
-          "256": {
-            "avg": 0.005151033333333333,
-            "p50": 0.004902,
-            "p99": 0.007574,
-            "rps": 49627
-          },
-          "512": {
-            "avg": 0.010278366666666667,
-            "p50": 0.010102666666666666,
-            "p99": 0.01366,
-            "rps": 49682
-          }
-        }
-      },
-      {
-        "label": "fastapi",
-        "language": "python",
-        "website": "http://fastapi.tiangolo.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.0015290333333333333,
-            "p50": 0.001241,
-            "p99": 0.004868666666666667,
-            "rps": 42276
-          },
-          "256": {
-            "avg": 0.0051706,
-            "p50": 0.0045446666666666665,
-            "p99": 0.017312,
-            "rps": 49922
-          },
-          "512": {
-            "avg": 0.009900533333333334,
-            "p50": 0.008732666666666666,
-            "p99": 0.03824533333333333,
-            "rps": 52028
-          }
-        }
-      },
-      {
-        "label": "rails",
-        "language": "ruby",
-        "website": "http://rubyonrails.org",
-        "byLevel": {
-          "64": {
-            "avg": 0.003870233333333334,
-            "p50": 0.0028803333333333333,
-            "p99": 0.016865333333333333,
-            "rps": 16663
-          },
-          "256": {
-            "avg": 0.014482733333333334,
-            "p50": 0.013310666666666667,
-            "p99": 0.042021333333333334,
-            "rps": 17793
-          },
-          "512": {
-            "avg": 0.028870166666666666,
-            "p50": 0.026861333333333334,
-            "p99": 0.07034666666666667,
-            "rps": 17820
-          }
-        }
-      },
-      {
-        "label": "flask",
-        "language": "python",
-        "website": "http://www.palletsprojects.com/p/flask/",
-        "byLevel": {
-          "64": {
-            "avg": 0.012226666666666665,
-            "p50": 0.011220666666666667,
-            "p99": 0.036366666666666665,
-            "rps": 7583
-          },
-          "256": {
-            "avg": 0.040558866666666665,
-            "p50": 0.009309333333333333,
-            "p99": 0.28808533333333336,
-            "rps": 8953
-          },
-          "512": {
-            "avg": 0.08111503333333334,
-            "p50": 0.04986666666666666,
-            "p99": 0.41390933333333335,
-            "rps": 8308
-          }
-        }
-      },
-      {
-        "label": "laravel",
-        "language": "php",
-        "website": "http://laravel.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.017281366666666666,
-            "p50": 0.016776,
-            "p99": 0.025544,
-            "rps": 3734
-          },
-          "256": {
-            "avg": 0.0649383,
-            "p50": 0.06406933333333334,
-            "p99": 0.08122666666666667,
-            "rps": 3924
-          },
-          "512": {
-            "avg": 0.13024036666666666,
-            "p50": 0.12946133333333334,
-            "p99": 0.15848533333333334,
-            "rps": 3894
-          }
-        }
-      },
-      {
-        "label": "django",
-        "language": "python",
-        "website": "http://djangoproject.com",
-        "byLevel": {
-          "64": {
-            "avg": 0.037815433333333336,
-            "p50": 0.031289333333333336,
-            "p99": 0.149024,
-            "rps": 1475
-          },
-          "256": {
-            "avg": 0.07527516666666667,
-            "p50": 0.038786666666666664,
-            "p99": 0.3433173333333333,
-            "rps": 4525
-          },
-          "512": {
-            "avg": 0.2606754,
-            "p50": 0.17570933333333333,
-            "p99": 1.06912,
-            "rps": 4407
-          }
-        }
-      }
-    ]
-  },
+  "runtimesMeasured": [
+    {
+      "runtime": "node",
+      "version": "v26.8.1",
+      "workers": 1,
+      "measuredAt": "2026-09-01T20:49:23Z"
+    },
+    {
+      "runtime": "bun",
+      "version": "1.4.0",
+      "workers": 1,
+      "measuredAt": "2026-09-01T20:51:55Z"
+    },
+    {
+      "runtime": "deno",
+      "version": "2.9.6 (stable, release, x86_64-unknown-linux-gnu)",
+      "workers": 1,
+      "measuredAt": "2026-09-01T20:54:28Z"
+    }
+  ],
+  "upstreamReference": null,
   "rows": [
     {
-      "id": "@zmdb/web",
+      "id": "@zmdb/web (node)",
       "runtime": "node",
       "language": "typescript",
       "isZmdb": true,
+      "workers": 1,
       "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 15560.048078623553,
-        "average_latency": 0.0041086635483554915,
-        "percentile50": 0.003293645,
-        "percentile75": 0.004391179,
-        "percentile90": 0.006667501,
-        "percentile99": 0.014701131,
-        "percentile99999": 0.054541184,
-        "total_requests": 233440,
+        "total_requests_per_s": 22151.071946645694,
+        "average_latency": 0.00288714728475657,
+        "percentile50": 0.0026607,
+        "percentile75": 0.003182902,
+        "percentile90": 0.003783694,
+        "percentile99": 0.006612049,
+        "percentile99999": 0.016810601,
+        "total_requests": 221569,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.055914427,
-        "duration_ms": 15002.524338000001
+        "standard_deviation": 0.02098964,
+        "duration_ms": 10002.631048,
+        "requests_per_s_min": 20267.112451624373,
+        "requests_per_s_max": 24143.90995795986,
+        "repeats": 3
       }
     },
     {
-      "id": "@zmdb/web",
+      "id": "@zmdb/web (node)",
       "runtime": "node",
       "language": "typescript",
       "isZmdb": true,
-      "level": 64,
-      "route": "GET:/user/42",
+      "workers": 1,
+      "level": 256,
+      "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 13307.921180543022,
-        "average_latency": 0.004802020670362464,
-        "percentile50": 0.003805037,
-        "percentile75": 0.004551982,
-        "percentile90": 0.006782957,
-        "percentile99": 0.022030757,
-        "percentile99999": 0.071129033,
-        "total_requests": 199656,
-        "total_bytes_received": 399184,
-        "http_errors": 0,
-        "standard_deviation": 0.07270768300000001,
-        "duration_ms": 15002.793996999999
-      }
-    },
-    {
-      "id": "@zmdb/web",
-      "runtime": "node",
-      "language": "typescript",
-      "isZmdb": true,
-      "level": 64,
-      "route": "POST:/user",
-      "metrics": {
-        "total_requests_per_s": 15305.049967041074,
-        "average_latency": 0.004178305179572724,
-        "percentile50": 0.003590793,
-        "percentile75": 0.004514261,
-        "percentile90": 0.006298616,
-        "percentile99": 0.011746874,
-        "percentile99999": 0.017931707,
-        "total_requests": 229630,
+        "total_requests_per_s": 20514.00265006312,
+        "average_latency": 0.012477992395988754,
+        "percentile50": 0.012426939,
+        "percentile75": 0.013829942,
+        "percentile90": 0.015151129,
+        "percentile99": 0.017779077,
+        "percentile99999": 0.021319152,
+        "total_requests": 205223,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.017736009,
-        "duration_ms": 15003.544614
+        "standard_deviation": 0.020400272,
+        "duration_ms": 10004.044725,
+        "requests_per_s_min": 19971.095406629884,
+        "requests_per_s_max": 20649.7676083186,
+        "repeats": 3
       }
     },
     {
-      "id": "@zmdb/web",
+      "id": "@zmdb/web (node)",
       "runtime": "node",
       "language": "typescript",
       "isZmdb": true,
-      "level": 256,
+      "workers": 1,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 13293.657143787772,
-        "average_latency": 0.019263117281625653,
-        "percentile50": 0.014240384,
-        "percentile75": 0.020942661,
-        "percentile90": 0.032838525,
-        "percentile99": 0.068073137,
-        "percentile99999": 0.114331955,
-        "total_requests": 199445,
+        "total_requests_per_s": 19986.274901045846,
+        "average_latency": 0.025623061141357487,
+        "percentile50": 0.025200304,
+        "percentile75": 0.027266656,
+        "percentile90": 0.029374283,
+        "percentile99": 0.043074432,
+        "percentile99999": 0.063788216,
+        "total_requests": 199943,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.116738281,
-        "duration_ms": 15003.019698999999
+        "standard_deviation": 0.060669585000000005,
+        "duration_ms": 10004.015304999999,
+        "requests_per_s_min": 19105.634474252467,
+        "requests_per_s_max": 20042.467103341074,
+        "repeats": 3
       }
     },
     {
-      "id": "@zmdb/web",
-      "runtime": "node",
+      "id": "@zmdb/web (bun)",
+      "runtime": "bun",
       "language": "typescript",
       "isZmdb": true,
-      "level": 256,
-      "route": "GET:/user/42",
+      "workers": 1,
+      "level": 64,
+      "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 9600.348907094673,
-        "average_latency": 0.026684069251839426,
-        "percentile50": 0.016464788,
-        "percentile75": 0.032583276,
-        "percentile90": 0.053075008,
-        "percentile99": 0.111802888,
-        "percentile99999": 0.165099523,
-        "total_requests": 144046,
-        "total_bytes_received": 287580,
-        "http_errors": 0,
-        "standard_deviation": 0.166718268,
-        "duration_ms": 15004.246345
-      }
-    },
-    {
-      "id": "@zmdb/web",
-      "runtime": "node",
-      "language": "typescript",
-      "isZmdb": true,
-      "level": 256,
-      "route": "POST:/user",
-      "metrics": {
-        "total_requests_per_s": 8772.922889968424,
-        "average_latency": 0.029202050138191164,
-        "percentile50": 0.021219241,
-        "percentile75": 0.039912702,
-        "percentile90": 0.058994201,
-        "percentile99": 0.082328011,
-        "percentile99999": 0.102783525,
-        "total_requests": 131624,
+        "total_requests_per_s": 36743.3914740486,
+        "average_latency": 0.0017398416473715975,
+        "percentile50": 0.001570387,
+        "percentile75": 0.001933681,
+        "percentile90": 0.002472226,
+        "percentile99": 0.003802691,
+        "percentile99999": 0.00598464,
+        "total_requests": 367499,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.104486117,
-        "duration_ms": 15003.437469
+        "standard_deviation": 0.005839326,
+        "duration_ms": 10001.771346,
+        "requests_per_s_min": 36731.63136942709,
+        "requests_per_s_max": 37392.29616869717,
+        "repeats": 3
       }
     },
     {
-      "id": "@zmdb/web",
-      "runtime": "node",
+      "id": "@zmdb/web (bun)",
+      "runtime": "bun",
       "language": "typescript",
       "isZmdb": true,
-      "level": 512,
+      "workers": 1,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 13501.936136733508,
-        "average_latency": 0.037707729541795916,
-        "percentile50": 0.029266287,
-        "percentile75": 0.038179813,
-        "percentile90": 0.062585518,
-        "percentile99": 0.135530981,
-        "percentile99999": 0.189800738,
-        "total_requests": 202718,
+        "total_requests_per_s": 32634.131101274357,
+        "average_latency": 0.007838486979586874,
+        "percentile50": 0.00742869,
+        "percentile75": 0.008659208,
+        "percentile90": 0.009837166,
+        "percentile99": 0.018767545,
+        "percentile99999": 0.030900896,
+        "total_requests": 326514,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.179194077,
-        "duration_ms": 15013.994878
+        "standard_deviation": 0.031705402,
+        "duration_ms": 10005.291668,
+        "requests_per_s_min": 32194.592076609068,
+        "requests_per_s_max": 33448.00374638353,
+        "repeats": 3
       }
     },
     {
-      "id": "@zmdb/web",
-      "runtime": "node",
+      "id": "@zmdb/web (bun)",
+      "runtime": "bun",
       "language": "typescript",
       "isZmdb": true,
+      "workers": 1,
       "level": 512,
-      "route": "GET:/user/42",
+      "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 9868.912254510344,
-        "average_latency": 0.05181534064462251,
-        "percentile50": 0.042977657,
-        "percentile75": 0.056670281,
-        "percentile90": 0.087136666,
-        "percentile99": 0.164120505,
-        "percentile99999": 0.218257313,
-        "total_requests": 148123,
-        "total_bytes_received": 295224,
-        "http_errors": 0,
-        "standard_deviation": 0.21216154599999998,
-        "duration_ms": 15009.050256
-      }
-    },
-    {
-      "id": "@zmdb/web",
-      "runtime": "node",
-      "language": "typescript",
-      "isZmdb": true,
-      "level": 512,
-      "route": "POST:/user",
-      "metrics": {
-        "total_requests_per_s": 14768.121980936463,
-        "average_latency": 0.034639962029829545,
-        "percentile50": 0.028805019,
-        "percentile75": 0.035425352,
-        "percentile90": 0.055775158,
-        "percentile99": 0.108310142,
-        "percentile99999": 0.165761392,
-        "total_requests": 221638,
+        "total_requests_per_s": 32171.772628664003,
+        "average_latency": 0.015902878268197772,
+        "percentile50": 0.015335584,
+        "percentile75": 0.016914657,
+        "percentile90": 0.018905136,
+        "percentile99": 0.032023083,
+        "percentile99999": 0.070183494,
+        "total_requests": 321880,
         "total_bytes_received": 0,
         "http_errors": 0,
-        "standard_deviation": 0.150658315,
-        "duration_ms": 15007.866287
+        "standard_deviation": 0.074435953,
+        "duration_ms": 10005.043978,
+        "requests_per_s_min": 31306.785892841002,
+        "requests_per_s_max": 32295.55225397902,
+        "repeats": 3
+      }
+    },
+    {
+      "id": "@zmdb/web (deno)",
+      "runtime": "deno",
+      "language": "typescript",
+      "isZmdb": true,
+      "workers": 1,
+      "level": 64,
+      "route": "GET:/",
+      "metrics": {
+        "total_requests_per_s": 27788.365664740737,
+        "average_latency": 0.0023006496830926537,
+        "percentile50": 0.002243395,
+        "percentile75": 0.002794172,
+        "percentile90": 0.003367262,
+        "percentile99": 0.005127818,
+        "percentile99999": 0.011981336,
+        "total_requests": 277937,
+        "total_bytes_received": 0,
+        "http_errors": 0,
+        "standard_deviation": 0.014261481999999999,
+        "duration_ms": 10001.919629,
+        "requests_per_s_min": 26527.113727398304,
+        "requests_per_s_max": 28826.265776437896,
+        "repeats": 3
+      }
+    },
+    {
+      "id": "@zmdb/web (deno)",
+      "runtime": "deno",
+      "language": "typescript",
+      "isZmdb": true,
+      "workers": 1,
+      "level": 256,
+      "route": "GET:/",
+      "metrics": {
+        "total_requests_per_s": 30045.8326695509,
+        "average_latency": 0.008519189885131909,
+        "percentile50": 0.008235803,
+        "percentile75": 0.00954067,
+        "percentile90": 0.010776478,
+        "percentile99": 0.013144608,
+        "percentile99999": 0.016741924,
+        "total_requests": 300547,
+        "total_bytes_received": 0,
+        "http_errors": 0,
+        "standard_deviation": 0.015817712999999997,
+        "duration_ms": 10002.951268,
+        "requests_per_s_min": 29112.54968701887,
+        "requests_per_s_max": 32170.825091029856,
+        "repeats": 3
+      }
+    },
+    {
+      "id": "@zmdb/web (deno)",
+      "runtime": "deno",
+      "language": "typescript",
+      "isZmdb": true,
+      "workers": 1,
+      "level": 512,
+      "route": "GET:/",
+      "metrics": {
+        "total_requests_per_s": 32221.6330649771,
+        "average_latency": 0.015879674540209804,
+        "percentile50": 0.015825469,
+        "percentile75": 0.017107254,
+        "percentile90": 0.018390551,
+        "percentile99": 0.02130464,
+        "percentile99999": 0.030161552,
+        "total_requests": 322370,
+        "total_bytes_received": 0,
+        "http_errors": 0,
+        "standard_deviation": 0.025313771000000002,
+        "duration_ms": 10004.769136,
+        "requests_per_s_min": 31928.098496658033,
+        "requests_per_s_max": 32502.19615812128,
+        "repeats": 3
       }
     },
     {
@@ -854,15 +305,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14799.048624640778,
-        "average_latency": 0.017299687548203022,
-        "percentile50": 0.013758994,
-        "percentile90": 0.027279558,
-        "percentile99": 0.062480614,
-        "http_errors": 0
+        "total_requests_per_s": 24384.502249609202,
+        "average_latency": 0.002622957006689947,
+        "percentile50": 0.001636169,
+        "percentile90": 0.005713513,
+        "percentile99": 0.010760162,
+        "http_errors": 0,
+        "requests_per_s_min": 24168.05729097935,
+        "requests_per_s_max": 25335.997621989107
       }
     },
     {
@@ -870,15 +324,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 15368.402640414175,
-        "average_latency": 0.016655109781465272,
-        "percentile50": 0.013984528,
-        "percentile90": 0.022648678,
-        "percentile99": 0.053585611,
-        "http_errors": 0
+        "total_requests_per_s": 23614.996811161254,
+        "average_latency": 0.002708449529165458,
+        "percentile50": 0.001777758,
+        "percentile90": 0.005751628,
+        "percentile99": 0.011954279,
+        "http_errors": 0,
+        "requests_per_s_min": 23582.555680495956,
+        "requests_per_s_max": 24523.656935857627
       }
     },
     {
@@ -886,15 +343,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 13930.02885319282,
-        "average_latency": 0.018380852348624948,
-        "percentile50": 0.014085138,
-        "percentile90": 0.032236638,
-        "percentile99": 0.068241147,
-        "http_errors": 0
+        "total_requests_per_s": 24339.629653084015,
+        "average_latency": 0.0026271447223888468,
+        "percentile50": 0.001947461,
+        "percentile90": 0.004368899,
+        "percentile99": 0.011775282,
+        "http_errors": 0,
+        "requests_per_s_min": 23947.10882397642,
+        "requests_per_s_max": 25196.330791947716
       }
     },
     {
@@ -902,15 +362,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14928.171278695598,
-        "average_latency": 0.03430723491914707,
-        "percentile50": 0.029158165,
-        "percentile90": 0.048969415,
-        "percentile99": 0.101592788,
-        "http_errors": 0
+        "total_requests_per_s": 31641.374715295075,
+        "average_latency": 0.00808800279035499,
+        "percentile50": 0.007193914,
+        "percentile90": 0.01063791,
+        "percentile99": 0.019517879,
+        "http_errors": 0,
+        "requests_per_s_min": 31320.25408865828,
+        "requests_per_s_max": 32088.824950509425
       }
     },
     {
@@ -918,15 +381,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 14430.690932001784,
-        "average_latency": 0.03547260619206246,
-        "percentile50": 0.029889393,
-        "percentile90": 0.053501725,
-        "percentile99": 0.110333113,
-        "http_errors": 0
+        "total_requests_per_s": 32053.54706064531,
+        "average_latency": 0.00798495037382023,
+        "percentile50": 0.006993597,
+        "percentile90": 0.010257904,
+        "percentile99": 0.021753634,
+        "http_errors": 0,
+        "requests_per_s_min": 31933.071318917744,
+        "requests_per_s_max": 32272.358760511623
       }
     },
     {
@@ -934,15 +400,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 14624.933689261248,
-        "average_latency": 0.035005520348910225,
-        "percentile50": 0.02834987,
-        "percentile90": 0.053100175,
-        "percentile99": 0.109578607,
-        "http_errors": 0
+        "total_requests_per_s": 31943.09020648467,
+        "average_latency": 0.00801419307644439,
+        "percentile50": 0.006928665,
+        "percentile90": 0.010487922,
+        "percentile99": 0.022309391,
+        "http_errors": 0,
+        "requests_per_s_min": 31868.837082730824,
+        "requests_per_s_max": 32304.699125732877
       }
     },
     {
@@ -950,15 +419,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14420.06039952669,
-        "average_latency": 0.004435222980413791,
-        "percentile50": 0.003591107,
-        "percentile90": 0.006993289,
-        "percentile99": 0.014633553,
-        "http_errors": 0
+        "total_requests_per_s": 34097.54015617776,
+        "average_latency": 0.015002217617121706,
+        "percentile50": 0.014285234,
+        "percentile90": 0.018361513,
+        "percentile99": 0.022918021,
+        "http_errors": 0,
+        "requests_per_s_min": 33663.25104454612,
+        "requests_per_s_max": 34367.14398539237
       }
     },
     {
@@ -966,15 +438,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 14388.531864106953,
-        "average_latency": 0.00444191175308407,
-        "percentile50": 0.00341676,
-        "percentile90": 0.007051329,
-        "percentile99": 0.017820352,
-        "http_errors": 0
+        "total_requests_per_s": 33089.22940276439,
+        "average_latency": 0.015469775710210137,
+        "percentile50": 0.014878352,
+        "percentile90": 0.018540094,
+        "percentile99": 0.023170123,
+        "http_errors": 0,
+        "requests_per_s_min": 32977.58291882756,
+        "requests_per_s_max": 33725.289903832374
       }
     },
     {
@@ -982,15 +457,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 13964.501797717066,
-        "average_latency": 0.00457982461753693,
-        "percentile50": 0.003690174,
-        "percentile90": 0.007327588,
-        "percentile99": 0.01603049,
-        "http_errors": 0
+        "total_requests_per_s": 33355.69501172602,
+        "average_latency": 0.015343453954037203,
+        "percentile50": 0.014661844,
+        "percentile90": 0.018728767,
+        "percentile99": 0.024854322,
+        "http_errors": 0,
+        "requests_per_s_min": 33245.54956385604,
+        "requests_per_s_max": 33737.32321545265
       }
     },
     {
@@ -998,15 +476,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 13827.710683879286,
-        "average_latency": 0.0185157807493172,
-        "percentile50": 0.015975337,
-        "percentile90": 0.026952301,
-        "percentile99": 0.055131677,
-        "http_errors": 0
+        "total_requests_per_s": 21021.672063336075,
+        "average_latency": 0.0030425193662997783,
+        "percentile50": 0.00195127,
+        "percentile90": 0.006821517,
+        "percentile99": 0.01114668,
+        "http_errors": 0,
+        "requests_per_s_min": 20635.898234733395,
+        "requests_per_s_max": 21560.851528143685
       }
     },
     {
@@ -1014,15 +495,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 13365.231321097963,
-        "average_latency": 0.019158404489952003,
-        "percentile50": 0.015633046,
-        "percentile90": 0.027597646,
-        "percentile99": 0.06837245,
-        "http_errors": 0
+        "total_requests_per_s": 20952.673110064443,
+        "average_latency": 0.0030521246288076503,
+        "percentile50": 0.002057202,
+        "percentile90": 0.006507132,
+        "percentile99": 0.011729517,
+        "http_errors": 0,
+        "requests_per_s_min": 20717.963188274425,
+        "requests_per_s_max": 21331.443364968247
       }
     },
     {
@@ -1030,15 +514,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 9627.343813005127,
-        "average_latency": 0.026573507072470026,
-        "percentile50": 0.020081088,
-        "percentile90": 0.037981646,
-        "percentile99": 0.132962135,
-        "http_errors": 0
+        "total_requests_per_s": 19728.06226015098,
+        "average_latency": 0.0032418387574724527,
+        "percentile50": 0.002215953,
+        "percentile90": 0.006941077,
+        "percentile99": 0.012249005,
+        "http_errors": 0,
+        "requests_per_s_min": 19573.072084231244,
+        "requests_per_s_max": 19870.205745647127
       }
     },
     {
@@ -1046,15 +533,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 4154.767836701005,
-        "average_latency": 0.12320732443354102,
-        "percentile50": 0.126724009,
-        "percentile90": 0.212896444,
-        "percentile99": 0.444716324,
-        "http_errors": 0
+        "total_requests_per_s": 28042.38716089541,
+        "average_latency": 0.009127985142888023,
+        "percentile50": 0.008279957,
+        "percentile90": 0.011930632,
+        "percentile99": 0.020738301,
+        "http_errors": 0,
+        "requests_per_s_min": 27022.75430312598,
+        "requests_per_s_max": 28131.147610590375
       }
     },
     {
@@ -1062,15 +552,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 9033.534154964878,
-        "average_latency": 0.05673022104672618,
-        "percentile50": 0.04136954,
-        "percentile90": 0.108268609,
-        "percentile99": 0.206391219,
-        "http_errors": 0
+        "total_requests_per_s": 26494.56455622239,
+        "average_latency": 0.009659723836061963,
+        "percentile50": 0.008710735,
+        "percentile90": 0.012249149,
+        "percentile99": 0.024833584,
+        "http_errors": 0,
+        "requests_per_s_min": 26188.097190807188,
+        "requests_per_s_max": 26818.930210399965
       }
     },
     {
@@ -1078,15 +571,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 10183.73303141431,
-        "average_latency": 0.050327137680186804,
-        "percentile50": 0.038648485,
-        "percentile90": 0.082273848,
-        "percentile99": 0.209242128,
-        "http_errors": 0
+        "total_requests_per_s": 22692.72492833012,
+        "average_latency": 0.011277717212747018,
+        "percentile50": 0.009967982,
+        "percentile90": 0.015443882,
+        "percentile99": 0.027337457,
+        "http_errors": 0,
+        "requests_per_s_min": 22611.072062495077,
+        "requests_per_s_max": 24767.520322754033
       }
     },
     {
@@ -1094,15 +590,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 8713.394033914725,
-        "average_latency": 0.007337067700318361,
-        "percentile50": 0.004989066,
-        "percentile90": 0.014532654,
-        "percentile99": 0.031692515,
-        "http_errors": 0
+        "total_requests_per_s": 25539.305191404266,
+        "average_latency": 0.020033144901485438,
+        "percentile50": 0.018678169,
+        "percentile90": 0.025458805,
+        "percentile99": 0.040809,
+        "http_errors": 0,
+        "requests_per_s_min": 24545.15283530913,
+        "requests_per_s_max": 26167.09091941268
       }
     },
     {
@@ -1110,15 +609,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 7845.622311096568,
-        "average_latency": 0.00815264152624585,
-        "percentile50": 0.004343083,
-        "percentile90": 0.01883977,
-        "percentile99": 0.041926761,
-        "http_errors": 0
+        "total_requests_per_s": 25526.471101362626,
+        "average_latency": 0.020062718320703363,
+        "percentile50": 0.019038735,
+        "percentile90": 0.025137107,
+        "percentile99": 0.03375534,
+        "http_errors": 0,
+        "requests_per_s_min": 25187.051213410086,
+        "requests_per_s_max": 27208.479461294115
       }
     },
     {
@@ -1126,15 +628,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 12074.738394018588,
-        "average_latency": 0.005298103695843286,
-        "percentile50": 0.004007072,
-        "percentile90": 0.009365544,
-        "percentile99": 0.020762555,
-        "http_errors": 0
+        "total_requests_per_s": 22278.280925163337,
+        "average_latency": 0.022978264047313735,
+        "percentile50": 0.022046776,
+        "percentile90": 0.028785062,
+        "percentile99": 0.03626714,
+        "http_errors": 0,
+        "requests_per_s_min": 20817.535143082787,
+        "requests_per_s_max": 24745.572447548675
       }
     },
     {
@@ -1142,15 +647,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 9941.116820597894,
-        "average_latency": 0.02575991835614535,
-        "percentile50": 0.021233802,
-        "percentile90": 0.034978795,
-        "percentile99": 0.110814334,
-        "http_errors": 0
+        "total_requests_per_s": 17430.53563165369,
+        "average_latency": 0.0036708958546771407,
+        "percentile50": 0.003179634,
+        "percentile90": 0.004561727,
+        "percentile99": 0.012320461,
+        "http_errors": 0,
+        "requests_per_s_min": 17314.710439872935,
+        "requests_per_s_max": 17577.469723339556
       }
     },
     {
@@ -1158,15 +666,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 4756.269712645912,
-        "average_latency": 0.0539420401464732,
-        "percentile50": 0.03530612,
-        "percentile90": 0.113107603,
-        "percentile99": 0.203463886,
-        "http_errors": 0
+        "total_requests_per_s": 16276.770588466687,
+        "average_latency": 0.0039305733781213985,
+        "percentile50": 0.003661469,
+        "percentile90": 0.004888938,
+        "percentile99": 0.007067812,
+        "http_errors": 0,
+        "requests_per_s_min": 15524.124584705893,
+        "requests_per_s_max": 16862.71218315354
       }
     },
     {
@@ -1174,15 +685,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 9742.188216232784,
-        "average_latency": 0.02626696100884632,
-        "percentile50": 0.022485647,
-        "percentile90": 0.037604745,
-        "percentile99": 0.073521557,
-        "http_errors": 0
+        "total_requests_per_s": 17274.825959120968,
+        "average_latency": 0.003702919790052934,
+        "percentile50": 0.003200645,
+        "percentile90": 0.004573219,
+        "percentile99": 0.012636943,
+        "http_errors": 0,
+        "requests_per_s_min": 16872.848093665387,
+        "requests_per_s_max": 17527.215144679933
       }
     },
     {
@@ -1190,15 +704,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 5121.115736693834,
-        "average_latency": 0.10040050094858087,
-        "percentile50": 0.075624774,
-        "percentile90": 0.200722652,
-        "percentile99": 0.334408174,
-        "http_errors": 0
+        "total_requests_per_s": 18778.36567290083,
+        "average_latency": 0.01363669175547439,
+        "percentile50": 0.013100994,
+        "percentile90": 0.01632855,
+        "percentile99": 0.023723985,
+        "http_errors": 0,
+        "requests_per_s_min": 18114.981823463815,
+        "requests_per_s_max": 19634.19103141774
       }
     },
     {
@@ -1206,15 +723,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 5071.09147018541,
-        "average_latency": 0.10134450208337535,
-        "percentile50": 0.073900224,
-        "percentile90": 0.20238781,
-        "percentile99": 0.335781824,
-        "http_errors": 0
+        "total_requests_per_s": 17527.27276863194,
+        "average_latency": 0.014609523844180211,
+        "percentile50": 0.014001545,
+        "percentile90": 0.016869498,
+        "percentile99": 0.02064315,
+        "http_errors": 0,
+        "requests_per_s_min": 16064.119887800718,
+        "requests_per_s_max": 17560.972412742805
       }
     },
     {
@@ -1222,15 +742,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 4466.721607211465,
-        "average_latency": 0.11445440234934842,
-        "percentile50": 0.078423281,
-        "percentile90": 0.268847705,
-        "percentile99": 0.341462363,
-        "http_errors": 0
+        "total_requests_per_s": 16519.620471512473,
+        "average_latency": 0.015503966409166453,
+        "percentile50": 0.014699277,
+        "percentile90": 0.019158551,
+        "percentile99": 0.024457977,
+        "http_errors": 0,
+        "requests_per_s_min": 16475.57792454711,
+        "requests_per_s_max": 16591.321132649235
       }
     },
     {
@@ -1238,15 +761,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 10337.319817956739,
-        "average_latency": 0.006189756372974462,
-        "percentile50": 0.005172324,
-        "percentile90": 0.008189025,
-        "percentile99": 0.022423435,
-        "http_errors": 0
+        "total_requests_per_s": 16176.278123391756,
+        "average_latency": 0.03167814231695501,
+        "percentile50": 0.030015712,
+        "percentile90": 0.036963115,
+        "percentile99": 0.05228429,
+        "http_errors": 0,
+        "requests_per_s_min": 15986.631286072134,
+        "requests_per_s_max": 16465.988996445954
       }
     },
     {
@@ -1254,15 +780,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 9213.076402381856,
-        "average_latency": 0.0069452069213046105,
-        "percentile50": 0.00588293,
-        "percentile90": 0.008700437,
-        "percentile99": 0.026074321,
-        "http_errors": 0
+        "total_requests_per_s": 15258.86845644534,
+        "average_latency": 0.033550348891352604,
+        "percentile50": 0.0322962,
+        "percentile90": 0.039622999,
+        "percentile99": 0.04716005,
+        "http_errors": 0,
+        "requests_per_s_min": 15249.893298621824,
+        "requests_per_s_max": 15269.086266026909
       }
     },
     {
@@ -1270,15 +799,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 9628.58825174994,
-        "average_latency": 0.006645335986674882,
-        "percentile50": 0.005381898,
-        "percentile90": 0.009744992,
-        "percentile99": 0.025737368,
-        "http_errors": 0
+        "total_requests_per_s": 16514.22382802999,
+        "average_latency": 0.031024322622487933,
+        "percentile50": 0.029139916,
+        "percentile90": 0.037854422,
+        "percentile99": 0.048893689,
+        "http_errors": 0,
+        "requests_per_s_min": 16148.33651649888,
+        "requests_per_s_max": 16669.17699977466
       }
     },
     {
@@ -1286,15 +818,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 13285.479132010962,
-        "average_latency": 0.019273536467848334,
-        "percentile50": 0.016790063,
-        "percentile90": 0.025576807,
-        "percentile99": 0.061242716,
-        "http_errors": 0
+        "total_requests_per_s": 17713.052033454926,
+        "average_latency": 0.0036117429462323124,
+        "percentile50": 0.00311012,
+        "percentile90": 0.005175408,
+        "percentile99": 0.012871952,
+        "http_errors": 0,
+        "requests_per_s_min": 17329.423498482625,
+        "requests_per_s_max": 18362.560359623236
       }
     },
     {
@@ -1302,15 +837,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 12604.716286677141,
-        "average_latency": 0.020315324535013266,
-        "percentile50": 0.017015919,
-        "percentile90": 0.024147229,
-        "percentile99": 0.087705374,
-        "http_errors": 0
+        "total_requests_per_s": 18172.022607788058,
+        "average_latency": 0.0035197491830426934,
+        "percentile50": 0.002698375,
+        "percentile90": 0.005312926,
+        "percentile99": 0.013938364,
+        "http_errors": 0,
+        "requests_per_s_min": 17847.849371410295,
+        "requests_per_s_max": 18415.75224519746
       }
     },
     {
@@ -1318,15 +856,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 9321.92825650693,
-        "average_latency": 0.02748336598751522,
-        "percentile50": 0.018824221,
-        "percentile90": 0.054658609,
-        "percentile99": 0.109412938,
-        "http_errors": 0
+        "total_requests_per_s": 18562.55219212016,
+        "average_latency": 0.003445461432084942,
+        "percentile50": 0.002605843,
+        "percentile90": 0.00540727,
+        "percentile99": 0.013726658,
+        "http_errors": 0,
+        "requests_per_s_min": 18310.487013094287,
+        "requests_per_s_max": 18657.658071319715
       }
     },
     {
@@ -1334,15 +875,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 10287.860952073159,
-        "average_latency": 0.04976450395652783,
-        "percentile50": 0.038937576,
-        "percentile90": 0.084763083,
-        "percentile99": 0.180544639,
-        "http_errors": 0
+        "total_requests_per_s": 20587.5766880344,
+        "average_latency": 0.012433594680694745,
+        "percentile50": 0.011540788,
+        "percentile90": 0.016183922,
+        "percentile99": 0.023818971,
+        "http_errors": 0,
+        "requests_per_s_min": 20283.137354314553,
+        "requests_per_s_max": 20779.221223226436
       }
     },
     {
@@ -1350,15 +894,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 7249.230877906699,
-        "average_latency": 0.07069663425517171,
-        "percentile50": 0.060210484,
-        "percentile90": 0.121706875,
-        "percentile99": 0.184826307,
-        "http_errors": 0
+        "total_requests_per_s": 20719.95381634825,
+        "average_latency": 0.012351325034167157,
+        "percentile50": 0.01136177,
+        "percentile90": 0.0161938,
+        "percentile99": 0.023204203,
+        "http_errors": 0,
+        "requests_per_s_min": 20693.60399615011,
+        "requests_per_s_max": 20762.442953512083
       }
     },
     {
@@ -1366,15 +913,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 9101.215407038944,
-        "average_latency": 0.0563047820132162,
-        "percentile50": 0.039814427,
-        "percentile90": 0.099408953,
-        "percentile99": 0.237675342,
-        "http_errors": 0
+        "total_requests_per_s": 20688.15668154806,
+        "average_latency": 0.012373814081151506,
+        "percentile50": 0.011708051,
+        "percentile90": 0.015698993,
+        "percentile99": 0.021812838,
+        "http_errors": 0,
+        "requests_per_s_min": 20563.09350379027,
+        "requests_per_s_max": 21097.579284216168
       }
     },
     {
@@ -1382,15 +932,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 6885.2778147570225,
-        "average_latency": 0.009292257586142771,
-        "percentile50": 0.007969044,
-        "percentile90": 0.014665357,
-        "percentile99": 0.036888544,
-        "http_errors": 0
+        "total_requests_per_s": 21033.936918968007,
+        "average_latency": 0.024290513585576386,
+        "percentile50": 0.022162113,
+        "percentile90": 0.031684492,
+        "percentile99": 0.040464938,
+        "http_errors": 0,
+        "requests_per_s_min": 20899.05483369319,
+        "requests_per_s_max": 21253.746053335126
       }
     },
     {
@@ -1398,15 +951,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 11688.652832383932,
-        "average_latency": 0.0054725376289412415,
-        "percentile50": 0.004374777,
-        "percentile90": 0.008822781,
-        "percentile99": 0.019455946,
-        "http_errors": 0
+        "total_requests_per_s": 20480.361685480864,
+        "average_latency": 0.025000441625038203,
+        "percentile50": 0.023449617,
+        "percentile90": 0.031485004,
+        "percentile99": 0.040854219,
+        "http_errors": 0,
+        "requests_per_s_min": 20390.01305039674,
+        "requests_per_s_max": 20624.414574719736
       }
     },
     {
@@ -1414,15 +970,18 @@
       "runtime": "node",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 12365.071554415861,
-        "average_latency": 0.005173600592583851,
-        "percentile50": 0.004087026,
-        "percentile90": 0.008332228,
-        "percentile99": 0.018309501,
-        "http_errors": 0
+        "total_requests_per_s": 20934.240749649805,
+        "average_latency": 0.024447342279759775,
+        "percentile50": 0.022852642,
+        "percentile90": 0.031309524,
+        "percentile99": 0.0393949,
+        "http_errors": 0,
+        "requests_per_s_min": 20891.082113894412,
+        "requests_per_s_max": 20962.790978180663
       }
     },
     {
@@ -1430,15 +989,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14141.393613344966,
-        "average_latency": 0.018102171717340694,
-        "percentile50": 0.017271934,
-        "percentile90": 0.025863953,
-        "percentile99": 0.036774385,
-        "http_errors": 0
+        "total_requests_per_s": 70834.15663789072,
+        "average_latency": 0.0009021860993730023,
+        "percentile50": 0.000836344,
+        "percentile90": 0.001112531,
+        "percentile99": 0.001701323,
+        "http_errors": 0,
+        "requests_per_s_min": 70801.07739312755,
+        "requests_per_s_max": 73707.90570630654
       }
     },
     {
@@ -1446,15 +1008,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 16469.13045423944,
-        "average_latency": 0.015519428070298645,
-        "percentile50": 0.013967821,
-        "percentile90": 0.02187379,
-        "percentile99": 0.047896694,
-        "http_errors": 0
+        "total_requests_per_s": 71180.48653457547,
+        "average_latency": 0.0008977600407316287,
+        "percentile50": 0.000844931,
+        "percentile90": 0.00109019,
+        "percentile99": 0.001580297,
+        "http_errors": 0,
+        "requests_per_s_min": 68831.17273653107,
+        "requests_per_s_max": 71261.25859081994
       }
     },
     {
@@ -1462,15 +1027,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 17515.573245001488,
-        "average_latency": 0.014608365532776205,
-        "percentile50": 0.013217971,
-        "percentile90": 0.02168734,
-        "percentile99": 0.027342947,
-        "http_errors": 0
+        "total_requests_per_s": 72193.29869629601,
+        "average_latency": 0.000885027046035562,
+        "percentile50": 0.000825426,
+        "percentile90": 0.0010836,
+        "percentile99": 0.001664277,
+        "http_errors": 0,
+        "requests_per_s_min": 71912.22772685716,
+        "requests_per_s_max": 72553.64362372686
       }
     },
     {
@@ -1478,15 +1046,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 15296.862933775792,
-        "average_latency": 0.03345702087938079,
-        "percentile50": 0.033130513,
-        "percentile90": 0.047272011,
-        "percentile99": 0.059211648,
-        "http_errors": 0
+        "total_requests_per_s": 69404.75688291779,
+        "average_latency": 0.0036856731696838577,
+        "percentile50": 0.003513316,
+        "percentile90": 0.00450235,
+        "percentile99": 0.00558598,
+        "http_errors": 0,
+        "requests_per_s_min": 69403.05223747056,
+        "requests_per_s_max": 70313.22331404242
       }
     },
     {
@@ -1494,15 +1065,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 15203.670674971107,
-        "average_latency": 0.033679146122396475,
-        "percentile50": 0.0319212,
-        "percentile90": 0.048470967,
-        "percentile99": 0.064304047,
-        "http_errors": 0
+        "total_requests_per_s": 67766.23606817577,
+        "average_latency": 0.003774101670698965,
+        "percentile50": 0.003616174,
+        "percentile90": 0.00459476,
+        "percentile99": 0.00553298,
+        "http_errors": 0,
+        "requests_per_s_min": 67032.76771456262,
+        "requests_per_s_max": 67936.21098728964
       }
     },
     {
@@ -1510,15 +1084,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 17158.04100214309,
-        "average_latency": 0.029793539881136026,
-        "percentile50": 0.025202152,
-        "percentile90": 0.04879075,
-        "percentile99": 0.062861735,
-        "http_errors": 0
+        "total_requests_per_s": 67285.02384030017,
+        "average_latency": 0.003801781297763697,
+        "percentile50": 0.003654919,
+        "percentile90": 0.004668612,
+        "percentile99": 0.005677214,
+        "http_errors": 0,
+        "requests_per_s_min": 54542.96799071186,
+        "requests_per_s_max": 72049.46619168908
       }
     },
     {
@@ -1526,15 +1103,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14564.964603998347,
-        "average_latency": 0.0043877379557534625,
-        "percentile50": 0.003992168,
-        "percentile90": 0.006755415,
-        "percentile99": 0.011728758,
-        "http_errors": 0
+        "total_requests_per_s": 68499.31081615119,
+        "average_latency": 0.007462889225923375,
+        "percentile50": 0.007173413,
+        "percentile90": 0.009000163,
+        "percentile99": 0.011819409,
+        "http_errors": 0,
+        "requests_per_s_min": 66950.30235919962,
+        "requests_per_s_max": 73188.26772392279
       }
     },
     {
@@ -1542,15 +1122,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 18900.878875704948,
-        "average_latency": 0.0033804219483002597,
-        "percentile50": 0.002960428,
-        "percentile90": 0.005134346,
-        "percentile99": 0.009816452,
-        "http_errors": 0
+        "total_requests_per_s": 74693.71393786375,
+        "average_latency": 0.00684242298792227,
+        "percentile50": 0.006614216,
+        "percentile90": 0.007811135,
+        "percentile99": 0.009754255,
+        "http_errors": 0,
+        "requests_per_s_min": 73322.79370041097,
+        "requests_per_s_max": 78642.3220340798
       }
     },
     {
@@ -1558,15 +1141,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 16205.469451556606,
-        "average_latency": 0.003943081855422195,
-        "percentile50": 0.00352515,
-        "percentile90": 0.005690152,
-        "percentile99": 0.009711604,
-        "http_errors": 0
+        "total_requests_per_s": 79664.80155491988,
+        "average_latency": 0.006418374963808164,
+        "percentile50": 0.006308831,
+        "percentile90": 0.007061697,
+        "percentile99": 0.007958753,
+        "http_errors": 0,
+        "requests_per_s_min": 79334.5923653022,
+        "requests_per_s_max": 79933.81436594587
       }
     },
     {
@@ -1574,15 +1160,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 11282.207336113066,
-        "average_latency": 0.022679214202576656,
-        "percentile50": 0.020774386,
-        "percentile90": 0.032378553,
-        "percentile99": 0.06574761,
-        "http_errors": 0
+        "total_requests_per_s": 75094.92703503298,
+        "average_latency": 0.0008512220077171996,
+        "percentile50": 0.00081843,
+        "percentile90": 0.001010882,
+        "percentile99": 0.001241405,
+        "http_errors": 0,
+        "requests_per_s_min": 74716.14678074708,
+        "requests_per_s_max": 80194.71215673837
       }
     },
     {
@@ -1590,15 +1179,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 12952.177098778182,
-        "average_latency": 0.019765116721597985,
-        "percentile50": 0.019817687,
-        "percentile90": 0.027862829,
-        "percentile99": 0.063909554,
-        "http_errors": 0
+        "total_requests_per_s": 71377.54215022322,
+        "average_latency": 0.0008954816043457094,
+        "percentile50": 0.000875267,
+        "percentile90": 0.001028876,
+        "percentile99": 0.001257556,
+        "http_errors": 0,
+        "requests_per_s_min": 60473.20263442424,
+        "requests_per_s_max": 76880.77836132997
       }
     },
     {
@@ -1606,15 +1198,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 16031.764659078955,
-        "average_latency": 0.015965939271722355,
-        "percentile50": 0.014406589,
-        "percentile90": 0.024552193,
-        "percentile99": 0.046088914,
-        "http_errors": 0
+        "total_requests_per_s": 79165.541174418,
+        "average_latency": 0.0008074070638902823,
+        "percentile50": 0.000783716,
+        "percentile90": 0.000920533,
+        "percentile99": 0.001148892,
+        "http_errors": 0,
+        "requests_per_s_min": 78630.52892116671,
+        "requests_per_s_max": 80280.9592078994
       }
     },
     {
@@ -1622,15 +1217,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 16597.324141156725,
-        "average_latency": 0.030844963785353653,
-        "percentile50": 0.027290515,
-        "percentile90": 0.043409485,
-        "percentile99": 0.084732955,
-        "http_errors": 0
+        "total_requests_per_s": 67998.84878045839,
+        "average_latency": 0.003762145803431801,
+        "percentile50": 0.003171442,
+        "percentile90": 0.003727799,
+        "percentile99": 0.018789159,
+        "http_errors": 0,
+        "requests_per_s_min": 63173.44546493844,
+        "requests_per_s_max": 78834.01662847016
       }
     },
     {
@@ -1638,15 +1236,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 23409.473029123983,
-        "average_latency": 0.02184514550249805,
-        "percentile50": 0.019996024,
-        "percentile90": 0.03299197,
-        "percentile99": 0.057740542,
-        "http_errors": 0
+        "total_requests_per_s": 77638.11691838174,
+        "average_latency": 0.0032941704677816566,
+        "percentile50": 0.003244011,
+        "percentile90": 0.003622454,
+        "percentile99": 0.004074475,
+        "http_errors": 0,
+        "requests_per_s_min": 76633.17141566481,
+        "requests_per_s_max": 77934.7528063816
       }
     },
     {
@@ -1654,15 +1255,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 18423.125629402566,
-        "average_latency": 0.027793886907021476,
-        "percentile50": 0.023229857,
-        "percentile90": 0.04634623,
-        "percentile99": 0.069015052,
-        "http_errors": 0
+        "total_requests_per_s": 72260.13491941414,
+        "average_latency": 0.003540211511497368,
+        "percentile50": 0.003418431,
+        "percentile90": 0.003874891,
+        "percentile99": 0.006207005,
+        "http_errors": 0,
+        "requests_per_s_min": 70044.87564598364,
+        "requests_per_s_max": 78657.8852071506
       }
     },
     {
@@ -1670,15 +1274,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14377.80372125102,
-        "average_latency": 0.004443434656889689,
-        "percentile50": 0.004169483,
-        "percentile90": 0.006388336,
-        "percentile99": 0.009658777,
-        "http_errors": 0
+        "total_requests_per_s": 68166.22270067985,
+        "average_latency": 0.007502295776794987,
+        "percentile50": 0.007323492,
+        "percentile90": 0.00849504,
+        "percentile99": 0.009770283,
+        "http_errors": 0,
+        "requests_per_s_min": 67932.86455065035,
+        "requests_per_s_max": 69549.24386532622
       }
     },
     {
@@ -1686,15 +1293,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 12555.841014106198,
-        "average_latency": 0.005085716162122099,
-        "percentile50": 0.004722693,
-        "percentile90": 0.008239659,
-        "percentile99": 0.015636822,
-        "http_errors": 0
+        "total_requests_per_s": 47025.94771473396,
+        "average_latency": 0.010867492817004628,
+        "percentile50": 0.008323331,
+        "percentile90": 0.015831406,
+        "percentile99": 0.048886438,
+        "http_errors": 0,
+        "requests_per_s_min": 30273.632745023337,
+        "requests_per_s_max": 65823.77676683829
       }
     },
     {
@@ -1702,15 +1312,18 @@
       "runtime": "bun",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 11596.82979462512,
-        "average_latency": 0.005510540443468914,
-        "percentile50": 0.005058905,
-        "percentile90": 0.007669777,
-        "percentile99": 0.015158242,
-        "http_errors": 0
+        "total_requests_per_s": 62624.991816399306,
+        "average_latency": 0.00816925040182756,
+        "percentile50": 0.007310435,
+        "percentile90": 0.011215228,
+        "percentile99": 0.016384986,
+        "http_errors": 0,
+        "requests_per_s_min": 36052.81969157887,
+        "requests_per_s_max": 70107.45133241944
       }
     },
     {
@@ -1718,15 +1331,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14205.238268232943,
-        "average_latency": 0.018017221536205295,
-        "percentile50": 0.016200455,
-        "percentile90": 0.029329643,
-        "percentile99": 0.03889678,
-        "http_errors": 0
+        "total_requests_per_s": 58565.57109319233,
+        "average_latency": 0.0010915363516839347,
+        "percentile50": 0.001163484,
+        "percentile90": 0.001316824,
+        "percentile99": 0.00178189,
+        "http_errors": 0,
+        "requests_per_s_min": 58038.11398304154,
+        "requests_per_s_max": 58839.30022322211
       }
     },
     {
@@ -1734,15 +1350,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 14058.355707053446,
-        "average_latency": 0.018200834728164465,
-        "percentile50": 0.015807106,
-        "percentile90": 0.028503349,
-        "percentile99": 0.041067374,
-        "http_errors": 0
+        "total_requests_per_s": 26912.602092369012,
+        "average_latency": 0.00237475946807188,
+        "percentile50": 0.002310288,
+        "percentile90": 0.003278725,
+        "percentile99": 0.004798682,
+        "http_errors": 0,
+        "requests_per_s_min": 25458.557767941755,
+        "requests_per_s_max": 51946.29000077521
       }
     },
     {
@@ -1750,15 +1369,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 13692.960648297083,
-        "average_latency": 0.018692051043215124,
-        "percentile50": 0.016656664,
-        "percentile90": 0.027794967,
-        "percentile99": 0.036909313,
-        "http_errors": 0
+        "total_requests_per_s": 12240.128426112082,
+        "average_latency": 0.005217209314015782,
+        "percentile50": 0.003186713,
+        "percentile90": 0.0117655,
+        "percentile99": 0.021204589,
+        "http_errors": 0,
+        "requests_per_s_min": 5963.623068848091,
+        "requests_per_s_max": 28911.73831978349
       }
     },
     {
@@ -1766,15 +1388,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 15033.317056345084,
-        "average_latency": 0.03400811432818224,
-        "percentile50": 0.030466363,
-        "percentile90": 0.053076356,
-        "percentile99": 0.075977326,
-        "http_errors": 0
+        "total_requests_per_s": 31016.99062697048,
+        "average_latency": 0.008246880003699953,
+        "percentile50": 0.00759892,
+        "percentile90": 0.010770126,
+        "percentile99": 0.018726121,
+        "http_errors": 0,
+        "requests_per_s_min": 20135.53125025893,
+        "requests_per_s_max": 40999.67158499736
       }
     },
     {
@@ -1782,15 +1407,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 13627.953215366791,
-        "average_latency": 0.03754536378819647,
-        "percentile50": 0.033002785,
-        "percentile90": 0.056461544,
-        "percentile99": 0.079426577,
-        "http_errors": 0
+        "total_requests_per_s": 13435.965647884434,
+        "average_latency": 0.019030881635082878,
+        "percentile50": 0.017351981,
+        "percentile90": 0.030945097,
+        "percentile99": 0.046066698,
+        "http_errors": 0,
+        "requests_per_s_min": 6395.288452937758,
+        "requests_per_s_max": 34401.291348165374
       }
     },
     {
@@ -1798,15 +1426,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 13683.192914278114,
-        "average_latency": 0.03739283420503914,
-        "percentile50": 0.0340741,
-        "percentile90": 0.055137084,
-        "percentile99": 0.077411638,
-        "http_errors": 0
+        "total_requests_per_s": 32671.98363928171,
+        "average_latency": 0.007835307398271789,
+        "percentile50": 0.006358063,
+        "percentile90": 0.011776742,
+        "percentile99": 0.016045841,
+        "http_errors": 0,
+        "requests_per_s_min": 27596.231601924832,
+        "requests_per_s_max": 56432.30979451736
       }
     },
     {
@@ -1814,15 +1445,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 19253.937384399505,
-        "average_latency": 0.0033178186383549207,
-        "percentile50": 0.002849941,
-        "percentile90": 0.006085607,
-        "percentile99": 0.009298091,
-        "http_errors": 0
+        "total_requests_per_s": 41793.05599120186,
+        "average_latency": 0.012231897282190997,
+        "percentile50": 0.01194299,
+        "percentile90": 0.015454489,
+        "percentile99": 0.025187746,
+        "http_errors": 0,
+        "requests_per_s_min": 24658.640476146476,
+        "requests_per_s_max": 52657.96399025278
       }
     },
     {
@@ -1830,15 +1464,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 18958.57144573008,
-        "average_latency": 0.00336935933199488,
-        "percentile50": 0.002881119,
-        "percentile90": 0.005680455,
-        "percentile99": 0.010894063,
-        "http_errors": 0
+        "total_requests_per_s": 11695.701553917383,
+        "average_latency": 0.04384107051402589,
+        "percentile50": 0.04354357,
+        "percentile90": 0.062588421,
+        "percentile99": 0.086392067,
+        "http_errors": 0,
+        "requests_per_s_min": 8843.699864614742,
+        "requests_per_s_max": 28355.603448117283
       }
     },
     {
@@ -1846,15 +1483,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 19171.37742384024,
-        "average_latency": 0.0033330578627791835,
-        "percentile50": 0.002933939,
-        "percentile90": 0.00586887,
-        "percentile99": 0.008702761,
-        "http_errors": 0
+        "total_requests_per_s": 54444.617568974776,
+        "average_latency": 0.00939647030050065,
+        "percentile50": 0.009094874,
+        "percentile90": 0.011173971,
+        "percentile99": 0.015124611,
+        "http_errors": 0,
+        "requests_per_s_min": 36427.8432807231,
+        "requests_per_s_max": 58352.67267246354
       }
     },
     {
@@ -1862,15 +1502,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 15794.422089337697,
-        "average_latency": 0.01618857588014444,
-        "percentile50": 0.011211071,
-        "percentile90": 0.032636678,
-        "percentile99": 0.053079537,
-        "http_errors": 0
+        "total_requests_per_s": 27759.761301276565,
+        "average_latency": 0.0023023762167683624,
+        "percentile50": 0.00167836,
+        "percentile90": 0.00425672,
+        "percentile99": 0.01236348,
+        "http_errors": 0,
+        "requests_per_s_min": 25273.643927873454,
+        "requests_per_s_max": 29511.230523566068
       }
     },
     {
@@ -1878,15 +1521,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 7499.272393364105,
-        "average_latency": 0.03412779470737882,
-        "percentile50": 0.027994095,
-        "percentile90": 0.059252209,
-        "percentile99": 0.076998254,
-        "http_errors": 0
+        "total_requests_per_s": 18452.683269377278,
+        "average_latency": 0.003463494461052874,
+        "percentile50": 0.003533113,
+        "percentile90": 0.005171218,
+        "percentile99": 0.008299626,
+        "http_errors": 0,
+        "requests_per_s_min": 14997.589806578939,
+        "requests_per_s_max": 33096.79956641062
       }
     },
     {
@@ -1894,15 +1540,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 7629.812566447957,
-        "average_latency": 0.03357423247830607,
-        "percentile50": 0.028983517,
-        "percentile90": 0.05356428,
-        "percentile99": 0.112811931,
-        "http_errors": 0
+        "total_requests_per_s": 29869.379172165758,
+        "average_latency": 0.00213993929778533,
+        "percentile50": 0.001600423,
+        "percentile90": 0.004479221,
+        "percentile99": 0.007947013,
+        "http_errors": 0,
+        "requests_per_s_min": 27742.047236899874,
+        "requests_per_s_max": 42539.11883765951
       }
     },
     {
@@ -1910,15 +1559,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 8793.924022477997,
-        "average_latency": 0.058169567252386686,
-        "percentile50": 0.050934573,
-        "percentile90": 0.090742562,
-        "percentile99": 0.130246472,
-        "http_errors": 0
+        "total_requests_per_s": 25651.590931339648,
+        "average_latency": 0.00997521924801827,
+        "percentile50": 0.00633069,
+        "percentile90": 0.01803952,
+        "percentile99": 0.023489697,
+        "http_errors": 0,
+        "requests_per_s_min": 22188.765500133508,
+        "requests_per_s_max": 37287.77865047103
       }
     },
     {
@@ -1926,15 +1578,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 10823.095377387934,
-        "average_latency": 0.047088254192782134,
-        "percentile50": 0.039056357,
-        "percentile90": 0.076919919,
-        "percentile99": 0.130281568,
-        "http_errors": 0
+        "total_requests_per_s": 29287.50505030592,
+        "average_latency": 0.008727077262359417,
+        "percentile50": 0.008073935,
+        "percentile90": 0.010656193,
+        "percentile99": 0.018292091,
+        "http_errors": 0,
+        "requests_per_s_min": 13908.40007451585,
+        "requests_per_s_max": 30575.18604124339
       }
     },
     {
@@ -1942,15 +1597,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 8033.144553099487,
-        "average_latency": 0.06369439551402985,
-        "percentile50": 0.051678313,
-        "percentile90": 0.109415524,
-        "percentile99": 0.171217081,
-        "http_errors": 0
+        "total_requests_per_s": 17693.725707144462,
+        "average_latency": 0.014464409990920057,
+        "percentile50": 0.016396491,
+        "percentile90": 0.019890803,
+        "percentile99": 0.026783337,
+        "http_errors": 0,
+        "requests_per_s_min": 11575.160844040913,
+        "requests_per_s_max": 34226.77120988733
       }
     },
     {
@@ -1958,15 +1616,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 10082.286079828473,
-        "average_latency": 0.006342198836524486,
-        "percentile50": 0.005660949,
-        "percentile90": 0.011143704,
-        "percentile99": 0.01692515,
-        "http_errors": 0
+        "total_requests_per_s": 33383.79977222649,
+        "average_latency": 0.015323648886262605,
+        "percentile50": 0.013225431,
+        "percentile90": 0.018346077,
+        "percentile99": 0.046281503,
+        "http_errors": 0,
+        "requests_per_s_min": 31105.74645290536,
+        "requests_per_s_max": 36687.625473042506
       }
     },
     {
@@ -1974,15 +1635,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 9601.816312758865,
-        "average_latency": 0.006659529805115529,
-        "percentile50": 0.005506679,
-        "percentile90": 0.012570758,
-        "percentile99": 0.018703215,
-        "http_errors": 0
+        "total_requests_per_s": 19343.149971513103,
+        "average_latency": 0.026446108763662192,
+        "percentile50": 0.024234055,
+        "percentile90": 0.03223754,
+        "percentile99": 0.061437518,
+        "http_errors": 0,
+        "requests_per_s_min": 8857.649386926398,
+        "requests_per_s_max": 21088.174975930444
       }
     },
     {
@@ -1990,15 +1654,18 @@
       "runtime": "deno",
       "language": "javascript",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 15581.584274222889,
-        "average_latency": 0.004103069399943459,
-        "percentile50": 0.003300188,
-        "percentile90": 0.007685949,
-        "percentile99": 0.014261319,
-        "http_errors": 0
+        "total_requests_per_s": 4423.903291764075,
+        "average_latency": 0.1159132550146524,
+        "percentile50": 0.113574095,
+        "percentile90": 0.143428673,
+        "percentile99": 0.167479764,
+        "http_errors": 0,
+        "requests_per_s_min": 3402.5944603545004,
+        "requests_per_s_max": 5922.695240697094
       }
     },
     {
@@ -2006,15 +1673,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 17015.399363009572,
-        "average_latency": 0.015032978089279397,
-        "percentile50": 0.013691098,
-        "percentile90": 0.018988995,
-        "percentile99": 0.060442242,
-        "http_errors": 0
+        "total_requests_per_s": 17453.50350349175,
+        "average_latency": 0.003662757901280687,
+        "percentile50": 0.002708168,
+        "percentile90": 0.00795767,
+        "percentile99": 0.014621404,
+        "http_errors": 0,
+        "requests_per_s_min": 10836.436441581547,
+        "requests_per_s_max": 58025.397096329194
       }
     },
     {
@@ -2022,15 +1692,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 15792.445101335183,
-        "average_latency": 0.016197969838799696,
-        "percentile50": 0.015051978,
-        "percentile90": 0.021790626,
-        "percentile99": 0.040832631,
-        "http_errors": 0
+        "total_requests_per_s": 84131.06990091821,
+        "average_latency": 0.0007584011560070638,
+        "percentile50": 0.000648724,
+        "percentile90": 0.001124136,
+        "percentile99": 0.002050194,
+        "http_errors": 0,
+        "requests_per_s_min": 19890.253100720267,
+        "requests_per_s_max": 85166.86096492855
       }
     },
     {
@@ -2038,15 +1711,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 18817.519364251373,
-        "average_latency": 0.013584730007125642,
-        "percentile50": 0.012850596,
-        "percentile90": 0.017658592,
-        "percentile99": 0.028628951,
-        "http_errors": 0
+        "total_requests_per_s": 82386.2002986281,
+        "average_latency": 0.000774732344552668,
+        "percentile50": 0.000660016,
+        "percentile90": 0.001085747,
+        "percentile99": 0.002574772,
+        "http_errors": 0,
+        "requests_per_s_min": 43526.69934994304,
+        "requests_per_s_max": 83203.1788976095
       }
     },
     {
@@ -2054,15 +1730,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 18987.00786352833,
-        "average_latency": 0.026942919383569127,
-        "percentile50": 0.025872405,
-        "percentile90": 0.033365854,
-        "percentile99": 0.049267761,
-        "http_errors": 0
+        "total_requests_per_s": 89125.36462117058,
+        "average_latency": 0.0028688334770519855,
+        "percentile50": 0.002807471,
+        "percentile90": 0.003330602,
+        "percentile99": 0.004387269,
+        "http_errors": 0,
+        "requests_per_s_min": 62031.15490137699,
+        "requests_per_s_max": 91696.57005994323
       }
     },
     {
@@ -2070,15 +1749,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 19535.80873939747,
-        "average_latency": 0.026189386592703208,
-        "percentile50": 0.024463886,
-        "percentile90": 0.033196275,
-        "percentile99": 0.051909882,
-        "http_errors": 0
+        "total_requests_per_s": 81706.45348185595,
+        "average_latency": 0.0031296938960074325,
+        "percentile50": 0.00295247,
+        "percentile90": 0.003706023,
+        "percentile99": 0.008033112,
+        "http_errors": 0,
+        "requests_per_s_min": 81638.08365959069,
+        "requests_per_s_max": 87977.9319988551
       }
     },
     {
@@ -2086,15 +1768,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 19787.391760478524,
-        "average_latency": 0.02586166426474157,
-        "percentile50": 0.025027396,
-        "percentile90": 0.033397323,
-        "percentile99": 0.041889711,
-        "http_errors": 0
+        "total_requests_per_s": 80932.02916125735,
+        "average_latency": 0.003159633749775205,
+        "percentile50": 0.002925502,
+        "percentile90": 0.003704202,
+        "percentile99": 0.009921217,
+        "http_errors": 0,
+        "requests_per_s_min": 79123.47290303321,
+        "requests_per_s_max": 82761.46077963666
       }
     },
     {
@@ -2102,15 +1787,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 14290.154109865598,
-        "average_latency": 0.004469461506454384,
-        "percentile50": 0.003676848,
-        "percentile90": 0.007825542,
-        "percentile99": 0.017411126,
-        "http_errors": 0
+        "total_requests_per_s": 83421.35777088525,
+        "average_latency": 0.006123111671679331,
+        "percentile50": 0.005806236,
+        "percentile90": 0.006583266,
+        "percentile99": 0.018175076,
+        "http_errors": 0,
+        "requests_per_s_min": 83297.48281213378,
+        "requests_per_s_max": 88138.82421866458
       }
     },
     {
@@ -2118,15 +1806,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 17189.59743143553,
-        "average_latency": 0.003711521946762499,
-        "percentile50": 0.003278468,
-        "percentile90": 0.006005679,
-        "percentile99": 0.012131774,
-        "http_errors": 0
+        "total_requests_per_s": 86805.95443693128,
+        "average_latency": 0.00588723947030198,
+        "percentile50": 0.005791397,
+        "percentile90": 0.006545225,
+        "percentile99": 0.007577283,
+        "http_errors": 0,
+        "requests_per_s_min": 86666.54373275938,
+        "requests_per_s_max": 87484.6421990149
       }
     },
     {
@@ -2134,15 +1825,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 17547.234508860027,
-        "average_latency": 0.003627224704850423,
-        "percentile50": 0.00316252,
-        "percentile90": 0.005830158,
-        "percentile99": 0.013289382,
-        "http_errors": 0
+        "total_requests_per_s": 87003.86874903287,
+        "average_latency": 0.0058726364775475975,
+        "percentile50": 0.005762901,
+        "percentile90": 0.006593743,
+        "percentile99": 0.007719659,
+        "http_errors": 0,
+        "requests_per_s_min": 83075.46891324481,
+        "requests_per_s_max": 87783.1547016517
       }
     },
     {
@@ -2150,15 +1844,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 28145.82978078657,
-        "average_latency": 0.009081918968310012,
-        "percentile50": 0.008666205,
-        "percentile90": 0.011945224,
-        "percentile99": 0.017410186,
-        "http_errors": 0
+        "total_requests_per_s": 111444.59708739075,
+        "average_latency": 0.0005726199604554903,
+        "percentile50": 0.000549007,
+        "percentile90": 0.000692405,
+        "percentile99": 0.001195226,
+        "http_errors": 0,
+        "requests_per_s_min": 108544.70576761122,
+        "requests_per_s_max": 113499.40334155531
       }
     },
     {
@@ -2166,15 +1863,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 55374.894186258905,
-        "average_latency": 0.0046172106150566316,
-        "percentile50": 0.003675886,
-        "percentile90": 0.008103867,
-        "percentile99": 0.012991712,
-        "http_errors": 0
+        "total_requests_per_s": 112417.2520333897,
+        "average_latency": 0.0005674234728482322,
+        "percentile50": 0.00055038,
+        "percentile90": 0.000666688,
+        "percentile99": 0.001118093,
+        "http_errors": 0,
+        "requests_per_s_min": 109761.39334042014,
+        "requests_per_s_max": 113067.89565803997
       }
     },
     {
@@ -2182,15 +1882,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 36415.412637508816,
-        "average_latency": 0.007022053695392428,
-        "percentile50": 0.006682844,
-        "percentile90": 0.008776383,
-        "percentile99": 0.012938673,
-        "http_errors": 0
+        "total_requests_per_s": 114948.79672674835,
+        "average_latency": 0.0005551114257369474,
+        "percentile50": 0.000532408,
+        "percentile90": 0.000678019,
+        "percentile99": 0.001094259,
+        "http_errors": 0,
+        "requests_per_s_min": 112566.33807958536,
+        "requests_per_s_max": 115749.95419574142
       }
     },
     {
@@ -2198,15 +1901,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 32713.980134332356,
-        "average_latency": 0.01563730251581549,
-        "percentile50": 0.01563687,
-        "percentile90": 0.019529484,
-        "percentile99": 0.025404567,
-        "http_errors": 0
+        "total_requests_per_s": 117897.18404475659,
+        "average_latency": 0.0021685585463811965,
+        "percentile50": 0.002145311,
+        "percentile90": 0.00241166,
+        "percentile99": 0.003442983,
+        "http_errors": 0,
+        "requests_per_s_min": 116353.21042037648,
+        "requests_per_s_max": 122958.22069720864
       }
     },
     {
@@ -2214,15 +1920,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 27819.547200114674,
-        "average_latency": 0.018389200663557606,
-        "percentile50": 0.017990648,
-        "percentile90": 0.022872433,
-        "percentile99": 0.02910021,
-        "http_errors": 0
+        "total_requests_per_s": 112351.73090831256,
+        "average_latency": 0.0022751803485084377,
+        "percentile50": 0.00220272,
+        "percentile90": 0.002548679,
+        "percentile99": 0.003737057,
+        "http_errors": 0,
+        "requests_per_s_min": 103232.36022065929,
+        "requests_per_s_max": 121562.54190762364
       }
     },
     {
@@ -2230,15 +1939,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 27581.121821159457,
-        "average_latency": 0.018550456250764874,
-        "percentile50": 0.018261789,
-        "percentile90": 0.02297207,
-        "percentile99": 0.029439248,
-        "http_errors": 0
+        "total_requests_per_s": 118770.62059406542,
+        "average_latency": 0.002152783078691182,
+        "percentile50": 0.002128733,
+        "percentile90": 0.002395142,
+        "percentile99": 0.003427369,
+        "http_errors": 0,
+        "requests_per_s_min": 115664.98550170317,
+        "requests_per_s_max": 120499.13742772529
       }
     },
     {
@@ -2246,15 +1958,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 25888.43111345186,
-        "average_latency": 0.002464252754278087,
-        "percentile50": 0.002122223,
-        "percentile90": 0.003838672,
-        "percentile99": 0.007039224,
-        "http_errors": 0
+        "total_requests_per_s": 120191.91941653188,
+        "average_latency": 0.004253354735485409,
+        "percentile50": 0.004217404,
+        "percentile90": 0.004663442,
+        "percentile99": 0.005715395,
+        "http_errors": 0,
+        "requests_per_s_min": 120187.4829944075,
+        "requests_per_s_max": 120218.31088557096
       }
     },
     {
@@ -2262,15 +1977,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 25453.5466528904,
-        "average_latency": 0.0025053332780413436,
-        "percentile50": 0.002195791,
-        "percentile90": 0.003919965,
-        "percentile99": 0.006702029,
-        "http_errors": 0
+        "total_requests_per_s": 120126.74797034214,
+        "average_latency": 0.004256573005016436,
+        "percentile50": 0.004210084,
+        "percentile90": 0.004671952,
+        "percentile99": 0.005735599,
+        "http_errors": 0,
+        "requests_per_s_min": 119048.11097579234,
+        "requests_per_s_max": 120434.56758194252
       }
     },
     {
@@ -2278,15 +1996,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 25417.427485503646,
-        "average_latency": 0.0025100234840929737,
-        "percentile50": 0.002191533,
-        "percentile90": 0.00393308,
-        "percentile99": 0.006724502,
-        "http_errors": 0
+        "total_requests_per_s": 118971.37103898209,
+        "average_latency": 0.004295339287665383,
+        "percentile50": 0.004244041,
+        "percentile90": 0.004728552,
+        "percentile99": 0.005751163,
+        "http_errors": 0,
+        "requests_per_s_min": 115841.36669863202,
+        "requests_per_s_max": 119263.8290661262
       }
     },
     {
@@ -2294,15 +2015,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 21608.36962927513,
-        "average_latency": 0.011834813171203083,
-        "percentile50": 0.011443089,
-        "percentile90": 0.014929108,
-        "percentile99": 0.021067798,
-        "http_errors": 0
+        "total_requests_per_s": 76001.48737896924,
+        "average_latency": 0.0008401240085643383,
+        "percentile50": 0.000641125,
+        "percentile90": 0.00144212,
+        "percentile99": 0.003162262,
+        "http_errors": 0,
+        "requests_per_s_min": 74531.22844262444,
+        "requests_per_s_max": 76131.27667603188
       }
     },
     {
@@ -2310,15 +2034,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 22202.623437449478,
-        "average_latency": 0.01151775950537348,
-        "percentile50": 0.011250808,
-        "percentile90": 0.014617382,
-        "percentile99": 0.018372207,
-        "http_errors": 0
+        "total_requests_per_s": 78242.77535650114,
+        "average_latency": 0.0008157249955566665,
+        "percentile50": 0.000679567,
+        "percentile90": 0.001240602,
+        "percentile99": 0.002673204,
+        "http_errors": 0,
+        "requests_per_s_min": 77923.16057053965,
+        "requests_per_s_max": 79604.95876229879
       }
     },
     {
@@ -2326,15 +2053,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 22095.113394591415,
-        "average_latency": 0.011573603615820653,
-        "percentile50": 0.011442789,
-        "percentile90": 0.014148099,
-        "percentile99": 0.017759333,
-        "http_errors": 0
+        "total_requests_per_s": 73338.31133193281,
+        "average_latency": 0.0008705513645450338,
+        "percentile50": 0.000660151,
+        "percentile90": 0.001410803,
+        "percentile99": 0.00379166,
+        "http_errors": 0,
+        "requests_per_s_min": 71544.06164664871,
+        "requests_per_s_max": 75733.59489108142
       }
     },
     {
@@ -2342,15 +2072,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 22986.550372765836,
-        "average_latency": 0.022262125465909614,
-        "percentile50": 0.022044346,
-        "percentile90": 0.026213771,
-        "percentile99": 0.032467457,
-        "http_errors": 0
+        "total_requests_per_s": 95499.70124811312,
+        "average_latency": 0.002677728055332768,
+        "percentile50": 0.002582387,
+        "percentile90": 0.003245935,
+        "percentile99": 0.004705299,
+        "http_errors": 0,
+        "requests_per_s_min": 92842.26253101039,
+        "requests_per_s_max": 96213.9106284978
       }
     },
     {
@@ -2358,15 +2091,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 20220.534967503216,
-        "average_latency": 0.025288445828109588,
-        "percentile50": 0.025200844,
-        "percentile90": 0.029829754,
-        "percentile99": 0.035578969,
-        "http_errors": 0
+        "total_requests_per_s": 86365.37620345237,
+        "average_latency": 0.002959550389387581,
+        "percentile50": 0.002899024,
+        "percentile90": 0.003424222,
+        "percentile99": 0.004492812,
+        "http_errors": 0,
+        "requests_per_s_min": 86301.84650402774,
+        "requests_per_s_max": 86717.67192793252
       }
     },
     {
@@ -2374,15 +2110,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 22022.792153278042,
-        "average_latency": 0.023230487431466995,
-        "percentile50": 0.02305092,
-        "percentile90": 0.027566636,
-        "percentile99": 0.03377819,
-        "http_errors": 0
+        "total_requests_per_s": 95483.86355299057,
+        "average_latency": 0.0026778956102719003,
+        "percentile50": 0.002613729,
+        "percentile90": 0.003117426,
+        "percentile99": 0.004399398,
+        "http_errors": 0,
+        "requests_per_s_min": 94569.97184974099,
+        "requests_per_s_max": 96428.10804356606
       }
     },
     {
@@ -2390,15 +2129,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 21360.966946291825,
-        "average_latency": 0.00298759751194531,
-        "percentile50": 0.002643213,
-        "percentile90": 0.004657222,
-        "percentile99": 0.007424569,
-        "http_errors": 0
+        "total_requests_per_s": 88953.77919923468,
+        "average_latency": 0.005747469876473831,
+        "percentile50": 0.005669881,
+        "percentile90": 0.006414092,
+        "percentile99": 0.007607247,
+        "http_errors": 0,
+        "requests_per_s_min": 87689.63877947802,
+        "requests_per_s_max": 89163.88659755982
       }
     },
     {
@@ -2406,15 +2148,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 18852.173905384883,
-        "average_latency": 0.0033845575644247707,
-        "percentile50": 0.003085005,
-        "percentile90": 0.005340067,
-        "percentile99": 0.008434269,
-        "http_errors": 0
+        "total_requests_per_s": 89935.66149277522,
+        "average_latency": 0.005682792134525197,
+        "percentile50": 0.005599862,
+        "percentile90": 0.006395008,
+        "percentile99": 0.007429255,
+        "http_errors": 0,
+        "requests_per_s_min": 88537.14807135313,
+        "requests_per_s_max": 90521.76442405504
       }
     },
     {
@@ -2422,15 +2167,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 21187.31463555138,
-        "average_latency": 0.003011721156500992,
-        "percentile50": 0.002704939,
-        "percentile90": 0.00473577,
-        "percentile99": 0.007418999,
-        "http_errors": 0
+        "total_requests_per_s": 86549.01752770982,
+        "average_latency": 0.005904637549591535,
+        "percentile50": 0.005817894,
+        "percentile90": 0.006604274,
+        "percentile99": 0.00765403,
+        "http_errors": 0,
+        "requests_per_s_min": 86335.75310414752,
+        "requests_per_s_max": 90795.07560791104
       }
     },
     {
@@ -2438,15 +2186,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 21692.727421231197,
-        "average_latency": 0.011790236314166628,
-        "percentile50": 0.011505066,
-        "percentile90": 0.014904339,
-        "percentile99": 0.01932956,
-        "http_errors": 0
+        "total_requests_per_s": 78828.84831958168,
+        "average_latency": 0.0008098386928624491,
+        "percentile50": 0.000627883,
+        "percentile90": 0.001360652,
+        "percentile99": 0.002932301,
+        "http_errors": 0,
+        "requests_per_s_min": 77999.5091916474,
+        "requests_per_s_max": 80927.17741922502
       }
     },
     {
@@ -2454,15 +2205,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 21685.721727086824,
-        "average_latency": 0.011792681126971297,
-        "percentile50": 0.01157047,
-        "percentile90": 0.014670632,
-        "percentile99": 0.018621993,
-        "http_errors": 0
+        "total_requests_per_s": 81539.93802056386,
+        "average_latency": 0.0007827661514929279,
+        "percentile50": 0.000607815,
+        "percentile90": 0.001207604,
+        "percentile99": 0.002868933,
+        "http_errors": 0,
+        "requests_per_s_min": 81409.79960115945,
+        "requests_per_s_max": 83590.97987838973
       }
     },
     {
@@ -2470,15 +2224,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 21776.517329563496,
-        "average_latency": 0.011743923388162499,
-        "percentile50": 0.011435307,
-        "percentile90": 0.015053744,
-        "percentile99": 0.020194708,
-        "http_errors": 0
+        "total_requests_per_s": 77291.35531240555,
+        "average_latency": 0.0008259792404701093,
+        "percentile50": 0.000628935,
+        "percentile90": 0.00141217,
+        "percentile99": 0.003139434,
+        "http_errors": 0,
+        "requests_per_s_min": 77110.82669819532,
+        "requests_per_s_max": 78807.65427075286
       }
     },
     {
@@ -2486,15 +2243,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 22546.27431671569,
-        "average_latency": 0.022691387034235566,
-        "percentile50": 0.0220846,
-        "percentile90": 0.027507517,
-        "percentile99": 0.03377098,
-        "http_errors": 0
+        "total_requests_per_s": 99810.72602372106,
+        "average_latency": 0.0025614950516983847,
+        "percentile50": 0.002512824,
+        "percentile90": 0.003023917,
+        "percentile99": 0.004031386,
+        "http_errors": 0,
+        "requests_per_s_min": 99704.99911804474,
+        "requests_per_s_max": 100865.17692873097
       }
     },
     {
@@ -2502,15 +2262,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 20255.610843070037,
-        "average_latency": 0.025249175163551945,
-        "percentile50": 0.023883981,
-        "percentile90": 0.032495949,
-        "percentile99": 0.049385913,
-        "http_errors": 0
+        "total_requests_per_s": 100248.85372330925,
+        "average_latency": 0.0025505613477380014,
+        "percentile50": 0.002518305,
+        "percentile90": 0.002934369,
+        "percentile99": 0.003967446,
+        "http_errors": 0,
+        "requests_per_s_min": 99931.09508410729,
+        "requests_per_s_max": 100963.38455437974
       }
     },
     {
@@ -2518,15 +2281,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 21700.979668130454,
-        "average_latency": 0.023570268455804032,
-        "percentile50": 0.022999934,
-        "percentile90": 0.028489955,
-        "percentile99": 0.036711029,
-        "http_errors": 0
+        "total_requests_per_s": 99960.15506099949,
+        "average_latency": 0.002558092465771478,
+        "percentile50": 0.002509339,
+        "percentile90": 0.003001336,
+        "percentile99": 0.004027389,
+        "http_errors": 0,
+        "requests_per_s_min": 99631.72888421359,
+        "requests_per_s_max": 100516.11566650671
       }
     },
     {
@@ -2534,15 +2300,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 22558.478372243146,
-        "average_latency": 0.0028290159245798834,
-        "percentile50": 0.002535621,
-        "percentile90": 0.004406915,
-        "percentile99": 0.006836197,
-        "http_errors": 0
+        "total_requests_per_s": 99577.83649043483,
+        "average_latency": 0.005134377050640742,
+        "percentile50": 0.005073091,
+        "percentile90": 0.005702256,
+        "percentile99": 0.006620256,
+        "http_errors": 0,
+        "requests_per_s_min": 99569.7784801357,
+        "requests_per_s_max": 99944.56374751948
       }
     },
     {
@@ -2550,15 +2319,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 21907.08652897269,
-        "average_latency": 0.0029123579063277272,
-        "percentile50": 0.002621302,
-        "percentile90": 0.004583697,
-        "percentile99": 0.007158823,
-        "http_errors": 0
+        "total_requests_per_s": 81814.1710568046,
+        "average_latency": 0.006247171675936543,
+        "percentile50": 0.005922112,
+        "percentile90": 0.007385169,
+        "percentile99": 0.012398709,
+        "http_errors": 0,
+        "requests_per_s_min": 81762.41116701771,
+        "requests_per_s_max": 93168.86758951227
       }
     },
     {
@@ -2566,15 +2338,18 @@
       "runtime": "go",
       "language": "go",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 21744.620098526953,
-        "average_latency": 0.002935076693452025,
-        "percentile50": 0.002602558,
-        "percentile90": 0.004714934,
-        "percentile99": 0.007551381,
-        "http_errors": 0
+        "total_requests_per_s": 84142.85925137394,
+        "average_latency": 0.006074720002816423,
+        "percentile50": 0.005969453,
+        "percentile90": 0.007151781,
+        "percentile99": 0.008042731,
+        "http_errors": 0,
+        "requests_per_s_min": 80810.25296996033,
+        "requests_per_s_max": 84813.88660455632
       }
     },
     {
@@ -2582,15 +2357,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 33080.37106701204,
-        "average_latency": 0.0077249309341711125,
-        "percentile50": 0.006756999,
-        "percentile90": 0.011690412,
-        "percentile99": 0.0226662,
-        "http_errors": 0
+        "total_requests_per_s": 157812.82602036785,
+        "average_latency": 0.00040391162695601614,
+        "percentile50": 0.000388883,
+        "percentile90": 0.000466981,
+        "percentile99": 0.000941996,
+        "http_errors": 0,
+        "requests_per_s_min": 157167.2080251727,
+        "requests_per_s_max": 159627.28129810997
       }
     },
     {
@@ -2598,15 +2376,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 34050.39028901643,
-        "average_latency": 0.007509148087650528,
-        "percentile50": 0.006821631,
-        "percentile90": 0.010946153,
-        "percentile99": 0.019448203,
-        "http_errors": 0
+        "total_requests_per_s": 153728.1846519364,
+        "average_latency": 0.00041450559284529745,
+        "percentile50": 0.000399223,
+        "percentile90": 0.000481779,
+        "percentile99": 0.000934021,
+        "http_errors": 0,
+        "requests_per_s_min": 152542.6827595726,
+        "requests_per_s_max": 154009.60743841
       }
     },
     {
@@ -2614,15 +2395,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 35887.29682874557,
-        "average_latency": 0.007123956270935867,
-        "percentile50": 0.006460984,
-        "percentile90": 0.010462414,
-        "percentile99": 0.018542481,
-        "http_errors": 0
+        "total_requests_per_s": 143956.44985762832,
+        "average_latency": 0.00044273562028894074,
+        "percentile50": 0.000413069,
+        "percentile90": 0.000557681,
+        "percentile99": 0.001241752,
+        "http_errors": 0,
+        "requests_per_s_min": 142944.63756963075,
+        "requests_per_s_max": 148114.47152043
       }
     },
     {
@@ -2630,15 +2414,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 37626.05149402827,
-        "average_latency": 0.01358688579955149,
-        "percentile50": 0.012820887,
-        "percentile90": 0.018868575,
-        "percentile99": 0.029459752,
-        "http_errors": 0
+        "total_requests_per_s": 145778.9579667283,
+        "average_latency": 0.001753580469878871,
+        "percentile50": 0.00168646,
+        "percentile90": 0.002109448,
+        "percentile99": 0.003713863,
+        "http_errors": 0,
+        "requests_per_s_min": 144842.30383994692,
+        "requests_per_s_max": 153796.9704536302
       }
     },
     {
@@ -2646,15 +2433,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 34607.116339727734,
-        "average_latency": 0.014776958066078089,
-        "percentile50": 0.013513751,
-        "percentile90": 0.021548753,
-        "percentile99": 0.038642023,
-        "http_errors": 0
+        "total_requests_per_s": 146074.70873842746,
+        "average_latency": 0.001749698366931949,
+        "percentile50": 0.001685088,
+        "percentile90": 0.002082807,
+        "percentile99": 0.003720236,
+        "http_errors": 0,
+        "requests_per_s_min": 143113.83186403412,
+        "requests_per_s_max": 146732.9698004995
       }
     },
     {
@@ -2662,15 +2452,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 36835.53072101345,
-        "average_latency": 0.013880695399523227,
-        "percentile50": 0.012806021,
-        "percentile90": 0.019776754,
-        "percentile99": 0.034259857,
-        "http_errors": 0
+        "total_requests_per_s": 153235.3776609805,
+        "average_latency": 0.0016681320676394794,
+        "percentile50": 0.001637308,
+        "percentile90": 0.00193009,
+        "percentile99": 0.002957628,
+        "http_errors": 0,
+        "requests_per_s_min": 138779.47326203072,
+        "requests_per_s_max": 155177.95386202956
       }
     },
     {
@@ -2678,15 +2471,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 26744.54959489252,
-        "average_latency": 0.002384381670896162,
-        "percentile50": 0.002120235,
-        "percentile90": 0.003808717,
-        "percentile99": 0.006326029,
-        "http_errors": 0
+        "total_requests_per_s": 151726.6347448104,
+        "average_latency": 0.0033696865225659213,
+        "percentile50": 0.003325702,
+        "percentile90": 0.003892562,
+        "percentile99": 0.005210738,
+        "http_errors": 0,
+        "requests_per_s_min": 141518.89223743053,
+        "requests_per_s_max": 153048.01547992456
       }
     },
     {
@@ -2694,15 +2490,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 28951.78313754856,
-        "average_latency": 0.0022021182638464407,
-        "percentile50": 0.001967998,
-        "percentile90": 0.003457688,
-        "percentile99": 0.005678381,
-        "http_errors": 0
+        "total_requests_per_s": 148764.27755323672,
+        "average_latency": 0.003433832867818177,
+        "percentile50": 0.003367682,
+        "percentile90": 0.003968375,
+        "percentile99": 0.005401879,
+        "http_errors": 0,
+        "requests_per_s_min": 124728.64557808956,
+        "requests_per_s_max": 150328.9246157126
       }
     },
     {
@@ -2710,15 +2509,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 28130.626281668847,
-        "average_latency": 0.00226716515098359,
-        "percentile50": 0.002024515,
-        "percentile90": 0.003673334,
-        "percentile99": 0.00610284,
-        "http_errors": 0
+        "total_requests_per_s": 151669.85521215157,
+        "average_latency": 0.0033683321523896863,
+        "percentile50": 0.003317738,
+        "percentile90": 0.003848259,
+        "percentile99": 0.005213554,
+        "http_errors": 0,
+        "requests_per_s_min": 150072.09891240465,
+        "requests_per_s_max": 153340.93001789687
       }
     },
     {
@@ -2726,15 +2528,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 27480.195435678565,
-        "average_latency": 0.009141019168265303,
-        "percentile50": 0.004560915,
-        "percentile90": 0.006746575,
-        "percentile99": 0.016098427,
-        "http_errors": 0
+        "total_requests_per_s": 125622.65390574171,
+        "average_latency": 0.0005076949602415151,
+        "percentile50": 0.000486488,
+        "percentile90": 0.000631972,
+        "percentile99": 0.000963978,
+        "http_errors": 0,
+        "requests_per_s_min": 122780.36798210412,
+        "requests_per_s_max": 129578.28511693563
       }
     },
     {
@@ -2742,15 +2547,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 27080.46348415202,
-        "average_latency": 0.009262921734349434,
-        "percentile50": 0.004704855,
-        "percentile90": 0.006880947,
-        "percentile99": 0.016204476,
-        "http_errors": 0
+        "total_requests_per_s": 125615.64230881301,
+        "average_latency": 0.000507641993296217,
+        "percentile50": 0.00048755,
+        "percentile90": 0.000624599,
+        "percentile99": 0.000966553,
+        "http_errors": 0,
+        "requests_per_s_min": 103527.8022445869,
+        "requests_per_s_max": 130192.14914195183
       }
     },
     {
@@ -2758,15 +2566,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 25954.93953898546,
-        "average_latency": 0.009717887025688599,
-        "percentile50": 0.004832666,
-        "percentile90": 0.007894713,
-        "percentile99": 0.014624696,
-        "http_errors": 0
+        "total_requests_per_s": 111533.5699560995,
+        "average_latency": 0.0005718252051673633,
+        "percentile50": 0.000541912,
+        "percentile90": 0.00074247,
+        "percentile99": 0.001136374,
+        "http_errors": 0,
+        "requests_per_s_min": 109834.21099154094,
+        "requests_per_s_max": 116353.30155519699
       }
     },
     {
@@ -2774,15 +2585,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 28100.369360962246,
-        "average_latency": 0.017760950325930905,
-        "percentile50": 0.004640204,
-        "percentile90": 0.00741444,
-        "percentile99": 1.012158707,
-        "http_errors": 0
+        "total_requests_per_s": 107597.5212102965,
+        "average_latency": 0.002302464096464992,
+        "percentile50": 0.001169807,
+        "percentile90": 0.001542059,
+        "percentile99": 0.002172208,
+        "http_errors": 0,
+        "requests_per_s_min": 107140.49933799224,
+        "requests_per_s_max": 109610.467520036
       }
     },
     {
@@ -2790,15 +2604,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 26809.419479389948,
-        "average_latency": 0.01855924789081969,
-        "percentile50": 0.005061246,
-        "percentile90": 0.007773666,
-        "percentile99": 1.011955502,
-        "http_errors": 0
+        "total_requests_per_s": 114035.8418702801,
+        "average_latency": 0.0021734461008634165,
+        "percentile50": 0.001113512,
+        "percentile90": 0.001400927,
+        "percentile99": 0.001923428,
+        "http_errors": 0,
+        "requests_per_s_min": 112933.60958806984,
+        "requests_per_s_max": 124463.61652136777
       }
     },
     {
@@ -2806,15 +2623,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 28367.325019995296,
-        "average_latency": 0.017303026296360314,
-        "percentile50": 0.004788754,
-        "percentile90": 0.007229933,
-        "percentile99": 1.012199601,
-        "http_errors": 0
+        "total_requests_per_s": 126272.18588194934,
+        "average_latency": 0.0019509544798561337,
+        "percentile50": 0.001021142,
+        "percentile90": 0.001179546,
+        "percentile99": 0.00174529,
+        "http_errors": 0,
+        "requests_per_s_min": 124312.53598117988,
+        "requests_per_s_max": 130871.03817664264
       }
     },
     {
@@ -2822,15 +2642,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 30035.70866445119,
-        "average_latency": 0.0021244325083249775,
-        "percentile50": 0.001886907,
-        "percentile90": 0.003465445,
-        "percentile99": 0.005731375,
-        "http_errors": 0
+        "total_requests_per_s": 125948.8978869333,
+        "average_latency": 0.003653108595549282,
+        "percentile50": 0.001038665,
+        "percentile90": 0.001243908,
+        "percentile99": 0.001783193,
+        "http_errors": 0,
+        "requests_per_s_min": 124587.72149655264,
+        "requests_per_s_max": 130140.36164829906
       }
     },
     {
@@ -2838,15 +2661,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 25775.53378971898,
-        "average_latency": 0.002475800966778034,
-        "percentile50": 0.002116609,
-        "percentile90": 0.003922654,
-        "percentile99": 0.008904811,
-        "http_errors": 0
+        "total_requests_per_s": 125420.75917592287,
+        "average_latency": 0.003795003703800761,
+        "percentile50": 0.001047674,
+        "percentile90": 0.001258447,
+        "percentile99": 0.001807021,
+        "http_errors": 0,
+        "requests_per_s_min": 124658.04499923676,
+        "requests_per_s_max": 129470.08800287459
       }
     },
     {
@@ -2854,15 +2680,18 @@
       "runtime": "rust",
       "language": "rust",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 26608.477119881492,
-        "average_latency": 0.0023980461896974,
-        "percentile50": 0.002103575,
-        "percentile90": 0.003708673,
-        "percentile99": 0.006417185,
-        "http_errors": 0
+        "total_requests_per_s": 127179.1878553464,
+        "average_latency": 0.0034016387553891534,
+        "percentile50": 0.001038159,
+        "percentile90": 0.001330144,
+        "percentile99": 0.002486272,
+        "http_errors": 0,
+        "requests_per_s_min": 125602.41010994767,
+        "requests_per_s_max": 132167.48581527505
       }
     },
     {
@@ -2870,15 +2699,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 2065.1104565623236,
-        "average_latency": 0.12460717194578434,
-        "percentile50": 0.101697926,
-        "percentile90": 0.160530181,
-        "percentile99": 0.467780923,
-        "http_errors": 0
+        "total_requests_per_s": 5312.337874294703,
+        "average_latency": 0.012054849947601632,
+        "percentile50": 0.011707783,
+        "percentile90": 0.013267597,
+        "percentile99": 0.024780744,
+        "http_errors": 0,
+        "requests_per_s_min": 5296.149846290189,
+        "requests_per_s_max": 5580.697306145072
       }
     },
     {
@@ -2886,15 +2718,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 2369.194754084896,
-        "average_latency": 0.10843185302518922,
-        "percentile50": 0.095662579,
-        "percentile90": 0.134679958,
-        "percentile99": 0.329214964,
-        "http_errors": 0
+        "total_requests_per_s": 4826.193778899767,
+        "average_latency": 0.013271952829165755,
+        "percentile50": 0.01280283,
+        "percentile90": 0.015017381,
+        "percentile99": 0.027617864,
+        "http_errors": 0,
+        "requests_per_s_min": 4615.795178917187,
+        "requests_per_s_max": 5109.484636187555
       }
     },
     {
@@ -2902,15 +2737,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 256,
+      "workers": null,
+      "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 2588.8444994569654,
-        "average_latency": 0.09924669666683052,
-        "percentile50": 0.086499943,
-        "percentile90": 0.130108625,
-        "percentile99": 0.273101797,
-        "http_errors": 0
+        "total_requests_per_s": 4850.47328530881,
+        "average_latency": 0.013200152175547685,
+        "percentile50": 0.012747208,
+        "percentile90": 0.014452288,
+        "percentile99": 0.030673695,
+        "http_errors": 0,
+        "requests_per_s_min": 4556.578831886089,
+        "requests_per_s_max": 5352.779299471483
       }
     },
     {
@@ -2918,15 +2756,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 1718.8312469907607,
-        "average_latency": 0.30137843553668964,
-        "percentile50": 0.248818848,
-        "percentile90": 0.46759999,
-        "percentile99": 0.954548443,
-        "http_errors": 0
+        "total_requests_per_s": 4679.5621183554085,
+        "average_latency": 0.05487808959489233,
+        "percentile50": 0.053400868,
+        "percentile90": 0.066429965,
+        "percentile99": 0.080516228,
+        "http_errors": 0,
+        "requests_per_s_min": 4469.74481036978,
+        "requests_per_s_max": 4762.410553397119
       }
     },
     {
@@ -2934,15 +2775,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 1374.2328174700217,
-        "average_latency": 0.3793739730576812,
-        "percentile50": 0.277503804,
-        "percentile90": 0.78416714,
-        "percentile99": 1.200324164,
-        "http_errors": 0
+        "total_requests_per_s": 3650.5620223654896,
+        "average_latency": 0.07034184886581993,
+        "percentile50": 0.068383809,
+        "percentile90": 0.083548379,
+        "percentile99": 0.105743772,
+        "http_errors": 0,
+        "requests_per_s_min": 3620.5568822323107,
+        "requests_per_s_max": 3745.1578308298817
       }
     },
     {
@@ -2950,15 +2794,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 512,
+      "workers": null,
+      "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 1901.1446150058987,
-        "average_latency": 0.27188026021257045,
-        "percentile50": 0.225117313,
-        "percentile90": 0.403161793,
-        "percentile99": 1.165381936,
-        "http_errors": 0
+        "total_requests_per_s": 4125.229080923504,
+        "average_latency": 0.06222927721108049,
+        "percentile50": 0.060216512,
+        "percentile90": 0.071928513,
+        "percentile99": 0.088388533,
+        "http_errors": 0,
+        "requests_per_s_min": 4100.353581950973,
+        "requests_per_s_max": 4161.931597328953
       }
     },
     {
@@ -2966,15 +2813,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 2297.671109626632,
-        "average_latency": 0.027874753283272692,
-        "percentile50": 0.021490819,
-        "percentile90": 0.042841594,
-        "percentile99": 0.13170047,
-        "http_errors": 0
+        "total_requests_per_s": 3706.194110856359,
+        "average_latency": 0.1391912848619345,
+        "percentile50": 0.132462618,
+        "percentile90": 0.169445957,
+        "percentile99": 0.193829582,
+        "http_errors": 0,
+        "requests_per_s_min": 3352.89910159429,
+        "requests_per_s_max": 3716.676207667975
       }
     },
     {
@@ -2982,15 +2832,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 64,
+      "workers": null,
+      "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 2085.250996165801,
-        "average_latency": 0.030697442220520933,
-        "percentile50": 0.023173633,
-        "percentile90": 0.04725833,
-        "percentile99": 0.159576309,
-        "http_errors": 0
+        "total_requests_per_s": 3502.1348837845503,
+        "average_latency": 0.14663736775338,
+        "percentile50": 0.14110282,
+        "percentile90": 0.179831854,
+        "percentile99": 0.194718559,
+        "http_errors": 0,
+        "requests_per_s_min": 3333.824541053534,
+        "requests_per_s_max": 3561.771307087102
       }
     },
     {
@@ -2998,111 +2851,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
-      "level": 64,
-      "route": "POST:/user",
-      "metrics": {
-        "total_requests_per_s": 2260.3754878649484,
-        "average_latency": 0.028342552987502448,
-        "percentile50": 0.022600395,
-        "percentile90": 0.040665624,
-        "percentile99": 0.144301041,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
-      "level": 256,
-      "route": "GET:/",
-      "metrics": {
-        "total_requests_per_s": 4703.093768577208,
-        "average_latency": 0.05421601425386217,
-        "percentile50": 0.04413123,
-        "percentile90": 0.074881158,
-        "percentile99": 0.202567568,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
-      "level": 256,
-      "route": "GET:/user/42",
-      "metrics": {
-        "total_requests_per_s": 5148.097293917483,
-        "average_latency": 0.04982732224962024,
-        "percentile50": 0.042284789,
-        "percentile90": 0.078294888,
-        "percentile99": 0.198018545,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
-      "level": 256,
-      "route": "POST:/user",
-      "metrics": {
-        "total_requests_per_s": 6314.629393118013,
-        "average_latency": 0.04058673748570299,
-        "percentile50": 0.032347802,
-        "percentile90": 0.062026906,
-        "percentile99": 0.203638327,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
-      "level": 512,
-      "route": "GET:/",
-      "metrics": {
-        "total_requests_per_s": 6009.754700125778,
-        "average_latency": 0.08542658353894504,
-        "percentile50": 0.064996131,
-        "percentile90": 0.130938472,
-        "percentile99": 0.34038677,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
-      "level": 512,
-      "route": "GET:/user/42",
-      "metrics": {
-        "total_requests_per_s": 6072.61786716644,
-        "average_latency": 0.08450895955629209,
-        "percentile50": 0.071249472,
-        "percentile90": 0.132034796,
-        "percentile99": 0.318265321,
-        "http_errors": 0
-      }
-    },
-    {
-      "id": "flask",
-      "runtime": "python",
-      "language": "python",
-      "isZmdb": false,
+      "workers": null,
       "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 7950.060786425194,
-        "average_latency": 0.06450128964000193,
-        "percentile50": 0.05331189,
-        "percentile90": 0.120615041,
-        "percentile99": 0.181340773,
-        "http_errors": 0
+        "total_requests_per_s": 3653.2457572259823,
+        "average_latency": 0.14111780555697764,
+        "percentile50": 0.133210806,
+        "percentile90": 0.172274571,
+        "percentile99": 0.210234725,
+        "http_errors": 0,
+        "requests_per_s_min": 3526.362811334725,
+        "requests_per_s_max": 3826.1462496889385
       }
     },
     {
@@ -3110,15 +2870,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 5732.818763777173,
-        "average_latency": 0.011159396043760036,
-        "percentile50": 0.008909274,
-        "percentile90": 0.017742635,
-        "percentile99": 0.041127289,
-        "http_errors": 0
+        "total_requests_per_s": 16562.288742336495,
+        "average_latency": 0.003859657004550702,
+        "percentile50": 0.00312234,
+        "percentile90": 0.004024332,
+        "percentile99": 0.019151599,
+        "http_errors": 0,
+        "requests_per_s_min": 16535.036830366196,
+        "requests_per_s_max": 16639.230654034942
       }
     },
     {
@@ -3126,15 +2889,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 5355.8497105146935,
-        "average_latency": 0.011944158117265347,
-        "percentile50": 0.009167299,
-        "percentile90": 0.018176091,
-        "percentile99": 0.053567834,
-        "http_errors": 0
+        "total_requests_per_s": 15761.875641927969,
+        "average_latency": 0.004058172819838206,
+        "percentile50": 0.003184868,
+        "percentile90": 0.004217486,
+        "percentile99": 0.02153958,
+        "http_errors": 0,
+        "requests_per_s_min": 15715.496046201642,
+        "requests_per_s_max": 15775.48639097876
       }
     },
     {
@@ -3142,111 +2908,132 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 5593.228469793833,
-        "average_latency": 0.01141174978173103,
-        "percentile50": 0.008965149,
-        "percentile90": 0.017716156,
-        "percentile99": 0.051519814,
-        "http_errors": 0
+        "total_requests_per_s": 16383.75290998807,
+        "average_latency": 0.0039018922837751008,
+        "percentile50": 0.002988841,
+        "percentile90": 0.00409631,
+        "percentile99": 0.020702307,
+        "http_errors": 0,
+        "requests_per_s_min": 16363.511159687028,
+        "requests_per_s_max": 16439.98622003056
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 256,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 3896.142416448285,
-        "average_latency": 0.06516170201682242,
-        "percentile50": 0.052816882,
-        "percentile90": 0.091526392,
-        "percentile99": 0.228008705,
-        "http_errors": 0
+        "total_requests_per_s": 16575.113457297582,
+        "average_latency": 0.015416120035247952,
+        "percentile50": 0.011269804,
+        "percentile90": 0.022743831,
+        "percentile99": 0.063087571,
+        "http_errors": 0,
+        "requests_per_s_min": 16533.42237029803,
+        "requests_per_s_max": 16634.742022093673
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 256,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 4443.319694108146,
-        "average_latency": 0.05768171840667291,
-        "percentile50": 0.050814758,
-        "percentile90": 0.08045915,
-        "percentile99": 0.211653026,
-        "http_errors": 0
+        "total_requests_per_s": 15908.85429806811,
+        "average_latency": 0.016062016522957186,
+        "percentile50": 0.011903581,
+        "percentile90": 0.022958698,
+        "percentile99": 0.063069754,
+        "http_errors": 0,
+        "requests_per_s_min": 15837.18376274483,
+        "requests_per_s_max": 15921.072140808708
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 256,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 4111.022288312321,
-        "average_latency": 0.062400389142494246,
-        "percentile50": 0.052626265,
-        "percentile90": 0.089532165,
-        "percentile99": 0.227182136,
-        "http_errors": 0
+        "total_requests_per_s": 16464.858120337212,
+        "average_latency": 0.01554875344832531,
+        "percentile50": 0.015080634,
+        "percentile90": 0.018380254,
+        "percentile99": 0.023036534,
+        "http_errors": 0,
+        "requests_per_s_min": 16377.989495535381,
+        "requests_per_s_max": 16495.620866277084
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 512,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 4609.24539087498,
-        "average_latency": 0.11153746923532827,
-        "percentile50": 0.096449765,
-        "percentile90": 0.154174991,
-        "percentile99": 0.343670151,
-        "http_errors": 0
+        "total_requests_per_s": 16339.38546237724,
+        "average_latency": 0.03134791189018106,
+        "percentile50": 0.025424781,
+        "percentile90": 0.036932518,
+        "percentile99": 0.121300406,
+        "http_errors": 0,
+        "requests_per_s_min": 16320.414817052912,
+        "requests_per_s_max": 16363.127615374948
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 512,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 4285.514077989719,
-        "average_latency": 0.11995754810510514,
-        "percentile50": 0.109264298,
-        "percentile90": 0.163343737,
-        "percentile99": 0.339405413,
-        "http_errors": 0
+        "total_requests_per_s": 15752.252305461303,
+        "average_latency": 0.03250849096926364,
+        "percentile50": 0.028629856,
+        "percentile90": 0.0370688,
+        "percentile99": 0.11092089,
+        "http_errors": 0,
+        "requests_per_s_min": 15572.882171826084,
+        "requests_per_s_max": 15762.273002105216
       }
     },
     {
-      "id": "django",
+      "id": "flask",
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 512,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 4915.726687910172,
-        "average_latency": 0.1045798431209362,
-        "percentile50": 0.097884246,
-        "percentile90": 0.149629937,
-        "percentile99": 0.215358557,
-        "http_errors": 0
+        "total_requests_per_s": 16504.84438507242,
+        "average_latency": 0.03104491178258794,
+        "percentile50": 0.027002526,
+        "percentile90": 0.036770161,
+        "percentile99": 0.112362345,
+        "http_errors": 0,
+        "requests_per_s_min": 16358.608316130285,
+        "requests_per_s_max": 16616.978376371455
       }
     },
     {
@@ -3254,15 +3041,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "GET:/",
       "metrics": {
-        "total_requests_per_s": 5416.893230600405,
-        "average_latency": 0.01180772129635135,
-        "percentile50": 0.009719899,
-        "percentile90": 0.019309234,
-        "percentile99": 0.046859877,
-        "http_errors": 0
+        "total_requests_per_s": 15109.067262397513,
+        "average_latency": 0.004231624514422822,
+        "percentile50": 0.003326475,
+        "percentile90": 0.004369686,
+        "percentile99": 0.021265444,
+        "http_errors": 0,
+        "requests_per_s_min": 15059.695277227453,
+        "requests_per_s_max": 15211.322692327634
       }
     },
     {
@@ -3270,15 +3060,18 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "GET:/user/42",
       "metrics": {
-        "total_requests_per_s": 5541.871122937931,
-        "average_latency": 0.011539257670140513,
-        "percentile50": 0.009089354,
-        "percentile90": 0.018567228,
-        "percentile99": 0.031933086,
-        "http_errors": 0
+        "total_requests_per_s": 14894.798931270685,
+        "average_latency": 0.004295710923653557,
+        "percentile50": 0.003543555,
+        "percentile90": 0.004654474,
+        "percentile99": 0.019916536,
+        "http_errors": 0,
+        "requests_per_s_min": 14796.479159471313,
+        "requests_per_s_max": 14975.41530842994
       }
     },
     {
@@ -3286,17 +3079,267 @@
       "runtime": "python",
       "language": "python",
       "isZmdb": false,
+      "workers": null,
       "level": 64,
       "route": "POST:/user",
       "metrics": {
-        "total_requests_per_s": 4930.017525353086,
-        "average_latency": 0.012948047632844182,
-        "percentile50": 0.011502883,
-        "percentile90": 0.020967844,
-        "percentile99": 0.033967231,
-        "http_errors": 0
+        "total_requests_per_s": 15100.727898573847,
+        "average_latency": 0.004236947621650664,
+        "percentile50": 0.003509311,
+        "percentile90": 0.004767848,
+        "percentile99": 0.019200093,
+        "http_errors": 0,
+        "requests_per_s_min": 15075.680514169502,
+        "requests_per_s_max": 15159.04562355654
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 256,
+      "route": "GET:/",
+      "metrics": {
+        "total_requests_per_s": 14976.174528224064,
+        "average_latency": 0.01709683232071784,
+        "percentile50": 0.014216021,
+        "percentile90": 0.019055906,
+        "percentile99": 0.070402138,
+        "http_errors": 0,
+        "requests_per_s_min": 14874.747220513802,
+        "requests_per_s_max": 15129.359918898475
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 256,
+      "route": "GET:/user/42",
+      "metrics": {
+        "total_requests_per_s": 14892.97987404068,
+        "average_latency": 0.017197390042804496,
+        "percentile50": 0.01484605,
+        "percentile90": 0.021157724,
+        "percentile99": 0.070016483,
+        "http_errors": 0,
+        "requests_per_s_min": 14692.891462304131,
+        "requests_per_s_max": 14951.65577498811
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 256,
+      "route": "POST:/user",
+      "metrics": {
+        "total_requests_per_s": 15047.241464636552,
+        "average_latency": 0.01700609570167042,
+        "percentile50": 0.013885857,
+        "percentile90": 0.020678036,
+        "percentile99": 0.06765875,
+        "http_errors": 0,
+        "requests_per_s_min": 14920.550017716338,
+        "requests_per_s_max": 15056.139030349983
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 512,
+      "route": "GET:/",
+      "metrics": {
+        "total_requests_per_s": 15291.483246852862,
+        "average_latency": 0.03340963029672238,
+        "percentile50": 0.024300768,
+        "percentile90": 0.06917559,
+        "percentile99": 0.121506684,
+        "http_errors": 0,
+        "requests_per_s_min": 15257.054988105605,
+        "requests_per_s_max": 15303.046492436752
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 512,
+      "route": "GET:/user/42",
+      "metrics": {
+        "total_requests_per_s": 15200.244018929183,
+        "average_latency": 0.033620955871362206,
+        "percentile50": 0.025748847,
+        "percentile90": 0.061553748,
+        "percentile99": 0.118137985,
+        "http_errors": 0,
+        "requests_per_s_min": 15172.741845833189,
+        "requests_per_s_max": 15204.256572330298
+      }
+    },
+    {
+      "id": "django",
+      "runtime": "python",
+      "language": "python",
+      "isZmdb": false,
+      "workers": null,
+      "level": 512,
+      "route": "POST:/user",
+      "metrics": {
+        "total_requests_per_s": 14775.738246992132,
+        "average_latency": 0.0346806213153955,
+        "percentile50": 0.02861804,
+        "percentile90": 0.046837448,
+        "percentile99": 0.109572355,
+        "http_errors": 0,
+        "requests_per_s_min": 14643.103547538802,
+        "requests_per_s_max": 15157.027712195028
       }
     }
   ],
-  "notRun": []
+  "notRun": [],
+  "interleaved": {
+    "generatedAt": "2026-09-01T21:41:41Z",
+    "machine": "Linux x86_64, 16 cores",
+    "route": "GET /",
+    "concurrency": 256,
+    "duration": "10s",
+    "keepAlive": "off",
+    "passes": 5,
+    "workersPerCandidate": 1,
+    "methodology": "Every pass visits every candidate once and the visiting order rotates between passes, so no candidate holds a fixed position in the thermal ramp. This machine throttles from 5.13 GHz to ~2.8 GHz under sustained load (a 1.85x clock swing), which biases any sequential benchmark toward whatever runs first; the identical code path medianed 76871 and 93647 req/s in two different sequential sessions. Per candidate the result is the MEDIAN over passes and passSpread is max/min - a margin inside the spreads is not a result. The CPU clock is sampled before every measurement and kept in measurements.csv. Each candidate serves from ONE process, because no peer app clusters.",
+    "results": [
+      {
+        "id": "elysia-bun",
+        "label": "elysia",
+        "runtime": "bun",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 64507,
+        "passSpread": 1.1,
+        "passes": 5
+      },
+      {
+        "id": "hono-bun",
+        "label": "hono",
+        "runtime": "bun",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 58508,
+        "passSpread": 1.11,
+        "passes": 5
+      },
+      {
+        "id": "hono-deno",
+        "label": "hono",
+        "runtime": "deno",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 52413,
+        "passSpread": 1.13,
+        "passes": 5
+      },
+      {
+        "id": "zmdb-bun",
+        "label": "@zmdb/web",
+        "runtime": "bun",
+        "isZmdb": true,
+        "isControl": false,
+        "requestsPerSecond": 51248,
+        "passSpread": 1.14,
+        "passes": 5
+      },
+      {
+        "id": "zmdb-deno",
+        "label": "@zmdb/web",
+        "runtime": "deno",
+        "isZmdb": true,
+        "isControl": false,
+        "requestsPerSecond": 44230,
+        "passSpread": 1.25,
+        "passes": 5
+      },
+      {
+        "id": "oak-deno",
+        "label": "oak",
+        "runtime": "deno",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 38380,
+        "passSpread": 1.04,
+        "passes": 5
+      },
+      {
+        "id": "zmdb-node",
+        "label": "@zmdb/web",
+        "runtime": "node",
+        "isZmdb": true,
+        "isControl": false,
+        "requestsPerSecond": 29698,
+        "passSpread": 1.03,
+        "passes": 5
+      },
+      {
+        "id": "zmdb-node-handwritten",
+        "label": "@zmdb/web",
+        "runtime": "node",
+        "isZmdb": true,
+        "isControl": true,
+        "requestsPerSecond": 27930,
+        "passSpread": 1.08,
+        "passes": 5
+      },
+      {
+        "id": "fastify",
+        "label": "fastify",
+        "runtime": "node",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 25441,
+        "passSpread": 1.08,
+        "passes": 5
+      },
+      {
+        "id": "hono-node",
+        "label": "hono",
+        "runtime": "node",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 22385,
+        "passSpread": 1.07,
+        "passes": 5
+      },
+      {
+        "id": "koa",
+        "label": "koa",
+        "runtime": "node",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 20099,
+        "passSpread": 1.1,
+        "passes": 5
+      },
+      {
+        "id": "express",
+        "label": "express",
+        "runtime": "node",
+        "isZmdb": false,
+        "isControl": false,
+        "requestsPerSecond": 16440,
+        "passSpread": 1.09,
+        "passes": 5
+      }
+    ]
+  }
 }

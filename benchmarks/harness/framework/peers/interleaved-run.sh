@@ -198,4 +198,12 @@ jq -n \
      results: $entries
    }' > "$RESULTS"
 
-echo "DONE — $RESULTS (medians); $CSV (every measurement, with the clock it was taken at)"
+# Mirror into the dashboard data dir, the same way run.sh and peers-run.sh do, so
+# the docs build picks this up instead of it living only in the harness directory.
+# The CSV goes too: the medians table is a summary, and the per-measurement clock
+# is the evidence that the rotation actually did its job.
+cp "$RESULTS" "$ROOT/benchmarks/site/$(basename "$RESULTS")" 2>/dev/null || true
+cp "$CSV" "$HERE/interleaved-measurements.csv" 2>/dev/null || true
+cp "$CSV" "$ROOT/benchmarks/site/interleaved-measurements.csv" 2>/dev/null || true
+
+echo "DONE — $RESULTS (medians); $CSV (every measurement, with the clock it was taken at); mirrored to benchmarks/site/"

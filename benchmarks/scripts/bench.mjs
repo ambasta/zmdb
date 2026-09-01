@@ -324,6 +324,63 @@ const orm = {
 // framework — the-benchmarker/web-frameworks
 // ---------------------------------------------------------------------------
 
+// The runtimes the contract app is served on besides node. node is not in the
+// list because it is the default and its results file is the canonical one every
+// other tool reads; these two are the extras that get their own file.
+const FRAMEWORK_RUNTIMES = ['bun', 'deno'];
+
+// The interleaved runner names candidates `<framework>-<runtime>`, dropping the
+// runtime for the node-only peers, and suffixes our control variant with
+// `-handwritten`. Splitting that back apart here keeps the naming convention in
+// one place instead of hard-coding a twelve-entry lookup table that goes stale the
+// first time a candidate is added.
+function interleavedCandidate(id) {
+  const isControl = id.endsWith('-handwritten');
+  const parts = (isControl ? id.slice(0, -'-handwritten'.length) : id).split('-');
+  const runtime = ['node', 'bun', 'deno'].includes(parts.at(-1)) ? parts.pop() : 'node';
+  const name = parts.join('-');
+  const isZmdb = name === 'zmdb';
+  return {
+    id,
+    label: isZmdb ? '@zmdb/web' : name,
+    runtime,
+    isZmdb,
+    // The hand-written node:http app from git HEAD. It is our own A/B control
+    // rather than a competitor, and the dashboard marks it as one so nobody reads
+    // it as a peer we happen to beat.
+    isControl,
+  };
+}
+
+// The order-rotated, per-core head-to-head. Kept beside the level/route table
+// rather than merged into it, because it is a different experiment: one route, one
+// concurrency, every candidate on one process, and a median over passes instead of
+// a single block per framework. Absent file means absent section — the runner is
+// deliberately not part of `yarn bench:framework`, since it takes far longer.
+function interleavedHeadToHead() {
+  const file = join(SITE, 'interleaved-results.json');
+  if (!existsSync(file)) return null;
+  const data = readJson(file);
+  if (!Array.isArray(data.results) || data.results.length === 0) return null;
+  return {
+    generatedAt: data.generatedAt ?? null,
+    machine: data.machine ?? null,
+    route: data.route ?? null,
+    concurrency: data.concurrency ?? null,
+    duration: data.duration ?? null,
+    keepAlive: data.keepAlive ?? null,
+    passes: data.passes ?? null,
+    workersPerCandidate: data.workersPerCandidate ?? null,
+    methodology: data.methodology ?? null,
+    results: data.results.map(r => ({
+      ...interleavedCandidate(r.candidate),
+      requestsPerSecond: r.medianRequestsPerSec,
+      passSpread: r.passSpread ?? null,
+      passes: r.passes ?? null,
+    })),
+  };
+}
+
 const framework = {
   preflight() {
     const missing = [];
@@ -337,7 +394,16 @@ const framework = {
     // run.sh builds @zmdb/web, verifies the shared contract, then drives oha at
     // the upstream concurrency levels. peers-run.sh does the same for every peer
     // framework on the same box, which is the only way the comparison is fair.
-    run('bash', [join(BENCH, 'harness', 'framework', 'run.sh')], BENCH);
+    // Then the same app on the other two runtimes: same bundle, same contract, so
+    // the runtime is the only thing that differs between those rows. These are
+    // best-effort, because bun and deno are not required to develop this
+    // repository — but a failure is announced, and it leaves no results file, so
+    // the runtime is absent from the dashboard rather than present with a
+    // placeholder.
+    for (const runtime of FRAMEWORK_RUNTIMES) {
+      const ok = runSoft('bash', [join(BENCH, 'harness', 'framework', 'run.sh')], BENCH, { RUNTIME: runtime });
+      if (!ok) process.stdout.write(`  ! RUNTIME=${runtime} run failed — no ${runtime} row will be published\n`);
+    }
     const peers = join(BENCH, 'harness', 'framework', 'peers', 'peers-run.sh');
     if (existsSync(peers)) run('bash', [peers], BENCH);
   },
@@ -354,25 +420,61 @@ const framework = {
     const theirs = existsSync(peers) ? readJson(peers) : { peers: [], metrics: [] };
 
     // Both harnesses emit one flat {level, route, label, value} record per oha
-    // measurement. Pivot to one row per (framework, level, route) so the dashboard
-    // can rank within a level and route rather than averaging across them —
-    // averaging hides the frameworks that fall over as concurrency climbs, which
-    // is the interesting part, and blends a cheap route into an expensive one.
+    // measurement. Pivot to one row per (framework, runtime, level, route) so the
+    // dashboard can rank within a level and route rather than averaging across
+    // them — averaging hides the frameworks that fall over as concurrency climbs,
+    // which is the interesting part, and blends a cheap route into an expensive
+    // one. The runtime belongs in the key because the same framework appears on
+    // more than one of them — ours on three, hono on three — and without it those
+    // rows overwrite each other.
     const rows = new Map();
-    const pivot = (id, runtime, language, isZmdb, metrics) => {
+    const pivot = (id, runtime, language, isZmdb, workers, metrics) => {
       for (const m of metrics) {
-        const key = `${id}\u0000${m.level}\u0000${m.route}`;
-        const row = rows.get(key) ?? { id, runtime, language, isZmdb, level: m.level, route: m.route, metrics: {} };
+        const key = `${id}\u0000${runtime}\u0000${m.level}\u0000${m.route}`;
+        const row = rows.get(key) ?? {
+          id,
+          runtime,
+          language,
+          isZmdb,
+          workers,
+          level: m.level,
+          route: m.route,
+          metrics: {},
+        };
         row.metrics[m.label] = m.value;
         rows.set(key, row);
       }
     };
 
-    pivot('@zmdb/web', 'node', 'typescript', true, mine.metrics);
+    // Our app, once per runtime it was actually measured on. run.sh keeps node in
+    // framework-results.json (the file the rest of the tooling reads) and puts each
+    // other runtime in its own file, so one runtime's run cannot overwrite
+    // another's. A runtime that was never run has no file and therefore no row —
+    // not a zero, and not a node number wearing somebody else's label.
+    const runtimesMeasured = [];
+    for (const runtime of ['node', ...FRAMEWORK_RUNTIMES]) {
+      const file = runtime === 'node' ? self : join(SITE, `framework-results-${runtime}.json`);
+      if (!existsSync(file)) continue;
+      const data = runtime === 'node' ? mine : readJson(file);
+      if (!Array.isArray(data.metrics) || data.metrics.length === 0) continue;
+      const workers = data.concurrencyModel?.workers ?? null;
+      runtimesMeasured.push({
+        runtime,
+        version: data.runtimeVersion ?? null,
+        workers,
+        measuredAt: data.generatedAt ?? null,
+      });
+      pivot(`@zmdb/web (${runtime})`, runtime, 'typescript', true, workers, data.metrics);
+    }
+
     const byId = new Map((theirs.peers ?? []).map(p => [p.id, p]));
     for (const m of theirs.metrics ?? []) {
       const peer = byId.get(m.id);
-      pivot(m.id, m.runtime ?? peer?.runtime ?? 'unknown', m.language ?? peer?.language ?? 'unknown', false, [m]);
+      // Worker count stays null for peers. Every peer app in this suite serves from
+      // one process, but that is an inference about somebody else's code and the
+      // column would be stating it on our authority.
+      const runtime = m.runtime ?? peer?.runtime ?? 'unknown';
+      pivot(m.id, runtime, m.language ?? peer?.language ?? 'unknown', false, null, [m]);
     }
 
     // A peer that failed to boot or failed the contract check has no metrics, so
@@ -396,21 +498,51 @@ const framework = {
       peersMeasuredAt: theirs.generatedAt ?? null,
       levels: [...new Set(all.map(r => r.level))].toSorted((a, b) => a - b),
       routes: [...new Set(all.map(r => r.route))],
+      // Which runtimes our own app was measured on, with the version that served
+      // it. The table's runtime column is not enough on its own: a reader needs to
+      // know that a runtime missing from the table was never run, rather than run
+      // and lost.
+      runtimesMeasured,
       // Upstream's own published table, on upstream's hardware. Kept in a separate
       // field so it can never be ranked against the same-machine numbers.
       upstreamReference: mine.upstreamReference ?? null,
       rows: all,
       notRun,
+      interleaved: interleavedHeadToHead(),
     };
     writeJson(join(SITE, 'framework.json'), out);
-    return { written: true, rows: all.length, frameworks: measured.size, notRun: notRun.length };
+    return {
+      written: true,
+      rows: all.length,
+      frameworks: measured.size,
+      runtimes: runtimesMeasured.map(r => r.runtime).join('+'),
+      notRun: notRun.length,
+      interleaved: out.interleaved === null ? 0 : out.interleaved.results.length,
+    };
   },
 };
 
 const SUITE_IMPL = { validation, orm, framework };
 
-function run(command, args, cwd) {
-  process.stdout.write(`  $ ${command} ${args.join(' ')}\n`);
+function run(command, args, cwd, env = {}) {
+  if (spawn(command, args, cwd, env) !== 0) {
+    throw new Error(`${command} exited nonzero or on a signal`);
+  }
+}
+
+// Same thing, but a failure is reported and the caller decides. Used for the
+// optional runtimes: bun and deno are not needed to develop this repository, so a
+// missing one must not fail the whole suite — but it must be visible, and it must
+// leave no results file behind for the dashboard to pick up.
+function runSoft(command, args, cwd, env = {}) {
+  return spawn(command, args, cwd, env) === 0;
+}
+
+function spawn(command, args, cwd, env) {
+  const prefix = Object.entries(env)
+    .map(([k, v]) => `${k}=${v} `)
+    .join('');
+  process.stdout.write(`  $ ${prefix}${command} ${args.join(' ')}\n`);
   const result = spawnSync(command, args, {
     cwd,
     stdio: 'inherit',
@@ -418,11 +550,9 @@ function run(command, args, cwd) {
     // `packageManager`, and corepack refuses to run a different package manager
     // anywhere under that root. The submodules are not part of this workspace, so
     // relaxing strict mode for them is correct rather than a workaround.
-    env: { ...process.env, COREPACK_ENABLE_STRICT: '0' },
+    env: { ...process.env, COREPACK_ENABLE_STRICT: '0', ...env },
   });
-  if (result.status !== 0) {
-    throw new Error(`${command} exited ${result.status ?? 'on a signal'}`);
-  }
+  return result.status ?? 1;
 }
 
 function main() {
