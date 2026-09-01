@@ -99,12 +99,12 @@ See [LLM Function Calling](./llm-function-calling.html).
 
 ## `lenientParse` survives fenced JSON from a model
 
-```ts
+````ts
 import { lenientParse } from '@zmdb/ai';
 import { assert } from '@zmdb/aot-validator/utilities';
 
 lenientParse('```json\n{"email":"a@b.c"}\n```', v => assert<User>(v));
-```
+````
 
 Strips a leading or trailing code fence before parsing, which is what a model wraps JSON in when you asked for JSON. Prose before the fence is not stripped. See
 [Structured Output](./llm-structured-output.html).
