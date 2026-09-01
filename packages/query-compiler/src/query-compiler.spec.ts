@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray, OP_MAP } from './index.ts';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -22,9 +22,71 @@ describe('postgres SELECT compilation', () => {
     expect(q.parameters).toEqual(['admin', true]);
   });
 
+  it('compiles whereIn, andWhereIn, and orWhereIn', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .whereIn('status', ['pending', 'shipped'])
+      .orWhereIn('userId', [1, 2])
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "orders" WHERE "status" IN ($1, $2) OR "userId" IN ($3, $4)');
+    expect(q.parameters).toEqual(['pending', 'shipped', 1, 2]);
+  });
+
+  it('compiles whereNotIn, andWhereNotIn, and orWhereNotIn', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('active', '=', true)
+      .andWhereNotIn('role', ['banned', 'guest'])
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "active" = $1 AND "role" NOT IN ($2, $3)');
+    expect(q.parameters).toEqual([true, 'banned', 'guest']);
+  });
+
+  it('compiles whereNotIn filtering null and undefined values to prevent three-valued logic traps', () => {
+    const q1 = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .whereNotIn('role', ['banned', null, undefined, 'guest'])
+      .compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
+    expect(q1.parameters).toEqual(['banned', 'guest']);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').whereNotIn('role', [null, undefined]).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(q2.parameters).toEqual([]);
+  });
+
+  it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
+    const qIn = createQueryCompiler('postgres').selectFrom('users').whereIn('id', []).compile();
+    expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
+    expect(qIn.parameters).toEqual([]);
+
+    const qNotIn = createQueryCompiler('postgres').selectFrom('users').whereNotIn('id', []).compile();
+    expect(qNotIn.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(qNotIn.parameters).toEqual([]);
+  });
+
   it('compile() is pure (twice → equal)', () => {
     const b = createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1);
     expect(b.compile()).toEqual(b.compile());
+  });
+});
+
+describe('utility functions', () => {
+  it('sanitizeKeys removes null/undefined and deduplicates while preserving order', () => {
+    const raw = [1, 2, null, 2, undefined, 3, 1, null, 4];
+    expect(sanitizeKeys(raw)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('chunkArray splits an array into parameter-safe chunks', () => {
+    const items = [1, 2, 3, 4, 5];
+    expect(chunkArray(items, 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+
+  it('OP_MAP is a clean, readonly map protected against prototype lookup', () => {
+    expect(OP_MAP.constructor).toBeUndefined();
+    expect(Object.isFrozen(OP_MAP)).toBe(true);
+    expect(OP_MAP['in']).toBe('IN');
+    expect(OP_MAP['IN']).toBeUndefined();
   });
 });
 
@@ -280,5 +342,133 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
         .onConflict('id')
         .doUpdate([]);
     }).toThrow('Empty updateFields array is not allowed in doUpdate()');
+  });
+});
+
+describe('array parameter IN expansion', () => {
+  it('expands array parameters into parameterized IN clauses for postgres with sequential placeholders', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('id', 'in', [10, 20, 30])
+      .andWhere('status', '=', 'active')
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN ($1, $2, $3) AND "status" = $4');
+    expect(q.parameters).toEqual([10, 20, 30, 'active']);
+  });
+
+  it('correctly renumbers placeholders when an IN list sits between other predicates in postgres', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .where('tenantId', '=', 100)
+      .whereIn('status', ['pending', 'shipped'])
+      .andWhere('total', '>', 500)
+      .compile();
+    expect(q.text).toBe('SELECT * FROM "orders" WHERE "tenantId" = $1 AND "status" IN ($2, $3) AND "total" > $4');
+    expect(q.parameters).toEqual([100, 'pending', 'shipped', 500]);
+  });
+
+  it('correctly renumbers placeholders when multiple IN lists sit between standard predicates', () => {
+    const q = createQueryCompiler('postgres')
+      .selectFrom('orders')
+      .where('orgId', '=', 1)
+      .whereIn('status', ['a', 'b'])
+      .where('category', '=', 'elec')
+      .whereNotIn('tag', ['x', 'y', 'z'])
+      .where('active', '=', true)
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "orders" WHERE "orgId" = $1 AND "status" IN ($2, $3) AND "category" = $4 AND "tag" NOT IN ($5, $6, $7) AND "active" = $8',
+    );
+    expect(q.parameters).toEqual([1, 'a', 'b', 'elec', 'x', 'y', 'z', true]);
+  });
+
+  it('expands array parameters into parameterized IN clauses for mysql', () => {
+    const q = createQueryCompiler('mysql').selectFrom('users').whereIn('id', [10, 20]).compile();
+    expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
+    expect(q.parameters).toEqual([10, 20]);
+  });
+
+  it('does not silently reinterpret = or != with array parameters as IN or NOT IN', () => {
+    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', '=', [10, 20]).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "id" = $1');
+    expect(q1.parameters).toEqual([[10, 20]]);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', '!=', [10, 20]).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE "id" != $1');
+    expect(q2.parameters).toEqual([[10, 20]]);
+  });
+
+  it('expands array parameters into parameterized IN clauses for sqlite', () => {
+    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN (?, ?, ?)');
+    expect(q.parameters).toEqual([1, 2, 3]);
+  });
+
+  it('handles NOT IN / nin array expansion', () => {
+    const q = createQueryCompiler('postgres').selectFrom('users').where('role', 'nin', ['admin', 'super']).compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
+    expect(q.parameters).toEqual(['admin', 'super']);
+  });
+
+  it('handles empty array parameters cleanly (false / true)', () => {
+    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', 'in', []).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
+    expect(q1.parameters).toEqual([]);
+
+    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', 'nin', []).compile();
+    expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
+    expect(q2.parameters).toEqual([]);
+  });
+});
+
+describe('Operator normalization & raw operator fall-through', () => {
+  it('validates normalized canonical operators and produces expected SQL', () => {
+    const qb = createQueryCompiler('postgres');
+    const ops: [string, string][] = [
+      ['=', '='],
+      ['!=', '!='],
+      ['<', '<'],
+      ['<=', '<='],
+      ['>', '>'],
+      ['>=', '>='],
+      ['like', 'LIKE'],
+      ['LIKE', 'LIKE'],
+      ['ilike', 'ILIKE'],
+      ['ILIKE', 'ILIKE'],
+      ['in', 'IN'],
+      ['IN', 'IN'],
+      ['not in', 'NOT IN'],
+      ['NOT IN', 'NOT IN'],
+      ['nin', 'NOT IN'],
+      ['NIN', 'NOT IN'],
+    ];
+
+    for (const [op, expectedSqlOp] of ops) {
+      if (expectedSqlOp === 'IN' || expectedSqlOp === 'NOT IN') {
+        const q = qb.selectFrom('users').where('col', op, [1, 2]).compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} ($1, $2)`);
+      } else {
+        const q = qb.selectFrom('users').where('col', op, 'val').compile();
+        expect(q.text).toBe(`SELECT * FROM "users" WHERE "col" ${expectedSqlOp} $1`);
+      }
+    }
+  });
+
+  it('allows unmapped raw Postgres/SQL operators to fall through as-written', () => {
+    const qb = createQueryCompiler('postgres');
+    const q1 = qb.selectFrom('users').where('tags', '@>', ['a', 'b']).compile();
+    expect(q1.text).toBe('SELECT * FROM "users" WHERE "tags" @> $1');
+    expect(q1.parameters).toEqual([['a', 'b']]);
+
+    const q2 = qb.selectFrom('events').where('duration', '&&', '[2020-01-01,2020-01-02]').compile();
+    expect(q2.text).toBe('SELECT * FROM "events" WHERE "duration" && $1');
+    expect(q2.parameters).toEqual(['[2020-01-01,2020-01-02]']);
+  });
+
+  it('is safe against prototype property lookups', () => {
+    const qb = createQueryCompiler('postgres');
+    const q = qb.selectFrom('users').where('col', 'toString', 'val').compile();
+    expect(q.text).toBe('SELECT * FROM "users" WHERE "col" toString $1');
+    expect(q.parameters).toEqual(['val']);
   });
 });

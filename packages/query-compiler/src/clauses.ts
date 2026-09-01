@@ -46,6 +46,25 @@ const JOIN_KEYWORD: Record<JoinKind, string> = {
   right: 'RIGHT JOIN',
 };
 
+// Object.create(null) prevents prototype inheritance so an operator named 'constructor' cannot resolve through Object.prototype.
+export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
+  Object.assign(Object.create(null), {
+    '=': '=',
+    '!=': '!=',
+    '<': '<',
+    '<=': '<=',
+    '>': '>',
+    '>=': '>=',
+    like: 'LIKE',
+    ilike: 'ILIKE',
+    in: 'IN',
+    'not in': 'NOT IN',
+    nin: 'NOT IN',
+    exists: 'EXISTS',
+    'not exists': 'NOT EXISTS',
+  }),
+);
+
 /** Anything with a `compile()` — a builder from this package, or a caller's own. */
 export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
   return (
@@ -57,21 +76,14 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 }
 
 /**
- * Normalize supported SQL operators to uppercase. Everything else is emitted as
- * written, which is what makes raw operators (`@>`, `&&`, `BETWEEN`) work.
+ * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
  */
 export function sqlOperator(op: string): string {
-  const lower = op.toLowerCase();
-  if (lower === 'like') return 'LIKE';
-  if (lower === 'ilike') return 'ILIKE';
-  if (lower === 'in') return 'IN';
-  if (lower === 'nin' || lower === 'not in') return 'NOT IN';
-  if (lower === 'is null' || lower === 'is not null') return op.toUpperCase();
-  if (lower === 'exists' || lower === 'not exists') return op.toUpperCase();
-  return op;
+  const opNorm = op.toLowerCase().trim();
+  return Object.prototype.hasOwnProperty.call(OP_MAP, opNorm) ? OP_MAP[opNorm]! : op;
 }
 
-/** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery, or `col IN ($1, $2)` when IN array expansion is requested. */
+/** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
   const sqlOp = sqlOperator(p.op);
 
@@ -90,22 +102,20 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
     const isNotIn = sqlOp === 'NOT IN';
-    const valuesArray = Array.isArray(p.value) ? (p.value as unknown[]) : [p.value];
-
-    if (valuesArray.length === 0) {
+    let arr = Array.isArray(p.value) ? p.value : [p.value];
+    if (isNotIn) {
+      arr = arr.filter(item => item !== null && item !== undefined);
+    }
+    if (arr.length === 0) {
       return isNotIn ? '1 = 1' : '1 = 0';
     }
-
-    const placeholders: string[] = [];
-    for (const val of valuesArray) {
-      params.push(val);
-      placeholders.push(formatPlaceholder(dialect, params.length));
-    }
-    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders.join(', ')})`;
-  }
-
-  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
-    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+    const placeholders = arr
+      .map(item => {
+        params.push(item);
+        return formatPlaceholder(dialect, params.length);
+      })
+      .join(', ');
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${placeholders})`;
   }
 
   params.push(p.value);

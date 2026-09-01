@@ -76,8 +76,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     ];
 
     // Call attachRelations via private access cast
-    await (
-      repo as unknown as { attachRelations(p: Record<string, unknown>[], r: string[]): Promise<void> }
+    const populated = await (
+      repo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
     ).attachRelations(parents, ['orders']);
 
     // Check that the executed query received ONLY [1, 2], not null or undefined
@@ -85,10 +87,10 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     expect(executedQueries[0]).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
 
     // Verify parents mapped correctly
-    expect((parents[0] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
-    expect((parents[1] as unknown as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[2] as unknown as { orders: unknown[] }).orders).toEqual([]);
-    expect((parents[3] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
+    expect((populated[0] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 101, userId: 1, total: 50 }]);
+    expect((populated[1] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((populated[2] as unknown as { orders: unknown[] }).orders).toEqual([]);
+    expect((populated[3] as unknown as { orders: unknown[] }).orders).toEqual([{ id: 102, userId: 2, total: 75 }]);
   });
 
   it('deduplicates duplicate key values before query construction', async () => {
@@ -124,9 +126,9 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     ).attachRelations(parents, ['orders']);
 
     expect(executedQueries.length).toBe(1);
-    const q0 = executedQueries[0];
-    expect(q0?.text).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
-    expect(q0?.params).toEqual([10, 20]);
+    const executedQuery = executedQueries[0];
+    expect(executedQuery?.text).toBe('SELECT * FROM "orders" WHERE "userId" IN ($1, $2)');
+    expect(executedQuery?.params).toEqual([10, 20]);
   });
 
   it('issues set-based IN queries instead of OR condition chains during relational population', async () => {
@@ -155,6 +157,57 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
 
     expect(executedQueries[0]).not.toContain('OR');
     expect(executedQueries[0]).toContain('WHERE "userId" IN ($1, $2, $3)');
+  });
+
+  it('executes chunk queries sequentially rather than concurrently in attachRelations', async () => {
+    const queryExecutionLog: { query: string; time: number }[] = [];
+    let queryCount = 0;
+
+    const mockDriver: Driver = {
+      async execute(q) {
+        queryCount++;
+        const currentQuery = queryCount;
+        queryExecutionLog.push({ query: `start_${currentQuery}`, time: Date.now() });
+        // Simulate slight delay to detect concurrent vs sequential execution
+        await new Promise(resolve => setTimeout(resolve, 10));
+        queryExecutionLog.push({ query: `end_${currentQuery}`, time: Date.now() });
+
+        if (q.text.includes('orders')) {
+          return [
+            { id: 101, userId: 1, total: 50 },
+            { id: 102, userId: 2, total: 75 },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const repo = defineRepository(UsersSchema, mockDriver, {
+      relations: {
+        orders: {
+          cardinality: 'one-to-many',
+          childTable: 'orders',
+          childFk: 'userId',
+          entity: OrdersSchema,
+        },
+      },
+    });
+
+    // Create 5 parent IDs
+    const parents = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `User ${i + 1}` }));
+
+    // Mock DIALECT_PARAM_LIMITS temporarily or test attachRelations
+    await (
+      repo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
+    ).attachRelations(parents, ['orders']);
+
+    // Check log sequence: start_1 -> end_1 -> start_2 ... (strictly sequential, never concurrent start_1 -> start_2 -> end_1)
+    for (let i = 0; i < queryExecutionLog.length; i += 2) {
+      expect(queryExecutionLog[i]?.query).toBe(`start_${i / 2 + 1}`);
+      expect(queryExecutionLog[i + 1]?.query).toBe(`end_${i / 2 + 1}`);
+    }
   });
 
   it('splits requests exceeding parameter thresholds into chunked queries and aggregates seamlessly (real SQLite)', async () => {
@@ -195,14 +248,16 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
 
     // Perform relation loading across all 2,500 parent records (SQLite param limit is 999)
     const mutableParents = allUsers.map(u => ({ ...u }));
-    await (
-      userRepo as unknown as { attachRelations(p: Record<string, unknown>[], r: string[]): Promise<void> }
+    const populated = await (
+      userRepo as unknown as {
+        attachRelations(p: Record<string, unknown>[], r: string[]): Promise<Record<string, unknown>[]>;
+      }
     ).attachRelations(mutableParents, ['orders']);
 
     // Verify all 2,500 parents received their corresponding orders seamlessly
-    expect(mutableParents.length).toBe(totalUsers);
+    expect(populated.length).toBe(totalUsers);
     for (let i = 0; i < totalUsers; i++) {
-      const parent = mutableParents[i] as unknown as {
+      const parent = populated[i] as unknown as {
         id: number;
         orders: { id: number; userId: number; total: number }[];
       };

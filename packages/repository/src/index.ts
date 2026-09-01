@@ -1,5 +1,5 @@
 import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
@@ -132,24 +132,6 @@ export interface UpsertOptions {
   readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
 }
 
-const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
-  sqlite: 30000,
-  postgres: 60000,
-  mysql: 60000,
-};
-
-function sanitizeKeys(keys: readonly unknown[]): unknown[] {
-  const result: unknown[] = [];
-  const seen = new Set<unknown>();
-  for (const k of keys) {
-    if (k !== null && k !== undefined && !seen.has(k)) {
-      seen.add(k);
-      result.push(k);
-    }
-  }
-  return result;
-}
-
 /**
  * The base repository.
  *
@@ -276,57 +258,75 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return populated;
   }
 
+  /**
+   * The children of every parent in one query — using whereIn and parameter chunking — grouped by FK value.
+   * A parent with no children is simply absent from the map.
+   */
+  private async childrenByParent(
+    childTable: string,
+    childFk: string,
+    parentIds: readonly unknown[],
+  ): Promise<Map<unknown, Record<string, unknown>[]>> {
+    const ids = sanitizeKeys(parentIds);
+    if (ids.length === 0) return new Map();
+    // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
+    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
+    const chunks = chunkArray(ids, limit);
+    const children: Record<string, unknown>[] = [];
+    for (const chunk of chunks) {
+      const res = await this.driver.execute(this.qb.selectFrom(childTable).whereIn(childFk, chunk).compile());
+      children.push(...(res as Record<string, unknown>[]));
+    }
+    const byParent = new Map<unknown, Record<string, unknown>[]>();
+    for (const c of children) {
+      const key = c[childFk];
+      const list = byParent.get(key) ?? [];
+      list.push({ ...c });
+      byParent.set(key, list);
+    }
+    return byParent;
+  }
+
   /** Batch-load and attach named relations to parent rows without mutating inputs. */
   private async attachRelations<T extends Record<string, unknown>>(
     parents: readonly T[],
     names: readonly string[],
   ): Promise<readonly T[]> {
     if (parents.length === 0) return parents;
-    const parentRows = parents as Record<string, unknown>[];
     // boundary: static side of subclass holds relations definition map; constructor is typed Function.
     const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
-    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 30000;
+    let current: Record<string, unknown>[] = parents.map(p => ({ ...(p as Record<string, unknown>) }));
 
     for (const name of names) {
       const def = relations[name];
       if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
       const meta = def.rel ?? def.meta;
-      const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
       const childTable = def.childTable ?? def.target ?? meta?.target ?? '';
       const childFk = def.childFk ?? def.fk ?? def.mappedBy ?? meta?.fk ?? meta?.mappedBy ?? '';
       if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
+      const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
       const cardinality = def.cardinality ?? meta?.cardinality;
-      const rawIds = parentRows.map(p => p[parentKey]);
-      const ids = sanitizeKeys(rawIds);
       const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
-      if (ids.length === 0) {
-        for (const p of parentRows) {
-          p[name] = toMany ? [] : null;
+      const byParent = await this.childrenByParent(
+        childTable,
+        childFk,
+        current.map(p => p[parentKey]),
+      );
+      current = current.map(p => {
+        const pKey = p[parentKey];
+        if (pKey === null || pKey === undefined) {
+          return { ...p, [name]: toMany ? [] : null };
         }
-        continue;
-      }
-      const children: Record<string, unknown>[] = [];
-      for (let i = 0; i < ids.length; i += limit) {
-        const chunk = ids.slice(i, i + limit);
-        const cb = this.qb.selectFrom(childTable).where(childFk, 'in', chunk);
-        const chunkResults = await this.rows<Record<string, unknown>>(cb.compile());
-        children.push(...chunkResults);
-      }
-      const byParent = new Map<unknown, Record<string, unknown>[]>();
-      for (const c of children) {
-        const key = c[childFk];
-        const list = byParent.get(key) ?? [];
-        list.push(c);
-        byParent.set(key, list);
-      }
-      for (const p of parentRows) {
-        const list = byParent.get(p[parentKey]) ?? [];
-        p[name] = toMany ? list : (list[0] ?? null);
-      }
+        const list = byParent.get(pKey) ?? [];
+        return {
+          ...p,
+          [name]: toMany ? list : (list[0] ?? null),
+        };
+      });
     }
 
     // boundary: populated rows are constructed by copying parent records and attaching relation properties matching Populated<S, R, K>.
-    return parents;
+    return current as unknown as readonly T[];
   }
 
   async findOne<K extends keyof R & string>(
@@ -689,37 +689,21 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     childFk?: string,
     parentKey = 'id',
   ): Promise<readonly Record<string, unknown>[]> {
-    if (childTable && childFk) {
-      const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
-      if (fetched.length === 0) return fetched;
-      const rawIds = fetched.map(p => p[parentKey]);
-      const ids = sanitizeKeys(rawIds);
-      if (ids.length === 0) {
-        return fetched.map(p => ({ ...p, [relationName]: [] }));
-      }
-      const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 30000;
-      const children: Record<string, unknown>[] = [];
-      for (let i = 0; i < ids.length; i += limit) {
-        const chunk = ids.slice(i, i + limit);
-        const cb = this.qb.selectFrom(childTable).where(childFk, 'in', chunk);
-        const chunkResults = await this.rows<Record<string, unknown>>(cb.compile());
-        children.push(...chunkResults);
-      }
-      const byParent = new Map<unknown, Record<string, unknown>[]>();
-      for (const c of children) {
-        const key = c[childFk];
-        const list = byParent.get(key) ?? [];
-        list.push({ ...c });
-        byParent.set(key, list);
-      }
-      return fetched.map(p => ({
-        ...p,
-        [relationName]: byParent.get(p[parentKey]) ?? [],
-      }));
-    }
     const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
     if (fetched.length === 0) return fetched;
-    return this.attachRelations(fetched, [relationName]);
+    // Without an explicit child table/FK the relation has to be looked up, which
+    // is what attachRelations does; with one, the caller has already told us
+    // everything the batched fetch needs.
+    if (!childTable || !childFk) return this.attachRelations(fetched, [relationName]);
+    const byParent = await this.childrenByParent(
+      childTable,
+      childFk,
+      fetched.map(p => p[parentKey]),
+    );
+    return fetched.map(p => ({
+      ...p,
+      [relationName]: byParent.get(p[parentKey]) ?? [],
+    }));
   }
 
   // #207 — typed create/update. Signatures are the derived DTOs; runtime reuses
