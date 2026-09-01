@@ -30,8 +30,10 @@
 // node:http here in the harness. The framework's route table + param extraction
 // are what is exercised — identical to what @zmdb/web's own dispatcher resolves.
 
+import cluster from 'node:cluster';
 import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
+import { availableParallelism } from 'node:os';
 
 import { assert, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
 import { defineSchema, serial, text } from '../../../packages/schema-core/src/index.ts';
@@ -41,7 +43,9 @@ import {
   Get,
   Post,
   getRoutes,
-  extractParams,
+  compilePattern,
+  countSegments,
+  matchCompiled,
   validateWith,
   type Ctx,
 } from '../../../packages/web/dist/index.js';
@@ -129,6 +133,36 @@ const controller = new BenchmarkController();
 const routes = getRoutes(BenchmarkController);
 const PORT = Number(process.env.PORT ?? 3000);
 
+// Route patterns are compile-time constants, so resolve their segments and
+// `:param` slots at BOOT and index them by (method, segment count) — the same
+// thing @zmdb/web's own dispatcher does in packages/web/src/pipeline. Matching a
+// request then compares only routes that could possibly match, and allocates
+// nothing at all for a route without params.
+interface Compiled {
+  readonly handlerName: string;
+  readonly pattern: ReturnType<typeof compilePattern>;
+}
+const buckets = new Map<string, Compiled[][]>();
+for (const route of routes) {
+  const pattern = compilePattern(route.path);
+  let bySegmentCount = buckets.get(route.method);
+  if (bySegmentCount === undefined) {
+    bySegmentCount = [];
+    buckets.set(route.method, bySegmentCount);
+  }
+  const bucket = (bySegmentCount[pattern.segmentCount] ??= []);
+  bucket.push({ handlerName: route.handlerName, pattern });
+}
+
+// How many processes to run. Node is single-threaded, so a lone process uses one
+// core while the Go and Rust peers in this suite default to every core
+// (`num_cpus` / `GOMAXPROCS`). This default matches them so a bare `node app.mjs`
+// is like-for-like; run.sh overrides it to half the cores, because there the load
+// generator shares the box and throughput peaks at cores/2 — see the measured
+// curve in run.sh. WORKERS=1 pins it to one core for a per-core reading, and
+// whatever is chosen is recorded in the results JSON.
+const WORKERS = Math.max(1, Number(process.env.WORKERS ?? availableParallelism()));
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise(resolve => {
     let data = '';
@@ -139,12 +173,13 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 const server = createServer((req, res) => {
-  const method = (req.method ?? 'GET').toUpperCase();
-  const path = (req.url ?? '/').split('?')[0] ?? '/';
+  const method = req.method ?? 'GET';
+  const url = req.url ?? '/';
+  const queryAt = url.indexOf('?');
+  const path = queryAt === -1 ? url : url.slice(0, queryAt);
 
-  for (const route of routes) {
-    if (route.method !== method) continue;
-    const params = extractParams(route.path, path);
+  for (const route of buckets.get(method)?.[countSegments(path)] ?? []) {
+    const params = matchCompiled(route.pattern, path);
     if (params === undefined) continue;
 
     if (route.handlerName === 'getUser') {
@@ -194,8 +229,49 @@ const server = createServer((req, res) => {
   res.end();
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.info(
-    `@zmdb/web benchmark app on :${PORT} (${routes.length} routes, AOT-validated POST /user from one schema)`,
-  );
-});
+// node:cluster defaults to SCHED_RR, where the PRIMARY accepts every connection
+// and hands each one to a worker over IPC. That primary is single-threaded, and
+// with keep-alive disabled every request is a fresh connection, so the primary's
+// accept loop — not the workers — sets the ceiling. Under SCHED_NONE the workers
+// accept from the shared listening socket themselves. Median of 3 at 16 workers,
+// GET /, keep-alive off, the three modes interleaved so drift hits them equally:
+//
+//            c=64     c=256    c=512
+//   SCHED_RR   24747    25719    25607
+//   SCHED_NONE 51257    55628    51182
+//   reusePort  51448    53183    52171
+//
+// SCHED_RR is flat across a 8x concurrency range, which is the signature of a
+// serialized accept: more load in, same throughput out. SCHED_NONE is ~2.1x it.
+// Per-worker `listen({ reusePort: true })` measures the same as SCHED_NONE to
+// within run-to-run noise, so it buys nothing to justify the extra option.
+//
+// The policy must be set before any fork, and it must stay set for the worker
+// count to mean anything — under the default, WORKERS=16 is WORKERS=1 with 15
+// idle processes.
+cluster.schedulingPolicy = cluster.SCHED_NONE;
+
+// With WORKERS > 1 the primary forks and never serves; each worker calls
+// listen() on the same port and accepts for itself. The primary replaces a worker
+// that dies so a mid-run crash cannot silently shrink the pool and quietly
+// depress the numbers.
+if (WORKERS > 1 && cluster.isPrimary) {
+  for (let i = 0; i < WORKERS; i += 1) cluster.fork();
+  let live = WORKERS;
+  cluster.on('exit', () => {
+    live -= 1;
+    if (live < WORKERS) {
+      cluster.fork();
+      live += 1;
+    }
+  });
+  console.info(`@zmdb/web benchmark app on :${PORT} (${WORKERS} workers, ${routes.length} routes)`);
+} else {
+  server.listen(PORT, '0.0.0.0', () => {
+    if (WORKERS === 1) {
+      console.info(
+        `@zmdb/web benchmark app on :${PORT} (single process, ${routes.length} routes, AOT-validated POST /user from one schema)`,
+      );
+    }
+  });
+}

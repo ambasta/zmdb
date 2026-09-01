@@ -92,6 +92,27 @@ A larger young generation cuts minor GC frequency for allocation-heavy request h
 
 Do not enable a JIT-warmup snapshot or `--jitless` experiments without benchmarking — both have surprised people in the wrong direction.
 
+## Using more than one core
+
+Node runs your handlers on one thread, so a single process uses one core no matter how many the box has. To use the rest, run more processes — but set the accept policy first:
+
+```ts
+import cluster from 'node:cluster';
+import { availableParallelism } from 'node:os';
+
+cluster.schedulingPolicy = cluster.SCHED_NONE; // before any fork
+
+if (cluster.isPrimary) {
+  for (let i = 0; i < availableParallelism(); i += 1) cluster.fork();
+} else {
+  createServer(toNodeHandler(router)).listen(3000);
+}
+```
+
+`node:cluster` defaults to `SCHED_RR`, where the **primary** accepts every connection and hands it to a worker over IPC. That primary is single-threaded, so it becomes the ceiling and extra workers buy almost nothing — in the [benchmark harness](./benchmarks.html) it measured flat across an 8× concurrency range. `SCHED_NONE` lets each worker accept from the shared socket itself and roughly doubled throughput. `listen({ port, reusePort: true })` per worker is an equivalent alternative.
+
+Expect **sublinear** scaling: in the harness, 8 workers returned 3.58× one worker, and per-core throughput fell at every step. Connection setup and teardown is the part that does not parallelise well, so the gain is largest when keep-alive is on and connections are reused. Measure on your own box rather than assuming `nproc` workers is best — past a point the processes compete for the same cores as everything else on the machine.
+
 ## What the benchmarks say
 
 The [framework benchmarks](./benchmarks.html) place `@zmdb/web` against 17 peers on the same machine, and the numbers there are the honest ones: routing overhead is not where a real application spends its time, which is exactly why the framework spends so little effort on it and so much on the query layer.
