@@ -139,4 +139,37 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
     expect(offsetPage.items).toHaveLength(5);
     expect(offsetPage.hasMore).toBe(true);
   });
+
+  it('throws descriptive runtime error when keyset cursor pagination uses a nullable sort column', async () => {
+    const ArticleSchema = defineSchema('articles', {
+      id: primaryKey(serial()),
+      title: notNull(text()),
+      description: text().nullable(),
+    });
+
+    class ArticleRepository extends BaseRepository<typeof ArticleSchema> {
+      static override readonly schema = ArticleSchema;
+    }
+
+    db.exec('CREATE TABLE articles (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT)');
+    const articles = new ArticleRepository(sqliteDriver(db), 'sqlite');
+
+    await articles.create({ title: 'Article 1', description: 'desc 1' });
+    await articles.create({ title: 'Article 2', description: null });
+
+    // Keyset pagination on nullable 'description' must throw explicit runtime error
+    await expect(
+      articles.list({
+        orderBy: [{ column: 'description', dir: 'asc' }],
+        page: { limit: 10, after: 'eyJkZXNjcmlwdGlvbiI6ImRlc2MgMSIsImlkIjoxfQ' },
+      } as unknown as Parameters<typeof articles.list>[0]),
+    ).rejects.toThrow(/Invalid keyset sort column "description": column is nullable/);
+
+    // Offset pagination sorting on the nullable 'description' field continues to work cleanly
+    const offsetRes = await articles.list({
+      orderBy: [{ column: 'description', dir: 'asc' }],
+      page: { limit: 10, offset: 0 },
+    });
+    expect(offsetRes.items).toHaveLength(2);
+  });
 });

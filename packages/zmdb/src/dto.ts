@@ -1,6 +1,7 @@
 // zmdb/dto — explicit named re-exports of the read/query DTO family.
 // (No `export *`: each symbol is enumerated so the compatibility surface is explicit.)
 export {
+  applyKeysetFilter,
   applyOrderBy,
   applyPagination,
   buildListResult,
@@ -18,8 +19,13 @@ export type {
   FieldOps,
   GetDTO,
   GetOptions,
+  KeysetCursorPage,
+  KeysetListDTO,
+  KeysetOrderByDTO,
   ListDTO,
   ListResult,
+  NonNullableEntityKeys,
+  OffsetListDTO,
   OffsetPage,
   OrderByDTO,
   OrderDir,
