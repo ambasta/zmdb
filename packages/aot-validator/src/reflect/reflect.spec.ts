@@ -619,16 +619,18 @@ describe('schemaIrFromType vs irFromSchema (REQ-TF-7, REQ-TF-12)', () => {
 });
 
 describe('what only a tagged declaration can say', () => {
-  /** The `Invoice` fixture, which is deliberately not in the corpus above. */
-  function invoice(): SchemaIR {
+  /** A `taggedOnly<T>` fixture: the ones deliberately not in the corpus above. */
+  function taggedOnly(label: string): SchemaIR {
     const corpus = session.sourceFile(`${FIXTURES}equivalence.ts`);
-    const call = findCallSites(corpus as never, new Set(['taggedOnly'])).find(c => labelOf(c) === 'invoices');
+    const call = findCallSites(corpus as never, new Set(['taggedOnly'])).find(c => labelOf(c) === label);
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
     const reflector = new Reflector(session.checker, corpus as never, {});
     const reflected = reflector.schemaIR(type as never);
     expect(reflector.diagnostics).toEqual([]);
     return reflected;
   }
+
+  const invoice = (): SchemaIR => taggedOnly('invoices');
 
   it('carries numeric precision, which ColumnFlags has no field for', () => {
     expect(invoice().columns.find(c => c.name === 'amount')?.precision).toEqual([12, 2]);
@@ -697,6 +699,23 @@ describe('what only a tagged declaration can say', () => {
     // A relation is not a column: the join lives on `authorId`, and emitting `author`
     // as a column too would put a nested entity in the INSERT statement.
     expect(invoices.columns.map(c => c.name)).not.toContain('author');
+  });
+
+  it('reads all four cardinalities, and the join table many-to-many carries instead of a key', () => {
+    // `via` is one IR field for two different things: the foreign key for the three
+    // to-one/to-many shapes, and the join table for `manyToMany`. A back-end that read the
+    // wrong one would emit a join against a table called `authorId`.
+    expect(taggedOnly('products').relations).toEqual([
+      { name: 'labels', relation: 'manyToMany', target: 'labels', via: 'product_labels' },
+      { name: 'listing', relation: 'oneToOne', target: 'listings', via: 'productId' },
+    ]);
+  });
+
+  it('carries Fts<true>, the spelling that asks the back-end to name the index', () => {
+    // The string form is in the equivalence corpus, where `defineSchema`'s `ftsTable`
+    // option proves both front-ends agree. `true` is the form only this asserts, and
+    // `true` is falsy-adjacent enough that a `if (fts)` somewhere would drop it.
+    expect(taggedOnly('products').ftsTable).toBe(true);
   });
 
   it('treats Serial as implying a default, the way serial() does', () => {

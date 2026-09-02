@@ -52,6 +52,12 @@ jobs:
       - name: Verify every schema converts to a tagged interface
         run: yarn verify:codemod
 
+      # A tag nothing reads is a tag that compiles, derives correctly, and is quietly missing
+      # from the emitted validator. The type test next to it gates what a type can state;
+      # this gates the links between the tags, the IR and the reflection (REQ-TF-1).
+      - name: Verify the tag vocabulary is covered end to end
+        run: yarn verify:tf-coverage
+
       # A descriptor is the shape of a type written out again by hand, in a form the compiler
       # cannot check against the type it claims to describe. The witness is generated now, and
       # this is what keeps it that way (REQ-TF-9).

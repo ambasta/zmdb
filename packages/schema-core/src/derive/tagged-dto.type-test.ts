@@ -11,14 +11,17 @@
 
 import type { Equal, Expect } from '../index.ts';
 import type {
+  AnyRelation,
   Codec,
   HasDefault,
   Length,
+  ManyToMany,
   ManyToOne,
   Max,
   Min,
   MinLength,
   OneToMany,
+  OneToOne,
   Pattern,
   PrimaryKey,
   References,
@@ -207,6 +210,48 @@ export type _N4 = Expect<Equal<'author' extends keyof CreateDTO<Post> ? true : f
 // match nothing without taking the whole row with it.
 export type _N5 = Expect<Equal<RelationKeys<User>, never>>;
 export type _N6 = Expect<Equal<ColumnKeys<User>, keyof Entity<User>>>;
+
+// --- the other two cardinalities, and the matcher all four rest on -----------
+//
+// `RelationKeys<T>` is `KeysCarrying<T, AnyRelation>`, so everything above rests on one
+// claim: a property carrying any of the four tags matches `AnyRelation`, and a column does
+// not. Asserted here directly, because from `RelationKeys` alone the two ways it can break
+// look the same — a filter matching nothing and a filter matching everything both come back
+// as a key set that reads plausibly.
+
+interface Listing extends Table<'listings'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  productId: number & Sql<'integer'> & References<'products'>;
+}
+
+interface Label extends Table<'labels'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  name: string & Sql<'varchar'> & Length<64>;
+}
+
+interface Product extends Table<'products'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  title: string & Sql<'varchar'> & Length<200>;
+  // `ManyToMany` names a join table where the other three name a foreign key. The key
+  // filters cannot tell — and must not have to — because both are the same tag slot.
+  labels?: Label[] & ManyToMany<'labels', 'product_labels'>;
+  listing?: Listing & OneToOne<'listings', 'productId'>;
+}
+
+type Carries<T> = NonNullable<T> extends AnyRelation ? true : false;
+export type _M1 = Expect<Equal<Carries<Post['author']>, true>>;
+export type _M2 = Expect<Equal<Carries<Post['comments']>, true>>;
+export type _M3 = Expect<Equal<Carries<Product['labels']>, true>>;
+export type _M4 = Expect<Equal<Carries<Product['listing']>, true>>;
+// The direction that matters. A weak type — every member optional — is what stops a tagged
+// column satisfying `AnyRelation` structurally, and if it ever did every column would
+// vanish from `Entity<T>` at once.
+export type _M5 = Expect<Equal<Carries<Post['title']>, false>>;
+export type _M6 = Expect<Equal<Carries<Post['id']>, false>>;
+
+export type _M7 = Expect<Equal<RelationKeys<Product>, 'labels' | 'listing'>>;
+export type _M8 = Expect<Equal<ColumnKeys<Product>, 'id' | 'title'>>;
+export type _M9 = Expect<Equal<keyof CreateDTO<Product>, 'title'>>;
 
 // --- Populated: cardinality comes from the declaration, not the tag ---------
 export type _N7 = Expect<Equal<Populated<Post, 'author'>['author'], User & ManyToOne<'users', 'authorId'>>>;

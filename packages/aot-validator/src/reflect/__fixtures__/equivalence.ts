@@ -25,14 +25,17 @@
 
 import type {
   Codec,
+  Fts,
   HasDefault,
   Length,
+  ManyToMany,
   ManyToOne,
   Max,
   MaxLength,
   Min,
   MinLength,
   Numeric,
+  OneToOne,
   Pattern,
   PrimaryKey,
   References,
@@ -49,8 +52,14 @@ import type {
 declare function pair<T>(table: string, of?: T): void;
 declare function taggedOnly<T>(label: string, of?: T): void;
 
-/** Every column kind that both front-ends can express, in one table. */
-export interface User extends Table<'users'> {
+/**
+ * Every column kind that both front-ends can express, in one table.
+ *
+ * `Fts<'users_fts'>` is here rather than in the tagged-only section below because
+ * `defineSchema` can say it too, as an option rather than a column — so the deep-equality
+ * assertion is the right place for it, and the twin carries `{ ftsTable: 'users_fts' }`.
+ */
+export interface User extends Table<'users'>, Fts<'users_fts'> {
   id: number & Sql<'serial'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\S+@\\S+$'>;
   age: number & Sql<'integer'> & Min<18> & Max<120>;
@@ -119,3 +128,35 @@ export interface Invoice extends Table<'invoices'> {
   author: Author & ManyToOne<'authors', 'authorId'>;
 }
 taggedOnly<Invoice>('invoices');
+
+export interface Listing extends Table<'listings'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  productId: number & Sql<'integer'> & References<'products.id'>;
+}
+
+export interface Label extends Table<'labels'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  name: string & Sql<'varchar'> & Length<64> & Unique;
+}
+
+/**
+ * The other two cardinalities, and full-text search asked for by default.
+ *
+ * `manyToMany` names a *join table* where the other three name a foreign key, and the IR
+ * carries one field (`via`) for both — so this is the fixture that says which one the
+ * reflection read. `oneToOne` puts the join column on the far table, which changes nothing
+ * about the IR and everything about the SQL, so it is here to prove the cardinality survives
+ * the trip rather than being inferred back from the declared type.
+ *
+ * `Fts<true>` is the boolean spelling: "give this table an FTS index and name it yourself".
+ * `Fts<'users_fts'>` above is the other, and both have to reach `SchemaIR.ftsTable` — a
+ * `true` silently dropped would be an index nobody notices is missing until a search
+ * returns nothing.
+ */
+export interface Product extends Table<'products'>, Fts<true> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  title: string & Sql<'varchar'> & Length<200>;
+  labels?: Label[] & ManyToMany<'labels', 'product_labels'>;
+  listing?: Listing & OneToOne<'listings', 'productId'>;
+}
+taggedOnly<Product>('products');
