@@ -108,12 +108,13 @@ shape." The policy:
 > hold framework internals to a documented, shrinking exception list — rather
 > than claim an absolute we'd have to fake with hidden `any`.
 >
-> **Where that stands (2026-08-31):** 23 assertions across `packages/*/src`, all
-> 23 carrying a `// boundary:` comment; 0 `any`, 0 non-null `!`, 0 lint
+> **Where that stands (2026-09-01):** 28 assertions across `packages/*/src`, all
+> documented under 37 `// boundary:` comments; 0 `any`, 0 non-null `!`, 0 lint
 > suppressions, 0 consumer-facing `as` in the docs. Down from 91 assertions with
 > 14 comments, which is the measurement the policy needed — see PRD §9.4 for the
 > table and the four structural fixes. The count is **not yet ratcheted in CI**,
-> so it is a snapshot, not an invariant (PRD RISK-7).
+> and it shows: the figure published on 2026-08-31 was 23, so five assertions were
+> added without anyone noticing. Treat it as a snapshot, not an invariant (PRD RISK-7).
 
 ---
 
