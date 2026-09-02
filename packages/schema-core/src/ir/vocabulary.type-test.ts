@@ -5,7 +5,7 @@
 // the value front-end kept.
 
 import type { ColumnFlags, Equal, Expect, SqlType } from '../index.ts';
-import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES } from './index.ts';
+import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagField } from './index.ts';
 
 // --- every SqlType is in SQL_TYPES, and nothing else is --------------------
 //
@@ -67,3 +67,32 @@ export const CONSTRAINT_TO_TAG: { readonly [K in ConstraintKind]: string } = {
   maxLength: 'MaxLength<N>',
   pattern: 'Pattern<S>',
 };
+
+// --- the reflection can find every tag it needs -----------------------------
+//
+// `TAG_NAMES` is how `@zmdb/aot-validator`'s reflection recognises a tag: `../tags` is
+// types-only, so the reflection matches on the escaped symbol name (`__@zmdbSerial@1`)
+// instead of importing the tag. A tag with no entry there is a tag the reflection
+// cannot see, and the resulting IR is quietly missing a flag — which is the *exact*
+// failure the IR was introduced to end.
+//
+// Every constraint kind must be reachable, and so must every IR field a column flag
+// maps to. Nullability is the one exception, and it is deliberate (REQ-TF-2): `| null`
+// is how you say it, so there is no tag and there must not be one.
+export type _V5 = Expect<Equal<Extract<ConstraintKind, TagField>, ConstraintKind>>;
+export const FLAG_TAG_REACHABLE: {
+  readonly [K in Exclude<keyof Required<ColumnFlags>, 'nullable' | 'enum'>]: TagField;
+} = {
+  primaryKey: 'primaryKey',
+  unique: 'unique',
+  autoIncrement: 'serial',
+  hasDefault: 'hasDefault',
+  length: 'length',
+  sensitive: 'sensitive',
+};
+
+// And every symbol name in the table is one of the `declare const zmdb*` slots in
+// `../tags`. Spelled as a prefix check rather than a list because the declarations are
+// `declare const`, invisible outside that module by design.
+type StartsWithZmdb<S extends string> = S extends `zmdb${string}` ? true : false;
+export type _V6 = Expect<Equal<StartsWithZmdb<(typeof TAG_NAMES)[TagField]>, true>>;

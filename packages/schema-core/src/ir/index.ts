@@ -212,6 +212,43 @@ export const KNOWN_CONSTRAINT_KINDS = ['minimum', 'maximum', 'minLength', 'maxLe
 
 export type ConstraintKind = (typeof KNOWN_CONSTRAINT_KINDS)[number];
 
+/**
+ * The tag vocabulary as data: **IR field → the escaped name of the tag's symbol
+ * slot**. `../tags` is types-only and must stay that way, so the reflection cannot
+ * import the tags themselves; it matches on the escaped name the checker reports
+ * (`__@zmdbSerial@1`) instead.
+ *
+ * Keyed by the IR field rather than by the tag's public name because that is the
+ * mapping every consumer actually wants, and because keeping it in one table is what
+ * lets `vocabulary.type-test.ts` prove the two vocabularies line up. A tag added to
+ * `../tags` without an entry here is invisible to the reflection, which is precisely
+ * the silent-gap failure the whole IR exists to prevent.
+ */
+export const TAG_NAMES = {
+  table: 'zmdbTable',
+  ftsTable: 'zmdbFts',
+  sql: 'zmdbSqlType',
+  primaryKey: 'zmdbPrimaryKey',
+  serial: 'zmdbSerial',
+  unique: 'zmdbUnique',
+  hasDefault: 'zmdbDefault',
+  sensitive: 'zmdbSensitive',
+  references: 'zmdbReferences',
+  length: 'zmdbLength',
+  precision: 'zmdbNumeric',
+  codec: 'zmdbCodec',
+  relation: 'zmdbRelation',
+  minimum: 'zmdbMin',
+  maximum: 'zmdbMax',
+  minLength: 'zmdbMinLength',
+  maxLength: 'zmdbMaxLength',
+  pattern: 'zmdbPattern',
+  rules: 'zmdbRule',
+} as const;
+
+/** An IR field a tag can set. */
+export type TagField = keyof typeof TAG_NAMES;
+
 // These two functions bridge two vocabularies that should be one — see plan D6.
 //
 // `@zmdb/aot-validator` exports a runtime constraint vocabulary (`tags.Minimum(n)`

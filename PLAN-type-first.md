@@ -334,8 +334,8 @@ Sizes are relative: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or m
 
 ### Landed so far
 
-Phases 1–3 in part, with two refinements worth recording because they differ from
-what is written below.
+Phases 1–3 in part plus Phase 4 in full, with two refinements worth recording because
+they differ from what is written below.
 
 | On disk                                               | What it is                                                                 |
 | ----------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -348,6 +348,12 @@ what is written below.
 | `schema-core/src/derive/index.ts`                     | The tagged DTO suite                                                       |
 | `schema-core/src/derive/tagged-dto.type-test.ts`      | ~35 `Equal`-based assertions                                               |
 | `schema-core/src/openapi/index.ts`                    | Rewritten: `scalarSchema` **deleted**, delegates to the IR                 |
+| `aot-validator/src/reflect/session.ts`                | The compiler boundary: one `tsgo` session per build, `Disposable`          |
+| `aot-validator/src/reflect/callsites.ts`              | Finds `f<T>(…)` calls and hands back `T`'s type node                       |
+| `aot-validator/src/reflect/index.ts`                  | `Reflector` — `typeIR`/`schemaIR`, total, budgeted, named refusals         |
+| `aot-validator/src/reflect/__fixtures__/`             | The construct table and the two halves of the equivalence corpus           |
+| `aot-validator/src/reflect/reflect.spec.ts`           | 61 assertions incl. the tagged-vs-`defineSchema` deep equality             |
+| `aot-validator/src/reflect/SPEC.md`                   | Including §4, the measured checker limitations                             |
 
 **Refinement 1 — the third walker is already gone.** Phase 1 says "replacing nothing
 yet", but `openapi`'s `scalarSchema` turned out to be replaceable immediately:
@@ -370,11 +376,55 @@ Also landed from Phase 0: the umbrella subpaths `zmdb/tags`, `zmdb/ir` and
 bare `export *`, and nothing re-exported from outside the workspace. And **D1**: the
 `PrimaryKey<S>` → `PrimaryKeyOf<S>` rename, in full.
 
+**Refinement 3 — the checker API is smaller than its `.d.ts`.** Phase 4 below is
+written as if `ts.Type` behaves the way it did in TypeScript 6. It does not.
+`typescript@7` is the Go compiler behind a thin marshalling client, so several members
+that exist in the type declarations arrive `undefined` over the wire, one of them
+_panics the server process_, and one throws when read. `reflect/SPEC.md` §4 is the
+measured table; the two that changed the design rather than just the code:
+
+- **Index signatures are detectable but not readable.** `getPropertiesOfType` ignores
+  them entirely, `getIndexInfosOfType(t).length` is safe, and reading `info.keyType`
+  throws. So `Record<string, T>` is a named refusal. Modelling it as "an object with no
+  properties" would have emitted a validator that accepts `{}` and everything else,
+  which is the failure mode D4 exists to prevent.
+- **An optional property's type does not carry `| undefined`.** The checker reports
+  `nickname?: string` as `string`, even under `exactOptionalPropertyTypes`. So
+  `PropertyIR.optional` is the only record that absence is allowed, and an emitter that
+  ignores it produces a validator that rejects every value the type accepts.
+
+Also worth recording, because each replaced a plan row with a better answer:
+
+- `Map`, `Set`, `Promise`, typed arrays and classes with methods are refused by **one**
+  rule — a validatable object has only data properties — rather than by five special
+  cases, and the message names the property that gave it away.
+- **A brand is phantom, not data.** Any `unique symbol`-keyed property is ignored, not
+  just the ones in `TAG_NAMES`. Testing for _our_ names in that position made
+  `Brand<number, 'UserId'>` a build error, because the brand object looked like a second
+  data part of the intersection.
+- **Template literal types are derivable and worth deriving.** `TemplateLiteralType.texts`
+  and `getTypes()` both marshal, so `` `${string}@${string}` `` becomes a `string` with
+  `pattern: '^[\s\S]*@[\s\S]*$'`. `${number}` is refused rather than approximated: TS
+  accepts exponents, signs and `Infinity` there, so a short regex is either stricter than
+  the type or looser, and both are wrong in a validator.
+- `Omit`/`Pick`/`Partial`/`Required`, mapped and conditional types needed **no code at
+  all** — the checker resolves them before we look. The tests assert the resolved
+  property lists anyway, so the claim stays measured.
+- Nullability must be spelled `(T & Tags) | null`, because TypeScript distributes an
+  intersection over a union and `null & Unique` is `never`, which silently drops the
+  nullability.
+
 **Not yet done in Phases 1–3:** the codemod, the instantiation-budget ratchet, the
-relation-driven `PopulatedEntity`/`Populated`/`JoinRow`, the `dto/` module's
-order-by/pagination/projection shapes, and the reflection half of the D5 guard. From
-Phase 0, the `typescript` optional-peer-dep move and its reachability guard are still
-open.
+relation-driven `PopulatedEntity`/`Populated`/`JoinRow`, and the `dto/` module's
+order-by/pagination/projection shapes. The reflection half of the D5 guard is now done,
+in `#readTags`.
+
+From Phase 0, the `typescript` optional-peer-dep move and its reachability guard move to
+**Phase 5**, not because they are hard but because they cannot land yet: the package
+root re-exports `transformCode`, which imports `typescript/unstable/ast`, so the guard
+would fail on the entry it is meant to protect. Phase 5 rewrites that transformer, which
+is when the leak closes and the peer dep becomes honest. `aot-validator`'s `./reflect`
+subpath is registered now, with `typescript` externalised in the tsup config.
 
 ---
 
@@ -562,23 +612,24 @@ The first phase that needs the checker. Promote and harden the prototype's
 **Constructs that must be handled or explicitly refused** — this list is the phase's
 actual scope, and each item needs a fixture:
 
-| Construct                                                     | Expected                                                               |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| primitives, literals, literal unions                          | supported                                                              |
-| `boolean` (a _union_ of two literals — see DESIGN §5)         | supported                                                              |
-| `T \| null`, `T \| undefined`, optional properties            | supported                                                              |
-| arrays, readonly arrays, tuples, optional/rest tuple elements | supported                                                              |
-| nested objects, recursive objects, mutual recursion           | supported via `ref`                                                    |
-| intersections of object types                                 | supported (merge properties)                                           |
-| discriminated unions (REQ-AV-5)                               | supported — discriminant-first emit                                    |
-| non-discriminated unions (REQ-AV-5)                           | supported — ordered disjunction                                        |
-| `Date`, `bigint`                                              | supported                                                              |
-| index signatures, `Record<string, T>`                         | **verify first** — unknown whether `getPropertiesOfType` surfaces them |
-| mapped/conditional types, `Omit`/`Pick`/`Partial`/`Required`  | supported (prototype-proven)                                           |
-| generic type _parameters_ (`is<T>` inside `function f<T>()`)  | hard error (D4)                                                        |
-| `unknown`, `any`, `never`, `object`, `symbol`                 | explicit refusal with a diagnostic                                     |
-| `Map`, `Set`, `Promise`, class instances, functions           | explicit refusal                                                       |
-| template-literal types, branded types (`advanced/brands.ts`)  | supported as string + pattern where derivable, else refusal            |
+| Construct                                                     | Expected                                                                    |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| primitives, literals, literal unions                          | supported                                                                   |
+| `boolean` (a _union_ of two literals — see DESIGN §5)         | supported                                                                   |
+| `T \| null`, `T \| undefined`, optional properties            | supported                                                                   |
+| arrays, readonly arrays, tuples, optional/rest tuple elements | supported                                                                   |
+| nested objects, recursive objects, mutual recursion           | supported via `ref`                                                         |
+| intersections of object types                                 | supported (merge properties)                                                |
+| discriminated unions (REQ-AV-5)                               | supported — the discriminant survives as a `literal`; strategy is Phase 5's |
+| non-discriminated unions (REQ-AV-5)                           | supported — declaration order preserved for an ordered disjunction          |
+| `Date`, `bigint`                                              | supported                                                                   |
+| index signatures, `Record<string, T>`                         | **verified: refusal.** Detectable, not readable — see Refinement 3          |
+| mapped/conditional types, `Omit`/`Pick`/`Partial`/`Required`  | supported (prototype-proven)                                                |
+| generic type _parameters_ (`is<T>` inside `function f<T>()`)  | hard error (D4)                                                             |
+| `unknown`, `any`, `never`, `object`, `symbol`                 | explicit refusal with a diagnostic                                          |
+| `Map`, `Set`, `Promise`, class instances, functions           | explicit refusal                                                            |
+| template-literal types                                        | supported: anchored pattern from the segments; `${number}` refused          |
+| branded types (`advanced/index.ts`)                           | supported: the brand is phantom, so the base type is what is checked        |
 
 **Tests**
 

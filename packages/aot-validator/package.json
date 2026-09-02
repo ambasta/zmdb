@@ -35,6 +35,7 @@
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts",
+    "./reflect": "./src/reflect/index.ts",
     "./unplugin": "./src/unplugin.ts"
   },
   "publishConfig": {
