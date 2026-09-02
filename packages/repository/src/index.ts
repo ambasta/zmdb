@@ -113,7 +113,6 @@ export interface ExecuteOptions {
   /** Rows per round trip. A driver may clamp it; zero or negative is refused. */
   readonly batchSize?: number;
 }
-
 export interface Driver<Name extends string = string> {
   readonly dialect?: DialectTarget<Name>;
   /** Enables compile-time query attributes when an execution wrapper consumes them. */
@@ -1496,9 +1495,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     for (const name of names) {
       const rel = this.relation(name);
       if (rel.isManyToMany) {
-        const through = rel.through!;
-        const baseFk = rel.baseFk!;
-        const targetFk = rel.targetFk!;
+        const through = rel.through ?? '';
+        const baseFk = rel.baseFk ?? '';
+        const targetFk = rel.targetFk ?? '';
         const targetTable = rel.targetTable;
         const target = this.relationSqlNames(rel);
 

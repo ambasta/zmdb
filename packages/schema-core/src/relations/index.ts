@@ -305,8 +305,8 @@ export function compilePopulate(
 
   if (rel.isManyToMany) {
     const sanitized = sanitizeKeys(parentIds);
-    const through = rel.through!;
-    const baseFk = rel.baseFk!;
+    const through = rel.through ?? '';
+    const baseFk = rel.baseFk ?? '';
     const targetKey = targetKeys[0] ?? 'id';
 
     let pivotSql: string;
