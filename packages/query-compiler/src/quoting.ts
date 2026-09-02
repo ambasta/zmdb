@@ -210,6 +210,10 @@ const SQL_KEYWORDS = new Set([
   'WITH',
 ]);
 
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Sanitizes raw expression escape hatches by quoting column identifiers with dialect-aware escaping
  * and extracting literals and dynamic parameters into safe positional query parameters.
@@ -228,8 +232,7 @@ export function sanitizeExpression(
   let paramIndex = startingParamIndex;
   let positionalParamIdx = 0;
   const exprParamsArray = Array.isArray(params) ? params : undefined;
-  const exprParamsObj =
-    params && typeof params === 'object' && !Array.isArray(params) ? (params as Record<string, unknown>) : undefined;
+  const exprParamsObj = isRecordObject(params) ? params : undefined;
 
   let outputSql = '';
   let pos = 0;
