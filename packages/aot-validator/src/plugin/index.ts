@@ -10,6 +10,7 @@
 // the project is the expensive half; a checker call is a cheap round-trip. A session per
 // file would make the AOT path cost more than the runtime walker it replaces.
 
+import path from 'node:path';
 import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
 
 import type { EmitOptions } from '../emit/index.js';
@@ -83,7 +84,7 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
 
   const ensureSession = (): ReflectSession | undefined => {
     if (session) return session;
-    const projPath = options.project ?? options.tsconfigPath;
+    const projPath = options.project ?? (options.tsconfigPath ? path.resolve(options.tsconfigPath) : undefined);
     if (projPath === undefined) return undefined;
     session = ReflectSession.open({ project: projPath, ...(options.cwd ? { cwd: options.cwd } : {}) });
     owned = true;

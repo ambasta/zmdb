@@ -129,7 +129,7 @@ export function transformFile(fileName: string, code: string, context: Transform
 
   const sourceFile = session.sourceFile(fileName);
   if (!sourceFile) {
-    return degrade(fileName, code, 'this file is not part of the TypeScript project the session loaded');
+    return degrade(fileName, code, 'this file is not part of the TypeScript project the session loaded', context);
   }
   if (sourceFile.text !== code) {
     // Another plugin got here first, or the watcher is a revision behind. Either way the
@@ -139,6 +139,7 @@ export function transformFile(fileName: string, code: string, context: Transform
       fileName,
       code,
       'the text handed to the transformer is not the text the compiler parsed, so every offset in it would be a guess',
+      context,
     );
   }
 
@@ -290,8 +291,11 @@ function emissionDepth(site: CallSite): EmissionDepth {
   return { kind: 'shallow', value };
 }
 
-function degrade(fileName: string, code: string, reason: string): TransformResult {
-  const out = transformCode(code);
+function degrade(fileName: string, code: string, reason: string, context?: TransformContext): TransformResult {
+  const opts: TransformOptions | undefined = context?.session?.checker
+    ? { checker: context.session.checker, sourceFile: context.session.sourceFile(fileName), id: fileName }
+    : { id: fileName };
+  const out = transformCode(code, opts);
   return { code: out, changed: out !== code, diagnostics: [{ fileName, path: '', reason }] };
 }
 
@@ -617,6 +621,20 @@ export function tsTypeToTypeDescriptor(
 
   if (typeof tObj['isIntersectionType'] === 'function' && (tObj['isIntersectionType'] as () => boolean)()) {
     const types = typeof tObj['getTypes'] === 'function' ? (tObj['getTypes'] as () => unknown[])() : [];
+    for (const b of types) {
+      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
+      if (
+        bDesc &&
+        (bDesc.kind === 'string' ||
+          bDesc.kind === 'number' ||
+          bDesc.kind === 'boolean' ||
+          bDesc.kind === 'enum' ||
+          bDesc.kind === 'array' ||
+          bDesc.kind === 'union')
+      ) {
+        return bDesc;
+      }
+    }
     const fields: Record<string, TypeDescriptor> = {};
     for (const b of types) {
       const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
@@ -965,28 +983,30 @@ export function transformCode(code: string, options?: TransformOptions): string 
               }
             } else if (typeSrc) {
               let descriptor: TypeDescriptor | undefined = undefined;
-              const t = parseType(typeSrc);
-              if (t) {
-                descriptor = pTypeToTypeDescriptor(t);
-              } else if (options?.checker && options?.sourceFile) {
-                const chk = options.checker as Record<string, unknown>;
-                const typeArgNode = findTypeArgNode(options.sourceFile, tokenStart, typeSrc);
-                if (typeArgNode) {
-                  const tsType =
-                    typeof chk['getTypeFromTypeNode'] === 'function'
-                      ? (chk['getTypeFromTypeNode'] as (node: unknown) => unknown)(typeArgNode)
-                      : undefined;
-                  descriptor = tsTypeToTypeDescriptor(tsType, options.checker, typeArgNode);
-                }
-                if (!descriptor && typeof chk['resolveName'] === 'function') {
-                  const sym = (chk['resolveName'] as (name: string, flags: number, location: unknown) => unknown)(
-                    typeSrc,
-                    524288,
-                    options.sourceFile,
-                  );
-                  if (sym && typeof chk['getDeclaredTypeOfSymbol'] === 'function') {
-                    const tsType = (chk['getDeclaredTypeOfSymbol'] as (symbol: unknown) => unknown)(sym);
-                    descriptor = tsTypeToTypeDescriptor(tsType, options.checker, options.sourceFile);
+              if (options?.checker) {
+                const t = parseType(typeSrc);
+                if (t) {
+                  descriptor = pTypeToTypeDescriptor(t);
+                } else if (options?.sourceFile) {
+                  const chk = options.checker as Record<string, unknown>;
+                  const typeArgNode = findTypeArgNode(options.sourceFile, tokenStart, typeSrc);
+                  if (typeArgNode) {
+                    const tsType =
+                      typeof chk['getTypeFromTypeNode'] === 'function'
+                        ? (chk['getTypeFromTypeNode'] as (node: unknown) => unknown)(typeArgNode)
+                        : undefined;
+                    descriptor = tsTypeToTypeDescriptor(tsType, options.checker, typeArgNode);
+                  }
+                  if (!descriptor && typeof chk['resolveName'] === 'function') {
+                    const sym = (chk['resolveName'] as (name: string, flags: number, location: unknown) => unknown)(
+                      typeSrc,
+                      524288,
+                      options.sourceFile,
+                    );
+                    if (sym && typeof chk['getDeclaredTypeOfSymbol'] === 'function') {
+                      const tsType = (chk['getDeclaredTypeOfSymbol'] as (symbol: unknown) => unknown)(sym);
+                      descriptor = tsTypeToTypeDescriptor(tsType, options.checker, options.sourceFile);
+                    }
                   }
                 }
               }
@@ -1006,7 +1026,7 @@ export function transformCode(code: string, options?: TransformOptions): string 
                 } else if (kind === 'validate') {
                   replacement = `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
                 }
-              } else {
+              } else if (options?.id || options?.checker) {
                 console.warn(
                   `[zmdb-aot] Warning: Could not resolve type '${typeSrc}' in ${options?.id ?? 'source file'}, falling back to runtime validation.`,
                 );

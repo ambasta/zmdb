@@ -3,7 +3,7 @@ import path from 'node:path';
 import { API } from 'typescript/unstable/sync';
 import { describe, it, expect, vi } from 'vitest';
 
-import { transformCode, tsTypeToTypeDescriptor, emitCheckFromDescriptor } from '../transformer.ts';
+import { tsTypeToTypeDescriptor, emitCheckFromDescriptor } from '../transformer.ts';
 import type { TypeDescriptor } from '../utilities/index.ts';
 import { zmdbAot, transformTypeChecks } from './index.ts';
 
@@ -25,7 +25,7 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
     const n = norm(out);
 
     expect(n).toBe(
-      'const ok = (typeof input === "object" && input !== null && typeof input.name === "string" && typeof input.email === "string");',
+      'const ok = (typeof input === "object" && input !== null && typeof input.email === "string" && typeof input.name === "string");',
     );
   });
 
@@ -87,14 +87,15 @@ describe('TypeChecker Integration with TypeDescriptor IR in Unplugin', () => {
 
   it('Requirement 4 & AC 4: non-imported inline primitive validations continue to transform without added compilation latency', () => {
     const inlineSrc = 'const ok = is<{ a: boolean; b: number }>(input);';
+    const sourceFile = proj.program.getSourceFile(appFilePath);
     const start = performance.now();
     const iterations = 1000;
     for (let i = 0; i < iterations; i++) {
-      transformCode(inlineSrc);
+      transformTypeChecks(inlineSrc, { sourceFile, checker, id: appFilePath });
     }
     const duration = performance.now() - start;
 
-    const out = transformCode(inlineSrc);
+    const out = transformTypeChecks(inlineSrc, { sourceFile, checker, id: appFilePath });
     expect(norm(out)).toContain('typeof input.a === "boolean" && typeof input.b === "number"');
     expect(duration).toBeLessThan(500); // High throughput execution (<0.5ms per transform)
   });
