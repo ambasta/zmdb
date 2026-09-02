@@ -169,7 +169,7 @@ part of the migration:
 | `Entity<S>`                                                              | `Entity<T>`                                                                                                     |
 | `CreateDTO<S>` (strips `AutoIncrementKeys`/`DefaultKeys`, §index.ts:120) | `Omit<T, SerialKeys<T> \| DefaultKeys<T>> & Partial<Pick<T, DefaultKeys<T>>>`                                   |
 | `UpdateDTO<S>`                                                           | `Partial<Omit<T, SerialKeys<T> \| PrimaryKeyKeys<T>>>`                                                          |
-| `PrimaryKey<S>`                                                          | `Pick<T, PrimaryKeyKeys<T>>`                                                                                    |
+| `PrimaryKey<S>`                                                          | `PrimaryKeyOf<T>` = `Pick<T, PrimaryKeyKeys<T>>` — renamed so the tag can be `PrimaryKey` (D1)                  |
 | `WhereDTO<S>`, `OrderByDTO`, `PaginationDTO`, `ListDTO`, projection      | keyed off `keyof T`                                                                                             |
 | `PopulatedEntity` / `Populated` / `JoinRow`                              | keyed off relation tags                                                                                         |
 | `StateUpdateDTO`, `TransitionPatch`, `PatchableFields`                   | **unchanged** — already pure type-level                                                                         |
@@ -245,18 +245,18 @@ implementation will meet them:
 The implementation plan is [`PLAN-type-first.md`](PLAN-type-first.md); it resolves several
 of these and states which are decisions rather than unknowns.
 
-| Open question           | Why it matters                                                                                                                                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build wiring            | The plugin must hold **one** `API` instance for the whole build. Measured: 60 ms once is free. Per file it is fatal. A discipline problem, not a performance one.                                          |
-| No in-memory overlay    | `fileChanges` only _invalidates_; the checker re-reads from disk. So the transform must run before any other plugin rewrites the module, or positions no longer line up. Plan §5.1.                        |
-| `tsc`-driven builds     | `ts-patch`-style program transformers do not apply to the Go compiler. The plan's answer is a codegen CLI, which also closes RISK-1 — see plan Phase 8.                                                    |
-| Three types per column  | `timestamp` is `Date` to `TsType`, an ISO string to `toJsonSchema`, and either to the repository. A generated validator must pick one, so the disagreement becomes a bug. Plan D3.                         |
-| Recursive entity graphs | `User → Post[] → User` needs the seen-set/named-helper approach the prototype sketches, at real depth.                                                                                                     |
-| Scale                   | Untested on a 60-column entity behind four layers of conditional types, or against the checker's instantiation limits.                                                                                     |
-| Excess properties       | The prototype emits `is` semantics. `equals` semantics is a separate emit path (today's `emitExcessKeyGuards`).                                                                                            |
-| Migration path          | Resolved in the plan: both declaration styles compile to one IR, so `defineSchema` is a peer front-end rather than a legacy path. What remains is the instantiation cost of dispatching on both (plan D2). |
-| Declaration ergonomics  | `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                    |
-| `dts` build break       | `yarn build` already fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.                             |
+| Open question           | Why it matters                                                                                                                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build wiring            | The plugin must hold **one** `API` instance for the whole build. Measured: 60 ms once is free. Per file it is fatal. A discipline problem, not a performance one.                                                                                             |
+| No in-memory overlay    | `fileChanges` only _invalidates_; the checker re-reads from disk. So the transform must run before any other plugin rewrites the module, or positions no longer line up. Plan §5.1.                                                                           |
+| `tsc`-driven builds     | `ts-patch`-style program transformers do not apply to the Go compiler. The plan's answer is a codegen CLI, which also closes RISK-1 — see plan Phase 8.                                                                                                       |
+| Three types per column  | **Resolved** (plan D3, §9): a column has a wire type, an app type and a db type, and each layer renders its own — `timestamp` is an ISO `string` in JSON Schema, a `Date` in `Entity<T>`, `timestamptz` in Postgres DDL. The DDL type map does not exist yet. |
+| Recursive entity graphs | `User → Post[] → User` needs the seen-set/named-helper approach the prototype sketches, at real depth.                                                                                                                                                        |
+| Scale                   | Untested on a 60-column entity behind four layers of conditional types, or against the checker's instantiation limits.                                                                                                                                        |
+| Excess properties       | The prototype emits `is` semantics. `equals` semantics is a separate emit path (today's `emitExcessKeyGuards`).                                                                                                                                               |
+| Migration path          | **Resolved** (plan D2, §9): `defineSchema` is deleted, not kept as a peer. A codemod converts a project; the value→IR front-end survives only as the differential proof and goes with it.                                                                     |
+| Declaration ergonomics  | `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                                                                       |
+| `dts` build break       | `yarn build` already fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.                                                                                |
 
 ## 7. Adjacent, not part of this goal
 
@@ -298,3 +298,16 @@ Tracked separately; it does not block or depend on the work above.
 6. `benchmarks/harness/framework/app.ts` contains no schema→descriptor bridge.
 7. Build time is measured and published, with the one-`API`-instance property
    asserted by a test rather than assumed.
+8. `defineSchema` no longer exists and a codemod converts a project that used it.
+
+## 9. Decision log
+
+Full reasoning and rejected alternatives in [`PLAN-type-first.md`](PLAN-type-first.md) §2.
+
+| #   | Decided                                                                                                                                                                                                                                                                                                                            | On         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| D1  | The derivation `PrimaryKey<S>` is renamed `PrimaryKeyOf<S>` so the tag takes the good name. No deprecated alias — D2 removes the reason for one.                                                                                                                                                                                   | 2026-09-02 |
+| D2  | Derivations take a tagged type only; there is no dispatch on a schema value. **`defineSchema` is deleted**, with a codemod for existing projects. Backwards compatibility is explicitly not a requirement. The value→IR front-end survives only as the differential proof that the tagged path is correct, and is removed with it. | 2026-09-02 |
+| D3  | A column has three types — wire / app / db — and each layer renders the one it owns. `timestamp`: ISO `string` in JSON Schema, `Date` in `Entity<T>`, `timestamptz` on Postgres. The IR keeps the abstract type; the dialect renders the spelling. Requires a per-dialect DDL type map, which does not exist today.                | 2026-09-02 |
+| D4  | An unresolvable type is a **build error** naming the file, the type and the construct, with `{ onUnsupported: 'warn' \| 'runtime' }` as the opt-out. An unresolved type _parameter_ is always fatal.                                                                                                                               | 2026-09-02 |
+| D5  | Keep `unique symbol` tags and name-based reflection, and make two declarations of one tag name in a program a **build error**. Verified: a cross-copy key filter resolves to `never`, which is assignable to anything, so it fails silently — the type tests must assert exact identity, never assignability.                      | 2026-09-02 |

@@ -1,9 +1,9 @@
 # Implementation plan — type-first declaration
 
-Implements [`DESIGN-type-first.md`](DESIGN-type-first.md) / PRD §6.7 (`REQ-TF-1` … `REQ-TF-12`).
+Implements [`DESIGN-type-first.md`](DESIGN-type-first.md) / PRD §6.7 (`REQ-TF-1` … `REQ-TF-13`).
 
 **Read §1 and §2 first.** They contain the one architectural decision the rest of the
-plan depends on, and the five choices that need making before any code is written.
+plan depends on, and the five choices that shape it — all five resolved on 2026-09-02.
 
 ---
 
@@ -34,7 +34,7 @@ column. Adding tags to this without restructuring would make it five walkers.
    (checker)         ├──▶  TypeIR / ColumnIR  ──────┼── excess-key JS      (equals)
                      │      (pure data)             ├── sample generator   (random)
   defineSchema ──────┘                              ├── JSON Schema        (openapi/llm/web)
-   (value)                                          ├── runtime CoreSchema (query-compiler)
+   (value, temporary)                               ├── runtime CoreSchema (query-compiler)
                                                     └── IR walker          (runtime fallback)
 ```
 
@@ -43,8 +43,11 @@ Three consequences that shape everything downstream:
 1. **REQ-TF-7's "byte-identical" AC becomes structural.** Both declaration styles
    produce IR; the JSON Schema emitter is a pure function of IR. Identical output is
    not a test we have to chase — it is the only thing the code can do.
-2. **REQ-TF-12 (migration) is free.** `defineSchema` keeps working because the
-   value→IR front-end is one of two peers, not a legacy path.
+2. **The two front-ends are how the tagged path gets proven, not a compatibility
+   layer.** Per **D2**, `defineSchema` is being deleted, so the value→IR front-end is
+   scaffolding: it exists so that "IR from `User` equals IR from `UserSchema`" can be
+   asserted against the existing SQL and JSON Schema snapshots, and it is removed in
+   Phase 9 along with `defineSchema` itself.
 3. **REQ-AV-4 (identical runtime fallback) becomes structural too.** The runtime
    walker and the emitter consume the same IR. `TypeDescriptor` is _replaced by_ IR
    rather than extended alongside it — which also deletes a vocabulary instead of
@@ -75,81 +78,164 @@ A `verify:exports` addition asserts no runtime entrypoint reaches it.
 
 ---
 
-## 2. Decisions to make before Phase 1
+## 2. Decisions — all five resolved 2026-09-02
 
-These five change the shape of the work. Recommendations given; each is cheap to
-reverse only before Phase 3.
+These five changed the shape of the work. All are now settled; each records what was
+rejected, because that is the part that gets forgotten.
 
-### D1 — `PrimaryKey` name collision. **Recommend: rename the derivation.**
+### D1 — `PrimaryKey` name collision. **Resolved: rename the derivation.**
 
 `schema-core` already exports `PrimaryKey<S>` — the _value_ type of a row's key
 (`index.ts:144`). The tag wants the same name, and it is the name users type most.
 Since `export *` is banned (REQ-UM-3), the umbrella would surface an explicit
 collision.
 
-Rename the derivation to `PrimaryKeyOf<S>`, keep `PrimaryKey<S>` as a deprecated
-alias for one alpha cycle, and give the tag the good name. The packages are
-`1.0.0-alpha.4`; this is the moment for it. _Alternative if rejected:_ tags live only
-under `zmdb/tags` and users import them namespaced (`import type * as t from
-'zmdb/tags'` → `t.PrimaryKey`), which is uglier at every declaration site.
+The derivation becomes `PrimaryKeyOf<S>` and the tag takes the good name. Because D2
+removes the backwards-compatibility requirement, `PrimaryKey<S>` is not kept as a
+deprecated alias — it is renamed outright, in one commit, with the call sites updated.
 
-### D2 — Dual-input derivations. **Recommend: conditional dispatch, one name.**
+_Rejected:_ namespaced tag imports (`import type * as t from 'zmdb/tags'` →
+`t.PrimaryKey`), which is uglier at every declaration site — and declaration sites are
+where this library is read.
+
+### D2 — Dual-input derivations. **Resolved: tagged types only. `defineSchema` is deleted.**
+
+The recommendation was a conditional dispatch:
 
 ```ts
 export type Entity<T> = T extends { readonly columns: ColumnsMap } ? EntityFromSchema<T> : EntityFromTags<T>;
 ```
 
-Every existing `Entity<typeof UserSchema>` call site keeps compiling, and
-`Entity<User>` works. Cost is one non-recursive `extends` per use. Measure it against
-REQ-TF-3's AC before committing (Phase 3 has the budget test); if instantiation counts
-move, fall back to distinct names (`EntityOf<T>`) and a codemod.
+That conditional existed for exactly one reason: to keep the existing
+`Entity<typeof UserSchema>` call sites compiling. Backwards compatibility is not a
+requirement here, so the conditional has no other job and is removed. Three things
+follow, and they are all simplifications:
 
-### D3 — `timestamp`: `Date`, `string`, or both? **Recommend: `Date` in the entity, and add `Wire<T>`.**
+1. **No dispatch, no instantiation risk.** `Entity<T>`, `CreateDTO<T>`,
+   `UpdateDTO<T>`, `WhereDTO<T>` and `PrimaryKeyOf<T>` take a tagged type and nothing
+   else. The `extends` test per use disappears, and with it the main reason RISK-6
+   (type-level derivation cost) was on this plan's critical path. The Phase 3
+   instantiation budget test stays — it is still worth having a committed ceiling —
+   but it is now a ratchet rather than a go/no-go.
+2. **`defineSchema` goes away rather than becoming a peer front-end.** Keeping it
+   would mean maintaining two front-ends, two sets of derivations and two paths
+   through every emitter forever, to serve a declaration style the PRD's own P2
+   describes as inverted (RISK-8). The only genuine use case for a value-shaped schema
+   is one not known at compile time, which is outside the compile-time thesis this
+   whole project rests on — and if it is ever needed, it is a separate feature built on
+   the IR, not a second way to declare a table.
+3. **The IR keeps both entry points during the migration only.** `irFromSchema()`
+   still gets built in Phase 1 — the repo's entire correctness proof for the tagged
+   path is "the IR from `User` equals the IR from `UserSchema`", and the existing SQL
+   and JSON Schema snapshots are the differential. It is scaffolding with a demolition
+   date: `irFromSchema` and `defineSchema` are deleted together in Phase 9, once the
+   equivalence tests have served their purpose and every in-repo schema is tagged.
 
-This is the one genuine semantic hole the work will expose rather than create.
-`TsType` says `timestamp` → `Date`. `toJsonSchema` says `{type:'string',format:'date-time'}`.
-`valueMatchesColumn` accepts `Date | string`. A generated validator must pick one, and
-whichever it picks, one of the three existing behaviours becomes a bug.
+So the migration path is a codemod plus a deletion, not a compatibility layer.
+**`REQ-TF-12` is rewritten accordingly** — it promised `defineSchema` would keep
+working, and it will not.
 
-The honest model is that a column has **three** types, not one:
+### D3 — `timestamp`: `Date`, `string`, or both? **Resolved: dialect-specific, three types per column.**
 
-|      | Type                   | Example             |
-| ---- | ---------------------- | ------------------- |
-| wire | what arrives over HTTP | `string` (ISO-8601) |
-| app  | what handler code sees | `Date`              |
-| db   | what the driver binds  | driver-dependent    |
+This is the one genuine semantic hole the work exposes rather than creates.
+`TsType` says `timestamp` → `Date`. `toJsonSchema` says
+`{type:'string',format:'date-time'}`. `valueMatchesColumn` accepts `Date | string`.
+Three answers for one column, and a generated validator must pick one.
 
-Introduce `Wire<T>` as a first-class derivation alongside `Entity<T>`, with the
-existing `custom-types` `CustomType<TS, DB>` (extended to `CustomType<Wire, TS, DB>`)
-as the codec between them, named from the type by a `Codec<'Name'>` tag. `Entity<T>`
-validators check `instanceof Date`; `Wire<T>` validators check the ISO string; the web
-pipeline decodes wire→app once at the boundary. **This is a sub-project (Phase 7b), and
-it is the single most likely thing to blow the schedule.** It can be deferred by
-scoping Phase 4 to non-`timestamp` columns, but it cannot be skipped — `REQ-TF-7`'s
-byte-identical AC will fail on any schema with a timestamp until it is resolved.
+The resolution is that all three are right about different things, and each layer
+renders the one it owns:
 
-### D4 — Unresolvable types: error, warn, or silent? **Recommend: error, with an opt-out.**
+|      | Type                   | `timestamp` renders as                           | Rendered by                       |
+| ---- | ---------------------- | ------------------------------------------------ | --------------------------------- |
+| wire | what arrives over HTTP | `string`, ISO-8601 (`date-time`)                 | the JSON Schema / OpenAPI emitter |
+| app  | what handler code sees | `Date`                                           | `Entity<T>` and its validator     |
+| db   | what the driver binds  | `TIMESTAMPTZ` on Postgres, per-dialect elsewhere | the DDL emitter                   |
+
+Two consequences for the design:
+
+- **The IR's `sql` field stays abstract** — it carries `'timestamp'`, not
+  `'TIMESTAMPTZ'`. Rendering a dialect's spelling is the dialect's job. This matters
+  because the IR is meant to be serialisable and dialect-agnostic; baking a Postgres
+  spelling into it would make every other back-end parse it back out.
+- **The DDL emitter needs a per-dialect type map, and does not have one.**
+  `query-compiler/src/migrations/index.ts:115` interpolates `col.type` verbatim
+  (`${quoteIdentifier(d, col.name)} ${col.type}`), so a `timestamp` column emits the
+  literal word `timestamp` on Postgres, MySQL and SQLite alike. Only identifiers are
+  dialect-aware today; types are not. Adding the map is small and concrete, but it
+  **will change existing DDL snapshots** (Postgres `timestamp` → `timestamptz`), so it
+  is a behaviour change to land deliberately, not a refactor.
+
+`Wire<T>` is therefore accepted as a first-class derivation alongside `Entity<T>`, with
+`CustomType<TS, DB>` extended to `CustomType<Wire, TS, DB>` as the codec and a
+`Codec<'Name'>` tag naming it. `Entity<T>` validators check `instanceof Date`;
+`Wire<T>` validators check the ISO string; the web pipeline decodes wire→app once at
+the boundary. **This is still a sub-project (Phase 7b) and still the most likely thing
+to blow the schedule** — the answer settles the semantics, not the volume of work. It
+can be deferred by scoping Phase 4 to non-`timestamp` columns; it cannot be skipped,
+because `REQ-TF-7` fails on any schema with a timestamp until it lands.
+
+### D4 — Unresolvable types: error, warn, or silent? **Resolved: error, with an opt-out.**
 
 Today an unresolvable `is<T>` silently falls through to a runtime path that throws
 `'runtime descriptor required'`. That policy is exactly what produced the miscompile
-fixed in `30850812`. New policy: the reflection emits a **build diagnostic naming the
+fixed in `f70186c6`. New policy: the reflection emits a **build diagnostic naming the
 file, the type, and the unsupported construct**, and fails the build unless
 `{ onUnsupported: 'warn' | 'runtime' }` is set. `is<T>` where `T` is an unresolved
-type _parameter_ is always a hard error — it cannot be made to work and silently
+type _parameter_ is always a hard error — it cannot be made to work, and silently
 compiling it is a lie.
 
-### D5 — Tag identity across duplicate installs. **Recommend: name-based reflection, documented caveat.**
+### D5 — Tag identity across duplicate installs. **Resolved: name-based reflection, plus a build error. Verified, not assumed.**
 
-A tag is `declare const zmdbMin: unique symbol`. If a consumer ends up with two copies
-of `@zmdb/schema-core`, the two `unique symbol`s are different types, so `T[K] extends
-Serial` silently returns `false` and `CreateDTO` stops stripping the serial key. The
-_reflection_ is immune (it matches the escaped name `__@zmdbMin`, which is textual),
-but the _type-level filters_ are not.
+A tag is `declare const zmdbSerial: unique symbol`. The concern was that a consumer
+with two copies of `@zmdb/schema-core` gets two different `unique symbol`s, so
+`T[K] extends Serial` stops matching. This section previously asserted that as fact; it
+has now been checked, and the checked version is worse than the asserted one in one
+specific way.
 
-Mitigation: reflect on names (already the prototype's behaviour), add a Phase 2 test
-that a duplicated-install fixture produces a diagnostic rather than wrong output, and
-document it. There is no way to make `unique symbol` install-agnostic; pretending
-otherwise would be dishonest.
+**What the type checker does** (two identical tag modules, `a.ts` and `b.ts`, a value
+tagged with A's tag, tested against B's):
+
+| Probe                               | Result  |
+| ----------------------------------- | ------- |
+| `(number & TagA) extends TagA`      | `true`  |
+| `(number & TagA) extends TagB`      | `false` |
+| `number extends TagB`               | `false` |
+| `(number & {foo?: 1}) extends TagB` | `false` |
+| `Identical<TagA, TagB>`             | `false` |
+
+So identity is nominal, as expected — a structurally identical tag from another copy
+does not match. The part worth writing down is **how** it fails: a key filter like
+`{[K in keyof T]-?: T[K] extends Serial ? K : never}[keyof T]` collapses to `never`,
+and `never` is assignable to everything. `CreateDTO<User>` silently stops omitting
+`id`, and no error appears anywhere near the filter. The first probe written for this
+was itself fooled by exactly that — it asserted `SerialKeys<User>` was assignable to
+`'id'`, which `never` satisfies, and passed while the tag was not matching at all. An
+exact-identity assertion is the only kind that catches this.
+
+**What the reflection does** — the escaped property names carry a disambiguating id:
+
+```
+number & TagA  ->  props: [..., "__@symA@1"]
+number & TagB  ->  props: [..., "__@symB@12"]
+```
+
+The prototype matches `/^__@(\w+?)@?\d*$/`, stripping the id, so reflection sees both
+copies as the same tag while the type-level filters see two different ones. That
+asymmetry is the actual risk: the emitted validator and the derived DTO type would
+disagree, which is the precise failure mode this project exists to eliminate.
+
+Resolution: keep `unique symbol` (un-forgeable, collision-proof, erases to nothing),
+keep name-based reflection — and because the reflector can see the ids, make **two
+distinct declarations of the same tag name within one program a hard build error**,
+naming both files. Same philosophy as D4: a divergence the type system cannot express
+becomes a loud diagnostic instead of a silent wrong answer. That is strictly better
+than the "documented caveat" originally recommended, and it costs one check.
+
+_Rejected:_ a branded string key (`{ readonly '~zmdbSerial'?: true }`) instead of a
+symbol. It is structural, so duplicate installs match, but it is forgeable by any
+consumer who types the key, and it shows up in `keyof` and index signatures. Trading
+un-forgeability for install-agnosticism is the wrong trade when the alternative is a
+build error that cannot be ignored.
 
 ---
 
@@ -185,8 +271,10 @@ Sizes are relative: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or m
 
 ### Phase 0 — Decisions and scaffolding · S
 
-1. Resolve **D1–D5**; record each in `DESIGN-type-first.md` §9 as a dated decision
-   with its rejected alternative.
+1. **Done** — **D1–D5** are resolved in §2 above with their rejected alternatives.
+   Copy them into `DESIGN-type-first.md` §9 so the design document and the plan do not
+   drift, and update PRD §6.7's `REQ-TF-12` row, which still promises `defineSchema`
+   keeps working.
 2. Add subpaths `./tags`, `./ir` to `schema-core`; `./reflect`, `./emit` to
    `aot-validator`; register both in the `zmdb` umbrella map; extend
    `verify:exports`.
@@ -291,9 +379,17 @@ so the tag vocabulary is written _to_ a known target.
   `ColumnFlags` member, `SqlType` member and `ValidationRule.kind` has a tag.
 - A zero-cost assertion: a fixture whose emitted JS is byte-compared against the same
   fixture with all tags stripped (**REQ-TF-3**).
-- The D5 duplicate-install fixture.
+- **The D5 duplicate-declaration check.** Two parts, because the type-level half and
+  the reflection half fail differently:
+  - a `tags.type-test.ts` fixture with a second copy of the tag module, asserting the
+    key filters resolve to **exactly** the expected union — `Identical<X, Y>`, never
+    assignability, because `never` satisfies an assignability check and that is what
+    made the first probe of this pass while the tag was not matching;
+  - a reflection-side guard that two distinct `unique symbol` declarations resolving to
+    the same tag name in one program is a build error naming both files.
 
-**Gate:** REQ-TF-1, REQ-TF-2, REQ-TF-3. Coverage test green in both directions.
+**Gate:** REQ-TF-1, REQ-TF-2, REQ-TF-3. Coverage test green in both directions; the
+duplicate-declaration fixture produces a diagnostic, not wrong output.
 
 ---
 
@@ -301,14 +397,24 @@ so the tag vocabulary is written _to_ a known target.
 
 **Deliverables**
 
+Per **D2** these are **single-input**: they take a tagged type, and there is no
+conditional dispatch on a schema value. That is the simplification the "no backwards
+compatibility" answer buys, and it removes the largest instantiation-cost worry.
+
 - `SerialKeys`, `DefaultKeys`, `PrimaryKeyKeys`, `SensitiveKeys`, `UniqueKeys`,
   `NullableKeys` over tagged types.
-- Dual-input dispatch (**D2**) for `Entity`, `CreateDTO`, `UpdateDTO`, `WhereDTO`,
-  `PrimaryKeyOf`, and the `dto/` module's order-by, pagination, projection, list and
-  populated shapes.
-- **New:** `ReadDTO<T>` = `Omit<Entity<T>, SensitiveKeys<T>>` (**REQ-TF-6**), and
-  `Wire<T>` if **D3** is accepted.
+- `Entity`, `CreateDTO`, `UpdateDTO`, `WhereDTO`, `PrimaryKeyOf` rewritten to take the
+  tagged type, along with the `dto/` module's order-by, pagination, projection, list and
+  populated shapes. `PrimaryKey<S>` → `PrimaryKeyOf<S>` (**D1**), renamed outright with
+  no deprecated alias.
+- **New:** `ReadDTO<T>` = `Omit<Entity<T>, SensitiveKeys<T>>` (**REQ-TF-6**) and
+  `Wire<T>` (**D3**).
 - Relation-tag-driven `PopulatedEntity` / `Populated` / `JoinRow`.
+- **A codemod**, `scripts/codemod-tagged-schema.mjs`: `defineSchema` call →
+  tagged interface. It has to exist for the in-repo migration anyway — every package's
+  fixtures, the benchmarks and the docs examples all declare schemas — so it costs
+  little to make it consumer-runnable and it is the whole of the migration story now
+  that `defineSchema` is being deleted.
 
 **Tests**
 
@@ -317,10 +423,14 @@ so the tag vocabulary is written _to_ a known target.
 - Constraint survival through `Omit`/`Pick`/`Partial` (REQ-TF-5).
 - `@ts-expect-error` on reading a sensitive field off `ReadDTO<T>` (REQ-TF-6).
 - **A type-instantiation budget test.** `--diagnostics` instantiation count on a
-  fixture project, before and after D2, committed as a number with a ceiling. This is
-  REQ-TF-3's other half and the answer to RISK-6.
+  fixture project, committed as a number with a ceiling. D2 removed the dispatch this
+  was originally meant to gate, so it is now a ratchet against RISK-6 rather than a
+  go/no-go — but a ratchet is what RISK-7 says we are bad at, so it still lands here.
+- Codemod round-trip: every in-repo `defineSchema` fixture, converted, produces IR
+  identical to the original's.
 
-**Gate:** REQ-TF-4, REQ-TF-5, REQ-TF-6; instantiation budget within ceiling.
+**Gate:** REQ-TF-4, REQ-TF-5, REQ-TF-6; instantiation budget within ceiling; the
+codemod converts every in-repo schema.
 
 ---
 
@@ -460,16 +570,33 @@ generated const.
   for every existing dialect snapshot. This is the AC, and it is a strong one — it
   reuses the entire per-dialect snapshot suite as the correctness proof.
 
-**7b — collapse `validatePayload` (D3's home)**
+**7b — collapse `validatePayload`, and land D3's three types**
 
 `repository`'s `validatePayload`/`valueMatchesColumn` (`index.ts:783,827`) becomes a
 call to the emitted `CreateDTO`/`UpdateDTO` validator. This deletes the fourth walker
-and is where the `timestamp` three-types problem must be resolved, because the
+and is where the `timestamp` three-types problem gets implemented, because the
 repository's current `Date | string` tolerance is the reason nobody noticed the
-disagreement. Ship `Wire<T>` + `Codec` here.
+disagreement.
+
+Per **D3**, each layer renders the type it owns, and the IR's `sql` field stays
+abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
+
+- `Wire<T>` + `CustomType<Wire, TS, DB>` + the `Codec<'Name'>` tag; the web pipeline
+  decodes wire→app once at the boundary, so handlers keep seeing `Date`.
+- `Entity<T>` validators check `instanceof Date`; `Wire<T>` validators check the ISO
+  string. Neither accepts both.
+- **A per-dialect SQL type map in the DDL emitter, which does not exist today.**
+  `query-compiler/src/migrations/index.ts:115` interpolates `col.type` verbatim, so
+  `timestamp` reaches Postgres, MySQL and SQLite as the literal word `timestamp`; only
+  identifiers are dialect-aware. Postgres must emit `timestamptz`. This **changes
+  existing DDL snapshots**, so it lands as its own commit with the snapshot diff
+  reviewed, not folded into the walker deletion.
 
 - REQ-RP-3's behaviour must not regress: `create({bogus:1})` still rejects at runtime
   with a structured path.
+- A test per dialect that a `timestamp` column's DDL, its `Entity` validator and its
+  JSON Schema all say the three right things, in one place, so the next person cannot
+  reintroduce the disagreement without a failure.
 
 **7c — the benchmark harness (REQ-TF-9)**
 
@@ -515,23 +642,35 @@ bundler plugin remains, as the optimisation that removes the last function call
 **CI gates to add** (all of these are currently missing, and several are ACs that no
 script enforces):
 
-| Script                  | Enforces                                                                                                                                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `verify:tf-coverage`    | tag ↔ `SqlType`/`ColumnFlags`/`ValidationRule` parity (REQ-TF-1)                                                                                                                           |
-| `verify:no-descriptors` | zero hand-authored descriptors in `packages/` + `benchmarks/` (REQ-TF-9)                                                                                                                   |
-| `verify:build-budget`   | one `API` instance; wall-time ceiling (REQ-TF-11)                                                                                                                                          |
-| `verify:instantiations` | type-instantiation ceiling (REQ-TF-3, RISK-6)                                                                                                                                              |
-| `verify:escape-hatches` | **the RISK-7 counter.** Recompute PRD §9.4, fail on any increase, fail on an assertion with no `// boundary:` comment in its enclosing function, and carry the `new Function`/`eval` grep. |
+| Script                   | Enforces                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `verify:tf-coverage`     | tag ↔ `SqlType`/`ColumnFlags`/`ValidationRule` parity (REQ-TF-1)                                                                                                                           |
+| `verify:no-descriptors`  | zero hand-authored descriptors in `packages/` + `benchmarks/` (REQ-TF-9)                                                                                                                   |
+| `verify:build-budget`    | one `API` instance; wall-time ceiling (REQ-TF-11)                                                                                                                                          |
+| `verify:instantiations`  | type-instantiation ceiling (REQ-TF-3, RISK-6)                                                                                                                                              |
+| `verify:escape-hatches`  | **the RISK-7 counter.** Recompute PRD §9.4, fail on any increase, fail on an assertion with no `// boundary:` comment in its enclosing function, and carry the `new Function`/`eval` grep. |
+| `verify:no-defineschema` | zero `defineSchema` calls and zero `irFromSchema` references outside their own deletion commit (**D2**)                                                                                    |
 
 The last one is overdue independently of this work: the published figure was 23 and
 the real count is 28 — it drifted up by five with nothing watching. Land it here
 because Phase 5 and 7 will delete assertions and the ratchet should capture that.
 
+**The D2 deletion** — this is the phase where the scaffolding comes down:
+
+- Run the Phase 3 codemod over every remaining in-repo `defineSchema` call.
+- Delete `defineSchema`, `irFromSchema`, the column-builder functions
+  (`schema-core/src/index.ts:284` and siblings) and the value→IR equivalence tests,
+  which have by then done their job. One commit, with `verify:no-defineschema` landing
+  in the same one so the surface cannot come back.
+- Note the ordering constraint: the equivalence tests are the safety net for Phases
+  4–7, so this deletion **must** be last. Deleting it early to feel finished would
+  remove the only differential proof that the tagged path agrees with the shipped one.
+
 **Docs**
 
-- `docs-site` pages: type-first declaration, the tag reference, migration from
-  `defineSchema`, the codegen CLI. Plus `coverage/mapping.mjs` entries, or
-  `verify:docs-coverage` fails.
+- `docs-site` pages: type-first declaration, the tag reference, the codemod and what
+  it does to a `defineSchema` project, the codegen CLI. Plus `coverage/mapping.mjs`
+  entries, or `verify:docs-coverage` fails.
 - `SPEC.md` for `schema-core` (tags, IR, converters) and `aot-validator` (reflect,
   emit, CLI) — `validate:spec` requires them.
 - `COOKBOOK.md` recipes; `ARCHITECTURE.md` §2 for the IR spine; PRD §7.2's worked
@@ -565,23 +704,29 @@ Phase 0 ─┬─ Phase 1 (IR) ─┬─ Phase 2 (tags) ── Phase 3 (DTOs) �
 - Phase 9's ratchet scripts have no dependencies and should start immediately; they
   are what keeps phases 5–7 honest as code is deleted.
 - Phase 8 needs Phase 5's emitters but not Phases 6–7.
+- **`defineSchema`'s deletion is the last thing that happens** (D2, Phase 9), because
+  the value→IR equivalence test is the safety net for everything between Phase 4 and
+  Phase 7. Deleting it earlier would feel like progress and remove the proof.
 
 Rough total: **6–10 weeks** of focused work, with Phase 4 and Phase 7 carrying most of
 the uncertainty. The two most likely overruns are D3's three-types problem (Phase 7b)
-and the union/discriminated-union emit matrix (Phase 4).
+and the union/discriminated-union emit matrix (Phase 4). D2's answer took the dual
+dispatch and the second permanent front-end off the list, which is the only place the
+schedule got shorter.
 
 ## 6. Risks specific to the implementation
 
-| Risk                                                                                                                                                                                  | Mitigation                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D3 (`timestamp`) cascades.** Three different existing behaviours; whichever the validator picks, something that works today breaks.                                                 | Resolve in Phase 0, implement in 7b, and keep `Wire<T>` opt-in until the web pipeline decodes. Do not let Phase 4 emit timestamp checks before this lands.                |
-| **Checker resolves differently from `tsc`.** The API is new; a divergence between `getTypeFromTypeNode` and what `tsc` reports would produce validators that disagree with the types. | The Phase 4 equivalence test (`irFromType` vs `irFromSchema`) catches semantic drift. Add a canary: assert `isTypeAssignableTo` agrees with a `@ts-expect-error` fixture. |
-| **Position-based rewriting is fragile** under other plugins (§5.1).                                                                                                                   | `enforce: 'pre'` + byte-identity check + skip-with-diagnostic. Never guess.                                                                                               |
-| **Instantiation blowup** from D2's dual dispatch on large schemas.                                                                                                                    | The Phase 3 budget test, with a committed ceiling. Fall back to distinct names + codemod.                                                                                 |
-| **`unique symbol` identity across installs** (D5).                                                                                                                                    | Name-based reflection; duplicate-install fixture; documented. Unfixable in principle.                                                                                     |
-| **Scale is untested.** No fixture today resembles a 60-column entity behind four layers of conditional types.                                                                         | Build that fixture in Phase 1, not Phase 7. It is cheap early and expensive late.                                                                                         |
-| **`dts` build is already broken**, so nothing can be published until it is fixed regardless of this work.                                                                             | Phase 9, or earlier if a release is needed.                                                                                                                               |
-| **Deleting four walkers touches every package at once.**                                                                                                                              | The IR equivalence tests are the safety net, and each walker is deleted in a separate commit with its differential test already green.                                    |
+| Risk                                                                                                                                                                                                          | Mitigation                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D3 (`timestamp`) cascades.** Three different existing behaviours; whichever the validator picks, something that works today breaks. Resolved in principle, but the DDL type map changes Postgres snapshots. | Implement in 7b as separate commits — codec, validators, DDL map — each with its snapshot diff reviewed. Do not let Phase 4 emit timestamp checks before this lands.                |
+| **Checker resolves differently from `tsc`.** The API is new; a divergence between `getTypeFromTypeNode` and what `tsc` reports would produce validators that disagree with the types.                         | The Phase 4 equivalence test (`irFromType` vs `irFromSchema`) catches semantic drift. Add a canary: assert `isTypeAssignableTo` agrees with a `@ts-expect-error` fixture.           |
+| **Position-based rewriting is fragile** under other plugins (§5.1).                                                                                                                                           | `enforce: 'pre'` + byte-identity check + skip-with-diagnostic. Never guess.                                                                                                         |
+| **Instantiation blowup** on large schemas. D2 removed the dual dispatch, so the main suspect is gone; deep `Omit`/`Partial` chains over a 60-column entity remain.                                            | The Phase 3 budget test, with a committed ceiling and `verify:instantiations` watching it.                                                                                          |
+| **`unique symbol` identity across installs** (D5). Verified: cross-copy filters resolve to `never`, which is assignable to anything, so it fails silently.                                                    | Name-based reflection, an exact-identity (not assignability) type test, and a build error on two declarations of one tag name. Not unfixable — just not fixable in the type system. |
+| **`defineSchema`'s deletion removes the differential proof** that the tagged path matches the shipped one.                                                                                                    | Phase 9, last, after every other gate is green. The equivalence tests are the net for Phases 4–7 and must outlive them.                                                             |
+| **Scale is untested.** No fixture today resembles a 60-column entity behind four layers of conditional types.                                                                                                 | Build that fixture in Phase 1, not Phase 7. It is cheap early and expensive late.                                                                                                   |
+| **`dts` build is already broken**, so nothing can be published until it is fixed regardless of this work.                                                                                                     | Phase 9, or earlier if a release is needed.                                                                                                                                         |
+| **Deleting four walkers touches every package at once.**                                                                                                                                                      | The IR equivalence tests are the safety net, and each walker is deleted in a separate commit with its differential test already green.                                              |
 
 ## 7. Definition of done
 
@@ -594,3 +739,7 @@ and the union/discriminated-union emit matrix (Phase 4).
     validation — RISK-1 closed.
 11. Validation and ORM benchmarks re-measured, committed, and published; the
     type-first path is no slower than today's hand-written descriptor path.
+12. **`defineSchema` is gone** (D2), the codemod converts a `defineSchema` project in
+    one command, and `verify:no-defineschema` keeps it gone. There is exactly one way
+    to declare a table — which is what P2 asked for, and what RISK-8 says the repo
+    does not have today.
