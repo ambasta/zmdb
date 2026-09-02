@@ -62,7 +62,14 @@ function parseType(src: string): PType | undefined {
     }
     return primType(prim);
   }
-  return parse();
+  const parsed = parse();
+  ws();
+  // Anything the parser did not consume means the type is outside the supported
+  // grammar, and a partial parse is worse than no parse: `string[]` used to read
+  // as `string` and `number | string` as `number`, so the call was inlined to a
+  // check that answers the wrong question. Leaving the call alone hands it to the
+  // runtime path, which requires a descriptor and throws without one.
+  return i === s.length ? parsed : undefined;
 }
 
 function emitCheck(t: PType, expr: string): string {

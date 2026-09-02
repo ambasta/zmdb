@@ -95,6 +95,23 @@ describe('Unified Single-Pass AOT Transformer Engine', () => {
     expect(norm(transformed)).toContain('typeof data.user === "object"');
   });
 
+  it('leaves a type it cannot fully parse alone rather than inlining a partial read of it', () => {
+    // The type parser understands primitives and inline object literals. It used
+    // to stop at the first thing it recognised and ignore the rest, so `string[]`
+    // was inlined as `typeof x === "string"` and `number | string` as
+    // `typeof x === "number"` — checks that answer a different question than the
+    // one the caller asked. Now an unconsumed remainder aborts the parse and the
+    // call goes to the runtime path.
+    for (const src of [
+      'const a = is<string[]>(x);',
+      'const b = is<number | string>(x);',
+      'const c = is<{ role: "admin" | "user" }>(x);',
+      'const d = assert<boolean[]>(x);',
+    ]) {
+      expect(transformCode(src)).toBe(src);
+    }
+  });
+
   it('safely handles unknown constructs and unmapped target identifiers without throwing', () => {
     const unknownSrc = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Minimum(1), y);';
     expect(transformCode(unknownSrc)).toBe(unknownSrc);
