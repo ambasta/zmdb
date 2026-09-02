@@ -21,11 +21,14 @@ import {
   jsonSchemaForColumn,
   jsonSchemaFromIR,
   KNOWN_CONSTRAINT_KINDS,
+  objectTypeFromIR,
   schemaFromIR,
   SQL_TYPES,
   wireTypeOf,
   type ColumnIR,
+  type PropertyIR,
   type SchemaIR,
+  type Variant,
 } from './index.ts';
 
 const UserSchema = defineSchema('users', {
@@ -297,5 +300,82 @@ describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
     expect(back.columns[0]).not.toHaveProperty('codec');
     expect(back.columns[0]).not.toHaveProperty('payload');
     expect(back.columns[0]?.sql).toBe('numeric');
+  });
+});
+
+describe('objectTypeFromIR — the validator back-end (REQ-TF-13)', () => {
+  function properties(variant: Variant, layer?: 'app' | 'wire'): readonly PropertyIR[] {
+    return objectTypeFromIR(irFromSchema(UserSchema), variant, layer).properties;
+  }
+
+  function property(name: string, variant: Variant = 'entity', layer?: 'app' | 'wire'): PropertyIR {
+    const found = properties(variant, layer).find(p => p.name === name);
+    if (!found) throw new Error(`no property ${name} in the ${variant} payload`);
+    return found;
+  }
+
+  it('is the entity row, in declaration order, with nothing optional', () => {
+    // Not sorted, unlike the JSON Schema back-end: a document is published and its key
+    // order is part of it, and a `TypeIR` is read by an emitter that does not care.
+    expect(properties('entity').map(p => p.name)).toEqual([
+      'id',
+      'email',
+      'age',
+      'nickname',
+      'role',
+      'createdAt',
+      'passwordHash',
+      'active',
+    ]);
+    expect(properties('entity').every(p => !p.optional)).toBe(true);
+  });
+
+  it('keeps a sensitive column, unlike the JSON Schema back-end', () => {
+    // The distinction REQ-TF-6 actually draws: a published document must not name a
+    // password, and a `create` validator that ignored it would reject every real payload.
+    expect(properties('create').map(p => p.name)).toContain('passwordHash');
+    expect(jsonSchemaFromIR(irFromSchema(UserSchema), 'create').properties).not.toHaveProperty('passwordHash');
+  });
+
+  it('drops a serial column from create and makes a defaulted one optional', () => {
+    expect(properties('create').map(p => p.name)).not.toContain('id');
+    expect(property('createdAt', 'create').optional).toBe(true);
+    expect(property('email', 'create').optional).toBe(false);
+  });
+
+  it('drops the identity columns from a patch and requires nothing', () => {
+    expect(properties('update').map(p => p.name)).not.toContain('id');
+    expect(properties('update').every(p => p.optional)).toBe(true);
+  });
+
+  it('marks nothing readonly, because a payload is an object the caller just built', () => {
+    expect(properties('entity').every(p => !p.readonly)).toBe(true);
+  });
+
+  it('renders the layer it was asked for, and not both', () => {
+    // The bug this back-end replaces: `valueMatchesColumn` accepted `Date | string` for a
+    // `timestamp`, so neither layer was ever wrong and neither was ever checked. A caller
+    // now says which side of the boundary it is on.
+    expect(property('createdAt').type).toEqual({ kind: 'scalar', scalar: 'date' });
+    expect(property('createdAt', 'entity', 'wire').type).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      format: 'date-time',
+    });
+  });
+
+  it('carries the constraints, so one call validates types and bounds together', () => {
+    expect(property('age').type).toEqual({
+      kind: 'scalar',
+      scalar: 'integer',
+      constraints: { minimum: 18, maximum: 120 },
+    });
+    expect(property('email').type).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      constraints: { pattern: '^\\S+@\\S+$', maxLength: 255 },
+    });
+    expect(property('role').type).toMatchObject({ kind: 'union' });
+    expect(property('nickname').type).toMatchObject({ kind: 'union' });
   });
 });

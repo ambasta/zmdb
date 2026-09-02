@@ -8,10 +8,10 @@
 // worse, so the tags land on top of one IR instead.
 //
 //   FRONT-ENDS                  IR                       BACK-ENDS
-//   tagged type ──┐                          ┌── predicate JS  (is)
-//                 ├──▶ SchemaIR / TypeIR ────┼── JSON Schema   (openapi/llm/web)
-//   defineSchema ─┘        (pure data)        ├── runtime walker (fallback)
-//                                            └── SQL / DDL     (query-compiler)
+//   tagged type ──┐                          ┌── predicate JS   (is)
+//                 ├──▶ SchemaIR / TypeIR ────┼── JSON Schema    (openapi/llm/web)
+//   defineSchema ─┘        (pure data)        ├── runtime walker (fallback, repository)
+//                                            └── SQL / DDL      (query-compiler)
 //
 // Two hard constraints on everything below:
 //
@@ -666,4 +666,60 @@ export function jsonSchemaFromShape(shape: ShapeIR): JsonSchemaObject {
  */
 export function jsonSchemaFromIR(ir: SchemaIR, variant: Variant = 'entity'): JsonSchemaObject {
   return jsonSchemaFromShape(shapeOfVariant(ir, variant));
+}
+
+// ---------------------------------------------------------------------------
+// Back-end: IR → validator type (a `TypeIR` for a whole row or payload)
+// ---------------------------------------------------------------------------
+//
+// The repository used to answer "is this a legal payload for this table" with its own
+// walk over `ColumnMeta` — `valueMatchesColumn`, the fourth walker of §1, and the one
+// that accepted `Date | string` for a `timestamp` while `toJsonSchema` said ISO string
+// and `TsType` said `Date`. It does not need a walk. It needs the *type* of a payload,
+// which is a `TypeIR`, and then the one runtime walker in `@zmdb/aot-validator` checks
+// it — the same walker the emitted code is differentially tested against.
+//
+// So this is the third back-end onto the same shape, beside the JSON Schema one, and it
+// takes the same two decisions from the same place: which columns a variant has
+// (`shapeOfVariant`) and what each column's type is at this layer (`appTypeOf` /
+// `wireTypeOf`). Nothing here decides anything on its own, which is the point.
+
+/**
+ * Which of a column's three types to render (plan D3).
+ *
+ * `'app'` is what handler code holds: a `timestamp` is a `Date`. `'wire'` is what a JSON
+ * body contains: the same column is an ISO-8601 string. A validator has to pick one —
+ * accepting both is how the disagreement went unnoticed for so long — so the caller says
+ * which side of the boundary it is on.
+ */
+export type Layer = 'app' | 'wire';
+
+/**
+ * A shape as the object type a validator checks against.
+ *
+ * Unlike the JSON Schema back-end this keeps sensitive columns: a payload validator that
+ * silently ignored `passwordHash` would reject every legitimate `create`. REQ-TF-6 is
+ * about what gets *published*, and nothing here is published.
+ *
+ * Column order is preserved rather than sorted, because a `TypeIR` is not a contract
+ * anybody serialises — the JSON Schema back-end sorts because a document is published
+ * and key order is part of it.
+ */
+export function objectTypeFromShape(shape: ShapeIR, layer: Layer = 'app'): ObjectIR {
+  return {
+    kind: 'object',
+    properties: shape.map(({ column, optional }) => ({
+      name: column.name,
+      type: layer === 'wire' ? wireTypeOf(column) : appTypeOf(column),
+      optional,
+      // A DTO is a plain object the caller just built, so nothing about it is readonly.
+      // `Entity<T>` is `-readonly` for the same reason.
+      readonly: false,
+    })),
+  };
+}
+
+/** The object type of one variant of one table, at one layer. */
+export function objectTypeFromIR(ir: SchemaIR, variant: Variant = 'entity', layer: Layer = 'app'): ObjectIR {
+  return objectTypeFromShape(shapeOfVariant(ir, variant), layer);
 }

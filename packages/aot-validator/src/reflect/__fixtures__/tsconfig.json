@@ -10,6 +10,7 @@
     "codemod-corpus.ts",
     "codemod-refusals.ts",
     "schema-values.ts",
-    "schema-values-refusals.ts"
+    "schema-values-refusals.ts",
+    "payloads.ts"
   ]
 }
