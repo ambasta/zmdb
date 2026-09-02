@@ -589,7 +589,12 @@ compatibility" answer buys, and it removes the largest instantiation-cost worry.
 **Tests**
 
 - The existing REQ-SC-2…REQ-SC-5 type tests, re-run with a tagged interface
-  substituted for `typeof Schema` — they must pass **unchanged** (REQ-TF-4's AC).
+  substituted for `typeof Schema` (REQ-TF-4's AC). _Not_ unchanged, as first written:
+  REQ-SC-2 asserts `Equal<Entity<S>['email'], string>` and REQ-TF-5 requires the tags
+  to survive the derivation, so the two contradict each other. Resolved in favour of
+  REQ-TF-5, with the criterion restated as identical key sets, identical optionality
+  and mutual assignability with the value-side twin — see PRD §6.7's note. The tags
+  erase for everything except `Equal`, so a consumer cannot tell.
 - Constraint survival through `Omit`/`Pick`/`Partial` (REQ-TF-5).
 - `@ts-expect-error` on reading a sensitive field off `ReadDTO<T>` (REQ-TF-6).
 - **A type-instantiation budget test.** `--diagnostics` instantiation count on a
