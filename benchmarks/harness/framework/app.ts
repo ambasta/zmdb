@@ -12,19 +12,25 @@
 // COMPILED package (../../../packages/web/dist) so the Stage-3 decorators are
 // lowered by the package build; run `node app.js` after `tsup` (see run.sh).
 //
-// ONE DEFINITION TO RULE THEM ALL: the `User` shape below is declared exactly
-// once via @zmdb/schema-core's `defineSchema`. The request body type
-// (`CreateDTO<typeof UserSchema>`), the OpenAPI-ready structure, and the POST
-// /user validator are ALL derived from that single definition — no second,
-// hand-maintained copy of the shape.
+// ONE DEFINITION TO RULE THEM ALL: the `User` shape is declared exactly once, as
+// an interface, in `./model.ts`. The request body type (`CreateDTO<User>`) and
+// the POST /user validator are both derived from it — no second, hand-maintained
+// copy of the shape, and no schema value in between.
 //
-// AOT VALIDATION: from that single schema we take the IR — the same structure
-// the repository and the OpenAPI document read — and at BOOT (ahead of the
-// request hot path) resolve it into a monomorphic, straight-line validator
-// closure via @zmdb/aot-validator's `assert`. The
-// per-request path only calls the pre-compiled closure — the AOT premise
-// (compile-once, run-many) applied to the web layer. `@zmdb/web`'s
-// `validateWith` wraps that closure into the framework's `validateBody` hook.
+// AOT VALIDATION: the validator is not built at boot and not built here. It was
+// compiled from `CreateDTO<User>` by `zmdb-codegen`, which wrote the
+// straight-line JavaScript in `model.zmdb.generated.js` and is committed next to
+// the interface it came from. The per-request path calls a function whose body is
+// three `typeof` tests — no descriptor, no walk, no schema value in the process at
+// all. That is the path a user of zmdb gets, so it is the one the published
+// number should describe. `@zmdb/web`'s `validateWith` wraps it into the
+// framework's `validateBody` hook.
+//
+// The declaration lives next door rather than in this file because this file
+// imports `../../../packages/web/dist`, which is gitignored build output: no
+// compiler can be pointed at a program containing it in a fresh checkout, and the
+// codegen needs a compiler. `model.ts` imports zmdb sources only, so
+// `tsconfig.json` here holds it and `scripts/typecheck.mjs` checks it.
 //
 // THIS APP GOES THROUGH THE PUBLIC API, like every peer in the suite does.
 //
@@ -52,10 +58,6 @@ import cluster from 'node:cluster';
 import { createServer } from 'node:http';
 import { availableParallelism } from 'node:os';
 
-import { assert } from '../../../packages/aot-validator/src/utilities/index.ts';
-import { defineSchema, serial, text } from '../../../packages/schema-core/src/index.ts';
-import type { CreateDTO } from '../../../packages/schema-core/src/index.ts';
-import { irFromSchema, objectTypeFromIR } from '../../../packages/schema-core/src/ir/index.ts';
 import {
   Controller,
   Get,
@@ -63,14 +65,13 @@ import {
   createRouter,
   getRoutes,
   respond,
+  text,
   toFetchHandler,
   toNodeHandler,
   validateWith,
-  // schema-core also exports `text` (a column builder), so the response factory
-  // is aliased rather than shadowing it.
-  text as textBody,
   type Ctx,
 } from '../../../packages/web/dist/index.js';
+import { assertUserCreate, type UserCreate } from './model.ts';
 
 // Ensure the well-known Symbol.metadata exists before the decorated class is
 // evaluated. @zmdb/web ships this polyfill, but the package is `sideEffects:
@@ -87,30 +88,20 @@ if (symbolCarrier.metadata === undefined) {
   });
 }
 
-// --- ONE DEFINITION ---------------------------------------------------------
-// The single source of truth for the User shape. Types, validation, and (if
-// wired) persistence all derive from this.
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-  email: text().notNull(),
-});
-type UserCreate = CreateDTO<typeof UserSchema>;
-
-// --- AOT compile at BOOT ----------------------------------------------------
-// The runtime witness for `UserCreate` comes from the schema, through the IR, with
-// nothing hand-written in between: `objectTypeFromIR(ir, 'create')` is the same call
-// the repository and the published document make, so the three cannot disagree.
-//
-// This file used to derive it itself — a `columnKind` switch over `SqlType` and a
-// `createDtoDescriptor` that re-implemented "drop the auto-increment columns". Both
-// were second copies of a rule that lives in the IR, and a benchmark whose validator
-// is not the one users get is measuring the wrong program (REQ-TF-9).
-//
-// Resolved ONCE, at boot, ahead of the request hot path; `validateWith` adapts it into
+// --- AOT-compiled validation ------------------------------------------------
+// Nothing is compiled here, which is the point. `assertUserCreate` is already the
+// emitted check for `CreateDTO<User>`; `validateWith` only adapts its throw into
 // @zmdb/web's validateBody hook shape.
-const userCreateType = objectTypeFromIR(irFromSchema(UserSchema), 'create');
-const validateUserCreate = validateWith<UserCreate>((raw: unknown) => assert<UserCreate>(raw, userCreateType));
+//
+// Two earlier versions of this line are worth remembering, because each was a
+// weaker claim. The first derived the descriptor in this file — a `columnKind`
+// switch over `SqlType` and a `createDtoDescriptor` that re-implemented "drop the
+// auto-increment columns" — so the benchmark measured a validator no user gets. The
+// second fixed that by reading `objectTypeFromIR(irFromSchema(UserSchema), 'create')`
+// at boot, which was the same descriptor the repository builds, but still a
+// descriptor walked per request. This one is neither: the shape is the control flow
+// (REQ-TF-9).
+const validateUserCreate = validateWith<UserCreate>(assertUserCreate);
 
 // An empty 2xx: no body and, deliberately, no content-type. The suite asserts the
 // body is byte-empty and never looks at the content type (`v/vanilla_epoll`
@@ -128,7 +119,7 @@ class BenchmarkController {
   getUser(ctx: Ctx<{ id: string }>) {
     // `text`, not a plain return: the contract wants the three bytes of `0`, and
     // a JSON-serialised string would be `"0"`.
-    return textBody(ctx.params.id);
+    return text(ctx.params.id);
   }
 
   @Post('/user')
@@ -148,7 +139,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Validation is registered as the route's `validateBody` hook so it runs where a
 // user's would — before the handler, inside the pipeline. The contract's POST
 // body is empty, so `undefined` passes straight through; a real payload is
-// checked by the boot-compiled AOT closure derived from UserSchema.
+// checked by the compiled validator derived from the `User` interface.
 const router = createRouter();
 router.register(controller, {
   createUser: {
@@ -254,7 +245,7 @@ if (WORKERS > 1 && cluster.isPrimary) {
   listen();
   if (WORKERS === 1) {
     console.info(
-      `@zmdb/web benchmark app on :${PORT} (single process, ${routes.length} routes, AOT-validated POST /user from one schema)`,
+      `@zmdb/web benchmark app on :${PORT} (single process, ${routes.length} routes, POST /user validated by the compiled check for CreateDTO<User>)`,
     );
   }
 }

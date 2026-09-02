@@ -30,12 +30,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  * second unnamed call in a file that already has one is still a failure.
  */
 const ALLOWED = {
-  // Imports `packages/web/dist/index.js`, which is gitignored build output, so this file
-  // cannot be in any program in a fresh checkout — which is also why nothing typechecks it.
-  // The app measures the published package on purpose, so the `dist` import stays; the
-  // codemod needs a program and therefore cannot read this one.
-  'benchmarks/harness/framework/app.ts': ['not part of'],
-
   // The fixture whose entire purpose is to be refused. Each schema in it is one thing the
   // codemod is supposed to decline rather than guess at, and `codemod.spec.ts` asserts the
   // reason for each. If these ever converted, that spec would be the failure.

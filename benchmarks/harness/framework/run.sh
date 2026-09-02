@@ -175,6 +175,16 @@ resolve_runtime() {
 RUNTIME_VERSION=""
 resolve_runtime || exit 1
 
+# The validator for `CreateDTO<User>`, recompiled from `model.ts`. The generated files
+# are committed, so this is a no-op on an unchanged tree and the bundle below would work
+# without it — it is here so that editing the interface cannot leave the measured app
+# checking last week's shape. `--check` would only report the drift; the benchmark wants
+# it fixed.
+echo "== compiling the validator from model.ts (zmdb-codegen) =="
+( cd "$REPO_ROOT" && node packages/aot-validator/src/cli/bin.ts --project "$HERE/tsconfig.json" ) || {
+  echo "zmdb-codegen failed"; exit 1
+}
+
 echo "== building @zmdb/web (Stage-3 decorators lowered by tsup) =="
 ( cd "$REPO_ROOT" && yarn workspace @zmdb/web build >/dev/null 2>&1 )
 if [ ! -f "$REPO_ROOT/packages/web/dist/index.js" ]; then

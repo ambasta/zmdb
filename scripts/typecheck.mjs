@@ -27,6 +27,10 @@ const projects = [
   // refusal surfaces when someone runs the benchmark, which is much later and much further
   // from the edit that caused it.
   join(root, 'benchmarks', 'harness', 'validation', 'tsconfig.json'),
+  // The framework benchmark's model, for the same reason, plus one of its own: the generated
+  // witness next to it is the only thing that checks the emitted validator still describes the
+  // declared type, and a witness nothing compiles checks nothing.
+  join(root, 'benchmarks', 'harness', 'framework', 'tsconfig.json'),
   // The quickstart. It is the first zmdb code anyone runs and it was the only TypeScript in
   // the repository that nothing compiled.
   join(root, 'examples', 'tsconfig.json'),
