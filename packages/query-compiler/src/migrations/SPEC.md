@@ -15,9 +15,12 @@ interface SchemaSnapshot {
     readonly name: string;
     readonly columns: readonly {
       readonly name: string;
+      /** Abstract — `'timestamp'`, never `'TIMESTAMPTZ'`. See §3. */
       readonly type: string;
       readonly nullable: boolean;
       readonly primaryKey: boolean;
+      /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
+      readonly length?: number;
     }[];
   }[]; // tables sorted by name; columns sorted by name
 }
@@ -45,13 +48,20 @@ reverses `up`. Postgres golden examples:
 
 ```
 add_column users.age integer NOT NULL
-  up:   ALTER TABLE "users" ADD COLUMN "age" integer NOT NULL
+  up:   ALTER TABLE "users" ADD COLUMN "age" INTEGER NOT NULL
   down: ALTER TABLE "users" DROP COLUMN "age"
 
 create_table users(id serial pk)
-  up:   CREATE TABLE "users" ("id" serial PRIMARY KEY)
+  up:   CREATE TABLE "users" ("id" SERIAL PRIMARY KEY)
   down: DROP TABLE "users"
 ```
+
+**Both the identifiers and the types are dialect-specific.** A snapshot names the
+abstract type (`timestamp`, `varchar`); `ddlType(dialect, column)` renders it. The map is
+in `index.ts` and pinned by `sql-types.spec.ts` dialect by dialect; the row that matters
+most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` there discards
+the offset of every `Date` written through it. An abstract type the map does not know is
+passed through unchanged rather than guessed at.
 
 ## 4. Migration lifecycle + version tracking
 

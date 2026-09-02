@@ -50,7 +50,7 @@ describe('DDL emitter (postgres)', () => {
   };
 
   it('emits up SQL for add_column', () => {
-    expect(emitUp(addAge, 'postgres')).toBe('ALTER TABLE "users" ADD COLUMN "age" integer NOT NULL');
+    expect(emitUp(addAge, 'postgres')).toBe('ALTER TABLE "users" ADD COLUMN "age" INTEGER NOT NULL');
   });
 
   it('down reverses up for add_column', () => {
