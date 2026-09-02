@@ -112,6 +112,13 @@ export type _Cre4 = Expect<Equal<CreateDTO<S>['email'], string & Sql<'text'>>>;
 // transfers unchanged.
 // @ts-expect-error a database-generated column cannot be supplied on insert
 export const _Cre5: CreateDTO<S> = { id: 1, email: 'a@b.co', age: 30, score: null };
+// Nullable and no default ⇒ optional, for the reason `CreateDTO` gives: omitting the key
+// inserts `NULL`, which is what passing `null` does. Both spellings are accepted — `_Cre5`
+// above and `_Erase6` below pass `score: null` explicitly — and the published `create`
+// document has never listed a nullable column as required, so this is the assertion that
+// keeps the contract and the type saying the same thing.
+export type _Cre6 = Expect<Equal<CreateDTO<S>['score'], (number & Sql<'numeric'>) | null | undefined>>;
+export const _Cre7: CreateDTO<S> = { email: 'a@b.co', age: 30 };
 
 // --- UpdateDTO -------------------------------------------------------------
 export type _Upd1 = Expect<Equal<UpdateDTO<S>['email'], (string & Sql<'text'>) | undefined>>;

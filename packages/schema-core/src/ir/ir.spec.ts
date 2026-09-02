@@ -343,6 +343,20 @@ describe('objectTypeFromIR — the validator back-end (REQ-TF-13)', () => {
     expect(property('email', 'create').optional).toBe(false);
   });
 
+  it('makes a nullable column optional on the way in and required on the way out', () => {
+    // The document has always treated a nullable column as not required on create, and the
+    // repository has always accepted the payload without it. `CreateDTO<T>` demanded the key
+    // until this back-end existed to compare them, so a client that followed the published
+    // contract wrote a payload the type rejected. Both say optional now.
+    const Notes = defineSchema('notes', { id: serial().primaryKey(), body: text().nullable() });
+    expect(objectTypeFromIR(irFromSchema(Notes), 'create').properties).toEqual([
+      { name: 'body', type: appTypeOf(irFromSchema(Notes).columns[1] as ColumnIR), optional: true, readonly: false },
+    ]);
+    expect(jsonSchemaFromIR(irFromSchema(Notes), 'create').required).toEqual([]);
+    // A row that came back has every column, `null` included, so nothing is optional there.
+    expect(objectTypeFromIR(irFromSchema(Notes), 'entity').properties.every(p => !p.optional)).toBe(true);
+  });
+
   it('drops the identity columns from a patch and requires nothing', () => {
     expect(properties('update').map(p => p.name)).not.toContain('id');
     expect(properties('update').every(p => p.optional)).toBe(true);

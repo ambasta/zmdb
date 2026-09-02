@@ -98,9 +98,18 @@ type AsColumns<T, K> = K & keyof Entity<T>;
  * because the database generates the value. `HasDefault` columns are **present
  * and optional**, because supplying one is legitimate. That distinction is the
  * whole reason the two tags are separate.
+ *
+ * A nullable column is optional for the same reason a defaulted one is: omitting it
+ * inserts `NULL`, which is exactly what passing `null` does, so demanding the key adds
+ * ceremony and no information. The published document has always said this — a nullable
+ * column has never appeared in a `create` document's `required` — and so did the
+ * repository's runtime check. Requiring `bio: null` in the type while the contract said
+ * it was optional meant a client that followed the contract wrote a payload the type
+ * rejected, which is the disagreement this phase exists to remove. It stays *present* and
+ * optional rather than absent, because passing `null` explicitly is legitimate.
  */
-export type CreateDTO<T> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T>> &
-  Partial<Pick<Entity<T>, AsColumns<T, DefaultKeys<T>>>>;
+export type CreateDTO<T> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T> | NullableKeys<T>> &
+  Partial<Pick<Entity<T>, AsColumns<T, DefaultKeys<T> | NullableKeys<T>>>>;
 
 /** Patch shape: identity columns dropped, everything else optional. */
 export type UpdateDTO<T> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T>>>;

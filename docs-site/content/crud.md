@@ -2,7 +2,7 @@ Create, Read, Update, and Delete operations form the backbone of any data layer.
 
 ## Create
 
-Insert a new row. The payload is validated against `CreateDTO<S>` — auto-increment columns are rejected, columns with defaults are optional.
+Insert a new row. The payload is validated against `CreateDTO<S>` — auto-increment columns are rejected, and columns with defaults or nullable columns are optional.
 
 ```ts
 const user = await users.create({

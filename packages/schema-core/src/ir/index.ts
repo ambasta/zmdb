@@ -623,7 +623,13 @@ export function shapeOfVariant(ir: SchemaIR, variant: Variant): ShapeIR {
   return ir.columns
     .filter(col => isResponse || !col.serial)
     .filter(col => variant !== 'update' || !col.primaryKey)
-    .map(col => ({ column: col, optional: variant === 'update' || (!isResponse && col.hasDefault) }));
+    .map(col => ({
+      column: col,
+      // Nullable is optional on the way in, for the reason `CreateDTO`'s comment gives:
+      // omitting the key inserts `NULL`, so requiring it buys nothing. On the way out it
+      // is not — a row that came back has every column, `null` included.
+      optional: variant === 'update' || (!isResponse && (col.hasDefault || col.nullable)),
+    }));
 }
 
 /**

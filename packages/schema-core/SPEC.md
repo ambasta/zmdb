@@ -93,13 +93,15 @@ Rules:
 
 ```ts
 type Entity<S extends CoreSchema<string>>    // full row type
-type CreateDTO<S extends CoreSchema<string>> // omit autoIncrement; hasDefault → optional
+type CreateDTO<S extends CoreSchema<string>> // omit autoIncrement; hasDefault/nullable → optional
 type UpdateDTO<S extends CoreSchema<string>> // Partial<CreateDTO<S>>
 ```
 
 - `Entity`: every column mapped to its TS type; `nullable` columns become `| null`.
 - `CreateDTO`: columns with `flags.autoIncrement` are omitted; columns with
-  `flags.hasDefault` become optional.
+  `flags.hasDefault` or `flags.nullable` become optional — omitting a nullable key
+  inserts `NULL`, which is what passing `null` does, and the generated document has
+  always said so.
 - `UpdateDTO`: `Partial<CreateDTO<S>>`.
 
 TS type mapping: serial/integer→`number`, bigint→`bigint`, numeric→`number`,

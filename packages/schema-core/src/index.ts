@@ -187,6 +187,14 @@ type DefaultKeys<C> = {
   [K in keyof C]: C[K] extends { flags: { hasDefault: true } } ? K : never;
 }[keyof C];
 
+// Keys of columns that admit null — also optional in CreateDTO, because omitting one
+// inserts `NULL`, which is what passing `null` does. See `./derive`'s `CreateDTO`: the
+// published document has always said this and the repository has always accepted it; the
+// type was the one place that demanded the key.
+type NullableKeys<C> = {
+  [K in keyof C]: C[K] extends { flags: { nullable: true } } ? K : never;
+}[keyof C];
+
 // Each of the four derivations below has two spellings, and which one applies is a
 // question about the schema, not about the caller: a `TaggedSchema<T>` came from a type
 // that already states everything these mapped types are reconstructing, so it defers to
@@ -209,14 +217,22 @@ export type CreateDTO<S, C = ColumnsOf<S>> =
   S extends TaggedSchema<infer T>
     ? TaggedCreateDTO<T>
     : {
-        // required: not auto-increment, no default
+        // required: not auto-increment, no default, not nullable
         [
-          K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K
+          K in keyof C as K extends AutoIncrementKeys<C>
+            ? never
+            : K extends DefaultKeys<C> | NullableKeys<C>
+              ? never
+              : K
         ]: C[K] extends ColumnMeta ? TsType<C[K]> : never;
       } & {
-        // optional: has a default (and not auto-increment)
+        // optional: has a default or admits null (and not auto-increment)
         [
-          K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never
+          K in keyof C as K extends AutoIncrementKeys<C>
+            ? never
+            : K extends DefaultKeys<C> | NullableKeys<C>
+              ? K
+              : never
         ]?: C[K] extends ColumnMeta ? TsType<C[K]> | undefined : never;
       };
 

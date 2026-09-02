@@ -38,7 +38,10 @@ type _testEntityUntypedMeta = Expect<Equal<Entity<JsonSchema>['untypedMeta'], un
 
 // 3. CreateDTO derivation
 type _testCreateMeta = Expect<Equal<CreateDTO<JsonSchema>['meta'], UserMetadata>>;
-type _testCreateNullableMeta = Expect<Equal<CreateDTO<JsonSchema>['nullableMeta'], UserMetadata | null>>;
+// Optional, like a defaulted column: omitting a nullable key inserts `NULL`, which is what
+// passing `null` does. Hence the `| undefined` the value-side derivation adds to an optional
+// property.
+type _testCreateNullableMeta = Expect<Equal<CreateDTO<JsonSchema>['nullableMeta'], UserMetadata | null | undefined>>;
 type _testCreateDefaultMeta = Expect<Equal<CreateDTO<JsonSchema>['defaultMeta'], UserMetadata | undefined>>;
 type _testCreateUntypedMeta = Expect<Equal<CreateDTO<JsonSchema>['untypedMeta'], unknown>>;
 

@@ -53,7 +53,9 @@ type _TestCreateDTO = Simplify<CreateDTO<S>>;
 type _TestCreateDTORole = Expect<Equal<_TestCreateDTO['role'], 'admin' | 'user' | undefined>>;
 type _TestCreateDTOEmail = Expect<Equal<_TestCreateDTO['email'], string>>;
 type _TestCreateDTOPayload = Expect<Equal<_TestCreateDTO['payload'], unknown>>;
-type _TestCreateDTOConfig = Expect<Equal<_TestCreateDTO['config'], UserConfig | null>>;
+// A nullable column is optional on insert — see `./derive`'s `CreateDTO` — so this carries the
+// `| undefined` every optional property of the value-side derivation carries.
+type _TestCreateDTOConfig = Expect<Equal<_TestCreateDTO['config'], UserConfig | null | undefined>>;
 
 type _TestUpdateDTO = Simplify<UpdateDTO<S>>;
 type _TestUpdateDTOEmail = Expect<Equal<_TestUpdateDTO['email'], string | undefined>>;

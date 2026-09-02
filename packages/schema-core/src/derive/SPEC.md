@@ -60,17 +60,24 @@ than proved. Nothing changes for a concrete type.
 
 ## 3. The DTO suite
 
-| Type              | Shape                                                                   |
-| ----------------- | ----------------------------------------------------------------------- |
-| `Entity<T>`       | Every column, required, sensitive included, tags preserved.             |
-| `CreateDTO<T>`    | `Serial` columns **absent**; `HasDefault` columns present and optional. |
-| `UpdateDTO<T>`    | `Serial` and `PrimaryKey` dropped; everything else optional.            |
-| `ReadDTO<T>`      | `Sensitive` columns removed.                                            |
-| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.     |
+| Type              | Shape                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| `Entity<T>`       | Every column, required, sensitive included, tags preserved.              |
+| `CreateDTO<T>`    | `Serial` columns **absent**; `HasDefault` and nullable columns optional. |
+| `UpdateDTO<T>`    | `Serial` and `PrimaryKey` dropped; everything else optional.             |
+| `ReadDTO<T>`      | `Sensitive` columns removed.                                             |
+| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.      |
 
 `CreateDTO` omits a generated column rather than making it optional. Supplying a
 defaulted column is legitimate; supplying a generated one is a mistake, so the two
 tags produce different shapes — that is the whole reason they are separate tags.
+
+A nullable column is optional for the same reason a defaulted one is: omitting the key
+inserts `NULL`, which is exactly what passing `null` does. The generated `create`
+document has never listed a nullable column as required, and the repository has never
+demanded it at runtime, so requiring it in the type meant a client that followed the
+published contract wrote a payload the type rejected. It stays present-and-optional
+rather than absent, because passing `null` explicitly is legitimate.
 
 Tags survive every derivation. If a derivation dropped one, the AOT would emit a
 weaker check for the update path than for the insert path, silently (REQ-TF-5). The
@@ -147,6 +154,7 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 - [x] All six key filters return the exact expected key union, and `never` where nothing matches.
 - [x] Entity-level tags do not leak into `keyof Entity<T>`.
 - [x] A nullable defaulted column is optional on insert, not required.
+- [x] A nullable column with **no** default is optional on insert too, and the `create` document agrees (`../ir/ir.spec.ts`).
 - [x] `id` is absent from `CreateDTO`; supplying it is a compile error (`@ts-expect-error`).
 - [x] Constraint tags survive `Omit`, `Pick` and `Partial` on both the insert and update paths.
 - [x] Reading a `Sensitive` column off a `ReadDTO` is a compile error.
