@@ -204,15 +204,31 @@ describe('the IR of a declared table', () => {
 });
 
 describe('the three types of a column (REQ-TF-13)', () => {
+  // A wire type's `format` comes with the `pattern` that enforces it, because `format` is an
+  // annotation and nothing in either walk reads one. The published document keeps saying
+  // `format` and only `format`: that is the keyword JSON Schema has for the concept, and a
+  // consumer honouring it needs no help from us.
   it('a timestamp is a Date to the app and an ISO string on the wire', () => {
     expect(appTypeOf(column('createdAt'))).toEqual({ kind: 'scalar', scalar: 'date' });
-    expect(wireTypeOf(column('createdAt'))).toEqual({ kind: 'scalar', scalar: 'string', format: 'date-time' });
+    expect(wireTypeOf(column('createdAt'))).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      format: 'date-time',
+      constraints: { pattern: '^\\d{4}-\\d{2}-\\d{2}[Tt ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$' },
+    });
     expect(jsonSchemaForColumn(column('createdAt'))).toEqual({ type: 'string', format: 'date-time' });
   });
 
   it('a bigint is a bigint to the app and a string on the wire', () => {
     expect(appTypeOf(probe({ sql: 'bigint' }))).toEqual({ kind: 'scalar', scalar: 'bigint' });
-    expect(wireTypeOf(probe({ sql: 'bigint' }))).toEqual({ kind: 'scalar', scalar: 'string', format: 'int64' });
+    // The pattern is `asBigInt`'s own, so the wire validator accepts exactly the strings the
+    // decoder can convert — `'0x10'` and `''` are `BigInt()`-legal and meant by nobody.
+    expect(wireTypeOf(probe({ sql: 'bigint' }))).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      format: 'int64',
+      constraints: { pattern: '^-?\\d+$' },
+    });
   });
 
   it('distinguishes integer from number so an emitter can check integrality', () => {
@@ -618,7 +634,7 @@ describe('objectTypeFromIR — the validator back-end (REQ-TF-13)', () => {
     // `timestamp`, so neither layer was ever wrong and neither was ever checked. A caller now
     // says which side of the boundary it is on.
     expect(property('createdAt').type).toEqual({ kind: 'scalar', scalar: 'date' });
-    expect(property('createdAt', 'entity', 'wire').type).toEqual({
+    expect(property('createdAt', 'entity', 'wire').type).toMatchObject({
       kind: 'scalar',
       scalar: 'string',
       format: 'date-time',

@@ -381,10 +381,13 @@ function withNull(type: TypeIR, nullable: boolean): TypeIR {
 }
 
 function constrained(scalar: ScalarKind, col: ColumnIR, format?: string): ScalarIR {
-  const constraints: Constraints =
+  const withLength: Constraints =
     col.length !== undefined && col.constraints.maxLength === undefined
       ? { ...col.constraints, maxLength: col.length }
       : col.constraints;
+  const derived = format === undefined ? undefined : FORMAT_PATTERNS[format];
+  const constraints: Constraints =
+    derived !== undefined && withLength.pattern === undefined ? { ...withLength, pattern: derived } : withLength;
   return {
     kind: 'scalar',
     scalar,
@@ -448,6 +451,34 @@ const JSON_CONTAINER: TypeIR = {
     { kind: 'object', properties: [] },
     { kind: 'array', element: { kind: 'unknown' } },
   ],
+};
+
+/**
+ * The assertion behind a `format`, as a `pattern`.
+ *
+ * `format` is an annotation in JSON Schema, not an assertion — a document may say
+ * `date-time` and a conforming validator may check nothing. Neither the runtime walk nor the
+ * emitter reads `format` at all, so a wire type that only said `{scalar:'string',
+ * format:'date-time'}` accepted `"tomorrow"`, and plan D3's claim that a `Wire<T>` validator
+ * checks the ISO string was not true of any validator. Lowering it to a `pattern` makes it
+ * true through machinery that already exists in both walks, which is the reason it is spelled
+ * this way rather than as a sixth constraint kind: a new keyword would need the emitter, the
+ * walker and their equivalence test, and would then check exactly what a pattern checks.
+ *
+ * `date-time` is RFC 3339, so the offset is **required**. `2020-01-01T00:00:00` is a valid
+ * ISO-8601 string and `new Date()` reads it as local time, which is the same lost-offset bug
+ * `TIMESTAMPTZ` exists to prevent — the wire is where that has to be refused, because by the
+ * time it is a `Date` the offset it was read at is gone.
+ *
+ * `int64` is `asBigInt`'s own `DECIMAL`, so what the wire validator accepts and what the
+ * decoder can convert are one expression rather than two that agree today.
+ */
+/** What `asBigInt` will convert. Declared here so the wire pattern is not a second copy. */
+const DECIMAL = /^-?\d+$/;
+
+const FORMAT_PATTERNS: Readonly<Record<string, string>> = {
+  'date-time': '^\\d{4}-\\d{2}-\\d{2}[Tt ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$',
+  int64: DECIMAL.source,
 };
 
 /**
@@ -760,10 +791,9 @@ function asDate(value: unknown): unknown {
 /**
  * A decimal string as a `bigint`.
  *
- * The pattern rather than a bare `BigInt()` call in a `try`: `BigInt('0x10')` is 16 and
+ * `DECIMAL` rather than a bare `BigInt()` call in a `try`: `BigInt('0x10')` is 16 and
  * `BigInt('')` is 0, neither of which is something a caller meant to send.
  */
-const DECIMAL = /^-?\d+$/;
 function asBigInt(value: unknown): unknown {
   return typeof value === 'string' && DECIMAL.test(value) ? BigInt(value) : value;
 }

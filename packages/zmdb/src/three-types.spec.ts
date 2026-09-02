@@ -38,6 +38,9 @@ const AT = IR.columns.find(c => c.name === 'at') as ColumnIR;
 const ISO = '2026-01-01T12:30:00.000Z';
 const WHEN = new Date(ISO);
 
+/** The `format`'s assertion, which the wire type carries as a `pattern`. */
+const ISO_PATTERN = '^\\d{4}-\\d{2}-\\d{2}[Tt ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$';
+
 /** The `CREATE TABLE` a migration would generate for this schema, in one dialect. */
 function ddl(dialect: Dialect): string {
   const table = snapshot([events]).tables[0];
@@ -74,11 +77,32 @@ describe('a timestamp column, in all three of its types', () => {
   });
 
   it('is an ISO string on the wire, and a Date is not one', () => {
-    expect(wireTypeOf(AT)).toEqual({ kind: 'scalar', scalar: 'string', format: 'date-time' });
+    expect(wireTypeOf(AT)).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      format: 'date-time',
+      constraints: { pattern: ISO_PATTERN },
+    });
     expect(issuesFor(ISO, wireTypeOf(AT))).toEqual([]);
     expect(issuesFor(WHEN, wireTypeOf(AT))).toEqual([
       { path: 'input', message: 'expected string', expected: 'string', value: WHEN },
     ]);
+  });
+
+  it('checks the string, rather than only saying it is one', () => {
+    // The `format` alone said nothing: it is an annotation in JSON Schema, and neither the
+    // runtime walk nor the emitter reads it, so `"tomorrow"` was a valid wire value for a
+    // `timestamp` and became an `Invalid Date` one decode later. The pattern is what makes
+    // this layer's claim enforceable, and it is checked by the same machinery as any other.
+    expect(issuesFor('tomorrow', wireTypeOf(AT))).toHaveLength(1);
+    // Valid ISO-8601, refused on purpose: with no offset, `new Date()` reads it as local
+    // time, so the instant would depend on which machine parsed it. That is the lost-offset
+    // bug `TIMESTAMPTZ` exists to prevent, arriving one layer earlier.
+    expect(issuesFor('2026-01-01T12:30:00', wireTypeOf(AT))).toHaveLength(1);
+    // A date with no time is a `date`, not a `date-time`.
+    expect(issuesFor('2026-01-01', wireTypeOf(AT))).toHaveLength(1);
+    // And a zoned one is accepted, because it names an instant.
+    expect(issuesFor('2026-01-01T13:30:00.000+01:00', wireTypeOf(AT))).toEqual([]);
   });
 
   it('is a date-time string in the published document, which is the wire type', () => {

@@ -818,21 +818,42 @@ generated const.
   for every existing dialect snapshot. This is the AC, and it is a strong one — it
   reuses the entire per-dialect snapshot suite as the correctness proof.
 
-**7b — collapse `validatePayload`, and land D3's three types**
+**7b — collapse `validatePayload`, and land D3's three types** — ✅ **done.**
 
-`repository`'s `validatePayload`/`valueMatchesColumn` (`index.ts:783,827`) becomes a
-call to the emitted `CreateDTO`/`UpdateDTO` validator. This deletes the fourth walker
-and is where the `timestamp` three-types problem gets implemented, because the
-repository's current `Date | string` tolerance is the reason nobody noticed the
-disagreement.
+`repository`'s `validatePayload`/`valueMatchesColumn` became a call to the same runtime
+walk everything else uses: `issuesFor(payload, objectTypeFromShape(shape))`, over the shape
+the documents come from. `valueMatchesColumn` is gone, and with it the fourth walker and
+the `Date | string` tolerance that kept the three-types disagreement from ever failing a
+test.
+
+The excess-key question the section above says 7b "has to decide" was decided the way P4
+points: a key the variant does not accept is a `ValidationError`, not something to drop.
+`create({ ...valid, bogus: 1 })` now says `"bogus" is not a column of "users"`, and
+`create({ ...valid, id: 5 })` says the database generates `id` — the two cases REQ-RP-3's
+AC used to pass for the wrong reason. They are reported _alongside_ the structural issues
+rather than only when there are none, which is where this differs from `assertEquals`: at a
+table boundary the excess key is usually a typo of the column the other issue is
+complaining about, so suppressing it hides the answer.
 
 Per **D3**, each layer renders the type it owns, and the IR's `sql` field stays
 abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
 
-- `Wire<T>` + `CustomType<Wire, TS, DB>` + the `Codec<'Name'>` tag; the web pipeline
-  decodes wire→app once at the boundary, so handlers keep seeing `Date`.
+- `Wire<T>` + `CustomType<Wire, TS, DB>` + the `Codec<'Name'>` tag; `@zmdb/web`'s
+  `decodeWire`/`encodeWire` cross once at the boundary, so handlers keep seeing `Date`.
 - `Entity<T>` validators check `instanceof Date`; `Wire<T>` validators check the ISO
   string. Neither accepts both.
+
+  The second half of that was untrue for a while and is worth recording, because it failed
+  in the way this whole phase is about. The wire type said `{scalar:'string',
+format:'date-time'}` — but `format` is an _annotation_ in JSON Schema, and neither the
+  runtime walk nor the emitter reads one, so the ISO string was never checked and
+  `"tomorrow"` was a valid `timestamp` on the wire. It is lowered to a `pattern` now, which
+  both walks already implement identically, so the claim is enforced without a sixth
+  constraint kind to keep in sync. RFC 3339, so the offset is required: an offset-less
+  string is read as local time, and that is the lost-offset bug `timestamptz` exists to
+  prevent, caught at the only layer that can still see it. `int64` reuses the decoder's own
+  expression, so the wire validator accepts exactly what `decodeWireValue` can convert.
+
 - **A per-dialect SQL type map in the DDL emitter, which does not exist today.**
   `query-compiler/src/migrations/index.ts:115` interpolates `col.type` verbatim, so
   `timestamp` reaches Postgres, MySQL and SQLite as the literal word `timestamp`; only
@@ -853,7 +874,11 @@ abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
   of which exists today.
 - A test per dialect that a `timestamp` column's DDL, its `Entity` validator and its
   JSON Schema all say the three right things, in one place, so the next person cannot
-  reintroduce the disagreement without a failure.
+  reintroduce the disagreement without a failure. It is
+  `packages/zmdb/src/three-types.spec.ts`, and it lives in the umbrella package because
+  that is the only one that depends on all three. It asserts the whole `CREATE TABLE`
+  rather than a fragment, deliberately: `TIMESTAMPTZ` contains `TIMESTAMP`, so the obvious
+  `toContain` passes either way.
 
 **7c — the descriptor, deleted (REQ-TF-9)** — ✅ **done.**
 

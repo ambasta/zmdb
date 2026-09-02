@@ -146,6 +146,18 @@ One column has three renderings, and each layer owns one:
 `appTypeOf(col)` and `wireTypeOf(col)` return the first two; `ddlType(dialect, col)` in
 `query-compiler/migrations` returns the third.
 
+A `format` in the wire column above comes with the `pattern` that enforces it. In JSON
+Schema a `format` is an annotation — a conforming validator may ignore it — and neither the
+runtime walk nor the emitter reads one at all, so a wire type that said only
+`format: 'date-time'` accepted `"tomorrow"` and this table's first row was a claim no
+validator made. `date-time` is RFC 3339, so the offset is required: `2026-01-01T12:30:00`
+is valid ISO-8601 and `new Date()` reads it as local time, which is the same lost-offset
+bug `timestamptz` is here to prevent, and the wire is the last layer that can still see it.
+`int64`'s pattern is the decoder's own, so what the validator accepts and what
+`decodeWireValue` can convert are one expression. The published document still says
+`format` and nothing else — that is the keyword JSON Schema has for the idea, and a
+consumer that honours it needs no help.
+
 A codec column is the case where nothing can be inferred: it is stored as one type, held
 as another and crossed as a third, and only the declaration knows the last two.
 `payload` carries the app type and `WireAs<W>` the wire type. Without the tag,
