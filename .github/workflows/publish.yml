@@ -71,14 +71,14 @@ jobs:
           fetch-depth: 0
 
       - name: Pre-publish Secret Scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@836484a0c8d1e3d67f5cfc1d471be84ef9b8e23a # v2.3.8
+        uses: gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34 # v2.3.8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable Corepack (yarn 4)
         run: corepack enable
 
-      - uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
