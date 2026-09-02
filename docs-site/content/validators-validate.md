@@ -39,8 +39,8 @@ result.data; // Signup
 
 > [!NOTE]
 > The transformer rewrites `validate<Signup>(body)` into a call carrying `Signup`'s IR,
-> reflected from the type at build time. The second parameter — a `RuntimeSchema`, either a
-> `TypeIR` or a `TypeDescriptor` — is the escape hatch for a caller that already holds one;
+> reflected from the type at build time. The second parameter — a `TypeIR` — is the escape
+> hatch for a caller that already holds one;
 > the transformer normally supplies it and you do not write it. Without the transformer, an
 > untransformed call with no second argument throws.
 

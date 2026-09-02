@@ -6,7 +6,7 @@ Things that are working as designed but will surprise you at least once.
 import { is } from '@zmdb/aot-validator/utilities';
 
 is<User>(raw); // transformed: a straight-line check, no allocation
-// untransformed: throws `runtime descriptor required in test/fallback mode`
+// untransformed: throws `runtime type witness required in test/fallback mode`
 ```
 
 The transformer's job is to replace the call with emitted code. Where it did not run over a

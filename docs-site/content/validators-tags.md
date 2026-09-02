@@ -54,10 +54,10 @@ tags.Enum('admin', 'user', 'guest'); // one of these values
 
 This is the one thing to get right about tags. The package exports **two** different `validate` functions from two entry points, and they take their arguments in opposite orders:
 
-| Import                          | Signature                                             | Returns                       |
-| ------------------------------- | ----------------------------------------------------- | ----------------------------- |
-| `@zmdb/aot-validator`           | `validate(rule: Rule, value: unknown)`                | `boolean`                     |
-| `@zmdb/aot-validator/utilities` | `validate<T>(value: unknown, schema?: RuntimeSchema)` | `{ success, data?, errors? }` |
+| Import                          | Signature                                      | Returns                       |
+| ------------------------------- | ---------------------------------------------- | ----------------------------- |
+| `@zmdb/aot-validator`           | `validate(rule: Rule, value: unknown)`         | `boolean`                     |
+| `@zmdb/aot-validator/utilities` | `validate<T>(value: unknown, schema?: TypeIR)` | `{ success, data?, errors? }` |
 
 **The root one is the tag evaluator** — it takes a single tag and a value, and it is the call the AOT transformer rewrites into an inline boolean:
 

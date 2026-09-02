@@ -8,7 +8,7 @@ import { is } from '@zmdb/aot-validator/utilities';
 is<User>(payload); // needs the transformer
 ```
 
-`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>` and `schemaOf<T>` are the eight calls the transformer rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — `runtime descriptor required in test/fallback mode`, or for `schemaOf<T>()` a longer message naming the plugin that should have run.
+`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>` and `schemaOf<T>` are the eight calls the transformer rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — `runtime type witness required in test/fallback mode`, or for `schemaOf<T>()` a longer message naming the plugin that should have run.
 
 > [!IMPORTANT]
 > There is no fallback that inspects `T` at runtime, because there is nothing to inspect.
@@ -47,14 +47,18 @@ const result = parse(json); // { success, data? , issues? } — malformed JSON i
 
 `parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the eight.
 
-**A validator with an explicit schema.** Every one of the eight takes an optional second argument — a `RuntimeSchema`, meaning a `TypeIR` or the legacy `TypeDescriptor` shape. That is the escape hatch for a caller that already holds one:
+**A validator with an explicit schema.** Every one of the eight takes an optional second argument — a `TypeIR`, and only that. It is the escape hatch for a caller that already holds one:
 
 ```ts
-import { assert, type RuntimeSchema } from '@zmdb/aot-validator/utilities';
+import { assert, type TypeIR } from '@zmdb/aot-validator/utilities';
 
-const ir: RuntimeSchema = { kind: 'scalar', scalar: 'string' };
+const ir: TypeIR = { kind: 'scalar', scalar: 'string' };
 assert(rawValue, ir); // no type argument, no transformer
 ```
+
+There used to be a second accepted shape, a hand-written `TypeDescriptor`. It is gone: a
+descriptor is a type written out again by hand, in a form nothing checks against the type it
+claims to describe, so it drifts silently the moment the interface is edited.
 
 Where the IR comes from is the catch: reflecting it from a type is what the build step does. Writing one by hand is reasonable for a scalar and unreasonable for a table.
 

@@ -90,12 +90,12 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
       expect(validate(rule, `${long}1`)).toBe(inlined(`${long}1`));
     });
 
-    it('works safely through descriptor-based utilities', () => {
-      const descriptor = { kind: 'string', pattern: '^[a-z]+$' } as const;
-      expect(is('hello', descriptor)).toBe(true);
-      expect(is('12345', descriptor)).toBe(false);
+    it('works safely through the IR-walking utilities', () => {
+      const witness = { kind: 'scalar', scalar: 'string', constraints: { pattern: '^[a-z]+$' } } as const;
+      expect(is('hello', witness)).toBe(true);
+      expect(is('12345', witness)).toBe(false);
 
-      const res = utilityValidate('hello', descriptor);
+      const res = utilityValidate('hello', witness);
       expect(res.success).toBe(true);
     });
   });

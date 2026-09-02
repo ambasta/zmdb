@@ -195,7 +195,7 @@ because `REQ-TF-7` fails on any schema with a timestamp until it lands.
 ### D4 — Unresolvable types: error, warn, or silent? **Resolved: error, with an opt-out.**
 
 Today an unresolvable `is<T>` silently falls through to a runtime path that throws
-`'runtime descriptor required'`. That policy is exactly what produced the miscompile
+`'runtime type witness required'`. That policy is exactly what produced the miscompile
 fixed in `f70186c6`. New policy: the reflection emits a **build diagnostic naming the
 file, the type, and the unsupported construct**, and fails the build unless
 `{ onUnsupported: 'warn' | 'runtime' }` is set. `is<T>` where `T` is an unresolved
@@ -758,7 +758,8 @@ tag-call inlining (`tags.Min(…)`), which needs no types.
 - Delete `parseType`, `primType`, `PType`, `emitCheck`, `emitEqualsCheck`,
   `emitExcessKeyGuards` (**REQ-TF-8**).
 - Rewrite `utilities/index.ts`'s `matches`/`collectIssues`/`hasNoExcessKeys`/`randomFor`
-  to walk **IR**; `TypeDescriptor` becomes a deprecated alias of the IR object node.
+  to walk **IR**. (`TypeDescriptor` was kept as a converted legacy input rather than an
+  alias, and Phase 7c deleted it.)
 
 **Tests**
 
@@ -854,12 +855,27 @@ abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
   JSON Schema all say the three right things, in one place, so the next person cannot
   reintroduce the disagreement without a failure.
 
-**7c — the benchmark harness (REQ-TF-9)**
+**7c — the descriptor, deleted (REQ-TF-9)** — ✅ **done.**
 
-Delete `columnKind` and `createDtoDescriptor` from
-`benchmarks/harness/framework/app.ts:101,119`, and the hand-written descriptors in
-`benchmarks/harness/validation/*`, `benchmarks/src/validation/adapter.ts`,
-`benchmarks/participants/validation/cases/zmdb/`. Add the grep guard.
+The benchmark harness went first: `columnKind` and `createDtoDescriptor` are gone from
+`benchmarks/harness/framework/app.ts`, along with the hand-written descriptors in
+`benchmarks/harness/validation/*`, `benchmarks/src/validation/adapter.ts` and
+`benchmarks/participants/validation/cases/zmdb/`, and `verify:no-descriptors` guards it.
+
+Then the type itself, because a ratchet at five is a ratchet, not an answer.
+`TypeDescriptor`, the `RuntimeSchema = TypeIR | TypeDescriptor` union and the
+`irFromDescriptor`/`toIR` bridge are deleted; every entry point takes a `TypeIR`. The four
+specs that wrote the legacy input form now write the generated one, which is the shape
+they were testing the conversion _into_ anyway. Two ratchets recorded the change by
+failing: `verify:no-descriptors` asked for its allow-list to be emptied, and
+`verify:tf-coverage` asked for `PARTIAL_ON_PURPOSE` to be emptied — the exemption existed
+because a descriptor could not express `maximum`, and the shape with that limit is gone.
+`verify:no-descriptors` gained a third signal, a _declaration_ of the name, so the shape
+cannot return by being re-declared rather than imported.
+
+The fallback's throw message went from `runtime descriptor required in test/fallback mode`
+to `runtime type witness required …` with it: the old wording named a type the repo no
+longer defines.
 
 **Gate:** REQ-TF-9, REQ-TF-10; SQL snapshots unchanged; `valueMatchesColumn` gone;
 validation and ORM benchmark numbers re-measured and committed.
@@ -991,9 +1007,9 @@ that tests for a schema value.
 
 **Gate — met.** Every `REQ-TF-*` AC names a script or a test rather than asserting its
 own outcome, and `yarn verify:tf-acceptance` fails the build if a row cites something
-that does not exist or a gate CI does not run. PRD §6.7 reads twelve met and one ⚠️,
-which is REQ-TF-9's descriptor count; it says what is left and has a gate holding the
-line at today's number rather than a promise.
+that does not exist or a gate CI does not run. PRD §6.7 reads thirteen ✅. The last row to
+carry a ⚠️ was REQ-TF-9's descriptor count, and it closed by deleting the type rather than
+by ratcheting the number down another notch — see Phase 7c.
 
 ---
 

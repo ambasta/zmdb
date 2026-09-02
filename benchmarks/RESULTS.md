@@ -205,14 +205,14 @@ same shape and the same data:
 | hand-written `TypeDescriptor` | 1,340,445 |
 | generated `TypeIR`            | 7,833,292 |
 
-`irFromDescriptor` rebuilds the IR — and with it the reference table keyed on that
-IR object — on **every call**, so a descriptor input pays a full conversion per
-validation. The descriptor front-end is still supported for callers who have one;
-it is just not what the library produces, and benchmarking it was benchmarking the
-compatibility shim. The previous local row (6.37M, below) was measured before that
-conversion existed at all, so it is not comparable to either number above — which
-is the second reason to generate the witness: the benchmark's input form stopped
-matching what the library did with it, and nothing said so.
+`irFromDescriptor` rebuilt the IR — and with it the reference table keyed on that
+IR object — on **every call**, so a descriptor input paid a full conversion per
+validation. Benchmarking it was benchmarking a compatibility shim over an input form
+the library never produced, and that front-end has since been deleted outright: the
+entry points take a `TypeIR` and nothing else. The previous local row (6.37M, below)
+was measured before the conversion existed at all, so it is not comparable to either
+number above — which is the second reason to generate the witness: the benchmark's
+input form stopped matching what the library did with it, and nothing said so.
 
 > [!WARNING]
 > **The upstream runner discards every result, and that used to inflate the AOT

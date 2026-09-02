@@ -48,7 +48,7 @@ The last two rows are the trade. You get no duplicate schema declaration and no 
 Without the transformer there is no schema in the call, and the call says so:
 
 ```text
-runtime descriptor required in test/fallback mode
+runtime type witness required in test/fallback mode
 ```
 
 It throws. That matters more than it sounds: an earlier version of this returned success

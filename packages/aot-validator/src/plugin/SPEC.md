@@ -30,8 +30,8 @@ It reads `T` from the TS checker and replaces the call with inlined JS.
 ## 3. Emitted-JS contract (frozen)
 
 For `is<T>(x)` where `T = { a: number; b: string }` the transformer emits an
-**inline, monomorphic, allocation-free, early-exit** boolean expression — NOT a
-`TypeDescriptor` walk:
+**inline, monomorphic, allocation-free, early-exit** boolean expression — NOT a walk over
+a runtime witness:
 
 ```
 is<T>(x)  →  (typeof x === "object" && x !== null
@@ -69,5 +69,5 @@ If unmet, #83 documents why and the architecture claim is revised honestly
 
 ## 6. Non-goals (rejected)
 
-- No `TypeDescriptor` walk on the emitted hot path (that is the runtime fallback).
+- No walk over a runtime witness on the emitted hot path (that is the runtime fallback).
 - No async validation. No reflection at runtime.

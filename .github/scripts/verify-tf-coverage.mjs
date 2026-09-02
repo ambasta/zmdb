@@ -67,16 +67,16 @@ const INLINER = 'packages/aot-validator/src/transformer.ts';
 /**
  * Types that declare *some* of `Constraints`' five fields on purpose.
  *
- * One entry, and it is the shape the bug was found in. `TypeDescriptor` is the pre-IR
- * runtime schema, kept only until `benchmarks/` and the last few specs stop building one by
- * hand (Phase 7c); it cannot express `maximum` or `minLength` at all, so nothing is silently
- * dropped — the limit is the whole reason the IR replaced it. `constraintsFrom` is the
- * function that converts one, and mirrors it field for field.
+ * Empty. It held two entries, `TypeDescriptor` and the `constraintsFrom` that converted it:
+ * the pre-IR runtime schema could not express `maximum` or `minLength` at all, so its partial
+ * set was the limit rather than an oversight — and the limit is the whole reason the IR
+ * replaced it. Both are deleted, and the loop below turned that into a failure telling us to
+ * empty this list, which is what an exemption that stops matching anything is for.
  *
- * An exemption that stops matching anything is a failure, not a leftover: when Phase 7c
- * lands, this list is what tells you to delete it.
+ * Nothing goes back in here without the same kind of argument: a shape that cannot say
+ * `maximum`, not a walker that forgot to.
  */
-const PARTIAL_ON_PURPOSE = ['TypeDescriptor', 'constraintsFrom'];
+const PARTIAL_ON_PURPOSE = [];
 
 const CONSTRAINT_KINDS = new Set(KNOWN_CONSTRAINT_KINDS);
 const TAG_FIELDS = Object.keys(TAG_NAMES);

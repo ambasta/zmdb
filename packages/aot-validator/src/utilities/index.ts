@@ -9,12 +9,13 @@
 //
 // Two things make that achievable rather than aspirational:
 //
-//  1. **One vocabulary.** Both walks read `TypeIR`. This file used to walk its own
-//     `TypeDescriptor` shape, which is why the two paths had drifted into three
-//     divergences by the time anyone measured: the emitted object check accepted an
-//     array, the emitted number check accepted `NaN`, and the runtime pattern check
-//     threw above 10 000 characters. `TypeDescriptor` survives as a legacy input that
-//     `toIR` normalises, so old callers keep working and there is still one walk.
+//  1. **One vocabulary.** Both walks read `TypeIR`, and it is the only shape either of
+//     them accepts. This file used to walk its own `TypeDescriptor` — a hand-written
+//     mirror of a type, in a form nothing checked against the type it claimed to describe
+//     — which is why the two paths had drifted into three divergences by the time anyone
+//     measured: the emitted object check accepted an array, the emitted number check
+//     accepted `NaN`, and the runtime pattern check threw above 10 000 characters. The
+//     descriptor and the `toIR` bridge that normalised it are both gone.
 //  2. **One set of decisions.** Every `expected` string, and the question of whether a
 //     union has a discriminant, comes from `../emit/shape.ts` — imported by the emitter
 //     too. Those are the parts that would otherwise be written twice and drift.
@@ -44,101 +45,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * The pre-IR runtime schema shape. Kept because `benchmarks/` and several specs still
- * build one by hand, and because `Phase 7c` is where those go away; until then `toIR`
- * means there is one walker rather than two.
- */
-export interface TypeDescriptor {
-  readonly kind: 'object' | 'string' | 'number' | 'boolean' | 'enum' | 'array';
-  readonly fields?: Record<string, TypeDescriptor>;
-  readonly of?: TypeDescriptor;
-  readonly values?: readonly string[];
-  readonly minimum?: number;
-  readonly maxLength?: number;
-  readonly pattern?: string;
-}
-
-/** What every entry point in this file accepts. */
-export type RuntimeSchema = TypeIR | TypeDescriptor;
-
 export interface ValidateResult<T> {
   readonly success: boolean;
   readonly data?: T;
   readonly errors?: readonly ValidationIssue[];
-}
-
-// ---------------------------------------------------------------------------
-// The legacy bridge
-// ---------------------------------------------------------------------------
-
-/**
- * `kind` alone does not separate the two shapes: `'object'` and `'array'` are legal in
- * both. The distinguishing field is, which is also the honest test — a descriptor has
- * `fields`/`of`, an IR node has `properties`/`element`.
- */
-function isDescriptor(schema: RuntimeSchema): schema is TypeDescriptor {
-  switch (schema.kind) {
-    case 'string':
-    case 'number':
-    case 'boolean':
-    case 'enum':
-      return true;
-    case 'object':
-      return !('properties' in schema);
-    case 'array':
-      return !('element' in schema);
-    default:
-      return false;
-  }
-}
-
-function constraintsFrom(descriptor: TypeDescriptor): Constraints | undefined {
-  const constraints: { minimum?: number; maxLength?: number; pattern?: string } = {};
-  if (descriptor.minimum !== undefined) constraints.minimum = descriptor.minimum;
-  if (descriptor.maxLength !== undefined) constraints.maxLength = descriptor.maxLength;
-  if (descriptor.pattern !== undefined) constraints.pattern = descriptor.pattern;
-  return Object.keys(constraints).length === 0 ? undefined : constraints;
-}
-
-function withConstraints(scalar: ScalarIR['scalar'], descriptor: TypeDescriptor): ScalarIR {
-  const constraints = constraintsFrom(descriptor);
-  return constraints ? { kind: 'scalar', scalar, constraints } : { kind: 'scalar', scalar };
-}
-
-/** A legacy `TypeDescriptor` as IR. Total: a malformed descriptor becomes a refusal. */
-export function irFromDescriptor(descriptor: TypeDescriptor): TypeIR {
-  switch (descriptor.kind) {
-    case 'string':
-      return withConstraints('string', descriptor);
-    case 'number':
-      return withConstraints('number', descriptor);
-    case 'boolean':
-      return { kind: 'scalar', scalar: 'boolean' };
-    case 'enum':
-      return { kind: 'union', members: (descriptor.values ?? []).map(value => ({ kind: 'literal', value })) };
-    case 'array': {
-      if (!descriptor.of) {
-        return { kind: 'unsupported', reason: 'an array descriptor with no element type' };
-      }
-      return { kind: 'array', element: irFromDescriptor(descriptor.of) };
-    }
-    case 'object':
-      return {
-        kind: 'object',
-        properties: Object.entries(descriptor.fields ?? {}).map(([name, field]) => ({
-          name,
-          type: irFromDescriptor(field),
-          optional: false,
-          readonly: false,
-        })),
-      };
-  }
-}
-
-/** Normalise whichever shape a caller supplied. IR passes through untouched. */
-export function toIR(schema: RuntimeSchema): TypeIR {
-  return isDescriptor(schema) ? irFromDescriptor(schema) : schema;
 }
 
 // ---------------------------------------------------------------------------
@@ -277,7 +187,7 @@ function matches(value: unknown, node: TypeIR, refs: RefTable): boolean {
     }
     case 'unsupported':
       // The emitter refuses to compile one of these, so the only way to be here is a
-      // hand-built descriptor. Nothing satisfies a type we cannot describe.
+      // reflection refused it. Nothing satisfies a type we cannot describe.
       return false;
   }
 }
@@ -636,19 +546,19 @@ function refusal(path: string, reason: string): Error {
 // Public surface
 // ---------------------------------------------------------------------------
 
-const MISSING = 'runtime descriptor required in test/fallback mode';
+const MISSING = 'runtime type witness required in test/fallback mode';
 
-function required(schema: RuntimeSchema | undefined): TypeIR {
+function required(schema: TypeIR | undefined): TypeIR {
   if (!schema) throw new Error(MISSING);
-  return toIR(schema);
+  return schema;
 }
 
-export function is<T = unknown>(input: unknown, schema?: RuntimeSchema): input is T {
+export function is<T = unknown>(input: unknown, schema?: TypeIR): input is T {
   const node = required(schema);
   return matches(input, node, refsOf(node));
 }
 
-export function assert<T = unknown>(input: unknown, schema?: RuntimeSchema): T {
+export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
   const node = required(schema);
   const refs = refsOf(node);
   // Two passes, as the emitted form does it: the allocation-free check first, and the
@@ -664,7 +574,7 @@ export function assert<T = unknown>(input: unknown, schema?: RuntimeSchema): T {
   failWith(issues);
 }
 
-export function validate<T = unknown>(input: unknown, schema?: RuntimeSchema): ValidateResult<T> {
+export function validate<T = unknown>(input: unknown, schema?: TypeIR): ValidateResult<T> {
   const node = required(schema);
   const refs = refsOf(node);
   // boundary: same certification as `assert`, returned instead of thrown.
@@ -674,13 +584,13 @@ export function validate<T = unknown>(input: unknown, schema?: RuntimeSchema): V
   return { success: false, errors: issues };
 }
 
-export function equals<T = unknown>(input: unknown, schema?: RuntimeSchema): input is T {
+export function equals<T = unknown>(input: unknown, schema?: TypeIR): input is T {
   const node = required(schema);
   const refs = refsOf(node);
   return matches(input, node, refs) && hasNoExcessKeys(input, node, refs);
 }
 
-export function assertEquals<T = unknown>(input: unknown, schema?: RuntimeSchema): T {
+export function assertEquals<T = unknown>(input: unknown, schema?: TypeIR): T {
   const node = required(schema);
   const refs = refsOf(node);
   if (matches(input, node, refs) && hasNoExcessKeys(input, node, refs)) {
@@ -698,7 +608,7 @@ export function assertEquals<T = unknown>(input: unknown, schema?: RuntimeSchema
   failWith(issues);
 }
 
-export function random<T = unknown>(schema?: RuntimeSchema): T {
+export function random<T = unknown>(schema?: TypeIR): T {
   const node = required(schema);
   // boundary: `sample` builds the value FROM the IR, so it satisfies it by
   // construction — the `is(random(d), d)` property test guards this.
@@ -706,15 +616,15 @@ export function random<T = unknown>(schema?: RuntimeSchema): T {
 }
 
 /** Every issue, for a caller that wants them without a `ValidateResult` wrapper. */
-export function issuesFor(input: unknown, schema: RuntimeSchema, path = 'input'): readonly ValidationIssue[] {
-  const node = toIR(schema);
+export function issuesFor(input: unknown, schema: TypeIR, path = 'input'): readonly ValidationIssue[] {
+  const node = schema;
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, path, issues, refsOf(node));
   return issues;
 }
 
-// `RuntimeSchema` is half `TypeIR`, so a caller that holds a generated witness needs the
-// name too — otherwise it has to reach past this entry point into `@zmdb/schema-core/ir`
-// to spell the type of the value it just got handed.
+// Re-exported so a caller holding a generated witness can name its type without reaching past
+// this entry point into `@zmdb/schema-core/ir`. It is the only shape these functions accept,
+// which is the point: there is nothing else left to name.
 export type { TypeIR };
 export type { ValidationIssue };

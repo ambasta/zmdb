@@ -6,23 +6,24 @@
 // silent: the validator keeps passing, it just stops checking the field somebody added.
 //
 // The replacement is `TypeIR`, which is generated — by `Reflector` from a declared type, or by
-// the codegen CLI over a whole file. So this is a ratchet, not a style rule: the descriptor path
-// still exists (`irFromDescriptor` converts it, and shipped code accepts `RuntimeSchema`), and
-// what has to stay true is that nothing in here *authors* one.
+// the codegen CLI over a whole file. The count is now zero and the descriptor path is gone
+// with it: `TypeDescriptor`, `RuntimeSchema` and the `irFromDescriptor` bridge are deleted, and
+// every entry point takes `TypeIR` and nothing else. So the job of this script has changed from
+// ratcheting a number down to holding it at zero.
 //
-// Two signals, both on code rather than prose so a comment discussing descriptors is not a
+// Three signals, all on code rather than prose so a comment discussing descriptors is not a
 // failure:
 //
-//   1. an object literal with a `fields:` key — the one key a descriptor has and the IR
+//   1. an object literal with a `fields:` key — the one key a descriptor had and the IR
 //      does not (the IR spells the same thing `properties`, as an array);
-//   2. an import of the `TypeDescriptor` name — you cannot annotate what you cannot name,
-//      and the declaration itself lives in `utilities/index.ts` and is not imported there.
+//   2. an import of the `TypeDescriptor` name — you cannot annotate what you cannot name;
+//   3. a *declaration* of that name. This was excluded while the type still existed, because
+//      the declaration site was legitimate. Nothing declares it now, and a file that starts
+//      to is how the shape would come back.
 //
-// `ALLOWED` is the exception list, keyed by file with the number of descriptors each is
-// permitted. The entries in it are the specs that test the descriptor path *as such* —
-// `irFromDescriptor` has to keep working, and the only way to test a legacy front-end is to
-// use it. A stale entry fails too: it would claim a descriptor is still needed somewhere it
-// is not.
+// `ALLOWED` is empty, and the loop that reads it is kept for the shape of the failure rather
+// than for any entry: it names the file and the count, which is what you want to see if a
+// descriptor is ever reintroduced with a plausible-looking reason.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -32,27 +33,23 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
- * file → how many hand-written descriptors it is allowed to contain. These four test the
- * legacy front-end itself: `irFromDescriptor` is a shipped conversion, and a test for it
- * has to write the input form. Nothing outside this list may.
+ * file → how many hand-written descriptors it is allowed to contain.
+ *
+ * Empty, and it should stay that way. It held four specs that tested the legacy front-end
+ * itself, which is the only honest reason to write the input form; they now build a `TypeIR`
+ * because there is no other form to build.
  */
-const ALLOWED = {
-  // `validate` against a descriptor, for the issue paths a nested descriptor produces.
-  'packages/aot-validator/src/advanced/error-paths.spec.ts': 2,
-  // `assertStringify(value, descriptor)` — the descriptor overload of the entry point.
-  'packages/aot-validator/src/serialization/assert-stringify.spec.ts': 1,
-  // `decode(text, descriptor)` — same, for the parse direction.
-  'packages/aot-validator/src/serialization/decode.spec.ts': 1,
-  // The `irFromDescriptor` conversion table: every descriptor field, mapped to its IR node.
-  'packages/aot-validator/src/utilities/utilities.spec.ts': 1,
-};
+const ALLOWED = {};
 
 // A descriptor object literal. The IR's object node has `properties`, an array, so this
 // key is unambiguous.
 const LITERAL = /\bfields\s*:\s*\{/g;
 // `import { … TypeDescriptor … }` / `import type { TypeDescriptor }`, single- or
-// multi-line. Only imports: the declaration site is not one, and neither is a comment.
+// multi-line. A comment mentioning the name is not one.
 const IMPORTED = /\bimport\s+(?:type\s+)?\{[^}]*\bTypeDescriptor\b[^}]*\}/g;
+// `interface TypeDescriptor` / `type TypeDescriptor =` — the shape coming back by declaration
+// rather than by import. Nothing declares it now, which is what makes this checkable.
+const DECLARED = /\b(?:interface|type)\s+TypeDescriptor\b/g;
 
 function trackedTypeScript() {
   return execFileSync('git', ['ls-files', '-z', '*.ts'], { cwd: ROOT, encoding: 'utf8' })
@@ -70,10 +67,10 @@ for (const file of trackedTypeScript()) {
   const source = readFileSync(join(ROOT, file), 'utf8');
   scanned++;
   const literals = source.match(LITERAL)?.length ?? 0;
-  const imports = source.match(IMPORTED)?.length ?? 0;
-  // A file that imports the name but writes no literal still counts as one use: it is
-  // annotating something with the hand-written form.
-  const uses = literals > 0 ? literals : imports;
+  const named = (source.match(IMPORTED)?.length ?? 0) + (source.match(DECLARED)?.length ?? 0);
+  // A file that names the type but writes no literal still counts as one use: it is either
+  // annotating something with the hand-written form or bringing the form back.
+  const uses = literals > 0 ? literals : named;
   if (uses > 0) found[file] = uses;
 }
 
@@ -102,4 +99,4 @@ if (problems.length > 0) {
   console.error('for a type, `Reflector.schemaIR` for a table, or the codegen CLI for a whole file.');
   process.exit(1);
 }
-console.log('nothing authors a descriptor outside the specs that test the descriptor path.');
+console.log('nothing authors a descriptor, and nothing declares the type — the shape is gone, not fenced off.');
