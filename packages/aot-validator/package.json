@@ -22,6 +22,9 @@
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/aot-validator"
   },
+  "bin": {
+    "zmdb-codegen": "./src/cli/bin.ts"
+  },
   "files": [
     "src",
     "README.md",
@@ -38,6 +41,7 @@
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts",
     "./reflect": "./src/reflect/index.ts",
+    "./codegen": "./src/cli/index.ts",
     "./transformer": "./src/transformer.ts",
     "./unplugin": "./src/unplugin.ts"
   },

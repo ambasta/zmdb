@@ -14,6 +14,7 @@
     "benchmarks/harness/framework/.bin/**",
     "benchmarks/upstream/**",
     "**/*.generated.ts",
+    "**/*.zmdb.*",
     "benchmarks/harness/framework/peers/**",
     "benchmarks/site/*.json",
     "**/.results/**",

@@ -105,6 +105,7 @@ if (existsSync(UMBRELLA_SRC)) {
 // they talk to the compiler. Adding to this list is a decision about what a consumer's
 // bundle contains, which is why it is spelled out rather than inferred.
 const BUILD_TIME_ENTRIES = new Set([
+  '@zmdb/aot-validator#./codegen',
   '@zmdb/aot-validator#./plugin',
   '@zmdb/aot-validator#./reflect',
   '@zmdb/aot-validator#./transformer',

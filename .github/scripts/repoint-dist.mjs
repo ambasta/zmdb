@@ -29,9 +29,15 @@ const ENTRIES = {
   'aot-validator': {
     '.': 'index',
     './advanced': 'advanced',
+    './emit': 'emit',
+    './errors': 'errors',
     './serialization': 'serialization',
     './utilities': 'utilities',
     './plugin': 'plugin',
+    './reflect': 'reflect',
+    './transformer': 'transformer',
+    './unplugin': 'unplugin',
+    './codegen': 'codegen',
   },
   repository: {
     '.': 'index',
@@ -79,6 +85,13 @@ for (const [name, entries] of Object.entries(ENTRIES)) {
   pkg.main = './dist/index.js';
   pkg.types = './dist/index.d.ts';
   pkg.files = ['dist', 'README.md', 'LICENSE'];
+  // `src` is not published, so an executable declared against it would install broken.
+  // The tsup entry keys mirror the source paths, so the rewrite is mechanical.
+  if (pkg.bin) {
+    for (const [command, target] of Object.entries(pkg.bin)) {
+      if (typeof target === 'string') pkg.bin[command] = target.replace(/^\.\/src\/(.*)\.ts$/, './dist/$1.js');
+    }
+  }
   // Convert workspace:^ specifiers to a concrete range so plain `npm publish`
   // (which does not understand the workspace: protocol) produces a valid manifest.
   // For prerelease versions (e.g. 1.0.0-alpha.0) pin the EXACT version — a caret

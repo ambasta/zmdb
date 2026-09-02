@@ -1,0 +1,10 @@
+{
+  "name": "@zmdb-fixture/consumer-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../packages/aot-validator/src/cli/bin.ts --project tsconfig.json",
+    "start": "node src/probe.ts"
+  }
+}

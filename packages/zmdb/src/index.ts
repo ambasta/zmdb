@@ -4,6 +4,7 @@
 // Schema: DSL + column builders + modifiers + derived types.
 export {
   defineSchema,
+  schemaOf,
   serial,
   integer,
   bigint,
@@ -32,6 +33,7 @@ export type {
   UpdateDTO,
   PrimaryKeyOf,
   CoreSchema,
+  TaggedSchema,
   ColumnMeta,
   ValidationIssue,
   StateTransitions,
@@ -61,7 +63,14 @@ export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
 // `ValidationIssue` is not re-exported here: the utilities subpath re-exports schema-core's
 // declaration rather than declaring a second one, and it is already above.
 export { equals, is, assert, assertEquals, random, validate, AssertError } from '@zmdb/aot-validator/utilities';
+export type { ValidateResult } from '@zmdb/aot-validator/utilities';
 export { tags } from '@zmdb/aot-validator';
+
+// The type-first pair, from the OpenAPI subpath because that is where the JSON Schema
+// vocabulary lives. `toJsonSchema<T>()` and `toJsonSchema(schema)` are one overloaded
+// function, so there is nothing to choose between here — installing `zmdb` gets both.
+export { toJsonSchema } from '@zmdb/schema-core/openapi';
+export type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
 
 // Repository & Transactions.
 export {

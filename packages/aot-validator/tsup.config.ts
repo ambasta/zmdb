@@ -11,6 +11,8 @@ export default defineConfig({
     plugin: 'src/plugin/index.ts',
     reflect: 'src/reflect/index.ts',
     transformer: 'src/transformer.ts',
+    codegen: 'src/cli/index.ts',
+    'cli/bin': 'src/cli/bin.ts',
     unplugin: 'src/unplugin.ts',
   },
   format: ['esm'],

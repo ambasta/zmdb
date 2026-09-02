@@ -30,6 +30,13 @@ const projects = [
   // The quickstart. It is the first zmdb code anyone runs and it was the only TypeScript in
   // the repository that nothing compiled.
   join(root, 'examples', 'tsconfig.json'),
+  // The consumer fixtures, one per route into the compiled validator. Enumerated rather than
+  // listed for the same reason as packages/*, and each one is a standalone project with no
+  // `paths` mapping — so this is also the check that `zmdb` and `zmdb/tags` resolve for
+  // somebody who merely installed them.
+  ...readdirSync(join(root, 'fixtures'), { withFileTypes: true })
+    .filter(e => e.isDirectory())
+    .map(e => join(root, 'fixtures', e.name, 'tsconfig.json')),
 ].filter(existsSync);
 
 let failed = 0;

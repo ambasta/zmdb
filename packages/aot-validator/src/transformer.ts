@@ -30,8 +30,15 @@ import { Reflector, type ReflectOptions } from './reflect/index.ts';
 import type { ReflectSession } from './reflect/session.ts';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.ts';
 
-/** The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`. */
-const CALLEES: ReadonlySet<string> = new Set([
+/**
+ * The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`.
+ *
+ * Exported because `zmdb-codegen` asks the same question about the same eight names, and
+ * two lists would drift: a callee added here and not there is a call the bundler inlines
+ * and the CLI leaves as a runtime walk, which is a silent performance cliff between two
+ * paths that are supposed to be equivalent.
+ */
+export const CALLEES: ReadonlySet<string> = new Set([
   'is',
   'assert',
   'equals',
@@ -251,7 +258,7 @@ function withPrelude(code: string, prelude: string): string {
  * edit is either inside the span being asked about or entirely after it — which is what
  * makes a single sum the right answer.
  */
-class Rewriter {
+export class Rewriter {
   #text: string;
   /** Applied edits in original coordinates. Nested ones are folded into their parent. */
   #edits: { start: number; end: number; delta: number }[] = [];

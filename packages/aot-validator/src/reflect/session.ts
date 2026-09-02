@@ -171,6 +171,32 @@ export class ReflectSession implements Disposable {
   }
 
   /**
+   * Every file in the program, dependencies and lib files included.
+   *
+   * `zmdb-codegen` needs this and the plugin does not: a bundler hands over one module at
+   * a time, so the plugin never has to ask what the project contains. The CLI is the
+   * whole build, so "which files might have a call site in them" is its first question.
+   *
+   * `getSourceFiles()` — the name the old compiler used — is not on the client at all;
+   * only the names marshal, and the caller has to filter `node_modules` and `.d.ts` for
+   * itself.
+   */
+  sourceFileNames(): readonly string[] {
+    return this.#program.getSourceFileNames();
+  }
+
+  /**
+   * The project's resolved compiler options.
+   *
+   * Read for one thing: whether a generated module may import `./models.ts` with the
+   * extension it has on disk. Guessing wrong writes a project that does not compile,
+   * which is a worse failure than refusing.
+   */
+  compilerOptions(): Readonly<Record<string, unknown>> {
+    return this.#program.getCompilerOptions() as Readonly<Record<string, unknown>>;
+  }
+
+  /**
    * Semantic diagnostics for one file. The reflection reads types, and a type in a
    * file that does not compile is a guess, so callers check this before trusting
    * anything derived from it.
