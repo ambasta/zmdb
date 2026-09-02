@@ -46,7 +46,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { CoreSchema } from '@zmdb/schema-core';
+import type { CoreSchema, TaggedSchema } from '@zmdb/schema-core';
 import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 
 import { schemaIrFromType, type ReflectDiagnostic } from '../reflect/index.ts';
@@ -75,12 +75,36 @@ export interface SchemasFromOptions {
 export function schemasFrom<const Names extends readonly string[]>(
   module: string,
   names: Names,
+  options?: SchemasFromOptions,
+): { [Name in Names[number]]: CoreSchema<string> };
+/**
+ * The same, with each schema remembering the type it came from.
+ *
+ * The reflection knows which interface it read, but a function cannot return a different type
+ * per string it was handed, so the mapping is stated: `schemasFrom<{ User: User }>(…)`. What
+ * comes back is a `TaggedSchema<User>`, exactly what `schemaOf<User>()` would have been, which
+ * is what makes `Entity<…>`, `CreateDTO<…>` and a typed repository work off it.
+ *
+ * The name appears twice, once as a type and once as a string. That is the honest amount: the
+ * string is what gets looked up at runtime and the type is what the compiler needs, and the
+ * constraint ties them together so a typo in either is an error rather than an `undefined`.
+ * Tests that only read the schema as data — IR, OpenAPI, seeding — want the erased overload
+ * above and should not pay the extra line.
+ */
+export function schemasFrom<Types extends Record<string, object>>(
+  module: string,
+  names: readonly (keyof Types & string)[],
+  options?: SchemasFromOptions,
+): { [Name in keyof Types]: TaggedSchema<Types[Name]> };
+export function schemasFrom(
+  module: string,
+  names: readonly string[],
   options: SchemasFromOptions = {},
-): { [Name in Names[number]]: CoreSchema<string> } {
+): Record<string, CoreSchema<string>> {
   const irs: Record<string, SchemaIR> = schemaIrsFrom(module, names, options);
   const schemas: Record<string, CoreSchema<string>> = {};
   for (const [name, ir] of Object.entries(irs)) schemas[name] = schemaFromIR(ir);
-  return schemas as { [Name in Names[number]]: CoreSchema<string> };
+  return schemas;
 }
 
 /**

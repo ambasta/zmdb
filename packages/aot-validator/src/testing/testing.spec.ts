@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { Entity } from '@zmdb/schema-core';
 import type { Length, PrimaryKey, Sensitive, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -67,6 +68,18 @@ describe('schemasFrom', () => {
     expect(accounts.columns.email).toMatchObject({ type: 'varchar', flags: { unique: true, length: 255 } });
     expect(accounts.columns.secret?.flags).toMatchObject({ sensitive: true });
     expect(accounts.columns.note?.flags).toMatchObject({ nullable: true });
+  }, 60_000);
+
+  it('can hand back a schema that still knows its type', () => {
+    const { Account: accounts } = schemasFrom<{ Account: Account }>(import.meta.url, ['Account']);
+
+    // The static half is the point, and it is checked by this file compiling: `Entity` picks the
+    // `TaggedSchema<T>` branch and reads `Account` rather than rebuilding it from the columns.
+    const row: Entity<typeof accounts> = { id: 1, email: 'a@b.c', secret: 'x', note: null };
+    // `.toUpperCase()` is the assertion: off the erased overload `email` is `unknown` and this
+    // line does not compile.
+    expect(row.email.toUpperCase()).toBe('A@B.C');
+    expect(accounts.table).toBe('accounts');
   }, 60_000);
 
   it('stops at the IR when asked, because that is what the front-end produces', () => {

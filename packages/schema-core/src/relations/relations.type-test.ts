@@ -1,7 +1,17 @@
 // Compile-time type assertions for relations and foreign key constraints.
 // Checked by `yarn typecheck`.
 
-import { text, integer, references, type ColumnMeta, type Entity, type Equal, type Expect } from '../index.ts';
+import {
+  defineSchema,
+  serial,
+  text,
+  integer,
+  references,
+  type ColumnMeta,
+  type Entity,
+  type Equal,
+  type Expect,
+} from '../index.ts';
 import { ProfileSchema, UserSchema } from './fixtures.ts';
 import {
   manyToOne,
@@ -18,20 +28,31 @@ type UserEntity = Entity<typeof UserSchema>;
 type ProfileEntity = Entity<typeof ProfileSchema>;
 
 // 1. Foreign key type checking with references(...)
-const validFk = references(integer(), UserSchema, 'id');
+//
+// `references()` takes a column *builder*'s output and compares its TypeScript type against
+// the target column's, which needs the target's literal column map. So it is inherently a
+// schema-value API: the tagged spelling of the same constraint is `References<'users.id'>`
+// on the column, checked by the reflection instead. This section therefore declares its own
+// value schema and goes when the column builders do (plan D2).
+const ValueUserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+});
+
+const validFk = references(integer(), ValueUserSchema, 'id');
 export type TestValidFk = Expect<(typeof validFk)['references'] extends { target: string } ? true : false>;
 
-// @ts-expect-error - 'invalid_col' does not exist on UserSchema
-references(integer(), UserSchema, 'invalid_col');
+// @ts-expect-error - 'invalid_col' does not exist on ValueUserSchema
+references(integer(), ValueUserSchema, 'invalid_col');
 
 // Foreign key type mismatch returns branded error object
 const textCol = text();
-const mismatchRef = references(textCol, UserSchema, 'id');
+const mismatchRef = references(textCol, ValueUserSchema, 'id');
 export type TestMismatchError = Expect<Equal<typeof mismatchRef, { __error: 'Referenced column type does not match' }>>;
 
 // Assigning a mismatched reference to a ColumnMeta property fails type check
 // @ts-expect-error - Referenced column type does not match
-const _invalidRefCol: ColumnMeta = references(textCol, UserSchema, 'id');
+const _invalidRefCol: ColumnMeta = references(textCol, ValueUserSchema, 'id');
 
 // 2. Relation builders column validation
 // @ts-expect-error - 'bad_col' is not a column of UserSchema

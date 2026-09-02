@@ -10,6 +10,7 @@ export default defineConfig({
     utilities: 'src/utilities/index.ts',
     plugin: 'src/plugin/index.ts',
     reflect: 'src/reflect/index.ts',
+    testing: 'src/testing/index.ts',
     transformer: 'src/transformer.ts',
     codegen: 'src/cli/index.ts',
     'cli/bin': 'src/cli/bin.ts',

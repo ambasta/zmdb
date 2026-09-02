@@ -2,7 +2,8 @@ import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-co
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
-import type { ColumnsMap, CoreSchema, Entity, ExtractColumns } from '../index.ts';
+import type { ColumnKeys } from '../derive/index.ts';
+import type { ColumnsMap, CoreSchema, Entity, ExtractColumns, TaggedSchema } from '../index.ts';
 
 export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
 
@@ -34,8 +35,16 @@ function getTableName(target: { table: string } | string): string {
 
 /** What the relation builders accept as a target: a full schema, anything carrying a `columns` bag, or a bare columns map. */
 type RelationTarget = CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap;
-/** The column names of a relation target, which is what an fk / mappedBy has to name. */
-type ColumnNameOf<Target> = keyof ExtractColumns<Target> & string;
+/**
+ * The column names of a relation target, which is what an fk / mappedBy has to name.
+ *
+ * A `TaggedSchema<T>` erases its column map to `Record<string, ColumnMeta>` — the *value*
+ * has no literal keys to read — so `keyof ExtractColumns<…>` is `string` for one, and
+ * `manyToOne(users, 'bad_col')` would compile. The phantom is where the answer went, so
+ * that is where this looks: same question, asked of the type the schema came from.
+ */
+type ColumnNameOf<Target> =
+  Target extends TaggedSchema<infer T> ? ColumnKeys<T> : keyof ExtractColumns<Target> & string;
 
 export function manyToOne<
   TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,

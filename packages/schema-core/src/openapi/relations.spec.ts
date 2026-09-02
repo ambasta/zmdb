@@ -1,17 +1,22 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, integer, serial } from '../index.ts';
 import { manyToOne, oneToMany } from '../relations/index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { toJsonSchemaWithRelations } from './index.ts';
 
 // #66: DTO-aware generation + relation $refs.
 
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+}
 
-const UserSchema = defineSchema('users', { id: serial().primaryKey() });
+export interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+}
+
+const { Order: OrderSchema, User: UserSchema } = schemasFrom(import.meta.url, ['Order', 'User']);
 
 describe('relation $refs', () => {
   it('emits a $ref for a to-one relation', () => {

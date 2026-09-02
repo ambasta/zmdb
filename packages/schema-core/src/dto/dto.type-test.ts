@@ -5,7 +5,17 @@
 // sibling `.spec.ts` files, where `expectTypeOf` is a runtime no-op and the
 // package tsconfig excludes `**/*.spec.ts` — so nothing checked them. Here a
 // wrong derived type is a build error.
+//
+// `S` is a tagged interface's schema now, so the columns carry their tags into every
+// derivation — `Entity<S>['age']` is `number & Sql<'integer'>`, not `number`. That is
+// REQ-TF-5 and it is deliberate: a tag dropped by `Omit` or `Partial` is a constraint the
+// generated validator would stop checking. The criterion for the assertions below is
+// therefore the one `derive/type-derivation-tagged.type-test.ts` argues for — identical
+// key sets, identical optionality, and mutual assignability with the bare shape — because
+// `Equal` is the only thing a phantom slot is visible to. Where the tag is part of the
+// claim the assertion still spells it out.
 import type { Entity, Equal, Expect, Extends } from '../index.ts';
+import type { Sql } from '../tags/index.ts';
 import type { OrderSchema, UserS as S } from './fixtures.ts';
 import type {
   AggregateResult,
@@ -22,9 +32,16 @@ import type {
 } from './index.ts';
 import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.ts';
 
+/** Assignable both ways: interchangeable in an argument and in a return value. */
+type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.
-export type _Where1 = Expect<Equal<WhereDTO<S>['age'], number | FieldOps<number> | undefined>>;
+export type _Where1 = Expect<
+  Equal<WhereDTO<S>['age'], (number & Sql<'integer'>) | FieldOps<number & Sql<'integer'>> | undefined>
+>;
+// And what a caller sees: a plain number, or the ops object over one.
+export type _Where1a = Expect<Mutual<WhereDTO<S>['age'], number | FieldOps<number> | undefined>>;
 export type _Where2 = Expect<Equal<FieldOps<string>['like'], string | SubqueryTarget<string> | undefined>>;
 export type _Where3 = Expect<Equal<FieldOps<number>['like'], undefined>>;
 export type _Where4 = Expect<
@@ -41,12 +58,14 @@ export type _Where6 = Expect<
 export type _Order1 = Expect<Equal<OrderByDTO<S>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;
 
 // --- Projection (#185) -----------------------------------------------------
-export type _Proj1 = Expect<Equal<Projection<S, 'id' | 'email'>, { id: number; email: string }>>;
+export type _Proj1 = Expect<Mutual<Projection<S, 'id' | 'email'>, { id: number; email: string }>>;
+export type _Proj1a = Expect<Equal<keyof Projection<S, 'id' | 'email'>, 'id' | 'email'>>;
 export type _Proj2 = Expect<Equal<keyof Entity<S>, 'id' | 'email' | 'age' | 'role'>>;
 
 // --- GetDTO (#165) ---------------------------------------------------------
 export type _Get1 = Expect<Equal<GetDTO<S>, Entity<S>>>;
-export type _Get2 = Expect<Equal<GetDTO<S, { select: readonly ['id', 'age'] }>, { id: number; age: number }>>;
+export type _Get2 = Expect<Mutual<GetDTO<S, { select: readonly ['id', 'age'] }>, { id: number; age: number }>>;
+export type _Get2a = Expect<Equal<keyof GetDTO<S, { select: readonly ['id', 'age'] }>, 'id' | 'age'>>;
 
 // --- ListResult (#168) -----------------------------------------------------
 export type _List1 = Expect<
@@ -67,10 +86,13 @@ type AggSpec = {
   };
 };
 type R = AggregateResult<typeof OrderSchema, AggSpec>;
-export type _Agg1 = Expect<Equal<R['customerId'], number>>;
+// A grouped column keeps its declared type, tag and all; a computed one is the aggregate
+// function's own type and never carried a tag.
+export type _Agg1 = Expect<Equal<R['customerId'], number & Sql<'integer'>>>;
+export type _Agg1a = Expect<Mutual<R['customerId'], number>>;
 export type _Agg2 = Expect<Equal<R['orderCount'], number>>;
 export type _Agg3 = Expect<Equal<R['revenue'], number | null>>;
-export type _Agg4 = Expect<Equal<R['firstStatus'], string | null>>;
+export type _Agg4 = Expect<Mutual<R['firstStatus'], string | null>>;
 
 // --- Builder folding preserves the concrete builder type -------------------
 // The reason `WhereTarget`/`OrderTarget` return `this`: folding a DTO into a

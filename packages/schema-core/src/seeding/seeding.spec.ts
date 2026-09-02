@@ -1,15 +1,18 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text, integer, boolean, jsonEnum } from '../index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { makeRng, seedRows } from './index.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  active: boolean().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  age: number & Sql<'integer'>;
+  active: boolean & Sql<'boolean'>;
+  role: 'admin' | 'user';
+}
+
+const { User: UserSchema } = schemasFrom(import.meta.url, ['User']);
 
 describe('seeding (#138)', () => {
   it('makeRng is deterministic for a seed', () => {

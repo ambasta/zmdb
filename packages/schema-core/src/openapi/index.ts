@@ -110,7 +110,16 @@ function singularizeWord(word: string): string {
   return word;
 }
 
-function pascalCase(table: string): string {
+/**
+ * The `components.schemas` key for a table, and the target of every `$ref` that points at
+ * it: singularized, then PascalCase. `user_addresses` → `UserAddress`.
+ *
+ * Exported because it is the only way to write a `$ref` by hand that resolves against a
+ * document this module produced, and because it is the whole subject of
+ * `singularization.spec.ts` — which used to reach it by declaring twenty schemas whose only
+ * distinguishing feature was the table name.
+ */
+export function componentName(table: string): string {
   return table
     .split(/[-_]+/)
     .map(word => singularizeWord(word))
@@ -134,7 +143,7 @@ export function toJsonSchemaWithRelations(
   if (variant !== 'entity') return base; // input bodies exclude relations
   const properties: Record<string, unknown> = { ...base.properties };
   for (const [name, rel] of Object.entries(relations)) {
-    const ref = { $ref: `#/components/schemas/${pascalCase(rel.target)}` };
+    const ref = { $ref: `#/components/schemas/${componentName(rel.target)}` };
     const toMany = rel.cardinality === 'one-to-many' || rel.cardinality === 'many-to-many';
     properties[name] = toMany ? { type: 'array', items: ref } : ref;
   }
@@ -146,7 +155,7 @@ export function toOpenApiComponents(schemas: readonly CoreSchema<string>[]): {
 } {
   const out: Record<string, JsonSchemaObject> = {};
   for (const s of [...schemas].toSorted((a, b) => a.table.localeCompare(b.table))) {
-    out[pascalCase(s.table)] = toJsonSchema(s, 'entity');
+    out[componentName(s.table)] = toJsonSchema(s, 'entity');
   }
   return { schemas: out };
 }

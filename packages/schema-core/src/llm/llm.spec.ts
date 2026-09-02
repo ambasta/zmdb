@@ -1,13 +1,22 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, jsonEnum, sensitive, serial, text } from '../index.ts';
+import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.ts';
 import { toolFromSchema, lenientParse } from './index.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: 'admin' | 'user';
+}
+
+export interface Keyed extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  apiKey: string & Sql<'text'> & Sensitive;
+}
+
+const { User: UserSchema, Keyed: SensitiveSchema } = schemasFrom(import.meta.url, ['User', 'Keyed']);
 
 describe('LLM function-calling harness (#159)', () => {
   it('toolFromSchema produces a tool with create-variant parameters', () => {
@@ -21,11 +30,6 @@ describe('LLM function-calling harness (#159)', () => {
   });
 
   it('toolFromSchema omits sensitive fields from parameter schemas', () => {
-    const SensitiveSchema = defineSchema('users', {
-      id: serial().primaryKey(),
-      email: text().notNull(),
-      apiKey: sensitive(text().notNull()),
-    });
     const tool = toolFromSchema('createUser', SensitiveSchema);
     expect(tool.parameters.properties).not.toHaveProperty('apiKey');
     expect(tool.parameters.properties).toHaveProperty('email');

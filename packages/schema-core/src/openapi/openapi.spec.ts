@@ -1,6 +1,7 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, integer, jsonEnum, sensitive, serial, text, timestamp, type CoreSchema } from '../index.ts';
+import type { HasDefault, Pattern, PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.ts';
 import {
   toJsonSchema,
   toJsonSchemaWithRelations,
@@ -12,12 +13,38 @@ import {
 
 // #63: JSON Schema / OpenAPI golden fixtures.
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate({ kind: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$' }),
-  role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
+  role: ('admin' | 'user' | 'guest') & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
+
+/** A composite key nothing generates — the `update` variant must still drop it. */
+export interface Membership extends Table<'memberships'> {
+  userId: number & Sql<'integer'> & PrimaryKey;
+  groupId: number & Sql<'integer'> & PrimaryKey;
+  note: (string & Sql<'text'>) | null;
+}
+
+export interface Secretive extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  passwordHash: string & Sql<'text'> & Sensitive;
+  apiToken: string & Sql<'text'> & Sensitive;
+}
+
+/** Slashes and a double quote in a pattern, which must reach the document unescaped. */
+export interface FileRow extends Table<'files'> {
+  path: string & Sql<'text'> & Pattern<'^/usr/local/"bin"/.*$'>;
+}
+
+const {
+  User: UserSchema,
+  Membership: MembershipSchema,
+  Secretive: SchemaWithSecret,
+  FileRow: FileSchema,
+} = schemasFrom(import.meta.url, ['User', 'Membership', 'Secretive', 'FileRow']);
 
 describe('toJsonSchema (entity)', () => {
   it('matches the frozen golden fixture', () => {
@@ -40,20 +67,7 @@ describe('toJsonSchema (entity)', () => {
   });
 
   it('preserves raw unescaped pattern strings with slashes and quotes for OpenAPI definitions', () => {
-    const RawPatternSchema = {
-      table: 'files',
-      columns: {
-        path: {
-          type: 'text',
-          flags: { nullable: false },
-          validation: [{ kind: 'Pattern', args: ['^/usr/local/"bin"/.*$'] }],
-        },
-      },
-      primaryKey: [],
-      references: [],
-    } as unknown as CoreSchema<'files'>;
-
-    const schema = toJsonSchema(RawPatternSchema, 'entity');
+    const schema = toJsonSchema(FileSchema, 'entity');
     expect(schema.properties.path).toEqual({
       type: 'string',
       pattern: '^/usr/local/"bin"/.*$',
@@ -78,13 +92,8 @@ describe('toJsonSchema variants', () => {
     // A patch body identifies its row in the URL. `UpdateDTO<T>` has always dropped the
     // key; the variant only agreed by accident, because every key it had ever been given
     // was a `serial()` and those were dropped for a different reason.
-    const Membership = defineSchema('memberships', {
-      userId: integer().primaryKey(),
-      groupId: integer().primaryKey(),
-      note: text().nullable(),
-    });
-    expect(Object.keys(toJsonSchema(Membership, 'update').properties)).toEqual(['note']);
-    expect(Object.keys(toJsonSchema(Membership, 'entity').properties)).toEqual(['groupId', 'note', 'userId']);
+    expect(Object.keys(toJsonSchema(MembershipSchema, 'update').properties)).toEqual(['note']);
+    expect(Object.keys(toJsonSchema(MembershipSchema, 'entity').properties)).toEqual(['groupId', 'note', 'userId']);
   });
 });
 
@@ -105,13 +114,6 @@ describe('toOpenApiComponents', () => {
 });
 
 describe('sensitive field redaction in OpenAPI specs', () => {
-  const SchemaWithSecret = defineSchema('users', {
-    id: serial().primaryKey(),
-    email: text().notNull(),
-    passwordHash: sensitive(text().notNull()),
-    apiToken: text().notNull().sensitive(),
-  });
-
   const variants: Variant[] = ['entity', 'create', 'update', 'get', 'list', 'search'];
 
   for (const variant of variants) {

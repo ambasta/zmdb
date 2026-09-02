@@ -1,15 +1,24 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, integer, references } from '../index.ts';
+import { defineSchema, serial, integer, references, text } from '../index.ts';
 import { ProfileSchema, UserSchema } from './fixtures.ts';
 import { manyToOne, oneToMany, oneToOne, manyToMany } from './index.ts';
+
+// `references()` reads the target's literal column map to compare column types, so it is a
+// schema-value API and takes a column builder's output. Both go in plan D2, and the tagged
+// spelling of the same constraint — `References<'users.id'>` on the column — is checked by the
+// reflection. So this block declares its own value schema rather than sharing the fixtures.
+const ValueUserSchema = defineSchema('users', {
+  id: serial().primaryKey(),
+  email: text().notNull(),
+});
 
 describe('Typed Foreign Keys & Schema Generic Constraints', () => {
   describe('references validation', () => {
     it('allows valid foreign key reference matching target column and type', () => {
       const OrderSchema = defineSchema('orders', {
         id: serial().primaryKey(),
-        userId: references(integer(), UserSchema, 'id'),
+        userId: references(integer(), ValueUserSchema, 'id'),
       });
 
       expect(OrderSchema.references).toContainEqual({

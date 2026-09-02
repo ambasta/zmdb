@@ -1,7 +1,6 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+
 import {
-  defineSchema,
-  text,
-  serial,
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,
@@ -11,13 +10,16 @@ import {
   type Expect,
   type Extends,
 } from './index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
 
-const ArticleSchema = defineSchema('articles', {
-  id: serial().primaryKey(),
-  title: text(),
-  content: text(),
-  status: text(),
-});
+export interface Article extends Table<'articles'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  content: string & Sql<'text'>;
+  status: string & Sql<'text'>;
+}
+
+const ArticleSchema = schemasFrom<{ Article: Article }>(import.meta.url, ['Article']).Article;
 
 type ArticleUpdate = UpdateDTO<typeof ArticleSchema>;
 
