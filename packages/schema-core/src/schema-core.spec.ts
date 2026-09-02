@@ -18,6 +18,7 @@ import {
   SchemaError,
   unique,
   references as references_,
+  schemaOf,
   ValidationError,
   type ValidationIssue,
 } from './index.ts';
@@ -174,6 +175,16 @@ describe('defineSchema', () => {
     expect(Object.isFrozen(s)).toBe(true);
     expect(Object.isFrozen(s.columns)).toBe(true);
     expect(s.ftsTable).toBe('users_fts');
+  });
+});
+
+describe('schemaOf<T>()', () => {
+  it('throws when the build transform did not run', () => {
+    // The same bargain `toJsonSchema<T>()` makes. The schema is a function of a type
+    // argument, and type arguments are gone at runtime, so the only alternatives are to
+    // return an empty schema — which would compile SQL against a table with no columns —
+    // or to say plainly that the build skipped a step.
+    expect(() => schemaOf()).toThrow(/was not replaced at build time/);
   });
 });
 

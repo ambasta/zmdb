@@ -6,6 +6,16 @@
 // carry, so `Column` and `CoreSchema` are generic in exactly that information —
 // see `type-derivation.type-test.ts` for the assertions that pin it down.
 
+// Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
+// `SqlType` from here. Nothing is imported at runtime in either direction, and Phase 9
+// removes the need for the import entirely by making `./derive` the root.
+import type {
+  CreateDTO as TaggedCreateDTO,
+  Entity as TaggedEntity,
+  PrimaryKeyOf as TaggedPrimaryKeyOf,
+  UpdateDTO as TaggedUpdateDTO,
+} from './derive/index.ts';
+
 export type SqlType =
   | 'serial'
   | 'integer'
@@ -79,6 +89,64 @@ export interface CoreSchema<T extends string = string, C extends ColumnsMap = Co
 }
 
 // ---------------------------------------------------------------------------
+// The generated schema value (REQ-TF-10)
+// ---------------------------------------------------------------------------
+
+declare const zmdbEntity: unique symbol;
+
+/**
+ * A schema value that remembers the type it was generated from.
+ *
+ * The query compiler wants the table and the column types as data, so a tagged
+ * declaration still has to become a `CoreSchema` — but the *value* has erased which
+ * type it came from, and every derivation below reads a schema's columns to rebuild
+ * types the declaration already stated. This phantom keeps the answer instead of
+ * reconstructing it: `schemaOf<User>()` is a `TaggedSchema<User>`, so `Entity<S>`,
+ * `CreateDTO<S>` and everything downstream can defer to `@zmdb/schema-core/derive`
+ * and read `User` directly.
+ *
+ * The slot is a `unique symbol` like every tag in `./tags`, and for the same reason:
+ * un-forgeable, and it erases, so no generated literal carries it at runtime. It is
+ * *required* rather than optional, which is what makes `S extends TaggedSchema<infer
+ * T>` a real question — an authored `defineSchema` value does not have it and takes
+ * the other branch.
+ *
+ * Per plan D2 the branching is scaffolding. Phase 9 deletes the schema-value
+ * derivations, at which point every derivation takes a tagged type and there is
+ * nothing left to choose between.
+ */
+export interface TaggedSchema<T> extends CoreSchema<string> {
+  readonly [zmdbEntity]: T;
+}
+
+/**
+ * The schema value for a tagged type, generated at build time.
+ *
+ * The type-first replacement for `defineSchema`, and it declares nothing: `User`
+ * already says the table, the columns, the keys and the constraints, so this asks for
+ * that declaration as data. `@zmdb/aot-validator` replaces the call with a frozen
+ * literal — `schemaFromIR` applied to the IR it read off `T` — so the schema is
+ * written exactly once, in the type.
+ *
+ * ```ts
+ * const users = defineRepository(schemaOf<User>(), driver);
+ * ```
+ *
+ * There is no runtime implementation and cannot be one, for the same reason
+ * `toJsonSchema<T>()` has none: the answer is a function of a type argument, and type
+ * arguments do not survive to runtime. A build that did not run the transform gets an
+ * error saying so rather than a plausible-looking empty schema.
+ */
+// oxlint-disable-next-line no-unused-vars -- `T` is the whole input; it has nowhere else to appear
+export function schemaOf<T>(): TaggedSchema<T> {
+  throw new Error(
+    'schemaOf<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
+      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+      'be read at runtime, so there is nothing to fall back to.',
+  );
+}
+
+// ---------------------------------------------------------------------------
 // #14 — compile-time type derivation.
 // Maps a column's metadata to its TypeScript type.
 // ---------------------------------------------------------------------------
@@ -119,28 +187,46 @@ type DefaultKeys<C> = {
   [K in keyof C]: C[K] extends { flags: { hasDefault: true } } ? K : never;
 }[keyof C];
 
+// Each of the four derivations below has two spellings, and which one applies is a
+// question about the schema, not about the caller: a `TaggedSchema<T>` came from a type
+// that already states everything these mapped types are reconstructing, so it defers to
+// `./derive`, which is the version that survives Phase 9. An authored `defineSchema`
+// value takes the second branch, unchanged.
+//
+// The read surface in `./dto` needs no such branch. `WhereDTO`, `OrderByDTO`,
+// `PaginationDTO` and `ListDTO` are all built out of `Entity<S>`, so they follow it.
+
 // Entity<S>: full row type — every column mapped to its TS type.
-export type Entity<S> = {
-  [K in keyof ColumnsOf<S>]: ColumnsOf<S>[K] extends ColumnMeta ? TsType<ColumnsOf<S>[K]> : never;
-};
+export type Entity<S> =
+  S extends TaggedSchema<infer T>
+    ? TaggedEntity<T>
+    : {
+        [K in keyof ColumnsOf<S>]: ColumnsOf<S>[K] extends ColumnMeta ? TsType<ColumnsOf<S>[K]> : never;
+      };
 
 // CreateDTO<S>: omit auto-increment columns; columns with defaults are optional.
-export type CreateDTO<S, C = ColumnsOf<S>> = {
-  // required: not auto-increment, no default
-  [
-    K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K
-  ]: C[K] extends ColumnMeta ? TsType<C[K]> : never;
-} & {
-  // optional: has a default (and not auto-increment)
-  [
-    K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never
-  ]?: C[K] extends ColumnMeta ? TsType<C[K]> | undefined : never;
-};
+export type CreateDTO<S, C = ColumnsOf<S>> =
+  S extends TaggedSchema<infer T>
+    ? TaggedCreateDTO<T>
+    : {
+        // required: not auto-increment, no default
+        [
+          K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? never : K
+        ]: C[K] extends ColumnMeta ? TsType<C[K]> : never;
+      } & {
+        // optional: has a default (and not auto-increment)
+        [
+          K in keyof C as K extends AutoIncrementKeys<C> ? never : K extends DefaultKeys<C> ? K : never
+        ]?: C[K] extends ColumnMeta ? TsType<C[K]> | undefined : never;
+      };
 
 // UpdateDTO<S>: fully partial CreateDTO with exact optional property support.
-export type UpdateDTO<S> = {
-  [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
-};
+export type UpdateDTO<S> =
+  S extends TaggedSchema<infer T>
+    ? TaggedUpdateDTO<T>
+    : {
+        [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
+      };
 
 type PrimaryKeyKeys<C> = {
   [K in keyof C]: C[K] extends ColumnMeta ? (C[K]['flags'] extends { primaryKey: true } ? K : never) : never;
@@ -149,15 +235,18 @@ type PrimaryKeyKeys<C> = {
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
 // PrimaryKeyOf<S>: scalar for single-column keys, object map for composite keys, unknown if no PK.
-export type PrimaryKeyOf<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]
-  ? unknown
-  : IsUnion<PrimaryKeyKeys<C>> extends true
-    ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }
-    : PrimaryKeyKeys<C> extends keyof C
-      ? C[PrimaryKeyKeys<C>] extends ColumnMeta
-        ? TsType<C[PrimaryKeyKeys<C>]>
-        : unknown
-      : unknown;
+export type PrimaryKeyOf<S, C = ColumnsOf<S>> =
+  S extends TaggedSchema<infer T>
+    ? TaggedPrimaryKeyOf<T>
+    : [PrimaryKeyKeys<C>] extends [never]
+      ? unknown
+      : IsUnion<PrimaryKeyKeys<C>> extends true
+        ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }
+        : PrimaryKeyKeys<C> extends keyof C
+          ? C[PrimaryKeyKeys<C>] extends ColumnMeta
+            ? TsType<C[PrimaryKeyKeys<C>]>
+            : unknown
+          : unknown;
 
 export class SchemaError extends Error {}
 
