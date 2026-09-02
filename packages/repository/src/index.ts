@@ -1966,7 +1966,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
                 'select' in res &&
                 typeof res.select === 'function'
               ) {
-                return wrap(res as SelectBuilder);
+                return wrap(res);
               }
               return res;
             };
