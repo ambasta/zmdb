@@ -112,6 +112,25 @@ export type Codec<Name extends string> = { readonly [zmdbCodec]?: Name };
 // Relation tags — cardinality plus the column that carries the join.
 // ---------------------------------------------------------------------------
 
+/** The four cardinalities. Listed once so `AnyRelation` cannot fall behind the tags. */
+export type RelationKind = 'manyToOne' | 'oneToMany' | 'oneToOne' | 'manyToMany';
+
+/**
+ * Matches a property carrying any relation tag, whatever its cardinality.
+ *
+ * `derive`'s `RelationKeys<T>` needs this because a relation is **not** a column:
+ * `Entity<T>` has to exclude `author` and `comments` or a join target would show up
+ * as something to `INSERT`. Written as `{ kind: RelationKind }` rather than
+ * `unknown` on purpose — an optional slot typed `unknown` is satisfied by a tag
+ * payload of any shape, including a future non-relation tag that happens to reuse
+ * the symbol, and matching on `kind` keeps the four cardinalities the whole set.
+ *
+ * Cardinality itself is deliberately *not* read back out of the tag. The declared
+ * type already says it: `author?: User & ManyToOne<…>` is to-one and
+ * `comments?: Comment[] & OneToMany<…>` is to-many, natively (REQ-TF-2).
+ */
+export type AnyRelation = { readonly [zmdbRelation]?: { readonly kind: RelationKind } };
+
 export type ManyToOne<Target extends string, Fk extends string> = {
   readonly [zmdbRelation]?: { readonly kind: 'manyToOne'; readonly target: Target; readonly fk: Fk };
 };

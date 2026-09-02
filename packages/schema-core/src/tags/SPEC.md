@@ -82,7 +82,18 @@ other does not exist in the insert type.
 ### Relations
 
 `ManyToOne<Target, Fk>`, `OneToMany<Target, Fk>`, `OneToOne<Target, Fk>`,
-`ManyToMany<Target, Through>`.
+`ManyToMany<Target, Through>`, plus `AnyRelation` and `RelationKind`.
+
+`AnyRelation` matches a property carrying any of the four. `../derive` needs it because a
+relation is **not** a column: `Entity<T>` has to exclude `author` and `comments`, or a
+join target becomes something to `INSERT`. It is written `{ kind: RelationKind }` rather
+than `unknown` — an optional slot typed `unknown` is satisfied by a payload of any shape,
+and matching on `kind` keeps the four cardinalities the whole set.
+
+Cardinality is deliberately **not** readable back out of a tag. The declared type already
+says it: `author?: User & ManyToOne<…>` is to-one and `comments?: Comment[] &
+OneToMany<…>` is to-many, natively (REQ-TF-2). A tag that has to be decoded is a tag that
+can disagree with the declaration.
 
 ### Validation
 

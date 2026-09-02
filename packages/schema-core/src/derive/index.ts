@@ -12,7 +12,7 @@
 // requirement (plan D2) — which also means no per-use `extends` test, and no
 // instantiation cost from the dispatch.
 
-import type { HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique } from '../tags/index.ts';
+import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique } from '../tags/index.ts';
 
 // ---------------------------------------------------------------------------
 // Key filters.
@@ -31,9 +31,7 @@ import type { HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique } from '../
 // Symbol keys are filtered out everywhere below: entity-level tags (`Table`,
 // `Fts`) arrive through `extends` and would otherwise show up in `keyof`.
 
-type DataKeys<T> = { [K in keyof T]-?: K extends string ? K : never }[keyof T];
-
-type KeysCarrying<T, Tag> = {
+export type KeysCarrying<T, Tag> = {
   [K in keyof T]-?: NonNullable<T[K]> extends Tag ? (K extends string ? K : never) : never;
 }[keyof T];
 
@@ -47,6 +45,29 @@ export type UniqueKeys<T> = KeysCarrying<T, Unique>;
 /** Columns whose declared type admits `null`. Native, not a tag (REQ-TF-2). */
 export type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? (K extends string ? K : never) : never }[keyof T];
 
+/**
+ * Properties declared with a relation tag — a join target, not a column.
+ *
+ * These have to come out of `Entity<T>`, and therefore out of everything derived
+ * from it. A relation left in would be a column to `INSERT`, a column to `SELECT`
+ * and a JSON Schema property, none of which it is. `./query.ts` puts them back where
+ * they belong, in `Populated<T, K>`.
+ */
+export type RelationKeys<T> = KeysCarrying<T, AnyRelation>;
+
+/**
+ * Everything that is a column: a data key that is not a relation.
+ *
+ * Spelled as its own projection rather than as a subtraction. `Exclude<AllKeys<T>,
+ * RelationKeys<T>>` does not compile: for an unresolved `T` both operands normalise to
+ * the same deferred expression, so the subtraction yields `never`, and then
+ * `Pick<Entity<T>, DefaultKeys<T>>` is an error because nothing is a key of an entity
+ * with no keys.
+ */
+export type ColumnKeys<T> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends AnyRelation ? never : K extends string ? K : never;
+}[keyof T];
+
 // ---------------------------------------------------------------------------
 // The DTO suite.
 // ---------------------------------------------------------------------------
@@ -55,8 +76,22 @@ export type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? (K extends
  * The selectable row: every column, required, sensitive columns included, tags
  * preserved. Tags must survive here or the constraints would not survive `Omit`
  * and `Partial` downstream (REQ-TF-5).
+ *
+ * Relations are not columns and are not here. See `RelationKeys`.
  */
-export type Entity<T> = { -readonly [K in DataKeys<T>]-?: T[K] };
+export type Entity<T> = { -readonly [K in ColumnKeys<T>]-?: T[K] };
+
+/**
+ * A tag filter's keys, narrowed to the keys `Entity<T>` actually has.
+ *
+ * `SerialKeys<T>` and friends are subsets of `ColumnKeys<T>` by construction — a
+ * relation cannot carry `Serial` — but TypeScript will not take it on trust. Relating
+ * two of these projections for an unresolved `T` works only while the *target*'s
+ * template is unconditional, which `DataKeys<T>` was and `ColumnKeys<T>` is not. So the
+ * subset is stated as an intersection, which is assignable to either side by
+ * definition, rather than proved. Nothing changes for a concrete type.
+ */
+type AsColumns<T, K> = K & keyof Entity<T>;
 
 /**
  * Insert shape. `Serial` columns are **absent** — naming one is a compile error,
@@ -64,13 +99,11 @@ export type Entity<T> = { -readonly [K in DataKeys<T>]-?: T[K] };
  * and optional**, because supplying one is legitimate. That distinction is the
  * whole reason the two tags are separate.
  */
-export type CreateDTO<T> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T>> & Partial<Pick<Entity<T>, DefaultKeys<T>>>;
+export type CreateDTO<T> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T>> &
+  Partial<Pick<Entity<T>, AsColumns<T, DefaultKeys<T>>>>;
 
 /** Patch shape: identity columns dropped, everything else optional. */
 export type UpdateDTO<T> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T>>>;
-
-/** Filter shape: every column optional. */
-export type WhereDTO<T> = Partial<Entity<T>>;
 
 /**
  * What a read endpoint may return. `Sensitive` columns are removed from the
@@ -91,8 +124,8 @@ type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : 
 export type PrimaryKeyOf<T> = [PrimaryKeyKeys<T>] extends [never]
   ? unknown
   : IsUnion<PrimaryKeyKeys<T>> extends true
-    ? { [K in PrimaryKeyKeys<T>]: Entity<T>[K] }
-    : Entity<T>[PrimaryKeyKeys<T>];
+    ? { [K in PrimaryKeyKeys<T>]: Entity<T>[AsColumns<T, K>] }
+    : Entity<T>[AsColumns<T, PrimaryKeyKeys<T>>];
 
 // ---------------------------------------------------------------------------
 // The wire shape (plan D3).
@@ -116,7 +149,24 @@ type WireValue<V> =
       : V;
 
 /** The over-the-wire shape of an entity: JSON-representable throughout. */
-export type Wire<T> = { -readonly [K in DataKeys<T>]-?: WireValue<T[K]> };
+export type Wire<T> = { -readonly [K in ColumnKeys<T>]-?: WireValue<T[K]> };
 
 /** The over-the-wire shape of an insert payload. */
 export type WireCreateDTO<T> = { [K in keyof CreateDTO<T>]: WireValue<CreateDTO<T>[K]> };
+
+// The read/query surface — `WhereDTO`, `OrderByDTO`, `PaginationDTO`, `Projection`,
+// `GetDTO`, `ListDTO`, `Populated`, `JoinRow` — is in `./query.ts`, re-exported here
+// so `@zmdb/schema-core/derive` is one import.
+export type {
+  GetDTO,
+  GetOptions,
+  JoinRow,
+  ListDTO,
+  ListResult,
+  OrderByDTO,
+  PaginationDTO,
+  Populated,
+  PopulatedEntity,
+  Projection,
+  WhereDTO,
+} from './query.ts';

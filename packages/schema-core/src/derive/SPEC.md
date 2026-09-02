@@ -23,14 +23,16 @@ type KeysCarrying<T, Tag> = {
 }[keyof T];
 ```
 
-| Export              | Selects                                 |
-| ------------------- | --------------------------------------- |
-| `SerialKeys<T>`     | `Serial` — database-generated           |
-| `DefaultKeys<T>`    | `HasDefault`                            |
-| `PrimaryKeyKeys<T>` | `PrimaryKey`                            |
-| `SensitiveKeys<T>`  | `Sensitive`                             |
-| `UniqueKeys<T>`     | `Unique`                                |
-| `NullableKeys<T>`   | `null extends T[K]` — native, not a tag |
+| Export              | Selects                                     |
+| ------------------- | ------------------------------------------- |
+| `SerialKeys<T>`     | `Serial` — database-generated               |
+| `DefaultKeys<T>`    | `HasDefault`                                |
+| `PrimaryKeyKeys<T>` | `PrimaryKey`                                |
+| `SensitiveKeys<T>`  | `Sensitive`                                 |
+| `UniqueKeys<T>`     | `Unique`                                    |
+| `NullableKeys<T>`   | `null extends T[K]` — native, not a tag     |
+| `RelationKeys<T>`   | `AnyRelation` — a join target, not a column |
+| `ColumnKeys<T>`     | every string key that is **not** a relation |
 
 Three details are load-bearing:
 
@@ -43,6 +45,19 @@ Three details are load-bearing:
 - **`K extends string`**, so entity-level tags (`Table`, `Fts`) arriving through
   `extends` never show up in `keyof`.
 
+`ColumnKeys<T>` is written out as its own projection rather than as
+`Exclude<AllKeys<T>, RelationKeys<T>>`, which does not compile. For an unresolved `T`
+both operands normalise to the same deferred expression, so the subtraction yields
+`never` — and then `Pick<Entity<T>, DefaultKeys<T>>` is an error, because nothing is a
+key of an entity with no keys.
+
+That same limit is why `AsColumns<T, K> = K & keyof Entity<T>` exists. `SerialKeys<T>`
+and friends _are_ subsets of `ColumnKeys<T>` — a relation cannot carry `Serial` — but
+TypeScript only relates two of these projections while the target's template is
+unconditional, and `ColumnKeys<T>`'s is a conditional on the relation tag. So the subset
+is stated as an intersection, which is assignable to either side by definition, rather
+than proved. Nothing changes for a concrete type.
+
 ## 3. The DTO suite
 
 | Type              | Shape                                                                   |
@@ -50,7 +65,6 @@ Three details are load-bearing:
 | `Entity<T>`       | Every column, required, sensitive included, tags preserved.             |
 | `CreateDTO<T>`    | `Serial` columns **absent**; `HasDefault` columns present and optional. |
 | `UpdateDTO<T>`    | `Serial` and `PrimaryKey` dropped; everything else optional.            |
-| `WhereDTO<T>`     | Every column optional.                                                  |
 | `ReadDTO<T>`      | `Sensitive` columns removed.                                            |
 | `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.     |
 
@@ -64,6 +78,51 @@ type tests assert the full intersection, tags included, on both.
 
 `PrimaryKeyOf` is named for plan D1 so the _tag_ can be `PrimaryKey` — which is the
 name typed at every declaration site.
+
+**A relation is not a column.** A property declared `author?: User & ManyToOne<…>` is a
+join target, so `RelationKeys<T>` takes it out of `Entity<T>` and therefore out of
+everything derived from it. Left in, it would be a column to `INSERT`, a column to
+`SELECT` and a JSON Schema property, none of which it is.
+
+## 3a. The read/query surface (`./query.ts`)
+
+The type-first counterpart of the schema-keyed shapes in `../dto/index.ts`:
+`WhereDTO<T>`, `OrderByDTO<T>`, `PaginationDTO<T>`, `Projection<T, K>`,
+`GetOptions<T>`, `GetDTO<T, O>`, `ListDTO<T>`, `PopulatedEntity<T, K>` /
+`Populated<T, K>`, `JoinRow<T, K, Kind>`.
+
+Two things there are deliberately **not** duplicated:
+
+- **The operator vocabulary.** `FieldOps<V>` and `SubqueryTarget<V>` are keyed off a
+  column's value type and never mention a schema, so there is nothing in them to
+  re-point. A second copy would be a second operator set to keep in step.
+- **Every runtime helper.** `compileWhere`, `applyOrderBy`, `applyPagination`, `project`
+  and `buildListResult` already take schema-agnostic views — `WhereTarget`,
+  `OrderBySpec`, `PaginationSpec` — precisely so a caller's own typed DTO is assignable
+  without a widening cast. A tagged type's DTO is assignable to the same views, so the
+  existing functions serve both and `./query.ts` is types only.
+
+`WhereDTO<T>` carries the operators. It replaced a `Partial<Entity<T>>` that did not:
+the package root publishes the operator-bearing `WhereDTO` from `../dto/index.ts`, so the
+weaker spelling would have quietly dropped `{ age: { gte: 18 } }` from every caller the
+moment Phase 9 re-pointed the root here.
+
+Two shapes are strictly better than their schema-keyed originals, because a schema
+_value_ cannot express them:
+
+- `GetOptions<T>.populate` is `readonly RelationKeys<T>[]`, not `readonly string[]`, so a
+  misspelled relation name is a compile error.
+- `Populated<T, K>` reads the cardinality off the **declaration**: `author?: User &
+ManyToOne<…>` is one `User` and `comments?: Comment[] & OneToMany<…>` is an array,
+  natively (REQ-TF-2). The schema-value version had to recover the target type and
+  rebuild the array from a `RelationMeta` through six nested conditional types
+  (`../relations/index.ts`'s `RelationEntityFromDef`), because a relation value does not
+  carry its target's type. Nothing in `./query.ts` reads a cardinality at all.
+
+`Populated` strips `undefined` from the relations it names. A relation is declared
+optional, which is what lets an unpopulated row exist; populating one is exactly the
+claim that it is there. `-?` alone will not do it — the key set is `K & keyof T`, so the
+mapped type is not homomorphic and the modifier has nothing to strip.
 
 ## 4. The wire shape (plan D3 / REQ-TF-13)
 
@@ -93,6 +152,13 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 - [x] Reading a `Sensitive` column off a `ReadDTO` is a compile error.
 - [x] `PrimaryKeyOf` yields a scalar for a single key and an object map for a composite one.
 - [x] `Wire<T>['createdAt']` is `string` while `Entity<T>['createdAt']` is `Date & …`.
+- [x] A relation property is in `RelationKeys<T>`, out of `ColumnKeys<T>`, out of `keyof Entity<T>` and out of `CreateDTO<T>`.
+- [x] A type with no relations keeps every column: `RelationKeys<User>` is `never` and `ColumnKeys<User>` is still `keyof Entity<User>`.
+- [x] `Populated<Post, 'author'>` is one `User` and `Populated<Post, 'comments'>` is an array, with no cardinality read anywhere; populating one relation does not conjure the other.
+- [x] `Populated<Post, 'title'>` is a compile error — a column cannot be populated.
+- [x] `JoinRow`'s joined half is `Partial` for a `LEFT` join and not for an `INNER` one, while the base row's own columns stay required either way.
+- [x] `OrderByDTO<Post>['column']` names the three columns and rejects a relation; `GetDTO` narrows to `select` and falls back to the whole row.
+- [x] `WhereDTO<T>` accepts `{ age: { gte: 18, lt: 65 } }` and the `or` combinator, not just bare values.
 - [x] The module has zero runtime exports (`../tags/erasure.spec.ts`).
 
 ## 7. Non-goals (rejected)
@@ -103,3 +169,7 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 - Making a generated column optional on insert rather than absent.
 - Runtime stripping as the mechanism for `Sensitive`. The type must make the leak
   impossible; stripping is the belt, not the braces.
+- A `Partial<Entity<T>>` `WhereDTO`. §3a.
+- Reading cardinality back out of a relation tag. The declared type already says it, and
+  a tag that has to be decoded is a tag that can disagree with the declaration.
+- A second copy of the operator types or the query folders. §3a.
