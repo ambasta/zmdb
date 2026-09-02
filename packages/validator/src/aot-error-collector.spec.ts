@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { FixtureProject } from './emit/__testing__/project.ts';
-import { validate as runtimeValidate, type TypeDescriptor } from './utilities/index.ts';
+import { FixtureProject } from './emit/__testing__/project.js';
+import { validate as runtimeValidate } from './utilities/index.js';
 
 describe('Hoisted File-Scope Error Collector', () => {
   it('hoists at most one file-scoped error collection helper regardless of validation call count', () => {
@@ -52,22 +52,10 @@ describe('Hoisted File-Scope Error Collector', () => {
 
   it('matches 100% diagnostic message and path parity with runtime fallback', () => {
     using project = FixtureProject.open();
-    const customerDesc: TypeDescriptor = {
-      kind: 'object',
-      fields: {
-        email: { kind: 'string' },
-        orders: {
-          kind: 'array',
-          of: {
-            kind: 'object',
-            fields: {
-              id: { kind: 'number' },
-              totalPrice: { kind: 'number' },
-            },
-          },
-        },
-      },
-    };
+    const customerIR = project.ir(`{
+      email: string;
+      orders: { id: number; totalPrice: number }[];
+    }`);
 
     const input = {
       email: 'a@b.com',
@@ -78,7 +66,7 @@ describe('Hoisted File-Scope Error Collector', () => {
       ],
     };
 
-    const runtimeRes = runtimeValidate(input, customerDesc);
+    const runtimeRes = runtimeValidate(input, customerIR);
 
     const src = `
       const check = (input) => validate<{
