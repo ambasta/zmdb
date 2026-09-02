@@ -2484,7 +2484,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/aot-validator@workspace:*, @zmdb/aot-validator@workspace:^, @zmdb/aot-validator@workspace:packages/aot-validator":
+"@zmdb/aot-validator@workspace:^, @zmdb/aot-validator@workspace:packages/aot-validator":
   version: 0.0.0-use.local
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
@@ -2531,9 +2531,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/benchmarks@workspace:benchmarks"
   dependencies:
-    "@zmdb/aot-validator": "workspace:*"
-    "@zmdb/query-compiler": "workspace:*"
-    "@zmdb/schema-core": "workspace:*"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
     kysely: "npm:^0.29.5"
   languageName: unknown
   linkType: soft
@@ -2590,7 +2590,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/query-compiler@workspace:*, @zmdb/query-compiler@workspace:^, @zmdb/query-compiler@workspace:packages/query-compiler":
+"@zmdb/query-compiler@workspace:^, @zmdb/query-compiler@workspace:packages/query-compiler":
   version: 0.0.0-use.local
   resolution: "@zmdb/query-compiler@workspace:packages/query-compiler"
   dependencies:
@@ -2631,7 +2631,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/schema-core@workspace:*, @zmdb/schema-core@workspace:^, @zmdb/schema-core@workspace:packages/schema-core":
+"@zmdb/schema-core@workspace:^, @zmdb/schema-core@workspace:packages/schema-core":
   version: 0.0.0-use.local
   resolution: "@zmdb/schema-core@workspace:packages/schema-core"
   dependencies:

@@ -28,7 +28,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       # Must precede setup-node: `cache: yarn` resolves the cache directory by
       # shelling out to the global `yarn`, which is 1.x on the runner and exits
@@ -36,7 +36,7 @@ jobs:
       - name: Enable Corepack (yarn 4)
         run: corepack enable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
@@ -45,17 +45,20 @@ jobs:
       # site/openapi.json from real schema definitions, so it needs the
       # workspace symlinks. Without this the build dies on ERR_MODULE_NOT_FOUND.
       - name: Install
-        run: yarn install --immutable
+        run: yarn install --immutable --check-cache
+
+      - name: Pre-deploy Dependency Vulnerability Audit
+        run: yarn npm audit --all --recursive --severity high --no-deprecations
 
       # `--import`: the packages' sources import their siblings as `./x.js`, which
       # only `tsc` and vitest resolve to `./x.ts` on their own. See the hook.
       - name: Build docs site (docs at root, benchmarks at /benchmarks/)
         run: node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d771653b5050b3ab9d49630c2c311c13d964f # v5.0.0
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
