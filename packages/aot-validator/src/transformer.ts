@@ -20,8 +20,9 @@
 // untouched. The price is that the offsets are only valid for the exact text the
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
-import type { ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
+import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
+import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.ts';
 import { findCallSites, type CallSite } from './reflect/callsites.ts';
@@ -38,18 +39,26 @@ const CALLEES: ReadonlySet<string> = new Set([
   'validate',
   'random',
   'toJsonSchema',
+  'schemaOf',
 ]);
 
 /**
  * What the reflector made of the type argument.
  *
- * Two shapes because there are two questions. Five of the six callees ask "what does a
- * value of this type look like", which is the structural walk. `toJsonSchema<T>()` asks
+ * Three shapes because there are three questions. Six of the eight callees ask "what does
+ * a value of this type look like", which is the structural walk. `toJsonSchema<T>()` asks
  * "which columns does this document describe", which needs per-property optionality and
- * tags and no structure below the first level. Reflecting one and emitting from the other
- * would mean re-deriving in the emitter what the checker already knew.
+ * tags and no structure below the first level. `schemaOf<T>()` asks "which table is this",
+ * which additionally wants a name, a primary key and the relations — and refuses a type
+ * that has no `Table<'name'>` tag, where a document is happy with a `Pick`.
+ *
+ * Reflecting one and emitting from another would mean re-deriving in the emitter what the
+ * checker already knew.
  */
-type Reflected = { readonly kind: 'type'; readonly node: TypeIR } | { readonly kind: 'shape'; readonly shape: ShapeIR };
+type Reflected =
+  | { readonly kind: 'type'; readonly node: TypeIR }
+  | { readonly kind: 'shape'; readonly shape: ShapeIR }
+  | { readonly kind: 'schema'; readonly ir: SchemaIR };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -137,10 +146,7 @@ export function transformFile(fileName: string, code: string, context: Transform
       });
       continue;
     }
-    const reflected: Reflected =
-      site.callee === 'toJsonSchema'
-        ? { kind: 'shape', shape: reflector.shapeIR(type) }
-        : { kind: 'type', node: reflector.typeIR(type) };
+    const reflected: Reflected = reflect(reflector, site.callee, type);
 
     const refusals = reflector.diagnostics.slice(reflectedAt);
     if (refusals.length > 0) {
@@ -185,9 +191,22 @@ function degrade(fileName: string, code: string, reason: string): TransformResul
   return { code: out, changed: out !== code, diagnostics: [{ fileName, path: '', reason }] };
 }
 
+function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
+  switch (callee) {
+    case 'toJsonSchema':
+      return { kind: 'shape', shape: reflector.shapeIR(type) };
+    case 'schemaOf':
+      return { kind: 'schema', ir: reflector.schemaIR(type) };
+    default:
+      return { kind: 'type', node: reflector.typeIR(type) };
+  }
+}
+
 function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewriter: Rewriter) {
-  // The document is the answer, so there is nothing to check and no argument to read.
+  // Both of these are the answer itself, so there is nothing to check and no argument
+  // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
+  if (reflected.kind === 'schema') return emitter.emitSchemaValue(reflected.ir);
 
   const node = reflected.node;
   if (site.callee === 'random') return emitter.emitRandom(node);

@@ -8,6 +8,8 @@
     "equivalence.ts",
     "equivalence-schemas.ts",
     "codemod-corpus.ts",
-    "codemod-refusals.ts"
+    "codemod-refusals.ts",
+    "schema-values.ts",
+    "schema-values-refusals.ts"
   ]
 }

@@ -7,10 +7,11 @@
 //   issues  `(v, path, out) => void`          `assert<T>` / `validate<T>`
 //   sample  an expression producing a value   `random<T>`
 //
-// And a fifth that is not a walk and so is not an `EmitTarget`: `emitJsonSchema` emits a
-// *finished* JSON Schema document for `toJsonSchema<T>()`. The other four emit code that
-// runs later and therefore need a walk per target; a document is data, computed here by
-// the same `jsonSchemaFromShape` the value path calls.
+// And two that are not walks, and so are not `EmitTarget`s: `emitJsonSchema` emits a
+// *finished* JSON Schema document for `toJsonSchema<T>()`, and `emitSchemaValue` a
+// finished `CoreSchema` for `schemaOf<T>()`. The other four emit code that runs later and
+// therefore need a walk per target; these two are data, computed here by the very
+// functions — `jsonSchemaFromShape`, `schemaFromIR` — that the value path calls.
 //
 // Three decisions shape all of it.
 //
@@ -35,10 +36,12 @@
 
 import {
   jsonSchemaFromShape,
+  schemaFromIR,
   type ArrayIR,
   type Constraints,
   type ObjectIR,
   type ScalarIR,
+  type SchemaIR,
   type ShapeIR,
   type TupleIR,
   type TypeIR,
@@ -175,7 +178,7 @@ export class Emitter {
   }
 
   // -------------------------------------------------------------------------
-  // The five call sites
+  // The call sites
   // -------------------------------------------------------------------------
 
   /** `is<T>(expr)` → a boolean expression. */
@@ -238,26 +241,55 @@ export class Emitter {
   /**
    * `toJsonSchema<T>()` → a reference to the document, hoisted and frozen (REQ-TF-7).
    *
-   * The one target that is not a walk. The other four emit code that runs later; a JSON
-   * Schema document is *finished* at build time, so what gets emitted is the answer
-   * itself. `jsonSchemaFromShape` is the same function the value path calls, which is
-   * what makes the two documents identical rather than merely tested for equality.
-   *
-   * Hoisted and shared by fingerprint, so ten routes documenting the same type carry one
-   * copy. Which is exactly why it is frozen: the value path hands back a fresh object per
-   * call, and a shared literal that one consumer could mutate would be visible to the
-   * other nine. Frozen, that mistake is a `TypeError` at the assignment instead.
+   * One of the two targets that is not a walk. The other four emit code that runs later;
+   * a JSON Schema document is *finished* at build time, so what gets emitted is the
+   * answer itself. `jsonSchemaFromShape` is the same function the value path calls, which
+   * is what makes the two documents identical rather than merely tested for equality.
    */
   emitJsonSchema(shape: ShapeIR): string | undefined {
-    const document = jsonSchemaFromShape(shape);
-    const fingerprint = `jsonSchema:${JSON.stringify(document)}`;
+    return this.#literal('jsonSchema', 'JsonSchema', jsonSchemaFromShape(shape));
+  }
+
+  /**
+   * `schemaOf<T>()` → a reference to the generated schema value, hoisted and frozen
+   * (REQ-TF-10).
+   *
+   * The other half of "one IR, several back-ends": the query compiler and the DDL
+   * emitter want the table and the column types as data, and `schemaFromIR` is the same
+   * function that would produce them from a `defineSchema` value. So a tagged
+   * declaration reaches the SQL layer as the value it would have been written as, and
+   * `generated-schema.spec.ts` is what says the SQL does not change.
+   *
+   * Relations do not travel with it. A `CoreSchema` has no relation map — the repository
+   * takes one separately — so a `ManyToOne<…>` on the declaration is read, is not a
+   * column, and stops here.
+   */
+  emitSchemaValue(ir: SchemaIR): string | undefined {
+    return this.#literal('schema', 'Schema', schemaFromIR(ir));
+  }
+
+  /**
+   * A finished value, hoisted once and deeply frozen.
+   *
+   * Both callers compute their answer at build time rather than emitting code that
+   * computes it later, so what is left is printing — and the IR is JSON by construction
+   * (`ir/index.ts`'s first constraint), which makes `JSON.stringify` the printer.
+   *
+   * Shared by fingerprint, so ten routes asking for the same document, or four modules
+   * asking for the same schema, carry one copy. Which is why it is frozen: the value
+   * path hands back a fresh object per call, and a shared literal one consumer could
+   * mutate would be visible to the other nine. Frozen, that mistake is a `TypeError` at
+   * the assignment instead.
+   */
+  #literal(kind: string, label: string, value: unknown): string | undefined {
+    const printed = JSON.stringify(value);
+    const fingerprint = `${kind}:${printed}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return cached;
     const slot = this.#reserve();
     if (slot === undefined) return undefined;
-    const name = this.#name('JsonSchema');
-    // A JSON Schema document is JSON, so `JSON.stringify` *is* the literal printer.
-    this.#helpers[slot] = `const ${name} = ${this.#freeze()}(${JSON.stringify(document)});`;
+    const name = this.#name(label);
+    this.#helpers[slot] = `const ${name} = ${this.#freeze()}(${printed});`;
     this.#shared.set(fingerprint, name);
     return name;
   }
