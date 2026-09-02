@@ -7,6 +7,11 @@
 //   issues  `(v, path, out) => void`          `assert<T>` / `validate<T>`
 //   sample  an expression producing a value   `random<T>`
 //
+// And a fifth that is not a walk and so is not an `EmitTarget`: `emitJsonSchema` emits a
+// *finished* JSON Schema document for `toJsonSchema<T>()`. The other four emit code that
+// runs later and therefore need a walk per target; a document is data, computed here by
+// the same `jsonSchemaFromShape` the value path calls.
+//
 // Three decisions shape all of it.
 //
 // **REQ-AV-7 — no allocation on the success path.** `assert<T>(x)` does not build an
@@ -28,7 +33,17 @@
 // An `unsupported` node is a build error, never a guess (plan D4). The walk records a
 // diagnostic and returns `undefined`, and the transformer leaves that call site alone.
 
-import type { ArrayIR, Constraints, ObjectIR, ScalarIR, TupleIR, TypeIR, UnionIR } from '@zmdb/schema-core/ir';
+import {
+  jsonSchemaFromShape,
+  type ArrayIR,
+  type Constraints,
+  type ObjectIR,
+  type ScalarIR,
+  type ShapeIR,
+  type TupleIR,
+  type TypeIR,
+  type UnionIR,
+} from '@zmdb/schema-core/ir';
 
 import { validatePatternComplexity } from '../regex-complexity.ts';
 import {
@@ -127,6 +142,7 @@ export class Emitter {
   #counter = 0;
   #needsAssertError = false;
   #hasIssueHelper = false;
+  #hasFreeze = false;
   #hasIntSample = false;
   #hasStringSample = false;
 
@@ -217,6 +233,33 @@ export class Emitter {
     this.#open.clear();
     const sample = this.#sample(node, '');
     return sample === undefined ? undefined : `(${sample})`;
+  }
+
+  /**
+   * `toJsonSchema<T>()` → a reference to the document, hoisted and frozen (REQ-TF-7).
+   *
+   * The one target that is not a walk. The other four emit code that runs later; a JSON
+   * Schema document is *finished* at build time, so what gets emitted is the answer
+   * itself. `jsonSchemaFromShape` is the same function the value path calls, which is
+   * what makes the two documents identical rather than merely tested for equality.
+   *
+   * Hoisted and shared by fingerprint, so ten routes documenting the same type carry one
+   * copy. Which is exactly why it is frozen: the value path hands back a fresh object per
+   * call, and a shared literal that one consumer could mutate would be visible to the
+   * other nine. Frozen, that mistake is a `TypeError` at the assignment instead.
+   */
+  emitJsonSchema(shape: ShapeIR): string | undefined {
+    const document = jsonSchemaFromShape(shape);
+    const fingerprint = `jsonSchema:${JSON.stringify(document)}`;
+    const cached = this.#shared.get(fingerprint);
+    if (cached !== undefined) return cached;
+    const slot = this.#reserve();
+    if (slot === undefined) return undefined;
+    const name = this.#name('JsonSchema');
+    // A JSON Schema document is JSON, so `JSON.stringify` *is* the literal printer.
+    this.#helpers[slot] = `const ${name} = ${this.#freeze()}(${JSON.stringify(document)});`;
+    this.#shared.set(fingerprint, name);
+    return name;
   }
 
   /**
@@ -371,6 +414,25 @@ export class Emitter {
       return undefined;
     }
     this.#helpers[slot] = `function ${name}(_v, _p, _o) { ${statements.join(' ')} }`;
+    return name;
+  }
+
+  /**
+   * The deep-freeze used by `emitJsonSchema`, hoisted once per file.
+   *
+   * A helper rather than nested `Object.freeze(…)` calls inside the literal: the point of
+   * emitting a document is that the emitted source reads as the document, and wrapping
+   * every nested object in a call buries it. A recursive walk over a schema document at
+   * module load is not a cost worth optimising.
+   */
+  #freeze(): string {
+    const name = `${this.#prefix}Freeze`;
+    if (!this.#hasFreeze) {
+      this.#hasFreeze = true;
+      this.#helpers.push(
+        `function ${name}(_v) { if (_v !== null && typeof _v === "object") { for (const _k of Object.keys(_v)) ${name}(_v[_k]); Object.freeze(_v); } return _v; }`,
+      );
+    }
     return name;
   }
 

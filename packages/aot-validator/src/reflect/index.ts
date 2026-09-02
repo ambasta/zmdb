@@ -42,6 +42,8 @@ import {
   type RelationIR,
   type RelationKind,
   type SchemaIR,
+  type ShapeColumnIR,
+  type ShapeIR,
   type TagField,
   type TypeIR,
 } from '@zmdb/schema-core/ir';
@@ -232,6 +234,54 @@ export class Reflector {
       relations,
       ...(typeof fts === 'string' || fts === true ? { ftsTable: fts } : {}),
     };
+  }
+
+  /**
+   * The columns of any object type, each with its own optionality — what the JSON
+   * Schema back-end consumes (`jsonSchemaFromShape`).
+   *
+   * `schemaIR` above is for a tagged *entity*: it wants a `Table<'name'>` tag, reads
+   * relations, and computes a primary key. A document is generated from something
+   * weaker and more general — `CreateDTO<User>`, `ReadDTO<User>`, or a `Pick` of either
+   * — and none of those carry a table name, because a mapped type drops the
+   * symbol-keyed entity tags along with everything else non-string. Demanding one would
+   * make the type-driven `toJsonSchema<T>()` work on exactly one shape per table.
+   *
+   * The optionality is the type's own, read off the property symbol. That is the whole
+   * reason this is not `schemaIR` with a flag: `CreateDTO<User>` has already applied the
+   * "a column with a default may be omitted" rule that the `'create'` variant applies by
+   * hand, and reading it back off the type is what makes the two paths agree by
+   * construction rather than by a rule written twice.
+   *
+   * Relations are skipped, as they are in `schemaIR`: a join target is not a column and
+   * has no place in a column's document. `toJsonSchemaWithRelations` adds `$ref`s on top.
+   */
+  shapeIR(type: Type): ShapeIR {
+    const shape: ShapeColumnIR[] = [];
+
+    for (const symbol of this.#checker.getPropertiesOfType(type)) {
+      if (isTagProperty(symbol)) continue;
+      const property = symbol.name;
+      const propertyType = this.#typeOf(symbol);
+      if (!propertyType) {
+        this.#refuse(property, 'the checker did not resolve a type for this property');
+        continue;
+      }
+
+      // Same order as `schemaIR`, and for the same reason: reading tags off
+      // `(string & Min<3>) | null` finds none, because a union only has the properties
+      // every member has and `null` has none.
+      const split = this.#splitNullable(propertyType);
+      const propertyTags = this.#mergeTags(split.rest);
+      if (this.#relationOf(property, propertyTags)) continue;
+
+      shape.push({
+        column: this.#column(property, split, propertyTags),
+        optional: (symbol.flags & OPTIONAL) !== 0,
+      });
+    }
+
+    return shape;
   }
 
   // -------------------------------------------------------------------------
