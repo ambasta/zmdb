@@ -67,8 +67,8 @@ export interface ZmdbAotOptions {
    * use (plan D4).
    */
   readonly onDiagnostic?: (diagnostic: TransformDiagnostic) => void;
-  readonly program?: unknown;
-  readonly checker?: unknown;
+  readonly program?: { getSourceFile?: (id: string) => unknown };
+  readonly checker?: TransformOptions['checker'];
   readonly compilerOptions?: unknown;
 }
 
@@ -95,6 +95,7 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
     name: 'zmdb-aot',
     enforce: 'pre',
 
+    // boundary: options.program/options.checker are optional external compiler objects passed by bundler integrations.
     transform(code: string, id: string): { code: string } | null {
       // Never dependencies and never declaration files: a package ships already-built
       // JavaScript, and rewriting it would be rewriting someone else's compiled output.
@@ -104,8 +105,7 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
       const open = ensureSession();
       if (!open) {
         if (options.checker) {
-          const optsProg = options.program as { getSourceFile?: (id: string) => unknown } | undefined;
-          const sourceFile = optsProg?.getSourceFile?.(id);
+          const sourceFile = options.program?.getSourceFile?.(id);
           const out = transformCode(code, { sourceFile, checker: options.checker, id });
           return out === code ? null : { code: out };
         }

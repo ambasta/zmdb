@@ -4,7 +4,8 @@ import { API } from 'typescript/unstable/sync';
 import { describe, it, expect, vi } from 'vitest';
 
 import { tsTypeToTypeDescriptor, emitCheckFromDescriptor } from '../transformer.ts';
-import type { TypeDescriptor } from '../utilities/index.ts';
+import type { irFromDescriptor } from '../utilities/index.ts';
+type TypeDescriptor = Parameters<typeof irFromDescriptor>[0];
 import { zmdbAot, transformTypeChecks } from './index.ts';
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();

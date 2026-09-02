@@ -38,7 +38,8 @@ import { CALL_OWNERS, findOwnedCallSites, OWNED_CALLEES, type CallSite } from '.
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
-import type { TypeDescriptor } from './utilities/index.js';
+import type { irFromDescriptor } from './utilities/index.js';
+type TypeDescriptor = Parameters<typeof irFromDescriptor>[0];
 
 export { escapePattern };
 
@@ -87,7 +88,9 @@ export interface TransformOptions {
   id?: string;
 }
 
-type PType = { kind: 'number' | 'string' | 'boolean' } | { kind: 'object'; fields: { name: string; type: PType }[] };
+type PType =
+  | { kind: 'number' | 'string' | 'boolean' }
+  | { kind: 'object'; fields: Array<{ name: string; type: PType }> };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -497,7 +500,7 @@ function parseType(src: string): PType | undefined {
     ws();
     if (s[i] === '{') {
       i++; // consume {
-      const fields: { name: string; type: PType }[] = [];
+      const fields: Array<{ name: string; type: PType }> = [];
       ws();
       while (i < s.length && s[i] !== '}') {
         ws();
@@ -555,60 +558,78 @@ function pTypeToTypeDescriptor(t: PType): TypeDescriptor {
   }
 }
 
-/**
- * Maps a resolved TypeScript type (from ts.TypeChecker) to a TypeDescriptor IR.
- */
+// boundary: TS compiler API interfaces for dynamic reflection without type assertions throughout.
+interface TsTypeRef {
+  readonly isErrorType?: () => boolean;
+  readonly isStringLiteralType?: () => boolean;
+  readonly isNumberLiteralType?: () => boolean;
+  readonly isBooleanLiteralType?: () => boolean;
+  readonly isUnionType?: () => boolean;
+  readonly isIntersectionType?: () => boolean;
+  readonly isObjectType?: () => boolean;
+  readonly getTypes?: () => readonly TsTypeRef[];
+  readonly value?: unknown;
+}
+
+interface TsCheckerRef {
+  readonly typeToString?: (t: unknown) => string;
+  readonly isArrayType?: (t: unknown) => boolean;
+  readonly isTupleType?: (t: unknown) => boolean;
+  readonly getTypeArguments?: (t: unknown) => readonly TsTypeRef[];
+  readonly getPropertiesOfType?: (t: unknown) => ReadonlyArray<{ name: string }>;
+  readonly getTypeOfSymbolAtLocation?: (s: unknown, l: unknown) => TsTypeRef;
+  readonly getTypeOfSymbol?: (s: unknown) => TsTypeRef;
+  readonly getTypeFromTypeNode?: (node: unknown) => TsTypeRef;
+  readonly resolveName?: (name: string, flags: number, location: unknown) => unknown;
+  readonly getDeclaredTypeOfSymbol?: (symbol: unknown) => TsTypeRef;
+}
+
+interface TsNodeRef {
+  readonly kind?: number;
+  readonly pos?: number;
+  readonly end?: number;
+  readonly getStart?: () => number;
+  readonly getEnd?: () => number;
+  readonly typeArguments?: Array<{ getText?: () => string }>;
+  readonly forEachChild?: (cb: (child: TsNodeRef) => void) => void;
+}
+
+// boundary: tsTypeToTypeDescriptor inspects TS Type objects dynamically.
 export function tsTypeToTypeDescriptor(
-  type: unknown,
-  checker: unknown,
+  type: TsTypeRef | undefined,
+  checker: TsCheckerRef | undefined,
   locationNode?: unknown,
   depth = 0,
 ): TypeDescriptor | undefined {
   if (!type || depth > 20) return undefined;
-  const tObj = type as Record<string, unknown>;
-  const cObj = checker as Record<string, unknown> | undefined;
+  const tObj = type;
+  const cObj = checker;
 
-  if (typeof tObj['isErrorType'] === 'function' && (tObj['isErrorType'] as () => boolean)()) return undefined;
+  if (tObj.isErrorType?.()) return undefined;
 
-  const typeStr =
-    cObj && typeof cObj['typeToString'] === 'function' ? (cObj['typeToString'] as (t: unknown) => string)(type) : '';
+  const typeStr = cObj?.typeToString?.(type) ?? '';
   if (typeStr === 'any' || typeStr === 'unknown' || typeStr === 'never') return undefined;
   if (typeStr === 'string') return { kind: 'string' };
   if (typeStr === 'number') return { kind: 'number' };
   if (typeStr === 'boolean') return { kind: 'boolean' };
 
-  if (typeof tObj['isStringLiteralType'] === 'function' && (tObj['isStringLiteralType'] as () => boolean)()) {
-    return { kind: 'enum', values: [String(tObj['value'])] };
-  }
-  if (typeof tObj['isNumberLiteralType'] === 'function' && (tObj['isNumberLiteralType'] as () => boolean)())
-    return { kind: 'number' };
-  if (typeof tObj['isBooleanLiteralType'] === 'function' && (tObj['isBooleanLiteralType'] as () => boolean)())
-    return { kind: 'boolean' };
+  if (tObj.isStringLiteralType?.()) return { kind: 'enum', values: [String(tObj.value)] };
+  if (tObj.isNumberLiteralType?.()) return { kind: 'number' };
+  if (tObj.isBooleanLiteralType?.()) return { kind: 'boolean' };
 
-  const isArr =
-    cObj &&
-    ((typeof cObj['isArrayType'] === 'function' && (cObj['isArrayType'] as (t: unknown) => boolean)(type)) ||
-      (typeof cObj['isTupleType'] === 'function' && (cObj['isTupleType'] as (t: unknown) => boolean)(type)));
+  const isArr = cObj?.isArrayType?.(type) || cObj?.isTupleType?.(type);
   if (isArr) {
-    const typeArgs =
-      typeof cObj['getTypeArguments'] === 'function'
-        ? (cObj['getTypeArguments'] as (t: unknown) => unknown[])(type)
-        : undefined;
-    const elemType = typeArgs && typeArgs[0];
+    const typeArgs = cObj?.getTypeArguments?.(type);
+    const elemType = typeArgs?.[0];
     const ofDesc = elemType ? tsTypeToTypeDescriptor(elemType, checker, locationNode, depth + 1) : undefined;
     return ofDesc ? { kind: 'array', of: ofDesc } : undefined;
   }
 
-  if (typeof tObj['isUnionType'] === 'function' && (tObj['isUnionType'] as () => boolean)()) {
-    const types = typeof tObj['getTypes'] === 'function' ? (tObj['getTypes'] as () => unknown[])() : [];
-    const isAllStringLiterals =
-      types.length > 0 &&
-      types.every((t: unknown) => {
-        const item = t as Record<string, unknown>;
-        return typeof item['isStringLiteralType'] === 'function' && (item['isStringLiteralType'] as () => boolean)();
-      });
+  if (tObj.isUnionType?.()) {
+    const types = tObj.getTypes?.() ?? [];
+    const isAllStringLiterals = types.length > 0 && types.every(t => t.isStringLiteralType?.());
     if (isAllStringLiterals) {
-      return { kind: 'enum', values: types.map((t: unknown) => String((t as Record<string, unknown>)['value'])) };
+      return { kind: 'enum', values: types.map(t => String(t.value)) };
     }
     const branches: TypeDescriptor[] = [];
     for (const b of types) {
@@ -619,8 +640,8 @@ export function tsTypeToTypeDescriptor(
     return { kind: 'union', branches };
   }
 
-  if (typeof tObj['isIntersectionType'] === 'function' && (tObj['isIntersectionType'] as () => boolean)()) {
-    const types = typeof tObj['getTypes'] === 'function' ? (tObj['getTypes'] as () => unknown[])() : [];
+  if (tObj.isIntersectionType?.()) {
+    const types = tObj.getTypes?.() ?? [];
     for (const b of types) {
       const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
       if (
@@ -645,22 +666,14 @@ export function tsTypeToTypeDescriptor(
     return { kind: 'object', fields };
   }
 
-  const props =
-    cObj && typeof cObj['getPropertiesOfType'] === 'function'
-      ? (cObj['getPropertiesOfType'] as (t: unknown) => { name: string }[])(type)
-      : [];
-  if (
-    (props && props.length > 0) ||
-    (typeof tObj['isObjectType'] === 'function' && (tObj['isObjectType'] as () => boolean)())
-  ) {
+  const props = cObj?.getPropertiesOfType?.(type) ?? [];
+  if (props.length > 0 || tObj.isObjectType?.()) {
     const fields: Record<string, TypeDescriptor> = {};
     for (const p of props) {
       const propType =
-        locationNode && typeof cObj?.['getTypeOfSymbolAtLocation'] === 'function'
-          ? (cObj['getTypeOfSymbolAtLocation'] as (s: unknown, l: unknown) => unknown)(p, locationNode)
-          : typeof cObj?.['getTypeOfSymbol'] === 'function'
-            ? (cObj['getTypeOfSymbol'] as (s: unknown) => unknown)(p)
-            : undefined;
+        locationNode && cObj?.getTypeOfSymbolAtLocation
+          ? cObj.getTypeOfSymbolAtLocation(p, locationNode)
+          : cObj?.getTypeOfSymbol?.(p);
       const fDesc = tsTypeToTypeDescriptor(propType, checker, locationNode, depth + 1);
       if (!fDesc) return undefined;
       fields[p.name] = fDesc;
@@ -727,35 +740,29 @@ export function emitEqualsCheckFromDescriptor(d: TypeDescriptor, expr: string): 
   return `((() => { if (!(${check})) return false; ${excess} return true; })())`;
 }
 
-function findTypeArgNode(node: unknown, pos: number, typeSrc: string): unknown {
+// boundary: findTypeArgNode walks AST nodes to identify type argument nodes.
+function findTypeArgNode(node: TsNodeRef | undefined, pos: number, typeSrc: string): unknown {
   if (!node) return undefined;
-  const n = node as Record<string, unknown>;
-  const start = typeof n['getStart'] === 'function' ? (n['getStart'] as () => number)() : (n['pos'] as number);
-  const end = typeof n['getEnd'] === 'function' ? (n['getEnd'] as () => number)() : (n['end'] as number);
-  const typeArgs = n['typeArguments'] as { getText?: () => string }[] | undefined;
+  const start = node.getStart ? node.getStart() : (node.pos ?? 0);
+  const end = node.getEnd ? node.getEnd() : (node.end ?? 0);
+  const typeArgs = node.typeArguments;
   if (pos >= start - 20 && pos <= end + 20) {
-    if (n['kind'] === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+    if (node.kind === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
       return typeArgs[0];
     }
   }
 
-  if (n['kind'] === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
-    if (typeof typeArgs[0]?.getText === 'function' && typeArgs[0].getText() === typeSrc) {
+  if (node.kind === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+    if (typeArgs[0]?.getText?.() === typeSrc) {
       return typeArgs[0];
     }
   }
 
   let found: unknown = undefined;
-  if (typeof n['forEachChild'] === 'function') {
-    (n['forEachChild'] as (cb: (child: unknown) => void) => void)((child: unknown) => {
+  if (node.forEachChild) {
+    node.forEachChild(child => {
       const res = findTypeArgNode(child, pos, typeSrc);
       if (res) found = res;
-    });
-  } else {
-    visitEachChild(n as unknown as Parameters<typeof visitEachChild>[0], (child: unknown) => {
-      const res = findTypeArgNode(child, pos, typeSrc);
-      if (res) found = res;
-      return child as Parameters<typeof visitEachChild>[0];
     });
   }
   return found;
@@ -908,6 +915,7 @@ function getMatchKind(text: string): MatchKind | undefined {
 /**
  * Inline `validate(tags.X(…), expr)`, or type-checked checks when options/checker is present.
  */
+// boundary: transformCode parses inline call sites and resolves type checker hints.
 export function transformCode(code: string, options?: TransformOptions): string {
   const scanner = createScanner(false, LanguageVariant.Standard);
   scanner.setText(code);
@@ -988,24 +996,20 @@ export function transformCode(code: string, options?: TransformOptions): string 
                 if (t) {
                   descriptor = pTypeToTypeDescriptor(t);
                 } else if (options?.sourceFile) {
-                  const chk = options.checker as Record<string, unknown>;
-                  const typeArgNode = findTypeArgNode(options.sourceFile, tokenStart, typeSrc);
-                  if (typeArgNode) {
-                    const tsType =
-                      typeof chk['getTypeFromTypeNode'] === 'function'
-                        ? (chk['getTypeFromTypeNode'] as (node: unknown) => unknown)(typeArgNode)
-                        : undefined;
-                    descriptor = tsTypeToTypeDescriptor(tsType, options.checker, typeArgNode);
-                  }
-                  if (!descriptor && typeof chk['resolveName'] === 'function') {
-                    const sym = (chk['resolveName'] as (name: string, flags: number, location: unknown) => unknown)(
-                      typeSrc,
-                      524288,
-                      options.sourceFile,
-                    );
-                    if (sym && typeof chk['getDeclaredTypeOfSymbol'] === 'function') {
-                      const tsType = (chk['getDeclaredTypeOfSymbol'] as (symbol: unknown) => unknown)(sym);
-                      descriptor = tsTypeToTypeDescriptor(tsType, options.checker, options.sourceFile);
+                  const chk = options.checker as TsCheckerRef | undefined;
+                  const sourceFile = options.sourceFile as TsNodeRef | undefined;
+                  if (chk && sourceFile) {
+                    const typeArgNode = findTypeArgNode(sourceFile, tokenStart, typeSrc);
+                    if (typeArgNode) {
+                      const tsType = chk.getTypeFromTypeNode?.(typeArgNode);
+                      descriptor = tsTypeToTypeDescriptor(tsType, chk, typeArgNode);
+                    }
+                    if (!descriptor && chk.resolveName) {
+                      const sym = chk.resolveName(typeSrc, 524288, sourceFile);
+                      if (sym) {
+                        const tsType = chk.getDeclaredTypeOfSymbol?.(sym);
+                        descriptor = tsTypeToTypeDescriptor(tsType, chk, sourceFile);
+                      }
                     }
                   }
                 }
