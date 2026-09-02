@@ -412,11 +412,10 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
   try {
     const json = base64Decode(cursor);
     const parsed = JSON.parse(json);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
       throw new Error('Invalid cursor payload');
     }
-    // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
-    return parsed as Record<string, unknown>;
+    return parsed;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Invalid cursor')) {
       throw err;
