@@ -1084,7 +1084,19 @@ schedule got shorter.
 
 8. Every `REQ-TF-*` AC is enforced by a named script in CI, and PRD §6.7 names it.
 9. Exactly **one** walker over column metadata exists in the repo. A test asserts the
-   other four are gone.
+   other four are gone. ✅ **done**, and it took one more walker than this item
+   claimed. The four of §1 went as planned; the fifth was the seeder's `genValue`,
+   found only when the design goal was re-read against the code, which is not a
+   method that scales. So the item is closed by a gate rather than by a count:
+   `yarn verify:one-walker` lists who may name `ColumnMeta`/`ColumnsMap`/`SqlType`
+   and who may read a column's flags, rules or SQL type, with the reason beside
+   each entry, and fails on a new reader, on a deleted walker's name coming back,
+   and on an exemption that stopped being needed. Seeding moved to
+   `@zmdb/repository/seeding` on the way: it generates from the IR now, through the
+   same sampler `random<T>()` uses, so it honours the constraints, returns
+   `CreateDTO<T>[]` and refuses a `Pattern` column instead of emitting a value that
+   violates it. The two "known ceilings" its old SPEC documented were both that
+   generator, and neither needed fixing once it was gone.
 10. A consumer fixture builds with the CLI and no bundler plugin, and gets AOT
     validation — RISK-1 closed.
 11. Validation and ORM benchmarks re-measured, committed, and published; the

@@ -90,6 +90,14 @@ jobs:
       - name: Verify no hand-written descriptors
         run: yarn verify:no-descriptors
 
+      # Four back-ends each took a column's SQL type and its rules and decided privately what a
+      # value of it looks like, and no two agreed about a `timestamp`. They are one walk now, and
+      # a fifth arrived in the seeder while nothing was watching — so this watches: who may name
+      # the metadata vocabulary, who may read a column's flags or rules, and the deleted walkers
+      # by name.
+      - name: Verify there is one walker over column metadata
+        run: yarn verify:one-walker
+
       # And the audit of the requirement table itself: every REQ-TF acceptance criterion
       # has to name a test or a gate that exists, whose cited test names still exist, and
       # whose gates this file actually runs. A row nobody can execute is a claim.
