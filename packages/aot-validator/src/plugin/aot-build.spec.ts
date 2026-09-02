@@ -38,8 +38,10 @@ describe('AOT build produces a working inlined validator (#82)', () => {
 
   it('records real numbers: the AOT-built path is materially faster than the runtime one', () => {
     const N = 200_000;
-    const aotOps = opsPerSecond(() => void check(good), N);
-    const runtimeOps = opsPerSecond(() => void runtimeIs(good, ir), N);
+    // The results are returned, not discarded: an unused pure call is deletable and the AOT
+    // side is the one that gets deleted. See `inline-bench.ts`.
+    const aotOps = opsPerSecond(() => check(good), N);
+    const runtimeOps = opsPerSecond(() => runtimeIs(good, ir), N);
     console.log(
       `AOT-build ops/s=${aotOps.toLocaleString()} runtime ops/s=${runtimeOps.toLocaleString()} (${(aotOps / runtimeOps).toFixed(1)}x)`,
     );
