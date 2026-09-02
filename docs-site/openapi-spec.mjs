@@ -1,36 +1,15 @@
 // zmdb OpenAPI 3.0 specification generator for documentation site artifact publishing.
 // Derives OpenAPI components and path schemas directly from core schema definitions.
+//
+// The four shapes live in `./openapi-model.ts` as interfaces, because that is where a shape
+// is declared now; this file is the document. It re-exports them so the split is invisible
+// to anything that imported a schema from here.
 
-import { tags } from '@zmdb/aot-validator';
-import { defineSchema, serial, text, integer, numeric, jsonEnum, references } from '@zmdb/schema-core';
 import { toJsonSchema, toOpenApiComponents, toListSchema, toSearchSchema } from '@zmdb/schema-core/openapi';
 
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-  age: integer().nullable().validate(tags.Min(0)),
-});
+import { OrderSchema, ProductSchema, ProfileSchema, UserSchema } from './openapi-model.ts';
 
-export const ProductSchema = defineSchema('products', {
-  id: serial().primaryKey(),
-  name: text().notNull().validate(tags.MinLength(1)).validate(tags.MaxLength(100)),
-  price: numeric().notNull().validate(tags.Min(0)),
-  code: text().notNull().validate(tags.Pattern('^[A-Z]{3}$')),
-  status: jsonEnum(['active', 'inactive']).notNull(),
-});
-
-export const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  avatar: text().notNull(),
-  bio: text().nullable(),
-});
-
-export const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: references(integer().notNull(), 'users.id'),
-  total: numeric().notNull().validate(tags.Min(0)),
-});
+export { OrderSchema, ProductSchema, ProfileSchema, UserSchema };
 
 export function generateOpenApiSpec() {
   const components = toOpenApiComponents([UserSchema, OrderSchema, ProductSchema, ProfileSchema]);
