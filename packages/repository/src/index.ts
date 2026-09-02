@@ -33,7 +33,16 @@ import {
   type OrderBySpec,
   type AggregateSpec,
 } from '@zmdb/schema-core/dto';
-import { irFromSchema, objectTypeFromShape, shapeOfVariant, type ObjectIR, type ShapeIR } from '@zmdb/schema-core/ir';
+import {
+  dbDecodedColumns,
+  decodeDbValue,
+  irFromSchema,
+  objectTypeFromShape,
+  shapeOfVariant,
+  type ColumnIR,
+  type ObjectIR,
+  type ShapeIR,
+} from '@zmdb/schema-core/ir';
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
 export interface Driver {
@@ -166,6 +175,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected readonly dialect: Dialect;
   /** variant → its columns and their object type. See `payloadShape`. */
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
+  /** The columns a driver may hand back in their storage form. See `decodeRows`. */
+  #decoded: readonly ColumnIR[] | undefined;
 
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
@@ -210,7 +221,37 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   private async rows<Row>(query: CompiledQuery): Promise<readonly Row[]> {
     // boundary: driver rows are structurally opaque; the query that produced
     // them is what proves `Row`.
-    return (await this.driver.execute(query)) as readonly Row[];
+    return this.decodeRows(await this.driver.execute(query)) as readonly Row[];
+  }
+
+  /**
+   * The db→app crossing on the way out (plan D3).
+   *
+   * `Entity<S>` says a `timestamp` column is a `Date` and a `bigint` column is a `bigint`.
+   * A driver may or may not agree: `pg` returns a `Date` for a `timestamptz` and a string
+   * for an `int8`, and SQLite returns the `TEXT` it stored, because `TIMESTAMPTZ` and
+   * `TEXT` is what the DDL emitter declares for those two dialects. So the row a caller
+   * gets was, for one of the three dialects, not the type the type said — silently, since
+   * nothing between the driver and the caller looked.
+   *
+   * Only the two columns whose app type JSON cannot carry can change, and a schema with
+   * neither skips the walk entirely rather than copying every row to no effect.
+   */
+  private decodeRows(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
+    const columns = this.decodedColumns;
+    if (columns.length === 0 || rows.length === 0) return rows;
+    return rows.map(row => {
+      const out: Record<string, unknown> = { ...row };
+      for (const column of columns) {
+        if (column.name in out) out[column.name] = decodeDbValue(column, out[column.name]);
+      }
+      return out;
+    });
+  }
+
+  private get decodedColumns(): readonly ColumnIR[] {
+    this.#decoded ??= dbDecodedColumns(irFromSchema(this.schema));
+    return this.#decoded;
   }
 
   private buildKeyWhere(id: PrimaryKeyOf<S>): WhereDTO<S> {

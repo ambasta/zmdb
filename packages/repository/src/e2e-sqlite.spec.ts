@@ -1,6 +1,16 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, jsonEnum, notNull, primaryKey, sensitive, serial, text } from '@zmdb/schema-core';
+import {
+  bigint,
+  defineSchema,
+  jsonEnum,
+  notNull,
+  primaryKey,
+  sensitive,
+  serial,
+  text,
+  timestamp,
+} from '@zmdb/schema-core';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -155,5 +165,69 @@ describe('repository E2E (real SQLite)', () => {
     // Verify database state
     const found = await users.findById(r1!.id);
     expect(found).toMatchObject({ id: r1!.id, email: 'selective@b.com', role: 'admin' });
+  });
+});
+
+// The third layer of plan D3, against a real database. `Entity<S>` says a `timestamp` is a
+// `Date` and a `bigint` is a `bigint`; SQLite stores them as `TEXT` and `INTEGER`, because
+// that is what the DDL emitter declares. Before this crossing existed, a `timestamp` column
+// could not be written through this driver at all — `node:sqlite` refuses to bind a `Date`,
+// and passing the string it wanted was the wrong type one layer up, where the validator now
+// says `expected Date`.
+describe('repository E2E: the db layer of a timestamp and a bigint (SQLite)', () => {
+  const EventSchema = defineSchema('events', {
+    id: primaryKey(serial()),
+    name: notNull(text()),
+    at: timestamp(),
+    seq: bigint(),
+    closedAt: timestamp().nullable(),
+  });
+
+  class EventRepository extends BaseRepository<typeof EventSchema> {
+    static override readonly schema = EventSchema;
+  }
+
+  const ISO = '2026-01-01T12:30:00.000Z';
+  let events: EventRepository;
+
+  beforeEach(() => {
+    db.exec(
+      'CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL, closedAt TEXT)',
+    );
+    events = new EventRepository(sqliteDriver(db), 'sqlite');
+  });
+
+  it('writes a Date and reads a Date back', async () => {
+    const created = await events.create({ name: 'launch', at: new Date(ISO), seq: 7n });
+    expect(created.at).toBeInstanceOf(Date);
+    expect(created.at.toISOString()).toBe(ISO);
+
+    const found = await events.findById(created.id);
+    expect(found).toBeDefined();
+    expect(found?.at).toBeInstanceOf(Date);
+    expect(found?.at.toISOString()).toBe(ISO);
+    expect(found?.seq).toBe(7n);
+    expect(found?.closedAt).toBeNull();
+  });
+
+  it('stores it as the ISO-8601 text the DDL declares, which sorts chronologically', async () => {
+    // Read around the repository, so this is the cell and not the decode. Fixed-width and
+    // UTC is what makes `ORDER BY at` and `WHERE at > ?` mean what they say in a `TEXT`
+    // column — any locale-dependent format would break both, silently.
+    await events.create({ name: 'launch', at: new Date(ISO), seq: 1n });
+    expect(db.prepare('SELECT at FROM events').all()).toEqual([{ at: ISO }]);
+  });
+
+  it('takes a Date in a where clause, which is a bound parameter like any other', async () => {
+    await events.create({ name: 'early', at: new Date('2025-01-01T00:00:00.000Z'), seq: 1n });
+    const late = await events.create({ name: 'late', at: new Date(ISO), seq: 2n });
+    const found = await events.find({ at: { gt: new Date('2025-06-01T00:00:00.000Z') } });
+    expect(found.map(e => e.id)).toEqual([late.id]);
+  });
+
+  it('rejects an ISO string, because that is the wire type and this is the app layer', async () => {
+    await expect(
+      events.create({ name: 'launch', at: ISO, seq: 1n } as unknown as Parameters<typeof events.create>[0]),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

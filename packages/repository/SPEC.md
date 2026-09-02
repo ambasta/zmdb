@@ -58,6 +58,19 @@ That is the entire required body to obtain full validated CRUD.
   an unknown column, a database-generated column on insert, or a primary key in a patch
   (REQ-RP-3). A key whose value is `undefined` means "not supplied" and is ignored.
 
+## 3a. The app↔db crossing (both directions)
+
+- Rows leave a driver in their **storage** form, which differs per dialect: `pg` hands back
+  a `Date` for `TIMESTAMPTZ` and a string for `int8`, `node:sqlite` a string for `TEXT` and
+  a number for `INTEGER`. Every row the repository returns is walked through
+  `decodeDbValue` so `Entity<S>` holds one form regardless of driver — a `Date` for a
+  `timestamp`, a `bigint` for a `bigint`.
+- The walk reads what arrived rather than what the dialect is, so it needs no dialect
+  table, and it is skipped entirely (`dbDecodedColumns`) for a schema with no such column.
+- The other direction belongs to the driver, which knows what its client binds: the
+  `node:sqlite` adapter binds a `Date` as ISO-8601 UTC, matching the `TEXT` the DDL emitter
+  declares and keeping lexicographic order chronological, while `pg` binds a `Date` itself.
+
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 
 `preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,

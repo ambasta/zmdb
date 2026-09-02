@@ -164,3 +164,30 @@ describe('pgDriver (#211)', () => {
     expect(name2_new).not.toBe(name2_orig);
   });
 });
+
+describe('sqliteDriver binds a Date', () => {
+  it('binds it as ISO-8601 UTC text, since node:sqlite binds no object at all', async () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE events (at TEXT NOT NULL)');
+    const d = sqliteDriver(db);
+
+    await d.execute({
+      text: 'INSERT INTO events (at) VALUES (?)',
+      parameters: [new Date('2026-01-01T13:30:00.000+01:00')],
+    });
+
+    // Not the local rendering of that instant: UTC, so lexicographic order stays
+    // chronological order in a TEXT column.
+    expect(db.prepare('SELECT at FROM events').all()).toEqual([{ at: '2026-01-01T12:30:00.000Z' }]);
+  });
+
+  it('leaves every other bindable value exactly as it is', async () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE cells (i INTEGER, b INTEGER, t TEXT, n TEXT)');
+    const d = sqliteDriver(db);
+
+    await d.execute({ text: 'INSERT INTO cells (i, b, t, n) VALUES (?, ?, ?, ?)', parameters: [1, 2n, 'three', null] });
+
+    expect(db.prepare('SELECT i, b, t, n FROM cells').all()).toEqual([{ i: 1, b: 2, t: 'three', n: null }]);
+  });
+});
