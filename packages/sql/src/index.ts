@@ -221,8 +221,10 @@ export function isWindowProjectionNode(value: unknown): value is WindowProjectio
   return (
     value !== null &&
     typeof value === 'object' &&
-    (value as { kind?: string }).kind === 'window' &&
-    typeof (value as { functionName?: unknown }).functionName === 'string'
+    'kind' in value &&
+    value.kind === 'window' &&
+    'functionName' in value &&
+    typeof value.functionName === 'string'
   );
 }
 
@@ -230,8 +232,10 @@ export function isWindowFunctionBuilder(value: unknown): value is WindowFunction
   return (
     value !== null &&
     typeof value === 'object' &&
-    (value as { kind?: string }).kind === 'window' &&
-    typeof (value as { toNode?: unknown }).toNode === 'function'
+    'kind' in value &&
+    value.kind === 'window' &&
+    'toNode' in value &&
+    typeof value.toNode === 'function'
   );
 }
 
@@ -363,6 +367,8 @@ interface RuntimeInsertBuilder {
   values(row: Record<string, unknown>): RuntimeInsertBuilder;
   onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
+}
+
   compile(): CompiledQuery;
 }
 interface RuntimeUpdateBuilder {
