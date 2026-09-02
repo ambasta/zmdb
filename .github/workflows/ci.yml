@@ -58,6 +58,12 @@ jobs:
       - name: Verify the tag vocabulary is covered end to end
         run: yarn verify:tf-coverage
 
+      # The consumer pays for the derivation on every build, and nothing fails when a build
+      # gets slower — it just gets slower. Measured against the same schema with every tag
+      # stripped, which is REQ-TF-3's baseline, at a scale where a cross-product shows (RISK-6).
+      - name: Verify what the tags cost the compiler
+        run: yarn verify:instantiations
+
       # A descriptor is the shape of a type written out again by hand, in a form the compiler
       # cannot check against the type it claims to describe. The witness is generated now, and
       # this is what keeps it that way (REQ-TF-9).

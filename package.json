@@ -34,6 +34,7 @@
     "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
     "verify:exports": "node .github/scripts/verify-exports.mjs",
     "verify:fixtures": "node packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json --check",
+    "verify:instantiations": "node .github/scripts/verify-instantiations.mjs",
     "verify:no-descriptors": "node .github/scripts/verify-no-descriptors.mjs",
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },
