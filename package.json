@@ -31,6 +31,7 @@
     "verify:bench": "node .github/scripts/verify-bench-results.mjs",
     "verify:codemod": "node .github/scripts/verify-codemod-coverage.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
+    "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
     "verify:exports": "node .github/scripts/verify-exports.mjs",
     "verify:fixtures": "node packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json --check",
     "verify:no-descriptors": "node .github/scripts/verify-no-descriptors.mjs"

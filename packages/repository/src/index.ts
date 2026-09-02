@@ -187,6 +187,13 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #37 — bind this repository to a transaction context so all its SQL runs
   // on the transaction's connection. Re-instantiates via standard constructor
   // invocation to allocate private instance state and avoid method binding leaks.
+  //
+  // boundary: the assertion names the constructor this class declares, on the subclass that
+  // inherited it, and `this` as its return type. A subclass that widens the signature —
+  // taking a required third argument — would be constructed here without it; that is a
+  // subclass contract, like the static `schema`, and there is no way to state it in the type
+  // system from inside the base class. `new (this.constructor as …)` is the only way to
+  // re-run field initialisers, which is the point: `Object.create` would share `#shapes`.
   withTransaction(tx: { execute: Driver['execute'] }): this {
     const txDriver: Driver = { execute: q => tx.execute(q) };
     const ctor = this.constructor as new (driver: Driver, dialect?: Dialect) => this;
@@ -198,6 +205,19 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     // "the static side of my own class". The subclass contract is
     // `static readonly schema = …`, declared abstractly above.
     return (this.constructor as typeof BaseRepository).schema;
+  }
+
+  /**
+   * The relation map a subclass declares as a static, or an empty one.
+   *
+   * boundary: same problem as `schema` above — `this.constructor` is typed `Function`, so a
+   * static a subclass adds is not on it. Three methods read this map and each used to assert
+   * the same shape; asserting it once here is what makes "the subclass contract" a single
+   * claim. Nothing trusts a definition it finds: an unknown name throws, and
+   * `resolveRelationJoin` re-checks every field it needs.
+   */
+  private get declaredRelations(): Record<string, RelationDefLike> {
+    return (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
   }
 
   private get tableName(): string {
@@ -327,7 +347,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     const children: Record<string, unknown>[] = [];
     for (const chunk of chunks) {
       const res = await this.driver.execute(this.qb.selectFrom(childTable).whereIn(childFk, chunk).compile());
-      children.push(...(res as Record<string, unknown>[]));
+      children.push(...res);
     }
     const byParent = new Map<unknown, Record<string, unknown>[]>();
     for (const c of children) {
@@ -345,9 +365,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     names: readonly string[],
   ): Promise<readonly T[]> {
     if (parents.length === 0) return parents;
-    // boundary: static side of subclass holds relations definition map; constructor is typed Function.
-    const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
-    let current: Record<string, unknown>[] = parents.map(p => ({ ...(p as Record<string, unknown>) }));
+    const relations = this.declaredRelations;
+    let current: Record<string, unknown>[] = parents.map(p => ({ ...p }));
 
     for (const name of names) {
       const def = relations[name];
@@ -479,7 +498,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // schema; querying plain SQLite columns without a declared virtual table
   // throws UnsupportedFeatureError (never a silently-wrong query).
   async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
-    const ftsTable = (this.constructor as typeof BaseRepository).schema?.ftsTable;
+    const ftsTable = this.schema.ftsTable;
     const q = ftsSelectFrom(this.tableName, this.dialect, { ftsTable }).whereMatch(column, term).compile();
     return this.driver.execute(q);
   }
@@ -512,7 +531,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     leftCol: string;
     rightCol: string;
   } {
-    const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+    const relations = this.declaredRelations;
     const def = relations[relationName];
     if (!def) {
       throw new Error(`unknown relation "${relationName}" on ${this.tableName}`);
@@ -630,7 +649,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
         }
       }
 
-      const relations = (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+      const relations = this.declaredRelations;
       const candidateCols: string[] = [];
       if (spec.groupBy) candidateCols.push(...spec.groupBy.map(String));
       if (spec.computed) {
@@ -722,6 +741,11 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       return out;
     });
 
+    // boundary: the same claim `rows<Row>` makes, and for the same reason — the aggregate
+    // query that just ran is what decides the shape, and a driver row is opaque. It does not
+    // go through `rows` because an aggregate row is not an entity row: `decodeRows` would
+    // walk it looking for this table's `timestamp` and `bigint` columns, and `COUNT(*)`
+    // is not one of them.
     return mappedRows as readonly Out[];
   }
 

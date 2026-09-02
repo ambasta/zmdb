@@ -420,9 +420,9 @@ export class Emitter {
     // A named type's excess walk is already a hoisted function, and wrapping
     // `if (!_zmdbExcessUser1(_v)) return false; return true;` in a second one buys a call
     // per validation and nothing else. Hand back the inner function instead.
-    const sole = guards.length === 1 ? SOLE_GUARD.exec(guards[0] as string) : null;
-    if (sole) {
-      const inner = sole[1] as string;
+    const [only] = guards;
+    const inner = guards.length === 1 && only !== undefined ? SOLE_GUARD.exec(only)?.[1] : undefined;
+    if (inner !== undefined) {
       this.#shared.set(fingerprint, inner);
       return inner;
     }
@@ -550,6 +550,10 @@ export class Emitter {
     if (node.members.length > MANY_LITERALS && node.members.every(member => member.kind === 'literal')) {
       // A long enum is a set lookup, not a chain of `===`. Below the cutoff the chain is
       // faster and reads better; above it, the `Set` wins.
+      //
+      // boundary: `every` above proved each member is a `literal`, but it returns a boolean
+      // and the narrowing does not reach this `map`. The alternative is testing `kind` again
+      // inside the map for a branch the condition has ruled out.
       const values = node.members.map(member => JSON.stringify((member as { value: unknown }).value));
       const name = this.#name('Set');
       this.#helpers.push(`const ${name} = new Set([${values.join(', ')}]);`);
@@ -1033,6 +1037,10 @@ export class Emitter {
       if (sample === undefined) return undefined;
       options.push(sample);
     }
+    // boundary: `usable` is non-empty — the line above returns otherwise — and the loop
+    // pushes exactly one option per member or returns, so `options` has at least one
+    // element. `noUncheckedIndexedAccess` cannot follow that, and the alternatives are a
+    // refusal for a case that cannot happen or a default sample that would be emitted.
     const first = options[0] as string;
     if (options.length === 1) return first;
     const cases = options.map((option, index) => `case ${index}: return ${option};`);
@@ -1130,6 +1138,11 @@ function accessor(name: string): string {
 /**
  * Extend a path *expression* with a static key, folding when it is already a literal so
  * the emitted code reads `"input.email"` rather than `"input" + ".email"`.
+ *
+ * boundary: `JSON.parse` returns `any`, and the assertion says the parse of a JSON string
+ * literal is a string. `STRING_LITERAL` is what establishes that — it matches a complete
+ * double-quoted JSON string and nothing else, so the parse cannot return a number or an
+ * object. `indexed` below carries the same argument.
  */
 function join(pathExpr: string, key: string): string {
   const suffix = IDENTIFIER.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
@@ -1137,7 +1150,11 @@ function join(pathExpr: string, key: string): string {
   return `${pathExpr} + ${JSON.stringify(suffix)}`;
 }
 
-/** Extend a path expression with an index, which for an array is only known at runtime. */
+/**
+ * Extend a path expression with an index, which for an array is only known at runtime.
+ *
+ * boundary: as in `join` — `STRING_LITERAL` proves the parse yields a string.
+ */
 function indexed(pathExpr: string, index: string): string {
   if (STRING_LITERAL.test(pathExpr) && NUMERIC.test(index)) {
     return JSON.stringify(`${JSON.parse(pathExpr) as string}[${index}]`);

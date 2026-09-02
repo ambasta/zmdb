@@ -90,6 +90,16 @@ const OP_SQL: Record<string, string> = {
   ilike: 'ilike',
 };
 
+/**
+ * A `{ table, select?, where? }` literal in a DTO, compiled into a subquery builder.
+ *
+ * boundary: the input is `unknown` because a DTO arrives from outside the process, and what
+ * establishes the shape is the `in` checks in the `if`, not the two casts. The first reads
+ * the one property those checks have just proven is a string; the second names the rest of
+ * the shape, and each optional field is tested again before it is used — `select` for a
+ * non-zero length, `where` for presence — so the only thing a wrong payload can produce is
+ * a narrower subquery, never a call with a value of the wrong kind in it.
+ */
 function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 'sqlite' = 'postgres'): unknown {
   if (
     target !== null &&
@@ -125,6 +135,10 @@ function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 
 export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereDTO<S> | undefined): B {
   if (!where) return builder;
   let b: B = builder;
+  // boundary: `WhereTarget` is the structural minimum this function calls — `where`, `and`,
+  // `or` — and deliberately does not require a `dialect`, so that a caller's own builder
+  // qualifies. Reading one off it is therefore a probe for an optional property rather than
+  // a claim about the type, and the `??` is what handles the builder that has none.
   const dialect = (builder as { dialect?: 'postgres' | 'mysql' | 'sqlite' }).dialect ?? 'postgres';
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {

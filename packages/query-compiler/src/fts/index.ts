@@ -5,7 +5,14 @@ import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../
 
 export { UnsupportedFeatureError };
 
-export function escapeFts5Term(term: string): string {
+/**
+ * An FTS5 term, quoted so that its own quotes cannot end the string.
+ *
+ * `unknown` rather than `string`, because a `Predicate`'s value is `unknown` — every other
+ * operator takes one and binds it as a parameter — and the `String()` this always did is a
+ * better answer for a caller who passes a number than an assertion at the one call site.
+ */
+export function escapeFts5Term(term: unknown): string {
   return `"${String(term).replace(/"/g, '""')}"`;
 }
 
@@ -88,7 +95,7 @@ function make(d: Dialect, s: State): FtsSelect {
           const parts = s.preds.map(p => {
             if (p.kind === 'match') {
               const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
-              params.push(escapeFts5Term(p.value as string));
+              params.push(escapeFts5Term(p.value));
               return `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
             }
             return renderPredicate(d, { col: p.col, op: p.op ?? '=', value: p.value }, params);

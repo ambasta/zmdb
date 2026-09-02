@@ -4,7 +4,7 @@
 // deps). No reflection; no `as` on the consumer surface.
 
 import '../polyfill.ts';
-import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
+import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 import {
   compilePattern,
@@ -208,12 +208,7 @@ export function createRouter(): Router {
             body = bound.validateBody(req.rawBody);
           } catch (error) {
             const message = messageOf(error);
-            const issues =
-              error instanceof ValidationError
-                ? error.issues
-                : error && typeof error === 'object' && 'issues' in error
-                  ? (error as { issues: readonly ValidationIssue[] }).issues
-                  : undefined;
+            const issues = validationIssuesOf(error);
             return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
         }
@@ -231,9 +226,12 @@ export function createRouter(): Router {
           // returns a plain value takes exactly the path it took before.
           return isTaggedResponse(result) ? result : jsonResponse(200, result);
         } catch (error) {
-          if (error instanceof ValidationError || (error && typeof error === 'object' && 'issues' in error)) {
+          // A validation error out of the *handler* is the request's fault, not the
+          // server's — a write that failed its own schema check on the way to the driver —
+          // so it is a 400. Anything else is a 500 with its message and nothing invented.
+          if (error instanceof ValidationError || claimsValidationIssues(error)) {
             const message = messageOf(error);
-            const issues = (error as { issues: readonly ValidationIssue[] }).issues;
+            const issues = validationIssuesOf(error);
             return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
           return jsonResponse(500, { error: messageOf(error) });

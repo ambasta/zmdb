@@ -34,6 +34,7 @@
 import type { SqlType } from '@zmdb/schema-core';
 import {
   KNOWN_CONSTRAINT_KINDS,
+  RELATION_KINDS,
   SQL_TYPES,
   TAG_NAMES,
   type ColumnIR,
@@ -98,11 +99,41 @@ export interface ReflectOptions {
  */
 const TAG_PATTERN = /^__@(\w+?)@?(\d*)$/;
 
+/**
+ * The tag vocabulary read the other way round: escaped symbol name → IR field.
+ *
+ * boundary: `TAG_NAMES` is keyed by `TagField`, but `Object.entries` types its keys as
+ * `string` — there is no form of it that keeps them. The assertion restores what the
+ * declaration of `TAG_NAMES` already says, and if a key were ever added that is not a
+ * `TagField`, `TAG_NAMES`' own type annotation is where that fails, not here.
+ */
 const TAG_FIELD_BY_NAME: ReadonlyMap<string, TagField> = new Map(
   Object.entries(TAG_NAMES).map(([field, symbolName]) => [symbolName, field as TagField]),
 );
 
+// Both vocabularies as sets, behind predicates rather than `has` plus a cast. The tags fix
+// each of these to a literal, but the checker hands them back as `string`, so this is the
+// one place the narrowing has to be earned — and a predicate earns it for every caller.
 const SQL_TYPE_SET: ReadonlySet<string> = new Set<string>(SQL_TYPES);
+const RELATION_KIND_SET: ReadonlySet<string> = new Set<string>(RELATION_KINDS);
+
+function isSqlType(value: string): value is SqlType {
+  return SQL_TYPE_SET.has(value);
+}
+
+function isRelationKind(value: string): value is RelationKind {
+  return RELATION_KIND_SET.has(value);
+}
+
+/**
+ * A {@link Constraints} under construction.
+ *
+ * `Constraints` is readonly, and the two places that build one fill it in field by field —
+ * one keyword at a time from the tags, and then `Length<N>`'s implied maximum. Naming the
+ * mutable form is what lets the finished object be returned as a `Constraints` without an
+ * assertion, and it was previously spelled out three times.
+ */
+type MutableConstraints = { -readonly [K in keyof Constraints]: Constraints[K] };
 
 /** Whether a property symbol is one of our tag slots rather than real data. */
 function isTagProperty(symbol: TsSymbol): boolean {
@@ -449,9 +480,9 @@ export class Reflector {
     if (parts.length === 0) {
       return this.#unsupported(path, 'a tags-only intersection carries no value', this.#print(type));
     }
-    if (parts.length === 1) {
-      const inner = this.#type(parts[0] as Type, path, depth);
-      return this.#applyConstraints(inner, tags);
+    const [sole] = parts;
+    if (parts.length === 1 && sole !== undefined) {
+      return this.#applyConstraints(this.#type(sole, path, depth), tags);
     }
     // Several data parts: only an intersection of object types has a meaning we can
     // check (merge the properties). Anything else — `string & number` — is `never` in
@@ -473,7 +504,7 @@ export class Reflector {
     // index signature, so they must be recognised before the index-signature refusal;
     // `Date` is an interface, so it must be recognised before the property walk.
     if (checker.isArrayType(type)) {
-      const element = checker.getTypeArguments(type as TypeReference)[0];
+      const element = this.#typeArguments(type)[0];
       if (!element) return this.#unsupported(path, 'an array type with no element type', this.#print(type));
       return this.#applyConstraints({ kind: 'array', element: this.#type(element, `${path}[]`, depth + 1) }, tags);
     }
@@ -590,7 +621,7 @@ export class Reflector {
     if (/[?.]/.test(printed.slice(printed.indexOf('[')))) {
       return this.#unsupported(path, 'a tuple with optional or rest elements is not modelled', printed);
     }
-    const elements = this.#checker.getTypeArguments(type as TypeReference);
+    const elements = this.#typeArguments(type);
     return { kind: 'tuple', elements: elements.map((el, i) => this.#type(el, `${path}[${i}]`, depth + 1)) };
   }
 
@@ -647,7 +678,8 @@ export class Reflector {
 
   /** Tags from every member of a union. A tag on one arm is a tag on the column. */
   #mergeTags(members: readonly Type[]): ReadonlyMap<TagField, Type> {
-    if (members.length === 1) return this.#readTags(members[0] as Type);
+    const [only] = members;
+    if (members.length === 1 && only !== undefined) return this.#readTags(only);
     const merged = new Map<TagField, Type>();
     for (const member of members) for (const [field, value] of this.#readTags(member)) merged.set(field, value);
     return merged;
@@ -660,7 +692,8 @@ export class Reflector {
     // without it `getTypes()` is not in scope.
     if (type.isIntersectionType()) {
       const parts = type.getTypes().filter(part => !this.#isTagOnly(part));
-      return parts.length === 1 ? (parts[0] as Type) : type;
+      const [sole] = parts;
+      return parts.length === 1 && sole !== undefined ? sole : type;
     }
     return type;
   }
@@ -716,14 +749,8 @@ export class Reflector {
     };
   }
 
-  #constraintsFromTags(tags: ReadonlyMap<TagField, Type>): {
-    minimum?: number;
-    maximum?: number;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: string;
-  } {
-    const out: { minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string } = {};
+  #constraintsFromTags(tags: ReadonlyMap<TagField, Type>): MutableConstraints {
+    const out: MutableConstraints = {};
     for (const kind of KNOWN_CONSTRAINT_KINDS) {
       const value = this.#nonNullable(tags.get(kind));
       if (!value) continue;
@@ -743,11 +770,11 @@ export class Reflector {
   #sqlOf(tags: ReadonlyMap<TagField, Type>): SqlType | undefined {
     const declared = literalOf(this.#nonNullable(tags.get('sql')));
     if (typeof declared !== 'string') return undefined;
-    if (!SQL_TYPE_SET.has(declared)) {
+    if (!isSqlType(declared)) {
       this.#refuse('sql', `\`${declared}\` is not a SQL type; expected one of ${SQL_TYPES.join(', ')}`);
       return undefined;
     }
-    return declared as SqlType;
+    return declared;
   }
 
   // -------------------------------------------------------------------------
@@ -774,7 +801,15 @@ export class Reflector {
       this.#refuse(property, 'a relation tag needs literal target and foreign-key arguments', this.#print(spec));
       return undefined;
     }
-    return { name: property, relation: kind as RelationKind, target, via };
+    // Each of the four tags fixes `kind` to a literal, so reaching this refusal means a
+    // hand-written `[zmdbRelation]` payload. Checked anyway, for the reason `#sqlOf` checks:
+    // an unrecognised cardinality would otherwise reach the SQL back-ends as one, and be
+    // read there as whichever branch fell through.
+    if (!isRelationKind(kind)) {
+      this.#refuse(property, `\`${kind}\` is not a relation kind; expected one of ${RELATION_KINDS.join(', ')}`);
+      return undefined;
+    }
+    return { name: property, relation: kind, target, via };
   }
 
   #column(property: string, split: NullableSplit, tags: ReadonlyMap<TagField, Type>): ColumnIR {
@@ -821,7 +856,7 @@ export class Reflector {
       // can say what a codec puts on the wire — see `wireTypeOf`, which refuses a codec
       // column without it rather than assuming the app type crosses unchanged.
       ...(wire === undefined ? {} : { wire: this.#type(wire, property, 1) }),
-      constraints: constraints as Constraints,
+      constraints,
       rules: this.#rulesOf(tags),
       ...(payload === undefined ? {} : { payload }),
     };
@@ -888,7 +923,7 @@ export class Reflector {
   #precisionOf(tags: ReadonlyMap<TagField, Type>): readonly [number, number] | undefined {
     const spec = this.#nonNullable(tags.get('precision'));
     if (!spec) return undefined;
-    const parts = this.#checker.isTupleType(spec) ? this.#checker.getTypeArguments(spec as TypeReference) : [];
+    const parts = this.#checker.isTupleType(spec) ? this.#typeArguments(spec) : [];
     const [p, s] = parts.map(part => numberOf(part));
     if (p === undefined || s === undefined) {
       this.#refuse('precision', 'Numeric<P, S> needs two number literals', this.#print(spec));
@@ -925,6 +960,20 @@ export class Reflector {
 
   #typeOf(symbol: TsSymbol): Type | undefined {
     return this.#checker.getTypeOfSymbolAtLocation(symbol, this.#location);
+  }
+
+  /**
+   * The type arguments of an array, tuple or other generic reference.
+   *
+   * boundary: `getTypeArguments` takes a `TypeReference`, but `isArrayType` and
+   * `isTupleType` answer with a plain `boolean` rather than a predicate, so the check that
+   * makes the call sound cannot narrow the argument. Every caller runs one of those two
+   * first; the cast lives here, once, instead of at each of them. A reference this is
+   * called on wrongly answers with an empty list, and each caller already handles that —
+   * an array with no element type is a refusal, and a tuple with none is an empty tuple.
+   */
+  #typeArguments(type: Type): readonly Type[] {
+    return this.#checker.getTypeArguments(type as TypeReference);
   }
 
   /** Strips `| undefined` off an optional tag slot's type. */

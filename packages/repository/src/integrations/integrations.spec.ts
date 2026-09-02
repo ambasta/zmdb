@@ -34,6 +34,37 @@ describe('framework integration contract (#154)', () => {
     expect(called).toBe(false);
   });
 
+  it("reports a foreign validator's issues, and drops entries that are not issues", async () => {
+    // Not a `ValidationError`: the shape zod or io-ts throws, which is the whole reason the
+    // read is structural. The second entry is nonsense and must not reach the body.
+    const ep = makeEndpoint<CreateUser, unknown>({
+      validate: () => {
+        throw Object.assign(new Error('bad payload'), {
+          issues: [{ path: 'email', message: 'required' }, 'not an issue'],
+        });
+      },
+      handle: async () => ({}),
+    });
+    const res = await ep({});
+    expect(res.status).toBe(400);
+    expect(JSON.parse(res.body)).toEqual({
+      error: 'bad payload',
+      issues: [{ path: 'email', message: 'required' }],
+    });
+  });
+
+  it('still answers 400 when the issues property is not a list', async () => {
+    const ep = makeEndpoint<CreateUser, unknown>({
+      validate: () => {
+        throw Object.assign(new Error('bad payload'), { issues: 'boom' });
+      },
+      handle: async () => ({}),
+    });
+    const res = await ep({});
+    expect(res.status).toBe(400);
+    expect(JSON.parse(res.body)).toEqual({ error: 'bad payload' });
+  });
+
   it('custom serialize is used', async () => {
     const ep = makeEndpoint<CreateUser, { email: string }>({
       validate,

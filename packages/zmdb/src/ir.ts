@@ -21,6 +21,7 @@ export {
   KNOWN_CONSTRAINT_KINDS,
   objectTypeFromIR,
   objectTypeFromShape,
+  RELATION_KINDS,
   schemaFromIR,
   shapeOfVariant,
   SQL_TYPES,

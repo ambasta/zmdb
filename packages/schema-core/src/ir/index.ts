@@ -143,7 +143,17 @@ export interface PropertyIR {
 // Schema IR
 // ---------------------------------------------------------------------------
 
-export type RelationKind = 'manyToOne' | 'oneToMany' | 'oneToOne' | 'manyToMany';
+/**
+ * The four cardinalities, as data so a reader can check a string against them.
+ *
+ * Written this way round — the list first, the type derived — because `../tags` fixes
+ * `kind` to a literal per tag, but the reflection reads it back off the checker as a
+ * `string`. Deriving the type from the list is what lets that read be a check rather than
+ * an assertion, and keeps the two from drifting.
+ */
+export const RELATION_KINDS = ['manyToOne', 'oneToMany', 'oneToOne', 'manyToMany'] as const;
+
+export type RelationKind = (typeof RELATION_KINDS)[number];
 
 export interface RelationIR {
   readonly name: string;
@@ -653,6 +663,9 @@ function declaredWireKeywords(col: ColumnIR): Record<string, unknown> | undefine
     return { type, ...(node.format === undefined ? {} : { format: node.format }) };
   }
   if (node.kind === 'union' && node.members.every(member => member.kind === 'literal')) {
+    // boundary: `every` proves the predicate for every member but returns a `boolean`, so
+    // the narrowing does not reach the `map` that follows. Re-testing `kind` inside the map
+    // would be the same check twice for a branch that cannot be taken.
     return { enum: node.members.map(member => (member as LiteralIR).value) };
   }
   return {};

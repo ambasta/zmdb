@@ -50,6 +50,7 @@
 // throughout, never assignability, for the reason given there.
 
 import type { SqlType } from '../index.ts';
+import type { RelationKind } from '../ir/index.ts';
 
 declare const zmdbTable: unique symbol;
 declare const zmdbFts: unique symbol;
@@ -129,8 +130,12 @@ export type WireAs<W> = { readonly [zmdbWire]?: W };
 // Relation tags — cardinality plus the column that carries the join.
 // ---------------------------------------------------------------------------
 
-/** The four cardinalities. Listed once so `AnyRelation` cannot fall behind the tags. */
-export type RelationKind = 'manyToOne' | 'oneToMany' | 'oneToOne' | 'manyToMany';
+/**
+ * The four cardinalities. Listed once so `AnyRelation` cannot fall behind the tags — and
+ * listed in `../ir`, where the same four exist as data for the reflection to check against.
+ * Re-exported here because this is where a reader looking at the tags expects to find it.
+ */
+export type { RelationKind } from '../ir/index.ts';
 
 /**
  * Matches a property carrying any relation tag, whatever its cardinality.

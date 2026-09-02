@@ -49,9 +49,10 @@ export function decodeValue<Wire, TS, DB>(type: CustomType<Wire, TS, DB>, raw: D
  * ```
  */
 export function wireCodec<Wire, TS, DB>(type: CustomType<Wire, TS, DB>): Codec {
+  // boundary: a registry is keyed by name, so the value arriving at either direction is only
+  // as typed as the declaration that named this codec. The validator is what proves it, and
+  // it runs before `decode` and after `encode`.
   return {
-    // boundary: a registry is keyed by name, so the value arriving is only as typed as
-    // the declaration that named this codec. The validator is what proves it.
     decode: (wire: unknown) => type.fromWire(wire as Wire),
     encode: (app: unknown) => type.toWire(app as TS),
   };

@@ -1,6 +1,6 @@
 // Framework-agnostic endpoint adapter — see ./SPEC.md.
 
-import { ValidationError, type ValidationIssue } from '@zmdb/schema-core';
+import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 export interface Handler<In, Out> {
   validate: (raw: unknown) => In;
@@ -21,21 +21,20 @@ export function makeEndpoint<In, Out>(h: Handler<In, Out>): (raw: unknown) => Pr
       input = h.validate(raw);
     } catch (err) {
       const error = err instanceof Error ? err.message : 'invalid input';
-      const issues =
-        err instanceof ValidationError
-          ? err.issues
-          : err && typeof err === 'object' && 'issues' in err
-            ? (err as { issues: readonly ValidationIssue[] }).issues
-            : undefined;
+      const issues = validationIssuesOf(err);
       return { status: 400, body: JSON.stringify(issues ? { error, issues } : { error }) };
     }
     try {
       const out = await h.handle(input);
       return { status: 200, body: serialize(out) };
     } catch (err) {
-      if (err instanceof ValidationError || (err && typeof err === 'object' && 'issues' in err)) {
+      // A validation error from the *handler* is still the caller's fault — a write that
+      // failed its own schema check on the way to the driver — so it is a 400 and not a 500.
+      // Anything else is rethrown untouched: this adapter has no business deciding what an
+      // unexpected exception means.
+      if (err instanceof ValidationError || claimsValidationIssues(err)) {
         const error = err instanceof Error ? err.message : 'invalid input';
-        const issues = (err as { issues: readonly ValidationIssue[] }).issues;
+        const issues = validationIssuesOf(err);
         return { status: 400, body: JSON.stringify(issues ? { error, issues } : { error }) };
       }
       throw err;

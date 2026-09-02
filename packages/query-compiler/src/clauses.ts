@@ -65,7 +65,14 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
   }),
 );
 
-/** Anything with a `compile()` — a builder from this package, or a caller's own. */
+/**
+ * Anything with a `compile()` — a builder from this package, or a caller's own.
+ *
+ * boundary: the cast is inside the guard that the rest of the package relies on, and it
+ * reads the one property the `in` check on the line above has just proven is there. Its
+ * type is `unknown`, so the `typeof` is what establishes anything; a narrower cast would be
+ * the claim this function exists to test.
+ */
 export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
   return (
     value !== null &&
@@ -79,8 +86,11 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
  * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
  */
 export function sqlOperator(op: string): string {
-  const opNorm = op.toLowerCase().trim();
-  return Object.prototype.hasOwnProperty.call(OP_MAP, opNorm) ? OP_MAP[opNorm]! : op;
+  // A plain index read, and no own-property guard: `OP_MAP` has a null prototype, so
+  // `OP_MAP['constructor']` is already `undefined` rather than a function off
+  // `Object.prototype`. That is what makes `??` safe here, and it is why the map is built
+  // the way it is.
+  return OP_MAP[op.toLowerCase().trim()] ?? op;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */

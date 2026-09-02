@@ -58,6 +58,11 @@ jobs:
       - name: Verify no hand-written descriptors
         run: yarn verify:no-descriptors
 
+      # PRD §9.4's table, recomputed. The published assertion count had already drifted up by
+      # five with nothing watching, which is what a document-as-invariant gets you (RISK-7).
+      - name: Verify the escape-hatch ratchet
+        run: yarn verify:escape-hatches
+
       # The two zmdb rows in the validation benchmark are generated from one interface. A
       # stale generated file means the published numbers describe a shape nobody declared.
       - name: Verify the generated validation model is current

@@ -101,7 +101,10 @@ export function validate(r: Rule, expr: unknown): boolean {
       // — but the inlined form is `/pat/.test(x)` with no such limit, so the same call
       // answered `false` in a build and threw in dev. REQ-AV-4 does not allow that, and of
       // the two behaviours the cap is the one with no counterpart to move it to.
-      return typeof expr === 'string' && getCachedRegExp(r.args[0] as string).test(expr);
+      // Re-checked, not asserted, for the reason above: an unchecked `args[0]` would have
+      // reached `new RegExp` and been coerced, so `Pattern` with a number in it compiled a
+      // pattern rather than answering `false` like every other rule with a bad argument.
+      return typeof expr === 'string' && typeof arg === 'string' && getCachedRegExp(arg).test(expr);
     case 'Enum':
       return getEnumSet(r.args).has(expr);
     default:

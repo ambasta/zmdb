@@ -222,6 +222,14 @@ function scalarMatches(scalar: ScalarIR['scalar'], value: unknown): boolean {
  * safety feature. It also guarded the wrong boundary: a pattern comes from the author's
  * own `Pattern<…>` tag and is complexity-checked at build time, so the untrusted side is
  * the input, and refusing to answer about a long input is not a safe answer.
+ *
+ * boundary: every cast here is a comparison against a value whose kind the scalar check has
+ * already established — a constraint only exists on a node that carries one — and each is
+ * written as the negation of the passing comparison rather than as the failing one. That is
+ * what makes the casts sound *and* unnecessary to defend: `!(x >= min)` is `true` for a
+ * value that is not a number at all, because the comparison is `false`, so a wrong kind
+ * reaching here fails the constraint instead of passing it. Writing `x < min` instead would
+ * be the same expression with the opposite answer for `NaN`.
  */
 function constraintsMatch(constraints: Constraints | undefined, value: unknown): boolean {
   if (!constraints) return true;
@@ -309,6 +317,14 @@ function report(out: ValidationIssue[], path: string, expected: string, value: u
   out.push({ path, expected, value, message: messageFor(expected) });
 }
 
+/**
+ * The same bounds as `constraintsMatch`, reported instead of summed.
+ *
+ * boundary: the casts are the ones `constraintsMatch` carries, and sound for the same
+ * reason — the scalar check has run, and `ok` is the passing comparison, so a value of the
+ * wrong kind makes it `false` and produces an issue rather than silently passing. The two
+ * functions stay separate because this one allocates and that one must not.
+ */
 function constraintIssues(
   constraints: Constraints | undefined,
   value: unknown,
@@ -570,6 +586,10 @@ function sample(node: TypeIR, path: string): unknown {
       // terminates on `null`. A union of nothing but refs cannot terminate at all.
       const usable = node.members.filter(member => member.kind !== 'ref');
       if (usable.length === 0) throw refusal(path, 'a union of nothing but back-references cannot be sampled');
+      // boundary: `usable` is non-empty — the line above throws otherwise — and the index is
+      // drawn from `0 … length - 1`, so both reads are in bounds. The `??` is there for the
+      // same reason the cast is: `noUncheckedIndexedAccess` types an in-bounds read as
+      // possibly `undefined`, and there is no run of this branch that produces one.
       const chosen = usable[randomInt(0, usable.length - 1)] ?? usable[0];
       return sample(chosen as TypeIR, path);
     }

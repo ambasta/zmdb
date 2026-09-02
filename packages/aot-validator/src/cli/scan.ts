@@ -101,6 +101,14 @@ export interface TypeImport {
 // Reading a module
 // -----------------------------------------------------------------------------
 
+/**
+ * Whether a declaration carries `export`.
+ *
+ * boundary: `modifiers` is declared on each of the dozen node types that can have one, and
+ * not on `Node`. Asking for it as an optional property is how a walk that accepts any node
+ * reads it without a `switch` over those dozen types — and the `Array.isArray` on the next
+ * line is what makes the read sound rather than the cast.
+ */
 function exported(node: Node): boolean {
   const modifiers = (node as { modifiers?: readonly Node[] }).modifiers;
   return Array.isArray(modifiers) && modifiers.some(modifier => isExportKeyword(modifier));
@@ -175,6 +183,10 @@ export function moduleFacts(sourceFile: SourceFile): ModuleFacts {
     }
 
     if (exported(statement)) {
+      // boundary: same shape as `exported` above — `name` belongs to the declaration types,
+      // not to `Node`, and this branch is the fall-through for the statement kinds the cases
+      // above did not name. `isIdentifier` is what proves the read, so a node with no `name`
+      // and a node whose name is a computed property both fall out here.
       const name = (statement as { name?: Node }).name;
       if (name && isIdentifier(name)) exports.add(name.text);
     }
@@ -215,7 +227,7 @@ export function referencedNames(node: Node): ReadonlySet<string> {
 
 /** `is` → `Is`, so the export reads as a sentence: `zmdbIsUser`. */
 function capitalise(text: string): string {
-  return text.length === 0 ? text : text[0]!.toUpperCase() + text.slice(1);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 const PREFIXES: Readonly<Record<string, string>> = {

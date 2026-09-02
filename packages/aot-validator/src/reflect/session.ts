@@ -193,6 +193,10 @@ export class ReflectSession implements Disposable {
    * which is a worse failure than refusing.
    */
   compilerOptions(): Readonly<Record<string, unknown>> {
+    // boundary: the client types this as `CompilerOptions`, an interface with a declared
+    // property per known flag. Widening it to a record is the safe direction — every value
+    // becomes `unknown` and the caller has to test what it reads — and it is the only way to
+    // ask about a flag by name, which is what a caller that only wants one flag needs.
     return this.#program.getCompilerOptions() as Readonly<Record<string, unknown>>;
   }
 
