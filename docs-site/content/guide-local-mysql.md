@@ -28,7 +28,7 @@ The `command` block is the important part, and it is not optional.
 
 **`STRICT_TRANS_TABLES`.** Without it MySQL truncates an over-long string, turns an invalid date into `0000-00-00` and stores `0` for a bad number — all with a warning, not an error. Strict mode is the default in 8.x, but stating it means a change of image cannot quietly remove it.
 
-**Collation.** `utf8mb4_0900_ai_ci` is accent- and case-**insensitive**, which is MySQL's default and means `unique()` on a `varchar` is already case-insensitive — the opposite of Postgres. Worth knowing before you [work around it](./guide-case-insensitive-unique.html). Use `utf8mb4_0900_as_cs` if you want case-sensitive comparisons.
+**Collation.** `utf8mb4_0900_ai_ci` is accent- and case-**insensitive**, which is MySQL's default and means `Unique` on a `varchar` column is already case-insensitive — the opposite of Postgres. Worth knowing before you [work around it](./guide-case-insensitive-unique.html). Use `utf8mb4_0900_as_cs` if you want case-sensitive comparisons.
 
 ## Connecting
 
@@ -72,7 +72,7 @@ for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
 ## Resetting between tests
 
 ```ts
-const tables = registeredSchemas().map(s => `\`${s.table}\``);
+const tables = ALL_TABLES.map(s => `\`${s.table}\``); // the array you keep — see below
 
 beforeEach(async () => {
   await driver.execute({ text: 'SET FOREIGN_KEY_CHECKS = 0', parameters: [] });
@@ -82,6 +82,8 @@ beforeEach(async () => {
 ```
 
 `TRUNCATE` is DDL in MySQL, so it commits — you cannot wrap the reset in a transaction, and there is no `CASCADE`. Hence the checks toggle, and hence resetting is slower than on Postgres.
+
+`ALL_TABLES` is an array you keep — `[schemaOf<User>(), schemaOf<Post>(), …]` — because nothing enumerates your tables: a schema comes from a type, and a type cannot register itself. See [Discovery](./web-discovery.html).
 
 Use a separate `app_test` database. Restore `FOREIGN_KEY_CHECKS` in a `finally`, or a failed truncate leaves the session with constraints disabled and later tests pass when they should not.
 

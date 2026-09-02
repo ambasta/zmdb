@@ -1,118 +1,142 @@
-Schema declaration is the foundation of zmdb. You define your table structure once using column builders and modifiers, and zmdb derives types for Entity, CreateDTO, and UpdateDTO automatically.
+A table is a TypeScript type. You declare it once, as an interface, and everything else — the row type, the create and update DTOs, the DDL, the validator, the JSON Schema document — is derived from that one declaration.
+
+```ts
+import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<255> & Unique;
+  name: (string & Sql<'text'>) | null;
+  role: ('admin' | 'user') & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
+```
+
+That is the whole schema. There is no second place to keep it in sync with.
 
 > [!IMPORTANT]
-> zmdb uses a define-once approach. All type derivation happens at compile time from the schema metadata.
+> This replaced a builder DSL — `defineSchema('users', { id: serial().primaryKey() })` — which no longer exists. If you have a codebase full of those calls, the [codemod](./codemod.html) converts them, and it tells you about anything it could not read rather than guessing.
 
-## Defining a Basic Schema
+## How to read a column
 
-Use `defineSchema` with column definitions. Each column uses type-safe builders.
-
-```ts
-import { defineSchema, serial, text, timestamp } from '@zmdb/schema-core';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate({ kind: 'pattern', value: '^[^@]+@[^@]+$', message: 'Invalid email' }),
-  name: text().nullable(),
-  role: text().notNull().defaultTo('user'),
-  created_at: timestamp().notNull(),
-});
-```
-
-> [!TIP]
-> The schema object is frozen — you cannot modify it after creation. This ensures type safety.
-
-## Column Builders
-
-zmdb provides builders for all common SQL types:
+Each property is its **app type** intersected with **tags**. The app type is what your handler code sees; the tags say the things TypeScript has no syntax for.
 
 ```ts
-import { serial, integer, bigint, numeric, text, varchar, boolean, timestamp, json, jsonEnum } from '@zmdb/schema-core';
-
-const id = serial(); // Auto-increment
-const count = integer(); // Regular integer
-const bigId = bigint(); // Big integers
-const price = numeric(10, 2); // Numeric with precision
-const description = text(); // Text field
-const code = varchar(50); // VARCHAR with length
-const active = boolean(); // Boolean
-const created = timestamp(); // Timestamp
-const metadata = json(); // JSON column
-const status = jsonEnum(['pending', 'active', 'completed']); // JSON enum
+id: number & Sql<'integer'> & Serial & PrimaryKey;
+// ^^          ^^^^^^^^^^^^^^^^ the SQL column type
+// the type your code sees      ^^^^^^^^^^^^^^^^^^ facts about the column
 ```
 
-## Column Modifiers
+A tag is a phantom `unique symbol` property. It exists only in the type system: it erases completely, so a tagged type is the same value at runtime as the untagged one, and `number & Sql<'integer'>` is assignable to `number` in both directions. You can pass a row's `id` to anything that wants a `number`.
 
-Fluent methods change column properties:
+Two facts have no tag, on purpose:
 
-```ts
-import { text, notNull, unique, primaryKey, defaultTo, validate } from '@zmdb/schema-core';
-
-const column = text()
-  .notNull()
-  .unique()
-  .primaryKey()
-  .defaultTo('value')
-  .validate({ kind: 'pattern', value: '^[A-Z]+$', message: 'Must be uppercase' });
-```
-
-> [!NOTE]
-> Function-style modifiers also work: `notNull(col)`, `nullable(col)`, `primaryKey(col)`, `unique(col)`, `defaultTo(col, value)`, `validate(col, rule)`.
-
-## Derived Types
-
-zmdb automatically derives types:
-
-```ts
-import { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
-
-type User = Entity<typeof UserSchema>;
-// { id: number; email: string; name: string | null; role: string; created_at: Date }
-
-type CreateUser = CreateDTO<typeof UserSchema>;
-// { email: string; name?: string | null; role?: string; created_at: Date }
-
-type UpdateUser = UpdateDTO<typeof UserSchema>;
-// Partial<CreateUser>
-```
-
-## Foreign Keys
-
-Add references using the `references` modifier:
-
-```ts
-import { defineSchema, serial, text, integer, references } from '@zmdb/schema-core';
-
-const PostSchema = defineSchema('posts', {
-  id: serial().primaryKey(),
-  title: text().notNull(),
-  author_id: references(integer().notNull(), UserSchema, 'id'), // FK to users.id
-});
-```
+| Fact           | How you say it  | Why not a tag                                                       |
+| -------------- | --------------- | ------------------------------------------------------------------- |
+| Nullability    | `\| null`       | TypeScript already has a way to say this, and it models it better   |
+| An enum column | a literal union | `'admin' \| 'user'` is checked everywhere; a `string[]` flag is not |
 
 > [!WARNING]
-> The `references` modifier only adds metadata — it doesn't create a FK constraint. Use migration DDL to add the constraint.
+> Write nullability as `(T & Tags) | null` — tags inside, `| null` outside. The other order is a trap with a mechanism behind it: TypeScript normalises `(T | null) & Unique` into `(T & Unique) | (null & Unique)`, and `null & Unique` reduces to `never`. Your column silently stops being nullable.
 
-## Schema Registry
+## The tags you will use most
 
-Access defined schemas:
+The full list is the [tag reference](./tags-reference.html). These five cover most tables:
+
+| Tag             | Means                                                              |
+| --------------- | ------------------------------------------------------------------ |
+| `Table<'name'>` | the interface is a table, and this is its name                     |
+| `Sql<'type'>`   | the SQL column type — `integer`, `text`, `varchar`, `timestamp`, … |
+| `PrimaryKey`    | the key `findById`, `update` and `delete` use                      |
+| `Serial`        | the database generates the value; omit it on insert                |
+| `HasDefault`    | the column has a default, so it is optional on insert              |
+
+`Sql<…>` is optional when the app type only maps one way — `Date` is a `timestamp`, `boolean` is a `boolean`. Write it when you mean something specific: `string` could be `text` or `varchar`, and `number` could be `integer` or `numeric`.
+
+## What you get from it
 
 ```ts
-import { getRegisteredSchema, registeredSchemas } from '@zmdb/schema-core';
+import { defineRepository, schemaOf } from 'zmdb';
+import type { CreateDTO, Entity, UpdateDTO } from 'zmdb/derive';
 
-const userSchema = getRegisteredSchema('users');
-const allSchemas = registeredSchemas();
+type Row = Entity<User>;
+// { id: number; email: string; name: string | null; role: 'admin' | 'user'; createdAt: Date }
+
+type NewUser = CreateDTO<User>;
+// { email: string; name?: string | null; role?: 'admin' | 'user'; createdAt?: Date }
+// no `id`: it is Serial, so the database makes it
+
+type Patch = UpdateDTO<User>;
+// every field optional
+
+const users = defineRepository(schemaOf<User>(), driver);
+await users.create({ email: 'a@b.com' }); // validated before any SQL is sent
 ```
 
-## Working with the Schema
+`CreateDTO` drops `Serial` columns entirely rather than making them optional, because there is no value you could usefully pass. Columns with `HasDefault` and nullable columns become optional — omitting a nullable column inserts `NULL`, which is what passing `null` does.
 
-Use with the query compiler:
+See [Type Derivation](./type-derivation.html) for the full family, including the read and query DTOs.
+
+## `schemaOf<T>()` needs a build step
+
+`schemaOf<User>()` is a **compile-time** call. It has no runtime implementation and cannot have one: the answer is a function of a type argument, and type arguments do not exist at runtime. The zmdb transform replaces the call with a frozen object literal.
+
+```ts
+// what you write
+const users = defineRepository(schemaOf<User>(), driver);
+
+// what runs
+const users = defineRepository(
+  Object.freeze({ table: 'users', columns: { … }, primaryKey: ['id'], ir: { … } }),
+  driver,
+);
+```
+
+If the transform did not run, the call throws a message saying exactly that. It does not return an empty schema and let you find out in production. Set it up with the [build plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html), which commits the generated files so a fresh clone needs no tool at all.
+
+## Foreign keys
+
+```ts
+import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  authorId: number & Sql<'integer'> & References<'users.id'>;
+}
+```
+
+`References<'users.id'>` is `table.column`, checked as a string literal. It reaches the DDL as a real `FOREIGN KEY` constraint, and [Relations](./relations.html) is how you traverse it in queries.
+
+## JSON columns keep their shape
+
+```ts
+interface Preferences {
+  theme: 'light' | 'dark';
+  digest: boolean;
+}
+
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  prefs: Preferences & Sql<'json'>;
+}
+
+type Row = Entity<Account>;
+// Row['prefs']['theme'] is 'light' | 'dark'
+```
+
+The payload's shape survives every derivation, and the emitted validator checks it on the way in. This is the clearest thing the old builder DSL could not do: `json<Preferences>()` erased its type parameter at runtime, so the shape reached nothing downstream.
+
+## Using the schema value directly
+
+`schemaOf<T>()` returns a plain frozen object when you need one:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
+const schema = schemaOf<User>();
 const compiler = createQueryCompiler('postgres');
-const query = compiler.selectFrom(UserSchema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
+const query = compiler.selectFrom(schema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
 ```
 
 ```sql
@@ -120,8 +144,13 @@ SELECT "id", "email" FROM "users" WHERE "role" = $1
 -- parameters: ['admin']
 ```
 
+The value carries the full IR on `schema.ir`, which is what every back-end reads — the DDL emitter, the validator, the JSON Schema generator and the seeder all work from the same bytes, so they cannot disagree about a column.
+
 ## Related
 
-- [Relations](./relations.html) — defining relationships
-- [Indexes & Constraints](./indexes-constraints.html) — adding constraints
-- [Repository](./repository.html) — using schemas with the repository
+- [Tag reference](./tags-reference.html) — every tag, what it means, what it emits
+- [Column Types](./column-types.html) — the SQL type set and why it is small
+- [Type Derivation](./type-derivation.html) — `Entity`, the DTOs, and the read models
+- [Relations](./relations.html) — declaring and traversing relationships
+- [Codemod](./codemod.html) — converting a `defineSchema` project
+- [Repository](./repository.html) — using a schema for CRUD

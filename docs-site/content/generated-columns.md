@@ -1,7 +1,7 @@
 Generated columns are table columns whose values are computed automatically from an expression. They're computed at write time (stored) or read time (virtual), ensuring data consistency without application-level calculations.
 
 > [!IMPORTANT]
-> Generated columns are computed by the database, not by zmdb. This ensures values are always consistent even if written directly to the database. zmdb supports them through DDL emission and treats them as read-only in the schema.
+> Generated columns are computed by the database, not by zmdb. This ensures values are always consistent even if written directly to the database. zmdb supports them through DDL emission; a generated column is simply left out of the declaration, which is what makes it read-only everywhere downstream.
 
 ## Creating a Generated Column
 
@@ -35,8 +35,6 @@ console.log(ddl);
 Track elapsed time or derive timestamps from other columns.
 
 ```ts
-import { timestamp, integer } from '@zmdb/schema-core';
-
 const auditLogDef = {
   name: 'duration_ms',
   type: 'INTEGER',
@@ -83,24 +81,30 @@ const totalPriceDef = {
 "total_price" NUMERIC(10,2) GENERATED ALWAYS AS (unit_price * quantity) STORED
 ```
 
-## Using Generated Columns with defineSchema
+## Leaving them out of the declaration
 
-When defining a schema with `defineSchema`, treat generated columns as read-only. They won't have a corresponding entry in your column builders since they're managed by the database.
+Declare the base columns and stop there. A generated column has no property, which is exactly
+how it stays out of `CreateDTO` and `UpdateDTO`:
 
 ```ts
-import { defineSchema, serial, integer, numeric } from '@zmdb/schema-core';
+import type { Numeric, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-// Define the base columns (non-generated)
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  unit_price: numeric(10, 2).notNull(),
-  quantity: integer().notNull(),
-  // generated columns are added via DDL migration, not in defineSchema
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  unit_price: number & Sql<'numeric'> & Numeric<10, 2>;
+  quantity: number & Sql<'integer'>;
+  // total_price is generated — it lives in the migration, not here
+}
 ```
 
 > [!WARNING]
-> Do not include generated columns in your `CreateDTO` or `UpdateDTO` types. The database will reject any INSERT/UPDATE attempts on generated columns since they're computed automatically.
+> Do not add a property for a generated column. It would appear in `CreateDTO<Order>` as
+> something to insert, and the database rejects any INSERT/UPDATE that targets a generated
+> column. There is no tag that would fix this, and there should not be: the expression is
+> dialect-specific SQL and a type cannot hold SQL.
+
+If you need to _read_ it through a typed path, declare a second interface over a view — see
+[Virtual Entities](./virtual-entities.html).
 
 ## Querying Generated Columns
 
@@ -137,5 +141,5 @@ SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"
 ## Related
 
 - [Indexes & Constraints](./indexes-constraints.html) — index generated columns for performance
-- [Schema Declaration](./schema-declaration.html) — defining tables with all column types
+- [Schema Declaration](./schema-declaration.html) — declaring tables with all column types
 - [Views](./views.html) — virtual tables that can also compute values

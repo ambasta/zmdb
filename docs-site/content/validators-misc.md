@@ -1,4 +1,4 @@
-The rest of `@zmdb/aot-validator/utilities`. All of these take an optional `TypeDescriptor` that the transformer fills in — without it, they have nothing to work from. See [AOT Setup](./aot-setup.html).
+The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which the transformer replaces with emitted code at build time; an untransformed call has nothing to work from and throws. See [AOT Setup](./aot-setup.html).
 
 ## `equals` / `assertEquals` — reject unknown keys
 

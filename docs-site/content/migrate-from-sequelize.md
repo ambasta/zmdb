@@ -1,6 +1,6 @@
-Sequelize models are classes with instance methods and a runtime-declared schema. The zmdb equivalent is a schema object plus a repository, and none of the instance methods survive.
+Sequelize models are classes with instance methods and a runtime-declared schema. The zmdb equivalent is a TypeScript interface plus a repository, and none of the instance methods survive.
 
-## Model → schema object
+## Model → entity interface
 
 ```js
 // Sequelize
@@ -12,14 +12,25 @@ const User = sequelize.define('User', {
 
 ```ts
 // zmdb
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique(),
-  active: boolean().notNull().defaultTo(true),
-});
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  active: boolean & HasDefault;
+}
 ```
 
-Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — every column in the table is a column in the schema object, because the schema object is what generates the DDL and the DTOs. Being implicit about columns is how the DTO and the table drift apart.
+Two things move rather than translate. The type is declared once and everything else is
+derived from it, so there is no `DataTypes` import and no second object to keep in step.
+And `defaultValue: true` becomes `HasDefault` plus a DDL default: the tag says the column
+_has_ a default, not which one, because a default is a runtime value and no type holds one.
+
+```sql
+ALTER TABLE "users" ALTER COLUMN "active" SET DEFAULT true;
+```
+
+Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — every column in the table is a property on the interface, because the interface is what generates the DDL and the DTOs. Being implicit about columns is how the DTO and the table drift apart.
 
 > [!NOTE]
 > If you are migrating an existing Sequelize database, you have to write out the timestamp columns by hand: there is no introspection to read them for you. See [pull](./cli-pull.html).

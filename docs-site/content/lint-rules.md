@@ -6,23 +6,24 @@
 
 Each of these corresponds to a mistake documented elsewhere in these docs, which is the argument for automating it.
 
-**`require-transformer-canary`.** The highest-value one. If the transformer is not running, `is<T>()` and `assert<T>()` [return success and check nothing](./gotchas.html) — it fails open. A rule cannot detect the build configuration, but it can require that a project using the validators has a test asserting a known-bad value is rejected.
-
-**`no-untyped-json-column`.** `json()` without a type parameter is `unknown`, which propagates into `Entity<S>` and forces a cast at every use:
+**`no-distributed-nullable-tags`.** The highest-value one, because it is silently wrong rather than loud. Intersection distributes over a union, so tags written outside the parentheses of a nullable column are destroyed:
 
 ```ts
-prefs: json(),                         // flag this
-prefs: json<Record<string, boolean>>() // want this
+email: (string | null) & Unique; // flag: null & Unique is never — the column stops being nullable
+email: (string & Unique) | null; // want
 ```
 
-**`require-as-const-in-json-enum`.** Without `as const` the array widens to `string[]` and `jsonEnum` gives you `string` instead of a union — silently losing the narrowing that was the point:
+A rule sees this as a syntactic pattern on a property type inside an `interface X extends Table<'…'>`, with an obvious fix. See [Tag Reference](./tags-reference.html).
+
+**`no-unknown-json-column`.** `unknown & X` _is_ `X`, so `unknown & Sql<'json'>` is a tag with no type behind it — the reflector refuses it with "the tags carry no type". The spelling for an unshaped payload is `object`:
 
 ```ts
-status: jsonEnum(['draft', 'published']),           // flag: widens to string
-status: jsonEnum(['draft', 'published'] as const),  // want
+prefs: unknown & Sql<'json'>; // flag this — collapses to the bare tag
+prefs: object & Sql<'json'>; // want, for an unshaped payload
+prefs: Record<string, boolean> & Sql<'json'>; // better, where the shape is known
 ```
 
-**`no-chained-references`.** `references` is a function, not a modifier. `.references()` does not exist on `Column`, so this is a type error already — but the error message is opaque enough that a rule with a fix would be kinder.
+**`require-sql-on-number`.** `Sql<T>` is needed only where TypeScript is ambiguous, and `number` is the one case refused outright: it spells both `integer` and `numeric`. `string` defaults to `text`, `boolean`, `bigint` and `Date` are unambiguous. Today the refusal arrives from `schemaOf<T>()` at build time; a lint rule would put it under the cursor instead of in the build log.
 
 **`no-unbounded-find`.** `find({})` compiles to an unfiltered `SELECT` with no limit. Suggest `list()` with a `page`.
 
@@ -37,7 +38,7 @@ See [Dynamic Queries](./dynamic-queries.html).
 
 **`no-interpolated-sql`.** A template literal containing a value inside `driver.execute({ text })` is an injection vector. Placeholders interpolated from generated positions are fine; values are not. See [Raw SQL](./raw-sql.html).
 
-**`no-select-star-with-sensitive`.** A schema with a `sensitive()` column, read without a `select`, still fetches that column — [`sensitive()` affects serialization, not queries](./gotchas.html). Suggest a projection.
+**`no-select-star-with-sensitive`.** A table with a `Sensitive` column, read without a `select`, still fetches that column — [`Sensitive` affects the emitted documents and `ReadDTO`, not queries](./gotchas.html). Suggest a projection.
 
 ## What you can enforce today
 
@@ -76,7 +77,7 @@ The repository's own rules are stricter than a consumer's would need to be: no `
 
 ## What it would take
 
-An `@zmdb/eslint-plugin` package. Most of the rules above are AST patterns over recognisable call shapes, so they are not hard — the work is in avoiding false positives, and in the ones that need type information (`no-select-star-with-sensitive` needs to resolve the schema object). The canary rule is the one with the best ratio of value to effort.
+An `@zmdb/eslint-plugin` package. Most of the rules above are AST patterns over recognisable declaration or call shapes, so they are not hard — the work is in avoiding false positives, and in the ones that need type information (`no-select-star-with-sensitive` has to resolve the declared type to see the tag). `no-distributed-nullable-tags` is the one with the best ratio of value to effort, because it is purely syntactic and the mistake it catches type-checks.
 
 ---
 

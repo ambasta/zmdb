@@ -64,11 +64,11 @@ export class PostsController {
 
 and registering it is one array entry. There is no `.module.ts` triple, no `.spec.ts` stub with mocked reflection, no provider metadata to generate — so `zmdb generate resource posts` would produce roughly what you just read.
 
-A schema, similarly, is one `defineSchema` call, and the DTOs, JSON Schema and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job.
+A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job — and the reason the one build step that does exist, [`zmdb-codegen`](./cli-codegen.html), writes nothing into your repository.
 
 ## What is genuinely missing
 
-**Introspection.** There is no `db pull` — nothing reads an existing database and emits `defineSchema` calls. Adopting zmdb against a legacy schema means writing the schemas by hand. This is the real gap, and it blocks [`cli-pull`](./cli-pull.html), [`cli-studio`](./cli-studio.html) and schema-first workflows.
+**Introspection.** There is no `db pull` — nothing reads an existing database and emits declarations. Adopting zmdb against a legacy schema means writing the schemas by hand. This is the real gap, and it blocks [`cli-pull`](./cli-pull.html), [`cli-studio`](./cli-studio.html) and schema-first workflows.
 
 **Migration generation from a diff against the live database.** `snapshot`/`diff`/`emitUp` compare two _schema snapshots_, so you can diff code against a committed snapshot — but not against what the database actually has. See [Migrations](./migrations.html).
 

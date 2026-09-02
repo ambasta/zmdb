@@ -44,7 +44,7 @@ The dynamic case is the one zmdb genuinely cannot do: a type parameter must be k
 
 ## Feeding a zmdb schema to Zod
 
-If you have a `defineSchema` table and want a Zod validator for it — say a route already validating with Zod — go through JSON Schema:
+If you have a declared table and want a Zod validator for it — say a route already validating with Zod — go through JSON Schema:
 
 ```ts
 import { toJsonSchema } from '@zmdb/schema-core/openapi';

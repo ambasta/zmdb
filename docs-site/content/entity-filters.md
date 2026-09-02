@@ -7,30 +7,37 @@ The two things people want this for are multi-tenancy and soft deletes, and both
 ## Soft delete
 
 ```ts
-export const posts = defineSchema('posts', {
-  id: serial().primaryKey(),
-  title: text().notNull(),
-  deletedAt: timestamp().nullable(),
-});
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
+
+const postSchema = schemaOf<Post>();
 ```
+
+The tags go **inside** the parentheses on a nullable column — `(Date | null) & Sql<'timestamp'>`
+distributes, and `null & Sql<'timestamp'>` is `never`.
 
 Put the filter in a repository subclass so there is one place it can be wrong:
 
 ```ts
-class PostRepository extends BaseRepository<typeof posts> {
-  private live(where: WhereDTO<typeof posts> = {}): WhereDTO<typeof posts> {
+class PostRepository extends BaseRepository<typeof postSchema> {
+  private live(where: WhereDTO<typeof postSchema> = {}): WhereDTO<typeof postSchema> {
     return { ...where, deletedAt: { isNull: true } };
   }
 
-  override find(where: WhereDTO<typeof posts> = {}) {
+  override find(where: WhereDTO<typeof postSchema> = {}) {
     return super.find(this.live(where));
   }
 
-  override list(dto: ListDTO<typeof posts> = {}) {
+  override list(dto: ListDTO<typeof postSchema> = {}) {
     return super.list({ ...dto, where: this.live(dto.where) });
   }
 
-  findWithDeleted(where: WhereDTO<typeof posts> = {}) {
+  findWithDeleted(where: WhereDTO<typeof postSchema> = {}) {
     return super.find(where);
   }
 
@@ -47,15 +54,15 @@ Override every read you use — `find`, `findOne`, `findAll`, `list`, `aggregate
 Same shape, with the tenant coming from the request rather than a constant. Take it as a constructor argument and build the repository per request rather than reading ambient state:
 
 ```ts
-class TenantPostRepository extends BaseRepository<typeof posts> {
+class TenantPostRepository extends BaseRepository<typeof postSchema> {
   constructor(
     driver: Driver,
     private readonly tenantId: number,
   ) {
-    super(driver, posts);
+    super(driver, postSchema);
   }
 
-  override find(where: WhereDTO<typeof posts> = {}) {
+  override find(where: WhereDTO<typeof postSchema> = {}) {
     return super.find({ ...where, tenantId: { eq: this.tenantId } });
   }
 }

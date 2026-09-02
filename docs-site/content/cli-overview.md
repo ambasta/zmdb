@@ -1,5 +1,6 @@
-> **ToDo / feature gap.** There is no `zmdb` executable. No package declares a
-> `bin`, so there is nothing to run after `yarn add @zmdb/zmdb`.
+> **ToDo / feature gap.** There is no `zmdb` executable. One command ships —
+> [`zmdb-codegen`](./cli-codegen.html), `@zmdb/aot-validator`'s `bin` — and nothing
+> on this page other than that has a wrapper yet.
 
 The engine every command would need is public API, though, so each command below is a short script you own. That is the honest position: the capability exists, the packaging does not.
 

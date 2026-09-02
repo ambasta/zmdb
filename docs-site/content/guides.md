@@ -45,7 +45,7 @@ Four of these share one cause: `UpdateBuilder.set()` takes values, not expressio
 Worth knowing before reading any individual page:
 
 - **`Operator` is SQL, not an abbreviation.** `where('age', '>=', 18)`, not `'gte'`. The DTO form uses `{ age: { gte: 18 } }` — the two layers spell it differently, deliberately.
-- **`references` is a function.** `references(integer(), users, 'id').notNull()`. There is no `.references()` method on a column.
+- **`References` is a tag, not a function.** `authorId: number & Sql<'integer'> & References<'users.id'>`. The target is a `table.column` string literal, so nothing has to be imported — and nothing cross-checks it either.
 - **The builder is immutable.** Every `where`/`orderBy`/`limit` returns a new builder, so `b.where(...)` without reassigning does nothing.
 
 ---

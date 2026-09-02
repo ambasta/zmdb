@@ -140,16 +140,25 @@ The tempting shape is a `beforeDelete` subscriber that updates `deletedAt` and t
 A soft delete is a column and a predicate:
 
 ```ts
-const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  deletedAt: timestamp().nullable(),
-});
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
+
+const userSchema = schemaOf<User>();
 ```
 
+The tags go **inside** the parentheses. `(Date & Sql<'timestamp'>) | null` is a nullable
+timestamp column. The other order is the trap: `(Date | null) & Unique` distributes to
+`(Date & Unique) | (null & Unique)`, and `null & Unique` is `never`, so the column stops
+being nullable. See [Tag Reference](./tags-reference.html).
+
 ```ts
-class UserRepository extends BaseRepository<typeof users> {
-  static override readonly schema = users;
+class UserRepository extends BaseRepository<typeof userSchema> {
+  static override readonly schema = userSchema;
 
   async softDelete(id: number) {
     return this.update(id, { deletedAt: new Date() });
@@ -161,7 +170,7 @@ class UserRepository extends BaseRepository<typeof users> {
 }
 ```
 
-Explicit method, explicit predicate, and the type checks — no `as any`, because `deletedAt` is a real nullable column in the schema.
+Explicit method, explicit predicate, and the type checks — no `as any`, because `deletedAt` is a real nullable column on the declaration.
 
 > **ToDo / feature gap.** There is no automatic soft-delete filter: every read must carry `deletedAt: { isNull: true }` itself, and forgetting it in one place resurrects deleted rows in that one endpoint. Schema-level [entity filters](./entity-filters.html) are the fix, and they are not built.
 
@@ -170,8 +179,16 @@ Explicit method, explicit predicate, and the type checks — no `as any`, becaus
 `beforeCreate` setting `createdAt` is a hook that only fires when the write goes through your override. A column default fires always, including for migrations, bulk loads and anything writing outside your process:
 
 ```ts
-createdAt: timestamp().notNull().defaultTo('now()'),
+createdAt: Date & Sql<'timestamp'> & HasDefault;
 ```
+
+```sql
+ALTER TABLE "users" ALTER COLUMN "created_at" SET DEFAULT now();
+```
+
+`HasDefault` makes the column optional in `CreateDTO<User>`; the value itself lives in the
+migration, because a default is a runtime value and no type holds one. See
+[Timestamp defaults](./guide-timestamp-defaults.html).
 
 Reach for a hook when the value cannot come from the database — a slug derived from a title, an embedding, a call to another service.
 

@@ -37,7 +37,7 @@ The generated validator is doing real work here: it is the only thing that notic
 
 Three separable pieces, in increasing difficulty:
 
-1. **A `.proto` emitter** from a `TypeDescriptor` — mechanically similar to `toJsonSchema`, which already walks the same descriptors. This is the easy part and would be genuinely useful on its own for teams whose contract lives in protobuf.
+1. **A `.proto` emitter** from the `TypeIR` — mechanically similar to `toJsonSchema`, which already walks the same IR. This is the easy part and would be genuinely useful on its own for teams whose contract lives in protobuf.
 2. **An encoder and decoder** generated per type by the transformer, the same way `stringify` is. Varint and length-delimited framing are not hard; the work is in the volume of cases.
 3. **The type mapping**, which is where the design questions are. Protobuf's `int64` does not fit a JS `number` — the same problem as [bigint columns](./bigint-keys.html). `optional` versus proto3 field presence does not line up cleanly with `T | undefined`. `oneof` maps to a discriminated union only if you pick a tag convention. `map<K,V>` and `repeated` need decisions about `Record` versus `Map`.
 

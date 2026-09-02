@@ -34,7 +34,7 @@ Atomic, and no read. On MySQL, booleans are `tinyint(1)`, so `NOT` works but ret
 UPDATE `users` SET `active` = NOT `active` WHERE `id` = ?
 ```
 
-SQLite is the same. `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a `boolean()` column fine.
+SQLite is the same. `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a `Sql<'boolean'>` column fine.
 
 Returning the new state, Postgres only:
 
@@ -64,7 +64,7 @@ Use the raw `NOT` form when the client genuinely does not know the current state
 
 ## Nullable booleans
 
-`NOT NULL` is `NULL`, not `true`. A `nullable()` boolean toggled with `NOT` stays null forever:
+`NOT NULL` is `NULL`, not `true`. A `(boolean & Sql<'boolean'>) | null` column toggled with `NOT` stays null forever:
 
 ```sql
 UPDATE "users" SET "active" = NOT COALESCE("active", false) WHERE "id" = $1

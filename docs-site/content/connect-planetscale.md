@@ -35,9 +35,9 @@ export const driver: Driver = {
 
 ## Foreign keys
 
-PlanetScale historically disallowed them, and support depends on your plan and configuration. If they are off, `references()` DDL is rejected.
+PlanetScale historically disallowed them, and support depends on your plan and configuration. If they are off, a `REFERENCES` clause is rejected.
 
-What you keep either way is the **type-level** check: `references(integer(), authors, 'id')` verifies at compile time that the local column's type matches the target's, and that costs nothing at the database. What you lose is enforcement — so a dangling `authorId` becomes possible, and cascades do not exist. See [Cascading](./cascading.html).
+What you keep either way is the **declaration**: `References<'authors.id'>` records the target on the column IR, where the query compiler and the emitted documents can read it, and that costs nothing at the database. It is a string literal, though — nothing cross-checks that `authors.id` exists. What you lose is enforcement — so a dangling `authorId` becomes possible, and cascades do not exist. See [Cascading](./cascading.html).
 
 If FKs are unavailable, do writes through repositories and add integrity checks you run periodically:
 

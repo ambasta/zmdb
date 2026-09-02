@@ -19,49 +19,57 @@ For the AOT-inlined validators (the fast path), wire the transformer once — se
 [AOT setup](./aot-setup.html). Without it, validation still works via a runtime
 fallback.
 
-## 2. Define your schema once
+## 2. Declare your table once
 
-The schema is the single source of truth. Everything else derives from it.
+A table is a TypeScript type. That declaration is the single source of truth, and
+everything else derives from it.
 
 ```ts
-import { defineSchema, serial, text, integer, numeric, jsonEnum, timestamp, references } from '@zmdb/schema-core';
-import { tags } from '@zmdb/aot-validator';
+import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\.[^@]+$')),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-  createdAt: timestamp().notNull().defaultTo('now'),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
+  role: ('admin' | 'user') & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
 
-export const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: references(integer().notNull(), 'users.id'),
-  total: numeric().notNull().validate(tags.Min(0)),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  total: number & Sql<'numeric'> & Min<0>;
+}
 ```
 
-Builders return **frozen** column metadata and modifiers are pure and chainable,
-so a schema is a plain, inert value — no decorators, no global registry.
+Each property is its **app type** intersected with **tags**. The app type is what your
+code sees; the tags say what TypeScript has no syntax for. Tags are phantom `unique
+symbol` slots, so they erase completely — this file compiles to no JavaScript at all.
+
+There is no builder DSL and no global registry. If you have a codebase full of
+`defineSchema('users', { id: serial().primaryKey() })`, the
+[codemod](./codemod.html) converts it.
 
 ## 3. Types derive automatically
 
 ```ts
-import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, UpdateDTO } from 'zmdb/derive';
 
-type User = Entity<typeof UserSchema>;
+type Row = Entity<User>;
 //   { id: number; email: string; role: 'admin' | 'user'; createdAt: Date }
 
-type CreateUser = CreateDTO<typeof UserSchema>;
-//   { email: string; role?: 'admin' | 'user' }   ← id auto-omitted; defaulted → optional
+type CreateUser = CreateDTO<User>;
+//   { email: string; role?: 'admin' | 'user'; createdAt?: Date }   ← id absent (Serial); HasDefault → optional
 
-type UpdateUser = UpdateDTO<typeof UserSchema>; //  Partial<CreateUser>
+type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 ```
 
 > [!TIP]
 > Change a column and every derived type updates. Any call site that no longer
 > satisfies them **fails to compile** — that compile error is the anti-drift
 > guarantee. See [Type derivation](./type-derivation.html).
+
+`Serial` removes `id` from the create type rather than making it optional: there is no
+value you could usefully pass for a column the database generates.
 
 ## 4. CRUD through a repository
 
@@ -73,9 +81,10 @@ built-in `node:sqlite` driver — a genuinely zero-dependency setup:
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository } from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+import { schemaOf } from 'zmdb';
 
 const db = new DatabaseSync('app.db'); // or ':memory:'
-const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(db), { dialect: 'sqlite' });
 
 const u = await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const one = await users.findById(u.id); // Entity<S> | undefined
@@ -89,11 +98,20 @@ Prefer a class? Subclassing works identically:
 
 ```ts
 import { BaseRepository } from '@zmdb/repository';
-class UserRepository extends BaseRepository<typeof UserSchema> {
-  static readonly schema = UserSchema;
+
+const userSchema = schemaOf<User>();
+class UserRepository extends BaseRepository<typeof userSchema> {
+  static readonly schema = userSchema;
 }
 const users = new UserRepository(sqliteDriver(db), 'sqlite');
 ```
+
+> [!IMPORTANT]
+> `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type
+> argument, and type arguments do not exist at runtime. The transformer replaces it
+> with a frozen object literal. An untransformed build throws a message saying exactly
+> that; it does not hand back an empty schema. Wire up the
+> [plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html).
 
 > [!TIP]
 > Use `pgDriver` from `@zmdb/repository/drivers/pg` for PostgreSQL. A full
@@ -123,7 +141,7 @@ ORDER BY "createdAt" DESC
 LIMIT 21
 ```
 
-The filter, ordering and pagination are all typed against `UserSchema`. See
+The filter, ordering and pagination are all typed against `User`. See
 [Filters](./filters.html), [Ordering & pagination](./pagination.html) and the
 [Read/Query DTOs](./read-dtos.html).
 
@@ -147,13 +165,13 @@ await db.transaction(async tx => {
 import { assert } from '@zmdb/aot-validator/utilities';
 
 // In an HTTP handler: validate the inbound body against the derived Create DTO.
-const payload = assert<CreateDTO<typeof UserSchema>>(await req.json());
+const payload = assert<CreateDTO<User>>(await req.json());
 const user = await users.create(payload);
 ```
 
 ## Where to go next
 
-- [Schema declaration](./schema-declaration.html) and [Column types](./column-types.html)
+- [Schema declaration](./schema-declaration.html), the [tag reference](./tags-reference.html) and [Column types](./column-types.html)
 - [Relations](./relations.html) and [typed populate/join results](./populate-results.html)
 - [Migrations](./migrations.html) — diffed from the schema
 - [Validators](./validators-is.html) and [JSON / Ser-De](./json-stringify.html)

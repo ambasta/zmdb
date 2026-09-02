@@ -7,21 +7,28 @@ zero-overhead path as the rest of zmdb.
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { defineSchema, serial, integer, numeric } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema-core';
+import { assert } from '@zmdb/aot-validator/utilities';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
+import type { CreateDTO } from 'zmdb/derive';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { Container, Inject, Controller, Get, Post, createRouter, repositoryToken, validateWith } from '@zmdb/web';
 import type { Ctx } from '@zmdb/web';
+import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: numeric().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  total: number & Sql<'numeric'>;
+}
+
+const orderSchema = schemaOf<Order>();
 
 // A typed DI token for the repository over this schema.
-const OrderRepo = repositoryToken<typeof OrderSchema>('OrderRepo');
+const OrderRepo = repositoryToken<typeof orderSchema>('OrderRepo');
 ```
+
+`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including the DI token, is parameterised on `typeof orderSchema`.
 
 ## The controller injects the repository
 
@@ -29,10 +36,10 @@ const OrderRepo = repositoryToken<typeof OrderSchema>('OrderRepo');
 @Controller('/orders')
 class OrdersController {
   @Inject(OrderRepo)
-  repo!: BaseRepository<typeof OrderSchema>; // fully typed — no 'as'
+  repo!: BaseRepository<typeof orderSchema>; // fully typed — no 'as'
 
   @Post()
-  create(ctx: Ctx<Record<never, string>, { userId: number; total: number }>) {
+  create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
     return this.repo.create(ctx.body); // validated CreateDTO → persisted
   }
 
@@ -50,14 +57,15 @@ const db = new DatabaseSync(':memory:');
 db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)');
 
 const container = new Container();
-container.register(OrderRepo, defineRepository(OrderSchema, sqliteDriver(db), { dialect: 'sqlite' }));
+container.register(OrderRepo, defineRepository(orderSchema, sqliteDriver(db), { dialect: 'sqlite' }));
 
 const controller = container.build(OrdersController); // @Inject satisfied here
 const router = createRouter();
 router.register(controller, {
-  // validateWith adapts any validator — e.g. the AOT assert<CreateDTO<S>> — into
-  // the pipeline's validate-before-handler hook. No runtime parser is embedded.
-  create: { validateBody: validateWith(raw => assertCreateOrder(raw)) },
+  // validateWith adapts any validator into the pipeline's validate-before-handler
+  // hook. `assert<CreateDTO<Order>>` is inlined at build time — no runtime parser
+  // is embedded.
+  create: { validateBody: validateWith(raw => assert<CreateDTO<Order>>(raw)) },
 });
 
 await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { userId: 1, total: 42 } });
@@ -66,13 +74,17 @@ await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { u
 
 > [!IMPORTANT]
 > The body is validated **before** `create` runs — an invalid payload never
-> reaches the repository (→ 400). Use `@zmdb/aot-validator`'s `assert` for
-> zero-runtime-parser validation bound to the schema DTO.
+> reaches the repository (→ 400). `assert<CreateDTO<Order>>` is bound to the
+> declaration by its type argument, so a column added to `Order` is checked here
+> with nothing else to update.
 
 ## Design notes
 
 - **No `as`** — the repository token carries the schema, so the injected field is
-  `BaseRepository<OrderSchema>`.
+  `BaseRepository<typeof orderSchema>`.
+- **One source of truth** — `Order` is the interface; the DDL, the DTOs, the
+  validator and the OpenAPI document are all derived from it. See
+  [Schema Declaration](./schema-declaration.html).
 - The repository is a plain [zmdb repository](./repository.html): no proxies, no
   identity map, [inert rows](./inert-rows.html).
 - First-class validation/serialization _pipes_ (the `@nestjs/swagger`/

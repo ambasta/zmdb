@@ -191,10 +191,42 @@ for (const pkgDirName of packageDirs) {
   }
 }
 
+// Every subpath actually loads, under plain `node`, with no bundler and no loader.
+//
+// The checks above prove the manifest points at files that exist. That is not the same as the
+// package working: every `files` list here ships `src`, and every `exports` target is a `.ts`
+// file, so a consumer's `import '@zmdb/schema-core'` is Node reading our TypeScript and
+// stripping the types. Two things break that while resolving and typechecking perfectly:
+//
+//   * a relative specifier written `'../index.js'`. `tsc` maps it back to `../index.ts` and
+//     vitest resolves it, so the whole test suite passes; Node looks for a file called
+//     `index.js`, finds nothing, and the package is unusable as published.
+//   * syntax that is not type syntax. Decorators are the case that bit us — a single
+//     `@Controller` in a benchmark helper made `import '@zmdb/web'` a SyntaxError, because the
+//     root index re-exported it.
+//
+// Neither is visible to a test run, which is exactly why it belongs in a gate.
+for (const pkgDirName of packageDirs) {
+  const pkgJsonPath = join(PACKAGES_DIR, pkgDirName, 'package.json');
+  if (!existsSync(pkgJsonPath)) continue;
+  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+  if (!pkg.name) continue;
+
+  for (const subpath of Object.keys(pkg.exports ?? {})) {
+    const specifier = subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`;
+    try {
+      await import(specifier);
+    } catch (error) {
+      console.error(`[ERROR] import('${specifier}') fails under plain node: ${error.message}`);
+      errorsCount++;
+    }
+  }
+}
+
 if (errorsCount > 0) {
   console.error(`\nExport manifest validation failed with ${errorsCount} error(s).`);
   process.exit(1);
 } else {
-  console.log('\n[SUCCESS] 100% of package export entry points resolve to valid files!');
+  console.log('\n[SUCCESS] every export entry point resolves, imports under plain node, and stays off typescript.');
   process.exit(0);
 }

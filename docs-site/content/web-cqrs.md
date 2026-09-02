@@ -94,14 +94,16 @@ The state change and the event commit together or not at all. An in-memory emitt
 A separate projection table, updated from the outbox, queried through its own schema:
 
 ```ts
-export const postSummaries = defineSchema('post_summaries', {
-  postId: integer().primaryKey(),
-  title: text().notNull(),
-  commentCount: integer().notNull(),
-});
+import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+export interface PostSummary extends Table<'post_summaries'> {
+  postId: number & Sql<'integer'> & PrimaryKey;
+  title: string & Sql<'text'>;
+  commentCount: number & Sql<'integer'>;
+}
 ```
 
-`defineSchema` does not care that nothing writes to this table transactionally — it is a table with a repository, and the read side gets a shape built for its queries. A [materialized view](./materialized-views.html) is the lower-effort version when the projection is a query.
+Nothing in the declaration cares that no transaction writes to this table — it is a table with a repository, and the read side gets a shape built for its queries. A [materialized view](./materialized-views.html) is the lower-effort version when the projection is a query.
 
 ## What it would take
 

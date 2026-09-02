@@ -8,7 +8,7 @@ Wrapping the resolution of a single field: masking a value, timing it, caching i
 
 | Field middleware use               | zmdb equivalent                                |
 | ---------------------------------- | ---------------------------------------------- |
-| Mask or redact a value             | `sensitive()` on the column, or `select`       |
+| Mask or redact a value             | `Sensitive` on the column, or `select`         |
 | Authorise a single field           | an explicit check in the service               |
 | Transform on read                  | [`postSelect` hook](./lifecycle-hooks.html)    |
 | Time or count a field's resolution | a [driver wrapper](./web-graphql-plugins.html) |
@@ -29,23 +29,23 @@ The `as const` on a shared field list is required, or the array widens to `strin
 const PUBLIC = ['id', 'title', 'createdAt'] as const;
 ```
 
-## `sensitive()` and exactly what it does
+## `Sensitive` and exactly what it does
 
 ```ts
-const users = defineSchema('users', {
-  id: serial(),
-  email: varchar(320).notNull(),
-  passwordHash: text().notNull().sensitive(),
-});
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<320>;
+  passwordHash: string & Sql<'text'> & Sensitive;
+}
 ```
 
 > [!WARNING]
-> `sensitive()` affects **serialization**, not queries. The column is still
+> `Sensitive` affects **serialization**, not queries. The column is still
 > selected, still travels from the database into your process, and still appears in
 > anything that stringifies the raw row — including a debug log or an error dump. It
 > is a serialization marker, not an access control.
 
-Combine it with `select` for defence in depth: `select` keeps the value out of the process, `sensitive()` catches the case where something serialises a row you did fetch.
+Combine it with `select` for defence in depth: `select` keeps the value out of the process, `Sensitive` catches the case where something serialises a row you did fetch.
 
 ## Per-field authorisation, explicitly
 

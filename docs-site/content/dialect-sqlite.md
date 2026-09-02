@@ -66,7 +66,7 @@ PRAGMA journal_mode = WAL;  -- concurrent readers with a writer
 PRAGMA busy_timeout = 5000; -- wait for the write lock instead of failing
 ```
 
-`foreign_keys` being off by default is the one that bites: your `references()` DDL is emitted, the constraint exists, and nothing enforces it. Cascades silently do nothing. Set it on every connection, in the driver.
+`foreign_keys` being off by default is the one that bites: the constraint exists in your migration, and nothing enforces it. Cascades silently do nothing. Set it on every connection, in the driver.
 
 ## Types are advisory
 

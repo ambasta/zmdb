@@ -54,7 +54,7 @@ Two round trips. Selecting on a unique column rather than `LAST_INSERT_ID()` is 
 
 ## `boolean` is `TINYINT(1)`
 
-MySQL has no boolean type, so `boolean()` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the schema is a MySQL one:
+MySQL has no boolean type, so `Sql<'boolean'>` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the schema is a MySQL one:
 
 ```ts
 // per-column, explicit — a generic 0/1 coercion will mangle real integers
@@ -81,7 +81,7 @@ MySQL's `utf8` is three bytes and cannot store an emoji or many CJK characters. 
 CREATE DATABASE app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 ```
 
-`varchar(n)` also counts _characters_, but the index key limit counts bytes — so a `utf8mb4` `VARCHAR(768)` is the practical maximum for a single-column index on InnoDB.
+`VARCHAR(n)` also counts _characters_, but the index key limit counts bytes — so a `utf8mb4` `VARCHAR(768)` is the practical maximum for a single-column index on InnoDB.
 
 ## DDL is not transactional
 
@@ -89,7 +89,7 @@ MySQL auto-commits DDL, so a migration with two `ALTER TABLE`s can leave the fir
 
 ## Connecting
 
-[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any MySQL-compatible server. Note that PlanetScale disallows foreign keys by default, so `references()` DDL needs their FK support turned on.
+[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any MySQL-compatible server. Note that PlanetScale disallows foreign keys by default, so a hand-written `REFERENCES` clause needs their FK support turned on.
 
 ---
 

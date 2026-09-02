@@ -1,4 +1,4 @@
-Prisma's schema lives in its own DSL and its client is generated. zmdb's schema lives in TypeScript and nothing is generated into your repo, so this migration replaces the build step as well as the query API.
+Prisma's schema lives in its own DSL and its client is generated. zmdb's schema _is_ a TypeScript type and nothing is generated into your repo, so this migration replaces the build step as well as the query API.
 
 ## `schema.prisma` → a TypeScript module
 
@@ -11,19 +11,31 @@ model User {
 ```
 
 ```ts
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique(),
-});
+import { schemaOf } from '@zmdb/schema-core';
+import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
-export const userRelations = { posts: oneToMany(posts, 'authorId') };
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  posts?: Post[] & OneToMany<'posts', 'authorId'>;
+}
+
+export const userSchema = schemaOf<User>();
+export const userRelations = { posts: oneToMany(postSchema, 'authorId') };
 ```
+
+The mapping is close to line-for-line: `@id` is `PrimaryKey`, `@default(autoincrement())` is `Serial`, `@unique` is `Unique`, `Post[]` is `Post[] & OneToMany<'posts', 'authorId'>`. What Prisma spells with attributes, zmdb spells with intersections.
 
 The consequences of leaving the DSL:
 
-- No `prisma generate`. There is no generated client to be stale, and your editor resolves types from the schema module directly.
-- No `@relation` back-reference bookkeeping. Relations are one-directional entries; declare the sides you actually query.
-- Column types are TypeScript function calls, so you can factor them (`const money = () => numeric()`).
+- No `prisma generate`. There is no generated client to be stale, and your editor resolves types from the declaration directly. There _is_ a build step, but it emits nothing into your repository — see [AOT Setup](./aot-setup.html).
+- No `@relation` back-reference bookkeeping. Relations are one-directional; declare the sides you actually query.
+- Column types are ordinary type aliases, so you can factor them: `type Money = number & Sql<'numeric'> & Numeric<12, 2>`, then `total: Money`.
+
+> [!NOTE]
+> The relation _tag_ documents the relationship and reaches the derived documents, but the
+> repository's `populate` still needs the runtime `relations` map beside the schema. The two
+> are not yet one source. See [Relations](./relations.html).
 
 ## Client → repository
 
@@ -75,7 +87,7 @@ Prisma returns plain objects too, so this is the one migration where the _shape_
 
 ## Things zmdb has that Prisma does not
 
-- one schema shared with the validator, the OpenAPI document and the HTTP layer
+- one declaration shared with the DDL, the validator, the OpenAPI document and the HTTP layer — and it is a TypeScript type, so `Omit`, `Pick` and `Partial` compose with it
 - SQL you can print without a connection
 - no generated code in your repository, no engine to ship
 

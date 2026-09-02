@@ -35,15 +35,24 @@ Nile's model is that a table can be declared tenant-aware, after which the datab
 }
 ```
 
-Then declare the column in the schema object so it appears in the row type:
+Then declare the column on the interface so it appears in the row type:
 
 ```ts
-export const todos = defineSchema('todos', {
-  id: serial().primaryKey(),
-  tenantId: text().notNull(),
-  title: text().notNull(),
-});
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Todo extends Table<'todos'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  tenantId: string & Sql<'text'>;
+  title: string & Sql<'text'>;
+}
+
+const todos = schemaOf<Todo>();
 ```
+
+`Sql<'text'>` rather than a UUID type, because `SqlType` has no `uuid` member — the
+migration above writes `UUID` and the declaration calls it text. That mismatch is
+deliberate and narrow: it affects generated DDL for this table, which you are
+writing by hand anyway, and nothing else reads the column as anything but a string.
 
 ## Setting the tenant per request
 
@@ -91,13 +100,17 @@ The [application-level version](./entity-filters.html) requires every read to ca
 
 ## Nile's built-in tables
 
-Nile provides `tenants` and `users` tables of its own. Reference them by name, since there is no schema object to check against:
+Nile provides `tenants` and `users` tables of its own. Reference them by name, since there is no declaration to check against:
 
 ```ts
-tenantId: references(text(), 'tenants.id').notNull(),
+tenantId: string & Sql<'text'> & References<'tenants.id'>;
 ```
 
-Do not generate migrations that would alter them — declare them in a schema object only if you intend zmdb to own them, which you do not.
+`References<'tenants.id'>` is a string literal and nothing validates that the table
+exists, which is exactly what you want here — the target is Nile's, not yours.
+
+Do not generate migrations that would alter them. Declare a table zmdb does not own
+only if you intend zmdb to own it, which you do not.
 
 ---
 

@@ -1,113 +1,85 @@
-The `stringify` function serializes JavaScript values to JSON strings. It wraps `JSON.stringify` with consistent error handling and explicit bigint rejection — the AOT transformer will eventually emit fast concatenation for known shapes.
-
-> [!IMPORTANT]
-> Unlike `JSON.stringify`, `stringify` explicitly throws on bigint values. This is intentional — bigint serialization is database-dependent and should be handled explicitly by the caller.
+`stringify` serializes a value to JSON. It is byte-identical to `JSON.stringify` for every value it accepts; the one difference is that a `bigint` anywhere in the graph throws one message rather than the engine's.
 
 ## Basic Usage
 
 ```ts
 import { stringify } from '@zmdb/aot-validator/serialization';
 
-const json = stringify({ name: 'alice', age: 30, active: true });
+stringify({ name: 'alice', age: 30, active: true });
 // '{"name":"alice","age":30,"active":true}'
 
-const arr = stringify([1, 2, 3]);
-// '[1,2,3]'
-
-const nested = stringify({ user: { email: 'a@b.com' } });
-// '{"user":{"email":"a@b.com"}}'
-```
-
-## Working with Complex Types
-
-```ts
-import { stringify } from '@zmdb/aot-validator/serialization';
-
-// Arrays of objects
-const users = stringify([
-  { id: 1, name: 'Alice' },
-  { id: 2, name: 'Bob' },
-]);
-// '[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
-
-// Null and undefined handling (like JSON.stringify)
+stringify([1, 2, 3]); // '[1,2,3]'
+stringify({ user: { email: 'a@b.com' } }); // '{"user":{"email":"a@b.com"}}'
 stringify(null); // 'null'
-stringify(undefined); // undefined (returns JSON.stringify result)
-
-// Nested arrays
-const matrix = stringify([
-  [1, 2],
-  [3, 4],
-]);
-// '[[1,2],[3,4]]'
+stringify(undefined); // undefined — not a string, exactly as JSON.stringify
 ```
 
-## Bigint Handling
+No replacer and no space parameter. Where you want either, call `JSON.stringify` directly; this entry point exists for the `bigint` policy and for the AOT path to hook into later, not to wrap the whole API.
 
-`stringify` throws a descriptive error for bigint values:
+## Bigint
 
 ```ts
-import { stringify } from '@zmdb/aot-validator/serialization';
-
-try {
-  stringify({ id: 123n });
-} catch (e) {
-  // TypeError: Do not know how to serialize a BigInt
-}
+stringify({ id: 123n });
+// TypeError: Do not know how to serialize a BigInt
 ```
 
-> [!TIP]
-> For PostgreSQL, use `toString()` on bigints before storing, or cast to `text` in your schema. The schema-core package provides the `bigint` column type for this purpose.
+The check is applied at the top level _and_ through a replacer, so a `bigint` nested five levels down throws the same message rather than the engine's own wording. Normalising it is the point: one message means a caller can match on it.
 
-## Assert Stringify
+A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
 
-The `assertStringify` function validates before serializing, throwing on invalid input:
+```ts
+export interface Event extends Table<'events'> {
+  id: bigint & Sql<'bigint'> & PrimaryKey;
+}
+// Entity<Event>['id'] is bigint; the JSON body carries "9007199254740993"
+```
+
+So the boundary encoder converts, and `stringify` throwing is the backstop for a value that reached JSON without going through one. See [bigint keys](./bigint-keys.html).
+
+## `assertStringify`
+
+`assertStringify(value, schema?)` validates before serializing:
 
 ```ts
 import { assertStringify } from '@zmdb/aot-validator/serialization';
 
-const descriptor = {
-  kind: 'object',
-  fields: {
-    email: { kind: 'string', pattern: '^[^@]+@[^@]+$' },
-    age: { kind: 'number', minimum: 18 },
-  },
-};
-
-// Valid — returns JSON string
-const json = assertStringify({ email: 'test@test.com', age: 25 }, descriptor);
-// '{"email":"test@test.com","age":25}'
-
-// Invalid — throws AssertError
-try {
-  assertStringify({ email: 'invalid', age: 15 }, descriptor);
-} catch (e) {
-  // AssertError with validation issues
-}
+const json = assertStringify(payload, ir); // throws AssertError if payload is wrong
 ```
 
-## Comparison with JSON.stringify
+> [!IMPORTANT]
+> `assertStringify` is **not** one of the eight calls the transformer rewrites (`is`, `assert`,
+> `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`), so its schema has
+> to be a runtime argument. With none, it throws
+> `runtime descriptor required in test/fallback mode`.
+>
+> The transformed equivalent is two calls, and it is the one to write today:
+>
+> ```ts
+> const json = stringify(assert<CreateDTO<User>>(payload));
+> ```
 
-| Feature             | JSON.stringify             | stringify                                   |
-| ------------------- | -------------------------- | ------------------------------------------- |
-| bigint              | Serializes to empty object | Throws TypeError                            |
-| Error objects       | Converts to `{}`           | Returns `'{}'` (standard JSON)              |
-| Circular references | Throws                     | Throws (same)                               |
-| Custom replacer     | Supported                  | Not supported (use JSON.stringify directly) |
+## Comparison with `JSON.stringify`
 
-## AOT Inlining
+| Feature             | `JSON.stringify`    | `stringify`                              |
+| ------------------- | ------------------- | ---------------------------------------- |
+| `bigint`            | throws `TypeError`  | throws `TypeError`, one fixed message    |
+| `undefined`         | returns `undefined` | same                                     |
+| `Error` objects     | `'{}'`              | same                                     |
+| Circular references | throws              | same                                     |
+| Custom replacer     | supported           | not exposed — the `bigint` guard uses it |
+| `space` / indent    | supported           | not exposed                              |
 
-In AOT mode, `stringify` calls on known shapes become inline concatenation:
+## AOT inlining
 
-```ts
-// Authored:
-const json = stringify({ name: user.name, age: user.age });
+> [!NOTE]
+> Not implemented. `stringify` is not in the transformer's rewrite list, so there is no
+> emitted concatenation for a known shape — the call is the runtime function in a built
+> bundle as much as in dev. The plan is straight-line concatenation from the same `TypeIR`
+> the validators use; the observable contract above is what will not change when it lands.
 
-// AOT output (for known object shape):
-const json = '{"name":' + JSON.stringify(user.name) + ',"age":' + JSON.stringify(user.age) + '}';
-```
+The validators _are_ inlined, and where a hot path is serializing something it just checked, the check is the part that was costing you. See [jit-vs-aot](./jit-vs-aot.html).
 
-This eliminates function call overhead for hot paths.
+---
 
 - [json-parse](./json-parse.html) — deserialization
 - [json-schema](./json-schema.html) — JSON Schema generation

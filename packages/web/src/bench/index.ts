@@ -76,8 +76,20 @@ export async function benchmarkRouter(options: BenchmarkOptions): Promise<Benchm
 // Build a controller instance with `count` GET routes /bench/r0../bench/r{n-1}.
 // Defined via a factory so each benchmark gets a fresh class + metadata.
 function makeController(count: number): object {
-  @Controller('/bench')
-  class BenchController {}
+  class BenchController {
+    // Every route resolves to this one method, aliased under `count` names below. A benchmark
+    // that allocated a fresh closure per route would be measuring that instead of the router.
+    ok(): { ok: true } {
+      return { ok: true };
+    }
+  }
+  // `@Controller('/bench')` in decorator position instead, except that decorators are real
+  // syntax rather than types, so a file containing one cannot be loaded by Node's type
+  // stripping — and this package ships its `src`. A single decorator here was enough to make
+  // `import '@zmdb/web'` a SyntaxError, because the root index re-exports this module. Applied
+  // programmatically it costs a synthesised context; the routing decorators only ever touch
+  // `context.metadata`, which is what makes the substitution exact.
+  Controller('/bench')(BenchController, classContext(BenchController));
   // Attach `count` routes by decorating dynamically-added methods. Since Stage-3
   // method decorators can't be applied dynamically, we register handlers on the
   // prototype and record routes through a single re-decoration pass: simplest is
@@ -89,15 +101,24 @@ function makeController(count: number): object {
     Object.defineProperty(proto, name, {
       configurable: true,
       writable: true,
-      value(): { ok: true } {
-        return { ok: true };
-      },
+      value: proto.ok,
     });
     const decorate = Get(`/r${i}`);
     const context = methodContext(name, BenchController);
     decorate(readProtoMethod(proto, name), context);
   }
   return new BenchController();
+}
+
+// A minimal ClassDecoratorContext, for the same reason. Controller reads `metadata` and nothing
+// else; `name` and `addInitializer` are here to satisfy the type.
+function classContext<T extends abstract new (...args: never[]) => unknown>(cls: T): ClassDecoratorContext<T> {
+  return {
+    kind: 'class',
+    name: cls.name,
+    metadata: ensureMetadata(cls),
+    addInitializer: (): void => undefined,
+  };
 }
 
 // A minimal ClassMethodDecoratorContext for programmatic decoration. The Get

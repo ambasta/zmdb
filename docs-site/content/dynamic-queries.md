@@ -36,7 +36,7 @@ const orderBy = isSortable(ctx.query.sort ?? '')
   : [{ column: 'createdAt', dir: 'desc' }];
 ```
 
-The allow-list matters: `orderBy.column` is typed as a column of the schema, but a string arriving from a query parameter is `string`, and the cast is where the check has to happen. Validating against a literal union means the cast is justified rather than assumed — and it stops a caller ordering by a [`sensitive()`](./schema-declaration.html) column.
+The allow-list matters: `orderBy.column` is typed as a column of the schema, but a string arriving from a query parameter is `string`, and the cast is where the check has to happen. Validating against a literal union means the cast is justified rather than assumed — and it stops a caller ordering by a [`Sensitive`](./tags-reference.html) column.
 
 Better still, let the validator do it:
 

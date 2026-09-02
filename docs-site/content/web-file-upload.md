@@ -113,15 +113,22 @@ trivial memory-exhaustion target. Cap at the proxy as well.
 ## Storing the record
 
 ```ts
-const files = defineSchema('files', {
-  id: serial(),
-  owner_id: references(integer().notNull(), users, 'id'),
-  key: text().notNull().unique(),
-  mime: varchar(127).notNull(),
-  bytes: bigint().notNull(),
-  created_at: timestamp().notNull(),
-});
+import type { HasDefault, Length, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
+
+export interface FileRecord extends Table<'files'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  owner_id: number & Sql<'integer'> & References<'users.id'>;
+  key: string & Sql<'text'> & Unique;
+  mime: string & Sql<'varchar'> & Length<127>;
+  bytes: bigint & Sql<'bigint'>;
+  created_at: Date & Sql<'timestamp'> & HasDefault;
+}
 ```
+
+`bytes` is a `bigint`, so `Sql<'bigint'>` is redundant — TypeScript's `bigint` maps to it with
+nothing else to disambiguate. It is written here anyway because the DDL type is worth reading
+off the declaration. `number` is the one app type that _must_ carry a tag, because `integer`
+and `numeric` are both spelled `number`.
 
 Store the key, never the bytes. Filter by `owner_id` in the `where` on every read
 — see [Authorization](./web-authorization.html).

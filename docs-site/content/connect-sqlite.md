@@ -26,7 +26,7 @@ export const driver: Driver = {
 
 The three pragmas are all load-bearing:
 
-- **`foreign_keys = ON`** — off by default, **per connection**. Without it your `references()` constraints exist in the schema and are not enforced. This is the most common SQLite mistake.
+- **`foreign_keys = ON`** — off by default, **per connection**. Without it your foreign keys exist in the schema and are not enforced. This is the most common SQLite mistake.
 - **`journal_mode = WAL`** — persists in the file once set; lets readers proceed while a write is in progress. Without it a read blocks behind every write.
 - **`busy_timeout`** — wait for the write lock rather than failing immediately with `SQLITE_BUSY`.
 

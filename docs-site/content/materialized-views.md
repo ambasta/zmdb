@@ -29,19 +29,25 @@ On `mysql` or `sqlite` this throws `UnsupportedFeatureError('materialized views'
 
 ## Reading from it
 
-A materialized view is a relation, so give it a schema object and use the normal repository:
+A materialized view is a relation, so declare it like a table and use the normal repository:
 
 ```ts
-export const authorStats = defineSchema('author_stats', {
-  authorId: integer().primaryKey(),
-  name: text().notNull(),
-  postCount: integer().notNull(),
-});
+import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
-export const authorStatsRepo = defineRepository(authorStats, driver, { dialect: 'postgres' });
+export interface AuthorStats extends Table<'author_stats'> {
+  authorId: number & Sql<'integer'> & PrimaryKey;
+  name: string & Sql<'text'>;
+  postCount: number & Sql<'integer'>;
+}
 
-const top = await repo.list({ orderBy: [{ column: 'postCount', dir: 'desc' }], page: { limit: 10 } });
+export const authorStatsRepo = defineRepository(schemaOf<AuthorStats>(), driver, { dialect: 'postgres' });
+
+const top = await authorStatsRepo.list({ orderBy: [{ column: 'postCount', dir: 'desc' }], page: { limit: 10 } });
 ```
+
+`PrimaryKey` on `authorId` is not a claim the database checks — a view has no constraints.
+It is there because the repository needs to know which column identifies a row for
+`findById`, `update` and keyset pagination. See [Virtual Entities](./virtual-entities.html).
 
 > [!WARNING]
 > Nothing stops you calling `create`, `update` or `delete` on a repository over a view. The methods exist because they are on `BaseRepository`; the database will reject the statement. If that matters, wrap it:

@@ -1,11 +1,43 @@
-The validation tags system provides a declarative way to express constraints on primitive values. These tags (`Min`, `Max`, `MinLength`, `MaxLength`, `Pattern`, `Enum`) are building blocks that can be combined with schema definitions or used directly in validation code.
+There are **two** things called tags, and this page is mostly about telling them apart.
+
+- **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>`
+  from `zmdb/tags`. These go on a column in a declaration. They are types; they erase. This is
+  what you want almost always, and the [Tag Reference](./tags-reference.html) is their home.
+- **Rule values** — `tags.Min(18)` from `@zmdb/aot-validator`. Runtime objects for a one-off
+  check against a bare value that is not part of any table.
+
+They have the same names because they mean the same constraints. They are not
+interchangeable: one is a type argument, the other is a function call.
 
 > [!TIP]
-> Tags are the primitive constraint language — they compose with the `validate()` and `assert()` functions, and the AOT transformer inlines them to zero-overhead runtime checks.
+> Both forms compile away. A type tag becomes part of the validator the transformer emits for
+> `assert<T>`; a rule value in `validate(tags.Min(18), x)` is rewritten in place to `x >= 18`.
 
-## Available Tags
+## Constraints on a column
 
-The `@zmdb/aot-validator` package exports a `tags` object with all validation rules:
+This is the common case, and there is no `validate()` call in it:
+
+```ts
+import type { Max, MaxLength, Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'> & MaxLength<255>;
+  age: (number & Sql<'integer'> & Min<0> & Max<150>) | null;
+  role: 'admin' | 'user' | 'guest';
+}
+```
+
+`assert<CreateDTO<User>>(body)` now checks the pattern, both lengths and both bounds, because
+they are part of the type it was generated from. The same constraints reach the
+[JSON Schema](./json-schema.html) and [OpenAPI](./openapi.html) output.
+
+Note what `role` does _not_ have: there is no `Enum` type tag, because a literal union already
+says it and TypeScript checks it at every assignment rather than only at the boundary.
+
+## Rule values, for a value with no table
+
+The `@zmdb/aot-validator` package exports a `tags` object of rule constructors:
 
 ```ts
 import { tags } from '@zmdb/aot-validator';
@@ -18,40 +50,14 @@ tags.Pattern('^\\d+$'); // matches regex
 tags.Enum('admin', 'user', 'guest'); // one of these values
 ```
 
-## Using Tags with Schema
-
-Tags integrate directly with schema definitions:
-
-```ts
-import { defineSchema, text, integer, jsonEnum } from '@zmdb/schema-core';
-import { tags } from '@zmdb/aot-validator';
-
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\.[^@]+$')).validate(tags.MaxLength(255)),
-  age: integer().validate(tags.Min(0)).validate(tags.Max(150)),
-  role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
-});
-```
-
-```sql
--- Generated DDL includes inline CHECK constraints where supported:
--- CREATE TABLE "users" (
---   "id" serial PRIMARY KEY,
---   "email" varchar(255) NOT NULL CHECK ("email" ~* '^[^@]+@[^@]+\.[^@]+$'),
---   "age" integer CHECK ("age" >= 0 AND "age" <= 150),
---   "role" varchar CHECK ("role" IN ('admin', 'user', 'guest')) DEFAULT 'user'
--- );
-```
-
 ## Two functions named `validate`
 
 This is the one thing to get right about tags. The package exports **two** different `validate` functions from two entry points, and they take their arguments in opposite orders:
 
-| Import                          | Signature                                                 | Returns                        |
-| ------------------------------- | --------------------------------------------------------- | ------------------------------ |
-| `@zmdb/aot-validator`           | `validate(rule: Rule, value: unknown)`                    | `boolean`                      |
-| `@zmdb/aot-validator/utilities` | `validate<T>(value: unknown, descriptor: TypeDescriptor)` | `{ success, data? , errors? }` |
+| Import                          | Signature                                             | Returns                       |
+| ------------------------------- | ----------------------------------------------------- | ----------------------------- |
+| `@zmdb/aot-validator`           | `validate(rule: Rule, value: unknown)`                | `boolean`                     |
+| `@zmdb/aot-validator/utilities` | `validate<T>(value: unknown, schema?: RuntimeSchema)` | `{ success, data?, errors? }` |
 
 **The root one is the tag evaluator** — it takes a single tag and a value, and it is the call the AOT transformer rewrites into an inline boolean:
 
@@ -65,31 +71,36 @@ validate(tags.Enum('admin', 'user'), 'guest'); // false
 
 The transformer scans for `validate(` whose first argument is a `tags.KIND(...)` call and replaces the whole expression with the equivalent comparison — `21 >= 18` — so there is no function call and no rule object at runtime. That rewrite is the reason the argument order is rule-first: it is what makes the call recognisable in the source.
 
-**The `utilities` one is the whole-value validator.** It takes a `TypeDescriptor`, not tags, and gives you a result object instead of a boolean:
+**The `utilities` one is the whole-value validator.** It takes a type argument, not tags, and gives you a result object instead of a boolean:
 
 ```ts
 import { validate } from '@zmdb/aot-validator/utilities';
 
-validate(25, { kind: 'number', minimum: 18, maximum: 65 });
-validate('user@example.com', { kind: 'string', pattern: '^[^@]+@[^@]+$' });
-validate({ email: 'a@b.c', age: 25 }, { kind: 'object', fields: {/* … */} });
+validate<Age>(25);
+validate<CreateDTO<User>>(body);
 ```
+
+The second parameter is the escape hatch, not the interface: it accepts a schema built by hand
+for the rare caller that has one, and the transformer supplies it from the type argument
+otherwise. An untransformed call with neither throws rather than passing everything.
 
 > [!WARNING]
 > Passing a tag to the `utilities` version — `validate(tags.Min(18), 21)` after importing from `/utilities` — treats the tag object as the _value_ and `21` as the _descriptor_. Import the one you mean; the two are not interchangeable and neither is a type error against the other's arguments in every case.
 
-In practice: use `tags` on columns via `.validate()` and let the schema carry them, use `assert<T>`/`is<T>` from `/utilities` at request boundaries, and reach for either bare `validate` only for a one-off check.
+In practice: put constraints on columns as type tags and let the declaration carry them, use `assert<T>`/`is<T>` from `/utilities` at request boundaries, and reach for `validate(tags.X(…), value)` only for a one-off check on a value that is not part of a table.
 
-## Tag Semantics
+## Semantics
 
-| Tag               | Input Type | Constraint             |
-| ----------------- | ---------- | ---------------------- |
-| `Min(n)`          | number     | value >= n             |
-| `Max(n)`          | number     | value <= n             |
-| `MinLength(n)`    | string     | value.length >= n      |
-| `MaxLength(n)`    | string     | value.length <= n      |
-| `Pattern(regex)`  | string     | regex.test(value)      |
-| `Enum(...values)` | string     | values.includes(value) |
+The two spellings mean exactly the same thing, which is the point:
+
+| Type tag        | Rule value        | Input Type | Constraint             |
+| --------------- | ----------------- | ---------- | ---------------------- |
+| `Min<N>`        | `Min(n)`          | number     | value >= n             |
+| `Max<N>`        | `Max(n)`          | number     | value <= n             |
+| `MinLength<N>`  | `MinLength(n)`    | string     | value.length >= n      |
+| `MaxLength<N>`  | `MaxLength(n)`    | string     | value.length <= n      |
+| `Pattern<S>`    | `Pattern(regex)`  | string     | regex.test(value)      |
+| a literal union | `Enum(...values)` | string     | values.includes(value) |
 
 ## Runtime vs AOT
 
@@ -124,6 +135,7 @@ validate(
 > [!IMPORTANT]
 > The AOT transformer currently inlines `validate(tags.X(...), expr)` calls. Complex compositions may still fall back to the runtime validator in some cases.
 
+- [Tag Reference](./tags-reference.html) — the full type-tag vocabulary
 - [validate](./validators-validate.html) — non-throwing validation
 - [assert](./validators-assert.html) — throwing validation
 - [unions-refinements](./unions-refinements.html) — custom validation rules

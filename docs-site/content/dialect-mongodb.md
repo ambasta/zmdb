@@ -19,7 +19,7 @@ A dialect changes how a query is _written_. MongoDB changes what a query _is_:
 
 ## Where the schema model diverges
 
-The deeper mismatch is that a `defineSchema` call describes a **table with enforced columns**. Mongo's equivalent is a collection with a shape by convention. You can bring the two together — `$jsonSchema` validators — and there is a real feature hiding in that:
+The deeper mismatch is that a `Table<…>` declaration describes a **table with enforced columns**. Mongo's equivalent is a collection with a shape by convention. You can bring the two together — `$jsonSchema` validators — and there is a real feature hiding in that:
 
 ```ts
 import { toJsonSchema } from '@zmdb/schema-core/openapi';

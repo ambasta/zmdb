@@ -43,37 +43,39 @@ Note you supply the list. `App` does not expose its controllers — `createApp` 
 
 This is also how [OpenAPI generation](./openapi.html) works: `toOpenApi(controllers, options)` takes the same list and reads routes from it.
 
-## Finding registered schemas
+## Finding your schemas
 
-The schema side does have a registry, because `defineSchema` records into one:
+Nothing enumerates your tables either. A schema comes from a type — `schemaOf<User>()` — and a type is not a value that can register itself, so there is nowhere for a registry to record into. Keep the array:
 
 ```ts
-import { registeredSchemas, getRegisteredSchema } from '@zmdb/schema-core';
+import { schemaOf } from '@zmdb/schema-core';
+import type { Post, User } from './domain/index.ts';
 
-for (const schema of registeredSchemas()) console.log(schema.table);
-const users = getRegisteredSchema('users');
+export const ALL_TABLES = [schemaOf<User>(), schemaOf<Post>()] as const;
 ```
 
-Genuinely useful, and used by real code in these docs:
+That array is what the tools that used to read a registry take directly:
 
 ```ts
 // truncate everything between tests
-const tables = registeredSchemas()
-  .map(s => `"${s.table}"`)
-  .join(', ');
+const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');
 await driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] });
 ```
 
 ```ts
 // generate the whole schema
-for (const op of diff({ tables: {} }, snapshot(registeredSchemas()))) await exec(emitUp(op, 'postgres'));
+for (const op of diff({ tables: {} }, snapshot([...ALL_TABLES]))) await exec(emitUp(op, 'postgres'));
 ```
 
+`snapshot` takes an explicit array by design, for the same reason `@Module` takes an explicit `controllers` list.
+
 > [!NOTE]
-> `registeredSchemas()` only knows about schemas whose module has been
-> **imported**. A schema file nothing imports is not registered, so a
-> `TRUNCATE`-everything helper can silently miss a table. Import your schemas from
-> one barrel module and use that.
+> The old failure mode was an import-order one: a registry only knew about schemas
+> whose module had been imported, so a `TRUNCATE`-everything helper could silently
+> miss a table. The array has the same hazard in a more visible place — a table
+> missing from `ALL_TABLES` is a line you can grep for. If it matters, pin it with a
+> test that walks the source for `extends Table<'…'>` and compares the two sets;
+> [Monorepo layout](./web-cli-monorepo.html) has one.
 
 ## Finding providers
 

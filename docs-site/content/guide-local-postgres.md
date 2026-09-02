@@ -81,13 +81,15 @@ Three options, fastest first.
 **Truncate between tests** — milliseconds:
 
 ```ts
-const tables = registeredSchemas()
-  .map(s => `"${s.table}"`)
-  .join(', ');
+import { ALL_TABLES } from './domain/tables.ts'; // [schemaOf<User>(), schemaOf<Post>(), …]
+
+const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');
 beforeEach(() => driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] }));
 ```
 
-`RESTART IDENTITY` resets sequences, so ids are stable across tests. `CASCADE` handles foreign keys. Deriving the table list from `registeredSchemas()` means a new table is included automatically.
+`RESTART IDENTITY` resets sequences, so ids are stable across tests. `CASCADE` handles foreign keys.
+
+The table list is an array you keep, not a registry you query — a schema comes from a type, and a type cannot register itself. A table missing from `ALL_TABLES` is a table this helper silently skips, so pin the array with a test; [Monorepo layout](./web-cli-monorepo.html) has one that walks the source for `extends Table<'…'>`.
 
 **A transaction per test, rolled back** — also fast, and gives perfect isolation, but your code cannot use transactions of its own. That is a real limitation for anything testing `withTransaction`.
 

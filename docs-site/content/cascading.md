@@ -1,7 +1,8 @@
 > **ToDo / feature gap.** Relations carry no cascade configuration. `manyToOne`,
 > `oneToMany`, `oneToOne` and `manyToMany` take a target and a foreign-key column
-> and nothing else, and `references()` emits a plain `REFERENCES` clause with no
-> `ON DELETE` / `ON UPDATE` action. Deleting a parent with children raises a
+> and nothing else, and `References<…>` records a target with no `ON DELETE` /
+> `ON UPDATE` action — it does not reach a generated migration at all, so the
+> `REFERENCES` clause is yours to write. Deleting a parent with children raises a
 > foreign-key violation from the database.
 
 ## Let the database do it
@@ -74,7 +75,7 @@ More typing, and the insert order is visible rather than inferred from a graph w
 
 ## What it would take
 
-Two pieces that can land independently. The DDL half is small: `references(col, target, 'id', { onDelete: 'cascade' })` threading an action into the emitter, plus `diff()` recognising a changed action as an operation. The application half is the one that needs a decision — a `cascade` option on a relation implies the repository walks the relation graph on delete, which means a delete issues an unknown number of statements, which is close to the implicit behaviour the [unit-of-work argument](./anti-patterns.html) rejects. The likely outcome is that the DDL half ships and the application half stays explicit.
+Two pieces that can land independently. The DDL half needs the migration format to carry a foreign key first — [it does not today](./composite-keys.html) — and then a second type argument, `References<'users.id', { onDelete: 'cascade' }>`, threading the action through, plus `diff()` recognising a changed action as an operation. The application half is the one that needs a decision — a `cascade` option on a relation implies the repository walks the relation graph on delete, which means a delete issues an unknown number of statements, which is close to the implicit behaviour the [unit-of-work argument](./anti-patterns.html) rejects. The likely outcome is that the DDL half ships and the application half stays explicit.
 
 ---
 

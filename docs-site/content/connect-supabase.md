@@ -67,13 +67,20 @@ If any client talks to your database through PostgREST, you must add the policie
 
 ## Referencing `auth.users`
 
-Supabase's users live in the `auth` schema, which zmdb's schema objects cannot describe. Reference it by name and accept that the type check is unavailable:
+Supabase's users live in the `auth` schema, which a `Table<…>` declaration cannot describe — a table name is one identifier, not a qualified pair.
 
 ```ts
-userId: references(text(), 'auth.users.id').notNull(),
+userId: string & Sql<'text'>; // FK to auth.users.id, added in a migration
 ```
 
-The two-argument form takes a string and does not verify the target type, which is the correct tool here — there is no schema object for `auth.users` to check against.
+`References<'auth.users.id'>` does not work: the tag is parsed as `table.column`, so a three-part name is refused. Declare the column plainly and add the constraint in a [custom migration](./migrations-custom.html):
+
+```sql
+ALTER TABLE profiles ADD CONSTRAINT profiles_user_fk
+  FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE;
+```
+
+You lose the compile-time check the tag would give you, which is the honest trade — there is no declaration for `auth.users` to check against.
 
 ## Edge Functions
 

@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** `SqlType` has no `geometry` or `geography`, so PostGIS
-> columns cannot be declared in `defineSchema`, and `IndexDef` cannot emit
-> `USING GIST`.
+> **ToDo / feature gap.** `SqlType` has no `geometry` or `geography`, so a PostGIS
+> column cannot be declared — `Sql<'geography'>` is a type error, not an escape
+> hatch — and `IndexDef` cannot emit `USING GIST`.
 
 ## What works today
 
@@ -80,11 +80,18 @@ SELECT id, name, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lo
 You can declare the non-spatial columns and leave `location` out:
 
 ```ts
-export const venues = defineSchema('venues', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Venue extends Table<'venues'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  // location: geography(Point, 4326) — no tag can say this
+}
 ```
+
+Leaving the column out is the only option: `Sql<T>` is constrained to the ten `SqlType`
+members, so there is nothing to write that both typechecks and lies convincingly. A
+comment is more honest than a `Sql<'text'>` that would make `push` emit the wrong DDL.
 
 Repository reads with an explicit `select` work fine. But `create` cannot populate a `NOT NULL` geography column, so inserts must go through raw SQL — or make the column nullable and set it in a second statement, which is worse. In practice: raw SQL for writes, the repository for everything else.
 

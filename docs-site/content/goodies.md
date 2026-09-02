@@ -35,10 +35,10 @@ Useful for spotting portability problems before deploy, and for tests that must 
 ```ts
 import { seedRows } from '@zmdb/schema-core/seeding';
 
-const rows = seedRows(users, { count: 50, seed: 1234 });
+const rows = seedRows(userSchema, { count: 50, seed: 1234 });
 ```
 
-Deterministic for a given seed, and shaped by the column types and validation rules — so a `varchar(20)` gets a string that fits and a `jsonEnum` gets a member. See [Seed Value Generators](./seed-functions.html).
+Deterministic for a given seed, and shaped by the column's SQL type — a `jsonEnum` gets a member, a `timestamp` gets a `Date`. It does **not** read the validation tags, so a constrained column can get a value `repo.create` will reject; [`random<T>()`](./random.html) is the one that honours them. See [Seed Value Generators](./seed-functions.html).
 
 ## Generate a value from any type, not just a schema
 

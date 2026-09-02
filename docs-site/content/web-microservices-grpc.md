@@ -8,7 +8,7 @@ gRPC is not just a transport. It brings a schema language (`.proto`), a code gen
 
 | gRPC                          | zmdb equivalent                                                   |
 | ----------------------------- | ----------------------------------------------------------------- |
-| `.proto` as the schema source | `defineSchema` in TypeScript                                      |
+| `.proto` as the schema source | a TypeScript `interface` with tags                                |
 | `protoc` code generation      | [derived DTOs](./type-derivation.html), no generation step        |
 | protobuf wire format          | JSON, via `stringify`/`parse`                                     |
 | Streaming RPC                 | blocked by the [string response body](./web-streaming-files.html) |
@@ -106,7 +106,7 @@ Both surfaces share one container and one pool — see [Hybrid Applications](./w
 
 Protobuf support in `@zmdb/aot-validator` (a serialization backend alongside JSON), proto loading, `@GrpcMethod` metadata, a server adapter, and streaming — which needs the [response body change](./web-streaming-files.html).
 
-The prerequisite decision is the schema-source question above. The version that fits the project would generate `.proto` _from_ `defineSchema` rather than the reverse, keeping one source of truth. That is a substantial piece of work and has not been scheduled.
+The prerequisite decision is the schema-source question above. The version that fits the project would generate `.proto` _from_ the declared type rather than the reverse, keeping one source of truth — the `TypeIR` that `toJsonSchema` walks is the same input a `.proto` emitter needs. That is a substantial piece of work and has not been scheduled.
 
 ---
 

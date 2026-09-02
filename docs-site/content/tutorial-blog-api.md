@@ -3,13 +3,13 @@ A complete blog API — schema, migrations, repository, HTTP, validation, OpenAP
 ## 1. Install and configure the transformer
 
 ```bash
-yarn add @zmdb/zmdb
+yarn add zmdb
 ```
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import zmdb from '@zmdb/zmdb/unplugin';
+import zmdb from 'zmdb/unplugin';
 
 export default defineConfig({ plugins: [zmdb.vite()] });
 ```
@@ -22,52 +22,63 @@ Two tables and one relation. This file is the only place the shape of a post exi
 
 ```ts
 // src/schema.ts
-import { defineSchema, serial, integer, text, varchar, timestamp, boolean, references } from '@zmdb/schema-core';
-import { oneToMany, manyToOne } from '@zmdb/schema-core/relations';
+import type {
+  HasDefault,
+  Length,
+  ManyToOne,
+  OneToMany,
+  Pattern,
+  PrimaryKey,
+  References,
+  Serial,
+  Sql,
+  Table,
+  Unique,
+} from 'zmdb/tags';
 
-export const authors = defineSchema('authors', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique().validate({ kind: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$' }),
-  name: varchar(80).notNull(),
-});
+export interface Author extends Table<'authors'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
+  name: string & Sql<'varchar'> & Length<80>;
+  posts?: Post[] & OneToMany<'posts', 'authorId'>;
+}
 
-export const posts = defineSchema('posts', {
-  id: serial().primaryKey(),
-  authorId: references(integer(), authors, 'id').notNull(),
-  title: varchar(200).notNull(),
-  body: text().notNull(),
-  published: boolean().notNull().defaultTo(false),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-});
-
-export const authorRelations = { posts: oneToMany(posts, 'authorId') };
-export const postRelations = { author: manyToOne(authors, 'authorId') };
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  authorId: number & Sql<'integer'> & References<'authors.id'>;
+  title: string & Sql<'varchar'> & Length<200>;
+  body: string & Sql<'text'>;
+  published: boolean & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+  author?: Author & ManyToOne<'authors', 'authorId'>;
+}
 ```
 
 The derived types come for free:
 
 ```ts
-import type { Entity, CreateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity } from 'zmdb/derive';
 
-type Post = Entity<typeof posts>;
+type Row = Entity<Post>;
 // { id: number; authorId: number; title: string; body: string; published: boolean; createdAt: Date }
 
-type NewPost = CreateDTO<typeof posts>;
+type NewPost = CreateDTO<Post>;
 // { authorId: number; title: string; body: string; published?: boolean; createdAt?: Date }
 ```
 
-`id` is gone because it is `serial`; `published` and `createdAt` are optional because they have defaults. Nothing said so — it was derived.
+`id` is gone because it is `Serial`; `published` and `createdAt` are optional because they say `HasDefault`. The relations are gone too — a join target is not something to `INSERT`. Nothing restated any of that; it was read off the declaration.
 
 ## 3. Migrations
 
 ```ts
 // scripts/generate.ts
 import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
-import { authors, posts } from '../src/schema.ts';
+import { schemaOf } from 'zmdb';
+import type { Author, Post } from '../src/schema.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const prev = JSON.parse(readFileSync('migrations/snapshot.json', 'utf8'));
-const next = snapshot([authors, posts]);
+const next = snapshot([schemaOf<Author>(), schemaOf<Post>()]);
 
 const sql = diff(prev, next).map(op => emitUp(op, 'postgres'));
 writeFileSync(`migrations/${Date.now()}_auto.sql`, sql.join(';\n') + ';\n');
@@ -81,11 +92,17 @@ Run it, commit both files, and apply with the [runner](./migrations-cli.html). F
 ```ts
 // src/repositories.ts
 import { defineRepository } from '@zmdb/repository';
-import { authors, posts, authorRelations, postRelations } from './schema.ts';
+import { manyToOne, oneToMany } from '@zmdb/schema-core/relations';
+import { schemaOf } from 'zmdb';
+import type { Author, Post } from './schema.ts';
 import { driver } from './driver.ts';
 
-export const authorRepo = defineRepository(authors, driver, { relations: authorRelations });
-export const postRepo = defineRepository(posts, driver, { relations: postRelations });
+export const authorRepo = defineRepository(schemaOf<Author>(), driver, {
+  relations: { posts: oneToMany('posts', 'authorId') },
+});
+export const postRepo = defineRepository(schemaOf<Post>(), driver, {
+  relations: { author: manyToOne('authors', 'authorId') },
+});
 
 export type PostRepo = typeof postRepo;
 ```
@@ -96,6 +113,8 @@ static and constructs it. `findById`, `find`, `findOne`, `list`, `create`, `upda
 `delete`, `aggregate` and the populate/join methods are all typed against the schema
 you passed. Exporting `typeof postRepo` as a named type is what lets a controller
 annotate its injected field.
+
+The `relations` map is the one thing that is still written twice. `OneToMany<'posts', 'authorId'>` on the interface is what shapes the types; the map is what `populate` batches its queries from at runtime, and it does not come out of the declaration yet. Keep the two in step — the targets and foreign keys are the same strings.
 
 ## 5. A driver
 
@@ -126,8 +145,8 @@ import type { Ctx } from '@zmdb/web/context';
 import { assert } from '@zmdb/aot-validator/utilities';
 import type { PostRepo } from './repositories.ts';
 import { postRepoToken } from './tokens.ts';
-import type { CreateDTO } from '@zmdb/schema-core';
-import type { posts } from './schema.ts';
+import type { CreateDTO } from 'zmdb/derive';
+import type { Post } from './schema.ts';
 
 @Controller('/posts')
 export class PostsController {
@@ -151,13 +170,13 @@ export class PostsController {
 
   @HttpPost('/')
   async create(ctx: Ctx<Record<never, string>, unknown>) {
-    const dto = assert<CreateDTO<typeof posts>>(ctx.body); // validator generated from the type
+    const dto = assert<CreateDTO<Post>>(ctx.body); // validator generated from the type
     return this.repo.create(dto);
   }
 }
 ```
 
-`assert<CreateDTO<typeof posts>>` is a validator the transformer derived from the schema, so adding a required column breaks this call site — not the request, at runtime, in production.
+`assert<CreateDTO<Post>>` is a validator the transformer derived from the declaration, so adding a required column breaks this call site — not the request, at runtime, in production.
 
 > [!TIP]
 > `Ctx<Params, Body, Query>` is generic over the three request parts. `PathParams<'/posts/:id'>` derives `{ id: string }` from the path literal if you would rather not restate it. See [Typed Request Context](./web-context.html).
@@ -200,14 +219,15 @@ createServer((req, res) => {
 ```ts
 import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
 import { toOpenApi } from '@zmdb/web/openapi';
-import { authors, posts } from './schema.ts';
+import { schemaOf } from 'zmdb';
+import type { Author, Post } from './schema.ts';
 import { PostsController } from './posts.controller.ts';
 
-const { schemas } = toOpenApiComponents([authors, posts]);
+const { schemas } = toOpenApiComponents([schemaOf<Author>(), schemaOf<Post>()]);
 const doc = toOpenApi([PostsController], { info: { title: 'Blog', version: '1.0.0' }, schemas });
 ```
 
-The response schema for `GET /posts` is the `list` variant of `posts`, generated from the same object that produced the table. See [OpenAPI Generation](./web-openapi.html).
+The response schema for `GET /posts` is the `list` variant of `Post`, generated from the same declaration that produced the table. See [OpenAPI Generation](./web-openapi.html).
 
 ## 9. Tests
 

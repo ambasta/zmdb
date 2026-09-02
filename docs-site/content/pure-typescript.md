@@ -1,129 +1,80 @@
-Runtime validation without the AOT build step. The `@zmdb/aot-validator` package provides validation utilities that work without any build plugin — just import and use.
+What works with no build plugin, and what does not. The short version: a validator call that gets its shape from a **type argument** needs the transformer, because a type argument does not exist at runtime. Everything that gets its shape from a **value** does not.
 
-## When to Use Runtime
-
-- Quick prototyping without build configuration
-- Environments where build plugins aren't available
-- Debugging AOT-transformed code (compare behavior)
-
-> [!NOTE]
-> Runtime validation is slower than AOT (5-24× depending on the case). For production, prefer the AOT setup.
-
-## Basic Usage
+## The part that needs the build step
 
 ```ts
-import { is, assert, validate, equals } from '@zmdb/aot-validator/utilities';
-
-// Type guard — returns boolean
-if (is<User>(payload)) {
-  // TypeScript narrows payload to User here
-  console.log(payload.email);
-}
-
-// Assert — throws on invalid
-const user = assert<User>(payload);
-// user: User (or throws AssertError)
-
-// Validate — returns result object
-const result = validate<User>(payload);
-if (result.success) {
-  console.log(result.data);
-} else {
-  console.log(result.errors);
-}
-
-// Deep equality check
-const same = equals<User>(a, b);
-```
-
-## Result Types
-
-```ts
-// validate() returns this shape:
-interface ValidateResult<T> {
-  success: boolean;
-  data?: T;
-  errors?: readonly {
-    path: string;
-    expected: string;
-    value: unknown;
-    message: string;
-  }[];
-}
-```
-
-## Working with DTOs
-
-Validate against your schema-derived types:
-
-```ts
-import type { CreateDTO } from '@zmdb/schema-core';
-import { assert } from '@zmdb/aot-validator/utilities';
-
-// Type is derived from your schema
-const payload = assert<CreateDTO<typeof UserSchema>>(requestBody);
-```
-
-## Tags for Constraints
-
-Use validation tags for runtime rules:
-
-```ts
-import { tags, validate } from '@zmdb/aot-validator'; // rule-first validate: (rule, value) => boolean
-
-const ok = validate(tags.Min(0), input.price);
-const validEmail = validate(tags.Pattern('^[^@]+@[^@]+$'), input.email);
-```
-
-Available tags:
-
-- `Min(n)`, `Max(n)` — numeric bounds
-- `MinLength(n)`, `MaxLength(n)` — string/array bounds
-- `Pattern(regex)` — RegExp validation
-- `Enum([values])` — allowed values
-
-## Serialization
-
-JSON stringify/parse with validation:
-
-```ts
-import { stringify, parse, assertStringify } from '@zmdb/aot-validator/serialization';
-
-// Serialize (fast, no validation)
-const json = stringify(user);
-
-// Serialize + validate (throws on invalid)
-const safeJson = assertStringify<User>(user);
-
-// Parse + validate
-const result = parse<User>(json);
-if (!result.success) {
-  console.log(result.errors);
-}
-```
-
-## Comparison: Runtime vs AOT
-
-| Aspect      | Runtime               | AOT          |
-| ----------- | --------------------- | ------------ |
-| Setup       | None                  | Build plugin |
-| Performance | Baseline              | 5-24× faster |
-| Output      | `TypeDescriptor` walk | Inline JS    |
-| Debugging   | Easier                | Harder       |
-
-```ts
-// Runtime path (no build)
 import { is } from '@zmdb/aot-validator/utilities';
 
-// After AOT build, this becomes inline JS
-const ok = is<User>(payload);
+is<User>(payload); // needs the transformer
 ```
 
-> [!TIP]
-> Start with runtime validation for development speed. Add the AOT build plugin before deploying to production.
+`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>` and `schemaOf<T>` are the eight calls the transformer rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — `runtime descriptor required in test/fallback mode`, or for `schemaOf<T>()` a longer message naming the plugin that should have run.
+
+> [!IMPORTANT]
+> There is no fallback that inspects `T` at runtime, because there is nothing to inspect.
+> An earlier version of this page described the untransformed path as "slower but working";
+> it fails open, which is worse than failing, so it now throws. See [AOT Setup](./aot-setup.html).
+
+## The part that does not
+
+**Rule-first validation.** `validate(rule, value)` takes the constraint as a value, so it runs anywhere:
+
+```ts
+import { tags, validate } from '@zmdb/aot-validator';
+
+validate(tags.Min(0), input.price); // boolean
+validate(tags.Pattern('^[^@]+@[^@]+$'), input.email);
+validate(tags.Enum('draft', 'review', 'published'), input.status);
+```
+
+| Rule                            | Checks                                  |
+| ------------------------------- | --------------------------------------- |
+| `Min(n)` / `Max(n)`             | a `number` within an inclusive bound    |
+| `MinLength(n)` / `MaxLength(n)` | a `string`'s length                     |
+| `Pattern(re)`                   | a `string` against a regular expression |
+| `Enum(...values)`               | membership — variadic, not an array     |
+
+Every rule answers `false` for a value of the wrong type rather than throwing, and the emitted form has identical boolean semantics — that equivalence is what makes this a safe fallback rather than a second implementation. An unknown `kind` throws.
+
+**Serialization.** Neither `stringify` nor `parse` is transformed, so both work unchanged:
+
+```ts
+import { parse, stringify } from '@zmdb/aot-validator/serialization';
+
+const json = stringify(user); // JSON.stringify, plus one fixed bigint TypeError
+const result = parse(json); // { success, data? , issues? } — malformed JSON is a value, not a throw
+```
+
+`parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the eight.
+
+**A validator with an explicit schema.** Every one of the eight takes an optional second argument — a `RuntimeSchema`, meaning a `TypeIR` or the legacy `TypeDescriptor` shape. That is the escape hatch for a caller that already holds one:
+
+```ts
+import { assert, type RuntimeSchema } from '@zmdb/aot-validator/utilities';
+
+const ir: RuntimeSchema = { kind: 'scalar', scalar: 'string' };
+assert(rawValue, ir); // no type argument, no transformer
+```
+
+Where the IR comes from is the catch: reflecting it from a type is what the build step does. Writing one by hand is reasonable for a scalar and unreasonable for a table.
+
+**Everything that is not the validator.** The query compiler, the repository, `WhereDTO`/`ListDTO` handling, the migration engine, `@zmdb/web`'s routing and DI, and all of the derived DTO _types_ are plain TypeScript and plain functions. They need no plugin. The one exception inside that list is `schemaOf<T>()`, which is how a declaration becomes a runtime schema object — so the value you pass to `defineRepository` comes from the build step even though the repository itself does not.
+
+## Comparison
+
+| Aspect      | Rule-first / explicit IR | Type argument + AOT                     |
+| ----------- | ------------------------ | --------------------------------------- |
+| Setup       | none                     | build plugin                            |
+| Shape from  | a value you wrote        | the type you declared                   |
+| Coverage    | five constraint keywords | the whole type                          |
+| Performance | a `switch` per call      | straight-line, no allocation            |
+| Failure     | `false`                  | `false`, or an `AssertError` with paths |
+
+The performance line is the least interesting one. What the type-argument path buys is that the check cannot drift from the declaration, because there is only one declaration.
 
 ## Cross-links
 
-- [AOT Setup](./aot-setup.html) — build plugin configuration
-- [Validation](./validators-is.html) — full validation API
-- [Benchmarks](./benchmarks.html) — performance comparison
+- [AOT Setup](./aot-setup.html) — configuring the plugin
+- [jit-vs-aot](./jit-vs-aot.html) — what the emitted code looks like
+- [assert](./validators-assert.html) · [validate](./validators-validate.html)
+- [Tag Reference](./tags-reference.html) — the type-level constraint vocabulary

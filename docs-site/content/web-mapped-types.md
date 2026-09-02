@@ -58,10 +58,10 @@ function toPublic(post: Post): PublicPost {
 
 Explicit, checked, and it fails to compile if someone adds a sensitive column and forgets — as long as `PublicPost` is an `Omit` of the real entity rather than a hand-written interface.
 
-`sensitive()` on a column marks it for serialization, and it is worth knowing exactly what that does:
+`Sensitive` on a column marks it, and it is worth knowing exactly what that does:
 
 > [!WARNING]
-> `sensitive()` affects serialization, **not** queries. The column is still
+> `Sensitive` affects the derived types and documents, **not** queries. The column is still
 > selected, still travels from the database into your process, and still appears in
 > anything that stringifies the raw row. Use `select` to avoid fetching it.
 

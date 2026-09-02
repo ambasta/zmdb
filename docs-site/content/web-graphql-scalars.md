@@ -78,10 +78,10 @@ const settings = assert<{ theme: 'light' | 'dark'; notifications: boolean }>(arg
 A scalar validates a wire format. Your business rules belong on the column, where every write path enforces them regardless of which surface the request came in through:
 
 ```ts
-const users = defineSchema('users', {
-  id: serial(),
-  email: varchar(320).notNull().validate({ kind: 'email', message: 'invalid email' }),
-});
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<320> & Pattern<'^\\S+@\\S+$'>;
+}
 ```
 
 An email scalar plus a column rule is the rule written twice. Put it on the column, and REST, GraphQL and a CLI backfill all get it.

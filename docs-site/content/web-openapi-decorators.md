@@ -25,7 +25,7 @@ class CreatePostDto {
 schemas: { '/posts': { body: toJsonSchema(posts, 'create') } }
 ```
 
-The second cannot drift, because it is derived from the same `defineSchema` the queries use. Add a column and the spec updates; make one nullable and the `required` array updates. No annotation to forget. See [OpenAPI Schemas](./openapi.html).
+The second cannot drift, because it is derived from the same declaration the queries use. Add a column and the spec updates; make one nullable and the `required` array updates. No annotation to forget. See [OpenAPI Schemas](./openapi.html).
 
 **Prose and metadata go in a post-processing pass.** The document is a plain object:
 

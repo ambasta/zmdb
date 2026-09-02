@@ -31,7 +31,7 @@ TypeBox's uncompiled `Value.Check` avoids codegen but is much slower. So the cho
 
 ## Real interop: zmdb schema → JSON Schema → TypeBox
 
-`toJsonSchema` emits JSON Schema, and TypeBox consumes JSON Schema by construction — so a `defineSchema` table can validate through TypeBox, ajv, or anything else in that ecosystem:
+`toJsonSchema` emits JSON Schema, and TypeBox consumes JSON Schema by construction — so a declared table can validate through TypeBox, ajv, or anything else in that ecosystem:
 
 ```ts
 import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
@@ -51,7 +51,7 @@ This is the pattern for the dynamic case too: where you need a runtime-defined v
 
 ## Going the other way
 
-There is no JSON-Schema-to-`defineSchema` importer. If you have JSON Schema as your source of truth — a shared API contract, say — you have two options:
+There is no JSON-Schema-to-declaration importer. If you have JSON Schema as your source of truth — a shared API contract, say — you have two options:
 
 - Generate TypeScript types from it (`json-schema-to-typescript`) and validate those with `assert<T>`. The generated types are compile-time input to the transformer, so this works cleanly.
 - Keep ajv for that boundary and use zmdb for your own types.

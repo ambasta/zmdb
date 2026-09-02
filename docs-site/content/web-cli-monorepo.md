@@ -30,45 +30,72 @@ apps/
   worker/         # the outbox consumer
   cli/            # operational scripts
 packages/
-  domain/         # defineSchema tables, services
+  domain/         # table interfaces, services
   contracts/      # shared types and DTOs
 ```
 
-The important part is that **schemas live in a shared package**. `defineSchema` produces the tables, and `Entity`/`CreateDTO`/`UpdateDTO` are derived from them, so the API, the worker and the CLI share one definition and cannot drift:
+The important part is that **the declarations live in a shared package**. A table is an
+interface, and `Entity`/`CreateDTO`/`UpdateDTO` are derived from it, so the API, the worker
+and the CLI share one definition and cannot drift:
 
 ```ts
 // packages/domain/src/posts.ts
-export const posts = defineSchema('posts', { id: serial(), title: varchar(200).notNull() });
-export type Post = Entity<typeof posts>;
+import type { Length, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'varchar'> & Length<200>;
+}
 ```
 
 ```ts
-// apps/api — imports the same table
-import { posts } from '@acme/domain';
+// apps/api — imports the same declaration
+import type { Post } from '@acme/domain';
+
+const posts = defineRepository(schemaOf<Post>(), driver, { dialect: 'postgres' });
 ```
+
+Note what crosses the package boundary: a **type**. `schemaOf<Post>()` is resolved by the
+transformer in the consuming package, from the same `.d.ts` the type checker reads, so
+there is no schema value to export and no import order to get right.
 
 A change to a column is a type error in every consumer at once, which is the whole reason to have the monorepo.
 
-## Registry awareness has a real consequence
+## Nothing enumerates your tables for you
 
-`registeredSchemas()` only knows about modules that have been **imported**. In a monorepo it is easy to have a schema that no entry point imports, which means it is invisible to a migration snapshot — and the migration for it never gets generated.
+There is no registry. A declaration is a type, and a type registers itself nowhere — so the
+list of tables a migration snapshot covers is the **array you pass**:
 
 ```ts
-// packages/domain/src/index.ts — a single barrel that imports every schema
-export * from './posts.ts';
-export * from './users.ts';
-export * from './comments.ts';
+// packages/domain/src/tables.ts — the one list
+import { schemaOf } from '@zmdb/schema-core';
+import type { Comment, Post, User } from './index.ts';
+
+export const ALL_TABLES = [schemaOf<User>(), schemaOf<Post>(), schemaOf<Comment>()];
 ```
 
-Then have your migration script import that barrel, and assert the count:
+```ts
+const ops = diff(previous, snapshot(ALL_TABLES));
+```
+
+A table missing from that array is a table with no migration and no error. The old registry
+had the same failure mode wearing a disguise — it only knew about modules something had
+imported — and an explicit array at least puts the omission in a file a reviewer reads.
+
+Guard it with a test that counts declarations against the list, which is cheap because
+`extends Table<` is greppable:
 
 ```ts
-it('every schema is registered', () => {
-  expect(registeredSchemas()).toHaveLength(SCHEMA_COUNT);
+it('every declared table is in ALL_TABLES', async () => {
+  const sources = await glob('packages/domain/src/**/*.ts');
+  const declared = (await Promise.all(sources.map(f => readFile(f, 'utf8')))).flatMap(text =>
+    [...text.matchAll(/extends Table<'([^']+)'/g)].map(m => m[1]),
+  );
+  expect(new Set(ALL_TABLES.map(s => s.table))).toEqual(new Set(declared));
 });
 ```
 
-A test rather than a convention, because a missing import produces a missing table with no error.
+A test rather than a convention, because the omission is silent either way.
 
 ## Sharing modules, not just types
 
@@ -77,7 +104,9 @@ A module is a class, so a shared package can export one:
 ```ts
 // packages/domain/src/domain.module.ts
 @Module({
-  providers: [{ token: POSTS, useFactory: c => defineRepository(posts, c.resolve(DRIVER), { dialect: 'postgres' }) }],
+  providers: [
+    { token: POSTS, useFactory: c => defineRepository(schemaOf<Post>(), c.resolve(DRIVER), { dialect: 'postgres' }) },
+  ],
 })
 export class DomainModule {}
 ```
@@ -102,7 +131,12 @@ export class AppModule {}
 
 References give incremental builds and enforce that dependencies are declared. The alternative — path mappings into a sibling's `src` — compiles but breaks the moment you publish or build in isolation.
 
-Keep the AOT transformer configured consistently across packages. A shared package built without it exports validators that [fail open](./jit-vs-aot.html), and the app that imports them inherits the problem. Run the canary test in each package that validates:
+Keep the transformer configured consistently across packages — and note that this is not
+optional for a package that declares tables, since `schemaOf<T>()` is compiled away by it
+and [throws](./jit-vs-aot.html) if it was not. A package built without it does not export
+validators that quietly pass; it exports code that throws on first use, which is the
+failure direction you want but still a broken build. Run the canary test in each package
+that validates:
 
 ```ts
 it('the transformer is running', () => {

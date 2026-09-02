@@ -28,7 +28,7 @@ The pagination row is the one that makes it structural. `LIMIT` is a suffix the 
 
 Nothing in zmdb. The parts that do transfer are the ones with no SQL in them:
 
-- `defineSchema`, `Entity<S>`, `CreateDTO<S>`, `WhereDTO<S>` — types
+- the declaration and `Entity<T>` / `CreateDTO<T>` / `WhereDTO<T>` — types
 - the AOT validators, `toJsonSchema`, `toOpenApi` — no SQL
 - `@zmdb/web` in full — no SQL
 

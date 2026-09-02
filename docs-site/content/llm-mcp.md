@@ -68,7 +68,7 @@ Every tool's input schema comes from the schema object and every invocation vali
 
 **An MCP server is a remote API with a model driving it.** The model chooses which tools to call and with what arguments, based on text it was given — which may include text from an untrusted source. So:
 
-- **Whitelist tools explicitly.** Do not iterate `registeredSchemas()` and expose CRUD over everything. The `TOOLS` object above is a decision per operation, which is the right granularity.
+- **Whitelist tools explicitly.** Do not loop over your tables and expose CRUD across all of them. The `TOOLS` object above is a decision per operation, which is the right granularity — and since nothing enumerates your tables for you, the lazy version takes deliberate effort to write.
 - **No `run_sql` tool.** See [HTTP Proxy](./connect-http-proxy.html) — a tool that executes arbitrary SQL is a remote database console with a language model at the keyboard.
 - **Authorise the caller, not the request.** The model's arguments cannot be trusted to say who it is acting for. Scope every query by an identity from the transport's authentication, the way [multi-tenancy](./entity-filters.html) does.
 - **Read-only by default.** Expose reads first. Add each write deliberately, and gate the destructive ones.

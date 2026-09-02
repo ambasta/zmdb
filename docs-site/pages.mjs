@@ -35,6 +35,7 @@ export const NAV = [
       'migrate-from-sequelize',
       'migrate-from-prisma',
       'web-faq',
+      'codemod',
     ],
   },
   {
@@ -43,7 +44,7 @@ export const NAV = [
       'schema-declaration',
       'column-types',
       'type-derivation',
-      'decorators-reference',
+      'tags-reference',
       'relations',
       'composite-keys',
       'bigint-keys',
@@ -117,6 +118,7 @@ export const NAV = [
     pages: [
       'cli-overview',
       'config-file',
+      'cli-codegen',
       'cli-generate',
       'cli-migrate',
       'cli-push',
@@ -486,6 +488,11 @@ export const PAGE_META = {
     group: 'Migrating to zmdb',
     status: 'supported',
   },
+  codemod: {
+    title: 'Codemod: defineSchema → a type',
+    group: 'Migrating to zmdb',
+    status: 'supported',
+  },
   'schema-declaration': {
     title: 'Schema Declaration',
     group: 'Schema',
@@ -501,8 +508,8 @@ export const PAGE_META = {
     group: 'Schema',
     status: 'supported',
   },
-  'decorators-reference': {
-    title: 'Schema Builder Reference',
+  'tags-reference': {
+    title: 'Tag Reference',
     group: 'Schema',
     status: 'supported',
   },
@@ -821,6 +828,11 @@ export const PAGE_META = {
     group: 'CLI',
     status: 'todo',
     note: 'no zmdb.config.ts loader',
+  },
+  'cli-codegen': {
+    title: 'zmdb-codegen',
+    group: 'CLI',
+    status: 'supported',
   },
   'cli-generate': {
     title: 'generate',

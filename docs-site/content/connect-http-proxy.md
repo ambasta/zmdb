@@ -85,7 +85,7 @@ Better still: skip the generic layer and write ordinary endpoints. `@Controller(
 **JSON type erosion.** `Date` becomes a string, `bigint` will not serialize at all. Handle it in the proxy and validate on the client:
 
 ```ts
-const rows = (await res.json()).map(r => assert<Entity<typeof users>>(revive(r)));
+const rows = (await res.json()).map(r => assert<Entity<User>>(revive(r)));
 ```
 
 ## Where it is genuinely the right answer

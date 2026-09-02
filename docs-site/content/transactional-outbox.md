@@ -18,20 +18,26 @@ The outbox fixes it by making the publish a _database write_, and moving the act
 ## The table
 
 ```ts
-export const outbox = defineSchema('outbox', {
-  id: serial().primaryKey(),
-  topic: text().notNull(),
-  payload: json<Record<string, unknown>>().notNull(),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-  publishedAt: timestamp().nullable(),
-  attempts: integer().notNull().defaultTo(0),
-});
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Outbox extends Table<'outbox'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  topic: string & Sql<'text'>;
+  payload: Record<string, unknown> & Sql<'json'>;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+  publishedAt: (Date & Sql<'timestamp'>) | null;
+  attempts: number & Sql<'integer'> & HasDefault;
+}
 
 createIndexDdl(
   { name: 'outbox_unpublished', table: 'outbox', columns: ['created_at'], where: 'published_at IS NULL' },
   'postgres',
 );
 ```
+
+`publishedAt` being `| null` rather than absent is the whole state machine: a row is
+unpublished until it is not. `createdAt` and `attempts` say `HasDefault`, so the migration
+carries `DEFAULT now()` and `DEFAULT 0` — the values live in the DDL, not the declaration.
 
 The partial index matters: the relay scans only unpublished rows, and that set stays small even when the table does not. Partial indexes are supported — `IndexDef` has a `where` field.
 
@@ -102,7 +108,7 @@ Keep the periodic poll. A missed notification — a reconnect, a restart — mus
 
 ## What it would take
 
-An `outbox` schema and repository in `@zmdb/repository`, a `relay(driver, publish, opts)` function with backoff built in, and something to run it on a timer. The last one is the blocker: without a scheduler in `@zmdb/web`, a shipped outbox would still leave the operationally hard half to the user, so this sits behind [task scheduling](./web-task-scheduling.html).
+An `Outbox` declaration and repository in `@zmdb/repository`, a `relay(driver, publish, opts)` function with backoff built in, and something to run it on a timer. The last one is the blocker: without a scheduler in `@zmdb/web`, a shipped outbox would still leave the operationally hard half to the user, so this sits behind [task scheduling](./web-task-scheduling.html).
 
 ---
 

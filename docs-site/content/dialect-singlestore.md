@@ -41,15 +41,15 @@ Sharding on `customer_id` means a query filtered by customer touches one partiti
 
 **Rowstore versus columnstore.** SingleStore's default for new tables is columnstore, which is excellent for aggregates and poor for single-row point lookups and updates. `CREATE TABLE` with no `SORT KEY` and no explicit rowstore hint is a decision being made by omission. If a table is your transactional hot path, declare it rowstore.
 
-**No foreign keys.** SingleStore does not enforce them. `references()` DDL will be rejected or ignored depending on version, and the type-level FK check in `references(col, target, 'id')` still works — it just has no database counterpart. Referential integrity is your application's job here, which is a reason to be stricter about doing writes through repositories.
+**No foreign keys.** SingleStore does not enforce them, so a hand-written `REFERENCES` clause will be rejected or ignored depending on version. `References<'users.id'>` on the column costs you nothing here — it reaches the IR and the query compiler, and a generated migration would not emit the constraint anyway — `ColumnSnapshot` models name, type, nullability, primary key and length, and has no place for a foreign key — so the `REFERENCES` clause is hand-written in a [custom migration](./migrations-custom.html) today. Referential integrity is your application's job here, which is a reason to be stricter about doing writes through repositories.
 
-**Unique indexes must include the shard key.** A `unique()` column that is not part of the shard key cannot be enforced globally, and SingleStore will reject the index. So `email: text().notNull().unique()` fails on a table sharded by `id`. Either shard by `email` or drop the constraint and enforce uniqueness in the application — with the race that implies.
+**Unique indexes must include the shard key.** A `Unique` column that is not part of the shard key cannot be enforced globally, and SingleStore will reject the index. So `email: string & Sql<'text'> & Unique` fails on a table sharded by `id`. Either shard by `email` or drop the constraint and enforce uniqueness in the application — with the race that implies.
 
 **`AUTO_INCREMENT` is per-partition.** Ids are unique but not monotonic across the cluster, so anything that assumes "higher id means newer" is wrong. [Keyset pagination](./guide-cursor-pagination.html) ordered by id is therefore unreliable — order by a timestamp plus a tie-break instead.
 
 ## What a real dialect would change
 
-A `shardKey` / `sortKey` option on `SchemaOptions` flowing into the DDL emitter, a rowstore/columnstore flag, suppressing foreign-key emission, and a validation rule rejecting a `unique()` column that is not in the shard key — that last one is the most valuable part, because it turns a deploy-time error into a compile-time one.
+`ShardKey<…>` and `SortKey<…>` tags on the `extends` clause — the same place `Fts<…>` sits, because both are facts about the table rather than about one column — flowing into the DDL emitter, plus a rowstore/columnstore flag, suppressed foreign-key emission, and a reflection refusal for a `Unique` column outside the shard key. That last one is the most valuable part, because it turns a deploy-time error into a compile-time one.
 
 ---
 

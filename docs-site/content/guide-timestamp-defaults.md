@@ -3,18 +3,27 @@
 ## Database clock
 
 ```ts
-import { defineSchema, serial, text, timestamp } from '@zmdb/schema-core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-export const posts = defineSchema('posts', {
-  id: serial().primaryKey(),
-  title: text().notNull(),
-  createdAt: timestamp().defaultTo('now()').notNull(),
-});
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
 ```
 
-`defaultTo('now()')` emits `DEFAULT now()` in the DDL, so the database stamps the row. One clock for every writer, and it works for inserts from a migration or a `psql` session too. This is the right default.
+`HasDefault` makes `createdAt` optional in `CreateDTO<Post>` and says the database will fill
+it. It does not say _with what_ — a type cannot hold a runtime value — so the function name
+goes in the [migration](./migrations-custom.html), which is the only place a dialect is
+actually chosen:
 
-The function name is dialect-specific, and the string is passed through:
+```sql
+ALTER TABLE "posts" ALTER COLUMN "created_at" SET DEFAULT now();
+```
+
+One clock for every writer, and it works for inserts from a migration or a `psql` session too. This is the right default.
+
+The function name is dialect-specific:
 
 | Dialect  | Use                                         |
 | -------- | ------------------------------------------- |
@@ -22,7 +31,9 @@ The function name is dialect-specific, and the string is passed through:
 | MySQL    | `CURRENT_TIMESTAMP`                         |
 | SQLite   | `CURRENT_TIMESTAMP`                         |
 
-`now()` is not portable, so a schema targeting more than one dialect needs a value per dialect or the application clock instead.
+The declaration is portable across all three; the default expression is not, which is one
+argument for keeping it in the migration where it is visible rather than in a schema that
+claims to be dialect-neutral.
 
 > [!NOTE]
 > In Postgres, `now()` is the **transaction** start time. Every row inserted in one
@@ -33,8 +44,11 @@ The function name is dialect-specific, and the string is passed through:
 ## Application clock
 
 ```ts
-createdAt: timestamp().notNull(),
+createdAt: Date & Sql<'timestamp'>;
 ```
+
+Drop `HasDefault` and the column becomes required in `CreateDTO`, so the compiler asks for
+the value:
 
 ```ts
 await repo.create({ title, createdAt: new Date() });
@@ -49,14 +63,18 @@ There is no hook that maintains it in the DDL, and no `ON UPDATE CURRENT_TIMESTA
 **A repository hook** — typed, in your code:
 
 ```ts
-class PostRepository extends BaseRepository<typeof posts> {
-  protected override preUpdate(row: UpdateDTO<typeof posts>) {
-    return { ...row, updatedAt: new Date() };
+const postSchema = schemaOf<Post>();
+
+class PostRepository extends BaseRepository<typeof postSchema> {
+  protected override preUpdate(row: Record<string, unknown>): void {
+    row.updatedAt = new Date();
   }
 }
 ```
 
-Applies to writes through this repository only. Anything writing directly to the table bypasses it.
+The hook mutates the payload in place and returns nothing, which is why it runs before the
+`SET` clause is built. It applies to writes through this repository only — anything writing
+directly to the table bypasses it.
 
 **A trigger** — in a [custom migration](./migrations-custom.html):
 
@@ -80,15 +98,22 @@ The one that causes data loss. Postgres has two types:
 - `timestamp` — no time zone. Stores wall-clock digits with no offset, so `12:00` is meaningless without knowing where.
 - `timestamptz` — stores an instant, converting on the way in and out.
 
-**Use `timestamptz` for anything that happened.** `timestamp()` in zmdb emits `TIMESTAMP`; for `timestamptz` you need a [custom migration](./migrations-custom.html) for the column type. Do it — a table of `timestamp` columns written from servers in different zones cannot be repaired, because the information needed to interpret them was never stored.
+**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>`
+emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all
+three dialects, so the instant is what crosses the boundary rather than a set of digits. The
+old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration;
+that is no longer a thing you have to remember, because a table of zone-less timestamps
+written from servers in different regions cannot be repaired — the information needed to
+interpret them was never stored.
 
-MySQL's `DATETIME` has no zone and `TIMESTAMP` converts using the session zone. SQLite has no date type at all — it stores text or a number, and comparisons are lexicographic, so store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.
+SQLite has no date type at all — it stores `TEXT`, and comparisons are lexicographic, so
+store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.
 
 Store UTC, convert at the edges, format in the user's zone in the UI. Never store local time.
 
 ## Reading them back
 
-node-postgres parses `timestamp`/`timestamptz` to `Date`. mysql2 gives you `Date` or a string depending on configuration. SQLite gives you whatever you stored. So `Entity<S>` says `Date` and your driver may hand you a string:
+node-postgres parses `timestamp`/`timestamptz` to `Date`. mysql2 gives you `Date` or a string depending on configuration. SQLite gives you whatever you stored. So `Entity<Post>` says `Date` and your driver may hand you a string:
 
 ```ts
 const at = row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt));
@@ -98,4 +123,4 @@ Normalise in the driver wrapper rather than at every call site — that is what 
 
 ---
 
-See also: [Column Types](./column-types.html) · [Custom Migrations](./migrations-custom.html) · [Array and JSON defaults](./guide-array-defaults.html)
+See also: [Column Types](./column-types.html) · [Tag Reference](./tags-reference.html) · [Custom Migrations](./migrations-custom.html) · [Array and JSON defaults](./guide-array-defaults.html)

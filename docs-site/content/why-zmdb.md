@@ -15,29 +15,37 @@ The same `User` shape is described four times. Nothing checks that the four desc
 
 ## What zmdb does instead
 
-One schema object is the source of truth, and everything else is **derived from it by the type system**:
+One **TypeScript interface** is the source of truth, and everything else is **derived from it by the type system**:
 
 ```ts
-import { defineSchema, serial, text, timestamp, primaryKey, notNull } from '@zmdb/schema-core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
-export const users = defineSchema('users', {
-  id: primaryKey(serial()),
-  email: notNull(text()),
-  createdAt: notNull(timestamp()),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
 ```
+
+There is no schema _object_ to write. The table name, the column types, the key and the
+constraints are all on the type, carried by intersection tags that erase to nothing at
+runtime — `zmdb/tags` has no runtime exports at all, so that import disappears from your
+build output.
 
 From that one declaration you get, with no second declaration and no runtime reflection:
 
-- `Entity<typeof users>` — the row type
-- `CreateDTO<typeof users>` — insert payload, with `id` omitted because it is `serial`
-- `UpdateDTO<typeof users>` — every field optional
-- `WhereDTO<typeof users>` — filters, typed per column
+- `Entity<User>` — the row type
+- `CreateDTO<User>` — insert payload, with `id` **absent** because it is `Serial` and
+  `createdAt` optional because it `HasDefault`
+- `UpdateDTO<User>` — every field optional, identity columns dropped
+- `WhereDTO<User>` — filters, typed per column
+- `ReadDTO<User>` — the row minus every `Sensitive` column
+- `schemaOf<User>()` — the schema value the repository and the migration snapshot take
 - the compiled SQL, per dialect
 - the JSON Schema and OpenAPI components
-- the validator, generated at build time by the AOT transformer
+- the validator, emitted as straight-line JavaScript at build time
 
-If you delete `email` from the schema, every one of those changes in the same commit, and the ones that cannot change break the build.
+If you delete `email` from the interface, every one of those changes in the same commit, and the ones that cannot change break the build.
 
 ## Three design rules
 

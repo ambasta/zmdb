@@ -1,6 +1,6 @@
 TypeORM's Active Record and Data Mapper patterns both assume entity instances with behaviour. zmdb has neither, so the migration is a rewrite of the data layer's shape, not a find-and-replace.
 
-## Entity → schema object
+## Entity class → entity interface
 
 ```ts
 // TypeORM
@@ -14,14 +14,27 @@ export class User extends BaseEntity {
 
 ```ts
 // zmdb
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique(),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-});
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
 ```
 
-`@CreateDateColumn` / `@UpdateDateColumn` have no decorator equivalent. `createdAt` is a default in the DDL; `updatedAt` is either a database trigger or a value you set in a [lifecycle hook](./lifecycle-hooks.html) — explicitly, in your code, where you can test it.
+The decorators become intersection tags on the property, and the class becomes an
+`interface`. The differences that will bite during a port:
+
+- **There is no value here.** `User` is a type; `schemaOf<User>()` is what produces the
+  schema value a repository takes, and it is compiled away at build time.
+- **No `@Column` needed.** Every property is a column unless its type is a relation.
+- **Nullability is `| null`**, not an option object — and the tags go _inside_ the
+  parentheses: `(Date & Sql<'timestamp'>) | null`.
+- **`HasDefault` says the column _has_ a default, not which one.** A default is a runtime
+  value and no type holds one, so `now()` lives in the migration.
+
+`@CreateDateColumn` / `@UpdateDateColumn` have no equivalent. `createdAt` is `HasDefault` plus a `SET DEFAULT now()` in the DDL; `updatedAt` is either a database trigger or a value you set in a [lifecycle hook](./lifecycle-hooks.html) — explicitly, in your code, where you can test it. See [Timestamp defaults](./guide-timestamp-defaults.html).
 
 ## Repository
 
@@ -47,8 +60,24 @@ TypeORM's `Repository<T>` is the closest thing in either library, so this part m
 `@ManyToOne` / `@OneToMany` / `@JoinTable` become entries in a relations map:
 
 ```ts
-export const postRelations = { author: manyToOne(users, 'authorId') };
-export const userRelations = { posts: oneToMany(posts, 'authorId') };
+import type { ManyToOne, OneToMany } from 'zmdb/tags';
+
+export interface Post extends Table<'posts'> {
+  authorId: number & Sql<'integer'> & References<'users.id'>;
+  author?: User & ManyToOne<'users', 'authorId'>;
+  comments?: Comment[] & OneToMany<'comments', 'postId'>;
+}
+```
+
+The tag carries the target table and the column holding the join; cardinality comes from the
+declared type — `User & …` is to-one, `Comment[] & …` is to-many — so there is nothing to
+decode and nothing that can disagree with the property. Make relation properties optional:
+`Entity<T>` excludes them, and a row only has one when you asked for it. `populate` additionally needs a runtime
+relations map, which is a gap rather than a design — for now you write both:
+
+```ts
+export const postRelations = { author: manyToOne(schemaOf<User>(), 'authorId') };
+export const userRelations = { posts: oneToMany(schemaOf<Post>(), 'authorId') };
 ```
 
 `eager: true` has no equivalent — that is lazy loading with the switch flipped, and both are excluded. Ask for what you want with `populate`. See [Loading Strategies](./loading-strategies.html).
@@ -57,17 +86,20 @@ export const userRelations = { posts: oneToMany(posts, 'authorId') };
 
 ## Migrations
 
-TypeORM's `migration:generate` diffs entities against the live database. zmdb diffs schema objects against a **committed snapshot file**, and never reads the database to work out what to do:
+TypeORM's `migration:generate` diffs entities against the live database. zmdb diffs the declarations against a **committed snapshot file**, and never reads the database to work out what to do:
 
 ```ts
-const ops = diff(JSON.parse(readFileSync('migrations/snapshot.json', 'utf8')), snapshot([users, posts]));
+const ops = diff(
+  JSON.parse(readFileSync('migrations/snapshot.json', 'utf8')),
+  snapshot([schemaOf<User>(), schemaOf<Post>()]),
+);
 ```
 
 That means generation works offline and in CI, and it means the snapshot is a reviewable artefact in the diff. It also means zmdb cannot detect drift a human made by hand — see [pull](./cli-pull.html).
 
 ## `synchronize: true` has no equivalent
 
-Emitting DDL directly from schema objects is [push](./cli-push.html), and it is a script you run knowingly, not a config flag that runs at boot.
+Emitting DDL directly from the declarations is [push](./cli-push.html), and it is a script you run knowingly, not a config flag that runs at boot.
 
 ## Connection / DataSource
 

@@ -1,8 +1,10 @@
 ## Do I have to run the transformer?
 
-Yes, if you use `is`, `assert`, `validate`, `stringify`, `parse` or `random`. Those functions accept an optional `TypeDescriptor` and the transformer's job is to fill it in from `T`. Without the transformer, a call like `assert<User>(raw)` has nothing to check against.
+Yes, if you write a type argument. The eight calls it rewrites are `is`, `assert`, `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema` and `schemaOf` — it replaces each with code emitted from the reflected type. Without it, `assert<User>(raw)` has nothing to check against and **throws**; it does not quietly accept.
 
-The schema, DTO types, query compiler and repository all work without the transformer — those are types plus plain functions. See [AOT Setup](./aot-setup.html).
+`schemaOf<T>()` is on that list, which is the part worth noticing: the schema _value_ your repository takes comes from the build step even though the repository does not.
+
+`stringify`, `parse`, `decode` and `assertStringify` are _not_ transformed, and neither are the DTO types, the query compiler, the migration engine or `@zmdb/web` — those are types plus plain functions. See [AOT Setup](./aot-setup.html) and [Pure TypeScript](./pure-typescript.html).
 
 ## Why is there no `zmdb` command?
 

@@ -224,7 +224,7 @@ export const MIKRO_ORM = {
   'defining-entities': 'schema-declaration',
   'define-entity': 'schema-declaration',
   'using-decorators': 'schema-declaration',
-  'decorators': 'decorators-reference',
+  'decorators': 'tags-reference',
   'relationships': 'relations',
   'collections': ap(
     'A `Collection` is a lazy-loading proxy: reading `book.tags` can issue a query, ' +

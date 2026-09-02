@@ -1,43 +1,48 @@
-`json<T>()` holds arrays and objects, and `defaultTo` gives them a default. Two traps: where the default lives, and shared references.
+A `json` column holds arrays and objects, and its shape is part of the declaration. Two things to get right: where the default value lives, and what `HasDefault` does and does not say.
 
 ## Declaring one
 
 ```ts
-import { defineSchema, serial, text, json } from '@zmdb/schema-core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  tags: json<string[]>().defaultTo([]),
-  prefs: json<{ theme: 'light' | 'dark'; digest: boolean }>().defaultTo({ theme: 'dark', digest: true }),
-});
+interface Preferences {
+  theme: 'light' | 'dark';
+  digest: boolean;
+}
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  tags: string[] & Sql<'json'> & HasDefault;
+  prefs: Preferences & Sql<'json'> & HasDefault;
+}
 ```
 
-`tags` and `prefs` are optional in `CreateDTO` because they have defaults, and fully typed in `Entity`. Always supply the type parameter — bare `json()` is `unknown` and forces a cast at every read.
+`tags` and `prefs` are optional in `CreateDTO` because they say `HasDefault`, and fully typed in `Entity` — `row.prefs.theme` is `'light' | 'dark'`, not `unknown`.
 
-## Where the default is applied
+The shape is on the property, so there is nothing to remember to supply. `json<T>()` used to take its payload as a type argument you could simply omit, and a bare `json()` gave you `unknown` and a cast at every read. That failure mode is gone: a `json` column's type is the type you wrote.
 
-`defaultTo` emits a column `DEFAULT` in the generated DDL, so the database applies it — which means it also applies to rows inserted by anything else, including a migration or a `psql` session. That is the behaviour you want.
+## Where the default value lives
+
+**Not in the schema.** `HasDefault` says the column _has_ a default, not _which one_, and it cannot say which one: a default is a runtime value and no type holds one.
+
+So write it in the [migration](./migrations-custom.html), where the DDL is written anyway:
+
+```sql
+ALTER TABLE "users" ALTER COLUMN "tags" SET DEFAULT '[]'::jsonb;
+ALTER TABLE "users" ALTER COLUMN "prefs" SET DEFAULT '{"theme":"dark","digest":true}'::jsonb;
+```
+
+The database applies it, which means it also applies to rows inserted by anything else — a migration, a `psql` session, another service. That is the behaviour you want, and it is why this is the right home for the value rather than a consolation prize.
 
 > [!WARNING]
-> A default only fills a column that is **omitted**. Passing `undefined`
-> explicitly is still an omission, but passing `null` is not — it stores `null`
-> and you will read `null` from a column your type says is `string[]`.
+> A default only fills a column that is **omitted**. Passing `undefined` explicitly is still an omission, but passing `null` is not — it stores `null`, and you will read `null` from a column your type says is `string[]`.
 
-## The shared-reference trap
+## The shared-reference trap is gone
 
-```ts
-const EMPTY: string[] = [];
-tags: json<string[]>().defaultTo(EMPTY),   // careful
-```
+The old `defaultTo([])` put a real array into the schema object, and anything that mutated a default read back out of the schema mutated it for every row that had used it — the `useState([])` versus a module-level array problem, one layer down.
 
-The schema object holds a reference to that array. Anything that mutates a default read out of the schema mutates it for every row that used it. Since the default is serialised into DDL rather than handed to your rows this is mostly harmless in zmdb — but if you also use the schema for [seeding](./seed-functions.html) or fixtures, pass a fresh literal:
-
-```ts
-tags: json<string[]>().defaultTo([]),   // fresh literal, no shared reference
-```
-
-Same reasoning as `useState([])` versus a module-level array.
+There is nothing to share now. `HasDefault` is a phantom symbol slot that erases at compile time, so the schema value carries no array to alias. The trap closed as a side effect of the value moving to the migration; it is worth knowing it was there, because a `defineSchema` codebase being converted still has the mutable defaults in it and the [codemod](./codemod.html) reports each one it drops.
 
 ## Reading and writing
 
@@ -65,28 +70,30 @@ Deduplicating requires more SQL, at which point a join table is the better desig
 
 ## A real array column instead
 
-Postgres has native `text[]`, and `SqlType` does not include it — the ten types are `serial integer bigint numeric text varchar boolean timestamp json jsonEnum`. So a genuine array column needs a hand-written [migration](./migrations-custom.html) and a `json<string[]>()` declaration that lies slightly about the storage type. It works for reads and writes; DDL generation for that table then has to be yours.
+Postgres has native `text[]`, and `SqlType` does not include it — the ten types are `serial integer bigint numeric text varchar boolean timestamp json jsonEnum`. So a genuine array column needs a hand-written [migration](./migrations-custom.html) and a `Sql<'json'>` declaration that lies slightly about the storage type. It works for reads and writes; DDL generation for that table then has to be yours.
 
 Usually `json` is fine. Where you need `ANY`, `@>` or a GIN index over array elements, take the migration.
 
 ## Prefer a join table when you query the contents
 
 ```ts
-export const userTags = defineSchema('user_tags', {
-  userId: references(integer(), users, 'id').notNull(),
-  tag: varchar(64).notNull(),
-});
+import type { Length, PrimaryKey, References, Sql, Table } from 'zmdb/tags';
+
+export interface UserTag extends Table<'user_tags'> {
+  userId: number & Sql<'integer'> & References<'users.id'> & PrimaryKey;
+  tag: string & Sql<'varchar'> & Length<64> & PrimaryKey;
+}
 ```
 
-If you ever filter, group or count by tag, this is the right model — it indexes, it joins, and it does not need JSON operators. Keep `json` for opaque blobs you read whole, like `prefs`.
+If you ever filter, group or count by tag, this is the right model — it indexes, it joins, and it does not need JSON operators. Two `PrimaryKey` tags say composite, which is what stops the same tag being attached twice — though the DDL emitter does not yet write that as one table constraint, so this table wants a [hand-written migration](./migrations-custom.html); see [Composite Keys](./composite-keys.html). Keep `json` for opaque blobs you read whole, like `prefs`.
 
-## Enum-valued arrays
+## Enum-valued columns
 
 ```ts
-status: jsonEnum(['draft', 'published', 'archived'] as const).defaultTo('draft'),
+status: ('draft' | 'published' | 'archived') & HasDefault;
 ```
 
-The `as const` is not optional. Without it the array widens to `string[]` and you get `string` instead of the union — losing the narrowing that was the entire point, silently.
+A literal union, and that is all. There is no `jsonEnum` tag and no `as const` to forget: the old `jsonEnum(['draft', 'published'] as const)` widened to `string[]` without the `as const`, silently giving you `string` instead of the union and losing the narrowing that was the entire point. A union type cannot widen by accident.
 
 ---
 

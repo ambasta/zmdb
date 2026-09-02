@@ -4,13 +4,16 @@ Seeding generates deterministic test data from your schema. Use `seedRows` to cr
 
 ```ts
 import { seedRows, makeRng } from '@zmdb/schema-core/seeding';
-import { UserSchema } from './schemas';
+import { userSchema } from './schemas.js';
 
 // Generate 100 rows with default seed (1)
-const rows = seedRows(UserSchema, { count: 100 });
+const rows = seedRows(userSchema, { count: 100 });
 
-// rows => [{ id: 12345, name: 's3k1w9d', email: 's2m5p8k', ... }, ...]
+// rows => [{ name: 's3k1w9d', email: 's2m5p8k', ... }, ...]
 ```
+
+`seedRows` takes the **schema object** — `schemaOf<User>()` — not the type, because it walks
+`CoreSchema.columns` at runtime. `Record<string, unknown>[]` out, shaped like `CreateDTO<User>`.
 
 ## Deterministic Generation
 
@@ -18,8 +21,8 @@ Pass a seed for reproducible output:
 
 ```ts
 // Same seed = same rows every time
-const rows1 = seedRows(UserSchema, { seed: 42, count: 10 });
-const rows2 = seedRows(UserSchema, { seed: 42, count: 10 });
+const rows1 = seedRows(userSchema, { seed: 42, count: 10 });
+const rows2 = seedRows(userSchema, { seed: 42, count: 10 });
 
 // rows1 === rows2 (structurally equal)
 ```
@@ -48,19 +51,28 @@ The seeder handles these types:
 | `jsonEnum`                    | Random enum value                   |
 | `text`, `varchar`             | Random string (`s` + base36 number) |
 
-Columns with `autoIncrement` or `hasDefault` are skipped.
+Columns flagged `autoIncrement` or `hasDefault` are skipped, which is what makes the output a
+`create` shape:
 
 ```ts
-const SchemaWithDefaults = defineSchema('t', {
-  id: serial().primaryKey(), // skipped (autoIncrement)
-  createdAt: timestamp().defaultNow(), // skipped (hasDefault)
-  name: text(), // generated
-  active: boolean(), // generated
-});
+export interface Thing extends Table<'things'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey; // skipped — Serial sets autoIncrement
+  createdAt: Date & Sql<'timestamp'> & HasDefault; //    skipped — hasDefault
+  name: string & Sql<'text'>; //                         generated
+  active: boolean & Sql<'boolean'>; //                   generated
+}
 ```
 
-> [!NOTE]
-> Seeding doesn't respect custom types or validators. It generates raw values based on column type.
+> [!IMPORTANT]
+> The seeder reads `ColumnMeta.type` and those two flags, and nothing else. It does not
+> honour nullability, a `Codec`, `Length<N>`, `Numeric<P, S>`, or any of the validation
+> tags — a nullable column always gets a value, and a `Min<18>` column gets whatever the
+> PRNG produced. Rows can therefore fail `repo.create`'s own validation.
+>
+> Where you need a value that satisfies its constraints, use
+> [`random<T>()`](./random.html): it reads the same tags the validator emits from, and
+> refuses outright where it cannot honour one (a `Pattern`, say) rather than producing
+> something that will be rejected later.
 
 ## Custom Generation
 
@@ -82,13 +94,15 @@ const users = Array.from({ length: 50 }, () => ({
 
 ```ts
 async function seedDatabase(repo: UserRepository, count: number) {
-  const rows = seedRows(UserSchema, { count });
-
-  for (const row of rows) {
-    await repo.create(row);
+  for (const row of seedRows(userSchema, { count })) {
+    await repo.create(row as CreateDTO<User>);
   }
 }
 ```
+
+The cast is the one wart: the rows have the `CreateDTO<User>` _shape_ but the declared return
+type is `Record<string, unknown>[]`, because `seedRows` is parameterised on the schema value
+rather than on the declared type. See [Seed Value Generators](./seed-functions.html).
 
 > [!TIP]
 > Use a transaction for bulk seeds to improve performance and ensure atomicity.

@@ -1,33 +1,34 @@
 > **ToDo / feature gap.** There is no chat abstraction — no message history type,
-> no conversation manager, no streaming helper. What follows is built from
-> `defineSchema`, the repository and `@zmdb/web`, all of which exist.
+> no conversation manager, no streaming helper. What follows is built from a schema
+> declaration, the repository and `@zmdb/web`, all of which exist.
 
 ## The tables
 
 ```ts
-import { defineSchema, serial, text, timestamp, integer, jsonEnum, json, references } from '@zmdb/schema-core';
+import type { HasDefault, OneToMany, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
-export const conversations = defineSchema('conversations', {
-  id: serial().primaryKey(),
-  userId: references(integer(), users, 'id').notNull(),
-  title: text().nullable(),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-});
+export interface Conversation extends Table<'conversations'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  title: (string & Sql<'text'>) | null;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+  messages?: Message[] & OneToMany<'messages', 'conversationId'>;
+}
 
-export const messages = defineSchema('messages', {
-  id: serial().primaryKey(),
-  conversationId: references(integer(), conversations, 'id').notNull(),
-  role: jsonEnum(['user', 'assistant', 'tool'] as const).notNull(),
-  content: text().notNull(),
-  toolUse: json<{ name: string; input: unknown } | null>().nullable(),
-  tokens: integer().nullable(),
-  createdAt: timestamp().notNull().defaultTo('now()'),
-});
-
-export const conversationRelations = { messages: oneToMany(messages, 'conversationId') };
+export interface Message extends Table<'messages'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  conversationId: number & Sql<'integer'> & References<'conversations.id'>;
+  role: 'user' | 'assistant' | 'tool';
+  content: string & Sql<'text'>;
+  toolUse: ({ name: string; input: unknown } & Sql<'json'>) | null;
+  tokens: (number & Sql<'integer'>) | null;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+}
 ```
 
-`jsonEnum` for `role` means a typo is a compile error. `toolUse` as typed JSON means a tool call round-trips without a second table.
+A literal union for `role` means a typo is a compile error. `toolUse` as a declared JSON shape means a tool call round-trips without a second table — and the shape reaches the emitted validator, so a malformed tool call is caught on the way in rather than on the way back out.
+
+`createdAt` says `HasDefault`, which is what makes it optional on insert. The default _value_ — `now()` — goes in the migration, because a type can say a column has a default but not which one.
 
 Index the lookup you will do on every request:
 
@@ -97,10 +98,10 @@ A conversation grows past the model's limit. Two approaches, and you will end up
 **Truncate by tokens**, keeping the most recent turns:
 
 ```ts
-type Message = Entity<typeof messages>;
+type Row = Entity<Message>;
 
-function fit(history: readonly Message[], budget: number): readonly Message[] {
-  const kept: Message[] = [];
+function fit(history: readonly Row[], budget: number): readonly Row[] {
+  const kept: Row[] = [];
   let used = 0;
   for (const message of [...history].reverse()) {
     const cost = message.tokens ?? Math.ceil(message.content.length / 4);
@@ -113,8 +114,8 @@ function fit(history: readonly Message[], budget: number): readonly Message[] {
 ```
 
 Iterating the reversed copy rather than indexing backwards is what keeps this free
-of non-null assertions: `for…of` yields `Message`, while `history[i]` yields
-`Message | undefined` and tempts you into a `!` that
+of non-null assertions: `for…of` yields `Row`, while `history[i]` yields
+`Row | undefined` and tempts you into a `!` that
 [the project treats as a defect](./architecture.html).
 
 Storing `tokens` on the row is what makes this exact rather than a guess — and it is why the column is there.

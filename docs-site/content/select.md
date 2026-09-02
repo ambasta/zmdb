@@ -6,12 +6,14 @@ you hand it to a driver.
 The examples below assume this schema:
 
 ```ts
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-  createdAt: timestamp().notNull(),
-});
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: 'admin' | 'user';
+  createdAt: Date & Sql<'timestamp'>;
+}
 ```
 
 ## Basic select

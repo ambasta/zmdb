@@ -49,7 +49,7 @@ The row type narrows too, so this is checked. It matters most for wide rows and 
 
 ## Index what you filter and order by
 
-`unique()` gives you an index; nothing else does automatically.
+`Unique` records the constraint, and the database gives you an index when you write it; nothing else does automatically, and a generated migration does not emit the constraint at all — see [Indexes & Constraints](./indexes-constraints.html).
 
 ```ts
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';

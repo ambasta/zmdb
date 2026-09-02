@@ -5,25 +5,26 @@ Inheritance lets you model entity hierarchies in a single database table using a
 Store all subtypes in one table with a discriminator column. Each subtype has a subset of columns that apply to it.
 
 ```ts
-import { defineSchema, serial, text, integer, jsonEnum } from '@zmdb/schema-core';
 import { rowToSubtype, discriminatorFor } from '@zmdb/repository/entity-modeling';
 import { assert } from '@zmdb/aot-validator/utilities';
+import { schemaOf } from 'zmdb';
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-// Base event type
-const EventSchema = defineSchema('events', {
-  id: serial().primaryKey(),
-  // Discriminator column
-  type: text().notNull(),
+// The table: every subtype's columns, with the type-specific ones nullable
+export interface EventRow extends Table<'events'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  // Discriminator column — a union, so the switch below is exhaustive
+  type: 'concert' | 'game';
   // Common fields
-  created_at: timestamp().notNull(),
-  // Type-specific fields (nullable in DB, populated per-type)
-  title: text(), // For "concert"
-  venue: text(), // For "concert"
-  artist: text(), // For "concert"
-  opponent: text(), // For "game"
-  home_score: integer(), // For "game"
-  away_score: integer(), // For "game"
-});
+  created_at: Date & Sql<'timestamp'>;
+  // Type-specific fields (nullable in the table, populated per-type)
+  title: (string & Sql<'text'>) | null; // For "concert"
+  venue: (string & Sql<'text'>) | null; // For "concert"
+  artist: (string & Sql<'text'>) | null; // For "concert"
+  opponent: (string & Sql<'text'>) | null; // For "game"
+  home_score: (number & Sql<'integer'>) | null; // For "game"
+  away_score: (number & Sql<'integer'>) | null; // For "game"
+}
 
 // Define inheritance map
 const sti = {
@@ -40,7 +41,9 @@ type Game = { type: 'game'; opponent: string; home_score: number; away_score: nu
 type Event = Concert | Game;
 
 // In your repository
-class EventRepository extends BaseRepository<typeof EventSchema> {
+const eventSchema = schemaOf<EventRow>();
+
+class EventRepository extends BaseRepository<typeof eventSchema> {
   findById(id: number) {
     return super.findById(id).then(row => {
       if (!row) return null;
@@ -58,7 +61,7 @@ Generated DDL:
 CREATE TABLE "events" (
   "id" SERIAL PRIMARY KEY,
   "type" TEXT NOT NULL,
-  "created_at" TIMESTAMP NOT NULL,
+  "created_at" TIMESTAMPTZ NOT NULL,
   "title" TEXT,
   "venue" TEXT,
   "artist" TEXT,
@@ -107,8 +110,14 @@ const concerts = compiler
 // concerts.parameters => ['concert']
 ```
 
+The declaration gets you two things here that the row shape alone does not: `type` narrows to
+`'concert' | 'game'`, so the `switch` below is exhaustive and a third subtype breaks the
+compile; and the per-subtype columns are honestly `| null`, which is what the table says. The
+part it cannot express is the invariant — that a `concert` row has a `title` and a `game` row
+does not — because that is a `CHECK` constraint, not a type.
+
 > [!NOTE]
-> Inheritance in zmdb is a runtime pattern, not a database constraint. You must ensure data integrity (e.g., correct discriminator values) in your application code.
+> Inheritance in zmdb is a runtime pattern, not a database constraint. You must ensure data integrity (e.g., that the type-specific columns match the discriminator) in your application code, or with a `CHECK` in a [custom migration](./migrations-custom.html).
 
 ## Polymorphic Relations
 
@@ -132,4 +141,4 @@ async function handleEventAttachment(eventRow: Record<string, unknown>) {
 
 ---
 
-See also: [Repository](./repository.html) · [Embeddables](./embeddables.html) · [Schema Core](./schema-declaration.html)
+See also: [Repository](./repository.html) · [Embeddables](./embeddables.html) · [Schema Declaration](./schema-declaration.html)

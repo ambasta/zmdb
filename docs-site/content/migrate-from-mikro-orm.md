@@ -1,6 +1,6 @@
 The hard part of this migration is not syntax, it is the change in model: MikroORM manages your objects, zmdb does not. Plan for the `EntityManager` to disappear rather than to be replaced.
 
-## Entities become schema objects
+## Entities become declared types
 
 ```ts
 // MikroORM
@@ -14,15 +14,22 @@ export class User {
 
 ```ts
 // zmdb
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique(),
-});
+import { schemaOf } from '@zmdb/schema-core';
+import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
-export const userRelations = { posts: oneToMany(posts, 'authorId') };
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  posts?: Post[] & OneToMany<'posts', 'authorId'>;
+}
+
+export const userSchema = schemaOf<User>();
+export const userRelations = { posts: oneToMany('posts', 'authorId') };
 ```
 
-The relation lives in a separate map rather than on the class, because there is no class. A read returns `Entity<typeof users>` — a plain object with no `posts` property unless you asked for one.
+Decorator for decorator, the mapping is direct: `@PrimaryKey()` is `PrimaryKey`, `@Property({ unique: true })` is `Unique`, `@OneToMany` is `OneToMany<'posts', 'authorId'>`. What differs is that there is no class and no `Collection` — the relation property is optional and holds a plain array when populated.
+
+A read returns `Entity<User>`: a plain object, with no `posts` property unless you asked for one. `populate` still needs the runtime map above beside the tag, which is a gap rather than a design — see [Relations](./relations.html).
 
 ## The EntityManager has no analogue
 

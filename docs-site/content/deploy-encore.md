@@ -8,7 +8,7 @@ Encore is infrastructure-from-code: you declare services and resources in TypeSc
 | Service definitions, API endpoints | yes                                   | `@zmdb/web`                          |
 | Request validation                 | from the endpoint's types             | AOT validators                       |
 | Migrations                         | its own runner, `migrations/*.up.sql` | [its own runner](./cli-migrate.html) |
-| Schema declaration                 | plain SQL                             | `defineSchema`                       |
+| Schema declaration                 | plain SQL                             | a tagged `interface`                 |
 | Typed queries                      | tagged templates                      | query compiler + repository          |
 | Tracing, dashboards                | built in                              | none                                 |
 
@@ -49,7 +49,7 @@ const ops = diff(previousSnapshot, snapshot(allSchemas));
 writeFileSync('migrations/2_add_posts.up.sql', ops.map(o => emitUp(o, 'postgres')).join(';\n') + ';\n');
 ```
 
-You keep `defineSchema` as the source of truth and Encore keeps its own runner. Review the emitted SQL before committing — the generated form is correct but not always what you would write by hand, and Encore's migrations are irreversible in production.
+You keep the declaration as the source of truth and Encore keeps its own runner. Review the emitted SQL before committing — the generated form is correct but not always what you would write by hand, and Encore's migrations are irreversible in production.
 
 Do **not** also call `runCli('up', ...)`. Two runners with two version tables against one database is a schema you cannot reason about.
 

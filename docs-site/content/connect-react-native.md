@@ -7,7 +7,7 @@
 
 Most of zmdb, because most of it has no I/O:
 
-- `defineSchema`, `Entity<S>`, `CreateDTO<S>`, `WhereDTO<S>` — types only
+- the declaration and `Entity<T>` / `CreateDTO<T>` / `WhereDTO<T>` — types only
 - `createQueryCompiler(...).compile()` — string manipulation
 - `snapshot()`, `diff()`, `emitUp()` — pure functions
 - the AOT validators, `toJsonSchema` — generated code

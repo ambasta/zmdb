@@ -20,10 +20,10 @@ it('the transformer is running', () => {
 
 See [AOT Setup](./aot-setup.html).
 
-**`references` is a function, not a method.** There is no `.references()` on a column:
+**`References` is a tag, not a call.** The target is a `table.column` string literal, so there is nothing to import and no schema value to have on hand:
 
 ```ts
-authorId: references(integer(), users, 'id').notNull(),
+authorId: number & Sql<'integer'> & References<'users.id'>;
 ```
 
 **The query builder is immutable.** `b.where(...)` returns a new builder; it does not modify `b`. Chain or reassign.

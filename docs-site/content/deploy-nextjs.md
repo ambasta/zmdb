@@ -24,7 +24,7 @@ export const postRepo = defineRepository(posts, driver, { dialect: 'postgres' })
 
 `import 'server-only'` is the guard that matters. Without it, importing this from a client component is a build-time-successful, runtime-broken bundle — and it would ship your connection string to the browser. Add it before you write anything else.
 
-The schema file itself is safe to import anywhere: `defineSchema` is a plain object and the DTO types are types, so a client component can use `Entity<typeof posts>` with no runtime cost.
+The schema file itself is safe to import anywhere: `schemaOf<Post>()` compiles to a plain object literal and the DTO types are types, so a client component can use `Entity<Post>` with no runtime cost.
 
 ## Server components
 

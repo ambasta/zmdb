@@ -4,13 +4,22 @@ There is no configuration file and no initialisation step. Everything zmdb needs
 
 ```ts
 createQueryCompiler(dialect)                          // 'postgres' | 'mysql' | 'sqlite'
-defineSchema(table, columns, options?)                // options: { ftsTable? }
+schemaOf<T>()                                         // the declaration; compiled away at build time
 defineRepository(schema, driver, { dialect?, relations? })
 createApp(rootModule)
 toOpenApi(controllers, { info?, schemas? })
 ```
 
 That is the complete surface. No `zmdb.config.ts`, no discovery, no `reflect-metadata`, no boot-time metadata scan. See [Config File](./config-file.html) for why, and what a CLI would need.
+
+The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`:
+
+```ts
+// vite.config.ts / rollup.config.js / esbuild plugin list
+zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname });
+```
+
+`schemaOf<T>()` and the seven validator calls are replaced there. See [AOT Setup](./aot-setup.html).
 
 ## A configuration module
 
@@ -107,7 +116,7 @@ Read them from the environment or a secret manager; never from a committed file.
 console.log(env); // logs DATABASE_URL, including the password
 ```
 
-Log a redacted projection instead, or mark the field and use [`sensitive()`](./schema-declaration.html) semantics for your own types.
+Log a redacted projection instead, or mark the column [`Sensitive`](./tags-reference.html) and log a `ReadDTO<T>`, which cannot name it.
 
 ## Dialect at build time versus runtime
 

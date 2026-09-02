@@ -1,26 +1,27 @@
-The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from zmdb schema definitions. This enables automatic API documentation, client SDK generation, and validation layer interoperability.
+The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from a zmdb table declaration. This enables automatic API documentation, client SDK generation, and validation layer interoperability.
 
 > 📄 **Download Specification:** [Download full OpenAPI 3.0 specification (openapi.json)](../openapi.json) generated directly from core schema definitions upon every site build.
 
 > [!NOTE]
-> OpenAPI schemas are derived at build time from your schema-core definitions. There's no runtime reflection — the generation is deterministic and happens during the build process.
+> OpenAPI schemas are derived at build time from your table declarations. There's no runtime reflection — the generation is deterministic and happens during the build process.
 
 ## Generating Components
 
 The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI specification:
 
 ```ts
-import { defineSchema, text, integer, serial, jsonEnum } from '@zmdb/schema-core';
 import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { schemaOf } from 'zmdb';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-  age: integer().nullable(),
-});
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+  age: (number & Sql<'integer'>) | null;
+}
 
-const { schemas } = toOpenApiComponents([UserSchema]);
+const { schemas } = toOpenApiComponents([schemaOf<User>()]);
 ```
 
 ```json
@@ -47,21 +48,23 @@ For API endpoints, generate schemas specific to each operation:
 ```ts
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 
+const userSchema = schemaOf<User>();
+
 // GET /users/{id} — single entity response
-const getSchema = toJsonSchema(UserSchema, 'get');
+const getSchema = toJsonSchema(userSchema, 'get');
 // All fields required, includes auto-increment
 
 // POST /users — create request
-const createSchema = toJsonSchema(UserSchema, 'create');
+const createSchema = toJsonSchema(userSchema, 'create');
 // Excludes id (auto-increment), all fields required
 
 // PATCH /users/{id} — update request
-const updateSchema = toJsonSchema(UserSchema, 'update');
+const updateSchema = toJsonSchema(userSchema, 'update');
 // All fields optional, excludes id
 
 // GET /users — list response (includes pagination envelope)
 import { toListSchema } from '@zmdb/schema-core/openapi';
-const listSchema = toListSchema(UserSchema);
+const listSchema = toListSchema(userSchema);
 ```
 
 > [!IMPORTANT]
@@ -72,14 +75,17 @@ const listSchema = toListSchema(UserSchema);
 Combine OpenAPI generation with your HTTP framework:
 
 ```ts
-import { defineSchema, text, integer, serial } from '@zmdb/schema-core';
 import { toJsonSchema, toListSchema } from '@zmdb/schema-core/openapi';
+import { schemaOf } from 'zmdb';
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-  email: text().notNull(),
-});
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  email: string & Sql<'text'>;
+}
+
+const userSchema = schemaOf<User>();
 
 // Endpoint definitions with OpenAPI schema
 const routes = [
@@ -88,7 +94,7 @@ const routes = [
     path: '/users',
     schema: {
       response: {
-        200: toListSchema(UserSchema),
+        200: toListSchema(userSchema),
       },
     },
     handler: async (req, reply) => {
@@ -100,7 +106,7 @@ const routes = [
     path: '/users/{id}',
     schema: {
       params: { type: 'object', properties: { id: { type: 'integer' } } },
-      response: { 200: toJsonSchema(UserSchema, 'get') },
+      response: { 200: toJsonSchema(userSchema, 'get') },
     },
     handler: async (req, reply) => {
       return repo.findById(req.params.id);
@@ -111,26 +117,30 @@ const routes = [
 
 ## Validation Tag Mapping
 
-Tags in your schema map to OpenAPI schema keywords:
+Tags on a column map to OpenAPI schema keywords:
 
-| Tag              | OpenAPI Keyword | Example                   |
-| ---------------- | --------------- | ------------------------- |
-| `Min(n)`         | `minimum`       | `{ "minimum": 0 }`        |
-| `Max(n)`         | `maximum`       | `{ "maximum": 100 }`      |
-| `MinLength(n)`   | `minLength`     | `{ "minLength": 1 }`      |
-| `MaxLength(n)`   | `maxLength`     | `{ "maxLength": 255 }`    |
-| `Pattern(regex)` | `pattern`       | `{ "pattern": "^\\d+$" }` |
-| `Enum(...vals)`  | `enum`          | `{ "enum": ["a", "b"] }`  |
+| Tag             | OpenAPI Keyword | Example                   |
+| --------------- | --------------- | ------------------------- |
+| `Min<N>`        | `minimum`       | `{ "minimum": 0 }`        |
+| `Max<N>`        | `maximum`       | `{ "maximum": 100 }`      |
+| `MinLength<N>`  | `minLength`     | `{ "minLength": 1 }`      |
+| `MaxLength<N>`  | `maxLength`     | `{ "maxLength": 255 }`    |
+| `Length<N>`     | `maxLength`     | `{ "maxLength": 255 }`    |
+| `Pattern<S>`    | `pattern`       | `{ "pattern": "^\\d+$" }` |
+| a literal union | `enum`          | `{ "enum": ["a", "b"] }`  |
+
+There is no `Enum` tag, because a literal union already says it and TypeScript checks it
+everywhere a flag would not.
 
 ```ts
-const UserSchema = defineSchema('users', {
-  email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\.[^@]+$')).validate(tags.MaxLength(255)),
-  age: integer().validate(tags.Min(0)),
-});
+interface Account extends Table<'accounts'> {
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'> & MaxLength<255>;
+  age: (number & Sql<'integer'> & Min<0>) | null;
+}
 
-const schema = toJsonSchema(UserSchema, 'entity');
+const schema = toJsonSchema(schemaOf<Account>(), 'entity');
 // email: { type: 'string', pattern: '^[^@]+@[^@]+\.[^@]+$', maxLength: 255 }
-// age: { type: 'integer', minimum: 0 }
+// age: { type: ['integer', 'null'], minimum: 0 }
 ```
 
 ## Full OpenAPI Spec Generation
@@ -155,7 +165,7 @@ const fullSpec = {
             description: 'User list',
             content: {
               'application/json': {
-                schema: toListSchema(UserSchema),
+                schema: toListSchema(userSchema),
               },
             },
           },
@@ -166,7 +176,7 @@ const fullSpec = {
         requestBody: {
           content: {
             'application/json': {
-              schema: toJsonSchema(UserSchema, 'create'),
+              schema: toJsonSchema(userSchema, 'create'),
             },
           },
         },
@@ -175,7 +185,7 @@ const fullSpec = {
             description: 'Created',
             content: {
               'application/json': {
-                schema: toJsonSchema(UserSchema, 'entity'),
+                schema: toJsonSchema(userSchema, 'entity'),
               },
             },
           },
@@ -183,7 +193,7 @@ const fullSpec = {
       },
     },
   },
-  components: toOpenApiComponents([UserSchema]),
+  components: toOpenApiComponents([userSchema]),
 };
 ```
 
@@ -197,7 +207,7 @@ For full-text search endpoints, use `toSearchSchema` which includes relevance sc
 ```ts
 import { toSearchSchema } from '@zmdb/schema-core/openapi';
 
-const searchSchema = toSearchSchema(UserSchema);
+const searchSchema = toSearchSchema(userSchema);
 // {
 //   "type": "object",
 //   "properties": {

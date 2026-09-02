@@ -15,29 +15,34 @@ export const users = pgTable('users', {
 
 ```ts
 // zmdb
-import { defineSchema, serial, text, boolean } from '@zmdb/schema-core';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().unique(),
-  active: boolean().notNull().defaultTo(true),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Unique;
+  active: boolean & HasDefault;
+}
 ```
 
 Differences that matter:
 
-- No dialect-specific import. One `defineSchema` compiles for all three dialects; you pick the dialect when you build a compiler or repository.
-- Column builders take no name argument. The object key _is_ the column name.
-- `.defaultTo()` rather than `.default()`, and it comes after `.notNull()` because the flags accumulate in the type.
+- **It is a type, not a value.** There is no `pgTable` call and nothing to construct — `schemaOf<User>()` produces the value the query compiler reads, at build time.
+- No dialect-specific import. One declaration compiles for all three dialects; you pick the dialect when you build a compiler or repository.
+- Columns take no name argument. The property key _is_ the column name.
+- Nullability is `| null`, not `.notNull()` — the default is non-null, and TypeScript already has a way to say the other thing. Write `(T & Tags) | null`, tags inside.
+- `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing Drizzle expresses that a declaration cannot.
 
 ## Types
 
-| Drizzle                     | zmdb                      |
-| --------------------------- | ------------------------- |
-| `typeof users.$inferSelect` | `Entity<typeof users>`    |
-| `typeof users.$inferInsert` | `CreateDTO<typeof users>` |
-| —                           | `UpdateDTO<typeof users>` |
-| —                           | `WhereDTO<typeof users>`  |
+| Drizzle                     | zmdb              |
+| --------------------------- | ----------------- |
+| `typeof users.$inferSelect` | `Entity<User>`    |
+| `typeof users.$inferInsert` | `CreateDTO<User>` |
+| —                           | `UpdateDTO<User>` |
+| —                           | `WhereDTO<User>`  |
+
+The zmdb column takes the declared interface, not `typeof` a value — the declaration is
+already the type, so there is nothing to read it back out of.
 
 ## Queries
 
@@ -69,21 +74,22 @@ Same shape of result, same one-query-per-relation strategy. See [Loading Strateg
 
 ## Validation
 
-Drop `drizzle-zod`. `assert<CreateDTO<typeof users>>(body)` is generated from the same schema object by the transformer, so there is no second schema to keep in sync. See [assert()](./validators-assert.html).
+Drop `drizzle-zod`. `assert<CreateDTO<User>>(body)` is generated from the same declaration by the transformer, so there is no second schema to keep in sync. See [assert()](./validators-assert.html).
 
 ## What you lose
 
 - `ON CONFLICT` — see [Upsert](./upsert.html)
 - expression updates (`sql\`views + 1\``) — see [Incrementing a value](./guide-increment-decrement.html)
 - `drizzle-kit studio` / `pull` — see [CLI](./cli-overview.html)
-- the `pg`/`mysql`/`sqlite` type zoo: zmdb has ten column types, not sixty. `json<T>()` and [custom types](./custom-types.html) cover most of the rest.
+- the `pg`/`mysql`/`sqlite` type zoo: zmdb has ten column types, not sixty. `Sql<'json'>` and [custom types](./custom-types.html) cover most of the rest.
 
 ## What you gain
 
-- one schema instead of schema + `drizzle-zod` + `@ApiProperty`
+- one declaration instead of schema + `drizzle-zod` + `@ApiProperty`
+- the shape of a JSON column reaching the validator, the DTOs and the OpenAPI document — Drizzle's `$type<T>()` is a cast that stops at the type layer
 - an HTTP framework and a validator in the same type graph
 - zero runtime dependencies
 
 ---
 
-See also: [Why zmdb](./why-zmdb.html) · [Schema Declaration](./schema-declaration.html) · [Filters & Operators](./filters.html)
+See also: [Why zmdb](./why-zmdb.html) · [Schema Declaration](./schema-declaration.html) · [Tag Reference](./tags-reference.html) · [Filters & Operators](./filters.html)

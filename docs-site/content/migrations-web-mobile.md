@@ -8,7 +8,7 @@
 
 Most of zmdb does, because most of it is types and string manipulation:
 
-- `defineSchema`, `Entity`, `CreateDTO`, `WhereDTO` — types, no runtime
+- the declaration and `Entity` / `CreateDTO` / `WhereDTO` — types, no runtime
 - `createQueryCompiler(...).compile()` — produces `{ text, parameters }`, no I/O
 - `snapshot()`, `diff()`, `emitUp()` — pure functions over plain objects
 - the AOT validators — generated code, no platform dependency

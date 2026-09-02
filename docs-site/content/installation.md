@@ -8,13 +8,19 @@ npm add zmdb@alpha
 
 ```ts
 // everything from one import
-import { defineSchema, serial, text, defineRepository, is } from 'zmdb';
+import { schemaOf, defineRepository, is } from 'zmdb';
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { CreateDTO, Entity } from 'zmdb/derive';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
 The `zmdb` package re-exports the curated public API of all four sub-packages,
-with deeper surfaces under subpaths (`zmdb/dto`, `zmdb/relations`,
-`zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …).
+with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`,
+`zmdb/dto`, `zmdb/relations`, `zmdb/web`, `zmdb/drivers/sqlite`,
+`zmdb/drivers/pg`, …).
+
+`zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime
+export, so those two imports vanish entirely from your build output.
 
 ## Prerequisites
 
@@ -77,31 +83,75 @@ Ensure your `tsconfig.json` targets modern features:
 }
 ```
 
-## Verify Installation
+## The build step
+
+zmdb declares tables as **types**, and a type does not exist at runtime. The
+transformer is what closes that gap: it reads the declaration from the type
+checker and replaces each `schemaOf<T>()`, `assert<T>()`, `is<T>()`,
+`validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and
+`toJsonSchema<T>()` call with the reflected result.
 
 ```ts
-import { defineSchema, serial, text } from '@zmdb/schema-core';
+// vite.config.ts / rollup / esbuild / webpack — unplugin, so one factory for all
+import { zmdbAot } from '@zmdb/aot-validator/unplugin';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
-
-console.log(UserSchema.table); // 'users'
-console.log(UserSchema.columns.email.type); // 'text'
+export default {
+  plugins: [zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname })],
+};
 ```
+
+> [!IMPORTANT]
+> Without `project` (or an already-open `session`) the plugin cannot ask the checker
+> what a type is, so it leaves every `f<T>(…)` call alone — and an untransformed
+> `schemaOf<T>()` throws when called. A refused call site is a build error by
+> default, not a silent fallback. See [AOT Setup](./aot-setup.html).
+
+For a project that only needs the query compiler, there is no build step at all —
+see [Pure TypeScript](./pure-typescript.html).
+
+## Verify Installation
+
+The query compiler is plain runtime code, so it verifies the install without the
+transformer in the way:
+
+```ts
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+const q = createQueryCompiler('sqlite').selectFrom('users').select(['id']).compile();
+console.log(q.text); // SELECT "id" FROM "users"
+```
+
+Then verify the transformer is wired, which is the part that actually goes wrong:
+
+```ts
+import { schemaOf } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
+
+const userSchema = schemaOf<User>();
+console.log(userSchema.table); // 'users'
+console.log(userSchema.columns.email.type); // 'text'
+```
+
+If that throws instead of printing, the plugin is not running over this file.
 
 ## Package Overview
 
-| Package                | Purpose                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `@zmdb/schema-core`    | DSL builders, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI |
-| `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations    |
-| `@zmdb/aot-validator`  | AOT inlining + is/assert/validate/equals, unions, transforms, serialization    |
-| `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                            |
+| Package                | Purpose                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `@zmdb/schema-core`    | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI |
+| `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
+| `@zmdb/aot-validator`  | Type reflection, the transformer, is/assert/validate/equals/random, serialization            |
+| `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                                          |
 
 ## Next Steps
 
-- [Quick Start](./quick-start.html) — define your first schema
-- [AOT Setup](./aot-setup.html) — configure build-time validation inlining
-- [Pure TypeScript](./pure-typescript.html) — runtime-only validation without AOT
+- [Quick Start](./quick-start.html) — declare your first table
+- [Schema Declaration](./schema-declaration.html) — how a type becomes a table
+- [Tag Reference](./tags-reference.html) — the full tag vocabulary
+- [AOT Setup](./aot-setup.html) — configure the transformer
+- [Pure TypeScript](./pure-typescript.html) — what works with no build step

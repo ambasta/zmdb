@@ -5,19 +5,42 @@ Turning rows into JSON, and JSON into rows, with the type doing the work in both
 ```ts
 import { stringify } from '@zmdb/aot-validator/serialization';
 
-const json = stringify<Entity<typeof users>>(row);
+const json = stringify(row);
 ```
 
-The transformer generates a serializer specialised to the type, so it walks known keys rather than reflecting over the object. That is where the [benchmark](./benchmarks.html) numbers come from, and it has a second consequence worth knowing: **only fields in the type are emitted.** An extra property carried on the object silently does not appear in the output.
+`stringify` is byte-identical to `JSON.stringify` for every value it accepts. The one
+difference is `bigint`: it throws a `TypeError` with one fixed message wherever in the graph
+the value sits, rather than the engine's own wording.
 
-That is usually what you want — a row that picked up an internal field on its way through a service layer does not leak — but it means `stringify` is not a drop-in for `JSON.stringify` if you were relying on extra keys surviving.
+> [!NOTE]
+> There is no type argument and no specialised serializer. `stringify` is **not** one of the
+> eight calls the transformer rewrites, so nothing is emitted for a known shape and every key
+> present on the object appears in the output. A specialised emitter built from the same
+> `TypeIR` the validators use is the plan; it is not the behaviour today, and a document that
+> told you extra keys were dropped was describing something that does not happen.
+
+To drop keys, drop them from the value — a projection, not a serializer:
+
+```ts
+import type { ReadDTO } from 'zmdb/derive';
+
+const { passwordHash, ...visible } = row;
+const json = stringify(visible satisfies ReadDTO<User>);
+```
 
 ## Out, with checking: `assertStringify`
 
 ```ts
 import { assertStringify } from '@zmdb/aot-validator/serialization';
 
-const json = assertStringify<Entity<typeof users>>(row); // throws if row is not a valid User
+const json = assertStringify(row, ir); // throws AssertError if row is wrong
+```
+
+`assertStringify` is not transformed either, so its schema is a runtime argument. The
+transformed equivalent is two calls, and it is the one to write today:
+
+```ts
+const json = stringify(assert<Entity<User>>(row));
 ```
 
 Use it on anything assembled by hand or arriving from raw SQL. Use plain `stringify` on values you already validated on the way in — checking the same object twice buys nothing.
@@ -27,38 +50,61 @@ Use it on anything assembled by hand or arriving from raw SQL. Use plain `string
 ```ts
 import { parse } from '@zmdb/aot-validator/serialization';
 
-const result = parse<CreateDTO<typeof users>>(text);
-if (!result.success) throw new ValidationError('invalid payload', result.errors);
-const dto = result.data;
+const result = parse(text);
+if (!result.success) throw new ValidationError('invalid payload', result.issues ?? []);
 ```
+
+`parse` reports malformed JSON as `issues` rather than throwing, which makes it the right
+function at an HTTP boundary: a syntax error is a value you turn into a 400, not an exception
+you have to catch to avoid a 500. Note the field is `issues`, not `errors` — `validate`'s
+result uses `errors`, and the two shapes are otherwise the same.
 
 Throw rather than return a response object. The router serialises whatever a handler returns as a **200**, so a returned `{ status: 400, … }` becomes a 200 whose body happens to contain the number 400. Only a throw carrying an `issues` property produces a 400 — see [Request Lifecycle](./web-request-lifecycle.html).
 
-`parse` returns a result object rather than throwing, which makes it the right function at an HTTP boundary: the failure is a value you turn into a 400, not an exception you have to catch to avoid a 500.
+> [!WARNING]
+> `parse<T>()`'s type argument is an **unvalidated claim** — the same one `JSON.parse` gives
+> you. It checks nothing. The checking step is separate:
+>
+> ```ts
+> const parsed = parse(text);
+> if (!parsed.success) return reply.status(400).send({ errors: parsed.issues });
+> const dto = assert<CreateDTO<User>>(parsed.data); // this is the check
+> ```
 
-## In, from an object: `decode`
+## In, from an object
 
-When the JSON text has already been parsed by something else — a body parser, a queue client — `decode` validates the resulting value without re-parsing:
+When the JSON text has already been parsed by something else — a body parser, a queue client — there is nothing to parse and the whole job is the check:
 
 ```ts
-import { decode } from '@zmdb/aot-validator/serialization';
-
-const result = decode<CreateDTO<typeof users>>(alreadyParsed);
+const dto = assert<CreateDTO<User>>(alreadyParsed);
 ```
+
+`decode(text, schema)` is the combined form, but it takes a **string** and its schema is a runtime argument, so it is the wrong tool for an already-parsed value. See [json-parse](./json-parse.html).
 
 ## Excluding fields
 
-`sensitive()` is the schema-level answer, and it works because it changes the derived type:
+`ReadDTO<T>` is the type-level answer, and it is unconditional: a `Sensitive` column is _removed from the type_, so naming it is a compile error rather than something a serializer has to remember.
 
 ```ts
-export const users = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  passwordHash: text().notNull().sensitive(),
-});
+import type { PrimaryKey, Sensitive, Serial, Sql, Table } from 'zmdb/tags';
+import type { Entity, ReadDTO } from 'zmdb/derive';
+
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  passwordHash: string & Sql<'text'> & Sensitive;
+}
+
+type Public = ReadDTO<User>; // { id: number; email: string } — no passwordHash
 ```
 
-The column is still selected and still present on the row — [it affects serialization, not queries](./gotchas.html). If it must never leave the database, do not select it:
+Three consequences worth knowing, because they are different from each other:
+
+- **`Entity<User>` keeps it.** The column is still selected and still on the row — the tag changes what a _read endpoint_ may return, not what a query returns.
+- **`CreateDTO<User>` keeps it too**, deliberately: you have to be able to send a password.
+- **The generated JSON Schema and OpenAPI documents never name it**, in any variant, including `create`. The filter is applied at the last step before a document is published, so no derived type a caller invents can route around it.
+
+If the value must never leave the database at all, do not select it:
 
 ```ts
 await repo.list({ select: ['id', 'email'] });
@@ -67,22 +113,32 @@ await repo.list({ select: ['id', 'email'] });
 For per-endpoint shapes, name the type:
 
 ```ts
-type PublicUser = Pick<Entity<typeof users>, 'id' | 'email'>;
-const json = stringify<PublicUser>(row);
+type PublicUser = Pick<Entity<User>, 'id' | 'email'>;
 ```
 
 ## Dates
 
-`timestamp()` gives you a `Date`. `stringify` emits it as an ISO-8601 string, matching `JSON.stringify`. Coming back the other way, a `Date`-typed field in a `parse` target accepts an ISO string and produces a `Date` — so a round trip through JSON is stable, which is not true of `JSON.parse` on its own.
+`Sql<'timestamp'>` gives you a `Date` in the app type, and `stringify` emits it as an ISO-8601 string exactly as `JSON.stringify` does.
+
+> [!IMPORTANT]
+> Coming back the other way, nothing revives it. `parse` is `JSON.parse`, so a `Date`-typed
+> field arrives as a **string**, and `assert<Entity<User>>` on that value fails — correctly,
+> because a string is not a `Date`.
+>
+> The boundary that converts is `wireDecoder`, which reads the column's wire type
+> (`string`, `format: 'date-time'`) and produces a `Date` for the app type. Use it, or
+> convert the field yourself before asserting.
 
 ## Numbers that arrive as strings
 
 `bigint` and `numeric` columns come back as strings from several drivers. `assert`ing a row against `Entity<S>` will _fail_ on those, correctly — the row does not match the type. Fix it in the driver, which is the only layer that knows which client it wraps. See [bigint keys](./bigint-keys.html).
 
+A `bigint` column's **wire** type is a string with `format: 'int64'` automatically, since `JSON.stringify(1n)` throws. That is the one place the three types of a column — wire, app, db — are visibly all different, and none of them is a mistake.
+
 ## In `@zmdb/web`
 
-Handlers return a value and the framework serializes it; `WebResponse.body` is a `string`. Reach for `stringify` explicitly when you want the generated serializer on a hot path, or `assertStringify` when the value was assembled from raw SQL.
+Handlers return a value and the framework serializes it; `WebResponse.body` is a `string`. Reach for `stringify` explicitly when you want the `bigint` policy, and for `wireEncoder` when the response has codec or `bigint` columns that need converting.
 
 ---
 
-See also: [stringify](./json-stringify.html) · [parse](./json-parse.html) · [Projections](./projections.html)
+See also: [stringify](./json-stringify.html) · [parse](./json-parse.html) · [Projections](./projections.html) · [DTO Helpers](./read-dtos.html)

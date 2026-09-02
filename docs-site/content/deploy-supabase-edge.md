@@ -31,7 +31,7 @@ assert<{ id: number }>({ id: 'not a number' });
 
 Two honest options:
 
-**1. Do not use the AOT validators here.** Everything else works natively — `defineSchema`, the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and DI. Validate the boundary with something Deno can run:
+**1. Do not use the AOT validators here.** Everything else works natively — the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and DI. `schemaOf<T>()` needs the transform, so run the build step over the function's source and deploy the output. Validate the boundary with something Deno can run:
 
 ```ts
 import { z } from 'npm:zod';

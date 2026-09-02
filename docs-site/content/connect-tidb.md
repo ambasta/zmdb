@@ -28,7 +28,7 @@ TiDB Cloud requires TLS 1.2 or higher and will reject a connection without it.
 - [Keyset pagination](./guide-cursor-pagination.html) ordered by id can return rows out of insertion order. Order by a timestamp with the id as a tie-break.
 - Any code inferring recency from an id is wrong. Use a `createdAt` column.
 
-TiDB also offers `AUTO_RANDOM` for primary keys, which spreads writes rather than concentrating them on the last region. On a write-heavy table that is the better choice, and it needs a hand-written migration since `serial()` emits `AUTO_INCREMENT`:
+TiDB also offers `AUTO_RANDOM` for primary keys, which spreads writes rather than concentrating them on the last region. On a write-heavy table that is the better choice, and it needs a hand-written migration since `Serial` emits `AUTO_INCREMENT`:
 
 ```ts
 {
@@ -42,7 +42,7 @@ TiDB also offers `AUTO_RANDOM` for primary keys, which spreads writes rather tha
 }
 ```
 
-Declare it as `bigint().primaryKey()` in the schema object — and read [bigint keys](./bigint-keys.html), because `AUTO_RANDOM` produces values well above `Number.MAX_SAFE_INTEGER`. This is the one place where the string representation is not optional.
+Declare it as `id: bigint & Sql<'bigint'> & PrimaryKey` on the interface — `Serial` would emit `AUTO_INCREMENT` and fight the migration — and read [bigint keys](./bigint-keys.html), because `AUTO_RANDOM` produces values well above `Number.MAX_SAFE_INTEGER`. This is the one place where the string representation is not optional.
 
 **Optimistic transactions retry.** TiDB's default transaction mode can fail on write conflict and expects the client to retry. Nothing in zmdb retries, so wrap it — the loop is the same one on the [Cockroach page](./dialect-cockroach.html).
 

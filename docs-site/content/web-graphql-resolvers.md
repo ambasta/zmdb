@@ -125,13 +125,13 @@ Post: {
 }
 ```
 
-Authorise on the **field that exposes the data**, not on the query that started the traversal. `sensitive()` on a column [affects serialization, not queries](./web-mapped-types.html), so it will not save you here.
+Authorise on the **field that exposes the data**, not on the query that started the traversal. `Sensitive` on a column [affects the derived types and documents, not queries](./web-mapped-types.html), so it will not save you here.
 
 Also disable introspection in production and cap query depth and complexity — see [Query Complexity](./web-graphql-complexity.html).
 
 ## What it would take
 
-A schema builder that derives GraphQL types from `defineSchema` (the analogue of `toJsonSchema`), `@Resolver`/`@Query`/`@Mutation` decorators, and either a bundled server or an adapter. `graphql` cannot be a dependency under [Directive 7](./anti-patterns.html), so it would be an optional entry point with a peer dependency.
+A schema builder that derives GraphQL types from the declared type (the analogue of `toJsonSchema`), `@Resolver`/`@Query`/`@Mutation` decorators, and either a bundled server or an adapter. `graphql` cannot be a dependency under [Directive 7](./anti-patterns.html), so it would be an optional entry point with a peer dependency.
 
 The genuinely valuable piece — and the one that would distinguish it — is deriving the type definitions from the schema so the GraphQL types cannot drift from the tables. That is the same trick `toJsonSchema` plays, and it is what makes the code-first approach here worth building rather than adopting a generic library.
 

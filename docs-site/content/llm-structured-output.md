@@ -11,7 +11,7 @@ const tool = toolFromSchema('save_user', users, {
 });
 ```
 
-That produces the `{ name, description, input_schema }` shape the Anthropic and OpenAI tool APIs expect, with `input_schema` derived from the schema object — `sensitive()` columns omitted, `validate()` rules carried through as constraints.
+That produces the `{ name, description, input_schema }` shape the Anthropic and OpenAI tool APIs expect, with `input_schema` derived from the schema object — `Sensitive` columns omitted, the five validation constraints carried through as JSON Schema keywords.
 
 ```ts
 const res = await client.messages.create({

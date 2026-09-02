@@ -4,23 +4,25 @@
 
 ## Why the project is code-first by construction
 
-Schema-first means the SDL is the source of truth and your types are generated from it. zmdb's central design decision points the other way: `defineSchema` is the source of truth, and everything else is _derived_ from it —
+Schema-first means the SDL is the source of truth and your types are generated from it. zmdb's central design decision points the other way: the TypeScript declaration is the source of truth, and everything else is _derived_ from it —
 
 ```ts
-export const posts = defineSchema('posts', {
-  id: serial(),
-  title: varchar(200).notNull(),
-  published: boolean().notNull().defaultTo(false),
-});
+import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'varchar'> & Length<200>;
+  published: boolean & HasDefault;
+}
 ```
 
 ```ts
-type Post = Entity<typeof posts>; // the row
-type NewPost = CreateDTO<typeof posts>; // the insert shape
-const schema = toJsonSchema(posts, 'create'); // JSON Schema / OpenAPI
+type Row = Entity<Post>; // the row
+type NewPost = CreateDTO<Post>; // the insert shape
+const schema = toJsonSchema(schemaOf<Post>(), 'create'); // JSON Schema / OpenAPI
 const validate = assert<NewPost>; // AOT-compiled validator
 const sql = compiler.selectFrom('posts'); // typed queries
-const migration = diff(previous, snapshot([posts]));
+const migration = diff(previous, snapshot([schemaOf<Post>()]));
 ```
 
 Six derived artefacts, one declaration, and none of them can drift. Adding an SDL file as a second source of truth would reintroduce exactly the duplication the derivation exists to remove — and the drift would be silent, because nothing checks an SDL file against a table.
@@ -90,7 +92,7 @@ Write a test that asserts every SDL field has a mapping, or the adapter rots.
 
 ## The introspection gap, which is the related real one
 
-There is no `db pull` — nothing reads an existing database and emits `defineSchema` calls. That is the substantive missing piece in this area, and it blocks adopting zmdb against a legacy schema, [`cli-pull`](./cli-pull.html) and [`cli-studio`](./cli-studio.html).
+There is no `db pull` — nothing reads an existing database and emits declarations. That is the substantive missing piece in this area, and it blocks adopting zmdb against a legacy schema, [`cli-pull`](./cli-pull.html) and [`cli-studio`](./cli-studio.html).
 
 Schema-first GraphQL and database introspection are the same shape of problem — deriving code from an external declaration — and introspection is the one with real demand.
 

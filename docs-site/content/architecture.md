@@ -14,7 +14,7 @@ zmdb is five packages with a strict dependency order. Nothing depends on anythin
 
 ## What each package owns
 
-**`@zmdb/schema-core`** — the schema object and everything derived from it by types alone. Column builders (`serial()`, `text()`, `primaryKey()`), `defineSchema`, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, seeding, and LLM tool specs. It knows nothing about SQL text or about a database.
+**`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, seeding, and LLM tool specs. It knows nothing about SQL text or about a database — and it does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
 
 **`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for a `Dialect` (`'postgres' | 'mysql' | 'sqlite'`). Also owns joins, aggregations, full-text search, set operations, DDL for schema objects (indexes, views, sequences, generated columns, namespaces, RLS), and the migration snapshot/diff engine. It never opens a connection.
 

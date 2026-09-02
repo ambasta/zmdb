@@ -20,16 +20,25 @@ Ordinary selects, inserts, updates, deletes, joins, subqueries and transactions 
 
 ## Where `'postgres'` is wrong for Cockroach
 
-**`SERIAL` is a trap at scale.** Cockroach implements it, but a monotonically increasing key concentrates all writes on one range, which is exactly what a distributed database cannot spread. The Cockroach answer is `UUID DEFAULT gen_random_uuid()` or their `unique_rowid()`. `serial()` emits `SERIAL`, so on Cockroach you want a hand-written migration and a `text()`-typed id:
+**`SERIAL` is a trap at scale.** Cockroach implements it, but a monotonically increasing key concentrates all writes on one range, which is exactly what a distributed database cannot spread. The Cockroach answer is `UUID DEFAULT gen_random_uuid()` or their `unique_rowid()`. `Serial` on an `integer` column emits `SERIAL`, so on Cockroach you want a `text` id and a hand-written default:
 
 ```ts
-export const users = defineSchema('users', {
-  id: text().primaryKey().defaultTo('gen_random_uuid()'),
-  email: text().notNull().unique(),
-});
+import type { HasDefault, PrimaryKey, Sql, Table, Unique } from 'zmdb/tags';
+
+export interface User extends Table<'users'> {
+  id: string & Sql<'text'> & PrimaryKey & HasDefault;
+  email: string & Sql<'text'> & Unique;
+}
 ```
 
-`defaultTo` writes a SQL expression, so this works without a dialect change.
+```sql
+ALTER TABLE "users" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
+```
+
+`HasDefault` rather than `Serial` is the whole trick: it drops `id` from
+`CreateDTO<User>`'s required keys without claiming the column is an auto-incrementing
+integer, and the expression that fills it is a migration's business. No dialect change is
+needed, because nothing about it is dialect-specific on zmdb's side.
 
 **Retryable transaction errors are normal.** Cockroach is serializable by default, so a transaction can fail with `40001` (`RETRY_SERIALIZABLE`) under contention and the client is expected to retry it. Nothing in zmdb retries. Wrap it:
 

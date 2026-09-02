@@ -116,6 +116,11 @@ const ALLOWED = new Set([
   '.github/scripts/file-umbrella-epic.mjs',
   '.github/scripts/close-tier5-issues.mjs',
   '.github/scripts/close-impl-issues.mjs',
+  // The docs nav manifest, for one page title: `Codemod: defineSchema → a type`. It is prose, but
+  // it is prose that has to be a string because it renders, so the "put it in a comment" advice
+  // below does not apply. The name is the term a reader with a codebase full of builder calls
+  // searches for, which is the whole reason that page exists.
+  'docs-site/pages.mjs',
 ]);
 
 // The two unambiguous names, anywhere in a file's code: called, declared, imported, or named in a

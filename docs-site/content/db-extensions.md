@@ -46,25 +46,25 @@ const rows = await driver.execute({
 });
 ```
 
-**Model it as a shadow column** if you want the row type to include it. Declare the real column in the migration and a `json`-typed stand-in in the schema so `Entity<S>` has the field:
+**Model it as a shadow column** if you want the row type to include it. Declare the real column in the migration and a `Sql<'json'>` stand-in on the interface so `Entity<T>` has the field:
 
 ```ts
-export const documents = defineSchema('documents', {
-  id: serial().primaryKey(),
-  body: text().notNull(),
-  // NOTE: real column is `vector(1536)`, created in migration 1.
-  // json<number[]> so the row type is right; never write through the repository.
-  embedding: json<number[]>().nullable(),
-});
+export interface Document extends Table<'documents'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  body: string & Sql<'text'>;
+  // NOTE: the real column is `vector(1536)`, created in migration 1.
+  // Sql<'json'> so the row type is right; never write through the repository.
+  embedding: (number[] & Sql<'json'>) | null;
+}
 ```
 
-This works for reads on Postgres, where `pgvector` returns a JSON-ish array literal your driver can parse. It is a workaround with a comment on it, not a supported pattern — the honest version is that the type system is not modelling the column.
+This works for reads on Postgres, where `pgvector` returns a JSON-ish array literal your driver can parse. It is a workaround with a comment on it, not a supported pattern — the honest version is that the type system is not modelling the column, and type-first makes that sharper rather than softer: the declaration is now the single source for the DDL too, so generating a migration from it would emit `json` and quietly replace your `vector`.
 
 ## What it would take
 
 Two changes, and the second is the interesting one:
 
-1. `SqlType` gains an escape hatch — `{ kind: 'extension'; sqlType: string }` — so a column can name a type the compiler does not know. The DDL emitter passes it through; `TsType` comes from the type parameter, as `json<T>()` already does.
+1. `SqlType` gains an escape hatch — `{ kind: 'extension'; sqlType: string }` — so a column can name a type the compiler does not know. The DDL emitter passes it through, and the app type is whatever the property says — `number[] & Sql<{ extension: 'vector(1536)' }>`, or a tag of its own.
 2. **Operators.** `Operator` is already `... | (string & {})`, so `<->` compiles today. What is missing is that `WhereDTO`'s `FieldOps` has a fixed key set, so there is no typed way to express a distance ordering. Extension operators need either a per-type ops map or an explicit raw-expression escape in the DTO.
 
 The first is small. The second is a design decision about how much of SQL the typed DTO should cover, which is why this is not just waiting on someone to type it out.

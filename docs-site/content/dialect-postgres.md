@@ -75,7 +75,7 @@ new Pool({
 
 **`numeric` comes back as a string** too, for the same reason. If you are storing money, keeping it a string and doing the arithmetic in the database is the correct answer; parsing it to a float is how you get rounding errors in an invoice.
 
-**`timestamp` versus `timestamptz`.** `timestamp()` emits plain `TIMESTAMP`, which has no timezone. If you want `timestamptz`, that is a hand-written migration and a [custom type](./custom-types.html).
+**`timestamp` versus `timestamptz`.** `Sql<'timestamp'>` emits plain `TIMESTAMP`, which has no timezone. If you want `timestamptz`, that is a hand-written migration and a [custom type](./custom-types.html).
 
 ## Connecting
 
