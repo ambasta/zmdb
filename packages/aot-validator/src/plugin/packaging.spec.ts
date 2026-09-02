@@ -19,8 +19,6 @@ const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.me
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 };
 
-const config = readFileSync(new URL('../../tsup.config.ts', import.meta.url), 'utf8');
-
 describe('the plugin object', () => {
   it('is unplugin-shaped', () => {
     const plugin = zmdbAot();
@@ -61,11 +59,13 @@ describe('the manifest', () => {
     expect(manifest.exports['./errors']).toBe('./src/errors.ts');
   });
 
-  it('builds every declared export', () => {
-    // An export the bundle step does not know about resolves to a `.ts` file that is not
-    // in the published `dist`, which only shows up for a consumer.
+  it('declares every export as a source path the build mirrors', () => {
+    // `dist` mirrors `src` one file at a time, so the publish manifest is this map with
+    // `src`/`.ts` swapped for `dist`/`.js` (`.github/scripts/repoint-dist.mjs`). A target
+    // that is not a `./src/….ts` path has no dist counterpart, and the first person to
+    // find out is a consumer whose import does not resolve.
     for (const [subpath, target] of Object.entries(manifest.exports)) {
-      expect(config, `${subpath} is missing from tsup's entry map`).toContain(`'${target.replace('./', '')}'`);
+      expect(target, `${subpath} is not a source path the build mirrors`).toMatch(/^\.\/src\/.+\.ts$/);
     }
   });
 

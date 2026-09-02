@@ -59,12 +59,20 @@ for (const [name, m] of Object.entries(META)) {
     type: 'module',
     sideEffects: false,
     exports: pkg.exports,
+    // The committed (dev) manifest. `.github/scripts/repoint-dist.mjs` rewrites
+    // `exports`, `bin`, `main`, `types` and `files` onto `dist` in CI, right before
+    // publish; nothing here should assume the published shape.
     files: ['src', 'README.md', 'LICENSE'],
     engines: pkg.engines ?? { node: '>=26' },
     publishConfig: { access: 'public', tag: 'alpha' },
-    scripts: pkg.scripts ?? { test: 'vitest run' },
+    scripts: pkg.scripts ?? { build: 'node ../../scripts/build-package.mjs', test: 'vitest run' },
   };
-  if (pkg.dependencies) next.dependencies = pkg.dependencies;
+  // Every field this rewrite does not name is a field it would delete. `bin` in
+  // particular: dropping it publishes @zmdb/aot-validator with no `zmdb-codegen`,
+  // which nothing in the repo would notice because the repo runs the binary by path.
+  for (const field of ['bin', 'dependencies', 'devDependencies', 'peerDependencies', 'peerDependenciesMeta']) {
+    if (pkg[field]) next[field] = pkg[field];
+  }
   writeFileSync(pkgPath, JSON.stringify(next, null, 2) + '\n');
 
   // Copy LICENSE.
@@ -106,8 +114,20 @@ GNU General Public License v3.0 or later (GPL-3.0-or-later) — see [LICENSE](./
 `;
   writeFileSync(join(dir, 'README.md'), readme);
 
-  // Keep tests/specs out of the published tarball (files:['src'] would include them).
-  writeFileSync(join(dir, '.npmignore'), ['*.spec.ts', '**/*.spec.ts', 'SPEC.md', '**/SPEC.md', ''].join('\n'));
+  // Keep tests, type-level tests and specs out of the published tarball — `src` ships
+  // for the sourcemaps, not so that somebody installs the test suite.
+  const npmignore = [
+    '*.spec.ts',
+    '**/*.spec.ts',
+    '*.type-test.ts',
+    '**/*.type-test.ts',
+    'SPEC.md',
+    '**/SPEC.md',
+    'tsconfig.json',
+    'tsconfig.build.json',
+    '',
+  ];
+  writeFileSync(join(dir, '.npmignore'), npmignore.join('\n'));
 
   console.log(`prepared ${pkg.name} @ ${VERSION}`);
 }

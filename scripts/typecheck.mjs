@@ -3,8 +3,10 @@ import { spawnSync } from 'node:child_process';
 // Typecheck every project in the monorepo.
 //
 // `tsc --build` cannot do this job here: project references require `composite`,
-// which requires declaration emit, and every package is `noEmit` (tsup owns
-// emission). So we invoke tsc once per tsconfig and fail on the first error —
+// which requires declaration emit, and every `tsconfig.json` is `noEmit` — emit is a
+// separate project per package (`tsconfig.build.json`, driven by
+// `scripts/build-package.mjs`), because the two need different `paths`. So we invoke
+// tsc once per tsconfig and fail on the first error —
 // which is what the root `typecheck` script used to *claim* to do while actually
 // erroring out with TS6053 (no root tsconfig.json exists).
 //

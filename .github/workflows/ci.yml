@@ -47,6 +47,15 @@ jobs:
       - name: Verify export manifests
         run: yarn verify:exports
 
+      # `verify:exports` runs inside the workspace, where `node_modules/@zmdb/*` is a
+      # symlink and Node resolves past it — so it can pass for a package that cannot be
+      # imported once installed. This builds, packs, installs into a throwaway project,
+      # and imports and typechecks every subpath from there. It belongs in CI rather than
+      # only in the release workflow: a broken manifest should fail the pull request that
+      # broke it, not the tag six commits later.
+      - name: Verify the packages install and load as published
+        run: yarn verify:publish
+
       # The builder DSL is gone. This imports every published subpath and reads its export
       # names, so a builder cannot come back through a re-export, and it scans for callers
       # including files not yet committed. What it replaces is `verify:codemod`, which

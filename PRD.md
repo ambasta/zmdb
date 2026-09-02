@@ -680,9 +680,11 @@ class AppModule {}
 export const app = createApp(AppModule);
 ```
 
-Sections 2–4 use decorators, so they are application files rather than published ones —
-`zmdb`'s own packages ship their TypeScript source and are loaded by Node's type stripping,
-which admits no syntax that is not type syntax. The declaration in section 1 has that
+Sections 2–4 use decorators, so they are application files rather than published ones.
+zmdb's own source has to load under Node's type stripping — that is how the tests, the dev
+loop and the consumer fixtures run it — and stripping admits no syntax that is not type
+syntax; `target: ESNext` then means a decorator that did get in would survive the emit into
+`dist` and reach a runtime with no decorators either. The declaration in section 1 has that
 property by construction, which is a large part of why it is a type and not a builder call.
 
 **What this example demonstrates against the four incumbents:**

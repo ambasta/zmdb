@@ -122,7 +122,8 @@ plugin's call.
 - [x] A build opens exactly one `API` instance, measured as a delta on `apiInstanceCount()`; zero when there is no project.
 - [x] Watch mode refreshes rather than reopens: the session's update log contains exactly one `'open'` however many files change.
 - [x] A new module is announced as `created`, not `changed` — a `changed` notification for a file the program has never seen is a measured no-op, so the stale-retry path picks by `sourceFile(id)`.
-- [x] Every declared export resolves, appears in tsup's entry map, imports under plain `node`, and — except for the six build-time subpaths — cannot reach `typescript` through any chain of imports.
+- [x] Every declared export resolves, names a source path the build mirrors, imports under plain `node`, and — except for the six build-time subpaths — cannot reach `typescript` through any chain of imports.
+- [x] All twelve subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one failure that matters (`yarn verify:publish`).
 - [x] Removing an entry from `BUILD_TIME_ENTRIES` produces the expected errors, so the guard is not vacuous.
 - [x] The tag-rule form still inlines to the table in §2, and matches the runtime fallback for good and bad input on every rule.
 - [x] The scanner leaves code alone that has no validator call, matches whole identifiers rather than substrings, ignores calls inside comments and string literals, and scans faster than a megabyte a second.

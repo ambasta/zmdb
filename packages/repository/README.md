@@ -12,13 +12,13 @@ and CRUD all derive at compile time.
 npm add @zmdb/repository@alpha
 ```
 
-> **Prerelease**, published under the `alpha` dist-tag. Requires
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
 > **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
 > `./dist`.
 
 ## Entry points
 
-`@zmdb/repository`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`
+`@zmdb/repository`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
 
 ## Documentation
 

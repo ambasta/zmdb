@@ -11,10 +11,12 @@ import { defineConfig } from 'vitest/config';
 // realize the Stage-3 proposal at test time with esbuild (which lowers standard
 // decorators to helper calls).
 //
-// This is TEST-EXECUTION ONLY. Our source, tsconfig and shipped build all keep
-// the ESNext (ES2026+) target and use Stage-3 decorators natively — the package
-// is built for distribution by tsup. The plugin only rewrites `.ts` files that
-// actually contain a decorator, so non-decorator modules keep oxc's fast path.
+// This is TEST-EXECUTION ONLY, and it is a transform the published packages must
+// never need: their own source is decorator-free (`verify:exports` imports every
+// subpath under plain `node`, which a decorator would break), and `tsc` emits
+// `dist` at `target: ESNext`, so it would not lower one either. What decorators
+// there are belong to specs and to application code. The plugin only rewrites
+// `.ts` files that actually contain one, so everything else keeps oxc's fast path.
 const DECORATED = /(^|\n)\s*@[A-Za-z_$]/;
 
 function stage3Decorators(): Plugin {

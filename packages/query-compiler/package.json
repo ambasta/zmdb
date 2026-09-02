@@ -45,11 +45,10 @@
     "tag": "alpha"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "devDependencies": {
-    "tsup": "8.5.1",
     "typescript": "7.0.2"
   },
   "engines": {

@@ -3,7 +3,6 @@
   "version": "1.0.0-alpha.4",
   "description": "Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.",
   "keywords": [
-    "controllers",
     "decorators",
     "dependency-injection",
     "stage-3",
@@ -51,7 +50,7 @@
     "tag": "alpha"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -60,7 +59,6 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
-    "tsup": "8.5.1",
     "typescript": "7.0.2"
   },
   "engines": {

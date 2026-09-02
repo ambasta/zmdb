@@ -1,6 +1,6 @@
-# @zmdb/web
+# zmdb
 
-Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.
+The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.
 
 Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
 define your schema once and entities, DTOs, validation, serialization, OpenAPI
@@ -9,7 +9,7 @@ and CRUD all derive at compile time.
 ## Install
 
 ```bash
-npm add @zmdb/web@alpha
+npm add zmdb@alpha
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
@@ -18,7 +18,7 @@ npm add @zmdb/web@alpha
 
 ## Entry points
 
-`@zmdb/web`, `@zmdb/web/routing`, `@zmdb/web/context`, `@zmdb/web/di`, `@zmdb/web/state`, `@zmdb/web/pipeline`, `@zmdb/web/data`, `@zmdb/web/modules`, `@zmdb/web/middleware`, `@zmdb/web/app`, `@zmdb/web/dto-pipes`, `@zmdb/web/openapi`, `@zmdb/web/gateways`, `@zmdb/web/testing`, `@zmdb/web/bench`
+`zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/web`, `zmdb/unplugin`
 
 ## Documentation
 

@@ -12,13 +12,13 @@ and CRUD all derive at compile time.
 npm add @zmdb/query-compiler@alpha
 ```
 
-> **Prerelease**, published under the `alpha` dist-tag. Requires
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
 > **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
 > `./dist`.
 
 ## Entry points
 
-`@zmdb/query-compiler`, `@zmdb/query-compiler/fts`, `@zmdb/query-compiler/joins`, `@zmdb/query-compiler/aggregations`, `@zmdb/query-compiler/migrations`, `@zmdb/query-compiler/set-ops`, `@zmdb/query-compiler/schema-objects`
+`@zmdb/query-compiler`, `@zmdb/query-compiler/fts`, `@zmdb/query-compiler/joins`, `@zmdb/query-compiler/aggregations`, `@zmdb/query-compiler/migrations`, `@zmdb/query-compiler/migrations/runner`, `@zmdb/query-compiler/set-ops`, `@zmdb/query-compiler/schema-objects`
 
 ## Documentation
 

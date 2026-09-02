@@ -286,8 +286,9 @@ Because native code trades maintainability for speed, it is gated:
 
 ### 4.3 Current reality (honest)
 
-Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` via `tsup`,
-and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The
+Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc`
+(`scripts/build-package.mjs`), and it already meets our validation/ORM benchmark
+targets on Node/Bun/Deno. The
 AOT validator's inlined output _is_ our "generated JS" tier. **No native/WASM
 kernel exists or is currently justified.** The policy above is the rule we'll
 apply _if and when_ a measured bottleneck appears — we do not add native

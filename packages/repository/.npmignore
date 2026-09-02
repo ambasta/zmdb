@@ -1,4 +1,8 @@
 *.spec.ts
 **/*.spec.ts
+*.type-test.ts
+**/*.type-test.ts
 SPEC.md
 **/SPEC.md
+tsconfig.json
+tsconfig.build.json

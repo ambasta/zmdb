@@ -55,13 +55,19 @@ jobs:
       - name: Test
         run: yarn vitest run
 
-      - name: Build dist for every package (dependency order)
-        run: |
-          set -e
-          for pkg in query-compiler schema-core aot-validator repository web zmdb; do
-            echo "=== build @zmdb/$pkg ==="
-            yarn workspace "@zmdb/$pkg" build
-          done
+      # `yarn build` is `workspaces foreach -A -t`, i.e. topological, which the build
+      # requires: a package resolves its `@zmdb/*` imports to the sibling's `dist/*.d.ts`
+      # (see tsconfig.build.base.json). The loop this replaces named every workspace as
+      # `@zmdb/$pkg`, and the umbrella package is called `zmdb` — so the last iteration
+      # had never built anything.
+      - name: Build dist for every package (topological)
+        run: yarn build
+
+      # Pack, install into a throwaway project and import + typecheck all 62 subpaths from
+      # outside the repo. This is the only check that sees what a consumer sees; every other
+      # gate runs inside a workspace where `node_modules/@zmdb/*` is a symlink.
+      - name: Verify the packages install and load as published
+        run: yarn verify:publish
 
       - name: Repoint package.json → dist (publish manifest)
         run: node .github/scripts/repoint-dist.mjs

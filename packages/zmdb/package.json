@@ -1,8 +1,34 @@
 {
   "name": "zmdb",
   "version": "1.0.0-alpha.4",
+  "description": "The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.",
+  "keywords": [
+    "data-layer",
+    "orm",
+    "schema",
+    "sql",
+    "typescript",
+    "validation",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
   "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/zmdb"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./tags": "./src/tags.ts",
@@ -15,7 +41,12 @@
     "./web": "./src/web.ts",
     "./unplugin": "./src/unplugin.ts"
   },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -24,6 +55,9 @@
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "@zmdb/web": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=26"

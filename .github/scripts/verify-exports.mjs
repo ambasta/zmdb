@@ -193,17 +193,25 @@ for (const pkgDirName of packageDirs) {
 
 // Every subpath actually loads, under plain `node`, with no bundler and no loader.
 //
-// The checks above prove the manifest points at files that exist. That is not the same as the
-// package working: every `files` list here ships `src`, and every `exports` target is a `.ts`
-// file, so a consumer's `import '@zmdb/schema-core'` is Node reading our TypeScript and
-// stripping the types. Two things break that while resolving and typechecking perfectly:
+// This is a check on the *source*, and it is worth being precise about that, because the
+// obvious reading of it is wrong. Every `exports` target here is a `.ts` file, so what runs
+// below is Node reading our TypeScript and stripping the types — which works only because
+// `node_modules/@zmdb/*` is a symlink in a workspace and Node resolves the realpath out of
+// it. Installed for real, the same manifest fails with
+// ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING. So the published form is a different question,
+// answered by `yarn verify:publish`, and nothing here should be read as covering it.
+//
+// What it does cover is loading the source, which the tests, the dev loop, the examples and
+// the consumer fixtures all do. Two things break that while resolving and typechecking
+// perfectly:
 //
 //   * a relative specifier written `'../index.js'`. `tsc` maps it back to `../index.ts` and
 //     vitest resolves it, so the whole test suite passes; Node looks for a file called
-//     `index.js`, finds nothing, and the package is unusable as published.
+//     `index.js` and finds nothing.
 //   * syntax that is not type syntax. Decorators are the case that bit us — a single
 //     `@Controller` in a benchmark helper made `import '@zmdb/web'` a SyntaxError, because the
-//     root index re-exported it.
+//     root index re-exported it. `target: ESNext` means such a decorator would also survive
+//     the emit into `dist`, so this catches it on both routes.
 //
 // Neither is visible to a test run, which is exactly why it belongs in a gate.
 for (const pkgDirName of packageDirs) {

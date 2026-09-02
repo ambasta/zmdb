@@ -34,27 +34,26 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other
   packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
 - `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/repository`
-  (all `workspace:^`). No other runtime deps. `devDependencies`: `tsup`,
-  `typescript`.
+  (all `workspace:^`). No other runtime deps. `devDependencies`: `typescript`.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish,
   exactly like the sibling packages).
 
 ### tsconfig
 
 - Extends `../../tsconfig.base.json`.
-- Adds `rootDir: src`, `outDir: dist`, and `paths` to the sibling packages' built
-  `.d.ts` (mirroring `packages/repository/tsconfig.json`).
+- `rootDir`, `outDir` and the sibling `.d.ts` `paths` live in `tsconfig.build.json`,
+  the emit project; `tsconfig.json` is `noEmit` and resolves siblings to their
+  sources, so an edit in one package is a compile error here immediately.
 - Explicitly asserts the decorator baseline: `experimentalDecorators: false`,
   `emitDecoratorMetadata: false`. (`strict` etc. come from base.)
 
 ### Build & publish wiring
 
-- `tsup.config.ts` with `entry: { index: 'src/index.ts' }`, `format: ['esm']`,
-  `dts: true`, `external: [/^@zmdb\//]`.
+- `tsconfig.build.json`, and nothing else: `dist` mirrors `src`, so there is no entry
+  map to register a subpath in and no way for one to be left out.
 - Registered in `.github/scripts/prepare-publish.mjs` `META` (description +
-  keywords), in `.github/scripts/repoint-dist.mjs` `ENTRIES` (`{ '.': 'index' }`),
-  and in `.github/workflows/publish.yml` **both** package loops (build + publish),
-  ordered **after `repository`** and **before `zmdb`** (DAG order).
+  keywords) and in `.github/scripts/lib/publish-manifest.mjs` `PACKAGES`, ordered
+  **after `repository`** and **before `zmdb`** (DAG order).
 - Re-exported from the `zmdb` umbrella as **`zmdb/web`** (a new subpath entry in
   `packages/zmdb`).
 
@@ -71,7 +70,8 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 ## Acceptance (this issue)
 
 - `@zmdb/web` resolves in dev (vitest/tsc) via `src` and builds to
-  `dist/index.js` + `dist/index.d.ts` via tsup.
+  `dist/index.js` + `dist/index.d.ts`; all fifteen subpaths import and typecheck
+  from an installed tarball (`yarn verify:publish`).
 - A trivial Stage-3 class decorator that writes to `context.metadata` can be read
   back via `metadataOf(...)` at runtime — **without** `reflect-metadata` and
   **without** any `as` on the consumer surface.

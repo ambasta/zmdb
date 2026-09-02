@@ -9,8 +9,10 @@
 // Listens on port 3000 (override with PORT). Built on @zmdb/web's REAL routing:
 // Stage-3 @Controller/@Get/@Post decorators, getRoutes (route table resolved
 // once at boot — no per-request reflection), and extractParams. It imports the
-// COMPILED package (../../../packages/web/dist) so the Stage-3 decorators are
-// lowered by the package build; run `node app.js` after `tsup` (see run.sh).
+// BUILT package (../../../packages/web/dist), the same JavaScript a consumer
+// installs, so the measurement is of the shipped code rather than of a bundle of
+// the source; `run.sh` builds it first. The decorators applied *here* are lowered
+// by the esbuild step in run.sh, because no JS runtime executes them natively.
 //
 // ONE DEFINITION TO RULE THEM ALL: the `User` shape is declared exactly once, as
 // an interface, in `./model.ts`. The request body type (`CreateDTO<User>`) and

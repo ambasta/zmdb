@@ -12,13 +12,13 @@ and CRUD all derive at compile time.
 npm add @zmdb/schema-core@alpha
 ```
 
-> **Prerelease**, published under the `alpha` dist-tag. Requires
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
 > **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
 > `./dist`.
 
 ## Entry points
 
-`@zmdb/schema-core`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/seeding`, `@zmdb/schema-core/llm`
+`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/seeding`, `@zmdb/schema-core/llm`
 
 ## Documentation
 

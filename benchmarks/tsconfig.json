@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "comment": [
-    "No `rootDir`: this project is `noEmit` (tsup owns emission), and a rootDir",
+    "No `rootDir`: this project is `noEmit` (nothing here is published), and a rootDir",
     "of `src` makes every cross-package import a TS6059 now that @zmdb/* resolves",
     "to sibling *sources* instead of gitignored `dist/*.d.ts` — which is also why",
     "this step could never have passed in a fresh CI checkout."

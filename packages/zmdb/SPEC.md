@@ -53,9 +53,12 @@ packages, so nothing is lost:
 - New workspace `packages/zmdb`, `version` matching the others
   (`1.0.0-alpha.4`), `license: GPL-3.0-or-later`.
 - `dependencies`: the four `@zmdb/*` packages at the same exact prerelease.
-- Built with tsup (ESM `.js` + `.d.ts`); wired into `prepare-publish.mjs`,
-  `repoint-dist.mjs`, and the `publish.yml` loop — published **last** (it depends
-  on the others being on the registry).
+- Built by `scripts/build-package.mjs` (`tsc` → ESM `.js` + `.d.ts` mirroring
+  `src`); wired into `prepare-publish.mjs`, `lib/publish-manifest.mjs`'s package
+  order, and `publish.yml` — published **last** (it depends on the others being on
+  the registry). The `publish.yml` loop it was originally wired into addressed every
+  workspace as `@zmdb/$pkg`, so the umbrella — named plainly `zmdb` — was never
+  actually built by it; `yarn build` covers every workspace instead.
 
 ## Acceptance
 

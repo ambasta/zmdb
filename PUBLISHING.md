@@ -21,8 +21,8 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
 - **`registry-url: https://registry.npmjs.org`** on `setup-node` — set.
 - **`package.json` `repository.url` must exactly match the GitHub repo** — it is
   `git+https://github.com/ambasta/zmdb.git` for every package.
-- Packages are built to conventional ESM `.js` + `.d.ts` (tsup) and the manifests
-  are repointed to `dist` before publish (see the build steps).
+- Packages are built to conventional ESM `.js` + `.d.ts` and the manifests are
+  repointed to `dist` before publish (see the build steps).
 
 ## One-time setup (you, on npmjs.com)
 
@@ -44,7 +44,8 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
    > - **Locally, once, with your logged-in account** (you said you're logged in):
    >   ```bash
    >   for p in schema-core query-compiler aot-validator repository; do
-   >     ( cd "packages/$p" && yarn build ); done
+   >   yarn build   # topological; every package
+   >   yarn verify:publish
    >   node .github/scripts/repoint-dist.mjs
    >   for p in schema-core query-compiler aot-validator repository; do
    >     ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
@@ -73,22 +74,57 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
   ```bash
   git tag v1.0.0-alpha.0 && git push --tags
   ```
-  The workflow installs → tests → builds `dist` (dependency order) → repoints
-  manifests → `npm publish` each via OIDC. No secrets involved.
+  The workflow installs → tests → builds `dist` (topological) → verifies the packed
+  packages install and load → repoints manifests → `npm publish` each via OIDC. No
+  secrets involved.
 
 ## What ends up in each tarball
 
 ```
-packages/<pkg>/dist/
-  index.js        index.d.ts
-  <subpath>.js    <subpath>.d.ts   # one pair per exports entry
+packages/<pkg>/dist/            # mirrors src, one file at a time
+  index.js  index.d.ts  index.js.map  index.d.ts.map
+  <dir>/index.js  <dir>/index.d.ts   …
+packages/<pkg>/src/             # the TypeScript both maps point at
 README.md
 LICENSE
 ```
 
-`exports` map each subpath to `{ types, import }`; `files` is
-`['dist','README.md','LICENSE']`; cross-package deps become the exact prerelease `1.0.0-alpha.0`
-ranges (`aot-validator` → schema-core; `repository` → schema-core + query-compiler).
+`exports` maps each subpath to `{ types, import }`; `files` is
+`['dist','src','README.md','LICENSE']`; cross-package deps become the exact prerelease
+`1.0.0-alpha.0` ranges (`aot-validator` → schema-core; `repository` → schema-core +
+query-compiler). Specs, type-tests and `SPEC.md` are kept out by each package's
+`.npmignore`.
+
+## How the build works, and why not tsup
+
+`scripts/build-package.mjs` runs `tsc -p tsconfig.build.json` and then rewrites the `.ts`
+specifiers TypeScript leaves in its declaration output. That is the whole build.
+
+It used to be tsup, and tsup's declaration step cannot work here at all: it is
+`rollup-plugin-dts`, which reads `ts.sys` and `ts.createProgram` off the `typescript`
+package. TypeScript 7 does not ship that API — `require('typescript')` yields an object
+with two keys — so the step died on `ts2.sys.useCaseSensitiveFileNames` before looking at
+a file, and `yarn build` had been failing at it. No tsup version fixes that.
+
+Losing the bundler costs nothing that mattered and buys the mirrored layout, which is why
+`repoint-dist.mjs` no longer carries a table of entry points: the publish manifest is the
+committed one with `src` → `dist` and `.ts` → `.js`. The table it replaced had drifted, and
+was missing five of schema-core's ten subpaths.
+
+Two things about emit are not obvious:
+
+- **`tsconfig.build.json` is a separate project from `tsconfig.json`.** The checking config
+  resolves `@zmdb/*` to sibling _sources_, so an edit in one package is a compile error in
+  its dependents straight away. Emit cannot use those paths: a sibling `.ts` reached that
+  way becomes an input file outside `rootDir`, which is TS6059. So the build config points
+  at the sibling's `dist/*.d.ts` instead — and `yarn build` has to be topological, which
+  `workspaces foreach -A -t` gives it.
+- **`exports` cannot stay on `./src/*.ts`.** It resolves and imports perfectly in the
+  workspace, because `node_modules/@zmdb/*` is a symlink and Node follows the realpath out
+  of `node_modules`. Installed for real it fails:
+  `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. The same goes for `bin`.
+  `yarn verify:publish` is the gate for this: it packs, installs into a throwaway
+  project, and imports and typechecks all 62 subpaths from outside the repo.
 
 ## Verify after publish
 
@@ -117,8 +153,8 @@ Future releases are fully automated via CI OIDC — no token, no manual build:
    ```bash
    git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N
    ```
-   The `publish.yml` workflow builds → repoints → publishes each package via
-   OIDC under the `alpha` tag, with automatic provenance. (A tag push always
+   The `publish.yml` workflow builds → verifies → repoints → publishes each package
+   via OIDC under the `alpha` tag, with automatic provenance. (A tag push always
    publishes; a manual `workflow_dispatch` defaults to a dry run.)
 
 > **dist-tags policy (automated):** CI publishes each release under its _channel_

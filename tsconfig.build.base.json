@@ -1,0 +1,44 @@
+{
+  // The emit half of the compiler configuration. `tsconfig.base.json` is the
+  // *checking* half: `noEmit`, and `paths` pointing at sibling sources so a
+  // change in one package is a compile error in its dependents immediately.
+  //
+  // Emit cannot use those paths. A sibling `.ts` reached through `paths` joins
+  // the program as an input file, and an input file outside `rootDir` is TS6059
+  // — so the build resolves cross-package imports to the sibling's *declaration
+  // output* instead. A `.d.ts` is never emitted, so it never fights `rootDir`.
+  // That is why `yarn build` is topological (`workspaces foreach -A -t`): a
+  // package's dependencies must have produced their `dist` before it compiles.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    // Both maps point back into `src`, which is why `src` stays in `files`:
+    // step-through and go-to-definition land on the TypeScript a bug is in
+    // rather than on the emitted line it came out as.
+    "declarationMap": true,
+    "sourceMap": true,
+    // The source says `from './errors.ts'`, because that is the specifier Node
+    // resolves when it runs the source directly (tests, the dev loop, the
+    // consumer fixtures). This rewrites those to `./errors.js` on the way out.
+    "rewriteRelativeImportExtensions": true,
+    "paths": {
+      "@zmdb/schema-core": ["./packages/schema-core/dist/index.d.ts"],
+      "@zmdb/schema-core/*": ["./packages/schema-core/dist/*/index.d.ts"],
+      "@zmdb/query-compiler": ["./packages/query-compiler/dist/index.d.ts"],
+      "@zmdb/query-compiler/migrations/runner": ["./packages/query-compiler/dist/migrations/runner.d.ts"],
+      "@zmdb/query-compiler/*": ["./packages/query-compiler/dist/*/index.d.ts"],
+      "@zmdb/aot-validator": ["./packages/aot-validator/dist/index.d.ts"],
+      "@zmdb/aot-validator/codegen": ["./packages/aot-validator/dist/cli/index.d.ts"],
+      "@zmdb/aot-validator/errors": ["./packages/aot-validator/dist/errors.d.ts"],
+      "@zmdb/aot-validator/transformer": ["./packages/aot-validator/dist/transformer.d.ts"],
+      "@zmdb/aot-validator/unplugin": ["./packages/aot-validator/dist/unplugin.d.ts"],
+      "@zmdb/aot-validator/*": ["./packages/aot-validator/dist/*/index.d.ts"],
+      "@zmdb/repository": ["./packages/repository/dist/index.d.ts"],
+      "@zmdb/repository/drivers/*": ["./packages/repository/dist/drivers/*.d.ts"],
+      "@zmdb/repository/*": ["./packages/repository/dist/*/index.d.ts"],
+      "@zmdb/web": ["./packages/web/dist/index.d.ts"],
+      "@zmdb/web/*": ["./packages/web/dist/*/index.d.ts"]
+    }
+  }
+}

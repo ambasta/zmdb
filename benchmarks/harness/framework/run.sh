@@ -185,7 +185,7 @@ echo "== compiling the validator from model.ts (zmdb-codegen) =="
   echo "zmdb-codegen failed"; exit 1
 }
 
-echo "== building @zmdb/web (Stage-3 decorators lowered by tsup) =="
+echo "== building @zmdb/web (tsc: ESM .js + .d.ts mirroring src) =="
 ( cd "$REPO_ROOT" && yarn workspace @zmdb/web build >/dev/null 2>&1 )
 if [ ! -f "$REPO_ROOT/packages/web/dist/index.js" ]; then
   echo "build failed: packages/web/dist/index.js missing"; exit 1
