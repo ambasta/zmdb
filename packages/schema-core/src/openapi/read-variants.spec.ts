@@ -1,12 +1,18 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, serial, text } from '../index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { toJsonSchema, toListSchema, toSearchSchema } from './index.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
+
+// The schema value these functions take, read off the interface above the way the build
+// would. See `@zmdb/aot-validator/testing` — `schemaOf<User>()` has no runtime, so a test
+// with no transform in front of it asks the checker directly.
+const { User: UserSchema } = schemasFrom(import.meta.url, ['User']);
 
 describe('OpenAPI get/list/search variants (#174)', () => {
   it('get variant equals the entity response schema', () => {

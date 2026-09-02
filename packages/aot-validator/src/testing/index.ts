@@ -1,0 +1,179 @@
+// `@zmdb/aot-validator/testing` — a tagged type's schema value, without a build step.
+//
+// `schemaOf<User>()` is compiled away by the transform, and it has no runtime: a type
+// argument does not survive to runtime, so a build that skipped the transform gets a thrown
+// error rather than a plausible-looking empty schema. That is the right behaviour in an
+// application and an awkward one in a test, because a unit test usually runs off the
+// TypeScript source with no bundler in the way — `vitest`, `node --strip-types`, `tsx`. Ask
+// for the schema there and you get the error, correctly, and no way forward.
+//
+// So this does at test time what the transform does at build time, through the same
+// reflection: open the project, read the declared type of an exported interface, and turn its
+// IR into the schema value. What comes back is what the transform would have inlined —
+// literally the same `schemaFromIR(schemaIrFromType(...))` expression — so a test written
+// against it is testing the shipped path rather than a stand-in for it.
+//
+// ```ts
+// import { schemasFrom } from '@zmdb/aot-validator/testing';
+//
+// export interface User extends Table<'users'> {
+//   id: number & Sql<'serial'> & Serial & PrimaryKey;
+//   email: string & Sql<'varchar'> & Length<255> & Unique;
+// }
+//
+// const { User: users } = schemasFrom(import.meta.url, ['User']);
+// ```
+//
+// The interfaces can live in the test file itself, which is the point: a fixture two
+// directories away is a fixture nobody reads. They do have to be `export`ed, because the
+// module's export table is how a name is resolved to a symbol.
+//
+// ## What it costs
+//
+// One compiler session per call — about 80ms to load a package-sized project, and about 3ms
+// to resolve a type out of it. So this belongs at module scope, once per test file, with as
+// many names in the one call as the file needs; a call per `it()` would pay the load again
+// each time. The session is closed before the call returns, because an open one holds a child
+// process and a test runner that leaks those hangs on exit.
+//
+// It does check the module's own diagnostics first, which costs about 6ms and earns it back
+// the first time somebody mistypes an import. A type read out of a file that does not compile
+// comes back as an error type, and the reflection reports an error type as "the checker could
+// not resolve this type" — true, unhelpful, and repeated once per column. The compile error is
+// the thing that happened, so that is what gets raised.
+
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import type { CoreSchema } from '@zmdb/schema-core';
+import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
+
+import { schemaIrFromType, type ReflectDiagnostic } from '../reflect/index.ts';
+import { ReflectSession } from '../reflect/session.ts';
+
+export interface SchemasFromOptions {
+  /**
+   * The `tsconfig.json` to read the module from. Defaults to the nearest one at or above the
+   * module's own directory, which is the right answer for a test inside its package.
+   */
+  readonly project?: string | undefined;
+  /**
+   * What to do with a reflection that had to refuse something. The default throws, because a
+   * schema with a column quietly missing is the failure mode this whole design exists to
+   * prevent; pass a function to inspect them instead.
+   */
+  readonly onDiagnostics?: ((diagnostics: readonly ReflectDiagnostic[]) => void) | undefined;
+}
+
+/**
+ * The schema values for exported tagged interfaces in one module.
+ *
+ * `module` is a path or a `file:` URL — `import.meta.url` for the calling test file, which is
+ * the usual case. The result is keyed by interface name, so it destructures.
+ */
+export function schemasFrom<const Names extends readonly string[]>(
+  module: string,
+  names: Names,
+  options: SchemasFromOptions = {},
+): { [Name in Names[number]]: CoreSchema<string> } {
+  const irs: Record<string, SchemaIR> = schemaIrsFrom(module, names, options);
+  const schemas: Record<string, CoreSchema<string>> = {};
+  for (const [name, ir] of Object.entries(irs)) schemas[name] = schemaFromIR(ir);
+  return schemas as { [Name in Names[number]]: CoreSchema<string> };
+}
+
+/**
+ * The same, stopping at the IR.
+ *
+ * Separate because the IR is the spine and a test about the front-end wants to see it
+ * directly — the schema value is one conversion further on, and `schemaFromIR` is not the
+ * thing under test.
+ */
+export function schemaIrsFrom<const Names extends readonly string[]>(
+  module: string,
+  names: Names,
+  options: SchemasFromOptions = {},
+): { [Name in Names[number]]: SchemaIR } {
+  const file = module.startsWith('file:') ? fileURLToPath(module) : resolve(module);
+  const project = options.project ?? nearestProject(file);
+
+  using session = ReflectSession.open({ project });
+  const sourceFile = session.sourceFile(file);
+  if (!sourceFile) {
+    throw new Error(
+      `${file} is not part of ${project}. The tagged interfaces have to be in the program for ` +
+        'the checker to have a declared type for them.',
+    );
+  }
+
+  // Before anything is read off the type: a file that does not compile has error types in it,
+  // and an error type reflects as a refusal per column rather than as the one problem it is.
+  const broken = session.diagnostics(file);
+  if (broken.length > 0) {
+    throw new Error(
+      `${file} does not compile, so its types cannot be read (${broken.length} diagnostic(s)):\n` +
+        broken
+          .slice(0, 5)
+          .map(one => `  TS${String(one.code)}: ${one.text}`)
+          .join('\n'),
+    );
+  }
+
+  const { checker } = session;
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+  const exported = new Map(checker.getExportsOfModule(moduleSymbol).map(symbol => [symbol.name, symbol]));
+
+  const irs: Record<string, SchemaIR> = {};
+  const diagnostics: ReflectDiagnostic[] = [];
+  for (const name of names) {
+    const symbol = exported.get(name);
+    if (!symbol) {
+      // Naming the exports is worth the line: the usual cause is a missing `export`, and the
+      // message "User is not exported" is not obviously that when the interface is right there.
+      throw new Error(
+        `${file} exports no \`${name}\`. It has to be \`export interface ${name}\` — the module's ` +
+          `export table is how the name is resolved. Exports found: ${[...exported.keys()].join(', ') || 'none'}.`,
+      );
+    }
+    const type = checker.getDeclaredTypeOfSymbol(symbol);
+    // One reflector per name, which `schemaIrFromType` gives us: the node budget and the
+    // helper-name table are per-reflection state, and sharing them across unrelated tables
+    // would make one table's refusals show up against another's.
+    const result = schemaIrFromType(checker, type, sourceFile);
+    irs[name] = result.ir;
+    diagnostics.push(...result.diagnostics);
+  }
+
+  if (diagnostics.length > 0) {
+    if (options.onDiagnostics) options.onDiagnostics(diagnostics);
+    else {
+      throw new Error(
+        `the reflection refused ${diagnostics.length} thing(s) in ${file}:\n` +
+          diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+      );
+    }
+  }
+
+  return irs as { [Name in Names[number]]: SchemaIR };
+}
+
+/**
+ * The nearest `tsconfig.json` at or above a file.
+ *
+ * The same rule `tsc` uses for a bare invocation, and the same one the codegen CLI documents,
+ * so a caller who has not thought about it gets the project they would have guessed.
+ */
+function nearestProject(file: string): string {
+  let directory = dirname(file);
+  for (;;) {
+    const candidate = join(directory, 'tsconfig.json');
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(directory);
+    if (parent === directory) {
+      throw new Error(`no tsconfig.json at or above ${file}; pass \`project\` explicitly`);
+    }
+    directory = parent;
+  }
+}

@@ -1264,6 +1264,8 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
+  bin:
+    zmdb-codegen: ./src/cli/bin.ts
   languageName: unknown
   linkType: soft
 
@@ -1273,6 +1275,7 @@ __metadata:
   dependencies:
     "@zmdb/aot-validator": "workspace:*"
     "@zmdb/query-compiler": "workspace:*"
+    "@zmdb/schema-core": "workspace:*"
     kysely: "npm:^0.29.5"
   languageName: unknown
   linkType: soft
@@ -1300,10 +1303,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/schema-core@workspace:^, @zmdb/schema-core@workspace:packages/schema-core":
+"@zmdb/schema-core@workspace:*, @zmdb/schema-core@workspace:^, @zmdb/schema-core@workspace:packages/schema-core":
   version: 0.0.0-use.local
   resolution: "@zmdb/schema-core@workspace:packages/schema-core"
   dependencies:
+    "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     tsup: "npm:8.5.1"
     typescript: "npm:7.0.2"
