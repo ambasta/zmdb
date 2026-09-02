@@ -15,9 +15,10 @@ npm add zmdb@alpha
 
 One package re-exports the whole ecosystem. (Prefer granular installs? Use the
 four `@zmdb/*` packages instead — see [Installation](./installation.html).)
-For the AOT-inlined validators (the fast path), wire the transformer once — see
-[AOT setup](./aot-setup.html). Without it, validation still works via a runtime
-fallback.
+Then wire the transformer once — see [AOT setup](./aot-setup.html). It is not an
+optimisation you can skip: `schemaOf<T>()` and the validators read a type argument,
+which does not exist at runtime, so an untransformed build throws rather than
+quietly checking nothing.
 
 ## 2. Declare your table once
 

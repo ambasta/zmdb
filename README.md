@@ -12,7 +12,7 @@
 
 | Package                                             | Status | Description                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | DSL + type derivation (builders, modifiers, Entity/CreateDTO/UpdateDTO, relations, OpenAPI)                                                                                                                                                                                                                               |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI)                                                                                                                                                                                                                    |
 | [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner                                                                                                                                                                                                                           |
 | [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De                                                                                                                                                                                                                                               |
 | [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                    |
@@ -27,10 +27,12 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling** harness. **300
-> tests green**, including real `node:sqlite` E2E, a Kysely head-to-head, and the
-> full validation + ORM benchmark suites (real PostgreSQL). The docs site tracks
-> **0 TODO** capabilities.
+> **framework integrations**, and an **LLM function-calling** harness. **1,043
+> tests green** across 136 files, including real `node:sqlite` E2E, a Kysely
+> head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
+> Of the 276 docs-site pages, 190 document a capability that exists and 86 are
+> marked `todo` — a page that argues for a feature gap rather than describing one,
+> counted by `yarn verify:docs-coverage`.
 
 ## Quick Start
 
@@ -41,24 +43,31 @@ npm add zmdb@alpha
 ```
 
 ```typescript
-import { defineSchema, serial, text, jsonEnum, defineRepository } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
 import { DatabaseSync } from 'node:sqlite';
+import { defineRepository, schemaOf } from 'zmdb';
+import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-// Define once
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
+// Define once — a table is a type. The tags say what TypeScript has no syntax for,
+// and they are phantom symbols, so this declaration compiles to no JavaScript.
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+}
 
 // Wire a fully typed repository in one call — no subclass, no hand-written driver
-const users = defineRepository(UserSchema, sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
 
 await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
 const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 ```
+
+`schemaOf<T>()` is a compile-time call: its answer is a function of a type argument,
+and type arguments do not exist at runtime. Wire the build plugin (or run the codegen
+CLI) once — see [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html). An
+untransformed build throws a message saying so; it does not hand back an empty schema.
 
 Prefer granular installs (`@zmdb/schema-core`, …) and subclassing `BaseRepository`?
 Both are fully supported — see the [Quick Start](https://ambasta.github.io/zmdb/docs/quick-start.html).
@@ -70,11 +79,14 @@ CRUD, relations, transactions, migrations, the query builder, validators and
 Ser/De are written up in full. The docs incorporate the union of the
 [MikroORM](https://mikro-orm.io/docs/guide),
 [Drizzle](https://orm.drizzle.team/docs/overview) and
-[Typia](https://typia.io/docs) documentation surfaces. Every capability page is
-now **written in full** (0 TODO): the read/query DTOs, filters, pagination,
-projections, populate/join/aggregate results, schema objects, set operations,
-batch, read replicas, custom types, seeding, entity modeling, framework
-integrations, and the LLM harness are all documented. Features that are
+[Typia](https://typia.io/docs) documentation surfaces — 396 upstream pages, every
+one either mapped to a zmdb page or argued against, which is what
+`yarn verify:docs-coverage` checks. **Every page has a body**: the read/query
+DTOs, filters, pagination, projections, populate/join/aggregate results, schema
+objects, set operations, batch, read replicas, custom types, seeding, entity
+modeling, framework integrations, and the LLM harness are all documented. A page
+marked `todo` is one whose subject zmdb does not do yet; it says so, says what it
+would take, and shows the workaround. Features that are
 **anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map,
 unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately
 excluded and explained on the

@@ -36,6 +36,11 @@ The module is three files, and the split is deliberate:
 | `callsites.ts` | Finds `f<T>(...)` calls in a source file and hands back `T`'s node. |
 | `index.ts`     | `Reflector` — `Type` → `TypeIR` / `SchemaIR`. No AST, no I/O.       |
 
+`codemod.spec.ts` lives here too, and it belongs here rather than beside the codemod it
+tests: `scripts/codemod-tagged-schema.mjs` writes the declarations this module has to be
+able to read, so the corpus it converts and the corpus this module reflects are the same
+argument seen from two ends.
+
 ## 2. Three rules
 
 1. **Total.** `typeIR` never throws. Every input produces a node; anything the
@@ -235,8 +240,8 @@ constraint the declaration just made.
 
 - **Resolving a call site by symbol.** `callsites.ts` matches the callee by identifier
   text. A renamed import would be missed. Kept deliberately: the alternative needs a
-  module-resolution pass for a fixture-finding helper, and the emitter that will use
-  this in Phase 5 already knows its own callees.
+  module-resolution pass for a fixture-finding helper, and the transformer that drives
+  this knows its own callees (`CALLEES` in `../transformer.ts`).
 - **`Record<string, T>` and index signatures.** Detectable but not readable through the
   API (§4). Modelling one as "an object with zero properties" would emit a validator
   that accepts `{}` and everything else, so it is a named refusal instead.
@@ -244,7 +249,7 @@ constraint the declaration just made.
   asking.
 - **A discrimination strategy in the IR.** The reflection records that a property is a
   `literal`; which key to switch on, and whether to switch at all, is the emitter's
-  decision in Phase 5. Baking it in here would make the IR a plan rather than a
+  decision (`../emit/SPEC.md`). Baking it in here would make the IR a plan rather than a
   description.
 - **A separate error channel for budget overruns.** See rule 3.
 - **Defaulting an unresolvable type to `unknown`.** Plan D4: it is a build error.

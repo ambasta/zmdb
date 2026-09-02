@@ -89,6 +89,10 @@ reproduces `schema` exactly (asserted in `src/ir/ir.spec.ts`). A `CoreSchema` th
 reconstruct the IR from its own columns is what the deleted `irFromSchema` did, and it
 guessed a default for each of the five facts §2 lists.
 
+`src/ir/SPEC.md` is the long version: the `TypeIR`/`SchemaIR` shapes, the `ShapeIR` every
+back-end reads, the JSON Schema and validator-type emitters, and the three functions that
+cross between a column's wire, app and db renderings.
+
 `C` carries the _literal_ column map, which is what lets `Entity<S>` and friends derive
 real property types. It defaults to the erased `ColumnsMap`, so `CoreSchema<string>` still
 means "any table" for code that does not care — repositories, OpenAPI, seeding.

@@ -55,10 +55,10 @@ tags: `Nullable<string>` is exactly `string | null`.
 
 ### Entity-level (applied via `extends`)
 
-| Tag           | Meaning                         |
-| ------------- | ------------------------------- |
-| `Table<Name>` | The table the entity maps to.   |
-| `Fts<Name>`   | Backing full-text-search table. |
+| Tag           | Meaning                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| `Table<Name>` | The table the entity maps to.                                                                  |
+| `Fts<Name>`   | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to. |
 
 ### Column-level, structural
 
@@ -135,10 +135,18 @@ type error at the tag or at the filter: the filter collapses to `never`, `Omit<T
 is `T`, and a generated column silently becomes **required** on insert.
 
 Reflection is name-based and therefore unaffected, so the emitted validator would
-disagree with the derived type. That asymmetry is the hazard. The guard cannot live
-here — a runtime check would give the tags a runtime cost — so it belongs in the
-reflection, which can see the escaped symbol ids (`__@zmdbSerial@1` vs
-`__@zmdbSerial@12`) that the type system distinguishes and can refuse the build.
+disagree with the derived type. That asymmetry is the hazard.
+
+The guard cannot live here — a runtime check would give the tags a runtime cost — so it
+lives in the reflection, which sees the escaped symbol ids (`__@zmdbSerial@1` vs
+`__@zmdbSerial@12`) that the type system distinguishes. `#readTags` keeps a
+basename → first-seen-escaped-name map per file and refuses the build with both spellings
+named (`../../../aot-validator/src/reflect/SPEC.md` §5).
+
+What that catches is a _file_ whose types reach two copies. A project where the declaration
+consistently resolves to one copy and the derivation imports the other shows the reflector
+one spelling per tag and is not caught — it is the same nominal-identity failure, one import
+graph further out, and the honest answer to it is `yarn dedupe` rather than a check.
 
 `duplicate-install.type-test.ts` pins the current behaviour, including the trap that
 `SerialKeys<Broken> extends 'id'` **passes** on a completely broken filter because
@@ -153,6 +161,8 @@ exact identity for that reason.
 - [x] No emitted byte mentions a tag name.
 - [x] Vocabulary parity with `SqlType`, `ColumnFlags` and the constraint kinds is a compile-time gate.
 - [x] The duplicate-install failure mode is asserted exactly, with `Equal` rather than assignability.
+
+- [x] Two copies reaching one file are refused by the reflection, with both escaped names in the message.
 
 ## 8. Non-goals (rejected)
 

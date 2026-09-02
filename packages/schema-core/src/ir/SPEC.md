@@ -22,18 +22,19 @@ so the tags land on top of one IR instead and the back-ends become pure function
 it.
 
 ```
-FRONT-END                   IR                       BACK-ENDS
-                                         ┌── predicate JS  (is)
-tagged type ────────▶ SchemaIR / TypeIR ─┼── JSON Schema   (openapi/llm/web)
-                        (pure data)      ├── schema value  (schemaFromIR)
-                                         ├── runtime walker (fallback)
-                                         └── SQL / DDL     (query-compiler)
+FRONT-END              IR                  SHAPE (§7)             BACK-ENDS
+                                                       ┌── JSON Schema    (openapi/llm/web)
+                                ┌─ shapeOfVariant ─────┤
+tagged type ──▶ SchemaIR / TypeIR                      └── validator type (repository/web, §8)
+                  (pure data)   │
+                                ├─ schemaFromIR ──▶ schema value ──▶ SQL / DDL (query-compiler)
+                                └─ decodeWire / encodeWire / decodeDbValue (§9) ──▶ JSON ⇄ app ⇄ db
 ```
 
 There was a second front-end here — `defineSchema` — and it is now a back-end instead:
 `schemaFromIR` produces the schema value the query compiler reads, from the same IR
 everything else reads. That is the whole shape of the type-first change in one diagram.
-One arrow in, five out, and nothing downstream can disagree about a column.
+One arrow in, four out, and nothing downstream can disagree about a column.
 
 ## 2. Two hard constraints
 
@@ -151,7 +152,31 @@ as another and crossed as a third, and only the declaration knows the last two.
 `wireTypeOf` returns an `unsupported` node naming the column — "the same as the app type"
 is the guess that puts a class instance through `JSON.stringify` (plan D4).
 
-## 7. Back-end: JSON Schema
+## 7. The shared middle: `ShapeIR`
+
+A variant is not six special cases. `shapeOfVariant(ir, variant)` rewrites one into the
+only two facts a back-end needs — which columns the document has, and which of them it does
+not require:
+
+```ts
+interface ShapeColumnIR {
+  readonly column: ColumnIR;
+  readonly optional: boolean;
+}
+type ShapeIR = readonly ShapeColumnIR[];
+```
+
+The rules, once: a response variant (`entity`/`get`/`list`/`search`) has every column; an
+input variant (`create`) drops `serial` columns and marks `hasDefault` and nullable ones
+optional; `update` marks everything optional and also drops the primary key, because a
+patch identifies its row in the URL. Each is exactly what the corresponding derived type
+does to `Entity<T>`, which is why the translation exists rather than being a coincidence.
+
+Two back-ends read a `ShapeIR`, and they disagree about exactly one thing on purpose:
+`Sensitive`. §8's document filters it, §9's validator type keeps it. `CreateDTO<User>` has
+to be able to carry a password; the published document must not name it.
+
+## 8. Back-ends: JSON Schema, and the validator type
 
 `jsonSchemaForColumn(col)` and `jsonSchemaFromIR(ir, variant)` produce the document
 that `openapi/toJsonSchema` publishes — which is now a one-line delegation:
@@ -167,14 +192,58 @@ read off the same `SchemaIR`, and the schema value carries it rather than being 
 reconstruct it. REQ-TF-7 stops being a test to chase and becomes the only thing the code
 can do.
 
-Variant rules are unchanged: `entity`/`get`/`list`/`search` include all non-sensitive
-columns with `required` = non-nullable; `create` additionally drops `serial` columns
-and treats `hasDefault` and nullable as optional; `update` requires nothing. Keys are
-sorted, `required` is sorted, and a nullable column widens its `type` keyword — except
-a `json` column, which has no `type` to widen. That last quirk is pre-existing
-published behaviour and is preserved deliberately.
+Variant rules are unchanged: keys are sorted, `required` is sorted, `required` means "not
+optional and not nullable", sensitive columns are filtered in the emitter rather than in the
+shape, and a nullable column widens its `type` keyword — except a `json` column, which has
+no `type` to widen. That last quirk is pre-existing published behaviour and is preserved
+deliberately.
 
-## 8. Verified
+`objectTypeFromIR(ir, variant, layer)` is the other back-end onto the same shape, and it
+answers a different question: not "what document do I publish" but "what type is a legal
+payload for this". It returns an `ObjectIR`, which the one runtime walker in
+`@zmdb/aot-validator` checks — the same walker the emitted code is differentially tested
+against. It replaced the repository's own `valueMatchesColumn`, the fourth walker of §1,
+which accepted `Date | string` for a `timestamp` while `toJsonSchema` said ISO string and
+the derived type said `Date`.
+
+`Layer` is `'app' | 'wire'`, and it selects which of §6's three renderings each property
+gets. A validator has to pick one — accepting both is how that disagreement went unnoticed
+— so the caller states which side of the boundary it is on. Column order is preserved
+rather than sorted, because nothing serialises a `TypeIR`.
+
+## 9. Crossing between the layers
+
+Three renderings are only useful if something converts between them, once, at the boundary.
+Otherwise every handler decides for itself whether the `createdAt` it was handed is a string
+or a `Date`.
+
+| Function                        | Direction  | Used by                              |
+| ------------------------------- | ---------- | ------------------------------------ |
+| `decodeWire(ir, variant, body)` | JSON → app | the HTTP boundary, before validation |
+| `encodeWire(ir, row)`           | app → JSON | the HTTP boundary, on the way out    |
+| `decodeDbValue(col, value)`     | db → app   | the repository's read path           |
+| `dbDecodedColumns(ir)`          | —          | so a read path can skip the walk     |
+
+They convert and nothing else. A value they cannot convert is passed through untouched for
+the validator to reject: a decoder that produced `new Date('nonsense')` would hand the app
+layer an `Invalid Date`, which passes `instanceof Date` and reaches the driver as `NULL` or
+an error. Leaving the string alone makes the validator say `expected Date`, which is true
+and actionable. `decodeWire` copies through keys the variant does not have, for the same
+reason: deciding what a payload may contain belongs to exactly one place, and this is not it.
+
+Only `timestamp` and `bigint` need a conversion of their own, which is not a coincidence —
+they are the same two columns that need a wire type, for the same reason. `decodeDbValue` is
+written in terms of what _arrived_ rather than in terms of the dialect: `pg` hands back a
+`Date` for a `timestamptz` and a string for an `int8`, SQLite hands back the `TEXT` it
+stored, and a third driver will do something else again. A `bigint` a driver read into a
+`number` is converted only when it is a safe integer; past 2^53 the digits are already gone,
+and `BigInt(9007199254740993)` would state a value the database never held.
+
+A `Codec<'Name'>` column is converted by the application's own `CodecRegistry`, and a name
+with nothing behind it **throws** rather than passing the value through — the column's whole
+point is that it needs converting (plan D4).
+
+## 10. Verified
 
 - [x] The IR survives a `JSON.stringify` round-trip unchanged.
 - [x] Every `SqlType` appears in `SQL_TYPES` and nothing else does (compile-time).
@@ -183,8 +252,12 @@ published behaviour and is preserved deliberately.
 - [x] An unrecognised rule kind is retained as a named rule, not dropped.
 - [x] `appTypeOf`/`wireTypeOf` differ for `timestamp` and `bigint` and agree elsewhere.
 - [x] The 30 pre-existing `openapi` golden tests pass against the IR-backed emitter, unchanged.
+- [x] `encodeWire(decodeWire(body))` is the identity on a body, and a value neither can convert is passed through untouched.
+- [x] A named codec absent from the registry throws, in both directions, naming the column and the codec.
+- [x] `decodeDbValue` converts a `bigint` a driver read into a `number` only while it is a safe integer.
+- [x] `objectTypeFromIR` keeps sensitive columns and `jsonSchemaFromIR` drops them, at every variant.
 
-## 9. Non-goals (rejected)
+## 11. Non-goals (rejected)
 
 - Dialect SQL spellings in `ColumnIR.sql`.
 - Carrying a `ts.Type` or any compiler object in the IR.

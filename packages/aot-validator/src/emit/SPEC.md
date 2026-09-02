@@ -174,7 +174,7 @@ not close the literal, and `\n`, `\r`, U+2028 and U+2029 must not end the line.
 
 - **A `.every(cb)` array check.** Shorter to emit, allocates a closure per call. The
   indexed loop is asserted, not preferred.
-- **Mirroring the 10 000-character pattern cap.** §3.3. Deleting the cap was the only
+- **Mirroring the 10 000-character pattern cap.** §3, rule 3. Deleting the cap was the only
   option that made both paths answer alike.
 - **Reporting every issue for a union.** Both walks report the arm the discriminant chose,
   or one issue at the union's own path when there is none. Reporting all arms' complaints

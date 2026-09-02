@@ -27,20 +27,23 @@ This is **Schema Drift Maintenance Hell**. We're here to end it.
 
 A TypeScript data layer framework that enforces **Single Source of Truth**:
 
-1. **Define your schema once** — column types, constraints, validation rules
-2. **Everything derives automatically** — Entity, CreateDTO, UpdateDTO, Response types
+1. **Declare your table once** — as a TypeScript type, tags and all
+2. **Everything derives automatically** — Entity, CreateDTO, UpdateDTO, ReadDTO
 3. **Write <10 lines for full CRUD** — validation is automatic
 
 ```typescript
-// Define once
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull().validate(tags.Pattern(...)),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
+// Declare once — the type *is* the schema, and it compiles to no JavaScript
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+$'>;
+  role: ('admin' | 'user') & HasDefault;
+}
 
 // Get CRUD automatically
-class UserRepository extends BaseRepository<typeof UserSchema> {
+const userSchema = schemaOf<User>();
+
+class UserRepository extends BaseRepository<typeof userSchema> {
+  static readonly schema = userSchema;
   // findById, create, update, delete — all inherited
 }
 
@@ -63,15 +66,15 @@ async findAdmins() {
 | Pillar                      | What It Means                                                                              |
 | --------------------------- | ------------------------------------------------------------------------------------------ |
 | **Zero-Overhead Runtime**   | No proxies, no runtime reflection, no dynamic parsing. AOT transformer inlines validation. |
-| **Single Source of Truth**  | One schema definition drives Entity, CreateDTO, UpdateDTO, ResponseDTO at compile-time.    |
+| **Single Source of Truth**  | One type declaration drives Entity, CreateDTO, UpdateDTO, ReadDTO at compile-time.         |
 | **Encapsulated Repository** | <10 lines to get full CRUD with auto-validation. Just extend and go.                       |
 
 ## Architecture
 
 Split into focused, independently versionable packages:
 
-- `@zmdb/schema-core` — DSL + type derivation
-- `@zmdb/query-compiler` — Kysely fork, raw SQL output
+- `@zmdb/schema-core` — the tag vocabulary, the IR, and type derivation
+- `@zmdb/query-compiler` — builder to `{ text, parameters }`, never a connection
 - `@zmdb/aot-validator` — TypeScript transformer for inlined validation
 - `@zmdb/repository` — BaseRepository with auto-validation
 
@@ -84,14 +87,17 @@ Split into focused, independently versionable packages:
 ## Quick Start
 
 ```bash
-npm create zero-maintenance-data-layer@latest
+npm add zmdb@alpha
 ```
 
-Or add to an existing project:
+Or install the packages you want:
 
 ```bash
 npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
 ```
+
+Then wire the build plugin once. `schemaOf<T>()` and the validators read a type
+argument, which does not survive to runtime, so an untransformed build throws.
 
 ## Why Not [Existing Tool]?
 
@@ -108,4 +114,4 @@ This is the **fastest possible path** from schema definition to database operati
 
 **Define once. Derive everything. Ship faster.**
 
-MIT License • Built for Node 26+ • ESM-only
+GPL-3.0-or-later • Built for Node 26+ • ESM-only

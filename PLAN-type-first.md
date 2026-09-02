@@ -324,7 +324,8 @@ Do not re-derive these. Measured and committed, not assumed.
 - **The prototype works** — `scripts/prototypes/type-first/`, 25 asserted
   expectations, covering tags on intersections, key filtering, resolution through
   `Omit`/`Pick`/`Partial`, nullability, optionality, literal unions, arrays, tuples,
-  nested objects with a cycle guard.
+  nested objects with a cycle guard. (Deleted once the shipped path carried every one of
+  those claims; the mapping is in `DESIGN-type-first.md` §5.)
 - **AST node positions are available** (`pos`, `end`, `getStart()`), so rewriting is
   surgical rather than regex-based.
 - **`FileChanges` is invalidation-only** — `{ changed: [...] }` tells the checker to
@@ -513,8 +514,10 @@ subpath is registered now, with `typescript` externalised in the tsup config.
    `verify:exports`.
 3. Move `typescript` to an optional peer dep of `aot-validator`; add the guard that
    no runtime entrypoint imports it.
-4. Add `scripts/prototypes/type-first/run.mjs` to CI as a smoke test so the reference
-   implementation cannot rot while the real one is built.
+4. ~~Add `scripts/prototypes/type-first/run.mjs` to CI as a smoke test so the reference
+   implementation cannot rot while the real one is built.~~ Not done, and then moot: the
+   prototype was deleted at the end of D2's docs pass rather than wired up. Pinning a
+   second tag vocabulary in CI would have made it a thing to keep in sync.
 
 **Gate:** `yarn verify:exports`, `yarn typecheck`, `yarn lint`, `yarn test` green; the
 five decisions written down.
@@ -926,8 +929,12 @@ because Phase 5 and 7 will delete assertions and the ratchet should capture that
   emit, CLI) — `validate:spec` requires them.
 - `COOKBOOK.md` recipes; `ARCHITECTURE.md` §2 for the IR spine; PRD §7.2's worked
   example rewritten type-first.
-- Retire `scripts/prototypes/type-first/` once Phase 5 supersedes it, or keep it as a
-  minimal-reproduction harness — decide, don't leave it ambiguous.
+- ✅ **Decided: retired.** `scripts/prototypes/type-first/` is deleted. It answered "can a
+  tagged interface generate the checks with no schema value anywhere", and the shipped
+  reflection now answers that against real code — while the prototype's own `tags.ts` was a
+  second tag vocabulary, which is the two-front-ends problem this phase deleted
+  `defineSchema` over. `DESIGN-type-first.md` §5 maps each of its 25 claims to the test that
+  carries it now, so nothing is lost except the duplicate.
 
 **Also fix, since it blocks publishing:** `yarn build` fails at the `dts` step
 (`Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`) because

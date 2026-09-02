@@ -2,7 +2,8 @@
 
 > Targets: Node 26+, ESM-only, `typescript@7` (the Go compiler behind its JS client).
 > Module specs: `src/reflect/SPEC.md`, `src/emit/SPEC.md`, `src/utilities/SPEC.md`,
-> `src/plugin/SPEC.md`, `src/serialization/SPEC.md`, `src/advanced/SPEC.md`.
+> `src/plugin/SPEC.md`, `src/cli/SPEC.md`, `src/serialization/SPEC.md`,
+> `src/advanced/SPEC.md`.
 
 ## 1. What the package is
 
@@ -15,7 +16,15 @@ is written. That takes four stages, one module each:
 | `src/emit/`          | `TypeIR` → JavaScript                          | build   |
 | `src/transformer.ts` | source text in, source text out                | build   |
 | `src/plugin/`        | the unplugin adaptor and the per-build session | build   |
+| `src/cli/`           | the same rewrite, written to disk              | build   |
 | `src/utilities/`     | the same walks over `TypeIR` at runtime        | runtime |
+
+The last two build-time modules are the **two routes into the compiled path**, and they
+share stages 1–3 rather than reimplementing them: the plugin hands its output to a bundler,
+`zmdb-codegen` commits it. REQ-AV-3 is why there are two — the fast path may not be a reward
+for choosing a particular bundler — and `fixtures/consumer-plugin/` and
+`fixtures/consumer-cli/` are asserted to produce byte-identical output. See
+`src/cli/SPEC.md`.
 
 `@zmdb/schema-core/ir` owns the IR itself, so the SQL back-ends, the JSON Schema
 back-ends and this package all speak one vocabulary.
@@ -64,9 +73,15 @@ code in a file the transformer decided not to touch.
 module that reaches it does not merely bloat a bundle — it fails to build one. So the
 manifest publishes two sets of entry points:
 
-| Runtime (bundled)                                                         | Build-time (compiler)                                  |
-| ------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin` |
+| Runtime (bundled)                                                         | Build-time (compiler)                                                            |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing` |
+
+`./testing` is on the build-time side for the same reason the other five are: `schemasFrom<{
+User: User }>(import.meta.url, ['User'])` opens the caller's own project and reflects the
+named interfaces. It is a compiler client by definition — that is the service — and it exists
+because `schemaOf<T>()` has no runtime, so a test with no build step has no other route from
+a tagged interface to a schema.
 
 `typescript` is an **optional peer dependency**: installing this package to call
 `is(value, ir)` at runtime should not pull down a compiler, and a build that uses the
@@ -107,7 +122,7 @@ plugin's call.
 - [x] A build opens exactly one `API` instance, measured as a delta on `apiInstanceCount()`; zero when there is no project.
 - [x] Watch mode refreshes rather than reopens: the session's update log contains exactly one `'open'` however many files change.
 - [x] A new module is announced as `created`, not `changed` — a `changed` notification for a file the program has never seen is a measured no-op, so the stale-retry path picks by `sourceFile(id)`.
-- [x] Every declared export resolves, appears in tsup's entry map, and — except for the four build-time subpaths — cannot reach `typescript` through any chain of imports.
+- [x] Every declared export resolves, appears in tsup's entry map, imports under plain `node`, and — except for the six build-time subpaths — cannot reach `typescript` through any chain of imports.
 - [x] Removing an entry from `BUILD_TIME_ENTRIES` produces the expected errors, so the guard is not vacuous.
 - [x] The tag-rule form still inlines to the table in §2, and matches the runtime fallback for good and bad input on every rule.
 - [x] The scanner leaves code alone that has no validator call, matches whole identifiers rather than substrings, ignores calls inside comments and string literals, and scans faster than a megabyte a second.

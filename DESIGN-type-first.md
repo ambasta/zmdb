@@ -1,9 +1,11 @@
 # Design goal — type-first declaration, AOT-generated runtime
 
-**Status:** accepted design goal, not yet implemented.
+**Status:** implemented. `defineSchema` is gone, the tags are the only front-end, and every
+`REQ-TF-*` acceptance criterion names a script or a test that enforces it (PRD §6.7).
 **Owns:** PRD §6.7 (`REQ-TF-*`).
 **Plan:** [`PLAN-type-first.md`](PLAN-type-first.md).
-**Prototype:** `scripts/prototypes/type-first/` — runnable, 25 asserted expectations.
+**Specs:** `packages/schema-core/src/tags/SPEC.md`, `.../src/ir/SPEC.md`,
+`packages/aot-validator/src/reflect/SPEC.md`, `.../src/emit/SPEC.md`, `.../src/cli/SPEC.md`.
 
 ---
 
@@ -213,50 +215,54 @@ Four generation targets, in dependency order:
    **types can generate the runtime data; they cannot be the runtime data.** The
    difference from today is that the value is derived, not authored, so P2 holds.
 
-## 5. What the prototype establishes
+## 5. What the prototype established, and what carries each claim now
 
-`scripts/prototypes/type-first/` — `node scripts/prototypes/type-first/run.mjs`,
-25 asserted expectations, exit non-zero on regression.
+There was a prototype — `scripts/prototypes/type-first/`, 25 asserted expectations — and it
+existed so this document's claims could be checked rather than believed. It has been
+**deleted**, because the shipped implementation answers the same questions against real
+code, and a second tag vocabulary sitting beside the real one is precisely the two-front-ends
+problem that deleting `defineSchema` was about. `git log` has it if the sketch is ever wanted
+again.
 
-Proven:
+Each thing it proved, and where the claim lives now:
 
-- The checker resolves a named interface, its aliases, and its nested types.
-- Tags are readable off an intersection as string/number literal types.
-- Tags drive key filtering exactly (`SerialKeys<User>` → `"id"`).
-- The checker resolves **through mapped types**: `getPropertiesOfType` on
-  `Partial<Omit<User, "id">>` returns the computed property set.
-- Constraints survive `Omit`/`Pick`/`Partial`.
-- Native nullability (`| null`), optionality (`?`) and literal unions read correctly.
-- `Sensitive` strips from `ReadDTO`; `Serial` strips from `CreateDTO`; `HasDefault`
-  becomes optional on insert; `Sql<'integer'>` implies `Number.isInteger`.
-- No tag symbol appears in the emitted code — asserted by the runner.
+| Prototype claim                                                          | Now carried by                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| The checker resolves a named interface, its aliases and its nested types | `reflect/reflect.spec.ts`, against `__fixtures__/constructs.ts`          |
+| Tags read off an intersection as literal types                           | `reflect/index.ts` `#readTags`; `ir/vocabulary.type-test.ts`             |
+| Tags drive key filtering exactly (`SerialKeys<User>` → `'id'`)           | `derive/type-derivation-tagged.type-test.ts`, with `Equal` not `extends` |
+| Resolution **through** mapped types (`Partial<Omit<User, 'id'>>`)        | `reflect/SPEC.md` §6a — no branch in the code, asserted property lists   |
+| Constraints survive `Omit`/`Pick`/`Partial`                              | the same tests                                                           |
+| `                                                                        | null`, `?` and literal unions read correctly                             | `reflect/SPEC.md` §4's two normalisation facts, with fixtures |
+| `Sensitive`/`Serial`/`HasDefault` land in the right DTO                  | `ir/ir.spec.ts` variants + `derive`'s type tests                         |
+| No tag symbol appears in emitted code                                    | `tags/erasure.spec.ts`                                                   |
 
-Two bugs the prototype caught, both worth recording because the shipping
-implementation will meet them:
+Two bugs it caught, kept because they are the kind that come back:
 
-- `boolean` is `true | false` — a **union**, not an intrinsic type. Classify it
-  before any property-bearing fallback or a primitive gets an object check.
+- `boolean` is `true | false` — a **union**, not an intrinsic type. Classify it before any
+  property-bearing fallback, or a primitive gets an object check. (Pinned:
+  `reflect/SPEC.md` §9.)
 - Stripping nullability early (`getNonNullableType` at the top of the walk) destroys
-  legitimate `T | null` columns. Optionality and nullability must be handled at the
-  property and union level respectively.
+  legitimate `T | null` columns. Optionality and nullability are handled at the property
+  and the union level respectively.
 
-## 6. What is not yet established
+## 6. The open questions, and where each landed
 
-The implementation plan is [`PLAN-type-first.md`](PLAN-type-first.md); it resolves several
-of these and states which are decisions rather than unknowns.
+This table was "what is not yet established". Two rows are still open; the rest are settled,
+and each names what settles it so the claim can be rechecked rather than trusted.
 
-| Open question           | Why it matters                                                                                                                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build wiring            | The plugin must hold **one** `API` instance for the whole build. Measured: 60 ms once is free. Per file it is fatal. A discipline problem, not a performance one.                                                                                             |
-| No in-memory overlay    | `fileChanges` only _invalidates_; the checker re-reads from disk. So the transform must run before any other plugin rewrites the module, or positions no longer line up. Plan §5.1.                                                                           |
-| `tsc`-driven builds     | `ts-patch`-style program transformers do not apply to the Go compiler. The plan's answer is a codegen CLI, which also closes RISK-1 — see plan Phase 8.                                                                                                       |
-| Three types per column  | **Resolved** (plan D3, §9): a column has a wire type, an app type and a db type, and each layer renders its own — `timestamp` is an ISO `string` in JSON Schema, a `Date` in `Entity<T>`, `timestamptz` in Postgres DDL. The DDL type map does not exist yet. |
-| Recursive entity graphs | `User → Post[] → User` needs the seen-set/named-helper approach the prototype sketches, at real depth.                                                                                                                                                        |
-| Scale                   | Untested on a 60-column entity behind four layers of conditional types, or against the checker's instantiation limits.                                                                                                                                        |
-| Excess properties       | The prototype emits `is` semantics. `equals` semantics is a separate emit path (today's `emitExcessKeyGuards`).                                                                                                                                               |
-| Migration path          | **Resolved** (plan D2, §9): `defineSchema` is deleted, not kept as a peer. A codemod converts a project; the value→IR front-end survives only as the differential proof and goes with it.                                                                     |
-| Declaration ergonomics  | `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                                                                       |
-| `dts` build break       | `yarn build` already fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.                                                                                |
+| Question                | Where it landed                                                                                                                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build wiring            | **Closed.** One `API` per build, refreshed per file change. `apiInstanceCount()` makes it measurable and `yarn verify:build-budget` asserts the snapshot update log is identical at 8 modules and at 64.                                                            |
+| No in-memory overlay    | **Closed, as a constraint rather than a fix.** `fileChanges` only invalidates, so the plugin declares `enforce: 'pre'` and `transformFile` compares the text before it trusts an offset.                                                                            |
+| `tsc`-driven builds     | **Closed.** `zmdb-codegen` writes the rewrite to disk; `fixtures/consumer-cli/` and `fixtures/consumer-plugin/` are asserted to produce byte-identical output. `packages/aot-validator/src/cli/SPEC.md`.                                                            |
+| Three types per column  | **Closed** (plan D3): `appTypeOf`/`wireTypeOf` in `schema-core/ir`, `ddlType(dialect, col)` in `query-compiler/migrations`. `timestamp` is an ISO `string` in JSON Schema, a `Date` in `Entity<T>`, `TIMESTAMPTZ` on Postgres and `TEXT` on SQLite.                 |
+| Recursive entity graphs | **Closed.** `RefIR` plus a seen-set; mutual recursion (`Folder` ↔ `FileEntry`) closes with a `ref`, not only self-recursion.                                                                                                                                        |
+| Scale                   | **Closed enough to state a number.** `yarn verify:instantiations` typechecks a tagged project against an untagged baseline and fails on a regression; the budget script covers 64 modules. A 60-column entity behind four layers of conditionals is still untested. |
+| Excess properties       | **Closed.** `excess` is one of the emitter's four targets, and `hasExcessCheck` in `emit/shape.ts` is the single place that decides whether a shape has one.                                                                                                        |
+| Migration path          | **Closed** (plan D2): `defineSchema` is deleted, `yarn verify:no-defineschema` keeps it deleted, and `scripts/codemod-tagged-schema.mjs` converts a project.                                                                                                        |
+| Declaration ergonomics  | **Open, and a judgement rather than a gap.** `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                                |
+| `dts` build break       | **Open.** `yarn build` still fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.                                                                              |
 
 ## 7. Adjacent, not part of this goal
 
@@ -286,28 +292,29 @@ Tracked separately; it does not block or depend on the work above.
 
 ## 8. Definition of done
 
-1. `REQ-TF-*` acceptance criteria in PRD §6.7 all met.
-2. A tagged interface expresses everything `defineSchema` can express, asserted by a
-   type test that fails if a `ColumnFlags` member has no tag equivalent.
-3. `is`/`assert`/`validate`/`equals` on any named type, mapped type, or derived DTO
-   are transformed — no silent skip, and no `TypeDescriptor` hand-written anywhere
-   in the repo or the benchmarks.
-4. `parseType` and the text-scanning transformer are deleted.
-5. The AOT conformance suite passes identically against the generated and runtime
-   paths (REQ-AV-4).
-6. `benchmarks/harness/framework/app.ts` contains no schema→descriptor bridge.
-7. Build time is measured and published, with the one-`API`-instance property
-   asserted by a test rather than assumed.
-8. `defineSchema` no longer exists and a codemod converts a project that used it.
+Each item names what enforces it, because a definition of done that is only a document is
+the thing this whole design is a reaction to.
+
+| #   | Done                                                                                                              | Enforced by                                                                                                                                                                                                 |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Every `REQ-TF-*` acceptance criterion in PRD §6.7 is met, or says in the row what is not.                         | the scripts named in each row; two rows carry a ⚠️ and say why                                                                                                                                              |
+| 2   | A tagged interface expresses everything `defineSchema` could.                                                     | `ir/vocabulary.type-test.ts` — a new `ColumnFlags` member without a tag fails to compile; `yarn verify:tf-coverage`                                                                                         |
+| 3   | `is`/`assert`/`validate`/`equals` on any named type, mapped type or derived DTO are transformed — no silent skip. | `reflect.spec.ts` + `differential.spec.ts`; a refusal is a named build error, not a skip                                                                                                                    |
+| 4   | No `TypeDescriptor` is hand-written in the repo or the benchmarks.                                                | `yarn verify:no-descriptors` — 305 files, and the only five left are in the four specs that test the descriptor path                                                                                        |
+| 5   | `parseType` and the text-scanning reading of a type argument are deleted.                                         | `packages/aot-validator/SPEC.md` §2 and its eight byte-identical pass-through assertions. `transformCode` survives for `validate(tags.X, expr)`, which carries its rule at the call site and needs no types |
+| 6   | The conformance suite passes identically against the generated and the runtime path.                              | `emit/differential.spec.ts`, four assertions per case over a 22-value wild corpus; non-vacuous by construction                                                                                              |
+| 7   | `benchmarks/harness/framework/app.ts` contains no schema→descriptor bridge.                                       | the same descriptor ratchet as row 4                                                                                                                                                                        |
+| 8   | Build time is measured and published, with the one-`API`-instance property asserted rather than assumed.          | `yarn verify:build-budget`, on `apiInstanceCount()` and the session's update log                                                                                                                            |
+| 9   | `defineSchema` no longer exists, and a codemod converts a project that used it.                                   | `yarn verify:no-defineschema` (export names, not a grep) + `reflect/codemod.spec.ts`                                                                                                                        |
 
 ## 9. Decision log
 
 Full reasoning and rejected alternatives in [`PLAN-type-first.md`](PLAN-type-first.md) §2.
 
-| #   | Decided                                                                                                                                                                                                                                                                                                                            | On         |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| D1  | The derivation `PrimaryKey<S>` is renamed `PrimaryKeyOf<S>` so the tag takes the good name. No deprecated alias — D2 removes the reason for one.                                                                                                                                                                                   | 2026-09-02 |
-| D2  | Derivations take a tagged type only; there is no dispatch on a schema value. **`defineSchema` is deleted**, with a codemod for existing projects. Backwards compatibility is explicitly not a requirement. The value→IR front-end survives only as the differential proof that the tagged path is correct, and is removed with it. | 2026-09-02 |
-| D3  | A column has three types — wire / app / db — and each layer renders the one it owns. `timestamp`: ISO `string` in JSON Schema, `Date` in `Entity<T>`, `timestamptz` on Postgres. The IR keeps the abstract type; the dialect renders the spelling. Requires a per-dialect DDL type map, which does not exist today.                | 2026-09-02 |
-| D4  | An unresolvable type is a **build error** naming the file, the type and the construct, with `{ onUnsupported: 'warn' \| 'runtime' }` as the opt-out. An unresolved type _parameter_ is always fatal.                                                                                                                               | 2026-09-02 |
-| D5  | Keep `unique symbol` tags and name-based reflection, and make two declarations of one tag name in a program a **build error**. Verified: a cross-copy key filter resolves to `never`, which is assignable to anything, so it fails silently — the type tests must assert exact identity, never assignability.                      | 2026-09-02 |
+| #   | Decided                                                                                                                                                                                                                                                                                                                                | On         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| D1  | The derivation `PrimaryKey<S>` is renamed `PrimaryKeyOf<S>` so the tag takes the good name. No deprecated alias — D2 removes the reason for one.                                                                                                                                                                                       | 2026-09-02 |
+| D2  | Derivations take a tagged type only; there is no dispatch on a schema value. **`defineSchema` is deleted**, with a codemod for existing projects. Backwards compatibility is explicitly not a requirement. The value→IR front-end survives only as the differential proof that the tagged path is correct, and is removed with it.     | 2026-09-02 |
+| D3  | A column has three types — wire / app / db — and each layer renders the one it owns. `timestamp`: ISO `string` in JSON Schema, `Date` in `Entity<T>`, `TIMESTAMPTZ` on Postgres. The IR keeps the abstract type; the dialect renders the spelling. The per-dialect DDL type map it needed is `ddlType` in `query-compiler/migrations`. | 2026-09-02 |
+| D4  | An unresolvable type is a **build error** naming the file, the type and the construct, with `{ onUnsupported: 'warn' \| 'runtime' }` as the opt-out. An unresolved type _parameter_ is always fatal.                                                                                                                                   | 2026-09-02 |
+| D5  | Keep `unique symbol` tags and name-based reflection, and make two declarations of one tag name in a program a **build error**. Verified: a cross-copy key filter resolves to `never`, which is assignable to anything, so it fails silently — the type tests must assert exact identity, never assignability.                          | 2026-09-02 |

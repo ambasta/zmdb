@@ -84,6 +84,23 @@ rejected regardless of how convenient it is.
    benchmark harnesses; gaps and trade-offs are enumerated individually, never
    averaged into a flattering score, never silently skipped (see the benchmarks
    dashboard).
+9. **One front-end: a table is a type.** There is no builder DSL and no schema
+   value you author by hand. A declaration is a TypeScript interface carrying
+   phantom tags, the reflection reads it once into a `TypeIR`, and every back-end
+   — DDL, DTOs, JSON Schema, the emitted validator — reads that IR and nothing
+   else. Two front-ends would mean two answers to "what are this table's
+   columns", and the emitted validator can only ever agree with one of them.
+   Enforced by `yarn verify:no-defineschema`, which imports every published
+   surface and reads its export names rather than grepping for a spelling.
+10. **Everything ships as source.** `files` is `["src"]` and every `exports`
+    target is a `.ts` file, so a consumer's import is Node reading our
+    TypeScript and stripping the types. Two consequences that are easy to break
+    and invisible to a test run: a relative specifier must name the file that
+    exists (`'./errors.ts'`, not `'./errors.js'` — `tsc` and vitest both map the
+    latter back, Node does not), and a published module must contain no syntax
+    that is not type syntax, which rules out a decorator anywhere on a path
+    reachable from an entry point. Enforced by `yarn verify:exports`, which
+    imports all 62 subpaths.
 
 ### 2.1 The `as`-free rule and its narrow exceptions
 
@@ -108,13 +125,24 @@ shape." The policy:
 > hold framework internals to a documented, shrinking exception list — rather
 > than claim an absolute we'd have to fake with hidden `any`.
 >
-> **Where that stands (2026-09-01):** 28 assertions across `packages/*/src`, all
-> documented under 37 `// boundary:` comments; 0 `any`, 0 non-null `!`, 0 lint
-> suppressions, 0 consumer-facing `as` in the docs. Down from 91 assertions with
-> 14 comments, which is the measurement the policy needed — see PRD §9.4 for the
-> table and the four structural fixes. The count is **not yet ratcheted in CI**,
-> and it shows: the figure published on 2026-08-31 was 23, so five assertions were
-> added without anyone noticing. Treat it as a snapshot, not an invariant (PRD RISK-7).
+> **Where that stands (2026-09-03):** 62 assertions across `packages/*/src`, all
+> documented under 54 `// boundary:` comments; 0 `any`, 0 non-null `!`, 1 lint
+> suppression, 1 `as unknown as`, 0 consumer-facing `as` in the docs.
+>
+> That is up from 28, and the increase came with the type-first work.
+> `aot-validator` holds 28 of the 62, clustered where the type system stops being
+> able to help: `utilities` (8 comments) certifies a value against a `TypeIR` it
+> walked, `emit` (4) hands the compiler synthesised nodes, and `reflect` + `cli`
+> (5) read the checker's own untyped edges. Every assertion carries a
+> `// boundary:` comment stating the runtime guarantee that makes it sound —
+> that is the part the gate below checks, and it is the part that matters more
+> than the count.
+>
+> The number is now **ratcheted in CI** — `yarn verify:escape-hatches` fails both
+> when a count exceeds its ceiling and when an assertion has no `// boundary:`
+> comment, and it tells you to lower the ceiling when a row drops below it. The
+> earlier version of this note recorded a silent drift from 23 to 28 that nobody
+> caught; that is what the ratchet is for (PRD RISK-7).
 
 ---
 
@@ -197,9 +225,9 @@ refactor.
 
 | Package                | Responsibility                                                                                                                                                                                                                                                          | Runtime deps                           |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `@zmdb/schema-core`    | Schema DSL, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas                                                                                                                                | none                                   |
+| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas                                                                                                    | none                                   |
 | `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects                                                                                                                                        | none                                   |
-| `@zmdb/aot-validator`  | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                                                                                                           | none (ts is a devDep)                  |
+| `@zmdb/aot-validator`  | The reflection (a tagged interface -> `TypeIR`), the AOT transformer, `zmdb-codegen`, and `schemaOf`/`is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                        | none (ts is a devDep)                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                | schema-core, query-compiler            |
 | `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |
 | `zmdb`                 | Umbrella meta-package (curated root + subpath re-exports)                                                                                                                                                                                                               | all of the above                       |
@@ -220,7 +248,7 @@ refactor.
 ## 4. Implementation-language policy
 
 **We target the TypeScript ecosystem; we are not obligated to implement in
-TypeScript.** The public surface (types, DSL, decorators) is and will remain
+TypeScript.** The public surface (types, tags, decorators) is and will remain
 TypeScript, because that is the _product_. But the _implementation_ of any hot
 path is chosen purely by north star (1): whatever gives the consumer the fastest
 runtime while remaining maintainable.
