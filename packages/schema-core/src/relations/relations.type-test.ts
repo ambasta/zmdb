@@ -1,17 +1,7 @@
 // Compile-time type assertions for relations and foreign key constraints.
 // Checked by `yarn typecheck`.
 
-import {
-  defineSchema,
-  serial,
-  text,
-  integer,
-  references,
-  type ColumnMeta,
-  type Entity,
-  type Equal,
-  type Expect,
-} from '../index.ts';
+import type { Entity, Equal, Expect } from '../index.ts';
 import { ProfileSchema, UserSchema } from './fixtures.ts';
 import {
   manyToOne,
@@ -27,32 +17,19 @@ import {
 type UserEntity = Entity<typeof UserSchema>;
 type ProfileEntity = Entity<typeof ProfileSchema>;
 
-// 1. Foreign key type checking with references(...)
+// 1. Foreign key type checking — deleted with `references()` (plan D2).
 //
-// `references()` takes a column *builder*'s output and compares its TypeScript type against
-// the target column's, which needs the target's literal column map. So it is inherently a
-// schema-value API: the tagged spelling of the same constraint is `References<'users.id'>`
-// on the column, checked by the reflection instead. This section therefore declares its own
-// value schema and goes when the column builders do (plan D2).
-const ValueUserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
-
-const validFk = references(integer(), ValueUserSchema, 'id');
-export type TestValidFk = Expect<(typeof validFk)['references'] extends { target: string } ? true : false>;
-
-// @ts-expect-error - 'invalid_col' does not exist on ValueUserSchema
-references(integer(), ValueUserSchema, 'invalid_col');
-
-// Foreign key type mismatch returns branded error object
-const textCol = text();
-const mismatchRef = references(textCol, ValueUserSchema, 'id');
-export type TestMismatchError = Expect<Equal<typeof mismatchRef, { __error: 'Referenced column type does not match' }>>;
-
-// Assigning a mismatched reference to a ColumnMeta property fails type check
-// @ts-expect-error - Referenced column type does not match
-const _invalidRefCol: ColumnMeta = references(textCol, ValueUserSchema, 'id');
+// `references(integer(), UserSchema, 'id')` took a column *builder*'s output and compared its
+// TypeScript type against the target column's, which needed the target schema value's literal
+// column map. Four assertions lived here: a valid key, a column name that does not exist on the
+// target, a type mismatch resolving to a branded `{ __error }`, and that branded object failing
+// to assign to a `ColumnMeta`.
+//
+// The tagged spelling is `References<'users.id'>` on the column, and it does not carry the type
+// comparison: it is a string, and the reflection has one table in front of it. What survives is
+// `tags/serial-foreign-key.type-test.ts`, which covers the case a single declaration can state —
+// a column pointing at a `Serial` primary key has to be a plain `number`. Comparing a foreign key
+// against the type of the column it names is a check nothing performs today.
 
 // 2. Relation builders column validation
 // @ts-expect-error - 'bad_col' is not a column of UserSchema

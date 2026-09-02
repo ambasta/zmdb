@@ -4,12 +4,12 @@
 //
 // The scalar/variant walk used to live here as `scalarSchema` — one of the four
 // independent walkers over column metadata catalogued in `PLAN-type-first.md` §1.
-// It now delegates to `../ir`, so a schema value and a tagged type cannot produce
-// different documents: both become `SchemaIR` first, and the emitter is a pure
-// function of that (REQ-TF-7). What is left in this file is the OpenAPI framing —
+// It now delegates to `../ir`, so naming a variant and naming a derived type cannot
+// produce different documents: both are read off the same `SchemaIR`, and the emitter is
+// a pure function of it (REQ-TF-7). What is left in this file is the OpenAPI framing —
 // components, list/search envelopes, naming — which is genuinely its own concern.
 import type { CoreSchema } from '../index.ts';
-import { irFromSchema, jsonSchemaFromIR, type JsonSchemaObject, type Variant } from '../ir/index.ts';
+import { jsonSchemaFromIR, type JsonSchemaObject, type Variant } from '../ir/index.ts';
 
 export type { JsonSchemaObject, Variant };
 
@@ -30,7 +30,7 @@ export type { JsonSchemaObject, Variant };
  */
 // oxlint-disable-next-line no-unused-vars -- `T` is the whole input; it has nowhere else to appear
 export function toJsonSchema<T>(): JsonSchemaObject;
-/** The document for a schema value and a named variant. Deleted with `defineSchema`. */
+/** The document for a schema value and a named variant. */
 export function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchemaObject;
 export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
   if (!schema) {
@@ -40,7 +40,7 @@ export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'en
         'be read at runtime, so there is nothing to fall back to.',
     );
   }
-  return jsonSchemaFromIR(irFromSchema(schema), variant);
+  return jsonSchemaFromIR(schema.ir, variant);
 }
 
 function singularizeWord(word: string): string {

@@ -779,18 +779,25 @@ Counted off a real parse tree, per package, over the **85 shipped source files**
 `__testing__/` and `__fixtures__/`. A file whose job is to prove a type _rejects_ something
 is nothing but `@ts-expect-error`, and 45 of those are not 45 escape hatches.
 
-| Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | Ceiling |
-| ------------------------------------------ | --------------------------: | --------------------------------: | ------: |
-| `: any` / `<any>` / `any[]` / `as any`     |                       **0** |                             **0** |       0 |
-| `@ts-expect-error` / `@ts-ignore` in src   |                       **0** |                             **0** |       0 |
-| `as unknown as` double casts               |                       **1** |                             **2** |       2 |
-| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |      65 |
-| `// boundary:` comments                    |                      **37** |                            **56** |       — |
-| Non-null assertions (`!`)                  |                       **0** |                             **0** |       0 |
-| `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |       1 |
-| `new Function` / `eval` call sites         |                       **0** |                             **0** |       0 |
+| Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | 2026-09-03 (DSL deleted) | Ceiling |
+| ------------------------------------------ | --------------------------: | --------------------------------: | -----------------------: | ------: |
+| `: any` / `<any>` / `any[]` / `as any`     |                       **0** |                             **0** |                    **0** |       0 |
+| `@ts-expect-error` / `@ts-ignore` in src   |                       **0** |                             **0** |                    **0** |       0 |
+| `as unknown as` double casts               |                       **1** |                             **2** |                    **1** |       1 |
+| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |                   **62** |      62 |
+| `// boundary:` comments                    |                      **37** |                            **56** |                   **54** |       — |
+| Non-null assertions (`!`)                  |                       **0** |                             **0** |                    **0** |       0 |
+| `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |                    **1** |       1 |
+| `new Function` / `eval` call sites         |                       **0** |                             **0** |                    **0** |       0 |
 
-Three rows moved, and none of them because the code got worse:
+The third column is plan D2 landing: `defineSchema`, ten column builders and eight
+function-style modifiers deleted. It took three assertions and one double cast with it, and
+they are the good kind of removal — nothing was rewritten to dodge a cast, the code that
+needed the cast is gone. Both ceilings came down in the same commit, which is the direction
+this table is supposed to move; see the four structural fixes at the end of this section for
+the shape of the argument.
+
+Three rows moved between the first two columns, and none of them because the code got worse:
 
 - **Assertions 28 → 65.** The tree grew by 18 files: the reflection front-end, the emitter,
   the codegen CLI, the `zmdb-codemod` and the test-time bridge — the whole type-first spine,
@@ -809,8 +816,10 @@ Three rows moved, and none of them because the code got worse:
   kept by the code above it rather than by the cast.
 
 - **Double casts 1 → 2.** The second is `attachRelations`' populated-row return in
-  `@zmdb/repository`. The first is still `makeColumn`, and it goes away with the column
-  builders in plan D2 — at which point this ceiling drops back to 1.
+  `@zmdb/repository`. The first was `makeColumn`, and it went away with the column builders in
+  plan D2, as this said it would — a column was not a `Column` until
+  `Object.defineProperties` had attached the fluent methods to it, and there is no way to
+  express that as a type-changing operation. `attachRelations` is the one that remains.
 - **Lint suppressions 0 → 1.** `toJsonSchema<T>(): JsonSchemaObject`'s overload in
   `schema-core/src/openapi`, which declares a type parameter it never mentions in a
   parameter — that is the whole point of a type-first signature, and there is nowhere else
@@ -822,7 +831,7 @@ Per-package distribution of the 2026-09-02 recount:
 | Package                | Assertions | `// boundary:` | What the boundaries are                                                       |
 | ---------------------- | ---------: | -------------: | ----------------------------------------------------------------------------- |
 | `@zmdb/aot-validator`  |         28 |             18 | checker `Type` → `TypeReference`, `JSON.parse` → `T`, `input as T` after `is` |
-| `@zmdb/schema-core`    |         15 |             12 | `makeColumn`, frozen column map, DTO payload reads                            |
+| `@zmdb/schema-core`    |         12 |             10 | untrusted DTO payload reads, the custom-type registry, `every` as a predicate |
 | `@zmdb/repository`     |         11 |             10 | driver row → `Entity<S>`, the subclass statics, cursor payload                |
 | `@zmdb/web`            |         10 |             15 | decorator-metadata reads, DI token → instance, brand attach                   |
 | `@zmdb/query-compiler` |          1 |              1 | the `compile()` duck-type guard                                               |
@@ -851,7 +860,9 @@ The 68-assertion drop came from four structural fixes, not 68 individual edits:
    `makeColumn(): Column` erased `T`/`F`, so each of the **19** builders and function-style
    modifiers ended in its own `as never`. Making the helper generic in its _result_ type
    (`makeColumn<C extends Column>`, inferred from the caller's declared return type) removed
-   all 19; the single surviving `as unknown as C` inside it carries the soundness argument.
+   all 19, leaving one `as unknown as C` inside it carrying the soundness argument. Plan D2
+   then deleted the builders outright and that last one with them, which is the better ending:
+   the cast was sound and well-argued and the honest fix was to stop needing it.
 2. **`CoreSchema<string>` widening in the repository** — `list()` cast its typed DTOs down to
    `CoreSchema<string>` to reach the schema-core helpers, cast the builder through `any` to
    reach `applyOrderBy`/`applyPagination`, and cast the result back. Making those helpers

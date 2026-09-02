@@ -7,11 +7,17 @@
 // disagreed with each other. Adding a fifth for tagged types would have made it
 // worse, so the tags land on top of one IR instead.
 //
-//   FRONT-ENDS                  IR                       BACK-ENDS
-//   tagged type ──┐                          ┌── predicate JS   (is)
-//                 ├──▶ SchemaIR / TypeIR ────┼── JSON Schema    (openapi/llm/web)
-//   defineSchema ─┘        (pure data)        ├── runtime walker (fallback, repository)
+//   FRONT-END                   IR                       BACK-ENDS
+//                                            ┌── predicate JS   (is)
+//   tagged type ────▶ SchemaIR / TypeIR ─────┼── JSON Schema    (openapi/llm/web)
+//                         (pure data)        ├── runtime walker (fallback, repository)
+//                                            ├── schema value   (schemaFromIR)
 //                                            └── SQL / DDL      (query-compiler)
+//
+// There used to be a second front-end — `irFromSchema`, which read the IR back out of a
+// `defineSchema` value — and its whole purpose was to be the thing the tagged front-end
+// was proved equal to. It went when `defineSchema` did. `schemaFromIR` is what remains,
+// and it points the other way: the value is now a projection of the IR, not a source of it.
 //
 // Two hard constraints on everything below:
 //
@@ -179,16 +185,14 @@ export interface ColumnIR {
   /**
    * The permitted values, **sorted**.
    *
-   * Not declaration order, and deliberately so. The other producer of this IR reads
+   * Not declaration order, and deliberately so. The producer reads
    * `'free' | 'pro' | 'enterprise'` back out of the checker, which normalises string-literal
    * union members and hands them over in its own order — declaration order is simply not
-   * recoverable from a type. A set of permitted values has no order to lose, so both
-   * producers sort and the two agree by construction rather than by luck. (They agreed by
-   * luck until `codemod.spec.ts`: the only enum in the equivalence corpus was
-   * `'admin' | 'editor' | 'viewer'`, which is already sorted.)
+   * recoverable from a type. A set of permitted values has no order to lose, so sorting is
+   * what makes this a function of the declaration rather than of the compiler's internals.
    *
-   * Emitters may therefore rely on this being stable across front-ends and TypeScript
-   * versions, which the checker's order is not.
+   * Emitters may therefore rely on this being stable across TypeScript versions, which the
+   * checker's order is not.
    */
   readonly enum?: readonly string[];
   readonly references?: string;
@@ -204,10 +208,11 @@ export interface ColumnIR {
   readonly rules: readonly string[];
   readonly default?: unknown;
   /**
-   * The declared app type, where the front-end can see it: a `json` column's payload
-   * shape, or the type behind a codec. Set only by the tagged front-end — `json<Settings>()`
-   * and `defineType` both erase their type parameter at runtime, so `irFromSchema` has
-   * nothing to read.
+   * The declared app type: a `json` column's payload shape, or the type behind a codec.
+   *
+   * There is nowhere in `ColumnMeta` for this to go, which is why `CoreSchema` carries the
+   * IR rather than only its projection — a `Settings & Sql<'json'>` read back off the flags
+   * alone is just `json`, and the emitted validator would check nothing about the payload.
    */
   readonly payload?: TypeIR;
 }
@@ -285,118 +290,12 @@ export const TAG_NAMES = {
 /** An IR field a tag can set. */
 export type TagField = keyof typeof TAG_NAMES;
 
-// These two functions bridge two ways of spelling the same constraint, and the pair is
-// deliberately small — see plan D6.
-//
-// `ValidationRule.kind` is an open `string`, and two things write it. `defineSchema`
-// writes the IR's own keyword (`{ kind: 'minimum', value: n }`), which is a JSON Schema
-// keyword and stays that way. `@zmdb/aot-validator`'s runtime `Rule` writes the **tag's**
-// name — `tags.Min(n)` → `{ kind: 'Min', args: [n] }` — because that is what you write in
-// a type, and one spelling per constraint means the type's. The two differ for exactly
-// two constraints.
-//
-// This used to be a case fold (`'Minimum'` → `'minimum'`), which happened to work and
-// accepted a great deal more than the two names that actually needed accepting. A table
-// is the same length and says which spellings exist.
-
-function ruleArgument(rule: { readonly value?: unknown; readonly args?: readonly unknown[] }): unknown {
-  return rule.value ?? rule.args?.[0];
-}
-
-const CONSTRAINT_ALIASES: Readonly<Record<string, ConstraintKind>> = {
-  minimum: 'minimum',
-  Min: 'minimum',
-  maximum: 'maximum',
-  Max: 'maximum',
-  minLength: 'minLength',
-  MinLength: 'minLength',
-  maxLength: 'maxLength',
-  MaxLength: 'maxLength',
-  pattern: 'pattern',
-  Pattern: 'pattern',
-};
-
-function normaliseKind(kind: string): ConstraintKind | undefined {
-  return CONSTRAINT_ALIASES[kind];
-}
-
-// ---------------------------------------------------------------------------
-// Front-end: schema value → IR
-// ---------------------------------------------------------------------------
-
-function constraintsFromColumn(col: ColumnMeta): { constraints: Constraints; rules: readonly string[] } {
-  const out: {
-    minimum?: number;
-    maximum?: number;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: string;
-  } = {};
-  const rules: string[] = [];
-
-  for (const rule of col.validation ?? []) {
-    const kind = normaliseKind(rule.kind);
-    if (kind === undefined) {
-      rules.push(rule.kind);
-      continue;
-    }
-    const arg = ruleArgument(rule);
-    if (kind === 'pattern') {
-      if (typeof arg === 'string') out.pattern = arg;
-      continue;
-    }
-    if (typeof arg === 'number') out[kind] = arg;
-  }
-
-  return { constraints: out, rules };
-}
-
-/**
- * The value front-end. It exists so the tagged front-end can be *proved* against
- * it — "the IR from `User` equals the IR from `UserSchema`" is what lets the
- * existing SQL and JSON Schema snapshots serve as the correctness argument for
- * type-first declaration. Per plan D2 it is scaffolding with a demolition date:
- * it goes when `defineSchema` does.
- */
-export function irFromSchema(schema: CoreSchema<string>): SchemaIR {
-  const referenceByColumn = new Map(schema.references.map(r => [r.column, r.target]));
-
-  const columns: ColumnIR[] = Object.entries(schema.columns).map(([name, col]) => {
-    const { constraints, rules } = constraintsFromColumn(col);
-    const target = referenceByColumn.get(name) ?? col.references?.target;
-    return {
-      name,
-      sql: col.type,
-      nullable: col.flags.nullable === true,
-      primaryKey: col.flags.primaryKey === true,
-      serial: col.flags.autoIncrement === true,
-      unique: col.flags.unique === true,
-      hasDefault: col.flags.hasDefault === true,
-      sensitive: col.flags.sensitive === true,
-      ...(col.flags.length === undefined ? {} : { length: col.flags.length }),
-      ...(col.flags.enum === undefined ? {} : { enum: [...col.flags.enum].toSorted() }),
-      ...(target === undefined ? {} : { references: target }),
-      constraints,
-      rules,
-      ...(col.default === undefined ? {} : { default: col.default }),
-    };
-  });
-
-  return {
-    table: schema.table,
-    columns,
-    primaryKey: [...schema.primaryKey],
-    relations: [],
-    ...(schema.ftsTable === undefined ? {} : { ftsTable: schema.ftsTable }),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Back-end: IR → schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
 
 /**
- * The constraints, back in the spelling `defineSchema` writes.
+ * The constraints, in the spelling `ColumnMeta.validation` uses.
  *
  * Emitted in `KNOWN_CONSTRAINT_KINDS` order rather than any order they arrived in: the
  * IR holds them in a record, which has none to preserve, so a fixed order is the only
@@ -414,9 +313,9 @@ function validationFromIR(col: ColumnIR): readonly ValidationRule[] {
 }
 
 /**
- * A column's metadata. Flags are written only when set, which is what the fluent
- * builder produces — `text()` gives `{ nullable: false }` and nothing else — so the
- * generated value reads like the authored one it replaces.
+ * A column's metadata. Flags are written only when set — a plain `text` column gives
+ * `{ nullable: false }` and nothing else — so the generated literal stays as small as
+ * the declaration it came from.
  */
 function columnMetaFromIR(col: ColumnIR): ColumnMeta {
   const validation = validationFromIR(col);
@@ -439,24 +338,23 @@ function columnMetaFromIR(col: ColumnIR): ColumnMeta {
 }
 
 /**
- * The schema value, from the IR. The inverse of `irFromSchema`, and the reason the
- * query compiler needs no type-first port of its own (REQ-TF-10): it wants the table
- * name and the column types as *data*, and this is data. `@zmdb/aot-validator` emits
- * the result of this function as a frozen literal, so `schemaOf<T>()` costs nothing at
- * runtime and the tagged type stays the only place the schema is written.
+ * The schema value, from the IR — and the only way to get one (REQ-TF-10).
  *
- * The round trip is exact — `irFromSchema(schemaFromIR(ir))` deep-equals `ir` — for
- * everything both representations can hold, which is the property `ir.spec.ts` pins
- * down. Three things only the IR can hold, and they are dropped here: `Numeric<P, S>`
- * precision, a `Codec<'Name'>`, and a `json` payload shape. None is a loss in practice,
- * because the two back-ends that read them — the emitted validator and the DDL type map
- * of plan D3 — take the IR directly and never go through a schema value. `defineSchema`
- * cannot express any of the three either, so nothing that works today stops working.
+ * The query compiler wants the table name and the column types as *data*, and this is
+ * data. `@zmdb/aot-validator` emits the result of this function as a frozen literal, so
+ * `schemaOf<T>()` costs nothing at runtime and the tagged type stays the only place the
+ * schema is written.
  *
- * Nothing is registered. `defineSchema` puts every schema in a module-level registry;
- * a generated literal is not a call and has nowhere to do that, and `getRegisteredSchema`
- * is a lookup for code that has lost track of its own schema — which type-first code, by
- * construction, has not.
+ * The IR itself is carried through on `ir` rather than left behind. Three things a
+ * `ColumnMeta` has no field for — `Numeric<P, S>` precision, a `Codec<'Name'>`, a `json`
+ * payload shape — used to be dropped here and were unrecoverable afterwards, because the
+ * only way back to an IR was to walk the flags. Keeping the IR makes the value a superset
+ * of what it projects rather than a lossy copy, and it is what let `irFromSchema` go: no
+ * consumer has to reconstruct from `columns` what the declaration already said.
+ *
+ * Nothing is registered. A generated literal is not a call and has nowhere to do that,
+ * and a global "which schema was that?" lookup is for code that has lost track of its own
+ * schema — which type-first code, by construction, has not.
  */
 export function schemaFromIR(ir: SchemaIR): CoreSchema<string> {
   const columns: Record<string, ColumnMeta> = {};
@@ -470,6 +368,7 @@ export function schemaFromIR(ir: SchemaIR): CoreSchema<string> {
       col.references === undefined ? [] : [{ column: col.name, target: col.references }],
     ),
     ...(ir.ftsTable === undefined ? {} : { ftsTable: ir.ftsTable }),
+    ir,
   };
 }
 
@@ -537,11 +436,11 @@ function appBaseOf(col: ColumnIR): TypeIR {
  * nothing else. An object with no declared properties accepts any record, and an array of
  * `unknown` accepts any array, so together they are "not a primitive".
  *
- * Not `{ kind: 'unknown' }`, which accepts `123`. A tagged declaration says what the
- * payload is — `lines: Line[] & Sql<'json'>` — and gets that type instead; `json<Config>()`
- * erases its type parameter at runtime, so the value front-end genuinely does not know
- * more than this. It is the weakest true statement rather than no statement, which is the
- * difference between a validator that rejects `settings: 123` and one that does not.
+ * Not `{ kind: 'unknown' }`, which accepts `123`. A declaration that says what the payload
+ * is — `lines: Line[] & Sql<'json'>` — gets that type instead, via `ColumnIR.payload`; this
+ * is the answer for a bare `object & Sql<'json'>`, which really does permit any record. It
+ * is the weakest true statement rather than no statement, which is the difference between a
+ * validator that rejects `settings: 123` and one that does not.
  */
 const JSON_CONTAINER: TypeIR = {
   kind: 'union',
@@ -683,11 +582,11 @@ const JSON_SCALAR_TYPES: Readonly<Record<string, string | undefined>> = {
  * A column, plus whether the shape it was read from makes it optional.
  *
  * This is what the JSON Schema back-end actually consumes, and it exists because a
- * variant name and a derived type are two spellings of the same information. The value
- * front-end says `toJsonSchema(schema, 'create')` and the rule is "a column with a
- * default is optional here". The tagged front-end says `toJsonSchema<CreateDTO<User>>()`
- * and the type has already applied that rule — `createdAt?: Date & …` is optional
- * because `CreateDTO` made it so.
+ * variant name and a derived type are two spellings of the same information.
+ * `toJsonSchema(schema, 'create')` names the variant, and the rule is "a column with a
+ * default is optional here". `toJsonSchema<CreateDTO<User>>()` names the type, and the
+ * type has already applied that rule — `createdAt?: Date & …` is optional because
+ * `CreateDTO` made it so.
  *
  * Collapsing both onto `optional` is what keeps REQ-TF-7 structural rather than tested.
  * A second document generator that reads optionality off a type would be a fifth walker
@@ -762,10 +661,9 @@ export function jsonSchemaFromShape(shape: ShapeIR): JsonSchemaObject {
 
 /**
  * The document for a variant. Byte-for-byte the contract `toJsonSchema` already
- * publishes; the point is that it is now a pure function of IR, so the value
- * front-end and the tagged front-end cannot produce different documents
- * (REQ-TF-7). That AC stops being a test to chase and becomes the only thing the
- * code can do.
+ * publishes; the point is that it is a pure function of IR, so naming a variant and
+ * naming a derived type cannot produce different documents (REQ-TF-7). That AC stops
+ * being a test to chase and becomes the only thing the code can do.
  */
 export function jsonSchemaFromIR(ir: SchemaIR, variant: Variant = 'entity'): JsonSchemaObject {
   return jsonSchemaFromShape(shapeOfVariant(ir, variant));

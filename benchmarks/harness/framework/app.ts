@@ -97,8 +97,8 @@ if (symbolCarrier.metadata === undefined) {
 // weaker claim. The first derived the descriptor in this file — a `columnKind`
 // switch over `SqlType` and a `createDtoDescriptor` that re-implemented "drop the
 // auto-increment columns" — so the benchmark measured a validator no user gets. The
-// second fixed that by reading `objectTypeFromIR(irFromSchema(UserSchema), 'create')`
-// at boot, which was the same descriptor the repository builds, but still a
+// second fixed that by reading `objectTypeFromIR(UserSchema.ir, 'create')` at boot,
+// which was the same descriptor the repository builds, but still a
 // descriptor walked per request. This one is neither: the shape is the control flow
 // (REQ-TF-9).
 const validateUserCreate = validateWith<UserCreate>(assertUserCreate);

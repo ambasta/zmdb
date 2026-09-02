@@ -22,12 +22,18 @@ so the tags land on top of one IR instead and the back-ends become pure function
 it.
 
 ```
-FRONT-ENDS                  IR                       BACK-ENDS
-tagged type ──┐                          ┌── predicate JS  (is)
-              ├──▶ SchemaIR / TypeIR ────┼── JSON Schema   (openapi/llm/web)
-defineSchema ─┘        (pure data)       ├── runtime walker (fallback)
+FRONT-END                   IR                       BACK-ENDS
+                                         ┌── predicate JS  (is)
+tagged type ────────▶ SchemaIR / TypeIR ─┼── JSON Schema   (openapi/llm/web)
+                        (pure data)      ├── schema value  (schemaFromIR)
+                                         ├── runtime walker (fallback)
                                          └── SQL / DDL     (query-compiler)
 ```
+
+There was a second front-end here — `defineSchema` — and it is now a back-end instead:
+`schemaFromIR` produces the schema value the query compiler reads, from the same IR
+everything else reads. That is the whole shape of the type-first change in one diagram.
+One arrow in, five out, and nothing downstream can disagree about a column.
 
 ## 2. Two hard constraints
 
@@ -106,13 +112,24 @@ interface SchemaIR {
 An unrecognised `ValidationRule.kind` becomes a named entry in `rules`, never a
 dropped check.
 
-## 5. Front-end: `irFromSchema(schema)`
+## 5. Back-end: `schemaFromIR(ir)`
 
-Turns a `defineSchema` value into `SchemaIR`. It exists so the tagged front-end can be
-_proved_ against it — "the IR from `User` equals the IR from `UserSchema`" is what
-lets the existing SQL and JSON Schema snapshots serve as the correctness argument for
-type-first declaration. Per plan D2 it is scaffolding with a demolition date: it goes
-when `defineSchema` does.
+Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories
+read. It is what `schemaOf<T>()` becomes at build time, and it carries the IR it was built
+from on the value's required `ir` field, so nothing downstream has to choose between the
+two or reconstruct one from the other.
+
+`schemaFromIR(schemaFromIR(ir).ir)` equals `schemaFromIR(ir)`, and
+`schemaFromIR(schema.ir)` equals `schema` — both asserted in `ir.spec.ts`. That is the
+property the required field rests on: the value holds everything the IR does.
+
+There was an `irFromSchema` going the other way, and its job was to prove the tagged
+front-end equal to the value one — "the IR from `User` equals the IR from `UserSchema`" —
+so that the existing SQL and JSON Schema snapshots could serve as the correctness argument
+for type-first declaration. It did that, and went with `defineSchema` (plan D2). It could
+not have stayed: a `CoreSchema` cannot express a numeric precision, a codec, a wire type, a
+json payload shape or a relation, so going value → IR meant inventing a default for each of
+the five. Relations were the visible one — it returned `relations: []` unconditionally.
 
 ## 6. The three types of a column (plan D3 / REQ-TF-13)
 
@@ -141,13 +158,14 @@ that `openapi/toJsonSchema` publishes — which is now a one-line delegation:
 
 ```ts
 export function toJsonSchema(schema, variant = 'entity') {
-  return jsonSchemaFromIR(irFromSchema(schema), variant);
+  return jsonSchemaFromIR(schema.ir, variant);
 }
 ```
 
-So a schema value and a tagged type cannot produce different documents: both become
-`SchemaIR` first. REQ-TF-7 stops being a test to chase and becomes the only thing the
-code can do.
+So naming a variant and naming a derived type cannot produce different documents: both are
+read off the same `SchemaIR`, and the schema value carries it rather than being walked to
+reconstruct it. REQ-TF-7 stops being a test to chase and becomes the only thing the code
+can do.
 
 Variant rules are unchanged: `entity`/`get`/`list`/`search` include all non-sensitive
 columns with `required` = non-nullable; `create` additionally drops `serial` columns

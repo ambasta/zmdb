@@ -4,9 +4,10 @@
 //
 // Types only; contributes nothing to a bundle.
 //
-// These names also exist on `zmdb` itself, derived from a `defineSchema` value. That
-// duplication is temporary: per `PLAN-type-first.md` D2 the tagged versions are the
-// ones that survive, and Phase 9 deletes the others and re-points the root here.
+// Four of these names — `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf` — also exist on
+// `zmdb` itself, where they take a schema *value* type and defer to the ones here when it
+// carries a phantom. These are the definitions; the root's are the adapter for code still
+// parameterised on a schema value rather than on its declared type.
 export type {
   CreateDTO,
   DefaultKeys,

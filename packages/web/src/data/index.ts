@@ -8,7 +8,7 @@
 
 import type { BaseRepository } from '@zmdb/repository';
 import type { CoreSchema } from '@zmdb/schema-core';
-import { decodeWire, encodeWire, irFromSchema, type CodecRegistry, type Variant } from '@zmdb/schema-core/ir';
+import { decodeWire, encodeWire, type CodecRegistry, type Variant } from '@zmdb/schema-core/ir';
 
 import { createToken, type Token } from '../di/index.ts';
 
@@ -57,8 +57,7 @@ export function wireDecoder<S extends CoreSchema<string>>(
   variant: Variant = 'create',
   codecs: CodecRegistry = {},
 ): (raw: unknown) => unknown {
-  // Once per route, not once per request: the schema is a constant.
-  const ir = irFromSchema(schema);
+  const ir = schema.ir;
   return (raw: unknown) => (isBody(raw) ? decodeWire(ir, variant, raw, codecs) : raw);
 }
 
@@ -73,7 +72,7 @@ export function wireEncoder<S extends CoreSchema<string>>(
   schema: S,
   codecs: CodecRegistry = {},
 ): (result: unknown) => unknown {
-  const ir = irFromSchema(schema);
+  const ir = schema.ir;
   return (result: unknown) => {
     if (Array.isArray(result)) return result.map(row => (isBody(row) ? encodeWire(ir, row, codecs) : row));
     return isBody(result) ? encodeWire(ir, result, codecs) : result;

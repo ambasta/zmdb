@@ -36,7 +36,7 @@ export interface Secretive extends Table<'users'> {
 
 /** Slashes and a double quote in a pattern, which must reach the document unescaped. */
 export interface FileRow extends Table<'files'> {
-  path: string & Sql<'text'> & Pattern<'^/usr/local/"bin"/.*$'>;
+  path: string & Sql<'text'> & Pattern<'^/usr/local/"bin"/.*$'> & PrimaryKey;
 }
 
 const {

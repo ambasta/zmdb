@@ -112,7 +112,7 @@ There is no `Enum` tag: a literal union is how you declare that, and TypeScript 
 it better than a flag does (REQ-TF-2).
 
 **Settled — plan D6.** `@zmdb/aot-validator` exports a _runtime_ vocabulary for the same
-five constraints, and `defineSchema` spells them with the IR's own keyword
+five constraints, and a `ValidationRule` spells them with the IR's own keyword
 (`{ kind: 'minimum', value: n }`). The runtime names used to be `Minimum`/`Maximum`
 against the tags' `Min`/`Max`, and `../ir`'s `normaliseKind` case-folded between them —
 which happened to work while accepting a great deal more than the two names that needed

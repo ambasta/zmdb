@@ -1,14 +1,14 @@
-// The IR's third back-end, checked against the front-end that does not use it.
+// The IR's third back-end, checked against the derivation that does not use it.
 //
-// `objectTypeFromIR(ir, variant)` turns a schema value's IR into the `TypeIR` of one
-// payload — the type the repository validates a `create` or an `update` against. That
-// function could be wrong in a way no test in `@zmdb/schema-core` would notice, because
-// every assertion there is written against the same understanding of the tags that wrote
-// it. The reflector is the independent one: it reads `CreateDTO<User>` out of the
-// *checker*, so `objectTypeFromIR(irFromSchema(users), 'create')` equalling
-// `reflector.typeIR(CreateDTO<User>)` says the derived type and the derived IR describe
-// the same payload — which is the whole claim of REQ-TF-13, and the reason the back-end
-// is a projection of `shapeOfVariant` rather than a fifth walker.
+// `objectTypeFromIR(ir, variant)` turns a table's IR into the `TypeIR` of one payload — the
+// type the repository validates a `create` or an `update` against. That function could be
+// wrong in a way no test in `@zmdb/schema-core` would notice, because every assertion there
+// is written against the same understanding of the tags that wrote it. The reflector is the
+// independent one: it reads `CreateDTO<User>` out of the *checker*, so
+// `objectTypeFromIR(users, 'create')` equalling `reflector.typeIR(CreateDTO<User>)` says the
+// mapped types in `@zmdb/schema-core/derive` and the variant projection in
+// `@zmdb/schema-core/ir` describe the same payload — which is the whole claim of REQ-TF-13,
+// and the reason the back-end is a projection of `shapeOfVariant` rather than a fifth walker.
 //
 // Two differences are canonicalised away rather than asserted, because neither is
 // information:
@@ -24,11 +24,11 @@
 // one so an emitter can hoist a shared helper, and a shape assembled from columns has no
 // type name to give. It changes what the emitted code looks like, not what it accepts.
 
-import { irFromSchema, objectTypeFromIR, type TypeIR, type Variant } from '@zmdb/schema-core/ir';
+import { objectTypeFromIR, type SchemaIR, type TypeIR, type Variant } from '@zmdb/schema-core/ir';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { memberships, users } from './__fixtures__/equivalence-schemas.ts';
+import { schemaIrsFrom } from '../testing/index.ts';
 import { findCallSites } from './callsites.ts';
 import { Reflector } from './index.ts';
 import { ReflectSession } from './session.ts';
@@ -36,6 +36,13 @@ import { ReflectSession } from './session.ts';
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;
 const FILE = `${FIXTURES}payloads.ts`;
+
+// The IRs of the same interfaces the fixture derives its DTOs from. `schemaIrsFrom` rather
+// than `schemasFrom` because the schema value is a conversion further on and nothing here
+// reads it — the IR is what `objectTypeFromIR` takes.
+const { Membership: membershipsIR, User: usersIR } = schemaIrsFrom(`${FIXTURES}tables.ts`, ['User', 'Membership'], {
+  project: PROJECT,
+});
 
 let session: ReflectSession;
 /** label → the `TypeIR` the reflector made of the derived type. */
@@ -97,24 +104,24 @@ function fromType(label: string): TypeIR {
   return canonical(node as TypeIR);
 }
 
-function fromSchema(schema: { readonly table: string }, variant: Variant): TypeIR {
-  return canonical(objectTypeFromIR(irFromSchema(schema as never), variant));
+function fromIR(ir: SchemaIR, variant: Variant): TypeIR {
+  return canonical(objectTypeFromIR(ir, variant));
 }
 
-/** label → the schema value and variant that must describe the identical payload. */
-const PAIRS: readonly (readonly [string, { readonly table: string }, Variant])[] = [
-  ['users:entity', users, 'entity'],
-  ['users:create', users, 'create'],
-  ['users:update', users, 'update'],
-  ['memberships:entity', memberships, 'entity'],
-  ['memberships:create', memberships, 'create'],
-  ['memberships:update', memberships, 'update'],
+/** label → the table's IR and the variant that must describe the identical payload. */
+const PAIRS: readonly (readonly [string, SchemaIR, Variant])[] = [
+  ['users:entity', usersIR, 'entity'],
+  ['users:create', usersIR, 'create'],
+  ['users:update', usersIR, 'update'],
+  ['memberships:entity', membershipsIR, 'entity'],
+  ['memberships:create', membershipsIR, 'create'],
+  ['memberships:update', membershipsIR, 'update'],
 ];
 
 describe('objectTypeFromIR vs the derived type (REQ-TF-13)', () => {
-  for (const [label, schema, variant] of PAIRS) {
-    it(`${label} is the ${variant} payload of ${schema.table}`, () => {
-      expect(fromSchema(schema, variant)).toEqual(fromType(label));
+  for (const [label, ir, variant] of PAIRS) {
+    it(`${label} is the ${variant} payload of ${ir.table}`, () => {
+      expect(fromIR(ir, variant)).toEqual(fromType(label));
     });
   }
 
@@ -131,15 +138,15 @@ describe('what the two agree about, spelled out', () => {
     const property = (node: TypeIR, name: string) =>
       node.kind === 'object' ? node.properties.find(p => p.name === name) : undefined;
     expect(property(fromType('users:entity'), 'createdAt')?.type).toEqual({ kind: 'scalar', scalar: 'date' });
-    expect(property(fromSchema(users, 'entity'), 'createdAt')?.type).toEqual({ kind: 'scalar', scalar: 'date' });
+    expect(property(fromIR(usersIR, 'entity'), 'createdAt')?.type).toEqual({ kind: 'scalar', scalar: 'date' });
   });
 
   it('drops the serial key from create and keeps the composite one', () => {
     const names = (node: TypeIR) => (node.kind === 'object' ? node.properties.map(p => p.name) : []);
     expect(names(fromType('users:create'))).not.toContain('id');
-    expect(names(fromSchema(users, 'create'))).not.toContain('id');
+    expect(names(fromIR(usersIR, 'create'))).not.toContain('id');
     expect(names(fromType('memberships:create'))).toContain('userId');
-    expect(names(fromSchema(memberships, 'create'))).toContain('userId');
+    expect(names(fromIR(membershipsIR, 'create'))).toContain('userId');
   });
 
   it('keeps a sensitive column, unlike the JSON Schema back-end', () => {
@@ -148,16 +155,16 @@ describe('what the two agree about, spelled out', () => {
     // dropping the column would be the bug.
     const names = (node: TypeIR) => (node.kind === 'object' ? node.properties.map(p => p.name) : []);
     expect(names(fromType('users:create'))).toContain('passwordHash');
-    expect(names(fromSchema(users, 'create'))).toContain('passwordHash');
+    expect(names(fromIR(usersIR, 'create'))).toContain('passwordHash');
   });
 
   it('makes every property of a patch optional and none of an entity', () => {
     const optionals = (node: TypeIR) =>
       node.kind === 'object' ? node.properties.filter(p => p.optional).map(p => p.name) : [];
     const all = (node: TypeIR) => (node.kind === 'object' ? node.properties.map(p => p.name) : []);
-    expect(optionals(fromSchema(users, 'update'))).toEqual(all(fromSchema(users, 'update')));
+    expect(optionals(fromIR(usersIR, 'update'))).toEqual(all(fromIR(usersIR, 'update')));
     expect(optionals(fromType('users:update'))).toEqual(all(fromType('users:update')));
-    expect(optionals(fromSchema(users, 'entity'))).toEqual([]);
+    expect(optionals(fromIR(usersIR, 'entity'))).toEqual([]);
     expect(optionals(fromType('users:entity'))).toEqual([]);
   });
 });

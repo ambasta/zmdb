@@ -1,28 +1,13 @@
 // zmdb umbrella — curated root re-exports of the whole ecosystem. See ./SPEC.md.
 // One install (`zmdb`); the four @zmdb/* packages remain independently usable.
 
-// Schema: DSL + column builders + modifiers + derived types.
+// Schema: the generated schema value, the state machine, and the derived types.
+//
+// There is no column-builder surface to re-export any more. A schema is a tagged interface
+// — `zmdb/tags` is the vocabulary — and `schemaOf<T>()` is what turns one into the value the
+// query compiler reads.
 export {
-  defineSchema,
   schemaOf,
-  serial,
-  integer,
-  bigint,
-  numeric,
-  text,
-  varchar,
-  boolean,
-  timestamp,
-  json,
-  jsonEnum,
-  notNull,
-  nullable,
-  primaryKey,
-  unique,
-  defaultTo,
-  references,
-  validate as validateColumn,
-  sensitive,
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,

@@ -1,12 +1,14 @@
 // Schemas the codemod must refuse, and refuse *by name*.
 //
-// Every one of these compiles and every one of them runs, which is the point: a converter
-// that guesses does not fail loudly, it emits a plausible interface. `codemod.spec.ts`
-// asserts each of these produces a refusal naming what it could not read, because "refuses
-// rather than guesses" is the codemod's whole safety argument and an untested claim is a
-// wish. Nothing imports this file at runtime.
+// Every one of these compiles, which is the point: a converter that guesses does not fail
+// loudly, it emits a plausible interface. `codemod.spec.ts` asserts each of these produces a
+// refusal naming what it could not read, because "refuses rather than guesses" is the
+// codemod's whole safety argument and an untested claim is a wish.
+//
+// The DSL comes from `./legacy-dsl.ts`, which declares it without implementing it — see that
+// file. Nothing imports this one at runtime, and nothing could.
 
-import { defineSchema, integer, serial, type Column } from '@zmdb/schema-core';
+import { defineSchema, integer, serial, type Column } from './legacy-dsl.ts';
 
 /** A column built by something outside the DSL. Its flags are not readable from syntax. */
 declare function opaqueColumn(): Column<'integer', { nullable: false }>;

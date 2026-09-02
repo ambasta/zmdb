@@ -1,23 +1,25 @@
-// The codemod's round-trip corpus: `defineSchema` calls that between them use every
-// construct `scripts/codemod-tagged-schema.mjs` claims to understand.
+// The codemod's corpus: `defineSchema` calls that between them use every construct
+// `scripts/codemod-tagged-schema.mjs` claims to understand.
 //
-// `codemod.spec.ts` converts this file, compiles the interfaces that come out and reflects
-// them back to `SchemaIR`, then compares against `irFromSchema` of the values below. So a
-// construct listed here is a construct the codemod is *proved* to convert, and a construct
-// missing from here is one nothing checks.
+// `codemod.spec.ts` converts this file, compiles the interfaces that come out, reflects them
+// back to `SchemaIR`, and compares the emitted property lines against what they are expected
+// to be. So a construct listed here is a construct the codemod is *proved* to convert, and a
+// construct missing from here is one nothing checks.
 //
-// It is separate from `equivalence-schemas.ts` on purpose. That corpus is deliberately
-// restricted to what BOTH front-ends can express, so its deep-equality assertion can stay
-// total. This one goes the other way: it reaches for the corners — `sensitive(false)`, an
-// aliased import, a foreign key named by schema *value*, an `ftsTable` — because those are
-// where a converter guesses, and a guess is what the round trip is looking for.
+// It reaches for the corners on purpose — `sensitive(false)`, an aliased import, a foreign key
+// named by schema *value*, an `ftsTable`, a defaulted enum that needs bracketing — because
+// those are where a converter guesses, and a guess is what the assertions are looking for.
 //
-// Two fields cannot survive the trip and the spec drops exactly those two:
+// The DSL comes from `./legacy-dsl.ts`, which declares it without implementing it: the real
+// one was deleted with its last caller. See that file for what that costs and what replaced
+// it. Nothing imports this corpus at runtime, and nothing could.
 //
-//   - `default`. `defaultTo('now()')` keeps the value at runtime; `HasDefault` records only
-//     that a default exists. No type carries a value.
-//   - `payload`. `json<Attachment>()` erases its phantom parameter, so `irFromSchema` has
-//     nothing to read — the tagged side is *richer* here, not different.
+// Two things the old spelling can say that no type can, both visible below:
+//
+//   - a default *value*. `defaultTo('now()')` names one; `HasDefault` records only that one
+//     exists. The codemod reports every value it had to drop and the spec checks the report.
+//   - nothing else. `json<Attachment>()`'s payload, which used to be erased at runtime, is
+//     carried through as `Attachment & Sql<'json'>` — the conversion is a gain there.
 
 import {
   bigint,
@@ -34,7 +36,7 @@ import {
   text as textColumn,
   timestamp,
   varchar,
-} from '@zmdb/schema-core';
+} from './legacy-dsl.ts';
 
 /** The payload of the `json` column below. Erased at runtime; recovered from the type. */
 export interface Attachment {

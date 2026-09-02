@@ -350,26 +350,24 @@ const START_HERE = [
 
 const heroCode = mdToHtml(`
 \`\`\`ts
-import { defineSchema, serial, text, jsonEnum } from '@zmdb/schema-core';
-import { BaseRepository } from '@zmdb/repository';
-import type { Entity, CreateDTO } from '@zmdb/schema-core';
+import { defineRepository, schemaOf } from 'zmdb';
+import type { CreateDTO, Entity } from 'zmdb/derive';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-// 1 — define your schema once
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
+// 1 — declare the table once, as a type
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+}
 
-// 2 — types derive automatically
-type User    = Entity<typeof UserSchema>;    // { id; email; role }
-type NewUser = CreateDTO<typeof UserSchema>; // { email; role? }
+// 2 — every other shape is derived from that declaration
+type Row     = Entity<User>;    // { id; email; role }
+type NewUser = CreateDTO<User>; // { email; role? } — no id: the database makes it
 
 // 3 — validated CRUD in one line
-class Users extends BaseRepository<typeof UserSchema> {
-  static readonly schema = UserSchema;
-}
-await new Users(driver).create({ email: 'a@b.com' }); // validated before any SQL
+const users = defineRepository(schemaOf<User>(), driver);
+await users.create({ email: 'a@b.com' }); // validated before any SQL
 \`\`\`
 `).html;
 

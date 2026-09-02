@@ -1,10 +1,10 @@
 // Reflection: a TypeScript type → `@zmdb/schema-core/ir`.
 //
-// This is the front-end that makes type-first declaration possible (PRD §6.7,
-// REQ-TF-4 … REQ-TF-7). It reads a checker `Type` and produces plain serialisable
-// data; from there the existing back-ends — validator emission, JSON Schema, DDL —
-// are already written against the IR and do not know or care which front-end
-// produced it. `PLAN-type-first.md` Phase 4.
+// This is the front-end that makes type-first declaration possible, and since the
+// builder DSL was deleted it is the only one (PRD §6.7, REQ-TF-4 … REQ-TF-7). It reads
+// a checker `Type` and produces plain serialisable data; from there the back-ends —
+// validator emission, JSON Schema, DDL, the schema value itself — are written against
+// the IR and know nothing about where it came from. `PLAN-type-first.md` Phase 4.
 //
 // Three rules govern everything below, and each one is a reaction to a specific bug:
 //
@@ -213,10 +213,13 @@ export class Reflector {
   }
 
   /**
-   * The schema IR of a *tagged entity* type — the type-first counterpart of
-   * `irFromSchema`. The two must agree node for node; `equivalence.spec.ts` is the
-   * test that says so, and it is the argument that every existing SQL and JSON
-   * Schema snapshot also covers the tagged front-end (REQ-TF-7, REQ-TF-12).
+   * The schema IR of a *tagged entity* type: the only way a table's IR is produced.
+   *
+   * There used to be a second producer that read the same document back out of a builder
+   * value, and for the length of the migration the two had to agree node for node. Now this
+   * is it, so every SQL snapshot, DDL golden and JSON Schema contract in the repository is
+   * downstream of what this returns (REQ-TF-7, REQ-TF-12). `reflect.spec.ts` writes out the
+   * answer for the two-table corpus, which is what stands in for that differential.
    */
   schemaIR(type: Type, fallbackTable?: string): SchemaIR {
     const tags = this.#readTags(type);
@@ -257,11 +260,26 @@ export class Reflector {
     }
 
     const fts = literalOf(this.#nonNullable(tags.get('ftsTable')));
+    const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
+
+    // A table with no primary key is refused rather than accepted with an empty one. This is
+    // the one rule `defineSchema` enforced that has no other home: it threw a `SchemaError`,
+    // synchronously, on a column map with no `primaryKey()` in it. The reason outlives the
+    // function — `findById`, `update` and `delete` all build their `WHERE` out of
+    // `primaryKey`, so an empty one compiles a statement with no conditions. `delete(1)` on a
+    // key-less table is `DELETE FROM users`.
+    if (typeof table === 'string' && primaryKey.length === 0) {
+      this.#refuse(
+        tableName,
+        'no PrimaryKey column. Every table needs one: findById, update and delete build their ' +
+          'WHERE clause from it, and an empty key compiles to a statement with no conditions.',
+      );
+    }
 
     return {
       table: tableName,
       columns,
-      primaryKey: columns.filter(c => c.primaryKey).map(c => c.name),
+      primaryKey,
       relations,
       ...(typeof fts === 'string' || fts === true ? { ftsTable: fts } : {}),
     };
@@ -449,16 +467,15 @@ export class Reflector {
     // The data part, not the member itself: `boolean & Sql<'boolean'>` is normalised by
     // the checker into `(false & Sql<'boolean'>) | (true & Sql<'boolean'>)` — the same
     // distribution that makes `(T | null) & Unique` a trap — so a tagged boolean column
-    // arrives here as two *intersections*. Reading through them is what stops one column
-    // being a `typeof` check on the value front-end and two literal comparisons on the
-    // tagged one.
+    // arrives here as two *intersections*. Reading through them is what stops a tagged
+    // boolean column emitting two literal comparisons where a `typeof` check is meant.
     if (members.length === 2 && members.every(m => this.#dataPart(m).isBooleanLiteralType())) {
       return { kind: 'scalar', scalar: 'boolean' };
     }
     // The checker sorts `null` and `undefined` to the FRONT of a union. `../ir`'s
-    // `withNull` puts them at the back, and the two front-ends have to agree member
-    // for member or the equivalence test compares `[null, string]` with
-    // `[string, null]` and fails for no reason a reader would recognise.
+    // `withNull` puts them at the back, and the IR has to say one of the two — a union
+    // whose member order depends on which producer built it turns every golden into
+    // `[null, string]` in one place and `[string, null]` in another.
     const nullish = (m: Type): boolean =>
       m.isIntrinsicType() && (m.intrinsicName === 'null' || m.intrinsicName === 'undefined');
     const ordered = [...members.filter(m => !nullish(m)), ...members.filter(nullish)];
@@ -734,8 +751,7 @@ export class Reflector {
     if (scalar === 'number' && (sql === 'integer' || sql === 'serial')) scalar = 'integer';
 
     // `Length<N>` is `varchar(N)`; it is also a maximum, and the explicit
-    // `MaxLength<N>` wins when both are present — the same precedence `../ir`'s
-    // `constrained()` applies to the value front-end.
+    // `MaxLength<N>` wins when both are present.
     const length = numberOf(this.#nonNullable(tags.get('length')));
     if (length !== undefined && constraints.maxLength === undefined) constraints.maxLength = length;
 
@@ -843,17 +859,17 @@ export class Reflector {
     const codec = literalOf(this.#nonNullable(tags.get('codec')));
     const wire = this.#nonNullable(tags.get('wire'));
 
-    // `Serial` implies a database default. Not an inference for convenience: a
-    // generated column *does* have one, `serial()` sets `hasDefault` too, and the two
-    // front-ends have to agree node for node or the equivalence test is meaningless.
+    // `Serial` implies a database default. Not an inference for convenience: a generated
+    // column *does* have one, and `hasDefault` is what keeps it out of `CreateDTO` — so a
+    // `Serial` that only set `serial` would demand the key the database is about to make.
     const serial = tags.has('serial');
     const hasDefault = serial || tags.has('hasDefault');
 
-    // A generated `integer` is what `serial` means, and the declaration says it in two
-    // tags rather than one because the old `Sql<'serial'>` made a serial key's value unassignable
-    // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema-core/tags`. The
-    // IR keeps the one-word spelling: `serial()` produces it, every dialect's DDL renderer
-    // reads it, and the equivalence test compares the two front-ends node for node.
+    // A generated `integer` is what `serial` means, and the declaration says it in two tags
+    // rather than one because the old `Sql<'serial'>` made a serial key's value unassignable
+    // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema-core/tags`. The IR
+    // keeps the one-word spelling, because that is the word two of the three dialects want
+    // in the DDL and every renderer reads it.
     const sql = serial && declaredSql === 'integer' ? 'serial' : declaredSql;
 
     const payload = this.#declaredApp(property, data, sql, typeof codec === 'string');
@@ -886,12 +902,12 @@ export class Reflector {
   /**
    * The app type, where only a tagged declaration can say it.
    *
-   * Two cases, one IR field. A `json` column's payload shape: `json<Settings>()` carries
-   * `Settings` in a phantom type parameter that is gone at runtime, so `irFromSchema`
-   * leaves it unset. And the type behind a codec: `Money & Sql<'integer'> &
+   * Two cases, one IR field. A `json` column's payload shape: `ColumnMeta` records
+   * `sql: 'json'` and has nowhere to put the shape, so a consumer reading the column map
+   * gets "an object, unspecified". And the type behind a codec: `Money & Sql<'integer'> &
    * Codec<'Money'>` is an integer in the database and a `Money` in the app, and a
-   * validator that checked `integer` would reject every valid value. Neither is a
-   * discrepancy between the front-ends — they are what the tags buy.
+   * validator that checked `integer` would reject every valid value. Both are facts only
+   * the declaration has, and both are why `CoreSchema` carries its IR.
    *
    * A codec over a *scalar* is left alone deliberately. `string & Sql<'text'> &
    * Length<80> & Codec<'currency'>` is a string on both sides, and recording the bare
@@ -1069,7 +1085,7 @@ export function irFromType(
   return { ir: reflector.typeIR(type), diagnostics: reflector.diagnostics };
 }
 
-/** The tagged front-end's counterpart to `irFromSchema`. */
+/** A tagged entity type, read to the `SchemaIR` every back-end takes. */
 export function schemaIrFromType(
   checker: Checker,
   type: Type,
@@ -1113,8 +1129,8 @@ function numberOf(type: Type | undefined): number | undefined {
  *
  * Sorted because the order we are handed is not the order the author wrote. The checker
  * normalises union members, so `'free' | 'pro' | 'enterprise'` arrives as `enterprise`,
- * `free`, `pro` — and sorting is what makes this agree with `irFromSchema`, which sorts for
- * the same reason. See `ColumnIR.enum`.
+ * `free`, `pro`. Sorting is what makes the answer stable across an edit that only reorders
+ * the union, which is not a change to the table. See `ColumnIR.enum`.
  */
 function literalUnion(members: readonly Type[]): readonly string[] | undefined {
   if (members.length === 0) return undefined;

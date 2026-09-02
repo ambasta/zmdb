@@ -14,15 +14,7 @@ import {
   markTransactionClosed as srcMarkTransactionClosed,
 } from '@zmdb/repository';
 import {
-  boolean as srcBoolean,
-  defineSchema as srcDefineSchema,
-  integer as srcInteger,
-  json as srcJson,
-  jsonEnum as srcJsonEnum,
-  sensitive as srcSensitive,
-  serial as srcSerial,
-  text as srcText,
-  timestamp as srcTimestamp,
+  schemaOf as srcSchemaOf,
   defineStateTransitions as srcDefineStateTransitions,
   defineEntityStateMachine as srcDefineEntityStateMachine,
   createStateUpdatePayload as srcCreateStateUpdatePayload,
@@ -32,20 +24,12 @@ import { describe, expect, it } from 'vitest';
 import {
   assert,
   BaseRepository,
-  boolean,
   createQueryCompiler,
   defineRepository,
-  defineSchema,
-  integer,
   is,
-  json,
-  jsonEnum,
   migrations,
-  sensitive,
-  serial,
+  schemaOf,
   tags,
-  text,
-  timestamp,
   UnsupportedFeatureError,
   validate,
   defineStateTransitions,
@@ -56,15 +40,12 @@ import {
 
 describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports the curated schema-core surface, identical to source', () => {
-    expect(defineSchema).toBe(srcDefineSchema);
-    expect(serial).toBe(srcSerial);
-    expect(integer).toBe(srcInteger);
-    expect(text).toBe(srcText);
-    expect(boolean).toBe(srcBoolean);
-    expect(timestamp).toBe(srcTimestamp);
-    expect(json).toBe(srcJson);
-    expect(jsonEnum).toBe(srcJsonEnum);
-    expect(sensitive).toBe(srcSensitive);
+    // Nine column builders and `defineSchema` used to be checked here. The declaration is a
+    // type now, so what an umbrella install needs from schema-core at *runtime* is
+    // `schemaOf<T>()` — and it needs the same one the transform recognises, which is what
+    // identity asserts. The vocabulary itself is types, re-exported through `zmdb/tags` and
+    // checked below for costing nothing.
+    expect(schemaOf).toBe(srcSchemaOf);
     expect(defineStateTransitions).toBe(srcDefineStateTransitions);
     expect(defineEntityStateMachine).toBe(srcDefineEntityStateMachine);
     expect(createStateUpdatePayload).toBe(srcCreateStateUpdatePayload);
@@ -103,7 +84,6 @@ describe('zmdb umbrella re-exports (#227)', () => {
 
   it('re-exports the schema IR via zmdb/ir, identical to source', async () => {
     const [umbrella, source] = await Promise.all([import('./ir.ts'), import('@zmdb/schema-core/ir')]);
-    expect(umbrella.irFromSchema).toBe(source.irFromSchema);
     expect(umbrella.jsonSchemaFromIR).toBe(source.jsonSchemaFromIR);
     expect(umbrella.jsonSchemaForColumn).toBe(source.jsonSchemaForColumn);
     expect(umbrella.appTypeOf).toBe(source.appTypeOf);

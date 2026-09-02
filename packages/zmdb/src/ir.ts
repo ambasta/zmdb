@@ -14,7 +14,6 @@ export {
   decodeWireValue,
   encodeWire,
   encodeWireValue,
-  irFromSchema,
   jsonSchemaForColumn,
   jsonSchemaFromIR,
   jsonSchemaFromShape,

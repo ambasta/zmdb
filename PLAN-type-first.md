@@ -372,9 +372,9 @@ recording because they differ from what is written below.
 | `aot-validator/src/emit/differential.spec.ts`                | REQ-AV-4: the emitted check against the runtime walker on the same IR                |
 | `aot-validator/src/transformer.ts`                           | Checker-driven rewriting by text offset; the hand-rolled type parser deleted         |
 | `aot-validator/src/plugin/index.ts`                          | The bundler hook: `enforce: 'pre'`, one session per build, watch-mode refresh        |
-| `scripts/codemod-tagged-schema.mjs`                          | `defineSchema` → tagged interface, with `verify:codemod` over every schema           |
+| `scripts/codemod-tagged-schema.mjs`                          | `defineSchema` → tagged interface, checked against its corpora line for line         |
 | `web/src/openapi/generated-schemas.spec.ts`                  | `toOpenApi` fed from generated literals, through the real plugin                     |
-| `repository/src/generated-schema.spec.ts`                    | REQ-TF-10's runtime half: identical DDL and identical CRUD, three dialects           |
+| `repository/src/tagged-to-ddl.spec.ts`                       | REQ-TF-10's runtime half: an awkward declaration to written-out DDL, three dialects  |
 | `repository/src/tagged-schema.type-test.ts`                  | `defineRepository(schemaOf<User>(), driver)` typed from the declaration              |
 
 **Refinement 1 — the third walker is already gone.** Phase 1 says "replacing nothing

@@ -1,12 +1,16 @@
-// Phase 7a's gate: REQ-TF-10, as an equality against a value the SQL suite already trusts.
+// Phase 7a's gate: REQ-TF-10, as an equality between the emitter and the function it stands
+// in for.
 //
-// `schemaOf<User>()` is compiled away to a frozen object literal. The claim is that the
-// literal is the *same* schema value the `defineSchema` twin would have produced, and the
-// comparison is made against `schemaFromIR(irFromSchema(users))` on purpose: that exact
-// expression is what `packages/repository/src/generated-schema.spec.ts` proves compiles
-// byte-identical DDL and byte-identical CRUD to `users` itself, in all three dialects. So
-// this file closes a chain rather than starting a new corpus — emitted literal ≡ generated
-// value ≡ authored value, and every SQL test in the repo covers the tagged front-end.
+// `schemaOf<User>()` is compiled away to a frozen object literal, and the emitter gets there
+// by a route of its own: it calls `schemaFromIR`, prints the result with `JSON.stringify`, and
+// what ships is that *text*, re-parsed by whatever loads the bundle. So the claim worth
+// testing is that the round trip through source text lands on the object `schemaFromIR`
+// returns — a printer that dropped a field, reordered a key or turned an empty array into an
+// absent one would produce a schema the query compiler reads differently.
+//
+// `@zmdb/aot-validator/testing` is the other side: it reflects the same interfaces and calls
+// the same `schemaFromIR` in-process. Same input, same function, one of the two through a
+// serialiser.
 //
 // The fixture is transformed and then *run*, so what is asserted is the object the bundle
 // ships, not an intermediate the emitter happened to hold.
@@ -14,17 +18,21 @@
 import { readFileSync } from 'node:fs';
 
 import type { CoreSchema } from '@zmdb/schema-core';
-import { irFromSchema, schemaFromIR } from '@zmdb/schema-core/ir';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { schemasFrom } from '../testing/index.ts';
 import { transformFile } from '../transformer.ts';
-import { memberships, users } from './__fixtures__/equivalence-schemas.ts';
 import { ReflectSession } from './session.ts';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;
 const FILE = `${FIXTURES}schema-values.ts`;
 const REFUSALS = `${FIXTURES}schema-values-refusals.ts`;
+
+/** The same two tables, reflected in-process rather than emitted. */
+const { Membership: memberships, User: users } = schemasFrom(`${FIXTURES}tables.ts`, ['User', 'Membership'], {
+  project: PROJECT,
+});
 
 let session: ReflectSession;
 /** label → the schema value the *emitted module* handed to `schema()`. */
@@ -69,26 +77,28 @@ function generated(label: string): CoreSchema<string> {
   return value as CoreSchema<string>;
 }
 
-describe('schemaOf<T>() vs defineSchema (REQ-TF-10)', () => {
-  for (const [label, authored] of [
+describe('the emitted schema value vs schemaFromIR (REQ-TF-10)', () => {
+  for (const [label, reflected] of [
     ['users', users],
     ['memberships', memberships],
   ] as const) {
-    it(`${label} is the schema value its twin generates`, () => {
-      expect(generated(label)).toEqual(schemaFromIR(irFromSchema(authored)));
+    it(`${label} survives the trip through source text`, () => {
+      expect(generated(label)).toEqual(reflected);
     });
 
-    it(`${label} round-trips to the twin's IR`, () => {
-      // The stronger reading of the same claim, and the one that fails informatively:
-      // `irFromSchema` is where a difference in a flag, a rule or a foreign key surfaces
-      // as a difference in a named field rather than in a diff of two nested objects.
-      expect(irFromSchema(generated(label))).toEqual(irFromSchema(authored));
+    it(`${label} carries its IR, not just the projection of it`, () => {
+      // The field the decoders, the wire codecs and the OpenAPI document read. Asserted on
+      // its own as well as inside the whole-value comparison above, because it is the one
+      // part a printer could plausibly drop — it is nested, it is the largest thing in the
+      // literal, and nothing about the table's DDL would change if it went missing.
+      expect(generated(label).ir).toEqual(reflected.ir);
+      expect(generated(label).ir.table).toBe(label);
     });
 
     it(`${label} agrees on the table name and the primary key`, () => {
-      expect(generated(label).table).toBe(authored.table);
-      expect(generated(label).primaryKey).toEqual(authored.primaryKey);
-      expect(Object.keys(generated(label).columns)).toEqual(Object.keys(authored.columns));
+      expect(generated(label).table).toBe(reflected.table);
+      expect(generated(label).primaryKey).toEqual(reflected.primaryKey);
+      expect(Object.keys(generated(label).columns)).toEqual(Object.keys(reflected.columns));
     });
   }
 
@@ -130,6 +140,11 @@ describe('what the emitted module contains', () => {
     // The deepest thing in a schema value, and the reason the helper recurses instead of
     // calling `Object.freeze` once.
     expect(Object.isFrozen(email?.validation)).toBe(true);
+    // And the IR, which is deeper still: an array of objects, each with an object inside it.
+    expect(Object.isFrozen(value.ir)).toBe(true);
+    expect(Object.isFrozen(value.ir.columns)).toBe(true);
+    expect(Object.isFrozen(value.ir.columns[0])).toBe(true);
+    expect(Object.isFrozen(value.ir.columns[0]?.constraints)).toBe(true);
   });
 
   it('carries the sensitive flag', () => {
@@ -139,17 +154,21 @@ describe('what the emitted module contains', () => {
   });
 });
 
-describe('a type with no table name (REQ-TF-8)', () => {
-  it('is refused by name, and the call is left alone', () => {
+describe('a declaration a table cannot be made of (REQ-TF-8)', () => {
+  it('refuses a missing table name, and a missing primary key, and leaves both calls alone', () => {
     const source = readFileSync(REFUSALS, 'utf8');
     const result = transformFile(REFUSALS, source, { session });
 
-    expect(result.diagnostics.map(d => d.reason)).toContain(
-      "no Table<'name'> tag; the table name cannot be guessed from the type name",
-    );
-    expect(result.diagnostics[0]?.callee).toBe('schemaOf');
-    // Not rewritten, so the build fails loudly at the diagnostic rather than quietly
-    // shipping a schema for a table called `Untagged`.
+    const reasons = result.diagnostics.map(d => d.reason);
+    expect(reasons).toContain("no Table<'name'> tag; the table name cannot be guessed from the type name");
+    // The rule `defineSchema` used to enforce with a synchronous `SchemaError`, moved to the
+    // one place that reads a table declaration. Earlier than the constructor was, and it names
+    // the table rather than the call.
+    expect(reasons.find(reason => reason.includes('PrimaryKey'))).toContain('WHERE clause');
+    expect(result.diagnostics.every(one => one.callee === 'schemaOf')).toBe(true);
+    // Neither is rewritten, so the build fails loudly at the diagnostic rather than quietly
+    // shipping a schema for a table called `Untagged` or one nothing can address a row in.
     expect(result.code).toContain('schemaOf<Untagged>()');
+    expect(result.code).toContain('schemaOf<Ledger>()');
   });
 });

@@ -9,10 +9,17 @@ independently installable (tree-shaking / advanced use).
 The `zmdb` root (`import { … } from 'zmdb'`) re-exports the **curated public API**
 of all four sub-packages. Frozen set:
 
-- from `@zmdb/schema-core`: `defineSchema`, all column builders (`serial`,
-  `integer`, `bigint`, `numeric`, `text`, `varchar`, `boolean`, `timestamp`,
-  `json`, `jsonEnum`), the modifiers, and the derived types `Entity`, `CreateDTO`,
-  `UpdateDTO` (types).
+- from `@zmdb/schema-core`: `schemaOf`, the entity state machine (`defineStateTransitions`,
+  `defineEntityStateMachine`, `createStateUpdatePayload`), and the derived types `Entity`,
+  `CreateDTO`, `UpdateDTO` (types). The tag vocabulary a table is declared in lives at the
+  `zmdb/tags` subpath, and the derivations that read a declared type at `zmdb/derive`, since
+  both are types-only and a value import of either is a mistake worth making awkward.
+
+  This list used to open with `defineSchema` and ten column builders. They were deleted
+  (plan D2) — a table is declared as a type now — and `verify:no-defineschema` imports this
+  very surface to check they have not come back, which is the one check a grep could not
+  make: a builder re-exported here without being declared here would still be published.
+
 - from `@zmdb/query-compiler`: `createQueryCompiler` + `Dialect`, `CompiledQuery`
   (types).
 - from `@zmdb/aot-validator`: `is`, `assert`, `validate`, `tags`.
@@ -53,5 +60,5 @@ packages, so nothing is lost:
 ## Acceptance
 
 - Runtime test: every curated root export is present and `===` its source.
-- Type-level: `import { defineSchema, BaseRepository } from 'zmdb'` type-checks
-  and the types equal the source types.
+- Type-level: `import { schemaOf, BaseRepository } from 'zmdb'` type-checks and the types
+  equal the source types.

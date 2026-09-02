@@ -1,29 +1,29 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import type { CoreSchema } from '../index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { toOpenApiComponents } from './index.ts';
 
 // #67: toOpenApiComponents + determinism + E2E golden document.
+//
+// The two schemas were `{ table: 'users', columns: { … } } as unknown as CoreSchema<'users'>` —
+// a hand-built value with a double cast, because the literal was missing fields the type has.
+// Two problems with that, and the second is the reason this file changed rather than the first:
+// a double cast is exactly what the escape-hatch ratchet counts, and a hand-built schema is a
+// third spelling of a table, agreeing with neither the declaration nor what the emitter inlines.
+// Declaring the interfaces and reflecting them is shorter *and* the shipped path.
 
-const UserSchema = {
-  table: 'users',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    email: { type: 'text', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'users'>;
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
 
-const OrderSchema = {
-  table: 'orders',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-    total: { type: 'numeric', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'orders'>;
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  total: number & Sql<'numeric'>;
+}
+
+const { Order: OrderSchema, User: UserSchema } = schemasFrom(import.meta.url, ['User', 'Order']);
 
 describe('toOpenApiComponents', () => {
   it('produces a golden components document (PascalCase keys, sorted)', () => {

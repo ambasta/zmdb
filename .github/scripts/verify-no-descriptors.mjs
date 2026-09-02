@@ -5,9 +5,9 @@
 // copy that starts drifting the moment the interface it mirrors is edited, and the drift is
 // silent: the validator keeps passing, it just stops checking the field somebody added.
 //
-// The replacement is `TypeIR`, which is generated — by `Reflector`, by `irFromSchema`, or
-// by the codegen CLI. So this is a ratchet, not a style rule: the descriptor path still
-// exists (`irFromDescriptor` converts it, and shipped code accepts `RuntimeSchema`), and
+// The replacement is `TypeIR`, which is generated — by `Reflector` from a declared type, or by
+// the codegen CLI over a whole file. So this is a ratchet, not a style rule: the descriptor path
+// still exists (`irFromDescriptor` converts it, and shipped code accepts `RuntimeSchema`), and
 // what has to stay true is that nothing in here *authors* one.
 //
 // Two signals, both on code rather than prose so a comment discussing descriptors is not a
@@ -98,8 +98,8 @@ if (problems.length > 0) {
   console.error(`\n${problems.length} problem(s):\n`);
   for (const problem of problems) console.error(`  ${problem}\n`);
   console.error('A descriptor is the shape of a type written out again by hand, and the compiler cannot');
-  console.error('check it against the type it describes. Derive a `TypeIR` instead: `irFromSchema(schema)`');
-  console.error('for a schema, `Reflector.typeIR` for a type, or the codegen CLI for a whole file.');
+  console.error('check it against the type it describes. Derive a `TypeIR` instead: `Reflector.typeIR`');
+  console.error('for a type, `Reflector.schemaIR` for a table, or the codegen CLI for a whole file.');
   process.exit(1);
 }
 console.log('nothing authors a descriptor outside the specs that test the descriptor path.');

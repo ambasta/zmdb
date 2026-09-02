@@ -1,5 +1,4 @@
-// The type-driven half of the *schema value* corpus: `schemaOf<T>()` for each table
-// `equivalence.ts` describes.
+// The *schema value* corpus: `schemaOf<T>()` for each table `tables.ts` describes.
 //
 // `schema-values.spec.ts` transforms this file and then runs it, supplying `schema`. So
 // what the assertions compare is not "the emitter would produce" but the object the
@@ -8,7 +7,7 @@
 
 import { schemaOf } from '@zmdb/schema-core';
 
-import type { Membership, User } from './equivalence.ts';
+import type { Membership, User } from './tables.ts';
 
 /** Declared, not defined. The spec passes it in when it evaluates the emitted module. */
 declare function schema(label: string, value: unknown): void;

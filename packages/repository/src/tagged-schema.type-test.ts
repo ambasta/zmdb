@@ -1,9 +1,9 @@
 // REQ-TF-10, from the caller's side: `defineRepository(schemaOf<User>(), driver)` derives
 // its whole surface from the *declaration*, not from the columns of a value.
 //
-// The sibling `generated-schema.spec.ts` proves the runtime half — the generated value
-// compiles the same SQL as the authored one. This file proves the half a runtime test
-// cannot see: that the repository's methods take and return `Entity<User>`,
+// The sibling `tagged-to-ddl.spec.ts` covers the runtime half — a declaration reaching the
+// database as the table it named, in all three dialects. This file covers the half a runtime
+// test cannot see: that the repository's methods take and return `Entity<User>`,
 // `CreateDTO<User>` and `PrimaryKeyOf<User>` as `@zmdb/schema-core/derive` defines them,
 // with no edit to this package. `schemaOf<T>()` returns a `TaggedSchema<T>`, `Entity<S>`
 // and friends branch on that brand, and the read DTOs are all built out of `Entity<S>`,

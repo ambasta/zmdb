@@ -47,10 +47,14 @@ jobs:
       - name: Verify export manifests
         run: yarn verify:exports
 
-      # `defineSchema` is being removed and the codemod is the migration, so a schema it
-      # cannot read is a file that cannot be migrated. Caught here it is a small edit.
-      - name: Verify every schema converts to a tagged interface
-        run: yarn verify:codemod
+      # The builder DSL is gone. This imports every published subpath and reads its export
+      # names, so a builder cannot come back through a re-export, and it scans for callers
+      # including files not yet committed. What it replaces is `verify:codemod`, which
+      # counted the schemas in this repository the codemod could convert: a useful number
+      # while the migration was in progress and a vacuous one now that the count is zero.
+      # The codemod is still tested against its corpora, by `codemod.spec.ts`, line for line.
+      - name: Verify a schema is a type
+        run: yarn verify:no-defineschema
 
       # A tag nothing reads is a tag that compiles, derives correctly, and is quietly missing
       # from the emitted validator. The type test next to it gates what a type can state;

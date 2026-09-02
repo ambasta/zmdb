@@ -254,15 +254,18 @@ export class Emitter {
    * `schemaOf<T>()` → a reference to the generated schema value, hoisted and frozen
    * (REQ-TF-10).
    *
-   * The other half of "one IR, several back-ends": the query compiler and the DDL
-   * emitter want the table and the column types as data, and `schemaFromIR` is the same
-   * function that would produce them from a `defineSchema` value. So a tagged
-   * declaration reaches the SQL layer as the value it would have been written as, and
-   * `generated-schema.spec.ts` is what says the SQL does not change.
+   * The other half of "one IR, several back-ends": the query compiler and the DDL emitter
+   * want the table and the column types as data, so what gets emitted is the projection
+   * `schemaFromIR` builds — and that includes the IR itself, on the value's `ir` field.
+   * Both are in the literal on purpose. The projection is what the query compiler reads on
+   * every call and wants flat; the IR is what the decoders, the wire codecs and the OpenAPI
+   * document read, and it says things no column map can hold. Emitting only the projection
+   * would mean recovering the rest by inference at runtime, which is the walk this design
+   * removed.
    *
-   * Relations do not travel with it. A `CoreSchema` has no relation map — the repository
-   * takes one separately — so a `ManyToOne<…>` on the declaration is read, is not a
-   * column, and stops here.
+   * Relations do not travel with the projection. A `CoreSchema` has no relation map — the
+   * repository takes one separately — so a `ManyToOne<…>` on the declaration is read, is
+   * not a column, and reaches a consumer only through `ir.relations`.
    */
   emitSchemaValue(ir: SchemaIR): string | undefined {
     return this.#literal('schema', 'Schema', schemaFromIR(ir));

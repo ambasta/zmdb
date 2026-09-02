@@ -1,21 +1,23 @@
-// The tagged half of the equivalence corpus. `equivalence-schemas.ts` is the other.
+// The tables every back-end is checked against, declared once.
 //
-// One claim carries most of REQ-TF-7 and REQ-TF-12: for a table described BOTH ways,
-// the two `SchemaIR`s are deep-equal. If that holds, every SQL snapshot, every JSON
-// Schema golden and every DDL test the repo already has covers the tagged front-end
-// too, because the back-ends are pure functions of the IR and cannot tell the two
-// apart. Nothing else in Phase 4 buys as much.
+// Four specs read this file, and between them they cover the four things the IR feeds:
+// `reflect.spec.ts` pins the `SchemaIR` itself, `documents.spec.ts` the JSON Schema,
+// `payload-types.spec.ts` the validator's `TypeIR`, and `schema-values.spec.ts` the emitted
+// schema value. So a column added here is a column all four look at, which is the point of
+// there being one corpus rather than a fixture per spec.
 //
-// The two halves are separate files because this one is never imported at runtime:
-// `pair` is a declaration, not a function, and exists only to hand a type to the
-// checker. `reflect.spec.ts` asserts the two label sets are identical, so a table
-// added on one side and forgotten on the other fails rather than goes unchecked.
+// Nothing imports this at runtime: `pair` and `taggedOnly` are declarations, not functions,
+// and exist only to hand a type to the checker at a findable call site. The specs that want
+// a schema *value* out of these interfaces get one from `@zmdb/aot-validator/testing`, which
+// reflects the file the same way the transform would.
 //
-// Five things a tagged declaration can say that `defineSchema` cannot, so no column
-// here uses them: `Numeric<P, S>` precision, `Codec<Name>`, `WireAs<W>`, a `json`
-// payload shape, and relations — `irFromSchema` returns `relations: []` unconditionally. And one
-// thing `defineSchema` can say that a type cannot: the default *value*. `HasDefault`
-// means "has one", not "has this one". `reflect.spec.ts` covers each separately.
+// The split between the two declarations is what the golden covers versus what it does not.
+// `pair<T>` tables are written out in full in `reflect.spec.ts` and reused by the three
+// back-end specs; `taggedOnly<T>` tables carry the constructs that are asserted one at a
+// time — `Numeric<P, S>` precision, `Codec<Name>`, `WireAs<W>`, a `json` payload shape and
+// relations — because each is a single fact and a whole second golden to state it would bury
+// the fact rather than pin it. And one thing no declaration can say at all: the default
+// *value*. `HasDefault` means "has one", not "has this one".
 //
 // Nullability is written `(T & Tags) | null`, tags inside, `| null` outside. The other
 // order is a trap rather than a style choice: TypeScript normalises an intersection
@@ -53,11 +55,11 @@ declare function pair<T>(table: string, of?: T): void;
 declare function taggedOnly<T>(label: string, of?: T): void;
 
 /**
- * Every column kind that both front-ends can express, in one table.
+ * Every column kind, in one table.
  *
- * `Fts<'users_fts'>` is here rather than in the tagged-only section below because
- * `defineSchema` can say it too, as an option rather than a column — so the deep-equality
- * assertion is the right place for it, and the twin carries `{ ftsTable: 'users_fts' }`.
+ * `Fts<'users_fts'>` is here rather than in the tagged-only section below because the golden
+ * is the right place for the named spelling: it is a whole-`SchemaIR` comparison, so a
+ * `ftsTable` that stopped arriving fails here rather than in a test written to look for it.
  */
 export interface User extends Table<'users'>, Fts<'users_fts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -71,10 +73,9 @@ export interface User extends Table<'users'>, Fts<'users_fts'> {
   // No `Sql<'jsonEnum'>`: a literal union already says it, and asking for the tag as
   // well would be asking for the same fact twice (REQ-TF-2).
   //
-  // Written in a third order — the twin declares `viewer, admin, editor` and the IR reports
-  // `admin, editor, viewer` — because the checker does not preserve the order either side
-  // wrote, so `ColumnIR.enum` is sorted and the equivalence below is what proves it. While
-  // all three orders were alphabetical this passed by luck.
+  // Deliberately not written in alphabetical order: the checker does not preserve the order
+  // a union was declared in, so `ColumnIR.enum` sorts, and the golden in `reflect.spec.ts`
+  // states the sorted answer. While both orders were alphabetical this passed by luck.
   role: 'editor' | 'admin' | 'viewer';
   passwordHash: string & Sql<'text'> & Sensitive;
 }
@@ -89,9 +90,9 @@ export interface Membership extends Table<'memberships'> {
 pair<Membership>('memberships');
 
 // ---------------------------------------------------------------------------
-// The four things only a tagged declaration can say. Kept out of the corpus above
-// so the deep-equality assertion stays total, and asserted separately instead: an
-// asymmetry that is only mentioned in a comment is an asymmetry nobody measures.
+// The constructs asserted one at a time. Kept out of the golden above so it stays
+// a table anyone can read, and asserted individually instead: a capability that is
+// only mentioned in a comment is a capability nobody measures.
 // ---------------------------------------------------------------------------
 
 export interface Line {
@@ -111,9 +112,9 @@ export interface Author extends Table<'authors'> {
 
 export interface Invoice extends Table<'invoices'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  /** `numeric(12, 2)`. `ColumnFlags` has no precision field to hold this. */
+  /** `numeric(12, 2)`. `ColumnMeta` has no precision field to hold this. */
   amount: number & Sql<'numeric'> & Numeric<12, 2>;
-  /** `json<Line[]>()` carries the payload in a phantom parameter that is erased. */
+  /** A json column whose payload shape is known, which `sql: 'json'` alone cannot say. */
   lines: Line[] & Sql<'json'>;
   currency: string & Sql<'text'> & Codec<'currency'>;
   /**

@@ -1,20 +1,29 @@
-// @zmdb/schema-core — the single source of truth every other package derives
-// from: column builders (#12), modifiers (#13), compile-time type derivation
-// (#14) and `defineSchema` (#15).
+// @zmdb/schema-core — the vocabulary a table is described in, and the derivations
+// every other package reads off it.
 //
-// The derived-type family is only as good as the type information the builders
-// carry, so `Column` and `CoreSchema` are generic in exactly that information —
-// see `type-derivation.type-test.ts` for the assertions that pin it down.
+// There is no builder DSL any more — `defineSchema`, the ten column builders and the
+// eight function-style modifiers were deleted with the last of their callers, and
+// `schemaOf<T>()` is what produces a schema value now. A table is declared once, as a
+// type, in the tags of `./tags`; `@zmdb/aot-validator` reflects that declaration into a
+// `SchemaIR` and `schemaFromIR` turns the IR into the value the query compiler reads. So
+// what is left in this file is the *data model* — `SqlType`, `ColumnFlags`, `ColumnMeta`,
+// `CoreSchema` — plus the derived-type family and the type-level assertion helpers.
+//
+// The derived types still have two spellings each, and `schema-core.type-test.ts` pins
+// both. Which one applies is a question about the schema rather than the caller: see
+// `Entity` below.
 
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
-// `SqlType` from here. Nothing is imported at runtime in either direction, and Phase 9
-// removes the need for the import entirely by making `./derive` the root.
+// `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
+// imported at runtime in either direction, and Phase 9 removes the need for the first
+// import entirely by making `./derive` the root.
 import type {
   CreateDTO as TaggedCreateDTO,
   Entity as TaggedEntity,
   PrimaryKeyOf as TaggedPrimaryKeyOf,
   UpdateDTO as TaggedUpdateDTO,
 } from './derive/index.ts';
+import type { SchemaIR } from './ir/index.ts';
 
 export type SqlType =
   | 'serial'
@@ -42,11 +51,17 @@ export interface ValidationRule {
   readonly args?: readonly unknown[];
 }
 
-// Optional members admit `undefined` explicitly: under `exactOptionalPropertyTypes`
-// a flag map derived by `Omit<F, ...>` over a type *parameter* resolves each member
-// to `F[K]` (i.e. `boolean | undefined`), which a bare `?: boolean` rejects. Since
-// flag maps are threaded through the fluent builder's type (see `SetFlags`), the
-// looser member type is what makes the chain typeable at all.
+// Optional members admit `undefined` explicitly: under `exactOptionalPropertyTypes` a
+// flag map rebuilt by a mapped type over a type *parameter* resolves each member to
+// `F[K]` (i.e. `boolean | undefined`), which a bare `?: boolean` rejects. The builder
+// chain that first forced this is gone, but `columnMetaFromIR` builds a flag map the same
+// way — it sets only the flags the IR asserts — so the looser member type is still what
+// makes the result assignable.
+//
+// `nullable` is required rather than optional, and that asymmetry is deliberate: every
+// other flag is a fact a declaration opts into, while nullability is a fact every column
+// has one way or the other. A missing `nullable` would read as "not stated", and there is
+// nothing for that to mean.
 export interface ColumnFlags {
   readonly nullable: boolean;
   readonly primaryKey?: boolean | undefined;
@@ -68,12 +83,8 @@ export interface ColumnMeta {
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
-export interface SchemaOptions {
-  readonly ftsTable?: string | boolean | undefined;
-}
-
 /**
- * A defined schema.
+ * A schema value: a table described as data, for the code that runs.
  *
  * `C` carries the *literal* column map, which is what makes `Entity<S>`,
  * `CreateDTO<S>`, `WhereDTO<S>` &c. derive real property types. It defaults to
@@ -86,6 +97,23 @@ export interface CoreSchema<T extends string = string, C extends ColumnsMap = Co
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
   readonly ftsTable?: string | boolean | undefined;
+  /**
+   * The IR this value was built from, carried rather than recomputed.
+   *
+   * Required, and that is the point. `columns` is a lossy projection: a `ColumnMeta` has
+   * a `SqlType` and a flag map, and it has nowhere to put a json payload's shape, a
+   * constraint's arguments, or the difference between a column that is `integer + Serial`
+   * and one that is merely `integer`. There used to be an `irFromSchema` that guessed
+   * those back — four walkers over column metadata, each reconstructing what the
+   * declaration had already said, each with its own idea of the answer. Every one of them
+   * now reads this field, so the DDL, the validator, the JSON Schema and the seeder are
+   * looking at the same bytes.
+   *
+   * `schemaFromIR(schema.ir)` is `schema` (see `ir.spec.ts`), which is what makes the
+   * field safe to depend on: it holds everything the value does, so nothing has to choose
+   * between them.
+   */
+  readonly ir: SchemaIR;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,12 +136,8 @@ declare const zmdbEntity: unique symbol;
  * The slot is a `unique symbol` like every tag in `./tags`, and for the same reason:
  * un-forgeable, and it erases, so no generated literal carries it at runtime. It is
  * *required* rather than optional, which is what makes `S extends TaggedSchema<infer
- * T>` a real question — an authored `defineSchema` value does not have it and takes
- * the other branch.
- *
- * Per plan D2 the branching is scaffolding. Phase 9 deletes the schema-value
- * derivations, at which point every derivation takes a tagged type and there is
- * nothing left to choose between.
+ * T>` a real question — an erased `CoreSchema<string>` does not have it and takes the
+ * other branch.
  */
 export interface TaggedSchema<T> extends CoreSchema<string> {
   readonly [zmdbEntity]: T;
@@ -122,11 +146,10 @@ export interface TaggedSchema<T> extends CoreSchema<string> {
 /**
  * The schema value for a tagged type, generated at build time.
  *
- * The type-first replacement for `defineSchema`, and it declares nothing: `User`
- * already says the table, the columns, the keys and the constraints, so this asks for
- * that declaration as data. `@zmdb/aot-validator` replaces the call with a frozen
- * literal — `schemaFromIR` applied to the IR it read off `T` — so the schema is
- * written exactly once, in the type.
+ * The only way to get one, and it declares nothing: `User` already says the table, the
+ * columns, the keys and the constraints, so this asks for that declaration as data.
+ * `@zmdb/aot-validator` replaces the call with a frozen literal — `schemaFromIR` applied
+ * to the IR it read off `T` — so the schema is written exactly once, in the type.
  *
  * ```ts
  * const users = defineRepository(schemaOf<User>(), driver);
@@ -163,13 +186,14 @@ type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' |
             ? C['flags'] extends { enum: infer E extends readonly string[] }
               ? E[number]
               : string
-            : C['type'] extends 'json'
-              ? C extends { readonly __payload?: infer P }
-                ? unknown extends P
-                  ? unknown
-                  : NonNullable<P>
-                : unknown
-              : unknown;
+            : unknown;
+
+// A `json` column is `unknown` here, and that is the ceiling of this direction rather
+// than an omission. There used to be one more branch, reading a `__payload` phantom that
+// `json<Payload>()` hung on its return type; `columnMetaFromIR` has no way to set it,
+// because a payload *shape* is a type and a `ColumnMeta` is data. The shape travels on
+// `ColumnIR.payload` for the back-ends and on the declared type for `./derive`, and both
+// of those know it exactly. See `json.type-test.ts`.
 
 // Apply nullability.
 export type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
@@ -197,8 +221,9 @@ type NullableKeys<C> = {
 // Each of the four derivations below has two spellings, and which one applies is a
 // question about the schema, not about the caller: a `TaggedSchema<T>` came from a type
 // that already states everything these mapped types are reconstructing, so it defers to
-// `./derive`, which is the version that survives Phase 9. An authored `defineSchema`
-// value takes the second branch, unchanged.
+// `./derive`, which is the version that survives Phase 9. A schema whose entity type has
+// been erased — `CoreSchema<string>`, or a value read back out of a `SchemaIR` — takes
+// the second branch, which reads the column map instead.
 //
 // The read surface in `./dto` needs no such branch. `WhereDTO`, `OrderByDTO`,
 // `PaginationDTO` and `ListDTO` are all built out of `Entity<S>`, so they follow it.
@@ -263,8 +288,6 @@ export type PrimaryKeyOf<S, C = ColumnsOf<S>> =
             : unknown
           : unknown;
 
-export class SchemaError extends Error {}
-
 export interface ValidationIssue {
   readonly path: string;
   readonly message: string;
@@ -317,280 +340,6 @@ export function validationIssuesOf(error: unknown): readonly ValidationIssue[] |
       'message' in issue &&
       typeof issue.message === 'string',
   );
-}
-
-/** Overwrite flags `P` on flag map `F` (last write wins, no `never` collisions). */
-type SetFlags<F extends ColumnFlags, P extends Partial<ColumnFlags>> = Omit<F, keyof P> & P;
-
-// Chainable column: ColumnMeta + fluent modifier methods.
-//
-// Generic in the SQL type and the flag map so a chain preserves both: without
-// this, `text().notNull()` erases to `type: SqlType`/`flags: ColumnFlags` and
-// every derived type (`Entity`, `CreateDTO`, `WhereDTO`, …) degrades to
-// `unknown` — the modifiers, not `defineSchema`, are where inference is lost.
-//
-// Note: `references` is intentionally NOT a fluent method — it would collide
-// with the `ColumnMeta.references` metadata field. Use the function-style
-// `references(col, target)` modifier for foreign keys.
-export interface Column<T extends SqlType = SqlType, F extends ColumnFlags = ColumnFlags, P = unknown> {
-  readonly type: T;
-  readonly flags: F;
-  readonly default?: unknown;
-  readonly references?: { readonly target: string };
-  readonly validation?: readonly ValidationRule[];
-  readonly __payload?: P;
-  notNull(): Column<T, SetFlags<F, { nullable: false }>, P>;
-  nullable(): Column<T, SetFlags<F, { nullable: true }>, P>;
-  primaryKey(): Column<T, SetFlags<F, { primaryKey: true }>, P>;
-  unique(): Column<T, SetFlags<F, { unique: true }>, P>;
-  defaultTo(value: unknown): Column<T, SetFlags<F, { hasDefault: true }>, P>;
-  validate(rule: ValidationRule): Column<T, F, P>;
-  sensitive(isSensitive?: boolean): Column<T, SetFlags<F, { sensitive: boolean }>, P>;
-}
-
-// Deep-freeze a column metadata object and wrap it with fluent methods.
-// Each fluent method returns a NEW frozen column (immutability preserved).
-//
-// Generic in the *result* column type, inferred from the caller's contextual
-// return type. Every builder and modifier below declares a precise
-// `Column<T, F>`, and this generic lets them `return makeColumn(...)` directly:
-// previously each of the 19 of them ended in its own `as never`, because a
-// non-generic `makeColumn(): Column` erases `T`/`F` on the way out. Those 19
-// assertions are now this one, which is also the only place that can argue for
-// its own soundness.
-function makeColumn<C extends Column>(meta: ColumnMeta): C {
-  const frozenFlags = Object.freeze({ ...meta.flags });
-  const base: ColumnMeta = Object.freeze({
-    ...meta,
-    flags: frozenFlags,
-    ...(meta.validation ? { validation: Object.freeze([...meta.validation]) } : {}),
-  });
-
-  const withFlag = (patch: Partial<ColumnFlags>): Column =>
-    makeColumn<Column>({ ...base, flags: { ...base.flags, ...patch } });
-
-  // Metadata is the enumerable surface (so `toEqual` compares metadata only).
-  // boundary: the fluent methods are attached *below* via defineProperty (they
-  // must be non-enumerable), so the object is not a `Column` until this function
-  // returns; and `C`'s `type`/`flags` are exactly the literal types of the `meta`
-  // the caller passed — the builders below are the only callers, and each pairs
-  // its declared `Column<T, F>` with a matching literal `meta`. Neither
-  // `Object.defineProperties` nor "these two literals agree" is expressible as a
-  // type-changing operation, hence the one assertion here.
-  const column = { ...base } as unknown as C;
-
-  // Fluent methods are NON-enumerable: they are behavior, not metadata, so two
-  // columns with equal metadata compare deep-equal regardless of build style.
-  const methods: Record<string, (...args: never[]) => Column> = {
-    notNull: () => withFlag({ nullable: false }),
-    nullable: () => withFlag({ nullable: true }),
-    primaryKey: () => withFlag({ primaryKey: true }),
-    unique: () => withFlag({ unique: true }),
-    defaultTo: (value: unknown) =>
-      makeColumn<Column>({ ...base, default: value, flags: { ...base.flags, hasDefault: true } }),
-    validate: (rule: ValidationRule) => makeColumn<Column>({ ...base, validation: [...(base.validation ?? []), rule] }),
-    sensitive: (isSensitive: boolean = true) => withFlag({ sensitive: isSensitive !== false }),
-  };
-  for (const [name, fn] of Object.entries(methods)) {
-    Object.defineProperty(column, name, { value: fn, enumerable: false, writable: false });
-  }
-  return Object.freeze(column);
-}
-
-// Column builders --------------------------------------------------------
-// Builders return literal-typed metadata so downstream type derivation
-// (Entity/CreateDTO/UpdateDTO) can read `type` and enum literals. The runtime is
-// `makeColumn` in every case; the declared `Column<T, F>` is what `makeColumn`'s
-// result type parameter is inferred from, so no builder needs an assertion.
-
-export function serial(): Column<
-  'serial',
-  { nullable: false; primaryKey: false; autoIncrement: true; hasDefault: true }
-> {
-  return makeColumn({
-    type: 'serial',
-    flags: { nullable: false, primaryKey: false, autoIncrement: true, hasDefault: true },
-  });
-}
-export function integer(): Column<'integer', { nullable: false }> {
-  return makeColumn({ type: 'integer', flags: { nullable: false } });
-}
-export function bigint(): Column<'bigint', { nullable: false }> {
-  return makeColumn({ type: 'bigint', flags: { nullable: false } });
-}
-export function numeric(): Column<'numeric', { nullable: false }> {
-  return makeColumn({ type: 'numeric', flags: { nullable: false } });
-}
-export function text(): Column<'text', { nullable: false }> {
-  return makeColumn({ type: 'text', flags: { nullable: false } });
-}
-export function varchar<L extends number>(length: L): Column<'varchar', { nullable: false; length: L }> {
-  return makeColumn({ type: 'varchar', flags: { nullable: false, length } });
-}
-export function boolean(): Column<'boolean', { nullable: false }> {
-  return makeColumn({ type: 'boolean', flags: { nullable: false } });
-}
-export function timestamp(): Column<'timestamp', { nullable: false }> {
-  return makeColumn({ type: 'timestamp', flags: { nullable: false } });
-}
-export function json<T = unknown>(): Column<'json', { nullable: false }, T> {
-  return makeColumn({ type: 'json', flags: { nullable: false } });
-}
-export function jsonEnum<const V extends readonly string[]>(
-  values: V,
-): Column<'jsonEnum', { nullable: false; enum: V }> {
-  return makeColumn({ type: 'jsonEnum', flags: { nullable: false, enum: values } });
-}
-
-// Function-style modifiers (pure; never mutate input) --------------------
-// These mirror the fluent methods exactly — same `SetFlags` overwrite semantics,
-// same return type — so `primaryKey(serial())` and `serial().primaryKey()` derive
-// identical types (asserted in `type-derivation.type-test.ts`).
-export function notNull<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { nullable: false }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: false } });
-}
-export function nullable<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { nullable: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, nullable: true } });
-}
-export function primaryKey<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { primaryKey: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, primaryKey: true } });
-}
-export function unique<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-): Column<T, SetFlags<F, { unique: true }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, unique: true } });
-}
-export type ExtractColumns<T> = T extends { readonly columns: infer C }
-  ? C
-  : T extends { columns: infer C }
-    ? C
-    : T extends Record<string, ColumnMeta>
-      ? T
-      : Record<string, ColumnMeta>;
-
-export type ValidateFkType<LocalCol extends ColumnMeta, TargetCol extends ColumnMeta> = [
-  NonNullable<TsType<LocalCol>>,
-] extends [NonNullable<TsType<TargetCol>>]
-  ? [NonNullable<TsType<TargetCol>>] extends [NonNullable<TsType<LocalCol>>]
-    ? true
-    : false
-  : false;
-
-export function references<
-  C extends ColumnMeta,
-  Target extends { readonly columns: Record<string, ColumnMeta> } | Record<string, ColumnMeta>,
-  K extends keyof ExtractColumns<Target> & string,
->(
-  col: C,
-  targetSchema: Target,
-  targetColumn: K,
-): ValidateFkType<C, ExtractColumns<Target>[K]> extends true
-  ? C & { references: { readonly target: string } }
-  : { __error: 'Referenced column type does not match' };
-
-export function references<C extends ColumnMeta>(
-  col: C,
-  target: string,
-  targetColumn?: string,
-): C & { references: { readonly target: string } };
-
-export function references(
-  col: ColumnMeta,
-  target: { table: string } | string,
-  targetColumn?: string,
-): ColumnMeta & { references: { readonly target: string } } {
-  const tableName = typeof target === 'string' ? target : target.table;
-  const targetStr = targetColumn ? `${tableName}.${targetColumn}` : tableName;
-  return makeColumn<Column & { references: { readonly target: string } }>({
-    ...col,
-    references: { target: targetStr },
-  });
-}
-export function defaultTo<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-  value: unknown,
-): Column<T, SetFlags<F, { hasDefault: true }>, P> {
-  return makeColumn({ ...col, default: value, flags: { ...col.flags, hasDefault: true } });
-}
-export function validate<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-  rule: ValidationRule,
-): Column<T, F, P> {
-  return makeColumn({ ...col, validation: [...(col.validation ?? []), rule] });
-}
-export function sensitive<T extends SqlType, F extends ColumnFlags, P>(
-  col: Column<T, F, P>,
-  isSensitive: boolean = true,
-): Column<T, SetFlags<F, { sensitive: boolean }>, P> {
-  return makeColumn({ ...col, flags: { ...col.flags, sensitive: isSensitive } });
-}
-
-// defineSchema (#15) — derive primaryKey[] and references[] from column
-// metadata, deeply freeze, and register. Throws SchemaError on no primary key.
-const SCHEMA_REGISTRY = new Map<string, CoreSchema>();
-
-// `C` is inferred from the argument, so the returned schema keeps the literal
-// column map instead of the erased `Record<string, ColumnMeta>`. Without it the
-// whole derived-type family (`Entity`, `CreateDTO`, `UpdateDTO`, and every read
-// DTO) collapses to `{ [x: string]: unknown }` at the `defineSchema` seam.
-export function defineSchema<T extends string, C extends ColumnsMap>(
-  table: T,
-  columns: C,
-  options?: SchemaOptions,
-): CoreSchema<T, C> {
-  const primaryKeys: string[] = [];
-  const refs: { column: string; target: string }[] = [];
-  const frozenColumns: Record<string, ColumnMeta> = {};
-  const unMarkedSerialColumns: string[] = [];
-
-  for (const [name, col] of Object.entries(columns)) {
-    if (col.flags.primaryKey === true) {
-      primaryKeys.push(name);
-    } else if (col.type === 'serial') {
-      unMarkedSerialColumns.push(name);
-    }
-    if (col.references) refs.push({ column: name, target: col.references.target });
-    frozenColumns[name] = Object.freeze({ ...col, flags: Object.freeze({ ...col.flags }) });
-  }
-
-  if (primaryKeys.length === 0) {
-    if (unMarkedSerialColumns.length > 0) {
-      throw new SchemaError(
-        `serial column "${unMarkedSerialColumns[0]}" in schema "${table}" must be designated as a primary key`,
-      );
-    }
-    throw new SchemaError(`schema "${table}" must declare at least one primary key`);
-  }
-
-  const schema: CoreSchema<T, C> = Object.freeze({
-    table,
-    // boundary: `frozenColumns` is built by copying every entry of `columns`, so
-    // it has exactly C's keys and the same metadata per key (only the nested
-    // objects are replaced by frozen copies). TS has no way to express
-    // "structurally identical rebuild of a generic record", so the one assertion
-    // stands in for that argument.
-    columns: Object.freeze(frozenColumns) as C,
-    primaryKey: Object.freeze(primaryKeys),
-    references: Object.freeze(refs),
-    ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
-  });
-
-  SCHEMA_REGISTRY.set(table, schema);
-  return schema;
-}
-
-// Compile-time-friendly registry access (explicit; no runtime reflection).
-export function getRegisteredSchema(table: string): CoreSchema | undefined {
-  return SCHEMA_REGISTRY.get(table);
-}
-export function registeredSchemas(): readonly CoreSchema[] {
-  return [...SCHEMA_REGISTRY.values()];
 }
 
 /**

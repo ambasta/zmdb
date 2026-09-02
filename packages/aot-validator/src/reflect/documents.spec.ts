@@ -1,9 +1,14 @@
 // Phase 6's gate: REQ-TF-7, as an equality rather than as a resemblance.
 //
-// `__fixtures__/documents.ts` asks for a JSON Schema document by type — `toJsonSchema<
-// CreateDTO<User>>()` — and `__fixtures__/equivalence-schemas.ts` asks for the same
-// document by schema value and variant name. This spec transforms the first, runs the
-// emitted module, and compares what it produced against what the second produces.
+// There are two ways to ask for the same document and they take different routes through
+// the code. `toJsonSchema<CreateDTO<User>>()` is compiled away: the transform reflects the
+// derived type and inlines the answer, so the mapped types in `@zmdb/schema-core/derive` are
+// what decided which columns are in it. `toJsonSchema(users, 'create')` runs at runtime off
+// the schema value's IR, where `shapeOfVariant` decided the same thing. This spec transforms
+// `__fixtures__/documents.ts`, runs the emitted module, and compares the two.
+//
+// Both sides start from the same interface — `users` here is `User` reflected into a schema
+// value — so what is being compared is the two derivations, not two spellings of a table.
 //
 // The comparison is on `JSON.stringify`, not `toEqual`: a document is published, so key
 // order is part of it, and `toEqual` would pass on two objects that serialise to
@@ -13,17 +18,25 @@
 
 import { readFileSync } from 'node:fs';
 
+import type { CoreSchema } from '@zmdb/schema-core';
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
 import { toJsonSchema, type Variant } from '@zmdb/schema-core/openapi';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { schemasFrom } from '../testing/index.ts';
 import { transformFile } from '../transformer.ts';
-import { memberships, users } from './__fixtures__/equivalence-schemas.ts';
 import { ReflectSession } from './session.ts';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;
 const FILE = `${FIXTURES}documents.ts`;
+
+// The schema values, off the same interfaces the fixture derives its types from. At module
+// scope because it opens a compiler session, and one is enough for the file — the erased
+// overload, because nothing here needs the phantom, only the table's data.
+const { Membership: memberships, User: users } = schemasFrom(`${FIXTURES}tables.ts`, ['User', 'Membership'], {
+  project: PROJECT,
+});
 
 let session: ReflectSession;
 /** label → the document the *emitted module* handed to `document()`. */
@@ -65,7 +78,7 @@ function generated(label: string): JsonSchemaObject {
 }
 
 /** label → the schema value and variant that must produce the identical document. */
-const PAIRS: readonly (readonly [string, { readonly table: string }, Variant])[] = [
+const PAIRS: readonly (readonly [string, CoreSchema<string>, Variant])[] = [
   ['users:entity', users, 'entity'],
   ['users:create', users, 'create'],
   ['users:update', users, 'update'],
@@ -81,7 +94,7 @@ const PAIRS: readonly (readonly [string, { readonly table: string }, Variant])[]
 describe('toJsonSchema<T> vs toJsonSchema(schema, variant) (REQ-TF-7)', () => {
   for (const [label, schema, variant] of PAIRS) {
     it(`${label} is byte-identical to the ${variant} variant of ${schema.table}`, () => {
-      const expected = toJsonSchema(schema as never, variant);
+      const expected = toJsonSchema(schema, variant);
       expect(JSON.stringify(generated(label))).toBe(JSON.stringify(expected));
     });
   }

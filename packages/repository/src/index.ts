@@ -36,7 +36,6 @@ import {
 import {
   dbDecodedColumns,
   decodeDbValue,
-  irFromSchema,
   objectTypeFromShape,
   shapeOfVariant,
   type ColumnIR,
@@ -270,7 +269,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   private get decodedColumns(): readonly ColumnIR[] {
-    this.#decoded ??= dbDecodedColumns(irFromSchema(this.schema));
+    this.#decoded ??= dbDecodedColumns(this.schema.ir);
     return this.#decoded;
   }
 
@@ -863,7 +862,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   private payloadShape(variant: 'create' | 'update'): PayloadShape {
     const cached = this.#shapes.get(variant);
     if (cached) return cached;
-    const shape = shapeOfVariant(irFromSchema(this.schema), variant);
+    const shape = shapeOfVariant(this.schema.ir, variant);
     const built = {
       shape,
       type: objectTypeFromShape(shape),

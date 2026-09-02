@@ -1,13 +1,15 @@
 // Phase 4's gate: every construct in `__fixtures__/constructs.ts` either reflects
 // correctly or produces a NAMED refusal. Zero rows silently wrong.
 //
-// The corpus test near the bottom is the one that matters most. If a tagged interface
-// and a `defineSchema` call describing the same table produce deep-equal `SchemaIR`,
-// then every SQL snapshot, DDL golden and JSON Schema contract already in this repo
-// covers the tagged front-end as well, because the back-ends are pure functions of the
-// IR. That is REQ-TF-7 and REQ-TF-12 in one assertion.
+// The corpus test near the bottom is the one that matters most, and it used to be a
+// differential: a tagged interface and a `defineSchema` call describing the same table
+// had to produce deep-equal `SchemaIR`. That oracle went when `defineSchema` did, so
+// what stands in its place is a written-out `SchemaIR` for the same two tables. It is a
+// worse test in one way — a golden agrees with whatever produced it — and a better one in
+// another, because the differential only ever proved the two front-ends were wrong in the
+// same way, and this says what the right answer is.
 
-import { irFromSchema, type SchemaIR, type TypeIR } from '@zmdb/schema-core/ir';
+import type { ColumnIR, SchemaIR, TypeIR } from '@zmdb/schema-core/ir';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -26,7 +28,7 @@ interface Probed {
 let session: ReflectSession;
 /** label → what the reflection made of it, for `constructs.ts`. */
 const probes = new Map<string, Probed>();
-/** table name → the IR reflected from the tagged interface, for `equivalence.ts`. */
+/** table name → the IR reflected from the tagged interface, for `tables.ts`. */
 const tagged = new Map<string, { readonly ir: SchemaIR; readonly diagnostics: readonly ReflectDiagnostic[] }>();
 
 /** The string argument of `probe<T>('label')`, which is the assertion key. */
@@ -41,7 +43,7 @@ beforeAll(() => {
   // A type read out of a file that does not compile is a guess. Checking first turns
   // "the reflection is wrong" into "the fixture is broken", which are very different
   // afternoons.
-  for (const file of ['constructs.ts', 'equivalence.ts', 'equivalence-schemas.ts']) {
+  for (const file of ['constructs.ts', 'tables.ts']) {
     const diagnostics = session.diagnostics(`${FIXTURES}${file}`);
     if (diagnostics.length > 0) {
       throw new Error(
@@ -63,8 +65,8 @@ beforeAll(() => {
     probes.set(label, { ir: reflector.typeIR(type), diagnostics: reflector.diagnostics });
   }
 
-  const corpus = session.sourceFile(`${FIXTURES}equivalence.ts`);
-  if (!corpus) throw new Error('equivalence.ts is not in the program');
+  const corpus = session.sourceFile(`${FIXTURES}tables.ts`);
+  if (!corpus) throw new Error('tables.ts is not in the program');
   for (const call of findCallSites(corpus, new Set(['pair']))) {
     const label = labelOf(call);
     const type = session.checker.getTypeFromTypeNode(call.typeArgument);
@@ -595,33 +597,100 @@ describe('irFromType — budgets', () => {
   });
 });
 
-describe('schemaIrFromType vs irFromSchema (REQ-TF-7, REQ-TF-12)', () => {
-  it('covers the same tables on both sides of the corpus', async () => {
-    const schemas: Record<string, { table: string }> = await import('./__fixtures__/equivalence-schemas.ts');
-    const fromValues = new Set(Object.values(schemas).map(s => s.table));
-    expect([...tagged.keys()].toSorted()).toEqual([...fromValues].toSorted());
+describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () => {
+  // Every column is compared whole, not field by field: a field-by-field comparison passes
+  // when the reflection stops setting a flag, and a flag quietly going missing is exactly how
+  // the four walkers this IR replaced drifted apart in the first place.
+  //
+  // `column()` supplies the six booleans and the two empty collections that every column has,
+  // so each row below reads as the facts that are true of it rather than as ninety words of
+  // `false`. The comparison is still total — `toEqual` sees a complete `ColumnIR` either way.
+  type Defaulted =
+    | 'nullable'
+    | 'primaryKey'
+    | 'serial'
+    | 'unique'
+    | 'hasDefault'
+    | 'sensitive'
+    | 'constraints'
+    | 'rules';
+  function column(facts: Omit<ColumnIR, Defaulted> & Partial<Pick<ColumnIR, Defaulted>>): ColumnIR {
+    return {
+      nullable: false,
+      primaryKey: false,
+      serial: false,
+      unique: false,
+      hasDefault: false,
+      sensitive: false,
+      constraints: {},
+      rules: [],
+      ...facts,
+    };
+  }
+
+  function reflected(table: string): SchemaIR {
+    const found = tagged.get(table);
+    expect(found, `no tagged declaration labelled ${table}`).toBeDefined();
+    expect(found?.diagnostics, `${table} reflected with diagnostics`).toEqual([]);
+    return (found as { ir: SchemaIR }).ir;
+  }
+
+  it('reads every column kind in one table', () => {
+    expect(reflected('users')).toEqual({
+      table: 'users',
+      columns: [
+        // `serial`, not `integer`: `Serial` names a column type of its own in the IR, because
+        // that is the word two of the three dialects want in the DDL.
+        column({ name: 'id', sql: 'serial', primaryKey: true, serial: true, hasDefault: true }),
+        column({
+          name: 'email',
+          sql: 'varchar',
+          unique: true,
+          length: 255,
+          constraints: { pattern: '^\\S+@\\S+$' },
+        }),
+        column({ name: 'age', sql: 'integer', constraints: { minimum: 18, maximum: 120 } }),
+        column({ name: 'score', sql: 'numeric' }),
+        column({ name: 'visits', sql: 'bigint' }),
+        column({ name: 'bio', sql: 'text', nullable: true, constraints: { minLength: 3, maxLength: 2000 } }),
+        column({ name: 'active', sql: 'boolean' }),
+        column({ name: 'createdAt', sql: 'timestamp', hasDefault: true }),
+        // Sorted, and declared in a third order in the fixture: see `ColumnIR.enum`.
+        column({ name: 'role', sql: 'jsonEnum', enum: ['admin', 'editor', 'viewer'] }),
+        column({ name: 'passwordHash', sql: 'text', sensitive: true }),
+      ],
+      primaryKey: ['id'],
+      relations: [],
+      ftsTable: 'users_fts',
+    });
   });
 
-  it('produces byte-identical IR from a tagged interface and from defineSchema', async () => {
-    const schemas: Record<string, { table: string }> = await import('./__fixtures__/equivalence-schemas.ts');
-    expect(Object.keys(schemas).length).toBeGreaterThan(0);
+  it('reads a composite key and a foreign key spelled table.column', () => {
+    expect(reflected('memberships')).toEqual({
+      table: 'memberships',
+      columns: [
+        column({ name: 'userId', sql: 'integer', primaryKey: true, references: 'users.id' }),
+        column({ name: 'groupId', sql: 'integer', primaryKey: true, references: 'groups.id' }),
+        column({ name: 'invitedBy', sql: 'integer', nullable: true, references: 'users.id' }),
+      ],
+      // Declaration order, not sorted: it is the order of the key in the DDL and in every
+      // `WHERE` the query compiler builds, so reversing it would be a different table.
+      primaryKey: ['userId', 'groupId'],
+      relations: [],
+    });
+  });
 
-    for (const schema of Object.values(schemas)) {
-      const reflected = tagged.get(schema.table);
-      expect(reflected, `no tagged twin for ${schema.table}`).toBeDefined();
-      expect(reflected?.diagnostics, `${schema.table} reflected with diagnostics`).toEqual([]);
-      // `toEqual` on the whole document rather than field by field: a field-by-field
-      // comparison passes when the tagged side omits a field the value side sets, and
-      // an omitted flag is exactly how the four walkers drifted apart.
-      expect(reflected?.ir, schema.table).toEqual(irFromSchema(schema as never));
-    }
+  it('covers every table the corpus pairs', () => {
+    // A `pair<T>` added to the fixture and forgotten here would be reflected, held in
+    // `tagged` and never compared against anything.
+    expect([...tagged.keys()].toSorted()).toEqual(['memberships', 'users']);
   });
 });
 
 describe('what only a tagged declaration can say', () => {
-  /** A `taggedOnly<T>` fixture: the ones deliberately not in the corpus above. */
+  /** A `taggedOnly<T>` fixture: the tables deliberately kept out of the golden above. */
   function taggedOnly(label: string): SchemaIR {
-    const corpus = session.sourceFile(`${FIXTURES}equivalence.ts`);
+    const corpus = session.sourceFile(`${FIXTURES}tables.ts`);
     const call = findCallSites(corpus as never, new Set(['taggedOnly'])).find(c => labelOf(c) === label);
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
     const reflector = new Reflector(session.checker, corpus as never, {});
@@ -636,10 +705,10 @@ describe('what only a tagged declaration can say', () => {
     expect(invoice().columns.find(c => c.name === 'amount')?.precision).toEqual([12, 2]);
   });
 
-  it('carries a json payload shape, which defineSchema erases at runtime', () => {
-    // `json<Line[]>()` puts the payload in a phantom type parameter, so `irFromSchema`
-    // cannot recover it and leaves `payload` unset. This is the capability the tags buy,
-    // not a discrepancy between the front-ends.
+  it('carries a json payload shape, which a column map has nowhere to put', () => {
+    // `ColumnMeta` describes a json column as `sql: 'json'` and stops there, which is why
+    // `CoreSchema` carries its IR rather than only the projection: read the payload off the
+    // column map and the answer is "an object, unspecified".
     expect(invoice().columns.find(c => c.name === 'lines')?.payload).toEqual({
       kind: 'array',
       element: {
@@ -693,7 +762,7 @@ describe('what only a tagged declaration can say', () => {
     expect(issuedAt && 'default' in issuedAt).toBe(false);
   });
 
-  it('reads relations, which irFromSchema returns empty unconditionally', () => {
+  it('reads relations off the declaration itself', () => {
     const invoices = invoice();
     expect(invoices.relations).toEqual([{ name: 'author', relation: 'manyToOne', target: 'authors', via: 'authorId' }]);
     // A relation is not a column: the join lives on `authorId`, and emitting `author`
@@ -712,23 +781,22 @@ describe('what only a tagged declaration can say', () => {
   });
 
   it('carries Fts<true>, the spelling that asks the back-end to name the index', () => {
-    // The string form is in the equivalence corpus, where `defineSchema`'s `ftsTable`
-    // option proves both front-ends agree. `true` is the form only this asserts, and
+    // The string form is in the golden above. `true` is the form only this asserts, and
     // `true` is falsy-adjacent enough that a `if (fts)` somewhere would drop it.
     expect(taggedOnly('products').ftsTable).toBe(true);
   });
 
-  it('treats Serial as implying a default, the way serial() does', () => {
-    // Not a convenience: `serial()` sets `hasDefault` as well as `autoIncrement`, and
-    // the two front-ends have to agree node for node or the corpus test above is
-    // comparing two different things and calling them equal.
+  it('treats Serial as implying a default', () => {
+    // Not a convenience. `hasDefault` is what keeps the column out of `CreateDTO`, so a
+    // `Serial` that only set `serial` would produce an insert payload demanding the key the
+    // database is about to generate.
     const id = invoice().columns.find(c => c.name === 'id');
     expect(id?.serial).toBe(true);
     expect(id?.hasDefault).toBe(true);
   });
 });
 
-describe('what only one front-end can say', () => {
+describe('what the reflection declines to guess', () => {
   it('refuses a tagged entity with no Table<> tag rather than guessing from the type name', () => {
     // The type is `Profile`; the table could be `profiles`, `profile` or `user_profile`
     // and a pluraliser would be a fifth source of truth.
@@ -744,7 +812,7 @@ describe('what only one front-end can say', () => {
     // The one refused case: `integer` and `numeric` are both `number`, with no default
     // worth guessing between them. Everything else the type already says, and a tag would
     // be a second spelling of the same fact.
-    const corpus = session.sourceFile(`${FIXTURES}equivalence.ts`);
+    const corpus = session.sourceFile(`${FIXTURES}tables.ts`);
     const call = findCallSites(corpus as never, new Set(['pair'])).find(c => labelOf(c) === 'users');
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
     const reflector = new Reflector(session.checker, corpus as never, {});

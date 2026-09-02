@@ -5,9 +5,10 @@
   "files": [
     "constructs.ts",
     "documents.ts",
-    "equivalence.ts",
-    "equivalence-schemas.ts",
+    "tables.ts",
+    "legacy-dsl.ts",
     "codemod-corpus.ts",
+    "codemod-tables.ts",
     "codemod-refusals.ts",
     "schema-values.ts",
     "schema-values-refusals.ts",

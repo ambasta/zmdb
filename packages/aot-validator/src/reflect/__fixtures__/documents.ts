@@ -1,18 +1,18 @@
-// The type-driven half of the JSON Schema corpus: one `toJsonSchema<T>()` per DTO of
-// each table `equivalence.ts` describes, plus one shape no variant name can express.
+// The JSON Schema corpus: one `toJsonSchema<T>()` per DTO of each table `tables.ts`
+// describes, plus one shape no variant name can express.
 //
 // `documents.spec.ts` transforms this file and then *runs* it, supplying `document`. So
 // what the assertions compare is not "the emitter would produce" but the document the
 // bundle actually ships — which is the only form of REQ-TF-7 worth having.
 //
-// Written against the same interfaces as `equivalence.ts`, on purpose: its twin
-// `equivalence-schemas.ts` is the oracle, and a document derived from `CreateDTO<User>`
-// has to equal `toJsonSchema(users, 'create')` down to the byte.
+// The oracle is the same interface asked the other way: a document derived from
+// `CreateDTO<User>` has to equal `toJsonSchema(users, 'create')` down to the byte, where
+// `users` is the schema value reflected from `User`.
 
 import type { CreateDTO, Entity, ReadDTO, UpdateDTO } from '@zmdb/schema-core/derive';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 
-import type { Membership, User } from './equivalence.ts';
+import type { Membership, User } from './tables.ts';
 
 /** Declared, not defined. The spec passes it in when it evaluates the emitted module. */
 declare function document(label: string, doc: unknown): void;

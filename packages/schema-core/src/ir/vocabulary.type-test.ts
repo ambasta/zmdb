@@ -1,8 +1,10 @@
-// REQ-TF-1 — the tag vocabulary covers everything `defineSchema` can express.
+// REQ-TF-1 — the tag vocabulary covers every column fact the IR has a field for.
 // A compilation gate, not a runtime test. The failure mode it guards against is
 // quiet: someone adds a `SqlType` or a `ColumnFlags` member, the tagged front-end
-// silently cannot express it, and a type-first declaration loses information that
-// the value front-end kept.
+// silently cannot express it, and a declaration loses information that reaches the
+// database anyway. It was originally written against `defineSchema`'s vocabulary,
+// which was the standard to meet; the tags are now the only front-end, so the IR's
+// own fields are the standard, and `ColumnIR` is what the totality is read off.
 
 import type { ColumnFlags, Equal, Expect, SqlType } from '../index.ts';
 import type { ColumnSqlType } from '../tags/index.ts';

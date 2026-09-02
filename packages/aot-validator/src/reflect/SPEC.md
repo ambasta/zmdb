@@ -15,10 +15,18 @@ interface User extends Table<'users'> {
 }
 ```
 
-produces the same `SchemaIR` as the equivalent `defineSchema` call. Once that holds,
-every SQL snapshot, DDL golden and JSON Schema contract already in the repo covers the
-tagged front-end too — the back-ends are pure functions of the IR and cannot tell the
-two apart.
+becomes a `SchemaIR`, and through it a schema value, a set of DDL statements, a validator
+and a JSON Schema document. It is the only front-end there is: `defineSchema` and its
+column builders were the other one, and they were deleted once this one could say
+everything they could and five things they could not (§8).
+
+While both existed, the gate was deep equality — `schemaIR` of a tagged interface against
+`irFromSchema` of the matching `defineSchema` call, table for table. That test did its job
+and went with the API it was comparing against. What replaced it is stronger, because it
+does not need a second front-end to be true: every SQL snapshot, DDL golden and JSON
+Schema contract in the repository is now produced from a declaration through this module,
+so the back-ends are exercised on real output rather than on output certified equal to
+something else's.
 
 The module is three files, and the split is deliberate:
 
@@ -157,25 +165,42 @@ rather than replaces: an explicit `Pattern<…>` overrides the derived one, but 
 
 ## 7. `Serial` implies `hasDefault`
 
-Not a convenience. `serial()` sets `{ autoIncrement: true, hasDefault: true }`, so the
-tagged front-end must too — otherwise the equivalence test below is comparing two
-different things and calling them equal.
+Not a convenience, and not an inference either — it is what the word means. A serial
+column's value comes from a sequence the database owns, so `INSERT` may omit it, and
+"may be omitted on insert" is precisely what `hasDefault` says to `CreateDTO`, to the
+JSON Schema's `required` list and to the seeder. A `Serial` column without `hasDefault`
+would make `id` a required field on every create call, which is the opposite of the
+reason anyone writes `Serial`.
 
-## 8. What only a tagged declaration can say
+The old `serial()` builder set both flags together for the same reason. This is the one
+place the two front-ends had to agree by hand rather than by construction, and it is worth
+a section because getting it wrong is invisible: the DDL is identical either way, and only
+the create path notices.
 
-Five capabilities have no `defineSchema` spelling, and one runtime fact has no type
-spelling. They are kept out of the equivalence corpus so its deep-equality assertion
-stays total, and asserted separately instead — an asymmetry that lives only in a
-comment is an asymmetry nobody measures.
+## 8. What a declaration says and a schema value cannot
 
-| Capability                | Why the other front-end cannot                         |
-| ------------------------- | ------------------------------------------------------ |
-| `Numeric<P, S>` precision | `ColumnFlags` has no precision field                   |
-| `Codec<Name>`             | No flag carries it                                     |
-| `WireAs<W>`               | A value has no way to name a type                      |
-| A `json` payload shape    | `json<Line[]>()` erases the parameter at runtime       |
-| Relations                 | `irFromSchema` returns `relations: []` unconditionally |
-| A default **value**       | `HasDefault` means "has one", not "has this one"       |
+Five of these were the argument for deleting the value front-end, and they are still the
+argument for `CoreSchema.ir` being a required field rather than a convenience: a
+`ColumnMeta` is a `SqlType` and a flag map, and there is nowhere in it for any of the
+first five rows to go. Reading them off `columns` was never possible; the old
+`irFromSchema` returned a default for each and the back-ends believed it.
+
+Each has its own assertion, because an asymmetry that lives only in a comment is an
+asymmetry nobody measures.
+
+| Capability                | Where a schema value would have to put it                         |
+| ------------------------- | ----------------------------------------------------------------- |
+| `Numeric<P, S>` precision | `ColumnFlags` has no precision field                              |
+| `Codec<Name>`             | No flag carries it                                                |
+| `WireAs<W>`               | A value has no way to name a type                                 |
+| A `json` payload shape    | A payload is a shape, and a `ColumnMeta` holds data               |
+| Relations                 | `CoreSchema` has no relations field at all                        |
+| A default **value**       | The reverse gap: `HasDefault` means "has one", not "has this one" |
+
+The last row is the one asymmetry that runs the other way — the IR carries a default
+value, and no tag can state one, because a tag payload is a type-level literal and a
+default may be any expression the dialect accepts. `HasDefault` records that the column
+has one and leaves the value to the DDL.
 
 `WireAs<W>` is the one tag whose payload is a _type_ rather than a literal, so `#column`
 reads it with `#type` and not `literalOf`. It is what stops a codec column from being
@@ -191,13 +216,13 @@ constraint the declaration just made.
 ## 9. Verified
 
 - [x] Every construct in `__fixtures__/constructs.ts` either reflects correctly or produces a named refusal — 61 assertions, zero rows silently wrong.
-- [x] `schemaIR` of a tagged interface is deep-equal to `irFromSchema` of the matching `defineSchema` call, for every table in the corpus. Confirmed to _fail_ when a fixture bound is perturbed, so the assertion bites.
-- [x] The two halves of the corpus have identical label sets, so a table added on one side and forgotten on the other fails.
-- [x] All three fixture files compile with zero semantic diagnostics before any type is read.
+- [x] The `SchemaIR` of the two `pair` tables in `__fixtures__/tables.ts` is written out in full in `reflect.spec.ts` and compared field for field. A golden rather than a differential, and deliberately so: the differential only ever proved the two front-ends were wrong in the same way, and a written-out IR says what the right answer is.
+- [x] One corpus, four back-ends: the same tables drive the IR golden, the JSON Schema documents, the validator's `TypeIR` and the emitted schema value, so a column added to the fixture is a column all four specs read.
+- [x] Every fixture file compiles with zero semantic diagnostics before any type is read.
 - [x] `boolean` reflects as a scalar, not as the `true | false` union the checker models it as.
 - [x] `maxDepth` and `maxNodes` overruns each produce an `unsupported` node naming the cap.
 - [x] A duplicate tag installation is refused with both escaped names in the message (plan D5).
-- [x] Each of the six tagged-only capabilities in §8 has its own assertion.
+- [x] Each of the six rows in §8 has its own assertion — the five a schema value cannot hold, and the one default value no declaration can state.
 - [x] A `Codec` + `WireAs` column reflects all three of its types; a codec over a plain scalar records no payload.
 - [x] `Serial` alone yields `serial: true` **and** `hasDefault: true`.
 - [x] Mutual recursion (`Folder` ↔ `FileEntry`) closes with a `ref`, not just self-recursion.
