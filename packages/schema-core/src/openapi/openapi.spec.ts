@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineSchema, jsonEnum, sensitive, serial, text, timestamp, type CoreSchema } from '../index.ts';
+import { defineSchema, integer, jsonEnum, sensitive, serial, text, timestamp, type CoreSchema } from '../index.ts';
 import {
   toJsonSchema,
   toJsonSchemaWithRelations,
@@ -72,6 +72,19 @@ describe('toJsonSchema variants', () => {
 
   it('update makes everything optional', () => {
     expect(toJsonSchema(UserSchema, 'update').required).toEqual([]);
+  });
+
+  it('update omits the primary key even when the database does not generate it', () => {
+    // A patch body identifies its row in the URL. `UpdateDTO<T>` has always dropped the
+    // key; the variant only agreed by accident, because every key it had ever been given
+    // was a `serial()` and those were dropped for a different reason.
+    const Membership = defineSchema('memberships', {
+      userId: integer().primaryKey(),
+      groupId: integer().primaryKey(),
+      note: text().nullable(),
+    });
+    expect(Object.keys(toJsonSchema(Membership, 'update').properties)).toEqual(['note']);
+    expect(Object.keys(toJsonSchema(Membership, 'entity').properties)).toEqual(['groupId', 'note', 'userId']);
   });
 });
 

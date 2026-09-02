@@ -530,11 +530,17 @@ export type ShapeIR = readonly ShapeColumnIR[];
  * database-generated columns at all, a patch requires nothing, and an input column with
  * a default may be left out. Each is exactly what the corresponding derived type does to
  * `Entity<T>`, which is the reason this translation exists rather than a coincidence.
+ *
+ * `update` also drops the primary key, which is what `UpdateDTO<T>` does and what this
+ * function did not: a patch body identifies its row in the URL, so a key in the body is
+ * either redundant or an attempt to move the row. It only ever showed for a *non-serial*
+ * key, since a serial one was already gone, which is why no existing document changes.
  */
 export function shapeOfVariant(ir: SchemaIR, variant: Variant): ShapeIR {
   const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   return ir.columns
     .filter(col => isResponse || !col.serial)
+    .filter(col => variant !== 'update' || !col.primaryKey)
     .map(col => ({ column: col, optional: variant === 'update' || (!isResponse && col.hasDefault) }));
 }
 
