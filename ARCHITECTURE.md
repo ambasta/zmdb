@@ -91,7 +91,13 @@ rejected regardless of how convenient it is.
    else. Two front-ends would mean two answers to "what are this table's
    columns", and the emitted validator can only ever agree with one of them.
    Enforced by `yarn verify:no-defineschema`, which imports every published
-   surface and reads its export names rather than grepping for a spelling.
+   surface and reads its export names rather than grepping for a spelling. The
+   back-end half has its own gate, because it decays differently: the four walks
+   this replaced were each two convenient lines in a package that needed one more
+   fact about a column, and a fifth had already grown in the seeder before anyone
+   looked. `yarn verify:one-walker` names the files that may read column metadata
+   at all — the producer, the DDL boundary, one flag in the repository — with the
+   reason beside each, and fails on a new reader or a stale exemption.
 10. **The source runs as-is; the build only mirrors it.** In the repo every
     `exports` target is a `.ts` file and Node reads it directly, stripping the
     types — that is how the tests, the dev loop and the consumer fixtures all

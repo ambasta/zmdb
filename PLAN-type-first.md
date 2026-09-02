@@ -949,9 +949,10 @@ ACs that no script enforced; all are in `ci.yml` now):
 | `verify:no-defineschema` | zero `defineSchema` calls and zero `irFromSchema` references outside their own deletion commit (**D2**)                                                                                    |
 | `verify:publish`         | the packages build, install and import — added here because the `dts` break below turned out to be hiding a worse one                                                                      |
 | `verify:tf-acceptance`   | PRD §6.7's own citations: every AC names a gate or a spec that exists, cites test names that exist, and cites gates `ci.yml` runs                                                          |
+| `verify:one-walker`      | **added late**, for definition-of-done 9. Who may name `ColumnMeta`/`ColumnsMap`/`SqlType`, who may read a column's flags or rules, and the deleted walkers by name                        |
 
-The last one is overdue independently of this work: the published figure was 23 and
-the real count is 28 — it drifted up by five with nothing watching. Land it here
+`verify:escape-hatches` is overdue independently of this work: the published figure was
+23 and the real count is 28 — it drifted up by five with nothing watching. Land it here
 because Phase 5 and 7 will delete assertions and the ratchet should capture that.
 
 **The D2 deletion** — this is the phase where the scaffolding comes down:
@@ -972,8 +973,13 @@ because Phase 5 and 7 will delete assertions and the ratchet should capture that
   entries, or `verify:docs-coverage` fails.
 - `SPEC.md` for `schema-core` (tags, IR, converters) and `aot-validator` (reflect,
   emit, CLI) — `validate:spec` requires them.
-- `COOKBOOK.md` recipes; `ARCHITECTURE.md` §2 for the IR spine; PRD §7.2's worked
-  example rewritten type-first.
+- ✅ **done.** `COOKBOOK.md` §1 declares a table as an interface and points a
+  `defineSchema` codebase at the codemod; PRD §7.2's worked example is type-first from
+  the `import type` line down, with `schemaOf<Orders>()` as the one build-time call;
+  `ARCHITECTURE.md` §2 directive 9 is the invariant in its non-negotiable form, and
+  names both gates — `verify:no-defineschema` for the front-end half and
+  `verify:one-walker` for the back-end half, which is the half that grew a fifth
+  walker while nobody was looking.
 - ✅ **Decided: retired.** `scripts/prototypes/type-first/` is deleted. It answered "can a
   tagged interface generate the checks with no schema value anywhere", and the shipped
   reflection now answers that against real code — while the prototype's own `tags.ts` was a
