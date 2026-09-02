@@ -110,6 +110,31 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(umbrella.wireTypeOf).toBe(source.wireTypeOf);
     expect(umbrella.SQL_TYPES).toBe(source.SQL_TYPES);
     expect(umbrella.KNOWN_CONSTRAINT_KINDS).toBe(source.KNOWN_CONSTRAINT_KINDS);
+    // The three back-ends and the shape they share. A consumer generating its own
+    // artefacts needs the same entry points the built-in emitters use, or it ends up
+    // re-deriving "which columns does a create have" — the fifth walker.
+    expect(umbrella.schemaFromIR).toBe(source.schemaFromIR);
+    expect(umbrella.shapeOfVariant).toBe(source.shapeOfVariant);
+    expect(umbrella.jsonSchemaFromShape).toBe(source.jsonSchemaFromShape);
+    expect(umbrella.objectTypeFromIR).toBe(source.objectTypeFromIR);
+    expect(umbrella.objectTypeFromShape).toBe(source.objectTypeFromShape);
+  });
+
+  it('leaves nothing of the IR behind but the reflector bridge', async () => {
+    // The umbrella enumerates every symbol rather than `export *`, which is what makes a
+    // new back-end easy to forget. This is the check that it was not forgotten.
+    //
+    // `TAG_NAMES` is the exception and stays out: it maps an IR field to the *escaped
+    // symbol name* the checker reports for a tag (`__@zmdbSerial@1`), which exists so the
+    // reflection can match tags without importing a types-only module. Publishing it would
+    // publish how reflection is implemented, and no consumer generating artefacts needs it.
+    const [umbrella, source] = await Promise.all([import('./ir.ts'), import('@zmdb/schema-core/ir')]);
+    expect(Object.keys(source)).toContain('TAG_NAMES');
+    expect(Object.keys(umbrella).toSorted()).toEqual(
+      Object.keys(source)
+        .filter(name => name !== 'TAG_NAMES')
+        .toSorted(),
+    );
   });
 
   it('exposes zmdb/tags and zmdb/derive with no runtime cost', async () => {

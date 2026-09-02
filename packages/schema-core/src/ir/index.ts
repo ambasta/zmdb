@@ -748,3 +748,150 @@ export function objectTypeFromShape(shape: ShapeIR, layer: Layer = 'app'): Objec
 export function objectTypeFromIR(ir: SchemaIR, variant: Variant = 'entity', layer: Layer = 'app'): ObjectIR {
   return objectTypeFromShape(shapeOfVariant(ir, variant), layer);
 }
+
+// ---------------------------------------------------------------------------
+// Back-end: the crossing between the two layers (plan D3)
+// ---------------------------------------------------------------------------
+//
+// Having two layers is only useful if something converts between them, once, at the
+// boundary. Otherwise every handler decides for itself whether the `at` it was handed is
+// a string or a `Date`, which is the state that let the three types disagree.
+//
+// So: `decodeWire` turns a JSON body into app values, `encodeWire` turns a row back into
+// a JSON body, and both read the same `ColumnIR` the validators and the DDL read. They
+// convert and nothing else — a value they cannot convert is passed through untouched for
+// the validator to reject. That division matters: a decoder that produced `new
+// Date('nonsense')` would hand the app layer an `Invalid Date`, which passes `instanceof
+// Date` and reaches the database as `NULL` or an error from the driver. Leaving the string
+// alone makes the validator say `expected Date`, which is true and actionable.
+
+/** How one named `Codec<'Name'>` column crosses the boundary. */
+export interface Codec {
+  readonly decode: (wire: unknown) => unknown;
+  readonly encode: (app: unknown) => unknown;
+}
+
+/** Codec name → its conversions. Supplied by the application, not by zmdb. */
+export type CodecRegistry = Readonly<Record<string, Codec>>;
+
+/** An ISO-8601 string, if that is what this is and it parses. */
+function asDate(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed;
+}
+
+/**
+ * A decimal string as a `bigint`.
+ *
+ * The pattern rather than a bare `BigInt()` call in a `try`: `BigInt('0x10')` is 16 and
+ * `BigInt('')` is 0, neither of which is something a caller meant to send.
+ */
+const DECIMAL = /^-?\d+$/;
+function asBigInt(value: unknown): unknown {
+  return typeof value === 'string' && DECIMAL.test(value) ? BigInt(value) : value;
+}
+
+function codecFor(col: ColumnIR, codecs: CodecRegistry): Codec | undefined {
+  if (col.codec === undefined) return undefined;
+  const codec = codecs[col.codec];
+  if (!codec) {
+    // A named codec with nothing behind it is a gap, and a gap has to be visible (plan
+    // D4). Silently passing the value through would store whatever JSON happened to
+    // carry in a column whose whole point is that it needs converting.
+    throw new Error(`column "${col.name}" names the codec "${col.codec}", which is not in the registry`);
+  }
+  return codec;
+}
+
+/** One column's value, as the app layer holds it. */
+export function decodeWireValue(col: ColumnIR, value: unknown, codecs: CodecRegistry = {}): unknown {
+  if (value === null || value === undefined) return value;
+  const codec = codecFor(col, codecs);
+  if (codec) return codec.decode(value);
+  if (col.sql === 'timestamp') return asDate(value);
+  if (col.sql === 'bigint') return asBigInt(value);
+  return value;
+}
+
+/** One column's value, as JSON can carry it. */
+export function encodeWireValue(col: ColumnIR, value: unknown, codecs: CodecRegistry = {}): unknown {
+  if (value === null || value === undefined) return value;
+  const codec = codecFor(col, codecs);
+  if (codec) return codec.encode(value);
+  if (col.sql === 'timestamp' && value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? value : value.toISOString();
+  }
+  if (col.sql === 'bigint' && typeof value === 'bigint') return value.toString();
+  return value;
+}
+
+/**
+ * A JSON body as an app-layer payload: the wire→app decode, once, at the boundary.
+ *
+ * Keys the variant does not have are copied through rather than dropped, because dropping
+ * them here would hide them from the repository's excess check — the decoder's job is to
+ * convert, and deciding what a payload may contain belongs to exactly one place.
+ */
+export function decodeWire(
+  ir: SchemaIR,
+  variant: Variant,
+  body: Readonly<Record<string, unknown>>,
+  codecs: CodecRegistry = {},
+): Record<string, unknown> {
+  const columns = new Map(shapeOfVariant(ir, variant).map(({ column }) => [column.name, column]));
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    const column = columns.get(key);
+    out[key] = column ? decodeWireValue(column, body[key], codecs) : body[key];
+  }
+  return out;
+}
+
+/**
+ * A value that came out of a database, as the app layer holds it — the third layer's
+ * crossing (plan D3).
+ *
+ * Written in terms of what *arrived* rather than in terms of the dialect, and that is the
+ * whole design: `pg` hands back a `Date` for a `timestamptz` and a string for an `int8`,
+ * SQLite hands back the `TEXT` it stored and a `number` for an `INTEGER`, and a third
+ * driver will do something else again. Asking "is this already the app value?" answers all
+ * of them, and keeps this function out of the dialect's business — which is the constraint
+ * the whole IR is written under.
+ *
+ * Only the two columns whose app type is not JSON-representable need it, which is not a
+ * coincidence: they are the same two that need a wire type, for the same reason.
+ */
+export function decodeDbValue(col: ColumnIR, value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (col.sql === 'timestamp') return asDate(value);
+  if (col.sql === 'bigint') {
+    // A driver that read an 8-byte integer into a `number`. Safe integers only: past 2^53
+    // the number has already lost digits, and `BigInt(9007199254740993)` would state a
+    // value the database never held — better to hand back the number the driver gave and
+    // let the validator say the app type is not what arrived.
+    if (typeof value === 'number') return Number.isSafeInteger(value) ? BigInt(value) : value;
+    return asBigInt(value);
+  }
+  return value;
+}
+
+/** Which columns `decodeDbValue` can change — so a read path can skip the walk entirely. */
+export function dbDecodedColumns(ir: SchemaIR): readonly ColumnIR[] {
+  return ir.columns.filter(col => col.sql === 'timestamp' || col.sql === 'bigint');
+}
+
+/** A row as a JSON body: the app→wire encode, for a response. */
+export function encodeWire(
+  ir: SchemaIR,
+  row: Readonly<Record<string, unknown>>,
+  codecs: CodecRegistry = {},
+): Record<string, unknown> {
+  const columns = new Map(ir.columns.map(column => [column.name, column]));
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(row)) {
+    const column = columns.get(key);
+    out[key] = column ? encodeWireValue(column, row[key], codecs) : row[key];
+  }
+  return out;
+}

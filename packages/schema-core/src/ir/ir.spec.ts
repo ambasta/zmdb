@@ -17,6 +17,8 @@ import {
 } from '../index.ts';
 import {
   appTypeOf,
+  decodeWire,
+  encodeWire,
   irFromSchema,
   jsonSchemaForColumn,
   jsonSchemaFromIR,
@@ -320,6 +322,74 @@ describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
     expect(back.columns[0]).not.toHaveProperty('codec');
     expect(back.columns[0]).not.toHaveProperty('payload');
     expect(back.columns[0]?.sql).toBe('numeric');
+  });
+});
+
+describe('decodeWire / encodeWire — the crossing between the layers (plan D3)', () => {
+  const Events = defineSchema('events', {
+    id: serial().primaryKey(),
+    name: text(),
+    at: timestamp(),
+    seq: bigint(),
+    closedAt: timestamp().nullable(),
+  });
+  const ir = irFromSchema(Events);
+  const ISO = '2026-01-01T12:30:00.000Z';
+
+  it('turns a JSON body into the values the app layer holds', () => {
+    expect(decodeWire(ir, 'create', { name: 'launch', at: ISO, seq: '90071992547409910', closedAt: null })).toEqual({
+      name: 'launch',
+      at: new Date(ISO),
+      seq: 90071992547409910n,
+      closedAt: null,
+    });
+  });
+
+  it('turns a row back into something JSON can carry', () => {
+    expect(encodeWire(ir, { id: 1, name: 'launch', at: new Date(ISO), seq: 7n, closedAt: null })).toEqual({
+      id: 1,
+      name: 'launch',
+      at: ISO,
+      seq: '7',
+      closedAt: null,
+    });
+  });
+
+  it('round-trips a well-formed body', () => {
+    const body = { name: 'launch', at: ISO, seq: '7', closedAt: ISO };
+    expect(encodeWire(ir, decodeWire(ir, 'create', body))).toEqual(body);
+  });
+
+  it('leaves a value it cannot convert for the validator to reject', () => {
+    // The trap this avoids: `new Date('nonsense')` is an `Invalid Date`, which passes
+    // `instanceof Date` and reaches the driver. The string survives instead, and the app
+    // validator then says `expected Date` — which is true, and actionable.
+    expect(decodeWire(ir, 'create', { at: 'nonsense' }).at).toBe('nonsense');
+    expect(decodeWire(ir, 'create', { at: 12 }).at).toBe(12);
+    // `BigInt('0x10')` is 16 and `BigInt('')` is 0. Neither is a number anyone sent.
+    expect(decodeWire(ir, 'create', { seq: '0x10' }).seq).toBe('0x10');
+    expect(decodeWire(ir, 'create', { seq: '' }).seq).toBe('');
+    expect(encodeWire(ir, { at: new Date('nonsense') }).at).toBeInstanceOf(Date);
+  });
+
+  it('copies a key the variant does not have, instead of dropping it', () => {
+    // Dropping it here would hide it from the one place that decides what a payload may
+    // contain — the repository's excess check, which names the offending key.
+    expect(decodeWire(ir, 'create', { id: 5, bogus: 1 })).toEqual({ id: 5, bogus: 1 });
+  });
+
+  it('uses the codec a column names, and refuses when there is none', () => {
+    const money: ColumnIR = { ...column('age'), name: 'total', sql: 'numeric', codec: 'Money', constraints: {} };
+    const withCodec: SchemaIR = { ...ir, columns: [...ir.columns, money] };
+    const codecs = {
+      Money: { decode: (wire: unknown) => ({ cents: Number(wire) }), encode: (app: unknown) => String(app) },
+    };
+    expect(decodeWire(withCodec, 'create', { total: '1250' }, codecs).total).toEqual({ cents: 1250 });
+    // A named codec with nothing behind it is a gap, and a gap has to be visible: the
+    // alternative is storing whatever JSON carried in the one column that needed
+    // converting.
+    expect(() => decodeWire(withCodec, 'create', { total: '1250' })).toThrow(/not in the registry/);
+    expect(() => encodeWire(withCodec, { total: 1250 })).toThrow(/"Money"/);
   });
 });
 
