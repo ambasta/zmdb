@@ -74,6 +74,13 @@ tags: `Nullable<string>` is exactly `string | null`.
 | `Length<N>`          | `varchar(N)`; also emits `maxLength: N`.                                          |
 | `Numeric<P, S>`      | `numeric(P, S)` precision and scale.                                              |
 | `Codec<Name>`        | Names a `CustomType` codec.                                                       |
+| `WireAs<W>`          | What the column looks like over the wire, when that is not its app type.          |
+
+`WireAs<W>` is the only tag whose payload is a _type_ rather than a literal, and it has
+to be: a codec's wire form is arbitrary — cents as a decimal string, a point as a pair —
+so nothing but the type itself can name it. `Wire<T>` reads it, and a `Codec` column
+without it is refused rather than assumed to cross unchanged (plan D4). `Sql<'timestamp'>`
+and `Sql<'bigint'>` do not need it: their wire form follows from the SQL type.
 
 `Serial` and `HasDefault` are distinct on purpose: supplying a defaulted column is
 legitimate, supplying a generated one is a mistake, so one is optional and the

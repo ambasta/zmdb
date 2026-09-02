@@ -11,6 +11,7 @@
 
 import type { Equal, Expect } from '../index.ts';
 import type {
+  Codec,
   HasDefault,
   Length,
   ManyToOne,
@@ -26,6 +27,7 @@ import type {
   Sql,
   Table,
   Unique,
+  WireAs,
 } from '../tags/index.ts';
 import type {
   ColumnKeys,
@@ -49,6 +51,7 @@ import type {
   UniqueKeys,
   UpdateDTO,
   Wire,
+  WireCreateDTO,
   WhereDTO,
 } from './index.ts';
 
@@ -151,6 +154,30 @@ export type _P2 = Expect<
 export type _W1 = Expect<Equal<Entity<User>['createdAt'], Date & Sql<'timestamp'> & HasDefault>>;
 export type _W2 = Expect<Equal<Wire<User>['createdAt'], string>>;
 export type _W3 = Expect<Equal<Wire<User>['age'], number & Sql<'integer'> & Min<18> & Max<120>>>;
+
+// A column the library knows nothing about says its own wire form, and that beats the
+// SQL-type rules: a codec may put anything on the wire and only the declaration knows
+// what. `Money` here is cents in the app and a decimal string over HTTP.
+interface Money {
+  readonly cents: number;
+}
+interface Invoice extends Table<'invoices'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  amount: Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
+  refund: (Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>) | null;
+  paidAt: Date & Sql<'timestamp'>;
+}
+export type _W4 = Expect<Equal<Entity<Invoice>['amount'], Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>>>;
+export type _W5 = Expect<Equal<Wire<Invoice>['amount'], string>>;
+// Nullability belongs to the column, not to the layer.
+export type _W6 = Expect<Equal<Wire<Invoice>['refund'], string | null>>;
+export type _W7 = Expect<Equal<Wire<Invoice>['paidAt'], string>>;
+// An untagged column is its own wire type, tags and all — `WireAs` must not match a
+// column that merely carries *other* tags.
+export type _W8 = Expect<Equal<Wire<Invoice>['id'], number & Sql<'serial'> & Serial & PrimaryKey>>;
+// The insert payload's wire shape drops the generated column and converts the rest.
+export type _W9 = Expect<Equal<keyof WireCreateDTO<Invoice>, 'amount' | 'paidAt' | 'refund'>>;
+export type _W10 = Expect<Equal<WireCreateDTO<Invoice>['amount'], string>>;
 
 // --- relations: declared on the type, and not columns -----------------------
 //

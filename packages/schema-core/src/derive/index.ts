@@ -12,7 +12,7 @@
 // requirement — which also means no per-use `extends` test, and no
 // instantiation cost from the dispatch.
 
-import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique } from '../tags/index.ts';
+import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique, WireAs } from '../tags/index.ts';
 
 // ---------------------------------------------------------------------------
 // Key filters.
@@ -23,7 +23,7 @@ import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Uniqu
 // not assignable to a weak object type, so the union as a whole does not match
 // `HasDefault`. Testing the non-nullable arm is what makes a nullable defaulted
 // column optional on insert instead of required. `tagged-dto.type-test.ts` pins
-// this down, it is exactly the sort of thing that silently returns `never`.
+// this down: it is exactly the sort of thing that silently returns `never`.
 //
 // `-?` strips optionality from the probe so an already-optional property is still
 // examined under `exactOptionalPropertyTypes`.
@@ -144,17 +144,24 @@ export type PrimaryKeyOf<T> = [PrimaryKeyKeys<T>] extends [never]
 // is what a JSON body actually contains, which for a timestamp is an ISO-8601
 // string, never a `Date` — a `Date` cannot survive JSON. The web pipeline decodes
 // wire → app once at the boundary so handlers keep seeing `Date`.
+//
+// A column whose type the library does not know says its own wire form with
+// `WireAs<W>`, and that beats the SQL-type rules: a codec can put anything it likes on
+// the wire, and only the declaration knows what.
+
+// A column's nullability belongs to the column, not to the layer: a `timestamp | null`
+// is a `string | null` on the wire. Factored out so each layer rule below is one line
+// and the three cannot drift apart.
+type OrNull<V, W> = null extends V ? W | null : W;
 
 type WireValue<V> =
-  NonNullable<V> extends Sql<'timestamp'>
-    ? null extends V
-      ? string | null
-      : string
-    : NonNullable<V> extends Sql<'bigint'>
-      ? null extends V
-        ? string | null
-        : string
-      : V;
+  NonNullable<V> extends WireAs<infer W>
+    ? OrNull<V, W>
+    : NonNullable<V> extends Sql<'timestamp'>
+      ? OrNull<V, string>
+      : NonNullable<V> extends Sql<'bigint'>
+        ? OrNull<V, string>
+        : V;
 
 /** The over-the-wire shape of an entity: JSON-representable throughout. */
 export type Wire<T> = { -readonly [K in ColumnKeys<T>]-?: WireValue<T[K]> };

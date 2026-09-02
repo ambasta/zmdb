@@ -63,6 +63,7 @@ declare const zmdbReferences: unique symbol;
 declare const zmdbLength: unique symbol;
 declare const zmdbNumeric: unique symbol;
 declare const zmdbCodec: unique symbol;
+declare const zmdbWire: unique symbol;
 declare const zmdbRelation: unique symbol;
 declare const zmdbMin: unique symbol;
 declare const zmdbMax: unique symbol;
@@ -105,6 +106,24 @@ export type Length<N extends number> = { readonly [zmdbLength]?: N };
 export type Numeric<P extends number, S extends number> = { readonly [zmdbNumeric]?: readonly [P, S] };
 /** Names a `CustomType` codec that converts between the wire, app and db types. */
 export type Codec<Name extends string> = { readonly [zmdbCodec]?: Name };
+
+/**
+ * What this column looks like over the wire, when that is not what it looks like in
+ * the app.
+ *
+ * The only tag whose payload is a *type* rather than a literal, and it has to be: a
+ * codec's wire type is arbitrary — cents as a decimal string, a UUID as a string, a
+ * point as `[number, number]` — so there is nothing to name it with but the type
+ * itself. `Wire<T>` reads it; a column without it is its own wire type, which is
+ * right for everything JSON can carry natively.
+ *
+ *   amount: Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
+ *
+ * `Sql<'timestamp'>` and `Sql<'bigint'>` do not need it. Their wire form follows from
+ * the SQL type and is built into `Wire<T>`, so writing it out would be a second place
+ * for the same fact to be wrong.
+ */
+export type WireAs<W> = { readonly [zmdbWire]?: W };
 
 // ---------------------------------------------------------------------------
 // Relation tags — cardinality plus the column that carries the join.
