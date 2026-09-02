@@ -1,15 +1,15 @@
-// @zmdb/schema-core/derive — the DTO suite, derived from a tagged type.
+// @zmdb/schema-core/derive: the DTO suite, derived from a tagged type.
 //
-// Implements PRD §6.7 REQ-TF-4 … REQ-TF-6. These are the same names the
-// schema-value derivations in `../index.ts` use, deliberately: per plan D2 there
-// is to be exactly one `Entity`/`CreateDTO`/`UpdateDTO`, and these are the ones
-// that survive. They live in a separate module only so the repository, the web
-// package and every fixture keep compiling while the migration runs; Phase 9
-// deletes the schema-value versions and re-points the package root here.
+// These are the same names the schema-value derivations in `../index.ts` use,
+// deliberately: per plan D2 there is to be exactly one
+// `Entity`/`CreateDTO`/`UpdateDTO`, and these are the ones that survive.
+// They live in a separate module only so the repository, the web
+// package and every fixture keep compiling while the migration runs; the
+// schema-value versions go away once nothing reads them.
 //
 // Every derivation takes a tagged type and nothing else. There is no conditional
 // dispatch on `{ columns: ... }`, because backwards compatibility is not a
-// requirement (plan D2) — which also means no per-use `extends` test, and no
+// requirement — which also means no per-use `extends` test, and no
 // instantiation cost from the dispatch.
 
 import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique } from '../tags/index.ts';
@@ -23,7 +23,7 @@ import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Uniqu
 // not assignable to a weak object type, so the union as a whole does not match
 // `HasDefault`. Testing the non-nullable arm is what makes a nullable defaulted
 // column optional on insert instead of required. `tagged-dto.type-test.ts` pins
-// this down — it is exactly the sort of thing that silently returns `never`.
+// this down, it is exactly the sort of thing that silently returns `never`.
 //
 // `-?` strips optionality from the probe so an already-optional property is still
 // examined under `exactOptionalPropertyTypes`.
@@ -42,11 +42,11 @@ export type DefaultKeys<T> = KeysCarrying<T, HasDefault>;
 export type PrimaryKeyKeys<T> = KeysCarrying<T, PrimaryKey>;
 export type SensitiveKeys<T> = KeysCarrying<T, Sensitive>;
 export type UniqueKeys<T> = KeysCarrying<T, Unique>;
-/** Columns whose declared type admits `null`. Native, not a tag (REQ-TF-2). */
+/** Columns whose declared type admits `null`. Native, not a tag. */
 export type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? (K extends string ? K : never) : never }[keyof T];
 
 /**
- * Properties declared with a relation tag — a join target, not a column.
+ * Properties declared with a relation tag: a join target, not a column.
  *
  * These have to come out of `Entity<T>`, and therefore out of everything derived
  * from it. A relation left in would be a column to `INSERT`, a column to `SELECT`
@@ -75,7 +75,7 @@ export type ColumnKeys<T> = {
 /**
  * The selectable row: every column, required, sensitive columns included, tags
  * preserved. Tags must survive here or the constraints would not survive `Omit`
- * and `Partial` downstream (REQ-TF-5).
+ * and `Partial` downstream.
  *
  * Relations are not columns and are not here. See `RelationKeys`.
  */
@@ -116,8 +116,7 @@ export type UpdateDTO<T> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKey
 
 /**
  * What a read endpoint may return. `Sensitive` columns are removed from the
- * type, so a leak is a compile error rather than a serializer's responsibility
- * (REQ-TF-6).
+ * type, so a leak is a compile error rather than a serializer's responsibility.
  */
 export type ReadDTO<T> = Omit<Entity<T>, SensitiveKeys<T>>;
 

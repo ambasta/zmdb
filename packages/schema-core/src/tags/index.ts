@@ -1,8 +1,7 @@
 // @zmdb/schema-core/tags — the type-first declaration vocabulary.
 //
-// Implements PRD §6.7 REQ-TF-1 … REQ-TF-3 and `DESIGN-type-first.md` §3. A domain
-// type is declared as a plain interface plus these tags; everything else — the
-// DTOs, the validators, the JSON Schema, the SQL — is derived from it.
+// A domain type is declared as a plain interface plus these tags; everything else,
+// the DTOs, the validators, the JSON Schema, the SQL — is derived from it.
 //
 //   interface User extends Table<'users'> {
 //     id: number & Sql<'serial'> & Serial & PrimaryKey;
@@ -24,17 +23,16 @@
 //
 // A tag only has to NAME a constraint, never prove it. There are no conditional
 // types, no recursion and no template-literal arithmetic in this file, which is
-// what makes REQ-TF-3 ("zero type-level computation") true by construction
-// instead of by discipline.
+// what makes "zero type-level computation" true by construction instead of by
+// discipline.
 //
 // There is deliberately NO tag for nullability, optionality, enums, arrays,
 // readonly-ness or nested JSON shape: TypeScript already expresses those as
 // `| null`, `?`, a literal union, `T[]`, `readonly` and a nested interface, and
-// the reflection reads them off the type directly (REQ-TF-2).
+// the reflection reads them off the type directly.
 //
-// ---------------------------------------------------------------------------
-// A note on duplicate installs (plan D5)
-// ---------------------------------------------------------------------------
+// A note on duplicate installs (plan D5).
+//
 // `unique symbol` identity is nominal, so two *copies* of this module produce two
 // non-matching tags even though their source text is identical. A key filter then
 // collapses to `never`, and `never` is assignable to anything, so `CreateDTO`
@@ -127,7 +125,7 @@ export type RelationKind = 'manyToOne' | 'oneToMany' | 'oneToOne' | 'manyToMany'
  *
  * Cardinality itself is deliberately *not* read back out of the tag. The declared
  * type already says it: `author?: User & ManyToOne<…>` is to-one and
- * `comments?: Comment[] & OneToMany<…>` is to-many, natively (REQ-TF-2).
+ * `comments?: Comment[] & OneToMany<…>` is to-many, natively.
  */
 export type AnyRelation = { readonly [zmdbRelation]?: { readonly kind: RelationKind } };
 
@@ -164,7 +162,7 @@ export type Pattern<S extends string> = { readonly [zmdbPattern]?: S };
 export type Rule<Name extends string> = { readonly [zmdbRule]?: Name };
 
 // ---------------------------------------------------------------------------
-// Readability aliases. Not tags — these expand to native TypeScript (REQ-TF-2).
+// Readability aliases. Not tags — these expand to native TypeScript.
 // ---------------------------------------------------------------------------
 
 /** `Nullable<string>` is exactly `string | null`. No tag involved. */

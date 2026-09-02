@@ -8,7 +8,7 @@ import type { CoreSchema, Entity } from '../index.ts';
 import { isRecord } from '../index.ts';
 
 // ---------------------------------------------------------------------------
-// §1 WhereDTO + operator set
+// WhereDTO + operator set
 // ---------------------------------------------------------------------------
 export type SubqueryTarget<V = unknown> =
   | SelectBuilder<V>
@@ -103,6 +103,8 @@ function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 
       select?: readonly string[];
       where?: WhereDTO<CoreSchema<string>>;
     };
+    // Both clauses, not either: `{ table, select, where }` means a projection *and* a
+    // filter, and a subquery that dropped the filter would match every row.
     let sub = createQueryCompiler(dialect).selectFrom(spec.table);
     if (spec.select && spec.select.length > 0) {
       sub = sub.select(spec.select);
