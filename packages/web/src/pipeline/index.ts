@@ -743,11 +743,12 @@ function isWebResponse(val: unknown): val is WebResponse {
     typeof val === 'object' &&
     val !== null &&
     'status' in val &&
-    typeof (val as WebResponse).status === 'number' &&
+    typeof val.status === 'number' &&
     'body' in val &&
-    typeof (val as WebResponse).body === 'string' &&
+    typeof val.body === 'string' &&
     'headers' in val &&
-    typeof (val as WebResponse).headers === 'object'
+    typeof val.headers === 'object' &&
+    val.headers !== null
   );
 }
 
@@ -759,6 +760,12 @@ function buildResponse(
   customHeaders?: Readonly<Record<string, string>>,
   isJson: boolean = true,
 ): WebResponse {
+  if (!routerOptions?.security && !routerOptions?.cors && !customHeaders) {
+    return isJson
+      ? jsonResponse(status, body)
+      : { status, body: typeof body === 'string' ? body : String(body), headers: NO_HEADERS };
+  }
+
   const securityHeaders = resolveSecurityHeaders(routerOptions?.security);
   const corsHeaders = resolveCorsHeaders(
     routerOptions?.cors,
@@ -778,7 +785,7 @@ function buildResponse(
     }
   }
 
-  const responseBody = isJson && typeof body !== 'string' ? JSON.stringify(body) : (body as string);
+  const responseBody = typeof body === 'string' ? body : isJson ? JSON.stringify(body) : String(body);
 
   return {
     status,
