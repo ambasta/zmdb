@@ -501,9 +501,28 @@ function appBaseOf(col: ColumnIR): TypeIR {
         ? constrained('string', col)
         : { kind: 'union', members: col.enum.map(value => ({ kind: 'literal', value }) as const) };
     case 'json':
-      return col.payload ?? { kind: 'unknown' };
+      return col.payload ?? JSON_CONTAINER;
   }
 }
+
+/**
+ * A `json` column whose payload shape is not known: anything JSON puts in a column, and
+ * nothing else. An object with no declared properties accepts any record, and an array of
+ * `unknown` accepts any array, so together they are "not a primitive".
+ *
+ * Not `{ kind: 'unknown' }`, which accepts `123`. A tagged declaration says what the
+ * payload is — `lines: Line[] & Sql<'json'>` — and gets that type instead; `json<Config>()`
+ * erases its type parameter at runtime, so the value front-end genuinely does not know
+ * more than this. It is the weakest true statement rather than no statement, which is the
+ * difference between a validator that rejects `settings: 123` and one that does not.
+ */
+const JSON_CONTAINER: TypeIR = {
+  kind: 'union',
+  members: [
+    { kind: 'object', properties: [] },
+    { kind: 'array', element: { kind: 'unknown' } },
+  ],
+};
 
 /**
  * The **wire** type: what a JSON body actually contains. A `timestamp` is an

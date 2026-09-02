@@ -155,6 +155,26 @@ describe('the three types of a column (REQ-TF-13)', () => {
     });
   });
 
+  it('says what it knows about a json column and no more', () => {
+    // `json<Config>()` erases its type parameter, so the value front-end cannot name the
+    // payload. The weakest true statement is still a statement: an object or an array,
+    // which is "not a primitive" and rejects `settings: 123`. `{ kind: 'unknown' }` would
+    // accept it, and did — the repository's own check had always spelled this
+    // `typeof value === 'object' && value !== null`.
+    expect(appTypeOf(probe(json()))).toEqual({
+      kind: 'union',
+      members: [
+        { kind: 'object', properties: [] },
+        { kind: 'array', element: { kind: 'unknown' } },
+      ],
+    });
+    // A tagged declaration does know, and gets the payload type it declared.
+    expect(appTypeOf({ ...probe(json()), payload: { kind: 'scalar', scalar: 'string' } })).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+    });
+  });
+
   it('wraps a nullable column in a union with null rather than losing it', () => {
     // Nullability was absent from `TypeDescriptor` entirely, so the AOT could not
     // emit the null arm at all.

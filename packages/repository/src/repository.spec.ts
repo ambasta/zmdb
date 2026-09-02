@@ -1,4 +1,15 @@
-import { defineSchema, jsonEnum, serial, text, type CreateDTO } from '@zmdb/schema-core';
+import {
+  defineSchema,
+  integer,
+  json,
+  jsonEnum,
+  serial,
+  text,
+  timestamp,
+  varchar,
+  type CreateDTO,
+  type ValidationIssue,
+} from '@zmdb/schema-core';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from './index.ts';
@@ -66,10 +77,111 @@ describe('BaseRepository create/update validation interception', () => {
     }
     expect(error).toBeInstanceOf(ValidationError);
     expect(driver.calls.length).toBe(0);
+    // The issues come from the shared runtime walker now, not from a walk this package
+    // owned, so they read the way every other zmdb validator's do — and say more: the
+    // enum column reports the values it will accept, where `expected: 'jsonEnum'` named
+    // the column type and left the caller to go and look them up.
     expect(error?.issues).toEqual([
-      { path: 'input.email', message: 'missing required field "email"', expected: 'defined', value: undefined },
-      { path: 'input.role', message: 'invalid value for "role"', expected: 'jsonEnum', value: 'nope' },
+      { path: 'input.email', message: 'expected string', expected: 'string', value: undefined },
+      { path: 'input.role', message: 'expected "admin" | "user"', expected: '"admin" | "user"', value: 'nope' },
     ]);
+  });
+});
+
+// What a write now checks, and did not before. The walk this package used to own knew
+// nothing about a bound or a pattern — so a schema's `Min<18>` was enforced at the HTTP
+// edge by a different validator and nowhere else, and a write that went straight to a
+// repository skipped it — and it accepted `Date | string` for a `timestamp`, so neither
+// of the column's two types was ever the one being checked.
+describe('BaseRepository write validation, through the IR', () => {
+  const AccountSchema = defineSchema('accounts', {
+    id: serial().primaryKey(),
+    email: varchar(32).validate({ kind: 'pattern', value: '^\\S+@\\S+$' }),
+    age: integer().validate({ kind: 'minimum', value: 18 }).validate({ kind: 'maximum', value: 120 }),
+    createdAt: timestamp(),
+    settings: json(),
+  });
+
+  class AccountRepository extends BaseRepository<typeof AccountSchema> {
+    static override readonly schema = AccountSchema;
+  }
+
+  const valid = {
+    email: 'a@b.co',
+    age: 30,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    settings: { theme: 'dark' },
+  };
+
+  // The cast on every call is the same one the test above explains: these are compile
+  // errors in `CreateDTO`, and the runtime check is what stands between the database and
+  // input that never went through the compiler.
+  async function rejects(patch: Record<string, unknown>): Promise<readonly ValidationIssue[]> {
+    const driver = fakeDriver();
+    const repo = new AccountRepository(driver);
+    const payload = { ...valid, ...patch } as unknown as CreateDTO<typeof AccountSchema>;
+    try {
+      await repo.create(payload);
+    } catch (e) {
+      if (!(e instanceof ValidationError)) throw e;
+      expect(driver.calls.length).toBe(0);
+      return e.issues;
+    }
+    throw new Error('expected the payload to be rejected');
+  }
+
+  it('accepts the payload every column is happy with', async () => {
+    const driver = fakeDriver([{ id: 1, ...valid }]);
+    const repo = new AccountRepository(driver);
+    await repo.create(valid as unknown as CreateDTO<typeof AccountSchema>);
+    expect(driver.calls.length).toBe(1);
+  });
+
+  it('enforces the bounds the schema declares', async () => {
+    expect(await rejects({ age: 17 })).toEqual([
+      { path: 'input.age', message: 'expected minimum 18', expected: 'minimum 18', value: 17 },
+    ]);
+    expect(await rejects({ age: 121 })).toEqual([
+      { path: 'input.age', message: 'expected maximum 120', expected: 'maximum 120', value: 121 },
+    ]);
+  });
+
+  it('enforces a pattern, and the length a varchar implies', async () => {
+    expect(await rejects({ email: 'nope' })).toEqual([
+      {
+        path: 'input.email',
+        message: 'expected pattern ^\\S+@\\S+$',
+        expected: 'pattern ^\\S+@\\S+$',
+        value: 'nope',
+      },
+    ]);
+    const long = `${'a'.repeat(40)}@b.co`;
+    expect(await rejects({ email: long })).toEqual([
+      { path: 'input.email', message: 'expected maxLength 32', expected: 'maxLength 32', value: long },
+    ]);
+  });
+
+  it('wants the app type of a timestamp, not the wire type', async () => {
+    // An ISO string is what arrives in a request body, and it is wrong here: a caller at
+    // this layer has decoded the body and holds a `Date`. The old check took either, which
+    // is how `Entity<S>` saying `Date` and the document saying `string` went unnoticed.
+    expect(await rejects({ createdAt: '2026-01-01T00:00:00.000Z' })).toEqual([
+      { path: 'input.createdAt', message: 'expected Date', expected: 'Date', value: '2026-01-01T00:00:00.000Z' },
+    ]);
+  });
+
+  it('still says the one thing it knows about a json column', async () => {
+    // `json()` erases its payload type, so the check is "not a primitive" — which is what
+    // it has always been, and it survives the move to the shared walker.
+    expect(await rejects({ settings: 123 })).toEqual([
+      { path: 'input.settings', message: 'expected object | array', expected: 'object | array', value: 123 },
+    ]);
+    const driver = fakeDriver([{ id: 1 }]);
+    await new AccountRepository(driver).create({
+      ...valid,
+      settings: [1, 2],
+    } as unknown as CreateDTO<typeof AccountSchema>);
+    expect(driver.calls.length).toBe(1);
   });
 });
 

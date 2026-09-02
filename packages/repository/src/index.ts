@@ -1,17 +1,17 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } from '@zmdb/query-compiler';
-import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
-import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 // @zmdb/repository — the repository layer: reads (#26), writes (#27), delete +
 // lifecycle hooks (#28), transactions (#37), typed populate (#217) and the
 // no-subclass wiring helper (#223). Every SQL statement comes from
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
+import { issuesFor } from '@zmdb/aot-validator/utilities';
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } from '@zmdb/query-compiler';
+import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
+import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
+import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 import {
   isRecord,
   ValidationError,
-  type ColumnMeta,
   type CoreSchema,
   type CreateDTO,
   type Entity,
@@ -33,6 +33,7 @@ import {
   type OrderBySpec,
   type AggregateSpec,
 } from '@zmdb/schema-core/dto';
+import { irFromSchema, objectTypeFromShape, shapeOfVariant, type ObjectIR, type ShapeIR } from '@zmdb/schema-core/ir';
 import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
 export interface Driver {
@@ -155,6 +156,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: Dialect;
+  /** variant → its columns and their object type. See `payloadShape`. */
+  readonly #shapes = new Map<'create' | 'update', { readonly shape: ShapeIR; readonly type: ObjectIR }>();
 
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
@@ -777,9 +780,43 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return clean;
   }
 
-  // Runtime validation against the schema's column metadata. Mirrors the DTO
-  // rules: create omits autoIncrement; both variants reject wrong-typed values,
-  // out-of-enum values, and (for create) missing required fields.
+  /**
+   * One write variant's columns, and the object type they add up to.
+   *
+   * Built once per repository instance per variant. `this.schema` is a static and never
+   * changes, so neither can the IR; without the cache every `create` would walk the
+   * columns again to rebuild an identical object graph.
+   */
+  private payloadShape(variant: 'create' | 'update'): { readonly shape: ShapeIR; readonly type: ObjectIR } {
+    const cached = this.#shapes.get(variant);
+    if (cached) return cached;
+    const shape = shapeOfVariant(irFromSchema(this.schema), variant);
+    const built = { shape, type: objectTypeFromShape(shape) };
+    this.#shapes.set(variant, built);
+    return built;
+  }
+
+  /**
+   * Runtime validation of a write payload — the type of the payload, checked by the one
+   * runtime walker.
+   *
+   * This used to be a walk of its own over `ColumnMeta`, and it was the fourth of the
+   * four that `@zmdb/schema-core/ir` exists to collapse: it accepted `Date | string` for
+   * a `timestamp` while the published document said ISO string and `Entity<S>` said
+   * `Date`, and it had no notion of `Min`/`Max`/`Pattern` at all, so a repository write
+   * skipped every bound the schema declared and the same value was rejected only later,
+   * at the HTTP edge, by a different validator. What it needed was not a walk but the
+   * *type* of a `CreateDTO`, which `objectTypeFromShape` produces from the same IR the
+   * documents come from.
+   *
+   * The app layer, not the wire layer: a caller here holds a `Date`, having decoded the
+   * request body already. A handler that has not is the boundary case `Wire<T>` is for.
+   *
+   * Unknown keys are dropped rather than rejected, and a column the variant does not
+   * accept — a `Serial` key on create, an identity column in a patch — is not looked at.
+   * Both are pre-existing behaviour, and both are compile errors in the DTO the method
+   * signature asks for; rejecting them at runtime as well is a separate change.
+   */
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
     if (!isRecord(payload)) {
       throw new ValidationError('payload must be an object', [
@@ -787,66 +824,18 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       ]);
     }
     const obj = this.sanitizePayload(payload);
-    const issues: ValidationIssue[] = [];
-    const out: Record<string, unknown> = {};
-
-    for (const [name, col] of Object.entries(this.schema.columns)) {
-      if (col.flags.autoIncrement) continue; // never accepted from payloads
-      const present = name in obj;
-      const value = obj[name];
-
-      if (!present) {
-        const optional = col.flags.hasDefault === true || col.flags.nullable === true;
-        if (variant === 'create' && !optional) {
-          issues.push({
-            path: `input.${name}`,
-            message: `missing required field "${name}"`,
-            expected: 'defined',
-            value: undefined,
-          });
-        }
-        continue;
-      }
-      if (!this.valueMatchesColumn(value, col)) {
-        issues.push({
-          path: `input.${name}`,
-          message: `invalid value for "${name}"`,
-          expected: col.type,
-          value,
-        });
-        continue;
-      }
-      out[name] = value;
-    }
+    const { shape, type } = this.payloadShape(variant);
+    const issues = issuesFor(obj, type);
 
     if (issues.length > 0) {
       throw new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`, issues);
     }
-    return out;
-  }
 
-  private valueMatchesColumn(value: unknown, col: ColumnMeta): boolean {
-    if (value === null) return col.flags.nullable;
-    switch (col.type) {
-      case 'serial':
-      case 'integer':
-      case 'bigint':
-      case 'numeric':
-        return typeof value === 'number' || typeof value === 'bigint';
-      case 'text':
-      case 'varchar':
-        return typeof value === 'string';
-      case 'boolean':
-        return typeof value === 'boolean';
-      case 'timestamp':
-        return value instanceof Date || typeof value === 'string';
-      case 'jsonEnum':
-        return typeof value === 'string' && (col.flags.enum?.includes(value) ?? false);
-      case 'json':
-        return typeof value === 'object';
-      default:
-        return true;
+    const out: Record<string, unknown> = {};
+    for (const { column } of shape) {
+      if (column.name in obj) out[column.name] = obj[column.name];
     }
+    return out;
   }
 }
 
