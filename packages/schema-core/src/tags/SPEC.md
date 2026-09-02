@@ -1,0 +1,132 @@
+# Type-First Declaration Tags — Spec (PRD §6.7)
+
+> Part of `@zmdb/schema-core` (module `src/tags/`). Types only — the module has no
+> runtime export at all, and `erasure.spec.ts` enforces that.
+> Implements REQ-TF-1 … REQ-TF-3. Design: `DESIGN-type-first.md` §3.
+
+## 1. What a declaration looks like
+
+```ts
+interface User extends Table<'users'> {
+  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\S+@\\S+$'>;
+  age: number & Sql<'integer'> & Min<18> & Max<120>;
+  nickname: (string & Sql<'varchar'> & Length<64> & HasDefault) | null;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+  passwordHash: string & Sql<'text'> & Sensitive;
+}
+```
+
+The interface is the source of truth. DTOs, validators, JSON Schema and DDL are
+derived from it; nothing is declared twice.
+
+## 2. Encoding
+
+Every tag is an optional `unique symbol` slot:
+
+```ts
+declare const zmdbSerial: unique symbol;
+export type Serial = { readonly [zmdbSerial]?: true };
+```
+
+All three parts are load-bearing.
+
+| Part                | Why it is required                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| `unique symbol`     | Un-forgeable; cannot collide with a data property of the same name.                             |
+| `?` (optional)      | No runtime value is ever required, so the tag erases to nothing.                                |
+| all-optional (weak) | A weak object type is not assignable from an unrelated type, so `T[K] extends Serial` is exact. |
+
+There are no conditional types, no recursion and no template-literal arithmetic in
+the module. REQ-TF-3's "zero type-level computation" therefore holds by
+construction rather than by discipline.
+
+## 3. What is deliberately not tagged
+
+Nullability, optionality, enums, arrays, `readonly`, and nested JSON shape. TypeScript
+already says those as `| null`, `?`, a literal union, `T[]`, `readonly` and a nested
+interface, and the reflection reads them off the type directly (REQ-TF-2). A second
+spelling would be a second source of truth.
+
+`Nullable<T>` and `NonNull<T>` are exported as readability aliases. They are **not**
+tags: `Nullable<string>` is exactly `string | null`.
+
+## 4. Vocabulary
+
+### Entity-level (applied via `extends`)
+
+| Tag           | Meaning                         |
+| ------------- | ------------------------------- |
+| `Table<Name>` | The table the entity maps to.   |
+| `Fts<Name>`   | Backing full-text-search table. |
+
+### Column-level, structural
+
+| Tag                  | Meaning                                                                           |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `Sql<T>`             | Abstract SQL type. Required: `integer`/`bigint`/`numeric` are all `number` in TS. |
+| `PrimaryKey`         | Part of the primary key. Several columns → composite.                             |
+| `Serial`             | Database-generated. **Absent** from `CreateDTO`, not optional in it.              |
+| `Unique`             | Unique constraint.                                                                |
+| `HasDefault`         | Has a database default, so **optional** on insert.                                |
+| `Sensitive`          | Never serialised. `ReadDTO<T>` cannot name it.                                    |
+| `References<Target>` | Foreign key target.                                                               |
+| `Length<N>`          | `varchar(N)`; also emits `maxLength: N`.                                          |
+| `Numeric<P, S>`      | `numeric(P, S)` precision and scale.                                              |
+| `Codec<Name>`        | Names a `CustomType` codec.                                                       |
+
+`Serial` and `HasDefault` are distinct on purpose: supplying a defaulted column is
+legitimate, supplying a generated one is a mistake, so one is optional and the
+other does not exist in the insert type.
+
+### Relations
+
+`ManyToOne<Target, Fk>`, `OneToMany<Target, Fk>`, `OneToOne<Target, Fk>`,
+`ManyToMany<Target, Through>`.
+
+### Validation
+
+`Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, and `Rule<Name>`
+as the named escape hatch. An unregistered `Rule` name is a build error, not a
+silently skipped check (plan D4).
+
+## 5. Coverage
+
+`../ir/vocabulary.type-test.ts` asserts, at compile time, that every `SqlType`,
+every `ColumnFlags` member and every interpreted constraint kind has a tag and an IR
+field. Adding a flag without deciding how a tagged declaration expresses it fails to
+compile.
+
+## 6. Duplicate installs (plan D5)
+
+`unique symbol` identity is nominal, so two copies of this module produce two
+non-matching tags even though the source text is identical. The consequence is not a
+type error at the tag or at the filter: the filter collapses to `never`, `Omit<T, never>`
+is `T`, and a generated column silently becomes **required** on insert.
+
+Reflection is name-based and therefore unaffected, so the emitted validator would
+disagree with the derived type. That asymmetry is the hazard. The guard cannot live
+here — a runtime check would give the tags a runtime cost — so it belongs in the
+reflection, which can see the escaped symbol ids (`__@zmdbSerial@1` vs
+`__@zmdbSerial@12`) that the type system distinguishes and can refuse the build.
+
+`duplicate-install.type-test.ts` pins the current behaviour, including the trap that
+`SerialKeys<Broken> extends 'id'` **passes** on a completely broken filter because
+`never` is assignable to everything. Every assertion about a tagged derivation uses
+exact identity for that reason.
+
+## 7. Verified
+
+- [x] Every tag is an optional `unique symbol` slot; no conditional types in the module.
+- [x] The module has zero runtime exports (`erasure.spec.ts`).
+- [x] A tagged declaration and its untagged twin emit byte-identical JavaScript.
+- [x] No emitted byte mentions a tag name.
+- [x] Vocabulary parity with `SqlType`, `ColumnFlags` and the constraint kinds is a compile-time gate.
+- [x] The duplicate-install failure mode is asserted exactly, with `Equal` rather than assignability.
+
+## 8. Non-goals (rejected)
+
+- Decorators or a runtime registry. Both have a runtime cost and both allow drift.
+- A branded-primitive encoding (`string & { __brand: 'Email' }`): collides with real
+  data properties and is forgeable.
+- Tags for anything TypeScript already expresses.

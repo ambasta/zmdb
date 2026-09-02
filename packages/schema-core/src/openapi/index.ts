@@ -1,107 +1,20 @@
 // JSON Schema / OpenAPI generation — implementation.
 // #64 toJsonSchema scalar/enum/nullable (+ tag mapping and variant/aggregation
 // logic that the shared golden suite exercises). Build-time, no reflection.
-import type { CoreSchema, ColumnMeta } from '../index.ts';
+//
+// The scalar/variant walk used to live here as `scalarSchema` — one of the four
+// independent walkers over column metadata catalogued in `PLAN-type-first.md` §1.
+// It now delegates to `../ir`, so a schema value and a tagged type cannot produce
+// different documents: both become `SchemaIR` first, and the emitter is a pure
+// function of that (REQ-TF-7). What is left in this file is the OpenAPI framing —
+// components, list/search envelopes, naming — which is genuinely its own concern.
+import type { CoreSchema } from '../index.ts';
+import { irFromSchema, jsonSchemaFromIR, type JsonSchemaObject, type Variant } from '../ir/index.ts';
 
-export type Variant = 'entity' | 'create' | 'update' | 'get' | 'list' | 'search';
-
-export interface JsonSchemaObject {
-  readonly type: 'object';
-  readonly properties: Readonly<Record<string, unknown>>;
-  readonly required: readonly string[];
-}
-
-function scalarSchema(col: ColumnMeta): Record<string, unknown> {
-  let base: Record<string, unknown>;
-  switch (col.type) {
-    case 'serial':
-    case 'integer':
-      base = { type: 'integer' };
-      break;
-    case 'bigint':
-      base = { type: 'integer', format: 'int64' };
-      break;
-    case 'numeric':
-      base = { type: 'number' };
-      break;
-    case 'text':
-    case 'varchar':
-      base = { type: 'string' };
-      if (col.flags.length !== undefined) base.maxLength = col.flags.length;
-      break;
-    case 'boolean':
-      base = { type: 'boolean' };
-      break;
-    case 'timestamp':
-      base = { type: 'string', format: 'date-time' };
-      break;
-    case 'jsonEnum':
-      base = { type: 'string', enum: [...(col.flags.enum ?? [])] };
-      break;
-    case 'json':
-    default:
-      base = {};
-      break;
-  }
-
-  // Validation-tag → JSON Schema keyword mapping.
-  for (const rule of col.validation ?? []) {
-    switch (rule.kind) {
-      case 'minimum':
-      case 'Minimum':
-        base.minimum = rule.value ?? (rule as { args?: unknown[] }).args?.[0];
-        break;
-      case 'maximum':
-      case 'Maximum':
-        base.maximum = rule.value ?? (rule as { args?: unknown[] }).args?.[0];
-        break;
-      case 'minLength':
-      case 'MinLength':
-        base.minLength = rule.value ?? (rule as { args?: unknown[] }).args?.[0];
-        break;
-      case 'maxLength':
-      case 'MaxLength':
-        base.maxLength = rule.value ?? (rule as { args?: unknown[] }).args?.[0];
-        break;
-      case 'pattern':
-      case 'Pattern':
-        base.pattern = rule.value ?? (rule as { args?: unknown[] }).args?.[0];
-        break;
-      default:
-        break;
-    }
-  }
-
-  // Nullable → type union with null.
-  if (col.flags.nullable && typeof base.type === 'string') {
-    base.type = [base.type, 'null'];
-  }
-  return base;
-}
+export type { JsonSchemaObject, Variant };
 
 export function toJsonSchema(schema: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
-  const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
-  const entries = Object.entries(schema.columns)
-    // Sensitive columns are omitted from all generated specification variants.
-    // create/update omit auto-increment columns; response variants keep all.
-    .filter(([, col]) => col.flags.sensitive !== true && (isResponse ? true : col.flags.autoIncrement !== true))
-    .toSorted(([a], [b]) => a.localeCompare(b));
-
-  const properties: Record<string, unknown> = {};
-  const required: string[] = [];
-
-  for (const [name, col] of entries) {
-    properties[name] = scalarSchema(col);
-    if (variant === 'update') continue; // all optional
-    const optional = col.flags.hasDefault === true || col.flags.nullable === true;
-    if (isResponse) {
-      if (!col.flags.nullable) required.push(name);
-    } else if (!optional) {
-      required.push(name);
-    }
-  }
-
-  return { type: 'object', properties, required: required.toSorted() };
+  return jsonSchemaFromIR(irFromSchema(schema), variant);
 }
 
 function singularizeWord(word: string): string {

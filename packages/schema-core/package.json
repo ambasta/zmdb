@@ -31,6 +31,9 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./tags": "./src/tags/index.ts",
+    "./ir": "./src/ir/index.ts",
+    "./derive": "./src/derive/index.ts",
     "./dto": "./src/dto/index.ts",
     "./relations": "./src/relations/index.ts",
     "./openapi": "./src/openapi/index.ts",

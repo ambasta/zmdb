@@ -288,6 +288,45 @@ Do not re-derive these. Measured and committed, not assumed.
 Sizes are relative: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or more, **XL** ≈ multi-week.
 "Gate" is what must be true to call the phase done.
 
+### Landed so far
+
+Phases 1–3 in part, with two refinements worth recording because they differ from
+what is written below.
+
+| On disk                                               | What it is                                                                 |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| `schema-core/src/ir/index.ts`                         | The IR, `irFromSchema`, `appTypeOf`/`wireTypeOf`, the JSON Schema back-end |
+| `schema-core/src/ir/ir.spec.ts`                       | 17 runtime assertions incl. the `JSON.stringify` round-trip                |
+| `schema-core/src/ir/vocabulary.type-test.ts`          | Phase 1's coverage gate, both directions                                   |
+| `schema-core/src/tags/index.ts`                       | The full vocabulary — 19 tags                                              |
+| `schema-core/src/tags/erasure.spec.ts`                | REQ-TF-3, as a byte comparison of a tagged fixture and its twin            |
+| `schema-core/src/tags/duplicate-install.type-test.ts` | D5's failure mode, `_D1`…`_D7`                                             |
+| `schema-core/src/derive/index.ts`                     | The tagged DTO suite                                                       |
+| `schema-core/src/derive/tagged-dto.type-test.ts`      | ~35 `Equal`-based assertions                                               |
+| `schema-core/src/openapi/index.ts`                    | Rewritten: `scalarSchema` **deleted**, delegates to the IR                 |
+
+**Refinement 1 — the third walker is already gone.** Phase 1 says "replacing nothing
+yet", but `openapi`'s `scalarSchema` turned out to be replaceable immediately:
+`toJsonSchema` is now `jsonSchemaFromIR(irFromSchema(schema), variant)` and all 30
+golden `openapi` tests pass unchanged. That is the strongest evidence available that
+the IR reproduces the published contract, so it is worth taking early rather than
+saving for Phase 5. Four walkers → three.
+
+**Refinement 2 — the derivations keep their names and change module.** Phase 3 reads
+like a big-bang rename of `Entity`/`CreateDTO`/`UpdateDTO` in place. Doing that would
+break the repository, the web package and every fixture in one commit. Instead the
+tagged versions carry the **same canonical names** in a new module, `./derive`, and the
+schema-value versions stay in the package root untouched. Phase 9 deletes those and
+re-points the root at `./derive`. The end state is identical — exactly one `CreateDTO`,
+per D2 — but the tree stays green throughout. The cost is a temporary second import
+path, and `verify:no-defineschema` is what stops it becoming permanent.
+
+**Not yet done in Phases 1–3:** the codemod, the instantiation-budget ratchet, the
+relation-driven `PopulatedEntity`/`Populated`/`JoinRow`, the `dto/` module's
+order-by/pagination/projection shapes, the `PrimaryKey<S>` → `PrimaryKeyOf<S>` rename
+at its ~10 schema-value call sites, the reflection half of the D5 guard, and the
+umbrella-export plumbing from Phase 0.2.
+
 ---
 
 ### Phase 0 — Decisions and scaffolding · S
