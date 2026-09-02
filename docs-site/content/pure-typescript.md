@@ -71,13 +71,13 @@ Use validation tags for runtime rules:
 ```ts
 import { tags, validate } from '@zmdb/aot-validator'; // rule-first validate: (rule, value) => boolean
 
-const ok = validate(tags.Minimum(0), input.price);
+const ok = validate(tags.Min(0), input.price);
 const validEmail = validate(tags.Pattern('^[^@]+@[^@]+$'), input.email);
 ```
 
 Available tags:
 
-- `Minimum(n)`, `Maximum(n)` — numeric bounds
+- `Min(n)`, `Max(n)` — numeric bounds
 - `MinLength(n)`, `MaxLength(n)` — string/array bounds
 - `Pattern(regex)` — RegExp validation
 - `Enum([values])` — allowed values

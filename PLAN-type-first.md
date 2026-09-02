@@ -264,7 +264,7 @@ consumer who types the key, and it shows up in `keyof` and index signatures. Tra
 un-forgeability for install-agnosticism is the wrong trade when the alternative is a
 build error that cannot be ignored.
 
-### D6 — A third spelling of the same five constraints. **Found while building Phase 2. Open.**
+### D6 — A third spelling of the same five constraints. **Found while building Phase 2. Settled in Phase 5.**
 
 Not one of the original five. It surfaced when the umbrella export map was extended
 and is the same class of problem as §1's four walkers, so it belongs here.
@@ -301,6 +301,14 @@ that happens to be exported.
 `Rule` kinds are being touched anyway. Doing it now would mean renaming across the
 transformer and its tests mid-migration for no gain. What must not happen is shipping
 1.0 with all three.
+
+**Done.** The runtime vocabulary is `tags.Min(n)`/`tags.Max(n)`, so the two spellings a
+declaration can use now agree, and the IR field keeps the JSON Schema keyword because
+that is what it emits. The case fold is replaced by an explicit alias table with a test
+that it stays total, so a sixth constraint kind cannot be added without a spelling — it
+would otherwise become a named custom rule in silence. `ValidationRule.args` is now
+declared rather than merely read, because the only two writers of that field already
+disagreed with the type.
 
 ---
 
@@ -658,7 +666,7 @@ Resolution: add `transformFile(fileName, code, ctx)` alongside the existing
 text**. If it is, rewrite by position. If it is not, emit a diagnostic and skip
 (never guess). Correspondingly the plugin declares `enforce: 'pre'` so it runs before
 other transforms. `transformCode(code)` stays as the no-checker path for the existing
-tag-call inlining (`tags.Minimum(…)`), which needs no types.
+tag-call inlining (`tags.Min(…)`), which needs no types.
 
 **Deliverables**
 

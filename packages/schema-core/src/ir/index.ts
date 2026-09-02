@@ -249,24 +249,39 @@ export const TAG_NAMES = {
 /** An IR field a tag can set. */
 export type TagField = keyof typeof TAG_NAMES;
 
-// These two functions bridge two vocabularies that should be one — see plan D6.
+// These two functions bridge two ways of spelling the same constraint, and the pair is
+// deliberately small — see plan D6.
 //
-// `@zmdb/aot-validator` exports a runtime constraint vocabulary (`tags.Minimum(n)`
-// → `{ kind: 'Minimum', args: [n] }`) covering the same five constraints
-// `defineSchema` spells in camelCase with `value`. The two are already mixed in the
-// same field: `openapi.spec.ts:47` passes `{ kind: 'Pattern', args: [...] }` to a
-// `defineSchema` column. `scalarSchema` tolerated both, so this does too, or that
-// test's published behaviour would change.
+// `ValidationRule.kind` is an open `string`, and two things write it. `defineSchema`
+// writes the IR's own keyword (`{ kind: 'minimum', value: n }`), which is a JSON Schema
+// keyword and stays that way. `@zmdb/aot-validator`'s runtime `Rule` writes the **tag's**
+// name — `tags.Min(n)` → `{ kind: 'Min', args: [n] }` — because that is what you write in
+// a type, and one spelling per constraint means the type's. The two differ for exactly
+// two constraints.
 //
-// The tolerance is a symptom, not a design. D6 aligns the names in Phase 5.
+// This used to be a case fold (`'Minimum'` → `'minimum'`), which happened to work and
+// accepted a great deal more than the two names that actually needed accepting. A table
+// is the same length and says which spellings exist.
 
 function ruleArgument(rule: { readonly value?: unknown; readonly args?: readonly unknown[] }): unknown {
   return rule.value ?? rule.args?.[0];
 }
 
+const CONSTRAINT_ALIASES: Readonly<Record<string, ConstraintKind>> = {
+  minimum: 'minimum',
+  Min: 'minimum',
+  maximum: 'maximum',
+  Max: 'maximum',
+  minLength: 'minLength',
+  MinLength: 'minLength',
+  maxLength: 'maxLength',
+  MaxLength: 'maxLength',
+  pattern: 'pattern',
+  Pattern: 'pattern',
+};
+
 function normaliseKind(kind: string): ConstraintKind | undefined {
-  const lower = kind.charAt(0).toLowerCase() + kind.slice(1);
-  return (KNOWN_CONSTRAINT_KINDS as readonly string[]).includes(lower) ? (lower as ConstraintKind) : undefined;
+  return CONSTRAINT_ALIASES[kind];
 }
 
 // ---------------------------------------------------------------------------

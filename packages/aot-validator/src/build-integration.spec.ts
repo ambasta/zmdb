@@ -15,8 +15,8 @@ function evalInlined(expr: string, input: unknown): boolean {
 }
 
 describe('transform ≡ runtime fallback (build integration)', () => {
-  const cases: { expr: string; rule: () => ReturnType<typeof tags.Minimum>; good: unknown; bad: unknown }[] = [
-    { expr: 'tags.Minimum(0)', rule: () => tags.Minimum(0), good: 5, bad: -1 },
+  const cases: { expr: string; rule: () => ReturnType<typeof tags.Min>; good: unknown; bad: unknown }[] = [
+    { expr: 'tags.Min(0)', rule: () => tags.Min(0), good: 5, bad: -1 },
     { expr: 'tags.MaxLength(3)', rule: () => tags.MaxLength(3), good: 'ab', bad: 'abcd' },
     { expr: 'tags.Enum("a","b")', rule: () => tags.Enum('a', 'b'), good: 'a', bad: 'c' },
   ];

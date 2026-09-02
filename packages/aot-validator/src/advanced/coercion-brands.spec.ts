@@ -26,15 +26,15 @@ describe('branded types (compile-time nominal)', () => {
 
 describe('object strictness modes', () => {
   it('strict rejects excess keys', () => {
-    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'strict');
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strict');
     expect(r.success).toBe(false);
   });
   it('strip accepts excess keys', () => {
-    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'strip');
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strip');
     expect(r.success).toBe(true);
   });
   it('passthrough accepts excess keys', () => {
-    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'passthrough');
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'passthrough');
     expect(r.success).toBe(true);
   });
 });

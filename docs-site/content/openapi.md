@@ -115,8 +115,8 @@ Tags in your schema map to OpenAPI schema keywords:
 
 | Tag              | OpenAPI Keyword | Example                   |
 | ---------------- | --------------- | ------------------------- |
-| `Minimum(n)`     | `minimum`       | `{ "minimum": 0 }`        |
-| `Maximum(n)`     | `maximum`       | `{ "maximum": 100 }`      |
+| `Min(n)`         | `minimum`       | `{ "minimum": 0 }`        |
+| `Max(n)`         | `maximum`       | `{ "maximum": 100 }`      |
 | `MinLength(n)`   | `minLength`     | `{ "minLength": 1 }`      |
 | `MaxLength(n)`   | `maxLength`     | `{ "maxLength": 255 }`    |
 | `Pattern(regex)` | `pattern`       | `{ "pattern": "^\\d+$" }` |
@@ -125,7 +125,7 @@ Tags in your schema map to OpenAPI schema keywords:
 ```ts
 const UserSchema = defineSchema('users', {
   email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\.[^@]+$')).validate(tags.MaxLength(255)),
-  age: integer().validate(tags.Minimum(0)),
+  age: integer().validate(tags.Min(0)),
 });
 
 const schema = toJsonSchema(UserSchema, 'entity');

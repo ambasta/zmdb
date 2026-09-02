@@ -9,13 +9,13 @@ export const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull(),
   role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-  age: integer().nullable().validate(tags.Minimum(0)),
+  age: integer().nullable().validate(tags.Min(0)),
 });
 
 export const ProductSchema = defineSchema('products', {
   id: serial().primaryKey(),
   name: text().notNull().validate(tags.MinLength(1)).validate(tags.MaxLength(100)),
-  price: numeric().notNull().validate(tags.Minimum(0)),
+  price: numeric().notNull().validate(tags.Min(0)),
   code: text().notNull().validate(tags.Pattern('^[A-Z]{3}$')),
   status: jsonEnum(['active', 'inactive']).notNull(),
 });
@@ -29,7 +29,7 @@ export const ProfileSchema = defineSchema('profiles', {
 export const OrderSchema = defineSchema('orders', {
   id: serial().primaryKey(),
   userId: references(integer().notNull(), 'users.id'),
-  total: numeric().notNull().validate(tags.Minimum(0)),
+  total: numeric().notNull().validate(tags.Min(0)),
 });
 
 export function generateOpenApiSpec() {

@@ -48,8 +48,8 @@ Nullable columns → `{ "type": ["<t>", "null"] }`.
 
 | Tag            | Keyword        |
 | -------------- | -------------- |
-| `Minimum(n)`   | `minimum: n`   |
-| `Maximum(n)`   | `maximum: n`   |
+| `Min(n)`       | `minimum: n`   |
+| `Max(n)`       | `maximum: n`   |
 | `MinLength(n)` | `minLength: n` |
 | `MaxLength(n)` | `maxLength: n` |
 | `Pattern(re)`  | `pattern: re`  |

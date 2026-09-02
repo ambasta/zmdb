@@ -13,13 +13,13 @@ describe('coercion', () => {
 
 describe('object strictness modes', () => {
   it('strict rejects excess keys with a structured issue', () => {
-    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'strict');
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strict');
     expect(r.success).toBe(false);
     expect(r.issues.some(i => i.path.includes('extra'))).toBe(true);
   });
 
   it('strip accepts and drops excess keys', () => {
-    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Minimum(0) }, 'strip');
+    const r = validateObject({ a: 1, extra: 2 }, { a: tags.Min(0) }, 'strip');
     expect(r.success).toBe(true);
   });
 });

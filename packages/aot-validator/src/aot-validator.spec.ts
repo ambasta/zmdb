@@ -37,8 +37,8 @@ describe('escapePattern helper', () => {
 });
 
 describe('transformer inlining (golden fixtures)', () => {
-  it('inlines Minimum', () => {
-    const out = transformCode('const ok = validate(tags.Minimum(0), input.price);');
+  it('inlines Min', () => {
+    const out = transformCode('const ok = validate(tags.Min(0), input.price);');
     expect(norm(out)).toContain('typeof input.price === "number" && input.price >= 0');
   });
 
@@ -93,15 +93,15 @@ describe('transformer inlining (golden fixtures)', () => {
   });
 
   it('emitted code contains no reference to validate(', () => {
-    const out = transformCode('const ok = validate(tags.Minimum(0), input.price);');
+    const out = transformCode('const ok = validate(tags.Min(0), input.price);');
     expect(out).not.toContain('validate(');
   });
 });
 
 describe('runtime-safety fallback and parity (pre-transform vs compiled)', () => {
-  it('Minimum passes/fails correctly at runtime', () => {
-    expect(validate(tags.Minimum(0), 5)).toBe(true);
-    expect(validate(tags.Minimum(0), -1)).toBe(false);
+  it('Min passes/fails correctly at runtime', () => {
+    expect(validate(tags.Min(0), 5)).toBe(true);
+    expect(validate(tags.Min(0), -1)).toBe(false);
   });
 
   it('Enum membership at runtime', () => {

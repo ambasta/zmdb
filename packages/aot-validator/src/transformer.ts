@@ -280,9 +280,9 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
   const kind = m[1] ?? '';
   const args = (m[2] ?? '').trim();
   switch (kind) {
-    case 'Minimum':
+    case 'Min':
       return `(typeof ${expr} === "number" && ${expr} >= ${args})`;
-    case 'Maximum':
+    case 'Max':
       return `(typeof ${expr} === "number" && ${expr} <= ${args})`;
     case 'MinLength':
       return `(typeof ${expr} === "string" && ${expr}.length >= ${args})`;

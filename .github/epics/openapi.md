@@ -16,7 +16,7 @@ runtime reflection; the generated documents are artifacts, not live objects.
 
 - `toJsonSchema(schema)` → JSON Schema (draft 2020-12) object for a table's `Entity`.
 - DTO-aware generation: request bodies use `CreateDTO`/`UpdateDTO`, responses use `Entity`.
-- Validation tags map to JSON Schema keywords: `Minimum→minimum`, `Maximum→maximum`,
+- Validation tags map to JSON Schema keywords: `Min→minimum`, `Max→maximum`,
   `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`, `Enum→enum`.
 - Relations map to `$ref`/`items:{$ref}` component references.
 - `toOpenApiComponents([...schemas])` → `components.schemas` map for an OpenAPI 3.1 doc.

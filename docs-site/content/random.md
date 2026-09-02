@@ -113,7 +113,7 @@ const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   name: text().notNull().validate(tags.MaxLength(100)),
   email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+$')),
-  age: integer().validate(tags.Minimum(0)),
+  age: integer().validate(tags.Min(0)),
 });
 
 // Generate a random user (manually constructing descriptor from schema info)

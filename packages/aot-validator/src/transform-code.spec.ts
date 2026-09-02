@@ -21,8 +21,8 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 describe('tag rules', () => {
   it.each([
-    ['const ok = validate(tags.Minimum(10), input.price);', 'typeof input.price === "number" && input.price >= 10'],
-    ['const ok = validate(tags.Maximum(10), input.price);', 'typeof input.price === "number" && input.price <= 10'],
+    ['const ok = validate(tags.Min(10), input.price);', 'typeof input.price === "number" && input.price >= 10'],
+    ['const ok = validate(tags.Max(10), input.price);', 'typeof input.price === "number" && input.price <= 10'],
     [
       'const ok = validate(tags.MaxLength(100), input.bio);',
       'typeof input.bio === "string" && input.bio.length <= 100',
@@ -74,14 +74,14 @@ describe('the scanner', () => {
   });
 
   it('matches whole identifiers, not substrings', () => {
-    const shadowed = 'const myValidate = customValidate(tags.Minimum(0), x); const axis = axis<{ a: number }>(y);';
+    const shadowed = 'const myValidate = customValidate(tags.Min(0), x); const axis = axis<{ a: number }>(y);';
     expect(transformCode(shadowed)).toBe(shadowed);
   });
 
   it('ignores calls inside comments', () => {
     const source = `
-      // const x = validate(tags.Minimum(5), z);
-      /* const y = validate(tags.Minimum(5), z); */
+      // const x = validate(tags.Min(5), z);
+      /* const y = validate(tags.Min(5), z); */
       // validate(tags.MaxLength(10), s);
     `;
     expect(transformCode(source)).toBe(source);
@@ -89,15 +89,15 @@ describe('the scanner', () => {
 
   it('ignores calls inside string and template literals', () => {
     const source = `
-      const s1 = "validate(tags.Minimum(5), y)";
-      const s2 = 'validate(tags.Minimum(5), y)';
+      const s1 = "validate(tags.Min(5), y)";
+      const s2 = 'validate(tags.Min(5), y)';
       const s3 = \`validate(tags.MaxLength(10), str)\`;
     `;
     expect(transformCode(source)).toBe(source);
   });
 
   it('does not throw on constructs it has no opinion about', () => {
-    const source = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Minimum(1), y);';
+    const source = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Min(1), y);';
     expect(transformCode(source)).toBe(source);
   });
 
@@ -105,9 +105,9 @@ describe('the scanner', () => {
     // Every module in a build goes through this whether or not it contains a call, so the
     // cost of finding nothing is the cost that matters.
     const sample = `
-      // comment validate(tags.Minimum(1), x)
-      const a = "string with validate(tags.Minimum(1), x)";
-      const ok1 = validate(tags.Minimum(10), input.price);
+      // comment validate(tags.Min(1), x)
+      const a = "string with validate(tags.Min(1), x)";
+      const ok1 = validate(tags.Min(10), input.price);
       const ok2 = is<{ name: string; age: number }>(input.user);
       const ok3 = assert<{ role: string }>(input.auth);
       const ok4 = validate(tags.Pattern("^[a-z]+$"), input.str);

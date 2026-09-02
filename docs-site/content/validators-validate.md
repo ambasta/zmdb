@@ -72,7 +72,7 @@ import { validate } from '@zmdb/aot-validator/utilities';
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+$')),
-  age: integer().validate(tags.Minimum(18)),
+  age: integer().validate(tags.Min(18)),
 });
 
 // Extract descriptor from schema for validation
@@ -109,5 +109,5 @@ await repo.create({ email: 'bad', age: 10 }); // throws validation error
 ```
 
 - [assert](./validators-assert.html) — throwing variant
-- [tags](./validators-tags.html) — validation rules (Minimum, Pattern, etc.)
+- [tags](./validators-tags.html) — validation rules (Min, Pattern, etc.)
 - [unions-refinements](./unions-refinements.html) — union types and custom refinements

@@ -134,7 +134,7 @@ function checkRule(rule: Rule, value: unknown): { ok: boolean; expected: string;
   // Primitive tag rules (mirror the aot-validator runtime fallback).
   const [arg] = rule.args;
   switch (rule.kind) {
-    case 'Minimum':
+    case 'Min':
       return {
         ok: typeof value === 'number' && typeof arg === 'number' && value >= arg,
         expected: `number >= ${String(arg)}`,

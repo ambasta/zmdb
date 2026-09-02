@@ -37,7 +37,7 @@ export const UserSchema = defineSchema('users', {
 export const OrderSchema = defineSchema('orders', {
   id: serial().primaryKey(),
   userId: references(integer().notNull(), 'users.id'),
-  total: numeric().notNull().validate(tags.Minimum(0)),
+  total: numeric().notNull().validate(tags.Min(0)),
 });
 ```
 

@@ -36,4 +36,4 @@ is<{ email: string; age: number }>(d)(
 
 - [assert()](./validators-assert.html) — throw with the failing path
 - [validate()](./validators-validate.html) — collect every error
-- [Special tags](./validators-tags.html) — constraints like `Minimum`/`Pattern`
+- [Special tags](./validators-tags.html) — constraints like `Min`/`Pattern`

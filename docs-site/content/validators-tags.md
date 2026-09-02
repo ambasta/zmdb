@@ -1,4 +1,4 @@
-The validation tags system provides a declarative way to express constraints on primitive values. These tags (`Minimum`, `Maximum`, `MinLength`, `MaxLength`, `Pattern`, `Enum`) are building blocks that can be combined with schema definitions or used directly in validation code.
+The validation tags system provides a declarative way to express constraints on primitive values. These tags (`Min`, `Max`, `MinLength`, `MaxLength`, `Pattern`, `Enum`) are building blocks that can be combined with schema definitions or used directly in validation code.
 
 > [!TIP]
 > Tags are the primitive constraint language — they compose with the `validate()` and `assert()` functions, and the AOT transformer inlines them to zero-overhead runtime checks.
@@ -10,8 +10,8 @@ The `@zmdb/aot-validator` package exports a `tags` object with all validation ru
 ```ts
 import { tags } from '@zmdb/aot-validator';
 
-tags.Minimum(18); // number >= 18
-tags.Maximum(100); // number <= 100
+tags.Min(18); // number >= 18
+tags.Max(100); // number <= 100
 tags.MinLength(1); // string length >= 1
 tags.MaxLength(255); // string length <= 255
 tags.Pattern('^\\d+$'); // matches regex
@@ -29,7 +29,7 @@ import { tags } from '@zmdb/aot-validator';
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull().validate(tags.Pattern('^[^@]+@[^@]+\\.[^@]+$')).validate(tags.MaxLength(255)),
-  age: integer().validate(tags.Minimum(0)).validate(tags.Maximum(150)),
+  age: integer().validate(tags.Min(0)).validate(tags.Max(150)),
   role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
 });
 ```
@@ -58,7 +58,7 @@ This is the one thing to get right about tags. The package exports **two** diffe
 ```ts
 import { tags, validate } from '@zmdb/aot-validator';
 
-validate(tags.Minimum(18), 21); // true
+validate(tags.Min(18), 21); // true
 validate(tags.MaxLength(5), 'too long'); // false
 validate(tags.Enum('admin', 'user'), 'guest'); // false
 ```
@@ -76,7 +76,7 @@ validate({ email: 'a@b.c', age: 25 }, { kind: 'object', fields: {/* … */} });
 ```
 
 > [!WARNING]
-> Passing a tag to the `utilities` version — `validate(tags.Minimum(18), 21)` after importing from `/utilities` — treats the tag object as the _value_ and `21` as the _descriptor_. Import the one you mean; the two are not interchangeable and neither is a type error against the other's arguments in every case.
+> Passing a tag to the `utilities` version — `validate(tags.Min(18), 21)` after importing from `/utilities` — treats the tag object as the _value_ and `21` as the _descriptor_. Import the one you mean; the two are not interchangeable and neither is a type error against the other's arguments in every case.
 
 In practice: use `tags` on columns via `.validate()` and let the schema carry them, use `assert<T>`/`is<T>` from `/utilities` at request boundaries, and reach for either bare `validate` only for a one-off check.
 
@@ -84,8 +84,8 @@ In practice: use `tags` on columns via `.validate()` and let the schema carry th
 
 | Tag               | Input Type | Constraint             |
 | ----------------- | ---------- | ---------------------- |
-| `Minimum(n)`      | number     | value >= n             |
-| `Maximum(n)`      | number     | value <= n             |
+| `Min(n)`          | number     | value >= n             |
+| `Max(n)`          | number     | value <= n             |
 | `MinLength(n)`    | string     | value.length >= n      |
 | `MaxLength(n)`    | string     | value.length <= n      |
 | `Pattern(regex)`  | string     | regex.test(value)      |
@@ -99,7 +99,7 @@ The runtime fallback validates by evaluating each tag rule:
 // Runtime fallback (what runs without AOT):
 function validate(rule: Rule, expr: unknown): boolean {
   switch (rule.kind) {
-    case 'Minimum':
+    case 'Min':
       return typeof expr === 'number' && expr >= rule.args[0];
     case 'Pattern':
       return typeof expr === 'string' && new RegExp(rule.args[0]).test(expr);
@@ -113,7 +113,7 @@ With AOT transformation enabled, the same validation becomes inlined:
 ```ts
 // Authored:
 validate(
-  tags.Minimum(18),
+  tags.Min(18),
   userAge,
 )(
   // AOT output:

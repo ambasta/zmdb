@@ -44,7 +44,7 @@ export const UserSchema = defineSchema('users', {
 export const OrderSchema = defineSchema('orders', {
   id: serial().primaryKey(),
   userId: integer().notNull().references('users.id'),
-  totalPrice: numeric().notNull().validate(tags.Minimum(0)),
+  totalPrice: numeric().notNull().validate(tags.Min(0)),
   status: jsonEnum(['pending', 'shipped', 'delivered']).notNull().defaultTo('pending'),
 });
 ```
@@ -225,7 +225,7 @@ time with inline JavaScript (no Zod-style runtime parser). Backed by
 import { tags, validate } from '@zmdb/aot-validator';
 
 // authored:
-const ok = validate(tags.Minimum(0), input.totalPrice);
+const ok = validate(tags.Min(0), input.totalPrice);
 // compiles to:
 // const ok = (typeof input.totalPrice === 'number' && input.totalPrice >= 0);
 ```
@@ -327,7 +327,7 @@ Frozen behavior:
 
 - Build-time generation only — **no runtime reflection**.
 - `create`/`update` variants for request bodies, `entity` for responses.
-- Validation tags map to keywords: `Minimum→minimum`, `Maximum→maximum`,
+- Validation tags map to keywords: `Min→minimum`, `Max→maximum`,
   `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`, `Enum→enum`.
 - Relations emit `$ref` (to-one) / `items:{$ref}` (to-many).
 - Deterministic (stable key ordering) so output is committable/diffable.

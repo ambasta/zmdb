@@ -1,5 +1,5 @@
 // The prototype domain, declared type-first: one interface, no `defineSchema`, no
-// `tags.Minimum(1)` call, no hand-written `TypeDescriptor`.
+// `tags.Min(1)` call, no hand-written `TypeDescriptor`.
 //
 // Read this beside packages/schema-core/src/index.ts:393 — the same facts, moved
 // from a value the types are inferred FROM into a type the value is generated FROM.

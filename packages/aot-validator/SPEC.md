@@ -32,8 +32,8 @@ thing left in it:
 
 | Tag call            | Emitted inline JS                          |
 | ------------------- | ------------------------------------------ |
-| `tags.Minimum(n)`   | `(typeof E === "number" && E >= n)`        |
-| `tags.Maximum(n)`   | `(typeof E === "number" && E <= n)`        |
+| `tags.Min(n)`       | `(typeof E === "number" && E >= n)`        |
+| `tags.Max(n)`       | `(typeof E === "number" && E <= n)`        |
 | `tags.MinLength(n)` | `(typeof E === "string" && E.length >= n)` |
 | `tags.MaxLength(n)` | `(typeof E === "string" && E.length <= n)` |
 | `tags.Pattern(re)`  | `(typeof E === "string" && /re/.test(E))`  |

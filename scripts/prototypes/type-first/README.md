@@ -22,13 +22,13 @@ this is a prototype, and `scripts/typecheck.mjs` only walks `packages/*` and
 
 ## The files
 
-| File            | What it is                                                                                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tags.ts`       | The tag vocabulary and the DTO converters. Pure types; every tag is an optional `unique symbol` slot, so nothing survives erasure.                                                                |
-| `model.ts`      | The domain — `User` and `Post` as tagged interfaces, plus the `assert<T>()` call sites the transformer is expected to rewrite. No `defineSchema`, no `tags.Minimum(1)` call, no `TypeDescriptor`. |
-| `tsconfig.json` | `strict` + `exactOptionalPropertyTypes`. `model.ts` must typecheck before the generator will emit.                                                                                                |
-| `generate.mjs`  | Loads the TypeScript 7 checker via `typescript/unstable/sync`, resolves each `assert<T>` type argument, reads the tags off the intersection, and emits the checks.                                |
-| `run.mjs`       | Imports the generated module and asserts accept/reject per fixture, then asserts no tag symbol leaked into the output.                                                                            |
+| File            | What it is                                                                                                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tags.ts`       | The tag vocabulary and the DTO converters. Pure types; every tag is an optional `unique symbol` slot, so nothing survives erasure.                                                            |
+| `model.ts`      | The domain — `User` and `Post` as tagged interfaces, plus the `assert<T>()` call sites the transformer is expected to rewrite. No `defineSchema`, no `tags.Min(1)` call, no `TypeDescriptor`. |
+| `tsconfig.json` | `strict` + `exactOptionalPropertyTypes`. `model.ts` must typecheck before the generator will emit.                                                                                            |
+| `generate.mjs`  | Loads the TypeScript 7 checker via `typescript/unstable/sync`, resolves each `assert<T>` type argument, reads the tags off the intersection, and emits the checks.                            |
+| `run.mjs`       | Imports the generated module and asserts accept/reject per fixture, then asserts no tag symbol leaked into the output.                                                                        |
 
 ## What it covers
 

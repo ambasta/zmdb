@@ -12,7 +12,7 @@ import { toJsonSchema } from '@zmdb/schema-core/openapi';
 const UserSchema = defineSchema('users', {
   id: serial().primaryKey(),
   email: text().notNull(),
-  age: integer().validate(tags.Minimum(0)),
+  age: integer().validate(tags.Min(0)),
 });
 
 const jsonSchema = toJsonSchema(UserSchema, 'entity');
@@ -63,8 +63,8 @@ Validation tags map to JSON Schema keywords:
 ```ts
 import { tags } from '@zmdb/aot-validator';
 
-// Minimum -> minimum
-// Maximum -> maximum
+// Min -> minimum
+// Max -> maximum
 // MinLength -> minLength
 // MaxLength -> maxLength
 // Pattern -> pattern
@@ -76,7 +76,7 @@ Generated schema includes these mappings:
 ```ts
 const schema = defineSchema('products', {
   name: text().validate(tags.MinLength(1)).validate(tags.MaxLength(100)),
-  price: numeric().validate(tags.Minimum(0)),
+  price: numeric().validate(tags.Min(0)),
   code: text().validate(tags.Pattern('^[A-Z]{3}$')),
   status: jsonEnum(['active', 'inactive']).notNull(),
 });

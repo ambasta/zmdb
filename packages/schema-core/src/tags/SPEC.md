@@ -93,12 +93,14 @@ silently skipped check (plan D4).
 There is no `Enum` tag: a literal union is how you declare that, and TypeScript models
 it better than a flag does (REQ-TF-2).
 
-**Open — plan D6.** `@zmdb/aot-validator` exports a _runtime_ vocabulary for the same
-five constraints (`tags.Minimum(n)`), and `defineSchema` spells them a third way
-(`{ kind: 'minimum', value: n }`). Only two names differ — `Minimum`/`Maximum` versus
-`Min`/`Max` — and `../ir`'s `normaliseKind` currently case-folds between them. That
-bridge is a symptom; D6 aligns the names in Phase 5, when the emitter is rewritten
-against the IR.
+**Settled — plan D6.** `@zmdb/aot-validator` exports a _runtime_ vocabulary for the same
+five constraints, and `defineSchema` spells them with the IR's own keyword
+(`{ kind: 'minimum', value: n }`). The runtime names used to be `Minimum`/`Maximum`
+against the tags' `Min`/`Max`, and `../ir`'s `normaliseKind` case-folded between them —
+which happened to work while accepting a great deal more than the two names that needed
+it. The runtime vocabulary is now `tags.Min(n)`/`tags.Max(n)`, so one spelling per
+constraint is the tag's, and the bridge is an explicit two-entries-per-constraint table.
+The IR field keeps the JSON Schema keyword, because that is what it emits.
 
 ## 5. Coverage
 

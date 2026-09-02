@@ -22,6 +22,14 @@ export interface ValidationRule {
   readonly kind: string;
   readonly value?: unknown;
   readonly message?: string;
+  /**
+   * The argument list, for a rule that came from `@zmdb/aot-validator`'s runtime `tags`.
+   *
+   * Declared rather than tolerated: `ir/index.ts`'s `ruleArgument` has always read it,
+   * and `openapi.spec.ts` has always passed one, so leaving it off the type meant the
+   * only two writers of this field disagreed with its declaration.
+   */
+  readonly args?: readonly unknown[];
 }
 
 // Optional members admit `undefined` explicitly: under `exactOptionalPropertyTypes`

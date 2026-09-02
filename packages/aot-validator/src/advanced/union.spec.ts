@@ -7,8 +7,8 @@ import { union, discriminated, evalRule } from './index.ts';
 
 describe('union', () => {
   it('matches when any branch matches (ordered short-circuit)', () => {
-    const rule = union(tags.Minimum(100), tags.MaxLength(3));
-    expect(evalRule(rule, 150)).toBe(true); // matches Minimum(100)
+    const rule = union(tags.Min(100), tags.MaxLength(3));
+    expect(evalRule(rule, 150)).toBe(true); // matches Min(100)
     expect(evalRule(rule, 'ab')).toBe(true); // matches MaxLength(3)
     expect(evalRule(rule, 'abcdef')).toBe(false); // neither
     expect(evalRule(rule, 5)).toBe(false); // neither (5 < 100, not a string)
@@ -18,7 +18,7 @@ describe('union', () => {
 describe('discriminated union', () => {
   it('switches on the discriminant key', () => {
     const rule = discriminated('kind', {
-      a: tags.Minimum(0),
+      a: tags.Min(0),
       b: tags.MaxLength(2),
     });
     expect(evalRule(rule, { kind: 'a', value: 5 })).toBe(true);

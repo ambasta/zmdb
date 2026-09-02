@@ -21,12 +21,18 @@ function rule(kind: string, ...args: readonly unknown[]): Rule {
   return Object.freeze({ kind, args: Object.freeze(args) });
 }
 
+// One spelling per constraint, and it is the tag's. `Min`/`Max` used to be `Minimum`/
+// `Maximum` here while the type-level tag has always been `Min<N>`/`Max<N>`, which left
+// `ir/index.ts` folding case *and* mapping two names onto one kind. Now that a constraint
+// is declared as `number & Min<18>`, the `tags.Min(18)` call has no declaration role
+// left — the `Rule` object is the AOT's pre-transform fallback representation — so the
+// name that stays is the one you write in a type.
 export const tags = {
-  Minimum(n: number): Rule {
-    return rule('Minimum', n);
+  Min(n: number): Rule {
+    return rule('Min', n);
   },
-  Maximum(n: number): Rule {
-    return rule('Maximum', n);
+  Max(n: number): Rule {
+    return rule('Max', n);
   },
   MinLength(n: number): Rule {
     return rule('MinLength', n);
@@ -82,9 +88,9 @@ export function validate(r: Rule, expr: unknown): boolean {
   // benchmarks measure.
   const [arg] = r.args;
   switch (r.kind) {
-    case 'Minimum':
+    case 'Min':
       return typeof expr === 'number' && typeof arg === 'number' && expr >= arg;
-    case 'Maximum':
+    case 'Max':
       return typeof expr === 'number' && typeof arg === 'number' && expr <= arg;
     case 'MinLength':
       return typeof expr === 'string' && typeof arg === 'number' && expr.length >= arg;

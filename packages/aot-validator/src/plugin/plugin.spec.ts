@@ -63,7 +63,7 @@ describe('without a project', () => {
   });
 
   it('still inlines the tag-rule form, which spells out its own rule', () => {
-    const out = hook.transform('const ok = validate(tags.Minimum(0), input.price);', '/x/a.ts');
+    const out = hook.transform('const ok = validate(tags.Min(0), input.price);', '/x/a.ts');
     expect(out?.code).toContain('input.price >= 0');
   });
 
@@ -94,7 +94,7 @@ describe('with a project', () => {
   });
 
   it('inlines both forms in one pass', () => {
-    const code = apply(hook, 'const a = is<User>(input);\nconst b = validate(tags.Minimum(0), input.price);\n');
+    const code = apply(hook, 'const a = is<User>(input);\nconst b = validate(tags.Min(0), input.price);\n');
     expect(code).toContain('_zmdbCheckUser');
     expect(code).toContain('>= 0');
   });
@@ -137,9 +137,7 @@ describe('refusals', () => {
     // A positionless diagnostic is about the file, not about a call site. A module outside
     // the program has no types to read, and that is a configuration fact rather than a
     // mistake in anyone's code.
-    expect(() =>
-      plugin().transform('const ok = validate(tags.Minimum(0), input.price);', '/elsewhere/a.ts'),
-    ).not.toThrow();
+    expect(() => plugin().transform('const ok = validate(tags.Min(0), input.price);', '/elsewhere/a.ts')).not.toThrow();
   });
 });
 

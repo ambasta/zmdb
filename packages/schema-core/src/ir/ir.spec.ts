@@ -19,6 +19,7 @@ import {
   irFromSchema,
   jsonSchemaForColumn,
   jsonSchemaFromIR,
+  KNOWN_CONSTRAINT_KINDS,
   SQL_TYPES,
   wireTypeOf,
   type ColumnIR,
@@ -66,6 +67,26 @@ describe('irFromSchema — the value front-end', () => {
     expect(column('age').constraints).toEqual({ minimum: 18, maximum: 120 });
     expect(column('nickname').constraints).toEqual({ minLength: 3 });
     expect(column('email').constraints).toEqual({ pattern: '^\\S+@\\S+$' });
+  });
+
+  it('reads both spellings of every constraint, and only those', () => {
+    // `ValidationRule.kind` is an open string with two writers: `defineSchema` uses the
+    // IR's own keyword, and `@zmdb/aot-validator`'s runtime `Rule` uses the tag's name
+    // (`tags.Min(n)` → `{ kind: 'Min' }`). Both have to land on the same field, and the
+    // table that says so has to stay total — a sixth constraint kind added without a
+    // spelling would silently become a named custom rule instead.
+    const spellings: readonly [string, string, unknown, Record<string, unknown>][] = [
+      ['minimum', 'Min', 5, { minimum: 5 }],
+      ['maximum', 'Max', 5, { maximum: 5 }],
+      ['minLength', 'MinLength', 5, { minLength: 5 }],
+      ['maxLength', 'MaxLength', 5, { maxLength: 5 }],
+      ['pattern', 'Pattern', '^a$', { pattern: '^a$' }],
+    ];
+    expect(spellings.map(([keyword]) => keyword)).toEqual([...KNOWN_CONSTRAINT_KINDS]);
+    for (const [keyword, tag, value, expected] of spellings) {
+      expect(probe(integer().validate({ kind: keyword, value })).constraints).toEqual(expected);
+      expect(probe(integer().validate({ kind: tag, args: [value] })).constraints).toEqual(expected);
+    }
   });
 
   it('keeps an unrecognised rule kind as a named rule instead of dropping it', () => {
