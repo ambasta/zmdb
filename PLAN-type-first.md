@@ -342,26 +342,35 @@ Sizes are relative: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or m
 
 ### Landed so far
 
-Phases 1–3 in part plus Phase 4 in full, with two refinements worth recording because
-they differ from what is written below.
+Phases 1–3 in part plus Phases 4, 5 and 6 in full, with four refinements worth
+recording because they differ from what is written below.
 
-| On disk                                               | What it is                                                                 |
-| ----------------------------------------------------- | -------------------------------------------------------------------------- |
-| `schema-core/src/ir/index.ts`                         | The IR, `irFromSchema`, `appTypeOf`/`wireTypeOf`, the JSON Schema back-end |
-| `schema-core/src/ir/ir.spec.ts`                       | 17 runtime assertions incl. the `JSON.stringify` round-trip                |
-| `schema-core/src/ir/vocabulary.type-test.ts`          | Phase 1's coverage gate, both directions                                   |
-| `schema-core/src/tags/index.ts`                       | The full vocabulary — 19 tags                                              |
-| `schema-core/src/tags/erasure.spec.ts`                | REQ-TF-3, as a byte comparison of a tagged fixture and its twin            |
-| `schema-core/src/tags/duplicate-install.type-test.ts` | D5's failure mode, `_D1`…`_D7`                                             |
-| `schema-core/src/derive/index.ts`                     | The tagged DTO suite                                                       |
-| `schema-core/src/derive/tagged-dto.type-test.ts`      | ~35 `Equal`-based assertions                                               |
-| `schema-core/src/openapi/index.ts`                    | Rewritten: `scalarSchema` **deleted**, delegates to the IR                 |
-| `aot-validator/src/reflect/session.ts`                | The compiler boundary: one `tsgo` session per build, `Disposable`          |
-| `aot-validator/src/reflect/callsites.ts`              | Finds `f<T>(…)` calls and hands back `T`'s type node                       |
-| `aot-validator/src/reflect/index.ts`                  | `Reflector` — `typeIR`/`schemaIR`, total, budgeted, named refusals         |
-| `aot-validator/src/reflect/__fixtures__/`             | The construct table and the two halves of the equivalence corpus           |
-| `aot-validator/src/reflect/reflect.spec.ts`           | 61 assertions incl. the tagged-vs-`defineSchema` deep equality             |
-| `aot-validator/src/reflect/SPEC.md`                   | Including §4, the measured checker limitations                             |
+| On disk                                                      | What it is                                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `schema-core/src/ir/index.ts`                                | The IR, `irFromSchema`, `appTypeOf`/`wireTypeOf`, the JSON Schema back-end      |
+| `schema-core/src/ir/ir.spec.ts`                              | 17 runtime assertions incl. the `JSON.stringify` round-trip                     |
+| `schema-core/src/ir/vocabulary.type-test.ts`                 | Phase 1's coverage gate, both directions                                        |
+| `schema-core/src/tags/index.ts`                              | The full vocabulary — 19 tags                                                   |
+| `schema-core/src/tags/erasure.spec.ts`                       | REQ-TF-3, as a byte comparison of a tagged fixture and its twin                 |
+| `schema-core/src/tags/duplicate-install.type-test.ts`        | D5's failure mode, `_D1`…`_D7`                                                  |
+| `schema-core/src/derive/index.ts`                            | The tagged DTO suite                                                            |
+| `schema-core/src/derive/tagged-dto.type-test.ts`             | ~35 `Equal`-based assertions                                                    |
+| `schema-core/src/derive/type-derivation-tagged.type-test.ts` | The tagged derivations against the schema-value ones, name for name             |
+| `schema-core/src/derive/instantiation-budget.spec.ts`        | Phase 3's ceiling, watched by `verify:build-budget`                             |
+| `schema-core/src/openapi/index.ts`                           | Rewritten: `scalarSchema` **deleted**, delegates to the IR; `toJsonSchema<T>()` |
+| `aot-validator/src/reflect/session.ts`                       | The compiler boundary: one `tsgo` session per build, `Disposable`               |
+| `aot-validator/src/reflect/callsites.ts`                     | Finds `f<T>(…)` calls and hands back `T`'s type node                            |
+| `aot-validator/src/reflect/index.ts`                         | `Reflector` — `typeIR`/`schemaIR`/`shapeIR`, total, budgeted, named refusals    |
+| `aot-validator/src/reflect/__fixtures__/`                    | The construct table, the equivalence corpus, the codemod corpus, the documents  |
+| `aot-validator/src/reflect/reflect.spec.ts`                  | 61 assertions incl. the tagged-vs-`defineSchema` deep equality                  |
+| `aot-validator/src/reflect/documents.spec.ts`                | REQ-TF-7 as a byte equality, on documents the emitted module actually produced  |
+| `aot-validator/src/reflect/SPEC.md`                          | Including §4, the measured checker limitations                                  |
+| `aot-validator/src/emit/index.ts`                            | Five targets — check, excess, issues, sample, document — one hoisting context   |
+| `aot-validator/src/emit/differential.spec.ts`                | REQ-AV-4: the emitted check against the runtime walker on the same IR           |
+| `aot-validator/src/transformer.ts`                           | Checker-driven rewriting by text offset; the hand-rolled type parser deleted    |
+| `aot-validator/src/plugin/index.ts`                          | The bundler hook: `enforce: 'pre'`, one session per build, watch-mode refresh   |
+| `scripts/codemod-tagged-schema.mjs`                          | `defineSchema` → tagged interface, with `verify:codemod` over every schema      |
+| `web/src/openapi/generated-schemas.spec.ts`                  | `toOpenApi` fed from generated literals, through the real plugin                |
 
 **Refinement 1 — the third walker is already gone.** Phase 1 says "replacing nothing
 yet", but `openapi`'s `scalarSchema` turned out to be replaceable immediately:
@@ -422,10 +431,27 @@ Also worth recording, because each replaced a plan row with a better answer:
   intersection over a union and `null & Unique` is `never`, which silently drops the
   nullability.
 
-**Not yet done in Phases 1–3:** the codemod, the instantiation-budget ratchet, the
-relation-driven `PopulatedEntity`/`Populated`/`JoinRow`, and the `dto/` module's
-order-by/pagination/projection shapes. The reflection half of the D5 guard is now done,
-in `#readTags`.
+**Refinement 4 — a variant name and a derived type are two spellings of one thing.**
+Phase 6 below reads as if the type-driven `toJsonSchema<T>()` needs its own generator,
+one that reads optionality off `CreateDTO<User>` the way the old one read it off the
+string `'create'`. It does not, and building one would have been the fifth walker this
+whole plan exists to avoid. Instead the back-end takes a **shape** — a column plus
+whether the document requires it — and the two front-ends are adapters onto it:
+`shapeOfVariant` for the value path, `Reflector.shapeIR` for the type path. `required`
+then collapses to "not optional and not nullable", which is the single rule the three
+variants were three cases of, and REQ-TF-7 is structural instead of tested.
+
+Two things fell out of that. The `update` variant had kept the primary key while
+`UpdateDTO<T>` dropped it — the two only agreed because every key in every fixture was a
+`serial()`, which was already dropped for a different reason. And the sensitive filter
+stayed in the emitter rather than moving into the shape, because a published document is
+where REQ-TF-6 has to be unconditional: `CreateDTO<User>` deliberately _keeps_ a
+sensitive column, since you have to be able to send a password.
+
+**Not yet done in Phases 1–3:** the relation-driven
+`PopulatedEntity`/`Populated`/`JoinRow`, and the `dto/` module's
+order-by/pagination/projection shapes. The codemod and the instantiation-budget ratchet
+are done. The reflection half of the D5 guard is now done, in `#readTags`.
 
 From Phase 0, the `typescript` optional-peer-dep move and its reachability guard move to
 **Phase 5**, not because they are hard but because they cannot land yet: the package
