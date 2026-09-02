@@ -1,5 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
+import { irFromSchema, objectTypeFromIR } from '@zmdb/schema-core/ir';
+
 import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.ts';
 import type { BenchResult } from './results.ts';
 import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
@@ -22,11 +25,15 @@ function toSqlInput(val: unknown): string | number | bigint | Uint8Array | null 
  * the array of BenchResult records.
  */
 export function runLiveBenchmarks(): BenchResult[] {
-  const desc = {
-    kind: 'object' as const,
-    fields: { id: { kind: 'number' as const, minimum: 0 }, email: { kind: 'string' as const } },
-  };
-  const valid = runValidationSuite('zmdb', zmdbAdapter, desc, { id: 1, email: 'a@b.com' }, 1000);
+  // Derived, not written: the witness the validation suite runs against comes from a
+  // schema, the same way a user's does (REQ-TF-9).
+  const Users = defineSchema('users', {
+    id: serial().primaryKey(),
+    count: integer().validate({ kind: 'minimum', value: 0 }),
+    email: text(),
+  });
+  const type = objectTypeFromIR(irFromSchema(Users), 'entity');
+  const valid = runValidationSuite('zmdb', zmdbAdapter, type, { id: 1, count: 1, email: 'a@b.com' }, 1000);
 
   const db = new DatabaseSync(':memory:');
   const engine: OrmEngine = {

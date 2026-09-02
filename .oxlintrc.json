@@ -25,6 +25,7 @@
     "site/**",
     "benchmarks/harness/framework/.bin/**",
     "benchmarks/upstream/**",
+    "**/*.generated.ts",
     "benchmarks/harness/framework/peers/**",
     "**/.results/**",
     "**/*.app.mjs"

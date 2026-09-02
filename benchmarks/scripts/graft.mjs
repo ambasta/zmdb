@@ -18,7 +18,7 @@
 // Idempotent: running it twice is a no-op. `--check` reports without writing;
 // `--clean` reverts everything so the submodules are pristine again.
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,6 +94,36 @@ function participantFiles(dir, prefix = '') {
   return out;
 }
 
+// Directories in the participant tree that upstream does not have a single tracked file
+// in — i.e. directories that are wholly ours, so anything in the destination copy of one
+// that we did not just put there is a leftover.
+//
+// Copying is not enough on its own: `cpSync` overwrites and adds, it never removes. A
+// participant file that gets renamed or deleted in this repository stays behind in the
+// submodule, and since the submodule is not something anyone reads, it stays behind
+// indefinitely — still compiled, still registered, still measured. That is how a benchmark
+// ends up reporting a number for code that no longer exists here.
+function ownedDirectories(suite, files) {
+  const cwd = join(ROOT, suite.submodule);
+  const dirs = new Set();
+  for (const file of files) {
+    let dir = dirname(file);
+    while (dir !== '.' && dir !== '') {
+      dirs.add(dir);
+      dir = dirname(dir);
+    }
+  }
+  // Deepest last, so a parent is examined before its children and the shallowest owned
+  // directory is the one that gets removed.
+  const owned = [];
+  for (const dir of [...dirs].toSorted((a, b) => a.length - b.length)) {
+    if (owned.some(parent => dir === parent || dir.startsWith(`${parent}/`))) continue;
+    const tracked = tryGit(['ls-files', '--', dir], cwd);
+    if (tracked.ok && tracked.out.trim() === '') owned.push(dir);
+  }
+  return owned;
+}
+
 function patchState(suite) {
   if (suite.patch === undefined) return 'none';
   const cwd = join(ROOT, suite.submodule);
@@ -119,6 +149,9 @@ export function graft(name, { check = false } = {}) {
   const files = participantFiles(from);
 
   if (!check) {
+    // Clear our own directories first, so a file we stopped shipping stops being compiled.
+    // Build output inside them goes too; the suite's own compile step puts it back.
+    for (const dir of ownedDirectories(suite, files)) rmSync(join(into, dir), { recursive: true, force: true });
     for (const file of files) cpSync(join(from, file), join(into, file), { recursive: true });
   }
 

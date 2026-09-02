@@ -18,9 +18,10 @@
 // /user validator are ALL derived from that single definition — no second,
 // hand-maintained copy of the shape.
 //
-// AOT VALIDATION: from that single schema we derive a `TypeDescriptor` and, at
-// BOOT (ahead of the request hot path), compile it into a monomorphic,
-// straight-line validator closure via @zmdb/aot-validator's `assert`. The
+// AOT VALIDATION: from that single schema we take the IR — the same structure
+// the repository and the OpenAPI document read — and at BOOT (ahead of the
+// request hot path) resolve it into a monomorphic, straight-line validator
+// closure via @zmdb/aot-validator's `assert`. The
 // per-request path only calls the pre-compiled closure — the AOT premise
 // (compile-once, run-many) applied to the web layer. `@zmdb/web`'s
 // `validateWith` wraps that closure into the framework's `validateBody` hook.
@@ -51,9 +52,10 @@ import cluster from 'node:cluster';
 import { createServer } from 'node:http';
 import { availableParallelism } from 'node:os';
 
-import { assert, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
+import { assert } from '../../../packages/aot-validator/src/utilities/index.ts';
 import { defineSchema, serial, text } from '../../../packages/schema-core/src/index.ts';
-import type { CoreSchema, ColumnMeta, CreateDTO } from '../../../packages/schema-core/src/index.ts';
+import type { CreateDTO } from '../../../packages/schema-core/src/index.ts';
+import { irFromSchema, objectTypeFromIR } from '../../../packages/schema-core/src/ir/index.ts';
 import {
   Controller,
   Get,
@@ -95,41 +97,20 @@ const UserSchema = defineSchema('users', {
 });
 type UserCreate = CreateDTO<typeof UserSchema>;
 
-// --- schema → AOT descriptor ------------------------------------------------
-// Map a schema-core `SqlType` to a runtime TypeDescriptor kind. Derived from
-// the ONE definition, so the validator can never drift from the schema.
-function columnKind(col: ColumnMeta): TypeDescriptor {
-  switch (col.type) {
-    case 'serial':
-    case 'integer':
-    case 'numeric':
-    case 'bigint':
-      return { kind: 'number' };
-    case 'boolean':
-      return { kind: 'boolean' };
-    case 'jsonEnum':
-      return { kind: 'enum', values: col.flags.enum ?? [] };
-    default:
-      return col.flags.length === undefined ? { kind: 'string' } : { kind: 'string', maxLength: col.flags.length };
-  }
-}
-
-// Build the CreateDTO descriptor: drop auto-increment columns (server-assigned)
-// exactly as `CreateDTO<S>` drops them at the type level.
-function createDtoDescriptor(schema: CoreSchema<string>): TypeDescriptor {
-  const fields: Record<string, TypeDescriptor> = {};
-  for (const [name, col] of Object.entries(schema.columns)) {
-    if (col.flags.autoIncrement === true) continue;
-    fields[name] = columnKind(col);
-  }
-  return { kind: 'object', fields };
-}
-
 // --- AOT compile at BOOT ----------------------------------------------------
-// Compile the descriptor into a closure ONCE, ahead of the request hot path.
-// `validateWith` adapts it into @zmdb/web's validateBody hook shape.
-const userCreateDescriptor = createDtoDescriptor(UserSchema);
-const validateUserCreate = validateWith<UserCreate>((raw: unknown) => assert<UserCreate>(raw, userCreateDescriptor));
+// The runtime witness for `UserCreate` comes from the schema, through the IR, with
+// nothing hand-written in between: `objectTypeFromIR(ir, 'create')` is the same call
+// the repository and the published document make, so the three cannot disagree.
+//
+// This file used to derive it itself — a `columnKind` switch over `SqlType` and a
+// `createDtoDescriptor` that re-implemented "drop the auto-increment columns". Both
+// were second copies of a rule that lives in the IR, and a benchmark whose validator
+// is not the one users get is measuring the wrong program (REQ-TF-9).
+//
+// Resolved ONCE, at boot, ahead of the request hot path; `validateWith` adapts it into
+// @zmdb/web's validateBody hook shape.
+const userCreateType = objectTypeFromIR(irFromSchema(UserSchema), 'create');
+const validateUserCreate = validateWith<UserCreate>((raw: unknown) => assert<UserCreate>(raw, userCreateType));
 
 // An empty 2xx: no body and, deliberately, no content-type. The suite asserts the
 // body is byte-empty and never looks at the content type (`v/vanilla_epoll`

@@ -54,7 +54,7 @@ index 682406fd5..6f294fa95 100644
 -    "download-packages-popularity": "ts-node download-packages-popularity.ts"
 +    "download-packages-popularity": "ts-node download-packages-popularity.ts",
 +    "compile:zmdb": "rimraf cases/zmdb/build && esbuild cases/zmdb/src/index.ts --bundle --platform=node --format=cjs --outdir=cases/zmdb/build",
-+    "compile:zmdb-aot": "rimraf cases/zmdb-aot/build cases/zmdb-aot/src/generated.ts && esbuild cases/zmdb-aot/src/generate.ts --bundle --platform=node --format=cjs --outfile=cases/zmdb-aot/build/generate.cjs && node cases/zmdb-aot/build/generate.cjs cases/zmdb-aot/src/generated.ts && esbuild cases/zmdb-aot/src/index.ts --bundle --platform=node --format=cjs --outdir=cases/zmdb-aot/build"
++    "compile:zmdb-aot": "rimraf cases/zmdb-aot/build && esbuild cases/zmdb-aot/src/index.ts --bundle --platform=node --format=cjs --outdir=cases/zmdb-aot/build"
    },
    "dependencies": {
      "@aeriajs/validation": "0.0.162",

@@ -693,4 +693,8 @@ export function issuesFor(input: unknown, schema: RuntimeSchema, path = 'input')
   return issues;
 }
 
+// `RuntimeSchema` is half `TypeIR`, so a caller that holds a generated witness needs the
+// name too — otherwise it has to reach past this entry point into `@zmdb/schema-core/ir`
+// to spell the type of the value it just got handed.
+export type { TypeIR };
 export type { ValidationIssue };

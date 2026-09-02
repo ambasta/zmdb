@@ -1,3 +1,9 @@
+// The suite's data model, as the IR the walker reads — generated from the one interface in
+// benchmarks/harness/validation/model.ts, not written out again here. This is the honest
+// runtime path: no transformer, so the validator walks that structure per call. The AOT
+// path is a separate participant (`zmdb-aot`) precisely so the two are not conflated in
+// the results table.
+import { MOLTAR } from '../../../../../../benchmarks/harness/validation/model.generated.ts';
 // zmdb participant in moltar/typescript-runtime-type-benchmarks — RUNTIME path.
 //
 // This file is grafted into the upstream clone at cases/zmdb/src/index.ts by
@@ -10,52 +16,23 @@
 //   benchmarks/upstream/typescript-runtime-type-benchmarks/cases/zmdb/src
 // back up to the repository root. graft.mjs asserts the target resolves before
 // copying, so a moved checkout fails loudly instead of bundling nothing.
-import {
-  equals,
-  is,
-  validate,
-  type TypeDescriptor,
-} from '../../../../../../packages/aot-validator/src/utilities/index.ts';
-
-// The suite's fixed data model, as a descriptor. This is the honest runtime
-// path: no transformer, so the validator walks this structure per call. The AOT
-// path is a separate participant (`zmdb-aot`) precisely so the two are not
-// conflated in the results table.
-const descriptor: TypeDescriptor = {
-  kind: 'object',
-  fields: {
-    number: { kind: 'number' },
-    negNumber: { kind: 'number' },
-    maxNumber: { kind: 'number' },
-    string: { kind: 'string' },
-    longString: { kind: 'string' },
-    boolean: { kind: 'boolean' },
-    deeplyNested: {
-      kind: 'object',
-      fields: {
-        foo: { kind: 'string' },
-        num: { kind: 'number' },
-        bool: { kind: 'boolean' },
-      },
-    },
-  },
-};
+import { equals, is, validate } from '../../../../../../packages/aot-validator/src/utilities/index.ts';
 
 export function looseIs(data: unknown): boolean {
-  return is(data, descriptor);
+  return is(data, MOLTAR);
 }
 
 export function strictEquals(data: unknown): boolean {
-  return equals(data, descriptor);
+  return equals(data, MOLTAR);
 }
 
 export function parseSafe(data: unknown): unknown {
-  const result = validate(data, descriptor);
+  const result = validate(data, MOLTAR);
   if (!result.success) throw new Error('wrong type.');
   return result.data;
 }
 
 export function parseStrict(data: unknown): unknown {
-  if (!equals(data, descriptor)) throw new Error('wrong type.');
+  if (!equals(data, MOLTAR)) throw new Error('wrong type.');
   return data;
 }

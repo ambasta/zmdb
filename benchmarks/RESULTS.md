@@ -139,6 +139,16 @@ drizzle 4,789 (128ms). Superseded by the full-13 run above.
 - **Prisma** — DNF (not implemented: engine/codegen not installed).
 - Ramp/machine differences vs the upstream 2-machine rig are covered in the
   **Benchmark config** block above.
+- **Not re-measured for the type-first work.** The validator's witness changed from
+  a hand-written descriptor to a generated `TypeIR` across that series of commits,
+  and the validation numbers above were re-run for it. These ORM numbers were not,
+  for a checkable reason: the grafted participant
+  ([`participants/orm/src/zmdb-server-node.ts`](./participants/orm/src/zmdb-server-node.ts))
+  imports `@zmdb/query-compiler` and `pg` and nothing else — no repository, no
+  validator — and the only change to `packages/query-compiler` in the whole series
+  is in `migrations/`, which emits DDL and is not on this path. A fresh k6 replay
+  would be a new sample of unchanged code, and the interleaved-repeat sessions
+  below already show the run-to-run variance swamping anything that small.
 
 ---
 
@@ -152,30 +162,65 @@ not register:
 | library                           |   parseSafe | parseStrict | assertLoose | assertStrict | DNF cases              |
 | --------------------------------- | ----------: | ----------: | ----------: | -----------: | ---------------------- |
 | typia (AOT)                       | 100,673,513 |  38,869,470 |  78,128,590 |   31,056,106 | —                      |
-| **zmdb-aot** (transformer-built¹) | 101,677,075 |  40,022,611 | 108,934,303 |   42,287,002 | —                      |
+| **zmdb-aot** (transformer-built¹) |  83,288,112 |  55,677,518 |  93,197,945 |   51,735,825 | —                      |
 | @sinclair/typebox (JIT)           |         DNF |         DNF |  88,070,252 |   29,157,066 | parseSafe, parseStrict |
 | ajv                               |         DNF |         DNF |  43,363,522 |   29,246,420 | parseSafe, parseStrict |
 | zod (v4)                          |   8,711,299 |   4,895,742 |   4,173,432 |    4,172,722 | —                      |
+| **zmdb** (runtime, shipped²)      |   7,774,947 |   5,147,510 |   7,821,013 |    5,087,724 | —                      |
 | arktype                           |         DNF |   3,998,596 |  64,604,434 |    3,983,815 | parseSafe              |
 | myzod                             |   3,364,233 |   3,837,054 |         DNF |    3,872,625 | assertLoose            |
 | valibot                           |   1,757,211 |   1,370,568 |   1,801,433 |    1,530,501 | —                      |
-| **zmdb** (runtime, shipped)       |   1,430,813 |   1,101,908 |   5,173,050 |    1,162,280 | —                      |
 | zod (v3)                          |   1,087,654 |     970,236 |   1,051,654 |    1,014,129 | —                      |
 
-¹ **`zmdb-aot` numbers are transformer-PRODUCED.** The validators were generated
-by running the real `@zmdb/aot-validator` transform (`transformTypeChecks`) over
-`is<T>()` source for the moltar model — i.e. the exact inline JS the build plugin
-emits (`@zmdb/aot-validator/plugin`, epics #75/#79–#83) — then run through the
-upstream moltar runner. Not hand-written. The shipped default is still the
-`zmdb` runtime row unless the transformer plugin is enabled in the consumer build.
+Only the two zmdb rows were re-measured for this table; the competitor rows are
+carried forward from the previous full run on the same box. That is fine for the
+zmdb-vs-self comparison and worth knowing before reading any single competitor
+gap as precise.
+
+¹ **`zmdb-aot` numbers come from a generated file that is committed here.** The
+validators are the output of the real `@zmdb/aot-validator` transform over
+`harness/validation/aot-source.ts` — four `is<T>()`/`equals<T>()`/`validate<T>()`
+calls written the way a user writes them — produced by
+`yarn bench:validation:generate`, checked in as
+[`harness/validation/aot.generated.ts`](./harness/validation/aot.generated.ts), and
+verified current in CI. Anyone can read the emitted JS and re-derive it.
+
+They replace numbers measured against a **hand-inlined** file whose comment claimed
+it was what the transformer "WOULD emit". It was not, and the difference is
+measurable: the hand-written check skipped the `!Array.isArray(...)` guard at each
+object level and the `!Number.isNaN(...)` guard on each of the four number fields,
+and hoisted `deeplyNested` into a local instead of re-reading the property. That is
+why `assertLoose` fell from 108.9M to 93.2M. The skipped work is not optional
+either — typebox's compiled checker, the closest competitor here, emits
+`Number.isFinite(value['n'])` and its own `!Array.isArray(value)`, so the old row
+was scoring less work against libraries doing more.
+
+² **The `zmdb` runtime row is 5.4× the previous one, and none of that is the
+walker getting faster.** The witness is now a generated `TypeIR`; it used to be a
+hand-written `TypeDescriptor`. Measured today on this box, the same walker over the
+same shape and the same data:
+
+| witness the walker is given   |     ops/s |
+| ----------------------------- | --------: |
+| hand-written `TypeDescriptor` | 1,340,445 |
+| generated `TypeIR`            | 7,833,292 |
+
+`irFromDescriptor` rebuilds the IR — and with it the reference table keyed on that
+IR object — on **every call**, so a descriptor input pays a full conversion per
+validation. The descriptor front-end is still supported for callers who have one;
+it is just not what the library produces, and benchmarking it was benchmarking the
+compatibility shim. The previous local row (6.37M, below) was measured before that
+conversion existed at all, so it is not comparable to either number above — which
+is the second reason to generate the witness: the benchmark's input form stopped
+matching what the library did with it, and nothing said so.
 
 > [!WARNING]
-> **Every number in the table above is inflated for the AOT rows, and the
-> upstream methodology is why.** The upstream runner — and, until this was
-> found, our own local harness — calls each validator and discards the result.
-> zmdb's AOT validator is a pure boolean chain over a frozen module constant, so
-> `void aotIs(FROZEN)` is dead code and V8 deletes the call outright. Measured on
-> Node 26, 50M iterations, median of 5, interleaved:
+> **The upstream runner discards every result, and that used to inflate the AOT
+> rows by 3.3–5×.** The runner — and, until this was found, our own local harness
+> — calls each validator and throws the answer away. The hand-inlined AOT
+> validator was a single pure boolean chain, so `void aotIs(FROZEN)` was dead code
+> and V8 deleted the call outright. Measured on Node 26, 50M iterations, median of
+> 5, interleaved, **against that hand-inlined file**:
 >
 > | what the loop does                       |     ops/s |
 > | ---------------------------------------- | --------: |
@@ -183,73 +228,131 @@ upstream moltar runner. Not hand-written. The shipped default is still the
 > | result observed, input still frozen      |   317.9 M |
 > | result observed, input rotates in a pool |   208.7 M |
 >
-> That is **3.3–5× of pure fiction**, and it is _asymmetric_: zod, ajv and
-> valibot allocate and throw, so their calls cannot be eliminated and they never
-> got the discount. Only the implementations we were trying to show off did.
-> This is also the real explanation for footnote ² below — the ~942M Bun row was
-> never Bun-specific, it was the discarded result, and the same thing was
-> happening on Node.
+> The elimination was also _asymmetric_: zod, ajv and valibot allocate and throw,
+> so their calls cannot be removed and they never got the discount. Only the
+> implementations we were trying to show off did. This is likewise the real
+> explanation for footnote ³ below — the ~942M Bun row was never Bun-specific, it
+> was the discarded result, and the same thing was happening on Node.
 >
-> The local harness (`harness/validation`) has been fixed: results are observed,
-> inputs rotate, and each timed call runs 1,000 validations so tinybench's ~10ns
-> per-call overhead cannot dominate. **Prefer its numbers, below, over the
-> upstream table.** The upstream table is kept because it is what the upstream
-> runner reports, not because it is the better measurement.
+> **On the transformer-generated validators the two harnesses now agree.** The
+> emitted code calls a named helper per type and does more work per field, and the
+> upstream numbers land within ~15% of the DCE-proof band the local harness produced
+> over three sessions (`assertLoose` 93.2M upstream against 98.2–107.9M local;
+> `parseStrict` 55.7M upstream against 37.5–50.0M local) rather than 3–5× above it. Why
+> V8 no longer removes the call is not something this repository has established,
+> so treat the agreement as an observation, not a guarantee: the local harness
+> still observes every result, because a benchmark should not depend on an
+> optimiser's mood.
+>
+> The local harness (`harness/validation`) observes results, rotates inputs, and
+> runs 1,000 validations per timed call so tinybench's ~10ns per-call overhead
+> cannot dominate. **Prefer its numbers, below.** The upstream table is kept
+> because it is what the upstream runner reports.
 
 ### DCE-proof local measurement (`harness/validation`, `./run.sh`)
 
 Node 26, median of 5 passes, 1,000 validations per timed call, results observed,
-inputs rotating through an 8-object pool. Full output in
+inputs rotating through an 8-object pool. This table is the committed output in
 [`harness/validation/validation-results.txt`](./harness/validation/validation-results.txt);
-`spread` is max/min across the 5 passes, so it is the yardstick for whether any
-gap below is real.
+`spread` is max/min across the 5 passes within one run.
 
-| library        |  parseSafe | parseStrict | assertLoose | assertStrict | spread |
-| -------------- | ---------: | ----------: | ----------: | -----------: | -----: |
-| **zmdb (aot)** | 65,421,756 |  48,439,428 | 139,186,453 |   48,746,078 |  1.04× |
-| typebox (JIT)  |        n/a |         n/a | 127,196,801 |   47,175,714 |  1.04× |
-| ajv            |        n/a |         n/a |  67,413,053 |   36,591,451 |  1.02× |
-| zmdb (runtime) |  6,373,620 |   4,478,499 |   6,270,537 |    4,369,361 |  1.04× |
-| valibot        |  2,114,867 |   1,689,878 |   2,168,967 |    1,757,477 |  1.04× |
-| zod (v3)       |  1,318,735 |   1,211,890 |   1,333,949 |    1,207,395 |  1.05× |
+| library        |  parseSafe | parseStrict | assertLoose | assertStrict |     spread |
+| -------------- | ---------: | ----------: | ----------: | -----------: | ---------: |
+| typebox (JIT)  |        n/a |         n/a | 114,386,546 |   45,441,197 | 1.05–1.09× |
+| **zmdb (aot)** | 73,977,092 |  37,537,637 |  98,179,890 |   37,444,412 | 1.04–1.08× |
+| ajv            |        n/a |         n/a |  66,549,461 |   32,373,574 | 1.05–1.07× |
+| zmdb (runtime) |  7,021,828 |   4,582,451 |   7,136,217 |    4,689,626 | 1.03–1.09× |
+| valibot        |  1,893,780 |   1,491,467 |   1,977,096 |    1,552,091 | 1.04–1.06× |
+| zod (v3)       |  1,168,862 |   1,045,898 |   1,171,774 |    1,062,529 | 1.07–1.10× |
 
-All four strict checkers were verified to agree exactly on accept, top-level
-excess key, nested excess key, wrong type and empty object — so the strict column
-compares equal work. It previously did not: typebox's and ajv's `assertStrict`
-entries reused their _loose_ checkers (no `additionalProperties: false`), which
-meant our real excess-key checking was being scored against four libraries doing
-none. zod is measured with `safeParse` for the assert cases because it has no
-allocation-free assert at all, so its assert rows necessarily carry parse cost.
+Both zmdb rows are generated from the single `Moltar` interface in
+[`harness/validation/model.ts`](./harness/validation/model.ts) — the runtime row
+walks the reflected `TypeIR`, the AOT row runs the transformer's own output — so the
+two paths measure one declaration instead of two hand-written lookalikes. The
+previous zmdb rows in this table were both hand-written and neither matched what the
+library produces; see footnotes ¹ and ² above for what changed and by how much.
+
+Before it times anything the harness runs all twelve checkers (six libraries ×
+loose/strict) over six probes — accept, top-level excess key, nested excess key,
+wrong type, empty object, NaN-as-`number` — and exits non-zero if any disagrees, so
+the columns compare equal work by construction. That equivalence used to be a
+sentence here, verified once by hand and then left behind by every later change to
+what the strict checkers were.
+
+#### Three sessions, because the absolute numbers drift and the ratios do not
+
+This laptop throttles under sustained load (5.13 → ~2.8 GHz — the same effect that
+invalidated the framework ranking further down). Three back-to-back sessions,
+cooling between them, moved every library's absolute number down together: zmdb-aot
+`assertLoose` went 107.9M → 103.3M → 98.2M and typebox's 122.8M → 117.7M → 114.4M.
+So a single-run gap is not a result. The ratios are:
+
+| ratio                         | session 1 | session 2 | session 3 | reading                  |
+| ----------------------------- | --------: | --------: | --------: | ------------------------ |
+| aot ÷ runtime, `assertLoose`  |    13.79× |    14.18× |    13.76× | stable                   |
+| aot ÷ runtime, `assertStrict` |    10.22× |    10.00× |     7.98× | ~8–10×                   |
+| aot ÷ typebox, `assertLoose`  |     0.88× |     0.88× |     0.86× | **behind, consistently** |
+| aot ÷ typebox, `assertStrict` |     1.08× |     1.02× |     0.82× | **inconclusive**         |
+| aot ÷ ajv, `assertLoose`      |     1.55× |     1.53× |     1.47× | ahead                    |
+| aot ÷ ajv, `assertStrict`     |     1.42× |     1.32× |     1.16× | ahead                    |
+| aot ÷ zod v3, `assertLoose`   |     82.3× |     89.3× |     83.8× | ahead                    |
+| aot ÷ zod v3, `assertStrict`  |     42.3× |     43.8× |     35.2× | ahead                    |
+
+The strict rows are the noisy ones, and zmdb's strict path is the more
+thermally sensitive of the two: it fell 29% across the three sessions where
+typebox's fell 7%. Whatever the cause, "we lead typebox on strict" is not something
+this box can establish, so it is not claimed below.
+
+The strict column did not always compare equal work: typebox's and ajv's
+`assertStrict` entries once reused their _loose_ checkers (no
+`additionalProperties: false`), which meant our real excess-key checking was being
+scored against four libraries doing none. zod is measured with `safeParse` for the
+assert cases because it has no allocation-free assert at all, so its assert rows
+necessarily carry parse cost.
 
 ### What this shows (honestly)
 
-- **The AOT premise holds, but the multiple was overstated ~4×.** Measured
-  DCE-proof, transformer-built `zmdb-aot` is **10.3–22.2× the `zmdb` runtime**
-  (parseSafe 10.3×, parseStrict 10.8×, assertLoose 22.2×, assertStrict 11.2×) —
-  not the "~40–100×" previously claimed here, which was the discarded-result
-  artifact. It is still **~44–52× zod v3** on the assert cases, which is the gap
-  that motivated the work.
-- **Against a compiled competitor we are level, not ahead.** On the honest
-  strict comparison zmdb-aot leads typebox's JIT by **1.03×** (48.7M vs 47.2M)
-  and on assertLoose by **1.09×** (139.2M vs 127.2M). Both are inside a 1.04×
-  run-to-run spread, so the correct reading is _tied with typebox, comfortably
-  ahead of ajv_. The earlier "352M ops/s, beats `new Function()` JIT (124M)"
-  claim was measuring eliminated code; static CSP-safe emission is a real
-  architectural advantage over runtime `eval`, but it is not a 2.8× throughput
-  advantage.
-- **Strict cases: the `for-in` count is now actually implemented.** This section
-  previously described an "inlined `for-in` excess-key count (no `Object.keys()`
-  allocation)" that did not exist — `aotEquals` was calling `Object.keys()` twice
-  and hashing every key through a `Set`. Writing what was documented measured
-  **2.46× on the accept path** (49.7M vs 20.2M) at parity on reject, and is what
-  keeps the strict row level with typebox at all.
-- **Runtimes matter** — Node/Bun/Deno (see dashboard). Treat the cross-runtime
-  table below as carrying the same inflation as the upstream table; it has not
-  been re-measured DCE-proof.
+- **The AOT premise holds, and the multiple is ~8–14×.** Measured DCE-proof,
+  transformer-generated `zmdb-aot` is **8.0–14.2× the `zmdb` runtime** across the
+  three sessions (assertLoose is the stable end at 13.8–14.2×, assertStrict the
+  noisy end at 8.0–10.2×) — not the "~40–100×" once claimed here, which was the
+  discarded-result artifact, and not the 10.3–22.2× reported before either: the top
+  of that range came from a hand-inlined AOT file doing less work than the
+  transformer emits and a descriptor-fed runtime row doing more. Against zod v3 the
+  emitted code is **35–44× on assertStrict and 82–89× on assertLoose**, which is the
+  gap that motivated the work.
+- **Against a compiled competitor: behind on loose, a tie on strict.** zmdb-aot
+  trails typebox's JIT on `assertLoose` by **1.14–1.17×**, the same deficit in all
+  three sessions. On `assertStrict` the ratio moved from 1.08× ahead to 0.82× behind
+  across those sessions, which is far more than the within-run spread, so this box
+  cannot resolve that column at all and no direction is claimed for it. Against ajv
+  zmdb-aot is **1.16–1.55× ahead** on both. The earlier "352M ops/s, beats `new
+Function()` JIT (124M)" claim was measuring eliminated code; static CSP-safe
+  emission is a real architectural advantage over runtime `eval`, but it is not a
+  throughput advantage.
+- **The loose gap is per-property work the emitter has not optimised.** typebox
+  emits one `Number.isFinite(v['n'])` per number field; zmdb emits `typeof v.n ===
+"number" && !Number.isNaN(v.n)`, and re-reads `v.deeplyNested` for each of its
+  three properties instead of binding it once. Both are things the emitter can fix,
+  and neither is visible until the benchmark measures the emitter's actual output —
+  which is the argument for generating the file rather than writing what we think
+  it would say.
+- **Strict cases: the `for-in` count is real.** This section once described an
+  "inlined `for-in` excess-key count (no `Object.keys()` allocation)" that did not
+  exist. The transformer now emits it (`_zmdbExcessMoltar1` in
+  [`aot.generated.ts`](./harness/validation/aot.generated.ts), with an early bail
+  once the count exceeds the field total), against typebox's
+  `Object.getOwnPropertyNames(value).length === 2`, which allocates an array per
+  call. That is a plausible reason the strict column comes out closer than the loose
+  one, but the strict column is also the unstable one here, so it stays a mechanism
+  and not a measured win.
+- **Runtimes matter** — Node/Bun/Deno (see dashboard). The cross-runtime table
+  below is historical: it carries the discarded-result inflation _and_ was measured
+  against the hand-inlined AOT file.
 - **The shipped, out-of-the-box path is still the `zmdb` runtime** unless the
-  transformer plugin is enabled. With the plugin, code gets the AOT path. Note
-  what that means for the honest comparison: the _default_ install is the ~6.3M
-  ops/s row, behind ajv and typebox and ahead of zod and valibot.
+  transformer plugin is enabled. With the plugin, code gets the AOT path. Note what
+  that means for the honest comparison: the _default_ install is the ~7.9M ops/s
+  row, behind ajv and typebox and ahead of zod and valibot.
 
 ### Cross-runtime (Node / Bun / Deno) — `zmdb-aot`, ops/sec
 
@@ -259,10 +362,13 @@ The full per-library × per-runtime matrix is in the interactive dashboard
 | runtime |   parseSafe | parseStrict |  assertLoose | assertStrict |
 | ------- | ----------: | ----------: | -----------: | -----------: |
 | node 26 |  87,600,000 |  44,600,000 |  102,200,000 |   49,900,000 |
-| bun 1.4 | 100,600,000 |  40,700,000 | 942,400,000² |   41,600,000 |
+| bun 1.4 | 100,600,000 |  40,700,000 | 942,400,000³ |   41,600,000 |
 | deno 2  | 174,500,000 |  67,600,000 |  182,000,000 |   60,300,000 |
 
-² Reattributed. This was blamed on Bun's JIT; it is not Bun-specific. The
+This table is **historical**: it was measured against the hand-inlined AOT file
+that footnote ¹ replaces, and has not been re-run against the generated one.
+
+³ Reattributed. This was blamed on Bun's JIT; it is not Bun-specific. The
 harness was discarding the result, and Node reproduces the same ~1,074M ops/s
 under those conditions (see the warning above). Every row in this table carries
 that inflation to some degree — the AOT rows most of all, because they are the
@@ -298,16 +404,21 @@ Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/
   DCE-proof harness does not include typia (it needs its own AOT transform step),
   so **we currently have no honest zmdb-vs-typia number at all**. Treat every
   typia comparison on this page as unverified until that is fixed.
-- **assertLoose — level with typebox, not ahead of it.** The "352M ops/s, faster
-  than `new Function()` JIT (124M)" claim was measuring eliminated code.
-  DCE-proof: **139.2M vs typebox's 127.2M, a 1.09× edge inside a 1.04× spread.**
-  Static CSP-safe emission is still the right architecture — no runtime `eval`,
-  works under a strict CSP — but it is a tie on throughput, not a rout.
-- **Strict caps ~48M** — property of excess-key enumeration; every key has to be
-  looked at at least once. Level with typebox (48.7M vs 47.2M) after the `for-in`
-  rewrite; before it we were at 20.2M and genuinely behind.
+- **assertLoose — behind typebox.** The "352M ops/s, faster than `new Function()`
+  JIT (124M)" claim was measuring eliminated code. Measured DCE-proof against the
+  transformer's own output, typebox is **1.14–1.17× ahead** and it is ahead by that
+  much in all three sessions. Static CSP-safe emission is still the right
+  architecture — no runtime `eval`, works under a strict CSP — but on this case it
+  costs throughput rather than winning it. The per-field NaN guard and the
+  un-hoisted nested read are the two known reasons, and both are fixable in the
+  emitter.
+- **Strict caps at roughly half the loose rate** — property of excess-key
+  enumeration; every key has to be looked at at least once. The `for-in` count is
+  what got it there (before that rewrite it was 20.2M and clearly behind), but
+  whether it now leads typebox is **not resolvable on this box**: the ratio ran
+  1.08× ahead, 1.02× ahead, 0.82× behind across three back-to-back sessions.
 - **Runtime default loses to ajv and typebox** — by design; peak needs the AOT
-  plugin. The default install is ~6.3M ops/s assertLoose.
+  plugin. The default install is ~7.8M ops/s assertLoose.
 - **ORM tail (p95 256 vs 207) — cause still unknown, and one hypothesis is now
   ruled out.** Two corrections to what this bullet used to assert. First, the
   compile step is **~886–993ns, not ~254ns** (measured: 993ns for
@@ -698,15 +809,16 @@ Node has no equivalent to switch to; `createServer` is the only path there.
   formerly-DNF route returns HTTP 200 with correct data on real Postgres. One
   caveat: the aggregate routes return a per-order aggregate projection, not the
   parent-joined projection drizzle/kysely emit. Validation: **0 case gaps**.
-- **Validation speed**: the AOT path is real and transformer-produced
-  (#75/#79–#83) — **10.3–22.2× the runtime path** measured DCE-proof, and ~44–52×
-  zod v3 on the assert cases. Against a compiled competitor it is a **tie**:
-  1.09× typebox on assertLoose and 1.03× on assertStrict, both inside the 1.04×
-  run-to-run spread. The previously published "~40–100×" and the typia
-  comparisons came from a harness that discarded results and so deleted our
-  validator's calls outright; there is currently **no honest zmdb-vs-typia
-  number**. Shipped default is still the runtime path unless the transformer
-  plugin is enabled.
+- **Validation speed**: the AOT path is real, and the file measured is the
+  transformer's own output, generated from one interface and committed
+  (#75/#79–#83) — **8–14× the runtime path** measured DCE-proof, and 35–44×
+  (strict) to 82–89× (loose) zod v3 on the assert cases. Against a compiled
+  competitor: **1.14–1.17× behind typebox on assertLoose in every session, and
+  assertStrict too unstable here to call** (1.08× ahead → 0.82× behind across three
+  sessions). The previously published "~40–100×" and the typia comparisons came
+  from a harness that discarded results and so deleted our validator's calls
+  outright; there is currently **no honest zmdb-vs-typia number**. Shipped default
+  is still the runtime path unless the transformer plugin is enabled.
 - **ORM speed**: **tied with kysely and drizzle** on the full 13-route k6 run.
   Three sessions of interleaved repeats, each ORM's overall median req/s:
 

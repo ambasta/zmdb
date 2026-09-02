@@ -32,7 +32,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const ALLOWED = {
   // Imports `packages/web/dist/index.js`, which is gitignored build output, so this file
   // cannot be in any program in a fresh checkout — which is also why nothing typechecks it.
-  // Plan phase 7c deletes its hand-written descriptors and the `dist` import together.
+  // The app measures the published package on purpose, so the `dist` import stays; the
+  // codemod needs a program and therefore cannot read this one.
   'benchmarks/harness/framework/app.ts': ['not part of'],
 
   // `interface Config` and `const ConfigSchema` in one scope: the interface name the codemod
@@ -62,7 +63,7 @@ const ALLOWED = {
   // argument to a helper. There is nothing to name the interface after, and these exist to
   // test the runtime builder's own error paths, which the tagged front-end replaces outright
   // rather than reimplements.
-  'packages/schema-core/src/ir/ir.spec.ts': ['not bound to a name'],
+  'packages/schema-core/src/ir/ir.spec.ts': ['not bound to a name', 'not bound to a name'],
   'packages/schema-core/src/openapi/singularization.spec.ts': ['not bound to a name'],
   'packages/schema-core/src/schema-core.spec.ts': ['not bound to a name', 'not bound to a name', 'not bound to a name'],
 };

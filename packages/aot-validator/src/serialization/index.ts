@@ -1,7 +1,7 @@
 // AOT serialization — implementation.
 // #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
 import type { ValidationIssue } from '../advanced/index.ts';
-import { assert, AssertError, type TypeDescriptor } from '../utilities/index.ts';
+import { assert, AssertError, type RuntimeSchema } from '../utilities/index.ts';
 
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
 // values; bigint throws TypeError (documented policy). The AOT transformer will
@@ -19,9 +19,12 @@ export function stringify(value: unknown): string {
   });
 }
 
-export function assertStringify(value: unknown, descriptor?: TypeDescriptor): string {
+// `RuntimeSchema`, not `TypeDescriptor`: the witness a user has is the generated one, and
+// an entry point that only accepts the hand-written form is an entry point they cannot
+// reach (REQ-TF-9).
+export function assertStringify(value: unknown, schema?: RuntimeSchema): string {
   // Validate first (throws AssertError on failure), then serialize.
-  assert(value, descriptor);
+  assert(value, schema);
   return stringify(value);
 }
 
@@ -37,7 +40,7 @@ export interface ParseResult<T> {
  *
  * `T` is an *unvalidated* claim about the payload — exactly as much as
  * `JSON.parse` gives you, and no more. Use {@link decode} when you need the
- * claim checked against a descriptor.
+ * claim checked against a schema.
  */
 export function parse<T = unknown>(text: string): ParseResult<T> {
   try {
@@ -60,14 +63,14 @@ export function parse<T = unknown>(text: string): ParseResult<T> {
   }
 }
 
-// #54 — typed parse/decode: parse JSON then validate into T against a
-// descriptor. Malformed JSON or a validation failure yields success:false with
-// structured issues (exact paths).
-export function decode<T = unknown>(text: string, descriptor?: TypeDescriptor): ParseResult<T> {
+// #54 — typed parse/decode: parse JSON then validate into T against a schema.
+// Malformed JSON or a validation failure yields success:false with structured
+// issues (exact paths).
+export function decode<T = unknown>(text: string, schema?: RuntimeSchema): ParseResult<T> {
   const parsed = parse<T>(text);
   if (!parsed.success) return parsed;
   try {
-    const data = assert<T>(parsed.data, descriptor);
+    const data = assert<T>(parsed.data, schema);
     return { success: true, data };
   } catch (err) {
     const issues = err instanceof AssertError ? err.issues : [];

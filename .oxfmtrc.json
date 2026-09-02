@@ -13,6 +13,7 @@
     "site/**",
     "benchmarks/harness/framework/.bin/**",
     "benchmarks/upstream/**",
+    "**/*.generated.ts",
     "benchmarks/harness/framework/peers/**",
     "benchmarks/site/*.json",
     "**/.results/**",

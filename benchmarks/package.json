@@ -10,6 +10,7 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:*",
     "@zmdb/query-compiler": "workspace:*",
+    "@zmdb/schema-core": "workspace:*",
     "kysely": "^0.29.5"
   },
   "engines": {

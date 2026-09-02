@@ -25,6 +25,7 @@ that instead of a number.
 | `yarn bench:framework`                        | web-frameworks contract + `oha` load, plus every peer     |
 | `yarn bench:normalize`                        | re-derive the dashboard JSON from results already on disk |
 | `yarn bench:graft` / `yarn bench:graft:check` | apply / verify the graft without measuring                |
+| `yarn bench:validation:generate`              | regenerate the validation model's two generated modules   |
 
 ## How zmdb gets into someone else's suite
 
@@ -49,20 +50,60 @@ sources by relative path, which only resolves from inside the submodule checkout
 
 Two participants, deliberately not one:
 
-- **`zmdb`** — the runtime validator walking a `TypeDescriptor`. No transformer.
+- **`zmdb`** — the runtime validator walking a `TypeIR`. No transformer.
 - **`zmdb-aot`** — the same public API with `@zmdb/aot-validator`'s transformer
-  applied. `cases/zmdb-aot/src/generate.ts` runs the **real** `transformTypeChecks`
-  over `is<T>()` source at compile time and refuses to emit anything if the
-  transform left the call in place, so the benchmarked code is transformer output
-  and not a hand-tuned lookalike.
+  applied.
 
 Reporting them separately is the point: collapsing them into one row would let the
 AOT number stand in for the runtime path that most callers get by default.
 
+Both participants are three lines of re-export. What they re-export comes from
+`../scripts/generate-validation-model.mjs`, which reads the one `Moltar` interface
+in [`validation/model.ts`](./validation/model.ts) and writes two generated modules
+next to it:
+
+| generated file       | what it is                                                     |
+| -------------------- | -------------------------------------------------------------- |
+| `model.generated.ts` | the `TypeIR` the runtime walker reads, from `Reflector.typeIR` |
+| `aot.generated.ts`   | the inlined functions, from the real `transformFile`           |
+
+Both come off the same `is<Moltar>(...)` call site, so the two rows cannot end up
+describing different shapes, and the generator refuses to write anything if the
+source has a semantic error, if the reflection declines a type, or if the transform
+leaves a generic call in place. Run it with `yarn bench:validation:generate`; CI runs
+`yarn bench:validation:generate:check`, which fails on drift, because a stale
+generated file means the published numbers describe a shape nobody declared.
+
+The AOT participant used to be a hand-inlined file whose header claimed it was
+"EXACTLY as zmdb's transformer WOULD emit". It was not, and the difference was worth
+15% on `assertLoose` — see footnote ¹ in [`../RESULTS.md`](../RESULTS.md).
+
+Before it times anything, `validation/validation.bench.ts` runs all twelve checkers
+(six libraries × loose/strict) over six probes — accept, top-level excess key,
+nested excess key, wrong type, empty object, NaN — and exits non-zero if any of them
+disagrees. A speed table for checkers that answer differently is not a comparison,
+and that equivalence used to be a sentence in RESULTS.md rather than something the
+harness enforced.
+
+One caution on reading its output: this box throttles under sustained load, and the
+top of this field is fast enough to notice. Three back-to-back sessions moved every
+library's absolute number down together by ~8%, and moved the zmdb-aot-vs-typebox
+`assertStrict` ratio from 1.08× ahead to 0.82× behind — far more than the within-run
+spread the harness prints. So a gap between two fast libraries needs more than one
+session before it means anything. `REPEATS=9 ./run.sh` widens the median within a
+session; it does not help with drift across sessions, which is why RESULTS.md
+publishes the ratios per session instead of one number.
+
 ```sh
 yarn bench:validation                              # whole field
 node benchmarks/scripts/bench.mjs validation --libs=zmdb,zmdb-aot,typia,zod,valibot
+yarn bench:validation:generate                     # refresh the two generated modules
+cd benchmarks/harness/validation && ./run.sh       # the DCE-proof local harness
 ```
+
+`--libs` also filters the normalisation step, so a partial run rewrites the
+dashboard JSON with only the libraries it measured. To refresh a couple of rows
+without dropping the rest, run with `--libs=…` and then `yarn bench:normalize`.
 
 Two things about the install: npm 12 refuses `remote`-type dependencies, and
 upstream pins `@paseri/paseri` to a JSR tarball URL, so the install needs

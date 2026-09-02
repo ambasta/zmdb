@@ -1,11 +1,11 @@
 {
   "suite": "validation (moltar/typescript-runtime-type-benchmarks)",
   "upstreamCommit": "25a1d18491daf11e2d04c8f749b188fed28773d3",
-  "generatedAt": "2026-08-31T10:50:11.160Z",
+  "generatedAt": "2026-09-02T13:24:59.480Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/moltar/typescript-runtime-type-benchmarks",
-  "methodology": "Upstream runner, one forked process per library. Four cases over the suite's fixed data model: parseSafe, parseStrict, assertLoose, assertStrict. ops/sec with the runner's own error margin. `zmdb` is the runtime (descriptor-walking) validator; `zmdb-aot` is the same code with the transformer applied.",
+  "methodology": "Upstream runner, one forked process per library. Four cases over the suite's fixed data model: parseSafe, parseStrict, assertLoose, assertStrict. ops/sec with the runner's own error margin. `zmdb` is the runtime (IR-walking) validator; `zmdb-aot` is the same code with the transformer applied.",
   "runtime": "node v26.8.1",
   "kinds": [
     "parseSafe",
@@ -32,23 +32,6 @@
       "dnf": []
     },
     {
-      "name": "zmdb-aot",
-      "isZmdb": true,
-      "ops": {
-        "parseSafe": 99413415,
-        "parseStrict": 43857275,
-        "assertLoose": 102361330,
-        "assertStrict": 39442876
-      },
-      "margin": {
-        "parseSafe": 3.64,
-        "parseStrict": 2.94,
-        "assertLoose": 3.32,
-        "assertStrict": 2.92
-      },
-      "dnf": []
-    },
-    {
       "name": "@ts-runtypes",
       "isZmdb": false,
       "ops": {
@@ -62,6 +45,23 @@
         "parseStrict": 3.53,
         "assertLoose": 3,
         "assertStrict": 2.02
+      },
+      "dnf": []
+    },
+    {
+      "name": "zmdb-aot",
+      "isZmdb": true,
+      "ops": {
+        "parseSafe": 83288112,
+        "parseStrict": 55677518,
+        "assertLoose": 93197945,
+        "assertStrict": 51735825
+      },
+      "margin": {
+        "parseSafe": 2.36,
+        "parseStrict": 2.25,
+        "assertLoose": 2.67,
+        "assertStrict": 1.79
       },
       "dnf": []
     },
@@ -251,6 +251,23 @@
         "parseStrict": 0.54,
         "assertLoose": 0.53,
         "assertStrict": 0.62
+      },
+      "dnf": []
+    },
+    {
+      "name": "zmdb",
+      "isZmdb": true,
+      "ops": {
+        "parseSafe": 7774947,
+        "parseStrict": 5147510,
+        "assertLoose": 7821013,
+        "assertStrict": 5087724
+      },
+      "margin": {
+        "parseSafe": 0.43,
+        "parseStrict": 0.41,
+        "assertLoose": 0.38,
+        "assertStrict": 0.35
       },
       "dnf": []
     },
@@ -580,23 +597,6 @@
         "parseStrict": 0.52,
         "assertLoose": 0.52,
         "assertStrict": 0.56
-      },
-      "dnf": []
-    },
-    {
-      "name": "zmdb",
-      "isZmdb": true,
-      "ops": {
-        "parseSafe": 1435731,
-        "parseStrict": 3579249,
-        "assertLoose": 5075170,
-        "assertStrict": 3614100
-      },
-      "margin": {
-        "parseSafe": 3.12,
-        "parseStrict": 3.88,
-        "assertLoose": 2.17,
-        "assertStrict": 1.87
       },
       "dnf": []
     },

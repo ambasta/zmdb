@@ -26,6 +26,14 @@ if [ ! -d node_modules ]; then
   COREPACK_ENABLE_STRICT=0 npm install --no-audit --no-fund --ignore-scripts
 fi
 
+# The two zmdb rows are generated from `model.ts` — the IR for the runtime path, the
+# inlined functions for the AOT path — so a stale generated file cannot be measured. This
+# runs from the repository root, where `typescript` is installed: the checker is a child
+# process the reflection spawns, and this harness's node_modules holds only the
+# competitors.
+echo "==> generating the zmdb validators from model.ts"
+node ../../scripts/generate-validation-model.mjs
+
 # Node strips the types natively; no build step and no bundler, so what runs is
 # exactly what is in the file.
 echo "==> running validation benchmark (this takes a few minutes)"

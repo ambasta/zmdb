@@ -202,7 +202,7 @@ const validation = {
         methodology:
           "Upstream runner, one forked process per library. Four cases over the suite's fixed " +
           'data model: parseSafe, parseStrict, assertLoose, assertStrict. ops/sec with the ' +
-          "runner's own error margin. `zmdb` is the runtime (descriptor-walking) validator; " +
+          "runner's own error margin. `zmdb` is the runtime (IR-walking) validator; " +
           '`zmdb-aot` is the same code with the transformer applied.',
         runtime: `${results[0]?.runtime ?? 'node'} ${results[0]?.runtimeVersion ?? process.version}`,
       }),

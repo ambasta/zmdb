@@ -4,8 +4,9 @@ import Ajv from 'ajv';
 // Focused, honest validation benchmark that reuses moltar's exact data model
 // and the four case kinds (parseSafe / parseStrict / assertLoose / assertStrict).
 // Competitors: zod, @sinclair/typebox, ajv, valibot — all run as real installed
-// libraries. zmdb runs both its AOT path (hand-inlined as the transformer would
-// emit) and its RUNTIME path (TypeDescriptor walk), labelled separately.
+// libraries. zmdb runs both its AOT path (the transformer's actual output) and its
+// RUNTIME path (the IR walk), labelled separately. Both are generated from the one
+// interface in `model.ts` by `yarn bench:validation:generate` — see that file.
 //
 // typia is intentionally excluded: it cannot run without its own AOT transform
 // build step, so including it untransformed would misrepresent it.
@@ -46,8 +47,10 @@ import {
 } from 'valibot';
 import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
 
-import { is, equals, type TypeDescriptor } from '../../../packages/aot-validator/src/utilities/index.ts';
-import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './zmdb-aot.ts';
+import { is, equals } from '../../../packages/aot-validator/src/utilities/index.ts';
+import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './aot.generated.ts';
+import { MOLTAR } from './model.generated.ts';
+import type { Moltar } from './model.ts';
 
 const LONG_STRING =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
@@ -57,7 +60,10 @@ const LONG_STRING =
 // modulo, so the rotation itself costs almost nothing.
 const POOL_SIZE = 8;
 const POOL_MASK = POOL_SIZE - 1;
-const POOL = Array.from({ length: POOL_SIZE }, (_, i) => ({
+// Typed as `Moltar`, so the sample data cannot drift from the declaration every
+// validator under test was built from — a benchmark whose input does not satisfy the
+// schema measures the reject path and reports it as the accept path.
+const POOL: Moltar[] = Array.from({ length: POOL_SIZE }, (_, i) => ({
   number: i,
   negNumber: -i,
   maxNumber: Number.MAX_VALUE,
@@ -70,7 +76,9 @@ const POOL = Array.from({ length: POOL_SIZE }, (_, i) => ({
 // How many validations happen inside one timed tinybench call. See note 3.
 const BATCH = 1_000;
 // How many times the whole suite is re-run before we take a median per library.
-const REPEATS = 5;
+// `run.sh` documents `REPEATS=9 ./run.sh`, so it has to actually be read from the
+// environment; it was a plain constant, and that documented knob did nothing.
+const REPEATS = Number(process.env.REPEATS ?? '5');
 
 // --- keeping results alive -------------------------------------------------
 // `sink` and `sinkRef` are module-level and printed at the end, so V8 cannot
@@ -174,22 +182,11 @@ const vFields = {
 const vLoose = vObject({ ...vFields, deeplyNested: vObject(vNested) });
 const vStrict = vStrictObject({ ...vFields, deeplyNested: vStrictObject(vNested) });
 
-// --- zmdb (runtime path) ---------------------------------------------------
-const zmdbDesc: TypeDescriptor = {
-  kind: 'object',
-  fields: {
-    number: { kind: 'number' },
-    negNumber: { kind: 'number' },
-    maxNumber: { kind: 'number' },
-    string: { kind: 'string' },
-    longString: { kind: 'string' },
-    boolean: { kind: 'boolean' },
-    deeplyNested: {
-      kind: 'object',
-      fields: { foo: { kind: 'string' }, num: { kind: 'number' }, bool: { kind: 'boolean' } },
-    },
-  },
-};
+// --- zmdb ------------------------------------------------------------------
+// Both zmdb rows come from `model.ts`, through the generator: `MOLTAR` is the IR the
+// runtime walker reads and the `aot*` functions are what the real transformer emitted for
+// the same declaration. Neither is written here, which is the difference between measuring
+// zmdb and measuring a hand-tuned lookalike of zmdb (REQ-TF-9).
 
 type CaseKind = 'parseSafe' | 'parseStrict' | 'assertLoose' | 'assertStrict';
 
@@ -257,28 +254,91 @@ const impls: Record<string, Partial<Record<CaseKind, (n: number) => void>>> = {
   },
   'zmdb (runtime)': {
     assertLoose: n => {
-      for (let i = 0; i < n; i += 1) keep(is(POOL[i & POOL_MASK], zmdbDesc));
+      for (let i = 0; i < n; i += 1) keep(is(POOL[i & POOL_MASK], MOLTAR));
     },
     assertStrict: n => {
-      for (let i = 0; i < n; i += 1) keep(equals(POOL[i & POOL_MASK], zmdbDesc));
+      for (let i = 0; i < n; i += 1) keep(equals(POOL[i & POOL_MASK], MOLTAR));
     },
     // parse variants: zmdb validates then returns; model with is()+return.
     parseSafe: n => {
       for (let i = 0; i < n; i += 1) {
         const d = POOL[i & POOL_MASK];
-        keepRef(is(d, zmdbDesc) ? d : null);
+        keepRef(is(d, MOLTAR) ? d : null);
       }
     },
     parseStrict: n => {
       for (let i = 0; i < n; i += 1) {
         const d = POOL[i & POOL_MASK];
-        keepRef(equals(d, zmdbDesc) ? d : null);
+        keepRef(equals(d, MOLTAR) ? d : null);
       }
     },
   },
 };
 
 const cases: CaseKind[] = ['parseSafe', 'parseStrict', 'assertLoose', 'assertStrict'];
+
+// --- equal work, checked before anything is timed --------------------------
+// A speed comparison between checkers that do not agree is not a comparison. This
+// used to be a claim in RESULTS.md — "all four strict checkers were verified to
+// agree" — established once, by hand, and then left behind by every subsequent
+// change to what the strict checkers are. It runs now, every time, and refuses to
+// print a table if it fails.
+//
+// NaN is in the set because all six reject it — zmdb guards `!Number.isNaN`,
+// typebox `Number.isFinite`, and zod, valibot and ajv all decline it as a
+// `number`. That matters for reading the table: the per-field NaN guard zmdb emits
+// is not extra work it does and nobody else does.
+const strictCheck: Record<string, (v: unknown) => boolean> = {
+  zod: v => zodStrict.safeParse(v).success,
+  typebox: v => tbStrict.Check(v),
+  ajv: v => ajvStrict(v) === true,
+  valibot: v => vIs(vStrict, v),
+  'zmdb (aot)': v => aotEquals(v),
+  'zmdb (runtime)': v => equals(v, MOLTAR),
+};
+const looseCheck: Record<string, (v: unknown) => boolean> = {
+  zod: v => zodLoose.safeParse(v).success,
+  typebox: v => tbLoose.Check(v),
+  ajv: v => ajvLoose(v) === true,
+  valibot: v => vIs(vLoose, v),
+  'zmdb (aot)': v => aotIs(v),
+  'zmdb (runtime)': v => is(v, MOLTAR),
+};
+
+const good = POOL[0] as Moltar;
+const probes: { name: string; value: unknown; strict: boolean; loose: boolean }[] = [
+  { name: 'accept', value: good, strict: true, loose: true },
+  { name: 'top-level excess key', value: { ...good, extra: 1 }, strict: false, loose: true },
+  {
+    name: 'nested excess key',
+    value: { ...good, deeplyNested: { ...good.deeplyNested, extra: 1 } },
+    strict: false,
+    loose: true,
+  },
+  { name: 'wrong type', value: { ...good, number: 'not a number' }, strict: false, loose: false },
+  { name: 'empty object', value: {}, strict: false, loose: false },
+  { name: 'NaN as number', value: { ...good, number: Number.NaN }, strict: false, loose: false },
+];
+
+const disagreements: string[] = [];
+for (const probe of probes) {
+  for (const [lib, check] of Object.entries(strictCheck)) {
+    const got = check(probe.value);
+    if (got !== probe.strict) disagreements.push(`${lib} strict on "${probe.name}": got ${String(got)}`);
+  }
+  for (const [lib, check] of Object.entries(looseCheck)) {
+    const got = check(probe.value);
+    if (got !== probe.loose) disagreements.push(`${lib} loose on "${probe.name}": got ${String(got)}`);
+  }
+}
+if (disagreements.length > 0) {
+  console.error('the checkers under test do not agree, so their speeds are not comparable:');
+  for (const line of disagreements) console.error(`  ${line}`);
+  process.exit(1);
+}
+console.log(
+  `equal work: ${String(probes.length)} probes, all ${String(Object.keys(strictCheck).length)} libraries agree`,
+);
 
 const median = (xs: number[]): number => {
   const sorted = xs.toSorted((a, b) => a - b);

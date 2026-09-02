@@ -52,6 +52,17 @@ jobs:
       - name: Verify every schema converts to a tagged interface
         run: yarn verify:codemod
 
+      # A descriptor is the shape of a type written out again by hand, in a form the compiler
+      # cannot check against the type it claims to describe. The witness is generated now, and
+      # this is what keeps it that way (REQ-TF-9).
+      - name: Verify no hand-written descriptors
+        run: yarn verify:no-descriptors
+
+      # The two zmdb rows in the validation benchmark are generated from one interface. A
+      # stale generated file means the published numbers describe a shape nobody declared.
+      - name: Verify the generated validation model is current
+        run: yarn bench:validation:generate:check
+
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
 

@@ -1,7 +1,11 @@
 // #70 — validation-suite adapter + runner.
 // Maps the moltar case model onto zmdb's aot-validator entry points and runs
 // a tiny in-process benchmark producing BenchResult[] (with any DNF).
-import { is, validate, type TypeDescriptor } from '@zmdb/aot-validator/utilities';
+//
+// The witness is a `TypeIR`, which is what a generated one is: this file used to take a
+// `TypeDescriptor`, and every caller therefore had to hand-write the shape it was already
+// declaring in TypeScript (REQ-TF-9).
+import { equals, is, validate, type TypeIR } from '@zmdb/aot-validator/utilities';
 
 import type { BenchResult } from '../results.ts';
 
@@ -9,40 +13,33 @@ import type { BenchResult } from '../results.ts';
 // declared locally to avoid a hard @types/node dependency in the harness).
 declare const performance: { now(): number };
 
-// Strict membership: is<T> plus a top-level excess-key check. (We implement the
-// excess-key guard here rather than depend on equals<T>, which is a separate
-// unblocked-later concern; strict parsing itself is in-scope, not a DNF.)
-function noExcessKeys(input: unknown, d: TypeDescriptor): boolean {
-  if (d.kind !== 'object' || typeof input !== 'object' || input === null) return true;
-  const allowed = new Set(Object.keys(d.fields ?? {}));
-  return Object.keys(input).every(k => allowed.has(k));
-}
-
 // The four moltar cases, mapped to zmdb behavior.
 export interface ValidationAdapter {
   // safe-parse: validate + strip excess → returns validated data or null.
-  safeParse(input: unknown, d: TypeDescriptor): unknown | null;
+  safeParse(input: unknown, type: TypeIR): unknown | null;
   // strict-parse: validate + reject excess → returns data or null.
-  strictParse(input: unknown, d: TypeDescriptor): unknown | null;
+  strictParse(input: unknown, type: TypeIR): unknown | null;
   // loose-assert: assert, allow excess → boolean.
-  looseAssert(input: unknown, d: TypeDescriptor): boolean;
+  looseAssert(input: unknown, type: TypeIR): boolean;
   // strict-assert: assert, reject excess → boolean.
-  strictAssert(input: unknown, d: TypeDescriptor): boolean;
+  strictAssert(input: unknown, type: TypeIR): boolean;
 }
 
 export const zmdbAdapter: ValidationAdapter = {
-  safeParse(input, d) {
-    const r = validate(input, d);
+  safeParse(input, type) {
+    const r = validate(input, type);
     return r.success ? r.data : null;
   },
-  strictParse(input, d) {
-    return is(input, d) && noExcessKeys(input, d) ? input : null;
+  strictParse(input, type) {
+    return equals(input, type) ? input : null;
   },
-  looseAssert(input, d) {
-    return is(input, d);
+  looseAssert(input, type) {
+    return is(input, type);
   },
-  strictAssert(input, d) {
-    return is(input, d) && noExcessKeys(input, d);
+  // `equals`, not `is` plus a local excess-key check: the strict case is a shipped
+  // entry point now, and an adapter that reimplements it is benchmarking the adapter.
+  strictAssert(input, type) {
+    return equals(input, type);
   },
 };
 
@@ -53,15 +50,15 @@ const CASE_IDS = ['safe-parse', 'strict-parse', 'loose-assert', 'strict-assert']
 export function runValidationSuite(
   target: string,
   adapter: ValidationAdapter,
-  descriptor: TypeDescriptor,
+  type: TypeIR,
   goodInput: unknown,
   iterations = 1000,
 ): BenchResult[] {
   const runners: Record<(typeof CASE_IDS)[number], () => void> = {
-    'safe-parse': () => void adapter.safeParse(goodInput, descriptor),
-    'strict-parse': () => void adapter.strictParse(goodInput, descriptor),
-    'loose-assert': () => void adapter.looseAssert(goodInput, descriptor),
-    'strict-assert': () => void adapter.strictAssert(goodInput, descriptor),
+    'safe-parse': () => void adapter.safeParse(goodInput, type),
+    'strict-parse': () => void adapter.strictParse(goodInput, type),
+    'loose-assert': () => void adapter.looseAssert(goodInput, type),
+    'strict-assert': () => void adapter.strictAssert(goodInput, type),
   };
   const results: BenchResult[] = [];
   for (const id of CASE_IDS) {

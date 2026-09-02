@@ -22,6 +22,11 @@ const projects = [
     .filter(e => e.isDirectory())
     .map(e => join(root, 'packages', e.name, 'tsconfig.json')),
   join(root, 'benchmarks', 'tsconfig.json'),
+  // The validation benchmark's model, as its own project: it is what the generator reflects
+  // over, and the generator refuses to run on a file with a semantic error. Without this the
+  // refusal surfaces when someone runs the benchmark, which is much later and much further
+  // from the edit that caused it.
+  join(root, 'benchmarks', 'harness', 'validation', 'tsconfig.json'),
   // The quickstart. It is the first zmdb code anyone runs and it was the only TypeScript in
   // the repository that nothing compiled.
   join(root, 'examples', 'tsconfig.json'),
