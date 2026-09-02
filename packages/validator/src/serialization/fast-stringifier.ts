@@ -1,43 +1,44 @@
 // Fast schema-aware stringifier compiler for @zmdb/aot-validator.
 import { stringify } from './index.ts';
 
+/** True for a non-null object/record value. */
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === 'object' && val !== null;
+}
+
 /**
  * Extracts column/field definitions from various schema representations
  * (CoreSchema, TypeDescriptor, plain object maps, etc.).
  */
 function extractColumns(schema: unknown): Record<string, unknown> | undefined {
-  if (schema === null || typeof schema !== 'object') {
+  if (!isRecord(schema)) {
     return undefined;
   }
 
   // CoreSchema object with `.columns`
-  if ('columns' in schema && schema.columns !== null && typeof schema.columns === 'object') {
-    return schema.columns as Record<string, unknown>;
+  if ('columns' in schema && isRecord(schema.columns)) {
+    return schema.columns;
   }
 
   // TypeDescriptor object with `.fields`
-  if ('fields' in schema && schema.fields !== null && typeof schema.fields === 'object') {
-    return schema.fields as Record<string, unknown>;
+  if ('fields' in schema && isRecord(schema.fields)) {
+    return schema.fields;
   }
 
   // Direct column map or record
-  return schema as Record<string, unknown>;
+  return schema;
 }
 
 /** Checks if a column/field definition is marked as sensitive. */
 function isSensitive(colDef: unknown): boolean {
-  if (colDef === null || typeof colDef !== 'object') {
+  if (!isRecord(colDef)) {
     return false;
   }
-  const colObj = colDef as Record<string, unknown>;
-  if (colObj.sensitive === true) {
+  if (colDef.sensitive === true) {
     return true;
   }
-  if (colObj.flags !== null && typeof colObj.flags === 'object') {
-    const flags = colObj.flags as Record<string, unknown>;
-    if (flags.sensitive === true) {
-      return true;
-    }
+  if (isRecord(colDef.flags) && colDef.flags.sensitive === true) {
+    return true;
   }
   return false;
 }
@@ -103,7 +104,7 @@ export function compileFastStringifier(schema: unknown): (value: unknown) => str
         if (value === null || value === undefined) {
           return 'null';
         }
-        if (typeof value !== 'object') {
+        if (!isRecord(value)) {
           return String(value);
         }
         if (Array.isArray(value)) {
@@ -111,8 +112,8 @@ export function compileFastStringifier(schema: unknown): (value: unknown) => str
           for (let i = 0; i < value.length; i++) {
             if (i > 0) out += ',';
             const item = value[i];
-            if (item !== null && typeof item === 'object' && !('error' in item) && !('issues' in item)) {
-              out += serializeEntity(item as Record<string, unknown>);
+            if (isRecord(item) && !('error' in item) && !('issues' in item)) {
+              out += serializeEntity(item);
             } else {
               out += stringify(item);
             }
@@ -122,12 +123,11 @@ export function compileFastStringifier(schema: unknown): (value: unknown) => str
         }
 
         // Check if value is an error or issues response object
-        const record = value as Record<string, unknown>;
-        if ('error' in record || 'issues' in record) {
+        if ('error' in value || 'issues' in value) {
           return stringify(value);
         }
 
-        return serializeEntity(record);
+        return serializeEntity(value);
       } catch (_err) {
         return stringify(value);
       }

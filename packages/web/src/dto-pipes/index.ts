@@ -42,6 +42,10 @@ export function decodePipe<In = unknown, Out = unknown>(decode: (value: In) => O
   };
 }
 
+function isSerializeFn(fn: unknown): fn is (result: unknown) => unknown {
+  return typeof fn === 'function';
+}
+
 /**
  * Parse the exact request bytes as multipart at the ordinary pipe boundary.
  *
@@ -66,8 +70,8 @@ export function serializationInterceptor(
   serializeOrSchema: ((result: unknown) => unknown) | unknown = (r: unknown) => r,
 ): Interceptor {
   let serializeFn: (result: unknown) => unknown;
-  if (typeof serializeOrSchema === 'function') {
-    serializeFn = serializeOrSchema as (result: unknown) => unknown;
+  if (isSerializeFn(serializeOrSchema)) {
+    serializeFn = serializeOrSchema;
   } else if (serializeOrSchema !== null && typeof serializeOrSchema === 'object') {
     serializeFn = compileFastStringifier(serializeOrSchema);
   } else {
