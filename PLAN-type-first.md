@@ -25,6 +25,17 @@ repository accepts `Date | string` for a `timestamp` while `TsType` says `Date` 
 `toJsonSchema` says `{type:'string',format:'date-time'}` — three answers for one
 column. Adding tags to this without restructuring would make it five walkers.
 
+**And the type layer disagrees with the runtime about presence, not just about types.**
+`CreateDTO` _omits_ a serial column, so naming it is a compile error. `validatePayload`
+builds its result as a whitelist (`repository/src/index.ts:794`, `if
+(col.flags.autoIncrement) continue;` with `out` populated from scratch), so a supplied
+`id` is **silently dropped** — as is any key not in `schema.columns`. One layer says
+"impossible", the other says "no-op". A consequence worth stating plainly: **REQ-RP-3's
+AC passes for the wrong reason.** `create({ bogus: 1 })` rejects because the required
+columns are missing, not because `bogus` is excess; `create({ ...valid, bogus: 1 })` is
+accepted and the key dropped, and no test covers it. Phase 7b has to decide which
+behaviour is correct, because the emitted validator replaces that function.
+
 **So the first deliverable is not tags. It is a single IR that all of them consume.**
 
 ```
@@ -192,25 +203,35 @@ with two copies of `@zmdb/schema-core` gets two different `unique symbol`s, so
 has now been checked, and the checked version is worse than the asserted one in one
 specific way.
 
-**What the type checker does** (two identical tag modules, `a.ts` and `b.ts`, a value
-tagged with A's tag, tested against B's):
+**What the type checker does.** The fixture is two tag modules whose _source text_ is
+byte-identical — `b.ts` is a copy of `a.ts` — standing in for two installed copies of
+the package. Their **types are not** identical, and that is the finding: each
+`declare const … : unique symbol` gets its own identity, so copying the file does not
+copy the tag.
 
-| Probe                               | Result  |
-| ----------------------------------- | ------- |
-| `(number & TagA) extends TagA`      | `true`  |
-| `(number & TagA) extends TagB`      | `false` |
-| `number extends TagB`               | `false` |
-| `(number & {foo?: 1}) extends TagB` | `false` |
-| `Identical<TagA, TagB>`             | `false` |
+| Probe                               | Result  |                                          |
+| ----------------------------------- | ------- | ---------------------------------------- |
+| `(number & TagA) extends TagA`      | `true`  | control — the tag works within one copy  |
+| `(number & TagA) extends TagB`      | `false` | **the duplicate-install case**           |
+| `number extends TagB`               | `false` | no false positive from a bare primitive  |
+| `(number & {foo?: 1}) extends TagB` | `false` | no false positive from any object member |
+| `Identical<TagA, TagB>`             | `false` | same source text, different type         |
 
-So identity is nominal, as expected — a structurally identical tag from another copy
-does not match. The part worth writing down is **how** it fails: a key filter like
+The part worth writing down is **how** it fails. A key filter like
 `{[K in keyof T]-?: T[K] extends Serial ? K : never}[keyof T]` collapses to `never`,
-and `never` is assignable to everything. `CreateDTO<User>` silently stops omitting
-`id`, and no error appears anywhere near the filter. The first probe written for this
-was itself fooled by exactly that — it asserted `SerialKeys<User>` was assignable to
-`'id'`, which `never` satisfies, and passed while the tag was not matching at all. An
-exact-identity assertion is the only kind that catches this.
+and `never` is assignable to everything, so nothing complains at the filter or at the
+DTO definition. Concretely, `CreateDTO<T> = Omit<T, SerialKeys<T> | DefaultKeys<T>> &
+Partial<Pick<T, DefaultKeys<T>>>` becomes `Omit<T, never> & {}` — which is `T`. A
+database-generated `id` stops being omitted and becomes a **required field on create**,
+and a defaulted column stops being optional.
+
+So "silent" needs splitting. The _filter_ fails silently; the _symptom_ is loud but
+lands somewhere useless — a missing-property error at every `create()` call site,
+pointing at the DTO rather than at the duplicate install. The genuinely silent half is
+the reflection asymmetry below. The first probe written for this was fooled by the
+`never`: it asserted `SerialKeys<User>` was _assignable to_ `'id'`, which `never`
+satisfies, and passed while the tag was not matching at all. Exact identity is the only
+assertion that catches this.
 
 **What the reflection does** — the escaped property names carry a disambiguating id:
 
@@ -384,7 +405,10 @@ so the tag vocabulary is written _to_ a known target.
   - a `tags.type-test.ts` fixture with a second copy of the tag module, asserting the
     key filters resolve to **exactly** the expected union — `Identical<X, Y>`, never
     assignability, because `never` satisfies an assignability check and that is what
-    made the first probe of this pass while the tag was not matching;
+    made the first probe of this pass while the tag was not matching. Assert the
+    consequence too, not just the filter: `CreateDTO<User>` must not have an `id`
+    property, since a broken filter turns `Omit<T, never>` back into `T` and makes a
+    database-generated column required;
   - a reflection-side guard that two distinct `unique symbol` declarations resolving to
     the same tag name in one program is a build error naming both files.
 
@@ -594,6 +618,15 @@ abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
 
 - REQ-RP-3's behaviour must not regress: `create({bogus:1})` still rejects at runtime
   with a structured path.
+- **Decide what a supplied serial or unknown key does on create, and test it.**
+  `Omit<T, SerialKeys<T>>` makes naming `id` a compile error while `validatePayload`
+  drops it silently (§1). The emitted validator can be generated with `is` semantics
+  (keeps today's drop) or `equals` semantics (rejects). Reject is the answer consistent
+  with P4 — passing a value for a database-generated column is a bug in the caller, and
+  a dropped write is the kind of thing that surfaces as missing data much later — but it
+  is a **behaviour change**, so it needs its own commit, a `ValidationError` path, and a
+  test for `create({ ...valid, bogus: 1 })` and `create({ ...valid, id: 5 })`, neither
+  of which exists today.
 - A test per dialect that a `timestamp` column's DDL, its `Entity` validator and its
   JSON Schema all say the three right things, in one place, so the next person cannot
   reintroduce the disagreement without a failure.
@@ -716,17 +749,17 @@ schedule got shorter.
 
 ## 6. Risks specific to the implementation
 
-| Risk                                                                                                                                                                                                          | Mitigation                                                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D3 (`timestamp`) cascades.** Three different existing behaviours; whichever the validator picks, something that works today breaks. Resolved in principle, but the DDL type map changes Postgres snapshots. | Implement in 7b as separate commits — codec, validators, DDL map — each with its snapshot diff reviewed. Do not let Phase 4 emit timestamp checks before this lands.                |
-| **Checker resolves differently from `tsc`.** The API is new; a divergence between `getTypeFromTypeNode` and what `tsc` reports would produce validators that disagree with the types.                         | The Phase 4 equivalence test (`irFromType` vs `irFromSchema`) catches semantic drift. Add a canary: assert `isTypeAssignableTo` agrees with a `@ts-expect-error` fixture.           |
-| **Position-based rewriting is fragile** under other plugins (§5.1).                                                                                                                                           | `enforce: 'pre'` + byte-identity check + skip-with-diagnostic. Never guess.                                                                                                         |
-| **Instantiation blowup** on large schemas. D2 removed the dual dispatch, so the main suspect is gone; deep `Omit`/`Partial` chains over a 60-column entity remain.                                            | The Phase 3 budget test, with a committed ceiling and `verify:instantiations` watching it.                                                                                          |
-| **`unique symbol` identity across installs** (D5). Verified: cross-copy filters resolve to `never`, which is assignable to anything, so it fails silently.                                                    | Name-based reflection, an exact-identity (not assignability) type test, and a build error on two declarations of one tag name. Not unfixable — just not fixable in the type system. |
-| **`defineSchema`'s deletion removes the differential proof** that the tagged path matches the shipped one.                                                                                                    | Phase 9, last, after every other gate is green. The equivalence tests are the net for Phases 4–7 and must outlive them.                                                             |
-| **Scale is untested.** No fixture today resembles a 60-column entity behind four layers of conditional types.                                                                                                 | Build that fixture in Phase 1, not Phase 7. It is cheap early and expensive late.                                                                                                   |
-| **`dts` build is already broken**, so nothing can be published until it is fixed regardless of this work.                                                                                                     | Phase 9, or earlier if a release is needed.                                                                                                                                         |
-| **Deleting four walkers touches every package at once.**                                                                                                                                                      | The IR equivalence tests are the safety net, and each walker is deleted in a separate commit with its differential test already green.                                              |
+| Risk                                                                                                                                                                                                                       | Mitigation                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D3 (`timestamp`) cascades.** Three different existing behaviours; whichever the validator picks, something that works today breaks. Resolved in principle, but the DDL type map changes Postgres snapshots.              | Implement in 7b as separate commits — codec, validators, DDL map — each with its snapshot diff reviewed. Do not let Phase 4 emit timestamp checks before this lands.                |
+| **Checker resolves differently from `tsc`.** The API is new; a divergence between `getTypeFromTypeNode` and what `tsc` reports would produce validators that disagree with the types.                                      | The Phase 4 equivalence test (`irFromType` vs `irFromSchema`) catches semantic drift. Add a canary: assert `isTypeAssignableTo` agrees with a `@ts-expect-error` fixture.           |
+| **Position-based rewriting is fragile** under other plugins (§5.1).                                                                                                                                                        | `enforce: 'pre'` + byte-identity check + skip-with-diagnostic. Never guess.                                                                                                         |
+| **Instantiation blowup** on large schemas. D2 removed the dual dispatch, so the main suspect is gone; deep `Omit`/`Partial` chains over a 60-column entity remain.                                                         | The Phase 3 budget test, with a committed ceiling and `verify:instantiations` watching it.                                                                                          |
+| **`unique symbol` identity across installs** (D5). Verified: cross-copy filters resolve to `never`, so `CreateDTO` requires the serial `id` it should omit and the emitted validator disagrees with the type it came from. | Name-based reflection, an exact-identity (not assignability) type test, and a build error on two declarations of one tag name. Not unfixable — just not fixable in the type system. |
+| **`defineSchema`'s deletion removes the differential proof** that the tagged path matches the shipped one.                                                                                                                 | Phase 9, last, after every other gate is green. The equivalence tests are the net for Phases 4–7 and must outlive them.                                                             |
+| **Scale is untested.** No fixture today resembles a 60-column entity behind four layers of conditional types.                                                                                                              | Build that fixture in Phase 1, not Phase 7. It is cheap early and expensive late.                                                                                                   |
+| **`dts` build is already broken**, so nothing can be published until it is fixed regardless of this work.                                                                                                                  | Phase 9, or earlier if a release is needed.                                                                                                                                         |
+| **Deleting four walkers touches every package at once.**                                                                                                                                                                   | The IR equivalence tests are the safety net, and each walker is deleted in a separate commit with its differential test already green.                                              |
 
 ## 7. Definition of done
 
