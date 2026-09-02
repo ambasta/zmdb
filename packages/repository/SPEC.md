@@ -46,6 +46,17 @@ That is the entire required body to obtain full validated CRUD.
 - `update(id, payload)` validates against `UpdateDTO<S>` before compiling UPDATE.
 - Invalid payload throws a structured validation error and **no SQL is executed**
   (driver.execute is not called).
+- The check is the DTO's own type: `objectTypeFromShape(shapeOfVariant(ir, variant))`
+  from `@zmdb/schema-core/ir`, walked by `@zmdb/aot-validator/utilities`. So a write
+  enforces the same bounds (`Min`, `Max`, `Pattern`, `maxLength`) and the same nullability
+  as the published document and the emitted validator, rather than a looser check of its
+  own — this package no longer has a walker.
+- The **app** layer, not the wire layer: a `timestamp` column wants a `Date` here. An
+  ISO-8601 string is what arrives in a request body, and the web pipeline decodes it
+  before a repository sees it.
+- A key the variant does not accept is an issue naming that key, not a key to drop:
+  an unknown column, a database-generated column on insert, or a primary key in a patch
+  (REQ-RP-3). A key whose value is `undefined` means "not supplied" and is ignored.
 
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 

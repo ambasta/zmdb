@@ -185,6 +185,103 @@ describe('BaseRepository write validation, through the IR', () => {
   });
 });
 
+// REQ-RP-3. Both of these were dropped in silence: `bogus` disappeared, and a supplied
+// `id` on a serial key was ignored, so the insert went through with the database about to
+// generate the value the caller thought they had chosen.
+describe('BaseRepository rejects a key the write does not accept', () => {
+  const valid = { email: 'a@b.com', role: 'user' as const };
+
+  async function createRejects(patch: Record<string, unknown>): Promise<readonly ValidationIssue[]> {
+    const driver = fakeDriver();
+    const repo = new UserRepository(driver);
+    try {
+      await repo.create({ ...valid, ...patch } as unknown as CreateDTO<typeof UserSchema>);
+    } catch (e) {
+      if (!(e instanceof ValidationError)) throw e;
+      expect(driver.calls.length).toBe(0);
+      return e.issues;
+    }
+    throw new Error('expected the payload to be rejected');
+  }
+
+  it('names an unknown key rather than dropping it', async () => {
+    expect(await createRejects({ bogus: 1 })).toEqual([
+      {
+        path: 'input.bogus',
+        message: '"bogus" is not a column of "users"',
+        expected: 'no excess properties',
+        value: 1,
+      },
+    ]);
+  });
+
+  it('refuses a database-generated column on insert', async () => {
+    expect(await createRejects({ id: 5 })).toEqual([
+      {
+        path: 'input.id',
+        message: 'the database generates "id", so a payload cannot supply it',
+        expected: 'no excess properties',
+        value: 5,
+      },
+    ]);
+  });
+
+  it('reports the misspelling next to the column it was meant to be', async () => {
+    // Why this is reported alongside the structural issues instead of only when there are
+    // none, which is the rule `assertEquals` follows. "`email` is missing" on its own
+    // sends you looking at the wrong thing.
+    expect(await createRejects({ email: undefined, emial: 'a@b.com' })).toEqual([
+      { path: 'input.email', message: 'expected string', expected: 'string', value: undefined },
+      {
+        path: 'input.emial',
+        message: '"emial" is not a column of "users"',
+        expected: 'no excess properties',
+        value: 'a@b.com',
+      },
+    ]);
+  });
+
+  it('refuses a key column in a patch, which identifies the row instead', async () => {
+    // A patch body says what to change, and the URL says which row — so a key in the body
+    // is either redundant or an attempt to move the row. Spelled out for a non-serial key,
+    // because that is the one the create path would have allowed.
+    const Tenants = defineSchema('tenants', { slug: text().primaryKey(), name: text() });
+    class TenantRepository extends BaseRepository<typeof Tenants> {
+      static override readonly schema = Tenants;
+    }
+    const driver = fakeDriver();
+    const repo = new TenantRepository(driver);
+    let error: ValidationError | undefined;
+    try {
+      await repo.update('acme', { slug: 'acme-2' } as unknown as Parameters<typeof repo.update>[1]);
+    } catch (e) {
+      if (e instanceof ValidationError) error = e;
+    }
+    expect(driver.calls.length).toBe(0);
+    expect(error?.issues).toEqual([
+      {
+        path: 'input.slug',
+        message: '"slug" identifies the row and cannot be patched',
+        expected: 'no excess properties',
+        value: 'acme-2',
+      },
+    ]);
+    // And it is accepted on insert, where it is the caller's to choose.
+    const insert = fakeDriver([{ slug: 'acme', name: 'Acme' }]);
+    await new TenantRepository(insert).create({ slug: 'acme', name: 'Acme' });
+    expect(insert.calls.length).toBe(1);
+  });
+
+  it('leaves an explicitly undefined key alone, so a spread still works', async () => {
+    // `{ ...patch, role: undefined }` is how optional fields get built, and it means "not
+    // supplied" — which is not the same as supplying a key that does not exist.
+    const driver = fakeDriver([{ id: 1, ...valid }]);
+    const repo = new UserRepository(driver);
+    await repo.create({ ...valid, bogus: undefined } as unknown as CreateDTO<typeof UserSchema>);
+    expect(driver.calls.length).toBe(1);
+  });
+});
+
 describe('BaseRepository delete', () => {
   it('delete compiles a DELETE and reports success', async () => {
     const driver = fakeDriver([{ id: 1 }]);

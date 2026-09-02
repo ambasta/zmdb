@@ -133,6 +133,14 @@ export interface UpsertOptions {
   readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
 }
 
+/** Everything a write variant's validation needs, derived once. See `payloadShape`. */
+interface PayloadShape {
+  readonly shape: ShapeIR;
+  readonly type: ObjectIR;
+  /** The column names this variant accepts, for the excess check. */
+  readonly accepted: ReadonlySet<string>;
+}
+
 /**
  * The base repository.
  *
@@ -157,7 +165,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: Dialect;
   /** variant → its columns and their object type. See `payloadShape`. */
-  readonly #shapes = new Map<'create' | 'update', { readonly shape: ShapeIR; readonly type: ObjectIR }>();
+  readonly #shapes = new Map<'create' | 'update', PayloadShape>();
 
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
@@ -787,13 +795,49 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
    * changes, so neither can the IR; without the cache every `create` would walk the
    * columns again to rebuild an identical object graph.
    */
-  private payloadShape(variant: 'create' | 'update'): { readonly shape: ShapeIR; readonly type: ObjectIR } {
+  private payloadShape(variant: 'create' | 'update'): PayloadShape {
     const cached = this.#shapes.get(variant);
     if (cached) return cached;
     const shape = shapeOfVariant(irFromSchema(this.schema), variant);
-    const built = { shape, type: objectTypeFromShape(shape) };
+    const built = {
+      shape,
+      type: objectTypeFromShape(shape),
+      accepted: new Set(shape.map(({ column }) => column.name)),
+    };
     this.#shapes.set(variant, built);
     return built;
+  }
+
+  /**
+   * One issue per key the payload has and this variant does not accept (REQ-RP-3).
+   *
+   * These used to be dropped in silence, which made two mistakes invisible. A misspelled
+   * column — `{ emial: 'a@b.co' }` — reported only that `email` was missing, and a
+   * supplied `id` on a serial key reported nothing at all: the insert went through with a
+   * key the database was about to generate, so the payload the caller wrote and the row
+   * that came back disagreed and nothing said so.
+   *
+   * Reported alongside the structural issues rather than only when there are none, which
+   * is where this deliberately differs from `assertEquals`'s excess check. Its rule is
+   * that "you also passed `extra`" is noise next to "`email` is not a string", and at a
+   * table boundary it usually is not noise: the excess key is a typo *of* the column the
+   * other issue is complaining about, and suppressing it hides the answer.
+   */
+  private excessIssues(obj: Record<string, unknown>, variant: 'create' | 'update'): ValidationIssue[] {
+    const { accepted } = this.payloadShape(variant);
+    const issues: ValidationIssue[] = [];
+    for (const key of Object.keys(obj)) {
+      if (accepted.has(key)) continue;
+      // `hasOwn`, because `columns['constructor']` is not a column.
+      const column = Object.hasOwn(this.schema.columns, key) ? this.schema.columns[key] : undefined;
+      const message = !column
+        ? `"${key}" is not a column of "${this.tableName}"`
+        : column.flags.autoIncrement
+          ? `the database generates "${key}", so a payload cannot supply it`
+          : `"${key}" identifies the row and cannot be patched`;
+      issues.push({ path: `input.${key}`, message, expected: 'no excess properties', value: obj[key] });
+    }
+    return issues;
   }
 
   /**
@@ -812,10 +856,8 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
    * The app layer, not the wire layer: a caller here holds a `Date`, having decoded the
    * request body already. A handler that has not is the boundary case `Wire<T>` is for.
    *
-   * Unknown keys are dropped rather than rejected, and a column the variant does not
-   * accept — a `Serial` key on create, an identity column in a patch — is not looked at.
-   * Both are pre-existing behaviour, and both are compile errors in the DTO the method
-   * signature asks for; rejecting them at runtime as well is a separate change.
+   * A key the variant does not accept is an issue, not something to drop — see
+   * `excessIssues`.
    */
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
     if (!isRecord(payload)) {
@@ -825,7 +867,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     }
     const obj = this.sanitizePayload(payload);
     const { shape, type } = this.payloadShape(variant);
-    const issues = issuesFor(obj, type);
+    const issues = [...issuesFor(obj, type), ...this.excessIssues(obj, variant)];
 
     if (issues.length > 0) {
       throw new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`, issues);
