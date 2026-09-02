@@ -1259,6 +1259,11 @@ __metadata:
     "@zmdb/schema-core": "workspace:^"
     tsup: "npm:8.5.1"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    typescript: ">=7.0.0"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
   languageName: unknown
   linkType: soft
 

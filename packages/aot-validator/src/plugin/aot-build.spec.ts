@@ -1,52 +1,48 @@
-import { describe, it, expect } from 'vitest';
+// #82: the build produces a validator that works, and that is actually the inlined one.
+//
+// The point of this test is end-to-end rather than unit: a source file goes through the
+// real transform, the emitted text is evaluated as JavaScript, and the resulting function
+// is asked the same questions as the runtime walker. If the emitted code did not parse, or
+// still called back into the walker, or disagreed with it, this is where that shows up.
 
-import { is as runtimeIs, type TypeDescriptor } from '../utilities/index.ts';
-import { buildInlinedCheck, opsPerSecond } from './inline-bench.ts';
+import { afterAll, describe, expect, it } from 'vitest';
 
-// #82: verify the AOT BUILD (the #81 unplugin transform) produces a WORKING,
-// inlined validator — i.e. run the transform over a fixture module, execute the
-// emitted output, and confirm behavior + that it is the inlined path (no runtime
-// descriptor walk) and materially faster than the runtime validator.
+import { FixtureProject } from '../emit/__testing__/project.ts';
+import { is as runtimeIs } from '../utilities/index.ts';
+import { opsPerSecond } from './inline-bench.ts';
 
-// Build an executable validator from transformed source (the "AOT build").
-function buildValidatorFromSource(): (input: unknown) => boolean {
-  const src = 'const check = (input) => is<{ number: number; str: string; nested: { a: number } }>(input);';
-  const { code, check } = buildInlinedCheck(src, '/fixture/validator.ts');
-  // The emitted code has NO runtime call — it is a straight-line inline check.
-  expect(code).not.toContain('is<');
-  expect(code).toContain('typeof input.nested.a === "number"');
-  return check;
-}
+const TYPE = '{ number: number; str: string; nested: { a: number } }';
 
-const desc: TypeDescriptor = {
-  kind: 'object',
-  fields: {
-    number: { kind: 'number' },
-    str: { kind: 'string' },
-    nested: { kind: 'object', fields: { a: { kind: 'number' } } },
-  },
-};
+const project = FixtureProject.open();
+afterAll(() => project.close());
+
+const { code, check } = project.build(`const check = (input) => is<${TYPE}>(input);`);
+const ir = project.ir(TYPE);
+
+const good = { number: 1, str: 'x', nested: { a: 2 } };
+const bad = { number: 1, str: 'x', nested: { a: 'nope' } };
 
 describe('AOT build produces a working inlined validator (#82)', () => {
-  const check = buildValidatorFromSource();
-  const good = { number: 1, str: 'x', nested: { a: 2 } };
-  const bad = { number: 1, str: 'x', nested: { a: 'nope' } };
-
-  it('accepts valid input, rejects invalid — behavior matches the runtime validator', () => {
-    expect(check(good)).toBe(true);
-    expect(check(bad)).toBe(false);
-    // same verdicts as the shipped runtime validator
-    expect(check(good)).toBe(runtimeIs(good, desc));
-    expect(check(bad)).toBe(runtimeIs(bad, desc));
+  it('emits a straight-line check with no call back into the validator', () => {
+    expect(code).not.toContain('is<');
+    expect(code).toContain('typeof input.nested.a === "number"');
+    expect(code).not.toContain('import');
   });
 
-  it('records real numbers: AOT-built path is materially faster than runtime', () => {
+  it('accepts valid input and rejects invalid, agreeing with the runtime validator', () => {
+    expect(check(good)).toBe(true);
+    expect(check(bad)).toBe(false);
+    expect(check(good)).toBe(runtimeIs(good, ir));
+    expect(check(bad)).toBe(runtimeIs(bad, ir));
+  });
+
+  it('records real numbers: the AOT-built path is materially faster than the runtime one', () => {
     const N = 200_000;
     const aotOps = opsPerSecond(() => void check(good), N);
-    const runtimeOps = opsPerSecond(() => void runtimeIs(good, desc), N);
+    const runtimeOps = opsPerSecond(() => void runtimeIs(good, ir), N);
     console.log(
       `AOT-build ops/s=${aotOps.toLocaleString()} runtime ops/s=${runtimeOps.toLocaleString()} (${(aotOps / runtimeOps).toFixed(1)}x)`,
     );
-    expect(aotOps).toBeGreaterThan(runtimeOps); // inlined path must be faster
+    expect(aotOps).toBeGreaterThan(runtimeOps);
   });
 });

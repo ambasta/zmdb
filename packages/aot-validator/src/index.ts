@@ -1,11 +1,16 @@
-// @zmdb/aot-validator — implementation.
-// #22 transformer scaffold + runtime-safety fallback implemented.
+// @zmdb/aot-validator — the runtime half.
+//
+// Nothing reachable from this entry point may import `typescript`. The compiler is a
+// 100 MB build-time dependency, and an application that imports `tags` to declare a
+// constraint should not pull it into a browser bundle. `transformCode` and
+// `transformFile` therefore live in `./transformer.ts` and are reached through the
+// `./plugin` and `./transformer` subpaths, which are build-time by contract;
+// `.github/scripts/verify-exports.mjs` enforces the split.
 
-import { MAX_REGEX_CACHE_SIZE, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
-import { transformCode, escapePattern } from './transformer.ts';
+import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.ts';
 
-export { ValidationError, getCachedRegExp, safeTestPattern, validatePatternComplexity } from './regex-complexity.ts';
-export { transformCode, escapePattern };
+export { AssertError, failWith } from './errors.ts';
+export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.ts';
 
 export interface Rule {
   readonly kind: string;
@@ -86,14 +91,14 @@ export function validate(r: Rule, expr: unknown): boolean {
     case 'MaxLength':
       return typeof expr === 'string' && typeof arg === 'number' && expr.length <= arg;
     case 'Pattern':
-      return typeof expr === 'string' && safeTestPattern(r.args[0] as string, expr);
+      // No input-length cap. There used to be one — 10 000 characters, and a throw past it
+      // — but the inlined form is `/pat/.test(x)` with no such limit, so the same call
+      // answered `false` in a build and threw in dev. REQ-AV-4 does not allow that, and of
+      // the two behaviours the cap is the one with no counterpart to move it to.
+      return typeof expr === 'string' && getCachedRegExp(r.args[0] as string).test(expr);
     case 'Enum':
       return getEnumSet(r.args).has(expr);
     default:
       throw new Error(`unknown rule kind: ${r.kind}`);
   }
-}
-
-export function transformSource(code: string): string {
-  return transformCode(code);
 }

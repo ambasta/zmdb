@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { transformSource, validate, tags } from './index.ts';
+import { validate, tags } from './index.ts';
+import { transformCode } from './transformer.ts';
 
 // #24: runtime-safety fallback + build integration.
 // Contract: the inlined (transformed) code must behave identically to the
@@ -9,7 +10,7 @@ import { transformSource, validate, tags } from './index.ts';
 // Evaluate an inlined boolean expression produced by the transformer.
 function evalInlined(expr: string, input: unknown): boolean {
   // The transformer turns `validate(tags.X(...), E)` into a bare boolean expr.
-  const src = transformSource(`validate(${expr}, input)`);
+  const src = transformCode(`validate(${expr}, input)`);
   return new Function('input', `return (${src});`)(input) as boolean;
 }
 

@@ -32,10 +32,13 @@
   "exports": {
     ".": "./src/index.ts",
     "./advanced": "./src/advanced/index.ts",
+    "./emit": "./src/emit/index.ts",
+    "./errors": "./src/errors.ts",
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts",
     "./reflect": "./src/reflect/index.ts",
+    "./transformer": "./src/transformer.ts",
     "./unplugin": "./src/unplugin.ts"
   },
   "publishConfig": {
@@ -52,6 +55,14 @@
   "devDependencies": {
     "tsup": "8.5.1",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "typescript": ">=7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

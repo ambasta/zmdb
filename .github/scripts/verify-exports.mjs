@@ -96,6 +96,95 @@ if (existsSync(UMBRELLA_SRC)) {
   }
 }
 
+// The runtime/build-time split (REQ-TF-8's other half). `typescript@7` is a Go binary with
+// a JS client; importing it from a module that ends up in someone's application bundle
+// means shipping a compiler to the browser, or — more likely — a bundler error about a
+// child process. So every export except the ones listed here must be reachable without it.
+//
+// The listed subpaths are the build-time surface, and their reason for existing is that
+// they talk to the compiler. Adding to this list is a decision about what a consumer's
+// bundle contains, which is why it is spelled out rather than inferred.
+const BUILD_TIME_ENTRIES = new Set([
+  '@zmdb/aot-validator#./plugin',
+  '@zmdb/aot-validator#./reflect',
+  '@zmdb/aot-validator#./transformer',
+  '@zmdb/aot-validator#./unplugin',
+  'zmdb#./unplugin',
+]);
+
+/** Workspace package name -> directory, so a `@zmdb/*` import can be followed. */
+const WORKSPACE = new Map();
+for (const pkgDirName of packageDirs) {
+  const manifest = join(PACKAGES_DIR, pkgDirName, 'package.json');
+  if (!existsSync(manifest)) continue;
+  const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+  if (pkg.name) WORKSPACE.set(pkg.name, { dir: join(PACKAGES_DIR, pkgDirName), exports: pkg.exports ?? {} });
+}
+
+/**
+ * The file a specifier points at, or null when it leaves the workspace.
+ *
+ * `@zmdb/*` is followed rather than stopped at, because the umbrella package is the one
+ * consumers actually import: a guard that gave up at the package boundary would miss the
+ * only import graph that matters.
+ */
+function resolveSpecifier(file, specifier) {
+  if (specifier.startsWith('.')) return join(dirname(file), specifier);
+  const match = /^(@[^/]+\/[^/]+|[^@][^/]*)(\/.*)?$/.exec(specifier);
+  const target = match && WORKSPACE.get(match[1]);
+  if (!target) return null;
+  const entry = target.exports[`.${match[2] ?? ''}`];
+  return typeof entry === 'string' ? join(target.dir, entry) : null;
+}
+
+/** Every import in `source`, paired with the file it resolves to. */
+function importsOf(file, source) {
+  const specifiers = [];
+  for (const [, specifier] of source.matchAll(/(?:^|[\s;])(?:export|import)\b[^;]*?from\s+['"]([^'"]+)['"]/g)) {
+    specifiers.push(specifier);
+  }
+  for (const [, specifier] of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+    specifiers.push(specifier);
+  }
+  return specifiers.map(specifier => ({ specifier, resolved: resolveSpecifier(file, specifier) }));
+}
+
+/** The chain of files from `entry` to the first one that imports `typescript`, or null. */
+function pathToTypescript(entry) {
+  const seen = new Set();
+  const queue = [[entry]];
+  while (queue.length > 0) {
+    const chain = queue.shift();
+    const file = chain.at(-1);
+    if (seen.has(file) || !existsSync(file)) continue;
+    seen.add(file);
+    const source = readFileSync(file, 'utf8');
+    for (const { specifier, resolved } of importsOf(file, source)) {
+      if (/^typescript(\/|$)/.test(specifier)) return chain;
+      if (resolved) queue.push([...chain, resolved]);
+    }
+  }
+  return null;
+}
+
+for (const pkgDirName of packageDirs) {
+  const pkgDir = join(PACKAGES_DIR, pkgDirName);
+  const pkgJsonPath = join(pkgDir, 'package.json');
+  if (!existsSync(pkgJsonPath)) continue;
+  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+
+  for (const [subpath, target] of Object.entries(pkg.exports ?? {})) {
+    if (typeof target !== 'string') continue;
+    if (BUILD_TIME_ENTRIES.has(`${pkg.name}#${subpath}`)) continue;
+    const chain = pathToTypescript(join(pkgDir, target));
+    if (chain) {
+      const trail = chain.map(file => file.slice(ROOT.length + 1)).join(' -> ');
+      console.error(`[ERROR] ${pkg.name} export "${subpath}" reaches typescript at build-time-only cost: ${trail}`);
+      errorsCount++;
+    }
+  }
+}
+
 if (errorsCount > 0) {
   console.error(`\nExport manifest validation failed with ${errorsCount} error(s).`);
   process.exit(1);

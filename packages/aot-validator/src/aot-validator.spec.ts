@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-import { transformSource, validate, tags, getRegExp, escapePattern } from './index.ts';
+import { escapePattern } from './emit/index.ts';
+import { validate, tags, getRegExp } from './index.ts';
+import { transformCode } from './transformer.ts';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.
+//
+// `transformSource` is gone; `transformCode` is the same function under the name that says
+// what it does. `escapePattern` moved to the emitter, which is the only thing that writes a
+// regular expression into generated source.
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -32,36 +38,36 @@ describe('escapePattern helper', () => {
 
 describe('transformer inlining (golden fixtures)', () => {
   it('inlines Minimum', () => {
-    const out = transformSource('const ok = validate(tags.Minimum(0), input.price);');
+    const out = transformCode('const ok = validate(tags.Minimum(0), input.price);');
     expect(norm(out)).toContain('typeof input.price === "number" && input.price >= 0');
   });
 
   it('inlines MaxLength', () => {
-    const out = transformSource('const ok = validate(tags.MaxLength(255), input.name);');
+    const out = transformCode('const ok = validate(tags.MaxLength(255), input.name);');
     expect(norm(out)).toContain('typeof input.name === "string" && input.name.length <= 255');
   });
 
   it('inlines Enum as OR chain', () => {
-    const out = transformSource('const ok = validate(tags.Enum("a","b"), input.role);');
+    const out = transformCode('const ok = validate(tags.Enum("a","b"), input.role);');
     expect(norm(out)).toContain('input.role === "a" || input.role === "b"');
   });
 
   it('inlines Pattern safely with escaped slashes and quotes', () => {
-    const out = transformSource('const ok = validate(tags.Pattern("foo/bar"), input.path);');
+    const out = transformCode('const ok = validate(tags.Pattern("foo/bar"), input.path);');
     expect(norm(out)).toContain('typeof input.path === "string" && /foo\\/bar/.test(input.path)');
   });
 
   it('inlines Pattern containing double and single quotes', () => {
-    const outDouble = transformSource('const ok = validate(tags.Pattern("foo\\"bar"), input.val);');
+    const outDouble = transformCode('const ok = validate(tags.Pattern("foo\\"bar"), input.val);');
     expect(norm(outDouble)).toContain('/foo\\"bar/.test(input.val)');
 
-    const outSingle = transformSource("const ok = validate(tags.Pattern('foo\\'bar'), input.val);");
+    const outSingle = transformCode("const ok = validate(tags.Pattern('foo\\'bar'), input.val);");
     expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
   });
 
   it('inlines Pattern containing template literal substitution using hoisted pattern-keyed regex cache', () => {
     const src = 'const ok = validate(tags.Pattern(`prefix_${id}_suffix`), input.val);';
-    const out = transformSource(src);
+    const out = transformCode(src);
     expect(norm(out)).toContain('const _regexCache = new Map();');
     expect(norm(out)).toContain('function _getRegExp(p)');
     expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(`prefix_${id}_suffix`).test(input.val)');
@@ -69,7 +75,7 @@ describe('transformer inlining (golden fixtures)', () => {
 
   it('inlines Pattern dynamic variable expression using hoisted pattern-keyed regex cache', () => {
     const src = 'const ok = validate(tags.Pattern(myCustomPattern), input.val);';
-    const out = transformSource(src);
+    const out = transformCode(src);
     expect(norm(out)).toContain('const _regexCache = new Map();');
     expect(norm(out)).toContain('function _getRegExp(p)');
     expect(norm(out)).toContain('typeof input.val === "string" && _getRegExp(myCustomPattern).test(input.val)');
@@ -77,17 +83,17 @@ describe('transformer inlining (golden fixtures)', () => {
 
   it('inlines Pattern backtick template literal when it contains no substitutions', () => {
     const src = 'const ok = validate(tags.Pattern(`^[a-z]+$`), input.val);';
-    const out = transformSource(src);
+    const out = transformCode(src);
     expect(norm(out)).toContain('typeof input.val === "string" && /^[a-z]+$/.test(input.val)');
   });
 
   it('leaves code without validate() calls unchanged', () => {
     const src = 'const x = 1 + 2;';
-    expect(norm(transformSource(src))).toBe(norm(src));
+    expect(norm(transformCode(src))).toBe(norm(src));
   });
 
   it('emitted code contains no reference to validate(', () => {
-    const out = transformSource('const ok = validate(tags.Minimum(0), input.price);');
+    const out = transformCode('const ok = validate(tags.Minimum(0), input.price);');
     expect(out).not.toContain('validate(');
   });
 });
@@ -138,7 +144,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
     for (const { pattern, inputs } of testCases) {
       const rule = tags.Pattern(pattern);
       const srcCode = `const ok = validate(tags.Pattern("${pattern}"), input.val); return ok;`;
-      const compiledSrc = transformSource(srcCode);
+      const compiledSrc = transformCode(srcCode);
       const compiledFn = new Function('input', compiledSrc);
 
       for (const val of inputs) {
@@ -160,7 +166,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const ok = validate(tags.Pattern(myCustomPattern), input.val);
       return ok;
     `;
-    const compiledVarSrc = transformSource(srcVar);
+    const compiledVarSrc = transformCode(srcVar);
     const compiledVarFn = new Function('input', compiledVarSrc);
 
     for (const val of testInputs) {
@@ -175,7 +181,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const ok = validate(tags.Pattern(\`prefix_\${id}_suffix\`), input.val);
       return ok;
     `;
-    const compiledTplSrc = transformSource(srcTpl);
+    const compiledTplSrc = transformCode(srcTpl);
     const compiledTplFn = new Function('input', compiledTplSrc);
 
     const patternStr = `prefix_${id}_suffix`;
@@ -195,7 +201,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       }
       return results;
     `;
-    const compiledSrc = transformSource(src);
+    const compiledSrc = transformCode(src);
     const compiledFn = new Function('input', compiledSrc);
 
     expect(compiledFn({ val: 'a123' })).toEqual([true, false, true]);
@@ -210,7 +216,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const res2 = validate(tags.Pattern(pat), input.val);
       return [res1, res2];
     `;
-    const compiledSrc = transformSource(src);
+    const compiledSrc = transformCode(src);
     const compiledFn = new Function('input', compiledSrc);
 
     expect(compiledFn({ val: 'abc' })).toEqual([true, false]);
@@ -222,7 +228,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const ok = validate(tags.Pattern(\`^\${input.prefix}_\\\\d+$\`), input.val);
       return ok;
     `;
-    const compiledSrc = transformSource(src);
+    const compiledSrc = transformCode(src);
     const compiledFn = new Function('input', compiledSrc);
 
     expect(compiledFn({ prefix: 'alpha', val: 'alpha_123' })).toBe(true);
@@ -237,7 +243,7 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
       const ok = validate(tags.Pattern(input.pat), input.val);
       return { ok, cacheSize: _regexCache.size };
     `;
-    const compiledSrc = transformSource(src);
+    const compiledSrc = transformCode(src);
     const compiledFn = new Function('input', compiledSrc);
 
     for (let i = 0; i < 1005; i++) {

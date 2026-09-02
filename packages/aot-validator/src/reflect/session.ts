@@ -31,6 +31,32 @@ export interface SessionOptions {
   readonly cwd?: string;
 }
 
+/** What a snapshot update was for. The session keeps the log; see `updates`. */
+export type SessionUpdate = 'open' | 'refresh' | 'invalidate';
+
+// The three things a watcher can report about a file. Mutable arrays, and not because
+// anything here mutates them: the compiler's own `FileChangeSummary` declares them mutable,
+// and under `exactOptionalPropertyTypes` a `readonly string[]` will not go in.
+interface FileEdits {
+  changed?: string[];
+  created?: string[];
+  deleted?: string[];
+}
+
+/**
+ * How many compiler servers this process has started.
+ *
+ * REQ-TF-11 asks for one `API` instance per build, which is the difference between a
+ * build that loads the project once and one that loads it per file. A claim like that
+ * needs a number behind it, so the counter lives here and the build-budget test reads
+ * it.
+ */
+let apiInstances = 0;
+
+export function apiInstanceCount(): number {
+  return apiInstances;
+}
+
 /**
  * An open compiler session: one server process, one loaded project, one checker.
  *
@@ -40,20 +66,42 @@ export interface SessionOptions {
  * ```
  */
 export class ReflectSession implements Disposable {
-  readonly checker: Checker;
-  readonly program: Program;
+  readonly project: string;
 
-  #api: { close(): void };
+  #api: API;
+  #program: Program;
+  #checker: Checker;
   #closed = false;
+  readonly #updates: SessionUpdate[] = ['open'];
 
-  private constructor(api: { close(): void }, program: Program, checker: Checker) {
+  private constructor(api: API, project: string, program: Program, checker: Checker) {
     this.#api = api;
-    this.program = program;
-    this.checker = checker;
+    this.project = project;
+    this.#program = program;
+    this.#checker = checker;
+  }
+
+  /**
+   * The checker and program come from the *current* snapshot, so they are getters
+   * rather than fields: after `refresh` the old pair belongs to a disposed snapshot,
+   * and a caller holding one would be reading a program that no longer exists.
+   */
+  get checker(): Checker {
+    return this.#checker;
+  }
+
+  get program(): Program {
+    return this.#program;
+  }
+
+  /** Every snapshot update this session has performed, in order. See `SessionUpdate`. */
+  get updates(): readonly SessionUpdate[] {
+    return this.#updates;
   }
 
   static open(options: SessionOptions): ReflectSession {
     const cwd = options.cwd ?? options.project.replace(/[/\\][^/\\]*$/, '');
+    apiInstances++;
     const api = new API({ cwd });
     // `getProjects()` is empty rather than throwing when the config does not parse,
     // and an empty project list would otherwise surface much later as "every type is
@@ -63,12 +111,63 @@ export class ReflectSession implements Disposable {
       api.close();
       throw new Error(`could not load a TypeScript project from ${options.project}`);
     }
-    return new ReflectSession(api, project.program, project.checker);
+    return new ReflectSession(api, options.project, project.program, project.checker);
+  }
+
+  /**
+   * Pick up edits to `changed` without reloading the project.
+   *
+   * This is the whole of watch-mode support, and the reason it is one method rather
+   * than "open a new session" is cost: `openProjects` re-reads the config and re-walks
+   * the import graph, which is the expensive half of a build. `fileChanges` re-checks
+   * the files that changed. A watch that reopened the project per keystroke would make
+   * the AOT path slower than the runtime one it replaces.
+   */
+  refresh(changed: readonly string[]): void {
+    this.#files({ changed: [...changed] });
+  }
+
+  /**
+   * Tell the program about files that did not exist when it loaded.
+   *
+   * A `changed` notification for a file the program has never seen is a no-op — measured:
+   * `getSourceFile` keeps returning `undefined` — so a new module has to arrive as
+   * `created` or it stays invisible for the rest of the build. That is exactly the shape
+   * of "add a file in watch mode", so it is not an edge case.
+   */
+  created(files: readonly string[]): void {
+    this.#files({ created: [...files] });
+  }
+
+  deleted(files: readonly string[]): void {
+    this.#files({ deleted: [...files] });
+  }
+
+  #files(changes: FileEdits): void {
+    if (Object.values(changes).every(names => names.length === 0)) return;
+    this.#update('refresh', { fileChanges: changes });
+  }
+
+  /** For the cases a watcher cannot describe — a config change, a new dependency. */
+  invalidateAll(): void {
+    this.#update('invalidate', { fileChanges: { invalidateAll: true } });
+  }
+
+  #update(kind: SessionUpdate, params: Parameters<API['updateSnapshot']>[0]): void {
+    if (this.#closed) throw new Error('the compiler session is closed');
+    // Deliberately no `openProjects` here: the open is ref-counted and persists across
+    // snapshots, so naming it again would both leak a reference and reload the project.
+    const snapshot = this.#api.updateSnapshot(params);
+    const project = snapshot.getProject(this.project) ?? snapshot.getProjects()[0];
+    if (!project) throw new Error(`the TypeScript project ${this.project} disappeared from the snapshot`);
+    this.#program = project.program;
+    this.#checker = project.checker;
+    this.#updates.push(kind);
   }
 
   /** The parsed file, or `undefined` when it is not part of the program. */
   sourceFile(fileName: string): SourceFileHandle | undefined {
-    return this.program.getSourceFile(fileName);
+    return this.#program.getSourceFile(fileName);
   }
 
   /**
@@ -77,7 +176,7 @@ export class ReflectSession implements Disposable {
    * anything derived from it.
    */
   diagnostics(fileName: string): readonly Diagnostic[] {
-    return this.program.getSemanticDiagnostics(fileName);
+    return this.#program.getSemanticDiagnostics(fileName);
   }
 
   close(): void {

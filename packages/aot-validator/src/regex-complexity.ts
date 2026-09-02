@@ -1,6 +1,13 @@
-// Regular expression syntax validator and bounded fallback evaluator.
-// Maintains a bounded compiled-RegExp cache and validates pattern syntax.
-// Note: This validates regex syntax only and does not perform static ReDoS complexity analysis.
+// Regular expression syntax validation and a bounded compiled-RegExp cache.
+//
+// This validates syntax only; there is no static ReDoS analysis here, and the name is a
+// leftover from when there was meant to be.
+//
+// There used to also be a `safeTestPattern` that refused inputs over 10 000 characters. It
+// is gone, because the emitted form of the same check is `/pat/.test(x)` and has no such
+// limit: keeping it meant one call site answering `false` after a build and throwing before
+// one, which is precisely the divergence REQ-AV-4 exists to rule out. A cap that only one
+// of the two paths can honour is not a safety feature.
 
 import { ValidationError } from '@zmdb/schema-core';
 
@@ -15,7 +22,6 @@ export function validatePatternComplexity(pattern: string): void {
   }
 }
 
-const MAX_FALLBACK_INPUT_LENGTH = 10000;
 export const MAX_REGEX_CACHE_SIZE = 1000;
 const patternCache = new Map<string, RegExp>();
 
@@ -36,14 +42,4 @@ export function getCachedRegExp(pattern: string): RegExp {
   re = new RegExp(pattern);
   patternCache.set(pattern, re);
   return re;
-}
-
-export function safeTestPattern(pattern: string, input: string, maxInputLength = MAX_FALLBACK_INPUT_LENGTH): boolean {
-  if (input.length > maxInputLength) {
-    throw new ValidationError(
-      `Input length (${input.length}) exceeds maximum limit (${maxInputLength}) for pattern evaluation`,
-    );
-  }
-  const re = getCachedRegExp(pattern);
-  return re.test(input);
 }

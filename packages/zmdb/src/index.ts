@@ -53,7 +53,14 @@ export * as migrations from '@zmdb/query-compiler/migrations';
 export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.
-export { is, assert, validate } from '@zmdb/aot-validator/utilities';
+//
+// `AssertError` is here because a caller has to be able to catch it, and because it is the
+// class the *emitted* validator throws too: the compiled path imports this exact one rather
+// than declaring its own, so `catch (e) { if (e instanceof AssertError) }` keeps working
+// whether or not the build inlined anything.
+// `ValidationIssue` is not re-exported here: the utilities subpath re-exports schema-core's
+// declaration rather than declaring a second one, and it is already above.
+export { equals, is, assert, assertEquals, random, validate, AssertError } from '@zmdb/aot-validator/utilities';
 export { tags } from '@zmdb/aot-validator';
 
 // Repository & Transactions.
