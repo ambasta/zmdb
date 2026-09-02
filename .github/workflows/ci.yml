@@ -17,19 +17,19 @@ jobs:
       contents: read
       issues: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
 
       - name: Install
-        run: yarn install --immutable
+        run: yarn install --immutable --check-cache
 
       - name: Capture native issue relationships
         env:
@@ -194,7 +194,6 @@ jobs:
       # repository-only compiler wrapper in check mode and writes nothing.
       - name: Verify the committed no-bundler fixture is current
         run: yarn verify:fixtures
-
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
 
@@ -373,19 +372,19 @@ jobs:
     name: Documentation Site Generation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
 
       - name: Install
-        run: yarn install --immutable
+        run: yarn install --immutable --check-cache
 
       - name: Verify competitor docs coverage
         run: yarn verify:docs-coverage
@@ -398,7 +397,7 @@ jobs:
 
       - name: Publish OpenAPI spec artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d5ee3f0750267 # v4.4.3
         with:
           name: openapi-spec
           path: site/openapi.json
@@ -407,7 +406,7 @@ jobs:
     name: Specification Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
@@ -415,13 +414,13 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
 
       - name: Install
-        run: yarn install --immutable
+        run: yarn install --immutable --check-cache
 
       - name: Validate specifications
         run: yarn validate:spec
@@ -444,10 +443,10 @@ jobs:
       # No `submodules:` — the verifier reads the pinned commits out of the
       # gitlinks in the tree, which is enough to catch results measured against
       # an upstream we have since bumped.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
 
@@ -464,13 +463,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
 
@@ -492,10 +491,10 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@df702c286542718ef55d6141a0e9b97b09c25679 # v3.28.11
         with:
           languages: javascript-typescript
 
@@ -503,16 +502,16 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install --immutable --check-cache
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@df702c286542718ef55d6141a0e9b97b09c25679 # v3.28.11
 
   secret-scan:
     name: Secret scanning
@@ -520,11 +519,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Secret scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@836484a0c8d1e3d67f5cfc1d471be84ef9b8e23a # v2.3.8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
