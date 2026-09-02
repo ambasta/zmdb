@@ -478,7 +478,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
           if ('isMatch' in p && p.isMatch) {
             if (d === 'sqlite') {
               const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
-              params.push(escapeFts5Term(p.value as string));
+              params.push(escapeFts5Term(String(p.value)));
               cond = `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
             } else if (d === 'postgres') {
               params.push(p.value);
