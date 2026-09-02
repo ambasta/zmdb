@@ -101,6 +101,18 @@ describe('pgDriver (#211)', () => {
     expect(out).toEqual([{ id: 1 }]);
   });
 
+  it('hands a Date and a bigint over untouched', async () => {
+    // The sqlite adapter converts a `Date` because `node:sqlite` throws on one. `pg` needs
+    // no such help: it binds a `Date` as a timestamp itself and stringifies a `bigint`, so
+    // converting here would be a second, differently-wrong answer to the same question.
+    const query = vi.fn(async (_text: string, _params?: readonly unknown[]) => ({ rows: [] }));
+    const d = pgDriver({ query } as unknown as PgQueryable);
+    const at = new Date('2026-01-01T12:30:00.000Z');
+    await d.execute({ text: 'INSERT INTO events (at, seq) VALUES ($1, $2)', parameters: [at, 7n] });
+
+    expect(query).toHaveBeenCalledWith('INSERT INTO events (at, seq) VALUES ($1, $2)', [at, 7n]);
+  });
+
   it('runs as prepared statement when prepared: true is passed', async () => {
     const query = vi.fn(async () => ({ rows: [{ id: 1 }] }));
     const d = pgDriver({ query } as unknown as PgQueryable, { prepared: true });

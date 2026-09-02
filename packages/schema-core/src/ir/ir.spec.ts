@@ -17,6 +17,8 @@ import {
 } from '../index.ts';
 import {
   appTypeOf,
+  dbDecodedColumns,
+  decodeDbValue,
   decodeWire,
   encodeWire,
   irFromSchema,
@@ -452,6 +454,62 @@ describe('decodeWire / encodeWire — the crossing between the layers (plan D3)'
     // converting.
     expect(() => decodeWire(withCodec, 'create', { total: '1250' })).toThrow(/not in the registry/);
     expect(() => encodeWire(withCodec, { total: 1250 })).toThrow(/"Money"/);
+  });
+});
+
+describe('decodeDbValue — the db→app crossing, whatever the driver handed back', () => {
+  const Events = defineSchema('events', {
+    id: serial().primaryKey(),
+    name: text(),
+    at: timestamp(),
+    seq: bigint(),
+  });
+  const ir = irFromSchema(Events);
+  const col = (name: string): ColumnIR => {
+    const found = ir.columns.find(c => c.name === name);
+    if (!found) throw new Error(`no column ${name}`);
+    return found;
+  };
+  const ISO = '2026-01-01T12:30:00.000Z';
+
+  it('takes both storage forms of a timestamp to a Date', () => {
+    // `pg` hands back a `Date` for `TIMESTAMPTZ`, `node:sqlite` the `TEXT` it stored. The
+    // app type is the same either way, which is the point: a repository's caller cannot
+    // be asked which driver is underneath.
+    expect(decodeDbValue(col('at'), ISO)).toEqual(new Date(ISO));
+    const already = new Date(ISO);
+    expect(decodeDbValue(col('at'), already)).toBe(already);
+  });
+
+  it('takes both storage forms of a bigint to a bigint', () => {
+    // `pg` reads `int8` as a decimal string to avoid the precision loss; `node:sqlite`
+    // reads `INTEGER` as a number.
+    expect(decodeDbValue(col('seq'), '90071992547409910')).toBe(90071992547409910n);
+    expect(decodeDbValue(col('seq'), 7)).toBe(7n);
+  });
+
+  it('leaves a number that has already lost digits alone', () => {
+    // Past 2^53 a `number` no longer distinguishes consecutive integers, so converting one
+    // would state a value the database never held. Handing the number back keeps the damage
+    // visible to the validator instead of laundering it into a plausible `bigint`.
+    // Written as an expression because the literal itself is a lint error, which is the
+    // point being made.
+    const lossy = Number.MAX_SAFE_INTEGER + 1;
+    expect(decodeDbValue(col('seq'), lossy)).toBe(lossy);
+  });
+
+  it('passes null and undefined through, and anything unconvertible with them', () => {
+    expect(decodeDbValue(col('at'), null)).toBeNull();
+    expect(decodeDbValue(col('seq'), undefined)).toBeUndefined();
+    expect(decodeDbValue(col('at'), 'nonsense')).toBe('nonsense');
+    expect(decodeDbValue(col('seq'), '0x10')).toBe('0x10');
+    expect(decodeDbValue(col('name'), 'launch')).toBe('launch');
+  });
+
+  it('names only the columns that can change, so a plain schema skips the walk', () => {
+    expect(dbDecodedColumns(ir).map(c => c.name)).toEqual(['at', 'seq']);
+    expect(dbDecodedColumns(irFromSchema(UserSchema)).map(c => c.name)).toEqual(['createdAt']);
+    expect(dbDecodedColumns(irFromSchema(defineSchema('tags', { id: serial().primaryKey() })))).toEqual([]);
   });
 });
 

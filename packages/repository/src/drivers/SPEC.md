@@ -35,6 +35,19 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 - If the SQL is a read (`^\s*SELECT`) or has `RETURNING`, return `stmt.all(...params)`
   as rows; otherwise `stmt.run(...params)` and return `[]`.
 - Synchronous under the hood, wrapped in a resolved Promise.
+- Binds a `Date` as ISO-8601 UTC text, because `node:sqlite` throws on one and the DDL
+  emitter declares the column `TEXT`. That spelling keeps lexicographic order
+  chronological, so `ORDER BY` and `BETWEEN` mean what they say. A `bigint` is bound as
+  itself — `node:sqlite` takes one for an `INTEGER` column.
+
+### Both adapters
+
+- The app→db conversion belongs to the driver, which is the only layer that knows what
+  its client binds. `pg` needs none: it binds a `Date` as a timestamp itself and
+  stringifies a `bigint`.
+- The db→app direction is the repository's, in one place for every driver
+  (`decodeDbValue`), because it reads the form that arrived rather than the dialect that
+  produced it. See `../../SPEC.md` §3a.
 
 ### pgDriver (#213)
 
