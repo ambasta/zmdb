@@ -22,7 +22,7 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
@@ -167,7 +167,7 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
@@ -186,7 +186,7 @@ jobs:
 
       - name: Publish OpenAPI spec artifact
         if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d5ee3f0750267 # v4.4.3
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: openapi-spec
           path: site/openapi.json
@@ -203,7 +203,7 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
@@ -235,7 +235,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
 
@@ -258,7 +258,7 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
 
@@ -283,7 +283,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@df702c286542718ef55d6141a0e9b97b09c25679 # v3.28.11
+        uses: github/codeql-action/init@4c50b6f6fd9dc6fe03111c2d045c8be2a724cce1 # v3.28.11
         with:
           languages: javascript-typescript
 
@@ -291,7 +291,7 @@ jobs:
         run: corepack enable
 
       - name: Use Node 26
-        uses: actions/setup-node@39370e3970a6d050c08020d0f489f44926987015 # v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
           cache: 'yarn'
@@ -300,7 +300,7 @@ jobs:
         run: yarn install --immutable --check-cache
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@df702c286542718ef55d6141a0e9b97b09c25679 # v3.28.11
+        uses: github/codeql-action/analyze@4c50b6f6fd9dc6fe03111c2d045c8be2a724cce1 # v3.28.11
 
   secret-scan:
     name: Secret scanning
@@ -313,6 +313,6 @@ jobs:
           fetch-depth: 0
 
       - name: Secret scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@836484a0c8d1e3d67f5cfc1d471be84ef9b8e23a # v2.3.8
+        uses: gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34 # v2.3.8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
