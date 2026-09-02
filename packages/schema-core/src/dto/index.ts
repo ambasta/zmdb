@@ -392,7 +392,7 @@ export function encodeCursor(payload: Record<string, unknown>): string {
 
 export function decodeCursor(cursor: string | Record<string, unknown>): Record<string, unknown> {
   if (typeof cursor === 'object' && cursor !== null && !Array.isArray(cursor)) {
-    return cursor as Record<string, unknown>;
+    return cursor;
   }
   if (typeof cursor !== 'string' || !cursor.trim()) {
     throw new Error('Invalid cursor: must be a non-empty string or object');
@@ -401,7 +401,7 @@ export function decodeCursor(cursor: string | Record<string, unknown>): Record<s
     let parsed: unknown;
     if (globalThis.Buffer) {
       const buf = globalThis.Buffer.from(cursor, 'base64url');
-      parsed = JSON.parse(buf as unknown as string);
+      parsed = JSON.parse(buf.toString('utf-8'));
     } else if (globalThis.atob) {
       let base64 = cursor.replace(/-/g, '+').replace(/_/g, '/');
       while (base64.length % 4) base64 += '=';
