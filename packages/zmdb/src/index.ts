@@ -30,7 +30,7 @@ export type {
   Entity,
   CreateDTO,
   UpdateDTO,
-  PrimaryKey,
+  PrimaryKeyOf,
   CoreSchema,
   ColumnMeta,
   ValidationIssue,

@@ -100,4 +100,25 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(migrations.runCli).toBe(srcRunCli);
     expect(migrations.driverMigrationConnection).toBe(srcDMC);
   });
+
+  it('re-exports the schema IR via zmdb/ir, identical to source', async () => {
+    const [umbrella, source] = await Promise.all([import('./ir.ts'), import('@zmdb/schema-core/ir')]);
+    expect(umbrella.irFromSchema).toBe(source.irFromSchema);
+    expect(umbrella.jsonSchemaFromIR).toBe(source.jsonSchemaFromIR);
+    expect(umbrella.jsonSchemaForColumn).toBe(source.jsonSchemaForColumn);
+    expect(umbrella.appTypeOf).toBe(source.appTypeOf);
+    expect(umbrella.wireTypeOf).toBe(source.wireTypeOf);
+    expect(umbrella.SQL_TYPES).toBe(source.SQL_TYPES);
+    expect(umbrella.KNOWN_CONSTRAINT_KINDS).toBe(source.KNOWN_CONSTRAINT_KINDS);
+  });
+
+  it('exposes zmdb/tags and zmdb/derive with no runtime cost', async () => {
+    // Both subpaths are type-only. Asserted here as well as in schema-core because
+    // the umbrella is where a stray value re-export would actually reach a consumer's
+    // bundle (REQ-TF-3).
+    const tagsSubpath: Record<string, unknown> = await import('./tags.ts');
+    const deriveSubpath: Record<string, unknown> = await import('./derive.ts');
+    expect(Object.keys(tagsSubpath)).toEqual([]);
+    expect(Object.keys(deriveSubpath)).toEqual([]);
+  });
 });

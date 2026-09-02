@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./tags": "./src/tags.ts",
+    "./ir": "./src/ir.ts",
+    "./derive": "./src/derive.ts",
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",

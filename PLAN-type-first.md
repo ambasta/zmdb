@@ -105,6 +105,12 @@ The derivation becomes `PrimaryKeyOf<S>` and the tag takes the good name. Becaus
 removes the backwards-compatibility requirement, `PrimaryKey<S>` is not kept as a
 deprecated alias — it is renamed outright, in one commit, with the call sites updated.
 
+**Landed.** The rename is done: `schema-core/src/index.ts:144` plus the seven
+`repository` signatures, the two type-test assertions, the composite-PK spec and the
+umbrella export. The collision was real and was already visible —
+`zmdb/src/index.ts` exported the derivation as `PrimaryKey` while `zmdb/src/tags.ts`
+exports the tag under the same name.
+
 _Rejected:_ namespaced tag imports (`import type * as t from 'zmdb/tags'` →
 `t.PrimaryKey`), which is uglier at every declaration site — and declaration sites are
 where this library is read.
@@ -258,6 +264,44 @@ consumer who types the key, and it shows up in `keyof` and index signatures. Tra
 un-forgeability for install-agnosticism is the wrong trade when the alternative is a
 build error that cannot be ignored.
 
+### D6 — A third spelling of the same five constraints. **Found while building Phase 2. Open.**
+
+Not one of the original five. It surfaced when the umbrella export map was extended
+and is the same class of problem as §1's four walkers, so it belongs here.
+
+`@zmdb/aot-validator` already exports a **runtime** constraint vocabulary
+(`index.ts:19`) covering exactly the constraints the tags cover:
+
+| aot-validator (value) | `defineSchema` (`ValidationRule.kind`) | tag (type)        |
+| --------------------- | -------------------------------------- | ----------------- |
+| `tags.Minimum(n)`     | `{ kind: 'minimum', value: n }`        | `Min<N>`          |
+| `tags.Maximum(n)`     | `{ kind: 'maximum', value: n }`        | `Max<N>`          |
+| `tags.MinLength(n)`   | `{ kind: 'minLength', value: n }`      | `MinLength<N>`    |
+| `tags.MaxLength(n)`   | `{ kind: 'maxLength', value: n }`      | `MaxLength<N>`    |
+| `tags.Pattern(re)`    | `{ kind: 'pattern', value: re }`       | `Pattern<S>`      |
+| `tags.Enum(...v)`     | `{ kind: 'enum' }` / `jsonEnum(v)`     | — (literal union) |
+
+Three spellings, and the first two are **already mixed in the same field**:
+`openapi.spec.ts:47` passes `{ kind: 'Pattern', args: [...] }` to a `defineSchema`
+column, which is why `scalarSchema` accepted both the PascalCase and the camelCase
+kind and both `value` and `args[0]`. `ir/index.ts`'s `normaliseKind`/`ruleArgument`
+reproduce that tolerance, so nothing regressed — but a case-folding bridge is not a
+decision, it is a symptom, and it is now the only thing holding the two together.
+
+**Recommendation:** align on the tag names and let the runtime vocabulary become
+internal to the AOT. Only two names actually differ (`Minimum`→`Min`,
+`Maximum`→`Max`); `MinLength`, `MaxLength` and `Pattern` already agree, and
+`tags.Enum` has no tag counterpart on purpose because a literal union is how you
+declare that (REQ-TF-2). Once a constraint is declared as `number & Min<18>`, the
+`tags.Minimum(18)` **call** has no declaration role left — the `Rule` object is just
+the AOT's pre-transform fallback representation, which is an implementation detail
+that happens to be exported.
+
+**Where it lands:** Phase 5, where the emitter is rewritten against the IR and the
+`Rule` kinds are being touched anyway. Doing it now would mean renaming across the
+transformer and its tests mid-migration for no gain. What must not happen is shipping
+1.0 with all three.
+
 ---
 
 ## 3. What already exists
@@ -321,11 +365,16 @@ re-points the root at `./derive`. The end state is identical — exactly one `Cr
 per D2 — but the tree stays green throughout. The cost is a temporary second import
 path, and `verify:no-defineschema` is what stops it becoming permanent.
 
+Also landed from Phase 0: the umbrella subpaths `zmdb/tags`, `zmdb/ir` and
+`zmdb/derive`, with `verify:exports` extended to hold the umbrella to REQ-UM-3 — no
+bare `export *`, and nothing re-exported from outside the workspace. And **D1**: the
+`PrimaryKey<S>` → `PrimaryKeyOf<S>` rename, in full.
+
 **Not yet done in Phases 1–3:** the codemod, the instantiation-budget ratchet, the
 relation-driven `PopulatedEntity`/`Populated`/`JoinRow`, the `dto/` module's
-order-by/pagination/projection shapes, the `PrimaryKey<S>` → `PrimaryKeyOf<S>` rename
-at its ~10 schema-value call sites, the reflection half of the D5 guard, and the
-umbrella-export plumbing from Phase 0.2.
+order-by/pagination/projection shapes, and the reflection half of the D5 guard. From
+Phase 0, the `typescript` optional-peer-dep move and its reachability guard are still
+open.
 
 ---
 

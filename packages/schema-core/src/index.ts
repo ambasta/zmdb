@@ -140,8 +140,8 @@ type PrimaryKeyKeys<C> = {
 
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
-// PrimaryKey<S>: scalar for single-column keys, object map for composite keys, unknown if no PK.
-export type PrimaryKey<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]
+// PrimaryKeyOf<S>: scalar for single-column keys, object map for composite keys, unknown if no PK.
+export type PrimaryKeyOf<S, C = ColumnsOf<S>> = [PrimaryKeyKeys<C>] extends [never]
   ? unknown
   : IsUnion<PrimaryKeyKeys<C>> extends true
     ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }

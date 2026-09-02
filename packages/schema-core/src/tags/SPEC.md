@@ -90,6 +90,16 @@ other does not exist in the insert type.
 as the named escape hatch. An unregistered `Rule` name is a build error, not a
 silently skipped check (plan D4).
 
+There is no `Enum` tag: a literal union is how you declare that, and TypeScript models
+it better than a flag does (REQ-TF-2).
+
+**Open — plan D6.** `@zmdb/aot-validator` exports a _runtime_ vocabulary for the same
+five constraints (`tags.Minimum(n)`), and `defineSchema` spells them a third way
+(`{ kind: 'minimum', value: n }`). Only two names differ — `Minimum`/`Maximum` versus
+`Min`/`Max` — and `../ir`'s `normaliseKind` currently case-folds between them. That
+bridge is a symptom; D6 aligns the names in Phase 5, when the emitter is rewritten
+against the IR.
+
 ## 5. Coverage
 
 `../ir/vocabulary.type-test.ts` asserts, at compile time, that every `SqlType`,

@@ -9,7 +9,7 @@
 // `CoreSchema<T>` with `columns: Record<string, ColumnMeta>`) without a single
 // failing test. They are asserted here against `defineSchema` itself, i.e. the
 // path every consumer actually takes.
-import type { CreateDTO, Entity, Equal, Expect, PrimaryKey, UpdateDTO } from './index.ts';
+import type { CreateDTO, Entity, Equal, Expect, PrimaryKeyOf, UpdateDTO } from './index.ts';
 import {
   defaultTo,
   defineSchema,
@@ -64,9 +64,9 @@ export type _Upd1 = Expect<Equal<UpdateDTO<S>['email'], string | undefined>>;
 export type _Upd2 = Expect<Equal<UpdateDTO<S>['role'], 'admin' | 'user' | undefined>>;
 export const _UpdUndefined: UpdateDTO<S> = { email: undefined, role: 'admin' };
 
-// --- PrimaryKey ------------------------------------------------------------
-export type _Pk1 = Expect<Equal<PrimaryKey<S>, number>>;
-export type _Pk2 = Expect<Equal<PrimaryKey<CompositeS>, { tenantId: string; userId: number }>>;
+// --- PrimaryKeyOf ------------------------------------------------------------
+export type _Pk1 = Expect<Equal<PrimaryKeyOf<S>, number>>;
+export type _Pk2 = Expect<Equal<PrimaryKeyOf<CompositeS>, { tenantId: string; userId: number }>>;
 
 // --- The two modifier styles agree ----------------------------------------
 // Function-style modifiers (`primaryKey(serial())`) and fluent modifiers

@@ -212,8 +212,17 @@ export const KNOWN_CONSTRAINT_KINDS = ['minimum', 'maximum', 'minLength', 'maxLe
 
 export type ConstraintKind = (typeof KNOWN_CONSTRAINT_KINDS)[number];
 
-// A rule may carry its argument as `value` or as `args[0]`; both spellings exist
-// in the wild and `scalarSchema` already accepted either.
+// These two functions bridge two vocabularies that should be one — see plan D6.
+//
+// `@zmdb/aot-validator` exports a runtime constraint vocabulary (`tags.Minimum(n)`
+// → `{ kind: 'Minimum', args: [n] }`) covering the same five constraints
+// `defineSchema` spells in camelCase with `value`. The two are already mixed in the
+// same field: `openapi.spec.ts:47` passes `{ kind: 'Pattern', args: [...] }` to a
+// `defineSchema` column. `scalarSchema` tolerated both, so this does too, or that
+// test's published behaviour would change.
+//
+// The tolerance is a symptom, not a design. D6 aligns the names in Phase 5.
+
 function ruleArgument(rule: { readonly value?: unknown; readonly args?: readonly unknown[] }): unknown {
   return rule.value ?? rule.args?.[0];
 }

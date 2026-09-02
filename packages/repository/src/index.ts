@@ -15,7 +15,7 @@ import {
   type CoreSchema,
   type CreateDTO,
   type Entity,
-  type PrimaryKey,
+  type PrimaryKeyOf,
   type UpdateDTO,
   type ValidationIssue,
   type JoinRow,
@@ -202,7 +202,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return (await this.driver.execute(query)) as readonly Row[];
   }
 
-  private buildKeyWhere(id: PrimaryKey<S>): WhereDTO<S> {
+  private buildKeyWhere(id: PrimaryKeyOf<S>): WhereDTO<S> {
     const pkCols = this.schema.primaryKey;
     if (!pkCols || pkCols.length === 0) {
       throw new Error(`schema ${this.tableName} has no primary key`);
@@ -239,12 +239,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // with those relations *and only those*. Batched IN query per relation; no
   // proxies. Populate keys are `keyof R`, so a misspelled relation is a compile
   // error rather than the runtime `unknown relation` throw below.
-  async findById(id: PrimaryKey<S>): Promise<Entity<S> | undefined>;
+  async findById(id: PrimaryKeyOf<S>): Promise<Entity<S> | undefined>;
   async findById<K extends keyof R & string>(
-    id: PrimaryKey<S>,
+    id: PrimaryKeyOf<S>,
     opts: { populate: readonly K[] },
   ): Promise<Populated<S, R, K> | undefined>;
-  async findById(id: PrimaryKey<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
+  async findById(id: PrimaryKeyOf<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
     return this.firstMatching(this.buildKeyWhere(id), opts?.populate);
   }
 
@@ -734,7 +734,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return row;
   }
 
-  async update(id: PrimaryKey<S>, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
+  async update(id: PrimaryKeyOf<S>, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
     const clean = this.validatePayload(patch, 'update');
     this.preUpdate(clean);
     if (Object.keys(clean).length === 0) {
@@ -748,7 +748,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   // #28 — delete + lifecycle hooks.
-  async delete(id: PrimaryKey<S>): Promise<boolean> {
+  async delete(id: PrimaryKeyOf<S>): Promise<boolean> {
     this.preDelete(id);
     const where = this.buildKeyWhere(id);
     const rows = await this.driver.execute(
@@ -762,7 +762,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected preInsert(_row: Record<string, unknown>): void {}
   protected postInsert(_row: Record<string, unknown>): void {}
   protected preUpdate(_row: Record<string, unknown>): void {}
-  protected preDelete(_id: PrimaryKey<S>): void {}
+  protected preDelete(_id: PrimaryKeyOf<S>): void {}
   protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     return rows;
   }

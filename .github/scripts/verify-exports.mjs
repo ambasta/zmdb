@@ -67,6 +67,35 @@ for (const pkgDirName of packageDirs) {
   }
 }
 
+// The umbrella surface (REQ-UM-3). `zmdb` is the package consumers actually import,
+// so every symbol it publishes must be enumerated and must come from a workspace
+// package. A bare `export *` there would let a sibling widen the public API without
+// anyone touching `zmdb`, which is how a curated surface stops being curated.
+//
+// `export * as ns` is allowed: the namespace is named, so the surface is still
+// explicit at this level.
+const UMBRELLA_SRC = join(PACKAGES_DIR, 'zmdb', 'src');
+if (existsSync(UMBRELLA_SRC)) {
+  const umbrella = JSON.parse(readFileSync(join(PACKAGES_DIR, 'zmdb', 'package.json'), 'utf8'));
+
+  for (const [subpath, target] of Object.entries(umbrella.exports)) {
+    if (typeof target !== 'string') continue;
+    const source = readFileSync(join(PACKAGES_DIR, 'zmdb', target), 'utf8');
+
+    if (/^\s*export\s+\*\s+from\s/m.test(source)) {
+      console.error(`[ERROR] zmdb export "${subpath}" (${target}) uses a bare "export *" — enumerate the symbols`);
+      errorsCount++;
+    }
+
+    for (const [, specifier] of source.matchAll(/^\s*(?:export|import)\s+(?:type\s+)?[^;]*?from\s+'([^']+)'/gm)) {
+      if (!specifier.startsWith('@zmdb/') && !specifier.startsWith('./')) {
+        console.error(`[ERROR] zmdb export "${subpath}" re-exports from "${specifier}", which is not a zmdb package`);
+        errorsCount++;
+      }
+    }
+  }
+}
+
 if (errorsCount > 0) {
   console.error(`\nExport manifest validation failed with ${errorsCount} error(s).`);
   process.exit(1);
