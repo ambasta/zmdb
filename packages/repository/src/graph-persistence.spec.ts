@@ -1,53 +1,37 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
-import { oneToMany } from '@zmdb/schema-core/relations';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { OneToMany, OneToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { defineRepository } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { defineRepository } from './index.js';
 
-// 1. Define Test Schemas
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
+// 1. Define Test Table Interfaces
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  orders?: Order[] & OneToMany<'orders', 'userId'>;
+  profile?: Profile & OneToOne<'profiles', 'userId'>;
+}
 
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  total: number & Sql<'integer'>;
+}
 
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text().notNull(),
-});
+export interface Profile extends Table<'profiles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  bio: string & Sql<'text'>;
+}
 
-// 2. Define Relations
-const ordersRelation = {
-  meta: oneToMany('orders', 'userId'),
-  entity: OrderSchema,
-  cardinality: 'one-to-many' as const,
-  childTable: 'orders',
-  childFk: 'userId',
-  parentKey: 'id',
-};
-
-const profileRelation = {
-  meta: oneToMany('profiles', 'userId'),
-  entity: ProfileSchema,
-  cardinality: 'one-to-one' as const,
-  childTable: 'profiles',
-  childFk: 'userId',
-  parentKey: 'id',
-};
-
-const userRelations = {
-  orders: ordersRelation,
-  profile: profileRelation,
-} as const;
+const { User: UserSchema } = schemasFrom<{ User: User; Order: Order; Profile: Profile }>(import.meta.url, [
+  'User',
+  'Order',
+  'Profile',
+]);
 
 function setupDb() {
   const db = new DatabaseSync(':memory:');
@@ -70,9 +54,8 @@ function setupDb() {
     );
   `);
   const driver = sqliteDriver(db);
-  const userRepo = defineRepository(UserSchema, driver, {
+  const userRepo = defineRepository<User>(UserSchema, driver, {
     dialect: 'sqlite',
-    relations: userRelations,
   });
   return { db, driver, userRepo };
 }
