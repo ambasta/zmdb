@@ -1,0 +1,8 @@
+{
+  "//": "The program the generated-schema test loads. Its own project rather than the package's, because a checker call is a round-trip to the tsgo child process and the plugin only needs this one file plus what it imports.",
+  "extends": "../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "files": ["entities.ts", "route-schemas.ts"]
+}

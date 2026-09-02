@@ -2,13 +2,23 @@
 // build/boot-time, reflection-free: reads getRoutes + optional per-route schemas.
 // No `as` on the consumer surface.
 
+import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
+
 import '../polyfill.ts';
 import { getRoutes } from '../routing/index.ts';
 
-/** A JSON Schema object (structural; matches @zmdb/schema-core's shape). */
-export type JsonSchema = Record<string, unknown>;
+/**
+ * A JSON Schema document.
+ *
+ * The union is not redundant. `JsonSchemaObject` is what `toJsonSchema<CreateDTO<User>>()`
+ * leaves behind — an interface, and an interface has no implicit index signature, so it is
+ * *not* assignable to the open record no matter what it contains. Naming both is what lets
+ * a generated document be handed to `toOpenApi` without a cast at the boundary; the open
+ * record stays for a hand-written one.
+ */
+export type JsonSchema = JsonSchemaObject | Readonly<Record<string, unknown>>;
 
-/** Per-route request/response schemas (from schema-core's toJsonSchema). */
+/** Per-route request/response schemas, from `toJsonSchema` in either spelling. */
 export interface RouteSchemas {
   readonly body?: JsonSchema;
   readonly response?: JsonSchema;
