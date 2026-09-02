@@ -90,6 +90,12 @@ jobs:
       - name: Verify no hand-written descriptors
         run: yarn verify:no-descriptors
 
+      # And the audit of the requirement table itself: every REQ-TF acceptance criterion
+      # has to name a test or a gate that exists, whose cited test names still exist, and
+      # whose gates this file actually runs. A row nobody can execute is a claim.
+      - name: Verify every REQ-TF criterion names a live enforcer
+        run: yarn verify:tf-acceptance
+
       # PRD §9.4's table, recomputed. The published assertion count had already drifted up by
       # five with nothing watching, which is what a document-as-invariant gets you (RISK-7).
       - name: Verify the escape-hatch ratchet

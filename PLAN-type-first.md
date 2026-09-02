@@ -893,8 +893,8 @@ bundler plugin remains, as the optimisation that removes the last function call
 
 ### Phase 9 — Ratchets, docs, and cleanup · M
 
-**CI gates to add** (all of these are currently missing, and several are ACs that no
-script enforces):
+**CI gates to add** (all of these were missing when this was written, and several were
+ACs that no script enforced; all are in `ci.yml` now):
 
 | Script                   | Enforces                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -904,6 +904,8 @@ script enforces):
 | `verify:instantiations`  | type-instantiation ceiling (REQ-TF-3, RISK-6)                                                                                                                                              |
 | `verify:escape-hatches`  | **the RISK-7 counter.** Recompute PRD §9.4, fail on any increase, fail on an assertion with no `// boundary:` comment in its enclosing function, and carry the `new Function`/`eval` grep. |
 | `verify:no-defineschema` | zero `defineSchema` calls and zero `irFromSchema` references outside their own deletion commit (**D2**)                                                                                    |
+| `verify:publish`         | the packages build, install and import — added here because the `dts` break below turned out to be hiding a worse one                                                                      |
+| `verify:tf-acceptance`   | PRD §6.7's own citations: every AC names a gate or a spec that exists, cites test names that exist, and cites gates `ci.yml` runs                                                          |
 
 The last one is overdue independently of this work: the published figure was 23 and
 the real count is 28 — it drifted up by five with nothing watching. Land it here
@@ -936,13 +938,21 @@ because Phase 5 and 7 will delete assertions and the ratchet should capture that
   `defineSchema` over. `DESIGN-type-first.md` §5 maps each of its 25 claims to the test that
   carries it now, so nothing is lost except the duplicate.
 
-**Also fix, since it blocks publishing:** `yarn build` fails at the `dts` step
-(`Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`) because
-tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Same root cause as
-this whole project — TS 7 changed the API shape.
+**Also fix, since it blocks publishing** — ✅ **done.** `yarn build` failed at the `dts`
+step (`Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`)
+because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API: same root
+cause as this whole project, TS 7 changed the API shape. tsup is gone and `tsc -p
+tsconfig.build.json` emits `dist` mirroring `src`. Fixing it exposed a bigger problem
+behind it — `exports` and `bin` pointed at `./src/*.ts`, and Node will not strip types
+under `node_modules`, so the published packages could not be imported at all.
+`verify:exports` passed because a workspace `node_modules` entry is a symlink Node
+resolves back out. `yarn verify:publish` is the gate for the installed form.
 
-**Gate:** all `REQ-TF-*` ACs enforced by a script, not by a document. PRD §6.7 rows
-updated from "planned" to met, with the enforcing script named in each AC.
+**Gate — met.** Every `REQ-TF-*` AC names a script or a test rather than asserting its
+own outcome, and `yarn verify:tf-acceptance` fails the build if a row cites something
+that does not exist or a gate CI does not run. PRD §6.7 reads eleven met and two ⚠️; the
+two say what is left, and each has a gate holding the line at today's number rather than
+a promise.
 
 ---
 

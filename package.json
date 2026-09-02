@@ -38,6 +38,7 @@
     "verify:no-defineschema": "node .github/scripts/verify-no-defineschema.mjs",
     "verify:no-descriptors": "node .github/scripts/verify-no-descriptors.mjs",
     "verify:publish": "node .github/scripts/verify-publish.mjs",
+    "verify:tf-acceptance": "node .github/scripts/verify-tf-acceptance.mjs",
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },
   "devDependencies": {

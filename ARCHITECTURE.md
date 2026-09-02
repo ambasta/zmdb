@@ -92,15 +92,21 @@ rejected regardless of how convenient it is.
    columns", and the emitted validator can only ever agree with one of them.
    Enforced by `yarn verify:no-defineschema`, which imports every published
    surface and reads its export names rather than grepping for a spelling.
-10. **Everything ships as source.** `files` is `["src"]` and every `exports`
-    target is a `.ts` file, so a consumer's import is Node reading our
-    TypeScript and stripping the types. Two consequences that are easy to break
-    and invisible to a test run: a relative specifier must name the file that
-    exists (`'./errors.ts'`, not `'./errors.js'` — `tsc` and vitest both map the
-    latter back, Node does not), and a published module must contain no syntax
-    that is not type syntax, which rules out a decorator anywhere on a path
-    reachable from an entry point. Enforced by `yarn verify:exports`, which
-    imports all 62 subpaths.
+10. **The source runs as-is; the build only mirrors it.** In the repo every
+    `exports` target is a `.ts` file and Node reads it directly, stripping the
+    types — that is how the tests, the dev loop and the consumer fixtures all
+    run, and `yarn verify:exports` imports all 62 subpaths that way. So a
+    relative specifier must name the file that exists (`'./errors.ts'`, not
+    `'./errors.js'` — `tsc` and vitest both map the latter back, Node does not),
+    and no module on a path reachable from an entry point may contain syntax that
+    is not type syntax, which rules out a decorator. What ships is `dist`, a
+    file-for-file `tsc` emit of `src` (`scripts/build-package.mjs`); the source
+    ships beside it for the maps. It has to be a build, because Node refuses to
+    strip types under `node_modules` — an `exports` target of `./src/index.ts`
+    throws `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING` once installed, which
+    the workspace's own symlinks hide. `yarn verify:publish` is the check that
+    does not get fooled: it packs, installs and imports every subpath from a
+    directory that is not this one.
 
 ### 2.1 The `as`-free rule and its narrow exceptions
 
