@@ -24,7 +24,7 @@
 //     the dialect's job; baking one in here would force every other back-end to
 //     parse it back out.
 
-import type { ColumnMeta, CoreSchema, SqlType } from '../index.ts';
+import type { ColumnMeta, CoreSchema, SqlType, ValidationRule } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // Type IR
@@ -366,6 +366,88 @@ export function irFromSchema(schema: CoreSchema<string>): SchemaIR {
     primaryKey: [...schema.primaryKey],
     relations: [],
     ...(schema.ftsTable === undefined ? {} : { ftsTable: schema.ftsTable }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Back-end: IR → schema value (REQ-TF-10)
+// ---------------------------------------------------------------------------
+
+/**
+ * The constraints, back in the spelling `defineSchema` writes.
+ *
+ * Emitted in `KNOWN_CONSTRAINT_KINDS` order rather than any order they arrived in: the
+ * IR holds them in a record, which has none to preserve, so a fixed order is the only
+ * one that makes the output a function of the input. Named custom rules keep their name
+ * and lose their arguments, because `ColumnIR.rules` only ever held the name.
+ */
+function validationFromIR(col: ColumnIR): readonly ValidationRule[] {
+  const rules: ValidationRule[] = [];
+  for (const kind of KNOWN_CONSTRAINT_KINDS) {
+    const value = col.constraints[kind];
+    if (value !== undefined) rules.push({ kind, value });
+  }
+  for (const kind of col.rules) rules.push({ kind });
+  return rules;
+}
+
+/**
+ * A column's metadata. Flags are written only when set, which is what the fluent
+ * builder produces — `text()` gives `{ nullable: false }` and nothing else — so the
+ * generated value reads like the authored one it replaces.
+ */
+function columnMetaFromIR(col: ColumnIR): ColumnMeta {
+  const validation = validationFromIR(col);
+  return {
+    type: col.sql,
+    flags: {
+      nullable: col.nullable,
+      ...(col.primaryKey ? { primaryKey: true } : {}),
+      ...(col.serial ? { autoIncrement: true } : {}),
+      ...(col.unique ? { unique: true } : {}),
+      ...(col.hasDefault ? { hasDefault: true } : {}),
+      ...(col.sensitive ? { sensitive: true } : {}),
+      ...(col.length === undefined ? {} : { length: col.length }),
+      ...(col.enum === undefined ? {} : { enum: col.enum }),
+    },
+    ...(col.default === undefined ? {} : { default: col.default }),
+    ...(col.references === undefined ? {} : { references: { target: col.references } }),
+    ...(validation.length === 0 ? {} : { validation }),
+  };
+}
+
+/**
+ * The schema value, from the IR. The inverse of `irFromSchema`, and the reason the
+ * query compiler needs no type-first port of its own (REQ-TF-10): it wants the table
+ * name and the column types as *data*, and this is data. `@zmdb/aot-validator` emits
+ * the result of this function as a frozen literal, so `schemaOf<T>()` costs nothing at
+ * runtime and the tagged type stays the only place the schema is written.
+ *
+ * The round trip is exact — `irFromSchema(schemaFromIR(ir))` deep-equals `ir` — for
+ * everything both representations can hold, which is the property `ir.spec.ts` pins
+ * down. Three things only the IR can hold, and they are dropped here: `Numeric<P, S>`
+ * precision, a `Codec<'Name'>`, and a `json` payload shape. None is a loss in practice,
+ * because the two back-ends that read them — the emitted validator and the DDL type map
+ * of plan D3 — take the IR directly and never go through a schema value. `defineSchema`
+ * cannot express any of the three either, so nothing that works today stops working.
+ *
+ * Nothing is registered. `defineSchema` puts every schema in a module-level registry;
+ * a generated literal is not a call and has nowhere to do that, and `getRegisteredSchema`
+ * is a lookup for code that has lost track of its own schema — which type-first code, by
+ * construction, has not.
+ */
+export function schemaFromIR(ir: SchemaIR): CoreSchema<string> {
+  const columns: Record<string, ColumnMeta> = {};
+  for (const col of ir.columns) columns[col.name] = columnMetaFromIR(col);
+
+  return {
+    table: ir.table,
+    columns,
+    primaryKey: ir.primaryKey,
+    references: ir.columns.flatMap(col =>
+      col.references === undefined ? [] : [{ column: col.name, target: col.references }],
+    ),
+    ...(ir.ftsTable === undefined ? {} : { ftsTable: ir.ftsTable }),
   };
 }
 

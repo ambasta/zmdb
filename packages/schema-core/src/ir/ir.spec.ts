@@ -8,6 +8,7 @@ import {
   json,
   jsonEnum,
   numeric,
+  references,
   serial,
   text,
   timestamp,
@@ -20,9 +21,11 @@ import {
   jsonSchemaForColumn,
   jsonSchemaFromIR,
   KNOWN_CONSTRAINT_KINDS,
+  schemaFromIR,
   SQL_TYPES,
   wireTypeOf,
   type ColumnIR,
+  type SchemaIR,
 } from './index.ts';
 
 const UserSchema = defineSchema('users', {
@@ -199,5 +202,100 @@ describe('jsonSchemaFromIR — the emitter is a pure function of IR', () => {
       type: 'string',
       maxLength: 10,
     });
+  });
+});
+
+describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
+  const Memberships = defineSchema(
+    'memberships',
+    {
+      userId: references(integer().primaryKey(), 'users', 'id'),
+      groupId: integer().primaryKey(),
+      note: text().nullable().validate({ kind: 'luhn' }),
+    },
+    { ftsTable: true },
+  );
+
+  // The property the whole phase rests on. Everything downstream of a schema value —
+  // the query compiler, the DDL emitter, the repository — is a function of the IR the
+  // value produces, so a schema value that produces the same IR is the same schema
+  // value as far as any of them can tell.
+  it('round-trips: the IR of the generated value equals the IR it came from', () => {
+    for (const schema of [UserSchema, Memberships]) {
+      const ir = irFromSchema(schema);
+      expect(irFromSchema(schemaFromIR(ir))).toEqual(ir);
+    }
+  });
+
+  it('is plain data — no fluent builder, nothing to call', () => {
+    // `defineSchema`'s columns are `Column` objects with `notNull()`, `nullable()` and
+    // seven more methods on them. The generated value is a literal, so it has to be the
+    // case that nothing reads those, and the way to know is that a JSON round trip of
+    // the generated value is the generated value.
+    const value = schemaFromIR(irFromSchema(UserSchema));
+    expect(JSON.parse(JSON.stringify(value))).toEqual(value);
+  });
+
+  it('keeps flags to the ones that are set, the way the builder writes them', () => {
+    const columns = schemaFromIR(irFromSchema(UserSchema)).columns;
+    // `serial()` sets `hasDefault` as well as `autoIncrement`: the database supplies the
+    // value, which is a default in every sense the schema cares about.
+    expect(columns.id).toEqual({
+      type: 'serial',
+      flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true },
+    });
+    expect(columns.active).toEqual({ type: 'boolean', flags: { nullable: false } });
+    expect(columns.passwordHash).toEqual({ type: 'text', flags: { nullable: false, sensitive: true } });
+  });
+
+  it('writes the constraints back in a fixed order, and keeps a named rule', () => {
+    const columns = schemaFromIR(irFromSchema(UserSchema)).columns;
+    expect(columns.age?.validation).toEqual([
+      { kind: 'minimum', value: 18 },
+      { kind: 'maximum', value: 120 },
+    ]);
+    expect(schemaFromIR(irFromSchema(Memberships)).columns.note?.validation).toEqual([{ kind: 'luhn' }]);
+  });
+
+  it('restores a foreign key in both places the schema records one', () => {
+    const value = schemaFromIR(irFromSchema(Memberships));
+    expect(value.references).toEqual([{ column: 'userId', target: 'users.id' }]);
+    expect(value.columns.userId?.references).toEqual({ target: 'users.id' });
+    expect(value.primaryKey).toEqual(['userId', 'groupId']);
+    expect(value.ftsTable).toBe(true);
+  });
+
+  it('drops the three things only a type can say, rather than inventing a spelling', () => {
+    // `Numeric<10, 2>`, `Codec<'Money'>` and a `json` payload shape have no home in a
+    // `CoreSchema` — `defineSchema` cannot express any of them either. They are dropped
+    // here on purpose: the two back-ends that need them read the IR directly. If this
+    // ever stops being true, this test is the one that has to change first.
+    const ir: SchemaIR = {
+      table: 'invoices',
+      columns: [
+        {
+          name: 'total',
+          sql: 'numeric',
+          nullable: false,
+          primaryKey: true,
+          serial: false,
+          unique: false,
+          hasDefault: false,
+          sensitive: false,
+          precision: [10, 2],
+          codec: 'Money',
+          payload: { kind: 'unknown' },
+          constraints: {},
+          rules: [],
+        },
+      ],
+      primaryKey: ['total'],
+      relations: [],
+    };
+    const back = irFromSchema(schemaFromIR(ir));
+    expect(back.columns[0]).not.toHaveProperty('precision');
+    expect(back.columns[0]).not.toHaveProperty('codec');
+    expect(back.columns[0]).not.toHaveProperty('payload');
+    expect(back.columns[0]?.sql).toBe('numeric');
   });
 });
