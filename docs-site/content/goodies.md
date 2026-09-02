@@ -33,12 +33,12 @@ Useful for spotting portability problems before deploy, and for tests that must 
 ## Generate realistic fixtures from the schema
 
 ```ts
-import { seedRows } from '@zmdb/schema-core/seeding';
+import { seedRows } from '@zmdb/repository/seeding';
 
 const rows = seedRows(userSchema, { count: 50, seed: 1234 });
 ```
 
-Deterministic for a given seed, and shaped by the column's SQL type — a `jsonEnum` gets a member, a `timestamp` gets a `Date`. It does **not** read the validation tags, so a constrained column can get a value `repo.create` will reject; [`random<T>()`](./random.html) is the one that honours them. See [Seed Value Generators](./seed-functions.html).
+Deterministic for a given seed, and shaped by the column's whole declaration rather than only its SQL type — a literal union gets a member, a `timestamp` gets a `Date`, a `Min<18>` column gets a number at least eighteen. It is the same sampler [`random<T>()`](./random.html) uses, so the rows satisfy `repo.create`'s own validator. See [Seed Value Generators](./seed-functions.html).
 
 ## Generate a value from any type, not just a schema
 

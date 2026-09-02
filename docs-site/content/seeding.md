@@ -1,19 +1,21 @@
-Seeding generates deterministic test data from your schema. Use `seedRows` to create reproducible datasets — same seed always produces the same rows. This is useful for testing, demos, and development environments.
+Seeding generates deterministic test data from your schema. Use `seedRows` to create reproducible datasets — the same seed always produces the same rows. This is useful for testing, demos, and development environments.
 
 ## Basic Usage
 
 ```ts
-import { seedRows, makeRng } from '@zmdb/schema-core/seeding';
+import { seedRows } from '@zmdb/repository/seeding';
 import { userSchema } from './schemas.js';
 
-// Generate 100 rows with default seed (1)
+// Generate 100 rows with the default seed (1)
 const rows = seedRows(userSchema, { count: 100 });
 
-// rows => [{ name: 's3k1w9d', email: 's2m5p8k', ... }, ...]
+// rows => CreateDTO<User>[]
+// [{ name: 's3k1w9d', email: 's2m5p8k', age: 34, active: true }, ...]
 ```
 
-`seedRows` takes the **schema object** — `schemaOf<User>()` — not the type, because it walks
-`CoreSchema.columns` at runtime. `Record<string, unknown>[]` out, shaped like `CreateDTO<User>`.
+`seedRows` takes the **schema value** — `schemaOf<User>()` — rather than the type, and reads
+the declared type back off it: a `TaggedSchema<User>` carries `User` in its type, so the
+return is `CreateDTO<User>[]` and the rows go into `repo.create` with no cast.
 
 ## Deterministic Generation
 
@@ -24,10 +26,12 @@ Pass a seed for reproducible output:
 const rows1 = seedRows(userSchema, { seed: 42, count: 10 });
 const rows2 = seedRows(userSchema, { seed: 42, count: 10 });
 
-// rows1 === rows2 (structurally equal)
+// rows1 and rows2 are structurally equal
 ```
 
-The PRNG uses mulberry32 — fast, deterministic, and seedable.
+The PRNG is mulberry32 — fast, deterministic, and seedable. Nothing in the generator reaches
+for `Math.random`, so a seeded run is reproducible across processes and runtimes, which is
+what makes a seeded failure debuggable from the test output alone.
 
 ## Seed Options
 
@@ -38,74 +42,115 @@ interface SeedOptions {
 }
 ```
 
-## Supported Column Types
+## What a generated value satisfies
 
-The seeder handles these types:
+Values come from the column's **IR** — the same description the validator checks against, and
+via the same sampler [`random<T>()`](./random.html) uses. So a generated row satisfies the
+whole declaration, not just its SQL type:
 
-| Type                          | Generated Value                     |
-| ----------------------------- | ----------------------------------- |
-| `serial`, `integer`, `bigint` | Random integer (0–1M)               |
-| `numeric`                     | Random decimal (0–1000)             |
-| `boolean`                     | Random boolean                      |
-| `timestamp`                   | Random date                         |
-| `jsonEnum`                    | Random enum value                   |
-| `text`, `varchar`             | Random string (`s` + base36 number) |
+| Declaration                | Generated value                              |
+| -------------------------- | -------------------------------------------- |
+| `string & Sql<'text'>`     | base-36 string, 1–12 characters              |
+| `… & MinLength<4>`         | at least four characters                     |
+| `number & Sql<'integer'>`  | integer, 0 … 1000                            |
+| `… & Min<18> & Max<120>`   | integer in `[18, 120]`                       |
+| `boolean & Sql<'boolean'>` | 50/50                                        |
+| `Date & Sql<'timestamp'>`  | a `Date`                                     |
+| `'admin' \| 'user'`        | one member, uniformly                        |
+| `{ … } & Sql<'json'>`      | a payload of the declared shape, recursively |
+| `bigint & Sql<'bigint'>`   | a `bigint` in the same range                 |
 
-Columns flagged `autoIncrement` or `hasDefault` are skipped, which is what makes the output a
-`create` shape:
+That is the difference from the column-map generator this replaced, which read the SQL type
+and two flags and nothing else: a `Min<18>` column got whatever the PRNG produced, so seeded
+rows routinely failed the table's own validator inside a test whose subject was something
+else.
+
+## The `create` shape
+
+Auto-increment and defaulted columns are **absent**, because `CreateDTO<T>` does not have the
+first and treats the second as optional — and a seeded value over a database default makes a
+row that does not resemble an inserted one:
 
 ```ts
 export interface Thing extends Table<'things'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey; // skipped — Serial sets autoIncrement
-  createdAt: Date & Sql<'timestamp'> & HasDefault; //    skipped — hasDefault
+  id: number & Sql<'integer'> & Serial & PrimaryKey; // absent — the database assigns it
+  createdAt: Date & Sql<'timestamp'> & HasDefault; //    absent — the default assigns it
   name: string & Sql<'text'>; //                         generated
   active: boolean & Sql<'boolean'>; //                   generated
 }
 ```
 
-> [!IMPORTANT]
-> The seeder reads `ColumnMeta.type` and those two flags, and nothing else. It does not
-> honour nullability, a `Codec`, `Length<N>`, `Numeric<P, S>`, or any of the validation
-> tags — a nullable column always gets a value, and a `Min<18>` column gets whatever the
-> PRNG produced. Rows can therefore fail `repo.create`'s own validation.
->
-> Where you need a value that satisfies its constraints, use
-> [`random<T>()`](./random.html): it reads the same tags the validator emits from, and
-> refuses outright where it cannot honour one (a `Pattern`, say) rather than producing
-> something that will be rejected later.
+## What it refuses
+
+A column the sampler cannot satisfy is a thrown refusal that names the column and the reason,
+rather than a value that will be rejected downstream. The case that occurs in practice is
+`Pattern<…>`:
+
+```ts
+export interface Account extends Table<'accounts'> {
+  slug: string & Sql<'text'> & Pattern<'^[a-z]+$'>;
+}
+
+seedRows(accountSchema, { count: 1 });
+// Error: cannot sample `.slug`: a sample cannot be built from a pattern;
+//        nothing here inverts a regular expression
+```
+
+Inverting a regular expression is a real problem and this does not solve it — it says so
+instead. Where you need such a table seeded, write that column yourself:
+
+```ts
+const accounts = Array.from({ length: 10 }, (_, i) => ({ slug: `account-${i}` }));
+```
+
+or drop the pattern from the column and check the value at the boundary that receives one.
+The other refusals — contradictory bounds, a type that recurs with no terminating arm — are
+listed under [`random()`](./random.html).
 
 ## Custom Generation
 
-For complex data, extend the seeder or generate manually:
+`makeRng(seed)` is exported because a seed script usually needs more than rows — picking an
+existing id, choosing a category, deciding whether an optional field is set:
 
 ```ts
-import { makeRng } from '@zmdb/schema-core/seeding';
+import { makeRng, seedRows } from '@zmdb/repository/seeding';
 
-const rng = makeRng(123);
+const rng = makeRng(42);
+const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)]!;
 
-const users = Array.from({ length: 50 }, () => ({
-  name: `User_${Math.floor(rng() * 1000)}`,
-  email: `user${Math.floor(rng() * 1000)}@example.com`,
-  role: rng() < 0.5 ? 'admin' : 'user',
-}));
+const authorIds = (await authorRepo.findAll()).map(a => a.id);
+for (const post of seedRows(postSchema, { count: 500, seed: 42 })) {
+  await postRepo.create({ ...post, authorId: pick(authorIds) });
+}
 ```
+
+Using the same seed for `makeRng` and `seedRows` keeps the whole script reproducible,
+including the join keys.
 
 ## Integration with Repository
 
 ```ts
 async function seedDatabase(repo: UserRepository, count: number) {
   for (const row of seedRows(userSchema, { count })) {
-    await repo.create(row as CreateDTO<User>);
+    await repo.create(row);
   }
 }
 ```
 
-The cast is the one wart: the rows have the `CreateDTO<User>` _shape_ but the declared return
-type is `Record<string, unknown>[]`, because `seedRows` is parameterised on the schema value
-rather than on the declared type. See [Seed Value Generators](./seed-functions.html).
+`count` round trips. For a large seed, batch through the compiler instead:
+
+```ts
+const q = createQueryCompiler('postgres').insertInto('users').values(rows).compile();
+await driver.execute(q);
+```
 
 > [!TIP]
 > Use a transaction for bulk seeds to improve performance and ensure atomicity.
+
+> [!NOTE]
+> A `References<'authors.id'>` column gets a value of the right _type_, not an id that
+> exists. Seed in dependency order and substitute real keys, as above — there is no
+> relation-aware `seedGraph`.
 
 ---
 

@@ -78,12 +78,11 @@ The schema comes from your actual schema objects, so it cannot drift from a fixt
 ## Fixtures from the schema
 
 ```ts
-import { seedRows } from '@zmdb/schema-core/seeding';
+import { seedRows } from '@zmdb/repository/seeding';
 
 const [row] = seedRows(users, { count: 1, seed: 1 });
 if (row === undefined) throw new Error('seedRows returned nothing');
-const { id, ...dto } = row; // seedRows returns Entity, create takes CreateDTO
-await repo.create(dto);
+await repo.create(row); // already a CreateDTO — no id to strip
 ```
 
 Adding a column does not break every test that built a row by hand. Use a distinct seed per test so one test's data cannot make another pass. See [Seed Functions](./seed-functions.html).

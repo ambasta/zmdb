@@ -445,13 +445,29 @@ function objectHasNoExcessKeys(value: unknown, node: ObjectIR, refs: RefTable): 
 // sample
 // ---------------------------------------------------------------------------
 
+/**
+ * Where `sample` draws from — `Math.random` unless a caller passed something else.
+ *
+ * A parameter on `sample` would be threaded through eight recursive cases to reach two leaf
+ * functions, and every one of them would carry an argument it does not use. A module-level
+ * source is the shape that costs nothing on the default path, and it is safe here for one
+ * specific reason rather than by luck: `sample` is synchronous and `random` restores the
+ * previous value in a `finally`, so there is no interleaving to get wrong.
+ *
+ * It exists so a seeded generator can be *the same* generator. `@zmdb/repository/seeding`
+ * needs "same seed ⇒ same rows" and needs the values to satisfy the column's constraints;
+ * those are one requirement, and answering it with a second value generator is how the
+ * repo ended up with five walkers over one schema.
+ */
+let entropy: () => number = Math.random;
+
 function randomInt(min: number, max: number): number {
-  return min + Math.floor(Math.random() * (max - min + 1));
+  return min + Math.floor(entropy() * (max - min + 1));
 }
 
 function randomString(min: number, max: number): string {
   let s = '';
-  while (s.length < Math.max(min, 1)) s += Math.random().toString(36).slice(2);
+  while (s.length < Math.max(min, 1)) s += entropy().toString(36).slice(2);
   return s.slice(0, max);
 }
 
@@ -514,9 +530,12 @@ function scalarSample(node: ScalarIR, path: string): unknown {
   const constraints = node.constraints;
   switch (node.scalar) {
     case 'boolean':
-      return Math.random() < 0.5;
+      return entropy() < 0.5;
     case 'date':
-      return new Date();
+      // An instant drawn from the same source, not `new Date()`: a sample that ignores the
+      // generator is a sample a seed cannot reproduce, and "same seed ⇒ same rows" is a
+      // property, not a nicety. The range is the epoch to roughly 2024.
+      return new Date(Math.floor(entropy() * 1_700_000_000_000));
     case 'number':
     case 'integer':
     case 'bigint': {
@@ -608,11 +627,17 @@ export function assertEquals<T = unknown>(input: unknown, schema?: TypeIR): T {
   failWith(issues);
 }
 
-export function random<T = unknown>(schema?: TypeIR): T {
+export function random<T = unknown>(schema?: TypeIR, rng?: () => number): T {
   const node = required(schema);
-  // boundary: `sample` builds the value FROM the IR, so it satisfies it by
-  // construction — the `is(random(d), d)` property test guards this.
-  return sample(node, '') as T;
+  const previous = entropy;
+  entropy = rng ?? Math.random;
+  try {
+    // boundary: `sample` builds the value FROM the IR, so it satisfies it by
+    // construction — the `is(random(d), d)` property test guards this.
+    return sample(node, '') as T;
+  } finally {
+    entropy = previous;
+  }
 }
 
 /** Every issue, for a caller that wants them without a `ValidateResult` wrapper. */

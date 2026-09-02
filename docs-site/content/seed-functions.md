@@ -1,30 +1,31 @@
-`@zmdb/schema-core/seeding` generates rows that satisfy a schema, from a seed you choose, so the same seed produces the same data.
+`@zmdb/repository/seeding` generates rows that satisfy a schema, from a seed you choose, so the same seed produces the same data.
 
 ## Generating rows
 
 ```ts
-import { seedRows } from '@zmdb/schema-core/seeding';
+import { seedRows } from '@zmdb/repository/seeding';
 import { userSchema } from './schema.js';
 
 const rows = seedRows(userSchema, { count: 50, seed: 1 });
-// Record<string, unknown>[], shaped like CreateDTO<User>
+// CreateDTO<User>[]
 ```
 
-Every column gets a value appropriate to its **SQL type** — `text`/`varchar` a base-36 string, `integer`/`bigint`/`serial` an integer under a million, `numeric` two decimal places, `timestamp` a `Date`, `jsonEnum` one of its members, and anything else the string form. Same seed, same rows, which is what makes a seeded test reproducible and a seeded failure debuggable.
+Every column gets a value that satisfies its **declaration**, not merely its SQL type: the row
+is assembled from the column's IR by the same sampler [`random<T>()`](./random.html) uses, so
+`Min`/`Max`, `MinLength`/`MaxLength`, a string-literal union's members and a `json` column's
+payload shape all reach the generator. Same seed, same rows — which is what makes a seeded test
+reproducible and a seeded failure debuggable.
 
-> [!IMPORTANT]
-> That is the whole of it. The generator reads `ColumnMeta.type` and two flags, and
-> nothing else — it does **not** honour nullability, `Min`/`Max`, `MinLength`/`MaxLength`,
-> `Pattern`, `Length<N>`, `Numeric<P, S>` or a `Codec`. A nullable column always gets a
-> value; a constrained one gets a value that may well violate the constraint, which
-> `repo.create` will then reject. For a row that satisfies its constraints by construction,
-> use [`random<T>()`](./random.html) — it reads the same tags the validator does, and
-> refuses rather than guessing where it cannot.
+> [!NOTE]
+> This is a change from the generator that lived in `@zmdb/schema-core/seeding`. That one read
+> `ColumnMeta.type` and two flags and nothing else, so a constrained column got a value that
+> often violated the constraint and `repo.create` then rejected the row. It also returned
+> `Record<string, unknown>[]`, which every call site had to cast. Both were the same defect —
+> a second, weaker value generator beside the one the validator emits — and both went away
+> when `seedRows` became a loop over that one.
 
-The return type is `Record<string, unknown>[]`. Auto-increment and defaulted columns are
-**omitted**, so the shape is a `CreateDTO<S>` and the rows go straight into `repo.create` —
-but the static type is not `CreateDTO<S>`, so the call site needs the cast the generator
-cannot give you.
+Auto-increment and defaulted columns are **omitted**, so the shape and the static type are
+both `CreateDTO<T>` and the rows go straight into `repo.create`.
 
 ## Inserting them
 
@@ -32,7 +33,7 @@ cannot give you.
 
 ```ts
 for (const row of seedRows(userSchema, { count: 50, seed: 1 })) {
-  await repo.create(row as CreateDTO<User>);
+  await repo.create(row);
 }
 ```
 
@@ -44,25 +45,24 @@ await driver.execute(q);
 ```
 
 > [!NOTE]
-> There is no `id` to strip. A `Serial` column carries the `autoIncrement` flag and a
-> `HasDefault` column carries `hasDefault`, and `seedRows` filters both out before
-> generating — the row it hands you is already the `create` shape. Passing a generated
-> `id` would be rejected anyway: the repository refuses a supplied serial column with
-> `the database generates "id", so a payload cannot supply it`.
+> There is no `id` to strip. `CreateDTO<T>` has no auto-increment column and treats a
+> defaulted one as optional, and `seedRows` generates the required properties only — the row
+> it hands you is already the `create` shape. Passing a generated `id` would be rejected
+> anyway — the repository refuses a supplied serial column.
 
 ## The RNG on its own
 
 `makeRng(seed)` is the deterministic generator underneath, and it is exported because a seed script usually needs more than rows — picking a random existing id, choosing a category, deciding whether an optional field is set:
 
 ```ts
-import { makeRng } from '@zmdb/schema-core/seeding';
+import { makeRng, seedRows } from '@zmdb/repository/seeding';
 
 const rng = makeRng(42);
 const pick = <T>(xs: readonly [T, ...T[]]): T => xs[Math.floor(rng() * xs.length)] ?? xs[0];
 
 const authorIds = (await authorRepo.findAll()).map(a => a.id);
 for (const post of seedRows(postSchema, { count: 500, seed: 42 })) {
-  await postRepo.create({ ...post, authorId: pick(authorIds) } as CreateDTO<Post>);
+  await postRepo.create({ ...post, authorId: pick(authorIds) });
 }
 ```
 
@@ -75,11 +75,11 @@ A `References<'authors.id'>` column gets a value of the right _type_, not an id 
 ```ts
 const authors = [];
 for (const a of seedRows(authorSchema, { count: 10, seed: 1 })) {
-  authors.push(await authorRepo.create(a as CreateDTO<Author>));
+  authors.push(await authorRepo.create(a));
 }
 
 for (const p of seedRows(postSchema, { count: 100, seed: 2 })) {
-  await postRepo.create({ ...p, authorId: pick(authors).id } as CreateDTO<Post>);
+  await postRepo.create({ ...p, authorId: pick(authors).id });
 }
 ```
 
@@ -87,7 +87,7 @@ There is no relation-aware seeding that does this for you — see below.
 
 ## Realistic values
 
-The generator produces values that fit the SQL type, not values that look like names — and, as above, not values that satisfy your constraints either. Override the field:
+The generator produces values that satisfy the declaration, not values that look like names. Override the field:
 
 ```ts
 const names = ['Ada', 'Grace', 'Alan', 'Barbara'];
@@ -96,13 +96,25 @@ seedRows(userSchema, { count: 4, seed: 1 }).map((r, i) => ({ ...r, name: names[i
 
 zmdb ships no faker-style corpus, because that is a lot of data to carry for zero [runtime dependencies](./why-zmdb.html).
 
+## A column it will not guess
+
+`Pattern<…>` is a refusal rather than a wrong value — nothing here inverts a regular
+expression:
+
+```
+cannot sample `.slug`: a sample cannot be built from a pattern
+```
+
+Write that column yourself, or keep the pattern off it and check the value at the boundary that
+receives one. [`random()`](./random.html) lists the rest.
+
 ## In tests
 
 The value here is that a fixture is derived from the schema, so adding a column does not break every test that built a row by hand:
 
 ```ts
 const [user] = seedRows(userSchema, { count: 1, seed: 1 });
-const created = await repo.create(user as CreateDTO<User>);
+const created = await repo.create(user);
 ```
 
 Use a distinct seed per test so one test's data cannot make another pass. See [Testing](./testing.html).
@@ -117,7 +129,9 @@ import { random } from '@zmdb/aot-validator/utilities';
 const body = random<CreateUserRequest>();
 ```
 
-Needs the transformer. See [AOT Setup](./aot-setup.html).
+Needs the transformer. See [AOT Setup](./aot-setup.html). The seed does not reach it: a
+transformed `random<T>()` is an inlined expression over `Math.random`, and the seeded path is
+`seedRows`, which calls the sampler at runtime with a generator of its own.
 
 ## What is missing
 
@@ -125,7 +139,7 @@ Needs the transformer. See [AOT Setup](./aot-setup.html).
 
 **Insertion.** No `seed(driver, schema, opts)` — the generator deliberately has no I/O, which is why it works in a test with no database.
 
-**Constraint-aware values, and a `CreateDTO<S>` return type.** The two are the same piece of work: the generator reads `CoreSchema.columns`, and the tags it ignores are all present on the `ColumnIR` beside them. `random<T>()` already does the reading; the honest fix is for `seedRows` to be a thin loop over it rather than a second, weaker generator.
+**Optional columns.** `seedRows` generates the required properties of `CreateDTO<T>` and leaves the optional ones absent, which is a defensible default (a defaulted column should get its default) but not a choice you can make per run.
 
 ---
 

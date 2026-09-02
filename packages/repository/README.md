@@ -1,6 +1,6 @@
 # @zmdb/repository
 
-Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.
+Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.
 
 Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
 define your schema once and entities, DTOs, validation, serialization, OpenAPI
@@ -18,7 +18,7 @@ npm add @zmdb/repository@alpha
 
 ## Entry points
 
-`@zmdb/repository`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
+`@zmdb/repository`, `@zmdb/repository/seeding`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
 
 ## Documentation
 

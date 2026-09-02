@@ -1,7 +1,7 @@
 {
   "name": "@zmdb/repository",
   "version": "1.0.0-alpha.4",
-  "description": "Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.",
+  "description": "Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.",
   "keywords": [
     "crud",
     "data-layer",
@@ -30,6 +30,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./seeding": "./src/seeding/index.ts",
     "./transactions": "./src/transactions/index.ts",
     "./replicas": "./src/replicas/index.ts",
     "./integrations": "./src/integrations/index.ts",

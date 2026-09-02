@@ -1061,7 +1061,10 @@ export class Emitter {
       case 'boolean':
         return 'Math.random() < 0.5';
       case 'date':
-        return 'new Date()';
+        // The same instant the runtime sampler draws, and for the same reason: one documented
+        // function should not mean "now" when the transformer inlined it and "an arbitrary
+        // instant" when it did not. Epoch to roughly 2024.
+        return 'new Date(Math.floor(Math.random() * 1700000000000))';
       case 'number':
       case 'integer':
       case 'bigint': {

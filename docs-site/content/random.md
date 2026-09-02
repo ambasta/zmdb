@@ -2,7 +2,9 @@
 
 > [!NOTE]
 > `is<T>(random<T>()) === true` is the property the generator holds, and there is a test that
-> says so. The values are not deterministic; there is no seed parameter yet.
+> says so. The values are not deterministic: the transformer inlines the call, and the inlined
+> expression draws from `Math.random`. Where you need reproducibility, `seedRows` in
+> [`@zmdb/repository/seeding`](./seeding.html) drives the same sampler from a seed.
 
 ## Basic Usage
 
@@ -28,7 +30,7 @@ The type argument is the whole input. The transformer turns `random<Account>()` 
 ```ts
 random<boolean>(); // true or false
 random<number>(); // 0 … 1000
-random<Date>(); // new Date()
+random<Date>(); // an arbitrary instant, epoch to roughly 2024
 random<bigint>(); // 417n
 random<'admin' | 'user' | 'guest'>(); // 'user' — one member, at random
 random<null>(); // null
@@ -155,7 +157,7 @@ describe('UserRepository', () => {
 | `bigint`           | the same range, as a `bigint`                                |
 | `string`           | base-36 characters, `MinLength` (or 1) … `MaxLength` (or 12) |
 | `boolean`          | 50/50                                                        |
-| `Date`             | now                                                          |
+| `Date`             | an arbitrary instant, epoch to roughly 2024                  |
 | literal union      | one member, uniformly                                        |
 | array              | 1–3 elements unless bounded, each recursively generated      |
 | tuple              | exactly its arity                                            |
