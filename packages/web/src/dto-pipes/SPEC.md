@@ -12,6 +12,16 @@ A `Pipe<unknown, T>` (from `@zmdb/web/middleware`) that runs a validator (e.g.
 value; a throw becomes the chain's 400. The NestJS `ValidationPipe` analogue,
 but zero-runtime-parser (the consumer supplies the AOT `assert`).
 
+### `decodePipe(decode)`
+
+A `Pipe<In, Out>` that only converts: the wire→app decode at the boundary, e.g.
+`wireDecoder(Schema, 'create')` from `@zmdb/web/data`. Kept separate from
+`validationPipe` because the two do different jobs and the order matters — the validator
+checks the _app_ type, which is only what the body holds once the ISO string JSON carries
+has become a `Date`. Decoding after validation would validate the wrong layer, and doing
+both in one function is how a validator ends up accepting `Date | string` and checking
+neither.
+
 ### `serializationInterceptor(serialize?)`
 
 An `Interceptor` that serializes the handler's result via a provided serializer
@@ -21,9 +31,9 @@ body from `Entity<S>`. The NestJS `ClassSerializerInterceptor` analogue.
 
 ### Convenience
 
-- `dtoChain({ validate, serialize? })` → a `Chain` with the validation pipe (+
-  optional serialization interceptor) pre-composed, so a route can adopt DTO
-  validation in one call.
+- `dtoChain({ validate, decode?, serialize? })` → a `Chain` with the validation pipe (+
+  optional decode pipe and serialization interceptor) pre-composed, so a route can adopt
+  DTO validation in one call. `decode` runs first; omitted, the chain keeps its single pipe.
 
 ## Invariants
 
@@ -36,6 +46,9 @@ body from `Entity<S>`. The NestJS `ClassSerializerInterceptor` analogue.
 - A route using `validationPipe` rejects an invalid body (400 via the chain) and
   passes a valid, typed body to the handler.
 - `serializationInterceptor` emits the handler result via the provided serializer.
+- `decodePipe` converts and asserts nothing; `dtoChain({ decode, validate })` hands the
+  handler a `Date` for an ISO string in the body, and a 400 for a value the decode could
+  not convert.
 - `dtoChain` composes both.
 - No consumer-surface `as`; suite + typecheck green.
 

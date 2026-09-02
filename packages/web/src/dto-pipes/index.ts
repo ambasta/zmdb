@@ -19,6 +19,23 @@ export function validationPipe<T>(validator: (raw: unknown) => T): Pipe<unknown,
 }
 
 /**
+ * A pipe that only converts: the wire→app decode at the boundary (plan D3).
+ *
+ * Separate from `validationPipe` because the two do different jobs and the order matters.
+ * `wireDecoder(Schema)` turns the ISO string JSON carries into the `Date` a `CreateDTO`
+ * asks for; the validator then checks the app type. Decoding after validation would mean
+ * validating the wrong layer, and doing both in one function is how a validator ends up
+ * accepting `Date | string` and checking neither.
+ */
+export function decodePipe<In = unknown, Out = unknown>(decode: (value: In) => Out): Pipe<In, Out> {
+  return {
+    transform(value: In): Out {
+      return decode(value);
+    },
+  };
+}
+
+/**
  * A serialization interceptor: transforms the handler's result via `serialize`
  * (default: identity — the pipeline JSON-encodes downstream). Pass an entity
  * serializer to shape the response from `Entity<S>`.
@@ -34,18 +51,26 @@ export function serializationInterceptor(serialize: (result: unknown) => unknown
 
 /** Options for `dtoChain`. */
 export interface DtoChainOptions<T> {
+  /** The wire→app decode, e.g. `wireDecoder(Schema, 'create')`. Runs before `validate`. */
+  readonly decode?: (raw: unknown) => unknown;
   readonly validate: (raw: unknown) => T;
   readonly serialize?: (result: unknown) => unknown;
 }
 
 /**
- * Compose a Chain with the validation pipe (+ optional serialization
- * interceptor), so a route adopts DTO validation/serialization in one call.
+ * Compose a Chain with the validation pipe (+ optional decode pipe and
+ * serialization interceptor), so a route adopts DTO validation/serialization in
+ * one call.
  */
 export function dtoChain<T>(options: DtoChainOptions<T>): Chain {
   return {
     guards: [],
-    pipes: [validationPipe(options.validate)],
+    // Decode first, then validate: the validator checks the app type, which is only what
+    // the body holds once the two types JSON cannot carry have been converted.
+    pipes:
+      options.decode === undefined
+        ? [validationPipe(options.validate)]
+        : [decodePipe(options.decode), validationPipe(options.validate)],
     interceptors: options.serialize === undefined ? [] : [serializationInterceptor(options.serialize)],
     filters: [],
   };

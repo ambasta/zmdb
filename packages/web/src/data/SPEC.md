@@ -20,6 +20,26 @@
   hook shape while letting the body type be the schema DTO. The framework does not
   embed a runtime parser; it accepts the consumer's AOT `assert`.
 
+### The wire↔app crossing
+
+A column has three types — the DDL type, the app type (`Date`, `bigint`) and the wire
+type (an ISO-8601 string, a decimal string). JSON carries only the third; a handler, a
+`CreateDTO<S>` and the repository all hold the second. Two functions convert, at the
+boundary and nowhere else:
+
+- **`wireDecoder(schema, variant?, codecs?)`** — `(raw: unknown) => unknown`, for a
+  request body. Converts the columns JSON cannot carry and **rejects nothing**: a string
+  that is not a date stays a string, so the validator reports it instead of the handler
+  receiving an `Invalid Date`. Unknown keys pass through untouched, for the excess-key
+  check to name. Non-object bodies pass through. Runs _before_ validation.
+- **`wireEncoder(schema, codecs?)`** — `(result: unknown) => unknown`, for a response;
+  array-aware. A `bigint` does not survive `JSON.stringify` at all, so this is what makes
+  the response serializable, not merely well-formatted.
+- Both build the IR once per route. `codecs` supplies a `Codec` for a column tagged with a
+  custom type; a tag naming a codec absent from the registry throws rather than guessing.
+- "No runtime parser" still holds: these convert, and validation remains the consumer's
+  AOT `assert`.
+
 ### Orders example (runnable E2E)
 
 - The PRD Orders domain served end-to-end on `node:sqlite`: define `OrderSchema`,
@@ -37,6 +57,9 @@
 
 - E2E: POST an order → validated + persisted (row in sqlite), returned typed;
   GET by id → the persisted row; invalid body → 400 (not persisted).
+- E2E: POST an event whose `at` is an ISO string and whose `seq` is a decimal string →
+  decoded to a `Date`/`bigint`, validated, persisted as the DDL's `TEXT`/`INTEGER`, and
+  returned as the wire forms again; a body whose date is not one → 400, nothing persisted.
 - Injected repository field is typed as `BaseRepository<OrderSchema>` with no
   `as`.
 - Suite + typecheck green.

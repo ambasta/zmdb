@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.ts';
 import { runChain } from '../middleware/index.ts';
-import { validationPipe, serializationInterceptor, dtoChain } from './index.ts';
+import { validationPipe, serializationInterceptor, decodePipe, dtoChain } from './index.ts';
 
 interface CreateUser {
   name: string;
@@ -52,5 +52,46 @@ describe('@zmdb/web dto-pipes: dtoChain', () => {
     const chain = dtoChain({ validate: assertCreateUser, serialize: v => ({ data: v }) });
     const result = await runChain(chain, ctxWith({ name: 'grace' }), ctx => ctx.body);
     expect(result).toEqual({ data: { name: 'grace' } });
+  });
+});
+
+// The wire→app decode as a pipe (plan D3): the two steps are separate and ordered,
+// because a validator that accepted both layers' types would check neither.
+interface CreateEvent {
+  at: Date;
+}
+function assertCreateEvent(raw: unknown): CreateEvent {
+  const at = Reflect.get(Object(raw), 'at');
+  if (!(at instanceof Date)) throw new Error('expected Date');
+  return { at };
+}
+function decodeAt(raw: unknown): unknown {
+  const at = Reflect.get(Object(raw), 'at');
+  return typeof at === 'string' ? { ...Object(raw), at: new Date(at) } : raw;
+}
+
+describe('@zmdb/web dto-pipes: decodePipe', () => {
+  it('converts the body and asserts nothing', async () => {
+    const chain = { guards: [], pipes: [decodePipe(decodeAt)], interceptors: [], filters: [] };
+    const result = await runChain(chain, ctxWith({ at: '2026-01-01T12:30:00.000Z' }), ctx => ctx.body);
+    expect(Reflect.get(Object(result), 'at')).toBeInstanceOf(Date);
+  });
+});
+
+describe('@zmdb/web dto-pipes: dtoChain with a decode', () => {
+  it('decodes before validating, so the ISO string a body carries reaches the handler as a Date', async () => {
+    const chain = dtoChain({ decode: decodeAt, validate: assertCreateEvent });
+    const result = await runChain(chain, ctxWith({ at: '2026-01-01T12:30:00.000Z' }), ctx => ctx.body);
+    expect(result).toEqual({ at: new Date('2026-01-01T12:30:00.000Z') });
+  });
+
+  it('still reports what the decode could not convert, as a 400 from the validator', async () => {
+    const chain = dtoChain({ decode: decodeAt, validate: assertCreateEvent });
+    await expect(runChain(chain, ctxWith({ at: 12 }), ctx => ctx.body)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('leaves the single-pipe chain alone when no decode is given', () => {
+    expect(dtoChain({ validate: assertCreateEvent }).pipes).toHaveLength(1);
+    expect(dtoChain({ decode: decodeAt, validate: assertCreateEvent }).pipes).toHaveLength(2);
   });
 });
