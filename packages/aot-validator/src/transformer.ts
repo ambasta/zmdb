@@ -20,6 +20,7 @@
 // untouched. The price is that the offsets are only valid for the exact text the
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
+import type { ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.ts';
@@ -29,7 +30,26 @@ import type { ReflectSession } from './reflect/session.ts';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.ts';
 
 /** The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`. */
-const CALLEES: ReadonlySet<string> = new Set(['is', 'assert', 'equals', 'assertEquals', 'validate', 'random']);
+const CALLEES: ReadonlySet<string> = new Set([
+  'is',
+  'assert',
+  'equals',
+  'assertEquals',
+  'validate',
+  'random',
+  'toJsonSchema',
+]);
+
+/**
+ * What the reflector made of the type argument.
+ *
+ * Two shapes because there are two questions. Five of the six callees ask "what does a
+ * value of this type look like", which is the structural walk. `toJsonSchema<T>()` asks
+ * "which columns does this document describe", which needs per-property optionality and
+ * tags and no structure below the first level. Reflecting one and emitting from the other
+ * would mean re-deriving in the emitter what the checker already knew.
+ */
+type Reflected = { readonly kind: 'type'; readonly node: TypeIR } | { readonly kind: 'shape'; readonly shape: ShapeIR };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -117,7 +137,10 @@ export function transformFile(fileName: string, code: string, context: Transform
       });
       continue;
     }
-    const node = reflector.typeIR(type);
+    const reflected: Reflected =
+      site.callee === 'toJsonSchema'
+        ? { kind: 'shape', shape: reflector.shapeIR(type) }
+        : { kind: 'type', node: reflector.typeIR(type) };
 
     const refusals = reflector.diagnostics.slice(reflectedAt);
     if (refusals.length > 0) {
@@ -128,7 +151,7 @@ export function transformFile(fileName: string, code: string, context: Transform
       continue;
     }
 
-    const replacement = emitFor(emitter, site, node, rewriter);
+    const replacement = emitFor(emitter, site, reflected, rewriter);
     if (replacement === undefined) {
       const emitted = emitter.diagnostics.slice(emittedAt);
       if (emitted.length === 0) {
@@ -162,7 +185,11 @@ function degrade(fileName: string, code: string, reason: string): TransformResul
   return { code: out, changed: out !== code, diagnostics: [{ fileName, path: '', reason }] };
 }
 
-function emitFor(emitter: Emitter, site: CallSite, node: Parameters<Emitter['emitIs']>[0], rewriter: Rewriter) {
+function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewriter: Rewriter) {
+  // The document is the answer, so there is nothing to check and no argument to read.
+  if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
+
+  const node = reflected.node;
   if (site.callee === 'random') return emitter.emitRandom(node);
 
   const argument = site.node.arguments[0];
