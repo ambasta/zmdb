@@ -13,7 +13,7 @@ import {
 import type { PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
 
 export interface Article extends Table<'articles'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   title: string & Sql<'text'>;
   content: string & Sql<'text'>;
   status: string & Sql<'text'>;

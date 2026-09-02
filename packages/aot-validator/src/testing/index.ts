@@ -17,7 +17,7 @@
 // import { schemasFrom } from '@zmdb/aot-validator/testing';
 //
 // export interface User extends Table<'users'> {
-//   id: number & Sql<'serial'> & Serial & PrimaryKey;
+//   id: number & Sql<'integer'> & Serial & PrimaryKey;
 //   email: string & Sql<'varchar'> & Length<255> & Unique;
 // }
 //

@@ -23,13 +23,13 @@ import type { PrimaryKey, Serial, Sql } from './index.ts';
 
 // The control: a type tagged with this package's own `Serial`.
 interface Sound {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
 }
 
 // The broken case: the same declaration, tagged from the second copy.
 interface Duplicated {
-  id: number & Sql<'serial'> & CopiedSerial & PrimaryKey;
+  id: number & Sql<'integer'> & CopiedSerial & PrimaryKey;
   email: string & Sql<'text'>;
 }
 

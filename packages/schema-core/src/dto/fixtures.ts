@@ -12,14 +12,14 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   age: number & Sql<'integer'>;
   role: 'admin' | 'user';
 }
 
 export interface Order extends Table<'orders'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   customerId: number & Sql<'integer'>;
   total: number & Sql<'numeric'>;
   status: string & Sql<'text'>;

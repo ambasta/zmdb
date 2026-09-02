@@ -5,7 +5,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { toJsonSchema, toListSchema, toSearchSchema } from './index.ts';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
 }
 

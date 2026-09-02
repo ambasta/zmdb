@@ -14,7 +14,7 @@
 // key sets, identical optionality, and mutual assignability with the bare shape — because
 // `Equal` is the only thing a phantom slot is visible to. Where the tag is part of the
 // claim the assertion still spells it out.
-import type { Entity, Equal, Expect, Extends } from '../index.ts';
+import type { Entity, Equal, Expect, Extends, Mutual } from '../index.ts';
 import type { Sql } from '../tags/index.ts';
 import type { OrderSchema, UserS as S } from './fixtures.ts';
 import type {
@@ -31,9 +31,6 @@ import type {
   WhereDTO,
 } from './index.ts';
 import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.ts';
-
-/** Assignable both ways: interchangeable in an argument and in a return value. */
-type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.

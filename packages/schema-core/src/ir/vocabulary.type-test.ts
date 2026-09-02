@@ -5,6 +5,7 @@
 // the value front-end kept.
 
 import type { ColumnFlags, Equal, Expect, SqlType } from '../index.ts';
+import type { ColumnSqlType } from '../tags/index.ts';
 import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagField } from './index.ts';
 
 // --- every SqlType is in SQL_TYPES, and nothing else is --------------------
@@ -14,12 +15,24 @@ import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagFi
 // happens.
 export type _V1 = Expect<Equal<(typeof SQL_TYPES)[number], SqlType>>;
 
-// `Sql<T extends SqlType>` accepts exactly those, so a tag exists for each by
-// construction. These pin the constraint: a dialect spelling must not be
-// expressible as a `Sql<…>` argument, because `sql` stays abstract (plan D3) and a
-// `timestamptz` in the IR would force every other back-end to parse it back out.
-type AcceptedBySqlTag<T> = T extends SqlType ? true : false;
-export type _V2 = Expect<Equal<AcceptedBySqlTag<SqlType>, true>>;
+// `Sql<T extends ColumnSqlType>` accepts every SQL type but one, and `ColumnSqlType` is
+// `Exclude<SqlType, 'serial'>` — so a new member of `SqlType` becomes nameable by
+// construction, and what is left to pin is the exception and the boundary.
+type AcceptedBySqlTag<T> = T extends ColumnSqlType ? true : false;
+export type _V2 = Expect<Equal<AcceptedBySqlTag<Exclude<SqlType, 'serial'>>, true>>;
+
+// `serial` is the one deliberate hole, and it is a hole for the same reason nullability
+// is: a serial column is `number & Sql<'integer'> & Serial`, so `Serial` is the single
+// place "the database generates this" lives. The reflection maps `integer` + `Serial`
+// back to `sql: 'serial'`, so nothing downstream loses the fact — and tag payloads are
+// invariant, which is why `Sql<'serial'>` was not merely a redundant second spelling but
+// a broken one. See `ColumnSqlType`, and `serial-foreign-key.type-test.ts` for the line
+// of ordinary code it used to reject.
+export type _V2a = Expect<Equal<AcceptedBySqlTag<'serial'>, false>>;
+
+// A dialect spelling must not be expressible either, because `sql` stays abstract
+// (plan D3) and a `timestamptz` in the IR would force every other back-end to parse it
+// back out.
 export type _V3 = Expect<Equal<AcceptedBySqlTag<'timestamptz'>, false>>;
 
 // --- every column flag has a tag and an IR field ---------------------------

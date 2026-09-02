@@ -10,7 +10,7 @@ the front-end that lets a **type** reach it, so that
 
 ```ts
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique;
 }
 ```

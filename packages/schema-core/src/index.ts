@@ -629,6 +629,20 @@ export type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T exte
 /** One-way assignability, for "at least this shape" assertions. */
 export type Extends<A, B> = [A] extends [B] ? true : false;
 
+/**
+ * Two-way assignability: each side accepts the other, differences in intersection
+ * spelling and union ordering included.
+ *
+ * This is the right tool for asserting what a derived type *means* when the columns
+ * are tagged. `Entity<User>['email']` is `string & Sql<'text'>`, not `string`, because
+ * a tag survives every derivation on purpose (that is how a projection or an aggregate
+ * still knows the column's SQL type). `Equal` sees two different types there and is
+ * correct to; `Mutual` sees that either can be used where the other is expected, which
+ * is the claim such a test is usually making. Pair it with `Equal<keyof A, keyof B>`
+ * when the key set and optionality matter too — assignability alone does not pin those.
+ */
+export type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
 /** Assert a type-level predicate. `Expect<Equal<X, Y>>` fails to compile if X ≠ Y. */
 export type Expect<T extends true> = T;
 

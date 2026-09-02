@@ -43,7 +43,7 @@ import {
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
 
 interface TaggedUser extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   createdAt: Date & Sql<'timestamp'> & HasDefault;
 }

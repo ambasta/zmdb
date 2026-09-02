@@ -59,7 +59,7 @@ import type {
 } from './index.ts';
 
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey & Min<1>;
+  id: number & Sql<'integer'> & Serial & PrimaryKey & Min<1>;
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\S+@\\S+$'>;
   age: number & Sql<'integer'> & Min<18> & Max<120>;
   // Nullable AND defaulted. The reason the key filters test `NonNullable<T[K]>`:
@@ -142,7 +142,7 @@ declare const read: ReadDTO<User>;
 export const _R2 = read.passwordHash;
 
 // --- PrimaryKeyOf: scalar for one key, object map for a composite ----------
-export type _P1 = Expect<Equal<PrimaryKeyOf<User>, number & Sql<'serial'> & Serial & PrimaryKey & Min<1>>>;
+export type _P1 = Expect<Equal<PrimaryKeyOf<User>, number & Sql<'integer'> & Serial & PrimaryKey & Min<1>>>;
 export type _P2 = Expect<
   Equal<
     PrimaryKeyOf<Membership>,
@@ -165,7 +165,7 @@ interface Money {
   readonly cents: number;
 }
 interface Invoice extends Table<'invoices'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   amount: Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
   refund: (Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>) | null;
   paidAt: Date & Sql<'timestamp'>;
@@ -177,7 +177,7 @@ export type _W6 = Expect<Equal<Wire<Invoice>['refund'], string | null>>;
 export type _W7 = Expect<Equal<Wire<Invoice>['paidAt'], string>>;
 // An untagged column is its own wire type, tags and all — `WireAs` must not match a
 // column that merely carries *other* tags.
-export type _W8 = Expect<Equal<Wire<Invoice>['id'], number & Sql<'serial'> & Serial & PrimaryKey>>;
+export type _W8 = Expect<Equal<Wire<Invoice>['id'], number & Sql<'integer'> & Serial & PrimaryKey>>;
 // The insert payload's wire shape drops the generated column and converts the rest.
 export type _W9 = Expect<Equal<keyof WireCreateDTO<Invoice>, 'amount' | 'paidAt' | 'refund'>>;
 export type _W10 = Expect<Equal<WireCreateDTO<Invoice>['amount'], string>>;
@@ -189,13 +189,13 @@ export type _W10 = Expect<Equal<WireCreateDTO<Invoice>['amount'], string>>;
 // of which it is — and nothing would have said so out loud.
 
 interface Comment extends Table<'comments'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   postId: number & Sql<'integer'> & References<'posts'>;
   body: string & Sql<'text'>;
 }
 
 interface Post extends Table<'posts'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   authorId: number & Sql<'integer'> & References<'users'>;
   title: string & Sql<'varchar'> & Length<200>;
   author?: User & ManyToOne<'users', 'authorId'>;
@@ -220,17 +220,17 @@ export type _N6 = Expect<Equal<ColumnKeys<User>, keyof Entity<User>>>;
 // as a key set that reads plausibly.
 
 interface Listing extends Table<'listings'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   productId: number & Sql<'integer'> & References<'products'>;
 }
 
 interface Label extends Table<'labels'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'varchar'> & Length<64>;
 }
 
 interface Product extends Table<'products'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   title: string & Sql<'varchar'> & Length<200>;
   // `ManyToMany` names a join table where the other three name a foreign key. The key
   // filters cannot tell — and must not have to — because both are the same tag slot.

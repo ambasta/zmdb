@@ -30,7 +30,7 @@ generated from it:
 
 ```ts
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey & Min<1>;
+  id: number & Sql<'integer'> & Serial & PrimaryKey & Min<1>;
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'…'>;
 }
 //        ^ the declaration IS the type; values flow OUT of it
@@ -228,7 +228,7 @@ Proven:
 - Constraints survive `Omit`/`Pick`/`Partial`.
 - Native nullability (`| null`), optionality (`?`) and literal unions read correctly.
 - `Sensitive` strips from `ReadDTO`; `Serial` strips from `CreateDTO`; `HasDefault`
-  becomes optional on insert; `Sql<'serial'>` implies `Number.isInteger`.
+  becomes optional on insert; `Sql<'integer'>` implies `Number.isInteger`.
 - No tag symbol appears in the emitted code — asserted by the runner.
 
 Two bugs the prototype caught, both worth recording because the shipping

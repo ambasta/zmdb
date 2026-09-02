@@ -36,7 +36,7 @@ import type {
 import { defineRepository, type Driver } from './index.ts';
 
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   age: number & Sql<'integer'> & Min<18> & Max<120>;
   createdAt: Date & Sql<'timestamp'> & HasDefault;

@@ -8,7 +8,7 @@
 
 ```ts
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\S+@\\S+$'>;
   age: number & Sql<'integer'> & Min<18> & Max<120>;
   nickname: (string & Sql<'varchar'> & Length<64> & HasDefault) | null;

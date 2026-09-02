@@ -459,13 +459,27 @@ REQ-SC-2 asserts `Equal<Entity<S>['email'], string>`. On the tagged side that pr
 would emit a weaker check on update than on insert. The two criteria are in direct tension and
 REQ-TF-5 wins.
 
-Nothing is lost by that. A tag is an optional unique-symbol slot, so `string` and
+Almost nothing is lost by that. A tag is an optional unique-symbol slot, so `string` and
 `string & Sql<'text'>` are _mutually assignable_: a consumer supplies a plain string, reads a
-plain string, and never names a tag. Only `Equal` can see the difference. So the criterion is
-now the three things that actually matter — identical key sets, identical optionality, and
-mutual assignability with the schema-value twin — asserted in
+plain string, and never names a tag. So the criterion is now the three things that actually
+matter — identical key sets, identical optionality, and mutual assignability with the
+schema-value twin — asserted in
 `packages/schema-core/src/derive/type-derivation-tagged.type-test.ts`, which is
 `type-derivation.type-test.ts` with `S` rebound.
+
+**"Only `Equal` can see the difference" is not quite true, and finding out where cost a
+redesign.** A tag erases against an _untagged_ type, but two tagged columns see each other's
+tags, and a tag payload sits in an invariant position: `Sql<'serial'>` and `Sql<'integer'>` were
+unrelated types. So `orders.create({ userId: user.id })` — a serial key read out of one table
+and written into another table's integer foreign key, which is in the quickstart — did not
+compile. The fix was to stop spelling one fact twice: `serial` left the tag vocabulary
+(`ColumnSqlType` is `Exclude<SqlType, 'serial'>`), a generated key is now
+`number & Sql<'integer'> & Serial`, and the reflection maps `integer` + `Serial` back to
+`sql: 'serial'` so the IR, every dialect's DDL and the equivalence corpus are unchanged. The
+residue is real and much smaller, and is recorded rather than papered over: `varchar` and `text`
+columns still do not interchange, because unlike the serial case those two columns genuinely are
+different types. `packages/schema-core/src/tags/serial-foreign-key.type-test.ts` pins both
+halves.
 
 One genuine behavioural change came out of it, and it is a breaking one:
 `exactOptionalPropertyTypes` is on repo-wide, and the tagged `CreateDTO`/`UpdateDTO` are plain

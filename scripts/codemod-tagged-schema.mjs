@@ -9,7 +9,7 @@
 // becomes
 //
 //   export interface Users extends Table<'users'> {
-//     id: number & Sql<'serial'> & Serial & PrimaryKey;
+//     id: number & Sql<'integer'> & Serial & PrimaryKey;
 //     email: string & Sql<'varchar'> & Length<255> & Unique;
 //     bio: (string & Sql<'text'>) | null;
 //   }
@@ -370,8 +370,9 @@ function printProperty(name, column, tagsUsed) {
 
   // A literal union already says "enum", and the reflection reads it off the type, so
   // asking for `Sql<'jsonEnum'>` as well would be asking for the same fact twice
-  // (REQ-TF-2). Every other SQL type does need its tag, because `integer`, `numeric` and
-  // `serial` are all `number` and no amount of looking at the type tells them apart.
+  // (REQ-TF-2). Every other SQL type does need its tag, because `integer` and `numeric`
+  // are both `number`, `text` and `varchar` are both `string`, and no amount of looking
+  // at the type tells them apart.
   if (column.sql === 'jsonEnum') {
     if (!column.enumValues?.length) refuse(name, 'a `jsonEnum` column with no members has no type');
     parts.push(column.enumValues.map(value => `'${escapeTypeString(value)}'`).join(' | '));
@@ -382,7 +383,11 @@ function printProperty(name, column, tagsUsed) {
     const base = TS_TYPE[column.sql];
     if (base === undefined) refuse(name, `no TypeScript type for SQL type \`${column.sql}\``);
     parts.push(base);
-    use(`Sql<'${column.sql}'>`);
+    // `serial` is not a column type a declaration may name — it is an `integer` the
+    // database generates, and `Serial` below is the half that says "generated". See
+    // `ColumnSqlType` in `@zmdb/schema-core/tags` for why saying it twice was wrong and
+    // not merely redundant.
+    use(`Sql<'${column.sql === 'serial' ? 'integer' : column.sql}'>`);
   }
 
   if (column.length !== undefined) use(`Length<${column.length}>`);

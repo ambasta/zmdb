@@ -83,17 +83,17 @@ describe('componentName', () => {
 });
 
 export interface UserAddress extends Table<'user_addresses'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   orderId: number & Sql<'integer'>;
 }
 
 export interface OrderStatus extends Table<'order_statuses'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   categoryId: number & Sql<'integer'>;
 }
 
 export interface Category extends Table<'categories'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
 }
 
 const {

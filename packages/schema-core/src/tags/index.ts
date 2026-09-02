@@ -4,7 +4,7 @@
 // the DTOs, the validators, the JSON Schema, the SQL — is derived from it.
 //
 //   interface User extends Table<'users'> {
-//     id: number & Sql<'serial'> & Serial & PrimaryKey;
+//     id: number & Sql<'integer'> & Serial & PrimaryKey;
 //     email: string & Sql<'varchar'> & Length<255> & Unique;
 //     nickname: (string & MinLength<3>) | null;
 //   }
@@ -89,8 +89,32 @@ export type Fts<Name extends string | true> = { readonly [zmdbFts]?: Name };
 // `numeric` are all `number` in TypeScript, so the column type has to be said.
 // ---------------------------------------------------------------------------
 
+/**
+ * The SQL column types a declaration may name: every `SqlType` except `serial`.
+ *
+ * `serial` is not a column type. Postgres documents it as notational convenience for
+ * an `integer` with a sequence default, and that is how it is spelled here —
+ * `number & Sql<'integer'> & Serial` — which makes `Serial` the single place the fact
+ * lives, the way `| null` is the single place nullability lives (REQ-TF-2).
+ *
+ * Saying it twice was not merely redundant, it was wrong, and the way it was wrong is
+ * worth recording because nothing about the tags predicts it. Tag payloads are
+ * invariant, so the old `Sql<'serial'>` spelling was not assignable to `Sql<'integer'>` and
+ * a value read out of a serial primary key could not be written into an `integer` foreign key.
+ * `orders.create({ userId: user.id })` — the most ordinary line in a relational model —
+ * did not compile. With `serial` off the vocabulary the tags on `id` are
+ * `Sql<'integer'> & Serial & PrimaryKey`, which drops to `Sql<'integer'>` on the way in,
+ * and it does.
+ *
+ * The residue is honest and much smaller: two columns whose SQL types genuinely differ
+ * still do not interchange, so assigning a `Sql<'varchar'>` value into a `Sql<'text'>`
+ * column needs a conversion at the boundary. That is a rarer thing to write than a
+ * foreign key, and unlike the serial case the two columns really are different types.
+ */
+export type ColumnSqlType = Exclude<SqlType, 'serial'>;
+
 /** The abstract SQL column type. Dialects render the spelling — see `../ir`. */
-export type Sql<T extends SqlType> = { readonly [zmdbSqlType]?: T };
+export type Sql<T extends ColumnSqlType> = { readonly [zmdbSqlType]?: T };
 
 export type PrimaryKey = { readonly [zmdbPrimaryKey]?: true };
 /** Database-generated. Omitted from `CreateDTO` entirely, not made optional. */

@@ -36,7 +36,7 @@ export const DEFAULT_AGE = 18;
 import type { HasDefault, Length, Min, PrimaryKey, Serial, Sql, Table, Unique } from './index.ts';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique;
   age: number & Sql<'integer'> & Min<18> & HasDefault;
 }

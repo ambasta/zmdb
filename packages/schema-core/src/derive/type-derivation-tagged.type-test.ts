@@ -42,6 +42,7 @@ import type {
   Entity as ValueEntity,
   Equal,
   Expect,
+  Mutual,
   PrimaryKeyOf as ValuePrimaryKeyOf,
   UpdateDTO as ValueUpdateDTO,
 } from '../index.ts';
@@ -49,11 +50,8 @@ import { defineSchema, integer, jsonEnum, numeric, primaryKey, serial, text, tim
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import type { CreateDTO, Entity, PrimaryKeyOf, UpdateDTO } from './index.ts';
 
-/** Assignable both ways: interchangeable in an argument and in a return value. */
-type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-
 interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   role: ('admin' | 'user') & HasDefault;
   age: number & Sql<'integer'>;
@@ -87,7 +85,7 @@ const CompositeSchema = defineSchema('org_members', {
 });
 
 // --- Entity ----------------------------------------------------------------
-export type _Ent1 = Expect<Equal<Entity<S>['id'], number & Sql<'serial'> & Serial & PrimaryKey>>;
+export type _Ent1 = Expect<Equal<Entity<S>['id'], number & Sql<'integer'> & Serial & PrimaryKey>>;
 export type _Ent2 = Expect<Equal<Entity<S>['email'], string & Sql<'text'>>>;
 // The one that caught the codemod's operator-precedence bug: if the emitted type had been
 // `'admin' | ('user' & HasDefault)` this would be that, and nothing else would have noticed.
@@ -141,7 +139,7 @@ export const _Upd4: UpdateDTO<S> = {};
 export const _Upd5: UpdateDTO<S> = { score: null };
 
 // --- PrimaryKeyOf ------------------------------------------------------------
-export type _Pk1 = Expect<Equal<PrimaryKeyOf<S>, number & Sql<'serial'> & Serial & PrimaryKey>>;
+export type _Pk1 = Expect<Equal<PrimaryKeyOf<S>, number & Sql<'integer'> & Serial & PrimaryKey>>;
 export type _Pk2 = Expect<
   Equal<
     PrimaryKeyOf<CompositeS>,

@@ -51,7 +51,7 @@ probe<10n>('bigint-literal');
 
 // --- tagged scalars --------------------------------------------------------
 probe<number & Sql<'integer'>>('tagged-integer');
-probe<number & Sql<'serial'>>('tagged-serial');
+probe<number & Sql<'integer'>>('tagged-serial');
 probe<number & Sql<'numeric'>>('tagged-numeric');
 // The checker distributes the intersection over `true | false`, so this arrives at the
 // walk as two intersections and not as `boolean` at all.
@@ -188,6 +188,6 @@ probe<string & Rule<'luhn'>>('rule');
 probe<string & Rule<'luhn' | 'checksum'>>('rule-union');
 
 // --- flags that only mean something on a column ----------------------------
-probe<number & Sql<'serial'> & Serial & PrimaryKey>('column-id');
+probe<number & Sql<'integer'> & Serial & PrimaryKey>('column-id');
 probe<string & Sql<'text'> & Sensitive>('column-sensitive');
 probe<string & Sql<'varchar'> & Length<32> & Unique & HasDefault>('column-flags');

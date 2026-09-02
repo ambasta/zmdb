@@ -5,7 +5,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
 import { makeRng, seedRows } from './index.ts';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   age: number & Sql<'integer'>;
   active: boolean & Sql<'boolean'>;

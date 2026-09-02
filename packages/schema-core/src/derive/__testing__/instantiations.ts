@@ -71,7 +71,7 @@ export const COLUMNS_PER_TABLE = 8;
 function taggedTable(index: number): string {
   return `
 export interface Table${index} extends Table<'table_${index}'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'varchar'> & Length<${255 + index}> & Unique;
   slug: string & Sql<'text'> & Pattern<'^[a-z${index}-]+$'>;
   score: number & Sql<'integer'> & Min<${index}> & Max<${100 + index}>;

@@ -8,12 +8,12 @@ import { toJsonSchemaWithRelations } from './index.ts';
 // #66: DTO-aware generation + relation $refs.
 
 export interface Order extends Table<'orders'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   userId: number & Sql<'integer'>;
 }
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
 }
 
 const { Order: OrderSchema, User: UserSchema } = schemasFrom(import.meta.url, ['Order', 'User']);

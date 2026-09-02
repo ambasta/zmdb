@@ -19,7 +19,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { schemaIrsFrom, schemasFrom } from './index.ts';
 
 export interface Account extends Table<'accounts'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique;
   secret: string & Sql<'text'> & Sensitive;
   note: (string & Sql<'text'>) | null;
@@ -93,7 +93,7 @@ describe('schemasFrom', () => {
     const file = scratch(`import type { Sql, Table } from './nowhere.ts';
 
 export interface Broken extends Table<'broken'> {
-  id: number & Sql<'serial'>;
+  id: number & Sql<'integer'>;
 }
 `);
     // Not "the checker could not resolve this type" four times over: the import is the problem,

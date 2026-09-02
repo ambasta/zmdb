@@ -60,7 +60,7 @@ declare function taggedOnly<T>(label: string, of?: T): void;
  * assertion is the right place for it, and the twin carries `{ ftsTable: 'users_fts' }`.
  */
 export interface User extends Table<'users'>, Fts<'users_fts'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\S+@\\S+$'>;
   age: number & Sql<'integer'> & Min<18> & Max<120>;
   score: number & Sql<'numeric'>;
@@ -105,12 +105,12 @@ export interface Money {
 }
 
 export interface Author extends Table<'authors'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'text'>;
 }
 
 export interface Invoice extends Table<'invoices'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   /** `numeric(12, 2)`. `ColumnFlags` has no precision field to hold this. */
   amount: number & Sql<'numeric'> & Numeric<12, 2>;
   /** `json<Line[]>()` carries the payload in a phantom parameter that is erased. */
@@ -130,12 +130,12 @@ export interface Invoice extends Table<'invoices'> {
 taggedOnly<Invoice>('invoices');
 
 export interface Listing extends Table<'listings'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   productId: number & Sql<'integer'> & References<'products.id'>;
 }
 
 export interface Label extends Table<'labels'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'varchar'> & Length<64> & Unique;
 }
 
@@ -154,7 +154,7 @@ export interface Label extends Table<'labels'> {
  * returns nothing.
  */
 export interface Product extends Table<'products'>, Fts<true> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   title: string & Sql<'varchar'> & Length<200>;
   labels?: Label[] & ManyToMany<'labels', 'product_labels'>;
   listing?: Listing & OneToOne<'listings', 'productId'>;

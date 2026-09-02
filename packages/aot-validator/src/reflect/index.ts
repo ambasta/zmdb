@@ -821,7 +821,7 @@ export class Reflector {
     // literal union visible again.
     const data = rest.map(member => this.#dataPart(member));
     const enumValues = literalUnion(data);
-    const sql = this.#sqlOf(tags) ?? this.#inferSql(property, data, enumValues);
+    const declaredSql = this.#sqlOf(tags) ?? this.#inferSql(property, data, enumValues);
     const constraints = this.#constraintsFromTags(tags);
     const length = numberOf(this.#nonNullable(tags.get('length')));
     const precision = this.#precisionOf(tags);
@@ -834,6 +834,13 @@ export class Reflector {
     // front-ends have to agree node for node or the equivalence test is meaningless.
     const serial = tags.has('serial');
     const hasDefault = serial || tags.has('hasDefault');
+
+    // A generated `integer` is what `serial` means, and the declaration says it in two
+    // tags rather than one because the old `Sql<'serial'>` made a serial key's value unassignable
+    // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema-core/tags`. The
+    // IR keeps the one-word spelling: `serial()` produces it, every dialect's DDL renderer
+    // reads it, and the equivalence test compares the two front-ends node for node.
+    const sql = serial && declaredSql === 'integer' ? 'serial' : declaredSql;
 
     const payload = this.#declaredApp(property, data, sql, typeof codec === 'string');
 
@@ -888,10 +895,11 @@ export class Reflector {
   }
 
   /**
-   * `Sql<T>` is required only where TypeScript is genuinely ambiguous, which is
-   * exactly `number`: `integer`, `numeric` and `serial` are all `number`. Everywhere
-   * else the type says it, and asking for a second spelling would be asking for two
-   * sources of truth (REQ-TF-2).
+   * `Sql<T>` is required only where TypeScript is genuinely ambiguous. That is `number`,
+   * which is both `integer` and `numeric`, and `string`, which is both `text` and
+   * `varchar` — and for `string` there is a defensible default, so only `number` is
+   * refused outright. Everywhere else the type says it, and asking for a second spelling
+   * would be asking for two sources of truth (REQ-TF-2).
    */
   #inferSql(property: string, members: readonly Type[], enumValues: readonly string[] | undefined): SqlType {
     if (enumValues !== undefined) return 'jsonEnum';
@@ -908,7 +916,7 @@ export class Reflector {
         case 'number':
           this.#refuse(
             property,
-            "a `number` column needs Sql<'integer'>, Sql<'numeric'> or Sql<'serial'> — TypeScript spells all three `number`",
+            "a `number` column needs Sql<'integer'> or Sql<'numeric'> — TypeScript spells both `number`",
           );
           return 'numeric';
         default:
@@ -1060,6 +1068,7 @@ export function schemaIrFromType(
 function isUnknown(type: Type): boolean {
   return type.isIntrinsicType() && (type.intrinsicName === 'unknown' || type.intrinsicName === 'any');
 }
+
 
 function literalOf(type: Type | undefined): string | number | boolean | undefined {
   if (!type) return undefined;

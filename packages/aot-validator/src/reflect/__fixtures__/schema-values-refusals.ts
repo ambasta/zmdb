@@ -16,7 +16,7 @@ declare function schema(label: string, value: unknown): void;
 
 /** No `Table<'name'>`. */
 interface Untagged {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
 }
 

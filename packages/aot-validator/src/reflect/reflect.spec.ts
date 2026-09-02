@@ -150,7 +150,7 @@ describe('irFromType — literals and unions', () => {
 });
 
 describe('irFromType — tags', () => {
-  it("narrows `number` to `integer` under Sql<'integer'> and Sql<'serial'>", () => {
+  it("narrows `number` to `integer` under Sql<'integer'> and Sql<'integer'>", () => {
     // The integrality check comes from the SQL type, never from a `Min<1>` that
     // happens to be nearby. `numeric` stays a plain number.
     expect(ir('tagged-integer')).toEqual({ kind: 'scalar', scalar: 'integer' });
@@ -741,9 +741,9 @@ describe('what only one front-end can say', () => {
   });
 
   it("infers the SQL type wherever TypeScript is unambiguous, and asks for Sql<> where it isn't", () => {
-    // The one genuinely ambiguous case: `integer`, `numeric` and `serial` are all
-    // `number`. Everything else the type already says, and a tag would be a second
-    // spelling of the same fact.
+    // The one refused case: `integer` and `numeric` are both `number`, with no default
+    // worth guessing between them. Everything else the type already says, and a tag would
+    // be a second spelling of the same fact.
     const corpus = session.sourceFile(`${FIXTURES}equivalence.ts`);
     const call = findCallSites(corpus as never, new Set(['pair'])).find(c => labelOf(c) === 'users');
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);

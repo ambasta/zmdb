@@ -5,13 +5,13 @@ import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.ts
 import { toolFromSchema, lenientParse } from './index.ts';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   role: 'admin' | 'user';
 }
 
 export interface Keyed extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   apiKey: string & Sql<'text'> & Sensitive;
 }

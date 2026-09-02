@@ -28,7 +28,7 @@ import type {
 
 export interface User extends Table<'users'> {
   /** `serial primary key` — dropped from CreateDTO and UpdateDTO by its tags. */
-  id: number & Sql<'serial'> & Serial & PrimaryKey & Min<1>;
+  id: number & Sql<'integer'> & Serial & PrimaryKey & Min<1>;
   /** `varchar(255) not null unique`, validated against a pattern. */
   email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'>;
   /** A plain constrained integer. */
@@ -45,7 +45,7 @@ export interface User extends Table<'users'> {
 }
 
 export interface Post extends Table<'posts'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   authorId: number & Sql<'integer'> & References<'users'>;
   title: string & MinLength<1> & Length<200>;
   tags: string[];

@@ -4,7 +4,7 @@
 import type { HasDefault, Length, PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255>;
   createdAt: Date & Sql<'timestamp'> & HasDefault;
   passwordHash: string & Sql<'text'> & Sensitive;

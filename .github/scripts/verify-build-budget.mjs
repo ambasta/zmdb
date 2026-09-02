@@ -126,7 +126,7 @@ import type { JsonSchemaObject, ValidateResult } from 'zmdb';
 import type { Length, Min, MinLength, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface Row${index} extends Table<'row_${index}'> {
-  readonly id: number & Sql<'serial'> & Serial & PrimaryKey;
+  readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
   readonly reference: string & Sql<'varchar'> & Length<${32 + index}> & MinLength<6> & Unique;
   readonly total: number & Sql<'integer'> & Min<${index}>;
   readonly status: 'pending' | 'shipped' | 'cancelled';

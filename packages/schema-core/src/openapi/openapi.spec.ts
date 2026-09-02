@@ -14,7 +14,7 @@ import {
 // #63: JSON Schema / OpenAPI golden fixtures.
 
 export interface User extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
   role: ('admin' | 'user' | 'guest') & HasDefault;
   createdAt: Date & Sql<'timestamp'> & HasDefault;
@@ -28,7 +28,7 @@ export interface Membership extends Table<'memberships'> {
 }
 
 export interface Secretive extends Table<'users'> {
-  id: number & Sql<'serial'> & Serial & PrimaryKey;
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   passwordHash: string & Sql<'text'> & Sensitive;
   apiToken: string & Sql<'text'> & Sensitive;

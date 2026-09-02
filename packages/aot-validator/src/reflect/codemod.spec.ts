@@ -247,7 +247,7 @@ describe('codemod round trip (REQ-TF-7, REQ-TF-12)', () => {
     expect(twins.refusals).toEqual([]);
     const bodies = byTable(twins.converted);
     expect(body(bodies.get('users')!.source)).toEqual([
-      "id: number & Sql<'serial'> & Serial & PrimaryKey;",
+      "id: number & Sql<'integer'> & Serial & PrimaryKey;",
       "email: string & Sql<'varchar'> & Length<255> & Unique & Pattern<'^\\\\S+@\\\\S+$'>;",
       "age: number & Sql<'integer'> & Min<18> & Max<120>;",
       "score: number & Sql<'numeric'>;",

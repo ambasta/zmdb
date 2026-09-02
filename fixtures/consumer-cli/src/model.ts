@@ -18,7 +18,7 @@ export interface Address {
 }
 
 export interface Order extends Table<'orders'> {
-  readonly id: number & Sql<'serial'> & Serial & PrimaryKey;
+  readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
   readonly reference: string & Sql<'varchar'> & Length<32> & MinLength<6> & Unique;
   readonly total: number & Sql<'integer'> & Min<0>;
   readonly status: 'pending' | 'shipped' | 'cancelled';
