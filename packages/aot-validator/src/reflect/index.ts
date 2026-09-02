@@ -944,7 +944,14 @@ function numberOf(type: Type | undefined): number | undefined {
   return typeof value === 'number' ? value : undefined;
 }
 
-/** `'a' | 'b'` → `['a', 'b']`; anything else → `undefined`. */
+/**
+ * `'a' | 'b'` → `['a', 'b']`, sorted; anything else → `undefined`.
+ *
+ * Sorted because the order we are handed is not the order the author wrote. The checker
+ * normalises union members, so `'free' | 'pro' | 'enterprise'` arrives as `enterprise`,
+ * `free`, `pro` — and sorting is what makes this agree with `irFromSchema`, which sorts for
+ * the same reason. See `ColumnIR.enum`.
+ */
 function literalUnion(members: readonly Type[]): readonly string[] | undefined {
   if (members.length === 0) return undefined;
   const values: string[] = [];
@@ -952,7 +959,7 @@ function literalUnion(members: readonly Type[]): readonly string[] | undefined {
     if (!member.isStringLiteralType()) return undefined;
     values.push(member.value);
   }
-  return values;
+  return values.toSorted();
 }
 
 function escapeRegExp(text: string): string {

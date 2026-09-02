@@ -60,7 +60,12 @@ export interface User extends Table<'users'> {
   createdAt: Date & Sql<'timestamp'> & HasDefault;
   // No `Sql<'jsonEnum'>`: a literal union already says it, and asking for the tag as
   // well would be asking for the same fact twice (REQ-TF-2).
-  role: 'admin' | 'editor' | 'viewer';
+  //
+  // Written in a third order — the twin declares `viewer, admin, editor` and the IR reports
+  // `admin, editor, viewer` — because the checker does not preserve the order either side
+  // wrote, so `ColumnIR.enum` is sorted and the equivalence below is what proves it. While
+  // all three orders were alphabetical this passed by luck.
+  role: 'editor' | 'admin' | 'viewer';
   passwordHash: string & Sql<'text'> & Sensitive;
 }
 pair<User>('users');

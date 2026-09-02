@@ -35,7 +35,9 @@ export const users = defineSchema('users', {
   // corpus is what lets the equivalence assertion stay a total deep-equality instead
   // of a comparison with an exception carved out of it.
   createdAt: timestamp().defaultTo(undefined),
-  role: jsonEnum(['admin', 'editor', 'viewer']),
+  // Deliberately unsorted, and in a different order from the twin's union. See the note
+  // there: enum order is not a fact either front-end can carry, so the IR canonicalises it.
+  role: jsonEnum(['viewer', 'admin', 'editor']),
   passwordHash: text().sensitive(),
 });
 

@@ -2,5 +2,5 @@
   "//": "The program the reflection tests load. Separate from the package tsconfig because the reflector needs a project containing ONLY the fixtures: a checker call is a round-trip to the tsgo child process, and loading every spec file in the package would pay for a program the tests never look at.",
   "extends": "../../../../../tsconfig.base.json",
   "compilerOptions": {},
-  "files": ["constructs.ts", "equivalence.ts", "equivalence-schemas.ts"]
+  "files": ["constructs.ts", "equivalence.ts", "equivalence-schemas.ts", "codemod-corpus.ts", "codemod-refusals.ts"]
 }

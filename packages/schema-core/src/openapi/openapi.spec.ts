@@ -27,7 +27,9 @@ describe('toJsonSchema (entity)', () => {
         createdAt: { type: 'string', format: 'date-time' },
         email: { type: 'string', pattern: '^[^@]+@[^@]+\\.[^@]+$' },
         id: { type: 'integer' },
-        role: { type: 'string', enum: ['admin', 'user', 'guest'] },
+        // Sorted, not as declared above: `ColumnIR.enum` canonicalises the order because the
+        // tagged front-end reads it back out of the checker, which does not preserve one.
+        role: { type: 'string', enum: ['admin', 'guest', 'user'] },
       },
       required: ['createdAt', 'email', 'id', 'role'],
     });

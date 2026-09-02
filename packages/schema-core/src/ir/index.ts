@@ -166,6 +166,20 @@ export interface ColumnIR {
   readonly sensitive: boolean;
   readonly length?: number;
   readonly precision?: readonly [number, number];
+  /**
+   * The permitted values, **sorted**.
+   *
+   * Not declaration order, and deliberately so. The other producer of this IR reads
+   * `'free' | 'pro' | 'enterprise'` back out of the checker, which normalises string-literal
+   * union members and hands them over in its own order — declaration order is simply not
+   * recoverable from a type. A set of permitted values has no order to lose, so both
+   * producers sort and the two agree by construction rather than by luck. (They agreed by
+   * luck until `codemod.spec.ts`: the only enum in the equivalence corpus was
+   * `'admin' | 'editor' | 'viewer'`, which is already sorted.)
+   *
+   * Emitters may therefore rely on this being stable across front-ends and TypeScript
+   * versions, which the checker's order is not.
+   */
   readonly enum?: readonly string[];
   readonly references?: string;
   readonly codec?: string;
@@ -338,7 +352,7 @@ export function irFromSchema(schema: CoreSchema<string>): SchemaIR {
       hasDefault: col.flags.hasDefault === true,
       sensitive: col.flags.sensitive === true,
       ...(col.flags.length === undefined ? {} : { length: col.flags.length }),
-      ...(col.flags.enum === undefined ? {} : { enum: [...col.flags.enum] }),
+      ...(col.flags.enum === undefined ? {} : { enum: [...col.flags.enum].toSorted() }),
       ...(target === undefined ? {} : { references: target }),
       constraints,
       rules,
