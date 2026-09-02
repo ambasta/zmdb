@@ -1,14 +1,17 @@
-import { defineSchema, serial, text } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
 
 // #28: delete + pre/post lifecycle hooks.
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
+
+const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
 
 function fakeDriver(rows: Record<string, unknown>[] = []): Driver {
   return { execute: vi.fn(async () => rows) };

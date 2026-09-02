@@ -1,26 +1,41 @@
-import {
-  defineSchema,
-  integer,
-  json,
-  jsonEnum,
-  serial,
-  text,
-  timestamp,
-  varchar,
-  type CreateDTO,
-  type ValidationIssue,
-} from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
+import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from './index.ts';
 
 // #25: repository CRUD + validation interception.
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: 'admin' | 'user';
+}
+
+/** The constraint-carrying schema the write-validation block below drives. */
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'varchar'> & Length<32> & Pattern<'^\\S+@\\S+$'>;
+  age: number & Sql<'integer'> & Min<18> & Max<120>;
+  createdAt: Date & Sql<'timestamp'>;
+  // `object`, not `unknown`: a JSON column holds an object or an array and rejects
+  // primitives, which is what `object` means, and `unknown & Sql<'json'>` would collapse
+  // to the tag alone. The emitted check is `expected object | array` — see below.
+  settings: object & Sql<'json'>;
+}
+
+/** A text primary key, for the "a patch body may not carry the key" test. */
+export interface Tenant extends Table<'tenants'> {
+  slug: string & Sql<'text'> & PrimaryKey;
+  name: string & Sql<'text'>;
+}
+
+const {
+  User: UserSchema,
+  Account: AccountSchema,
+  Tenant: TenantSchema,
+} = schemasFrom<{ User: User; Account: Account; Tenant: Tenant }>(import.meta.url, ['User', 'Account', 'Tenant']);
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;
@@ -69,8 +84,8 @@ describe('BaseRepository create/update validation interception', () => {
     let error: ValidationError | undefined;
     try {
       // The cast is the point: untrusted input reaching a typed API at runtime.
-      // `email` missing and `role` off-enum are both compile errors now that the
-      // schema comes from `defineSchema` — the validator has to catch them anyway.
+      // `email` missing and `role` off-enum are both compile errors, because the schema
+      // came from a type — the validator has to catch them anyway.
       await repo.create({ role: 'nope' } as unknown as CreateDTO<typeof UserSchema>);
     } catch (e) {
       if (e instanceof ValidationError) error = e;
@@ -94,14 +109,6 @@ describe('BaseRepository create/update validation interception', () => {
 // repository skipped it — and it accepted `Date | string` for a `timestamp`, so neither
 // of the column's two types was ever the one being checked.
 describe('BaseRepository write validation, through the IR', () => {
-  const AccountSchema = defineSchema('accounts', {
-    id: serial().primaryKey(),
-    email: varchar(32).validate({ kind: 'pattern', value: '^\\S+@\\S+$' }),
-    age: integer().validate({ kind: 'minimum', value: 18 }).validate({ kind: 'maximum', value: 120 }),
-    createdAt: timestamp(),
-    settings: json(),
-  });
-
   class AccountRepository extends BaseRepository<typeof AccountSchema> {
     static override readonly schema = AccountSchema;
   }
@@ -245,9 +252,8 @@ describe('BaseRepository rejects a key the write does not accept', () => {
     // A patch body says what to change, and the URL says which row — so a key in the body
     // is either redundant or an attempt to move the row. Spelled out for a non-serial key,
     // because that is the one the create path would have allowed.
-    const Tenants = defineSchema('tenants', { slug: text().primaryKey(), name: text() });
-    class TenantRepository extends BaseRepository<typeof Tenants> {
-      static override readonly schema = Tenants;
+    class TenantRepository extends BaseRepository<typeof TenantSchema> {
+      static override readonly schema = TenantSchema;
     }
     const driver = fakeDriver();
     const repo = new TenantRepository(driver);

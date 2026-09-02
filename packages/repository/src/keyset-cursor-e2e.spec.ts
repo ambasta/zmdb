@@ -1,7 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer, primaryKey, notNull, type Entity } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { Entity } from '@zmdb/schema-core';
 import type { ListResult } from '@zmdb/schema-core/dto';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.ts';
@@ -20,12 +22,14 @@ function sqliteDriver(db: DatabaseSync): Driver {
   };
 }
 
-const ProductSchema = defineSchema('products', {
-  id: primaryKey(serial()),
-  name: notNull(text()),
-  age: notNull(integer()),
-  category: notNull(text()),
-});
+export interface Product extends Table<'products'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  age: number & Sql<'integer'>;
+  category: string & Sql<'text'>;
+}
+
+const { Product: ProductSchema } = schemasFrom<{ Product: Product }>(import.meta.url, ['Product']);
 
 class ProductRepository extends BaseRepository<typeof ProductSchema> {
   static override readonly schema = ProductSchema;

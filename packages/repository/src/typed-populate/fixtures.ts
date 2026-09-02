@@ -4,23 +4,29 @@
 // two `.type-test.ts` that are a compilation gate run by `yarn typecheck`. They
 // only stay tests of the same claim if they agree about the shape, so the shape
 // lives here once instead of four times.
-import { defineSchema, integer, serial, text } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { manyToOne } from '@zmdb/schema-core/relations';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { OrderSchema, ordersRelation } from '../orders-fixture.ts';
 
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+}
+
+export interface Profile extends Table<'profiles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  bio: string & Sql<'text'>;
+}
+
+export const { User: UserSchema, Profile: ProfileSchema } = schemasFrom<{ User: User; Profile: Profile }>(
+  import.meta.url,
+  ['User', 'Profile'],
+);
 
 export { OrderSchema };
-
-export const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  bio: text().notNull(),
-});
 
 const profileRelation = {
   meta: manyToOne('profiles', 'userId'),

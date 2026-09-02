@@ -73,7 +73,10 @@ const BUDGET = {
   any: { limit: 0, what: '`any` in a type position (`: any`, `<any>`, `any[]`, `as any`)' },
   suppressions: { limit: 0, what: '`@ts-expect-error` / `@ts-ignore`' },
   doubleCasts: { limit: 2, what: '`as unknown as` double casts' },
-  assertions: { limit: 64, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
+  // 65 rather than 64 since `aot-validator/src/testing` landed: `schemasFrom` builds its
+  // return object in a string-keyed loop and asserts the literal key map at the end. Argued
+  // in §9.4, which is where a raise has to be argued.
+  assertions: { limit: 65, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
   nonNull: { limit: 0, what: 'non-null assertions (`!`)' },
   lintDisables: { limit: 1, what: '`eslint-disable` / `oxlint-disable`' },
   dynamicCode: { limit: 0, what: '`new Function` / `eval` call sites' },

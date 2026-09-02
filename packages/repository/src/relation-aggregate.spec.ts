@@ -1,24 +1,31 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, integer, text, numeric, manyToOne } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { manyToOne } from '@zmdb/schema-core';
 import type { AggregateSpec } from '@zmdb/schema-core/dto';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
 import { BaseRepository, defineRepository, type Driver } from './index.ts';
 
-const CategorySchema = defineSchema('categories', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-  status: text().notNull(),
-});
+export interface Category extends Table<'categories'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  status: string & Sql<'text'>;
+}
 
-const ProductSchema = defineSchema('products', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-  categoryId: integer().notNull(),
-  price: numeric().notNull(),
-});
+export interface Product extends Table<'products'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  categoryId: number & Sql<'integer'>;
+  price: number & Sql<'numeric'>;
+}
+
+const { Category: CategorySchema, Product: ProductSchema } = schemasFrom<{ Category: Category; Product: Product }>(
+  import.meta.url,
+  ['Category', 'Product'],
+);
 
 class ProductRepository extends BaseRepository<typeof ProductSchema, typeof ProductRepository.relations> {
   static override readonly schema = ProductSchema;

@@ -1,22 +1,28 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { createQueryCompiler } from '@zmdb/query-compiler';
-import { defineSchema, serial, text } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
 import { defineRepository, type Driver } from './index.ts';
 
-const UsersSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-});
+export interface Users extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+}
 
-const OrdersSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: serial().notNull(),
-  total: serial().notNull(),
-});
+export interface Orders extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  total: number & Sql<'integer'>;
+}
+
+const { Users: UsersSchema, Orders: OrdersSchema } = schemasFrom<{ Users: Users; Orders: Orders }>(import.meta.url, [
+  'Users',
+  'Orders',
+]);
 
 describe('Native Builder whereIn with Parameter Chunking', () => {
   it('exposes dedicated set-matching methods that output parameterized SQL IN clauses', () => {

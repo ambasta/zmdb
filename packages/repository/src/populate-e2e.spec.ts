@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer, primaryKey, notNull } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -8,15 +9,21 @@ import { BaseRepository } from './index.ts';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
 
-const UserSchema = defineSchema('users', {
-  id: primaryKey(serial()),
-  email: notNull(text()),
-});
-const OrderSchema = defineSchema('orders', {
-  id: primaryKey(serial()),
-  userId: notNull(integer()),
-  total: notNull(integer()),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
+
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  total: number & Sql<'integer'>;
+}
+
+const { User: UserSchema, Order: OrderSchema } = schemasFrom<{ User: User; Order: Order }>(import.meta.url, [
+  'User',
+  'Order',
+]);
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;

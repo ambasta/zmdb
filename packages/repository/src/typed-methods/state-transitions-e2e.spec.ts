@@ -1,12 +1,6 @@
-import {
-  defineSchema,
-  serial,
-  text,
-  numeric,
-  defineEntityStateMachine,
-  defineStateTransitions,
-  type StateUpdateDTO,
-} from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { defineEntityStateMachine, defineStateTransitions, type StateUpdateDTO } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -22,12 +16,24 @@ import {
 // Domain Workflow 1: Order Processing Lifecycle
 // States: draft -> pending -> paid -> fulfilled / cancelled
 // ---------------------------------------------------------------------------
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  customerEmail: text().notNull(),
-  totalAmount: numeric().notNull(),
-  status: text().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  customerEmail: string & Sql<'text'>;
+  totalAmount: number & Sql<'numeric'>;
+  status: string & Sql<'text'>;
+}
+
+export interface Article extends Table<'articles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  body: string & Sql<'text'>;
+  status: string & Sql<'text'>;
+}
+
+const { Order: OrderSchema, Article: ArticleSchema } = schemasFrom<{ Order: Order; Article: Article }>(
+  import.meta.url,
+  ['Order', 'Article'],
+);
 
 class OrderRepository extends BaseRepository<typeof OrderSchema> {
   static override readonly schema = OrderSchema;
@@ -54,13 +60,6 @@ const orderStateMachine = defineEntityStateMachine({
 // Domain Workflow 2: Content Publishing Lifecycle
 // States: draft -> in_review -> published -> archived
 // ---------------------------------------------------------------------------
-const ArticleSchema = defineSchema('articles', {
-  id: serial().primaryKey(),
-  title: text().notNull(),
-  body: text().notNull(),
-  status: text().notNull(),
-});
-
 class ArticleRepository extends BaseRepository<typeof ArticleSchema> {
   static override readonly schema = ArticleSchema;
 }

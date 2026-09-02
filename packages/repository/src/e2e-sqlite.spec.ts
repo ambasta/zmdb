@@ -1,16 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import {
-  bigint,
-  defineSchema,
-  jsonEnum,
-  notNull,
-  primaryKey,
-  sensitive,
-  serial,
-  text,
-  timestamp,
-} from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { UpdateDTO } from '@zmdb/schema-core';
+import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -20,11 +12,39 @@ import { BaseRepository, ValidationError } from './index.ts';
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).
 
 // The single source of truth.
-const UserSchema = defineSchema('users', {
-  id: primaryKey(serial()),
-  email: notNull(text()),
-  role: jsonEnum(['admin', 'user']).nullable(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') | null;
+}
+
+/** Used by one `it` further down, which cannot open its own reflection session cheaply. */
+export interface SensitiveUser extends Table<'sensitive_users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  passwordHash: string & Sql<'text'> & Sensitive;
+}
+
+/** Likewise — the timestamp/bigint round-trip block at the bottom. */
+export interface Event extends Table<'events'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  at: Date & Sql<'timestamp'>;
+  seq: bigint & Sql<'bigint'>;
+  closedAt: (Date & Sql<'timestamp'>) | null;
+}
+
+// One call for all three: opening the project is the expensive part, reading a type off it
+// is not, so the names this file needs are asked for together at module scope.
+const {
+  User: UserSchema,
+  SensitiveUser: SensitiveSchema,
+  Event: EventSchema,
+} = schemasFrom<{ User: User; SensitiveUser: SensitiveUser; Event: Event }>(import.meta.url, [
+  'User',
+  'SensitiveUser',
+  'Event',
+]);
 
 // The ENTIRE repository — well under 10 lines.
 class UserRepository extends BaseRepository<typeof UserSchema> {
@@ -60,8 +80,13 @@ describe('repository E2E (real SQLite)', () => {
     const created = await users.create({ email: 'a@b.com', role: 'admin' });
     const id = created.id;
 
-    // Passing explicit undefined for email and explicit null for role (role is nullable in UserSchema)
-    const updated = await users.update(id, { email: undefined, role: null });
+    // Explicit `undefined` for email, explicit `null` for role — `role` is nullable, so
+    // the two mean different things and the driver has to see the difference. `UpdateDTO`
+    // no longer *admits* `{ email: undefined }`, deliberately: `{}` already says "leave it
+    // alone". The runtime still has to strip it, because a parsed request body carries
+    // whatever the client sent, so the patch arrives here the way it arrives in production.
+    const patch: unknown = { email: undefined, role: null };
+    const updated = await users.update(id, patch as UpdateDTO<typeof UserSchema>);
     expect(updated).toMatchObject({ id, email: 'a@b.com', role: null });
 
     // Verify in database that email was unchanged and role was set to SQL NULL
@@ -91,12 +116,6 @@ describe('repository E2E (real SQLite)', () => {
   });
 
   it('preserves sensitive column unmasked data on reads and enforces payload validation', async () => {
-    const SensitiveSchema = defineSchema('sensitive_users', {
-      id: primaryKey(serial()),
-      email: notNull(text()),
-      passwordHash: sensitive(notNull(text())),
-    });
-
     class SensitiveRepo extends BaseRepository<typeof SensitiveSchema> {
       static override readonly schema = SensitiveSchema;
     }
@@ -175,14 +194,6 @@ describe('repository E2E (real SQLite)', () => {
 // and passing the string it wanted was the wrong type one layer up, where the validator now
 // says `expected Date`.
 describe('repository E2E: the db layer of a timestamp and a bigint (SQLite)', () => {
-  const EventSchema = defineSchema('events', {
-    id: primaryKey(serial()),
-    name: notNull(text()),
-    at: timestamp(),
-    seq: bigint(),
-    closedAt: timestamp().nullable(),
-  });
-
   class EventRepository extends BaseRepository<typeof EventSchema> {
     static override readonly schema = EventSchema;
   }

@@ -377,7 +377,12 @@ function printProperty(name, column, tagsUsed) {
     if (!column.enumValues?.length) refuse(name, 'a `jsonEnum` column with no members has no type');
     parts.push(column.enumValues.map(value => `'${escapeTypeString(value)}'`).join(' | '));
   } else if (column.sql === 'json') {
-    parts.push(column.payload ?? 'unknown');
+    // `object`, not `unknown`, for a payload-free `json()`. `unknown & X` collapses to
+    // `X`, which leaves the property typed as the tag alone — an all-optional weak type
+    // that rejects the very `{ … }` and `[ … ]` the column exists to hold. `object` is
+    // both assignable-from what a JSON column accepts and exactly what the emitted check
+    // tests for ("expected object | array").
+    parts.push(column.payload ?? 'object');
     use(`Sql<'json'>`);
   } else {
     const base = TS_TYPE[column.sql];

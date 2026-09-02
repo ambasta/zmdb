@@ -180,6 +180,11 @@ export function schemaIrsFrom<const Names extends readonly string[]>(
     }
   }
 
+  // boundary: `irs` is filled in by the loop above, one key per member of `names`, and the
+  // loop throws rather than skipping when a name is not exported — so every key the return
+  // type promises is present by the time this runs. What the assertion buys is the *literal*
+  // keys: built from a `Record<string, SchemaIR>` because the names arrive as values, and no
+  // amount of building it differently makes the compiler read them back off the array.
   return irs as { [Name in Names[number]]: SchemaIR };
 }
 

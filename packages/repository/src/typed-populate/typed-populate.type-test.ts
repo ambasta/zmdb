@@ -7,7 +7,7 @@
 // `.spec.ts` — a runtime no-op in a file the tsconfig excluded. It was not met:
 // the populate overload returned `Entity<S> & Record<string, unknown>`, so
 // `user.orders` was `unknown` and every caller cast it.
-import type { Entity, Equal, Expect } from '@zmdb/schema-core';
+import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository } from '../index.ts';
 import { OrderSchema, UserSchema, orderRelations, userRelations } from './fixtures.ts';
@@ -28,10 +28,13 @@ declare const orders: Orders;
 // --- to-many: the relation is an array of the child entity ------------------
 declare const populated: NonNullable<Awaited<ReturnType<typeof users.findById<'orders'>>>>;
 export type _Pop1 = Expect<Equal<(typeof populated)['orders'], readonly Order[]>>;
-// The base columns survive untouched.
-export type _Pop2 = Expect<Equal<(typeof populated)['name'], string>>;
+// The base columns survive untouched. `Mutual` rather than `Equal` throughout the
+// bare-scalar assertions here: the fixtures are tagged types, so `name` is
+// `string & Sql<'text'>` and the tag rides along by design. What matters is that the
+// column is usable as a string, not that it is spelled like one.
+export type _Pop2 = Expect<Mutual<(typeof populated)['name'], string>>;
 // The child rows are entities, not `unknown` — `o.total` needs no cast.
-export type _Pop3 = Expect<Equal<(typeof populated)['orders'][number]['total'], number>>;
+export type _Pop3 = Expect<Mutual<(typeof populated)['orders'][number]['total'], number>>;
 
 // --- to-one: a single child, nullable (the FK may match nothing) ------------
 declare const withUser: NonNullable<Awaited<ReturnType<typeof orders.findById<'user'>>>>;

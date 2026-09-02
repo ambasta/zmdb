@@ -1,4 +1,5 @@
-import { defineSchema, serial, text } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, defineRepository, type Driver } from '../index.ts';
@@ -7,10 +8,12 @@ import { recordingConn } from './recording-conn.ts';
 
 // #37: transaction-scoped repository binding.
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+}
+
+const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
 
 class UserRepository extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;

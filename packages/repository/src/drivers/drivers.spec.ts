@@ -1,17 +1,20 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository } from '../index.ts';
 import { pgDriver, type PgQueryable } from './pg.ts';
 import { sqliteDriver } from './sqlite.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  age: number & Sql<'integer'>;
+}
+
+const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
 class Users extends BaseRepository<typeof UserSchema> {
   static override readonly schema = UserSchema;
 }

@@ -7,7 +7,7 @@
 // the package tsconfig excluded `**/*.spec.ts`, so nothing compiled them either.
 // A repository whose methods had degraded to `Record<string, unknown>` would have
 // passed the suite green.
-import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
 import type { Users, S } from './fixtures.ts';
@@ -32,8 +32,10 @@ export const _readWhere: Promise<readonly Entity<S>[]> = repo.find({
 export const _readByIdPopulated = repo.findById(1, { populate: ['orders'] });
 
 // The element type is the derived entity, not `Record<string, unknown>`: this is
-// what makes `row.role` a `'admin' | 'user'` at the call site.
-export type _Read7 = Expect<Equal<Awaited<ReturnType<Users['findAll']>>[number]['role'], 'admin' | 'user'>>;
+// what makes `row.role` a `'admin' | 'user'` at the call site. `Mutual`, because the
+// enum column carries its tags through the derivation and so is not invariantly equal
+// to the bare union — the point of the assertion is that a caller can branch on it.
+export type _Read7 = Expect<Mutual<Awaited<ReturnType<Users['findAll']>>[number]['role'], 'admin' | 'user'>>;
 
 // --- writes (#206) ---------------------------------------------------------
 export type _Write1 = Expect<Equal<Parameters<Users['create']>[0], CreateDTO<S>>>;

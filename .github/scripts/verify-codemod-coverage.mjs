@@ -36,11 +36,6 @@ const ALLOWED = {
   // codemod needs a program and therefore cannot read this one.
   'benchmarks/harness/framework/app.ts': ['not part of'],
 
-  // `interface Config` and `const ConfigSchema` in one scope: the interface name the codemod
-  // would derive is taken. Renaming is the fix, and it is the file's owner's call to make,
-  // not a codemod's.
-  'packages/repository/src/typed-methods/typed-writes.spec.ts': ['already declared in scope'],
-
   // The fixture whose entire purpose is to be refused. Each schema in it is one thing the
   // codemod is supposed to decline rather than guess at, and `codemod.spec.ts` asserts the
   // reason for each. If these ever converted, that spec would be the failure.
@@ -64,12 +59,19 @@ const ALLOWED = {
   // test the runtime builder's own error paths, which the tagged front-end replaces outright
   // rather than reimplements.
   'packages/schema-core/src/ir/ir.spec.ts': ['not bound to a name', 'not bound to a name'],
-  'packages/schema-core/src/openapi/singularization.spec.ts': ['not bound to a name'],
   'packages/schema-core/src/schema-core.spec.ts': ['not bound to a name', 'not bound to a name', 'not bound to a name'],
 };
 
-/** A floor, so the check cannot pass by the codemod having converted nothing at all. */
-const MINIMUM_CONVERTED = 50;
+/**
+ * A floor, so the check cannot pass by the codemod having converted nothing at all.
+ *
+ * This is the one ratchet in here that moves *down*, and only for one reason: a schema that
+ * has been migrated to a tagged interface is no longer a `defineSchema` for the codemod to
+ * find. Lowering it means "that many fewer left", and the number reaches zero at the D2
+ * deletion — at which point this whole check has no subject and goes with it. Lowering it
+ * for any other reason is a schema quietly becoming unconvertible.
+ */
+const MINIMUM_CONVERTED = 34;
 
 function trackedTypeScript() {
   return execFileSync('git', ['ls-files', '-z', '*.ts'], { cwd: ROOT, encoding: 'utf8' })

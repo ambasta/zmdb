@@ -820,6 +820,20 @@ export class Reflector {
     // member arrives with the tag attached. Stripping the tag parts is what makes the
     // literal union visible again.
     const data = rest.map(member => this.#dataPart(member));
+
+    // A column whose data part is nothing but tags. Worth its own message because the
+    // way a reader gets here is not by writing `Sql<'json'>` on its own — it is by
+    // writing `unknown & Sql<'json'>` and not knowing that `unknown & X` *is* `X`, so
+    // the type they think they declared is gone before the reflection ever sees it.
+    const [first] = data;
+    if (first !== undefined && data.every(member => this.#isTagOnly(member))) {
+      this.#refuse(
+        property,
+        "the tags carry no type: `unknown & X` collapses to `X` — an unshaped JSON payload is `object & Sql<'json'>`",
+        this.#print(first),
+      );
+    }
+
     const enumValues = literalUnion(data);
     const declaredSql = this.#sqlOf(tags) ?? this.#inferSql(property, data, enumValues);
     const constraints = this.#constraintsFromTags(tags);
@@ -884,11 +898,16 @@ export class Reflector {
    * data part would drop the constraints the tags carry, which `appTypeOf` reads off the
    * column instead. So the field is set only where the app type is a shape the SQL type
    * cannot describe at all.
+   *
+   * `object & Sql<'json'>` is the declared spelling of a payload-free `json()`, so it
+   * leaves the field unset like `unknown` does. That is not a shortcut: `object` means
+   * "not a primitive", which is precisely the check an unshaped `json` column emits, so
+   * the type and the validator say the same thing rather than one of them saying more.
    */
   #declaredApp(property: string, data: readonly Type[], sql: SqlType, codec: boolean): TypeIR | undefined {
     if (!codec && sql !== 'json') return undefined;
     const [only] = data;
-    if (data.length !== 1 || only === undefined || isUnknown(only)) return undefined;
+    if (data.length !== 1 || only === undefined || isUnknown(only) || isNonPrimitive(only)) return undefined;
     const node = this.#type(only, property, 1);
     if (sql === 'json') return node;
     return node.kind === 'scalar' || node.kind === 'literal' ? undefined : node;
@@ -1069,6 +1088,10 @@ function isUnknown(type: Type): boolean {
   return type.isIntrinsicType() && (type.intrinsicName === 'unknown' || type.intrinsicName === 'any');
 }
 
+/** The `object` keyword: any non-primitive, which is any JSON object or array. */
+function isNonPrimitive(type: Type): boolean {
+  return type.isIntrinsicType() && type.intrinsicName === 'object';
+}
 
 function literalOf(type: Type | undefined): string | number | boolean | undefined {
   if (!type) return undefined;

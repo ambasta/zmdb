@@ -1,6 +1,6 @@
 // Type-level tests for typed population and join derivation.
 // No runtime code: this file is a *compilation* gate run by `yarn typecheck`.
-import type { Entity, Equal, Expect } from '@zmdb/schema-core';
+import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository, type defineRepository } from '../index.ts';
 import { OrderSchema, UserSchema, userJoinRelations, type ProfileSchema } from './fixtures.ts';
@@ -58,6 +58,9 @@ declare const usersWithOrders: Awaited<typeof _pBatch>;
 export type _BatchOrders = Expect<Equal<(typeof usersWithOrders)[number]['orders'], readonly Order[]>>;
 
 // --- Join derivation return types -----------------------------------------
+// `Mutual` on the column assertions: the fixtures are tagged, so a joined `name` is
+// `string & Sql<'text'>`. The claim is about which columns the join produced and
+// whether the right side went optional, not about tag spelling.
 export const _pInner = repo.findJoined({
   target: OrderSchema,
   leftCol: 'users.id',
@@ -65,8 +68,8 @@ export const _pInner = repo.findJoined({
   kind: 'inner',
 });
 declare const innerJoined: Awaited<typeof _pInner>;
-export type _InnerName = Expect<Equal<(typeof innerJoined)[number]['name'], string>>;
-export type _InnerTotal = Expect<Equal<(typeof innerJoined)[number]['total'], number>>;
+export type _InnerName = Expect<Mutual<(typeof innerJoined)[number]['name'], string>>;
+export type _InnerTotal = Expect<Mutual<(typeof innerJoined)[number]['total'], number>>;
 
 export const _pLeft = repo.findJoined({
   target: OrderSchema,
@@ -75,8 +78,8 @@ export const _pLeft = repo.findJoined({
   kind: 'left',
 });
 declare const leftJoined: Awaited<typeof _pLeft>;
-export type _LeftName = Expect<Equal<(typeof leftJoined)[number]['name'], string>>;
-export type _LeftTotal = Expect<Equal<(typeof leftJoined)[number]['total'], number | undefined>>;
+export type _LeftName = Expect<Mutual<(typeof leftJoined)[number]['name'], string>>;
+export type _LeftTotal = Expect<Mutual<(typeof leftJoined)[number]['total'], number | undefined>>;
 
 // --- defineRepository factory ---------------------------------------------
 declare const definedRepo: ReturnType<typeof defineRepository<typeof UserSchema, typeof userJoinRelations>>;

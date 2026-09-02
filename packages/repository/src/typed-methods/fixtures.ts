@@ -5,30 +5,42 @@
 // `.type-test.ts` compilation gates. They had a copy each, which is how a "typed
 // reads" schema and a "typed writes" schema end up quietly disagreeing about
 // whether `role` has a default, and with it whether it is optional on create.
-import { defineSchema, integer, jsonEnum, primaryKey, serial, text } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { BaseRepository, type Driver } from '../index.ts';
 
-export const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-  role: jsonEnum(['admin', 'user']).notNull().defaultTo('user'),
-});
-export type S = typeof UserSchema;
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  age: number & Sql<'integer'>;
+  role: ('admin' | 'user') & HasDefault;
+}
 
 /** Two primary-key columns, so `findById` takes an object rather than a scalar. */
-export const CompositeSchema = defineSchema('tenant_users', {
-  tenantId: primaryKey(text()),
-  userId: primaryKey(integer()),
-  role: text().notNull(),
-});
-export type CompositeS = typeof CompositeSchema;
+export interface TenantUser extends Table<'tenant_users'> {
+  tenantId: string & Sql<'text'> & PrimaryKey;
+  userId: number & Sql<'integer'> & PrimaryKey;
+  role: string & Sql<'text'>;
+}
 
-export const SinglePkSchema = defineSchema('products', {
-  id: primaryKey(integer()),
-  name: text().notNull(),
-});
+export interface Product extends Table<'products'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  name: string & Sql<'text'>;
+}
+
+export const {
+  User: UserSchema,
+  TenantUser: CompositeSchema,
+  Product: SinglePkSchema,
+} = schemasFrom<{ User: User; TenantUser: TenantUser; Product: Product }>(import.meta.url, [
+  'User',
+  'TenantUser',
+  'Product',
+]);
+
+export type S = typeof UserSchema;
+export type CompositeS = typeof CompositeSchema;
 export type SingleS = typeof SinglePkSchema;
 
 export class Users extends BaseRepository<S> {

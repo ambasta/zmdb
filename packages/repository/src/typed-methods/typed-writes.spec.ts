@@ -1,10 +1,27 @@
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { CompiledQuery } from '@zmdb/query-compiler';
-import { defineSchema, serial, json, nullable } from '@zmdb/schema-core';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
 import { Users, type S } from './fixtures.ts';
+
+/** The payload type of the `settings` column, named separately because the tests below
+ *  cast to it when they hand the column a primitive on purpose. */
+export interface Config {
+  theme: string;
+}
+
+/** Three json columns: a typed object, a typed array, and a nullable one. */
+export interface ConfigRow extends Table<'configs'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  settings: Config & Sql<'json'>;
+  tags: string[] & Sql<'json'>;
+  optionalNotes: ({ note: string } & Sql<'json'>) | null;
+}
+
+const { ConfigRow: ConfigSchema } = schemasFrom<{ ConfigRow: ConfigRow }>(import.meta.url, ['ConfigRow']);
 
 // The DTO signatures these tests exercise are asserted in
 // `typed-methods.type-test.ts` — this file covers validation and the driver calls.
@@ -40,7 +57,12 @@ describe('typed create/update (#206)', () => {
   it('update strips explicit undefined properties before payload validation', async () => {
     const execute = vi.fn(async (_q: unknown) => [{ id: 1, email: 'a@b.com', age: 32, role: 'user' }]);
     const repo = new Users({ execute } as Driver);
-    const out = await repo.update(1, { age: 32, email: undefined } as UpdateDTO<S>);
+    // `UpdateDTO<S>` no longer admits `{ email: undefined }` — `{}` already means "leave it
+    // alone" and `{ email: null }` means "set it to NULL", so the type offers one spelling of
+    // each. The runtime still has to cope, because this is what a parsed request body looks
+    // like, so the patch arrives here the way it arrives in production: past the type system.
+    const body: unknown = { age: 32, email: undefined };
+    const out = await repo.update(1, body as UpdateDTO<S>);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out?.age).toBe(32);
     // Check compiled SQL parameter only contains age, not email
@@ -50,15 +72,6 @@ describe('typed create/update (#206)', () => {
   });
 
   describe('json column runtime validation', () => {
-    interface Config {
-      theme: string;
-    }
-    const ConfigSchema = defineSchema('configs', {
-      id: serial().primaryKey(),
-      settings: json<Config>(),
-      tags: json<string[]>(),
-      optionalNotes: nullable(json<{ note: string }>()),
-    });
     type CS = typeof ConfigSchema;
 
     class ConfigRepo extends BaseRepository<CS> {

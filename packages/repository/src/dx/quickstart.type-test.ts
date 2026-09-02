@@ -4,7 +4,7 @@
 // The claim is that `defineRepository` loses nothing compared with a hand-written
 // subclass — DTOs, entity types and populate keys all still derive. It was
 // previously "checked" by `expectTypeOf` inside the E2E spec, a runtime no-op.
-import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
 
 import { defineRepository, type Driver } from '../index.ts';
 import { UserSchema, userRelations, type OrderSchema } from './fixtures.ts';
@@ -29,7 +29,10 @@ const usersWithOrders = defineRepository(UserSchema, driver, {
 });
 declare const populated: NonNullable<Awaited<ReturnType<typeof usersWithOrders.findById<'orders'>>>>;
 export type _Dx4 = Expect<Equal<(typeof populated)['orders'], readonly Entity<typeof OrderSchema>[]>>;
-export type _Dx5 = Expect<Equal<(typeof populated)['orders'][number]['total'], number>>;
+// `Mutual`: the fixture is a tagged type, so `total` is `number & Sql<'integer'>`. The claim
+// is that the populated child is an entity and not `unknown`, which a cast-free `+ 1`
+// would also show.
+export type _Dx5 = Expect<Mutual<(typeof populated)['orders'][number]['total'], number>>;
 export const _dxUnknownRelation = usersWithOrders.findById(1, {
   // @ts-expect-error — 'customers' is not a declared relation.
   populate: ['customers'],

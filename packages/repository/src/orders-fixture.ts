@@ -6,14 +6,17 @@
 // `name`), but the *child* side is the same table with the same foreign key in
 // both. That half lives here so the two can disagree about `users` on purpose
 // without also keeping two copies of `orders`.
-import { defineSchema, integer, serial } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { oneToMany } from '@zmdb/schema-core/relations';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-export const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  total: number & Sql<'integer'>;
+}
+
+export const { Order: OrderSchema } = schemasFrom<{ Order: Order }>(import.meta.url, ['Order']);
 
 /**
  * users → orders. `as const` matters: `defineRepository` and `BaseRepository`'s

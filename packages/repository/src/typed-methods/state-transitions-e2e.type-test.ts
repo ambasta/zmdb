@@ -1,5 +1,7 @@
-import { defineSchema, serial, text, defineEntityStateMachine } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { defineEntityStateMachine } from '@zmdb/schema-core';
 import type { Equal, Expect } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { markTransactionClosed, type ActiveTransactionContext, type ClosedTransactionContext } from '../index.ts';
 
@@ -15,11 +17,13 @@ function processActiveTx(tx: ActiveTransactionContext) {
 // @ts-expect-error - ClosedTransactionContext cannot be passed where ActiveTransactionContext is required
 processActiveTx(closedTx);
 
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  customerEmail: text().notNull(),
-  status: text().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  customerEmail: string & Sql<'text'>;
+  status: string & Sql<'text'>;
+}
+
+const { Order: OrderSchema } = schemasFrom<{ Order: Order }>(import.meta.url, ['Order']);
 
 const orderStateMachine = defineEntityStateMachine({
   schema: OrderSchema,
