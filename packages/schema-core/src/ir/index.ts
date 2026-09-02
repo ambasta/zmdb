@@ -501,6 +501,75 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
 }
 
 /**
+ * A column, plus whether the shape it was read from makes it optional.
+ *
+ * This is what the JSON Schema back-end actually consumes, and it exists because a
+ * variant name and a derived type are two spellings of the same information. The value
+ * front-end says `toJsonSchema(schema, 'create')` and the rule is "a column with a
+ * default is optional here". The tagged front-end says `toJsonSchema<CreateDTO<User>>()`
+ * and the type has already applied that rule — `createdAt?: Date & …` is optional
+ * because `CreateDTO` made it so.
+ *
+ * Collapsing both onto `optional` is what keeps REQ-TF-7 structural rather than tested.
+ * A second document generator that reads optionality off a type would be a fifth walker
+ * (`PLAN-type-first.md` §1) and would drift the way the other four did.
+ */
+export interface ShapeColumnIR {
+  readonly column: ColumnIR;
+  /** The document does not require this property. */
+  readonly optional: boolean;
+}
+
+/** The columns a document is generated from, in the order they were declared. */
+export type ShapeIR = readonly ShapeColumnIR[];
+
+/**
+ * A variant, rewritten as a shape.
+ *
+ * The three rules the variants used to spell out inline: an input variant has no
+ * database-generated columns at all, a patch requires nothing, and an input column with
+ * a default may be left out. Each is exactly what the corresponding derived type does to
+ * `Entity<T>`, which is the reason this translation exists rather than a coincidence.
+ */
+export function shapeOfVariant(ir: SchemaIR, variant: Variant): ShapeIR {
+  const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
+  return ir.columns
+    .filter(col => isResponse || !col.serial)
+    .map(col => ({ column: col, optional: variant === 'update' || (!isResponse && col.hasDefault) }));
+}
+
+/**
+ * The document for a shape.
+ *
+ * `required` is "not optional and not nullable", which is the single rule the three
+ * variants were three cases of. A nullable column is never required because the value
+ * `null` is admissible for it, so demanding the key adds nothing a validator can act on
+ * — that is pre-existing behaviour, preserved deliberately.
+ *
+ * Sensitive columns are dropped here, in the emitter, and not in the shape. A generated
+ * document is published, `Sensitive` means "must not be", and putting the filter at the
+ * last step is what makes that unconditional (REQ-TF-6): no variant, and no derived type
+ * a caller invents, can route around it. `CreateDTO<User>` deliberately *keeps* a
+ * sensitive column — you have to be able to send a password — and its document still
+ * must not name it.
+ */
+export function jsonSchemaFromShape(shape: ShapeIR): JsonSchemaObject {
+  const visible = shape
+    .filter(entry => !entry.column.sensitive)
+    .toSorted((a, b) => a.column.name.localeCompare(b.column.name));
+
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+
+  for (const { column, optional } of visible) {
+    properties[column.name] = jsonSchemaForColumn(column);
+    if (!optional && !column.nullable) required.push(column.name);
+  }
+
+  return { type: 'object', properties, required: required.toSorted() };
+}
+
+/**
  * The document for a variant. Byte-for-byte the contract `toJsonSchema` already
  * publishes; the point is that it is now a pure function of IR, so the value
  * front-end and the tagged front-end cannot produce different documents
@@ -508,26 +577,5 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
  * code can do.
  */
 export function jsonSchemaFromIR(ir: SchemaIR, variant: Variant = 'entity'): JsonSchemaObject {
-  const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
-
-  const visible = ir.columns
-    // Sensitive columns never appear in a generated specification. create/update
-    // additionally drop database-generated columns; response variants keep all.
-    .filter(col => !col.sensitive && (isResponse ? true : !col.serial))
-    .toSorted((a, b) => a.name.localeCompare(b.name));
-
-  const properties: Record<string, unknown> = {};
-  const required: string[] = [];
-
-  for (const col of visible) {
-    properties[col.name] = jsonSchemaForColumn(col);
-    if (variant === 'update') continue; // a patch requires nothing
-    if (isResponse) {
-      if (!col.nullable) required.push(col.name);
-    } else if (!col.hasDefault && !col.nullable) {
-      required.push(col.name);
-    }
-  }
-
-  return { type: 'object', properties, required: required.toSorted() };
+  return jsonSchemaFromShape(shapeOfVariant(ir, variant));
 }
