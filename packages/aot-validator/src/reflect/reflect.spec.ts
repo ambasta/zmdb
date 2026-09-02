@@ -158,6 +158,15 @@ describe('irFromType — tags', () => {
     expect(ir('tagged-numeric')).toEqual({ kind: 'scalar', scalar: 'number' });
   });
 
+  it("keeps a tagged boolean a boolean, through the checker's distribution", () => {
+    // `boolean` is `true | false`, and an intersection over a union distributes: the walk
+    // is handed `(false & Sql<'boolean'>) | (true & Sql<'boolean'>)`. Reading the boolean
+    // literals through the tag parts is what keeps `active: boolean & Sql<'boolean'>` one
+    // `typeof` check instead of two literal comparisons — and what makes it agree with the
+    // value front-end, which had no union to distribute in the first place.
+    expect(ir('tagged-boolean')).toEqual({ kind: 'scalar', scalar: 'boolean' });
+  });
+
   it('reads numeric and string bounds off the tags', () => {
     expect(ir('tagged-bounds')).toEqual({
       kind: 'scalar',

@@ -414,7 +414,14 @@ export class Reflector {
     // `boolean` is `true | false` in the checker, not an intrinsic. Recognising it
     // here is load-bearing: without it the walk falls through to the object branch
     // and emits a property check for a primitive.
-    if (members.length === 2 && members.every(m => m.isBooleanLiteralType())) {
+    //
+    // The data part, not the member itself: `boolean & Sql<'boolean'>` is normalised by
+    // the checker into `(false & Sql<'boolean'>) | (true & Sql<'boolean'>)` — the same
+    // distribution that makes `(T | null) & Unique` a trap — so a tagged boolean column
+    // arrives here as two *intersections*. Reading through them is what stops one column
+    // being a `typeof` check on the value front-end and two literal comparisons on the
+    // tagged one.
+    if (members.length === 2 && members.every(m => this.#dataPart(m).isBooleanLiteralType())) {
       return { kind: 'scalar', scalar: 'boolean' };
     }
     // The checker sorts `null` and `undefined` to the FRONT of a union. `../ir`'s

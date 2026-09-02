@@ -53,6 +53,9 @@ probe<10n>('bigint-literal');
 probe<number & Sql<'integer'>>('tagged-integer');
 probe<number & Sql<'serial'>>('tagged-serial');
 probe<number & Sql<'numeric'>>('tagged-numeric');
+// The checker distributes the intersection over `true | false`, so this arrives at the
+// walk as two intersections and not as `boolean` at all.
+probe<boolean & Sql<'boolean'>>('tagged-boolean');
 probe<number & Min<18> & Max<120>>('tagged-bounds');
 probe<string & MinLength<3> & MaxLength<64>>('tagged-lengths');
 probe<string & Sql<'varchar'> & Length<255>>('tagged-varchar');
