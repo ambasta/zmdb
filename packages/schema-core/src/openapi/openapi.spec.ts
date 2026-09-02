@@ -88,6 +88,15 @@ describe('toJsonSchema variants', () => {
   });
 });
 
+describe('toJsonSchema<T>()', () => {
+  it('throws when the build transform did not run', () => {
+    // Plan D4. The document is a function of a type, and types are gone at runtime, so
+    // the alternatives are to return a wrong document or to demand the schema value the
+    // call exists to replace. A build that skipped the transform should say so.
+    expect(() => toJsonSchema()).toThrow(/was not replaced at build time/);
+  });
+});
+
 describe('toOpenApiComponents', () => {
   it('keys schemas by PascalCase table name', () => {
     const c = toOpenApiComponents([UserSchema]);

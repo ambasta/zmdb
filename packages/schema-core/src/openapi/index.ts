@@ -13,7 +13,33 @@ import { irFromSchema, jsonSchemaFromIR, type JsonSchemaObject, type Variant } f
 
 export type { JsonSchemaObject, Variant };
 
-export function toJsonSchema(schema: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
+/**
+ * The document for a type, computed at build time (REQ-TF-7).
+ *
+ * `toJsonSchema<ReadDTO<User>>()` is replaced by the document itself — an object
+ * literal, frozen, with no schema value and no reflection left in the bundle. The
+ * variant is the type argument rather than a string, so `toJsonSchema<CreateDTO<User>>()`
+ * is the create body and `toJsonSchema<Pick<Entity<User>, 'id' | 'email'>>()` is a
+ * projection nothing in the string-variant vocabulary could express.
+ *
+ * Untransformed it throws, and that is the design (plan D4). There is no honest
+ * fallback: the document is a function of a type, types do not exist at runtime, and the
+ * alternatives are to return something wrong or to ask the caller to hand over the very
+ * thing the call exists to compute. A build that skipped the transform should fail
+ * loudly at the first call, not serve a plausible document.
+ */
+// oxlint-disable-next-line no-unused-vars -- `T` is the whole input; it has nowhere else to appear
+export function toJsonSchema<T>(): JsonSchemaObject;
+/** The document for a schema value and a named variant. Deleted with `defineSchema`. */
+export function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchemaObject;
+export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
+  if (!schema) {
+    throw new Error(
+      'toJsonSchema<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
+        '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+        'be read at runtime, so there is nothing to fall back to.',
+    );
+  }
   return jsonSchemaFromIR(irFromSchema(schema), variant);
 }
 
