@@ -339,7 +339,8 @@ The design goal that makes **P2** and **P3** literally true rather than aspirati
 the declaration is a _type_, and every runtime artefact is generated from it. Today
 `defineSchema` inverts this — the column facts live in a value and the types are a
 shadow of that value. Full rationale, encoding, and the runnable prototype are in
-[DESIGN-type-first.md](DESIGN-type-first.md).
+[DESIGN-type-first.md](DESIGN-type-first.md); the phased implementation plan, including
+the five decisions it depends on, is in [PLAN-type-first.md](PLAN-type-first.md).
 
 | ID            | Requirement                                                                                                                                                                                                                                                          | AC                                                                                                                                        |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |

@@ -2,6 +2,7 @@
 
 **Status:** accepted design goal, not yet implemented.
 **Owns:** PRD §6.7 (`REQ-TF-*`).
+**Plan:** [`PLAN-type-first.md`](PLAN-type-first.md).
 **Prototype:** `scripts/prototypes/type-first/` — runnable, 25 asserted expectations.
 
 ---
@@ -56,10 +57,14 @@ why `benchmarks/harness/framework/app.ts` hand-writes `columnKind` and
 `typescript/unstable/sync`.** `Checker` exposes `getTypeFromTypeNode`,
 `getPropertiesOfType`, `getTypeOfSymbolAtLocation`, `getTypeArguments`,
 `isTypeAssignableTo`, the `isXType()` predicates, and `Symbol.flags` for
-optionality. Measured on `packages/aot-validator` (323-file program): **113 ms** to
-load the project, **50 ms** for full semantic diagnostics. That is a build-step
-budget, amortised across the whole build — and fatal only if paid per file, which
-is the single most important constraint on the implementation.
+optionality.
+
+Measured on this repo, one `API` instance: **3 ms** to construct, **57 ms** to open all
+six package projects, **4 ms** to add a second project to an already-open snapshot, and
+**0 ms** to invalidate a changed file. Full semantic diagnostics cost 56–104 ms per
+project, but the transformer never needs them — that is `tsc`'s job. So the whole-repo
+reflection budget is one 60 ms payment per build, and the only way to get it wrong is
+to pay it per file.
 
 ## 3. The encoding
 
@@ -86,12 +91,16 @@ recursion, no template-literal arithmetic. That is what satisfies the objective'
 closing clause ("no compile-time performance regression, no hyper-complex type
 abstractions") **by construction** rather than by discipline.
 
-> A rejected alternative: proving the constraint in the type system, e.g.
-> `PositiveInteger<N> = number extends N ? never : … \`${N}\` extends \`${bigint}\` ? N : never`.
-This works, and is worth having for **literal arguments in our own code** (chunk
-sizes, page limits — see §7). It is the wrong tool for I/O: it can only reject a
-dynamic `number`, never validate one, and it puts type-level computation on the
-> hot path of every build. The tag encoding does the same job with no computation.
+A rejected alternative is to _prove_ the constraint in the type system:
+
+```ts
+type PositiveInteger<N extends number> = number extends N ? never : /* … */ N;
+```
+
+That works, and is worth having for **literal arguments in our own code** (chunk sizes,
+page limits — see §7). It is the wrong tool for I/O: it can only reject a dynamic
+`number`, never validate one, and it puts type-level computation on the hot path of
+every build. The tag encoding does the same job with no computation.
 
 ### 3.1 What needs a tag, and what does not
 
@@ -233,16 +242,21 @@ implementation will meet them:
 
 ## 6. What is not yet established
 
-| Open question           | Why it matters                                                                                                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build wiring            | The plugin must hold **one** `API` instance for the whole build. 113 ms once is free; 113 ms per file is not.                                                                           |
-| `tsc`-driven builds     | The bundler path is clear. `Project.emitter` exists but is untested; `ts-patch`-style program transformers do not apply to the Go compiler.                                             |
-| Recursive entity graphs | `User → Post[] → User` needs the seen-set/named-helper approach the prototype sketches, at real depth.                                                                                  |
-| Scale                   | Untested on a 60-column entity behind four layers of conditional types, or against the checker's instantiation limits.                                                                  |
-| Excess properties       | The prototype emits `is` semantics. `equals` semantics is a separate emit path (today's `emitExcessKeyGuards`).                                                                         |
-| Migration path          | `defineSchema` must keep working while both exist. Probably: generate the tagged interface from a schema value, or accept both as inputs to the same derivations.                       |
-| Declaration ergonomics  | `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases. |
-| `dts` build break       | `yarn build` already fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.          |
+The implementation plan is [`PLAN-type-first.md`](PLAN-type-first.md); it resolves several
+of these and states which are decisions rather than unknowns.
+
+| Open question           | Why it matters                                                                                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build wiring            | The plugin must hold **one** `API` instance for the whole build. Measured: 60 ms once is free. Per file it is fatal. A discipline problem, not a performance one.                                          |
+| No in-memory overlay    | `fileChanges` only _invalidates_; the checker re-reads from disk. So the transform must run before any other plugin rewrites the module, or positions no longer line up. Plan §5.1.                        |
+| `tsc`-driven builds     | `ts-patch`-style program transformers do not apply to the Go compiler. The plan's answer is a codegen CLI, which also closes RISK-1 — see plan Phase 8.                                                    |
+| Three types per column  | `timestamp` is `Date` to `TsType`, an ISO string to `toJsonSchema`, and either to the repository. A generated validator must pick one, so the disagreement becomes a bug. Plan D3.                         |
+| Recursive entity graphs | `User → Post[] → User` needs the seen-set/named-helper approach the prototype sketches, at real depth.                                                                                                     |
+| Scale                   | Untested on a 60-column entity behind four layers of conditional types, or against the checker's instantiation limits.                                                                                     |
+| Excess properties       | The prototype emits `is` semantics. `equals` semantics is a separate emit path (today's `emitExcessKeyGuards`).                                                                                            |
+| Migration path          | Resolved in the plan: both declaration styles compile to one IR, so `defineSchema` is a peer front-end rather than a legacy path. What remains is the instantiation cost of dispatching on both (plan D2). |
+| Declaration ergonomics  | `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                    |
+| `dts` build break       | `yarn build` already fails at the `dts` step because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API. Unrelated cause, same root: TS 7 changed the API shape.                             |
 
 ## 7. Adjacent, not part of this goal
 
