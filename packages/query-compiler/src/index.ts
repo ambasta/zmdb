@@ -207,8 +207,10 @@ export function isWindowProjectionNode(value: unknown): value is WindowProjectio
   return (
     value !== null &&
     typeof value === 'object' &&
-    (value as { kind?: string }).kind === 'window' &&
-    typeof (value as { functionName?: unknown }).functionName === 'string'
+    'kind' in value &&
+    value.kind === 'window' &&
+    'functionName' in value &&
+    typeof value.functionName === 'string'
   );
 }
 
@@ -216,8 +218,10 @@ export function isWindowFunctionBuilder(value: unknown): value is WindowFunction
   return (
     value !== null &&
     typeof value === 'object' &&
-    (value as { kind?: string }).kind === 'window' &&
-    typeof (value as { toNode?: unknown }).toNode === 'function'
+    'kind' in value &&
+    value.kind === 'window' &&
+    'toNode' in value &&
+    typeof value.toNode === 'function'
   );
 }
 
@@ -495,7 +499,11 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
           if (typeof cte.subquery === 'function') {
             const qc = createQueryCompiler(d);
             const res = cte.subquery(qc);
-            sub = isSubqueryTarget(res) ? res.compile() : (res as CompiledQuery);
+            if (isSubqueryTarget(res)) {
+              sub = res.compile();
+            } else {
+              throw new QueryCompilerError(`Invalid subquery provided for CTE "${cte.name}"`);
+            }
           } else if (isSubqueryTarget(cte.subquery)) {
             sub = cte.subquery.compile();
           } else {
