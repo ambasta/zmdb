@@ -581,28 +581,35 @@ describe('a session the caller owns', () => {
   it('is used rather than a second one, and is still open afterwards', () => {
     const { src, tsconfig } = project(APP);
     const before = apiInstanceCount();
-    using session = ReflectSession.open({ project: tsconfig });
-    ok(codegen({ project: tsconfig, session }));
+    const session = ReflectSession.open({ project: tsconfig });
+    try {
+      ok(codegen({ project: tsconfig, session }));
 
-    // One compiler for the whole thing: the session opened above, and none from `codegen`.
-    expect(apiInstanceCount() - before).toBe(1);
-    expect(readFileSync(join(src, 'app.ts'), 'utf8')).toContain('zmdbIsOrder(value)');
-    // Closing it is the caller's business, so the caller can still use it. A closed session
-    // throws on any snapshot update, which is what makes this observable at all.
-    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+      // One compiler for the whole thing: the session opened above, and none from `codegen`.
+      expect(apiInstanceCount() - before).toBe(1);
+      expect(readFileSync(join(src, 'app.ts'), 'utf8')).toContain('zmdbIsOrder(value)');
+      // Closing it is the caller's business, so the caller can still use it. A closed session
+      // throws on any snapshot update, which is what makes this observable at all.
+      expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+    } finally {
+      session.close();
+    }
   }, 60_000);
 
   it('survives a watch that borrowed it', async () => {
     const { src, tsconfig } = project(APP);
-    using session = ReflectSession.open({ project: tsconfig });
+    const session = ReflectSession.open({ project: tsconfig });
+    try {
+      const stop = Promise.withResolvers<void>();
+      const watching = watchCodegen({ project: tsconfig, session, until: stop.promise, debounceMs: 10 });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      stop.resolve();
+      ok(await watching);
 
-    const stop = Promise.withResolvers<void>();
-    const watching = watchCodegen({ project: tsconfig, session, until: stop.promise, debounceMs: 10 });
-    await new Promise(resolve => setTimeout(resolve, 100));
-    stop.resolve();
-    ok(await watching);
-
-    // `watchCodegen` closes the session it opened itself. This one it did not open.
-    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+      // `watchCodegen` closes the session it opened itself. This one it did not open.
+      expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+    } finally {
+      session.close();
+    }
   }, 60_000);
 });

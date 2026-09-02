@@ -14,6 +14,7 @@ export interface SqliteStatement {
   run(...params: unknown[]): unknown;
   /** Steps a row-returning statement without materialising the result. */
   iterate(...params: unknown[]): Iterable<Record<string, unknown>>;
+  setReadBigInts?(readBigInts: boolean): void;
 }
 export interface SqliteDatabase {
   exec(sql: string): unknown;
@@ -50,9 +51,10 @@ interface CachedStatement {
  * was bound for.
  */
 function bindable(value: unknown): unknown {
-  return value instanceof Date ? value.toISOString() : value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return value;
 }
-
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
 export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): TransactionalDriver<'sqlite'> {
   db.exec('PRAGMA foreign_keys = ON');
@@ -68,6 +70,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
     }
 
     const stmt = db.prepare(text);
+    stmt.setReadBigInts?.(true);
     const columns = stmt.columns?.();
     entry = {
       stmt,

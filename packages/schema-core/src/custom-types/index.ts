@@ -27,7 +27,7 @@ export interface CustomType<Wire, TS, DB = unknown> {
   readonly fromWire: (raw: Wire) => TS;
 }
 
-export function defineType<Wire, TS, DB>(def: CustomType<Wire, TS, DB>): CustomType<Wire, TS, DB> {
+export function defineType<Wire, TS, DB = unknown>(def: CustomType<Wire, TS, DB>): CustomType<Wire, TS, DB> {
   return Object.freeze({ ...def });
 }
 export function encodeValue<Wire, TS, DB>(type: CustomType<Wire, TS, DB>, value: TS): DB {
