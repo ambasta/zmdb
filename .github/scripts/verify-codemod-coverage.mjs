@@ -40,6 +40,24 @@ const ALLOWED = {
   // not a codemod's.
   'packages/repository/src/typed-methods/typed-writes.spec.ts': ['already declared in scope'],
 
+  // The fixture whose entire purpose is to be refused. Each schema in it is one thing the
+  // codemod is supposed to decline rather than guess at, and `codemod.spec.ts` asserts the
+  // reason for each. If these ever converted, that spec would be the failure.
+  'packages/aot-validator/src/reflect/__fixtures__/codemod-refusals.ts': [
+    'expected a literal',
+    'unknown column function',
+    'already declared in scope',
+  ],
+
+  // Declares the tagged `User` and the value `UserSchema` side by side on purpose: the file
+  // exists to compare the two derivations, so the name the codemod would pick is taken by
+  // the thing it would be compared against. Phase 9 deletes the value halves outright, and
+  // with them these two refusals.
+  'packages/schema-core/src/derive/type-derivation-tagged.type-test.ts': [
+    'already declared in scope',
+    'already declared in scope',
+  ],
+
   // Inline `defineSchema(...)` calls with no binding — inside `expect(() => …)`, or as an
   // argument to a helper. There is nothing to name the interface after, and these exist to
   // test the runtime builder's own error paths, which the tagged front-end replaces outright
