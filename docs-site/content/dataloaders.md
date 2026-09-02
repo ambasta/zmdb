@@ -56,7 +56,7 @@ function createLoader<K, V>(fetch: (keys: readonly K[]) => Promise<Map<K, V>>) {
     });
 }
 
-const authorLoader = createLoader<number, Entity<typeof authors>>(async ids => {
+const authorLoader = createLoader<number, Entity<Author>>(async ids => {
   const rows = await authorRepo.find({ id: { in: [...ids] } });
   return new Map(rows.map(r => [r.id, r]));
 });

@@ -73,7 +73,7 @@ The adapter's parse falls back to the raw string on a `JSON.parse` failure — i
 Validate at the top of the handler and the failure becomes a 400 instead of a confusing `undefined` deeper in:
 
 ```ts
-const dto = assert<CreateDTO<typeof posts>>(ctx.body);
+const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
 See [Raw Body](./web-raw-body.html).

@@ -15,7 +15,7 @@ export interface User extends Table<'users'> {
 }
 
 const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
-class Users extends BaseRepository<typeof UserSchema> {
+class Users extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 

@@ -42,7 +42,7 @@
 // about one per table, none per column, apparently free. It is not: the checker caches a
 // generic instantiation per distinct type argument, so an identical `Length<255>` across four
 // thousand columns is instantiated once and the measurement was of the cache. With the
-// arguments varying per table, as they do in any real schema, the same declaration costs 6.01
+// arguments varying per table, as they do in any real schema, the same declaration costs 6.07
 // per table — which is exactly the number of tag arguments that differ from one table to the
 // next (`Table<'table_N'>`, `Length`, `Pattern`, `Min`, `Max`, `MinLength`) and none for the
 // eight columns' worth of shared ones. That is what the first row enforces, and it is a
@@ -50,7 +50,7 @@
 // O(tagged columns).
 //
 // It has been mutation-tested against the failure it exists for. Rewriting one tag as a
-// conditional type — `Length<N> = N extends 0 ? never : {…}` — takes the row from 6.01 to 8.01
+// conditional type — `Length<N> = N extends 0 ? never : {…}` — takes the row from 6.07 to 8.07
 // and fails. (Against the old shared-argument fixture the same mutation cost two
 // instantiations *in total* and passed, which is how the fixture's problem was found.)
 //
@@ -81,7 +81,7 @@ const SMALL = 128;
  * `lowerAt` is the other direction — the value below which the script asks for the budget to
  * come down, so slack does not quietly accumulate until the gate stops meaning anything. It
  * is per row rather than a blanket percentage because the rows are not the same kind of
- * number: 6.01 instantiations per table is *already* one per distinct tag argument and there is
+ * number: 6.07 instantiations per table is *already* one per distinct tag argument and there is
  * nothing left in it to reclaim, while 7% off the derivation cost is a real improvement worth
  * holding on to. A row with no `lowerAt` is one where going lower is not slack.
  */
@@ -91,9 +91,9 @@ const BUDGET = {
     lowerAt: 5,
     what: 'instantiations to declare one tagged table',
     why:
-      'REQ-TF-3: a tag is a slot, not a computation. 6.01 is one instantiation per tag ' +
+      'REQ-TF-3: a tag is a slot, not a computation. 6.07 is one instantiation per tag ' +
       'argument that differs between tables and nothing for the eight columns. Making any one ' +
-      'tag a conditional type costs 8.01, which is what this ceiling is set to catch.',
+      'tag a conditional type costs 8.07, which is what this ceiling is set to catch.',
   },
   derivationPerTable: {
     limit: 640,
@@ -104,13 +104,15 @@ const BUDGET = {
       'table here (`Entity` through `GetDTO`), so this is roughly 60 instantiations each.',
   },
   tagShareOfDerivation: {
-    limit: 1.3,
-    lowerAt: 1.15,
+    limit: 1.2,
+    lowerAt: 1.05,
     what: 'derivation cost, tagged ÷ untagged',
     why:
-      "REQ-TF-3's baseline, exactly: the same interfaces with the tags removed. The key " +
-      'filters are conditional types and cost real work, so this is above 1 by design — what ' +
-      'it must not do is climb.',
+      "REQ-TF-3's baseline: the same interfaces with the *column* tags removed. The table-name " +
+      'slot stays on both sides, because a type that does not carry it is not a `DeclaredTable` ' +
+      'and the derivations refuse it outright (REQ-TF-4) — so this row is the cost of the tags ' +
+      'a column carries, which is what REQ-TF-3 is about. The key filters are conditional types ' +
+      'and cost real work, so it is above 1 by design; what it must not do is climb.',
   },
   checkTimeRatio: {
     // No `lowerAt`, and a ceiling with a lot of air in it. This is the one row read off a
@@ -121,8 +123,8 @@ const BUDGET = {
     what: 'checker wall-time, tagged ÷ untagged',
     why:
       'The one row a clock can answer and an instantiation count cannot: checker work that is ' +
-      'not an instantiation. There is some — this sits near 2.1 while the instantiation ratio ' +
-      'is 1.20 — so the tags are not free in wall-time at this scale, and the honest form of ' +
+      'not an instantiation. There is some — this sits near 1.8 while the instantiation ratio ' +
+      'is 1.11 — so the tags are not free in wall-time at this scale, and the honest form of ' +
       'that is the absolute number: a quarter of a millisecond of check time per tagged ' +
       'table. What this ceiling is for is the change that makes it milliseconds.',
   },

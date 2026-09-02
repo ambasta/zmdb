@@ -8,7 +8,7 @@ for them by key — the result is a parent **typed** with its nested relation(s)
 ```ts
 import { oneToMany } from '@zmdb/schema-core/relations';
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
   static readonly relations = {
     orders: {
@@ -101,7 +101,7 @@ Pass `populate` in the GetOptions to type-narrow the result:
 import type { GetDTO, Populated } from '@zmdb/schema-core/dto';
 
 const result = await users.findById(1, { populate: ['orders'] });
-// result: Populated<typeof UserSchema, 'orders'> | undefined
+// result: Populated<User, 'orders'> | undefined
 // result.orders: Order[]
 ```
 

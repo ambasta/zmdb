@@ -57,7 +57,7 @@ For a set-returning function, treat it as a relation — give it a [schema objec
 
 ```ts
 const rows = await driver.execute({ text: 'SELECT * FROM active_users($1)', parameters: [orgId] });
-return rows.map(r => assert<Entity<typeof users>>(r));
+return rows.map(r => assert<Entity<User>>(r));
 ```
 
 ## Dialect differences you have to handle yourself

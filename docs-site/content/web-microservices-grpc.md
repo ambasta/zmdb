@@ -32,14 +32,14 @@ Commit the document and diff it in CI, and you have the contract-change review t
 export interface GetOrder {
   readonly id: number;
 }
-export type Order = Entity<typeof orders>;
+export type OrderRow = Entity<Order>;
 ```
 
 ```ts
-const order = await client.post<Order>('/orders.get', { id }, raw => assert<Order>(raw));
+const order = await client.post<OrderRow>('/orders.get', { id }, raw => assert<OrderRow>(raw));
 ```
 
-The `assert<Order>` is AOT-compiled from the same type the server uses, so the boundary is checked at full speed. That is genuinely comparable to protobuf's guarantees, without the wire format.
+The `assert<OrderRow>` is AOT-compiled from the same type the server uses, so the boundary is checked at full speed. That is genuinely comparable to protobuf's guarantees, without the wire format.
 
 ## Calling an existing gRPC service
 

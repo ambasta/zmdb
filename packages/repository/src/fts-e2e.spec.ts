@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import type { CoreSchema } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -16,32 +17,29 @@ const pg = usePostgres(async pool => {
   );
 });
 
-const docColumns = {
-  id: { type: 'serial', flags: { nullable: false, primaryKey: true, autoIncrement: true, hasDefault: true } },
-  company_name: { type: 'text', flags: { nullable: false } },
-};
+// `Fts<'fts_docs_fts'>` names the shadow table SQLite searches through. The pair below is
+// the same three columns twice, differing only in that tag, because "does full-text search
+// refuse a table that has not declared one" is a question about the declaration.
+export interface Doc extends Table<'fts_docs'>, Fts<'fts_docs_fts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  company_name: string & Sql<'text'>;
+}
 
-const DocSchema = {
-  table: 'fts_docs',
-  columns: docColumns,
-  primaryKey: ['id'],
-  references: [],
-  ftsTable: 'fts_docs_fts',
-} as unknown as CoreSchema<'fts_docs'>;
+export interface PlainDoc extends Table<'fts_docs'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  company_name: string & Sql<'text'>;
+}
 
-// The same table with no `ftsTable`, which is what makes full-text search refuse.
-const PlainDocSchema = {
-  table: 'fts_docs',
-  columns: docColumns,
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'fts_docs'>;
+const { Doc: DocSchema, PlainDoc: PlainDocSchema } = schemasFrom<{ Doc: Doc; PlainDoc: PlainDoc }>(import.meta.url, [
+  'Doc',
+  'PlainDoc',
+]);
 
-class DocRepository extends BaseRepository<typeof DocSchema> {
+class DocRepository extends BaseRepository<Doc> {
   static override readonly schema = DocSchema;
 }
 
-class PlainDocRepository extends BaseRepository<typeof PlainDocSchema> {
+class PlainDocRepository extends BaseRepository<PlainDoc> {
   static override readonly schema = PlainDocSchema;
 }
 

@@ -41,7 +41,7 @@ function fromDbAddress(row: Record<string, unknown>): Address {
 // Usage in repository
 const customerSchema = schemaOf<Customer>();
 
-class CustomerRepository extends BaseRepository<typeof customerSchema> {
+class CustomerRepository extends BaseRepository<Customer> {
   async createWithAddress(data: { name: string; address: Address }) {
     const flat = { name: data.name, ...toDbAddress(data.address) };
     return this.create(flat);

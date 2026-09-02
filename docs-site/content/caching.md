@@ -46,7 +46,7 @@ Read the two compromises in that code before using it:
 Usually better, because the staleness decision is visible next to the query:
 
 ```ts
-let categories: Entity<typeof categoriesSchema>[] | undefined;
+let categories: Entity<Category>[] | undefined;
 let loadedAt = 0;
 
 export async function getCategories() {
@@ -82,7 +82,7 @@ Redis or Memcached, keyed by something you control — not by SQL text:
 async function topPosts() {
   const key = 'posts:top:v2';
   const hit = await redis.get(key);
-  if (hit !== null) return decode<Entity<typeof posts>[]>(hit);
+  if (hit !== null) return decode<Entity<Post>[]>(hit);
 
   const rows = await postRepo.list({ orderBy: [{ column: 'views', dir: 'desc' }], page: { limit: 10 } });
   await redis.set(key, stringify(rows.rows), { EX: 60 });

@@ -62,13 +62,13 @@ import type { CreateDTO } from '@zmdb/repository';
 import { posts } from '@/schema.js';
 
 export async function POST(request: Request) {
-  const dto = assert<CreateDTO<typeof posts>>(await request.json());
+  const dto = assert<CreateDTO<Post>>(await request.json());
   const created = await postRepo.create(dto);
   return Response.json(created, { status: 201 });
 }
 ```
 
-`CreateDTO<typeof posts>` is derived, so adding a required column is a type error here rather than a runtime rejection.
+`CreateDTO<Post>` is derived, so adding a required column is a type error here rather than a runtime rejection.
 
 ## Server actions
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 import { revalidatePath } from 'next/cache';
 
 export async function createPost(formData: FormData) {
-  const dto = assert<CreateDTO<typeof posts>>({
+  const dto = assert<CreateDTO<Post>>({
     title: String(formData.get('title')),
     body: String(formData.get('body')),
   });

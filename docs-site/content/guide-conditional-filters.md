@@ -14,7 +14,7 @@ interface Query {
 }
 
 export async function search(q: Query) {
-  const where: WhereDTO<typeof users> = {};
+  const where: WhereDTO<User> = {};
   if (q.minAge !== undefined) where.age = { gte: q.minAge };
   if (q.name !== undefined) where.name = { ilike: `%${q.name}%` };
   if (q.active !== undefined) where.active = { eq: q.active };

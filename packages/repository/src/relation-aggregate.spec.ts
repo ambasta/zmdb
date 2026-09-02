@@ -27,7 +27,7 @@ const { Category: CategorySchema, Product: ProductSchema } = schemasFrom<{ Categ
   ['Category', 'Product'],
 );
 
-class ProductRepository extends BaseRepository<typeof ProductSchema, typeof ProductRepository.relations> {
+class ProductRepository extends BaseRepository<Product, typeof ProductRepository.relations> {
   static override readonly schema = ProductSchema;
   static readonly relations = {
     category: { rel: manyToOne('categories', 'categoryId'), entity: CategorySchema },
@@ -89,7 +89,7 @@ describe('Relation-Aware Repository Aggregations', () => {
     const driver = recordingDriver([{ 'category.name': 'Books', count: 1, sum: 20 }]);
     const repo = new ProductRepository(driver, 'sqlite');
 
-    type Spec = AggregateSpec<typeof ProductSchema, typeof ProductRepository.relations>;
+    type Spec = AggregateSpec<Product, typeof ProductRepository.relations>;
     const spec: Spec = {
       joins: ['category'],
       groupBy: ['category.name'],
@@ -116,7 +116,7 @@ describe('Relation-Aware Repository Aggregations', () => {
 
   describe('Real in-memory SQLite E2E execution', () => {
     let db: DatabaseSync;
-    let repo: BaseRepository<typeof ProductSchema>;
+    let repo: BaseRepository<Product>;
 
     beforeEach(() => {
       db = new DatabaseSync(':memory:');

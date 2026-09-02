@@ -2,7 +2,7 @@
 // Checked by `yarn typecheck`.
 
 import type { Entity, Equal, Expect } from '../index.ts';
-import { ProfileSchema, UserSchema } from './fixtures.ts';
+import { ProfileSchema, UserSchema, type Profile as TaggedProfile, type User as TaggedUser } from './fixtures.ts';
 import {
   manyToOne,
   oneToMany,
@@ -14,8 +14,11 @@ import {
   type RelationDef,
 } from './index.ts';
 
-type UserEntity = Entity<typeof UserSchema>;
-type ProfileEntity = Entity<typeof ProfileSchema>;
+// Aliased, because this file also declares its own plain `User` further down for the
+// `PopulatedEntity` shape tests — the fixture ones are the tagged interfaces the schemas
+// were generated from.
+type UserEntity = Entity<TaggedUser>;
+type ProfileEntity = Entity<TaggedProfile>;
 
 // 1. Foreign key type checking — deleted with `references()` (plan D2).
 //

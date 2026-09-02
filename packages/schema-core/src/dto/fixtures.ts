@@ -29,6 +29,3 @@ export const { User: UserSchema, Order: OrderSchema } = schemasFrom<{ User: User
   'User',
   'Order',
 ]);
-
-export type UserS = typeof UserSchema;
-export type OrderS = typeof OrderSchema;

@@ -55,7 +55,7 @@ const jsonSchema = toJsonSchema(users, 'create');
 
 `toJsonSchema(schema, variant)` covers `entity | create | update | get | list | search`, so the create-shaped schema already omits `serial` columns and respects `defaultTo`. See [OpenAPI Schemas](./openapi.html).
 
-Often the simpler move is to skip Zod for that route: the DTO types are already derived from the schema, and `assert<CreateDTO<typeof users>>(body)` needs no bridge at all.
+Often the simpler move is to skip Zod for that route: the DTO types are already derived from the schema, and `assert<CreateDTO<User>>(body)` needs no bridge at all.
 
 ## Migrating off Zod
 

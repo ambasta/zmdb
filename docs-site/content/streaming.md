@@ -59,7 +59,7 @@ const cursor = client.query(new Cursor('SELECT * FROM users'));
 for (;;) {
   const rows = await cursor.read(1_000);
   if (rows.length === 0) break;
-  for (const row of rows) handle(assert<Entity<typeof users>>(row));
+  for (const row of rows) handle(assert<Entity<User>>(row));
 }
 ```
 

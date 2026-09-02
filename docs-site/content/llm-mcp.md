@@ -27,11 +27,11 @@ import { assert } from '@zmdb/aot-validator/utilities';
 const TOOLS = {
   list_users: {
     def: { name: 'list_users', description: 'List users', inputSchema: toListSchema(users) },
-    run: (input: unknown) => userRepo.list(assert<ListDTO<typeof users>>(input)),
+    run: (input: unknown) => userRepo.list(assert<ListDTO<User>>(input)),
   },
   create_user: {
     def: { ...toolFromSchema('create_user', users, { description: 'Create a user' }) },
-    run: (input: unknown) => userRepo.create(assert<CreateDTO<typeof users>>(input)),
+    run: (input: unknown) => userRepo.create(assert<CreateDTO<User>>(input)),
   },
 } as const;
 

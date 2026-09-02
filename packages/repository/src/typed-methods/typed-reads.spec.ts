@@ -1,7 +1,7 @@
 import type { WhereDTO } from '@zmdb/schema-core/dto';
 import { describe, it, expect } from 'vitest';
 
-import { recorder, Users, type S } from './fixtures.ts';
+import { recorder, Users, type User } from './fixtures.ts';
 
 // The method signatures these tests exercise are asserted in
 // `typed-methods.type-test.ts` — this file covers the SQL and the runtime shape.
@@ -9,7 +9,7 @@ describe('typed read methods (#203)', () => {
   it('find(where: WhereDTO) compiles typed filter to SQL', async () => {
     const { driver, calls } = recorder([{ id: 1, email: 'a@b.com', age: 30, role: 'admin' }]);
     const repo = new Users(driver);
-    const where: WhereDTO<S> = { role: 'admin', age: { gte: 18 } };
+    const where: WhereDTO<User> = { role: 'admin', age: { gte: 18 } };
     const out = await repo.find(where);
     expect(calls[0]?.text).toMatch(/WHERE .*role.* = \$1 AND .*age.* >= \$2/);
     expect(calls[0]?.parameters).toEqual(['admin', 18]);
@@ -19,7 +19,7 @@ describe('typed read methods (#203)', () => {
   it('findOne adds LIMIT 1', async () => {
     const { driver, calls } = recorder([{ id: 1, email: 'a@b.com', age: 30, role: 'admin' }]);
     const repo = new Users(driver);
-    const where: WhereDTO<S> = { email: 'a@b.com' };
+    const where: WhereDTO<User> = { email: 'a@b.com' };
     await repo.findOne(where);
     expect(calls[0]?.text).toMatch(/LIMIT 1/);
   });

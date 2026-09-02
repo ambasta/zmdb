@@ -1,4 +1,5 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository } from './index.ts';
@@ -16,17 +17,17 @@ const pg = usePostgres(async pool => {
   );
 });
 
-const ProductSchema = {
-  table: 'j_products',
-  columns: {
-    id: { type: 'serial', flags: { nullable: false, primaryKey: true } },
-    name: { type: 'text', flags: { nullable: false } },
-  },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'j_products'>;
+// The ids are supplied by the INSERTs above, so `id` is a plain integer key rather than a
+// serial one.
+export interface Product extends Table<'j_products'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  name: string & Sql<'text'>;
+  supplierId: number & Sql<'integer'>;
+}
 
-class ProductRepository extends BaseRepository<typeof ProductSchema> {
+const { Product: ProductSchema } = schemasFrom<{ Product: Product }>(import.meta.url, ['Product']);
+
+class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
 }
 describe('JOIN repository integration (real Postgres)', () => {

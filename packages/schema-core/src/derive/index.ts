@@ -1,18 +1,43 @@
 // @zmdb/schema-core/derive: the DTO suite, derived from a tagged type.
 //
-// These are the same names the schema-value derivations in `../index.ts` use,
-// deliberately: per plan D2 there is to be exactly one
-// `Entity`/`CreateDTO`/`UpdateDTO`, and these are the ones that survive.
-// They live in a separate module only so the repository, the web
-// package and every fixture keep compiling while the migration runs; the
-// schema-value versions go away once nothing reads them.
+// There is one `Entity`, one `CreateDTO`, one `UpdateDTO`, one `PrimaryKeyOf`, and they
+// are these. `../index.ts` re-exports them under the same names it used to define
+// schema-value twins under; the twins are deleted, not deprecated.
 //
-// Every derivation takes a tagged type and nothing else. There is no conditional
-// dispatch on `{ columns: ... }`, because backwards compatibility is not a
-// requirement — which also means no per-use `extends` test, and no
-// instantiation cost from the dispatch.
+// Every derivation takes the declared type and nothing else. Nothing here tests
+// `T extends { columns: ... }`, nothing dispatches on whether it was handed a value, and
+// so nothing pays for that test per use. A caller who holds a schema value crosses back
+// at a boundary — `TaggedSchema<T>` in a parameter position, `T` by inference — and the
+// derivations never see the value at all.
 
-import type { AnyRelation, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Unique, WireAs } from '../tags/index.ts';
+import type {
+  AnyRelation,
+  HasDefault,
+  PrimaryKey,
+  Sensitive,
+  Serial,
+  Sql,
+  Table,
+  Unique,
+  WireAs,
+} from '../tags/index.ts';
+
+/**
+ * What every derivation takes: a type that could have been declared as a table.
+ *
+ * An alias for `Table<string>`, and the constraint is the point. `Table` is an
+ * all-optional weak type, so TypeScript's weak-type rule rejects anything with no property
+ * in common with it — which a generated schema *value* is. `Entity<typeof UserSchema>`, the
+ * spelling this design replaced, is therefore a compile error rather than the schema's own
+ * five properties dressed up as a row. Worth constraining for precisely because the wrong
+ * answer was structurally plausible: it had keys and it had types, so nothing downstream
+ * would have complained.
+ *
+ * An index-signature row still passes, because a string index can hold the slot — see
+ * `dto/index.ts`'s `UnknownRow`, the one corner of the query surface keyed by a table
+ * *name* instead of by a declaration.
+ */
+export type DeclaredTable = Table<string>;
 
 // ---------------------------------------------------------------------------
 // Key filters.
@@ -79,7 +104,7 @@ export type ColumnKeys<T> = {
  *
  * Relations are not columns and are not here. See `RelationKeys`.
  */
-export type Entity<T> = { -readonly [K in ColumnKeys<T>]-?: T[K] };
+export type Entity<T extends DeclaredTable> = { -readonly [K in ColumnKeys<T>]-?: T[K] };
 
 /**
  * A tag filter's keys, narrowed to the keys `Entity<T>` actually has.
@@ -91,7 +116,7 @@ export type Entity<T> = { -readonly [K in ColumnKeys<T>]-?: T[K] };
  * subset is stated as an intersection, which is assignable to either side by
  * definition, rather than proved. Nothing changes for a concrete type.
  */
-type AsColumns<T, K> = K & keyof Entity<T>;
+type AsColumns<T extends DeclaredTable, K> = K & keyof Entity<T>;
 
 /**
  * Insert shape. `Serial` columns are **absent** — naming one is a compile error,
@@ -108,17 +133,17 @@ type AsColumns<T, K> = K & keyof Entity<T>;
  * rejected, which is the disagreement this phase exists to remove. It stays *present* and
  * optional rather than absent, because passing `null` explicitly is legitimate.
  */
-export type CreateDTO<T> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T> | NullableKeys<T>> &
+export type CreateDTO<T extends DeclaredTable> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T> | NullableKeys<T>> &
   Partial<Pick<Entity<T>, AsColumns<T, DefaultKeys<T> | NullableKeys<T>>>>;
 
 /** Patch shape: identity columns dropped, everything else optional. */
-export type UpdateDTO<T> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T>>>;
+export type UpdateDTO<T extends DeclaredTable> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T>>>;
 
 /**
  * What a read endpoint may return. `Sensitive` columns are removed from the
  * type, so a leak is a compile error rather than a serializer's responsibility.
  */
-export type ReadDTO<T> = Omit<Entity<T>, SensitiveKeys<T>>;
+export type ReadDTO<T extends DeclaredTable> = Omit<Entity<T>, SensitiveKeys<T>>;
 
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
@@ -129,7 +154,7 @@ type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : 
  * Named `PrimaryKeyOf` so the tag can be `PrimaryKey`, which is the name typed at
  * every declaration site (plan D1).
  */
-export type PrimaryKeyOf<T> = [PrimaryKeyKeys<T>] extends [never]
+export type PrimaryKeyOf<T extends DeclaredTable> = [PrimaryKeyKeys<T>] extends [never]
   ? unknown
   : IsUnion<PrimaryKeyKeys<T>> extends true
     ? { [K in PrimaryKeyKeys<T>]: Entity<T>[AsColumns<T, K>] }
@@ -167,7 +192,7 @@ type WireValue<V> =
 export type Wire<T> = { -readonly [K in ColumnKeys<T>]-?: WireValue<T[K]> };
 
 /** The over-the-wire shape of an insert payload. */
-export type WireCreateDTO<T> = { [K in keyof CreateDTO<T>]: WireValue<CreateDTO<T>[K]> };
+export type WireCreateDTO<T extends DeclaredTable> = { [K in keyof CreateDTO<T>]: WireValue<CreateDTO<T>[K]> };
 
 // The read/query surface — `WhereDTO`, `OrderByDTO`, `PaginationDTO`, `Projection`,
 // `GetDTO`, `ListDTO`, `Populated`, `JoinRow` — is in `./query.ts`, re-exported here

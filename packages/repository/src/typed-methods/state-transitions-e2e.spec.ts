@@ -35,7 +35,7 @@ const { Order: OrderSchema, Article: ArticleSchema } = schemasFrom<{ Order: Orde
   ['Order', 'Article'],
 );
 
-class OrderRepository extends BaseRepository<typeof OrderSchema> {
+class OrderRepository extends BaseRepository<Order> {
   static override readonly schema = OrderSchema;
 }
 
@@ -60,7 +60,7 @@ const orderStateMachine = defineEntityStateMachine({
 // Domain Workflow 2: Content Publishing Lifecycle
 // States: draft -> in_review -> published -> archived
 // ---------------------------------------------------------------------------
-class ArticleRepository extends BaseRepository<typeof ArticleSchema> {
+class ArticleRepository extends BaseRepository<Article> {
   static override readonly schema = ArticleSchema;
 }
 
@@ -124,7 +124,7 @@ describe('Core Domain Workflows: Opt-In Type-State Validation', () => {
       const txRepo = repo.withTransaction(tx);
 
       // Construct a valid state transition payload for 'draft' -> 'published'
-      const publishPayload: StateUpdateDTO<typeof ArticleSchema, 'status', 'draft', typeof articleTransitions> = {
+      const publishPayload: StateUpdateDTO<Article, 'status', 'draft', typeof articleTransitions> = {
         status: 'published',
         title: 'JS Design Patterns',
       };

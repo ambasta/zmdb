@@ -3,18 +3,20 @@
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository, type defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, userJoinRelations, type ProfileSchema } from './fixtures.ts';
+import { OrderSchema, UserSchema, userJoinRelations, type Order, type Profile, type User } from './fixtures.ts';
 
-type User = Entity<typeof UserSchema>;
-type Order = Entity<typeof OrderSchema>;
-type Profile = Entity<typeof ProfileSchema>;
+// The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is what
+// the populate and join assertions below are about.
+type UserRow = Entity<User>;
+type OrderRow = Entity<Order>;
+type ProfileRow = Entity<Profile>;
 
-class UserRepository extends BaseRepository<typeof UserSchema, typeof userJoinRelations> {
+class UserRepository extends BaseRepository<User, typeof userJoinRelations> {
   static override readonly schema = UserSchema;
   static readonly relations = userJoinRelations;
 }
 
-class PlainUserRepository extends BaseRepository<typeof UserSchema> {
+class PlainUserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
@@ -41,21 +43,21 @@ export const _err7 = txRepo.findById(1, { populate: ['invalid'] });
 // --- Populated to-many and to-one relation return types ---------------------
 export const _pOrders = repo.findById(1, { populate: ['orders'] });
 declare const userWithOrders: NonNullable<Awaited<typeof _pOrders>>;
-export type _PopOrders = Expect<Equal<(typeof userWithOrders)['orders'], readonly Order[]>>;
+export type _PopOrders = Expect<Equal<(typeof userWithOrders)['orders'], readonly OrderRow[]>>;
 
 export const _pProfile = repo.findById(1, { populate: ['profile'] });
 declare const userWithProfile: NonNullable<Awaited<typeof _pProfile>>;
-export type _PopProfile = Expect<Equal<(typeof userWithProfile)['profile'], Profile | null>>;
+export type _PopProfile = Expect<Equal<(typeof userWithProfile)['profile'], ProfileRow | null>>;
 
 export const _pBoth = repo.findById(1, { populate: ['orders', 'profile'] });
 declare const userWithBoth: NonNullable<Awaited<typeof _pBoth>>;
-export type _PopBothOrders = Expect<Equal<(typeof userWithBoth)['orders'], readonly Order[]>>;
-export type _PopBothProfile = Expect<Equal<(typeof userWithBoth)['profile'], Profile | null>>;
+export type _PopBothOrders = Expect<Equal<(typeof userWithBoth)['orders'], readonly OrderRow[]>>;
+export type _PopBothProfile = Expect<Equal<(typeof userWithBoth)['profile'], ProfileRow | null>>;
 
 // --- Batch relation loading return type -----------------------------------
 export const _pBatch = repo.findAllWithMany('orders');
 declare const usersWithOrders: Awaited<typeof _pBatch>;
-export type _BatchOrders = Expect<Equal<(typeof usersWithOrders)[number]['orders'], readonly Order[]>>;
+export type _BatchOrders = Expect<Equal<(typeof usersWithOrders)[number]['orders'], readonly OrderRow[]>>;
 
 // --- Join derivation return types -----------------------------------------
 // `Mutual` on the column assertions: the fixtures are tagged, so a joined `name` is
@@ -82,21 +84,21 @@ export type _LeftName = Expect<Mutual<(typeof leftJoined)[number]['name'], strin
 export type _LeftTotal = Expect<Mutual<(typeof leftJoined)[number]['total'], number | undefined>>;
 
 // --- defineRepository factory ---------------------------------------------
-declare const definedRepo: ReturnType<typeof defineRepository<typeof UserSchema, typeof userJoinRelations>>;
+declare const definedRepo: ReturnType<typeof defineRepository<User, typeof userJoinRelations>>;
 export const _pDefined = definedRepo.findById(1, { populate: ['orders'] });
 declare const definedUserWithOrders: NonNullable<Awaited<typeof _pDefined>>;
-export type _DefinedPopOrders = Expect<Equal<(typeof definedUserWithOrders)['orders'], readonly Order[]>>;
+export type _DefinedPopOrders = Expect<Equal<(typeof definedUserWithOrders)['orders'], readonly OrderRow[]>>;
 
 // --- Subclasses without defined static relations --------------------------
 export const _pPlainUser = plainRepo.findById(1);
 declare const plainUser: Awaited<typeof _pPlainUser>;
-export type _PlainUser = Expect<Equal<typeof plainUser, User | undefined>>;
+export type _PlainUser = Expect<Equal<typeof plainUser, UserRow | undefined>>;
 
 export const _pPlainAll = plainRepo.findAll();
 declare const plainAll: Awaited<typeof _pPlainAll>;
-export type _PlainAll = Expect<Equal<typeof plainAll, readonly User[]>>;
+export type _PlainAll = Expect<Equal<typeof plainAll, readonly UserRow[]>>;
 
 // --- Transaction helpers preserve relation declarations -------------------
 export const _pTxUserWithOrders = txRepo.findById(1, { populate: ['orders'] });
 declare const txUserWithOrders: NonNullable<Awaited<typeof _pTxUserWithOrders>>;
-export type _TxPopOrders = Expect<Equal<(typeof txUserWithOrders)['orders'], readonly Order[]>>;
+export type _TxPopOrders = Expect<Equal<(typeof txUserWithOrders)['orders'], readonly OrderRow[]>>;

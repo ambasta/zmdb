@@ -1,4 +1,5 @@
-import type { CoreSchema } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository } from './index.ts';
@@ -13,13 +14,19 @@ const pg = usePostgres(async pool => {
     (1,'north',10),(2,'north',20),(3,'south',5),(4,'south',5),(5,'south',15)`);
 });
 
-const SalesSchema = {
-  table: 'agg_sales',
-  columns: { id: { type: 'serial', flags: { nullable: false, primaryKey: true } } },
-  primaryKey: ['id'],
-  references: [],
-} as unknown as CoreSchema<'agg_sales'>;
-class SalesRepository extends BaseRepository<typeof SalesSchema> {
+// The aggregate builder names its own output columns, so the repository only has to know
+// the table. Declared rather than hand-built as a literal: `BaseRepository<Sale>` derives
+// its DTOs from this interface, and a cast-together schema value has no interface to be
+// derived from.
+export interface Sale extends Table<'agg_sales'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  region: string & Sql<'text'>;
+  amount: number & Sql<'integer'>;
+}
+
+const { Sale: SalesSchema } = schemasFrom<{ Sale: Sale }>(import.meta.url, ['Sale']);
+
+class SalesRepository extends BaseRepository<Sale> {
   static override readonly schema = SalesSchema;
 }
 describe('aggregation repository integration (real Postgres)', () => {

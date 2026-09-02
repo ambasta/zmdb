@@ -43,7 +43,7 @@ type Event = Concert | Game;
 // In your repository
 const eventSchema = schemaOf<EventRow>();
 
-class EventRepository extends BaseRepository<typeof eventSchema> {
+class EventRepository extends BaseRepository<Event> {
   findById(id: number) {
     return super.findById(id).then(row => {
       if (!row) return null;

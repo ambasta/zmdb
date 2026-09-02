@@ -6,8 +6,8 @@
 // package tsconfig excludes `**/*.spec.ts` — so nothing checked them. Here a
 // wrong derived type is a build error.
 //
-// `S` is a tagged interface's schema now, so the columns carry their tags into every
-// derivation — `Entity<S>['age']` is `number & Sql<'integer'>`, not `number`. That is
+// `User` is a tagged interface's schema now, so the columns carry their tags into every
+// derivation — `Entity<User>['age']` is `number & Sql<'integer'>`, not `number`. That is
 // REQ-TF-5 and it is deliberate: a tag dropped by `Omit` or `Partial` is a constraint the
 // generated validator would stop checking. The criterion for the assertions below is
 // therefore the one `derive/type-derivation-tagged.type-test.ts` argues for — identical
@@ -16,7 +16,7 @@
 // claim the assertion still spells it out.
 import type { Entity, Equal, Expect, Extends, Mutual } from '../index.ts';
 import type { Sql } from '../tags/index.ts';
-import type { OrderSchema, UserS as S } from './fixtures.ts';
+import type { Order, User } from './fixtures.ts';
 import type {
   AggregateResult,
   FieldOps,
@@ -35,34 +35,34 @@ import { applyOrderBy, applyPagination, buildListResult, compileWhere, project }
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.
 export type _Where1 = Expect<
-  Equal<WhereDTO<S>['age'], (number & Sql<'integer'>) | FieldOps<number & Sql<'integer'>> | undefined>
+  Equal<WhereDTO<User>['age'], (number & Sql<'integer'>) | FieldOps<number & Sql<'integer'>> | undefined>
 >;
 // And what a caller sees: a plain number, or the ops object over one.
-export type _Where1a = Expect<Mutual<WhereDTO<S>['age'], number | FieldOps<number> | undefined>>;
+export type _Where1a = Expect<Mutual<WhereDTO<User>['age'], number | FieldOps<number> | undefined>>;
 export type _Where2 = Expect<Equal<FieldOps<string>['like'], string | SubqueryTarget<string> | undefined>>;
 export type _Where3 = Expect<Equal<FieldOps<number>['like'], undefined>>;
 export type _Where4 = Expect<
-  Equal<FieldOps<Entity<S>['role']>['eq'], 'admin' | 'user' | SubqueryTarget<'admin' | 'user'> | undefined>
+  Equal<FieldOps<Entity<User>['role']>['eq'], 'admin' | 'user' | SubqueryTarget<'admin' | 'user'> | undefined>
 >;
 export type _Where5 = Expect<
-  Equal<WhereDTO<S>['exists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+  Equal<WhereDTO<User>['exists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
 >;
 export type _Where6 = Expect<
-  Equal<WhereDTO<S>['notExists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
+  Equal<WhereDTO<User>['notExists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
 >;
 
 // --- OrderByDTO (#182) -----------------------------------------------------
-export type _Order1 = Expect<Equal<OrderByDTO<S>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;
+export type _Order1 = Expect<Equal<OrderByDTO<User>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;
 
 // --- Projection (#185) -----------------------------------------------------
-export type _Proj1 = Expect<Mutual<Projection<S, 'id' | 'email'>, { id: number; email: string }>>;
-export type _Proj1a = Expect<Equal<keyof Projection<S, 'id' | 'email'>, 'id' | 'email'>>;
-export type _Proj2 = Expect<Equal<keyof Entity<S>, 'id' | 'email' | 'age' | 'role'>>;
+export type _Proj1 = Expect<Mutual<Projection<User, 'id' | 'email'>, { id: number; email: string }>>;
+export type _Proj1a = Expect<Equal<keyof Projection<User, 'id' | 'email'>, 'id' | 'email'>>;
+export type _Proj2 = Expect<Equal<keyof Entity<User>, 'id' | 'email' | 'age' | 'role'>>;
 
 // --- GetDTO (#165) ---------------------------------------------------------
-export type _Get1 = Expect<Equal<GetDTO<S>, Entity<S>>>;
-export type _Get2 = Expect<Mutual<GetDTO<S, { select: readonly ['id', 'age'] }>, { id: number; age: number }>>;
-export type _Get2a = Expect<Equal<keyof GetDTO<S, { select: readonly ['id', 'age'] }>, 'id' | 'age'>>;
+export type _Get1 = Expect<Equal<GetDTO<User>, Entity<User>>>;
+export type _Get2 = Expect<Mutual<GetDTO<User, { select: readonly ['id', 'age'] }>, { id: number; age: number }>>;
+export type _Get2a = Expect<Equal<keyof GetDTO<User, { select: readonly ['id', 'age'] }>, 'id' | 'age'>>;
 
 // --- ListResult (#168) -----------------------------------------------------
 export type _List1 = Expect<
@@ -70,7 +70,7 @@ export type _List1 = Expect<
 >;
 
 // --- SearchDTO (#171) ------------------------------------------------------
-export type _Search1 = Expect<Equal<SearchDTO<S>['query'], string>>;
+export type _Search1 = Expect<Equal<SearchDTO<User>['query'], string>>;
 export type _Search2 = Expect<Equal<SearchHit<{ id: number }>['_score'], number | undefined>>;
 
 // --- AggregateResult (#198) ------------------------------------------------
@@ -82,7 +82,7 @@ type AggSpec = {
     firstStatus: { fn: 'min'; column: 'status' };
   };
 };
-type R = AggregateResult<typeof OrderSchema, AggSpec>;
+type R = AggregateResult<Order, AggSpec>;
 // A grouped column keeps its declared type, tag and all; a computed one is the aggregate
 // function's own type and never carried a tag.
 export type _Agg1 = Expect<Equal<R['customerId'], number & Sql<'integer'>>>;
@@ -104,10 +104,10 @@ interface FakeBuilder {
   marker: 'concrete';
 }
 declare const fake: FakeBuilder;
-declare const where: WhereDTO<S>;
-declare const orderBy: OrderByDTO<S>;
+declare const where: WhereDTO<User>;
+declare const orderBy: OrderByDTO<User>;
 declare const page: PaginationSpec;
-export type _Fold1 = Expect<Equal<ReturnType<typeof compileWhere<S, FakeBuilder>>, FakeBuilder>>;
+export type _Fold1 = Expect<Equal<ReturnType<typeof compileWhere<User, FakeBuilder>>, FakeBuilder>>;
 export type _Fold2 = Expect<Equal<ReturnType<typeof applyOrderBy<FakeBuilder>>, FakeBuilder>>;
 export type _Fold3 = Expect<Equal<ReturnType<typeof applyPagination<FakeBuilder>>, FakeBuilder>>;
 // A schema-typed DTO is accepted by the schema-agnostic folders with no cast —
@@ -116,7 +116,7 @@ export const _foldChain: FakeBuilder = applyPagination(applyOrderBy(compileWhere
 
 // --- project()/buildListResult() overloads --------------------------------
 // No `select` ⇒ the row type survives (this is what let `list()` drop its
-// `as ListResult<Entity<S>>`); with `select` ⇒ narrowed to the picked keys.
+// `as ListResult<Entity<User>>`); with `select` ⇒ narrowed to the picked keys.
 // (Asserted at the value level: an overloaded signature cannot be probed with
 // `ReturnType`, which resolves to the last overload regardless of the arguments.)
 declare const rows: readonly { id: number; email: string }[];

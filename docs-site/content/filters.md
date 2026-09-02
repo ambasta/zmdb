@@ -16,7 +16,7 @@ For the repository/read side there is a **typed** filter DTO derived from your s
 ```ts
 import { compileWhere, type WhereDTO } from '@zmdb/schema-core/dto';
 
-const where: WhereDTO<typeof UserSchema> = {
+const where: WhereDTO<User> = {
   age: { gte: 18, lt: 65 }, // ANDed comparisons
   role: 'admin', // bare value ⇒ eq
   email: { like: '%@corp.com' }, // like/ilike only on string fields

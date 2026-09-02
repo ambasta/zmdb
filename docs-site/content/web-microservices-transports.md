@@ -51,7 +51,7 @@ export function createDispatcher(handlers: Readonly<Record<string, Handler>>) {
 ```ts
 const dispatch = createDispatcher({
   'order.get': async raw => orders.findById(assert<{ id: number }>(raw).id),
-  'order.place': async raw => orders.create(assert<CreateDTO<typeof orders>>(raw)),
+  'order.place': async raw => orders.create(assert<CreateDTO<Order>>(raw)),
 });
 ```
 

@@ -62,7 +62,7 @@ emailLower: string & Sql<'text'> & HasDefault; // maintained by the database; ne
 ## Workaround 3 — normalise in the application
 
 ```ts
-class UserRepository extends BaseRepository<typeof userSchema> {
+class UserRepository extends BaseRepository<User> {
   protected override preInsert(row: Record<string, unknown>): void {
     if (typeof row.email === 'string') row.email = row.email.toLowerCase();
   }

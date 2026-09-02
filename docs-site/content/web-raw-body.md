@@ -47,7 +47,7 @@ Content-type is never consulted. A `GET` with no body gives `undefined`; `toFetc
 This is why validating is not optional:
 
 ```ts
-const dto = assert<CreateDTO<typeof posts>>(ctx.body);
+const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
 Without it, a malformed request hands your handler a string where it expects an object, and the failure surfaces somewhere less useful. With it, you get a 400.

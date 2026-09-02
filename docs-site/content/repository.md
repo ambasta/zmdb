@@ -8,7 +8,7 @@ A repository is a minimal subclass that binds to your schema. The entire require
 import { BaseRepository } from '@zmdb/repository';
 import { UserSchema } from './schema';
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
 }
 ```
@@ -101,7 +101,7 @@ isNull/notNull`) and result shape come from [Filters](./filters.html) and the
 Hooks fire synchronously around CRUD operations. Override them in your subclass.
 
 ```ts
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
 
   protected preInsert(row: Record<string, unknown>): void {

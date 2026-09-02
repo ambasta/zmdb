@@ -5,22 +5,23 @@ There is no `PartialType`, `PickType`, `OmitType` or `IntersectionType`, and the
 ```ts
 import type { Entity, CreateDTO, UpdateDTO, ListDTO, GetOptions } from '@zmdb/repository';
 
-type Post = Entity<typeof posts>; // every column, as stored
-type NewPost = CreateDTO<typeof posts>; // no serial columns; defaults optional
-type PostPatch = UpdateDTO<typeof posts>; // every column optional
-type PostQuery = ListDTO<typeof posts>; // { where?, orderBy?, page?, select? }
+type PostRow = Entity<Post>; // every column, as stored
+type NewPost = CreateDTO<Post>; // no serial columns; defaults optional
+type PostPatch = UpdateDTO<Post>; // every column optional
+type PostQuery = ListDTO<Post>; // { where?, orderBy?, page?, select? }
 ```
 
-These are derived from the schema, so they track it. `UpdateDTO` is already the `PartialType` case, and it is generated rather than declared.
+`Post` is the interface you declared; the four names above are what derives from it, so
+they track the declaration. `UpdateDTO` is already the `PartialType` case, and it is generated rather than declared.
 
 ## Composing with TypeScript
 
 ```ts
-type PublicPost = Omit<Post, 'authorEmail' | 'internalNotes'>;
-type PostSummary = Pick<Post, 'id' | 'title' | 'createdAt'>;
+type PublicPost = Omit<PostRow, 'authorEmail' | 'internalNotes'>;
+type PostSummary = Pick<PostRow, 'id' | 'title' | 'createdAt'>;
 type PostForm = Partial<NewPost>;
-type WithAuthor = Post & { author: Entity<typeof users> };
-type Sortable = Pick<Post, 'title' | 'createdAt'>;
+type WithAuthor = PostRow & { author: Entity<User> };
+type Sortable = Pick<PostRow, 'title' | 'createdAt'>;
 ```
 
 All zero-cost, all checked, none needing an import from zmdb. And because the AOT validator takes a type parameter, every one of them is directly validatable:

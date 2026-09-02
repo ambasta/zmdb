@@ -12,7 +12,7 @@ import { assert } from '@zmdb/aot-validator/utilities';
 import type { CreateDTO } from '@zmdb/schema-core';
 
 // The pipe's Out type is the DTO, so the handler body is typed — no 'as'.
-const pipe = validationPipe(raw => assert<CreateDTO<typeof UserSchema>>(raw));
+const pipe = validationPipe(raw => assert<CreateDTO<User>>(raw));
 ```
 
 A body that fails validation makes the chain return **400**; the handler never
@@ -34,7 +34,7 @@ const serializer = serializationInterceptor(entity => toPublicUser(entity));
 import { dtoChain } from '@zmdb/web';
 
 const chain = dtoChain({
-  validate: raw => assert<CreateDTO<typeof UserSchema>>(raw),
+  validate: raw => assert<CreateDTO<User>>(raw),
   serialize: user => toPublicUser(user),
 });
 // → a Chain with the validation pipe + serialization interceptor pre-composed

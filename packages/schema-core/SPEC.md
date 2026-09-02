@@ -67,9 +67,9 @@ nowhere to put — see §8 of the reflection spec, and §3 below for what carrie
 ## 3. `CoreSchema` — a table as data
 
 ```ts
-interface CoreSchema<T extends string = string, C extends ColumnsMap = ColumnsMap> {
+interface CoreSchema<T extends string = string> {
   readonly table: T;
-  readonly columns: C;
+  readonly columns: ColumnsMap;
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
   readonly ftsTable?: string | boolean | undefined;
@@ -93,47 +93,61 @@ guessed a default for each of the five facts §2 lists.
 back-end reads, the JSON Schema and validator-type emitters, and the three functions that
 cross between a column's wire, app and db renderings.
 
-`C` carries the _literal_ column map, which is what lets `Entity<S>` and friends derive
-real property types. It defaults to the erased `ColumnsMap`, so `CoreSchema<string>` still
-means "any table" for code that does not care — repositories, OpenAPI, seeding.
+`columns` is not generic. It used to be, so that `Entity<S>` could read property types out
+of a literal map; §4 explains why nothing does that any more.
 
 `TaggedSchema<T> extends CoreSchema<string>` adds one required `unique symbol` slot
-holding `T`, so a schema value remembers the type it came from and the derivations in §4
-can defer to the declaration instead of rebuilding it from `columns`.
+holding `T`, so a schema value remembers the type it came from. That slot is the only way
+back from a value to a declaration, and §4 is why there needs to be exactly one.
 
 ## 4. Type derivation (compile-time only)
 
 ```ts
-type Entity<S extends CoreSchema<string>>    // full row type
-type CreateDTO<S extends CoreSchema<string>> // omit autoIncrement; hasDefault/nullable → optional
-type UpdateDTO<S extends CoreSchema<string>> // Partial<CreateDTO<S>>
+type Entity<T extends DeclaredTable> // full row type
+type CreateDTO<T extends DeclaredTable> // omit Serial; HasDefault/nullable → optional
+type UpdateDTO<T extends DeclaredTable> // Partial, minus Serial and the primary key
+type PrimaryKeyOf<T extends DeclaredTable> // the key value: bare for one column, an object for a composite
 ```
 
-- `Entity`: every column mapped to its TS type; `nullable` columns become `| null`.
-- `CreateDTO`: columns with `flags.autoIncrement` are omitted; columns with
-  `flags.hasDefault` or `flags.nullable` become optional — omitting a nullable key
-  inserts `NULL`, which is what passing `null` does, and the generated document has
-  always said so.
-- `UpdateDTO`: `Partial<CreateDTO<S>>`.
+`T` is the **declared type** — the interface the table was written as — not a schema
+value. `@zmdb/schema-core/derive` owns all of them and every one is a mapped type over the
+declaration, keyed by `ColumnKeys<T>` and reading the tags in §1:
 
-TS type mapping: serial/integer→`number`, bigint→`bigint`, numeric→`number`,
-text/varchar→`string`, boolean→`boolean`, timestamp→`Date`, json→`unknown`,
-jsonEnum→union of the enum literals.
+- `Entity`: every column, mutable and required; a `| null` in the declaration stays.
+- `CreateDTO`: `Serial` columns are omitted, `HasDefault` and nullable ones become
+  optional — omitting a nullable key inserts `NULL`, which is what passing `null` does,
+  and the generated document has always said so.
+- `UpdateDTO`: `Partial<Entity<T>>` minus `Serial` and the primary key, because a key is
+  not a field you patch.
 
-Each of these has **two spellings**, and which one applies is a question about the schema
-rather than about the caller:
+There is no TS-type mapping table here, and that is the collapse: a declaration already
+states that `visits` is a `bigint` and `createdAt` is a `Date`, so nothing reconstructs it
+from a `SqlType`. The old derivation had a second spelling that walked `columns` and did
+reconstruct it, and it could not be right — a `ColumnMeta` has nowhere to put a json
+payload's shape, so `json` came out as `unknown` there and exact here. Deriving from the
+declaration is not a better answer to the same question; it is the only one available, and
+the twin is gone rather than deprecated.
 
-- a `TaggedSchema<T>` defers to `@zmdb/schema-core/derive`, which reads `T` — the
-  declaration already states every property type these mapped types would reconstruct, so
-  reconstructing them is work that can only lose information;
-- an erased `CoreSchema<string>` walks `columns` as described above. That is the branch
-  above, and it is what a schema read back out of a `SchemaIR` gets.
+`DeclaredTable` is `Table<string>`, and the constraint carries weight rather than
+documenting an intent. `Table` is all-optional, so TypeScript's weak-type rule refuses a
+source with no property in common with it — which a schema _value_ is. `Entity<typeof
+userSchema>`, the spelling this design replaced, is therefore a compile error instead of the
+schema's own five properties dressed up as a row; it is worth constraining for precisely
+because the wrong answer was structurally plausible. A row keyed by a table _name_ rather
+than a declaration still passes, because a string index signature is exempt from that rule —
+`dto/index.ts`'s `UnknownRow`, the subquery corner, is the one type that relies on it. The
+whole read/query family in `./dto` carries the same constraint, so a filter, an order-by, a
+projection and an aggregate spec are all keyed by a declaration too.
 
-`json` is `unknown` on the second branch and exact on the first. That asymmetry is the
-ceiling of reading a `ColumnMeta` rather than an omission: a payload's shape is a type, and
-§2's data model has nowhere to put a type. Collapsing the two branches into one is a
-follow-up (`PLAN-type-first.md` Phase 9) and needs every consumer re-parameterised on the
-declared type, not on the schema value.
+A value still has to reach a declaration, because that is what a caller holds. It happens
+by inference, once, at each boundary that takes a schema: `defineRepository`,
+`findJoined`, `defineEntityStateMachine` and `repositoryToken` all declare
+`TaggedSchema<T>` in a parameter position and let the call site supply `T`. Two places
+cannot do that and say so in a comment — a relations map names its child by value, so
+`RelationEntity` in `@zmdb/repository` and `TargetEntityOf`/`ColumnNameOf` here read the
+phantom with an explicit conditional. `src/schema-of.type-test.ts` is the gate on the
+crossing, including that a plain `CoreSchema<string>` is _rejected_ at those boundaries
+rather than deriving something empty and plausible.
 
 ## 5. Non-goals / anti-patterns (rejected)
 

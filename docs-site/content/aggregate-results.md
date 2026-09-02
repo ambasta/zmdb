@@ -8,7 +8,7 @@ Use `AggregateSpec<S>` to declare what you want to compute:
 import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
 import type { AggregateResult, AggregateSpec } from '@zmdb/schema-core/dto';
 
-const spec: AggregateSpec<typeof OrderSchema> = {
+const spec: AggregateSpec<Order> = {
   groupBy: ['status'],
   computed: {
     orderCount: { fn: 'count' },
@@ -55,7 +55,7 @@ GROUP BY "status"
 The result type is inferred from the spec:
 
 ```ts
-type OrderAgg = AggregateResult<typeof OrderSchema, typeof spec>;
+type OrderAgg = AggregateResult<Order, typeof spec>;
 // {
 //   status: 'pending' | 'shipped' | 'delivered';
 //   orderCount: number;

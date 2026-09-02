@@ -10,21 +10,21 @@
 import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
-import type { Users, S } from './fixtures.ts';
+import type { User, Users } from './fixtures.ts';
 
 declare const repo: Users;
 
 // --- reads (#203) ----------------------------------------------------------
-export type _Read1 = Expect<Equal<Awaited<ReturnType<Users['findAll']>>, readonly Entity<S>[]>>;
-export type _Read2 = Expect<Equal<Parameters<Users['findOne']>[0], WhereDTO<S>>>;
-export type _Read3 = Expect<Equal<Awaited<ReturnType<Users['findOne']>>, Entity<S> | undefined>>;
-export type _Read4 = Expect<Equal<Awaited<ReturnType<Users['list']>>, ListResult<Entity<S>>>>;
+export type _Read1 = Expect<Equal<Awaited<ReturnType<Users['findAll']>>, readonly Entity<User>[]>>;
+export type _Read2 = Expect<Equal<Parameters<Users['findOne']>[0], WhereDTO<User>>>;
+export type _Read3 = Expect<Equal<Awaited<ReturnType<Users['findOne']>>, Entity<User> | undefined>>;
+export type _Read4 = Expect<Equal<Awaited<ReturnType<Users['list']>>, ListResult<Entity<User>>>>;
 // `findById`/`find` are overloaded (the second overload takes `populate`), so
 // their types cannot be probed with `ReturnType` — that resolves to the last
 // overload regardless of arguments. Assert at the value level instead, which
 // picks the overload by argument list exactly as a caller does.
-export const _readById: Promise<Entity<S> | undefined> = repo.findById(1);
-export const _readWhere: Promise<readonly Entity<S>[]> = repo.find({
+export const _readById: Promise<Entity<User> | undefined> = repo.findById(1);
+export const _readWhere: Promise<readonly Entity<User>[]> = repo.find({
   role: 'admin',
 });
 // This repository declares no relations, so there is nothing to populate.
@@ -38,19 +38,19 @@ export const _readByIdPopulated = repo.findById(1, { populate: ['orders'] });
 export type _Read7 = Expect<Mutual<Awaited<ReturnType<Users['findAll']>>[number]['role'], 'admin' | 'user'>>;
 
 // --- writes (#206) ---------------------------------------------------------
-export type _Write1 = Expect<Equal<Parameters<Users['create']>[0], CreateDTO<S>>>;
-export type _Write2 = Expect<Equal<Awaited<ReturnType<Users['create']>>, Entity<S>>>;
-export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdateDTO<S>>>;
-export type _Write4 = Expect<Equal<Awaited<ReturnType<Users['update']>>, Entity<S> | undefined>>;
+export type _Write1 = Expect<Equal<Parameters<Users['create']>[0], CreateDTO<User>>>;
+export type _Write2 = Expect<Equal<Awaited<ReturnType<Users['create']>>, Entity<User>>>;
+export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdateDTO<User>>>;
+export type _Write4 = Expect<Equal<Awaited<ReturnType<Users['update']>>, Entity<User> | undefined>>;
 export type _Write5 = Expect<Equal<Awaited<ReturnType<Users['delete']>>, boolean>>;
 
 // `role` has a default ⇒ optional in the create DTO; `email`/`age` do not ⇒
 // required. A create literal missing `age` is a compile error, which is the
 // runtime `ValidationError` test's static counterpart.
-export const _createDto: CreateDTO<S> = { email: 'a@b.com', age: 30 };
+export const _createDto: CreateDTO<User> = { email: 'a@b.com', age: 30 };
 // @ts-expect-error — `age` is required (notNull, no default).
-export const _createMissingRequired: CreateDTO<S> = { email: 'a@b.com' };
-export const _createBadEnum: CreateDTO<S> = {
+export const _createMissingRequired: CreateDTO<User> = { email: 'a@b.com' };
+export const _createBadEnum: CreateDTO<User> = {
   email: 'a@b.com',
   age: 30,
   // @ts-expect-error — `role` is a jsonEnum, so only its members are accepted.

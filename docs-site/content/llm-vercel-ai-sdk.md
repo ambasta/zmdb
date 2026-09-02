@@ -13,9 +13,9 @@ import { assert } from '@zmdb/aot-validator/utilities';
 
 export const createUser = tool({
   description: 'Create a user',
-  parameters: jsonSchema<CreateDTO<typeof users>>(toJsonSchema(users, 'create')),
+  parameters: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create')),
   execute: async input => {
-    const dto = assert<CreateDTO<typeof users>>(input);
+    const dto = assert<CreateDTO<User>>(input);
     return userRepo.create(dto);
   },
 });
@@ -31,11 +31,11 @@ import { anthropic } from '@ai-sdk/anthropic';
 
 const { object } = await generateObject({
   model: anthropic('claude-opus-5'),
-  schema: jsonSchema<CreateDTO<typeof users>>(toJsonSchema(users, 'create')),
+  schema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create')),
   prompt: transcript,
 });
 
-await userRepo.create(assert<CreateDTO<typeof users>>(object));
+await userRepo.create(assert<CreateDTO<User>>(object));
 ```
 
 ## Streaming, and where it collides with `@zmdb/web`

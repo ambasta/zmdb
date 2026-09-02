@@ -2,7 +2,7 @@ import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-co
 // Relations — implementation (#31). Relation DSL builders returning frozen
 // RelationMeta per the frozen fixtures.
 
-import type { ColumnKeys } from '../derive/index.ts';
+import type { ColumnKeys, DeclaredTable } from '../derive/index.ts';
 import type { ColumnsMap, CoreSchema, Entity, TaggedSchema } from '../index.ts';
 
 export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
@@ -22,19 +22,21 @@ export interface RelationMeta<
   readonly _targetEntity?: TargetEntity;
 }
 
-type TargetEntityOf<Target> =
-  Target extends CoreSchema<string, ColumnsMap>
-    ? Entity<Target>
-    : Target extends { columns: ColumnsMap }
-      ? Entity<Target>
-      : Target;
+/**
+ * The row type of a relation target.
+ *
+ * The same crossing as `ColumnNameOf` below, for the same reason: the target is named by
+ * *value* because the runtime needs its table, so the declared type comes back off the
+ * phantom. A target named by a bare string has no declared type to recover, and says so.
+ */
+type TargetEntityOf<Target> = Target extends TaggedSchema<infer T extends DeclaredTable> ? Entity<T> : unknown;
 
 function getTableName(target: { table: string } | string): string {
   return typeof target === 'string' ? target : target.table;
 }
 
 /** What the relation builders accept as a target: a full schema, anything carrying a `columns` bag, or a bare columns map. */
-type RelationTarget = CoreSchema<string, ColumnsMap> | { columns: ColumnsMap } | ColumnsMap;
+type RelationTarget = CoreSchema<string> | { columns: ColumnsMap } | ColumnsMap;
 /**
  * The column names of a relation target, which is what an fk / mappedBy has to name.
  *
@@ -52,7 +54,7 @@ type ColumnNameOf<Target> =
       : keyof Target & string;
 
 export function manyToOne<
-  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  TargetSchema extends RelationTarget = CoreSchema<string>,
   FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
 export function manyToOne(
@@ -63,7 +65,7 @@ export function manyToOne(
 }
 
 export function oneToMany<
-  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  TargetSchema extends RelationTarget = CoreSchema<string>,
   MappedBy extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(
   target: TargetSchema | string,
@@ -77,17 +79,17 @@ export function oneToMany(
 }
 
 export function oneToOne<
-  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
+  TargetSchema extends RelationTarget = CoreSchema<string>,
   FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
 >(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'one-to-one'>;
 export function oneToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'one-to-one'> {
   return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
 }
 
-export function manyToMany<
-  TargetSchema extends RelationTarget = CoreSchema<string, ColumnsMap>,
-  Through extends string = string,
->(target: TargetSchema | string, through: Through): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
+export function manyToMany<TargetSchema extends RelationTarget = CoreSchema<string>, Through extends string = string>(
+  target: TargetSchema | string,
+  through: Through,
+): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
 export function manyToMany(
   target: { table: string } | string,
   through: string,
@@ -149,12 +151,15 @@ export function compilePopulate(
 // A relations map describes each relation's target entity + cardinality.
 export interface RelationDef<TargetEntity = unknown> {
   readonly meta?: RelationMeta<TargetEntity> | undefined;
-  readonly entity?: TargetEntity | CoreSchema<string> | undefined;
+  readonly entity?: TargetEntity | TaggedSchema<unknown> | undefined;
   readonly cardinality?: Cardinality | undefined;
 }
 export type RelationsMap = Record<string, RelationDef | RelationMeta>;
 
-type DerivedEntity<T> = T extends CoreSchema<string> ? Entity<T> : T;
+// A relations map may name its child either way round: by the schema value, which is what
+// the runtime needs, or by the declared type. This is the one place that has to tell them
+// apart, and the phantom is how.
+type DerivedEntity<T> = T extends TaggedSchema<infer Declared extends DeclaredTable> ? Entity<Declared> : T;
 
 type RelationEntityFromDef<D> =
   D extends RelationMeta<infer E>

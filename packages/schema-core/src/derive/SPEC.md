@@ -5,15 +5,23 @@
 
 ## 1. One set of names
 
-These are the same names the schema-value derivations in `../index.ts` use, and that
-is deliberate: per plan D2 there is to be exactly one `Entity`/`CreateDTO`/`UpdateDTO`,
-and these are the ones that survive. They live in a separate module only so the
-repository, the web package and every fixture keep compiling while the migration runs;
-Phase 9 deletes the schema-value versions and re-points the package root here.
+There is exactly one `Entity`, one `CreateDTO`, one `UpdateDTO` and one `PrimaryKeyOf`
+(plan D2), and they are these. The schema-value versions that used to live in
+`../index.ts` are gone; the package root re-exports these names, and this module keeps its
+own directory only because that is where they were written.
 
 Every derivation takes a tagged type and nothing else. There is no conditional
 dispatch on `{ columns: … }` — backwards compatibility is not a requirement (plan D2),
 which also means no per-use `extends` test and no instantiation cost from a dispatch.
+
+The parameter is also constrained, which is what makes "nothing else" enforceable rather
+than a convention. `DeclaredTable` is `Table<string>`; because `Table` is all-optional,
+TypeScript's weak-type rule rejects any source with no property in common with it, and a
+schema value has none. So `Entity<typeof userSchema>` does not compile — worth constraining
+for because the wrong answer was structurally plausible, being a type with keys and types
+that nothing downstream would have questioned. A row keyed by a table _name_ still passes,
+via the index-signature exemption; `dto/index.ts`'s `UnknownRow` is the only type that
+needs it.
 
 ## 2. Key filters
 
@@ -172,8 +180,10 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 ## 7. Non-goals (rejected)
 
 - A conditional dispatch accepting either a schema value or a tagged type. It existed
-  only to keep `Entity<typeof UserSchema>` compiling, and it costs an `extends` test at
-  every use (plan D2).
+  only to keep `Entity<typeof UserSchema>` compiling, and it cost an `extends` test at
+  every use (plan D2). It is deleted, along with the schema-value derivations it
+  dispatched to; a caller holding a value crosses to its type at a boundary that declares
+  `TaggedSchema<T>`, once, by inference.
 - Making a generated column optional on insert rather than absent.
 - Runtime stripping as the mechanism for `Sensitive`. The type must make the leak
   impossible; stripping is the belt, not the braces.

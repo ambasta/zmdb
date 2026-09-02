@@ -25,7 +25,7 @@ await products.findByFullText('description', 'wireless headphones');
 ```ts
 import { buildSearchResult, type SearchDTO } from '@zmdb/schema-core/dto';
 
-const search: SearchDTO<typeof ProductSchema> = {
+const search: SearchDTO<Product> = {
   query: 'wireless',
   columns: ['description'],
   rank: true,

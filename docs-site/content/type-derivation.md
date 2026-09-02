@@ -1,24 +1,37 @@
-No hand-written DTOs. Three types derive from every schema:
+No hand-written DTOs. Every DTO derives from the interface you declared the table as:
 
 ```ts
 import type { Entity, CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 
-type User = Entity<typeof UserSchema>;
+// interface User extends Table<'users'> { … } — see Schema Declaration.
+
+type UserRow = Entity<User>;
 // { id: number; email: string; role: 'admin'|'user'|'guest'; createdAt: Date }
 
-type CreateUser = CreateDTO<typeof UserSchema>;
+type CreateUser = CreateDTO<User>;
 // { email: string; role?: 'admin'|'user'|'guest' }
-//   id omitted (autoIncrement); role/createdAt optional (hasDefault)
+//   id omitted (Serial); role/createdAt optional (HasDefault)
 
-type UpdateUser = UpdateDTO<typeof UserSchema>;
-// Partial<CreateUser>
+type UpdateUser = UpdateDTO<User>;
+// every column optional, minus the serial ones and the primary key
 ```
 
-- **Entity** — the full row shape returned by reads.
-- **CreateDTO** — insert shape; auto-increment PKs dropped, defaulted columns optional.
-- **UpdateDTO** — `Partial<CreateDTO>`.
+- **Entity** — the full row shape returned by reads: every column, required, mutable,
+  relations left out because a relation is not a column.
+- **CreateDTO** — insert shape; `Serial` columns dropped, `HasDefault` and nullable
+  columns optional.
+- **UpdateDTO** — a patch: every column optional, with the serial columns and the primary
+  key removed, because a key is not a field you patch.
 
-These are the same types the validators and serializers are generated against, so the request DTO, the DB write, and the response type can never drift apart.
+The argument is the **type**, not the schema value. `Entity<User>`, never
+`Entity<typeof UserSchema>` — a schema value is data for the query compiler and the
+migration emitter, and it has nowhere to put a json column's payload shape, so nothing
+derives a row type from one. Where you hold a value and need its type, hand it to
+something that asks for one: `defineRepository(schemaOf<User>(), driver)` gives you a
+repository whose every method is already typed in `User`, with no annotation.
+
+These are the same types the validators and serializers are generated against, so the
+request DTO, the DB write, and the response type can never drift apart.
 
 > [!IMPORTANT]
 > This is the anti-drift guarantee: change a column and all three types update.

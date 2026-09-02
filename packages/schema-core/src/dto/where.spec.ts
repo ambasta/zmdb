@@ -1,7 +1,7 @@
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
-import type { UserS as S } from './fixtures.ts';
+import type { User } from './fixtures.ts';
 import { compileWhere, type WhereDTO, type WhereTarget } from './index.ts';
 
 // Fake builder that records the where/orWhere calls (compiler-agnostic).
@@ -32,14 +32,14 @@ function recorder() {
 describe('WhereDTO + operator set (#179)', () => {
   it('bare value ⇒ eq', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = { role: 'admin' };
+    const where: WhereDTO<User> = { role: 'admin' };
     compileWhere(b, where);
     expect(calls).toEqual([['and', 'role', '=', 'admin']]);
   });
 
   it('comparison + membership operators map to SQL', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = {
+    const where: WhereDTO<User> = {
       age: { gte: 18, lt: 65 },
       id: { in: [1, 2, 3] },
     };
@@ -53,7 +53,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('nin/like/ilike', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = {
+    const where: WhereDTO<User> = {
       role: { nin: ['admin'] },
       email: { like: '%@x.com', ilike: '%@Y.com' },
     };
@@ -67,7 +67,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('isNull / notNull', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = {
+    const where: WhereDTO<User> = {
       email: { isNull: true },
       role: { notNull: true },
     };
@@ -80,7 +80,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('or group ORs its members', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = { or: [{ role: 'admin' }, { age: { gt: 90 } }] };
+    const where: WhereDTO<User> = { or: [{ role: 'admin' }, { age: { gt: 90 } }] };
     compileWhere(b, where);
     expect(calls).toEqual([
       ['or', 'role', '=', 'admin'],
@@ -90,7 +90,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('empty where adds nothing', () => {
     const { b, calls } = recorder();
-    const where: WhereDTO<S> = {};
+    const where: WhereDTO<User> = {};
     compileWhere(b, where);
     expect(calls).toEqual([]);
   });
@@ -101,7 +101,7 @@ describe('WhereDTO + operator set (#179)', () => {
     const builder = compileWhere(qb.selectFrom('users'), {
       id: { in: sub },
       age: { gt: { table: 'users_stats', select: ['avg_age'] } },
-    } as WhereDTO<S>);
+    } as WhereDTO<User>);
 
     const compiled = builder.compile();
     expect(compiled.text).toBe(
@@ -120,7 +120,7 @@ describe('WhereDTO + operator set (#179)', () => {
           total: { gte: 500 },
         },
       },
-    } as WhereDTO<S>);
+    } as WhereDTO<User>);
 
     const compiled = builder.compile();
     expect(compiled.text).toBe(
@@ -139,7 +139,7 @@ describe('WhereDTO + operator set (#179)', () => {
         fakeBuilder as unknown as WhereTarget,
         {
           exists: { table: 'orders' },
-        } as WhereDTO<S>,
+        } as WhereDTO<User>,
       ),
     ).toThrow('Builder does not support whereExists');
   });

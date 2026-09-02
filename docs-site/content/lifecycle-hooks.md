@@ -49,20 +49,17 @@ import type { CreateDTO, UpdateDTO, Entity } from '@zmdb/schema-core';
 
 const bus = new EventBus();
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 
-  override async create(dto: CreateDTO<typeof UserSchema>): Promise<Entity<typeof UserSchema>> {
+  override async create(dto: CreateDTO<User>): Promise<Entity<User>> {
     await bus.emit('beforeCreate', dto);
     const created = await super.create(dto);
     await bus.emit('afterCreate', created);
     return created;
   }
 
-  override async update(
-    id: unknown,
-    patch: UpdateDTO<typeof UserSchema>,
-  ): Promise<Entity<typeof UserSchema> | undefined> {
+  override async update(id: unknown, patch: UpdateDTO<User>): Promise<Entity<User> | undefined> {
     await bus.emit('beforeUpdate', { id, patch });
     const updated = await super.update(id, patch);
     await bus.emit('afterUpdate', updated);
@@ -157,7 +154,7 @@ timestamp column. The other order is the trap: `(Date | null) & Unique` distribu
 being nullable. See [Tag Reference](./tags-reference.html).
 
 ```ts
-class UserRepository extends BaseRepository<typeof userSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = userSchema;
 
   async softDelete(id: number) {

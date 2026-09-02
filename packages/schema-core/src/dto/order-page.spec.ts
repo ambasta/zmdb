@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { type UserS as S } from './fixtures.ts';
+import { type User } from './fixtures.ts';
 import { applyOrderBy, applyPagination, type OrderByDTO, type PaginationDTO } from './index.ts';
 
 // Fake builder recording orderBy/limit/offset calls.
@@ -22,7 +22,7 @@ function recorder() {
 describe('OrderByDTO + PaginationDTO (#182)', () => {
   it('applyOrderBy emits columns in array order; dir defaults asc', () => {
     const { b, calls } = recorder();
-    const orderBy: OrderByDTO<S> = [{ column: 'age', dir: 'desc' }, { column: 'id' }];
+    const orderBy: OrderByDTO<User> = [{ column: 'age', dir: 'desc' }, { column: 'id' }];
     applyOrderBy(b, orderBy);
     expect(calls).toEqual([
       ['orderBy', 'age', 'desc'],
@@ -38,7 +38,7 @@ describe('OrderByDTO + PaginationDTO (#182)', () => {
 
   it('applyPagination offset ⇒ limit + offset', () => {
     const { b, calls } = recorder();
-    const page: PaginationDTO<S> = { limit: 20, offset: 40 };
+    const page: PaginationDTO<User> = { limit: 20, offset: 40 };
     applyPagination(b, page);
     expect(calls).toEqual([
       ['limit', 20],
@@ -48,7 +48,7 @@ describe('OrderByDTO + PaginationDTO (#182)', () => {
 
   it('applyPagination limit-only ⇒ only limit (no offset)', () => {
     const { b, calls } = recorder();
-    const page: PaginationDTO<S> = { limit: 20 };
+    const page: PaginationDTO<User> = { limit: 20 };
     applyPagination(b, page);
     expect(calls).toEqual([['limit', 20]]);
   });

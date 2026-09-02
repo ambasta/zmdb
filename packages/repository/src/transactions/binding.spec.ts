@@ -15,11 +15,11 @@ export interface User extends Table<'users'> {
 
 const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
-class CustomRepoWithPrivateState extends BaseRepository<typeof UserSchema> {
+class CustomRepoWithPrivateState extends BaseRepository<User> {
   static override readonly schema = UserSchema;
   #privatePrefix = 'USER';
   #privateCounter = 0;

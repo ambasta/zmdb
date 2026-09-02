@@ -21,7 +21,7 @@ metadata**, each with its own vocabulary, its own gaps, and its own bugs:
 
 They disagree. `TypeDescriptor` has no `minLength`, no `maximum`, no nullability and
 no optionality, so a `Min<18> & Max<120>` column validates differently in each. The
-repository accepts `Date | string` for a `timestamp` while `TsType` says `Date` and
+repository accepts `Date | string` for a `timestamp` while `TsType` said `Date` and
 `toJsonSchema` says `{type:'string',format:'date-time'}` — three answers for one
 column. Adding tags to this without restructuring would make it five walkers.
 
@@ -155,7 +155,8 @@ working, and it will not.
 ### D3 — `timestamp`: `Date`, `string`, or both? **Resolved: dialect-specific, three types per column.**
 
 This is the one genuine semantic hole the work exposes rather than creates.
-`TsType` says `timestamp` → `Date`. `toJsonSchema` says
+`TsType` said `timestamp` → `Date` (it was the schema-value derivation's SQL-type-to-TS
+mapping, deleted in Phase 9 along with the rest of that family). `toJsonSchema` says
 `{type:'string',format:'date-time'}`. `valueMatchesColumn` accepts `Date | string`.
 Three answers for one column, and a generated validator must pick one.
 
@@ -389,10 +390,10 @@ saving for Phase 5. Four walkers → three.
 like a big-bang rename of `Entity`/`CreateDTO`/`UpdateDTO` in place. Doing that would
 break the repository, the web package and every fixture in one commit. Instead the
 tagged versions carry the **same canonical names** in a new module, `./derive`, and the
-schema-value versions stay in the package root untouched. Phase 9 deletes those and
-re-points the root at `./derive`. The end state is identical — exactly one `CreateDTO`,
-per D2 — but the tree stays green throughout. The cost is a temporary second import
-path, and `verify:no-defineschema` is what stops it becoming permanent.
+schema-value versions stay in the package root untouched. ✅ **Done in Phase 9:** those
+are deleted and the root re-exports `./derive`. The end state is identical — exactly one
+`CreateDTO`, per D2 — and the tree stayed green throughout. The cost was a temporary
+second import path, which is now two paths to one type.
 
 Also landed from Phase 0: the umbrella subpaths `zmdb/tags`, `zmdb/ir` and
 `zmdb/derive`, with `verify:exports` extended to hold the umbrella to REQ-UM-3 — no
@@ -471,8 +472,9 @@ Four conditionals buy the entire surface. `Entity`, `CreateDTO`, `UpdateDTO` and
 `PrimaryKeyOf` each gained a `S extends TaggedSchema<infer T> ? Tagged…<T> : <existing>`
 arm, and `WhereDTO`/`OrderByDTO`/`PaginationDTO`/`ListDTO` are all built out of
 `Entity<S>`, so they follow for free. `packages/repository` needed **no edits at all** —
-which is the claim `tagged-schema.type-test.ts` exists to keep true. All four arms are
-deleted by Phase 9's collapse, when the root simply _is_ `./derive`.
+which is the claim `tagged-schema.type-test.ts` exists to keep true. ✅ All four arms are
+gone: Phase 9's collapse deleted them along with the derivations they dispatched to, and
+the root now re-exports `./derive`.
 
 The gate is an equality over machinery that already exists rather than a new corpus:
 `schemaFromIR(irFromSchema(s))` compiles byte-identical DDL and byte-identical CRUD to
@@ -948,11 +950,50 @@ under `node_modules`, so the published packages could not be imported at all.
 `verify:exports` passed because a workspace `node_modules` entry is a symlink Node
 resolves back out. `yarn verify:publish` is the gate for the installed form.
 
+**The collapse** — ✅ **done.** The last thing this phase owed REQ-TF-4: one
+`Entity`/`CreateDTO`/`UpdateDTO`/`PrimaryKeyOf`, taking the declared type, with no arm
+that tests for a schema value.
+
+- The schema-value derivations and the `TsType` mapping they were built on are deleted,
+  and the package root re-exports `./derive` under the same names.
+- `CoreSchema` lost its column-map type parameter. It existed so `Entity<S>` could read
+  property types out of a literal map; nothing does that, so it was a parameter with no
+  reader.
+- `derive/query.ts` stopped restating the query family. `WhereDTO`, `OrderByDTO`,
+  `PaginationDTO`, `Projection`, `GetOptions`, `GetDTO` and `ListDTO` live in `./dto`
+  next to the operator vocabulary and the folders that read them, and `derive/query.ts`
+  re-exports them — two copies of `WhereDTO` were two operator sets to keep in step.
+  `GetOptions.populate` kept the stronger spelling (`readonly RelationKeys<T>[]`), so a
+  misspelled relation is a compile error.
+- The crossing from a value to its type happens once, by inference, at each boundary
+  that declares `TaggedSchema<T>`: `defineRepository`, `findJoined`,
+  `defineEntityStateMachine`, `repositoryToken`. `schema-of.type-test.ts` is the gate,
+  and it asserts the refusal too — an untagged `CoreSchema<string>` cannot make the
+  crossing rather than deriving an empty row type.
+- Every derivation is constrained to `DeclaredTable` (`= Table<string>`), and the whole
+  read/query family in `./dto` with them. The constraint is not decoration: `Table` is
+  all-optional, so the weak-type rule refuses a source with no property in common with it,
+  and a schema value has none. `Entity<typeof userSchema>` — the spelling the docs used to
+  teach — is now a compile error rather than the schema's own five properties dressed up as
+  a row, which was the failure mode worth closing, because it had keys and it had types and
+  nothing downstream would have complained. The exemption for a string index signature is
+  what keeps `UnknownRow` — the row of a table named by a string, which a subquery target is
+  — legal. `schema-of.type-test.ts` asserts both directions of that now.
+- Two explicit conditionals survive because a relations map names its child by value:
+  `RelationEntity` in `@zmdb/repository` and `TargetEntityOf`/`ColumnNameOf` in
+  `schema-core/src/relations/index.ts`. Each says so where it is written.
+- The type tests that existed only to compare the two families are deleted rather than
+  adapted, which is the honest form of "the substitution evidence is spent". The tests
+  that assert the collapsed suite directly stayed and got stronger:
+  `repository/src/tagged-to-ddl.spec.ts` now checks each table's payload against its own
+  `CreateDTO<T>` instead of erasing it to `Record<string, unknown>`, which is how it
+  used to pass `{}` for a json column with a required property.
+
 **Gate — met.** Every `REQ-TF-*` AC names a script or a test rather than asserting its
 own outcome, and `yarn verify:tf-acceptance` fails the build if a row cites something
-that does not exist or a gate CI does not run. PRD §6.7 reads eleven met and two ⚠️; the
-two say what is left, and each has a gate holding the line at today's number rather than
-a promise.
+that does not exist or a gate CI does not run. PRD §6.7 reads twelve met and one ⚠️,
+which is REQ-TF-9's descriptor count; it says what is left and has a gate holding the
+line at today's number rather than a promise.
 
 ---
 

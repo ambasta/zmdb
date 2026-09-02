@@ -2,13 +2,13 @@ import type { PrimaryKeyOf } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
 import { ValidationError } from '../index.ts';
-import { ProductsRepo, recorder, TenantUsersRepo, type CompositeS } from './fixtures.ts';
+import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './fixtures.ts';
 
 describe('Composite Primary Key Repository Operations', () => {
   it('findById compiles parameterized multi-column SQL predicates', async () => {
     const { driver, calls } = recorder([{ tenantId: 't1', userId: 10, role: 'admin' }]);
     const repo = new TenantUsersRepo(driver);
-    const key: PrimaryKeyOf<CompositeS> = { tenantId: 't1', userId: 10 };
+    const key: PrimaryKeyOf<TenantUser> = { tenantId: 't1', userId: 10 };
     const row = await repo.findById(key);
 
     const [call] = calls;

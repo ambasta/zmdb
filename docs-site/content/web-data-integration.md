@@ -25,10 +25,10 @@ export interface Order extends Table<'orders'> {
 const orderSchema = schemaOf<Order>();
 
 // A typed DI token for the repository over this schema.
-const OrderRepo = repositoryToken<typeof orderSchema>('OrderRepo');
+const OrderRepo = repositoryToken<Order>('OrderRepo');
 ```
 
-`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including the DI token, is parameterised on `typeof orderSchema`.
+`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including the DI token, is parameterised on `Order` itself: the value is what the query compiler needs, the type is what your code is written in.
 
 ## The controller injects the repository
 
@@ -36,7 +36,7 @@ const OrderRepo = repositoryToken<typeof orderSchema>('OrderRepo');
 @Controller('/orders')
 class OrdersController {
   @Inject(OrderRepo)
-  repo!: BaseRepository<typeof orderSchema>; // fully typed — no 'as'
+  repo!: BaseRepository<Order>; // fully typed — no 'as'
 
   @Post()
   create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {
@@ -81,7 +81,7 @@ await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { u
 ## Design notes
 
 - **No `as`** — the repository token carries the schema, so the injected field is
-  `BaseRepository<typeof orderSchema>`.
+  `BaseRepository<Order>`.
 - **One source of truth** — `Order` is the interface; the DDL, the DTOs, the
   validator and the OpenAPI document are all derived from it. See
   [Schema Declaration](./schema-declaration.html).

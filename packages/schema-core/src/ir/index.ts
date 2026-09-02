@@ -676,7 +676,7 @@ export function jsonSchemaFromIR(ir: SchemaIR, variant: Variant = 'entity'): Jso
 // The repository used to answer "is this a legal payload for this table" with its own
 // walk over `ColumnMeta` — `valueMatchesColumn`, the fourth walker of §1, and the one
 // that accepted `Date | string` for a `timestamp` while `toJsonSchema` said ISO string
-// and `TsType` said `Date`. It does not need a walk. It needs the *type* of a payload,
+// and the declared type said `Date`. It does not need a walk. It needs the *type* of a payload,
 // which is a `TypeIR`, and then the one runtime walker in `@zmdb/aot-validator` checks
 // it — the same walker the emitted code is differentially tested against.
 //

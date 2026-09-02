@@ -1,7 +1,18 @@
 # SPEC — Read/Query DTO family (frozen)
 
-Covers the typed read/query surface derived from a `CoreSchema<S>`. All types are
-compile-time only; the one runtime artifact is `compileWhere` (WhereDTO →
+Covers the typed read/query surface derived from a table's **declared type** — the
+interface it was written as, with its tags. `T` below was `S` and meant a `CoreSchema`
+value; the derivations no longer read a column map, so the parameter is the declaration
+and this document is keyed the same way `Entity<T>` is. Every shape here also re-exports
+from `@zmdb/schema-core/derive/query`, which is the same type by a second name.
+
+`T` is constrained: every type below reads `T extends DeclaredTable`, so passing a schema
+value where a declaration belongs does not compile. The one exception is deliberate —
+`UnknownRow`, the row of a table named by a string, which a subquery target is. A string
+index signature satisfies the constraint where a schema value does not, which is what keeps
+`WhereDTO<UnknownRow>` legal without reopening `WhereDTO<typeof userSchema>`.
+
+All types are compile-time only; the one runtime artifact is `compileWhere` (WhereDTO →
 query-compiler where-clauses). No proxies, no identity map. ESM, Node 26, TS 7.
 
 Epics: #163 (read/query DTO family), #177 (typed query & filter surface).
@@ -24,11 +35,11 @@ type FieldOps<V> = {
   notNull?: boolean; // null checks
 };
 
-type WhereDTO<S> = {
-  [K in keyof Entity<S>]?: Entity<S>[K] | FieldOps<Entity<S>[K]>;
+type WhereDTO<T extends DeclaredTable> = {
+  [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
 } & {
-  and?: readonly WhereDTO<S>[];
-  or?: readonly WhereDTO<S>[];
+  and?: readonly WhereDTO<T>[];
+  or?: readonly WhereDTO<T>[];
 };
 ```
 
@@ -56,13 +67,13 @@ calling `.where(col, op, value)` / `.orWhere(...)`. Operator mapping:
 
 ```ts
 type OrderDir = 'asc' | 'desc';
-type OrderByDTO<S> = ReadonlyArray<{ column: keyof Entity<S>; dir?: OrderDir }>;
+type OrderByDTO<T> = ReadonlyArray<{ column: keyof Entity<T>; dir?: OrderDir }>;
 // dir defaults to 'asc'.
 
 type OffsetPage = { limit: number; offset?: number };
-type CursorPage<S> = { limit: number; after?: CursorOf<S>; before?: CursorOf<S> };
-type PaginationDTO<S> = OffsetPage | CursorPage<S>;
-// CursorOf<S> is an opaque encoding of the last row's order-key values.
+type CursorPage<T> = { limit: number; after?: CursorOf<T>; before?: CursorOf<T> };
+type PaginationDTO<T> = OffsetPage | CursorPage<T>;
+// CursorOf<T> is an opaque encoding of the last row's order-key values.
 ```
 
 - `applyOrderBy(builder, order)` emits `ORDER BY col dir, …` in array order.
@@ -81,11 +92,11 @@ type PaginationDTO<S> = OffsetPage | CursorPage<S>;
 ## 3. Typed select()/projection narrowing (#184/#185/#186)
 
 ```ts
-type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
-// select(['a','b']) narrows the row type to Projection<S,'a'|'b'>.
+type Projection<T, K extends keyof Entity<T>> = Pick<Entity<T>, K>;
+// select(['a','b']) narrows the row type to Projection<T,'a'|'b'>.
 ```
 
-- `select()` with no args ⇒ full `Entity<S>`.
+- `select()` with no args ⇒ full `Entity<T>`.
 - Repository read methods gain a `select` option that narrows the return type.
 - Runtime helper `project(row, cols)` returns a new object with only `cols`
   (stable order = `cols` order); `project(row, undefined)` returns `row` as-is.
@@ -95,29 +106,31 @@ type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
 ## 4. GetDTO + Projection (#164/#165/#166)
 
 ```ts
-interface GetOptions<S> {
-  select?: readonly (keyof Entity<S>)[];
-  populate?: readonly string[];
+interface GetOptions<T> {
+  select?: readonly (keyof Entity<T>)[];
+  populate?: readonly RelationKeys<T>[];
 }
-type GetDTO<S, O extends GetOptions<S> = {}> = O['select'] extends readonly (infer K extends keyof Entity<S>)[]
-  ? Projection<S, K>
-  : Entity<S>;
+type GetDTO<T, O extends GetOptions<T> = {}> = O['select'] extends readonly (infer K extends keyof Entity<T>)[]
+  ? Projection<T, K>
+  : Entity<T>;
 ```
 
-- No options ⇒ `Entity<S>`. `select` narrows to the picked columns.
-- `populate` widening is layered on by epic #188 (`Populated<S,K>`); GetDTO here
+- No options ⇒ `Entity<T>`. `select` narrows to the picked columns.
+- `populate` names relations, and a declared type carries them, so it is
+  `RelationKeys<T>` rather than `readonly string[]` — a misspelled relation is a compile
+  error. The widening it implies is `Populated<T, K>` in `../derive/query.ts`; GetDTO here
   freezes the select-narrowing behavior and the `GetOptions` shape.
-- `findById` returns `GetDTO<S,O> | undefined`.
+- `findById` returns `GetDTO<T,O> | undefined`.
 - Runtime `getResult(row, opts)` applies `project(row, opts.select)`.
 
 ## 5. ListDTO + ListResult (#167/#168/#169)
 
 ```ts
-interface ListDTO<S> {
-  where?: WhereDTO<S>;
-  orderBy?: OrderByDTO<S>;
-  page?: PaginationDTO<S>;
-  select?: readonly (keyof Entity<S>)[];
+interface ListDTO<T> {
+  where?: WhereDTO<T>;
+  orderBy?: OrderByDTO<T>;
+  page?: PaginationDTO<T>;
+  select?: readonly (keyof Entity<T>)[];
 }
 interface ListResult<Row> {
   readonly items: readonly Row[];
@@ -137,11 +150,11 @@ limit`, set `hasMore=true` and drop the extra row; project each item by
 ## 6. SearchDTO (#170/#171/#172)
 
 ```ts
-interface SearchDTO<S> {
+interface SearchDTO<T> {
   query: string;
-  columns: readonly (keyof Entity<S>)[];
-  where?: WhereDTO<S>;
-  page?: PaginationDTO<S>;
+  columns: readonly (keyof Entity<T>)[];
+  where?: WhereDTO<T>;
+  page?: PaginationDTO<T>;
   rank?: boolean;
 }
 type SearchHit<Row> = Row & { readonly _score?: number };
@@ -168,27 +181,27 @@ type SearchResult<Row> = ListResult<SearchHit<Row>>;
 - Runtime golden SQL for `compileWhere`, order/pagination.
 - No proxies/identity map; parameterized SQL.
 
-## 8. AggregateResult<S, Spec> (#197/#198/#199)
+## 8. AggregateResult<T, Spec> (#197/#198/#199)
 
 ```ts
 type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
-interface AggregateSpec<S> {
-  groupBy?: readonly (keyof Entity<S>)[];
-  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<S> }>>;
+interface AggregateSpec<T> {
+  groupBy?: readonly (keyof Entity<T>)[];
+  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<T> }>>;
 }
-type AggComputedType<S, C> = C extends { fn: 'count' }
+type AggComputedType<T, C> = C extends { fn: 'count' }
   ? number
   : C extends { fn: 'sum' | 'avg' }
     ? number | null
-    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> }
-      ? Entity<S>[Col] | null
+    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<T> }
+      ? Entity<T>[Col] | null
       : number | null;
 
-type AggregateResult<S, Spec extends AggregateSpec<S>> =
+type AggregateResult<T, Spec extends AggregateSpec<T>> =
   // groupBy key columns, typed from the entity
   {
-    [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K];
-  } & { [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]> }; // one typed field per computed aggregate
+    [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<T>)[] ? G : never]: Entity<T>[K];
+  } & { [K in keyof Spec['computed']]: AggComputedType<T, Spec['computed'][K]> }; // one typed field per computed aggregate
 ```
 
 - `count` ⇒ `number`; `sum`/`avg` ⇒ `number | null`; `min`/`max` ⇒ the source

@@ -32,7 +32,7 @@ import { assert } from '@zmdb/aot-validator/utilities';
 import type { CreateDTO } from '@zmdb/schema-core';
 
 const block = res.content.find(c => c.type === 'tool_use');
-const dto = assert<CreateDTO<typeof users>>(block?.input);
+const dto = assert<CreateDTO<User>>(block?.input);
 await repo.create(dto);
 ```
 
@@ -45,13 +45,13 @@ When the model returns text rather than a tool call — a smaller model, a strea
 ```ts
 import { lenientParse } from '@zmdb/schema-core/llm';
 
-const result = lenientParse<CreateDTO<typeof users>>(res.text);
+const result = lenientParse<CreateDTO<User>>(res.text);
 ```
 
 It tolerates fenced code blocks, leading prose, trailing commas and single quotes — the specific ways model output deviates from strict JSON. It does not make the _content_ correct, so validate afterwards:
 
 ```ts
-const dto = assert<CreateDTO<typeof users>>(lenientParse(res.text));
+const dto = assert<CreateDTO<User>>(lenientParse(res.text));
 ```
 
 Prefer tool use over parsing prose when the API offers it. `lenientParse` is for when it does not.
@@ -71,7 +71,7 @@ async function extractUser(transcript: string) {
   const block = res.content.find(c => c.type === 'tool_use');
   if (block === undefined) throw new Error('no tool call');
 
-  const dto = assert<CreateDTO<typeof users>>(block.input); // checked
+  const dto = assert<CreateDTO<User>>(block.input); // checked
   return repo.create(dto); // typed
 }
 ```
@@ -101,7 +101,7 @@ The error names the field, which makes it useful to feed back:
 ```ts
 for (let i = 0; i < 3; i++) {
   const res = await call(messages);
-  const result = validate<CreateDTO<typeof users>>(res.input);
+  const result = validate<CreateDTO<User>>(res.input);
   if (result.success) return result.data;
   messages.push({ role: 'user', content: `That was invalid: ${JSON.stringify(result.errors)}. Try again.` });
 }

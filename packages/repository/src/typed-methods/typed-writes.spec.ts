@@ -5,7 +5,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from '../index.ts';
-import { Users, type S } from './fixtures.ts';
+import { Users, type User } from './fixtures.ts';
 
 /** The payload type of the `settings` column, named separately because the tests below
  *  cast to it when they hand the column a primitive on purpose. */
@@ -29,7 +29,7 @@ describe('typed create/update (#206)', () => {
   it('create validates then inserts, returning the row', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
     const repo = new Users({ execute } as Driver);
-    const dto: CreateDTO<S> = { email: 'a@b.com', age: 30 };
+    const dto: CreateDTO<User> = { email: 'a@b.com', age: 30 };
     const out = await repo.create(dto);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out.id).toBe(1);
@@ -42,14 +42,16 @@ describe('typed create/update (#206)', () => {
     // test: it models untrusted input reaching a typed API at runtime, which is
     // what the validator has to catch. The compile-time half is asserted in
     // `typed-methods.type-test.ts`.
-    await expect(repo.create({ email: 'a@b.com' } as unknown as CreateDTO<S>)).rejects.toBeInstanceOf(ValidationError);
+    await expect(repo.create({ email: 'a@b.com' } as unknown as CreateDTO<User>)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 
   it('update validates a partial patch then updates', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 31, role: 'admin' }]);
     const repo = new Users({ execute } as Driver);
-    const patch: UpdateDTO<S> = { role: 'admin' };
+    const patch: UpdateDTO<User> = { role: 'admin' };
     const out = await repo.update(1, patch);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out?.role).toBe('admin');
@@ -57,12 +59,12 @@ describe('typed create/update (#206)', () => {
   it('update strips explicit undefined properties before payload validation', async () => {
     const execute = vi.fn(async (_q: unknown) => [{ id: 1, email: 'a@b.com', age: 32, role: 'user' }]);
     const repo = new Users({ execute } as Driver);
-    // `UpdateDTO<S>` no longer admits `{ email: undefined }` — `{}` already means "leave it
+    // `UpdateDTO<User>` no longer admits `{ email: undefined }` — `{}` already means "leave it
     // alone" and `{ email: null }` means "set it to NULL", so the type offers one spelling of
     // each. The runtime still has to cope, because this is what a parsed request body looks
     // like, so the patch arrives here the way it arrives in production: past the type system.
     const body: unknown = { age: 32, email: undefined };
-    const out = await repo.update(1, body as UpdateDTO<S>);
+    const out = await repo.update(1, body as UpdateDTO<User>);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out?.age).toBe(32);
     // Check compiled SQL parameter only contains age, not email
@@ -72,7 +74,7 @@ describe('typed create/update (#206)', () => {
   });
 
   describe('json column runtime validation', () => {
-    type CS = typeof ConfigSchema;
+    type CS = ConfigRow;
 
     class ConfigRepo extends BaseRepository<CS> {
       static override readonly schema = ConfigSchema;
@@ -169,7 +171,7 @@ describe('typed single-record upsert', () => {
     const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
     const repo = new HookedUsers({ execute } as Driver);
 
-    const out = await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<S>);
+    const out = await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<User>);
 
     expect(execute).toHaveBeenCalledTimes(1);
     const query = execute.mock.calls[0]![0];
@@ -185,7 +187,9 @@ describe('typed single-record upsert', () => {
     const repo = new Users({ execute } as Driver);
 
     // Missing required field 'age'
-    await expect(repo.upsert({ email: 'a@b.com' } as unknown as CreateDTO<S>)).rejects.toBeInstanceOf(ValidationError);
+    await expect(repo.upsert({ email: 'a@b.com' } as unknown as CreateDTO<User>)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -193,7 +197,7 @@ describe('typed single-record upsert', () => {
     const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
     const repo = new Users({ execute } as Driver);
 
-    await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<S>, { target: 'email', updateFields: ['age'] });
+    await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<User>, { target: 'email', updateFields: ['age'] });
 
     expect(execute).toHaveBeenCalledTimes(1);
     const query = execute.mock.calls[0]![0];

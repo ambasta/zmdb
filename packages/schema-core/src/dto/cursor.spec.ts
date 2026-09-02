@@ -7,6 +7,7 @@ import {
   applyKeysetFilter,
   buildListResult,
   type OrderBySpec,
+  type UnknownRow,
   type WhereDTO,
   type OrderTarget,
   type WhereTarget,
@@ -115,7 +116,7 @@ describe('Composite Keyset Cursor Utilities', () => {
 
     it('combines with userWhere filtering', () => {
       const { builder, calls } = createWhereRecorder();
-      const userWhere = { status: 'active' } as WhereDTO<unknown>;
+      const userWhere = { status: 'active' } as WhereDTO<UnknownRow>;
 
       applyKeysetFilter(builder, cursorValues, orderBy, userWhere);
 

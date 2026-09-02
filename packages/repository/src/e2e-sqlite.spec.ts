@@ -47,7 +47,7 @@ const {
 ]);
 
 // The ENTIRE repository — well under 10 lines.
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
@@ -86,7 +86,7 @@ describe('repository E2E (real SQLite)', () => {
     // alone". The runtime still has to strip it, because a parsed request body carries
     // whatever the client sent, so the patch arrives here the way it arrives in production.
     const patch: unknown = { email: undefined, role: null };
-    const updated = await users.update(id, patch as UpdateDTO<typeof UserSchema>);
+    const updated = await users.update(id, patch as UpdateDTO<User>);
     expect(updated).toMatchObject({ id, email: 'a@b.com', role: null });
 
     // Verify in database that email was unchanged and role was set to SQL NULL
@@ -116,7 +116,7 @@ describe('repository E2E (real SQLite)', () => {
   });
 
   it('preserves sensitive column unmasked data on reads and enforces payload validation', async () => {
-    class SensitiveRepo extends BaseRepository<typeof SensitiveSchema> {
+    class SensitiveRepo extends BaseRepository<SensitiveUser> {
       static override readonly schema = SensitiveSchema;
     }
 
@@ -194,7 +194,7 @@ describe('repository E2E (real SQLite)', () => {
 // and passing the string it wanted was the wrong type one layer up, where the validator now
 // says `expected Date`.
 describe('repository E2E: the db layer of a timestamp and a bigint (SQLite)', () => {
-  class EventRepository extends BaseRepository<typeof EventSchema> {
+  class EventRepository extends BaseRepository<Event> {
     static override readonly schema = EventSchema;
   }
 

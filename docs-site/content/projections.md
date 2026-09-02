@@ -7,9 +7,9 @@ The repository's read methods accept a `select` option that narrows the returned
 ```ts
 import type { Entity } from '@zmdb/schema-core';
 
-// Given UserSchema with columns: id, email, role, createdAt
-type User = Entity<typeof UserSchema>;
-// User = { id: number; email: string; role: string; createdAt: Date }
+// Given `interface User` with columns: id, email, role, createdAt
+type UserRow = Entity<User>;
+// UserRow = { id: number; email: string; role: string; createdAt: Date }
 
 // Select only email and role — type narrows automatically
 const minimal = await users.findById(1, { select: ['email', 'role'] as const });

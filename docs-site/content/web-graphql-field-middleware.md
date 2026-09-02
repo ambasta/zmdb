@@ -66,8 +66,8 @@ The pattern that scales better is to make the unauthorised data unreachable at t
 `postSelect` is the one true per-field hook in the project:
 
 ```ts
-class UserRepository extends BaseRepository<typeof users> {
-  protected override postSelect(row: Entity<typeof users>): Entity<typeof users> {
+class UserRepository extends BaseRepository<User> {
+  protected override postSelect(row: Entity<User>): Entity<User> {
     return { ...row, email: row.email.toLowerCase() };
   }
 }

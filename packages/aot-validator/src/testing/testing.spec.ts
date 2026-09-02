@@ -12,9 +12,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Entity } from '@zmdb/schema-core';
+import type { Entity, TaggedSchema } from '@zmdb/schema-core';
 import type { Length, PrimaryKey, Sensitive, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, expectTypeOf, it } from 'vitest';
 
 import { schemaIrsFrom, schemasFrom } from './index.ts';
 
@@ -73,9 +73,11 @@ describe('schemasFrom', () => {
   it('can hand back a schema that still knows its type', () => {
     const { Account: accounts } = schemasFrom<{ Account: Account }>(import.meta.url, ['Account']);
 
-    // The static half is the point, and it is checked by this file compiling: `Entity` picks the
-    // `TaggedSchema<T>` branch and reads `Account` rather than rebuilding it from the columns.
-    const row: Entity<typeof accounts> = { id: 1, email: 'a@b.c', secret: 'x', note: null };
+    // The static half is the point, and it is checked by this file compiling: `Entity<Account>`
+    // is what the row is, and `accounts` is the value that carries `Account` back to a caller
+    // that was handed the schema and not the interface.
+    const row: Entity<Account> = { id: 1, email: 'a@b.c', secret: 'x', note: null };
+    expectTypeOf(accounts).toEqualTypeOf<TaggedSchema<Account>>();
     // `.toUpperCase()` is the assertion: off the erased overload `email` is `unknown` and this
     // line does not compile.
     expect(row.email.toUpperCase()).toBe('A@B.C');

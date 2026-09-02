@@ -101,7 +101,7 @@ Prefer a class? Subclassing works identically:
 import { BaseRepository } from '@zmdb/repository';
 
 const userSchema = schemaOf<User>();
-class UserRepository extends BaseRepository<typeof userSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
 }
 const users = new UserRepository(sqliteDriver(db), 'sqlite');

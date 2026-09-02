@@ -73,7 +73,7 @@ import type { Driver } from '@zmdb/repository';
 import { repositoryToken } from '@zmdb/web/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');
-export const USERS = repositoryToken<typeof users>('USERS');
+export const USERS = repositoryToken<User>('USERS');
 
 @Module({
   providers: [
@@ -96,12 +96,12 @@ opens a socket.
 @Controller('/users')
 export class UsersController {
   @Inject(CONFIG) private readonly config!: Config;
-  @Inject(USERS) private readonly users!: BaseRepository<typeof users>;
+  @Inject(USERS) private readonly users!: BaseRepository<User>;
 }
 ```
 
-`@Inject` is a **field** decorator, and `repositoryToken<typeof users>` is
-`Token<BaseRepository<typeof users>>` — so the injected field is typed from the
+`@Inject` is a **field** decorator, and `repositoryToken<User>` is
+`Token<BaseRepository<User>>` — so the injected field is typed from the
 schema with no `as` anywhere. See [Dependency Injection](./web-di.html) and
 [Repository Providers](./web-data-integration.html).
 

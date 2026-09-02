@@ -27,7 +27,7 @@ import { is } from '@zmdb/aot-validator/utilities';
 
 it('proto message satisfies the entity type', () => {
   const decoded = UserMessage.decode(UserMessage.encode(fixture).finish());
-  expect(is<Entity<typeof users>>(toPlain(decoded))).toBe(true);
+  expect(is<Entity<User>>(toPlain(decoded))).toBe(true);
 });
 ```
 

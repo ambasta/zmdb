@@ -76,7 +76,7 @@ Declare literal paths before parameterised ones. There is no specificity ranking
 ```ts
 const router = createRouter();
 router.register(new PostsController(), {
-  create: { validateBody: raw => assert<CreateDTO<typeof posts>>(raw) },
+  create: { validateBody: raw => assert<CreateDTO<Post>>(raw) },
 });
 ```
 
@@ -111,7 +111,7 @@ A guard returning `false` throws `ChainError(403)`, and a throwing pipe throws `
 `parseJson` returns the parsed value, and falls back to the original text if parsing fails. So `ctx.body` is `unknown` and may be a string on malformed input — which is why validating it is not optional:
 
 ```ts
-const dto = assert<CreateDTO<typeof posts>>(ctx.body);
+const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
 There is no content-type negotiation, no form parsing and no multipart. See [Raw Body](./web-raw-body.html).

@@ -42,7 +42,7 @@ export interface User extends Table<'users'> {
 // Get CRUD automatically
 const userSchema = schemaOf<User>();
 
-class UserRepository extends BaseRepository<typeof userSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
   // findById, create, update, delete — all inherited
 }

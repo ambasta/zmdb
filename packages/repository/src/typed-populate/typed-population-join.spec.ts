@@ -4,14 +4,14 @@ import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository, defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, userJoinRelations, userRelations } from './fixtures.ts';
+import { OrderSchema, UserSchema, userJoinRelations, userRelations, type User } from './fixtures.ts';
 
-class UserRepository extends BaseRepository<typeof UserSchema, typeof userJoinRelations> {
+class UserRepository extends BaseRepository<User, typeof userJoinRelations> {
   static override readonly schema = UserSchema;
   static readonly relations = userJoinRelations;
 }
 
-class PlainUserRepository extends BaseRepository<typeof UserSchema> {
+class PlainUserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 

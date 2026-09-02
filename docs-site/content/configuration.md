@@ -90,7 +90,7 @@ Put the driver in DI so tests can replace it:
 import { repositoryToken } from '@zmdb/web/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');
-export const USERS = repositoryToken<typeof users>('USERS'); // Token<BaseRepository<typeof users>>
+export const USERS = repositoryToken<User>('USERS'); // Token<BaseRepository<User>>
 
 @Module({
   providers: [

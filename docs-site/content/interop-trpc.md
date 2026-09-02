@@ -13,16 +13,16 @@ const t = initTRPC.context<{ postRepo: PostRepo }>().create();
 
 export const appRouter = t.router({
   list: t.procedure
-    .input((raw: unknown) => assert<ListDTO<typeof posts>>(raw))
+    .input((raw: unknown) => assert<ListDTO<Post>>(raw))
     .query(({ input, ctx }) => ctx.postRepo.list(input)),
 
   create: t.procedure
-    .input((raw: unknown) => assert<CreateDTO<typeof posts>>(raw))
+    .input((raw: unknown) => assert<CreateDTO<Post>>(raw))
     .mutation(({ input, ctx }) => ctx.postRepo.create(input)),
 });
 ```
 
-Two things to notice. `.input()` accepts any parser function, so `assert<T>` drops in where a Zod schema would go — no adapter needed. And `CreateDTO<typeof posts>` and `ListDTO<typeof posts>` are _derived_ from the schema, so the procedure's input type tracks the table. Adding a required column is a type error in the procedure, not a runtime rejection.
+Two things to notice. `.input()` accepts any parser function, so `assert<T>` drops in where a Zod schema would go — no adapter needed. And `CreateDTO<Post>` and `ListDTO<Post>` are _derived_ from the schema, so the procedure's input type tracks the table. Adding a required column is a type error in the procedure, not a runtime rejection.
 
 > [!WARNING]
 > If the [transformer is not running](./aot-setup.html), that `.input()` parser

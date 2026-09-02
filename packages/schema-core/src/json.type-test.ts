@@ -1,9 +1,10 @@
 // A json column's payload shape, and what each half of the codebase does with it.
 //
 // This file used to be written with `json<UserMetadata>()`, whose return type hung the payload
-// on a `__payload` phantom so `TsType` could read it back. That builder is gone, and so is the
-// phantom: `columnMetaFromIR` cannot set it, because a payload shape is a type and a `ColumnMeta`
-// is data. `TsType` therefore answers `unknown` for every json column, which is honest.
+// on a `__payload` phantom so a mapped type over the column map could read it back. That builder
+// is gone, and so is the phantom — `columnMetaFromIR` cannot set it, because a payload shape is
+// a type and a `ColumnMeta` is data — and so is the mapped type: a row's shape now comes from
+// the declared type, where the payload never had to be smuggled in the first place.
 //
 // The shape did not go anywhere, it moved. The back-ends read `ColumnIR.payload` (see
 // `ir/ir.spec.ts`, and `repository/src/tagged-to-ddl.spec.ts` for a `create` call that a wrong

@@ -31,7 +31,7 @@ const list = await users.list({ page: { limit: 20 } }); // typed ListResult<Enti
 Frozen behaviour:
 
 - `defineRepository(schema, driver, opts?)` returns a **fully typed repository
-  instance** with the same surface as a `BaseRepository<typeof schema>` subclass
+  instance** with the same surface as a `BaseRepository<T>` subclass
   (findById/findOne/find/list/create/update/delete + populate), without writing a
   class. It builds an anonymous subclass under the hood binding `static schema`
   and `static relations`.
@@ -51,6 +51,7 @@ A `node:sqlite` script (zero external deps) that:
 
 ## Acceptance
 
-- Type-level: `defineRepository(UserSchema, driver)` has `create` accepting
-  `CreateDTO<typeof UserSchema>` and `findById` returning `Entity<...> | undefined`.
+- Type-level: `defineRepository(schemaOf<User>(), driver)` has `create` accepting
+  `CreateDTO<User>` and `findById` returning `Entity<User> | undefined` — the declared type
+  is inferred from the value's phantom, so neither is annotated.
 - Runtime: the example E2E round-trips against in-memory `node:sqlite` and is green.

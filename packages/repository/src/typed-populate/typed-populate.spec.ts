@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository } from '../index.ts';
-import { UserSchema, userRelations } from './fixtures.ts';
+import { UserSchema, userRelations, type User } from './fixtures.ts';
 
-class UserRepository extends BaseRepository<typeof UserSchema, typeof userRelations> {
+class UserRepository extends BaseRepository<User, typeof userRelations> {
   static override readonly schema = UserSchema;
   static readonly relations = userRelations;
 }

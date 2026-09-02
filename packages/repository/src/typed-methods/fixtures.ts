@@ -39,19 +39,15 @@ export const {
   'Product',
 ]);
 
-export type S = typeof UserSchema;
-export type CompositeS = typeof CompositeSchema;
-export type SingleS = typeof SinglePkSchema;
-
-export class Users extends BaseRepository<S> {
+export class Users extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
-export class TenantUsersRepo extends BaseRepository<CompositeS> {
+export class TenantUsersRepo extends BaseRepository<TenantUser> {
   static override readonly schema = CompositeSchema;
 }
 
-export class ProductsRepo extends BaseRepository<SingleS> {
+export class ProductsRepo extends BaseRepository<Product> {
   static override readonly schema = SinglePkSchema;
 }
 

@@ -4,19 +4,34 @@
 import type { CompiledQuery, SelectBuilder } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-import type { CoreSchema, Entity } from '../index.ts';
+import type { DeclaredTable, RelationKeys } from '../derive/index.ts';
+import type { Entity } from '../index.ts';
 import { isRecord } from '../index.ts';
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
 // ---------------------------------------------------------------------------
+/**
+ * A row of a table the caller named with a string.
+ *
+ * A subquery target is `{ table: 'orders' }` — a table *name*, not a declared type — so there
+ * is nothing for its filter to be keyed by. This says exactly that much and no more: every
+ * property is a column of some SQL type, and none of them is a relation, which is what keeps
+ * `WhereDTO` willing to derive from it. It is a named type rather than an inline
+ * `Record<string, unknown>` so that it stays the one corner of the query surface that is
+ * keyed by string; everything else is keyed by the interface the table was declared as.
+ */
+export interface UnknownRow {
+  readonly [column: string]: string | number | boolean | bigint | Date | null;
+}
+
 export type SubqueryTarget<V = unknown> =
   | SelectBuilder<V>
   | { compile(): CompiledQuery; readonly _type?: V }
   | {
       table: string;
       select?: readonly string[];
-      where?: WhereDTO<CoreSchema<string>>;
+      where?: WhereDTO<UnknownRow>;
       readonly _type?: V;
     };
 
@@ -35,11 +50,11 @@ export interface FieldOps<V> {
   notNull?: boolean;
 }
 
-export type WhereDTO<S> = {
-  [K in keyof Entity<S>]?: Entity<S>[K] | FieldOps<Entity<S>[K]>;
+export type WhereDTO<T extends DeclaredTable> = {
+  [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
 } & {
-  and?: readonly WhereDTO<S>[];
-  or?: readonly WhereDTO<S>[];
+  and?: readonly WhereDTO<T>[];
+  or?: readonly WhereDTO<T>[];
   exists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
   notExists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
 };
@@ -68,7 +83,7 @@ export interface WhereTarget {
 /**
  * Record view of a value, or `undefined` if it is not a plain object.
  *
- * Taking `unknown` is deliberate: narrowing a *generic* DTO (`WhereDTO<S>`) in
+ * Taking `unknown` is deliberate: narrowing a *generic* DTO (`WhereDTO<T>`) in
  * place leaves the mapped type, which has no string index signature, so keyed
  * reads would need `as Record<string, unknown>`. Routing through `unknown` lets
  * the guard do the widening instead of an assertion.
@@ -111,7 +126,7 @@ function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 
     const spec = target as {
       table: string;
       select?: readonly string[];
-      where?: WhereDTO<CoreSchema<string>>;
+      where?: WhereDTO<UnknownRow>;
     };
     // Both clauses, not either: `{ table, select, where }` means a projection *and* a
     // filter, and a subquery that dropped the filter would match every row.
@@ -132,7 +147,10 @@ function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 
  * Fields/operators are applied in stable object-key order (golden SQL).
  * `and`/`or` groups compose; `or` members are ORed.
  */
-export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereDTO<S> | undefined): B {
+export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
+  builder: B,
+  where: WhereDTO<T> | undefined,
+): B {
   if (!where) return builder;
   let b: B = builder;
   // boundary: `WhereTarget` is the structural minimum this function calls — `where`, `and`,
@@ -253,8 +271,8 @@ export function compileWhere<S, B extends WhereTarget>(builder: B, where: WhereD
 // §2 OrderBy + Pagination  (implemented in #183)
 // ---------------------------------------------------------------------------
 export type OrderDir = 'asc' | 'desc';
-export type OrderByDTO<S> = ReadonlyArray<{
-  column: keyof Entity<S>;
+export type OrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
+  column: keyof Entity<T>;
   dir?: OrderDir;
 }>;
 
@@ -265,18 +283,18 @@ export interface OrderTarget {
   offset(n: number): this;
 }
 export type OffsetPage = { limit: number; offset?: number | undefined };
-export type PaginationDTO<S> =
+export type PaginationDTO<T extends DeclaredTable> =
   | OffsetPage
   | {
       limit: number;
-      after?: Partial<Entity<S>> | string | undefined;
-      before?: Partial<Entity<S>> | string | undefined;
+      after?: Partial<Entity<T>> | string | undefined;
+      before?: Partial<Entity<T>> | string | undefined;
     };
 
 /**
  * Schema-agnostic views of the order/page DTOs — exactly the fields the folders
- * read. `OrderByDTO<S>`/`PaginationDTO<S>` are structurally assignable to these
- * for *any* `S`, so callers pass their own typed DTO with no
+ * read. `OrderByDTO<T>`/`PaginationDTO<T>` are structurally assignable to these
+ * for *any* `T`, so callers pass their own typed DTO with no
  * `as OrderByDTO<CoreSchema<string>>` widening cast (which is what leaked into
  * consumer code, cf. COOKBOOK "sorting" example).
  */
@@ -388,7 +406,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
   builder: B,
   cursorValues: Record<string, unknown>,
   orderBy: OrderBySpec,
-  userWhere?: WhereDTO<unknown>,
+  userWhere?: WhereDTO<UnknownRow>,
 ): B {
   if (orderBy.length === 0) return builder;
 
@@ -442,7 +460,7 @@ export function applyPagination<B extends OrderTarget>(builder: B, page: Paginat
 // ---------------------------------------------------------------------------
 // §3 Projection  (types only; narrowing wired in #186)
 // ---------------------------------------------------------------------------
-export type Projection<S, K extends keyof Entity<S>> = Pick<Entity<S>, K>;
+export type Projection<T extends DeclaredTable, K extends keyof Entity<T>> = Pick<Entity<T>, K>;
 
 /** Narrow a row to `cols` (new object, stable order); passthrough when undefined. */
 export function project<Row extends Record<string, unknown>>(row: Row, cols: undefined): Row;
@@ -471,13 +489,22 @@ export function project<Row extends Record<string, unknown>, K extends keyof Row
 // ---------------------------------------------------------------------------
 // §4 GetDTO
 // ---------------------------------------------------------------------------
-export interface GetOptions<S> {
-  select?: readonly (keyof Entity<S>)[];
-  populate?: readonly string[];
+export interface GetOptions<T extends DeclaredTable> {
+  select?: readonly (keyof Entity<T>)[];
+  /**
+   * The relations to fetch alongside the row.
+   *
+   * `RelationKeys<T>` rather than `readonly string[]`: a declared type names its relations,
+   * so a misspelled one is a compile error rather than a relation that silently does not
+   * arrive. It was a bare `string[]` while this family was keyed by the schema value, which
+   * carries no relations to check a name against.
+   */
+  populate?: readonly RelationKeys<T>[];
 }
-export type GetDTO<S, O extends GetOptions<S> = {}> = O['select'] extends readonly (infer K extends keyof Entity<S>)[]
-  ? Projection<S, K>
-  : Entity<S>;
+export type GetDTO<
+  T extends DeclaredTable,
+  O extends GetOptions<T> = {},
+> = O['select'] extends readonly (infer K extends keyof Entity<T>)[] ? Projection<T, K> : Entity<T>;
 
 /** Apply a Get's select projection to a fetched row. */
 export function getResult<Row extends Record<string, unknown>>(
@@ -490,11 +517,11 @@ export function getResult<Row extends Record<string, unknown>>(
 // ---------------------------------------------------------------------------
 // §4–6 Get/List/Search DTOs (types; result assembly in #166/#169/#172)
 // ---------------------------------------------------------------------------
-export interface ListDTO<S> {
-  where?: WhereDTO<S>;
-  orderBy?: OrderByDTO<S>;
-  page?: PaginationDTO<S>;
-  select?: readonly (keyof Entity<S>)[];
+export interface ListDTO<T extends DeclaredTable> {
+  where?: WhereDTO<T>;
+  orderBy?: OrderByDTO<T>;
+  page?: PaginationDTO<T>;
+  select?: readonly (keyof Entity<T>)[];
 }
 export interface ListResult<Row> {
   readonly items: readonly Row[];
@@ -515,7 +542,7 @@ interface ListOptions {
  *
  * Overloaded on `select` so the no-projection call keeps `ListResult<Row>` instead
  * of widening to `ListResult<Row | Partial<Row>>` — the widening is what forced
- * `as ListResult<Entity<S>>` in `@zmdb/repository`'s `list()`.
+ * `as ListResult<Entity<T>>` in `@zmdb/repository`'s `list()`.
  */
 export function buildListResult<Row extends Record<string, unknown>>(
   rows: readonly Row[],
@@ -567,11 +594,11 @@ export function buildListResult<Row extends Record<string, unknown>>(
   };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
-export interface SearchDTO<S> {
+export interface SearchDTO<T extends DeclaredTable> {
   query: string;
-  columns: readonly (keyof Entity<S>)[];
-  where?: WhereDTO<S>;
-  page?: PaginationDTO<S>;
+  columns: readonly (keyof Entity<T>)[];
+  where?: WhereDTO<T>;
+  page?: PaginationDTO<T>;
   rank?: boolean;
 }
 export type SearchHit<Row> = Row & { readonly _score?: number };
@@ -582,54 +609,64 @@ export type SearchResult<Row> = ListResult<SearchHit<Row>>;
 // ---------------------------------------------------------------------------
 export type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
 
+/**
+ * `"relation.column"` for every relation in a relations map.
+ *
+ * The `{ entity: … }` arm reads the declared type out of a map entry and lists its columns;
+ * everything else falls back to `${Rel}.${string}`, which is the honest answer for a relation
+ * whose target this type cannot see. There used to be a middle arm for an entry that *was* a
+ * schema value, deriving `Entity<>` from it — that spelling no longer type-checks, and it was
+ * only ever reachable for a map written the way this design stopped writing them.
+ */
 type RelatedColumns<R> =
   R extends Record<string, unknown>
     ? {
         [Rel in keyof R]: Rel extends string
-          ? R[Rel] extends { entity: infer E }
+          ? R[Rel] extends { entity: infer E extends DeclaredTable }
             ? `${Rel}.${keyof Entity<E> & string}`
-            : R[Rel] extends CoreSchema<string>
-              ? `${Rel}.${keyof Entity<R[Rel]> & string}`
-              : `${Rel}.${string}`
+            : `${Rel}.${string}`
           : never;
       }[keyof R]
     : `${string}.${string}`;
 
-export type AggregateColumn<S, R = unknown> = (keyof Entity<S> & string) | RelatedColumns<R> | (string & {});
+export type AggregateColumn<T extends DeclaredTable, R = unknown> =
+  | (keyof Entity<T> & string)
+  | RelatedColumns<R>
+  | (string & {});
 
-export interface ComputedSpec<S = unknown, R = unknown> {
+export interface ComputedSpec<T extends DeclaredTable = DeclaredTable, R = unknown> {
   fn: AggFn;
-  column?: AggregateColumn<S, R>;
+  column?: AggregateColumn<T, R>;
   raw?: string;
 }
 
-export interface AggregateSpec<S, R = unknown> {
+export interface AggregateSpec<T extends DeclaredTable, R = unknown> {
   joins?: readonly (keyof R & string)[] | readonly { relation: keyof R & string; kind?: 'inner' | 'left' | 'right' }[];
-  where?: WhereDTO<S> | Record<string, unknown>;
-  groupBy?: readonly AggregateColumn<S, R>[];
-  computed: Record<string, ComputedSpec<S, R>>;
-  having?: Readonly<{ column: AggregateColumn<S, R>; op: string; value: unknown }>;
-  orderBy?: ReadonlyArray<{ column: AggregateColumn<S, R>; dir?: OrderDir }>;
+  where?: WhereDTO<T> | Record<string, unknown>;
+  groupBy?: readonly AggregateColumn<T, R>[];
+  computed: Record<string, ComputedSpec<T, R>>;
+  having?: Readonly<{ column: AggregateColumn<T, R>; op: string; value: unknown }>;
+  orderBy?: ReadonlyArray<{ column: AggregateColumn<T, R>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;
 }
 
-type AggComputedType<S, C> = C extends { fn: 'count' }
+type AggComputedType<T extends DeclaredTable, C> = C extends { fn: 'count' }
   ? number
   : C extends { fn: 'sum' | 'avg' }
     ? number | null
-    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<S> }
-      ? Entity<S>[Col] | null
+    : C extends { fn: 'min' | 'max'; column: infer Col extends keyof Entity<T> }
+      ? Entity<T>[Col] | null
       : number | null;
 
-export type AggregateResult<S, Spec extends AggregateSpec<S, R>, R = unknown> = {
-  [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<S>)[] ? G : never]: Entity<S>[K];
+export type AggregateResult<T extends DeclaredTable, Spec extends AggregateSpec<T, R>, R = unknown> = {
+  [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<T>)[] ? G : never]: Entity<T>[K];
 } & {
-  [K in keyof Spec['computed']]: AggComputedType<S, Spec['computed'][K]>;
+  [K in keyof Spec['computed']]: AggComputedType<T, Spec['computed'][K]>;
 };
 
 /** Ordered field list for an aggregate spec: group-key cols then computed keys. */
-export function describeAggregate<S, R = unknown>(spec: AggregateSpec<S, R>): readonly string[] {
+export function describeAggregate<T extends DeclaredTable, R = unknown>(spec: AggregateSpec<T, R>): readonly string[] {
   const keys = (spec.groupBy ?? []).map(k => String(k));
   return [...keys, ...Object.keys(spec.computed)];
 }

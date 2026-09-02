@@ -27,7 +27,7 @@ INSERT INTO "users" ("email") VALUES ($1) RETURNING "id", "createdAt"
 
 ```ts
 const user = await users.create({ email: 'a@b.com' }); // role defaults applied
-// returns Entity<typeof UserSchema>
+// returns Entity<User>
 ```
 
 > [!IMPORTANT]

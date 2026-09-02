@@ -39,7 +39,7 @@ import type { Entity } from '@zmdb/schema-core';
 import { assert } from '@zmdb/aot-validator/utilities';
 
 const result = await pool.request().input('id', id).query('SELECT * FROM [users] WHERE [id] = @id');
-const user = assert<Entity<typeof users>>(result.recordset[0]);
+const user = assert<Entity<User>>(result.recordset[0]);
 ```
 
 The `assert` is what keeps the hand-written SQL tied to the schema object.

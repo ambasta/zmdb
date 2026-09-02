@@ -73,7 +73,7 @@ Each error carries the path (`input.address.zip`), the expected type and the val
 ```ts
 @Post('/users')
 async create(ctx: Ctx<Record<never, string>, unknown>) {
-  const result = validate<CreateDTO<typeof users>>(ctx.body);
+  const result = validate<CreateDTO<User>>(ctx.body);
   if (!result.success) throw new ValidationError('invalid payload', result.errors);
   return this.repo.create(result.data);
 }

@@ -37,7 +37,7 @@ const {
   Tenant: TenantSchema,
 } = schemasFrom<{ User: User; Account: Account; Tenant: Tenant }>(import.meta.url, ['User', 'Account', 'Tenant']);
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
@@ -86,7 +86,7 @@ describe('BaseRepository create/update validation interception', () => {
       // The cast is the point: untrusted input reaching a typed API at runtime.
       // `email` missing and `role` off-enum are both compile errors, because the schema
       // came from a type — the validator has to catch them anyway.
-      await repo.create({ role: 'nope' } as unknown as CreateDTO<typeof UserSchema>);
+      await repo.create({ role: 'nope' } as unknown as CreateDTO<User>);
     } catch (e) {
       if (e instanceof ValidationError) error = e;
     }
@@ -109,7 +109,7 @@ describe('BaseRepository create/update validation interception', () => {
 // repository skipped it — and it accepted `Date | string` for a `timestamp`, so neither
 // of the column's two types was ever the one being checked.
 describe('BaseRepository write validation, through the IR', () => {
-  class AccountRepository extends BaseRepository<typeof AccountSchema> {
+  class AccountRepository extends BaseRepository<Account> {
     static override readonly schema = AccountSchema;
   }
 
@@ -126,7 +126,7 @@ describe('BaseRepository write validation, through the IR', () => {
   async function rejects(patch: Record<string, unknown>): Promise<readonly ValidationIssue[]> {
     const driver = fakeDriver();
     const repo = new AccountRepository(driver);
-    const payload = { ...valid, ...patch } as unknown as CreateDTO<typeof AccountSchema>;
+    const payload = { ...valid, ...patch } as unknown as CreateDTO<Account>;
     try {
       await repo.create(payload);
     } catch (e) {
@@ -140,7 +140,7 @@ describe('BaseRepository write validation, through the IR', () => {
   it('accepts the payload every column is happy with', async () => {
     const driver = fakeDriver([{ id: 1, ...valid }]);
     const repo = new AccountRepository(driver);
-    await repo.create(valid as unknown as CreateDTO<typeof AccountSchema>);
+    await repo.create(valid as unknown as CreateDTO<Account>);
     expect(driver.calls.length).toBe(1);
   });
 
@@ -187,7 +187,7 @@ describe('BaseRepository write validation, through the IR', () => {
     await new AccountRepository(driver).create({
       ...valid,
       settings: [1, 2],
-    } as unknown as CreateDTO<typeof AccountSchema>);
+    } as unknown as CreateDTO<Account>);
     expect(driver.calls.length).toBe(1);
   });
 });
@@ -202,7 +202,7 @@ describe('BaseRepository rejects a key the write does not accept', () => {
     const driver = fakeDriver();
     const repo = new UserRepository(driver);
     try {
-      await repo.create({ ...valid, ...patch } as unknown as CreateDTO<typeof UserSchema>);
+      await repo.create({ ...valid, ...patch } as unknown as CreateDTO<User>);
     } catch (e) {
       if (!(e instanceof ValidationError)) throw e;
       expect(driver.calls.length).toBe(0);
@@ -252,7 +252,7 @@ describe('BaseRepository rejects a key the write does not accept', () => {
     // A patch body says what to change, and the URL says which row — so a key in the body
     // is either redundant or an attempt to move the row. Spelled out for a non-serial key,
     // because that is the one the create path would have allowed.
-    class TenantRepository extends BaseRepository<typeof TenantSchema> {
+    class TenantRepository extends BaseRepository<Tenant> {
       static override readonly schema = TenantSchema;
     }
     const driver = fakeDriver();
@@ -283,7 +283,7 @@ describe('BaseRepository rejects a key the write does not accept', () => {
     // supplied" — which is not the same as supplying a key that does not exist.
     const driver = fakeDriver([{ id: 1, ...valid }]);
     const repo = new UserRepository(driver);
-    await repo.create({ ...valid, bogus: undefined } as unknown as CreateDTO<typeof UserSchema>);
+    await repo.create({ ...valid, bogus: undefined } as unknown as CreateDTO<User>);
     expect(driver.calls.length).toBe(1);
   });
 });

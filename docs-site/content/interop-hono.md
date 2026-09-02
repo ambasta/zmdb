@@ -14,7 +14,7 @@ const api = new Hono();
 api.get('/posts', async c => c.json(await postRepo.list({ page: { limit: 20 } })));
 
 api.post('/posts', async c => {
-  const dto = assert<CreateDTO<typeof posts>>(await c.req.json());
+  const dto = assert<CreateDTO<Post>>(await c.req.json());
   return c.json(await postRepo.create(dto), 201);
 });
 ```
@@ -75,7 +75,7 @@ If your application is a handful of routes, Hono plus zmdb's data layer is less 
 
 ```ts
 api.post('/posts', async c => {
-  const dto = assert<CreateDTO<typeof posts>>(await c.req.json());
+  const dto = assert<CreateDTO<Post>>(await c.req.json());
   // ...
 });
 ```

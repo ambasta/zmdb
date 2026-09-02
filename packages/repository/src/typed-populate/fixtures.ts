@@ -8,7 +8,7 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { manyToOne } from '@zmdb/schema-core/relations';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import { OrderSchema, ordersRelation } from '../orders-fixture.ts';
+import { OrderSchema, ordersRelation, type Order } from '../orders-fixture.ts';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -26,7 +26,7 @@ export const { User: UserSchema, Profile: ProfileSchema } = schemasFrom<{ User: 
   ['User', 'Profile'],
 );
 
-export { OrderSchema };
+export { OrderSchema, type Order };
 
 const profileRelation = {
   meta: manyToOne('profiles', 'userId'),

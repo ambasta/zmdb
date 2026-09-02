@@ -19,7 +19,7 @@ function fakeDriver(rows: Record<string, unknown>[] = []): Driver {
 
 describe('delete', () => {
   it('reports true when a row was deleted', async () => {
-    class Repo extends BaseRepository<typeof UserSchema> {
+    class Repo extends BaseRepository<User> {
       static override readonly schema = UserSchema;
     }
     const repo = new Repo(fakeDriver([{ id: 1 }]));
@@ -27,7 +27,7 @@ describe('delete', () => {
   });
 
   it('reports false when nothing was deleted', async () => {
-    class Repo extends BaseRepository<typeof UserSchema> {
+    class Repo extends BaseRepository<User> {
       static override readonly schema = UserSchema;
     }
     const repo = new Repo(fakeDriver([]));
@@ -38,7 +38,7 @@ describe('delete', () => {
 describe('lifecycle hooks', () => {
   it('fires preInsert then postInsert around create, in order', async () => {
     const order: string[] = [];
-    class Repo extends BaseRepository<typeof UserSchema> {
+    class Repo extends BaseRepository<User> {
       static override readonly schema = UserSchema;
       protected override preInsert() {
         order.push('preInsert');
@@ -54,7 +54,7 @@ describe('lifecycle hooks', () => {
 
   it('fires preDelete before deleting', async () => {
     const order: string[] = [];
-    class Repo extends BaseRepository<typeof UserSchema> {
+    class Repo extends BaseRepository<User> {
       static override readonly schema = UserSchema;
       protected override preDelete() {
         order.push('preDelete');

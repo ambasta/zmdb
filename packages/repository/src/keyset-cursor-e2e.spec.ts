@@ -31,7 +31,7 @@ export interface Product extends Table<'products'> {
 
 const { Product: ProductSchema } = schemasFrom<{ Product: Product }>(import.meta.url, ['Product']);
 
-class ProductRepository extends BaseRepository<typeof ProductSchema> {
+class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
 }
 
@@ -61,7 +61,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
 
     do {
       pageCount++;
-      const res: ListResult<Entity<typeof ProductSchema>> = await products.list({
+      const res: ListResult<Entity<Product>> = await products.list({
         orderBy: [{ column: 'age', dir: 'desc' }],
         page: { limit: 6, after: currentCursor },
       });
@@ -102,7 +102,7 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
     let currentCursor: string | undefined = undefined;
 
     do {
-      const res: ListResult<Entity<typeof ProductSchema>> = await products.list({
+      const res: ListResult<Entity<Product>> = await products.list({
         where: { category: 'electronics' },
         orderBy: [{ column: 'age', dir: 'asc' }],
         page: { limit: 4, after: currentCursor },

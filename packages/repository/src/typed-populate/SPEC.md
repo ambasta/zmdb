@@ -15,7 +15,7 @@ repository declares its relations as a typed static map — the same
 ```ts
 import { manyToOne, oneToMany } from '@zmdb/schema-core';
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
   static readonly relations = {
     orders: { rel: oneToMany('orders', 'userId'), entity: OrderSchema, childFk: 'userId', parentKey: 'id' },

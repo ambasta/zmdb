@@ -119,7 +119,7 @@ Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hoo
 ```ts
 import { BaseRepository } from '@zmdb/repository';
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 

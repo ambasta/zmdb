@@ -4,10 +4,11 @@
 //
 // Types only; contributes nothing to a bundle.
 //
-// Four of these names — `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf` — also exist on
-// `zmdb` itself, where they take a schema *value* type and defer to the ones here when it
-// carries a phantom. These are the definitions; the root's are the adapter for code still
-// parameterised on a schema value rather than on its declared type.
+// Four of these names — `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf` — are also on
+// `zmdb` itself. They are the same types: the root used to define schema-value twins that
+// deferred here when the value carried a phantom, and those are gone, so both paths now
+// resolve to the definitions in `@zmdb/schema-core/derive`. Import from whichever reads
+// better at the use site.
 export type {
   CreateDTO,
   DefaultKeys,

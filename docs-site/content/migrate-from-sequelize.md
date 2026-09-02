@@ -83,7 +83,7 @@ const user = await repo.findById(id, { populate: ['posts'] });
 `beforeCreate` / `afterCreate` become the repository's protected hooks, which receive the row data rather than a model instance:
 
 ```ts
-class UserRepository extends BaseRepository<typeof users> {
+class UserRepository extends BaseRepository<User> {
   protected preInsert(row: Record<string, unknown>) {
     /* ... */
   }

@@ -33,7 +33,7 @@ abstract class BaseRepository<S extends CoreSchema<string>> {
 ### <10-line subclass contract
 
 ```ts
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
 }
 ```

@@ -7,7 +7,7 @@ Filter rows with column-level operators. Types are inferred from your schema.
 ```ts
 import { compileWhere, type WhereDTO } from '@zmdb/schema-core/dto';
 
-const where: WhereDTO<typeof UserSchema> = {
+const where: WhereDTO<User> = {
   role: 'admin', // eq shorthand
   age: { gte: 18, lt: 65 }, // operators
   email: { like: '%@corp.com' },
@@ -32,7 +32,7 @@ Specify columns and direction with compile-time type checking.
 ```ts
 import { applyOrderBy, type OrderByDTO } from '@zmdb/schema-core/dto';
 
-const orderBy: OrderByDTO<typeof UserSchema> = [
+const orderBy: OrderByDTO<User> = [
   { column: 'createdAt', dir: 'desc' },
   { column: 'id' }, // defaults to 'asc'
 ];
@@ -51,7 +51,7 @@ import { applyPagination, type PaginationDTO } from '@zmdb/schema-core/dto';
 const offsetPage = { limit: 20, offset: 40 };
 
 // Cursor pagination (efficient for deep pages)
-const cursorPage: PaginationDTO<typeof UserSchema> = {
+const cursorPage: PaginationDTO<User> = {
   limit: 20,
   after: { createdAt: '2024-01-15T10:00:00Z', id: 123 },
 };
@@ -62,7 +62,7 @@ const cursorPage: PaginationDTO<typeof UserSchema> = {
 Narrow results to specific columns with optional population.
 
 ```ts
-const opts: GetOptions<typeof UserSchema> = {
+const opts: GetOptions<User> = {
   select: ['id', 'email'] as const,
   populate: ['orders'],
 };
@@ -76,7 +76,7 @@ Full-featured list queries with filtering, sorting, pagination.
 ```ts
 import { buildListResult, type ListResult } from '@zmdb/schema-core/dto';
 
-const listDto: ListDTO<typeof UserSchema> = {
+const listDto: ListDTO<User> = {
   where: { role: 'admin' },
   orderBy: [{ column: 'createdAt', dir: 'desc' }],
   page: { limit: 20, offset: 0 },
@@ -97,7 +97,7 @@ Full-text search with ranking scores.
 ```ts
 import { buildSearchResult, type SearchResult } from '@zmdb/schema-core/dto';
 
-const searchDto: SearchDTO<typeof UserSchema> = {
+const searchDto: SearchDTO<User> = {
   query: 'john smith',
   columns: ['email', 'name'],
   page: { limit: 10 },

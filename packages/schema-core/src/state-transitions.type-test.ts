@@ -21,7 +21,7 @@ export interface Article extends Table<'articles'> {
 
 const ArticleSchema = schemasFrom<{ Article: Article }>(import.meta.url, ['Article']).Article;
 
-type ArticleUpdate = UpdateDTO<typeof ArticleSchema>;
+type ArticleUpdate = UpdateDTO<Article>;
 
 const transitions = defineStateTransitions({
   draft: ['review', 'published'],
@@ -31,7 +31,7 @@ const transitions = defineStateTransitions({
 } as const);
 
 // Test 1: DraftUpdatePayload['status'] is 'review' | 'published' | undefined
-type DraftUpdatePayload = StateUpdateDTO<typeof ArticleSchema, 'status', 'draft', typeof transitions>;
+type DraftUpdatePayload = StateUpdateDTO<Article, 'status', 'draft', typeof transitions>;
 type _TestDraftStatus = Expect<Equal<DraftUpdatePayload['status'], 'review' | 'published' | undefined>>;
 
 // Test 2: DraftUpdatePayload assignable to ArticleUpdate
@@ -39,13 +39,7 @@ declare const validPayload: DraftUpdatePayload;
 type _TestDraftPayloadAssignable = Expect<Extends<typeof validPayload, ArticleUpdate>>;
 
 // Test 3: ReviewStateUpdate keys
-type ReviewStateUpdate = StateUpdateDTO<
-  typeof ArticleSchema,
-  'status',
-  'review',
-  typeof transitions,
-  'status' | 'content'
->;
+type ReviewStateUpdate = StateUpdateDTO<Article, 'status', 'review', typeof transitions, 'status' | 'content'>;
 type _TestReviewKeys = Expect<Equal<keyof ReviewStateUpdate, 'content' | 'status'>>;
 
 // Test 4: Invalid target state transition causes compile error with @ts-expect-error

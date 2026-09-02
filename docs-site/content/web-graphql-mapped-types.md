@@ -9,12 +9,12 @@ A decorator-based GraphQL library represents a type as a **class carrying runtim
 zmdb has no such registry. A DTO is a TypeScript type derived from a schema, and TypeScript already has the operators:
 
 ```ts
-type Post = Entity<typeof posts>;
-type NewPost = CreateDTO<typeof posts>;
-type PostPatch = UpdateDTO<typeof posts>;
+type PostRow = Entity<Post>;
+type NewPost = CreateDTO<Post>;
+type PostPatch = UpdateDTO<Post>;
 
-type PublicPost = Omit<Post, 'authorEmail'>;
-type PostSummary = Pick<Post, 'id' | 'title'>;
+type PublicPost = Omit<PostRow, 'authorEmail'>;
+type PostSummary = Pick<PostRow, 'id' | 'title'>;
 type Draft = Partial<NewPost>;
 ```
 
@@ -28,7 +28,7 @@ const input = assert<Omit<NewPost, 'authorId'>>(args.input);
 
 ## Where the gap is real
 
-**Generating GraphQL SDL from a composed type.** This is the actual missing capability, and it is the same shape as the `toJsonSchema` limitation: a hypothetical `toGraphQLType(schema, variant)` would work from a _schema object_, and `Omit<Post, 'authorEmail'>` is a TypeScript type with no runtime representation.
+**Generating GraphQL SDL from a composed type.** This is the actual missing capability, and it is the same shape as the `toJsonSchema` limitation: a hypothetical `toGraphQLType(schema, variant)` would work from a _schema object_, and `Omit<PostRow, 'authorEmail'>` is a TypeScript type with no runtime representation.
 
 So a GraphQL type for a hand-composed DTO would have to be written out, or post-processed:
 
@@ -47,7 +47,7 @@ Declare the field list once as a tuple and derive both the type and the runtime 
 ```ts
 const PUBLIC_FIELDS = ['id', 'title', 'createdAt'] as const;
 
-type PublicPost = Pick<Entity<typeof posts>, (typeof PUBLIC_FIELDS)[number]>;
+type PublicPost = Pick<Entity<Post>, (typeof PUBLIC_FIELDS)[number]>;
 ```
 
 ```ts
@@ -62,19 +62,19 @@ The `as const` is required. Without it the array widens to `string[]` and you ge
 
 GraphQL requires them to be distinct — an input object cannot be used as an output type. The derivations already separate concerns the same way:
 
-| GraphQL                        | zmdb                               |
-| ------------------------------ | ---------------------------------- |
-| `type Post` (output)           | `Entity<typeof posts>`             |
-| `input CreatePostInput`        | `CreateDTO<typeof posts>`          |
-| `input UpdatePostInput`        | `UpdateDTO<typeof posts>`          |
-| `PartialType(CreatePostInput)` | `Partial<CreateDTO<typeof posts>>` |
+| GraphQL                        | zmdb                       |
+| ------------------------------ | -------------------------- |
+| `type Post` (output)           | `Entity<Post>`             |
+| `input CreatePostInput`        | `CreateDTO<Post>`          |
+| `input UpdatePostInput`        | `UpdateDTO<Post>`          |
+| `PartialType(CreatePostInput)` | `Partial<CreateDTO<Post>>` |
 
 `CreateDTO` already omits serial columns and makes defaulted columns optional, which is what an input type needs and what a hand-written `@InputType()` gets wrong first.
 
 ## Hiding fields on the way out
 
 ```ts
-function toPublic(post: Post): PublicPost {
+function toPublic(post: PostRow): PublicPost {
   const { authorEmail, internalNotes, ...rest } = post;
   return rest;
 }

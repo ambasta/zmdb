@@ -5,8 +5,8 @@ Filters that come from a request are conditional by nature. Both the DTO and the
 ```ts
 import type { WhereDTO } from '@zmdb/schema-core';
 
-function buildWhere(q: { status?: string; minAge?: number; search?: string }): WhereDTO<typeof users> {
-  const where: WhereDTO<typeof users> = {};
+function buildWhere(q: { status?: string; minAge?: number; search?: string }): WhereDTO<User> {
+  const where: WhereDTO<User> = {};
   if (q.status !== undefined) where.status = { eq: q.status };
   if (q.minAge !== undefined) where.age = { gte: q.minAge };
   if (q.search !== undefined) where.name = { like: `%${q.search}%` };

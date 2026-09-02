@@ -126,7 +126,7 @@ Behaviour that only exists in the type system needs a type-level test, in a `*.t
 ```ts
 import type { Expect, Equal } from './type-utils.js';
 
-type _1 = Expect<Equal<CreateDTO<typeof users>, { email: string; active?: boolean }>>;
+type _1 = Expect<Equal<CreateDTO<User>, { email: string; active?: boolean }>>;
 ```
 
 These fail at `tsc`, not at runtime, which is where the guarantee lives. This is how the project's own DTO derivation is tested.

@@ -10,15 +10,17 @@
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository } from '../index.ts';
-import { OrderSchema, UserSchema, orderRelations, userRelations } from './fixtures.ts';
+import { OrderSchema, UserSchema, orderRelations, userRelations, type Order, type User } from './fixtures.ts';
 
-type Order = Entity<typeof OrderSchema>;
+// The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is
+// what the populate assertions below are about.
+type OrderRow = Entity<Order>;
 
-class Users extends BaseRepository<typeof UserSchema, typeof userRelations> {
+class Users extends BaseRepository<User, typeof userRelations> {
   static override readonly schema = UserSchema;
   static readonly relations = userRelations;
 }
-class Orders extends BaseRepository<typeof OrderSchema, typeof orderRelations> {
+class Orders extends BaseRepository<Order, typeof orderRelations> {
   static override readonly schema = OrderSchema;
   static readonly relations = orderRelations;
 }
@@ -27,7 +29,7 @@ declare const orders: Orders;
 
 // --- to-many: the relation is an array of the child entity ------------------
 declare const populated: NonNullable<Awaited<ReturnType<typeof users.findById<'orders'>>>>;
-export type _Pop1 = Expect<Equal<(typeof populated)['orders'], readonly Order[]>>;
+export type _Pop1 = Expect<Equal<(typeof populated)['orders'], readonly OrderRow[]>>;
 // The base columns survive untouched. `Mutual` rather than `Equal` throughout the
 // bare-scalar assertions here: the fixtures are tagged types, so `name` is
 // `string & Sql<'text'>` and the tag rides along by design. What matters is that the
@@ -38,19 +40,19 @@ export type _Pop3 = Expect<Mutual<(typeof populated)['orders'][number]['total'],
 
 // --- to-one: a single child, nullable (the FK may match nothing) ------------
 declare const withUser: NonNullable<Awaited<ReturnType<typeof orders.findById<'user'>>>>;
-export type _Pop4 = Expect<Equal<(typeof withUser)['user'], Entity<typeof UserSchema> | null>>;
+export type _Pop4 = Expect<Equal<(typeof withUser)['user'], Entity<User> | null>>;
 
 // --- find() populates every row --------------------------------------------
 declare const found: Awaited<ReturnType<typeof users.find<'orders'>>>;
-export type _Pop5 = Expect<Equal<(typeof found)[number]['orders'], readonly Order[]>>;
+export type _Pop5 = Expect<Equal<(typeof found)[number]['orders'], readonly OrderRow[]>>;
 
 // --- unpopulated relations are absent from the type ------------------------
 // This is the "no lazy getters" guarantee: an unrequested relation is not a
 // property, so reading it is a compile error rather than a silent `undefined`.
 // (Value-level, because `ReturnType` on an overloaded method resolves to the last
 // overload — the populate one — regardless of the arguments.)
-export const _plain: Promise<Entity<typeof UserSchema> | undefined> = users.findById(1);
-declare const plain: Entity<typeof UserSchema>;
+export const _plain: Promise<Entity<User> | undefined> = users.findById(1);
+declare const plain: Entity<User>;
 export type _Pop6 = Expect<Equal<keyof typeof plain, 'id' | 'name'>>;
 // @ts-expect-error — `orders` was not populated.
 export const _noLazy = plain.orders;

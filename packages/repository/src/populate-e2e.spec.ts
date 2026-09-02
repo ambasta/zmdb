@@ -25,10 +25,10 @@ const { User: UserSchema, Order: OrderSchema } = schemasFrom<{ User: User; Order
   'Order',
 ]);
 
-class UserRepository extends BaseRepository<typeof UserSchema> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
-class OrderRepository extends BaseRepository<typeof OrderSchema> {
+class OrderRepository extends BaseRepository<Order> {
   static override readonly schema = OrderSchema;
 }
 

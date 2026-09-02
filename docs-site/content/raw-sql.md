@@ -32,7 +32,7 @@ If the query and the interface drift — a renamed column, a `SUM` that comes ba
 For a query returning whole rows of a known table, use the schema's own type:
 
 ```ts
-const users = rows.map(r => assert<Entity<typeof usersSchema>>(r));
+const users = rows.map(r => assert<Entity<User>>(r));
 ```
 
 ## Parameters, always

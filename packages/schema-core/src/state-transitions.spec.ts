@@ -27,7 +27,7 @@ describe('Entity State Transitions & Update Payload Helpers', () => {
   } as const);
 
   it('validates allowed target state values at compile time', () => {
-    type DraftUpdatePayload = StateUpdateDTO<typeof ArticleSchema, 'status', 'draft', typeof transitions>;
+    type DraftUpdatePayload = StateUpdateDTO<Article, 'status', 'draft', typeof transitions>;
 
     const validPayload: DraftUpdatePayload = {
       status: 'review',
@@ -39,13 +39,7 @@ describe('Entity State Transitions & Update Payload Helpers', () => {
 
   it('restricts allowable entity patch attributes based on declared source state', () => {
     // For 'review' state, only allow updating 'status' and 'content'
-    type ReviewStateUpdate = StateUpdateDTO<
-      typeof ArticleSchema,
-      'status',
-      'review',
-      typeof transitions,
-      'status' | 'content'
-    >;
+    type ReviewStateUpdate = StateUpdateDTO<Article, 'status', 'review', typeof transitions, 'status' | 'content'>;
 
     const validReviewUpdate: ReviewStateUpdate = {
       status: 'published',
@@ -56,7 +50,7 @@ describe('Entity State Transitions & Update Payload Helpers', () => {
   });
 
   it('creates state transition payload via standalone helper function', () => {
-    const payload = createStateUpdatePayload<typeof ArticleSchema, 'status', 'draft', typeof transitions>(
+    const payload = createStateUpdatePayload<Article, 'status', 'draft', typeof transitions>(
       'status',
       transitions,
       'draft',
@@ -73,7 +67,7 @@ describe('Entity State Transitions & Update Payload Helpers', () => {
 
     // Runtime rejection of invalid transition
     expect(() =>
-      createStateUpdatePayload<typeof ArticleSchema, 'status', 'draft', typeof transitions>(
+      createStateUpdatePayload<Article, 'status', 'draft', typeof transitions>(
         'status',
         transitions,
         'draft',

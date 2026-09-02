@@ -19,16 +19,16 @@
 import type { CreateDTO, SerialKeys } from '../derive/index.ts';
 import type { Equal, Expect } from '../index.ts';
 import type { Serial as CopiedSerial } from './__fixtures__/duplicate-copy.ts';
-import type { PrimaryKey, Serial, Sql } from './index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from './index.ts';
 
 // The control: a type tagged with this package's own `Serial`.
-interface Sound {
+interface Sound extends Table<'sounds'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
 }
 
 // The broken case: the same declaration, tagged from the second copy.
-interface Duplicated {
+interface Duplicated extends Table<'sounds'> {
   id: number & Sql<'integer'> & CopiedSerial & PrimaryKey;
   email: string & Sql<'text'>;
 }

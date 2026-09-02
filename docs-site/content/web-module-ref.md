@@ -23,7 +23,7 @@ export class Container {
 
 ```ts
 import { repositoryToken } from '@zmdb/web/data';
-export const POSTS = repositoryToken<typeof posts>('POSTS'); // Token<BaseRepository<typeof posts>>
+export const POSTS = repositoryToken<Post>('POSTS'); // Token<BaseRepository<Post>>
 ```
 
 Note it is `resolve`, not `get`. An unregistered token throws `UnresolvedTokenError` naming the description, which is why the description should be the token's real name.

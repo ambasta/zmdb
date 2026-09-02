@@ -43,7 +43,7 @@ import type { Entity, CreateDTO } from '@zmdb/schema-core';
 export class UsersController {
   @Post('/')
   async create(ctx: Ctx<Record<never, string>, unknown>) {
-    const dto = assert<CreateDTO<typeof users>>(ctx.body);
+    const dto = assert<CreateDTO<User>>(ctx.body);
     const { insertedId } = await col.insertOne(dto);
     return { ...dto, id: insertedId.toString() };
   }
@@ -51,7 +51,7 @@ export class UsersController {
   @Get('/:id')
   async get(ctx: Ctx<{ id: string }>) {
     const doc = await col.findOne({ _id: new ObjectId(ctx.params.id) });
-    return doc === null ? undefined : assert<Entity<typeof users>>(normalise(doc));
+    return doc === null ? undefined : assert<Entity<User>>(normalise(doc));
   }
 }
 ```

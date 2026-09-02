@@ -30,14 +30,14 @@ See [OpenAPI Operations](./web-openapi-operations.html).
 
 ```ts
 // packages/contracts
-export type Order = Entity<typeof orders>;
+export type OrderRow = Entity<Order>;
 ```
 
 ```ts
-const order = await client.get(`/orders/${id}`, raw => assert<Order>(raw));
+const order = await client.get(`/orders/${id}`, raw => assert<OrderRow>(raw));
 ```
 
-`assert<Order>` is AOT-compiled from the same type the owning service uses, so the boundary is checked at full speed and a schema change is a compile error in the consumer.
+`assert<OrderRow>` is AOT-compiled from the same type the owning service uses, so the boundary is checked at full speed and a schema change is a compile error in the consumer.
 
 **Composition at the edge.** A thin service that calls several others and assembles a response — a gateway you can read:
 

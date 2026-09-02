@@ -65,7 +65,7 @@ There is no hook that maintains it in the DDL, and no `ON UPDATE CURRENT_TIMESTA
 ```ts
 const postSchema = schemaOf<Post>();
 
-class PostRepository extends BaseRepository<typeof postSchema> {
+class PostRepository extends BaseRepository<Post> {
   protected override preUpdate(row: Record<string, unknown>): void {
     row.updatedAt = new Date();
   }

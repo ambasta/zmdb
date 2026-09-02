@@ -26,7 +26,7 @@ export function dispatcherFor(container: Container): (pattern: string, payload: 
 
   const handlers: Readonly<Record<string, Handler>> = {
     'order.get': async raw => orders.findById(assert<{ id: number }>(raw).id),
-    'order.place': async raw => orders.create(assert<CreateDTO<typeof orders>>(raw)),
+    'order.place': async raw => orders.create(assert<CreateDTO<Order>>(raw)),
   };
 
   return async (pattern, payload) => {

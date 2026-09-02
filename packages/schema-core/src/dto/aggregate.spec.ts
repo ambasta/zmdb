@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { type OrderS as S } from './fixtures.ts';
+import { type Order } from './fixtures.ts';
 import { describeAggregate, type AggregateSpec } from './index.ts';
 
-describe('AggregateResult<S,Spec> (#198)', () => {
+describe('AggregateResult<Order,Spec> (#198)', () => {
   it('describeAggregate lists group-key cols then computed keys', () => {
-    const spec: AggregateSpec<S> = {
+    const spec: AggregateSpec<Order> = {
       groupBy: ['customerId'],
       computed: { orderCount: { fn: 'count' }, revenue: { fn: 'sum', column: 'total' } },
     };
@@ -13,6 +13,6 @@ describe('AggregateResult<S,Spec> (#198)', () => {
   });
 
   it('describeAggregate with no groupBy ⇒ only computed', () => {
-    expect(describeAggregate<S>({ computed: { n: { fn: 'count' } } })).toEqual(['n']);
+    expect(describeAggregate<Order>({ computed: { n: { fn: 'count' } } })).toEqual(['n']);
   });
 });

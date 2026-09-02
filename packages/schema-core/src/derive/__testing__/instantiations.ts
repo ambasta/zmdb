@@ -83,10 +83,20 @@ export interface Table${index} extends Table<'table_${index}'> {
 `;
 }
 
-/** The same table with every tag removed: the baseline REQ-TF-3 is measured against. */
+/**
+ * The same table with every column tag removed: the baseline REQ-TF-3 is measured against.
+ *
+ * `extends Table<'table_N'>` stays, and it has to. Every derivation is constrained to
+ * `DeclaredTable`, so a type that does not say it is a table is not something `Entity<>`
+ * accepts — an interface with the name slot stripped as well would not compile here, which is
+ * REQ-TF-4 working rather than a problem with the fixture. So the baseline is a declared table
+ * with nothing said about its columns, and the marginal cost this measures is the cost of the
+ * *column* tags: the eight per-column intersections and the five distinct constraint arguments
+ * they carry.
+ */
 function untaggedTable(index: number): string {
   return `
-export interface Table${index} {
+export interface Table${index} extends Table<'table_${index}'> {
   id: number;
   name: string;
   slug: string;

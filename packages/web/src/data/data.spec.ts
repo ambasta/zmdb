@@ -20,7 +20,7 @@ export interface Order extends Table<'orders'> {
   total: number & Sql<'numeric'>;
 }
 
-const OrderRepoToken = repositoryToken<typeof OrderSchema>('OrderRepo');
+const OrderRepoToken = repositoryToken<Order>('OrderRepo');
 
 function isCreateOrder(raw: unknown): { userId: number; total: number } {
   const o = Object(raw);
@@ -33,7 +33,7 @@ function isCreateOrder(raw: unknown): { userId: number; total: number } {
 @Controller('/orders')
 class OrdersController {
   @Inject(OrderRepoToken)
-  repo!: BaseRepository<typeof OrderSchema>;
+  repo!: BaseRepository<Order>;
 
   @Post()
   async create(ctx: Ctx<Record<never, string>, { userId: number; total: number }>) {
@@ -102,7 +102,7 @@ const { Order: OrderSchema, Event: EventSchema } = schemasFrom<{ Order: Order; E
   'Event',
 ]);
 
-const EventRepoToken = repositoryToken<typeof EventSchema>('EventRepo');
+const EventRepoToken = repositoryToken<Event>('EventRepo');
 
 const ISO = '2026-01-01T12:30:00.000Z';
 
@@ -173,7 +173,7 @@ describe('@zmdb/web data: wireDecoder / wireEncoder', () => {
 @Controller('/events')
 class EventsController {
   @Inject(EventRepoToken)
-  repo!: BaseRepository<typeof EventSchema>;
+  repo!: BaseRepository<Event>;
 
   @Post()
   async create(ctx: Ctx<Record<never, string>, CreateEvent>) {

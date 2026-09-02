@@ -14,8 +14,10 @@ import {
   ValidationError,
   type CoreSchema,
   type CreateDTO,
+  type DeclaredTable,
   type Entity,
   type PrimaryKeyOf,
+  type TaggedSchema,
   type UpdateDTO,
   type ValidationIssue,
   type JoinRow,
@@ -51,10 +53,10 @@ export interface Driver {
 
 /**
  * A fetched row: the derived entity plus the string-keyed view that populate
- * writes relations onto. The intersection (rather than `Entity<S>` alone) is what
+ * writes relations onto. The intersection (rather than `Entity<T>` alone) is what
  * makes keyed access legal without asserting.
  */
-type EntityRow<S> = Entity<S> & Record<string, unknown>;
+type EntityRow<T extends DeclaredTable> = Entity<T> & Record<string, unknown>;
 
 /**
  * One entry in a repository's `relations` map (see typed-populate/SPEC.md).
@@ -114,7 +116,15 @@ type RelationCardinality<D> = D extends { cardinality: infer C }
       ? MC
       : never;
 
-type RelationEntity<D> = D extends { entity: infer E } ? (E extends CoreSchema<string> ? Entity<E> : E) : never;
+// A relations map entry names its child by *schema value* (`entity: OrderSchema`), because
+// the runtime needs its table name and its columns. So this is one of the few places that
+// has to cross back from a value to the type it was declared as, and the phantom is how.
+// An entry may also name the declared type directly, which is the second arm.
+type RelationEntity<D> = D extends { entity: infer E }
+  ? E extends TaggedSchema<infer Declared extends DeclaredTable>
+    ? Entity<Declared>
+    : E
+  : never;
 
 // The value attached for one populated relation: an array of child entities for
 // to-many, a single child (or null, when the FK matches nothing) for to-one.
@@ -124,13 +134,13 @@ type PopulatedField<D extends RelationDefLike> =
     : RelationEntity<D> | null;
 
 /**
- * `Entity<S>` widened with exactly the relations that were populated (#217).
+ * `Entity<T>` widened with exactly the relations that were populated (#217).
  *
  * Only the requested keys `K` are added, which is what makes reading an
  * unpopulated relation a compile error instead of `undefined` at runtime — the
  * "no lazy getters" guarantee, stated as a type.
  */
-export type Populated<S, R extends RelationsLike, K extends keyof R = keyof R> = Entity<S> & {
+export type Populated<T extends DeclaredTable, R extends RelationsLike, K extends keyof R = keyof R> = Entity<T> & {
   readonly [P in K]: PopulatedField<R[P]>;
 };
 
@@ -152,14 +162,18 @@ interface PayloadShape {
 /**
  * The base repository.
  *
- * `S` is the schema (the source of every derived DTO); `R` is the relations map,
- * defaulting to "none". `R` is a *type* parameter rather than being read off the
- * static `relations` map because a class cannot refer to its own statics in its
- * own `extends` clause — declare the map as a const and pass `typeof` it:
+ * `T` is the **declared type** — the interface the table was written as — and every DTO on
+ * this class derives from it. It is not the schema value: a repository is handed one of
+ * those at construction, and `defineRepository` recovers `T` from its phantom, but nothing
+ * here reads a column map to work out what a row looks like.
+ *
+ * `R` is the relations map, defaulting to "none". It is a *type* parameter rather than
+ * being read off the static `relations` map because a class cannot refer to its own
+ * statics in its own `extends` clause — declare the map as a const and pass `typeof` it:
  *
  * ```ts
  * const userRelations = { orders: { … } } as const;
- * class Users extends BaseRepository<typeof UserSchema, typeof userRelations> {
+ * class Users extends BaseRepository<User, typeof userRelations> {
  *   static override readonly schema = UserSchema;
  *   static readonly relations = userRelations;
  * }
@@ -167,7 +181,7 @@ interface PayloadShape {
  *
  * `defineRepository` infers both, so wiring a repository needs no subclass at all.
  */
-export abstract class BaseRepository<S extends CoreSchema<string>, R extends RelationsLike = NoRelations> {
+export abstract class BaseRepository<T extends DeclaredTable, R extends RelationsLike = NoRelations> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
@@ -246,7 +260,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   /**
    * The db→app crossing on the way out (plan D3).
    *
-   * `Entity<S>` says a `timestamp` column is a `Date` and a `bigint` column is a `bigint`.
+   * `Entity<T>` says a `timestamp` column is a `Date` and a `bigint` column is a `bigint`.
    * A driver may or may not agree: `pg` returns a `Date` for a `timestamptz` and a string
    * for an `int8`, and SQLite returns the `TEXT` it stored, because `TIMESTAMPTZ` and
    * `TEXT` is what the DDL emitter declares for those two dialects. So the row a caller
@@ -273,7 +287,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return this.#decoded;
   }
 
-  private buildKeyWhere(id: PrimaryKeyOf<S>): WhereDTO<S> {
+  private buildKeyWhere(id: PrimaryKeyOf<T>): WhereDTO<T> {
     const pkCols = this.schema.primaryKey;
     if (!pkCols || pkCols.length === 0) {
       throw new Error(`schema ${this.tableName} has no primary key`);
@@ -284,9 +298,9 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       if (!pkCol) {
         throw new Error(`schema ${this.tableName} has empty primary key column`);
       }
-      // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<S>`
-      // preserves the repository's concrete schema type `S`.
-      return { [pkCol]: id } as WhereDTO<S>;
+      // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<T>`
+      // preserves the repository's concrete schema type `T`.
+      return { [pkCol]: id } as WhereDTO<T>;
     }
 
     if (!isRecord(id) || id instanceof Date) {
@@ -300,9 +314,9 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       }
       where[col] = id[col];
     }
-    // boundary: `where` map is assembled at runtime from composite PK fields; asserting to `WhereDTO<S>`
-    // preserves the repository's concrete schema type `S`.
-    return where as WhereDTO<S>;
+    // boundary: `where` map is assembled at runtime from composite PK fields; asserting to `WhereDTO<T>`
+    // preserves the repository's concrete schema type `T`.
+    return where as WhereDTO<T>;
   }
 
   // #218 — typed populate. When `opts.populate` names relations (declared in the
@@ -310,19 +324,19 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // with those relations *and only those*. Batched IN query per relation; no
   // proxies. Populate keys are `keyof R`, so a misspelled relation is a compile
   // error rather than the runtime `unknown relation` throw below.
-  async findById(id: PrimaryKeyOf<S>): Promise<Entity<S> | undefined>;
+  async findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
   async findById<K extends keyof R & string>(
-    id: PrimaryKeyOf<S>,
+    id: PrimaryKeyOf<T>,
     opts: { populate: readonly K[] },
-  ): Promise<Populated<S, R, K> | undefined>;
-  async findById(id: PrimaryKeyOf<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
+  ): Promise<Populated<T, R, K> | undefined>;
+  async findById(id: PrimaryKeyOf<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
     return this.firstMatching(this.buildKeyWhere(id), opts?.populate);
   }
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
-  private async firstMatching(where: WhereDTO<S>, populate?: readonly string[]): Promise<Entity<S> | undefined> {
+  private async firstMatching(where: WhereDTO<T>, populate?: readonly string[]): Promise<Entity<T> | undefined> {
     const q = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
-    const rows = await this.rows<EntityRow<S>>(q);
+    const rows = await this.rows<EntityRow<T>>(q);
     const row = rows[0];
     if (!row || !populate?.length) return row;
     const [populated] = await this.attachRelations([row], populate);
@@ -359,10 +373,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   }
 
   /** Batch-load and attach named relations to parent rows without mutating inputs. */
-  private async attachRelations<T extends Record<string, unknown>>(
-    parents: readonly T[],
+  private async attachRelations<Row extends Record<string, unknown>>(
+    parents: readonly Row[],
     names: readonly string[],
-  ): Promise<readonly T[]> {
+  ): Promise<readonly Row[]> {
     if (parents.length === 0) return parents;
     const relations = this.declaredRelations;
     let current: Record<string, unknown>[] = parents.map(p => ({ ...p }));
@@ -395,45 +409,45 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       });
     }
 
-    // boundary: populated rows are constructed by copying parent records and attaching relation properties matching Populated<S, R, K>.
-    return current as unknown as readonly T[];
+    // boundary: populated rows are constructed by copying parent records and attaching relation properties matching Populated<Row, R, K>.
+    return current as unknown as readonly Row[];
   }
 
   async findOne<K extends keyof R & string>(
-    where: WhereDTO<S>,
+    where: WhereDTO<T>,
     opts: { populate: readonly K[] },
-  ): Promise<Populated<S, R, K> | undefined>;
-  async findOne(where: WhereDTO<S>): Promise<Entity<S> | undefined>;
-  async findOne(where: WhereDTO<S>, opts?: { populate?: readonly string[] }): Promise<Entity<S> | undefined> {
+  ): Promise<Populated<T, R, K> | undefined>;
+  async findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
+  async findOne(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
     return this.firstMatching(where, opts?.populate);
   }
 
-  async find(where: WhereDTO<S>): Promise<readonly Entity<S>[]>;
+  async find(where: WhereDTO<T>): Promise<readonly Entity<T>[]>;
   async find<K extends keyof R & string>(
-    where: WhereDTO<S>,
+    where: WhereDTO<T>,
     opts: { populate: readonly K[] },
-  ): Promise<readonly Populated<S, R, K>[]>;
-  async find(where: WhereDTO<S>, opts?: { populate?: readonly string[] }): Promise<readonly Entity<S>[]> {
+  ): Promise<readonly Populated<T, R, K>[]>;
+  async find(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
     const b = compileWhere(this.qb.selectFrom(this.tableName), where);
-    const rows = await this.rows<EntityRow<S>>(b.compile());
+    const rows = await this.rows<EntityRow<T>>(b.compile());
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate);
   }
 
-  async findAll<K extends keyof R & string>(opts: { populate: readonly K[] }): Promise<readonly Populated<S, R, K>[]>;
-  async findAll(): Promise<readonly Entity<S>[]>;
-  async findAll(opts?: { populate?: readonly string[] }): Promise<readonly Entity<S>[]> {
-    const rows = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
+  async findAll<K extends keyof R & string>(opts: { populate: readonly K[] }): Promise<readonly Populated<T, R, K>[]>;
+  async findAll(): Promise<readonly Entity<T>[]>;
+  async findAll(opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
+    const rows = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile());
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate);
   }
 
   async list<K extends keyof R & string>(
-    query: ListDTO<S> | undefined,
+    query: ListDTO<T> | undefined,
     opts: { populate: readonly K[] },
-  ): Promise<ListResult<Populated<S, R, K>>>;
-  async list(query?: ListDTO<S>): Promise<ListResult<Entity<S>>>;
-  async list(query?: ListDTO<S>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<S>>> {
+  ): Promise<ListResult<Populated<T, R, K>>>;
+  async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
+  async list(query?: ListDTO<T>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<T>>> {
     let b = this.qb.selectFrom(this.tableName);
     const pkColumn = this.pkColumn;
 
@@ -477,7 +491,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
       }
     }
 
-    const rows = await this.rows<EntityRow<S>>(b.compile());
+    const rows = await this.rows<EntityRow<T>>(b.compile());
     const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
@@ -505,14 +519,14 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #87 — JOIN integration. Fetch this table left-joined to a target on an FK,
   // filtered by a predicate on the base table. Returns flat joined rows (plain
   // objects — no proxies). Uses the query-compiler JOIN builder.
-  async findJoined<TargetS extends CoreSchema<string>, Kind extends 'inner' | 'left' = 'left'>(
-    join: { target: TargetS; leftCol: string; rightCol: string; kind?: Kind },
+  async findJoined<Target extends DeclaredTable, Kind extends 'inner' | 'left' = 'left'>(
+    join: { target: TaggedSchema<Target>; leftCol: string; rightCol: string; kind?: Kind },
     where?: { col: string; op: string; value: unknown },
-  ): Promise<readonly JoinRow<Entity<S>, Entity<TargetS>, Kind>[]>;
+  ): Promise<readonly JoinRow<Entity<T>, Entity<Target>, Kind>[]>;
   async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
     where?: { col: string; op: string; value: unknown },
-  ): Promise<readonly JoinRow<Entity<S>, Joined, Kind>[]>;
+  ): Promise<readonly JoinRow<Entity<T>, Joined, Kind>[]>;
   async findJoined(
     join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
     where?: { col: string; op: string; value: unknown },
@@ -613,7 +627,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #92 & relation-aware aggregations. Runs a grouped aggregate (count/sum/…)
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
-    specOrBuild: AggregateSpec<S, R> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
+    specOrBuild: AggregateSpec<T, R> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
 
@@ -751,7 +765,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
   // one IN() query for children, and attaches them under `relationName`. No
   // proxies, no identity map — children are plain rows on plain parents.
-  async findAllWithMany<K extends keyof R & string>(relationName: K): Promise<readonly Populated<S, R, K>[]>;
+  async findAllWithMany<K extends keyof R & string>(relationName: K): Promise<readonly Populated<T, R, K>[]>;
   async findAllWithMany(
     relationName: string,
     childTable: string,
@@ -764,7 +778,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     childFk?: string,
     parentKey = 'id',
   ): Promise<readonly Record<string, unknown>[]> {
-    const fetched = await this.rows<EntityRow<S>>(this.qb.selectFrom(this.tableName).compile());
+    const fetched = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile());
     if (fetched.length === 0) return fetched;
     // Without an explicit child table/FK the relation has to be looked up, which
     // is what attachRelations does; with one, the caller has already told us
@@ -783,10 +797,10 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
 
   // #207 — typed create/update. Signatures are the derived DTOs; runtime reuses
   // validatePayload (validate-before-SQL) unchanged.
-  async create(dto: CreateDTO<S>): Promise<Entity<S>> {
+  async create(dto: CreateDTO<T>): Promise<Entity<T>> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
-    const rows = await this.rows<EntityRow<S>>(
+    const rows = await this.rows<EntityRow<T>>(
       this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile(),
     );
     const row = rows[0];
@@ -795,12 +809,12 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return row;
   }
 
-  async upsert(dto: CreateDTO<S>, opts?: UpsertOptions): Promise<Entity<S> | undefined> {
+  async upsert(dto: CreateDTO<T>, opts?: UpsertOptions): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
     const target = opts?.target ?? this.schema.primaryKey;
     const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(opts?.updateFields);
-    const rows = await this.rows<EntityRow<S>>(ib.returning(['*']).compile());
+    const rows = await this.rows<EntityRow<T>>(ib.returning(['*']).compile());
     const row = rows[0];
     if (!row) {
       return undefined;
@@ -809,21 +823,21 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
     return row;
   }
 
-  async update(id: PrimaryKeyOf<S>, patch: UpdateDTO<S>): Promise<Entity<S> | undefined> {
+  async update(id: PrimaryKeyOf<T>, patch: UpdateDTO<T>): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(patch, 'update');
     this.preUpdate(clean);
     if (Object.keys(clean).length === 0) {
       return this.findById(id);
     }
     const where = this.buildKeyWhere(id);
-    const rows = await this.rows<EntityRow<S>>(
+    const rows = await this.rows<EntityRow<T>>(
       compileWhere(this.qb.updateTable(this.tableName).set(clean), where).returning(['*']).compile(),
     );
     return rows[0];
   }
 
   // #28 — delete + lifecycle hooks.
-  async delete(id: PrimaryKeyOf<S>): Promise<boolean> {
+  async delete(id: PrimaryKeyOf<T>): Promise<boolean> {
     this.preDelete(id);
     const where = this.buildKeyWhere(id);
     const rows = await this.driver.execute(
@@ -837,7 +851,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
   protected preInsert(_row: Record<string, unknown>): void {}
   protected postInsert(_row: Record<string, unknown>): void {}
   protected preUpdate(_row: Record<string, unknown>): void {}
-  protected preDelete(_id: PrimaryKeyOf<S>): void {}
+  protected preDelete(_id: PrimaryKeyOf<T>): void {}
   protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     return rows;
   }
@@ -910,7 +924,7 @@ export abstract class BaseRepository<S extends CoreSchema<string>, R extends Rel
    *
    * This used to be a walk of its own over `ColumnMeta`, and it was the fourth of the
    * four that `@zmdb/schema-core/ir` exists to collapse: it accepted `Date | string` for
-   * a `timestamp` while the published document said ISO string and `Entity<S>` said
+   * a `timestamp` while the published document said ISO string and `Entity<T>` said
    * `Date`, and it had no notion of `Min`/`Max`/`Pattern` at all, so a repository write
    * skipped every bound the schema declared and the same value was rejected only later,
    * at the HTTP edge, by a different validator. What it needed was not a walk but the
@@ -954,14 +968,14 @@ export interface DefineRepositoryOptions<R extends RelationsLike = NoRelations> 
 // `R` is inferred from `opts.relations`, so the returned repository's populate
 // keys and populated row types come from the literal map the caller wrote — the
 // subclass form has to spell `typeof userRelations` out by hand.
-export function defineRepository<S extends CoreSchema<string>, R extends RelationsLike = NoRelations>(
-  schema: S,
+export function defineRepository<T extends DeclaredTable, R extends RelationsLike = NoRelations>(
+  schema: TaggedSchema<T>,
   driver: Driver,
   opts?: DefineRepositoryOptions<R>,
-): BaseRepository<S, R> {
+): BaseRepository<T, R> {
   // Anonymous subclass binding the schema (+ optional relations) as statics,
   // exactly like a hand-written subclass — no proxies, no magic.
-  class Repo extends BaseRepository<S, R> {
+  class Repo extends BaseRepository<T, R> {
     static override readonly schema = schema;
     static readonly relations = opts?.relations ?? {};
   }

@@ -17,7 +17,9 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { Dialect } from '@zmdb/query-compiler';
 import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
-import type { CoreSchema } from '@zmdb/schema-core';
+import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';
+import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
+import type { WhereDTO } from '@zmdb/schema-core/dto';
 import { schemaFromIR } from '@zmdb/schema-core/ir';
 import type {
   Fts,
@@ -76,13 +78,39 @@ const {
   Document: Documents,
   Membership: Memberships,
   User: Users,
-} = schemasFrom(import.meta.url, ['User', 'Membership', 'Document']);
+} = schemasFrom<{ User: User; Membership: Membership; Document: Document }>(import.meta.url, [
+  'User',
+  'Membership',
+  'Document',
+]);
 
 const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
 const EMPTY: SchemaSnapshot = { version: 1, tables: [] };
 
+/**
+ * What one table has to supply to be driven through every repository method.
+ *
+ * Every field is derived from the declared type, which is the point: the payload below is
+ * checked against `CreateDTO<T>` rather than being a `Record<string, unknown>` the compiler
+ * waves through. The previous version of this file looked up the payload by table name and
+ * so could — and did — pass `{}`.
+ */
+interface Probe<T extends DeclaredTable> {
+  readonly pk: PrimaryKeyOf<T>;
+  /** One column to filter and order by. Which one does not matter; that there is one does. */
+  readonly column: ColumnKeys<T> & string;
+  /** An equality filter, and the same column under an operator — two different compilers. */
+  readonly where: WhereDTO<T>;
+  readonly operator: WhereDTO<T>;
+  readonly create: CreateDTO<T>;
+}
+
 /** Every operation this repository can run, as SQL, for one schema. */
-async function everySql(schema: CoreSchema<string>, dialect: Dialect): Promise<readonly unknown[]> {
+async function everySql<T extends DeclaredTable>(
+  schema: TaggedSchema<T>,
+  dialect: Dialect,
+  { pk, column, where, operator }: Probe<T>,
+): Promise<readonly unknown[]> {
   const compiled: unknown[] = [];
   const driver: Driver = {
     execute: async query => {
@@ -93,16 +121,14 @@ async function everySql(schema: CoreSchema<string>, dialect: Dialect): Promise<r
     },
   };
   const repo = defineRepository(schema, driver, { dialect });
-  const pk = schema.primaryKey.length > 1 ? { userId: 1, groupId: 2 } : 1;
-  const first = Object.keys(schema.columns)[1] ?? 'id';
 
   await repo.findById(pk);
   await repo.findAll();
-  await repo.find({ [first]: 'x' });
-  await repo.findOne({ [first]: { ne: null } });
+  await repo.find(where);
+  await repo.findOne(operator);
   await repo.list({
-    where: { [first]: 'x' },
-    orderBy: [{ column: first, dir: 'desc' }],
+    where,
+    orderBy: [{ column, dir: 'desc' }],
     page: { limit: 10, offset: 5 },
   });
   await repo.aggregate({ computed: { total: { fn: 'count' } } });
@@ -207,60 +233,78 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   });
 });
 
-describe('every operation compiles, over an awkward schema', () => {
-  for (const schema of [Users, Memberships, Documents]) {
-    describe(schema.table, () => {
-      for (const dialect of DIALECTS) {
-        it(`compiles every read (${dialect})`, async () => {
-          const compiled = await everySql(schema, dialect);
-          // Seven calls, each of which has to have produced at least one query. A schema value
-          // assembled at build time is data, and the way data goes wrong is a field that is
-          // absent rather than an error that is raised — a method that read a missing flag and
-          // returned early would leave the count short without throwing anything.
-          expect(compiled.length).toBeGreaterThan(6);
-        });
-      }
-
-      it('accepts a write and compiles it', async () => {
-        // `create` and `update` run the payload validator first, so this covers the validator
-        // the schema value carries as well as the SQL: a missing `hasDefault` shows up as a
-        // throw on a payload that should have been accepted, since the column would then be
-        // required in `CreateDTO` and this DTO does not supply it.
-        //
-        // `settings` needs a real `theme`, and the old version of this file passed `{}`. That is
-        // the gain from declaring the column as `Settings & Sql<'json'>` rather than calling
-        // `json<Settings>()`: the payload shape reaches the IR, so the validator checks inside
-        // the object instead of stopping at "it is one".
-        const dto: Record<string, unknown> =
-          {
-            users: {
-              email: 'a@b.com',
-              age: 30,
-              visits: 1n,
-              bio: null,
-              score: null,
-              settings: { theme: 'dark' },
-              passwordHash: 'x',
-            },
-            memberships: { userId: 1, groupId: 2, note: null },
-            documents: { slug: 'a', body: 'b' },
-          }[schema.table] ?? {};
-
-        const compiled: unknown[] = [];
-        const driver: Driver = {
-          execute: async query => {
-            compiled.push(query);
-            return [{ ...dto, id: 1 }];
-          },
-        };
-        const repo = defineRepository(schema, driver);
-        await repo.create(dto);
-        await repo.upsert(dto);
-        await repo.update(schema.primaryKey.length > 1 ? { userId: 1, groupId: 2 } : 1, {});
-        expect(compiled.length).toBeGreaterThan(2);
+// One call per table rather than one loop over all three, because every DTO in here is
+// derived from a different declared type and a loop would have to erase them back to
+// `Record<string, unknown>` to have a single body.
+function everyOperationCompiles<T extends DeclaredTable>(schema: TaggedSchema<T>, probe: Probe<T>): void {
+  describe(schema.table, () => {
+    for (const dialect of DIALECTS) {
+      it(`compiles every read (${dialect})`, async () => {
+        const compiled = await everySql(schema, dialect, probe);
+        // Seven calls, each of which has to have produced at least one query. A schema value
+        // assembled at build time is data, and the way data goes wrong is a field that is
+        // absent rather than an error that is raised — a method that read a missing flag and
+        // returned early would leave the count short without throwing anything.
+        expect(compiled.length).toBeGreaterThan(6);
       });
+    }
+
+    it('accepts a write and compiles it', async () => {
+      // `create` and `update` run the payload validator first, so this covers the validator
+      // the schema value carries as well as the SQL: a missing `hasDefault` shows up as a
+      // throw on a payload that should have been accepted, since the column would then be
+      // required in `CreateDTO` and this DTO does not supply it.
+      //
+      // `settings` needs a real `theme`, and the old version of this file passed `{}`. That is
+      // the gain from declaring the column as `Settings & Sql<'json'>` rather than calling
+      // `json<Settings>()`: the payload shape reaches the IR, so the validator checks inside
+      // the object instead of stopping at "it is one".
+      const compiled: unknown[] = [];
+      const driver: Driver = {
+        execute: async query => {
+          compiled.push(query);
+          return [{ ...probe.create, id: 1 }];
+        },
+      };
+      const repo = defineRepository(schema, driver);
+      await repo.create(probe.create);
+      await repo.upsert(probe.create);
+      await repo.update(probe.pk, {});
+      expect(compiled.length).toBeGreaterThan(2);
     });
-  }
+  });
+}
+
+describe('every operation compiles, over an awkward schema', () => {
+  everyOperationCompiles(Users, {
+    pk: 1,
+    column: 'email',
+    where: { email: 'x' },
+    operator: { email: { ne: 'nobody@example.com' } },
+    create: {
+      email: 'a@b.com',
+      age: 30,
+      visits: 1n,
+      bio: null,
+      score: null,
+      settings: { theme: 'dark' },
+      passwordHash: 'x',
+    },
+  });
+  everyOperationCompiles(Memberships, {
+    pk: { userId: 1, groupId: 2 },
+    column: 'groupId',
+    where: { groupId: 2 },
+    operator: { groupId: { ne: 0 } },
+    create: { userId: 1, groupId: 2, note: null },
+  });
+  everyOperationCompiles(Documents, {
+    pk: 'a',
+    column: 'body',
+    where: { body: 'x' },
+    operator: { body: { ne: '' } },
+    create: { slug: 'a', body: 'b' },
+  });
 });
 
 describe('the schema value is a projection of the IR it carries', () => {

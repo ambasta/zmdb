@@ -18,7 +18,7 @@ export const createUserTool = new DynamicStructuredTool({
   description: 'Create a user',
   schema: jsonSchemaToZod(toJsonSchema(users, 'create')),
   func: async input => {
-    const dto = assert<CreateDTO<typeof users>>(input); // check again, LangChain's parse is not yours
+    const dto = assert<CreateDTO<User>>(input); // check again, LangChain's parse is not yours
     const row = await userRepo.create(dto);
     return JSON.stringify(row);
   },

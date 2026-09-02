@@ -106,10 +106,10 @@ that supplies one.
 Change the declaration (e.g. add a column) and all four types update automatically;
 any code that no longer satisfies them fails to compile — that is the anti-drift guarantee.
 
-> These derivations take the **declared type**. The identically named ones on
-> `@zmdb/schema-core`'s root take the **schema value** (`Entity<typeof userSchema>`) and
-> exist for the read surface in `./dto`, which is still parameterised that way. Collapsing
-> the two is tracked in `packages/schema-core/SPEC.md` §4.
+> Every derivation takes the **declared type**, including the read surface in `./dto`.
+> There used to be a second set on `@zmdb/schema-core`'s root that took the schema value
+> instead; those are gone, and the root re-exports these. `Entity<User>`, never
+> `Entity<typeof UserSchema>`.
 
 ---
 
@@ -121,7 +121,7 @@ the entire required body is one line.
 ```ts
 import { BaseRepository } from '@zmdb/repository';
 
-class UserRepository extends BaseRepository<typeof userSchema> {
+class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
 
   // Optional: add domain queries. CRUD is inherited.
@@ -475,7 +475,7 @@ import {
 } from '@zmdb/schema-core/dto';
 
 // Typed filter (per-column value types + operator set):
-const where: WhereDTO<typeof userSchema> = {
+const where: WhereDTO<User> = {
   createdAt: { gte: since },
   role: 'admin',
   email: { like: '%@corp.com' },
@@ -484,7 +484,7 @@ const where: WhereDTO<typeof userSchema> = {
 // Compose into the query builder, then assemble a typed ListResult:
 let qb = users.query.selectFrom('users');
 qb = compileWhere(qb, where);
-const orderBy: OrderByDTO<typeof userSchema> = [{ column: 'createdAt', dir: 'desc' }];
+const orderBy: OrderByDTO<User> = [{ column: 'createdAt', dir: 'desc' }];
 qb = applyOrderBy(qb, orderBy);
 qb = applyPagination(qb, { limit: 20 });
 const rows = await driver.execute(qb.compile());

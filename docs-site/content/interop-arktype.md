@@ -17,7 +17,7 @@ const out = assert<User>(body);
 
 ArkType's achievement is parsing its syntax _in the type system_, so `'number'` becomes `number` with no build step. The cost is that the syntax is ArkType's, not TypeScript's — it covers a large subset, but a type you already have has to be re-expressed as an ArkType definition to be validated.
 
-zmdb reads the real type. `assert<SomeImportedType>(x)` works on a type from another package, a generated OpenAPI client, or `Entity<typeof users>`, with nothing rewritten. The cost is the transformer.
+zmdb reads the real type. `assert<SomeImportedType>(x)` works on a type from another package, a generated OpenAPI client, or `Entity<User>`, with nothing rewritten. The cost is the transformer.
 
 |                               | ArkType                       | zmdb                            |
 | ----------------------------- | ----------------------------- | ------------------------------- |
@@ -36,7 +36,7 @@ Both avoid runtime codegen, so both work under a strict CSP and at the edge.
 The natural boundary is the same as elsewhere: ArkType where the shape is assembled at runtime, zmdb for your own types — especially those derived from a schema, where re-expressing them would defeat the point.
 
 ```ts
-const dto = assert<CreateDTO<typeof posts>>(body); // derived; nothing to re-declare
+const dto = assert<CreateDTO<Post>>(body); // derived; nothing to re-declare
 const rule = type(tenantConfig.shape)(payload); // string from the database
 ```
 

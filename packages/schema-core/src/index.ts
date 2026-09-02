@@ -9,20 +9,13 @@
 // what is left in this file is the *data model* — `SqlType`, `ColumnFlags`, `ColumnMeta`,
 // `CoreSchema` — plus the derived-type family and the type-level assertion helpers.
 //
-// The derived types still have two spellings each, and `schema-core.type-test.ts` pins
-// both. Which one applies is a question about the schema rather than the caller: see
-// `Entity` below.
+// The derived types have one spelling each, and it takes the declared type. See the
+// DTO suite below.
 
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
-// imported at runtime in either direction, and Phase 9 removes the need for the first
-// import entirely by making `./derive` the root.
-import type {
-  CreateDTO as TaggedCreateDTO,
-  Entity as TaggedEntity,
-  PrimaryKeyOf as TaggedPrimaryKeyOf,
-  UpdateDTO as TaggedUpdateDTO,
-} from './derive/index.ts';
+// imported at runtime in either direction.
+import type { DeclaredTable, UpdateDTO } from './derive/index.ts';
 import type { SchemaIR } from './ir/index.ts';
 
 export type SqlType =
@@ -86,14 +79,15 @@ export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 /**
  * A schema value: a table described as data, for the code that runs.
  *
- * `C` carries the *literal* column map, which is what makes `Entity<S>`,
- * `CreateDTO<S>`, `WhereDTO<S>` &c. derive real property types. It defaults to
- * the erased `ColumnsMap` so `CoreSchema<string>` still means "any schema" for
- * code that does not care about the columns (repositories, OpenAPI, seeding).
+ * There is no type parameter for the column map, and its absence is the point. It used to
+ * carry the *literal* map so that `Entity<S>` could read property types out of it; every
+ * derivation now takes the declared type instead, so a literal map would be a parameter
+ * nothing reads. `columns` is data for the query compiler and the migration emitter, which
+ * is the job it is good at.
  */
-export interface CoreSchema<T extends string = string, C extends ColumnsMap = ColumnsMap> {
+export interface CoreSchema<T extends string = string> {
   readonly table: T;
-  readonly columns: C;
+  readonly columns: ColumnsMap;
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
   readonly ftsTable?: string | boolean | undefined;
@@ -126,18 +120,18 @@ declare const zmdbEntity: unique symbol;
  * A schema value that remembers the type it was generated from.
  *
  * The query compiler wants the table and the column types as data, so a tagged
- * declaration still has to become a `CoreSchema` — but the *value* has erased which
- * type it came from, and every derivation below reads a schema's columns to rebuild
- * types the declaration already stated. This phantom keeps the answer instead of
- * reconstructing it: `schemaOf<User>()` is a `TaggedSchema<User>`, so `Entity<S>`,
- * `CreateDTO<S>` and everything downstream can defer to `@zmdb/schema-core/derive`
- * and read `User` directly.
+ * declaration still has to become a `CoreSchema` — but a `CoreSchema` has erased which
+ * type it came from, and a column map cannot be read back into one: it has a `SqlType`
+ * and a flag bag, and nowhere to put a json payload's shape. This phantom keeps the
+ * answer instead of reconstructing it. `schemaOf<User>()` is a `TaggedSchema<User>`, so
+ * anything holding the value can recover `User` and derive from the declaration.
  *
  * The slot is a `unique symbol` like every tag in `./tags`, and for the same reason:
  * un-forgeable, and it erases, so no generated literal carries it at runtime. It is
- * *required* rather than optional, which is what makes `S extends TaggedSchema<infer
- * T>` a real question — an erased `CoreSchema<string>` does not have it and takes the
- * other branch.
+ * *required* rather than optional, which is what makes it inferrable: a function that
+ * wants the declared type asks for a `TaggedSchema<T>` and gets `T` from the argument,
+ * which is how `defineRepository`, `defineEntityStateMachine` and `findJoined` are
+ * parameterised on a declaration while still being handed a value.
  */
 export interface TaggedSchema<T> extends CoreSchema<string> {
   readonly [zmdbEntity]: T;
@@ -169,124 +163,27 @@ export function schemaOf<T>(): TaggedSchema<T> {
 }
 
 // ---------------------------------------------------------------------------
-// #14 — compile-time type derivation.
-// Maps a column's metadata to its TypeScript type.
+// The DTO suite (REQ-TF-4)
 // ---------------------------------------------------------------------------
-type BaseTsType<C extends ColumnMeta> = C['type'] extends 'serial' | 'integer' | 'numeric'
-  ? number
-  : C['type'] extends 'bigint'
-    ? bigint
-    : C['type'] extends 'text' | 'varchar'
-      ? string
-      : C['type'] extends 'boolean'
-        ? boolean
-        : C['type'] extends 'timestamp'
-          ? Date
-          : C['type'] extends 'jsonEnum'
-            ? C['flags'] extends { enum: infer E extends readonly string[] }
-              ? E[number]
-              : string
-            : unknown;
-
-// A `json` column is `unknown` here, and that is the ceiling of this direction rather
-// than an omission. There used to be one more branch, reading a `__payload` phantom that
-// `json<Payload>()` hung on its return type; `columnMetaFromIR` has no way to set it,
-// because a payload *shape* is a type and a `ColumnMeta` is data. The shape travels on
-// `ColumnIR.payload` for the back-ends and on the declared type for `./derive`, and both
-// of those know it exactly. See `json.type-test.ts`.
-
-// Apply nullability.
-export type TsType<C extends ColumnMeta> = C['flags'] extends { nullable: true } ? BaseTsType<C> | null : BaseTsType<C>;
-
-type ColumnsOf<S> = S extends { columns: infer C } ? C : never;
-
-// Keys of columns that are auto-increment (stripped from CreateDTO).
-type AutoIncrementKeys<C> = {
-  [K in keyof C]: C[K] extends { flags: { autoIncrement: true } } ? K : never;
-}[keyof C];
-
-// Keys of columns that have a default (optional in CreateDTO).
-type DefaultKeys<C> = {
-  [K in keyof C]: C[K] extends { flags: { hasDefault: true } } ? K : never;
-}[keyof C];
-
-// Keys of columns that admit null — also optional in CreateDTO, because omitting one
-// inserts `NULL`, which is what passing `null` does. See `./derive`'s `CreateDTO`: the
-// published document has always said this and the repository has always accepted it; the
-// type was the one place that demanded the key.
-type NullableKeys<C> = {
-  [K in keyof C]: C[K] extends { flags: { nullable: true } } ? K : never;
-}[keyof C];
-
-// Each of the four derivations below has two spellings, and which one applies is a
-// question about the schema, not about the caller: a `TaggedSchema<T>` came from a type
-// that already states everything these mapped types are reconstructing, so it defers to
-// `./derive`, which is the version that survives Phase 9. A schema whose entity type has
-// been erased — `CoreSchema<string>`, or a value read back out of a `SchemaIR` — takes
-// the second branch, which reads the column map instead.
 //
-// The read surface in `./dto` needs no such branch. `WhereDTO`, `OrderByDTO`,
-// `PaginationDTO` and `ListDTO` are all built out of `Entity<S>`, so they follow it.
-
-// Entity<S>: full row type — every column mapped to its TS type.
-export type Entity<S> =
-  S extends TaggedSchema<infer T>
-    ? TaggedEntity<T>
-    : {
-        [K in keyof ColumnsOf<S>]: ColumnsOf<S>[K] extends ColumnMeta ? TsType<ColumnsOf<S>[K]> : never;
-      };
-
-// CreateDTO<S>: omit auto-increment columns; columns with defaults are optional.
-export type CreateDTO<S, C = ColumnsOf<S>> =
-  S extends TaggedSchema<infer T>
-    ? TaggedCreateDTO<T>
-    : {
-        // required: not auto-increment, no default, not nullable
-        [
-          K in keyof C as K extends AutoIncrementKeys<C>
-            ? never
-            : K extends DefaultKeys<C> | NullableKeys<C>
-              ? never
-              : K
-        ]: C[K] extends ColumnMeta ? TsType<C[K]> : never;
-      } & {
-        // optional: has a default or admits null (and not auto-increment)
-        [
-          K in keyof C as K extends AutoIncrementKeys<C>
-            ? never
-            : K extends DefaultKeys<C> | NullableKeys<C>
-              ? K
-              : never
-        ]?: C[K] extends ColumnMeta ? TsType<C[K]> | undefined : never;
-      };
-
-// UpdateDTO<S>: fully partial CreateDTO with exact optional property support.
-export type UpdateDTO<S> =
-  S extends TaggedSchema<infer T>
-    ? TaggedUpdateDTO<T>
-    : {
-        [K in keyof CreateDTO<S>]?: CreateDTO<S>[K] | undefined;
-      };
-
-type PrimaryKeyKeys<C> = {
-  [K in keyof C]: C[K] extends ColumnMeta ? (C[K]['flags'] extends { primaryKey: true } ? K : never) : never;
-}[keyof C];
-
-type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
-
-// PrimaryKeyOf<S>: scalar for single-column keys, object map for composite keys, unknown if no PK.
-export type PrimaryKeyOf<S, C = ColumnsOf<S>> =
-  S extends TaggedSchema<infer T>
-    ? TaggedPrimaryKeyOf<T>
-    : [PrimaryKeyKeys<C>] extends [never]
-      ? unknown
-      : IsUnion<PrimaryKeyKeys<C>> extends true
-        ? { [K in PrimaryKeyKeys<C>]: C[K] extends ColumnMeta ? TsType<C[K]> : never }
-        : PrimaryKeyKeys<C> extends keyof C
-          ? C[PrimaryKeyKeys<C>] extends ColumnMeta
-            ? TsType<C[PrimaryKeyKeys<C>]>
-            : unknown
-          : unknown;
+// Re-exported, not defined. `./derive` reads the declared type, and there is no second
+// spelling any more: each of these used to have a column-map twin here, with every
+// derivation choosing between them by asking `S extends TaggedSchema<infer T>`.
+//
+// Both halves of that had to go. The column-map walk could not answer some of the
+// questions — a `json` column came out `unknown`, because a payload's shape is a type
+// and a `ColumnMeta` has nowhere to put one — so the two branches did not merely differ
+// in spelling, they differed in what they knew. And the dispatch meant every derivation
+// asked a question about its argument before it could begin, which is the inversion this
+// design exists to remove: the declaration is the source, and a value generated from it
+// is downstream.
+//
+// What takes the place of the dispatch is inference, once, at the boundary where a value
+// actually arrives: a function that is handed a generated schema declares the parameter
+// `TaggedSchema<T>` and gets `T` from it (`defineRepository`, `findJoined`,
+// `defineEntityStateMachine`, `repositoryToken`). Everything after that point is
+// parameterised on the declared type. `schema-of.type-test.ts` pins the crossing.
+export type { CreateDTO, DeclaredTable, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO } from './derive/index.ts';
 
 export interface ValidationIssue {
   readonly path: string;
@@ -442,24 +339,24 @@ export type AllowedTargetStates<Transitions, From extends string> = Transitions 
   : never;
 
 export type StateUpdateDTO<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   FromState extends string,
   Transitions,
-  AllowedFields extends keyof UpdateDTO<S> = keyof UpdateDTO<S>,
-> = Pick<UpdateDTO<S>, Exclude<AllowedFields, StateField>> & {
+  AllowedFields extends keyof UpdateDTO<T> = keyof UpdateDTO<T>,
+> = Pick<UpdateDTO<T>, Exclude<AllowedFields, StateField>> & {
   [P in StateField]?: AllowedTargetStates<Transitions, FromState>;
 };
 
 /** What a transition out of `From` is allowed to patch: the declared restriction if there is one, otherwise every updatable field. */
 type PatchableFields<
-  S,
+  T extends DeclaredTable,
   Transitions extends Record<string, readonly string[]>,
-  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] },
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<T>)[] },
   From extends keyof Transitions & string,
-> = FieldRestrictions[From] extends readonly (keyof UpdateDTO<S>)[]
+> = FieldRestrictions[From] extends readonly (keyof UpdateDTO<T>)[]
   ? FieldRestrictions[From][number]
-  : keyof UpdateDTO<S>;
+  : keyof UpdateDTO<T>;
 
 /**
  * The `patch` argument of a transition out of `From`. When the only patchable
@@ -467,32 +364,41 @@ type PatchableFields<
  * narrows to `Record<string, never>` and any property is a type error.
  */
 type TransitionPatch<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   Transitions extends Record<string, readonly string[]>,
-  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] },
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<T>)[] },
   From extends keyof Transitions & string,
-> = [Exclude<PatchableFields<S, Transitions, FieldRestrictions, From>, StateField>] extends [never]
+> = [Exclude<PatchableFields<T, Transitions, FieldRestrictions, From>, StateField>] extends [never]
   ? Record<string, never>
-  : Omit<Pick<UpdateDTO<S>, PatchableFields<S, Transitions, FieldRestrictions, From>>, StateField>;
+  : Omit<Pick<UpdateDTO<T>, PatchableFields<T, Transitions, FieldRestrictions, From>>, StateField>;
 
 export interface EntityStateMachineOptions<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   Transitions extends Record<string, readonly string[]>,
-  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<T>)[] } = {},
 > {
-  schema?: S;
+  /**
+   * The generated schema value, for inference only — nothing reads it.
+   *
+   * It is the whole reason this machine knows what a patch may contain: `T` is the
+   * declared type, recovered from the value's phantom, and `UpdateDTO<T>` is what the
+   * transitions are checked against. Passing a schema for a different table is the one
+   * mistake this cannot catch, and it is the same mistake as pointing a repository at
+   * the wrong table.
+   */
+  schema?: TaggedSchema<T>;
   stateField: StateField;
   transitions: Transitions;
   allowedFields?: FieldRestrictions | undefined;
 }
 
 export interface EntityStateMachine<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   Transitions extends Record<string, readonly string[]>,
-  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+  FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<T>)[] } = {},
 > {
   readonly stateField: StateField;
   readonly transitions: Transitions;
@@ -501,23 +407,23 @@ export interface EntityStateMachine<
   createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
     from: From,
     to: To,
-    patch?: TransitionPatch<S, StateField, Transitions, FieldRestrictions, From>,
-  ): StateUpdateDTO<S, StateField, From, Transitions, PatchableFields<S, Transitions, FieldRestrictions, From>>;
+    patch?: TransitionPatch<T, StateField, Transitions, FieldRestrictions, From>,
+  ): StateUpdateDTO<T, StateField, From, Transitions, PatchableFields<T, Transitions, FieldRestrictions, From>>;
 }
 
 export function createStateUpdatePayload<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   From extends keyof Transitions & string,
   const Transitions extends Record<string, readonly string[]>,
-  AllowedFields extends keyof UpdateDTO<S> = keyof UpdateDTO<S>,
+  AllowedFields extends keyof UpdateDTO<T> = keyof UpdateDTO<T>,
 >(
   stateField: StateField,
   transitions: Transitions,
   from: From,
   to: Transitions[From][number],
-  patch?: Omit<Pick<UpdateDTO<S>, AllowedFields>, StateField> | Record<string, never>,
-): StateUpdateDTO<S, StateField, From, Transitions, AllowedFields> {
+  patch?: Omit<Pick<UpdateDTO<T>, AllowedFields>, StateField> | Record<string, never>,
+): StateUpdateDTO<T, StateField, From, Transitions, AllowedFields> {
   const allowed = transitions[from];
   if (!Array.isArray(allowed) || !allowed.includes(to)) {
     throw new Error(`Invalid state transition from "${from}" to "${to}" for field "${stateField}"`);
@@ -527,17 +433,17 @@ export function createStateUpdatePayload<
     [stateField]: to,
   };
   // boundary: return value is certified as StateUpdateDTO after runtime transition validation.
-  return payload as StateUpdateDTO<S, StateField, From, Transitions, AllowedFields>;
+  return payload as StateUpdateDTO<T, StateField, From, Transitions, AllowedFields>;
 }
 
 export function defineEntityStateMachine<
-  S,
+  T extends DeclaredTable,
   StateField extends string,
   const Transitions extends Record<string, readonly string[]>,
-  const FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<S>)[] } = {},
+  const FieldRestrictions extends { readonly [From in keyof Transitions]?: readonly (keyof UpdateDTO<T>)[] } = {},
 >(
-  options: EntityStateMachineOptions<S, StateField, Transitions, FieldRestrictions>,
-): EntityStateMachine<S, StateField, Transitions, FieldRestrictions> {
+  options: EntityStateMachineOptions<T, StateField, Transitions, FieldRestrictions>,
+): EntityStateMachine<T, StateField, Transitions, FieldRestrictions> {
   const { stateField, transitions, allowedFields } = options;
 
   return {
@@ -551,14 +457,14 @@ export function defineEntityStateMachine<
     createUpdatePayload<From extends keyof Transitions & string, To extends Transitions[From][number]>(
       from: From,
       to: To,
-      patch?: TransitionPatch<S, StateField, Transitions, FieldRestrictions, From>,
+      patch?: TransitionPatch<T, StateField, Transitions, FieldRestrictions, From>,
     ) {
       return createStateUpdatePayload<
-        S,
+        T,
         StateField,
         From,
         Transitions,
-        PatchableFields<S, Transitions, FieldRestrictions, From>
+        PatchableFields<T, Transitions, FieldRestrictions, From>
       >(stateField, transitions, from, to, patch);
     },
   };

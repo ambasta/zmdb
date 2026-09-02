@@ -41,7 +41,7 @@ export class UsersController {
 }
 ```
 
-You get `@zmdb/web`'s routing and DI, the generated validators, and `toOpenApi` over your request and response types, with Gel as the data layer. What you lose is the derivation — `CreateUserRequest` is hand-written rather than `CreateDTO<typeof users>`, so it can drift from the Gel schema. A test that round-trips a `random<CreateUserRequest>()` through Gel is the cheapest guard against that.
+You get `@zmdb/web`'s routing and DI, the generated validators, and `toOpenApi` over your request and response types, with Gel as the data layer. What you lose is the derivation — `CreateUserRequest` is hand-written rather than `CreateDTO<User>`, so it can drift from the Gel schema. A test that round-trips a `random<CreateUserRequest>()` through Gel is the cheapest guard against that.
 
 ## What it would take
 
