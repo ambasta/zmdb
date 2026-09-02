@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
-import { bigint, defineSchema, integer, numeric, serial, text, timestamp } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 // Tests (#279) for zmdb data-layer integration — RED first (data exports absent).
 // Orders end-to-end on node:sqlite: controller injects a repository via DI, body
 // validated before persist, typed response. Per packages/web/src/data/SPEC.md.
@@ -13,11 +14,11 @@ import { createRouter, type Ctx } from '../pipeline/index.ts';
 import { Controller, Get, Post } from '../routing/index.ts';
 import { repositoryToken, validateWith, wireDecoder, wireEncoder } from './index.ts';
 
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: numeric().notNull(),
-});
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  total: number & Sql<'numeric'>;
+}
 
 const OrderRepoToken = repositoryToken<typeof OrderSchema>('OrderRepo');
 
@@ -87,12 +88,19 @@ describe('@zmdb/web data: Orders end-to-end (node:sqlite)', () => {
 // The wire↔app crossing at the HTTP boundary (plan D3). JSON has no date and no bigint;
 // the app layer, the repository and the DDL all do. These two functions are the only place
 // the two forms meet, and the test asserts both directions plus what neither does.
-const EventSchema = defineSchema('events', {
-  id: serial().primaryKey(),
-  name: text().notNull(),
-  at: timestamp(),
-  seq: bigint(),
-});
+export interface Event extends Table<'events'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  at: Date & Sql<'timestamp'>;
+  seq: bigint & Sql<'bigint'>;
+}
+
+// One call for both: opening the project is what costs, and reflecting a second interface off
+// the session already open is about 3ms.
+const { Order: OrderSchema, Event: EventSchema } = schemasFrom<{ Order: Order; Event: Event }>(import.meta.url, [
+  'Order',
+  'Event',
+]);
 
 const EventRepoToken = repositoryToken<typeof EventSchema>('EventRepo');
 

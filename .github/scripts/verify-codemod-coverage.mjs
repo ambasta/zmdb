@@ -71,7 +71,7 @@ const ALLOWED = {
  * deletion — at which point this whole check has no subject and goes with it. Lowering it
  * for any other reason is a schema quietly becoming unconvertible.
  */
-const MINIMUM_CONVERTED = 34;
+const MINIMUM_CONVERTED = 29;
 
 function trackedTypeScript() {
   return execFileSync('git', ['ls-files', '-z', '*.ts'], { cwd: ROOT, encoding: 'utf8' })

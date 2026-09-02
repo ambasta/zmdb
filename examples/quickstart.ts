@@ -1,25 +1,41 @@
 // Runnable zmdb quickstart — zero external dependencies (uses node:sqlite).
 //   node --experimental-strip-types examples/quickstart.ts
-// Defines a schema, wires a typed repository with defineRepository + the built-in
-// sqlite driver, and does typed CRUD + list + populate. No proxies, no identity map.
+// Declares two tables as interfaces, wires a typed repository with defineRepository + the
+// built-in sqlite driver, and does typed CRUD + list + populate. No proxies, no identity map.
+//
+// One line here is not what an application writes. In a project with a build step the schema
+// comes from `schemaOf<User>()`, which the transform replaces with the schema value it
+// reflected at compile time — see `fixtures/consumer-cli` for that path end to end. This file
+// runs under `node --experimental-strip-types` with nothing in front of it, so it asks for the
+// same reflection at startup instead, through `@zmdb/aot-validator/testing`. Same reflection,
+// same schema; it just pays about 80ms to open the project rather than nothing at all.
 import { DatabaseSync } from 'node:sqlite';
 
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { defineRepository } from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
-import { defineSchema, serial, text, integer } from '@zmdb/schema-core';
 import { oneToMany } from '@zmdb/schema-core/relations';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-// 1 — define your schema once
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  age: integer().notNull(),
-});
-const OrderSchema = defineSchema('orders', {
-  id: serial().primaryKey(),
-  userId: integer().notNull(),
-  total: integer().notNull(),
-});
+// 1 — declare your tables once. Everything below is derived from these two interfaces: the
+// DTOs, the validation on `create`, the SQL, the JSON Schema. `Sql<'integer'>` is there
+// because `integer`, `bigint` and `numeric` are all `number` to TypeScript, and `Serial` says
+// the database generates the value — which is why `create` below does not want an `id`.
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  age: number & Sql<'integer'>;
+}
+export interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'>;
+  total: number & Sql<'integer'>;
+}
+
+const { User: UserSchema, Order: OrderSchema } = schemasFrom<{ User: User; Order: Order }>(import.meta.url, [
+  'User',
+  'Order',
+]);
 
 // 2 — a database + tables (node:sqlite, in-memory here)
 const db = new DatabaseSync(':memory:');

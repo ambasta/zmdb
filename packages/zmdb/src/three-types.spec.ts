@@ -10,31 +10,37 @@
 //
 // Nothing above catches that, because each of the three lives in a different package and
 // each was self-consistent. This file is the only place all three are asked at once, from
-// a single `defineSchema` call, which is why it lives in the umbrella package — the one
-// that depends on all of them.
+// one declaration, which is why it lives in the umbrella package — the one that depends on
+// all of them.
 
+import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import type { Dialect } from '@zmdb/query-compiler';
 import { emitUp, snapshot, type ChangeOp } from '@zmdb/query-compiler/migrations';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { defineSchema, serial, text, timestamp } from './index.ts';
-import { appTypeOf, irFromSchema, jsonSchemaFromIR, objectTypeFromIR, wireTypeOf, type ColumnIR } from './ir.ts';
+import { appTypeOf, jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, wireTypeOf, type ColumnIR } from './ir.ts';
 
-const Events = defineSchema('events', {
-  id: serial().primaryKey(),
-  name: text(),
-  at: timestamp(),
-});
+export interface Events extends Table<'events'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  at: Date & Sql<'timestamp'>;
+}
 
-const AT = irFromSchema(Events).columns.find(c => c.name === 'at') as ColumnIR;
+// The IR rather than the schema, because the IR is what two of the three answers are read
+// out of; the schema is one conversion further on and only the DDL needs it.
+const { Events: IR } = schemaIrsFrom(import.meta.url, ['Events']);
+const events = schemaFromIR(IR);
+
+const AT = IR.columns.find(c => c.name === 'at') as ColumnIR;
 
 const ISO = '2026-01-01T12:30:00.000Z';
 const WHEN = new Date(ISO);
 
 /** The `CREATE TABLE` a migration would generate for this schema, in one dialect. */
 function ddl(dialect: Dialect): string {
-  const table = snapshot([Events]).tables[0];
+  const table = snapshot([events]).tables[0];
   if (!table) throw new Error('no table in the snapshot');
   const create: ChangeOp = { kind: 'create_table', table: table.name, columns: table.columns };
   return emitUp(create, dialect);
@@ -78,7 +84,7 @@ describe('a timestamp column, in all three of its types', () => {
   it('is a date-time string in the published document, which is the wire type', () => {
     // Not a coincidence and not a third decision: a published document describes a JSON
     // body, so it is the wire type rendered as JSON Schema.
-    expect(jsonSchemaFromIR(irFromSchema(Events), 'create').properties).toMatchObject({
+    expect(jsonSchemaFromIR(IR, 'create').properties).toMatchObject({
       at: { type: 'string', format: 'date-time' },
     });
   });
@@ -86,8 +92,8 @@ describe('a timestamp column, in all three of its types', () => {
   it('validates one layer per call, so a mixed payload is rejected either way', () => {
     // The bug in one line. A single validator that took `Date | string` could not fail
     // here, which is exactly why nobody noticed the DDL was wrong for years.
-    const create = objectTypeFromIR(irFromSchema(Events), 'create');
-    const wire = objectTypeFromIR(irFromSchema(Events), 'create', 'wire');
+    const create = objectTypeFromIR(IR, 'create');
+    const wire = objectTypeFromIR(IR, 'create', 'wire');
     expect(issuesFor({ name: 'launch', at: WHEN }, create)).toEqual([]);
     expect(issuesFor({ name: 'launch', at: ISO }, wire)).toEqual([]);
     expect(issuesFor({ name: 'launch', at: ISO }, create)).toHaveLength(1);
