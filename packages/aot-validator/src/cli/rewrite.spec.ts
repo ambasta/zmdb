@@ -22,6 +22,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { apiInstanceCount, ReflectSession } from '../reflect/session.ts';
 import { codegen, watchCodegen, type CodegenResult } from './index.ts';
 
 /** The repo root, so a temp project outside it can still resolve `@zmdb/*`. */
@@ -371,4 +372,50 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // The first pass found nothing to do, which is what the run before the edit should say.
     expect(lines[0]).toBe('up to date');
   }, 30_000);
+});
+
+// -----------------------------------------------------------------------------
+// A session the caller owns
+// -----------------------------------------------------------------------------
+
+const APP = `import { is } from '@zmdb/aot-validator/utilities';
+
+import type { Order } from './model.ts';
+
+export const accepts = (value: unknown): boolean => is<Order>(value);
+`;
+
+describe('a session the caller owns', () => {
+  // The plugin has taken a borrowed session from the start; the CLI's path did not, and a tool
+  // that has the project loaded already should not pay to load it again — that is REQ-TF-11
+  // pointed at the caller rather than at the file loop. It is also what `verify:build-budget`
+  // needs in order to watch a build from outside it.
+
+  it('is used rather than a second one, and is still open afterwards', () => {
+    const { src, tsconfig } = project(APP);
+    const before = apiInstanceCount();
+    using session = ReflectSession.open({ project: tsconfig });
+    ok(codegen({ project: tsconfig, session }));
+
+    // One compiler for the whole thing: the session opened above, and none from `codegen`.
+    expect(apiInstanceCount() - before).toBe(1);
+    expect(readFileSync(join(src, 'app.ts'), 'utf8')).toContain('zmdbIsOrder(value)');
+    // Closing it is the caller's business, so the caller can still use it. A closed session
+    // throws on any snapshot update, which is what makes this observable at all.
+    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+  }, 60_000);
+
+  it('survives a watch that borrowed it', async () => {
+    const { src, tsconfig } = project(APP);
+    using session = ReflectSession.open({ project: tsconfig });
+
+    const stop = Promise.withResolvers<void>();
+    const watching = watchCodegen({ project: tsconfig, session, until: stop.promise, debounceMs: 10 });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    stop.resolve();
+    ok(await watching);
+
+    // `watchCodegen` closes the session it opened itself. This one it did not open.
+    expect(() => session.refresh([join(src, 'app.ts')])).not.toThrow();
+  }, 60_000);
 });

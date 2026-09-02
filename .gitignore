@@ -40,3 +40,8 @@ packages/aot-validator/src/reflect/__fixtures__/__generated__/
 
 # The instantiation budget generates and measures its own projects
 packages/schema-core/src/derive/__budget__/
+
+# The build budget generates a project and runs the real codegen over it. Inside the repository
+# because `zmdb` has to resolve the way it does for a consumer, and outside packages/ and
+# fixtures/ because `yarn typecheck` discovers those.
+/.budget/

@@ -64,6 +64,13 @@ jobs:
       - name: Verify what the tags cost the compiler
         run: yarn verify:instantiations
 
+      # Loading a project is the expensive part of asking the compiler anything, so a codegen
+      # that reloaded per file would cost more than the validator it produces ever saves — and
+      # would pass every correctness test in the repository. One compiler for a 64-module build,
+      # and a snapshot-update log that is the same at 8 modules as at 64 (REQ-TF-11).
+      - name: Verify the build pays the checker once
+        run: yarn verify:build-budget
+
       # A descriptor is the shape of a type written out again by hand, in a form the compiler
       # cannot check against the type it claims to describe. The witness is generated now, and
       # this is what keeps it that way (REQ-TF-9).

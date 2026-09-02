@@ -49,6 +49,17 @@ export interface CodegenOptions {
   readonly check?: boolean | undefined;
   /** Where progress goes. Defaults to nowhere, so a library caller stays quiet. */
   readonly log?: ((line: string) => void) | undefined;
+  /**
+   * An already-open session, as the plugin takes. The caller keeps ownership, closing
+   * included.
+   *
+   * A caller that already has the project loaded should not pay to load it again — that is
+   * REQ-TF-11's whole point, and it applies to a tool driving `codegen` just as much as to
+   * the build it is part of. It is also what makes the claim observable: the session records
+   * its snapshot updates, so `verify:build-budget` can watch a 64-module run and see that the
+   * project is opened once.
+   */
+  readonly session?: ReflectSession | undefined;
 }
 
 export interface CodegenResult {
@@ -70,6 +81,7 @@ const MENTIONS_CALLEE = /\b(?:is|equals|assert|assertEquals|validate|random|toJs
 
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);
+  if (options.session) return run(options.session, project, options);
   using session = ReflectSession.open({ project });
   return run(session, project, options);
 }
@@ -343,7 +355,9 @@ export async function watchCodegen(options: WatchOptions): Promise<CodegenResult
   const project = resolve(options.project);
   const root = dirname(project);
   const log = options.log ?? (() => undefined);
-  const session = ReflectSession.open({ project });
+  // A borrowed session is not this function's to close, the way it is not the plugin's.
+  const borrowed = options.session;
+  const session = borrowed ?? ReflectSession.open({ project });
 
   let last = run(session, project, options);
   report(last, log);
@@ -387,7 +401,7 @@ export async function watchCodegen(options: WatchOptions): Promise<CodegenResult
     if (!(error instanceof Error) || error.name !== 'AbortError') throw error;
   } finally {
     if (timer) clearTimeout(timer);
-    session.close();
+    if (!borrowed) session.close();
   }
   return last;
 }

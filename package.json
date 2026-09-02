@@ -29,6 +29,7 @@
     "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
     "verify:bench": "node .github/scripts/verify-bench-results.mjs",
+    "verify:build-budget": "node .github/scripts/verify-build-budget.mjs",
     "verify:codemod": "node .github/scripts/verify-codemod-coverage.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
     "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
