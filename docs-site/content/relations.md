@@ -1,4 +1,4 @@
-Relations describe how tables relate through foreign keys. They are declared twice today — once as a tag on the interface, which is what shapes the types, and once as a runtime map, which is what `populate` batches its queries from.
+Relations describe how tables relate through foreign keys. They are declared once, as a tag on the interface, and everything reads them from there: the derived types, the JSON Schema `$ref`s, and the queries `populate` batches.
 
 > [!IMPORTANT]
 > Relations are metadata-only. They do not create FK constraints — `References<'users.id'>` on the column does that. Neither creates an index; see [Indexes & Constraints](./indexes-constraints.html).
@@ -26,64 +26,78 @@ Each tag names the **target table** and the **column that carries the join**. Ca
 
 Relation properties are excluded from `Entity<T>`, `CreateDTO<T>` and the DDL — a join target is not a column to `INSERT`. Declare them optional, because a row only carries one when you asked for it.
 
-## The runtime map
+> [!NOTE]
+> There used to be a second spelling: `oneToMany('posts', 'userId')` and its three siblings
+> returned a `RelationMeta`, and a map of those went to `defineRepository` so `populate` could
+> learn what the tag had already said. The builders, the map, `RelationMeta`, `RelationDef` and
+> `RelationsMap` are gone. If you have one, delete it — the tag above is the whole declaration.
+
+## Populating them
 
 ```ts
-import { manyToOne, oneToMany, oneToOne, manyToMany } from '@zmdb/schema-core/relations';
-
-export const userRelations = { posts: oneToMany('posts', 'userId') };
-export const postRelations = { author: manyToOne('users', 'userId') };
-
-const userToProfile = oneToOne('profiles', 'userId');
-const userToRoles = manyToMany('roles', 'user_roles');
+const user = await users.findById(1, { populate: ['posts'] });
+// user.posts: readonly Entity<Post>[]
 ```
 
-Each builder returns a frozen `RelationMeta`. The arguments are the same two strings as the tag.
+`populate` accepts the relation keys of `User` and nothing else, so a typo is a compile error. Nothing is attached for a relation you did not ask for — an unpopulated relation is **absent** from the row, not present and empty.
 
-> [!WARNING]
-> Writing it twice is a gap, not a design. The tag reaches the derived types and documents;
-> the repository's `populate` reads the map. Keep them in step until the reflector emits the
-> map from the tags.
-
-## Type-Safe Population
-
-Use `PopulatedEntity` for type-safe results. The type system knows to expect an array (to-many) or single entity (to-one).
+The result type is `Populated<User, 'posts'>`:
 
 ```ts
-import type { Entity } from 'zmdb/derive';
-import { PopulatedEntity, RelationDef, RelationsMap } from '@zmdb/schema-core/relations';
+import type { Entity, Populated } from 'zmdb/derive';
 
-type UserRelations = RelationsMap & {
-  posts: RelationDef & { meta: ReturnType<typeof oneToMany>; entity: Entity<Post> };
-};
+type UserWithPosts = Populated<User, 'posts'>;
+// { id: number; email: string; posts: readonly Entity<Post>[] }
 
-type UserWithPosts = PopulatedEntity<Entity<User>, UserRelations, 'posts'>;
-// user.posts[0].title is typed as string
+type PostWithAuthor = Populated<Post, 'author'>;
+// { id: number; userId: number; title: string; author: Entity<User> | null }
 ```
 
-`PopulatedEntity` predates the relation tags and takes the relation description as a type argument, which is why the `RelationDef` above restates what `OneToMany<'posts', 'userId'>` already said. Where the relation is declared on the interface, `User['posts']` is the shorter route to the same type.
+A to-many is an array — empty where nothing matched. A to-one is nullable, because a foreign key that matches no row is a row the database can hold. The populated child is an `Entity<>`: a fetched row, with its own relations dropped, exactly like the parent. `PopulatedEntity` is the same type under a longer name.
 
-## Compiling Population Queries
+## Which side holds the key
 
-`compilePopulate` generates SQL for loading relations. It handles both join (to-one) and batched IN() queries (to-many).
+Resolution reads the tables, not the tag:
+
+- `ManyToOne<'users', 'userId'>` on `posts` is the **owning** side: `posts.userId` is the column, and `References<'users.id'>` on it names what the join matches. A foreign key without a `References` is assumed to point at `id`.
+- `OneToMany<'posts', 'userId'>` on `users` is the **inverse** side: the join runs from `users`' primary key against `posts.userId`.
+- `OneToOne` is symmetric and cannot say which half stores the key, so the answer is whichever table has the column. `profile?: Profile & OneToOne<'profiles', 'userId'>` on a `users` with no `userId` is the inverse side.
+
+`resolveRelation` is exported if you need the answer yourself:
+
+```ts
+import { resolveRelation } from '@zmdb/schema-core/relations';
+
+resolveRelation(PostSchema.ir, 'author');
+// { name: 'author', targetTable: 'users', parentKey: 'userId', targetKey: 'id', toMany: false }
+```
+
+An unknown name throws and lists the relations the type does declare.
+
+## Compiling population queries
+
+`compilePopulate` generates the SQL: a to-one is a JOIN, a to-many a batched `IN ()` select.
 
 ```ts
 import { compilePopulate } from '@zmdb/schema-core/relations';
 
-const query = compilePopulate('users', 'posts', oneToMany('posts', 'userId'), 'postgres', [1, 2, 3]);
+const query = compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2, 3]);
 // query.kind: 'batched'
 // query.sql: SELECT * FROM "posts" WHERE "userId" IN ($1, $2, $3)
-```
 
-For to-one, it generates a JOIN:
-
-```ts
-const query2 = compilePopulate('posts', 'author', manyToOne('users', 'userId'), 'postgres', []);
+const query2 = compilePopulate(PostSchema.ir, 'author', 'postgres');
 // query2.kind: 'join'
 // query2.sql: SELECT * FROM "posts" INNER JOIN "users" ON "posts"."userId" = "users"."id"
 ```
 
-## Attaching Populated Relations
+Duplicate and nullish parent keys are dropped, and no parent keys compiles to `WHERE 1 = 0` rather than to every row.
+
+> [!WARNING]
+> `ManyToMany` throws here and in `populate`. `ManyToMany<'roles', 'user_roles'>` names a join
+> table rather than a column, and guessing its two foreign keys from the tables either side is
+> how a wrong query gets built quietly. Join the three tables yourself — see [Joins](./joins.html).
+
+## Attaching populated relations
 
 `attachPopulated` merges related entities into the parent result. Non-mutating.
 
@@ -97,14 +111,14 @@ const userWithPosts = attachPopulated(user, 'posts', posts);
 ```
 
 > [!TIP]
-> Use `attachPopulated` when manually composing results. For automatic population, use the repository's `populate` method.
+> Use `attachPopulated` when manually composing results. For automatic population, use the repository's `populate` option.
 
-## Join Result Types
+## Join result types
 
 `JoinRow` types handle inner vs left joins:
 
 ```ts
-import { JoinRow } from '@zmdb/schema-core/relations';
+import type { JoinRow } from '@zmdb/schema-core/relations';
 
 type UserPostInner = JoinRow<Entity<User>, Entity<Post>, 'inner'>;
 // All columns present
@@ -113,8 +127,11 @@ type UserPostLeft = JoinRow<Entity<User>, Entity<Post>, 'left'>;
 // Joined columns are Partial<>
 ```
 
+`zmdb/derive` exports a `JoinRow<T, K, Kind>` that names the joined side by relation key instead of by type — `JoinRow<User, 'posts', 'inner'>`. Same asymmetry, different argument.
+
 ## Related
 
 - [Schema Declaration](./schema-declaration.html) — defining tables with foreign keys
+- [Typed populate & join results](./populate-results.html) — the result types in detail
 - [Repository](./repository.html) — CRUD with relation support
 - [Indexes & Constraints](./indexes-constraints.html) — indexing FK columns

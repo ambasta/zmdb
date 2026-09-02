@@ -82,11 +82,6 @@ const MAY_NAME = new Map([
       "`Sql<'serial'>` is refused because `Serial` is the tag that means it.",
   ],
   [
-    'packages/schema-core/src/relations/index.ts',
-    'a relation target may be given as a schema or as a bare column map, so the union has to ' +
-      'name the second shape. It reads no field of one.',
-  ],
-  [
     'packages/aot-validator/src/reflect/index.ts',
     'the producer. It maps a declared TypeScript type to a `SqlType`, which is the direction ' +
       'this gate exists to protect: one thing writes the vocabulary, one thing reads it.',

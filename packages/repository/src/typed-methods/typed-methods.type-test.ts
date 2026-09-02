@@ -27,8 +27,8 @@ export const _readById: Promise<Entity<User> | undefined> = repo.findById(1);
 export const _readWhere: Promise<readonly Entity<User>[]> = repo.find({
   role: 'admin',
 });
-// This repository declares no relations, so there is nothing to populate.
-// @ts-expect-error — populate keys are `keyof R`, and `R` is empty here.
+// This table declares no relations, so there is nothing to populate.
+// @ts-expect-error — populate keys are `RelationKeys<User>`, which is `never` here.
 export const _readByIdPopulated = repo.findById(1, { populate: ['orders'] });
 
 // The element type is the derived entity, not `Record<string, unknown>`: this is

@@ -36,27 +36,36 @@ export type {
 // carry that fact forward, so an unqualified `T[K]` does not compile.
 
 /**
- * The row plus the relations named by `K`, typed as declared.
+ * What a populated relation holds: fetched rows, and what happens when nothing matched.
  *
- * Nothing here decides cardinality, and that is the point: `author?: User &
- * ManyToOne<…>` is one `User` and `comments?: Comment[] & OneToMany<…>` is an array
- * because that is what the declaration says. The schema-value version had to read the
- * cardinality out of a `RelationMeta` and rebuild the array, through six nested
- * conditional types (`relations/index.ts`'s `RelationEntityFromDef`), because a
- * relation *value* does not carry the target's type.
+ * Cardinality comes from the declaration and nothing else, which is the point: `comments?:
+ * Comment[] & OneToMany<…>` is an array because it was written as one, and `author?: User &
+ * ManyToOne<…>` is not. The schema-value version had to read the cardinality out of a
+ * `RelationMeta` and rebuild the array, through six nested conditional types named
+ * `RelationEntityFromDef` and `RelationCardinalityFromDef`, because a relation *value* does
+ * not carry the target's type. Both are deleted.
  *
- * The relation tag survives on the populated property. It is an optional unique-symbol
- * slot, so it costs nothing and erases; stripping it would take a conditional type per
- * cardinality to buy nothing.
+ * Two things do change on the way through. The target becomes `Entity<>`: a populated child
+ * is a fetched row, so its own relations are not there to read, exactly as for the parent.
+ * And a to-one gains `| null`, because a foreign key that matches nothing is a row the
+ * database can hold — `null` is what the repository attaches for it, and a type that said
+ * `User` there would be wrong for the case the query cannot rule out. A to-many needs no
+ * such arm: no match is the empty array.
+ */
+type PopulatedValue<V> =
+  NonNullable<V> extends readonly (infer E)[]
+    ? readonly Entity<E & DeclaredTable>[]
+    : Entity<NonNullable<V> & DeclaredTable> | null;
+
+/**
+ * The row plus the relations named by `K`, populated.
  *
- * `Exclude<T[P], undefined>` because a relation is declared optional — `author?:` — and
- * that is what makes it possible to hold an unpopulated `Post`. Populating it is
- * precisely the claim that it is there, so the `undefined` comes off. (`-?` alone will
- * not do it: the key set is `K & keyof T`, not `keyof T`, so the mapped type is not
- * homomorphic and the modifier has nothing to strip.)
+ * The key set is `K & keyof T` rather than `K`: `RelationKeys<T>` *is* a subset of `keyof T`
+ * by construction, but it is a mapped-type projection and TypeScript will not carry that
+ * forward for an unresolved `T`.
  */
 export type PopulatedEntity<T extends DeclaredTable, K extends RelationKeys<T> = RelationKeys<T>> = Entity<T> & {
-  -readonly [P in K & keyof T]: Exclude<T[P], undefined>;
+  -readonly [P in K & keyof T]: PopulatedValue<T[P]>;
 };
 
 /** Alias kept because both names are in use across the repository and the docs. */
@@ -80,10 +89,10 @@ type RelationTargetOf<V> = (NonNullable<V> extends readonly (infer E)[] ? E : No
  * a parameter rather than always-partial.
  *
  * `../relations/index.ts` exports the same asymmetry as `JoinRow<Base, Joined, Kind>`, for
- * the join that names its target directly instead of by a relation. This one restates the
- * two lines rather than importing them, because `relations` reads the package root and the
- * root re-exports this file — one type-only import cycle to save one conditional is a bad
- * trade. If a third spelling ever wants them, that is the point to extract.
+ * the join that names its target directly instead of by a relation. Two shapes, because they
+ * take different arguments: that one is given both tables, this one is given a base table and
+ * the name of one of its relations. The conditional itself is two lines and duplicating it is
+ * cheaper than a shared helper neither would read more clearly.
  */
 export type JoinRow<
   T extends DeclaredTable,

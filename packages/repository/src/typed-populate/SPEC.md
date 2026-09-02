@@ -1,56 +1,72 @@
-# SPEC — Typed populate ergonomics (frozen)
+# SPEC — Typed populate ergonomics
 
-Epic #215. Turns the stringly-typed `findAllWithMany("orders","orders","userId")`
-into an ergonomic, typed `findById(id, { populate: ["orders"] })` that returns a
-parent typed with its nested relation(s), reusing the existing
-`PopulatedEntity`/`attachPopulated` from `@zmdb/schema-core` (epic #188). No
-proxies — populate is an explicit, batched extra query.
+Epic #215. Turns the stringly-typed `findAllWithMany("orders","orders","userId")` into an
+ergonomic, typed `findById(id, { populate: ["orders"] })` that returns a parent typed with its
+nested relation(s). No proxies — populate is an explicit, batched extra query.
 
-## How relations attach (frozen)
+## How relations attach
 
-`CoreSchema` intentionally does **not** carry relations (columns only). A
-repository declares its relations as a typed static map — the same
-"declare-once" pattern as `static schema`:
+They are declared on the type, with a tag, and the repository reads them off the schema:
 
 ```ts
-import { manyToOne, oneToMany } from '@zmdb/schema-core';
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+  orders?: Order[] & OneToMany<'orders', 'userId'>;
+}
 
 class UserRepository extends BaseRepository<User> {
-  static readonly schema = UserSchema;
-  static readonly relations = {
-    orders: { rel: oneToMany('orders', 'userId'), entity: OrderSchema, childFk: 'userId', parentKey: 'id' },
-  } as const;
+  static override readonly schema = UserSchema;
 }
 ```
 
-- Each entry names a relation and pins: the `RelationMeta` (cardinality/target),
-  the related schema (for `Entity` derivation), and the FK/parent-key columns.
-- `RelationKeys<R>` = `keyof typeof Repo.relations`.
+- `populate` accepts `RelationKeys<User>`, so a misspelling is a compile error rather than a
+  runtime throw.
+- The columns the batched select matches on come from `resolveRelation(schema.ir, name)` in
+  `@zmdb/schema-core`. `OneToMany<'orders', 'userId'>` names the target table and the foreign
+  key; `References<'users.id'>` on `orders.userId` names the column it points at.
+
+This is a rewrite of what the epic originally froze. A `CoreSchema` used to carry columns only,
+so relations came in as a typed static map beside `static schema`:
+
+```ts
+static readonly relations = {
+  orders: { rel: oneToMany('orders', 'userId'), entity: OrderSchema, childFk: 'userId', parentKey: 'id' },
+} as const;
+```
+
+Every fact in that entry is in the declaration above it — twice over, since the `RelationMeta`
+and the `childFk`/`parentKey` pair both name the key — and the two could disagree. They did:
+`attachRelations` read `childTable`/`childFk`/`parentKey` and `resolveRelationJoin` read
+`fk`/`mappedBy` with different fallbacks, so the batched select and the join could build
+different queries from one map entry. `BaseRepository` no longer takes a second type parameter
+for the map, and `defineRepository` no longer takes a `relations` option.
 
 ## API
 
 ```ts
-interface PopulateOption<R> { populate?: readonly (keyof R)[] }
-
-findById<K extends keyof R>(id, opts?: { populate?: readonly K[] })
-  : Promise<Populated<Entity<S>, R, K> | undefined>;
-find<K extends keyof R>(where: WhereDTO<S>, opts?: { populate?: readonly K[] })
-  : Promise<readonly Populated<Entity<S>, R, K>[]>;
+findById<K extends RelationKeys<T> & string>(id, opts?: { populate?: readonly K[] })
+  : Promise<Populated<T, K> | undefined>;
+find<K extends RelationKeys<T> & string>(where: WhereDTO<T>, opts?: { populate?: readonly K[] })
+  : Promise<readonly Populated<T, K>[]>;
 ```
 
-## Frozen behaviour
+## Behaviour
 
-- With no `populate`, behaviour + types are exactly as epic A (plain `Entity<S>`).
-- With `populate: ["orders"]`, the repository fetches the parents, then runs ONE
-  batched `IN (...)` query per relation and attaches results via `attachPopulated`
-  (to-many → `Entity<Child>[]`, to-one → `Entity<Child> | null`). Result type is
-  `Populated<Entity<S>, R, "orders">`.
+- With no `populate`, the result is a plain `Entity<T>` and **nothing** is attached — an
+  unpopulated relation is absent from the row, not present and empty.
+- With `populate: ["orders"]`, the repository fetches the parents, then runs ONE batched
+  `IN (...)` query per relation and attaches results via `attachPopulated` (to-many →
+  `readonly Entity<Order>[]`, to-one → `Entity<User> | null`). The result type is
+  `Populated<T, "orders">`.
+- A `ManyToMany` relation throws rather than compiling a query: `via` is a join table, and
+  guessing its two foreign keys is how a wrong query gets built quietly.
 - Children are plain objects on plain parents — no identity map, no proxies.
 - The old `findAllWithMany` is **deprecated** (kept working) in favour of this.
 
 ## Acceptance
 
-- Type-level: `findById(1, { populate: ['orders'] })` result has
-  `orders: Entity<Order>[]`; without populate it's plain `Entity<S>`.
-- Runtime: a fake recording driver shows parents query + one batched child
-  `IN`/OR query; children attached under the relation key (in-memory sqlite E2E).
+- Type-level: `findById(1, { populate: ['orders'] })` has `orders: readonly Entity<Order>[]`;
+  without populate it is a plain `Entity<User>`, and `'orders'` is not a key of it.
+- Runtime: a fake recording driver shows the parents query plus one batched child `IN`/OR
+  query, with children attached under the relation key (in-memory sqlite E2E).

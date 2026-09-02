@@ -23,12 +23,12 @@ One statement, one round trip. Use it for **many-to-one** and **one-to-one**, wh
 
 ## Choosing
 
-| Relation     | Rows on the far side | Use          |
-| ------------ | -------------------- | ------------ |
-| `manyToOne`  | 1                    | `findJoined` |
-| `oneToOne`   | 1                    | `findJoined` |
-| `oneToMany`  | n                    | `populate`   |
-| `manyToMany` | n                    | `populate`   |
+| Relation     | Rows on the far side | Use                          |
+| ------------ | -------------------- | ---------------------------- |
+| `ManyToOne`  | 1                    | `findJoined`                 |
+| `OneToOne`   | 1                    | `findJoined`                 |
+| `OneToMany`  | n                    | `populate`                   |
+| `ManyToMany` | n                    | an explicit three-table join |
 
 The rule reduces to: **join when the cardinality is one, batch when it is many.** That is the same decision an ORM's "joined vs select-in strategy" setting makes; the difference is that here it is at the call site, where you can see how many parents you are fetching.
 

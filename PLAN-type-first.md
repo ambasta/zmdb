@@ -485,11 +485,16 @@ Two things a `CoreSchema` cannot carry, recorded here because the tests that pin
 down read like curiosities otherwise. `Numeric<P, S>` precision, `Codec<'Name'>` and a
 `json` payload shape are **dropped** by `schemaFromIR` — `ColumnFlags` has nowhere to
 put them, the emitted validator and the DDL type map read the IR directly, and
-`defineSchema` cannot express them either. And **relations do not travel with a schema
-value**: `SchemaIR.relations` is read, is not a column, and stops at the boundary, so
-`defineRepository(schemaOf<User>(), driver)` cannot populate without `opts.relations`.
-Closing that is Phase 7c's business at the earliest, and probably wants
-`defineRepository<T>()` — a call the transform reads a _declaration_ from, not a value.
+`defineSchema` cannot express them either.
+
+Relations were the second of those, and are no longer: `CoreSchema.ir` is required, so
+`SchemaIR.relations` reaches every repository, and `opts.relations` is gone along with
+`BaseRepository`'s second type parameter. It did not need `defineRepository<T>()` after all.
+`resolveRelation(schema.ir, name)` in `schema-core/src/relations/index.ts` turns one
+`RelationIR` into the pair of columns a query matches on, and the repository's batched select,
+its join, `compilePopulate` and `toJsonSchemaWithRelations` all read it — where before, the
+repository's own two readers of the map used different field names with different fallbacks and
+could build different queries from one entry.
 
 **Not yet done in Phases 1–3:** the relation-driven
 `PopulatedEntity`/`Populated`/`JoinRow`, and the `dto/` module's
@@ -790,7 +795,9 @@ suite green.
 - `toJsonSchema<T>()` — the type-driven form, replaced at build time by a frozen
   object literal (**REQ-TF-7**). Also a new emitter target in `emit/`.
 - `toJsonSchemaWithRelations`, `toOpenApiComponents`, `toListSchema`,
-  `toSearchSchema`, `toolFromSchema` re-pointed at IR; **contracts unchanged**.
+  `toSearchSchema`, `toolFromSchema` re-pointed at IR; **output contracts unchanged**.
+  `toJsonSchemaWithRelations` loses its middle argument — the relations are in the IR, so a
+  document can no longer name a relation the table does not have.
 - `Variant` as a type argument: `toJsonSchema<CreateDTO<User>>()`.
 - `web`'s `RouteSchemas` / `toOpenApi` fed from the generated literals.
 
@@ -1026,9 +1033,12 @@ that tests for a schema value.
   nothing downstream would have complained. The exemption for a string index signature is
   what keeps `UnknownRow` — the row of a table named by a string, which a subquery target is
   — legal. `schema-of.type-test.ts` asserts both directions of that now.
-- Two explicit conditionals survive because a relations map names its child by value:
-  `RelationEntity` in `@zmdb/repository` and `TargetEntityOf`/`ColumnNameOf` in
-  `schema-core/src/relations/index.ts`. Each says so where it is written.
+- The two explicit conditionals that survived because a relations map named its child by
+  value — `RelationEntity` in `@zmdb/repository`, and `TargetEntityOf`/`ColumnNameOf` in
+  `schema-core/src/relations/index.ts` — went with the map. So did `manyToOne` and its three
+  siblings, `RelationMeta`, `Cardinality`, `RelationDef`, `RelationsMap`, and the six nested
+  conditionals (`RelationEntityFromDef`, `RelationCardinalityFromDef`, `DerivedEntity`) that
+  dug a target's row type back out of a value built from that type.
 - The type tests that existed only to compare the two families are deleted rather than
   adapted, which is the honest form of "the substitution evidence is spent". The tests
   that assert the collapsed suite directly stayed and got stronger:

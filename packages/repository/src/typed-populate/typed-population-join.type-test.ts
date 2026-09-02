@@ -3,7 +3,7 @@
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository, type defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, userJoinRelations, type Order, type Profile, type User } from './fixtures.ts';
+import { OrderSchema, UserSchema, type Order, type Profile, type User } from './fixtures.ts';
 
 // The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is what
 // the populate and join assertions below are about.
@@ -11,17 +11,11 @@ type UserRow = Entity<User>;
 type OrderRow = Entity<Order>;
 type ProfileRow = Entity<Profile>;
 
-class UserRepository extends BaseRepository<User, typeof userJoinRelations> {
-  static override readonly schema = UserSchema;
-  static readonly relations = userJoinRelations;
-}
-
-class PlainUserRepository extends BaseRepository<User> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
 declare const repo: UserRepository;
-declare const plainRepo: PlainUserRepository;
 declare const txRepo: UserRepository;
 
 // --- Invalid relation keys rejected at compile time ------------------------
@@ -84,17 +78,19 @@ export type _LeftName = Expect<Mutual<(typeof leftJoined)[number]['name'], strin
 export type _LeftTotal = Expect<Mutual<(typeof leftJoined)[number]['total'], number | undefined>>;
 
 // --- defineRepository factory ---------------------------------------------
-declare const definedRepo: ReturnType<typeof defineRepository<User, typeof userJoinRelations>>;
+// One type argument, and it is the table. The populate keys the factory hands back are
+// `RelationKeys<User>`, so there is nothing for a second one to add.
+declare const definedRepo: ReturnType<typeof defineRepository<User>>;
 export const _pDefined = definedRepo.findById(1, { populate: ['orders'] });
 declare const definedUserWithOrders: NonNullable<Awaited<typeof _pDefined>>;
 export type _DefinedPopOrders = Expect<Equal<(typeof definedUserWithOrders)['orders'], readonly OrderRow[]>>;
 
-// --- Subclasses without defined static relations --------------------------
-export const _pPlainUser = plainRepo.findById(1);
+// --- a read with no populate is the plain row -----------------------------
+export const _pPlainUser = repo.findById(1);
 declare const plainUser: Awaited<typeof _pPlainUser>;
 export type _PlainUser = Expect<Equal<typeof plainUser, UserRow | undefined>>;
 
-export const _pPlainAll = plainRepo.findAll();
+export const _pPlainAll = repo.findAll();
 declare const plainAll: Awaited<typeof _pPlainAll>;
 export type _PlainAll = Expect<Equal<typeof plainAll, readonly UserRow[]>>;
 

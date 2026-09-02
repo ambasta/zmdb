@@ -256,19 +256,19 @@ const user = await users.findById(1, { populate: ['orders'] });
 // user.orders: Order[]  — attached to the result type only because we populated it
 ```
 
-- to-one → `JOIN`; to-many → batched `IN (…)` select. Strategy is deterministic.
-- No identity map: populated children are plain objects, not shared references.
+The declaration above is the only place either fact is written. `defineRepository(userSchema,
+driver)` takes no relations, `BaseRepository<User>` takes no second type parameter for them,
+and `populate: ['orders']` is checked against `RelationKeys<User>` — a misspelling is a
+compile error. There is no `oneToMany()` builder to write a map with.
 
-> **Gap.** The runtime side still needs the same relation spelled a second time, as a
-> `relations` map passed to `defineRepository`:
->
-> ```ts
-> defineRepository(userSchema, driver, { dialect, relations: { orders: oneToMany('orders', 'userId') } });
-> ```
->
-> `oneToMany` and friends come from `@zmdb/schema-core/relations`. Two spellings of one
-> fact is exactly what the type-first work exists to remove, and this is the last place
-> it survives.
+- to-one → `JOIN`; to-many → batched `IN (…)` select. Strategy is deterministic.
+- Which side holds the key is read off the tables, not the tag: `OneToOne` is symmetric, so
+  the side with the column owns it. `References<'users.id'>` names the column the join
+  matches, and a foreign key without one is assumed to point at `id`.
+- No identity map: populated children are plain objects, not shared references.
+- `ManyToMany` populate throws. `ManyToMany<'tags', 'post_tags'>` names a join table rather
+  than a column, and inferring its two foreign keys from the tables either side is how a
+  wrong query gets built quietly — join the two tables yourself.
 
 ---
 
@@ -402,8 +402,8 @@ Frozen behavior:
   `Rule<'name'>` has no JSON Schema equivalent at all — it is dropped.
 - Every variant drops columns tagged `Sensitive` as its last step.
 - Relations emit `$ref` (to-one) / `items:{$ref}` (to-many) — via
-  `toJsonSchemaWithRelations`, which takes the relations map explicitly, because the
-  reflection does not carry them into the IR.
+  `toJsonSchemaWithRelations(schema, variant)`, which reads them off `schema.ir`, so a
+  generated document cannot name a relation the table does not have.
 - Deterministic (stable key ordering) so output is committable/diffable.
 
 ---
@@ -493,5 +493,5 @@ const page: ListResult<UserRow> = buildListResult(rows, { limit: 20 }); // { ite
 
 - **GetDTO / getResult** narrow a single-row fetch by `select`.
 - **SearchDTO / buildSearchResult** add full-text query + ranking (`_score`).
-- **Populated<S,K>** types populated relations; **AggregateResult<S,Spec>** types
+- **Populated<T,K>** types populated relations; **AggregateResult<T,Spec>** types
   grouped aggregates. See the [docs site](https://ambasta.github.io/zmdb/docs/read-dtos.html).

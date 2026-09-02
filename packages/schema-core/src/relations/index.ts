@@ -1,100 +1,103 @@
+// Relations, resolved from the declaration.
+//
+// This module used to be a second way of writing a relation down. `manyToOne(UserSchema,
+// 'userId')` and friends returned a frozen `RelationMeta` — cardinality, target table, and
+// the foreign key under one of three names (`fk`, `mappedBy`, `through`) depending on which
+// builder produced it — and a `RelationsMap` of those was handed to a repository so it could
+// learn what `populate: ['orders']` meant. The declaration already said it:
+//
+//   orders?: Order[] & OneToMany<'orders', 'userId'>
+//
+// so the map restated the target and the key, and `PopulatedEntity<Base, Relations, K>` had
+// three conditional types whose whole job was to dig the target's row type back out of a
+// value that had been built from the type in the first place. `../derive/query.ts` derives it
+// from `T` directly; the builders, the map, the `RelationMeta` shape and the derivation types
+// are gone.
+//
+// What is left is the part that was never a duplicate: `resolveRelation`, which turns one
+// `RelationIR` into the pair of columns a query needs, and the two row helpers.
 import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-compiler';
-// Relations — implementation (#31). Relation DSL builders returning frozen
-// RelationMeta per the frozen fixtures.
 
-import type { ColumnKeys, DeclaredTable } from '../derive/index.ts';
-import type { ColumnsMap, CoreSchema, Entity, TaggedSchema } from '../index.ts';
+import type { SchemaIR } from '../ir/index.ts';
 
-export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
-
-export interface RelationMeta<
-  TargetEntity = unknown,
-  _Key extends string = string,
-  C extends Cardinality = Cardinality,
-> {
-  readonly cardinality: C;
-  readonly target: string;
-  readonly fk?: string;
-  readonly mappedBy?: string;
-  readonly through?: string;
-  readonly owning: boolean;
-  /** Compile-time phantom property preserving target entity type */
-  readonly _targetEntity?: TargetEntity;
+/**
+ * One relation, resolved to the pair of columns a join or a batched select matches on.
+ *
+ * A `RelationIR` says *which* table and *which* column, but not which side holds it — and
+ * that is the only thing standing between a declaration and a query. Both readers of a
+ * relation resolve it through here, so the join and the batched select cannot disagree about
+ * the same declaration (they used to: the repository's join read `fk`/`mappedBy` with one set
+ * of fallbacks and its batched select read `childFk`/`parentKey` with another).
+ */
+export interface ResolvedRelation {
+  readonly name: string;
+  /** Where the related rows live. */
+  readonly targetTable: string;
+  /** The column on the declaring table whose value the join matches. */
+  readonly parentKey: string;
+  /** The column on the target table carrying the matching value. */
+  readonly targetKey: string;
+  /** `true` for `oneToMany`: the relation attaches an array, empty where nothing matched. */
+  readonly toMany: boolean;
 }
 
 /**
- * The row type of a relation target.
+ * Resolve one relation of a table by name.
  *
- * The same crossing as `ColumnNameOf` below, for the same reason: the target is named by
- * *value* because the runtime needs its table, so the declared type comes back off the
- * phantom. A target named by a bare string has no declared type to recover, and says so.
+ * Throws for a name the type does not declare — naming the ones it does, because a
+ * misspelled `populate` is the common case — and for `manyToMany`, whose `via` is a join
+ * table rather than a column: two hops cannot be expressed as one `IN`, and guessing the
+ * join table's two foreign keys from the table names either side is how a wrong query gets
+ * built quietly.
  */
-type TargetEntityOf<Target> = Target extends TaggedSchema<infer T extends DeclaredTable> ? Entity<T> : unknown;
-
-function getTableName(target: { table: string } | string): string {
-  return typeof target === 'string' ? target : target.table;
+export function resolveRelation(ir: SchemaIR, name: string): ResolvedRelation {
+  const declared = ir.relations;
+  const rel = declared.find(candidate => candidate.name === name);
+  if (!rel) {
+    const known = declared.map(candidate => candidate.name);
+    throw new Error(
+      `unknown relation "${name}" on ${ir.table}: ` +
+        (known.length > 0 ? `the type declares ${known.join(', ')}` : 'the type declares none'),
+    );
+  }
+  if (rel.relation === 'manyToMany') {
+    throw new Error(
+      `relation "${name}" on ${ir.table} is many-to-many through "${rel.via}", which populate ` +
+        'does not resolve — join the two tables explicitly',
+    );
+  }
+  if (rel.relation === 'oneToMany') {
+    // The inverse side: the foreign key is a column of the *target*, holding this row's key.
+    return { name, targetTable: rel.target, parentKey: primaryKeyOf(ir), targetKey: rel.via, toMany: true };
+  }
+  if (rel.relation === 'oneToOne' && !ir.columns.some(col => col.name === rel.via)) {
+    // A one-to-one pair is symmetric, so `OneToOne<'profiles', 'userId'>` does not say which
+    // of the two tables holds the key — and the answer is "the one with the column". Declared
+    // on `users`, which has no `userId`, it is the inverse side, joined from the primary key
+    // exactly as a to-many is; it just cannot match twice.
+    return { name, targetTable: rel.target, parentKey: primaryKeyOf(ir), targetKey: rel.via, toMany: false };
+  }
+  // The owning side: this row holds the foreign key, and the column it points at is written
+  // down on that column, as `References<'users.id'>`.
+  return {
+    name,
+    targetTable: rel.target,
+    parentKey: rel.via,
+    targetKey: referencedColumn(ir, rel.via),
+    toMany: false,
+  };
 }
 
-/** What the relation builders accept as a target: a full schema, anything carrying a `columns` bag, or a bare columns map. */
-type RelationTarget = CoreSchema<string> | { columns: ColumnsMap } | ColumnsMap;
-/**
- * The column names of a relation target, which is what an fk / mappedBy has to name.
- *
- * A `TaggedSchema<T>` erases its column map to `Record<string, ColumnMeta>` — the *value*
- * has no literal keys to read — so asking it for `keyof columns` answers `string`, and
- * `manyToOne(users, 'bad_col')` would compile. The phantom is where the answer went, so
- * that is where this looks first: same question, asked of the type the schema came from.
- * The other two arms are for a bare columns bag, which some fixtures still pass.
- */
-type ColumnNameOf<Target> =
-  Target extends TaggedSchema<infer T>
-    ? ColumnKeys<T>
-    : Target extends { readonly columns: infer C }
-      ? keyof C & string
-      : keyof Target & string;
-
-export function manyToOne<
-  TargetSchema extends RelationTarget = CoreSchema<string>,
-  FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
->(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'many-to-one'>;
-export function manyToOne(
-  target: { table: string } | string,
-  fk: string,
-): RelationMeta<unknown, string, 'many-to-one'> {
-  return Object.freeze({ cardinality: 'many-to-one', target: getTableName(target), fk, owning: true });
+/** The column a foreign key points at, per its `References<'table.column'>`; `id` without one. */
+function referencedColumn(ir: SchemaIR, fk: string): string {
+  const [, column] = (ir.columns.find(col => col.name === fk)?.references ?? '').split('.');
+  return column ?? 'id';
 }
 
-export function oneToMany<
-  TargetSchema extends RelationTarget = CoreSchema<string>,
-  MappedBy extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
->(
-  target: TargetSchema | string,
-  mappedBy: MappedBy,
-): RelationMeta<TargetEntityOf<TargetSchema>, MappedBy, 'one-to-many'>;
-export function oneToMany(
-  target: { table: string } | string,
-  mappedBy: string,
-): RelationMeta<unknown, string, 'one-to-many'> {
-  return Object.freeze({ cardinality: 'one-to-many', target: getTableName(target), mappedBy, owning: false });
-}
-
-export function oneToOne<
-  TargetSchema extends RelationTarget = CoreSchema<string>,
-  FK extends ColumnNameOf<TargetSchema> = ColumnNameOf<TargetSchema>,
->(target: TargetSchema | string, fk: FK): RelationMeta<TargetEntityOf<TargetSchema>, FK, 'one-to-one'>;
-export function oneToOne(target: { table: string } | string, fk: string): RelationMeta<unknown, string, 'one-to-one'> {
-  return Object.freeze({ cardinality: 'one-to-one', target: getTableName(target), fk, owning: true });
-}
-
-export function manyToMany<TargetSchema extends RelationTarget = CoreSchema<string>, Through extends string = string>(
-  target: TargetSchema | string,
-  through: Through,
-): RelationMeta<TargetEntityOf<TargetSchema>, Through, 'many-to-many'>;
-export function manyToMany(
-  target: { table: string } | string,
-  through: string,
-): RelationMeta<unknown, string, 'many-to-many'> {
-  return Object.freeze({ cardinality: 'many-to-many', target: getTableName(target), through, owning: true });
+function primaryKeyOf(ir: SchemaIR): string {
+  const pk = ir.primaryKey[0];
+  if (!pk) throw new Error(`schema ${ir.table} has no primary key, so its relations have nothing to join from`);
+  return pk;
 }
 
 export type PopulateDialect = Dialect;
@@ -117,100 +120,43 @@ function sanitizeKeys<T>(keys: readonly T[]): T[] {
   return result;
 }
 
-// #33 — compile a populate hint into deterministic SQL.
-// to-one (many-to-one / one-to-one) → INNER JOIN on the owning FK.
-// to-many (one-to-many / many-to-many) → batched IN() select on the FK.
+/**
+ * Compile a populate hint into SQL: a to-one becomes an `INNER JOIN`, a to-many a batched
+ * `IN (…)` select over the parent keys.
+ *
+ * Takes the declaring table's IR and a relation name rather than a relation object, which is
+ * what makes the two spellings one: the columns on either side of the `ON` come out of
+ * `resolveRelation`, the same call `@zmdb/repository`'s `populate` makes.
+ */
 export function compilePopulate(
-  baseTable: string,
-  _relationName: string,
-  rel: RelationMeta,
+  ir: SchemaIR,
+  relationName: string,
   dialect: PopulateDialect,
   parentIds: readonly unknown[] = [],
 ): PopulateQuery {
-  const toOne = rel.cardinality === 'many-to-one' || rel.cardinality === 'one-to-one';
-  if (toOne) {
-    const fk = rel.fk ?? 'id';
+  const rel = resolveRelation(ir, relationName);
+  const q = (name: string): string => quoteIdentifier(dialect, name);
+  if (!rel.toMany) {
     const sql =
-      `SELECT * FROM ${quoteIdentifier(dialect, baseTable)} INNER JOIN ${quoteIdentifier(dialect, rel.target)} ` +
-      `ON ${quoteIdentifier(dialect, baseTable)}.${quoteIdentifier(dialect, fk)} = ${quoteIdentifier(dialect, rel.target)}.${quoteIdentifier(dialect, 'id')}`;
+      `SELECT * FROM ${q(ir.table)} INNER JOIN ${q(rel.targetTable)} ` +
+      `ON ${q(ir.table)}.${q(rel.parentKey)} = ${q(rel.targetTable)}.${q(rel.targetKey)}`;
     return { kind: 'join', sql, parameters: [] };
   }
-  // to-many: batched IN() select against the inverse FK on the target table.
   const sanitized = sanitizeKeys(parentIds);
-  const fk = rel.mappedBy ?? 'id';
   if (sanitized.length === 0) {
-    const sql = `SELECT * FROM ${quoteIdentifier(dialect, rel.target)} WHERE 1 = 0`;
-    return { kind: 'batched', sql, parameters: [] };
+    return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
   }
   const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
-  const sql = `SELECT * FROM ${quoteIdentifier(dialect, rel.target)} WHERE ${quoteIdentifier(dialect, fk)} IN (${inList})`;
+  const sql = `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(rel.targetKey)} IN (${inList})`;
   return { kind: 'batched', sql, parameters: [...sanitized] };
 }
 
-// #32 — compile-time relation type derivation.
-// A relations map describes each relation's target entity + cardinality.
-export interface RelationDef<TargetEntity = unknown> {
-  readonly meta?: RelationMeta<TargetEntity> | undefined;
-  readonly entity?: TargetEntity | TaggedSchema<unknown> | undefined;
-  readonly cardinality?: Cardinality | undefined;
-}
-export type RelationsMap = Record<string, RelationDef | RelationMeta>;
-
-// A relations map may name its child either way round: by the schema value, which is what
-// the runtime needs, or by the declared type. This is the one place that has to tell them
-// apart, and the phantom is how.
-type DerivedEntity<T> = T extends TaggedSchema<infer Declared extends DeclaredTable> ? Entity<Declared> : T;
-
-type RelationEntityFromDef<D> =
-  D extends RelationMeta<infer E>
-    ? [unknown] extends [E]
-      ? D extends { entity: infer Ent }
-        ? DerivedEntity<NonNullable<Ent>>
-        : never
-      : DerivedEntity<E>
-    : D extends RelationDef<infer E>
-      ? [unknown] extends [E]
-        ? D extends { entity: infer Ent }
-          ? DerivedEntity<NonNullable<Ent>>
-          : never
-        : DerivedEntity<E>
-      : D extends { entity: infer Ent }
-        ? DerivedEntity<NonNullable<Ent>>
-        : D extends { meta: RelationMeta<infer E> }
-          ? DerivedEntity<E>
-          : never;
-
-type RelationCardinalityFromDef<D> =
-  D extends RelationMeta<unknown, string, infer MC>
-    ? MC
-    : D extends { cardinality: infer C }
-      ? C
-      : D extends { meta: { cardinality: infer MC } }
-        ? MC
-        : never;
-
-// PopulatedEntity augments Base with related fields ONLY for populated keys K.
-// `Relations` is constrained structurally so plain interfaces work as relation
-// maps (no string index signature required).
-export type PopulatedEntity<
-  Base,
-  Relations extends Record<string, unknown> | { [K: string]: unknown },
-  K extends keyof Relations = keyof Relations,
-> = Base & {
-  [P in K]: RelationCardinalityFromDef<Relations[P]> extends 'one-to-many' | 'many-to-many'
-    ? RelationEntityFromDef<Relations[P]>[]
-    : RelationEntityFromDef<Relations[P]>;
-};
-
-export type Populated<
-  Base,
-  Relations extends Record<string, unknown> | { [K: string]: unknown },
-  K extends keyof Relations = keyof Relations,
-> = PopulatedEntity<Base, Relations, K>;
-
-// #191 — attach a populated relation to a parent (non-mutating). Returns a new
-// object with `name` set to the related value (array for to-many, object/null
-// for to-one). Type widening is expressed by PopulatedEntity above.
+/**
+ * Attach a populated relation to a parent row, without mutating it.
+ *
+ * The type widening is `Populated<T, K>` in `../derive/query.ts`, which reads the declared
+ * relation property; this only puts the value there.
+ */
 export function attachPopulated<P extends Record<string, unknown>, N extends string, V>(
   parent: P,
   name: N,
@@ -222,7 +168,14 @@ export function attachPopulated<P extends Record<string, unknown>, N extends str
   return { ...parent, [name]: value } as P & { [K in N]: V };
 }
 
-// #194 — typed join result rows. LEFT: joined columns may be absent.
+/**
+ * A row from a join written against two tables directly. LEFT: the joined columns may be
+ * absent, so they come back optional.
+ *
+ * `../derive/query.ts` has a `JoinRow<T, K, Kind>` that names the joined side by relation
+ * key instead; this is the form for a join whose target is not a declared relation of the
+ * base table.
+ */
 export type JoinRow<Base, Joined, Kind extends 'inner' | 'left' = 'left'> = Kind extends 'inner'
   ? Base & Joined
   : Base & Partial<Joined>;

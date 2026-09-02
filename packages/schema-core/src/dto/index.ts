@@ -610,43 +610,38 @@ export type SearchResult<Row> = ListResult<SearchHit<Row>>;
 export type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
 
 /**
- * `"relation.column"` for every relation in a relations map.
+ * `"relation.column"` for every relation the table declares.
  *
- * The `{ entity: … }` arm reads the declared type out of a map entry and lists its columns;
- * everything else falls back to `${Rel}.${string}`, which is the honest answer for a relation
- * whose target this type cannot see. There used to be a middle arm for an entry that *was* a
- * schema value, deriving `Entity<>` from it — that spelling no longer type-checks, and it was
- * only ever reachable for a map written the way this design stopped writing them.
+ * There was a second type parameter for this — the repository's relations map — and each of
+ * its entries named the target either as a declared type or as a schema value, so the arm
+ * that could see the target's columns was the one where an author had happened to write
+ * `entity: Order`; everything else fell back to `${Rel}.${string}`. `RelationKeys<T>` reads
+ * the target off the declaration, which every relation has, so every relation gets its
+ * columns listed.
  */
-type RelatedColumns<R> =
-  R extends Record<string, unknown>
-    ? {
-        [Rel in keyof R]: Rel extends string
-          ? R[Rel] extends { entity: infer E extends DeclaredTable }
-            ? `${Rel}.${keyof Entity<E> & string}`
-            : `${Rel}.${string}`
-          : never;
-      }[keyof R]
-    : `${string}.${string}`;
+type RelationTargetOf<V> = (NonNullable<V> extends readonly (infer E)[] ? E : NonNullable<V>) & DeclaredTable;
 
-export type AggregateColumn<T extends DeclaredTable, R = unknown> =
-  | (keyof Entity<T> & string)
-  | RelatedColumns<R>
-  | (string & {});
+type RelatedColumns<T extends DeclaredTable> = {
+  [Rel in RelationKeys<T> & string]: `${Rel}.${keyof Entity<RelationTargetOf<T[Rel & keyof T]>> & string}`;
+}[RelationKeys<T> & string];
 
-export interface ComputedSpec<T extends DeclaredTable = DeclaredTable, R = unknown> {
+export type AggregateColumn<T extends DeclaredTable> = (keyof Entity<T> & string) | RelatedColumns<T> | (string & {});
+
+export interface ComputedSpec<T extends DeclaredTable = DeclaredTable> {
   fn: AggFn;
-  column?: AggregateColumn<T, R>;
+  column?: AggregateColumn<T>;
   raw?: string;
 }
 
-export interface AggregateSpec<T extends DeclaredTable, R = unknown> {
-  joins?: readonly (keyof R & string)[] | readonly { relation: keyof R & string; kind?: 'inner' | 'left' | 'right' }[];
+export interface AggregateSpec<T extends DeclaredTable> {
+  joins?:
+    | readonly (RelationKeys<T> & string)[]
+    | readonly { relation: RelationKeys<T> & string; kind?: 'inner' | 'left' | 'right' }[];
   where?: WhereDTO<T> | Record<string, unknown>;
-  groupBy?: readonly AggregateColumn<T, R>[];
-  computed: Record<string, ComputedSpec<T, R>>;
-  having?: Readonly<{ column: AggregateColumn<T, R>; op: string; value: unknown }>;
-  orderBy?: ReadonlyArray<{ column: AggregateColumn<T, R>; dir?: OrderDir }>;
+  groupBy?: readonly AggregateColumn<T>[];
+  computed: Record<string, ComputedSpec<T>>;
+  having?: Readonly<{ column: AggregateColumn<T>; op: string; value: unknown }>;
+  orderBy?: ReadonlyArray<{ column: AggregateColumn<T>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;
 }
@@ -659,14 +654,14 @@ type AggComputedType<T extends DeclaredTable, C> = C extends { fn: 'count' }
       ? Entity<T>[Col] | null
       : number | null;
 
-export type AggregateResult<T extends DeclaredTable, Spec extends AggregateSpec<T, R>, R = unknown> = {
+export type AggregateResult<T extends DeclaredTable, Spec extends AggregateSpec<T>> = {
   [K in Spec['groupBy'] extends readonly (infer G extends keyof Entity<T>)[] ? G : never]: Entity<T>[K];
 } & {
   [K in keyof Spec['computed']]: AggComputedType<T, Spec['computed'][K]>;
 };
 
 /** Ordered field list for an aggregate spec: group-key cols then computed keys. */
-export function describeAggregate<T extends DeclaredTable, R = unknown>(spec: AggregateSpec<T, R>): readonly string[] {
+export function describeAggregate<T extends DeclaredTable>(spec: AggregateSpec<T>): readonly string[] {
   const keys = (spec.groupBy ?? []).map(k => String(k));
   return [...keys, ...Object.keys(spec.computed)];
 }

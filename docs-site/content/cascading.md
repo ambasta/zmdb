@@ -1,5 +1,5 @@
-> **ToDo / feature gap.** Relations carry no cascade configuration. `manyToOne`,
-> `oneToMany`, `oneToOne` and `manyToMany` take a target and a foreign-key column
+> **ToDo / feature gap.** Relations carry no cascade configuration. `ManyToOne`,
+> `OneToMany`, `OneToOne` and `ManyToMany` take a target and a foreign-key column
 > and nothing else, and `References<…>` records a target with no `ON DELETE` /
 > `ON UPDATE` action — it does not reach a generated migration at all, so the
 > `REFERENCES` clause is yours to write. Deleting a parent with children raises a

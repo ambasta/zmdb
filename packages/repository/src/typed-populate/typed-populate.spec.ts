@@ -4,11 +4,10 @@ import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository } from '../index.ts';
-import { UserSchema, userRelations, type User } from './fixtures.ts';
+import { UserSchema, type User } from './fixtures.ts';
 
-class UserRepository extends BaseRepository<User, typeof userRelations> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
-  static readonly relations = userRelations;
 }
 
 function seed(): DatabaseSync {
@@ -48,7 +47,7 @@ describe('typed populate (#217)', () => {
 
   it('an unknown relation name is rejected at runtime too', async () => {
     const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
-    // @ts-expect-error — 'nope' is not a key of the relations map. The runtime
+    // @ts-expect-error — 'nope' is not a relation `User` declares. The runtime
     // guard below is the defence for callers who reach this method untyped.
     await expect(repo.findById(1, { populate: ['nope'] })).rejects.toThrow(/unknown relation "nope"/);
   });

@@ -1,9 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import { manyToOne } from '@zmdb/schema-core';
 import type { AggregateSpec } from '@zmdb/schema-core/dto';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { ManyToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -18,20 +17,18 @@ export interface Category extends Table<'categories'> {
 export interface Product extends Table<'products'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'text'>;
-  categoryId: number & Sql<'integer'>;
+  categoryId: number & Sql<'integer'> & References<'categories.id'>;
   price: number & Sql<'numeric'>;
+  category?: Category & ManyToOne<'categories', 'categoryId'>;
 }
 
-const { Category: CategorySchema, Product: ProductSchema } = schemasFrom<{ Category: Category; Product: Product }>(
-  import.meta.url,
-  ['Category', 'Product'],
-);
+const { Product: ProductSchema } = schemasFrom<{ Category: Category; Product: Product }>(import.meta.url, [
+  'Category',
+  'Product',
+]);
 
-class ProductRepository extends BaseRepository<Product, typeof ProductRepository.relations> {
+class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
-  static readonly relations = {
-    category: { rel: manyToOne('categories', 'categoryId'), entity: CategorySchema },
-  } as const;
 }
 
 function recordingDriver(
@@ -89,8 +86,7 @@ describe('Relation-Aware Repository Aggregations', () => {
     const driver = recordingDriver([{ 'category.name': 'Books', count: 1, sum: 20 }]);
     const repo = new ProductRepository(driver, 'sqlite');
 
-    type Spec = AggregateSpec<Product, typeof ProductRepository.relations>;
-    const spec: Spec = {
+    const spec: AggregateSpec<Product> = {
       joins: ['category'],
       groupBy: ['category.name'],
       computed: {
@@ -139,12 +135,7 @@ describe('Relation-Aware Repository Aggregations', () => {
           (103, 'Novel', 2, 20);
       `);
 
-      repo = defineRepository(ProductSchema, sqliteDriver(db), {
-        dialect: 'sqlite',
-        relations: {
-          category: { rel: manyToOne('categories', 'categoryId'), entity: CategorySchema },
-        },
-      });
+      repo = defineRepository(ProductSchema, sqliteDriver(db), { dialect: 'sqlite' });
     });
 
     it('summarizes child metrics grouped by parent attributes in a single SQLite query', async () => {

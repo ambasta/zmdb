@@ -9,23 +9,12 @@ zero-dependency (`node:sqlite`) example that doubles as an E2E spec.
 ```ts
 import { defineRepository } from '@zmdb/repository';
 
-// No subclassing required — bind schema + driver (+ optional relations) in one call.
-const users = defineRepository(UserSchema, sqliteDriver(db), {
-  dialect: 'sqlite',
-  relations: {
-    orders: {
-      meta: oneToMany('orders', 'userId'),
-      entity: OrderSchema,
-      cardinality: 'one-to-many',
-      childTable: 'orders',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-  },
-});
+// No subclassing required — bind schema + driver in one call.
+const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
 
-await users.create({ email: 'a@b.com', age: 30 }); // typed CreateDTO<S>
-const list = await users.list({ page: { limit: 20 } }); // typed ListResult<Entity<S>>
+await users.create({ email: 'a@b.com', age: 30 }); // typed CreateDTO<User>
+const list = await users.list({ page: { limit: 20 } }); // typed ListResult<Entity<User>>
+const withOrders = await users.findById(1, { populate: ['orders'] });
 ```
 
 Frozen behaviour:
@@ -33,9 +22,11 @@ Frozen behaviour:
 - `defineRepository(schema, driver, opts?)` returns a **fully typed repository
   instance** with the same surface as a `BaseRepository<T>` subclass
   (findById/findOne/find/list/create/update/delete + populate), without writing a
-  class. It builds an anonymous subclass under the hood binding `static schema`
-  and `static relations`.
-- `dialect` defaults to `'postgres'`; pass `'sqlite'`/`'mysql'` as needed.
+  class. It builds an anonymous subclass under the hood binding `static schema`.
+- `dialect` is the only option. It used to take a `relations` map too, restating
+  the target table, the foreign key and the cardinality that `orders?: Order[] &
+OneToMany<'orders', 'userId'>` on the declaration already carries — `populate`
+  reads the declaration now, so there is nothing to keep in step.
 - The class-based `BaseRepository` remains fully supported (helper is sugar).
 
 ## 2. Runnable example / E2E (#222)

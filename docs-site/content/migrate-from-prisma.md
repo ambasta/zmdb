@@ -21,7 +21,6 @@ export interface User extends Table<'users'> {
 }
 
 export const userSchema = schemaOf<User>();
-export const userRelations = { posts: oneToMany(postSchema, 'authorId') };
 ```
 
 The mapping is close to line-for-line: `@id` is `PrimaryKey`, `@default(autoincrement())` is `Serial`, `@unique` is `Unique`, `Post[]` is `Post[] & OneToMany<'posts', 'authorId'>`. What Prisma spells with attributes, zmdb spells with intersections.

@@ -4,14 +4,9 @@ import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.ts';
 import { BaseRepository, defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, userJoinRelations, userRelations, type User } from './fixtures.ts';
+import { OrderSchema, UserSchema, type User } from './fixtures.ts';
 
-class UserRepository extends BaseRepository<User, typeof userJoinRelations> {
-  static override readonly schema = UserSchema;
-  static readonly relations = userJoinRelations;
-}
-
-class PlainUserRepository extends BaseRepository<User> {
+class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
@@ -86,21 +81,23 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
   it('factory functions retain declared relation types when constructing repository instances', async () => {
     const db = seedDatabase();
-    const repo = defineRepository(UserSchema, sqliteDriver(db), {
-      dialect: 'sqlite',
-      relations: userRelations,
-    });
+    const repo = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
 
     const userWithOrders = await repo.findById(1, { populate: ['orders'] });
     expect(userWithOrders?.orders).toHaveLength(2);
   });
 
-  it('subclasses without defined static relations build successfully with empty relation defaults', async () => {
+  it('a read that does not populate attaches nothing', async () => {
+    // The "no lazy getters" guarantee, from the runtime side. `User` declares two
+    // relations, and a read that did not ask for them comes back without the keys — not
+    // with an empty array, not with a getter that would fetch on access.
     const db = seedDatabase();
-    const repo = new PlainUserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
 
     const user = await repo.findById(1);
     expect(user?.name).toBe('Ada');
+    expect(user).not.toHaveProperty('orders');
+    expect(user).not.toHaveProperty('profile');
 
     const all = await repo.findAll();
     expect(all).toHaveLength(2);

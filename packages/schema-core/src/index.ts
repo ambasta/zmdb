@@ -295,27 +295,13 @@ export type Expect<T extends true> = T;
 /** Negative form: `ExpectNot<Equal<X, Y>>` fails to compile if X = Y. */
 export type ExpectNot<T extends false> = T;
 
-// Relation DSL builders & derivation types re-export
-export {
-  manyToOne,
-  oneToMany,
-  oneToOne,
-  manyToMany,
-  compilePopulate,
-  attachPopulated,
-  aliasRow,
-} from './relations/index.ts';
-export type {
-  Cardinality,
-  RelationMeta,
-  PopulateDialect,
-  PopulateQuery,
-  RelationDef,
-  RelationsMap,
-  PopulatedEntity,
-  Populated,
-  JoinRow,
-} from './relations/index.ts';
+// Relations: resolution and the two row helpers. `Populated`/`PopulatedEntity` come from
+// `./derive`, which reads the relation off the declared type — there is no relations map to
+// derive them from any more, and no `manyToOne`/`oneToMany`/`oneToOne`/`manyToMany` builder
+// to write one with.
+export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.ts';
+export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.ts';
+export type { Populated, PopulatedEntity } from './derive/index.ts';
 
 // ---------------------------------------------------------------------------
 // Entity State Machine & State Transition Helpers

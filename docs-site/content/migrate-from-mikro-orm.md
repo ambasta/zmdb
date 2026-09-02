@@ -24,12 +24,11 @@ export interface User extends Table<'users'> {
 }
 
 export const userSchema = schemaOf<User>();
-export const userRelations = { posts: oneToMany('posts', 'authorId') };
 ```
 
 Decorator for decorator, the mapping is direct: `@PrimaryKey()` is `PrimaryKey`, `@Property({ unique: true })` is `Unique`, `@OneToMany` is `OneToMany<'posts', 'authorId'>`. What differs is that there is no class and no `Collection` — the relation property is optional and holds a plain array when populated.
 
-A read returns `Entity<User>`: a plain object, with no `posts` property unless you asked for one. `populate` still needs the runtime map above beside the tag, which is a gap rather than a design — see [Relations](./relations.html).
+A read returns `Entity<User>`: a plain object, with no `posts` property unless you asked for one. `populate: ['posts']` is checked against the tag and batches its query from the same two strings — there is no runtime relations map beside the declaration. See [Relations](./relations.html).
 
 ## The EntityManager has no analogue
 

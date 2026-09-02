@@ -72,10 +72,10 @@ Absent from the output, in every variant — `create` included. The filter runs 
 ```ts
 import { toJsonSchemaWithRelations } from '@zmdb/schema-core/openapi';
 
-toJsonSchemaWithRelations(userSchema, { posts: oneToMany('posts', 'authorId') }, 'entity');
+toJsonSchemaWithRelations(userSchema, 'entity');
 ```
 
-Adds `posts` as an array of the target's entity schema — the shape a `populate` actually returns, so the document matches the response.
+Adds a `$ref` per relation the type declares — `posts?: Post[] & OneToMany<'posts', 'authorId'>` becomes an array of the target's entity schema, which is the shape a `populate` actually returns, so the document matches the response. Relations reach the `entity` variant only: a `create` body is columns, and a nested entity in one would advertise a write path that does not exist.
 
 ## Every schema at once
 

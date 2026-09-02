@@ -115,19 +115,12 @@ describe('transaction-scoped repository binding', () => {
     expect(conn.log.some(l => l.startsWith('EXEC:SELECT'))).toBe(true);
   });
 
-  it('retains schema and relation metadata on dynamically generated and hand-written subclasses', async () => {
-    const relationsDef = {
-      orders: {
-        cardinality: 'one-to-many' as const,
-        childTable: 'orders',
-        childFk: 'user_id',
-        entity: UserSchema,
-      },
-    };
-    const dynamicParent = defineRepository(UserSchema, {} as Driver, {
-      dialect: 'sqlite',
-      relations: relationsDef,
-    });
+  it('retains the schema on a dynamically generated subclass', async () => {
+    // This used to assert a static `relations` map survived the re-instantiation too. It
+    // has one thing to check now: the schema is where the relations live, so a scoped repo
+    // that still has the schema still has them. (`typed-population-join.spec.ts` populates
+    // through a transaction, which is the same claim from the other end.)
+    const dynamicParent = defineRepository(UserSchema, {} as Driver, { dialect: 'sqlite' });
 
     const conn = boundConn();
     const db = createTransactionalDb(conn);
@@ -135,9 +128,7 @@ describe('transaction-scoped repository binding', () => {
     await db.transaction(async tx => {
       const scoped = dynamicParent.withTransaction(tx);
 
-      // Verify schema and relation metadata preserved
       expect((scoped as unknown as { schema: unknown }).schema).toBe(UserSchema);
-      expect((scoped.constructor as unknown as { relations: unknown }).relations).toEqual(relationsDef);
 
       // Verify findById executes on tx driver with sqlite qb dialect
       await scoped.findById(1);

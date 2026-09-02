@@ -32,10 +32,11 @@ See [DataLoaders](./dataloaders.html).
 
 ## Choose join versus batch by cardinality
 
-| Relation                   | Rows on the far side | Use                                             |
-| -------------------------- | -------------------- | ----------------------------------------------- |
-| `manyToOne` / `oneToOne`   | 1                    | `findJoined` — one query                        |
-| `oneToMany` / `manyToMany` | n                    | `populate` — two queries, no row multiplication |
+| Relation                 | Rows on the far side | Use                                             |
+| ------------------------ | -------------------- | ----------------------------------------------- |
+| `ManyToOne` / `OneToOne` | 1                    | `findJoined` — one query                        |
+| `OneToMany`              | n                    | `populate` — two queries, no row multiplication |
+| `ManyToMany`             | n                    | an explicit three-table join                    |
 
 Joining a one-to-many returns the parent once per child, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times. That is why `populate` exists. See [Loading Strategies](./loading-strategies.html).
 

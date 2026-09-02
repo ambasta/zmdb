@@ -69,10 +69,14 @@ There is no `Op.or` at the DTO level yet — the builder has `orWhere`. See [Fil
 
 ## Associations
 
-`User.hasMany(Post)` becomes a relations map entry, and the accessors (`user.getPosts()`, `user.addPost()`) go away:
+`User.hasMany(Post)` becomes a tag on the declaration, and the accessors (`user.getPosts()`, `user.addPost()`) go away:
 
 ```ts
-export const userRelations = { posts: oneToMany(posts, 'userId') };
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  posts?: Post[] & OneToMany<'posts', 'userId'>;
+}
+
 const user = await repo.findById(id, { populate: ['posts'] });
 ```
 

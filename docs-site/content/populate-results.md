@@ -2,29 +2,26 @@ Populate loads related entities for to-one and to-many relations. Unlike lazy-lo
 
 ## Typed populate: `findById(id, { populate })`
 
-Declare a repository's relations once in a typed static `relations` map, then ask
-for them by key — the result is a parent **typed** with its nested relation(s).
+Declare the relation on the type — see [Relations](./relations.html) — then ask for it by
+key. The result is a parent **typed** with its nested relation(s).
 
 ```ts
-import { oneToMany } from '@zmdb/schema-core/relations';
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  orders?: Order[] & OneToMany<'orders', 'userId'>;
+}
 
 class UserRepository extends BaseRepository<User> {
-  static readonly schema = UserSchema;
-  static readonly relations = {
-    orders: {
-      meta: oneToMany('orders', 'userId'),
-      entity: OrderSchema,
-      cardinality: 'one-to-many',
-      childTable: 'orders',
-      childFk: 'userId',
-      parentKey: 'id',
-    },
-  } as const;
+  static override readonly schema = UserSchema;
 }
 
 const user = await users.findById(1, { populate: ['orders'] });
-// user.orders: Order[]   — typed; to-one relations come back as Child | null
+// user.orders: readonly Entity<Order>[]   — to-one relations come back as Entity<Child> | null
 ```
+
+`populate` accepts the relation keys of `User`, so `['ordres']` does not compile. There is no
+static `relations` map: it used to sit beside `static schema`, restating the target table, the
+foreign key and the cardinality that the declaration above already carries.
 
 Under the hood zmdb loads the parent, then runs **one batched query** for the
 children and attaches them — a plain array on a plain object.
@@ -35,16 +32,16 @@ SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
 ```
 
 > [!TIP]
-> Without `{ populate }` the result is a plain `Entity<S>` (no relation key), so
-> you never pay for data you didn't ask for. This replaces the older stringly-
-> typed `findAllWithMany`.
+> Without `{ populate }` the result is a plain `Entity<User>` — the relation key is not on the
+> type and not on the object — so you never pay for data you didn't ask for. This replaces the
+> older stringly-typed `findAllWithMany`.
 
 ## Populating To-One Relations (via JOIN)
 
 Use `findJoined` to fetch a parent with its related entity via JOIN.
 
 ```ts
-// Given OrderSchema with user: manyToOne('users', 'userId')
+// Given `user?: User & ManyToOne<'users', 'userId'>` on Order
 const orders = await ordersRepo.findJoined(
   { target: 'users', leftCol: 'userId', rightCol: 'id', kind: 'left' },
   { col: 'status', op: '=', value: 'pending' },
@@ -98,11 +95,12 @@ SELECT * FROM "orders" WHERE "userId" IN ($1, $2, $3, ...)
 Pass `populate` in the GetOptions to type-narrow the result:
 
 ```ts
-import type { GetDTO, Populated } from '@zmdb/schema-core/dto';
+import type { GetDTO } from '@zmdb/schema-core/dto';
+import type { Populated } from '@zmdb/schema-core/derive';
 
 const result = await users.findById(1, { populate: ['orders'] });
 // result: Populated<User, 'orders'> | undefined
-// result.orders: Order[]
+// result.orders: readonly Entity<Order>[]
 ```
 
 ## No Lazy Loading
@@ -111,7 +109,7 @@ There are no lazy-loading proxies. If you don't call a populate method, relation
 
 ```ts
 const user = await users.findById(1);
-// user.orders === undefined (not loaded)
+// 'orders' in user === false — absent, not `undefined`, and not a key of the result type
 ```
 
 > [!TIP]

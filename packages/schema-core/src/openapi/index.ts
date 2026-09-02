@@ -127,25 +127,28 @@ export function componentName(table: string): string {
     .join('');
 }
 
-// #66 — DTO-aware generation + relation $refs.
-// Relations are emitted only for the `entity` (response) variant, never for
-// create/update input bodies. to-one → $ref; to-many → array of $ref.
-interface RelationLike {
-  readonly cardinality: 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
-  readonly target: string;
-}
-export function toJsonSchemaWithRelations(
-  schema: CoreSchema<string>,
-  relations: Record<string, RelationLike>,
-  variant: Variant = 'entity',
-): JsonSchemaObject {
+/**
+ * The entity schema with a `$ref` per relation: a to-one refs the target component, a to-many
+ * is an array of them.
+ *
+ * Relations reach the `entity` (response) variant only. A create or update body is columns,
+ * and a `$ref` to a whole entity in one would say the client may post a nested graph, which
+ * no write path here accepts.
+ *
+ * There used to be a second parameter — a `Record<string, RelationLike>` naming each relation
+ * and its target table — because a schema value carried no relations for this to read. It
+ * carries them now, on `schema.ir`, so a document generated from a set of schemas can no
+ * longer disagree with the tables about which relations exist. The kinds are the IR's
+ * (`oneToMany`, not `one-to-many`).
+ */
+export function toJsonSchemaWithRelations(schema: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
   const base = toJsonSchema(schema, variant);
   if (variant !== 'entity') return base; // input bodies exclude relations
   const properties: Record<string, unknown> = { ...base.properties };
-  for (const [name, rel] of Object.entries(relations)) {
+  for (const rel of schema.ir.relations) {
     const ref = { $ref: `#/components/schemas/${componentName(rel.target)}` };
-    const toMany = rel.cardinality === 'one-to-many' || rel.cardinality === 'many-to-many';
-    properties[name] = toMany ? { type: 'array', items: ref } : ref;
+    const toMany = rel.relation === 'oneToMany' || rel.relation === 'manyToMany';
+    properties[rel.name] = toMany ? { type: 'array', items: ref } : ref;
   }
   return { type: 'object', properties, required: base.required };
 }

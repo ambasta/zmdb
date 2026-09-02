@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { createQueryCompiler } from '@zmdb/query-compiler';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
@@ -11,18 +11,16 @@ import { defineRepository, type Driver } from './index.ts';
 export interface Users extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'text'>;
+  orders?: Orders[] & OneToMany<'orders', 'userId'>;
 }
 
 export interface Orders extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  userId: number & Sql<'integer'>;
+  userId: number & Sql<'integer'> & References<'users.id'>;
   total: number & Sql<'integer'>;
 }
 
-const { Users: UsersSchema, Orders: OrdersSchema } = schemasFrom<{ Users: Users; Orders: Orders }>(import.meta.url, [
-  'Users',
-  'Orders',
-]);
+const { Users: UsersSchema } = schemasFrom<{ Users: Users; Orders: Orders }>(import.meta.url, ['Users', 'Orders']);
 
 describe('Native Builder whereIn with Parameter Chunking', () => {
   it('exposes dedicated set-matching methods that output parameterized SQL IN clauses', () => {
@@ -63,16 +61,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
       },
     };
 
-    const repo = defineRepository(UsersSchema, mockDriver, {
-      relations: {
-        orders: {
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          entity: OrdersSchema,
-        },
-      },
-    });
+    const repo = defineRepository(UsersSchema, mockDriver);
 
     const parents = [
       { id: 1, name: 'Alice' },
@@ -108,16 +97,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
       },
     };
 
-    const repo = defineRepository(UsersSchema, mockDriver, {
-      relations: {
-        orders: {
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          entity: OrdersSchema,
-        },
-      },
-    });
+    const repo = defineRepository(UsersSchema, mockDriver);
 
     const parents = [
       { id: 10, name: 'A' },
@@ -146,16 +126,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
       },
     };
 
-    const repo = defineRepository(UsersSchema, mockDriver, {
-      relations: {
-        orders: {
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          entity: OrdersSchema,
-        },
-      },
-    });
+    const repo = defineRepository(UsersSchema, mockDriver);
 
     await (
       repo as unknown as { attachRelations(p: Record<string, unknown>[], r: string[]): Promise<void> }
@@ -188,16 +159,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
       },
     };
 
-    const repo = defineRepository(UsersSchema, mockDriver, {
-      relations: {
-        orders: {
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          entity: OrdersSchema,
-        },
-      },
-    });
+    const repo = defineRepository(UsersSchema, mockDriver);
 
     // Create 5 parent IDs
     const parents = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `User ${i + 1}` }));
@@ -224,17 +186,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     `);
 
     const driver = sqliteDriver(db);
-    const userRepo = defineRepository(UsersSchema, driver, {
-      dialect: 'sqlite',
-      relations: {
-        orders: {
-          cardinality: 'one-to-many',
-          childTable: 'orders',
-          childFk: 'userId',
-          entity: OrdersSchema,
-        },
-      },
-    });
+    const userRepo = defineRepository(UsersSchema, driver, { dialect: 'sqlite' });
 
     // Create 2,500 users and corresponding orders
     const totalUsers = 2500;

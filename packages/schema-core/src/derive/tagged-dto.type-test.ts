@@ -254,8 +254,11 @@ export type _M8 = Expect<Equal<ColumnKeys<Product>, 'id' | 'title'>>;
 export type _M9 = Expect<Equal<keyof CreateDTO<Product>, 'title'>>;
 
 // --- Populated: cardinality comes from the declaration, not the tag ---------
-export type _N7 = Expect<Equal<Populated<Post, 'author'>['author'], User & ManyToOne<'users', 'authorId'>>>;
-export type _N8 = Expect<Equal<Populated<Post, 'comments'>['comments'], Comment[] & OneToMany<'comments', 'postId'>>>;
+// A to-one is nullable because a foreign key can match nothing; a to-many is not, because
+// no match is the empty array. Both targets are `Entity<>` — a populated child is a fetched
+// row, so `comment.post` is no more readable than `post.comments` was before populating.
+export type _N7 = Expect<Equal<Populated<Post, 'author'>['author'], Entity<User> | null>>;
+export type _N8 = Expect<Equal<Populated<Post, 'comments'>['comments'], readonly Entity<Comment>[]>>;
 // Populating one relation must not conjure the other.
 export type _N9 = Expect<Equal<'comments' extends keyof Populated<Post, 'author'> ? true : false, false>>;
 // @ts-expect-error a column is not a relation and cannot be populated

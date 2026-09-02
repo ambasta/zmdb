@@ -108,10 +108,11 @@ rather than just the HTTP path. See [Logging](./web-logging.html),
 
 ## With a repository
 
-Either form works. `defineRepository` infers the schema and relations:
+Either form works. `defineRepository` recovers the declared type from the schema, and its
+relations with it:
 
 ```ts
-const users = defineRepository(UserSchema, driver, { dialect: 'postgres', relations: userRelations });
+const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
 ```
 
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):

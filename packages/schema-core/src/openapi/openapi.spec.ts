@@ -138,7 +138,7 @@ describe('sensitive field redaction in OpenAPI specs', () => {
   });
 
   it('omits sensitive fields from toJsonSchemaWithRelations', () => {
-    const s = toJsonSchemaWithRelations(SchemaWithSecret, {}, 'entity');
+    const s = toJsonSchemaWithRelations(SchemaWithSecret, 'entity');
     expect(s.properties).not.toHaveProperty('passwordHash');
     expect(s.properties).not.toHaveProperty('apiToken');
   });

@@ -92,17 +92,12 @@ Run it, commit both files, and apply with the [runner](./migrations-cli.html). F
 ```ts
 // src/repositories.ts
 import { defineRepository } from '@zmdb/repository';
-import { manyToOne, oneToMany } from '@zmdb/schema-core/relations';
 import { schemaOf } from 'zmdb';
 import type { Author, Post } from './schema.ts';
 import { driver } from './driver.ts';
 
-export const authorRepo = defineRepository(schemaOf<Author>(), driver, {
-  relations: { posts: oneToMany('posts', 'authorId') },
-});
-export const postRepo = defineRepository(schemaOf<Post>(), driver, {
-  relations: { author: manyToOne('authors', 'authorId') },
-});
+export const authorRepo = defineRepository(schemaOf<Author>(), driver);
+export const postRepo = defineRepository(schemaOf<Post>(), driver);
 
 export type PostRepo = typeof postRepo;
 ```
@@ -114,7 +109,7 @@ static and constructs it. `findById`, `find`, `findOne`, `list`, `create`, `upda
 you passed. Exporting `typeof postRepo` as a named type is what lets a controller
 annotate its injected field.
 
-The `relations` map is the one thing that is still written twice. `OneToMany<'posts', 'authorId'>` on the interface is what shapes the types; the map is what `populate` batches its queries from at runtime, and it does not come out of the declaration yet. Keep the two in step — the targets and foreign keys are the same strings.
+Relations need no wiring here. `OneToMany<'posts', 'authorId'>` on the interface in step 2 is the whole declaration: `authorRepo.findAll({ populate: ['posts'] })` type-checks the key against it and batches the child query from the same tag. There used to be a `relations` option on this call that restated the target and the foreign key.
 
 ## 5. A driver
 

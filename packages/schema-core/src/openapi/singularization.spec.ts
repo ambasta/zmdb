@@ -10,8 +10,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, expect, it } from 'vitest';
 
-import { manyToOne, oneToMany } from '../relations/index.ts';
-import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
+import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.ts';
 import { componentName, toJsonSchemaWithRelations, toOpenApiComponents } from './index.ts';
 
 describe('componentName', () => {
@@ -84,12 +83,14 @@ describe('componentName', () => {
 
 export interface UserAddress extends Table<'user_addresses'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  orderId: number & Sql<'integer'>;
+  orderId: number & Sql<'integer'> & References<'order_statuses.id'>;
 }
 
 export interface OrderStatus extends Table<'order_statuses'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  categoryId: number & Sql<'integer'>;
+  categoryId: number & Sql<'integer'> & References<'categories.id'>;
+  category?: Category & ManyToOne<'categories', 'categoryId'>;
+  addresses?: UserAddress[] & OneToMany<'user_addresses', 'orderId'>;
 }
 
 export interface Category extends Table<'categories'> {
@@ -113,14 +114,7 @@ describe('a $ref and the key it points at', () => {
     // component that does not exist is a document that fails validation downstream, and
     // nothing in either function alone would catch a disagreement.
     const components = toOpenApiComponents([addresses, statuses, categories]);
-    const withRelations = toJsonSchemaWithRelations(
-      statuses,
-      {
-        category: manyToOne('categories', 'categoryId'),
-        addresses: oneToMany('user_addresses', 'orderId'),
-      },
-      'entity',
-    );
+    const withRelations = toJsonSchemaWithRelations(statuses, 'entity');
 
     expect(withRelations.properties.category).toEqual({ $ref: '#/components/schemas/Category' });
     expect(withRelations.properties.addresses).toEqual({

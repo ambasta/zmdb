@@ -10,22 +10,21 @@
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository } from '../index.ts';
-import { OrderSchema, UserSchema, orderRelations, userRelations, type Order, type User } from './fixtures.ts';
+import { ProfileSchema, UserSchema, type Order, type Profile, type User } from './fixtures.ts';
 
 // The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is
 // what the populate assertions below are about.
 type OrderRow = Entity<Order>;
 
-class Users extends BaseRepository<User, typeof userRelations> {
+class Users extends BaseRepository<User> {
   static override readonly schema = UserSchema;
-  static readonly relations = userRelations;
 }
-class Orders extends BaseRepository<Order, typeof orderRelations> {
-  static override readonly schema = OrderSchema;
-  static readonly relations = orderRelations;
+// The to-one direction, from the side that holds the foreign key: `profiles.userId`.
+class Profiles extends BaseRepository<Profile> {
+  static override readonly schema = ProfileSchema;
 }
 declare const users: Users;
-declare const orders: Orders;
+declare const profiles: Profiles;
 
 // --- to-many: the relation is an array of the child entity ------------------
 declare const populated: NonNullable<Awaited<ReturnType<typeof users.findById<'orders'>>>>;
@@ -39,7 +38,7 @@ export type _Pop2 = Expect<Mutual<(typeof populated)['name'], string>>;
 export type _Pop3 = Expect<Mutual<(typeof populated)['orders'][number]['total'], number>>;
 
 // --- to-one: a single child, nullable (the FK may match nothing) ------------
-declare const withUser: NonNullable<Awaited<ReturnType<typeof orders.findById<'user'>>>>;
+declare const withUser: NonNullable<Awaited<ReturnType<typeof profiles.findById<'user'>>>>;
 export type _Pop4 = Expect<Equal<(typeof withUser)['user'], Entity<User> | null>>;
 
 // --- find() populates every row --------------------------------------------

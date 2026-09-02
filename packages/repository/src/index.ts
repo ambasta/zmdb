@@ -11,6 +11,7 @@ import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 import {
   isRecord,
+  resolveRelation,
   ValidationError,
   type CoreSchema,
   type CreateDTO,
@@ -21,7 +22,9 @@ import {
   type UpdateDTO,
   type ValidationIssue,
   type JoinRow,
+  type ResolvedRelation,
 } from '@zmdb/schema-core';
+import type { Populated, RelationKeys } from '@zmdb/schema-core/derive';
 import {
   compileWhere,
   applyOrderBy,
@@ -44,7 +47,6 @@ import {
   type ObjectIR,
   type ShapeIR,
 } from '@zmdb/schema-core/ir';
-import type { Cardinality, RelationMeta } from '@zmdb/schema-core/relations';
 
 export interface Driver {
   readonly dialect?: Dialect;
@@ -58,91 +60,9 @@ export interface Driver {
  */
 type EntityRow<T extends DeclaredTable> = Entity<T> & Record<string, unknown>;
 
-/**
- * One entry in a repository's `relations` map (see typed-populate/SPEC.md).
- *
- * `childTable`/`childFk`/`parentKey` drive the batched child query; `entity` is
- * the child *schema*, and exists purely so `Populated` can derive the attached
- * row type. `meta` is the `RelationMeta` from `@zmdb/schema-core/relations`,
- * carried for documentation/introspection — the runtime reads neither.
- */
-export interface RelationDefLike {
-  readonly cardinality?: Cardinality | 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many' | undefined;
-  readonly childTable?: string | undefined;
-  readonly childFk?: string | undefined;
-  readonly parentKey?: string | undefined;
-  readonly target?: string | undefined;
-  readonly fk?: string | undefined;
-  readonly mappedBy?: string | undefined;
-  readonly rel?:
-    | {
-        cardinality?: 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many' | undefined;
-        target?: string | undefined;
-        fk?: string | undefined;
-        mappedBy?: string | undefined;
-        parentKey?: string | undefined;
-      }
-    | undefined;
-  readonly meta?:
-    | RelationMeta
-    | {
-        cardinality?: Cardinality | 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many' | undefined;
-        target?: string | undefined;
-        fk?: string | undefined;
-        mappedBy?: string | undefined;
-        parentKey?: string | undefined;
-        through?: string | undefined;
-        owning?: boolean | undefined;
-      }
-    | undefined;
-  readonly entity?: CoreSchema<string> | unknown;
-}
-
 export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
   joinRelation(relationName: string, kind?: 'inner' | 'left' | 'right'): RepositoryAggregateBuilder;
 }
-
-/** A repository's relations map: relation name → definition. */
-export type RelationsLike = Readonly<Record<string, RelationDefLike>>;
-
-/** A repository with no declared relations — the default for `BaseRepository`. */
-export type NoRelations = Readonly<Record<never, never>>;
-
-type RelationCardinality<D> = D extends { cardinality: infer C }
-  ? C
-  : D extends { rel: { cardinality: infer RC } }
-    ? RC
-    : D extends { meta: { cardinality: infer MC } }
-      ? MC
-      : never;
-
-// A relations map entry names its child by *schema value* (`entity: OrderSchema`), because
-// the runtime needs its table name and its columns. So this is one of the few places that
-// has to cross back from a value to the type it was declared as, and the phantom is how.
-// An entry may also name the declared type directly, which is the second arm.
-type RelationEntity<D> = D extends { entity: infer E }
-  ? E extends TaggedSchema<infer Declared extends DeclaredTable>
-    ? Entity<Declared>
-    : E
-  : never;
-
-// The value attached for one populated relation: an array of child entities for
-// to-many, a single child (or null, when the FK matches nothing) for to-one.
-type PopulatedField<D extends RelationDefLike> =
-  RelationCardinality<D> extends 'one-to-many' | 'many-to-many'
-    ? readonly RelationEntity<D>[]
-    : RelationEntity<D> | null;
-
-/**
- * `Entity<T>` widened with exactly the relations that were populated (#217).
- *
- * Only the requested keys `K` are added, which is what makes reading an
- * unpopulated relation a compile error instead of `undefined` at runtime — the
- * "no lazy getters" guarantee, stated as a type.
- */
-export type Populated<T extends DeclaredTable, R extends RelationsLike, K extends keyof R = keyof R> = Entity<T> & {
-  readonly [P in K]: PopulatedField<R[P]>;
-};
 
 export { ValidationError, type ValidationIssue };
 
@@ -167,21 +87,26 @@ interface PayloadShape {
  * those at construction, and `defineRepository` recovers `T` from its phantom, but nothing
  * here reads a column map to work out what a row looks like.
  *
- * `R` is the relations map, defaulting to "none". It is a *type* parameter rather than
- * being read off the static `relations` map because a class cannot refer to its own
- * statics in its own `extends` clause — declare the map as a const and pass `typeof` it:
+ * Relations come from `T` as well. There used to be a second type parameter for them,
+ * paired with a static `relations` map, because `Entity<T>` was derived from a schema value
+ * and a schema value carries no relations — so the map was the only place the runtime could
+ * learn that `orders` means `orders.userId`. The declaration says it:
  *
  * ```ts
- * const userRelations = { orders: { … } } as const;
- * class Users extends BaseRepository<User, typeof userRelations> {
+ * interface User extends Table<'users'> {
+ *   id: number & Sql<'integer'> & Serial & PrimaryKey;
+ *   orders?: Order[] & OneToMany<'orders', 'userId'>;
+ * }
+ *
+ * class Users extends BaseRepository<User> {
  *   static override readonly schema = UserSchema;
- *   static readonly relations = userRelations;
  * }
  * ```
  *
- * `defineRepository` infers both, so wiring a repository needs no subclass at all.
+ * `populate: ['orders']` is checked against `RelationKeys<User>` and the batched select it
+ * runs comes from the same tag. `defineRepository` needs no subclass at all.
  */
-export abstract class BaseRepository<T extends DeclaredTable, R extends RelationsLike = NoRelations> {
+export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
@@ -221,16 +146,16 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
   }
 
   /**
-   * The relation map a subclass declares as a static, or an empty one.
+   * One relation, by name, resolved from the declaration.
    *
-   * boundary: same problem as `schema` above — `this.constructor` is typed `Function`, so a
-   * static a subclass adds is not on it. Three methods read this map and each used to assert
-   * the same shape; asserting it once here is what makes "the subclass contract" a single
-   * claim. Nothing trusts a definition it finds: an unknown name throws, and
-   * `resolveRelationJoin` re-checks every field it needs.
+   * No assertion, which is the difference from the static `relations` map this replaced:
+   * `schema.ir.relations` is a field of the schema value every repository is handed, so
+   * there is nothing to claim about `this.constructor`. The resolution itself lives in
+   * `@zmdb/schema-core` because `compilePopulate` needs the same answer, and two resolvers
+   * over one declaration is how the join and the batched select came to disagree before.
    */
-  private get declaredRelations(): Record<string, RelationDefLike> {
-    return (this.constructor as { relations?: Record<string, RelationDefLike> }).relations ?? {};
+  private relation(name: string): ResolvedRelation {
+    return resolveRelation(this.schema.ir, name);
   }
 
   private get tableName(): string {
@@ -319,16 +244,15 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
     return where as WhereDTO<T>;
   }
 
-  // #218 — typed populate. When `opts.populate` names relations (declared in the
-  // subclass's static `relations` map and passed as `R`), the result is widened
-  // with those relations *and only those*. Batched IN query per relation; no
-  // proxies. Populate keys are `keyof R`, so a misspelled relation is a compile
-  // error rather than the runtime `unknown relation` throw below.
+  // #218 — typed populate. When `opts.populate` names relations the type declares, the
+  // result is widened with those relations *and only those*. Batched IN query per relation;
+  // no proxies. Populate keys are `RelationKeys<T>`, so a misspelled relation is a compile
+  // error rather than the runtime throw in `resolveRelation`.
   async findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
-  async findById<K extends keyof R & string>(
+  async findById<K extends RelationKeys<T> & string>(
     id: PrimaryKeyOf<T>,
     opts: { populate: readonly K[] },
-  ): Promise<Populated<T, R, K> | undefined>;
+  ): Promise<Populated<T, K> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
     return this.firstMatching(this.buildKeyWhere(id), opts?.populate);
   }
@@ -378,55 +302,47 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
     names: readonly string[],
   ): Promise<readonly Row[]> {
     if (parents.length === 0) return parents;
-    const relations = this.declaredRelations;
     let current: Record<string, unknown>[] = parents.map(p => ({ ...p }));
 
     for (const name of names) {
-      const def = relations[name];
-      if (!def) throw new Error(`unknown relation "${name}" on ${this.tableName}`);
-      const meta = def.rel ?? def.meta;
-      const childTable = def.childTable ?? def.target ?? meta?.target ?? '';
-      const childFk = def.childFk ?? def.fk ?? def.mappedBy ?? meta?.fk ?? meta?.mappedBy ?? '';
-      if (!childTable || !childFk) throw new Error(`invalid relation definition "${name}" on ${this.tableName}`);
-      const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
-      const cardinality = def.cardinality ?? meta?.cardinality;
-      const toMany = cardinality === 'one-to-many' || cardinality === 'many-to-many';
+      const rel = this.relation(name);
       const byParent = await this.childrenByParent(
-        childTable,
-        childFk,
-        current.map(p => p[parentKey]),
+        rel.targetTable,
+        rel.targetKey,
+        current.map(p => p[rel.parentKey]),
       );
       current = current.map(p => {
-        const pKey = p[parentKey];
+        const pKey = p[rel.parentKey];
         if (pKey === null || pKey === undefined) {
-          return { ...p, [name]: toMany ? [] : null };
+          return { ...p, [name]: rel.toMany ? [] : null };
         }
         const list = byParent.get(pKey) ?? [];
         return {
           ...p,
-          [name]: toMany ? list : (list[0] ?? null),
+          [name]: rel.toMany ? list : (list[0] ?? null),
         };
       });
     }
 
-    // boundary: populated rows are constructed by copying parent records and attaching relation properties matching Populated<Row, R, K>.
+    // boundary: populated rows are built by copying parent rows and attaching the relation
+    // properties `Populated<T, K>` says are there.
     return current as unknown as readonly Row[];
   }
 
-  async findOne<K extends keyof R & string>(
+  async findOne<K extends RelationKeys<T> & string>(
     where: WhereDTO<T>,
     opts: { populate: readonly K[] },
-  ): Promise<Populated<T, R, K> | undefined>;
+  ): Promise<Populated<T, K> | undefined>;
   async findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
   async findOne(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
     return this.firstMatching(where, opts?.populate);
   }
 
   async find(where: WhereDTO<T>): Promise<readonly Entity<T>[]>;
-  async find<K extends keyof R & string>(
+  async find<K extends RelationKeys<T> & string>(
     where: WhereDTO<T>,
     opts: { populate: readonly K[] },
-  ): Promise<readonly Populated<T, R, K>[]>;
+  ): Promise<readonly Populated<T, K>[]>;
   async find(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
     const b = compileWhere(this.qb.selectFrom(this.tableName), where);
     const rows = await this.rows<EntityRow<T>>(b.compile());
@@ -434,7 +350,9 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
     return this.attachRelations(rows, opts.populate);
   }
 
-  async findAll<K extends keyof R & string>(opts: { populate: readonly K[] }): Promise<readonly Populated<T, R, K>[]>;
+  async findAll<K extends RelationKeys<T> & string>(opts: {
+    populate: readonly K[];
+  }): Promise<readonly Populated<T, K>[]>;
   async findAll(): Promise<readonly Entity<T>[]>;
   async findAll(opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
     const rows = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile());
@@ -442,10 +360,10 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
     return this.attachRelations(rows, opts.populate);
   }
 
-  async list<K extends keyof R & string>(
+  async list<K extends RelationKeys<T> & string>(
     query: ListDTO<T> | undefined,
     opts: { populate: readonly K[] },
-  ): Promise<ListResult<Populated<T, R, K>>>;
+  ): Promise<ListResult<Populated<T, K>>>;
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
   async list(query?: ListDTO<T>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<T>>> {
     let b = this.qb.selectFrom(this.tableName);
@@ -538,43 +456,30 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
     return this.driver.execute(b.compile());
   }
 
-  /** Resolve relation definition into target table and left/right join columns. */
+  /**
+   * A relation as a join: the target table, aliased to the relation name, and the two columns.
+   *
+   * One expression for both directions, where the map-driven version needed a branch per
+   * cardinality — the two spellings put the joining column under a different key depending
+   * on which side owned it (`fk` on the owning side, `mappedBy` on the inverse), and each
+   * arm then had a fallback that guessed a column name from the table name. `parentKey` and
+   * `targetKey` are already the answer to "which column on which side", so there is nothing
+   * left to guess and no default to be wrong about.
+   */
   protected resolveRelationJoin(relationName: string): {
     targetTable: string;
     leftCol: string;
     rightCol: string;
   } {
-    const relations = this.declaredRelations;
-    const def = relations[relationName];
-    if (!def) {
-      throw new Error(`unknown relation "${relationName}" on ${this.tableName}`);
-    }
-    const meta = def.rel ?? def.meta;
-    const cardinality = def.cardinality ?? meta?.cardinality ?? 'many-to-one';
-    const rawTargetTable = def.childTable ?? def.target ?? meta?.target;
-    if (!rawTargetTable) {
-      throw new Error(`missing target table for relation "${relationName}" on ${this.tableName}`);
-    }
-    const parentKey = def.parentKey ?? (meta && 'parentKey' in meta ? meta.parentKey : undefined) ?? 'id';
-
-    const tableAlias = relationName.trim();
+    const rel = this.relation(relationName);
+    const alias = relationName.trim();
     const targetTable =
-      rawTargetTable.toLowerCase() === tableAlias.toLowerCase() ? rawTargetTable : `${rawTargetTable} as ${tableAlias}`;
-
-    let leftCol: string;
-    let rightCol: string;
-
-    if (cardinality === 'many-to-one' || cardinality === 'one-to-one') {
-      const fk = def.fk ?? def.childFk ?? meta?.fk ?? `${relationName}Id`;
-      leftCol = `${this.tableName}.${fk}`;
-      rightCol = `${tableAlias}.${parentKey}`;
-    } else {
-      const childFk = def.mappedBy ?? def.childFk ?? meta?.mappedBy ?? `${this.tableName.replace(/s$/, '')}Id`;
-      leftCol = `${this.tableName}.${parentKey}`;
-      rightCol = `${tableAlias}.${childFk}`;
-    }
-
-    return { targetTable, leftCol, rightCol };
+      rel.targetTable.toLowerCase() === alias.toLowerCase() ? rel.targetTable : `${rel.targetTable} as ${alias}`;
+    return {
+      targetTable,
+      leftCol: `${this.tableName}.${rel.parentKey}`,
+      rightCol: `${alias}.${rel.targetKey}`,
+    };
   }
 
   private createRepositoryAggregateBuilder(): RepositoryAggregateBuilder {
@@ -627,7 +532,7 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
   // #92 & relation-aware aggregations. Runs a grouped aggregate (count/sum/…)
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
-    specOrBuild: AggregateSpec<T, R> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
+    specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
 
@@ -662,7 +567,7 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
         }
       }
 
-      const relations = this.declaredRelations;
+      const relationNames = new Set(this.schema.ir.relations.map(rel => rel.name));
       const candidateCols: string[] = [];
       if (spec.groupBy) candidateCols.push(...spec.groupBy.map(String));
       if (spec.computed) {
@@ -678,7 +583,7 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
         if (col.includes('.')) {
           const parts = col.split('.');
           const relCandidate = parts[0];
-          if (relCandidate && relCandidate in relations) {
+          if (relCandidate && relationNames.has(relCandidate)) {
             applyJoin(relCandidate);
           }
         }
@@ -765,7 +670,7 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
   // one IN() query for children, and attaches them under `relationName`. No
   // proxies, no identity map — children are plain rows on plain parents.
-  async findAllWithMany<K extends keyof R & string>(relationName: K): Promise<readonly Populated<T, R, K>[]>;
+  async findAllWithMany<K extends RelationKeys<T> & string>(relationName: K): Promise<readonly Populated<T, K>[]>;
   async findAllWithMany(
     relationName: string,
     childTable: string,
@@ -959,25 +864,22 @@ export abstract class BaseRepository<T extends DeclaredTable, R extends Relation
   }
 }
 
-// #223 — wiring helper. Bind a schema (+ optional relations) to a driver and get
-// a fully typed repository instance without writing a subclass.
-export interface DefineRepositoryOptions<R extends RelationsLike = NoRelations> {
+// #223 — wiring helper. Bind a schema to a driver and get a fully typed repository
+// instance without writing a subclass. There used to be a `relations` option here; the
+// relations are on `T`, which `schema` carries, so passing them again was the second
+// spelling this design exists to remove.
+export interface DefineRepositoryOptions {
   dialect?: Dialect;
-  relations?: R;
 }
-// `R` is inferred from `opts.relations`, so the returned repository's populate
-// keys and populated row types come from the literal map the caller wrote — the
-// subclass form has to spell `typeof userRelations` out by hand.
-export function defineRepository<T extends DeclaredTable, R extends RelationsLike = NoRelations>(
+export function defineRepository<T extends DeclaredTable>(
   schema: TaggedSchema<T>,
   driver: Driver,
-  opts?: DefineRepositoryOptions<R>,
-): BaseRepository<T, R> {
-  // Anonymous subclass binding the schema (+ optional relations) as statics,
-  // exactly like a hand-written subclass — no proxies, no magic.
-  class Repo extends BaseRepository<T, R> {
+  opts?: DefineRepositoryOptions,
+): BaseRepository<T> {
+  // Anonymous subclass binding the schema as a static, exactly like a hand-written
+  // subclass — no proxies, no magic.
+  class Repo extends BaseRepository<T> {
     static override readonly schema = schema;
-    static readonly relations = opts?.relations ?? {};
   }
   return new Repo(driver, opts?.dialect ?? 'postgres');
 }
