@@ -496,10 +496,12 @@ its join, `compilePopulate` and `toJsonSchemaWithRelations` all read it — wher
 repository's own two readers of the map used different field names with different fallbacks and
 could build different queries from one entry.
 
-**Not yet done in Phases 1–3:** the relation-driven
-`PopulatedEntity`/`Populated`/`JoinRow`, and the `dto/` module's
-order-by/pagination/projection shapes. The codemod and the instantiation-budget ratchet
-are done. The reflection half of the D5 guard is now done, in `#readTags`.
+**What Phases 1–3 left for later, now done.** The relation-driven
+`PopulatedEntity`/`Populated`/`JoinRow` live in `derive/query.ts` and read the relation off
+the declared type. The `dto/` module's order-by/pagination/projection shapes are keyed off
+`T` as well, and `derive` re-exports them rather than restating them — two copies of
+`WhereDTO` were two operator sets to keep in step. The codemod, the instantiation-budget
+ratchet and the reflection half of the D5 guard (in `#readTags`) were done earlier.
 
 From Phase 0, the `typescript` optional-peer-dep move and its reachability guard move to
 **Phase 5**, not because they are hard but because they cannot land yet: the package
