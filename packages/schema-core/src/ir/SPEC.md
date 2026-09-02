@@ -87,10 +87,11 @@ interface ColumnIR {
   enum?: readonly string[];
   references?: string;
   codec?: string;
+  wire?: TypeIR; // the declared wire type (WireAs<W>)
   constraints: Constraints;
   rules: readonly string[]; // named custom rules an emitter must resolve or refuse
   default?: unknown;
-  payload?: TypeIR; // json columns with a known shape
+  payload?: TypeIR; // the declared app type: a json payload shape, or a codec's type
 }
 
 interface SchemaIR {
@@ -122,10 +123,16 @@ One column has three renderings, and each layer owns one:
 | `timestamp` | `string`, `format: 'date-time'` | `Date`             | `timestamptz` (pg) / `TEXT` (sqlite) |
 | `bigint`    | `string`, `format: 'int64'`     | `bigint`           | `bigint`                             |
 | `jsonEnum`  | literal union                   | literal union      | `text` + check                       |
+| `Codec<N>`  | `WireAs<W>`, or refused         | `payload`          | whatever `sql` says                  |
 
-`appTypeOf(col)` and `wireTypeOf(col)` return the first two. The db rendering is the
-dialect's; `query-compiler` currently interpolates `col.type` verbatim, which is the
-gap plan Phase 7b closes.
+`appTypeOf(col)` and `wireTypeOf(col)` return the first two; `ddlType(dialect, col)` in
+`query-compiler/migrations` returns the third.
+
+A codec column is the case where nothing can be inferred: it is stored as one type, held
+as another and crossed as a third, and only the declaration knows the last two.
+`payload` carries the app type and `WireAs<W>` the wire type. Without the tag,
+`wireTypeOf` returns an `unsupported` node naming the column — "the same as the app type"
+is the guess that puts a class instance through `JSON.stringify` (plan D4).
 
 ## 7. Back-end: JSON Schema
 

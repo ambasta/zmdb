@@ -177,6 +177,68 @@ describe('the three types of a column (REQ-TF-13)', () => {
     });
   });
 
+  it("takes a codec's app type from the declaration, since the SQL type is not it", () => {
+    // `amount: Money & Sql<'integer'> & Codec<'Money'>` is an integer in the database and
+    // a `Money` in the app. A validator that checked `integer` here would reject every
+    // valid value, which is why the declared type wins.
+    const money: ColumnIR = {
+      ...probe(integer()),
+      codec: 'Money',
+      payload: { kind: 'object', properties: [] },
+      wire: { kind: 'scalar', scalar: 'string' },
+    };
+    expect(appTypeOf(money)).toEqual({ kind: 'object', properties: [] });
+    expect(wireTypeOf(money)).toEqual({ kind: 'scalar', scalar: 'string' });
+    expect(jsonSchemaForColumn(money)).toEqual({ type: 'string' });
+  });
+
+  it('refuses a codec column that does not say what it puts on the wire', () => {
+    // A gap has to be visible (plan D4). "The same as the app type" is a guess, and the
+    // one it gets wrong is the case a codec exists for. The emitter turns an
+    // `unsupported` node into a build error naming the column.
+    const refused = wireTypeOf({ ...probe(integer()), codec: 'Money' });
+    expect(refused.kind).toBe('unsupported');
+    expect(refused).toMatchObject({ reason: expect.stringContaining('WireAs') });
+    // The app type is still answerable: it is the column's own type until a declaration
+    // says otherwise.
+    expect(appTypeOf({ ...probe(integer()), codec: 'Money' })).toMatchObject({ scalar: 'integer' });
+  });
+
+  it('carries a declared wire type through nullability and through an enum', () => {
+    const nullable: ColumnIR = {
+      ...probe(integer().nullable()),
+      codec: 'Money',
+      wire: { kind: 'scalar', scalar: 'string' },
+    };
+    expect(wireTypeOf(nullable)).toEqual({
+      kind: 'union',
+      members: [{ kind: 'scalar', scalar: 'string' }, { kind: 'null' }],
+    });
+    expect(jsonSchemaForColumn(nullable)).toEqual({ type: ['string', 'null'] });
+
+    // A wire form JSON Schema has a keyword for is published; one it does not gets no
+    // `type` rather than a wrong one, which is what a `json` column has always done.
+    const enumerated: ColumnIR = {
+      ...probe(integer()),
+      codec: 'Grade',
+      wire: {
+        kind: 'union',
+        members: [
+          { kind: 'literal', value: 'pass' },
+          { kind: 'literal', value: 'fail' },
+        ],
+      },
+    };
+    expect(jsonSchemaForColumn(enumerated)).toEqual({ enum: ['pass', 'fail'] });
+    expect(
+      jsonSchemaForColumn({
+        ...probe(integer()),
+        codec: 'Point',
+        wire: { kind: 'array', element: { kind: 'unknown' } },
+      }),
+    ).toEqual({});
+  });
+
   it('wraps a nullable column in a union with null rather than losing it', () => {
     // Nullability was absent from `TypeDescriptor` entirely, so the AOT could not
     // emit the null arm at all.

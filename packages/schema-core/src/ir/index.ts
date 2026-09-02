@@ -183,11 +183,22 @@ export interface ColumnIR {
   readonly enum?: readonly string[];
   readonly references?: string;
   readonly codec?: string;
+  /**
+   * The declared wire type (`WireAs<W>`), for a column whose wire form does not follow
+   * from `sql`. A codec's does not: only the declaration knows whether `Money` crosses
+   * as a decimal string, a `{ cents }` object or a pair.
+   */
+  readonly wire?: TypeIR;
   readonly constraints: Constraints;
   /** Named custom rules (`Rule<'name'>`) an emitter must resolve or refuse. */
   readonly rules: readonly string[];
   readonly default?: unknown;
-  /** Set for `json` columns whose payload shape is known. */
+  /**
+   * The declared app type, where the front-end can see it: a `json` column's payload
+   * shape, or the type behind a codec. Set only by the tagged front-end — `json<Settings>()`
+   * and `defineType` both erase their type parameter at runtime, so `irFromSchema` has
+   * nothing to read.
+   */
   readonly payload?: TypeIR;
 }
 
@@ -251,6 +262,7 @@ export const TAG_NAMES = {
   length: 'zmdbLength',
   precision: 'zmdbNumeric',
   codec: 'zmdbCodec',
+  wire: 'zmdbWire',
   relation: 'zmdbRelation',
   minimum: 'zmdbMin',
   maximum: 'zmdbMax',
@@ -481,6 +493,11 @@ export function appTypeOf(col: ColumnIR): TypeIR {
 }
 
 function appBaseOf(col: ColumnIR): TypeIR {
+  // A declared app type wins over the SQL type it is stored as. `amount: Money &
+  // Sql<'integer'> & Codec<'Money'>` is an integer in the database and a `Money` in the
+  // app, and a validator that checked `integer` here would reject every valid value.
+  if (col.payload !== undefined) return col.payload;
+
   switch (col.sql) {
     case 'serial':
     case 'integer':
@@ -501,7 +518,7 @@ function appBaseOf(col: ColumnIR): TypeIR {
         ? constrained('string', col)
         : { kind: 'union', members: col.enum.map(value => ({ kind: 'literal', value }) as const) };
     case 'json':
-      return col.payload ?? JSON_CONTAINER;
+      return JSON_CONTAINER;
   }
 }
 
@@ -530,6 +547,17 @@ const JSON_CONTAINER: TypeIR = {
  * string for the same reason. Anything else matches the app type.
  */
 export function wireTypeOf(col: ColumnIR): TypeIR {
+  if (col.wire !== undefined) return withNull(col.wire, col.nullable);
+  if (col.codec !== undefined) {
+    // A gap, and gaps are visible (plan D4). A codec exists because the app type is not
+    // the stored type; what it puts on the wire is a third choice that nothing but the
+    // declaration knows, and guessing "the same as the app type" is how a `Money`
+    // instance reaches `JSON.stringify`.
+    return {
+      kind: 'unsupported',
+      reason: `the codec "${col.codec}" does not say what column "${col.name}" looks like on the wire; add WireAs<…> to the declaration`,
+    };
+  }
   if (col.sql === 'timestamp') return withNull(constrained('string', col, 'date-time'), col.nullable);
   if (col.sql === 'bigint') return withNull(constrained('string', col, 'int64'), col.nullable);
   return appTypeOf(col);
@@ -554,6 +582,9 @@ export interface JsonSchemaObject {
  */
 export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
   const base: Record<string, unknown> = {};
+
+  const declared = declaredWireKeywords(col);
+  if (declared) return nullableType(declared, col.nullable);
 
   switch (col.sql) {
     case 'serial':
@@ -596,10 +627,44 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
 
   // Nullable widens the `type` keyword. A `json` column has no `type` to widen,
   // which is the pre-existing behaviour and is preserved deliberately.
-  if (col.nullable && typeof base.type === 'string') base.type = [base.type, 'null'];
-
-  return base;
+  return nullableType(base, col.nullable);
 }
+
+function nullableType(schema: Record<string, unknown>, nullable: boolean): Record<string, unknown> {
+  if (nullable && typeof schema.type === 'string') return { ...schema, type: [schema.type, 'null'] };
+  return schema;
+}
+
+/**
+ * The keywords for a `WireAs<W>` column, when `W` is something JSON Schema has keywords
+ * for. A scalar and a union of string literals cover every wire form seen so far — cents
+ * as a decimal string, a UUID, an enum.
+ *
+ * Anything richer (a tuple, an object) gets no `type` keyword rather than a wrong one:
+ * the same "widest true statement" a `json` column has always produced, for the same
+ * reason. It is a smaller document, not a false one.
+ */
+function declaredWireKeywords(col: ColumnIR): Record<string, unknown> | undefined {
+  if (col.wire === undefined) return undefined;
+  const node = col.wire;
+  if (node.kind === 'scalar') {
+    const type = JSON_SCALAR_TYPES[node.scalar];
+    if (type === undefined) return {};
+    return { type, ...(node.format === undefined ? {} : { format: node.format }) };
+  }
+  if (node.kind === 'union' && node.members.every(member => member.kind === 'literal')) {
+    return { enum: node.members.map(member => (member as LiteralIR).value) };
+  }
+  return {};
+}
+
+/** The JSON Schema `type` for a scalar the wire can carry. `date` and `bigint` cannot. */
+const JSON_SCALAR_TYPES: Readonly<Record<string, string | undefined>> = {
+  string: 'string',
+  number: 'number',
+  integer: 'integer',
+  boolean: 'boolean',
+};
 
 /**
  * A column, plus whether the shape it was read from makes it optional.

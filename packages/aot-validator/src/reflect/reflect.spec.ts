@@ -660,6 +660,28 @@ describe('what only a tagged declaration can say', () => {
     expect(invoice().columns.find(c => c.name === 'currency')?.codec).toBe('currency');
   });
 
+  it("carries a codec's three types: the app shape, the wire form, and the stored type", () => {
+    const total = invoice().columns.find(c => c.name === 'total');
+    // Stored as an integer, held as a `Money`, crossing as a decimal string. Each layer
+    // reads its own field, and none of them has to guess at another's.
+    expect(total?.sql).toBe('integer');
+    expect(total?.payload).toEqual({
+      kind: 'object',
+      name: 'Money',
+      // `number`, not `integer`: `Sql<'integer'>` describes the *column*, and nothing
+      // inside a nested app type has said which kind of number this is.
+      properties: [{ name: 'cents', optional: false, readonly: false, type: { kind: 'scalar', scalar: 'number' } }],
+    });
+    expect(total?.wire).toEqual({ kind: 'scalar', scalar: 'string' });
+  });
+
+  it('leaves a codec over a plain scalar to the SQL type, which already describes it', () => {
+    // `currency` is a string on both sides. Recording the data part as an app type would
+    // drop the tags' constraints, which `appTypeOf` reads off the column instead.
+    const currency = invoice().columns.find(c => c.name === 'currency');
+    expect(currency && 'payload' in currency).toBe(false);
+  });
+
   it('records that a column has a default without being able to say what it is', () => {
     // `HasDefault` means "has one", not "has this one". A default *value* is a runtime
     // value and no type can carry it, so the DDL keeps the value and the type keeps the

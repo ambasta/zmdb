@@ -163,7 +163,7 @@ different things and calling them equal.
 
 ## 8. What only a tagged declaration can say
 
-Four capabilities have no `defineSchema` spelling, and one runtime fact has no type
+Five capabilities have no `defineSchema` spelling, and one runtime fact has no type
 spelling. They are kept out of the equivalence corpus so its deep-equality assertion
 stays total, and asserted separately instead — an asymmetry that lives only in a
 comment is an asymmetry nobody measures.
@@ -172,9 +172,21 @@ comment is an asymmetry nobody measures.
 | ------------------------- | ------------------------------------------------------ |
 | `Numeric<P, S>` precision | `ColumnFlags` has no precision field                   |
 | `Codec<Name>`             | No flag carries it                                     |
+| `WireAs<W>`               | A value has no way to name a type                      |
 | A `json` payload shape    | `json<Line[]>()` erases the parameter at runtime       |
 | Relations                 | `irFromSchema` returns `relations: []` unconditionally |
 | A default **value**       | `HasDefault` means "has one", not "has this one"       |
+
+`WireAs<W>` is the one tag whose payload is a _type_ rather than a literal, so `#column`
+reads it with `#type` and not `literalOf`. It is what stops a codec column from being
+guessed at: `Codec<'Money'>` says the app type is not the SQL type, and only `WireAs<W>`
+says what crosses the wire instead. A column that says the first without the second gets
+an `unsupported` wire type from the IR rather than a plausible-looking wrong one.
+
+The declared app type lands in `payload`, which used to be a `json`-only field. A codec
+over a plain scalar is the exception: `string & Length<80> & Codec<'currency'>` keeps the
+sql-derived app type, because recording `string` as the payload would throw away the
+constraint the declaration just made.
 
 ## 9. Verified
 
@@ -185,7 +197,8 @@ comment is an asymmetry nobody measures.
 - [x] `boolean` reflects as a scalar, not as the `true | false` union the checker models it as.
 - [x] `maxDepth` and `maxNodes` overruns each produce an `unsupported` node naming the cap.
 - [x] A duplicate tag installation is refused with both escaped names in the message (plan D5).
-- [x] Each of the five tagged-only capabilities in §8 has its own assertion.
+- [x] Each of the six tagged-only capabilities in §8 has its own assertion.
+- [x] A `Codec` + `WireAs` column reflects all three of its types; a codec over a plain scalar records no payload.
 - [x] `Serial` alone yields `serial: true` **and** `hasDefault: true`.
 - [x] Mutual recursion (`Folder` ↔ `FileEntry`) closes with a `ref`, not just self-recursion.
 - [x] A discriminated union keeps its discriminant as a `literal` on every arm, so the emitter can choose a strategy from the IR alone; an undiscriminated union keeps declaration order.

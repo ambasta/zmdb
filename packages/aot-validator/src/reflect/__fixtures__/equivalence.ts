@@ -11,9 +11,9 @@
 // checker. `reflect.spec.ts` asserts the two label sets are identical, so a table
 // added on one side and forgotten on the other fails rather than goes unchecked.
 //
-// Four things a tagged declaration can say that `defineSchema` cannot, so no column
-// here uses them: `Numeric<P, S>` precision, `Codec<Name>`, a `json` payload shape,
-// and relations — `irFromSchema` returns `relations: []` unconditionally. And one
+// Five things a tagged declaration can say that `defineSchema` cannot, so no column
+// here uses them: `Numeric<P, S>` precision, `Codec<Name>`, `WireAs<W>`, a `json`
+// payload shape, and relations — `irFromSchema` returns `relations: []` unconditionally. And one
 // thing `defineSchema` can say that a type cannot: the default *value*. `HasDefault`
 // means "has one", not "has this one". `reflect.spec.ts` covers each separately.
 //
@@ -41,6 +41,7 @@ import type {
   Sql,
   Table,
   Unique,
+  WireAs,
 } from '@zmdb/schema-core/tags';
 
 // Declarations, not functions: nothing calls them, and the second parameter is only
@@ -89,6 +90,11 @@ export interface Line {
   qty: number & Sql<'integer'> & Min<1>;
 }
 
+/** A column type the library does not know: the app side of the `Money` codec. */
+export interface Money {
+  readonly cents: number;
+}
+
 export interface Author extends Table<'authors'> {
   id: number & Sql<'serial'> & Serial & PrimaryKey;
   name: string & Sql<'text'>;
@@ -101,6 +107,12 @@ export interface Invoice extends Table<'invoices'> {
   /** `json<Line[]>()` carries the payload in a phantom parameter that is erased. */
   lines: Line[] & Sql<'json'>;
   currency: string & Sql<'text'> & Codec<'currency'>;
+  /**
+   * A codec whose three types differ: cents in the database, a `Money` in the app, a
+   * decimal string on the wire. Only this declaration knows the last one, which is why
+   * `WireAs<W>` exists and why a codec column without it is refused.
+   */
+  total: Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
   /** Has a default. The *value* is not expressible in a type — see `HasDefault`. */
   issuedAt: Date & Sql<'timestamp'> & HasDefault;
   authorId: number & Sql<'integer'> & References<'authors.id'>;

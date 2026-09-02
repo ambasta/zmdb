@@ -792,12 +792,15 @@ export class Reflector {
     const precision = this.#precisionOf(tags);
     const references = literalOf(this.#nonNullable(tags.get('references')));
     const codec = literalOf(this.#nonNullable(tags.get('codec')));
+    const wire = this.#nonNullable(tags.get('wire'));
 
     // `Serial` implies a database default. Not an inference for convenience: a
     // generated column *does* have one, `serial()` sets `hasDefault` too, and the two
     // front-ends have to agree node for node or the equivalence test is meaningless.
     const serial = tags.has('serial');
     const hasDefault = serial || tags.has('hasDefault');
+
+    const payload = this.#declaredApp(property, data, sql, typeof codec === 'string');
 
     return {
       name: property,
@@ -813,17 +816,40 @@ export class Reflector {
       ...(sql === 'jsonEnum' && enumValues !== undefined ? { enum: enumValues } : {}),
       ...(typeof references === 'string' ? { references } : {}),
       ...(typeof codec === 'string' ? { codec } : {}),
+      // `WireAs<W>` is the one tag whose payload is a type rather than a literal, so it
+      // is reflected like data instead of read with `literalOf`. Only the declaration
+      // can say what a codec puts on the wire — see `wireTypeOf`, which refuses a codec
+      // column without it rather than assuming the app type crosses unchanged.
+      ...(wire === undefined ? {} : { wire: this.#type(wire, property, 1) }),
       constraints: constraints as Constraints,
       rules: this.#rulesOf(tags),
-      // A `json` column's payload shape is something only the tagged front-end knows:
-      // `json<Settings>()` carries `Settings` in a phantom type parameter that is gone
-      // at runtime, so `irFromSchema` cannot recover it and leaves `payload` unset.
-      // That asymmetry is a capability, not a discrepancy, which is why the
-      // equivalence corpus has no `json` column and a separate test covers this.
-      ...(sql === 'json' && data.length === 1 && !isUnknown(data[0] as Type)
-        ? { payload: this.#type(data[0] as Type, property, 1) }
-        : {}),
+      ...(payload === undefined ? {} : { payload }),
     };
+  }
+
+  /**
+   * The app type, where only a tagged declaration can say it.
+   *
+   * Two cases, one IR field. A `json` column's payload shape: `json<Settings>()` carries
+   * `Settings` in a phantom type parameter that is gone at runtime, so `irFromSchema`
+   * leaves it unset. And the type behind a codec: `Money & Sql<'integer'> &
+   * Codec<'Money'>` is an integer in the database and a `Money` in the app, and a
+   * validator that checked `integer` would reject every valid value. Neither is a
+   * discrepancy between the front-ends — they are what the tags buy.
+   *
+   * A codec over a *scalar* is left alone deliberately. `string & Sql<'text'> &
+   * Length<80> & Codec<'currency'>` is a string on both sides, and recording the bare
+   * data part would drop the constraints the tags carry, which `appTypeOf` reads off the
+   * column instead. So the field is set only where the app type is a shape the SQL type
+   * cannot describe at all.
+   */
+  #declaredApp(property: string, data: readonly Type[], sql: SqlType, codec: boolean): TypeIR | undefined {
+    if (!codec && sql !== 'json') return undefined;
+    const [only] = data;
+    if (data.length !== 1 || only === undefined || isUnknown(only)) return undefined;
+    const node = this.#type(only, property, 1);
+    if (sql === 'json') return node;
+    return node.kind === 'scalar' || node.kind === 'literal' ? undefined : node;
   }
 
   /**
