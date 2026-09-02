@@ -37,3 +37,9 @@ benchmarks/harness/validation/moltar-case/zmdb-aot-generated.ts
 
 # Built package output (emitted by tsup in CI before publish)
 packages/*/dist/
+
+# The codemod round trip compiles its own output (codemod.spec.ts writes it, then deletes it)
+packages/aot-validator/src/reflect/__fixtures__/__generated__/
+
+# The instantiation budget generates and measures its own projects
+packages/schema-core/src/derive/__budget__/

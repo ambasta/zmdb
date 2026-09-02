@@ -47,6 +47,11 @@ jobs:
       - name: Verify export manifests
         run: yarn verify:exports
 
+      # `defineSchema` is being removed and the codemod is the migration, so a schema it
+      # cannot read is a file that cannot be migrated. Caught here it is a small edit.
+      - name: Verify every schema converts to a tagged interface
+        run: yarn verify:codemod
+
       - name: Unit + integration tests (incl. node:sqlite E2E)
         run: yarn vitest run
 

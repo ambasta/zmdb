@@ -1,0 +1,6 @@
+{
+  "//": "The quickstart is TypeScript that nothing typechecked. In a repository whose whole claim is that the compiler is the validator, an unverified example is the worst possible one to ship: it is the first file a new user runs. It also left `quickstart.ts` outside every program, so the tagged-schema codemod could not read it — a migration cannot convert what no compiler will parse.",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {},
+  "files": ["quickstart.ts"]
+}

@@ -22,6 +22,9 @@ const projects = [
     .filter(e => e.isDirectory())
     .map(e => join(root, 'packages', e.name, 'tsconfig.json')),
   join(root, 'benchmarks', 'tsconfig.json'),
+  // The quickstart. It is the first zmdb code anyone runs and it was the only TypeScript in
+  // the repository that nothing compiled.
+  join(root, 'examples', 'tsconfig.json'),
 ].filter(existsSync);
 
 let failed = 0;
