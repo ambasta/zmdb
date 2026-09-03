@@ -417,7 +417,15 @@ passed through unchanged rather than guessed at.
 ## 4. Migration lifecycle + version tracking
 
 - Version table `_zmdb_migrations(version INTEGER PRIMARY KEY, name TEXT, applied_at)`.
-- CLI verbs: `create`, `up`, `down`, `status` (runner is #44).
+- Runner verbs: `up`, `down`, `status`, where `up` applies every pending migration.
+
+`up`/`down`/`status` are the _library_ verbs, and they are not the command names. The executable spells
+them `migrate`, `rollback` and `status`, and deliberately has no `up` command at all — the reasoning, and
+the nine-command surface these three dispatch into, are frozen in `zmdb`'s `src/cli/SPEC.md` §1.
+
+That spec also requires a change here: a generated version is a 14-digit `YYYYMMDDHHMMSS` stamp, which does
+not fit the `INTEGER` in the `CREATE TABLE IF NOT EXISTS` above on Postgres or MySQL, so the column becomes
+`BIGINT` on those two dialects. SQLite's `INTEGER` is already 64-bit and existing 32-bit rows still fit.
 
 ## 5. Non-goals (rejected)
 

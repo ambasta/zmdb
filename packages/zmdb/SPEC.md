@@ -41,6 +41,22 @@ packages, so nothing is lost:
 - `zmdb/validator` → `@zmdb/aot-validator` (+ `/advanced`, `/serialization`,
   `/utilities`, `/plugin`)
 
+## The two subpaths that are not re-exports
+
+`zmdb/cli` and `zmdb/config` are the executable and its config schema, specified in `src/cli/SPEC.md` and
+`src/config/SPEC.md`. They break the pattern above twice, deliberately: they are written here rather than
+re-exported from somewhere else, and the package acquires a `bin`.
+
+The reason a facade hosts them is that `npx zmdb generate` is the command a user will type, and the only
+alternative is a second published package whose entire content is an executable. This package already
+depends on every other one, so the CLI reaches the reflector, the compiler and the migration runner without
+a new dependency edge — which is the same property that makes the facade the right host and would make any
+other choice add one.
+
+Both join `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs`, beside `zmdb#./unplugin`. That is
+what keeps a compiler session and a filesystem walk out of an application bundle, and it is the reason the
+no-collision guarantee below does not extend to them: nothing in either subpath is reachable from the root.
+
 ## No-collision guarantee
 
 - The curated root names are unique across packages (verified by test). Where a
@@ -52,7 +68,8 @@ packages, so nothing is lost:
 
 - New workspace `packages/zmdb`, `version` matching the others
   (`1.0.0-alpha.4`), `license: GPL-3.0-or-later`.
-- `dependencies`: the four `@zmdb/*` packages at the same exact prerelease.
+- `dependencies`: every other `@zmdb/*` package — five of them, `@zmdb/web` included since
+  the `zmdb/web` subpath landed — at the same exact prerelease.
 - Built by `scripts/build-package.mjs` (`tsc` → ESM `.js` + `.d.ts` mirroring
   `src`); wired into `prepare-publish.mjs`, `lib/publish-manifest.mjs`'s package
   order, and `publish.yml` — published **last** (it depends on the others being on
