@@ -41,8 +41,20 @@ function gh(args, { input } = {}) {
   });
 }
 
-/** A mutating API call: throttled, and patient with the secondary rate limit. */
-async function api(path, body) {
+// Two different kinds of "try again", which want very different waits. Being told to slow down means
+// waiting minutes; a dropped connection means waiting seconds. Conflating them either gives up on a
+// blip or hammers a rate limit — and a run of ~500 calls over twenty minutes hits both.
+const THROTTLED = /rate limit|secondary|abuse|429|403/i;
+const TRANSIENT = /i\/o timeout|dial tcp|connection reset|EOF|TLS handshake|502|503|504|timed? out/i;
+
+// A link that is already there is the outcome we wanted. It matters on a resumed run: the "what is
+// already linked" reads below swallow their own failures and return an empty set, so a blip there turns
+// into a POST for a link that exists. Treating that as success is what makes a resume idempotent
+// rather than fatal.
+const ALREADY_LINKED = /already|422|must be unique|has already been taken/i;
+
+/** A mutating API call: throttled, patient with the secondary rate limit, and unbothered by a blip. */
+async function api(path, body, { tolerateExisting = false } = {}) {
   const args = ['api', `repos/${REPO}/${path}`, '--method', 'POST', '--input', '-'];
   for (let attempt = 1; ; attempt++) {
     try {
@@ -51,12 +63,18 @@ async function api(path, body) {
       return out.trim() ? JSON.parse(out) : {};
     } catch (err) {
       const text = `${err.stderr ?? ''}${err.stdout ?? ''}`;
-      const throttled = /rate limit|secondary|abuse|429|403/i.test(text);
-      if (!throttled || attempt > 5) {
+      if (tolerateExisting && ALREADY_LINKED.test(text)) {
+        console.log(`  · ${path} already linked`);
+        return {};
+      }
+      const throttled = THROTTLED.test(text);
+      const transient = !throttled && TRANSIENT.test(text);
+      if ((!throttled && !transient) || attempt > 5) {
         throw new Error(`POST ${path} failed (attempt ${attempt}): ${text.slice(0, 800)}`, { cause: err });
       }
-      const wait = 60_000 * attempt;
-      console.warn(`  … rate limited on ${path}; waiting ${wait / 1000}s (attempt ${attempt})`);
+      const wait = throttled ? 60_000 * attempt : 5_000 * attempt;
+      const why = throttled ? 'rate limited' : 'network hiccup';
+      console.warn(`  … ${why} on ${path}; waiting ${wait / 1000}s (attempt ${attempt})`);
       await sleep(wait);
     }
   }
@@ -189,7 +207,7 @@ for (const epic of EPICS) {
   for (const sub of epic.subs) {
     const key = `${epic.key}:${sub.key}`;
     if (already.has(numbers.get(key))) continue;
-    await api(`issues/${parent.number}/sub_issues`, { sub_issue_id: ids.get(key) });
+    await api(`issues/${parent.number}/sub_issues`, { sub_issue_id: ids.get(key) }, { tolerateExisting: true });
     console.log(`  #${parent.number} ⊃ #${numbers.get(key)}`);
   }
 }
@@ -201,7 +219,13 @@ for (const { epic, sub, key } of plan) {
   const already = blockedByNumbers(numbers.get(key));
   for (const ref of refs) {
     if (already.has(numbers.get(ref))) continue;
-    await api(`issues/${numbers.get(key)}/dependencies/blocked_by`, { issue_id: ids.get(ref) });
+    await api(
+      `issues/${numbers.get(key)}/dependencies/blocked_by`,
+      { issue_id: ids.get(ref) },
+      {
+        tolerateExisting: true,
+      },
+    );
     console.log(`  #${numbers.get(key)} ← #${numbers.get(ref)}`);
   }
 }
