@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  // `vitest` is here only so `no-disabled-tests` and `no-focused-tests` load; without the plugin
+  // listed, both rules below are silently inert and a stray `.only` reaches main. Enabling it also
+  // switches on the plugin's correctness rules, and the seven turned off at the bottom of `rules`
+  // are ones this suite violates deliberately — each says why.
+  "plugins": ["typescript", "unicorn", "oxc", "import", "vitest"],
   "categories": {
     "correctness": "error",
     "pedantic": "off",
@@ -82,6 +86,26 @@
     "unicorn/consistent-function-scoping": "off",
     "unicorn/prefer-node-protocol": "error",
     "vitest/no-disabled-tests": "error",
-    "vitest/no-focused-tests": "error"
+    "vitest/no-focused-tests": "error",
+    // `expect(value, label)` is real vitest 4 API and this suite uses the label to say which
+    // iteration of a loop failed. The rule is jest-shaped and counts the label as an extra argument.
+    "vitest/valid-expect": "off",
+    // Asserting inside `catch` is how the rejection helpers check that nothing reached the driver
+    // before the error was thrown. Each one rethrows an error of the wrong type, so a silent pass is
+    // not reachable.
+    "vitest/no-conditional-expect": "off",
+    // The assertions live in shared helpers (`expectRefused`, `everyOperationCompiles`), and the
+    // real-database E2E tests return early with a warning when Postgres is not reachable.
+    "vitest/expect-expect": "off",
+    // `beforeAll` asserts on purpose in the reflect corpus: if the codemod's output does not compile,
+    // every test in the file is meaningless and should not run.
+    "vitest/no-standalone-expect": "off",
+    // `describe(schema.table)` and `it(`compiles every read (${dialect})`)` are computed titles; the
+    // rule wants literals, which would mean writing the same body once per dialect.
+    "vitest/valid-title": "off",
+    // Both are style asks in a suite whose house rule is that a test asserts the message it measured;
+    // `vi.fn()` without a type parameter is inferred from its use, and adding one is noise.
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/require-to-throw-message": "off"
   }
 }
