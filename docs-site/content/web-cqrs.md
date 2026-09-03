@@ -50,15 +50,17 @@ Two casts, and they are the reason this is not in the framework: a heterogeneous
 The typed alternative — no map, no casts:
 
 ```ts
-export interface Commands {
-  publishPost: { id: number };
-  cancelOrder: { id: number; reason: string };
-}
+export type Commands = {
+  publishPost: { input: { id: number }; result: { url: string } };
+  cancelOrder: { input: { id: number; reason: string }; result: void };
+};
 
-export type Bus = { [K in keyof Commands]: (input: Commands[K]) => Promise<void> };
+export type Bus = { [K in keyof Commands]: (input: Commands[K]['input']) => Promise<Commands[K]['result']> };
 ```
 
-Now `bus.publishPost({ id: 1 })` is checked, a typo is a compile error, and there is no dispatch table at all. This is a plain service object, and for most applications it is strictly better than a bus.
+Two details are not decoration. Each entry carries `input` **and** `result`, so `await bus.publishPost(…)` is typed from the map rather than from whatever the handler happened to return — a bus whose entries are just payloads types every call as `Promise<void>`. And `Commands` is a `type`, not an `interface`: only object-literal aliases get an implicit index signature, so an interface fails the frozen `M extends CommandMap` constraint with TS2344, "Index signature for type 'string' is missing".
+
+Now `bus.publishPost({ id: 1 })` is checked against the map by name, its `{ url: string }` result is checked at the call site, a typo is a compile error, and there is no dispatch table at all. This is a plain service object, and for most applications it is strictly better than a bus.
 
 ## Register it in the container
 
@@ -125,7 +127,7 @@ Three things it refuses, so they are decisions rather than omissions:
 - **No event sourcing.** It replaces the repository rather than layering on it, which makes it a different persistence model.
 - **No sagas — yet.** A saga's easy part is calling three steps in order; its hard part is the terminal state of a failure that cannot be compensated, which needs durable per-step state. Built on an in-process emitter that state is lost on restart, which is usually the thing that interrupted the saga. Once the [outbox](./transactional-outbox.html) and [queues](./web-queues.html) exist, a saga is a consumer with a state row rather than a new subsystem.
 
-Commands also stay **interfaces**, not classes. A `@CommandHandler(SomeCommand)` decorator needs a constructor to point at, which would make commands the one place in this project where a runtime class is mandatory — and it would buy a lookup key that a string literal in the map already provides.
+Commands also stay **types**, not classes — a `type` alias specifically, since only those satisfy the map's index signature. A `@CommandHandler(SomeCommand)` decorator needs a constructor to point at, which would make commands the one place in this project where a runtime class is mandatory — and it would buy a lookup key that a string literal in the map already provides.
 
 ---
 

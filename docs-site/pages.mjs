@@ -1526,7 +1526,7 @@ export const PAGE_META = {
     title: 'CQRS',
     group: 'Web Framework — DI & Modules',
     status: 'todo',
-    note: 'no command/query bus or saga runtime',
+    note: 'no command bus at runtime; the command bus is frozen (#592) and asserted by expected-failing tests (#593), and the query bus, event sourcing and sagas are refused with reasons',
   },
   'web-openapi': {
     title: 'OpenAPI Generation',
@@ -1583,7 +1583,7 @@ export const PAGE_META = {
     title: 'Events',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no application event emitter module; EventBus covers entity lifecycle only',
+    note: 'no application event emitter module; EventBus covers entity lifecycle only, and the two-bus split is frozen (#592) and asserted by expected-failing tests (#593)',
   },
   'web-http-client': {
     title: 'HTTP Client',

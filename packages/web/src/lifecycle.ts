@@ -8,7 +8,7 @@
 //
 // Detection is structural `in`-narrowing on the instance: no reflection, no cast.
 
-/** Called after a controller/provider is constructed. */
+/** Called after a controller is constructed. Providers are not driven — `runInit` walks controllers only. */
 export interface OnModuleInit {
   onModuleInit(): void | Promise<void>;
 }

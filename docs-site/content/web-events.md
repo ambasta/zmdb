@@ -65,15 +65,15 @@ export class Emitter<Events extends Record<string, unknown>> {
 ```
 
 ```ts
-export interface AppEvents {
+export type AppEvents = {
   'post.published': { id: number };
   'user.registered': { id: number; email: string };
-}
+};
 
 export const EVENTS = createToken<Emitter<AppEvents>>('EVENTS');
 ```
 
-Typed by an interface, so `emit('post.publshed', …)` is a compile error and the payload shape is checked. The two casts are contained in the class — the same heterogeneous-map problem as [CQRS](./web-cqrs.html), and the reason a generic bus is not in the framework.
+A type alias and not an `interface`, which matters the moment the map becomes a type argument: only object-literal aliases get an implicit index signature, so `interface AppEvents` does not satisfy an `M extends EventMap` constraint and fails with TS2344, "Index signature for type 'string' is missing". Typed either way, `emit('post.publshed', …)` is a compile error and the payload shape is checked. The two casts are contained in the class — the same heterogeneous-map problem as [CQRS](./web-cqrs.html), and the reason a generic bus is not in the framework.
 
 Note the `try/catch` per listener. Without it, one throwing listener stops the rest and rejects the emitter's caller, so a broken metrics listener breaks the request that triggered it.
 
@@ -101,7 +101,7 @@ export class PostsController {
 }
 ```
 
-Subscribe in a controller's `onModuleInit`, since that is [the only lifecycle hook that runs](./web-standalone.html):
+Subscribe in a controller's `onModuleInit`. `onApplicationBootstrap` and `onShutdown` run too, but all three are detected on [controllers only](./web-standalone.html) — an emitter or a dispatcher registered as a plain provider is never initialised and never told to stop:
 
 ```ts
 async onModuleInit() {
@@ -139,8 +139,8 @@ It is still lossy — a listener that is not connected misses it — so use it f
 
 The typed emitter above is most of it, and `packages/web/src/events/SPEC.md` freezes the rest. Four decisions in it are worth knowing about, because three of them differ from the class on this page:
 
-- **The map is the API**, exactly as `AppEvents` is above. No `EventType<T>` token — a generic the caller instantiates is an assertion, not a check.
-- **`emit` returns `void` and `emitAndWait` returns a report.** The `void this.events.emit(…)` idiom below stops being necessary, because a `void`-returning method cannot be awaited by mistake. A `void` _operator_ is indistinguishable from a forgotten `await`, and it is the same keystroke either way.
+- **The map is the API** — event name to payload, the shape `AppEvents` above has, declared as a `type` and not an `interface` so it satisfies `EventMap`'s index signature. No `EventType<T>` token — a generic the caller instantiates is an assertion, not a check.
+- **`emit` returns `void` and `emitAndWait` returns a report.** The `void this.events.emit(…)` idiom above stops being necessary, because a `void`-returning method cannot be awaited by mistake. A `void` _operator_ is indistinguishable from a forgotten `await`, and it is the same keystroke either way.
 - **Failures are collected, not logged and not thrown.** Every handler gets its own `try`/`catch`, the failures land in an `EmitReport`, and the sink is a **required** `onError`. Defaulting it to `console.error` — which the class above does — puts a logger inside a package that has [deliberately never had one](./web-logging.html).
 - **Handlers run concurrently**, so no ordering is guaranteed. Awaiting them in sequence makes the emitter's latency the sum of its handlers' and creates an ordering dependency nobody declared.
 
