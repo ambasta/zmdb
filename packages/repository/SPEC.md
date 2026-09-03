@@ -536,6 +536,191 @@ a SQL string is assertable only against a golden that nobody updates carefully.
 this call actually do, as opposed to what does it look like it did — and an application that wired up one
 callback should not have to discover a second.
 
+## 3d. Dataloaders and the result cache (frozen — epic "Dataloaders and the result cache")
+
+Every part of this has a convenient version that is wrong, so each refusal is written down with its
+reason rather than left to be re-added later as an improvement.
+
+```ts
+export interface CacheStore {
+  get(key: string): Promise<unknown | undefined>;
+  set(key: string, value: unknown, ttlMs: number, tags: readonly string[]): Promise<void>;
+  invalidateTags(tags: readonly string[]): Promise<void>;
+}
+
+export interface LoaderScope {
+  loaderFor<T extends DeclaredTable>(
+    repo: BaseRepository<T>,
+  ): { load(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined> };
+}
+
+interface ReadOptions {
+  readonly cache?: { readonly ttlMs: number; readonly tags?: readonly string[] } | false;
+}
+```
+
+### The batching window is one microtask, and one batch is not one statement
+
+The flush is scheduled with `queueMicrotask` on the first `load()` of an empty batch; every `load()` made
+before it runs joins. Not `setTimeout(0)` and not `setImmediate`: a macrotask window batches strictly more
+and costs a full turn of the event loop on _every_ load, which in a resolver tree is one turn per level of
+nesting whether or not anything was there to batch. A longer window is not offered as an option, because
+the option's correct value depends on the shape of a request rather than on the application, so nobody can
+set it once and be right.
+
+What this means at a call site, stated because it is the way the feature is most often defeated:
+
+```ts
+for (const id of ids) await loader.load(id); // n statements — the await flushes each batch
+await Promise.all(ids.map(id => loader.load(id))); // one batch
+```
+
+**One batch is one dispatch, not one statement.** The batch reuses machinery that already ships:
+`sanitizeKeys` deduplicates and drops nullish keys, and `chunkArray` splits the ids to stay under the
+dialect's placeholder ceiling. `wherein-chunking.spec.ts` pins that those chunks run **sequentially rather
+than concurrently**, so a batch of five thousand ids is `ceil(5000 / limit)` statements one after another,
+not one statement and not five thousand concurrent ones. Reusing that path rather than writing a second
+one is the point — a loader that built its own `IN` list would rediscover the placeholder limit in
+production.
+
+### Scoping, and why a module-level loader is a security bug
+
+A loader is created from a `LoaderScope` constructed **per request** and holds its own map. A
+module-level loader is refused, and the reason is not batching quality:
+
+Loaders are consulted **before** a query is built, and entity filters (§3c) are applied **while** it is
+built. So a `load(42)` that hits an entry another request populated returns a row without the tenant
+filter ever running. That is not stale data, it is a tenant-isolation bypass, and it is invisible in the
+diff of whatever code moved the loader to module scope for reuse.
+
+The scope is **passed explicitly, not resolved from the DI container**. `@zmdb/web`'s `Scope` is
+`'singleton' | 'transient'` — there is no request scope — and both available registrations are wrong in
+opposite directions: `singleton` is the module-level loader above, and `transient` hands out a fresh scope
+per injection, so two collaborators in one request batch nothing and the feature silently does nothing at
+all. A request scope in the container is a different epic; until it exists, the scope is constructed at the
+request boundary and threaded.
+
+The scope is also the cache's lifetime bound. It holds no rows after the request, and there is no
+`clear()` to remember to call, because forgetting it is the leak.
+
+### Result semantics
+
+- `load(id)` for a row that does not exist resolves **`undefined`**, not a rejection. A missing row is an
+  ordinary answer, and `findById` already answers it that way.
+- A driver error **rejects every call in the batch** with that error. One statement failed; there is no
+  per-id information to distinguish, and resolving some of them `undefined` would report "row absent" for
+  a row nobody looked at.
+- Duplicate ids in one batch fetch **one** row and resolve twice.
+
+**Each resolution is a fresh shallow copy, and this is where the epic's boundary actually lives.** Two
+`load(42)` calls do not receive the same object. That is a deliberate reversal of the convenient answer,
+and it is forced by decisions already frozen: `../schema-core/src/relations/SPEC.md` rejects "identity map
+/ shared references", `src/replicas/SPEC.md` froze that the replica wrapper adds no identity map, and
+`attachRelations` already copies each child (`list.push({ ...c })`) rather than aliasing. The published
+anti-patterns entry says it outright — zmdb returns a fresh value per read, equality is structural — so a
+loader handing out shared references would make that sentence false for the one read path people use most.
+
+The guarantee is "no two callers hold the same row object", **not** "no two callers can reach the same
+object": the copy is shallow, so a `json` column's parsed value is still shared. Deep-cloning every row to
+defend against a mutation nobody performs is a cost paid on every read, and it is declined. The canonical
+entry in the loader's map is never handed out, so a caller mutating what they got cannot corrupt what the
+next caller gets.
+
+### What separates this from an identity map
+
+Three properties, and all three have to hold:
+
+1. **No identity guarantee.** Fresh copy per call, above.
+2. **It is not consulted transparently.** `findById`, `findOne`, `findAll` and every populate path go to
+   the driver even when a scope exists. The only way to read through a loader is to call `load` on one.
+   A cache that other methods silently consult is an identity map with a different name, and it is where
+   "why did I get the row from before my write" comes from.
+3. **No write-through and no dirty tracking.** A write does not populate the loader's map, and nothing
+   watches a returned row for changes. `update` takes a patch, as it always did.
+
+### The cache key
+
+```
+z1 : dialect : fingerprint : table : filters : text : params
+```
+
+- **`dialect` and `text`** — the compiled SQL is what makes two different queries over the same parameters
+  distinct, and the dialect is in the key because the same builder state compiles to different text and a
+  shared store may be reachable from processes configured differently.
+- **`fingerprint`** — the entity variant's IR fingerprint. This is what makes a shared store safe across a
+  deploy: after a column's type changes, a value written by the old code **misses** rather than
+  deserialising into a shape the new code does not expect. It costs nothing and it is total, which is why
+  §"Re-validation" below can refuse the alternative.
+- **`filters`** — the applied filter names and their parameter values, which is exactly the data §3c
+  already computes for `onQuery`'s `meta.filters`. Without it, the same statement text cached with a filter
+  disabled would be served to a call that expected it applied. The parameters are in `params` anyway; the
+  **names** are the part that would otherwise be missing, because disabling a filter changes the text and
+  re-enabling one with no parameters does not.
+- **`params`** — serialised **type-tagged**, so `1`, `'1'`, `1n` and `true` are four keys:
+  `n:1`, `s:1`, `i:1`, `b:true`, `z:null`, `u:` for `undefined`, `d:<epoch ms>` for a `Date`. Plain
+  `JSON.stringify` collapses the first two and turns a `Date` into a string that a later ISO string would
+  collide with.
+
+**The key is a readable string and is not hashed.** Three reasons, in order of weight. A hash collision
+serves another query's rows, which is the worst failure this feature can produce, and a key that cannot
+collide is better than one that probably will not. `node:crypto` is banned by this repo's lint config in
+favour of Web Crypto, whose `digest` is async, so hashing would make key construction asynchronous for no
+benefit. And a key that can be read in `redis-cli --scan` is the difference between diagnosing a stale
+read in minutes and guessing. A store that wants to hash internally is free to; that is its key space, not
+this one's.
+
+A composite primary key (§2.1) is serialised in **`ir.primaryKey` declaration order**, not object key
+order, so `{ tenantId, id }` and `{ id, tenantId }` are one key. A missing component throws rather than
+keying on `undefined`.
+
+### Invalidation is explicit, and the automatic part is a floor
+
+A cached read carries the tags its caller named. Automatically, it also carries `table:<name>` for **every
+table the compiled statement touched** — which the repository knows because it resolved the relations and
+built the statement, not by parsing SQL back out. A write through a repository method invalidates
+`table:<its own table>`.
+
+`docs-site/content/caching.md` argues that table-name granularity "is too coarse to be right and too fine
+to be safe", and that is a correct criticism of table names as an _inference_. The distinction here is that
+the automatic tag set is derived from the statement rather than guessed from the repository, which answers
+the "too fine to be safe" half: a cached join over `users` and `posts` is invalidated by a write to either.
+
+The "too coarse to be right" half is **accepted and priced**: one row changing invalidates every cached
+read of its table, so this is a cache for read-mostly tables. A caller who needs better names their own
+tags — `user:42` — and invalidates them explicitly, which they can do because they know which reads
+depend on that row and the framework does not.
+
+Anything finer, automatically, requires deciding which cached `WHERE` clauses a new row satisfies. That is
+a query planner evaluating predicates against a row it does not have, and it is refused rather than
+approximated, because an approximation here fails by serving data that is wrong rather than old.
+
+**Two writes are invisible to invalidation, and TTL is the only bound on them**: raw driver traffic that
+did not go through a repository, and another process's writes against a shared store. Stated because a
+cache whose invalidation is described without its blind spots reads as stronger than it is.
+
+The driver wrapper on `caching.md` stays as the documented blunt instrument — it needs no repository, no
+scope and no tags, and it clears everything on any write, which is table granularity taken to its limit.
+The two coexist deliberately: that wrapper is a decision about a whole connection, `ReadOptions.cache` is
+a decision about one call.
+
+### Re-validation: no, on both stores
+
+A cached value is returned as it was stored until its TTL expires or a tag invalidates it. There is no
+read-through check against the database, and the rule does **not** differ between the in-memory default
+and a shared store.
+
+Re-validating means a round trip, which is the cost the cache exists to remove; that is an `ETag`, not a
+cache. And an asymmetry would be worse than either rule on its own, because staleness would then depend on
+which store happens to be configured — tested against the in-memory default, shipped against Redis. The
+concern behind the asymmetry is real and is answered structurally instead: the `fingerprint` segment of the
+key means another process's or another deploy's value cannot be deserialised into the wrong shape, it
+simply is not found. A deliberately poisoned shared store is a compromised datastore, and per-read
+validation does not fix that — the same Redis holds the sessions.
+
+`ttlMs` is therefore the caller's declared staleness tolerance and the only thing that bounds it.
+`cache: false` on a call bypasses the store in both directions, so it is also the answer to "read my own
+write" without reaching for invalidation.
+
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 
 `preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,

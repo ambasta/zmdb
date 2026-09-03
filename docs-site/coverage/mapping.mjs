@@ -298,7 +298,11 @@ export const MIKRO_ORM = {
       'loaded entity. That cache is correctness-critical (two reads must not diverge) ' +
       'and unbounded (it grows with the session), which makes long-lived contexts leak ' +
       'and request-scoped ones require careful clearing. zmdb returns a fresh value per ' +
-      'read; equality is structural.',
+      'read; equality is structural. A request-scoped dataloader is not the same thing ' +
+      'and the difference is worth stating, because the convenient version of one is: it ' +
+      'hands out a fresh copy per call rather than a shared reference, no other read ' +
+      'method consults it, and a write neither populates nor invalidates it. Take away ' +
+      'any one of those three and it is an identity map under another name.',
     'inert-rows',
   ),
   'propagation': ap(
