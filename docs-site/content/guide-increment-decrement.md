@@ -84,7 +84,7 @@ const [row] = await viewRepo.aggregate({
 });
 ```
 
-No contention at all — inserts do not conflict — and you gain history. The cost is a growing table and a slower read, which a periodic rollup or a [cached](./caching.html) value fixes. For high-write counters this is what production systems do anyway, precisely to avoid a single hot row.
+No contention at all — inserts do not conflict — and you gain history. The cost is a growing table and a slower read, which a periodic rollup or a [cached](./caching.html) value fixes; the rollup now has somewhere to live — a `@Cron` task with `runs: 'once-per-cluster'` ([task scheduling](./web-task-scheduling.html)), which is exactly the kind of work that must not run on three replicas at once. For high-write counters this is what production systems do anyway, precisely to avoid a single hot row.
 
 ## What it would take
 

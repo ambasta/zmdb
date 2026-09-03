@@ -121,20 +121,24 @@ async function dispatch(job: Job): Promise<void> {
 
 Two things worth being deliberate about:
 
-- **Validate the payload.** It was written by an older version of your code and has been sitting in a table; treat it as untrusted input. A field that used to exist may not.
-- **Assume it runs twice.** Delivery is at-least-once — a crash between `handle` and the `UPDATE` replays the job. Make handlers idempotent: check before sending, or record a unique key.
+- **Validate the payload.** It was written by an older version of your code and has been sitting in a table; treat it as untrusted input. A field that used to exist may not. The frozen worker validates at consume and dead-letters a payload that fails on its **first** attempt with `reason: 'invalid-payload'`, because a compiled validator is deterministic — a payload that failed it will fail it again on every redelivery, forever.
+- **Assume it runs twice.** Delivery is at-least-once — a crash between `handle` and the `UPDATE` replays the job — and no queue anywhere fixes this, because the alternative ordering turns a duplicate into a lost job. What the framework gives you is a key, not a guarantee: `ctx.idempotencyKey` is stable across every attempt of the same work, so it is the value to hand to a payment gateway, and the mechanism is a marker row your handler writes **in its own transaction**. The worker checks the marker before invoking your handler, which is what makes a replay and a timed-out-but-still-running handler harmless. A dedup table the framework wrote around your handler could not do this: claiming the key before the work means a crash in between loses the job.
 
-Never put a secret in a payload. Job rows persist, get backed up and get read in support queries; store an id and look the credential up.
+Never put a secret in a payload. Job rows persist, get backed up and get read in support queries; store an id and look the credential up — and a dead-lettered job keeps its payload until somebody deletes the row.
 
 ## When to use a real queue
 
-Redis-backed queues (BullMQ), SQS or a broker earn their keep when you need scheduled or delayed jobs, priorities, fan-out to many consumers, or throughput past a few hundred jobs a second — a polling table will not match that. Nothing prevents using one; write to it from the outbox consumer rather than from a request handler, so you keep the atomic enqueue.
+Redis-backed queues (BullMQ), SQS or a broker earn their keep when you need priorities, fan-out to many consumers, or throughput past a few hundred jobs a second — a polling table will not match that. Nothing prevents using one; write to it from the outbox consumer rather than from a request handler, so you keep the atomic enqueue.
+
+Delayed jobs are supported — `enqueue(name, payload, { delayMs })`, which is an insert with the lease already in the future and needs no extra column — and recurring work is [task scheduling](./web-task-scheduling.html)'s. Priority deliberately is not: under a lease-based claim a low-priority job can starve indefinitely, and a priority that only orders within one batch is a lie told by a field name. Separate queues — a second worker with its own name list — say the same thing where you can see it.
 
 ## What it would take
 
-A `@Processor`/`@Process` pair, a worker runtime with concurrency and graceful drain, and a decision on the backend. Directive 7's zero-dependency rule means the built-in backend would be the outbox table, with Redis or SQS as adapters you supply.
+Less than this page used to claim, and the shape has changed. `packages/web/src/queues/SPEC.md` freezes the contract as `createWorker(opts)` with `runOnce()` for tests and `start()`/`onShutdown()` for a process, and the last paragraph of this section was right about which piece matters: the worker is `drainOutbox` promoted to a supported function with backoff, dead-lettering and a bounded drain. What it is not is a `@Processor`/`@Process` pair. Handlers are registered by value — `createWorker({ handlers: [notify, welcome] })` — because a decorator makes the set of handlers depend on which modules were imported, and two apps in one process must not share a worker pool.
 
-The valuable piece to ship first is not the decorators — it is `drainOutbox` as a supported, tested function with backoff and dead-lettering, because that is what every application rewrites.
+Three corrections to what was here before. The backend is **not** the outbox table: `zmdb_job` is a second table with the same shape, because one column cannot mean both "a broker subject" and "a handler key" without making "no handler for this row" ambiguous — and the frozen answer for a subject nobody subscribed to is to acknowledge it, which for a job would silently destroy work that was committed inside somebody's transaction. The store is reached through a structural `JobStore` port, so Redis and SQS stay expressible without `@zmdb/web` gaining a dependency or even a peer dependency. And the row declaration itself lands in `@zmdb/repository`, not here, for the same reason the outbox's did: DDL is not in the web package.
+
+The piece that is genuinely new is idempotency, and it is the one thing the framework cannot supply on its own — see the section above, which now has a mechanism behind it rather than advice.
 
 ---
 

@@ -275,7 +275,7 @@ latency to nothing and the poll stays as a floor — `transactional-outbox.md` a
 why the poll must not be removed, and it is not restated or shipped here.
 
 `onShutdown` is the `OnShutdown` hook from `../../../web/src/lifecycle.ts:20-22`, which `runShutdown` runs in
-reverse construction order (`:49-54`). **`createApp` calls `runShutdown(controllers)`** (`../../../web/src/app/index.ts:38`),
+reverse construction order (`:49-54`). **`createApp` calls `runShutdown(controllers)`** (`../../../web/src/app/index.ts:39`),
 so the hook fires for controllers only and a dispatcher registered as a plain provider would never be told to
 stop. Until hook detection reaches providers — the app epic's work, not this one's — a dispatcher is held by a
 controller, and `#593` asserts shutdown through that path so the test cannot pass by way of the broken one. It

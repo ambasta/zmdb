@@ -1,7 +1,9 @@
-> **ToDo / feature gap.** There is no scheduler — no `@Cron`, no `@Interval`, no
-> `ScheduleModule`. The only lifecycle hooks are `onModuleInit`,
-> `onApplicationBootstrap` and `onShutdown`, and they run on
-> [controllers only](./web-standalone.html).
+> **ToDo / feature gap.** There is no scheduler yet, but the design is no longer open:
+> `@Cron`, `@Interval`, the cron dialect, the daylight-saving rules and the per-task
+> lease are frozen in `packages/web/src/schedule/SPEC.md` (#586). The only lifecycle
+> hooks are `onModuleInit`, `onApplicationBootstrap` and `onShutdown`, and they still run
+> on [controllers only](./web-standalone.html) — which is why a scheduler has to be held
+> by a controller to be drained.
 
 ## The decision that matters more than the missing decorator
 
@@ -14,7 +16,7 @@ Where the schedule lives determines whether your job runs twice, or not at all.
 | Platform cron hitting an HTTP route       | Yes                        | Yes                 | most deployments                       |
 | External scheduler (Kubernetes `CronJob`) | Yes                        | Yes                 | you already run Kubernetes             |
 
-A `@Cron` decorator gives you the first row — and the first row is wrong for any deployment with more than one instance. Three replicas means three concurrent runs of your nightly billing job. That is why this gap is less painful than it appears: the correct answer is usually external anyway.
+A `@Cron` decorator gives you the first row — and the first row is wrong for any deployment with more than one instance. Three replicas means three concurrent runs of your nightly billing job. The frozen decorator therefore has no default for this: `runs` is a required option, either `'once-per-replica'` or `'once-per-cluster'`, because neither is safe for both a cache warmer (which must run everywhere, since each replica has its own cache) and a billing run (which must not). Asking for `'once-per-cluster'` without giving the scheduler a lease store is an error at startup rather than a surprise at 3 a.m.
 
 ## Recommended — a platform cron calling a route
 
@@ -25,7 +27,7 @@ export class JobsController {
 
   @Post('/nightly-digest')
   async digest(ctx: Ctx<Record<never, string>, unknown>) {
-    requireJobSecret(ctx.headers);
+    await requireJobSecret(ctx.headers);
     const sent = await this.reports.sendDigests();
     return { sent };
   }
@@ -33,21 +35,41 @@ export class JobsController {
 ```
 
 ```ts
-function requireJobSecret(headers: Readonly<Record<string, string>>): void {
+// A per-process HMAC key. Comparing digests taken under an unpredictable key is
+// constant-time enough: an attacker cannot steer the bytes being compared, so a
+// byte-by-byte `===` on the digests leaks nothing about the secret.
+const compareKey = await globalThis.crypto.subtle.importKey(
+  'raw',
+  globalThis.crypto.getRandomValues(new Uint8Array(32)),
+  { name: 'HMAC', hash: 'SHA-256' },
+  false,
+  ['sign'],
+);
+const encoder = new TextEncoder();
+
+async function digest(value: string): Promise<string> {
+  const mac = await globalThis.crypto.subtle.sign('HMAC', compareKey, encoder.encode(value));
+  return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function requireJobSecret(headers: Readonly<Record<string, string>>): Promise<void> {
   const given = headers['x-job-secret'] ?? '';
-  const expected = env.JOB_SECRET;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) throw new ValidationError('unauthorized', []);
+  if ((await digest(given)) !== (await digest(env.JOB_SECRET))) {
+    throw new ValidationError('unauthorized', []);
+  }
 }
 ```
 
+The obvious version of this — `timingSafeEqual(Buffer.from(given), Buffer.from(expected))` — is what most guides show, and it is not available here. `.oxlintrc.json` restricts the `Buffer` global along with `Buffer.from`, `Buffer.alloc`, `Buffer.concat` and `Buffer.byteLength`, and it restricts the `node:crypto` import with the message _"Use globalThis.crypto and the Web Crypto API."_ — which is where `timingSafeEqual` lives. Web Crypto has no equivalent, so the replacement is the double-HMAC construction above rather than a mechanical substitution.
+
+The digest is always 64 characters regardless of the input's length, which is why the explicit length check the `Buffer` version needed disappears: a length difference is already a digest difference.
+
 > [!WARNING]
 > A job route is a public HTTP endpoint. Without authentication, anyone can trigger
-> your nightly billing run repeatedly. Use a shared secret compared with
-> `timingSafeEqual` (never `===`, which leaks the secret byte by byte through
-> timing), or restrict by source — Vercel and Cloud Scheduler both provide a
-> verifiable header.
+> your nightly billing run repeatedly. Use a shared secret compared in constant
+> time — never a bare `===` on the secret itself, which leaks it byte by byte
+> through timing — or restrict by source; Vercel and Cloud Scheduler both provide
+> a verifiable header.
 
 Wire it up per platform:
 
@@ -116,11 +138,11 @@ export class SchedulerController implements OnApplicationBootstrap, OnShutdown {
 Four details:
 
 - **`pg_try_advisory_lock`, not `pg_advisory_lock`.** The blocking version queues every replica, so they run in sequence instead of one running.
-- **The lock is held on a session.** If your driver uses a pool, the lock and the unlock must be on the same connection, or the unlock is a no-op and the lock leaks until that connection closes. A dedicated connection for the scheduler avoids this.
+- **The lock is held on a session.** If your driver uses a pool, the lock and the unlock must be on the same connection, or the unlock is a no-op and the lock leaks until that connection closes. A dedicated connection for the scheduler avoids this. This is also the reason the frozen scheduler does not use advisory locks: a session lock cannot expire, so a process that is wedged but still connected holds it forever and recovery needs a human, where a lease's worst case is bounded by its TTL and needs nobody. It is Postgres-only besides.
 - **`unref()`** so the timer does not hold the process open.
 - **`clearInterval` in `onShutdown`**, or a rolling deploy leaves the old process ticking.
 
-Note that `onApplicationBootstrap` runs on **controllers**, so the scheduler has to be a controller class — even if it has no useful routes. That is an artefact of the hook detection, not a design intent.
+Note that `onApplicationBootstrap` runs on **controllers**, so the scheduler has to be a controller class — even if it has no useful routes. That is an artefact of the hook detection, not a design intent. The frozen spec keeps this constraint rather than working around it, and pins a shutdown assertion to the controller path so the limitation is recorded rather than rediscovered.
 
 ## Idempotency, which is the part people skip
 
@@ -137,9 +159,15 @@ If the insert affected no rows, today's run already happened — return. A uniqu
 
 ## What it would take
 
-A `@Cron('0 3 * * *')` decorator plus a cron parser (a dependency, or ~150 lines), a scheduler that starts on bootstrap, and hook detection extended to providers. All tractable.
+The design question this section used to name — coordination — is answered, in `packages/web/src/schedule/SPEC.md` (#586). It is a per-task lease rather than a pluggable lock, held while the task runs and renewed at a third of its TTL, and it is per task rather than per process so that fifty tasks spread across replicas instead of piling onto whichever one won a global election.
 
-The design question that would need answering first is coordination: shipping a decorator that fires per replica would be shipping a footgun, so it would have to come with a pluggable lock — at which point the useful part is the lock, and the decorator is sugar over `setInterval`.
+What is left is a cron parser (~150 lines; no dependency, and the dialect is frozen so that a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR), the scheduler loop, and hook detection extended to providers. Until that last one lands the scheduler has to be a controller, exactly as the note above says.
+
+Two things the freeze settled that are worth knowing before you write your own. **The scheduler's state is an absolute instant, not a wall-clock time**, which is what makes daylight saving one conversion rule instead of two special cases: a 02:30 task in `Europe/Berlin` fires once on the spring-forward day, at 03:30 local, and once on the fall-back day, at the earlier of the two 02:30s. `Date` cannot represent a zoned wall-clock time at all — `new Date('2026-03-29T02:30:00')` is parsed in the _host_ zone, which is the thing a scheduler must not depend on — and `Temporal` is not in Node yet, so this is `Intl.DateTimeFormat` and `formatToParts`. And **`timeZone` defaults to `'UTC'` and never to the host zone**, because the host zone is a container setting and a base-image bump should not move your nightly job.
+
+A second trap worth knowing if you write the timer yourself: `setTimeout`'s delay is coerced to a signed 32-bit integer, so anything past **24.86 days** does not wait. `setTimeout(fn, 2_147_483_648)` logs a `TimeoutOverflowWarning` and fires immediately, which turns a naive `@Interval(THIRTY_DAYS)` into a busy loop. The frozen design refuses that interval at registration and points you at `@Cron`, where "the first of the month" is expressible in the first place.
+
+The idempotency section above is still the important part, and it composes with the other half of this epic: the recommended shape for anything that must not be lost is a scheduled task that only **enqueues** — `enqueue('billing.run', …, { dedupeKey: 'billing:2026-03-29' })` — because the queue's unique index turns a double fire into one row, which is a far weaker thing to need from a lease than exactness.
 
 ---
 

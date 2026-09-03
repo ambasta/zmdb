@@ -769,7 +769,7 @@ export const PAGE_META = {
     title: 'Transactional Outbox',
     group: 'Transactions',
     status: 'todo',
-    note: 'no outbox table helper and no dispatcher loop',
+    note: 'no outbox table helper and no dispatcher loop; both are frozen (#592), and the consumer half is frozen too (#586).',
   },
   'read-replicas': {
     title: 'Read Replicas',
@@ -1624,13 +1624,13 @@ export const PAGE_META = {
     title: 'Task Scheduling',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no @Cron/@Interval decorators or scheduler registry',
+    note: 'no @Cron/@Interval decorators or scheduler registry; the dialect, the DST rules and the per-task lease are frozen (#586).',
   },
   'web-queues': {
     title: 'Queues',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no queue module or worker abstraction',
+    note: 'no queue module or worker abstraction; the handler contract, retry, dead-letter and idempotency are frozen (#586).',
   },
   'web-versioning': {
     title: 'API Versioning',
