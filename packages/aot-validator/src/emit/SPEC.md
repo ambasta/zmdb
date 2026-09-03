@@ -251,6 +251,162 @@ rather than three paraphrases that drift:
 | optional / nullable      | (nothing extra — presence and nullability are always fully checked)          |
 | recursive type           | anything below depth `D`, however deep the value actually is                 |
 
+## 7b. Protobuf codecs (frozen — epic "Protobuf")
+
+Three entry points, emitted from the same `TypeIR` every other target reads:
+
+```ts
+protoEncode<T>(value: T): Uint8Array
+protoDecode<T>(bytes: Uint8Array): T
+protoDescriptor<T>(): string // the .proto text, for the other language
+```
+
+`Uint8Array` and not `Buffer`: `.oxlintrc.json` bans `Buffer` and `node:buffer` with "Use Uint8Array and
+ArrayBuffer for binary data", and this is the one target where that rule earns its keep.
+
+The vocabulary these read — `ProtoField<N>` and `Proto<K>` — is frozen in
+`@zmdb/schema-core`'s `src/ir/SPEC.md` §4.5, including why the field number is mandatory. This section is
+about what the emitter does with it.
+
+### The width of a `number` is not inferable, so it is not inferred
+
+| TypeScript                | Wire                          |
+| ------------------------- | ----------------------------- |
+| `number`                  | `double`                      |
+| `number & Proto<'int32'>` | `int32`                       |
+| `bigint & Proto<'int64'>` | `int64`                       |
+| `bigint`                  | refused — no default width    |
+| `number & Proto<'int64'>` | refused — range it can't hold |
+| `boolean`                 | `bool`                        |
+| `string`                  | `string`                      |
+| `Date`                    | `google.protobuf.Timestamp`   |
+| string literal union      | a generated `enum`            |
+| `T[]`                     | `repeated T`                  |
+| nested object             | a nested message              |
+
+`number` defaults to `double` because that is the only wire type that holds every value a `number` holds.
+A default of `int32` would silently truncate above 2^31 — no diagnostic, no exception, a different number
+on the wire than in memory — and the whole point of an ahead-of-time codec is that the failure modes are
+build errors.
+
+**`Sql<'integer'>` does not imply `int32`.** It is tempting, since the column is four bytes, and it is
+wrong: a `Sql` argument is a statement about storage in one database, and a `Proto` argument is a contract
+another language reads. Coupling them means that widening a column from `integer` to `bigint` — an
+ordinary migration — silently changes the wire format for every consumer, which is precisely the class of
+break step 8's compatibility rules exist to prevent. The two vocabularies stay independent, and a field
+that needs both says both.
+
+`bigint` requires an explicit 64-bit `Proto` with no default, because signedness is not inferable from the
+type and the cost of guessing is not symmetric: `int64` spends ten varint bytes on any negative value,
+which is the entire reason `sint64` exists. Decode of a 64-bit field always yields a `bigint`, including
+when the value would fit in a `number`, so the decoded type never depends on the magnitude of the data.
+
+`Date` maps to the well-known `google.protobuf.Timestamp`, which the descriptor imports. It is the fourth
+rendering of the one timestamp rule — `Date` in `Entity<T>`, ISO-8601 in JSON Schema, `timestamptz` in
+Postgres DDL, `Timestamp` on the wire — and `PRD.md`'s REQ-TF-13 enumerates the first three without
+claiming to be exhaustive, so it is extended here rather than contradicted.
+
+`'bytes'` stays in `ProtoScalar` **so that a diagnostic can name it**. `Proto<'bytes'>` is refused at
+emission, because no TypeScript type reaches the emitter that could carry it: `Uint8Array` is refused at
+reflection, pinned by `it('refuses Map, Set, Promise and a typed array', …)`. The refusal points at that
+fact instead of at the tag, since the tag is not the thing to change.
+
+### Presence: three TypeScript states, two wire states
+
+| TypeScript          | Descriptor        | Decode of an absent field |
+| ------------------- | ----------------- | ------------------------- |
+| `a: number`         | implicit presence | `0`                       |
+| `a?: number`        | `optional`        | the key is omitted        |
+| `a: number \| null` | `optional`        | `null`                    |
+| `a?: number\| null` | refused           | —                         |
+
+`a?: T` and `a: T | null` produce **identical wire bytes** and different generated decoders. That is
+allowed and stated rather than resolved, because the wire format has one concept of absence and
+TypeScript has two spellings of it, and forcing them together would make one of the two spellings
+unusable. `a?: T | null` is refused: three source states cannot round-trip through two wire states, and
+picking a winner would make one of the three silently unreachable.
+
+**A required field's absence is undetectable, so `protoDecode` does not claim to detect it.** Under
+implicit presence, `0`, `''`, `false` and "not on the wire at all" are the same bytes — proto3 removed
+required fields for exactly this reason. So the decoder fills absent scalar fields with proto3 zeros and
+substantiates its `T` by construction rather than by checking. The consequence must be written on the
+docs page and not just here: a **truncated or empty message decodes to a plausible all-zeros object**, and
+`assert<T>` will pass on it. A field whose absence matters has to be `optional`, and then the check is a
+key lookup rather than a value comparison.
+
+### Composites
+
+Arrays are `repeated`. Scalar numeric, `bool` and enum elements are packed, which is proto3's default and
+not a choice this spec makes; `string`, `bytes` and message elements are never packed. An empty array and
+an absent field are the same bytes, so decode yields `[]` and never `undefined`.
+
+**Nested arrays are refused.** `number[][]` has no proto3 spelling — `repeated repeated` does not exist —
+and the workaround is a wrapper message, which would mean the emitter inventing a message name and a
+field number. Both would then be part of a wire contract that nothing in the source pins, so an unrelated
+edit could renumber them. A wrapper the developer writes is fine; one the emitter invents is not.
+
+**`Record<string, V>` would be a `map`, and the blocker is the reflection, not protobuf.**
+`../reflect/index.ts` refuses an index signature with "an index signature is not readable through the
+checker API, so `Record<string, T>` cannot be modelled", and that refusal is pinned by the table in
+`../reflect/reflect.spec.ts`. Protobuf `map<string, V>` is well defined and the emitter could target it
+the day the front end can see the type. The diagnostic says so, so nobody reads the refusal as a protobuf
+limitation.
+
+A nested object type is a nested message, numbered in its own space (§4.5).
+
+### A string union is an enum, and the zero value is always synthesised
+
+A union of string literals emits an `enum` whose members are the literals, plus a synthesised
+`<NAME>_UNSPECIFIED = 0` that has no counterpart in the TypeScript union. Always, even though the union
+has a perfectly good first member to put at 0:
+
+- Under implicit presence, a field holding the 0 value is indistinguishable on the wire from a field that
+  was never set. Assigning a real member to 0 makes "not set" decode as that member — the bug proto3's own
+  `_UNSPECIFIED` convention exists to prevent.
+- It keeps adding a union member later free. Members are numbered in declaration order from 1, so an
+  append is additive; a reorder or a removal is a wire break, which is a compatibility problem (step 8)
+  and not something the emitter can detect.
+
+Because the TypeScript type has no `unspecified` member, **decoding a 0 is an error naming the field and
+the enum**, as is an unknown enum number. Returning `undefined` would violate the declared `T`, and
+picking a member would be inventing data.
+
+### `oneof` is refused, and the reason is that there is nowhere to put the tag
+
+A discriminated union does not emit a `oneof`. Each arm of a `oneof` needs a field number and a member
+name, and a zmdb tag is an intersection on a **property** type — the arms of a union are types, not
+properties, so there is no slot to hang `ProtoField<N>` on. Deriving arm names and numbers from the
+discriminant literals would make the wire contract depend on a source string: renaming `'card'` to
+`'creditCard'` would be a wire break with no diagnostic anywhere.
+
+This needs new vocabulary and is a follow-up, not a gap to paper over. The workaround that exists today
+is worth writing on the docs page: a message of all-`optional` arms plus an enum discriminant is
+wire-compatible with a `oneof` in every respect except the mutual exclusion, which the TypeScript type
+already enforces on the sending side.
+
+### Unknown fields are discarded, and that rules out one use
+
+A field number the descriptor does not know is skipped by wire type and dropped. It is **not** preserved,
+and the consequence is that **decode-then-re-encode loses fields a newer sender added**, so this codec is
+not a safe building block for a proxy or a relay.
+
+Preserving them was considered and refused: the decoded value would carry a payload that survives no
+`JSON.stringify`, no repository round trip and no structured clone, so "preserved" would be true only
+until the value touched anything, which is a worse guarantee than not making it. Code that must not lose
+unknown fields should forward the bytes.
+
+### What this target adds to existing gates
+
+- `CALLEES` in `../transformer.ts` gains three names. Together with §1a's three that is fourteen, and
+  `it('names eight calls, and every one of them is a function somebody can call', …)` asserts the list
+  literally while naming a count in its own title. The count in the title should go — it has now been
+  wrong twice for the same reason.
+- `NO_PROTOBUF` in `tests/api-coverage/mapping.mjs` declares this target out of scope and must be
+  removed, with the fourteen upstream `protobuf.*` suites in `inventory.mjs` mapped to real test titles.
+- The descriptor emitter walks a `TypeIR` outside `schema-core/src/ir/`, so it needs a `MAY_NAME`
+  exemption in `.github/scripts/verify-one-walker.mjs` with a reason. That gate fails on stale exemptions
+  too, so the entry is a commitment in both directions.
+
 ## 8. Refusals
 
 An `unsupported` node is a build error, never a guess (plan D4). The walk records an

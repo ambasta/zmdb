@@ -392,6 +392,74 @@ parameterised lives as a value on the repository (`../../../repository/SPEC.md` 
 the declaration because it is a property of the table; a tenant filter is not on the declaration because
 its parameter is a property of the request.
 
+### 4.5 Protobuf vocabulary and its carriage (frozen — epic "Protobuf")
+
+Two tags, and the encoding the issue proposing them asked for is one this project already rejected.
+
+```ts
+declare const zmdbProtoField: unique symbol;
+declare const zmdbProtoScalar: unique symbol;
+
+/** Protobuf field number. Required on every property of a message type. */
+export type ProtoField<N extends number> = { readonly [zmdbProtoField]?: N };
+/** Wire type, where TypeScript is ambiguous about width or signedness. */
+export type Proto<K extends ProtoScalar> = { readonly [zmdbProtoScalar]?: K };
+
+type ProtoScalar =
+  | 'int32'
+  | 'int64'
+  | 'uint32'
+  | 'uint64'
+  | 'sint32'
+  | 'sint64'
+  | 'fixed32'
+  | 'fixed64'
+  | 'sfixed32'
+  | 'sfixed64'
+  | 'float'
+  | 'double'
+  | 'bool'
+  | 'string'
+  | 'bytes';
+```
+
+A branded-primitive encoding — `{ readonly __protoField?: N }` — is the shape
+`../tags/SPEC.md` explicitly rejects: it "collides with real data properties and is forgeable". A
+message type is by definition one whose values arrive from a network, so a tag that a payload could
+carry as data is worse here than anywhere else in the vocabulary. `unique symbol`, optional, weak, like
+the other twenty.
+
+Carriage follows the existing mechanism exactly: `TAG_NAMES` gains `protoField: 'zmdbProtoField'` and
+`protoScalar: 'zmdbProtoScalar'`, because a tag added to `../tags` without an entry there is invisible to
+the reflection, and `vocabulary.type-test.ts`'s `StartsWithZmdb` assertion is what forces the naming. A
+field number is a JSON number, so §2's serialisability constraint is untouched.
+
+**`Proto<'int32'>` does not violate §2's "`sql` stays abstract" rule**, and the distinction is worth
+stating because it looks like it does. `'timestamptz'` is refused as a `Sql` argument because it is _one
+dialect's_ spelling of an abstract type. `int32` is not one implementation's spelling of anything — it is
+the portable wire vocabulary every protobuf implementation shares, and nothing renders it further. It is
+the `'timestamp'` of its layer, not the `'timestamptz'`.
+
+`ProtoField` rather than `Field`: `Field` is the single most likely name in this vocabulary to collide in
+a file that also imports a form or UI library, and every other tag is named after what it constrains.
+
+#### Field numbers are required, and never inferred
+
+Required on every property of a message type, unique within the message, in `1 … 536870911`, and not in
+the reserved `19000 … 19999`. Each violation is a build diagnostic naming the property, the message and
+the number.
+
+They are **required rather than defaulted from declaration order**, and that is the whole reason the tag
+exists. A number derived from order changes when somebody reorders two properties — a diff that looks
+like formatting and is a wire break that no test in the sending codebase can see. Numbers 1–15 encode
+their tag in one byte, so the spec _recommends_ them for the most frequent fields and does not enforce
+it: a rule that renumbers to optimise is the rule we just refused.
+
+#### Nested messages number independently
+
+A nested object type is a nested message with its own `1 …` space. Field numbers are unique within a
+message, not within a schema.
+
 ## 5. Back-end: `schemaFromIR(ir)`
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories
