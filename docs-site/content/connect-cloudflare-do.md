@@ -30,8 +30,8 @@ export class Room extends DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
-    const rows = await this.repo.list({ page: { limit: 50 } });
-    return Response.json(rows);
+    const { items } = await this.repo.list({ page: { limit: 50 } });
+    return Response.json(items);
   }
 }
 ```

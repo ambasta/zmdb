@@ -39,8 +39,8 @@ const SUMMARY = ['id', 'title', 'createdAt'] as const;
 
 @Get('/')
 async list() {
-  const { rows } = await this.repo.list({ select: SUMMARY, page: { limit: 20 } });
-  return rows;   // typed as Pick<Post, 'id' | 'title' | 'createdAt'>[]
+  const { items } = await this.repo.list({ select: SUMMARY, page: { limit: 20 } });
+  return items;   // typed as Pick<Post, 'id' | 'title' | 'createdAt'>[]
 }
 ```
 

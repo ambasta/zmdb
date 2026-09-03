@@ -33,14 +33,14 @@ The schema file itself is safe to import anywhere: `schemaOf<Post>()` compiles t
 import { postRepo } from '@/server/db';
 
 export default async function PostsPage() {
-  const { rows } = await postRepo.list({
+  const { items } = await postRepo.list({
     orderBy: [{ column: 'createdAt', dir: 'desc' }],
     page: { limit: 20 },
   });
 
   return (
     <ul>
-      {rows.map(p => (
+      {items.map(p => (
         <li key={p.id}>{p.title}</li>
       ))}
     </ul>

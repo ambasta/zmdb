@@ -59,7 +59,7 @@ Order by `createdAt` **and** `id`. Two messages written in the same millisecond 
 ```ts
 @Controller('/chat')
 export class ChatController {
-  constructor(@Inject(MESSAGES) private readonly messages: MessageRepository) {}
+  @Inject(MESSAGES) private readonly messages!: MessageRepository;
 
   @Post('/:id')
   async send(ctx: Ctx<{ id: string }, unknown>) {

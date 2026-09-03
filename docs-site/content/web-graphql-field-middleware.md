@@ -18,7 +18,7 @@ Wrapping the resolution of a single field: masking a value, timing it, caching i
 The strongest version of field-level control, and it is available today:
 
 ```ts
-const { rows } = await repo.list({ select: ['id', 'title', 'createdAt'], page: { limit: 20 } });
+const { items } = await repo.list({ select: ['id', 'title', 'createdAt'], page: { limit: 20 } });
 ```
 
 `select` narrows both the SQL and the row type. A column that is not selected never leaves the database, so there is no value to mask, nothing in a log, nothing in a heap dump and nothing in an error payload. Field middleware masks _after_ fetching; this is strictly stronger.

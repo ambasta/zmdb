@@ -34,7 +34,7 @@ const yoga = createYoga({
     resolvers: {
       Query: {
         post: (_, args) => posts.findById(args.id),
-        posts: (_, args) => posts.list({ page: { limit: Math.min(args.limit ?? 20, 100) } }).then(r => r.rows),
+        posts: (_, args) => posts.list({ page: { limit: Math.min(args.limit ?? 20, 100) } }).then(r => r.items),
       },
       Post: {
         author: post => users.findById(post.authorId),
@@ -110,7 +110,7 @@ GraphQL validates against its schema, which covers types but not your rules — 
 ```ts
 posts: (_, args) => {
   const input = assert<{ limit: number }>(args);
-  return posts.list({ page: { limit: Math.min(Math.max(input.limit, 1), 100) } }).then(r => r.rows);
+  return posts.list({ page: { limit: Math.min(Math.max(input.limit, 1), 100) } }).then(r => r.items);
 };
 ```
 

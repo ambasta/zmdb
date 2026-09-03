@@ -1,24 +1,26 @@
 Three ways, for three different questions.
 
-## Count alongside a page — free
-
-`list()` already returns the total:
+## Alongside a page — `hasMore`, not a total
 
 ```ts
-const { rows, total } = await userRepo.list({
+const { items, hasMore, total } = await userRepo.list({
   where: { active: { eq: true } },
   page: { limit: 20, offset: 0 },
 });
-// rows.length === 20, total === 1_483
+// items.length === 20, hasMore === true, total === undefined
 ```
 
-`total` is the count matching the `where` **ignoring the page**, which is what a paginator needs. Do not run a second count query for this.
+`ListResult` declares `total?: number`, and **`list()` never populates it.** The field exists because `buildListResult` accepts an opt-in `total`, and `list()` does not pass one — so reading `total` from a `list()` result gets you `undefined`, not a count.
+
+What you do get for free is `hasMore`, and it is genuinely free: `list()` fetches `limit + 1` rows and reports whether the extra one came back. That answers "is there a next page" without a second query, which is what most paginators actually need.
+
+A count matching the `where` and ignoring the page is a **second query**, and there is no way around that — see the next section, and see the last section for why you may not want it at all.
 
 ## Count only
 
 ```ts
-const { rows } = await userRepo.list({ where: { active: { eq: true } }, page: { limit: 0 } });
-const count = rows.length; // wrong — this is 0
+const { items } = await userRepo.list({ where: { active: { eq: true } }, page: { limit: 0 } });
+const count = items.length; // wrong — this is 0
 ```
 
 Use `aggregate` instead:
@@ -81,7 +83,7 @@ SELECT reltuples::bigint FROM pg_class WHERE relname = 'events';
 
 Accurate to the last `ANALYZE`, and O(1). Serve it through a [named raw query](./raw-sql.html).
 
-For a paginated UI, the honest alternative is not to show a total at all — fetch `limit + 1` rows and report "more results" rather than "page 7 of 4,318". That is also what makes [cursor pagination](./guide-cursor-pagination.html) work.
+For a paginated UI, the honest alternative is not to show a total at all — fetch `limit + 1` rows and report "more results" rather than "page 7 of 4,318". That is exactly what `hasMore` is, and it is what makes [cursor pagination](./guide-cursor-pagination.html) work.
 
 ---
 

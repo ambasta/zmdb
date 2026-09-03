@@ -79,9 +79,9 @@ try {
 ```ts
 async function backfillSlugs(container: Container, options: Options): Promise<void> {
   const posts = container.resolve(POSTS);
-  const { rows } = await posts.list({ page: { limit: options.limit } });
+  const { items } = await posts.list({ page: { limit: options.limit } });
 
-  for (const row of rows) {
+  for (const row of items) {
     const slug = slugify(row.title);
     if (options.dryRun) {
       console.log(`${row.id}: ${row.slug ?? '∅'} -> ${slug}`);
@@ -89,7 +89,7 @@ async function backfillSlugs(container: Container, options: Options): Promise<vo
     }
     await posts.update(row.id, { slug });
   }
-  console.log(`${options.dryRun ? 'would update' : 'updated'} ${rows.length} rows`);
+  console.log(`${options.dryRun ? 'would update' : 'updated'} ${items.length} rows`);
 }
 ```
 

@@ -22,8 +22,8 @@ There is no module-scope client, because the binding only exists inside a reques
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const repo = defineRepository(users, d1Driver(env.DB), { dialect: 'sqlite' });
-    const rows = await repo.list({ page: { limit: 20 } });
-    return Response.json(rows);
+    const { items } = await repo.list({ page: { limit: 20 } });
+    return Response.json(items);
   },
 };
 ```

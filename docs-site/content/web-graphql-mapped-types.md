@@ -57,7 +57,7 @@ type PublicPost = Pick<Entity<Post>, (typeof PUBLIC_FIELDS)[number]>;
 ```
 
 ```ts
-const { rows } = await repo.list({ select: PUBLIC_FIELDS, page: { limit: 20 } });
+const { items } = await repo.list({ select: PUBLIC_FIELDS, page: { limit: 20 } });
 ```
 
 One declaration, three uses: the type, the SQL projection, and — when a GraphQL emitter exists — the field set. `select` narrows the row type as well as the query, so the projection and the type cannot disagree, and the omitted columns are never fetched.

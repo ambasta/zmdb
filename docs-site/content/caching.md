@@ -84,9 +84,9 @@ async function topPosts() {
   const hit = await redis.get(key);
   if (hit !== null) return decode<Entity<Post>[]>(hit);
 
-  const rows = await postRepo.list({ orderBy: [{ column: 'views', dir: 'desc' }], page: { limit: 10 } });
-  await redis.set(key, stringify(rows.rows), { EX: 60 });
-  return rows.rows;
+  const { items } = await postRepo.list({ orderBy: [{ column: 'views', dir: 'desc' }], page: { limit: 10 } });
+  await redis.set(key, stringify(items), { EX: 60 });
+  return items;
 }
 ```
 

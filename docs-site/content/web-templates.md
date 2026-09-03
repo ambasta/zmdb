@@ -49,8 +49,8 @@ const compiled = compileModule(AppModule);
 const posts = compiled.container.resolve(POSTS);
 
 async function renderPage(path: string): Promise<string> {
-  const { rows } = await posts.list({ page: { limit: 20 } });
-  return layout(rows.map(p => `<li>${escapeHtml(p.title)}</li>`).join(''));
+  const { items } = await posts.list({ page: { limit: 20 } });
+  return layout(items.map(p => `<li>${escapeHtml(p.title)}</li>`).join(''));
 }
 ```
 
@@ -95,8 +95,8 @@ If the HTML does not change per request, build it. This sidesteps the whole prob
 
 ```ts
 // scripts/build-site.ts
-const { rows } = await posts.list({ page: { limit: 1000 } });
-for (const post of rows) {
+const { items } = await posts.list({ page: { limit: 1000 } });
+for (const post of items) {
   await writeFile(`dist/posts/${post.id}.html`, renderPost(post));
 }
 ```

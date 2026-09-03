@@ -5,7 +5,7 @@ Short, task-shaped answers to things people actually search for. Each one is a w
 |                                                           |                                                                       |
 | --------------------------------------------------------- | --------------------------------------------------------------------- |
 | [Conditional filters](./guide-conditional-filters.html)   | Building a `where` from optional inputs without dropping `0` and `''` |
-| [Count rows](./guide-count-rows.html)                     | `list().total`, and when to use `aggregate` instead                   |
+| [Count rows](./guide-count-rows.html)                     | `hasMore` is free, a total is not, and `aggregate` is how you get one |
 | [Cursor-based pagination](./guide-cursor-pagination.html) | Keyset pagination, and why `OFFSET` gets slower                       |
 | [`EXISTS` subqueries](./guide-exists-subquery.html)       | `whereExists` and correlated subqueries                               |
 | [Dynamic queries](./dynamic-queries.html)                 | Composing a builder across functions                                  |
