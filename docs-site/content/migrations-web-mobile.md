@@ -41,27 +41,34 @@ export const conn: MigrationConnection = {
   },
 
   async appliedVersions() {
-    await db.execAsync(
-      `CREATE TABLE IF NOT EXISTS "_migrations" ("version" INTEGER PRIMARY KEY, "name" TEXT NOT NULL)`,
-    );
-    const rows = await db.getAllAsync<{ version: number }>(`SELECT version FROM "_migrations"`);
+    const rows = await db.getAllAsync<{ version: number }>(`SELECT version FROM "_zmdb_migrations"`);
     return rows.map(r => r.version);
   },
 
   async recordApplied(version, name) {
-    await db.runAsync(`INSERT INTO "_migrations" ("version", "name") VALUES (?, ?)`, version, name);
+    await db.runAsync(
+      `INSERT INTO "_zmdb_migrations" ("version", "name", "applied_at") VALUES (?, ?, ?)`,
+      version,
+      name,
+      Date.now(),
+    );
   },
 
   async recordReverted(version) {
-    await db.runAsync(`DELETE FROM "_migrations" WHERE "version" = ?`, version);
+    await db.runAsync(`DELETE FROM "_zmdb_migrations" WHERE "version" = ?`, version);
   },
 };
 ```
 
+The table name and its three columns are not yours to choose: the runner creates
+`_zmdb_migrations(version, name, applied_at)` itself before it reads anything, so a connection that keeps
+its own ledger under another name leaves two tables and an `applied_at` that is `NOT NULL` with nothing
+written to it.
+
 Then, at startup:
 
 ```ts
-import { runCli } from '@zmdb/query-compiler/migration-runner';
+import { runCli } from '@zmdb/query-compiler/migrations/runner';
 
 await runCli('up', conn, migrations);
 ```

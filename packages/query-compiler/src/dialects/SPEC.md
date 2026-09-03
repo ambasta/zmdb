@@ -596,7 +596,7 @@ only to where the classification data lives and that nothing in the compiler ret
 ### 4.5 Asynchronous schema changes
 
 `ALTER TABLE` returns before the change has propagated, and Cockroach rejects several DDL statements inside
-an explicit transaction. `../migrations/SPEC.md` §5 wraps each migration in a transaction, and that stays:
+an explicit transaction. `../../../zmdb/src/cli/SPEC.md` §5 wraps each migration in a transaction, and that stays:
 `transactionalDdl: true` is inherited and correct. What changes is the advice, not the mechanism — a
 migration whose `up` alters a column and then writes through it may need splitting into two versions, which
 is a migration-authoring fact for the docs page and not something the emitter can detect.

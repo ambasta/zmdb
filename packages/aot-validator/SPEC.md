@@ -83,6 +83,12 @@ named interfaces. It is a compiler client by definition — that is the service 
 because `schemaOf<T>()` has no runtime, so a test with no build step has no other route from
 a tagged interface to a schema.
 
+A seventh joins the build-time column when the Metro integration lands: `./metro`, whose
+`withZmdb(config)` wraps a project's existing Babel transformer (`src/plugin/SPEC.md` §6). It is a compiler
+client like the other six, so it goes in `BUILD_TIME_ENTRIES` too — and it is the one entry point that is
+reached by `require` of an ES module rather than by `import`, because `metro.config.js` is CommonJS in every
+React Native template.
+
 `typescript` is an **optional peer dependency**: installing this package to call
 `is(value, ir)` at runtime should not pull down a compiler, and a build that uses the
 plugin already has one.
@@ -115,6 +121,14 @@ and refreshes it per file change; `apiInstanceCount()` exists so a test can asse
 count rather than trusting the claim. A session the plugin owns is closed in `buildEnd`; a
 session a caller supplied is left open, because closing someone else's compiler is not the
 plugin's call.
+
+Metro is the exception, and it is stated here rather than left to be discovered: an `API` is a `tsgo` child
+process on a synchronous pipe owned by whichever process opened it, and Metro transforms in a pool of worker
+processes. A session cannot cross that boundary, so under Metro the number is **one per transform process**,
+and the tests assert it there. "One per build" remains the requirement everywhere a build is one process; the
+alternative under Metro would be one session per file, which is the cost this requirement exists to prevent.
+See `src/plugin/SPEC.md` §6.2, including the two documented escapes for a machine that cannot hold N loaded
+projects.
 
 ## 7. Verified
 

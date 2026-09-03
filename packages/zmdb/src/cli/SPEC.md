@@ -32,6 +32,7 @@ and a rollback. A CLI that hides capability the library has is a worse CLI, so:
 | `check`    | declarations, snapshot, files | nothing                    | no       |
 | `upgrade`  | the stored snapshot           | the stored snapshot        | no       |
 | `export`   | declarations                  | stdout                     | no       |
+| `embed`    | migration files               | a TypeScript module (§4.1) | no       |
 | `pull`     | the database                  | declaration files          | yes      |
 | `new`      | nothing                       | new files only (§13)       | no       |
 | `studio`   | declarations, the database    | nothing                    | yes      |
@@ -41,9 +42,13 @@ They are the only three commands that need no new engine work, and saying so her
 being redesigned.
 
 Two more verbs are frozen further down and are not about the schema at all: `new` writes files (§13) and
-`studio` serves a page (§14). Eleven in total, and the count is not the interesting number — the division
-is. The nine above read or write a database or the tree that describes it; the two below are a code
+`studio` serves a page (§14). Twelve in total, and the count is not the interesting number — the division
+is. The ten above read or write a database or the tree that describes it; the two below are a code
 generator and a viewer, and neither is allowed to acquire an opinion about migrations.
+
+`embed` is the twelfth and the newest; it is in the first group because it reads the migration files, though
+it is the only verb in it that neither connects nor writes into the schema tree. Its output is a module an
+application bundle imports, and the format belongs to `@zmdb/query-compiler` — see §4.1.
 
 ## 2. Argument parsing and exit codes are already decided
 
@@ -139,6 +144,32 @@ A pair of files can be half-committed, half-reverted or half-deleted, and the ru
 needs `up` and `down` at one version. A file with no `-- zmdb:down` section parses with an empty `down`,
 and `rollback` refuses that version by name rather than guessing at an inverse.
 
+### 4.1 `embed`, for a bundle that cannot read a directory
+
+`zmdb embed [--out <file>] [--with-down]` reads the migration directory, splits each file at the sentinels
+above, and writes a TypeScript module of `EmbeddedMigration` values — version, name, the `up` text verbatim,
+and a SHA-256 digest of it. React Native and the browser have no filesystem and Metro cannot resolve a
+`.sql` file, so a device gets its migrations as bundle data or not at all. The format, the digest, the
+ledger and the runner are frozen in `@zmdb/query-compiler`'s `src/migrations/SPEC.md` §5; what belongs here
+is only that this is the command, and why it is not spelled another way.
+
+It is not `generate --embed`: `generate` diffs declarations against the stored snapshot and writes one
+migration file, and it never reads the directory. It is not `export --embed`: `export` writes DDL for the
+schema set to stdout (§9), from declarations rather than from files, for a human or a `psql` pipe rather than
+for a bundler. Either spelling would give a verb a second meaning, which is the thing §1 and §13 are both
+about.
+
+The digest is computed here because this is the side that has Node: `globalThis.crypto.subtle` exists, and a
+device comparing two strings needs no crypto at all. It writes in version order and byte-stably, so the
+module is committed and reviewed; `check` reports `stale-embedded` when it no longer matches the directory
+(§7), because a stale embedded module ships the wrong statements from a build that succeeded.
+
+One thing `embed` knows that the format cannot: which dialect the migration files were emitted for. A
+`SchemaSnapshot` records no dialect — deliberately, since the same snapshot is emitted for all of them — so
+the answer comes from the configured dialect, the same place `generate` read it. The embedded runner executes
+SQLite and only SQLite, so `embed` **refuses a project configured for anything else** and says which, rather
+than writing a module whose first statement is a syntax error on a user's phone.
+
 ## 5. `migrate`, `rollback`, `status`, and the dialect that has no transactional DDL
 
 Each migration runs inside its own transaction, in version order, with its ledger row written in the same
@@ -182,6 +213,7 @@ is a development-only workflow and the spec says so rather than trying to reconc
 | `duplicate-version`  | Two migration files share a version. The branch-merge case.           |
 | `snapshot-version`   | The stored snapshot's `version` is newer than this build understands. |
 | `missing-down`       | A migration file has no `-- zmdb:down` section (§4).                  |
+| `stale-embedded`     | The embedded module is out of date with the migration files (§4.1).   |
 | `drift`              | The live database does not match the stored snapshot. Needs `pull`.   |
 
 `drift` is the only one that connects, so it runs only when a driver is configured, and its absence is

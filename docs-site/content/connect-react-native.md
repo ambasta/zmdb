@@ -26,11 +26,10 @@ await db.execAsync('PRAGMA foreign_keys = ON');
 export const driver: Driver = {
   async execute(query) {
     const params = [...query.parameters] as SQLite.SQLiteBindValue[];
-    if (/^\s*(select|with)/i.test(query.text)) {
-      return await db.getAllAsync<Record<string, unknown>>(query.text, params);
-    }
-    await db.runAsync(query.text, params);
-    return [];
+    // Rows for everything, not only for SELECT: `create`, `update` and `delete` all
+    // compile with RETURNING, so a driver that branches on the leading keyword and
+    // returns [] for writes makes `create()` hand back an empty entity.
+    return await db.getAllAsync<Record<string, unknown>>(query.text, params);
   },
 };
 ```

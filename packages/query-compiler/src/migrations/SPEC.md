@@ -445,6 +445,256 @@ That spec also requires a change here: a generated version is a 14-digit `YYYYMM
 not fit the `INTEGER` in the `CREATE TABLE IF NOT EXISTS` above on Postgres or MySQL, so the column becomes
 `BIGINT` on those two dialects. SQLite's `INTEGER` is already 64-bit and existing 32-bit rows still fit.
 
-## 5. Non-goals (rejected)
+## 5. Embedded migrations, for a bundle with no filesystem (frozen — epic "React Native")
+
+Everything above assumes a directory of migration files and something that can read it. A React Native
+bundle has neither, and neither does a browser: `node:fs` does not exist, and a `.sql` file is not a module
+Metro can resolve. So migrations reach a device as **data compiled into the bundle**, applied by a runner
+that never opens a file. The browser-SQLite case is the same problem with a different binding, which is why
+this is one section and not two.
+
+### 5.1 The format, and the three fields the issue asked for that are not here
+
+```ts
+export interface EmbeddedMigration {
+  readonly version: number; // the fourteen digits of the file name
+  readonly name: string;
+  readonly up: string; // the whole `-- zmdb:up` section, verbatim
+  readonly checksum: string; // `sha256:<hex>` over `up`, computed at build time
+}
+```
+
+**`version: number`, not `id: string`.** The generated file name is
+`<YYYYMMDDHHMMSS>_<slug>.sql` and those fourteen digits _are_ the version
+(`../../../zmdb/src/cli/SPEC.md` §4) — sortable lexically and numerically at once, which is the property an
+id would have been introduced to provide. Carrying both would be two names for one fact with nowhere to
+record which one the ledger is keyed on, and the answer is already fixed: the ledger's primary key is the
+version.
+
+**`up: string`, not `readonly string[]`.** Splitting the section into statements is attractive — a device
+binding's parameterised call takes one statement — and it is refused, because the split would have to happen
+somewhere and both places are wrong. On the device it is a SQL parse. At build time it is a SQL parse in the
+CLI, and `;` is not a statement boundary in the text this format carries: §1.5's extension statements and
+routine bodies contain semicolons, `CREATE TRIGGER … BEGIN … END` contains several, and so does any string
+literal with one in it. A splitter that is right about those is a SQL parser, and this package has no reason
+to own one. So the section travels verbatim and the driver requirement (§5.6) is a call that accepts more
+than one statement — which every SQLite binding already has, because DDL needs it.
+
+**No `down`.** `zmdb embed` omits it unless asked (`--with-down`), because rolling an app back does not roll
+the database back and the runner below has no rollback verb at all — the reasoning is on
+`docs-site/content/migrations-web-mobile.md` and it is right. Every embedded byte is shipped to a phone
+(ARCHITECTURE §1), and a `down` that nothing can call is the cheapest thing to not ship. The consequence is
+that `EmbeddedMigration` is **not** assignable to `Migration`, which is correct rather than unfortunate: the
+two runners share no code, no connection type and no ledger rule, so a shared type would only make it look
+like they did.
+
+**`checksum` is computed at build time and only ever compared on the device.** No hashing happens on a
+device, and that is a constraint rather than a preference: `.oxlintrc.json` bans `node:crypto`,
+`globalThis.crypto.subtle.digest` is asynchronous and is not present in a React Native runtime without a
+platform package, and adding `expo-crypto` as a peer dependency to compare two strings would be absurd. The
+CLI runs in Node where `crypto.subtle` does exist, so the digest is SHA-256 over the exact `up` text, hex,
+prefixed `sha256:` so that changing the algorithm later shows up as a different prefix instead of as every
+migration mismatching at once.
+
+What the checksum is for: detecting that a migration which has already been applied has since been edited.
+On a device that is the common accident, not an exotic one — version `003` ships in a TestFlight build,
+someone fixes a typo in it, and the next build's `003` is a different migration with the same version. It is
+**not** an integrity check against tampering: the bundle is not signed and the checksum travels next to the
+statement it describes.
+
+### 5.2 The ledger lives in the database being migrated, and may predate this runner
+
+Same table as §4, one column wider:
+
+```sql
+CREATE TABLE IF NOT EXISTS _zmdb_migrations (
+  version INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  applied_at INTEGER NOT NULL,
+  checksum TEXT
+)
+```
+
+`INTEGER` and not `BIGINT`: the `BIGINT` requirement in `../../../zmdb/src/cli/SPEC.md` §4 is for Postgres
+and MySQL, whose `INTEGER` is 32 bits. SQLite's is already 64, and §5.6 makes SQLite the only target here.
+
+`checksum` is nullable and that is load-bearing. A device database may already have a three-column ledger —
+from a version of the app that used the §4 runner, or from the hand-written connection the docs page
+currently shows. Frozen behaviour on `ensure`:
+
+- read the table's columns (`pragma_table_info`, which is SQLite-specific and allowed to be, per §5.6);
+- if the table is absent, create it as above;
+- if it exists without `checksum`, `ALTER TABLE _zmdb_migrations ADD COLUMN checksum TEXT` — a migration for
+  the migration table, run before anything else and idempotent;
+- a row whose `checksum` is `NULL` is **applied and unverifiable**, not mismatched. It was recorded before
+  checksums existed and there is nothing to compare it to; refusing it would brick every app that upgraded
+  into this runner, which is a worse outcome than not verifying a migration that already ran.
+
+### 5.3 `runEmbedded`, and why it does not take a `Driver`
+
+```ts
+export interface EmbeddedConnection {
+  /** May contain more than one statement. No parameters. Used for migration bodies and the ledger DDL. */
+  exec(sql: string): Promise<void>;
+  /** One statement, with parameters. Used for ledger writes. */
+  run(sql: string, params: readonly (string | number | null)[]): Promise<void>;
+  /** One statement, with parameters. Used for the two ledger reads. */
+  rows(sql: string, params: readonly (string | number | null)[]): Promise<readonly Record<string, unknown>[]>;
+}
+
+export declare function runEmbedded(
+  conn: EmbeddedConnection,
+  migrations: readonly EmbeddedMigration[],
+): Promise<readonly number[]>; // the versions applied, in order
+```
+
+The issue proposes `runEmbedded(driver: Driver, …)`. `Driver` is declared in `@zmdb/repository`, which
+_depends on_ this package, so naming it here inverts a dependency edge — `MigrationDriver` in `runner.ts`
+exists for exactly that reason. But the embedded runner does not take that either, and the reason is §5.5:
+`MigrationDriver.execute` takes a `CompiledQuery`, which means a compiler, and the whole point of the
+embedded entry point is that it imports nothing. Every SQL string the runner issues is a constant in its own
+module, so what it needs is three calls and no query builder. Those three map one-to-one onto
+`expo-sqlite`'s `execAsync` / `runAsync` / `getAllAsync` — the pairing the docs page already uses, where
+`execAsync` runs the multi-statement DDL and `runAsync` takes the parameters.
+
+Frozen order of operations, and every failure below happens **before any migration is applied**:
+
+1. Refuse a duplicate `version` in the array, by version. It is a merge artefact, and applying one of the two
+   silently means the other never runs.
+2. `ensure` the ledger (§5.2).
+3. Read the ledger. For every version present in both the ledger and the array, compare checksums: a
+   mismatch throws, naming the version, the name, and both digests. A `NULL` ledger checksum compares equal
+   to anything.
+4. **The downgrade case.** A ledger row whose version appears in no bundled migration throws, naming that
+   version and the newest version the bundle has. This is an older app running against a newer database, and
+   the alternative — carrying on — is old code writing through a schema it does not know, which is the
+   data-loss case this rule exists for. There is no flag to disable it, because a flag introduced for one
+   release is never removed.
+5. Apply the pending versions in ascending numeric order, one at a time. Each migration runs inside
+   `BEGIN` / `COMMIT` issued by the runner, with its ledger row written in the same transaction, and a failure
+   `ROLLBACK`s that one and stops the run — the same rule as `../../../zmdb/src/cli/SPEC.md` §5, and sound
+   here because SQLite's DDL is transactional. SQLite has no nested transactions, so `runEmbedded` must not
+   be called inside one; that is a stated precondition rather than something it can detect.
+
+The three failures are one class with a discriminant, so an app can branch:
+`EmbeddedMigrationError` with `kind: 'duplicate' | 'checksum' | 'ledger-ahead' | 'ledger-shape'`.
+`QueryCompilerError` is not reused: it carries no kind, and branching on a message is not an API. The
+recommended handling for `ledger-ahead` belongs on the page and is the one the page's own framing implies —
+a device database is a cache with a schema, so an app that finds a ledger from the future may delete it and
+start at version 0, which is a decision only the app can make.
+
+An empty ledger is not a special case. A reinstalled or evicted database is "version 0", every migration is
+pending, and that path is the one every fresh install takes.
+
+### 5.4 Generation: `zmdb embed`, a twelfth verb
+
+Reads the migration directory, splits each file at the `-- zmdb:up` / `-- zmdb:down` sentinels (§4), digests
+the `up` section, and writes one TypeScript module:
+
+```ts
+// Generated by `zmdb embed`. Do not edit.
+import type { EmbeddedMigration } from '@zmdb/query-compiler/migrations/embedded';
+
+export const migrations: readonly EmbeddedMigration[] = [
+  { version: 20260903120000, name: 'add_shipped_at', up: '…', checksum: 'sha256:…' },
+] as const;
+```
+
+- **Not `generate --embed`.** `generate` diffs declarations against the stored snapshot and writes one
+  migration file (`../../../zmdb/src/cli/SPEC.md` §4); it does not read the migration directory. **Not
+  `export --embed`** either: `export` writes the full DDL for the schema set to stdout (§9 there) from
+  declarations, not from files. Both would be a second meaning for a verb that has one, which is the wart
+  that spec's §1 and §13 are both about. So `embed` reads migration files, writes a TypeScript module,
+  connects to nothing — a row in that spec's command table, and eleven verbs becomes twelve.
+- A TypeScript module rather than JSON: the declared type plus `as const` means a hand-edit that breaks the
+  shape is a typecheck failure, and the alternative that seems simpler — importing the `.sql` files — needs
+  `assetExts` surgery in the Metro config, which is the thing the wrapper in
+  `../../../aot-validator/src/plugin/SPEC.md` §6.1 exists to avoid.
+- Output is byte-stable in version order, so it is committed and reviewed like any other generated file.
+- `check` (§7 of the CLI spec) gains a `stale-embedded` finding: the module is out of date with respect to
+  the directory. A stale embedded module is the same class of bug as a stale Metro cache — a build that
+  succeeds and ships the wrong statements — and the whole point of `check` is that CI notices first.
+
+### 5.5 The subpath is the bundle-size mechanism, because Metro does not tree-shake
+
+`@zmdb/query-compiler/migrations/embedded` → `src/migrations/embedded.ts`, which imports **nothing**: not
+`../index.js`, not `./index.js`, not a type from either. That is the whole discipline, and it has to be
+structural because there is no bundler here to be hopeful about — Metro has no dead-code elimination driven
+by `"sideEffects": false`, so an import that is only unreachable still ships.
+
+The two existing entry points show why a new module is required rather than a new export of an old one:
+
+- `./migrations/runner` looks like the minimal one and is not. `runner.ts` imports `createQueryCompiler` from
+  `../index.js` for `driverMigrationConnection`, so importing the runner pulls in the entire query compiler —
+  every builder, every clause, every dialect — for one convenience adapter.
+- `./migrations` is worse. `index.ts` re-exports `./runner.js`, so the diff engine's entry point drags the
+  runner and therefore the compiler behind it. A device that only needs to run four statements would ship the
+  snapshotter, the diff engine and the DDL emitter as well.
+
+Neither is a defect in a Node build and neither is being changed here. They are the reason the embedded
+runner is a leaf module: the property "the device ships the statements and nothing else" has to be true by
+the shape of the import graph, since nothing downstream will enforce it.
+
+Consequences the implementation slice owns: the subpath is added to `package.json` `exports`,
+`verify-exports.mjs` then checks that it resolves and reaches no non-zmdb specifier (it reaches none at all),
+and `ARCHITECTURE.md` §10's subpath count moves. It is not a build-time entry — it never touches
+`typescript` — so it does not go in `BUILD_TIME_ENTRIES`.
+
+### 5.6 The driver requirement, once, for device and browser alike
+
+**SQLite, and the three calls in §5.3.** Not a dialect parameter: the runner selects nothing, emits no DDL of
+its own beyond the ledger table, and its one non-portable statement is the `pragma_table_info` probe in
+§5.2. That is honest for the platforms that need this — `expo-sqlite`, `op-sqlite`, `wa-sqlite`, `sql.js`,
+OPFS — and a second dialect would need a second probe and no other change.
+
+The migrations themselves are of course dialect-specific, and they were emitted for SQLite by the generator
+that wrote them; a migration set emitted for Postgres and embedded into a phone is a mistake the format
+cannot detect and the CLI can, since it knows which dialect it emitted for.
+
+Browser SQLite differs from a device in exactly two ways, and neither reaches the runner: OPFS storage can be
+evicted, which is the empty-ledger path (§5.3), and `sql.js` is in-memory unless the page persists it, which
+means every load is a fresh install. Both are already normal states.
+
+### 5.7 What the two pages have to change
+
+`docs-site/content/migrations-web-mobile.md` and `connect-react-native.md` are both `status: 'todo'` and stay
+that way until the epic closes; the corrections below belong to the docs slice, except the four marked
+_done_, which were code a reader would have copied.
+
+1. _Done._ The startup example imported `@zmdb/query-compiler/migration-runner`, which is not a subpath this
+   package has. It is `@zmdb/query-compiler/migrations/runner`.
+2. _Done._ The hand-written connection kept its ledger in `_migrations` while `ensureVersionTable` creates
+   `_zmdb_migrations`, so the example left two tables and inserted no `applied_at` — a `NOT NULL` column with
+   no default, i.e. the first `recordApplied` fails.
+3. _Done._ The `expo-sqlite` `Driver` on the React Native page branched on the leading keyword and returned
+   `[]` for anything that was not a `SELECT`. `create`, `update` and `delete` all compile with `RETURNING`
+   (`repository/src/index.ts:709`, `:739`, `:749`), so `create()` returned an empty entity.
+4. _Done._ That branch is the same prefix test as `isWrite` in `../../../repository/src/replicas/SPEC.md`,
+   and it is the second place a reader could have concluded that reads and writes are distinguishable from
+   the text. They are, for routing; they are not, for whether a statement returns rows.
+5. The `MigrationConnection` quoted on the page declares every member as returning `Promise<void>`. The real
+   one accepts a synchronous return as well, which is what makes a `better-sqlite3`-shaped binding usable
+   without wrapping every call.
+6. "The device only ever imports the finished array, so no diffing code ships in the bundle" is true of the
+   embedded subpath and false of the other two: via `./migrations` the bundle gets the snapshotter, the diff
+   engine, the DDL emitter and the whole query compiler (§5.5).
+7. The React Native page's transformer section offers two workarounds — do not use the validators, or build a
+   shared package separately — and both are replaced by `withZmdb`
+   (`../../../aot-validator/src/plugin/SPEC.md` §6). Its claim that untransformed validators "silently accept
+   everything" is wrong in the other direction: they throw (§6.4 there).
+8. Neither page mentions the dev-server staleness window or `--reset-cache`, which is the one thing a reader
+   will hit in their first hour (§6.3 there).
+
+## 6. Non-goals (rejected)
 
 - Runtime auto-updateSchema against production. Reflection-based entity discovery.
+- **An `id` alongside the version.** §5.1 — the fourteen digits are already sortable and already the key.
+- **A statement array in the embedded format.** §5.1 — `;` is not a statement boundary in a routine body.
+- **Hashing on the device.** §5.1 — `node:crypto` is banned, Web Crypto's digest is async and absent on RN,
+  and there is nothing a device can learn by re-hashing text it was handed.
+- **`down` in the bundle by default, or a rollback verb on the device.** §5.1.
+- **A `Driver` or `MigrationDriver` parameter for `runEmbedded`.** §5.3 — one inverts a dependency edge, the
+  other requires a compiler.
+- **A flag that tolerates a ledger ahead of the bundle.** §5.3 step 4.
+- **Reusing `./migrations` or `./migrations/runner` for the device.** §5.5 — both reach the whole compiler,
+  and Metro will not remove it.
