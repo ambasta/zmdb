@@ -213,6 +213,219 @@ from the absence of a declaration, particularly when that absence often means "s
 this one now". Removal is a hand-written migration, and the diff says so rather than staying silent
 about it.
 
+## 8. Stored routines (frozen — epic "Stored procedures and functions")
+
+The dialects diverge further here than anywhere else in this module, so the shape comes first and every
+statement below is a golden.
+
+```ts
+export interface RoutineDef {
+  readonly kind: 'function' | 'procedure';
+  readonly name: string;
+  readonly params: readonly {
+    readonly name: string;
+    readonly type: SqlType;
+    readonly mode?: 'in' | 'out' | 'inout';
+  }[];
+  /** Functions only. `setof` marks a set-returning function. */
+  readonly returns?: { readonly type: SqlType | 'void'; readonly setof?: boolean };
+  readonly language?: string; // postgres only; default 'plpgsql'
+  readonly deterministic?: boolean; // mysql only; default false
+  readonly body: string; // opaque; the author owns it
+}
+
+function createRoutineDdl(def: RoutineDef, dialect): string;
+function dropRoutineDdl(def: RoutineDef, dialect): string;
+function replaceRoutineStatements(prev: RoutineDef | undefined, next: RoutineDef, dialect): readonly string[];
+function routineFingerprint(def: RoutineDef): string;
+```
+
+### 8.1 Postgres
+
+```
+{ kind: 'function', name: 'archive_old_orders', language: 'plpgsql',
+  params: [{ name: 'cutoff', type: 'timestamp' }], returns: { type: 'integer' },
+  body: 'DECLARE moved INTEGER;\nBEGIN\n  …\n  RETURN moved;\nEND;' }
+
+CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TIMESTAMPTZ) RETURNS INTEGER LANGUAGE plpgsql AS $zmdb$
+DECLARE moved INTEGER;
+BEGIN
+  …
+  RETURN moved;
+END;
+$zmdb$
+```
+
+Clause order is frozen as `RETURNS`, then `LANGUAGE`, then `AS`. Postgres accepts those three in any
+order, so an emitter with no rule produces DDL that is correct and unstable, and every golden becomes a
+re-record.
+
+Parameter types are rendered by the same `ddlType(dialect, type)` the columns use, which is why `timestamp`
+is `TIMESTAMPTZ` here and not `TIMESTAMP` — a routine parameter and a column of the same declared type must
+be the same database type, or a value round-trips through the routine having lost its offset.
+
+**The body is dollar-quoted with a tagged delimiter, never with bare `$$`.** A plpgsql body containing `$$`
+is ordinary — it happens the moment somebody nests a function definition or pastes an example — and bare
+`$$` there does not fail cleanly: it terminates the literal early, and the remainder either is a syntax
+error or parses as further clauses, giving a function whose body is a truncated prefix of what the author
+wrote. So the tag is `$zmdb$`, and if the body contains that string the emitter appends the smallest
+integer that does not appear: `$zmdb1$`, `$zmdb2$`, and so on. The search is over the body text, so the tag
+is a pure function of the body and the goldens stay stable.
+
+### 8.2 MySQL
+
+```
+CREATE FUNCTION `archive_old_orders`(`cutoff` DATETIME) RETURNS INT
+  NOT DETERMINISTIC MODIFIES SQL DATA SQL SECURITY INVOKER
+DECLARE moved INT;
+BEGIN
+  …
+END;
+```
+
+```
+{ kind: 'procedure', name: 'rebuild_search_index', params: [] }
+
+CREATE PROCEDURE `rebuild_search_index`() MODIFIES SQL DATA SQL SECURITY INVOKER
+BEGIN
+  …
+END;
+```
+
+No `LANGUAGE` clause: MySQL has one routine language and naming it is a syntax error. `language` on a
+MySQL routine is therefore refused rather than ignored, because ignoring it would let a `plpgsql` body be
+declared for MySQL and fail at migration time with MySQL's own parse error instead of ours.
+
+Three characteristics are emitted and none of them is decoration:
+
+- `NOT DETERMINISTIC` unless `deterministic: true`. Under the default
+  `log_bin_trust_function_creators = 0`, MySQL **refuses to create a function at all** without a
+  determinism characteristic, so an emitter that omits it produces DDL that fails on every server with
+  binary logging on — which is most production servers and no development one, the worst possible place for
+  the difference to show up. The default is the pessimistic value because the body is opaque: claiming
+  `DETERMINISTIC` for a body that reads a table lets the optimizer evaluate it once for a whole scan and
+  lets a replica compute a different answer, and a wrong result is worse than a refused statement.
+- `MODIFIES SQL DATA`, always, for the same reason at a lower stake — it is the widest data-access
+  characteristic, so it never refuses a body that turns out to write.
+- `SQL SECURITY INVOKER`, always. This one is not a MySQL detail but a cross-dialect correctness rule:
+  MySQL defaults a routine to `SQL SECURITY DEFINER` while Postgres defaults to `SECURITY INVOKER`, so one
+  `RoutineDef` emitted to both dialects would run under two different privilege models. Definer rights are
+  the escalation surface `../../../repository/SPEC.md` §4a is about; making them the silent default on one
+  of three dialects is not a thing to inherit. A definer-rights routine is deliberately not expressible
+  here (§8.8).
+
+### 8.3 SQLite refuses
+
+```
+sqlite does not support stored routines (function "archive_old_orders"); SQLite has no CREATE FUNCTION,
+so register the function on the connection instead — `node:sqlite` exposes `DatabaseSync#function` — and
+call it like any other
+```
+
+`UnsupportedFeatureError`, the same class as materialized views, RLS and extensions. Nothing is emulated: a
+routine emulated in JavaScript would run in the application process, so a `CALL` inside a trigger or
+another routine would not reach it, and the emulation would be correct exactly for the calls that did not
+need it.
+
+### 8.4 Replace semantics, and why `CREATE OR REPLACE` is not enough
+
+`CREATE OR REPLACE FUNCTION` on Postgres replaces a routine **only** when the parameter list and the return
+type are unchanged. Two failure modes otherwise, and they differ:
+
+- A changed **return type** is refused outright — `cannot change return type of existing function`.
+- A changed **parameter list** succeeds and creates a _second_ overload. Postgres identifies a function by
+  name and argument types, so `f(integer)` and `f(text)` coexist, calls dispatch by argument type, and the
+  old body keeps answering every call that matches the old signature. This is the failure this section
+  exists for: it is silent, it survives a green deploy, and the symptom is a routine that is sometimes the
+  old one.
+
+So `replaceRoutineStatements(prev, next, dialect)` decides:
+
+| Dialect  | Signature unchanged          | Signature changed                                     |
+| -------- | ---------------------------- | ----------------------------------------------------- |
+| postgres | `[CREATE OR REPLACE …]`      | `[DROP FUNCTION IF EXISTS "f"(<prev types>), CREATE]` |
+| mysql    | `[DROP … IF EXISTS, CREATE]` | `[DROP … IF EXISTS, CREATE]`                          |
+
+The Postgres `DROP` names the **previous** parameter types, because an unqualified
+`DROP FUNCTION IF EXISTS "f"` is ambiguous when overloads exist and Postgres errors rather than guessing.
+That is also why `replaceRoutineStatements` takes `prev`: no other input carries the signature that has to
+be dropped, and reconstructing it from the database would mean introspecting `pg_proc` at emit time.
+
+**Drop-then-create is not atomic, and the spec does not pretend otherwise.** On Postgres the pair is inside
+the migration's transaction, because Postgres has transactional DDL, so no window exists. On MySQL, DDL
+commits implicitly and there is a real interval in which the routine does not exist; a caller in that
+interval gets `PROCEDURE does not exist`. There is no emitter trick that closes it — the honest remedies
+are outside the emitter: deploy the new routine under a new name and switch callers, or accept the window
+in a maintenance step. The runner surfaces the failure; it does not retry, because a retry after an
+implicit commit re-runs a `CREATE` against a routine that may now exist.
+
+### 8.5 The `DELIMITER` question, resolved
+
+`DELIMITER` is **not SQL**. It is a directive of the `mysql` command-line client, interpreted client-side to
+decide where one statement ends; it is never sent to the server, and sending it to a driver produces a
+syntax error. The server protocol frames one statement per message, so a routine body full of semicolons
+travels fine as long as nobody splits the string on `;`.
+
+Therefore: **no emitter in this module ever emits `DELIMITER`**, and `createRoutineDdl` returns exactly one
+statement, preserving this module's standing invariant. `replaceRoutineStatements` returns an ordered
+_array_ of statements rather than one string joined by `;` for precisely this reason — one `exec` per
+element is correct on every driver, whereas joining them needs multi-statement support (`mysql2` wants
+`multipleStatements: true`) and is the only thing that would ever need a delimiter.
+
+Two consumers, two treatments:
+
+- The **migration runner** hands `Migration.up` to `MigrationConnection#exec`. A migration containing a
+  routine should call `exec` once per statement, which the array gives it directly.
+- A **`.sql` script** written for humans to pipe into the `mysql` client is the one artifact that needs
+  wrapping (`DELIMITER $$ … $$ DELIMITER ;`), and the wrapping belongs to whatever writes the script — see
+  the CLI's export verb. Putting it in the emitter would break the driver path to fix the CLI path.
+
+### 8.6 Diffing an opaque body
+
+`routineFingerprint(def)` covers `kind`, `name`, the parameter list in order (name, type, mode), `returns`,
+`language`, `deterministic`, and the body **normalised only by stripping trailing whitespace from each line
+and any trailing newline**. Equal fingerprints mean no statement is emitted; any difference re-emits by
+§8.4.
+
+That is all the normalisation there will be, and the consequence is accepted: a reindent, a comment edit or
+a case change in a keyword causes a re-emit. The alternative is a SQL parser, and not even one —
+`language` is an open string, so the body may be plpgsql, sql, plv8 JavaScript, or PL/Python. "Normalise
+the body" means "normalise an arbitrary programming language", and a normaliser that is wrong in the other
+direction reports no change for a routine that did change, which is the failure worth avoiding. A
+re-emitted identical routine costs one DDL statement; a missed change costs a wrong answer in production.
+
+A parameter **rename** changes the fingerprint even though the call signature is unchanged, because a
+plpgsql body references parameters by name and the emitter cannot tell whether the body was updated to
+match.
+
+### 8.7 `out` and `inout` are refused for now
+
+`mode` is declared, and `'out' | 'inout'` throws `UnsupportedFeatureError` naming the parameter. The field
+exists rather than being omitted so that a declaration written today does not change shape when support
+lands, and so the refusal can name the parameter instead of failing as an unknown property.
+
+The reason it is refused is that retrieving an output parameter is not a result set. MySQL needs
+`CALL p(@out)` followed by `SELECT @out` — two statements sharing session state, which a
+`Driver.execute(CompiledQuery)` returning rows cannot express and a pooled connection cannot guarantee is
+the same session. Postgres instead returns output parameters _as a result row_. So one declaration would
+need two call shapes and two result types, and the typed call surface (`../../../repository/SPEC.md` §4a)
+would have a return type that depends on the dialect. Refusing is honest; supporting it on one dialect is
+how a schema stops being portable.
+
+### 8.8 Not expressible, on purpose
+
+- **Definer rights.** No `SECURITY DEFINER` on Postgres, no `SQL SECURITY DEFINER` on MySQL. A routine that
+  runs as its owner converts "may call this" into "may do what the owner may do", and generating that from a
+  declaration puts a privilege boundary in a file that reviews like schema. An author who wants it writes
+  the migration by hand, where it is visible as a decision.
+- **A composite or table return type.** `returns.type` is a `SqlType`, so `RETURNS TABLE (…)` and
+  `RETURNS SETOF users` cannot be declared. A row-returning function is better modelled as a relation — give
+  it a schema object and query it with `selectFrom` — and a `setof` of a scalar type covers the rest.
+- **Overloads.** One `RoutineDef` per name. Postgres allows overloading; nothing else does, the fingerprint
+  is keyed by name, and §8.4's drop already assumes a single previous signature.
+- **Triggers.** A trigger is a separate object with its own timing and event vocabulary; it is not a routine
+  with extra fields.
+
 ## Frozen (all)
 
 - Identifiers quoted per dialect (`"` pg/sqlite, `` ` `` mysql).

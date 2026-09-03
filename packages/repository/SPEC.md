@@ -132,6 +132,120 @@ column.
 `preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,
 `preDelete(id)`. Hooks are optional overrides; no hidden change tracking.
 
+## 4a. Calling a stored routine (frozen — epic "Stored procedures and functions")
+
+There are two layers and the boundary between them is the whole point of this section: one compiles SQL and
+knows nothing, one is typed and validates. Mixing them is how a routine call becomes a privilege
+escalation.
+
+### The SQL layer (`@zmdb/query-compiler`)
+
+```ts
+function callFunction(name: string, args: readonly unknown[]): CompiledQuery;
+function callTableFunction(name: string, args: readonly unknown[]): CompiledQuery;
+function callProcedure(name: string, args: readonly unknown[]): CompiledQuery;
+```
+
+```
+callFunction('archive_old_orders', [cutoff])
+postgres  SELECT "archive_old_orders"($1) AS "result"     parameters: [cutoff]
+mysql     SELECT `archive_old_orders`(?) AS `result`       parameters: [cutoff]
+
+callTableFunction('active_users', [orgId])
+postgres  SELECT * FROM "active_users"($1)                 parameters: [orgId]
+
+callProcedure('rebuild_search_index', [])
+postgres  CALL "rebuild_search_index"()                    parameters: []
+mysql     CALL `rebuild_search_index`()                    parameters: []
+```
+
+The fixed alias `AS "result"` is load-bearing. Postgres names an unaliased function-call column after the
+function; MySQL names it after the whole expression text, so the key is
+`` `archive_old_orders(?)` ``, placeholder included. Without the alias the row's shape depends on the
+dialect and the caller cannot read it by a constant key.
+
+`callTableFunction` is a separate function rather than a `setof` flag because the two produce different
+shapes — one row of one column against a relation of many — and a boolean argument would make the call
+site's result shape depend on a runtime value. `callProcedure` uses `CALL` on both dialects (Postgres 11+).
+SQLite has no routines at all, so all three refuse there with the message in
+`../query-compiler/src/schema-objects/SPEC.md` §8.3.
+
+**These three are deliberately not generic.** The sketch this replaces had
+`callFunction<Args, R>(name, args)`, and those parameters would be a lie: `name` is a string, TypeScript
+cannot look up a routine by one, so `Args` and `R` would be whatever the caller asserted and the signature
+would advertise a check that never happens. Arguments are `readonly unknown[]` and every one is **bound as a
+parameter, never interpolated** — that much this layer does guarantee.
+
+### The typed layer (this package)
+
+The types come from the declaration, not from the call:
+
+```ts
+const archiveOldOrders = {
+  kind: 'function',
+  name: 'archive_old_orders',
+  params: [{ name: 'cutoff', type: 'timestamp' }],
+  returns: { type: 'integer' },
+  language: 'plpgsql',
+  body: '…',
+} as const satisfies RoutineDef;
+
+type ArgsOf<D extends RoutineDef> = …; // readonly [Date]
+type ResultOf<D extends RoutineDef> = …; // number
+
+class BaseRepository<S> {
+  protected call<D extends RoutineDef>(def: D, args: ArgsOf<D>): Promise<ResultOf<D>>;
+}
+```
+
+`ArgsOf` maps each parameter's `type` through the same app-type map the columns use, so a `timestamp`
+parameter takes a `Date` and a `bigint` parameter takes a `bigint` — one map, therefore a routine argument
+and a column of the same declared type are the same TypeScript type, and nothing has to be remembered
+twice. `ResultOf` reads `returns`: a scalar gives the app type, `'void'` gives `void`, and `setof: true`
+gives `readonly T[]` with the compiled SQL coming from `callTableFunction`.
+
+This works only because the declaration is a value with literal types — `as const satisfies RoutineDef` —
+which is also what keeps the body and the signature in one object. The alternative the docs page raised,
+parsing the SQL body at build time to recover a signature, is not done: the body's language is an open
+string, so the parser would be per-language, and a signature recovered from a body cannot be checked
+against anything.
+
+The return value is decoded the same way a row is (§3a): a `Date` for a `timestamp`, a `bigint` for a
+`bigint`, whatever form the driver handed back. A routine result that skipped that walk would be the one
+value in the package whose type depends on which driver is installed.
+
+### Argument validation is mandatory, and this is why
+
+`call` validates the argument tuple against the parameter types **before** compiling anything, through the
+same `objectTypeFromShape` / `@zmdb/aot-validator/utilities` path a write goes through in §3. It is not an
+option and there is no flag to skip it.
+
+A routine body is opaque text that zmdb never parses. So nothing in this system can know whether a
+parameter reaches a dynamic `EXECUTE` inside the body, and binding the argument as a parameter — which the
+SQL layer does — only protects the call boundary, not the inside of the routine. A body doing
+`EXECUTE 'SELECT … ' || cutoff` re-opens injection somewhere zmdb cannot see, and the only place left to
+check the value is before it is sent.
+
+The stake is higher than for a table write. A routine frequently runs with definer rights, which turns "may
+call this routine" into "may do whatever its owner may do" — so every argument is an argument to a
+privileged program. zmdb refuses to emit definer rights for that reason
+(`../query-compiler/src/schema-objects/SPEC.md` §8.8), but it cannot stop a DBA from creating one, and it is
+the caller's side of the boundary that this package owns.
+
+Two consequences follow and both are frozen:
+
+- **A routine name must never come from a request.** `quoteIdentifier` makes a name safe as an _identifier_
+  and does nothing about _which_ routine it selects; `callFunction(req.body.fn, …)` is a
+  routine-selection vulnerability with perfectly quoted SQL. Names are literals or come from a declared set
+  of `RoutineDef` values.
+- **The untyped layer is not reachable from user input.** `callFunction` and friends take
+  `readonly unknown[]` and validate nothing, which is correct for a layer whose job is to compile SQL, and
+  is exactly the shape of the gap that exists one level up in `compileWhere`. Request-derived arguments go
+  through `call`.
+
 ## 5. Non-goals (rejected)
 
 - Identity map / unit-of-work auto-flush / proxy dirty-checking / lazy relations.
+- `out` / `inout` routine parameters. Reading one back is a session-state operation on MySQL and a result
+  row on Postgres, so one declaration would need two call shapes — see
+  `../query-compiler/src/schema-objects/SPEC.md` §8.7.
