@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { splitTopLevelComma, splitArgs, transformSource } from '../index.ts';
+import { splitTopLevelComma, splitArgs, transformCode } from '../transformer.ts';
 import { parseExpression, evaluateAst, emitAstJs } from './ast.ts';
 import { coerce, refine, transform } from './index.ts';
 
@@ -62,7 +62,7 @@ describe('Lexical Expression Tokenization (Expression Splitter)', () => {
 
   it('transforms validate calls containing complex object literals and string commas', () => {
     const src = 'const ok = validate(tags.Pattern("a,b"), { foo: "bar,baz", num: 1 });';
-    const out = transformSource(src);
+    const out = transformCode(src);
     expect(out).toContain('typeof { foo: "bar,baz", num: 1 } === "string"');
     expect(out).toContain('/a,b/.test({ foo: "bar,baz", num: 1 })');
   });
