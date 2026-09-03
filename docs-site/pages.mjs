@@ -1547,7 +1547,7 @@ export const PAGE_META = {
     title: 'Security Schemes',
     group: 'Web Framework — OpenAPI',
     status: 'todo',
-    note: 'OpenApiOptions carries info + per-route schemas only; no securitySchemes or per-operation security',
+    note: 'no securitySchemes or per-operation security; guard-derived security and the strictness rule are frozen (#573).',
   },
   'web-mapped-types': {
     title: 'Mapped Types',
@@ -1636,7 +1636,7 @@ export const PAGE_META = {
     title: 'API Versioning',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no built-in version negotiator; use controller/path prefixes today.',
+    note: 'no version negotiator; path prefixes work today, and the three strategies are frozen (#573).',
   },
   'web-performance': {
     title: 'Performance & Keep-Alive',
