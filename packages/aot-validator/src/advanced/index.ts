@@ -204,6 +204,7 @@ export function validateObject<T = unknown>(
     }
   }
 
+  // boundary: `data` payload is constructed according to object mode rules and asserted as T.
   const result: ValidateObjectResult<T> = {
     success: issues.length === 0,
     ...(data !== undefined ? { data: data as T } : {}),
