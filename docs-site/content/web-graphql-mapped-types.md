@@ -26,19 +26,25 @@ const input = assert<Omit<NewPost, 'authorId'>>(args.input);
 
 `assert<Omit<A, 'b'>>` works because the AOT transformer compiles the _type_. That is why there is no `OmitType()` to miss. See [Mapped Types](./web-mapped-types.html) for the full treatment.
 
-## Where the gap is real
+## Where the gap is not, after all
 
-**Generating GraphQL SDL from a composed type.** This is the actual missing capability, and it is the same shape as the `toJsonSchema` limitation: a hypothetical `toGraphQLType(schema, variant)` would work from a _schema object_, and `Omit<PostRow, 'authorEmail'>` is a TypeScript type with no runtime representation.
-
-So a GraphQL type for a hand-composed DTO would have to be written out, or post-processed:
+**Generating GraphQL SDL from a composed type** reads like the missing capability, and this page used to say so — a hypothetical `toGraphQLType(schema, variant)` working from a _schema object_, with `Omit<PostRow, 'authorEmail'>` having no runtime representation to hand it. That framing is wrong, and the frozen emitter (`packages/schema-core/src/sdl/SPEC.md` §10) does not have the problem:
 
 ```ts
-const full = toJsonSchema(posts, 'entity');
-const { authorEmail, ...properties } = full.properties as Record<string, unknown>;
-const publicPost = { ...full, properties };
+sdlOf<Omit<Entity<Post>, 'authorEmail'>>('PublicPost');
 ```
 
-Workable, and it is where a small helper would pay for itself — `omitFromSchema(schema, keys)` returning something both the JSON Schema and a future GraphQL emitter could consume. Not built.
+`sdlOf` reads a **type argument**, not a schema object. The transform resolves the composition with the TypeScript checker before any of it exists at runtime, so what the emitter walks is the already-composed shape — the same reason `assert<Omit<NewPost, 'authorId'>>` works two sections up. The name is an argument because a composed type has no name of its own to borrow.
+
+The same is true on the JSON Schema side, which is why the post-processing this page recommended is not needed either:
+
+```ts
+const publicPost = toJsonSchema<Omit<Entity<Post>, 'authorEmail'>>();
+```
+
+So `omitFromSchema(schema, keys)` is refused rather than unbuilt. A helper that deletes keys from an emitted document is unchecked — misspell `authorEmial` and it silently does nothing, and the column stays in your public schema. Composing the type instead makes the same mistake a compile error.
+
+What genuinely does not exist, and will not, is `PartialType`/`PickType`/`OmitType`/`IntersectionType`. Those are functions that copy runtime metadata, and there is no metadata to copy.
 
 ## The pattern that avoids the problem
 
@@ -84,9 +90,11 @@ Explicit, and it fails to compile when someone adds a sensitive column — provi
 
 Better still, do not fetch them: `select` keeps the column out of the SQL entirely.
 
-## What it would take
+## What it will take
 
-Nothing at the TypeScript level — the operators are already better than the helpers. What would help is the schema-level composition helper mentioned above, so that a derived shape can produce JSON Schema and GraphQL SDL as well as a type. That is a small, self-contained addition, and it is only useful once [the GraphQL layer exists](./web-graphql-resolvers.html).
+Nothing at all, for this page's subject. The operators are already better than the helpers, and the emitter takes a type argument, so a composed shape produces SDL and JSON Schema with no composition helper in between. This page's remaining gap is only that [the GraphQL layer](./web-graphql-resolvers.html) has to exist for `sdlOf` to be worth calling.
+
+One constraint worth carrying over from the freeze: a composed type needs the name you pass. `sdlOf` refuses an **anonymous** object type — a nested `{ street: string }` inside a payload, say — rather than inventing `PostShipTo`, because a name the emitter chose is a public identifier in your schema that nobody wrote down. Give the shape an interface, or a `sdlOf` call of its own.
 
 ---
 

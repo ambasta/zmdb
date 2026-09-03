@@ -27,36 +27,27 @@ const migration = diff(previous, snapshot([schemaOf<Post>()]));
 
 Six derived artefacts, one declaration, and none of them can drift. Adding an SDL file as a second source of truth would reintroduce exactly the duplication the derivation exists to remove — and the drift would be silent, because nothing checks an SDL file against a table.
 
-That is the reason schema-first is unlikely ever to be the recommended path here, rather than merely unbuilt.
+That is the reason schema-first is now frozen as refused rather than merely unbuilt — see "What it will take" below for the two things that ship instead.
 
 ## Generating SDL, rather than consuming it
 
-The direction that fits: emit the schema language from the tables. `toJsonSchema` already does this for JSON Schema, and the same traversal produces SDL:
+The direction that fits: emit the schema language from the tables. `toJsonSchema` already does this for JSON Schema, and the same IR produces SDL — which is what the frozen design does, one function per named type:
 
 ```ts
-const TYPES: Record<string, string> = {
-  serial: 'Int',
-  integer: 'Int',
-  bigint: 'String',
-  numeric: 'String',
-  text: 'String',
-  varchar: 'String',
-  boolean: 'Boolean',
-  timestamp: 'DateTime',
-  json: 'JSON',
-  jsonEnum: 'String',
-};
-
-export function toSdl(schema: AnySchema): string {
-  const fields = Object.entries(schema.columns).map(([name, column]) => {
-    const type = TYPES[column.type] ?? 'String';
-    return `  ${name}: ${type}${column.nullable ? '' : '!'}`;
-  });
-  return `type ${pascal(schema.table)} {\n${fields.join('\n')}\n}`;
-}
+const sdl = [
+  sdlOf<Entity<Post>>('Post'),
+  sdlOf<CreateDTO<Post>>('CreatePost', { kind: 'input' }),
+  sdlFields<PostQueries>('Query'),
+].join('\n\n');
 ```
 
-Note `bigint` and `numeric` mapping to `String` — GraphQL's `Int` is 32-bit and `Float` loses monetary precision. See [GraphQL Scalars](./web-graphql-scalars.html) for why those two rows matter more than the rest.
+The version you would write by hand is a `Record<SqlType, string>` lookup over `schema.columns`, and it is worth knowing why that shape is refused rather than merely superseded. Three reasons, in increasing order of how much they cost:
+
+- A table keyed by the **SQL** type is wrong for any column that declares a wire form: `Codec<'Money'> & WireAs<string>` is `integer` in the database and a string on the wire, so the lookup emits `Int` for a field your resolver returns as a string.
+- `?? 'String'` is a silent degradation. Every construct GraphQL cannot express — a tuple, a map, an anonymous nested object — becomes a `String` field that no longer describes its data, and nothing fails.
+- It is a fifth walker over column metadata, and `yarn verify:one-walker` exists because there were four and no two of them agreed. The emitter reads the shared IR for exactly this reason.
+
+`nullable ? '' : '!'` is the fourth problem, and the subtlest: a column can be non-nullable and still optional — `HasDefault` makes it optional on insert — so the `!` has to follow the position, not the column. See [GraphQL Scalars](./web-graphql-scalars.html) for the frozen mapping, including why `bigint` is a string and `numeric` is not.
 
 Generate the SDL as a build artefact, commit it, and diff it in CI. You get the thing schema-first is actually prized for — a reviewable contract — without a second source of truth:
 
@@ -88,7 +79,7 @@ const resolvers = {
 
 The explicit field mapping (`isPublished` from `published`) is the adapter layer. Verbose, and it means a rename in either place is a compile error rather than a silent mismatch.
 
-Write a test that asserts every SDL field has a mapping, or the adapter rots.
+Write a test that asserts every SDL field has a mapping, or the adapter rots. `sdlDiff` (below) is that test for the subset of the SDL you also emit; the hand-written mapping is what covers the rest.
 
 ## The introspection gap, which is the related real one
 
@@ -96,11 +87,25 @@ There is no `db pull` — nothing reads an existing database and emits declarati
 
 Schema-first GraphQL and database introspection are the same shape of problem — deriving code from an external declaration — and introspection is the one with real demand.
 
-## What it would take
+## What it will take
 
-An SDL emitter is small and would be welcome (the sketch above is most of it). An SDL _consumer_ — parsing `.graphql` and generating TypeScript types — would mean a GraphQL parser dependency and a code generation step, both of which sit awkwardly with the project's zero-dependency, zero-generation posture.
+The direction is frozen, in `packages/schema-core/src/sdl/SPEC.md` §11: an SDL **emitter**, and no SDL consumer.
 
-If GraphQL support lands, expect code-first with an SDL emitter, not schema-first.
+The emitter is what the section above describes — `sdlOf` and `sdlFields` over the shared IR, a committed `schema.graphql`, and `git diff --exit-code` in CI. Nothing here parses GraphQL, so `graphql` is not a dependency, not a peer, and not an optional peer.
+
+An SDL _consumer_ — parsing `.graphql` and generating TypeScript types — is refused for the same reason generating validators from an OpenAPI document is refused: it is a second code generation front end, and `ARCHITECTURE.md` §2.9 allows one. The transform reads types from the TypeScript checker; a generator that reads SDL instead would be a parallel path with its own idea of what a nullable field means, describing a document somebody else owns.
+
+What you get instead, for the case where you genuinely have someone else's SDL, is a comparison rather than a generator:
+
+```ts
+import { parse } from 'graphql';
+
+const drift = sdlDiff(parse, theirDocument, ourSchema);
+```
+
+`parse` is passed in, so the GraphQL parser is the application's dependency and not zmdb's. The result names every field where the two disagree — a field they declare that you do not emit, a nullability mismatch, a type mismatch — which is the assertion the section below asks you to write by hand, done once.
+
+The compile-time half of that is `ResolversOf<F>`: your resolver class declares `implements ResolversOf<PostQueries>`, so a signature that drifts from the emitted schema fails to compile at the `implements` clause rather than at a call site.
 
 ---
 

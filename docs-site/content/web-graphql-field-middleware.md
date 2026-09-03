@@ -9,7 +9,7 @@ Wrapping the resolution of a single field: masking a value, timing it, caching i
 | Field middleware use               | zmdb equivalent                                |
 | ---------------------------------- | ---------------------------------------------- |
 | Mask or redact a value             | `Sensitive` on the column, or `select`         |
-| Authorise a single field           | an explicit check in the service               |
+| Authorise a single field           | a `Chain` bound to the field (frozen, below)   |
 | Transform on read                  | [`postSelect` hook](./lifecycle-hooks.html)    |
 | Time or count a field's resolution | a [driver wrapper](./web-graphql-plugins.html) |
 
@@ -85,9 +85,25 @@ if (ms > 50) console.warn(JSON.stringify({ ms: Math.round(ms), sql: query.text }
 
 A slow field is nearly always a slow query or an N+1 pattern. Instrumenting the driver finds both; instrumenting the field tells you where you noticed.
 
-## What it would take
+## What it will take
 
-Field middleware presupposes field resolution, so it follows [the GraphQL layer](./web-graphql-resolvers.html).
+Field middleware presupposes field resolution, so it follows [the GraphQL layer](./web-graphql-resolvers.html) — but the shape it takes there is frozen, in `packages/web/src/graphql/SPEC.md` §5, and it is not a new decorator:
+
+```ts
+const ownerOnly: Chain = { guards: [OwnerOrAdmin], pipes: [], interceptors: [], filters: [] };
+
+registry.register<PostFields>(container.build(PostResolver), {
+  post: { validate: raw => assert<{ id: number }>(raw) },
+  authorEmail: { chain: ownerOnly },
+});
+```
+
+It is the same `Chain` an HTTP route takes — the same `Guard`, `Pipe`, `Interceptor` and `ExceptionFilter` interfaces — bound per field in the registration table rather than declared on the field. Two consequences worth knowing now:
+
+- A chain does **not** inherit down a traversal. A guard on `Query.post` says nothing about `Post.authorEmail`; each field that exposes data carries its own. That is deliberate, for the reason the section above gives — a control that a new field can be added without is a control that will be forgotten.
+- It authorises, it does not mask. A guard refuses the field, which becomes an error entry with `FORBIDDEN` in `extensions.code` and `null` in the data; nothing rewrites a value on the way out. `Sensitive` still does not stop a resolver returning a value, exactly as the warning above says, so the `select` advice on this page keeps its force.
+
+Because the binding is a table rather than an annotation, the boot check can be exhaustive: every decorated field must appear in it, and every key in it must be a decorated field. A typo is a boot failure rather than a field that silently resolves with no guard.
 
 The framework-side gap worth closing independently is the missing **pre-write** counterpart to `postSelect` — a `preSave` transform applied uniformly across `create`, `update` and the compiler. That would make transparent column encryption and normalisation possible without duplicating the logic in every write path, which is a real, current limitation rather than a GraphQL one.
 

@@ -2,21 +2,33 @@
 > GraphQL layer (no `@nestjs/graphql` analogue, no schema-first/code-first
 > resolver decorators).
 
-## How it could sit on the existing seams
+## How it sits on the existing seams
 
-A GraphQL integration would be an **adapter + a resolver registry over DI**:
+The design is frozen — `packages/schema-core/src/sdl/SPEC.md` for the type half,
+`packages/web/src/graphql/SPEC.md` for the resolver half — and it is an **emitter +
+a resolver registry over DI**:
 
-- One [controller route](./web-controllers.html) (`POST /graphql`) as the transport.
-- Resolvers resolved from the [DI container](./web-di.html) (same boot-time graph).
-- Types generated from your [`@zmdb/schema-core`](./type-derivation.html) schemas,
-  reusing the [JSON Schema/OpenAPI](./web-openapi.html) derivation so the GraphQL
-  SDL can't drift from the data model.
+- SDL emitted from the declared TypeScript type by `sdlOf<T>(name)`, walking the
+  same IR the [JSON Schema/OpenAPI](./web-openapi.html) derivation walks, so the
+  schema can't drift from the data model. Code-first only; an SDL _consumer_ is
+  [refused](./web-graphql-schema-first.html).
+- Resolvers as classes with `@Resolver`/`@Query`/`@Mutation`/`@ResolveField`,
+  resolved from the [DI container](./web-di.html) at boot like any controller, and
+  type-checked against the emitted schema by `implements ResolversOf<F>`.
+- Middleware chains bound per **field**, not per traversal — the
+  [authorisation trap](./web-graphql-resolvers.html) GraphQL is known for.
+- `graphql` is not a dependency, not a peer, and not an optional peer: the registry
+  hands back a `typeDefs` string and a plain map of resolver functions.
 
-## Why it's a ToDo
+## Why it's still a ToDo
 
-GraphQL is a large surface (SDL, resolver binding, dataloader batching,
-subscriptions). It's deferred rather than excluded — the DI + schema-derivation
-foundations it would build on already exist.
+The spec is frozen; the code is not written. GraphQL is a large surface (SDL,
+resolver binding, dataloader batching, subscriptions), and the pieces land
+epic by epic — deferred rather than excluded.
+
+One thing to know before adopting it: nothing serves `POST /graphql`. The transport
+is your own [controller route](./web-controllers.html), because a route zmdb owned
+would have to decide your authentication model.
 
 ## Cross-links
 
