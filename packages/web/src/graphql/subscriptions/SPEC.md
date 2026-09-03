@@ -194,15 +194,23 @@ The exception is connection-level: a `connection_init` payload that does not aut
 | client disconnect      | the adapter aborts the connection's controller                   |
 | client `complete`      | the session aborts that operation's controller                   |
 | an error in the stream | the session aborts, after sending `error`                        |
-| `app.dispose()`        | the registry's `onShutdown` aborts every connection's controller |
+| app disposal           | the registry's `onShutdown` aborts every connection's controller |
 
 Every row ends in `AbortController.abort()`, and every subscriber's teardown hangs off `signal`. There is no
 second teardown path to keep in step, which is the whole argument for §1's shape.
 
 Server shutdown uses the existing hook: the subscription registry implements `OnShutdown`
-(`packages/web/src/lifecycle.ts:20`), and `disposeAll` already runs those in **reverse construction order**
-(`lifecycle.ts:48-52`), so the registry tears down before the providers its resolvers depend on. `app.dispose()`
-is therefore the whole of the shutdown story and needs no new API.
+(`packages/web/src/lifecycle.ts:20-22`), and `runShutdown` runs those in **reverse construction order**
+(`lifecycle.ts:49-54`), so the registry tears down before the providers its resolvers depend on. There is no
+`app.dispose()` — the surface is `await using app = createApp(…)`, which calls `App[Symbol.asyncDispose]`
+(`app/index.ts:38`).
+
+**One gap has to be named rather than assumed away.** `createApp` wires disposal as
+`runShutdown(controllers)` (`app/index.ts:38`), so `onShutdown` fires for **controllers only** — a registry
+registered as a _provider_ is never torn down, and every open subscription survives the app that served it.
+Extending hook detection to providers is the app epic's, not this one's; until it lands, the registry must be
+reachable from a controller, and `#552` asserts disposal through a controller-held registry so the test does
+not silently depend on the broken path.
 
 Inspection, so the assertion the epic requires is possible without reaching into internals:
 
