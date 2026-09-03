@@ -81,6 +81,7 @@ export function getEnumSet(values: readonly unknown[]): Set<unknown> {
 
 // Runtime-safety fallback: identical boolean semantics to the inlined form.
 // This is what executes pre-transform (dev / ts-node).
+// boundary: validate evaluates runtime validation rules
 export function validate(r: Rule, expr: unknown): boolean {
   // `args` is `readonly unknown[]` (any package may define a kind), so the bound
   // is re-checked rather than asserted: `typeof arg === 'number'` costs nothing a
@@ -108,7 +109,7 @@ export function validate(r: Rule, expr: unknown): boolean {
     case 'Enum':
       return getEnumSet(r.args).has(expr);
     case 'refine': {
-      const pred = (r as unknown as { predicate?: (v: unknown) => boolean }).predicate;
+      const pred = 'predicate' in r ? r.predicate : undefined;
       return typeof pred === 'function' ? Boolean(pred(expr)) : true;
     }
     default:

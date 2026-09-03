@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { splitTopLevelComma, splitArgs, transformCode } from '../transformer.ts';
-import { parseExpression, evaluateAst, emitAstJs } from './ast.ts';
-import { coerce, refine, transform } from './index.ts';
+import { splitTopLevelComma, splitArgs, transformCode } from '../transformer.js';
+import { parseExpression, evaluateAst, emitAstJs } from './ast.js';
+import { coerce, refine, transform } from './index.js';
 
 describe('Strict Coercion Guards (coerce.number)', () => {
   it('coerces valid numeric numbers and strings', () => {

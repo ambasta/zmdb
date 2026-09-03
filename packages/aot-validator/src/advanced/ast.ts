@@ -544,10 +544,31 @@ export class Parser {
 
 const FORBIDDEN_PROPERTIES = new Set(['constructor', '__proto__', 'prototype']);
 
+// boundary: getProperty reads a property off a dynamic object
+function getProperty(obj: unknown, prop: unknown): unknown {
+  if (obj != null && (typeof prop === 'string' || typeof prop === 'number' || typeof prop === 'symbol')) {
+    const target = typeof obj === 'object' || typeof obj === 'function' ? obj : Object(obj);
+    return Reflect.get(target, prop);
+  }
+  return undefined;
+}
+
+function looseEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (typeof a === 'number' && typeof b === 'string') return a === Number(b);
+  if (typeof a === 'string' && typeof b === 'number') return Number(a) === b;
+  if (typeof a === 'boolean') return looseEqual(Number(a), b);
+  if (typeof b === 'boolean') return looseEqual(a, Number(b));
+  return false;
+}
+
 export function parseExpression(src: string): ASTNode {
   return new Parser(src).parse();
 }
 
+// boundary: evaluateAst evaluates AST nodes with dynamic scope
 export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unknown {
   switch (node.type) {
     case 'Literal':
@@ -572,12 +593,15 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
 
     case 'MemberExpression': {
       const obj = evaluateAst(node.object, scope);
-      const prop = node.computed ? evaluateAst(node.property, scope) : (node.property as { name: string }).name;
+      const prop = node.computed
+        ? evaluateAst(node.property, scope)
+        : node.property.type === 'Identifier'
+          ? node.property.name
+          : undefined;
       if (typeof prop === 'string' && FORBIDDEN_PROPERTIES.has(prop)) {
         throw new Error(`Access to forbidden property '${prop}' is not allowed`);
       }
-      if (obj == null) return undefined;
-      return (obj as Record<string | number | symbol, unknown>)[prop as string | number];
+      return getProperty(obj, prop);
     }
 
     case 'CallExpression': {
@@ -585,13 +609,16 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
         const obj = evaluateAst(node.callee.object, scope);
         const prop = node.callee.computed
           ? evaluateAst(node.callee.property, scope)
-          : (node.callee.property as { name: string }).name;
+          : node.callee.property.type === 'Identifier'
+            ? node.callee.property.name
+            : undefined;
         if (typeof prop === 'string' && FORBIDDEN_PROPERTIES.has(prop)) {
           throw new Error(`Access to forbidden property '${prop}' is not allowed`);
         }
         const args = node.arguments.map(a => evaluateAst(a, scope));
-        if (obj != null && typeof (obj as Record<string, unknown>)[prop as string] === 'function') {
-          return ((obj as Record<string, Function>)[prop as string] as Function).apply(obj, args);
+        const method = getProperty(obj, prop);
+        if (typeof method === 'function') {
+          return method.apply(obj, args);
         }
         return undefined;
       }
@@ -611,9 +638,9 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
         case '!':
           return !val;
         case '+':
-          return +(val as number);
+          return +Number(val);
         case '-':
-          return -(val as number);
+          return -Number(val);
         default:
           return undefined;
       }
@@ -628,31 +655,29 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
         case '!==':
           return left !== right;
         case '==':
-          // eslint-disable-next-line eqeqeq
-          return left == right;
+          return looseEqual(left, right);
         case '!=':
-          // eslint-disable-next-line eqeqeq
-          return left != right;
+          return !looseEqual(left, right);
         case '<':
-          return (left as number) < (right as number);
+          return Number(left) < Number(right);
         case '>':
-          return (left as number) > (right as number);
+          return Number(left) > Number(right);
         case '<=':
-          return (left as number) <= (right as number);
+          return Number(left) <= Number(right);
         case '>=':
-          return (left as number) >= (right as number);
+          return Number(left) >= Number(right);
         case '+':
           return typeof left === 'string' || typeof right === 'string'
             ? String(left) + String(right)
             : Number(left) + Number(right);
         case '-':
-          return (left as number) - (right as number);
+          return Number(left) - Number(right);
         case '*':
-          return (left as number) * (right as number);
+          return Number(left) * Number(right);
         case '/':
-          return (left as number) / (right as number);
+          return Number(left) / Number(right);
         case '%':
-          return (left as number) % (right as number);
+          return Number(left) % Number(right);
         default:
           return undefined;
       }
@@ -695,6 +720,7 @@ export function evaluateAst(node: ASTNode, scope: Record<string, unknown>): unkn
   }
 }
 
+// boundary: emitAstJs generates JavaScript code from AST nodes
 export function emitAstJs(node: ASTNode, vName: string): string {
   switch (node.type) {
     case 'Literal':
@@ -705,7 +731,7 @@ export function emitAstJs(node: ASTNode, vName: string): string {
 
     case 'MemberExpression': {
       if (!node.computed) {
-        const prop = (node.property as { name: string }).name;
+        const prop = node.property.type === 'Identifier' ? node.property.name : '';
         if (FORBIDDEN_PROPERTIES.has(prop)) {
           throw new Error(`Access to forbidden property '${prop}' is not allowed`);
         }
@@ -728,7 +754,7 @@ export function emitAstJs(node: ASTNode, vName: string): string {
     case 'CallExpression': {
       if (node.callee.type === 'MemberExpression') {
         if (!node.callee.computed) {
-          const prop = (node.callee.property as { name: string }).name;
+          const prop = node.callee.property.type === 'Identifier' ? node.callee.property.name : '';
           if (FORBIDDEN_PROPERTIES.has(prop)) {
             throw new Error(`Access to forbidden property '${prop}' is not allowed`);
           }
