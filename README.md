@@ -27,10 +27,10 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling** harness. **1,159
-> tests green** across 150 files, including real `node:sqlite` E2E, a Kysely
+> **framework integrations**, and an **LLM function-calling** harness. **1,178
+> tests green** across 151 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **144 expected-failing tests** hold the frozen specs of features
+> Alongside them, **142 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.

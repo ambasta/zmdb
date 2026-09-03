@@ -181,6 +181,18 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
     ) {
       const ops = asRecord(spec);
       if (ops) {
+        if (Object.keys(ops).length === 0) {
+          // `FieldOps`' keys are all optional, so `{ age: {} }` is type-legal, and it is
+          // what building a filter conditionally produces: `{ age: min === undefined ? {}
+          // : { gte: min } }`. Folding it to nothing means the query looks filtered and is
+          // not — over-disclosure on a SELECT, the whole table on an UPDATE or DELETE. An
+          // empty operator map is not a filter, and "match everything" is the least likely
+          // thing the caller meant (#608).
+          throw new ValidationError(
+            `compileWhere: column "${col}" has an empty operator map, which would match every row`,
+            [{ path: col, message: 'empty operator map', expected: KNOWN_OPERATORS.join(' | ') }],
+          );
+        }
         for (const [op, value] of Object.entries(ops)) {
           if (op === 'isNull') {
             if (value) add('is null', null);

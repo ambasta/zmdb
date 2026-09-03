@@ -44,6 +44,21 @@ Always compare against `undefined`. And turn on `strict-boolean-expressions` in 
 > rather than a silent no-op, which is what you want. Assign inside the `if`,
 > never unconditionally.
 
+The spread form has the same bug in a shape the linter rule above does not catch:
+
+```ts
+const where: WhereDTO<User> = { age: q.minAge === undefined ? {} : { gte: q.minAge } }; // wrong
+```
+
+Every key of the operator map is optional, so `{}` type-checks. It used to mean "no operator
+on `age`", which folded to no predicate at all — the column was named and every row matched.
+It is now a `ValidationError` naming the column, so the mistake is a 400 rather than a full
+table scan on a `SELECT` and the whole table on an `UPDATE` or `DELETE`. Omit the key instead:
+
+```ts
+const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: q.minAge } }) };
+```
+
 ## With the builder
 
 Reassign — the builder is immutable, so a bare call is discarded:

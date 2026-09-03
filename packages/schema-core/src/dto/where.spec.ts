@@ -231,3 +231,90 @@ describe('compileWhere: the operator allowlist fails closed (#364)', () => {
     ]);
   });
 });
+
+// #608. The sibling of #364, and the one the type system cannot help with: every key of
+// `FieldOps` is optional, so `{ age: {} }` type-checks. It is also what a conditionally
+// assembled filter produces —
+//
+//   const where: WhereDTO<User> = { age: min === undefined ? {} : { gte: min } };
+//
+// — and it used to fold to nothing at all. A dropped predicate is not a wrong answer on a
+// `SELECT`, it is every row; on an `UPDATE` or a `DELETE` it is the whole table.
+describe('compileWhere: an empty operator map is not a filter (#608)', () => {
+  it('refuses a column whose operator map is empty', () => {
+    const { b, calls } = recorder();
+    const where: WhereDTO<User> = { age: {} };
+
+    expect(() => compileWhere(b, where)).toThrow(ValidationError);
+    expect(() => compileWhere(b, where)).toThrow(
+      'compileWhere: column "age" has an empty operator map, which would match every row',
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it('names the column and the operators it would have accepted', () => {
+    const { b } = recorder();
+    let issues: readonly { path: string; message: string; expected?: string }[] = [];
+    try {
+      compileWhere(b, { email: {} } as WhereDTO<User>);
+    } catch (error) {
+      if (error instanceof ValidationError) issues = error.issues;
+    }
+
+    expect(issues).toEqual([
+      {
+        path: 'email',
+        message: 'empty operator map',
+        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | isNull | notNull',
+      },
+    ]);
+  });
+
+  it('refuses it before applying the predicates that came before it', () => {
+    // Order matters for the same reason the #364 throw is placed where it is: a caller who
+    // catches the error must not be holding a builder with half the clause on it.
+    const { b, calls } = recorder();
+
+    expect(() => compileWhere(b, { role: 'admin', age: {} } as WhereDTO<User>)).toThrow('empty operator map');
+    expect(calls).toEqual([['and', 'role', '=', 'admin']]);
+  });
+
+  it('refuses an empty map nested inside an or group', () => {
+    const { b } = recorder();
+
+    expect(() => compileWhere(b, { or: [{ role: 'admin' }, { age: {} }] } as WhereDTO<User>)).toThrow(
+      'compileWhere: column "age" has an empty operator map, which would match every row',
+    );
+  });
+
+  it('refuses an empty map nested inside an and group', () => {
+    const { b } = recorder();
+
+    expect(() => compileWhere(b, { and: [{ email: {} }] } as WhereDTO<User>)).toThrow(
+      'compileWhere: column "email" has an empty operator map, which would match every row',
+    );
+  });
+
+  it('leaves the documented empty WhereDTO alone', () => {
+    // §1: "Empty WhereDTO ⇒ no predicate added." That one is deliberate — `list()` with no
+    // filter goes through it — and it stays legal. What guards the write path against it is
+    // `BaseRepository`'s own refusal to compile an `UPDATE`/`DELETE` with no `WHERE`, not
+    // this function. An empty `and`/`or` array is the same case one level down.
+    const { b, calls } = recorder();
+    compileWhere(b, {});
+    compileWhere(b, { and: [], or: [] });
+    compileWhere(b, { and: [{}] } as WhereDTO<User>);
+
+    expect(calls).toEqual([]);
+  });
+
+  it('still accepts a map with one operator in it', () => {
+    // The control: the check counts keys, so it must not have made `{ gte: 18 }` — the shape
+    // the conditional above produces on its other branch — any harder to write.
+    const { b, calls } = recorder();
+    const where: WhereDTO<User> = { age: { gte: 18 } };
+    compileWhere(b, where);
+
+    expect(calls).toEqual([['and', 'age', '>=', 18]]);
+  });
+});

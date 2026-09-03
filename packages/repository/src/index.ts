@@ -71,6 +71,38 @@ export interface UpsertOptions {
   readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
 }
 
+/**
+ * Whether a value can be a single-column primary key.
+ *
+ * The composite branch of `buildKeyWhere` has always refused a key that is missing a
+ * column; the single-column branch accepted anything and wrapped it, so an object
+ * arriving from untyped input became `{ id: { … } }` — a where-spec that compiles to
+ * no predicate at all and therefore an `UPDATE` or `DELETE` over the whole table
+ * (#608). `PrimaryKeyOf<T>` rules this out at compile time for typed callers; this is
+ * for the value that did not come through the types.
+ *
+ * `Date` counts as a scalar: it is one column's value for a `timestamp` key, and the
+ * composite branch excludes it by name for the same reason.
+ */
+function isScalarKey(value: unknown): boolean {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    typeof value === 'boolean' ||
+    value instanceof Date
+  );
+}
+
+/** What a rejected key was, for the error message. Never the value itself. */
+function describeKey(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (Array.isArray(value)) return 'an array';
+  if (typeof value === 'object') return 'an object';
+  return typeof value === 'function' ? 'a function' : `a ${typeof value}`;
+}
+
 /** Everything a write variant's validation needs, derived once. See `payloadShape`. */
 interface PayloadShape {
   readonly shape: ShapeIR;
@@ -212,7 +244,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.#decoded;
   }
 
-  private buildKeyWhere(id: PrimaryKeyOf<T>): WhereDTO<T> {
+  private buildKeyWhere(id: PrimaryKeyOf<T>, method: 'findById' | 'update' | 'delete'): WhereDTO<T> {
     const pkCols = this.schema.primaryKey;
     if (!pkCols || pkCols.length === 0) {
       throw new Error(`schema ${this.tableName} has no primary key`);
@@ -222,6 +254,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const [pkCol] = pkCols;
       if (!pkCol) {
         throw new Error(`schema ${this.tableName} has empty primary key column`);
+      }
+      if (!isScalarKey(id)) {
+        throw new ValidationError(
+          `${this.tableName}.${method} requires the value of "${pkCol}", not ${describeKey(id)}`,
+        );
       }
       // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<T>`
       // preserves the repository's concrete schema type `T`.
@@ -254,7 +291,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     opts: { populate: readonly K[] },
   ): Promise<Populated<T, K> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
-    return this.firstMatching(this.buildKeyWhere(id), opts?.populate);
+    return this.firstMatching(this.buildKeyWhere(id, 'findById'), opts?.populate);
   }
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
@@ -731,22 +768,49 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async update(id: PrimaryKeyOf<T>, patch: UpdateDTO<T>): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(patch, 'update');
     this.preUpdate(clean);
+    // Built before the empty-patch shortcut so that a bad key is reported as `update` rather
+    // than as the `findById` it would otherwise delegate to (§2.1: "the method in the message
+    // is the method the caller actually called").
+    const where = this.buildKeyWhere(id, 'update');
     if (Object.keys(clean).length === 0) {
-      return this.findById(id);
+      return this.firstMatching(where);
     }
-    const where = this.buildKeyWhere(id);
     const rows = await this.rows<EntityRow<T>>(
-      compileWhere(this.qb.updateTable(this.tableName).set(clean), where).returning(['*']).compile(),
+      this.assertKeyed(
+        compileWhere(this.qb.updateTable(this.tableName).set(clean), where).returning(['*']).compile(),
+        'update',
+      ),
     );
     return rows[0];
+  }
+
+  /**
+   * Refuse a keyed write that lost its `WHERE`.
+   *
+   * `update` and `delete` build the where clause themselves out of a primary key, so
+   * neither has a legitimate unkeyed form and an empty clause is always a bug. The
+   * check is here rather than only in the layers that can produce one because the cost
+   * of being wrong is the whole table, and it survives a new operator, a new caller, or
+   * a fourth way of folding a spec down to nothing (#608).
+   */
+  private assertKeyed(query: CompiledQuery, operation: 'update' | 'delete'): CompiledQuery {
+    if (!/\sWHERE\s/i.test(query.text)) {
+      throw new ValidationError(
+        `refusing to ${operation} every row of ${this.tableName}: the compiled statement has no WHERE clause`,
+      );
+    }
+    return query;
   }
 
   // #28 — delete + lifecycle hooks.
   async delete(id: PrimaryKeyOf<T>): Promise<boolean> {
     this.preDelete(id);
-    const where = this.buildKeyWhere(id);
+    const where = this.buildKeyWhere(id, 'delete');
     const rows = await this.driver.execute(
-      compileWhere(this.qb.deleteFrom(this.tableName), where).returning(this.schema.primaryKey).compile(),
+      this.assertKeyed(
+        compileWhere(this.qb.deleteFrom(this.tableName), where).returning(this.schema.primaryKey).compile(),
+        'delete',
+      ),
     );
     return rows.length > 0;
   }
@@ -884,4 +948,4 @@ export function defineRepository<T extends DeclaredTable>(
   return new Repo(driver, opts?.dialect ?? 'postgres');
 }
 
-export * from './transactions/index.ts';
+export * from './transactions/index.js';

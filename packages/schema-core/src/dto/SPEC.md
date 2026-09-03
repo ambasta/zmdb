@@ -61,7 +61,15 @@ calling `.where(col, op, value)` / `.orWhere(...)`. Operator mapping:
 | isNull:true | `IS NULL` · notNull:true → `IS NOT NULL`                    |
 
 - Field/operator order within a group is stable (object key order) for golden SQL.
-- Empty WhereDTO ⇒ no predicate added.
+- Empty WhereDTO ⇒ no predicate added. `{}` is a filter nobody wrote and `list()` with no
+  filter is the caller that writes it, so it stays legal; what refuses an unfiltered write is
+  `BaseRepository`, which will not execute an `UPDATE` or `DELETE` whose compiled text has no
+  `WHERE` (`repository/SPEC.md` §2.1).
+- **An empty operator map on a column is a `ValidationError`** naming the column. `{ age: {} }`
+  is not the same case as `{}`: every key of `FieldOps` is optional, so it type-checks, and it
+  is what a conditionally assembled filter produces —
+  `{ age: min === undefined ? {} : { gte: min } }`. Folding it to nothing means the caller
+  named a column and got every row (#608).
 - **An operator key that is not in the table above is a `ValidationError`** naming the
   column, the key, and the set that would have been accepted. It is not skipped:
   skipping emitted a statement with one predicate fewer than the caller wrote, which

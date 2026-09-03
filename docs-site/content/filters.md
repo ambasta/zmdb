@@ -43,4 +43,8 @@ compileWhere(builder, where); // → parameterized WHERE clauses
 
 Operators: `eq/ne/lt/lte/gt/gte`, `in/nin`, `like/ilike`, `isNull/notNull`, with `and`/`or` group composition. `like`/`ilike` are a **compile-time error** on non-string fields.
 
+An **empty** operator map is a `ValidationError` too — `{ age: {} }` names a column and
+constrains it in no way, which is every row. `{}` as the whole filter stays legal, because an
+unfiltered `list()` is a real query; naming a column and then saying nothing about it is not.
+
 Any other operator key is a **`ValidationError`** naming the column and the key. That matters for the untyped case — a `WhereDTO` assembled from parsed JSON rather than written as a literal — because the alternative is a query that looks filtered and is not: a dropped predicate on a `SELECT` over-discloses, and on an `UPDATE` or `DELETE` it is the whole table. Inherited keys are refused for the same reason, so `{"email": {"toString": "x"}}` is a `ValidationError` and not a 500.

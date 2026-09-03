@@ -252,7 +252,11 @@ The rules, in the order they are checked:
   apply to it.
 - **One column** — the argument is the value, and it is used as-is. `{ id: 1 }` is _not_
   accepted as a courtesy: a one-column key that takes both forms is how code that will break
-  on the day the key gains a column gets written.
+  on the day the key gains a column gets written. It is a `ValidationError`, not silence:
+  `{ [pkCol]: { id: 1 } }` is read as an operator map, no operator is found in it, and the
+  predicate disappears rather than becoming wrong (#608). A value is a string, a number, a
+  bigint, a boolean or a `Date`; anything else, including `null` and `undefined`, is refused
+  with what arrived — `products.update requires the value of "id", not an object`.
 - **Two or more** — the argument must be a non-null, non-`Date` object with **every** key
   column present and not `undefined`. Extra keys are ignored, because the caller may
   reasonably pass a whole entity.
@@ -276,6 +280,24 @@ memberships.findById requires every key column; got a number, expected an object
 The method name in the message is the method the caller actually called — `findById`,
 `update`, `delete` — not the private helper, because the helper is not in the caller's
 vocabulary.
+
+### An unkeyed write is refused by the statement, not only by the key
+
+`update` and `delete` derive their predicate from a key, so neither has a legitimate unkeyed
+form and a compiled `UPDATE`/`DELETE` whose text has no `WHERE` is always a bug. Both check
+the compiled statement for one and throw a `ValidationError` — `refusing to update every row
+of products: the compiled statement has no WHERE clause` — before the driver sees it.
+
+This is deliberately redundant with the key rules above, and with `compileWhere`'s own
+refusals (`schema-core`'s `dto/SPEC.md` §1). The rules stop the arguments that were known to
+produce it; this stops the outcome. Every step of the path that produced #608 was correct on
+its own and the composition was not, and the cost of the next such composition is the whole
+table, so the check is worth one regular expression per write. `{}` remains a legal
+`WhereDTO` for reads, which is why the refusal lives here rather than in the fold.
+
+`update(id, {})` has nothing to set and answers with the current row. The key is still checked
+first, so the shortcut cannot become a second unguarded path and the message names `update`
+rather than the read it delegates to.
 
 `update` and `delete` also mean the key columns are not writable through a payload: a patch
 that names a key column is already refused by §3's "a key the variant does not accept is an

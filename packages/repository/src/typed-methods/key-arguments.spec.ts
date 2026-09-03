@@ -200,10 +200,11 @@ describe('a one-column key takes the value, not a record (frozen: repository/SPE
   // finds no operator in, and emits nothing for. The predicate does not become wrong; it
   // disappears.
   //
-  // actual today: no throw. `findById({ id: 42 })` compiles
+  // Was red. Before #608, `findById({ id: 42 })` compiled
   //   SELECT * FROM "products" LIMIT 1
-  // with no parameters and returns the first row of the table, whatever it is.
-  it.fails('refuses the record form on findById instead of dropping the predicate', async () => {
+  // with no parameters and returned the first row of the table, whatever it was. The
+  // single-column branch of `buildKeyWhere` now refuses a non-scalar key.
+  it('refuses the record form on findById instead of dropping the predicate', async () => {
     const { driver, calls } = recorder([{ id: 42, name: 'Widget' }]);
     const repo = new ProductsRepo(driver);
 
@@ -218,12 +219,13 @@ describe('a one-column key takes the value, not a record (frozen: repository/SPE
   // `UPDATE` and a `DELETE` whose `WHERE` vanished are not a wrong answer, they are the whole
   // table.
   //
-  // actual today, no throw and no predicate:
+  // Was red. Before #608 neither threw and neither had a predicate:
   //   update({ id: 42 }, { name: 'x' }) -> UPDATE "products" SET "name" = $1 RETURNING *
   //   delete({ id: 42 })                -> DELETE FROM "products" RETURNING "id"
-  // Both were run to get those strings. The first rewrites every row in `products`; the second
-  // empties it.
-  it.fails('refuses the record form on update and delete, which today lose the WHERE', async () => {
+  // Both were run to get those strings. The first rewrote every row in `products`; the second
+  // emptied it. Two things stop it now: the key check below, and `assertKeyed`, which refuses a
+  // compiled `UPDATE`/`DELETE` with no `WHERE` whatever produced it.
+  it('refuses the record form on update and delete rather than losing the WHERE', async () => {
     const patch = recorder([{ id: 42, name: 'Widget' }]);
     const patchRepo = new ProductsRepo(patch.driver);
     // @ts-expect-error frozen (SPEC.md 2.1): `PrimaryKeyOf<Product>` is `number`.

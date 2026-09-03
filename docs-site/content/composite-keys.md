@@ -3,8 +3,8 @@
 > `WHERE` from it. Two things do not: the DDL emitter writes `PRIMARY KEY` on each keyed column
 > instead of one table constraint, so the generated `CREATE TABLE` does not run anywhere, and
 > keyset pagination orders and cursors by the key's first column only, so a page boundary can
-> skip rows. There is also a hole in the _single_-column path — see "One-column keys take the
-> value, not a record" below, which is the part to read first if you are shipping.
+> skip rows. The hole in the _single_-column path that used to be the first thing to read here is
+> fixed: the record form is now refused rather than silently dropping the `WHERE`.
 
 ## What the declaration says
 
@@ -89,26 +89,38 @@ await repo.delete(row); // row is a Membership; only orgId and userId are read
 
 ## One-column keys take the value, not a record
 
-> [!CAUTION]
-> On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value —
-> `42`, not `{ id: 42 }`. Passing the record form is currently accepted and produces a statement
-> with **no `WHERE` clause at all**:
+On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value —
+`42`, not `{ id: 42 }`. The record form is a `ValidationError` naming the method and the column:
+
+```ts
+await repo.delete({ id: 42 });
+// ValidationError: products.delete requires the value of "id", not an object
+```
+
+A value is a string, a number, a bigint, a boolean or a `Date`. `null`, `undefined`, an array and
+an object are all refused, and nothing is compiled or executed first.
+
+> [!NOTE]
+> This used to be accepted, and produced a statement with **no `WHERE` clause at all** — a
+> `findById` that returned the table's first row, and an `update`/`delete` that hit every row:
 >
 > ```ts
-> await repo.findById({ id: 42 }); // SELECT * FROM "products" LIMIT 1            -> the first row
-> await repo.update({ id: 42 }, patch); // UPDATE "products" SET ... RETURNING *  -> every row
-> await repo.delete({ id: 42 }); // DELETE FROM "products" RETURNING "id"         -> every row
+> await repo.findById({ id: 42 }); // SELECT * FROM "products" LIMIT 1
+> await repo.update({ id: 42 }, patch); // UPDATE "products" SET ... RETURNING *
+> await repo.delete({ id: 42 }); // DELETE FROM "products" RETURNING "id"
 > ```
 >
-> TypeScript rejects all three, so this only reaches you through an `any`, a cast, or a key that
-> arrived from a request body. The fix is to pass the value; the refusal is being added.
+> TypeScript rejected all three even then, so it only ever reached you through an `any`, a cast,
+> or a key that arrived from a request body — which is the path that matters. Two further checks
+> now stand behind the one above: `compileWhere` refuses an operator map with nothing in it, and
+> `update`/`delete` refuse to execute a compiled statement whose text has no `WHERE`.
 
 The asymmetry is deliberate rather than an oversight to smooth over: a one-column key that
 accepted both forms is how code that will break the day the key gains a column gets written.
 
 ## What has to change
 
-Three pieces:
+Two pieces:
 
 1. **`columnDdl`.** The `CREATE TABLE` op needs to collect the keyed columns and emit one
    `PRIMARY KEY (…)` table constraint, and `TableSnapshot` needs to carry the ordered key so that
@@ -119,13 +131,11 @@ Three pieces:
    is encoded from the same list, so the next page asks `WHERE "orgId" > $1` and skips every
    remaining row of that org. It needs the full key, in key order, for the ordering and for the
    cursor.
-3. **The one-column record form.** `buildKeyWhere` builds `{ [pkCol]: id }` for a one-column key,
-   so a record argument nests into `{ id: { id: 42 } }`, which `compileWhere` reads as an
-   operator map and emits nothing for. It has to be refused. See the caution above.
 
 Done since this page was written: `PrimaryKeyOf<T>` is already a record for a key of two or more
-columns, and `buildKeyWhere` already assembles the multi-column filter from the whole
-`schema.primaryKey`.
+columns, `buildKeyWhere` already assembles the multi-column filter from the whole
+`schema.primaryKey`, and the one-column record form — which built `{ id: { id: 42 } }` and lost
+the predicate — is refused.
 
 Nothing about this is blocked by design. The typed-signature change is already done; what is left
 is the DDL fix, the migration diff that has to see a key change, and two places that still read
