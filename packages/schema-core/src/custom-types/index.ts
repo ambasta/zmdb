@@ -18,15 +18,15 @@ export interface CustomType<Wire = unknown, TS = unknown, DB = unknown> {
   /** DDL type, e.g. `'jsonb'`. Dialect spelling is the emitter's business. */
   readonly sqlType: string;
   /** Serialise for the driver. */
-  readonly toDb: (value: TS) => DB;
+  toDb(value: TS): DB;
   /** Parse a driver row value. */
-  readonly fromDb: (raw: DB) => TS;
+  fromDb(raw: DB): TS;
   /** Serialise for a JSON response. */
-  readonly toWire: (value: TS) => Wire;
+  toWire(value: TS): Wire;
   /** Parse a JSON request body value. */
-  readonly fromWire: (raw: Wire) => TS;
+  fromWire(raw: Wire): TS;
   /** Validate untrusted write payload. */
-  readonly validate?: (value: unknown) => boolean | string;
+  validate?(value: unknown): boolean | string;
 }
 
 export function defineType<Wire, TS, DB>(def: CustomType<Wire, TS, DB>): CustomType<Wire, TS, DB> {

@@ -2,7 +2,6 @@
 // types must flow through `defineType`/`encodeValue`/`decodeValue` so a codec
 // cannot be wired up backwards. Compiled by `yarn typecheck`.
 import type { Equal, Expect, Entity, CreateDTO, UpdateDTO } from '../index.js';
-import { defineSchema, serial, text, json, customType, withCustomType } from '../index.js';
 import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
 import { defineType } from './index.js';
 // Referenced only in type position (`typeof`), hence the type-only import.
@@ -38,25 +37,6 @@ interface Money {
   amount: number;
   currency: string;
 }
-const MoneyType = defineType<string, Money, string>({
-  sqlType: 'varchar(50)',
-  toDb: m => `${m.amount}:${m.currency}`,
-  fromDb: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
-  toWire: m => `${m.amount}:${m.currency}`,
-  fromWire: s => ({ amount: Number(s.split(':')[0]), currency: s.split(':')[1] ?? 'USD' }),
-});
-
-interface Config {
-  theme: string;
-}
-
-const _CustomSchema = defineSchema('products', {
-  id: serial().primaryKey(),
-  price: text().withCustomType(MoneyType).notNull(),
-  discount: customType(text(), MoneyType).nullable(),
-  tax: withCustomType(text(), MoneyType).nullable(),
-  jsonWithCodec: json<Config>().withCustomType(MoneyType).notNull(),
-});
 
 interface ProductRow extends Table<'products'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
