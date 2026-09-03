@@ -24,12 +24,13 @@ export class HealthController {
 
   @Get('/ready')
   async ready() {
-    const start = performance.now();
     await this.driver.execute({ text: 'SELECT 1', parameters: [] });
-    return { status: 'ok', db: Math.round(performance.now() - start) };
+    return { status: 'ok' };
   }
 }
 ```
+
+The public body is `{"status":"ok"}` and nothing else. An earlier version of this example also returned how long the `SELECT 1` took, which is the mistake the warning below names and the frozen spec removes: a `SELECT 1` that takes 400ms tells an unauthenticated caller the pool is exhausted. Timings live in the separate guarded route, not this one.
 
 **Liveness** asks "is this process wedged?" It must not touch a dependency. If liveness checks the database and the database has a hiccup, the orchestrator kills every replica at once — turning a brief database blip into a full outage, and the restart storm makes recovery slower.
 
@@ -73,9 +74,9 @@ over on, and it can carry `Retry-After`. `500` says the request broke something,
 which sends the next reader to the wrong logs.
 
 > [!WARNING]
-> Never return dependency detail from a public health endpoint. `{"error":"connect
-ECONNREFUSED 10.0.1.14:5432"}` hands an attacker your internal topology,
-> hostnames and versions. Log the detail; return `{"status":"error"}`.
+> Never return dependency detail from a public health endpoint.
+> `{"error":"connect ECONNREFUSED 10.0.1.14:5432"}` hands an attacker your internal
+> topology, hostnames and versions. Log the detail; return `{"status":"error"}`.
 
 ## Add a timeout
 

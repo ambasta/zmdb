@@ -137,6 +137,8 @@ Without the extract, your service starts a new trace and the caller's trace ends
 
 The validation is exact and the frozen spec spells it out, including the case an implementation is most likely to get wrong: a version **above** `00` is accepted by reading the first four fields and ignoring the rest, because that is the forward-compatibility rule W3C requires. Rejecting it is how a service stops accepting traces the day the spec gains a field.
 
+The same header travels on a message envelope, and there the edge is not the same one. A **request/reply** consumer is a child of the producer's span; a **queued** consumer is _linked_ to it and starts its own trace. That is a rule in the frozen spec rather than a preference, because a parent-child edge across an unbounded queue delay produces a trace whose duration is the queue's latency — a waterfall claiming the request took four hours because the message sat in a queue, with the real work an invisible sliver at the end. A link keeps both properties: the consumer's duration is its own, and the producer is still one click away.
+
 ## Connecting traces to SQL
 
 `pg_stat_activity` shows a slow query but not which request caused it. A [SQL comment](./sql-comments.html) closes the loop:

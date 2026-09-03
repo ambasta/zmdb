@@ -17,7 +17,9 @@ The driver sees every statement and is the only place that knows what request it
 ```ts
 const encode = (s: string): string => encodeURIComponent(s).replace(/'/g, "\\'");
 
-function tagged(inner: Driver, tags: () => Record<string, string>): Driver {
+type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
+
+function tagged(inner: Driver, tags: () => Partial<Record<CommentKey, string>>): Driver {
   return {
     ...inner,
     execute(q) {
@@ -40,9 +42,11 @@ Three details in there that an earlier version of this page got wrong, and the s
 Construct it per request so the tags describe _this_ request:
 
 ```ts
-const driver = tagged(base, () => ({ route: ctx.path, method: ctx.method }));
+const driver = tagged(base, () => ({ route: routePattern, action: 'list' }));
 const repo = defineRepository(users, driver);
 ```
+
+Two things about those values, both of which an earlier version of this page got wrong. `routePattern` is `/users/:id` and not `ctx.path`, which is `/users/1` — the first caveat below is about exactly that difference, and getting the pattern is harder than this line makes it look: `Ctx` is `{ params, body, query, headers, method, path }`, so only the matched route knows it. The [metrics page](./web-observability.html) hits the same wall for `http.route` and for the same structural reason. And `method` is not one of the five frozen keys; `action` — the handler name — carries what you wanted it for, at one value per route rather than one per verb crossed with route.
 
 Because there is no ambient request context, the closure is how the tag gets in — which is more wiring than a global, and also the reason two concurrent requests cannot tag each other's queries.
 
@@ -68,7 +72,9 @@ The rule, which is sqlcommenter's: **encode, then escape the surviving `'` as `\
 
 No `*/`, no unescaped `'`.
 
-The frozen design goes one step further and takes the string away: the keys are a closed union — `traceparent`, `controller`, `action`, `route`, `framework` — rather than a `Record<string, string>`, so there is no path from a caller to comment text at all. An open key set is the interface through which a request id gets tagged and the plan cache dies, and through which an unescaped value arrives.
+The frozen design goes one step further and takes the string away: the keys are a closed union — `traceparent`, `controller`, `action`, `route`, `framework` — rather than a `Record<string, string>`, so an arbitrary key cannot be written at a call site. An open key set is the interface through which a request id gets tagged and the plan cache dies, and through which an unescaped value arrives.
+
+The guarantee is worth stating exactly, because it is narrower than "no path". An object literal carrying `request_id` is a compile error; a value whose declared type is already `Record<string, string>` is still assignable, because an index signature satisfies every optional member of the closed record and excess-property checking only applies to fresh literals. So the closed set removes the _accidental_ key, which is the one that actually arrives. For a value laundered through an open record the escaping is still what holds, which is why the serializer encodes the key as well as the value — a key it was told cannot need it.
 
 ## Caveats worth knowing before you turn it on
 
