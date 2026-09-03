@@ -113,6 +113,45 @@ interface SchemaIR {
 An unrecognised `ValidationRule.kind` becomes a named entry in `rules`, never a
 dropped check.
 
+### 4.1 Keys (frozen — epic "Composite primary keys and expression indexes")
+
+`SchemaIR.primaryKey` is **the** key. It is an ordered list, and the order is the
+declaration order of the key columns in the interface — not alphabetical, not the column
+order of the table. Order is normative rather than incidental, because two things read it:
+the trailing `PRIMARY KEY (…)` clause the DDL emits, and the index a planner picks for a
+prefix lookup. A key spelled `(orgId, userId)` and one spelled `(userId, orgId)` are the
+same set and different indexes.
+
+`ColumnIR.primaryKey` is a **projection** of that list: it is `true` exactly when the
+column's name appears in `SchemaIR.primaryKey`. The direction is fixed and one-way. Nothing
+may reconstruct the list by filtering columns on the flag, because the flag has lost the one
+fact the list carries — `['a','b']` and `['b','a']` project to identical flags. The flag
+exists only so a per-column consumer (`columnDdl`, `CreateDTO`'s serial drop) does not have
+to carry the table around; a consumer that needs to know _the key_ reads the list.
+
+A table may declare no key at all, and `primaryKey` is then `[]`. That is a legal IR, not a
+defect to normalise: a join table written as two `References` columns with no `PrimaryKey`
+tag is expressible, and the back-ends each refuse it in their own terms (the repository
+throws on any key operation, the DDL emits no key clause). What is _not_ legal is a
+`primaryKey` naming a column the table does not have, and the reflector refuses that at
+derivation rather than letting the DDL emit a clause over a phantom column.
+
+Four back-ends read the key, and before this section they each read something different —
+`PrimaryKeyOf` an object-or-scalar, the repository `primaryKey[0]` for `pkColumn`, the DDL
+emitter the per-column flag, `resolveRelation` `primaryKey[0]`. Three of those are the
+single-column case written as if it were the general one. The list above is what they must
+all agree on; each of the four specs below says what that boundary does with it.
+
+A composite key may not contain a `serial` column. Auto-increment inside a multi-column key
+is a MySQL-specific shape (the auto-increment column must _lead_ the key), and expressing
+that constraint would mean the declaration order of an interface silently deciding whether
+the schema is portable. The reflector refuses instead:
+
+```
+users.id: a `Serial` column cannot be part of a composite primary key (key is (id, tenantId));
+give the table a single-column surrogate key or drop `Serial`
+```
+
 ## 5. Back-end: `schemaFromIR(ir)`
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories
