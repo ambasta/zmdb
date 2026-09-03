@@ -39,8 +39,25 @@ A tiny helper returning a route handler (`Ctx → the doc`) so an app can expose
 - Provided body/response schemas appear under the right operation.
 - No consumer-surface `as`; suite + typecheck green.
 
+## `operationId` (frozen — epic "The agent runtime")
+
+`toOpenApi` emits an `operationId` on every operation, and `RouteSchemas` gains an optional
+`operationId?: string` to override it. Derived form: the lowercased method, then the path with `/` and `:`
+replaced by `_`, leading and trailing separators dropped — `POST /users/:id/roles` becomes
+`post_users_id_roles`. Deterministic, like the path ordering above; a collision throws at generation, because
+two routes with the same method and path is already a routing bug.
+
+Why a document generator cares: `toolsFromOpenApi`
+(`packages/schema-core/src/llm/http/SPEC.md` §5) uses `operationId` as the tool name, and a tool name has to be
+stable across regenerations. A renamed tool is a _new_ tool as far as a model is concerned, and it invalidates
+the prompt caches that make a tool loop affordable. An `operationId` that is derived from the route rather than
+from a counter or a hash changes only when the route does.
+
+Still not emitted, and named here so the round-trip requirement in that file stays honest: no `query` or
+`header` parameters, no `security`, no `tags`, no per-status responses beyond the `200`, and a `schemas` map
+keyed by route path — so two methods on one path share one body schema.
+
 ## Out of scope
 
-Auto-deriving schemas from handler signatures (kept explicit via `options.schemas`
-
-- schema-core's `toJsonSchema`).
+Auto-deriving schemas from handler signatures. It stays explicit, via `options.schemas` plus schema-core's
+`toJsonSchema`.

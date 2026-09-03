@@ -60,11 +60,18 @@ const res = await fetch('https://api.openai.com/v1/chat/completions', {
 });
 ```
 
-OpenAI's strict mode requires `additionalProperties: false` and every property in `required`. `toJsonSchema` does not emit that, so add it:
+OpenAI's strict mode requires `additionalProperties: false` and **every** property in `required`. `toJsonSchema` emits neither — its `required` is "not optional and not nullable" — so both halves have to be added:
 
 ```ts
-const strict = { ...toJsonSchema(users, 'create'), additionalProperties: false };
+const doc = toJsonSchema(users, 'create');
+const strict = {
+  ...doc,
+  additionalProperties: false,
+  required: Object.keys(doc.properties),
+};
 ```
+
+Adding the second half changes what you are telling the model: a column that was optional is now one it must send. Strict mode's own answer to that is a nullable type — `{ type: ['string', 'null'] }` — so an optional column has to become nullable in the schema you send, or be left out of it. Adding `required` without doing one of those describes a column as mandatory when your code treats it as optional.
 
 ## Retries
 
