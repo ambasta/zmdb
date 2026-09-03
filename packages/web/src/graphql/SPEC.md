@@ -105,7 +105,7 @@ export interface GqlCtx<Parent, Args, R extends GqlRequest> extends Ctx<
   readonly typeName: string;
   readonly field: string;
   readonly fieldPath: readonly string[];
-  readonly operation: 'query' | 'mutation';
+  readonly operation: 'query' | 'mutation' | 'subscription';
 }
 
 export declare function gqlRequestFrom(ctx: Ctx<Record<string, string>, unknown, QueryValues>): GqlRequest;
@@ -123,6 +123,9 @@ second name for the same value would be the pre-pipe value, still visible, still
 spread also carries `parent`, `request` and `field` through untouched, which is why the resolver still has them
 after the chain has run. `params` and `query` are empty: a GraphQL request has no path parameters and its query
 string is not input.
+
+`operation`'s third member arrived with `subscriptions/SPEC.md` §4, which extends `GqlCtx` rather than
+declaring a fourth context type. A query's narrowing is unaffected; `#552` pins that.
 
 `#539` pins the assignability in a type-test (`a GqlCtx is accepted by runChain`). If it does not hold,
 `AnyCtx`'s `params` is the thing to widen, in `middleware/index.ts` — one line, in the file that owns the
@@ -261,6 +264,7 @@ export declare function createGraphqlRegistry(opts: {
   readonly types: readonly string[]; // sdlOf / sdlFields output
   readonly scalars?: readonly ScalarDefinition[];
   readonly scalarType?: ScalarTypeConstructor; // required iff `scalars` is non-empty
+  readonly subgraph?: { readonly version: string }; // federation/SPEC.md §6
 }): GraphqlRegistry;
 ```
 
@@ -622,7 +626,11 @@ server.
 - **No guard inheritance down a traversal.** §5 — a traversal is not a static structure, and pretending
   otherwise is how a field is believed to be protected.
 - **No second chain runner, and no `applyChain` here.** §8 — that helper belongs to the routing side.
-- **No subscriptions and no federation.** A later epic owns both.
+- **No subscriptions and no federation _here_.** Both are frozen next door —
+  `subscriptions/SPEC.md` and `federation/SPEC.md` — and both extend this surface rather than replacing any of
+  it: `SubCtx` extends `GqlCtx`, a subscription's chain is §11's chain, and a subgraph's directives are one
+  more thing the same SDL walk emits. What they add to this file is one widened union (§2's `operation`) and
+  one registry option (§6's `subgraph`).
 - **No `ServerPlugin`, and no plugin lifecycle.** §12 — every hook is impossible here, the app's, or an
   `Interceptor` under another name.
 - **No directive visitor, and no `@cost` in the SDL.** §13 — schema transformation is `@graphql-tools`, and a

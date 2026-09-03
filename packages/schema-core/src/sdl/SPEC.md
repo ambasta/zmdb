@@ -419,13 +419,13 @@ a query literal` — both paths through one implementation, plus a `Variable` no
 9. Nothing walks a type at request time: the transformed output contains the SDL text, asserted, so §2.2 is
    machine-checked.
 
-## 14. Two additions the runtime-controls epic needs
+## 14. Additions other epics need from this walk
 
-Both land with `#544`/`#545` rather than `#539`, and both are here rather than in `@zmdb/web` because both are
-the same `TypeIR` walk this file already owns. Putting either on the web side would be the second front end §2
+None of these land with `#539`. They are here rather than in `@zmdb/web` because every one of them is the same
+`TypeIR` walk this file already owns; putting any of them on the web side would be the second front end §2
 refuses.
 
-### 14.1 `costsOf<T>`: the cost table's structure, from the same walk
+### 14.1 `costsOf<T>`: the cost table's structure, from the same walk (#544)
 
 A query cost model needs to know, per field, whether resolving it yields many values and what named type it
 returns (`../../../web/src/graphql/complexity/SPEC.md` §3). Hand-writing that is a security hole with no
@@ -452,7 +452,7 @@ added, and nothing would say so.
 Consumers merge policy on top; `complexity/SPEC.md` §3 owns the merge order and states that `list` and
 `returns` are never overridable.
 
-### 14.2 `@deprecated`, from a `Deprecated<Reason>` tag
+### 14.2 `@deprecated`, from a `Deprecated<Reason>` tag (#544)
 
 The one GraphQL directive worth emitting, because it is pure schema — it changes what the document says and
 needs nothing at runtime.
@@ -477,9 +477,39 @@ document that will not parse, from a field nobody looks at twice.
 deprecated _enum value_ would need a tag on a string literal, which nothing can carry. Both are refused rather
 than half-supported, and the refusal names the position.
 
-This is also the boundary: `@deprecated` is emitted, and every other directive is either an `Interceptor` or a
-string the app passes through (`../../../web/src/graphql/SPEC.md` §13). No directive this emitter writes is ever
-one that zmdb would have to enforce.
+This is also the boundary for directives with behaviour: `@deprecated` is emitted, and every other _behavioural_
+directive is either an `Interceptor` or a string the app passes through
+(`../../../web/src/graphql/SPEC.md` §13). No directive this emitter writes is ever one that zmdb would have to
+enforce. §14.3 is the other exception, and it holds to the same rule — the gateway enforces it, and nothing
+here pretends to.
+
+### 14.3 The federation directive set (#551)
+
+`../../../web/src/graphql/federation/SPEC.md` is the whole design; what belongs in this file is that five more
+tags feed the same walk, and that each one's refusal is the emitter's:
+
+| Tag                | Position        | Emits                               |
+| ------------------ | --------------- | ----------------------------------- |
+| `Key<Fields>`      | the type        | `@key(fields: "…")` — but see below |
+| `External`         | a field         | `@external`                         |
+| `Requires<Fields>` | a field         | `@requires(fields: "…")`            |
+| `Provides<Fields>` | a field         | `@provides(fields: "…")`            |
+| `Shareable`        | a field or type | `@shareable`                        |
+
+**`@key` is emitted from `PrimaryKey`, not from a tag**, so it cannot disagree with the identity the DDL and
+`findById` already use; `Key<Fields>` exists only for a compound key the primary key cannot express. That is
+the same argument §14.1 makes for `costsOf` and §2 makes for the mapping table: one declaration, several
+renderings.
+
+Four refusals are the emitter's, each naming the type and the field, and one of them is the interesting one:
+**`External` on a field of a `Table<…>` interface is a build error**, because this file's walk is also the DDL's
+input — a tag saying "another service owns this" on a declared column would create a column in _our_ table for
+data we never write. An extended entity is declared as a plain interface with no `Table<…>`, which keeps it out
+of the DDL walk by construction rather than by convention. The others: a field set naming an undeclared field, a
+`Requires` whose field set names a non-`External` field, and `Requires`/`Provides` on a type with no key.
+
+The document-level `@link` prelude is **not** emitted here. It is a statement about the whole schema, so it
+comes from the registry (`federation/SPEC.md` §6), which is also what knows which directives were actually used.
 
 ## 15. Non-goals (rejected)
 
@@ -501,8 +531,11 @@ one that zmdb would have to enforce.
 - **No `omitFromSchema` helper.** §10 — a second way to compose a shape, drifting from the first.
 - **No SDL parser, and no generated resolver types.** §11 — a second codegen front end describing a document
   somebody else owns.
-- **No schema stitching, no federation directives, no `@key`.** That is the subscriptions-and-federation
-  epic, and emitting a directive whose runtime does not exist would be a schema that lies.
+- **No schema stitching.** Composing several subgraphs is a gateway's job, and `federation/SPEC.md` §7
+  validates against a real composer rather than reimplementing one. The federation _directives_ are §14.3 —
+  emitted from declarations, with the gateway as the thing that enforces them.
+- **No `External` on a declared column.** §14.3 — this walk feeds the DDL too, so that tag would create a
+  column for data another service owns.
 - **No hand-written cost table.** §14.1 — a list recorded as a leaf is a limit that stops multiplying, with
   no symptom.
 - **No `@cost` directive in the emitted SDL.** §14.2 — nothing in zmdb reads it, and a reader would take it

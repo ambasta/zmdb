@@ -65,6 +65,8 @@ Then build the repository per request with that driver. This is the same per-req
 
 Two additive changes and one decision. The additive part: `execute(query, options?: { signal?: AbortSignal })` on `Driver`, and an optional `signal` on the repository DTOs. The decision: whether `Ctx` grows a `signal`, which means `WebRequest` grows one, which means every adapter has to supply it — reasonable, but it changes a type that every handler in every application touches, so it wants doing once and properly rather than twice.
 
+The [GraphQL subscription](./web-graphql-subscriptions.html) freeze answers half of that decision without forcing the other half. A subscription context carries a `signal` because a long-lived connection genuinely has one, and `Ctx` and `WebRequest` are left alone. It also settles the primitive: cancellation is a signal passed _in_, never a teardown function handed back, because a caller cannot forget a parameter — which is the argument for threading it through `Driver.execute` too.
+
 ---
 
 See also: [Writing a Driver](./custom-driver.html) · [Query Performance](./perf-queries.html) · [Streaming](./streaming.html)

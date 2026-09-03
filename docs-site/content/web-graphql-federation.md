@@ -1,6 +1,7 @@
 > **ToDo / feature gap.** There is no GraphQL layer, so there is no federation — no
 > Apollo Federation directives, no subgraph schema building, no gateway, no
-> `@key`/`@external`/`@requires` support.
+> `@key`/`@external`/`@requires` support. The design is frozen (see the last
+> section) and covers the subgraph only; a gateway stays out of scope.
 
 ## What federation solves, and the cheaper answer
 
@@ -73,11 +74,38 @@ Deduplicate the ids, one batched call, index by id. A batch endpoint on the owni
 - **Validate every response.** Another team's service is an external dependency; a field going null after their deploy should be an error at your boundary, not `undefined` three layers in.
 - **Do not forward a raw error.** An upstream error message can carry table names and values. Log it; return something generic.
 
-## What it would take
+## What it will take
 
-Federation is downstream of two things that do not exist: [the GraphQL layer](./web-graphql-resolvers.html), and cross-service tooling of any kind. Subgraph directives, entity resolution and gateway composition are each substantial on their own.
+The design is frozen, in `packages/web/src/graphql/federation/SPEC.md`, and the deliverable is deliberately narrow: **a subgraph schema a real composer accepts.** No gateway, no router. The advice above stands — most applications reaching for federation want one deployable with real module boundaries — and this makes the subgraph correct for the ones that genuinely need one.
 
-Realistically this is the furthest item from the project's centre of gravity. The nearer-term work that serves the same need is making the single-deployable story excellent — enforced module `exports`, better cross-module boundaries — so that fewer teams need to split in the first place.
+**The directives are tags, not decorators.** A zmdb entity is an `interface`, so there is no class to decorate and no field position that can carry a decorator. `@key`, `@external`, `@requires` and `@provides` come from intersection tags, the same way `Unique` and `References` already do.
+
+**`@key` comes from the primary key you already declared:**
+
+```ts
+export interface Product extends Table<'products'> {
+  sku: string & Sql<'text'> & PrimaryKey;
+  name: string & Sql<'text'>;
+}
+```
+
+→ `type Product @key(fields: "sku")`. Nothing is written twice, so the gateway's notion of a row's identity cannot drift from the database's. A `Key<'tenantId sku'>` tag exists for a compound key the primary key cannot express, and a field set naming a field the type does not have is a **build error** — the composer may accept it, and entity resolution then fails at runtime for one field path.
+
+**`External` cannot go on a column, and that is the sharpest edge here.** The entity interface generates the DDL, so tagging a column "another service owns this" would create a column in _your_ table for data you never write — duplicated, never updated, silently stale. An entity you extend but do not own is declared as a plain interface with **no `Table<…>`**, which keeps it out of migrations by construction:
+
+```ts
+/** Owned by the users subgraph. Not a table here. */
+export interface User {
+  id: number & Sql<'integer'> & PrimaryKey;
+  email: string & Sql<'text'> & External;
+}
+```
+
+**A reference resolver is typed from the key.** `@ResolveReference()` on a resolver method receives `Reference<Entity<Product>, 'sku'>` — a `Pick` of exactly the key fields plus `__typename` — so reading a non-key field does not compile. The gateway sends only the key fields; typing that parameter any wider is how a reference resolver comes to depend on a field that is not there.
+
+**Composition is validated against a real composer in CI**, not against our reading of the specification, with a deliberately broken subgraph in the negative case so the test proves the composer is actually running. `_service` and `_entities` are not emitted: `buildSubgraphSchema({ typeDefs, resolvers })` adds them from the two things the registry already returns, so a federated app calls that where a plain app calls `createSchema` — one line further along the boundary that already exists.
+
+The nearer-term work that serves the same need is still making the single-deployable story excellent — enforced module `exports`, better cross-module boundaries — so that fewer teams need to split in the first place.
 
 ---
 
