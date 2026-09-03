@@ -1,14 +1,17 @@
-import { defineSchema, serial, text, boolean } from '@zmdb/schema-core';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
+import { schemasFrom } from '../testing/index.ts';
 import { compileFastStringifier, stringify } from './index.ts';
 
-const UserSchema = defineSchema('users', {
-  id: serial().primaryKey(),
-  email: text().notNull(),
-  active: boolean().defaultTo(true),
-  password: text().sensitive(),
-});
+export interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string;
+  active?: boolean;
+  password?: string & Sensitive;
+}
+
+const { User: UserSchema } = schemasFrom(import.meta.url, ['User']);
 
 describe('compileFastStringifier', () => {
   it('serializes single entity and excludes sensitive fields', () => {

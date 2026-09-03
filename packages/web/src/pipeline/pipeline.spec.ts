@@ -1,6 +1,8 @@
 import { StringDecoder } from 'node:string_decoder';
 
-import { ValidationError, defineSchema, serial, text as textCol } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { ValidationError } from '@zmdb/schema-core';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
@@ -19,11 +21,13 @@ import {
   type Router,
 } from './index.js';
 
-const AccountSchema = defineSchema('accounts', {
-  id: serial().primaryKey(),
-  email: textCol().notNull(),
-  secretToken: textCol().sensitive(),
-});
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string;
+  secretToken?: string & Sensitive;
+}
+
+const { Account: AccountSchema } = schemasFrom(import.meta.url, ['Account']);
 
 @Controller('/users')
 class UsersController {

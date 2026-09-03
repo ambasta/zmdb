@@ -159,6 +159,8 @@ const MAY_READ = new Map([
     HTTP_COMPILER,
     'the matched `.flags` is a TypeScript SymbolFlags.Optional check on one HTTP declaration property. ' +
       'Leaf types cross Reflector.typeIR(), and the HTTP-specific checks below forbid a second TypeScript schema walk.',
+    'packages/aot-validator/src/serialization/fast-stringifier.ts',
+    'reads the sensitive flag on column metadata to omit sensitive fields from stringification.',
   ],
 ]);
 
