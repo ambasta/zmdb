@@ -21,6 +21,80 @@ refused type, a file outside the project — falls back to the function of the s
 this module, which walks a `TypeIR` at runtime. The second argument is that IR: absent at
 a real call site because the transform removed the call, and passed explicitly by tests.
 
+## 1a. Depth-limited entry points (frozen — epic "Shallow validation")
+
+```ts
+isShallow<T, D extends number = 1>(input: unknown): input is T
+assertShallow<T, D extends number = 1>(input: unknown): T
+validateShallow<T, D extends number = 1>(input: unknown): ValidateResult<T>
+```
+
+Three shapes in the issue that proposed this are wrong against shipped code, and the corrections are
+not cosmetic:
+
+- **`depth` cannot be the second positional parameter.** That slot is the injected `TypeIR` witness (§1),
+  and it is the mechanism the fallback walk depends on. A depth there would collide with it on the one
+  path that exists precisely for when the transform did not run.
+- **`assertShallow` returns `T`.** The shipped `assert` is not an `asserts input is T` signature; it
+  returns the value. A new sibling with the other spelling would be the only member of the family that
+  cannot be used as an expression.
+- **The result type is `ValidateResult<T>`**, which is what this module exports. There is no
+  `ValidationResult`.
+
+### Depth is a type argument, not a runtime one
+
+`D` is the second **type** argument, and that is the answer to the API-shape question rather than a
+preference. A runtime argument cannot select emitted branches — the whole point is that the transformer
+emits different code — and `emitFor` reads only `arguments[0]` today, so a second runtime argument is
+silently dropped, which is exactly the silent fallback this epic must not have. A type argument is read
+by the checker the same way `T` is, and it is a literal by construction.
+
+Refusals, all at build time with a diagnostic naming the file and call site:
+
+- `D` is not a numeric literal (a generic parameter, a `number`, an expression) — refused. It does not
+  fall back to full depth, which would silently over-promise, and it does not fall back to `1`, which
+  would silently under-check while still claiming `input is T`.
+- `D` is not a positive integer — `0`, a negative, `1.5` — refused. Depth `0` would check nothing and
+  return a narrowing.
+
+`D` **larger** than the type's own nesting is not an error: the check is then complete, and the emitter
+produces the same code `is<T>` would, deduplicated by the existing fingerprint cache (`../emit/SPEC.md`
+§2). "Ask for more depth than exists" is a reasonable thing for generated code to do.
+
+The fallback walk still needs the depth, since it has no emitted branch to read it from. It arrives as a
+**third** parameter, after the witness, on these three functions only — never read at a real call site,
+because the call is gone, and passed explicitly by tests exactly as the witness is.
+
+### These are three new callees, and that has a visible cost
+
+`CALLEES` in `../transformer.ts` is exactly eight names, and
+`it('names eight calls, and every one of them is a function somebody can call', …)` in
+`../transform-code.spec.ts` asserts that list literally. Eleven callees break the assertion **and**
+falsify the title, and the word "eight" is also written into `../transformer.ts` twice, `../cli/SPEC.md`
+and `docs-site/content/cli-codegen.md`. The implementation slice updates all of them; recorded here so it
+reads as the plan rather than as collateral damage.
+
+The alternative was a second type argument on the existing `is`/`assert`/`validate` — no new callees, no
+test churn. It is rejected because it makes every existing call site's strength depend on a default, and
+because "this validator makes a weaker promise than its name suggests" is the one fact that must be
+visible at the call site. A distinct name is the cheapest way to say it.
+
+### What this is for, since the docs page argues against it
+
+`docs-site/content/validators-shallow.md` says shallow checking is usually the wrong tool, and its
+argument is correct as far as it goes: measured per byte, a nested object is not meaningfully worse than
+a flat one, so "nesting is slow" does not motivate this. The motivation that survives is different and
+narrower, and it is the one this spec commits to:
+
+1. **Bounding work over data whose size you do not control.** A depth-1 check over an array is O(1) in
+   the number of elements. No amount of emitter improvement makes a full check O(1).
+2. **A terminating check for a recursive type**, where the full validator's cost is a property of the
+   data rather than of the schema.
+
+Neither is upstream parity: typia ships no `isShallow`, and nothing in `tests/api-coverage/inventory.mjs`
+names one. So this is a zmdb-specific tool for two specific situations, not a headline, and the docs
+should keep the caution it already has.
+
 ## 2. Structured error + result shapes
 
 ```ts
