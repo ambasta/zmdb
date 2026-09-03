@@ -394,12 +394,12 @@ module already has in unexported form:
 export declare function moduleDefOf(module: ModuleClass): ModuleDef | undefined;
 ```
 
-plus `injectionsOf` from `../di/index.ts`, which reads the `INJECTIONS` slot `Inject` writes at
-:73-79 and which nothing in the repository reads today. `../devtools/SPEC.md` §4 records the
-prototype-aliasing bug in that writer — `existing.push(request)` at :78 mutates the _base_
+plus `injectionsOf` from `../di/index.ts`, which reads the `INJECTIONS` slot `Inject` writes and
+which nothing in the repository reads today. `../devtools/SPEC.md` §4 records the
+prototype-aliasing bug that writer used to have — `existing.push(request)` mutated the _base_
 class's array for a decorated field on a subclass, verified by running compiler output — and the
-own-property fix, which is a prerequisite for the description being accurate for any subclassed
-class.
+own-property fix, which was a prerequisite for the description being accurate for any subclassed
+class and which landed with #607.
 
 The cycle message becomes the path, which needs no new bookkeeping: `inProgress` is a `Set`
 (:69), `Set` iteration is insertion-ordered, and at the moment `inProgress.has(moduleClass)` is

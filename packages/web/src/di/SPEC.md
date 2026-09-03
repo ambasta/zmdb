@@ -36,6 +36,12 @@ UserRepo` type-checks and a mismatch is a compile error). It returns an
   `@Inject`ed fields from the container. (Field initializers read from an
   ambient "current container" set for the duration of `build`, cleared in a
   `finally` — no global request-time state.)
+- The record of injected fields is written as an **own** property of the class's
+  metadata, copying what it inherits on the first write. A subclass's metadata
+  record has the base's as its prototype, so appending to the list a plain read
+  returns would file the subclass's field under the base class (#607). A reader
+  therefore sees a subclass's inherited fields followed by its own, and a base
+  class's list does not grow when a subclass is declared.
 
 ## Invariants
 

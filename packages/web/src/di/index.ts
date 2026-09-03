@@ -4,7 +4,7 @@
 
 // Install Symbol.metadata (used by field decorators) before any decorated class
 // in a consumer module is evaluated.
-import '../polyfill.ts';
+import '../polyfill.js';
 
 // A typed injection token. The phantom `__type` carries the instance type at
 // compile time without existing at runtime (it is `never`-valued and optional).
@@ -26,7 +26,8 @@ export class UnresolvedTokenError extends Error {
   }
 }
 
-// A field-injection request recorded by @Inject and read by Container.build.
+// A field-injection request recorded by @Inject. Nothing reads the slot yet — the
+// devtools inspector is its first reader (../devtools/SPEC.md §4).
 interface InjectionRequest {
   readonly field: string | symbol;
   readonly token: Token<unknown>;
@@ -71,11 +72,15 @@ export function Inject<T>(token: Token<T>) {
   return function (_value: undefined, context: ClassFieldDecoratorContext<unknown, T>): (initial: T) => T {
     const view = diView(context.metadata);
     const request: InjectionRequest = { field: context.name, token };
-    const existing = view[INJECTIONS];
-    if (existing === undefined) {
-      view[INJECTIONS] = [request];
+    // A subclass's metadata record is created with the base's as its prototype, so
+    // `view[INJECTIONS]` on a subclass reads the base's array and pushing into it
+    // files the subclass's field under the base class. Copy what is inherited on
+    // the first own write, then push, so a reader sees base fields then own.
+    const own = Object.hasOwn(context.metadata, INJECTIONS) ? view[INJECTIONS] : undefined;
+    if (own === undefined) {
+      view[INJECTIONS] = [...(view[INJECTIONS] ?? []), request];
     } else {
-      existing.push(request);
+      own.push(request);
     }
     // The initializer runs during construction; resolve from the active build.
     return function (): T {

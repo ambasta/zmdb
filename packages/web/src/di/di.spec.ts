@@ -4,7 +4,7 @@
 // Per packages/web/src/di/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Container, createToken, Inject, UnresolvedTokenError } from './index.ts';
+import { Container, createToken, Inject, UnresolvedTokenError } from './index.js';
 
 class Logger {
   log(msg: string): string {
@@ -54,5 +54,78 @@ describe('@zmdb/web DI: @Inject + container.build', () => {
     const svc = c.build(Service);
     expect(svc.logger).toBe(logger);
     expect(svc.greet()).toBe('hi');
+  });
+});
+
+// #607. A subclass's metadata record has the base's as its prototype, so a writer
+// that pushes into the array it reads files the subclass's field under the base.
+interface FieldRecord {
+  readonly field: string | symbol;
+}
+
+function hasField(value: unknown): value is FieldRecord {
+  return typeof value === 'object' && value !== null && 'field' in value;
+}
+
+// The INJECTIONS slot is module-private and has no reader yet — the devtools
+// inspector is the first one (../devtools/SPEC.md §4) — so this reads the metadata
+// record straight, finding the slot by symbol description. What it asserts is
+// ownership: which class a decorated field is recorded against.
+function injectedFields(ctor: abstract new (...args: never[]) => unknown): readonly string[] {
+  const metadata = ctor[Symbol.metadata];
+  if (metadata === undefined || metadata === null) {
+    return [];
+  }
+  const slot = Object.getOwnPropertySymbols(metadata).find(sym => sym.description === 'zmdb.web.di.injections');
+  if (slot === undefined) {
+    return [];
+  }
+  const requests: unknown = metadata[slot];
+  if (!Array.isArray(requests)) {
+    return [];
+  }
+  return requests.flatMap((request: unknown) => (hasField(request) ? [String(request.field)] : []));
+}
+
+describe('@zmdb/web DI: @Inject across a class hierarchy', () => {
+  it('records a subclass field on the subclass, not on the base', () => {
+    class BaseService {
+      @Inject(LoggerToken)
+      logger!: Logger;
+    }
+
+    class AdminService extends BaseService {
+      @Inject(LoggerToken)
+      adminLogger!: Logger;
+    }
+
+    class PublicService extends BaseService {
+      @Inject(LoggerToken)
+      publicLogger!: Logger;
+    }
+
+    expect(injectedFields(BaseService)).toEqual(['logger']);
+    expect(injectedFields(AdminService)).toEqual(['logger', 'adminLogger']);
+    expect(injectedFields(PublicService)).toEqual(['logger', 'publicLogger']);
+  });
+
+  it('still populates both inherited and own fields on a subclass', () => {
+    const c = new Container();
+    const logger = new Logger();
+    c.register(LoggerToken, logger);
+
+    class BaseService {
+      @Inject(LoggerToken)
+      base!: Logger;
+    }
+
+    class DerivedService extends BaseService {
+      @Inject(LoggerToken)
+      own!: Logger;
+    }
+
+    const svc = c.build(DerivedService);
+    expect(svc.base).toBe(logger);
+    expect(svc.own).toBe(logger);
   });
 });

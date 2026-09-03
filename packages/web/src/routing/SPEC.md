@@ -10,9 +10,13 @@
   controller's path prefix in `context.metadata`. A missing/empty prefix means no
   prefix. Leading/trailing slashes are normalized so composition is predictable.
 - **`@Get(path?) / @Post(path?) / @Put(path?) / @Patch(path?) / @Delete(path?)`** —
-  Stage-3 **method** decorators. Each appends a `RouteDefinition` to a list in
-  `context.metadata`, capturing `{ method, path, handlerName }`. A missing path
-  means the controller prefix itself.
+  Stage-3 **method** decorators. Each appends a `RouteDefinition` to the list the
+  decorated class **owns** in `context.metadata`, capturing
+  `{ method, path, handlerName }`. A missing path means the controller prefix
+  itself. The own-property write is load-bearing: a subclass's metadata record has
+  the base's as its prototype, so appending to the list a plain read returns would
+  write the subclass's route into the base, and through it into every sibling
+  subclass (#607).
 
 ### Reader
 
@@ -22,6 +26,18 @@
   single leading slash and no trailing slash (except the root `/`). Ordering is
   **declaration order** of the methods. Computed by reading `context.metadata`
   (no reflection); callers may cache — the metadata is stable after class-init.
+
+### Inheritance
+
+- A subclass's routes are **the routes it inherits, then its own**, all composed
+  with the prefix that applies to the subclass. `@Controller` on the subclass is
+  optional; without it the base's prefix is inherited too.
+- A handler the subclass **redeclares** keeps only the subclass's path: overriding
+  a method to change its route is a rename, not an addition. Two verbs on one
+  method are both own declarations, so both survive.
+- Reading a base class is unaffected by whether a subclass's module has been
+  evaluated. Without that, two entry points importing different subsets of an app
+  get different route tables from the same base class.
 
 ### Types
 

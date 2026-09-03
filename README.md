@@ -27,7 +27,7 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling** harness. **1,140
+> **framework integrations**, and an **LLM function-calling** harness. **1,148
 > tests green** across 150 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
 > Alongside them, **144 expected-failing tests** hold the frozen specs of features

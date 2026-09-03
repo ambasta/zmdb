@@ -39,11 +39,11 @@ amount of reading either one answers "why is this a singleton" or "what breaks i
 provider". That is the gap, it is real, and `docs-site/content/web-devtools.md` states the
 reason for it too strongly: it says there are "no [dependency edges] to record". There are.
 `@Inject` records `{ field, token }` into `context.metadata` on every decorated class
-(`../di/index.ts:73-79`) and has done since the DI module shipped; the slot is simply
-**never read**. `INJECTIONS` occurs five times in `packages/web/src` and nowhere else: its
-declaration (:35), the type slot (:38), the boundary comment about it (:41), and the two writes
-(:74, :76). Not one of them is a read. The edges exist, unread, in the one place that cannot fall
-out of sync with the source. §4 reads them.
+(`../di/index.ts:71-84`) and has done since the DI module shipped; the slot is simply
+**never read**. `INJECTIONS` appears nowhere in `packages/web/src` outside `../di/index.ts`: its
+declaration (:36), the type slot (:39), two comments (:42, :76), and the writer that copies then
+appends (:79, :81). Every occurrence belongs to that writer; nothing consumes the slot. The edges
+exist, unread, in the one place that cannot fall out of sync with the source. §4 reads them.
 
 So when #600 lands, those three rows plus `lazy-modules/e2e/*` (:873) become covered rather
 than out of scope, and `NO_REPL` has to be rewritten to be about the _shape_ of the tooling —
@@ -253,12 +253,11 @@ An anonymous class or a mangled production build yields `''` or a mangled name, 
 `warning`-severity finding and the reason the machine-readable form is the contract while the
 text tree is a convenience.
 
-**`injectionsOf` cannot ship on top of the slot as it is written today, and this is a verified
-bug rather than a suspicion.** `Inject`'s writer does `existing.push(request)`
-(`../di/index.ts:78`), and a stage-3 `context.metadata` object is created with the base class's
-metadata as its prototype, so for a decorated field on a subclass `existing` is _the base
-class's array_. Verified by compiling a two-class fixture with `tsc --target es2022` and reading
-the result:
+**`injectionsOf` could not have shipped on top of the slot as it was originally written, and that
+was a verified bug rather than a suspicion.** `Inject`'s writer did `existing.push(request)`, and
+a stage-3 `context.metadata` object is created with the base class's metadata as its prototype, so
+for a decorated field on a subclass `existing` was _the base class's array_. Verified by compiling
+a two-class fixture with `tsc --target es2022` and reading the result:
 
 ```
 base own: 1 ["base.a","derived.b"]
@@ -266,18 +265,19 @@ derived:  ["base.a","derived.b"]
 same object? false   proto chain? true   derived own slot? false
 ```
 
-The base class ends up owning its subclass's injection. Nothing notices today because nothing
-reads the slot; the inspector is its first reader, and it would attribute a subclass's
-dependency to the class it extends. So the write becomes own-property-first — copy the
-inherited list on the first own write, then push — which gives `injectionsOf(Base)` the base's
-fields and `injectionsOf(Derived)` both, which is the semantics a reader expects. That change
-belongs to whichever of #601/#602 lands first and is a prerequisite for the accuracy assertion
-in §11.6.
+The base class ended up owning its subclass's injection. Nothing noticed, because nothing reads
+the slot; the inspector is its first reader, and it would have attributed a subclass's dependency
+to the class it extends. **This is fixed** (#607): the write is own-property-first — it copies the
+inherited list on the first own write, then pushes — so `injectionsOf(Base)` gets the base's
+fields and `injectionsOf(Derived)` both, which is the semantics a reader expects. The prerequisite
+for the accuracy assertion in §11.6 is therefore already met, and `di.spec.ts` asserts the
+ownership directly rather than through a reader that does not exist yet.
 
-`pushRoute` (`../routing/index.ts:50-58`) has the same aliasing shape and is _read_ today, by
-`Router.register` (`../pipeline/index.ts:180`), so a controller subclassing a controller is
-already affected. That is out of scope here and named in the follow-ups rather than fixed by a
-document about a graph description.
+`pushRoute` (`../routing/index.ts`) had the same aliasing shape and is _read_ today, by
+`Router.register` (`../pipeline/index.ts:180`), so a controller subclassing a controller was
+already affected in production. It is fixed in the same change, with the inheritance semantics
+now written down in `../routing/SPEC.md`: inherited routes then own, a redeclared handler renaming
+rather than duplicating, and a base whose table does not change when a subclass is evaluated.
 
 ## 5. Findings, not exceptions
 
