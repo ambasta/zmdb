@@ -30,9 +30,10 @@
 > **framework integrations**, and an **LLM function-calling** harness. **1,107
 > tests green** across 136 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Those tests answer the 742 public-API suites Drizzle, Kysely, MikroORM, NestJS
-> and Typia run between them — each one either named against a zmdb test or
-> argued against in writing, counted by `yarn verify:api-coverage`.
+> Those tests are held against the 742 public-API suites Drizzle, Kysely,
+> MikroORM, NestJS and Typia run between them: 453 are answered by a named zmdb
+> test, 289 are argued against in writing, and `yarn verify:api-coverage` fails
+> on a suite that is neither.
 > Of the 276 docs-site pages, 190 document a capability that exists and 86 are
 > marked `todo` — a page that argues for a feature gap rather than describing one,
 > counted by `yarn verify:docs-coverage`.

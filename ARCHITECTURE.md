@@ -344,7 +344,12 @@ Committing to a hard floor is itself an architecture decision — it removes cod
   better inventory of what a data layer is expected to do. Every suite in
   `tests/api-coverage/inventory.mjs` either names a zmdb test or carries a
   written reason we do not want it, and the gate fails on a suite that has
-  neither. The inventory is **pinned to an upstream commit** and re-harvested
+  neither. 453 suites are answered by 198 of our tests and 289 are argued
+  against — a ratio worth reading honestly, because a family upstream writes out
+  eighteen times is one behaviour, while a test credited for sixty suites is a
+  thinner claim than the same test credited for two. The gate cannot tell those
+  apart, so it prints its widest credits on every run rather than folding them
+  into a total. The inventory is **pinned to an upstream commit** and re-harvested
   deliberately by `scripts/harvest-api-tests.mjs`, which clones the five
   repositories; CI never runs it, because a competitor landing a test at 3am
   should not turn our build red.
