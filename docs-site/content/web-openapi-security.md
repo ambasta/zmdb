@@ -121,9 +121,16 @@ const ROUTES = {
   AuthController: { login: {} },
 };
 
-for (const c of CONTROLLERS) router.register(c, ROUTES[c.constructor.name] ?? {});
+for (const C of CONTROLLERS) router.register(new C(), ROUTES[C.name] ?? {});
 const doc = toOpenApi(CONTROLLERS, { info, schemas, securitySchemes: SCHEMES, routes: ROUTES });
 ```
+
+> [!IMPORTANT]
+> `register` takes an **instance** and `toOpenApi` takes either, so a `CONTROLLERS` array of
+> classes — which is what `getRoutes(C)` and `${C.name}` above want — has to be constructed
+> for the router. `router.register(SomeClass, …)` registers zero routes and throws nothing,
+> so every request 404s; and `SomeClass.constructor.name` is `'Function'`, so keying `ROUTES`
+> off it silently drops every per-route option.
 
 A guard declares what it enforces with a `readonly enforces = { scheme: 'bearerAuth', scopes: ['posts:write'] }`, and the operation's `security` is the union of its guards' declarations.
 
