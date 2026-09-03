@@ -63,6 +63,31 @@ calling `.where(col, op, value)` / `.orWhere(...)`. Operator mapping:
 - Field/operator order within a group is stable (object key order) for golden SQL.
 - Empty WhereDTO ⇒ no predicate added.
 
+### The fold is target-neutral; the predicate list is not
+
+Recorded during the non-SQL target feasibility study
+(`@zmdb/query-compiler`'s `src/targets/SPEC.md`), because both halves of it are load-bearing and neither
+was written down.
+
+**The fold names no SQL.** `compileWhere`, `applyOrderBy`, `applyKeysetFilter` and `applyPagination` take
+`WhereTarget` and `OrderTarget` — structural interfaces whose methods are `where(col, op, value)` and
+`orderBy(col, dir)`, with everything past `where`/`orWhere` optional so a builder can decline a
+capability. Nothing in this file imports a dialect or constructs a `CompiledQuery`. That is why these four
+functions are the seam a non-SQL target would implement, and why generalising `CompiledQuery` itself is
+unnecessary: this is already the generalisation.
+
+**The list the fold produces has no grouping in it.** Predicates are appended flat, each carrying an
+`AND`/`OR` connector, and the compiler renders them in order without parentheses. The nesting comes from
+SQL binding `AND` tighter than `OR`, which is what makes `[{a, AND}, {b, OR}, {c, AND}]` mean
+`a OR (b AND c)`. Two consequences:
+
+- `and`/`or` groups in a `WhereDTO` do not always survive the fold. `applyKeysetFilter`'s branch wrapper
+  spends its one `OR` on a branch's first predicate and conjoins the rest, so a user `or` nested inside a
+  keyset branch flattens into that branch's `AND`. The comment on `BranchTarget.orWhere` is the record of
+  it; this is the same fact stated where a reader looks for the operator semantics.
+- The list is therefore only meaningful to a target that has SQL's precedence. Any future non-SQL target
+  has to nest the predicate tree first, which would also fix the bullet above.
+
 ## 2. OrderByDTO + PaginationDTO (#181/#182/#183)
 
 ```ts
@@ -80,6 +105,10 @@ type PaginationDTO<T> = OffsetPage | CursorPage<T>;
 - Offset pagination emits `LIMIT n OFFSET m`. Cursor (keyset) pagination emits a
   `WHERE (orderKey) > (cursor)` predicate + `LIMIT n` (frozen: requires a stable
   OrderBy; documented that cursor needs a total order — typically the PK).
+- The row-value spelling above is the semantics, not the emitted text. `applyKeysetFilter` emits one
+  branch per order key — the keys before it compared with `=`, the key itself with `>` or `<` — OR'd
+  together, because `WhereTarget` has no way to say a row-value comparison and not every dialect has one.
+  See §1's note on the flat predicate list for what that costs.
 
 ### Golden (postgres)
 
