@@ -19,6 +19,9 @@ export declare function sdlFields<F>(name: string): string;
 
 /** A named scalar, backed by the wire half of a codec. */
 export declare function scalar<Wire, TS>(name: string, codec: ScalarCodec<Wire, TS>): ScalarDefinition;
+
+/** The structural half of a cost table: which fields are lists, and what each returns. §14.1. */
+export declare function costsOf<T>(name: string): CostTable;
 ```
 
 **The product is a string.** Not a `GraphQLSchema`, not a `DocumentNode`, not an AST. `graphql` is not a
@@ -30,7 +33,7 @@ dependency; this freeze is stricter, and strictly cheaper for a consumer who nev
 
 `sdlOf<T>` and `sdlFields<F>` read a **type argument**, which means they are compiled away by the transform
 and have no runtime. That is not an implementation detail — it is the property that makes §10's mapped types
-work at all — and it puts two new names on `CALLEES` (§12).
+work at all — and it puts three new names on `CALLEES` (§12).
 
 ## 2. The mapping is a function of the wire `TypeIR`
 
@@ -377,7 +380,7 @@ This changes the epic's Definition of Done item 5 and two of #539's test titles;
 
 ## 12. What this target adds to existing gates
 
-- **`CALLEES` in `packages/aot-validator/src/transformer.ts` gains `sdlOf` and `sdlFields`.** An
+- **`CALLEES` in `packages/aot-validator/src/transformer.ts` gains `sdlOf`, `sdlFields` and `costsOf`.** An
   untransformed call is a runtime type walk, and there is no runtime to walk to — both throw the same
   "was not replaced at build time" error `schemaOf` does. The test that pins the list,
   `it('names eight calls, and every one of them is a function somebody can call', …)`, asserts the members
@@ -416,7 +419,69 @@ a query literal` — both paths through one implementation, plus a `Variable` no
 9. Nothing walks a type at request time: the transformed output contains the SDL text, asserted, so §2.2 is
    machine-checked.
 
-## 14. Non-goals (rejected)
+## 14. Two additions the runtime-controls epic needs
+
+Both land with `#544`/`#545` rather than `#539`, and both are here rather than in `@zmdb/web` because both are
+the same `TypeIR` walk this file already owns. Putting either on the web side would be the second front end §2
+refuses.
+
+### 14.1 `costsOf<T>`: the cost table's structure, from the same walk
+
+A query cost model needs to know, per field, whether resolving it yields many values and what named type it
+returns (`../../../web/src/graphql/complexity/SPEC.md` §3). Hand-writing that is a security hole with no
+symptom: a list field recorded as a scalar never multiplies, so the limit silently stops bounding the thing it
+exists to bound, and every test still passes.
+
+```ts
+costsOf<Entity<Post>>('Post');
+// → { Post: { id: { cost: 1, list: false },
+//             title: { cost: 1, list: false },
+//             author: { cost: 1, list: false, returns: 'User' },
+//             comments: { cost: 1, list: true, returns: 'Comment' } } }
+```
+
+`list` is true exactly where §2's `array` row applies; `returns` is present exactly where the node is an
+`object` or a `ref`, carrying the same name `sdlOf` would emit for it; the cost is `1` for everything, because
+a cost is a policy decision and this function has no policy. It walks every reachable definition, so one call
+covers the whole reachable graph — the same closure `sdlOf` produces, keyed instead of rendered.
+
+**It cannot disagree with the emitted SDL, and that is the whole argument for its existence**: same input, same
+traversal, two renderings. A separately maintained table can be right on Monday and wrong after a column is
+added, and nothing would say so.
+
+Consumers merge policy on top; `complexity/SPEC.md` §3 owns the merge order and states that `list` and
+`returns` are never overridable.
+
+### 14.2 `@deprecated`, from a `Deprecated<Reason>` tag
+
+The one GraphQL directive worth emitting, because it is pure schema — it changes what the document says and
+needs nothing at runtime.
+
+```ts
+/** In `@zmdb/schema-core/tags`. */
+export type Deprecated<Reason extends string> = { readonly __deprecated?: Reason };
+
+export interface Post extends Table<'posts'> {
+  legacySlug: string & Sql<'text'> & Deprecated<'use `slug`'>;
+}
+```
+
+→ `legacySlug: String! @deprecated(reason: "use \`slug\`")`.
+
+The reason is a **type parameter, not a runtime value**, for the same reason `HasDefault` says only _that_ a
+default exists: the emitter has no runtime and can only read what the type carries. A quotation mark or a
+backslash in the reason is escaped for the SDL string, and `#545` pins that — an unescaped reason produces a
+document that will not parse, from a field nobody looks at twice.
+
+**Only fields carry it.** A deprecated _argument_ would need the tag on `sdlFields<F>`'s argument record, and a
+deprecated _enum value_ would need a tag on a string literal, which nothing can carry. Both are refused rather
+than half-supported, and the refusal names the position.
+
+This is also the boundary: `@deprecated` is emitted, and every other directive is either an `Interceptor` or a
+string the app passes through (`../../../web/src/graphql/SPEC.md` §13). No directive this emitter writes is ever
+one that zmdb would have to enforce.
+
+## 15. Non-goals (rejected)
 
 - **No `graphql` dependency, peer dependency or optional peer.** §1 — a string and a plain map compose with
   every server, and an injected constructor covers the one thing that needs a class (§8, and
@@ -438,3 +503,9 @@ a query literal` — both paths through one implementation, plus a `Variable` no
   somebody else owns.
 - **No schema stitching, no federation directives, no `@key`.** That is the subscriptions-and-federation
   epic, and emitting a directive whose runtime does not exist would be a schema that lies.
+- **No hand-written cost table.** §14.1 — a list recorded as a leaf is a limit that stops multiplying, with
+  no symptom.
+- **No `@cost` directive in the emitted SDL.** §14.2 — nothing in zmdb reads it, and a reader would take it
+  for a limit.
+- **No deprecated arguments or deprecated enum values.** §14.2 — neither position can carry a tag, and half
+  the feature is worse than a refusal that says where.

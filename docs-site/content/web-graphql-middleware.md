@@ -99,14 +99,24 @@ Use its middleware, and keep the layers separate: the GraphQL server's hooks for
 const yoga = createYoga({ schema, context: () => ({ posts: app.container.resolve(POSTS) }) });
 ```
 
-## What it would take
+## What it will take
 
-Two things, in order of value:
+Two framework-internal changes, in order of value, and neither is blocked on GraphQL:
 
-1. **Wire `runChain` into the router**, with a chain registrable per controller or per route. This is the single change that would make the existing middleware interfaces useful as designed, and it is not blocked on anything.
+1. **Wire `runChain` into the router**, with a chain registrable per controller or per route. This is the single change that would make the existing middleware interfaces useful as designed.
 2. **Let a filter's `WebResponse` reach the client**, so `ChainError(403, …)` produces a 403 rather than a 500. Today `ExceptionFilter.catch` returns a `WebResponse` that the router never sees.
 
-Both are framework-internal and independent of GraphQL. Until they land, `runChain` called explicitly plus the adapter and driver layers is the supported arrangement.
+Until they land, `runChain` called explicitly plus the adapter and driver layers is the supported arrangement.
+
+The GraphQL side is frozen, in `packages/web/src/graphql/SPEC.md`, and it reuses these four interfaces rather than introducing a parallel set. There is **no `onExecute` hook and no plugin interface**, because `onExecute(ctx, next)` and `Interceptor.intercept(ctx, next)` are the same signature — see [Plugins](./web-graphql-plugins.html). Three things about the GraphQL wiring are worth knowing here, because each is visible from this page.
+
+**A field's chain runs, without you calling it.** GraphQL is where `runChain` is wired first: the registry wraps each field's resolver, so unlike a route, a field with a chain declared on it actually gets one. The warning above is about the router, and it stays true.
+
+**A chain is declared at one of three levels, and flattened once.** Global, per type, or on a single field; the three are concatenated at registration into exactly one `Chain` per field, so nothing walks a hierarchy per request. Guards, pipes and interceptors concatenate broadest-first; **filters concatenate narrowest-first**, because the first filter that returns a response wins and a global catch-all placed first would swallow every error before a field's own filter saw it — a failure that leaves every test green.
+
+**A field with no chain in any layer is not wrapped at all.** The resolver map holds the bound method itself, so the cost of this feature to a schema that does not use it is zero rather than small.
+
+The context change that makes all of this work is that a GraphQL context _is_ a `Ctx` — one guard, usable on a route and on a field, with a `kind` field to tell them apart when it matters. `runChain` becomes generic so the extra members (`parent`, `field`, `request`) survive the pipes in the type as well as at runtime.
 
 ---
 

@@ -128,6 +128,9 @@ string is not input.
 `AnyCtx`'s `params` is the thing to widen, in `middleware/index.ts` — one line, in the file that owns the
 question.
 
+The runtime half of the preceding paragraph is true as written; the _type_ half needs `runChain` to be generic,
+because `ChainHandler`'s parameter is `AnyCtx` and that erases `parent`. §10.3 has the signature.
+
 ## 3. Every field validates its arguments, and the type is what guarantees it
 
 Registration mirrors `Router.register(controller, options)`, including the per-method options record:
@@ -362,7 +365,248 @@ schema-first generation is refused (`packages/schema-core/src/sdl/SPEC.md` §11)
 8. Two `sdlOf` results that both emit `Address` compose; two that emit different `Address` definitions refuse.
 9. `a GqlCtx is accepted by runChain` — the assignability §2 depends on, pinned so it cannot regress silently.
 
-## 10. Non-goals (rejected)
+## 10. The execution context: one shared request type, one discriminant, one generic runner
+
+`#544` asks for a `GraphQLExecutionContext` carrying `kind`, `parent`, `args`, `info` and `request`. Four of the
+five are already frozen: `parent` is `parent`, `args` is `body` (§2), `request` is `request`, and `info` is
+refused (§5 — four flat values instead). So this section is not a new type. It is the three changes the
+_existing_ type needs before a guard can be written once and used on both sides, which is what the ask is for.
+
+### 10.1 `RequestFacts`, so the shared part has a name
+
+```ts
+/** In `context/index.ts`: what both an HTTP request and a GraphQL request carry. */
+export interface RequestFacts {
+  readonly headers: Readonly<Record<string, string>>;
+  readonly method: string;
+  readonly path: string;
+}
+
+export interface Ctx<Params, Body, Query> extends RequestFacts {
+  readonly kind: 'http' | 'graphql';
+  readonly params: Params;
+  readonly body: Body;
+  readonly query: Query;
+}
+```
+
+`GqlRequest` (§2) becomes an alias of `RequestFacts` rather than a second declaration of the same three
+members. Structurally nothing changes — they were already identical, which is the problem: a guard's helper
+function had no name to accept, so it had to take a whole `AnyCtx` or restate the three fields inline. Naming
+the shared part is the smallest change that makes `function bearer(r: RequestFacts): string | undefined`
+writable, and §2's refusal of a widened `Guard` stands: nothing about `Guard.canActivate`'s parameter moves.
+
+### 10.2 The discriminant is a field, checked with a predicate
+
+```ts
+export type AnyGqlCtx = GqlCtx<unknown, unknown, RequestFacts>;
+export declare function isGqlCtx(ctx: AnyCtx): ctx is AnyGqlCtx;
+```
+
+`kind` is `'http'` for every context `pipeline/index.ts` builds and `'graphql'` for every one the registry
+builds, and `isGqlCtx` is `ctx.kind === 'graphql'` — a field comparison, not `instanceof` and not
+`'parent' in ctx`. `instanceof` fails because both are object literals with no class; the `in` check fails
+because a route whose body happens to have a `parent` property would answer yes.
+
+**`kind` narrows but the union is not declared.** A guard's parameter type stays `AnyCtx`, and `isGqlCtx`
+narrows to `AnyGqlCtx` inside the branch. Declaring `type SomeCtx = AnyCtx | AnyGqlCtx` and typing
+`canActivate` on it is the alternative, and it is exactly what §2 refused: every existing guard's parameter
+would have to be re-narrowed before touching `params`. A predicate gives the same narrowing at the one call
+site that needs it and costs the other guards nothing.
+
+`AnyCtx` is currently declared at `middleware/index.ts:8` and **not exported**. It becomes exported, because
+`isGqlCtx`'s signature names it and a guard that wants to write a helper over it needs it too.
+
+### 10.3 `runChain` becomes generic, and this is a correctness fix
+
+`ChainHandler = (ctx: AnyCtx) => unknown` and `const pipedCtx: AnyCtx = { ...ctx, body }` are both `AnyCtx`, so
+although the spread carries `parent`, `request` and `field` through at runtime — §2 says so, and it is true —
+the **type** the handler receives has lost them. A resolver reached through the chain would not compile against
+`ctx.parent`. §2's claim is therefore only half-true today, and the fix is in `middleware/index.ts`:
+
+```ts
+export type Piped<C extends AnyCtx> = Omit<C, 'body'> & { readonly body: unknown };
+
+export declare function runChain<C extends AnyCtx>(
+  chain: Chain,
+  ctx: C,
+  handler: (ctx: Piped<C>) => unknown,
+): Promise<WebResponse | unknown>;
+```
+
+`body` widens to `unknown` because that is what the pipes did to it — a pipe's `transform` returns `unknown`,
+so claiming the handler still gets `C['body']` would be a lie in the other direction, and the resolver's
+`assert` is what narrows it back. Everything else on `C` survives, which is precisely the guarantee §2 needs.
+
+If the checker refuses `{ ...ctx, body }` as `Piped<C>` — a spread of a generic is not provably the mapped
+type — **one `as Piped<C>` is permitted, with a comment naming the boundary**, following the existing
+`page.after as Record<string, unknown>` precedent in `repository/src/index.ts`. `#545` pins the outcome with a
+type-test rather than the implementation: a `GqlCtx` in, a handler whose `ctx.parent` is the parent type.
+
+The HTTP call site is unaffected — `C` infers to `AnyCtx` there and `Piped<AnyCtx>` is `AnyCtx`.
+
+## 11. The field chain: three declared layers, one flattened chain, and a budget
+
+Middleware is declared at three levels and **flattened once, at `register()`**, into exactly one `Chain` per
+field:
+
+```ts
+export interface ResolverMiddleware {
+  readonly global?: Chain;
+  readonly perType?: Readonly<Record<string, Chain>>;
+}
+```
+
+`perField` is not a fourth option — it is the `chain` already on `ResolverOptionsFor<A>` (§3), so a field's own
+middleware is declared next to its `validate`, in the same record, and nothing has to agree about a field's
+name in two places.
+
+Order, and it is not symmetric:
+
+| Kind           | Concatenation order   | Why                                                                                                    |
+| -------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `guards`       | global → type → field | The broadest check runs first and refuses cheapest.                                                    |
+| `pipes`        | global → type → field | A field's pipe sees what the type's pipe produced.                                                     |
+| `interceptors` | global → type → field | Outermost wraps: a global timer measures the field's work.                                             |
+| `filters`      | field → type → global | `runChain` takes the first filter that returns a response, so the most specific must be reached first. |
+
+The `filters` reversal is the one thing here a reader would get wrong, and getting it wrong is silent: a global
+catch-all placed first would swallow every error before a field's own filter ever saw it, and the tests would
+still pass because _something_ handled it. Stated here, and asserted by `#545`.
+
+**A field with no chain in any layer gets no wrapper at all.** The resolver map holds the bound method itself,
+so `resolvers.Post.author === boundMethod` — assertable by identity, which is a stronger statement than
+measuring how fast a wrapper is. This matters because most fields on a large schema have no middleware, and a
+per-field wrapper on all of them is the cost the epic's performance step is worried about.
+
+The budget is stated in **allocations per field invocation**, not microseconds:
+
+| Field            | Allocations                                      |
+| ---------------- | ------------------------------------------------ |
+| no chain         | 0 (the bound method is called directly)          |
+| a guard only     | 1 — the `GqlCtx`                                 |
+| pipes            | 2 — the `GqlCtx`, and `pipedCtx`                 |
+| _n_ interceptors | the above, plus one closure and one promise each |
+
+The guard-only row requires a change in `middleware/index.ts`: skip the `{ ...ctx, body }` spread when
+`pipes.length === 0` and pass `ctx` through. Today the spread is unconditional. A count is chosen over a
+duration because it is hardware-independent and a test can actually check it; a microsecond target in a spec
+is a number that rots on the next machine.
+
+The wall-clock claim, where one is needed, is a **ratio** measured by the existing `benchmarks/` harness: a
+guard-only field must add **less than 5%** to a 100-item list against an in-memory driver. Ratios survive a
+change of machine; absolute numbers do not.
+
+One flattening, memoised: `chainFor('Post', 'author') === chainFor('Post', 'author')`, so the arrays are
+concatenated at boot and never per request.
+
+## 12. Plugins: the hook set is empty, and that is the finding
+
+`#544` asks for a `ServerPlugin` lifecycle. Working backwards from step 4's own rule — a hook with no consumer
+does not ship — every hook that could go on it is impossible here, someone else's, or a duplicate of something
+that already exists:
+
+| Proposed hook                          | Verdict                                                                                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onParse(document)`                    | Impossible — nothing in this package parses. §6: the app calls `parse`.                                                                                             |
+| `onValidate(rules: ValidationContext)` | Impossible without the dependency — `ValidationContext` is a `graphql` class.                                                                                       |
+| `onRequest` / `onResponse`             | The app's, and already available — its transport controller is where it mounts, and that controller is an ordinary `@zmdb/web` route with the ordinary chain on it. |
+| `onExecute(ctx, next)`                 | A duplicate — that signature **is** `Interceptor.intercept(ctx, next)`.                                                                                             |
+| `onComplexity`                         | Not a hook — `complexityOf` is called by the app between `parse` and `execute` (`complexity/SPEC.md` §1).                                                           |
+
+**So `ServerPlugin` is refused entirely**, and `#544`'s third requirement is met by that refusal rather than by
+an interface: there is nothing a plugin could observe that an interceptor, a filter or the app's own route
+cannot, and a second extension mechanism aliasing the first is how two ways to do one thing get documented,
+diverge, and then disagree about ordering.
+
+An `apollo-server` or `envelop` plugin still works, unchanged, because it plugs into the engine the app
+constructed. That is a feature of not owning the transport, not a gap.
+
+## 13. Directives: one emitted, one mechanism for behaviour
+
+Three kinds of directive get three different answers.
+
+**`@deprecated(reason:)` is emitted**, and it is the only one. It comes from a new tag, so the SDL and the
+declaration cannot disagree:
+
+```ts
+/** In `@zmdb/schema-core/tags`. */
+export type Deprecated<Reason extends string> = { readonly __deprecated?: Reason };
+
+export interface Post extends Table<'posts'> {
+  legacySlug: string & Sql<'text'> & Deprecated<'use `slug`'>;
+}
+```
+
+→ `legacySlug: String! @deprecated(reason: "use \`slug\`")`. This is a cross-package addition: the tag in
+`schema-core/tags`, the emission in the SDL walk (`schema-core/src/sdl/SPEC.md`). It is the one directive worth
+the reach because it is pure schema — it changes what the document says and requires nothing at runtime.
+
+**A directive with runtime behaviour is an interceptor.** `@upper`, `@auth`, `@rateLimit` — each is a function
+that wraps a field's resolution, which is `Interceptor` with `runChain` already calling it in the right place
+(§11). There is no directive visitor: transforming a built schema is `mapSchema` from `@graphql-tools`, a
+dependency §6 gave up, and re-implementing schema transformation to get a second spelling of the interceptor
+we already have is work with a negative payoff.
+
+**A directive definition an app needs in its SDL travels as text.** `createGraphqlRegistry({ types })` already
+takes SDL strings and concatenates them (§6), so `directive @auth(role: String!) on FIELD_DEFINITION` is one
+more string in that array. No new API, and the app's engine — which is the thing that would enforce it — sees
+it.
+
+`@Complexity` is the exception that proves the rule:
+
+```ts
+export declare function Complexity(
+  cost: number | ((args: Readonly<Record<string, unknown>>) => number),
+): (target: Function, context: ClassMethodDecoratorContext) => void;
+```
+
+It populates the cost table (`complexity/SPEC.md` §3) and **emits nothing into the SDL**. A `@cost` directive in
+the emitted schema that no zmdb code reads is exactly the "schema that lies" this file's non-goals already
+refuse — worse here than elsewhere, because a reader would take an unenforced `@cost` for a limit. Note the
+signature: an ES class-method decorator, `(target, context)`, not `MethodDecorator`; the legacy form does not
+exist in Stage 3 and typing it that way would not compile.
+
+## 14. Introspection is the engine's switch, and the committed SDL is the better answer
+
+`#544` lists disabling introspection as a control. It is not one that can live here: turning it off is
+`useDisableIntrospection`, or a `validationRule`, or the schema the app built — all of them on the engine's
+side of §6's boundary. Declaring an `introspection: false` option that this package cannot enforce would be a
+setting that reads as protection and provides none.
+
+What is offered instead is two things that are ours. Introspection is **costed** rather than switched
+(`complexity/SPEC.md` §6: a flat charge per `__schema`/`__type` root, multiplied, so the aliased-introspection
+amplification is closed). And the emitted `schema.graphql` is a **committed file**
+(`schema-core/src/sdl/SPEC.md` §11), so the legitimate reason to leave introspection on in production — clients
+and tooling need the schema — disappears: they read it from the repository, at a version, without asking the
+server.
+
+## 15. What #545 has to assert on this side
+
+1. `narrows a context with isGqlCtx` — true for a registry-built context, false for a router-built one, and a
+   route context carrying a `body.parent` property still false (§10.2's duck-typing trap).
+2. `a chained resolver still sees parent, request and field` — in `graphql.type-test.ts` over
+   `Piped<GqlCtx<…>>`, and at runtime through a real chain. This is the §10.3 fix; without it the type-test
+   fails to compile.
+3. `runChain does not allocate a piped context when there are no pipes` — the guard-only row of §11's table,
+   asserted by identity (`handler` received the same object reference that was passed in).
+4. `a field with no chain in any layer is the bound method itself` — `parts().resolvers` identity, so no
+   wrapper can creep back in.
+5. `flattens global, per-type and per-field middleware in order` — one recording guard per layer, asserting
+   `['global', 'type', 'field']`, and one recording filter per layer asserting the **reverse**. Two tests, and
+   the second is the one that catches §11's asymmetry.
+6. `memoises the flattened chain per field` — `chainFor` returns an identical reference twice.
+7. `a guard-only field adds less than 5% to a 100-item list` — in `benchmarks/`, as a ratio against the same
+   query with no chain.
+8. `emits @deprecated from the Deprecated tag` — over `sdlOf`, including that the reason string is escaped
+   into the SDL, and that a field with no tag emits no directive.
+9. `@Complexity populates the cost table and emits nothing` — both halves in one test, because the second is
+   the part a future change would break silently.
+10. `there is no ServerPlugin export` — over `verify:exports`, so §12's refusal is enforced rather than
+    documented; and `onExecute`-shaped behaviour is demonstrated as an `Interceptor` instead.
+11. `there is no introspection option` — the same shape, for §14.
+
+## 16. Non-goals (rejected)
 
 - **No `@Args`, and no parameter decorators.** §1 — ES decorators have none, which is why `Ctx` exists.
 - **No thunks in the decorators.** §1 — there is no runtime type to return.
@@ -378,7 +622,18 @@ schema-first generation is refused (`packages/schema-core/src/sdl/SPEC.md` §11)
 - **No guard inheritance down a traversal.** §5 — a traversal is not a static structure, and pretending
   otherwise is how a field is believed to be protected.
 - **No second chain runner, and no `applyChain` here.** §8 — that helper belongs to the routing side.
-- **No subscriptions, no federation, no complexity limits, no directives, no per-field middleware, no
-  plugins.** Two later epics own those, and a directive whose runtime does not exist is a schema that lies.
+- **No subscriptions and no federation.** A later epic owns both.
+- **No `ServerPlugin`, and no plugin lifecycle.** §12 — every hook is impossible here, the app's, or an
+  `Interceptor` under another name.
+- **No directive visitor, and no `@cost` in the SDL.** §13 — schema transformation is `@graphql-tools`, and a
+  directive the emitter writes that nothing enforces is a schema that lies.
+- **No `introspection` option.** §14 — an engine flag this package cannot enforce.
+- **No declared `AnyCtx | AnyGqlCtx` union.** §10.2 — it would force every existing guard to re-narrow, which
+  is what §2 refused. A predicate narrows at the one site that needs it.
+- **No `info`, no `args`, and no `GraphQLExecutionContext`.** §5 and §10 — `GqlCtx` is that type, four of its
+  five requested members already exist under the names the rest of the package uses.
+- **No complexity enforcement inside this package.** `complexity/SPEC.md` §1 — the limit is checked between
+  `parse` and `execute`, both of which the app owns, so the call is the app's and the absence of one is
+  documented rather than papered over.
 - **No dataloader.** The request-scope bullet above — the caching epic owns batching, and this epic owns only
   how a field resolver reaches one.

@@ -19,6 +19,12 @@ a resolver registry over DI**:
   [authorisation trap](./web-graphql-resolvers.html) GraphQL is known for.
 - `graphql` is not a dependency, not a peer, and not an optional peer: the registry
   hands back a `typeDefs` string and a plain map of resolver functions.
+- Runtime controls reuse what exists rather than adding a parallel set: there is no
+  plugin lifecycle ([every hook it would carry already has a home](./web-graphql-plugins.html)),
+  a directive with behaviour is an `Interceptor`
+  ([`@deprecated` is the only one emitted](./web-graphql-directives.html)), and
+  [query cost](./web-graphql-complexity.html) is a function your transport calls
+  between `parse` and `execute`.
 
 ## Why it's still a ToDo
 

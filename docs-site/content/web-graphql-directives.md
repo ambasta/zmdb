@@ -1,17 +1,19 @@
 > **ToDo / feature gap.** There is no GraphQL layer, so there are no schema
 > directives — no `@Directive`, no `SchemaDirectiveVisitor`, no `@auth` or
-> `@deprecated` handling.
+> `@deprecated` handling. The design is frozen (see the last section): `@deprecated`
+> is emitted from a tag, and `@Directive` and the visitor are refused rather than
+> deferred.
 
 ## What directives are used for, and what to use instead
 
 Directives are how a GraphQL schema attaches behaviour to a field declaratively. The four common uses map onto things zmdb does differently.
 
-| Directive                | zmdb equivalent                                                               |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| `@auth(requires: ADMIN)` | a [guard](./web-middleware.html), or a check in the resolver                  |
-| `@deprecated(reason:)`   | a comment, plus removal — see below                                           |
-| `@upper`, `@formatDate`  | a transform in the resolver, or a [`postSelect` hook](./lifecycle-hooks.html) |
-| `@cost(complexity: 10)`  | see [Query Complexity](./web-graphql-complexity.html)                         |
+| Directive                | zmdb equivalent                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `@auth(requires: ADMIN)` | a [guard](./web-middleware.html) bound to the field, or a check in the resolver                      |
+| `@deprecated(reason:)`   | a `Deprecated<'why'>` tag on the column (frozen, below)                                              |
+| `@upper`, `@formatDate`  | an `Interceptor` in the field's chain, or a [`postSelect` hook](./lifecycle-hooks.html)              |
+| `@cost(complexity: 10)`  | `@Complexity(10)` — and it emits no directive; see [Query Complexity](./web-graphql-complexity.html) |
 
 The one that matters is the first, and it is worth being blunt about why declarative authorisation is attractive and where it fails.
 
@@ -62,7 +64,7 @@ if ('legacyTitle' in requestedFields) {
 
 Then remove it when the count reaches zero. That is more reliable than a deprecation notice, because it measures rather than announces.
 
-For a REST surface, `toOpenApi` produces a document you can post-process to add `deprecated: true` on an operation — see [OpenAPI Operations](./web-openapi-operations.html). Field-level deprecation would need it in the schema output.
+For a REST surface, `toOpenApi` produces a document you can post-process to add `deprecated: true` on an operation — see [OpenAPI Operations](./web-openapi-operations.html). Field-level deprecation in the emitted GraphQL schema is frozen, and it is the next section.
 
 ## Transforms
 
@@ -78,9 +80,27 @@ Post: {
 
 **In a [`postSelect` hook](./lifecycle-hooks.html)**, when the transform should apply to every read of the column — decrypting an encrypted field, for instance. Note there is no matching pre-write transform, so the inbound direction is your service's job.
 
-## What it would take
+## What it will take
 
-Directives presuppose a schema, so this is downstream of [the GraphQL layer](./web-graphql-resolvers.html). If it lands, the directive worth supporting is `@deprecated`; `@auth` would be a mistake to encourage over data-layer authorisation, for the reason above.
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it splits directives three ways rather than adding one mechanism for all of them.
+
+**`@deprecated` is emitted, from a tag.** It is the only directive the emitter writes, because it is pure schema — it changes what the document says and needs nothing at runtime:
+
+```ts
+export interface Post extends Table<'posts'> {
+  legacySlug: string & Sql<'text'> & Deprecated<'use `slug`'>;
+}
+```
+
+→ `legacySlug: String! @deprecated(reason: "use \`slug\`")`. The reason is a type parameter rather than a runtime value, for the same reason `HasDefault` says only that a default exists: the emitter has no runtime and can read only what the type carries. Deprecated _arguments_ and deprecated _enum values_ are refused — neither position can hold a tag, and half of the feature is worse than a refusal that says where it stops.
+
+**A directive with behaviour is an interceptor.** `@upper`, `@auth`, `@rateLimit` — each is a function wrapping one field's resolution, which is exactly `Interceptor`, bound to that field's chain. There is no `SchemaDirectiveVisitor` and no `@Directive`: transforming a built schema means `mapSchema` from `@graphql-tools`, a dependency the design gives up, and re-implementing schema transformation to get a second spelling of the interceptor that already exists is work with a negative payoff. See [Field Middleware](./web-graphql-field-middleware.html).
+
+**A directive _definition_ your schema needs travels as text.** The registry takes SDL strings and concatenates them, so `directive @auth(role: String!) on FIELD_DEFINITION` is one more string in that array, visible to the engine you constructed — which is the thing that would enforce it anyway.
+
+`@Complexity(10)` is the case that shows where the line is: it populates the cost table and emits **nothing** into the SDL. A `@cost` directive in a schema that no zmdb code reads is a schema that lies, and worse than a missing one, because a reader takes it for a limit.
+
+The warning above survives all of this unchanged. A chain bound to a field does not inherit down a traversal — a guard on `Query.post` still says nothing about `Post.authorEmail` — and data-layer authorisation is still the control you cannot forget to apply to a new field.
 
 ---
 

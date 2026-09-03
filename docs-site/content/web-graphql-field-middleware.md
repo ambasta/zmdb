@@ -6,12 +6,12 @@
 
 Wrapping the resolution of a single field: masking a value, timing it, caching it, or checking authorisation on it. The zmdb equivalents split by _when_ the concern applies.
 
-| Field middleware use               | zmdb equivalent                                |
-| ---------------------------------- | ---------------------------------------------- |
-| Mask or redact a value             | `Sensitive` on the column, or `select`         |
-| Authorise a single field           | a `Chain` bound to the field (frozen, below)   |
-| Transform on read                  | [`postSelect` hook](./lifecycle-hooks.html)    |
-| Time or count a field's resolution | a [driver wrapper](./web-graphql-plugins.html) |
+| Field middleware use               | zmdb equivalent                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| Mask or redact a value             | `Sensitive` on the column, or `select`                                                   |
+| Authorise a single field           | a `Chain` bound to the field (frozen, below)                                             |
+| Transform on read                  | [`postSelect` hook](./lifecycle-hooks.html)                                              |
+| Time or count a field's resolution | a [driver wrapper](./web-graphql-plugins.html), or an `Interceptor` in the field's chain |
 
 ## Do not fetch what you will not return
 
@@ -87,7 +87,7 @@ A slow field is nearly always a slow query or an N+1 pattern. Instrumenting the 
 
 ## What it will take
 
-Field middleware presupposes field resolution, so it follows [the GraphQL layer](./web-graphql-resolvers.html) — but the shape it takes there is frozen, in `packages/web/src/graphql/SPEC.md` §5, and it is not a new decorator:
+Field middleware presupposes field resolution, so it follows [the GraphQL layer](./web-graphql-resolvers.html) — but the shape it takes there is frozen, in `packages/web/src/graphql/SPEC.md` §5 and §11, and it is not a new decorator:
 
 ```ts
 const ownerOnly: Chain = { guards: [OwnerOrAdmin], pipes: [], interceptors: [], filters: [] };
@@ -104,6 +104,19 @@ It is the same `Chain` an HTTP route takes — the same `Guard`, `Pipe`, `Interc
 - It authorises, it does not mask. A guard refuses the field, which becomes an error entry with `FORBIDDEN` in `extensions.code` and `null` in the data; nothing rewrites a value on the way out. `Sensitive` still does not stop a resolver returning a value, exactly as the warning above says, so the `select` advice on this page keeps its force.
 
 Because the binding is a table rather than an annotation, the boot check can be exhaustive: every decorated field must appear in it, and every key in it must be a decorated field. A typo is a boot failure rather than a field that silently resolves with no guard.
+
+Three fields carry a chain and forty do not, in most schemas, and the frozen design is built around that ratio:
+
+```ts
+registry.register<PostFields>(resolver, bindings, {
+  global: { guards: [Authenticated], pipes: [], interceptors: [timing], filters: [] },
+  perType: { Post: { guards: [], pipes: [], interceptors: [], filters: [PostErrors] } },
+});
+```
+
+**Three declared levels, flattened once at registration.** A field's own `chain` is the third, and the concatenation happens at boot, not per request — `chainFor('Post', 'author')` returns the same object every time. Guards, pipes and interceptors go broadest-first, so a global timer wraps the field's work and a field's pipe sees what the type's pipe produced. **Filters go narrowest-first**, because the first filter that returns a response wins: a global catch-all placed first would swallow every error before a field's own filter ran, and every test would still pass.
+
+**A field with no chain in any of the three levels is not wrapped.** The resolver map holds the bound method itself, so this feature costs a schema that does not use it nothing at all — not a small constant, zero. A field that does carry one allocates its context, plus a piped context only when there are pipes to fold.
 
 The framework-side gap worth closing independently is the missing **pre-write** counterpart to `postSelect` — a `preSave` transform applied uniformly across `create`, `update` and the compiler. That would make transparent column encryption and normalisation possible without duplicating the logic in every write path, which is a real, current limitation rather than a GraphQL one.
 

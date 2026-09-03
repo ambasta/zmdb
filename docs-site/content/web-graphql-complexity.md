@@ -1,5 +1,7 @@
 > **ToDo / feature gap.** There is no GraphQL layer, so there is no complexity
-> analysis — no `@cost` directive, no depth limiter, no query cost estimation.
+> analysis — no depth limiter and no query cost estimation. The design is frozen
+> (see the last section); a `@cost` directive is not part of it, and the reason is
+> there too.
 
 ## The underlying risk, which applies to any API
 
@@ -24,6 +26,8 @@ query {
 ```
 
 Each level multiplies. With no depth limit and no batching, that is a self-inflicted denial of service, and it needs no authentication to attempt.
+
+Put page sizes on it — `posts(limit: 50)` and `comments(limit: 50)` — and the frozen cost model scores that document at **12,630,051**, from 250 characters. On the default page size of 20 with no arguments at all it is still 328,821. The arithmetic is in `packages/web/src/graphql/complexity/SPEC.md` §5; the point of quoting it here is that the number does not need to be accurate to be decisive.
 
 ## The controls that exist here
 
@@ -108,11 +112,32 @@ Set it on the database role rather than in application code where you can. A rol
 
 Complexity limits bound one request; rate limits bound a client. You need both, and the framework has neither — do it at the proxy, the CDN or an API gateway, which is also where it survives your process restarting. See [Rate Limiting](./web-rate-limiting.html).
 
-## What it would take
+## What it will take
 
-For GraphQL specifically, cost analysis follows [the layer itself](./web-graphql-resolvers.html).
+The design is frozen, in `packages/web/src/graphql/complexity/SPEC.md`. One function, called by your own transport controller, between `parse` and `execute`:
 
-Framework-side, the useful pieces are more general: a documented per-request query budget wrapper, and a `maxLimit` option on `ListDTO` handling so the clamp is not re-implemented in every handler. Both small, both benefit REST equally, and both are the kind of default that prevents a class of incident rather than one bug.
+```ts
+const document = parse(query);
+const { cost, overLimit } = complexityOf(document, { costs, maxCost: 1000, variables, operationName });
+if (overLimit)
+  return json({ data: null, errors: [{ message: 'query is too complex', extensions: { code: 'QUERY_TOO_COMPLEX' } }] });
+return json(await execute({ schema, document, variableValues: variables, operationName }));
+```
+
+> [!WARNING]
+> There is no ambient enforcement, and there will not be. `@zmdb/web` does not serve `/graphql` — [the registry hands back a schema and a resolver map and your controller mounts them](./web-graphql-resolvers.html) — so **an application that does not make this call has no limit.** That is stated rather than smoothed over, because it is the one way to end up unprotected while believing otherwise.
+
+Four decisions in that design are worth knowing before it lands, because each is a place the obvious implementation is wrong.
+
+**The estimate is an upper bound, not an average.** Aliases count separately, a fragment costs once per spread site, and sibling inline fragments are **summed** rather than maxed — taking the maximum looks more accurate, but a list of an interface contains values matching different arms, so all of them really do execute. An estimator that can undercount is a limit that can be walked around, and every one of those three is a published bypass.
+
+**The list-ness of a field is not hand-written.** `costsOf<T>('Post')` derives which fields are lists and what each returns from the same type the SDL comes from, and your table supplies only the costs. A list field recorded as a scalar never multiplies — the limit silently stops bounding anything, and nothing fails.
+
+**The refusal does not say how close you were.** The default message is `query is too complex` with no cost and no limit, because a client that learns both can binary-search your cost model. `revealLimit: true` gives you the numbers in development.
+
+**It is not a validation rule.** That is the idiomatic position and it needs `ValidationContext`, a `graphql` class — and the GraphQL design deliberately has no `graphql` dependency. Between `parse` and `execute` needs nothing but the document.
+
+Framework-side, two more general pieces are still worth having and are not part of that freeze: the per-request query budget above as a documented wrapper, and a `maxLimit` option on `ListDTO` handling so the clamp is not re-implemented in every handler. Both benefit REST equally. And note that the budget above is not made redundant by cost analysis — it measures queries actually issued rather than an estimate, so it catches the N+1 a cost model prices at 1.
 
 ---
 

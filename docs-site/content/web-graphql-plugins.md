@@ -95,11 +95,25 @@ The `viewer.id` in the key is not optional. A cache keyed on the query and varia
 
 Prefer caching at the data layer, where the key is a row and a tenant, over caching whole responses. See [Caching](./web-caching.html).
 
-## What it would take
+## What it will take: nothing, and that is the frozen answer
 
-A plugin system presupposes a GraphQL request lifecycle, so this follows [the GraphQL layer](./web-graphql-resolvers.html).
+The GraphQL design is frozen in `packages/web/src/graphql/SPEC.md`, and **there is no `ServerPlugin`**. That is a decision with reasons rather than a deferral, and it came from working backwards from the hooks such an interface would carry. Every one of them turned out to be impossible here, already yours, or a second name for something that exists:
 
-Independently useful, and much smaller: wiring `runChain` into the router so interceptors apply without hand-rolled invocation, and a documented observation point around `app.handle`. Those two would give the framework the extension surface a plugin API provides, for every surface rather than one.
+| The hook a plugin API would need | Why it is not there                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `onParse(document)`              | Nothing in `@zmdb/web` parses. Your controller calls `parse` — see [Resolvers](./web-graphql-resolvers.html).           |
+| `onValidate(context)`            | Its argument is `ValidationContext`, a `graphql` class, and the design has no `graphql` dependency to name it with.     |
+| `onRequest` / `onResponse`       | Yours already: the `/graphql` route is an ordinary `@zmdb/web` route, with the ordinary guards, pipes and interceptors. |
+| `onExecute(ctx, next)`           | That signature **is** `Interceptor.intercept(ctx, next)`, and the field chain already calls it in the right place.      |
+| a complexity hook                | [`complexityOf`](./web-graphql-complexity.html) is a function your controller calls between `parse` and `execute`.      |
+
+So the conclusion of this page's own second section holds all the way through the design: **wrap the thing you want to observe.** A second extension mechanism aliasing the first is how two ways to do one thing get documented, diverge, and then disagree about ordering — with interceptors and plugins specifically, about which one wraps the other.
+
+What does change is per-field granularity. A chain can be declared globally, per type, or on a single field, and the three layers are flattened once at registration into one chain per field, so `Post.authorEmail` can carry a guard that `Query.post` does not. See [Field Middleware](./web-graphql-field-middleware.html).
+
+An Apollo or envelop plugin still works, unchanged, because it plugs into the engine you constructed. Not owning the transport is what makes that true.
+
+Independently useful and still not built: wiring `runChain` into the router so interceptors apply to HTTP routes without hand-rolled invocation, and a documented observation point around `app.handle`. The caveat in the section above is about the router, and the GraphQL freeze does not lift it — the field chain calls `runChain`; the router still does not.
 
 ---
 
