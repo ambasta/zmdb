@@ -44,3 +44,35 @@ describe('DDL emitter — down reverses up per dialect', () => {
     expect(emitDown(createUsers, 'postgres')).toBe('DROP TABLE "users"');
   });
 });
+
+describe('DDL emitter — native primitive column types', () => {
+  const createPrimitives: ChangeOp = {
+    kind: 'create_table',
+    table: 'primitives',
+    columns: [
+      { name: 'guid', type: 'uuid', nullable: false, primaryKey: true },
+      { name: 'birth_date', type: 'date', nullable: false, primaryKey: false },
+      { name: 'alarm_time', type: 'time', nullable: false, primaryKey: false },
+      { name: 'price', type: 'decimal', nullable: false, primaryKey: false },
+      { name: 'data', type: 'blob', nullable: false, primaryKey: false },
+    ],
+  };
+
+  it('postgres maps blob to bytea', () => {
+    expect(emitUp(createPrimitives, 'postgres')).toBe(
+      'CREATE TABLE "primitives" ("guid" uuid PRIMARY KEY, "birth_date" date NOT NULL, "alarm_time" time NOT NULL, "price" decimal NOT NULL, "data" bytea NOT NULL)',
+    );
+  });
+
+  it('mysql maps uuid to char(36)', () => {
+    expect(emitUp(createPrimitives, 'mysql')).toBe(
+      'CREATE TABLE `primitives` (`guid` char(36) PRIMARY KEY, `birth_date` date NOT NULL, `alarm_time` time NOT NULL, `price` decimal NOT NULL, `data` blob NOT NULL)',
+    );
+  });
+
+  it('sqlite maps uuid to text', () => {
+    expect(emitUp(createPrimitives, 'sqlite')).toBe(
+      'CREATE TABLE "primitives" ("guid" text PRIMARY KEY, "birth_date" date NOT NULL, "alarm_time" time NOT NULL, "price" decimal NOT NULL, "data" blob NOT NULL)',
+    );
+  });
+});

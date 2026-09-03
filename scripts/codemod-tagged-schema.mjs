@@ -87,8 +87,29 @@ const BUILDERS = {
   timestamp: 'timestamp',
   json: 'json',
   jsonEnum: 'jsonEnum',
+  uuid: 'uuid',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'blob',
 };
 
+/** `SqlType` → the TypeScript type it maps to. Mirrors `BaseTsType` in schema-core. */
+const TS_TYPE = {
+  serial: 'number',
+  integer: 'number',
+  numeric: 'number',
+  bigint: 'bigint',
+  text: 'string',
+  varchar: 'string',
+  boolean: 'boolean',
+  timestamp: 'Date',
+  uuid: 'string',
+  date: 'Date',
+  time: 'string',
+  decimal: 'string',
+  blob: 'Uint8Array',
+};
 /** `ValidationRule.kind` → the tag that spells the same constraint. See `ir`'s alias table. */
 const CONSTRAINT_TAGS = {
   minimum: 'Min',
