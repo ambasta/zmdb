@@ -39,7 +39,7 @@ const check = process.argv.includes('--check');
 // Install its canonical resolver before loading any source module; static imports would be
 // linked too early for the hook to affect their transitive dependencies.
 await import('../../scripts/ts-specifier-hook.mjs');
-const [{ findCallSites }, { Reflector }, { ReflectSession, withSession }, { transformFile }] = await Promise.all([
+const [{ findCallSites }, { Reflector }, { withSession }, { transformFile }] = await Promise.all([
   import('../../packages/aot-validator/src/reflect/callsites.js'),
   import('../../packages/aot-validator/src/reflect/index.js'),
   import('../../packages/aot-validator/src/reflect/session.js'),
