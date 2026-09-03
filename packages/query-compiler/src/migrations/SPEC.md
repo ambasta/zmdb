@@ -414,6 +414,24 @@ most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` the
 the offset of every `Date` written through it. An abstract type the map does not know is
 passed through unchanged rather than guessed at.
 
+**"Per dialect" has been less true of this emitter than the heading claims**, and the audit that found it is
+in `../dialects/SPEC.md` §1. Three statements here are emitted in one dialect's grammar for all of them:
+`add_column` says `ADD COLUMN`, which T-SQL rejects; `alter_column_type` says `ALTER COLUMN c TYPE t`, which
+is the Postgres spelling and not MySQL's `MODIFY COLUMN`; and `emitDown` of a `drop_table` produces
+`CREATE TABLE t ()`, an empty column list that only Postgres parses. The first two are fixed as part of the
+dialect-traits work, since that is where a per-dialect spelling acquires somewhere to live. The third is not
+a spelling problem — the columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of
+a `drop_table` becomes a refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot
+run on three dialects out of six.
+
+The type map itself gains three columns and one correction. `mssql` maps `timestamp` to `DATETIMEOFFSET(3)`
+rather than `DATETIME2`, following the same rule the Postgres row is annotated with: a `timestamp` gets the
+dialect's zone-aware type wherever one with a usable range exists. `cockroach` inherits Postgres and
+overrides two entries — `serial` becomes `INT8 DEFAULT unique_rowid()`, which is what Cockroach's `SERIAL`
+already means, and `integer` becomes `INT4`, because Cockroach's `INTEGER` is 64-bit and `Entity<T>` types
+the column as a `number`. `singlestore` inherits MySQL and widens `serial` to `BIGINT AUTO_INCREMENT`, since
+auto-increment values there are allocated per partition in large strides.
+
 ## 4. Migration lifecycle + version tracking
 
 - Version table `_zmdb_migrations(version INTEGER PRIMARY KEY, name TEXT, applied_at)`.

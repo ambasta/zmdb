@@ -374,6 +374,50 @@ unordered `SELECT` is as well-defined as the non-streaming version of the same r
 ordering would change results silently and defeat any index the author chose. No implicit `LIMIT`, for the
 same reason — bounding a stream is what `batchSize` is for, and it bounds memory rather than the result.
 
+## 5e. The dialect mechanism (frozen — epic "The SQL dialect matrix")
+
+`Dialect` grows to six members: `'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`.
+The per-dialect divergences, construct by construct with the SQL written out, are in `src/dialects/SPEC.md`.
+What belongs here is the mechanism, because it changes how every section above is implemented.
+
+**A traits record per dialect, with an optional `parent`, merged once at module load.** Not a flat union with
+more comparisons. The measurement that decided it, from the inventory in `src/dialects/SPEC.md` §1: this
+package contains **no `switch (dialect)` at all** — fourteen inline comparisons across seven files, two
+`Record<Dialect, …>` tables, and eight emitters that produce one dialect's grammar with no branch
+whatsoever. Add three members to the union today and exactly three files stop compiling; the other
+twenty-one sites keep compiling and quietly emit Postgres SQL for SQL Server. That ratio, three of
+twenty-four, is the argument. A traits record moves the twenty-one into tables where a missing entry is a
+compile error.
+
+The cost is not hidden: `quoting.ts` is rewritten around a quote-character pair, `renumberPlaceholders`
+gains a dialect (its regex is `$n`-only today, so a `UNION` on a named-placeholder dialect would repeat
+`@p1`), `tailClause` loses its two unconditional `text +=` lines, and the insert/update/delete builders
+assemble text in named parts instead of by concatenation — because SQL Server's `OUTPUT` sits in the middle
+of the statement where `RETURNING` is appended. That last one is the invasive change in the epic and the one
+that decides whether the builder shape can host SQL Server at all.
+
+Three things this mechanism does **not** change:
+
+- **§1's contract.** A compiled query is still `{ text, parameters }`, still frozen, still a pure function of
+  builder state. `parameters` stays positional and in placeholder order even where the dialect binds by name
+  — the `mssql` driver adapter maps the array onto `@p1…@pn`, which is exactly what that ordering is for.
+- **§3's table**, which describes the three dialects that ship. The three new rows live with the dialects
+  that need them rather than being promised here before an emitter exists.
+- **Dispatch timing.** `TRAITS` is resolved once when the module is evaluated and indexed thereafter, never
+  walked per statement. It is a module-level record rather than per-compiler state because `quoteIdentifier`,
+  `ddlType`, `emitUp`, `setOperation` and half a dozen more are exported functions taking a `Dialect` string,
+  and `@zmdb/repository` calls them that way.
+
+**One narrowing to §5d.** That section froze "`text` is exactly one statement, and carries no trailing
+semicolon" as load-bearing, because the streaming driver embeds `text` in `DECLARE <name> CURSOR FOR <text>`.
+SQL Server's upsert is a `MERGE`, and `MERGE` requires a terminating semicolon. The invariant is therefore
+narrowed rather than broken: it holds for every `SELECT`, which is all a cursor ever wraps. An upsert is not
+a `SELECT`, one statement it remains, and the semicolon is confined to that one construct.
+
+**One sentence in §5b.3 becomes wrong and is corrected there when the dialect lands.** "`NOT` is the same
+token on all three" was true of three dialects. `NOT [published]` is a syntax error in T-SQL, where a `BIT`
+column is not a boolean expression; the spelling is `~[published]`.
+
 ## 6. Non-goals / anti-patterns (rejected)
 
 - No runtime type resolution (no reliance on schema types at runtime).
