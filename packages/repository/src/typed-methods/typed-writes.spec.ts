@@ -105,11 +105,63 @@ describe('typed create/update (#206)', () => {
       },
     });
 
-    const OrderSchema = defineSchema('orders', {
-      id: serial().primaryKey(),
-      total: text().withCustomType(MoneyType).notNull(),
-      discount: customType(text(), MoneyType).nullable(),
-    }) as unknown as TaggedSchema<DeclaredTable>;
+    const OrderSchema = {
+      table: 'orders',
+      columns: {
+        id: { type: 'serial', flags: { nullable: false, autoIncrement: true, hasDefault: true, primaryKey: true } },
+        total: { type: 'text', flags: { nullable: false }, customType: MoneyType },
+        discount: { type: 'text', flags: { nullable: true }, customType: MoneyType },
+      },
+      primaryKey: ['id'],
+      references: [],
+      ir: {
+        table: 'orders',
+        columns: [
+          {
+            name: 'id',
+            sql: 'serial',
+            nullable: false,
+            primaryKey: true,
+            serial: true,
+            unique: false,
+            hasDefault: true,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+          {
+            name: 'total',
+            sql: 'text',
+            codec: 'Money',
+            payload: { kind: 'unknown' },
+            nullable: false,
+            primaryKey: false,
+            serial: false,
+            unique: false,
+            hasDefault: false,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+          {
+            name: 'discount',
+            sql: 'text',
+            codec: 'Money',
+            payload: { kind: 'unknown' },
+            nullable: true,
+            primaryKey: false,
+            serial: false,
+            unique: false,
+            hasDefault: false,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+        ],
+        primaryKey: ['id'],
+        relations: [],
+      },
+    } as unknown as TaggedSchema<DeclaredTable>;
 
     it('validates custom-typed domain objects and encodes them prior to SQL compilation', async () => {
       const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, total: '100:USD', discount: null }]);

@@ -14,8 +14,6 @@ export {
   defineType,
   encodeValue,
   decodeValue,
-  customType,
-  withCustomType,
 } from '@zmdb/schema-core';
 export type {
   Entity,

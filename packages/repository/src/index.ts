@@ -2622,7 +2622,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             if (customValid) {
               try {
                 // boundary: payload value passed to codec serializer after custom validation; column type parameter guarantees value matches codec TS type.
-                out[name] = ct.toDb(value as never);
+                out[name] = ct.toDb(value);
               } catch (err) {
                 issues.push({
                   path: `input.${name}`,
