@@ -219,7 +219,7 @@ export declare function scalar<Wire, TS>(name: string, type: CustomType<Wire, TS
         files: [
           '`docs-site/pages.mjs`',
           'the five content files',
-          '`docs-site/content/index.md` and the nav — GraphQL becomes a real section.',
+          '`docs-site/content/introduction.md` — the `Web Framework — GraphQL` nav section already exists but every page under it is `todo`, so nothing links into it yet.',
         ],
         steps: [
           'Publish the mapping table verbatim from the spec, including the input/output split convention — a reader who sees `OrderInput` appear needs to know why.',

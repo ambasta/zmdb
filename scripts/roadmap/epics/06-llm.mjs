@@ -210,14 +210,14 @@ export declare function aiSdkTool<T>(
         goal: 'Flip all three pages to supported, with the per-provider differences shown side by side and the expressibility limits stated up front.',
         files: [
           '`docs-site/pages.mjs`, `docs-site/content/llm-strategy.md`, `llm-langchain.md`, `llm-vercel-ai-sdk.md`',
-          '`docs-site/content/llm-tools.md` — the existing page needs to point at `toolFor`.',
+          '`docs-site/content/llm-function-calling.md` — the existing page documents `toolFromSchema` and needs to point at `toolFor`.',
         ],
         steps: [
           'Show one type emitted for all four providers side by side. That single comparison teaches the whole feature better than prose, especially the optional-to-nullable transformation.',
           'Document what each provider cannot express and what the refusal looks like, before the happy path — a reader with a discriminated union needs to know immediately.',
           'Document the adapters with runnable examples, stating the peer-dependency requirement and the tested version ranges.',
           'State the property the adapters have that alternatives do not: validation without a runtime schema library, and how that is enforced.',
-          'Update the existing `llm-tools` page so `toolFromSchema` is described as the provider-neutral case, and refresh README counts.',
+          'Update the existing `llm-function-calling` page so `toolFromSchema` is described as the provider-neutral case, and refresh README counts.',
         ],
         tests: ['`node docs-site/build.mjs`, `yarn verify:docs-coverage` green.'],
         dod: [

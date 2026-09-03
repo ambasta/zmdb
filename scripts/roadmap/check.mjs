@@ -42,6 +42,27 @@ for (const page of todoPages) {
   if (!claimedBy.has(page)) note(`todo page '${page}' is not claimed by any epic`);
 }
 
+// Prose is where the wrong file path hides. `epic.pages` is checked above, but a sub-issue's `files` and
+// `steps` name content files too, and a developer sent to `docs-site/content/<slug>.md` for a slug that was
+// never in `PAGE_META` wastes their time on a file they have to invent.
+const CONTENT_PATH = /docs-site\/content\/([a-z0-9-]+)\.md/g;
+const strings = value =>
+  typeof value === 'string'
+    ? [value]
+    : Array.isArray(value)
+      ? value.flatMap(strings)
+      : value && typeof value === 'object'
+        ? Object.values(value).flatMap(strings)
+        : [];
+
+for (const epic of EPICS) {
+  for (const text of strings(epic)) {
+    for (const [, slug] of text.matchAll(CONTENT_PATH)) {
+      if (!(slug in PAGE_META)) note(`epic ${epic.key}: names 'docs-site/content/${slug}.md', which is not a page`);
+    }
+  }
+}
+
 // Every sub-issue key is addressable as `epicKey:subKey`, and every blocker must resolve to one.
 const subKeys = new Set();
 const epicKeys = new Set();

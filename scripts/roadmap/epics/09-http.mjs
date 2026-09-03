@@ -516,7 +516,10 @@ export declare function Version(...versions: readonly string[]): MethodDecorator
         docs: true,
         blockedBy: ['security', 'versioning'],
         goal: 'Flip both pages to supported, leading with the derived-security property since it is the differentiator.',
-        files: ['`docs-site/pages.mjs`', 'the two content files', '`docs-site/content/openapi-document.md`'],
+        files: [
+          '`docs-site/pages.mjs`, `docs-site/content/web-openapi-security.md`, `docs-site/content/web-versioning.md`',
+          '`docs-site/content/web-openapi.md` — the existing document page has to describe the derived `security` blocks.',
+        ],
         steps: [
           "Lead the security page with the property, not the API: the document's security blocks are derived from the guards, so it cannot claim protection the code does not have — and a route with no guard fails the build rather than appearing public.",
           'Show the `@Public()` opt-out and explain that it exists to be audited, with the grep that lists every public endpoint.',

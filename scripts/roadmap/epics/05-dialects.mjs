@@ -227,7 +227,8 @@ export interface DialectTraits {
         files: [
           '`docs-site/pages.mjs`',
           'the three content files',
-          '`docs-site/content/dialects.md` — the overview needs the new members.',
+          'the `Dialects` section of `NAV` in `docs-site/pages.mjs` — there is no dialect overview page, the nav section is the index.',
+          '`docs-site/content/gotchas.md` — it already enumerates dialects, so it goes stale the moment three more exist.',
         ],
         steps: [
           "Document each dialect's divergences as a table: construct, emitted SQL, caveats.",

@@ -185,7 +185,7 @@ interface EmitOptions {
         goal: 'Flip `validators-shallow` to supported and write the page so a reader cannot come away thinking shallow validation is a free speed-up.',
         files: [
           '`docs-site/pages.mjs`, `docs-site/content/validators-shallow.md`',
-          '`docs-site/content/validators.md` — cross-link, and say when not to use it.',
+          '`docs-site/content/validators-validate.md` — cross-link from full validation, and say when not to use shallow.',
           '`tests/api-coverage/mapping.mjs`',
         ],
         steps: [

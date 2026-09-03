@@ -447,7 +447,7 @@ class BaseRepository<T> {
         goal: 'Flip `entity-filters` to supported, and write the page around the cases that go wrong: joins, populate, aggregates, writes, unique constraints.',
         files: [
           '`docs-site/pages.mjs`, `docs-site/content/entity-filters.md`',
-          '`docs-site/content/soft-delete.md` if one exists, otherwise cross-link from the delete/CRUD pages.',
+          '`docs-site/content/delete.md` and `docs-site/content/crud.md` — there is no soft-delete page, so the cross-link from the delete and CRUD pages is the only way a reader finds this.',
           '`tests/api-coverage/mapping.mjs` — MikroORM filter suites.',
         ],
         steps: [
