@@ -40,6 +40,7 @@ When there is genuinely no proxy:
 ```ts
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { join, normalize, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
@@ -55,7 +56,7 @@ const TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
-async function serveStatic(req: NodeReq, res: NodeRes, urlPath: string): Promise<boolean> {
+async function serveStatic(req: IncomingMessage, res: ServerResponse, urlPath: string): Promise<boolean> {
   const resolved = normalize(join(ROOT, urlPath));
   if (!resolved.startsWith(ROOT + '/')) {
     res.writeHead(403).end();
@@ -77,14 +78,24 @@ async function serveStatic(req: NodeReq, res: NodeRes, urlPath: string): Promise
 ```
 
 ```ts
-createServer(async (req, res) => {
+createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const path = (req.url ?? '/').split('?')[0] ?? '/';
   if (path.startsWith('/assets/') && (await serveStatic(req, res, path.slice('/assets'.length)))) return;
 
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle({
+    method: req.method ?? 'GET',
+    path,
+    headers: Object.fromEntries(
+      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
+    ),
+  });
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```
+
+`app.handle` takes a `WebRequest`, which is `{ method, path, headers, rawBody?, query? }` — a
+`path` with the query string already removed, not a `url`. This branch has one, so it reuses it;
+[compression](./web-compression.html) shows the same construction with the body-reading half.
 
 ## The security details, which are the whole point
 
@@ -119,14 +130,18 @@ Send `index.html` with `cache-control: no-cache` while the hashed assets get the
 
 ## What it would take
 
-The response body change in [streaming files](./web-streaming-files.html), and then a handler that returns a `WebResponse` — so `serveStatic` is a controller method and not an adapter branch:
+Three things, not two. The response body change in [streaming files](./web-streaming-files.html); a handler that returns a `WebResponse` — so `serveStatic` is a controller method and not an adapter branch; and **wildcard route patterns**, which do not exist. `compilePattern` special-cases `:param` only, so `*` is a literal segment: `@Get('/assets/*')` matches the path `/assets/*` and nothing else, and `ctx.params['*']` is never populated. `Ctx<{ '*': string }>` typechecks structurally, so the sample below compiles today and cannot work.
 
 ```ts
+// top-level await, so the root is resolved once before any request arrives
 const assets = await createStaticHandler({ root: '/var/www/assets', onError: log });
 
-@Get('/assets/*')
-async asset(ctx: Ctx<{ '*': string }>) {
-  return this.assets.serve(ctx.params['*'], ctx.headers);
+@Controller('/assets')
+class AssetController {
+  @Get('/*')
+  async asset(ctx: Ctx<{ '*': string }>) {
+    return assets.serve(ctx.params['*'], ctx.headers);
+  }
 }
 ```
 

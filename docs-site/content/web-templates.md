@@ -10,7 +10,7 @@
 
 ## What zmdb is for
 
-A JSON API. Every route returns `application/json`, and that is a design position rather than an omission — the framework's whole surface (typed handlers, [derived DTOs](./type-derivation.html), [OpenAPI generation](./web-openapi-operations.html), AOT validation of request bodies) is about the contract between a server and a programmatic client.
+A JSON API. Most routes return `application/json`, and that is a design position rather than an omission — the framework's whole surface (typed handlers, [derived DTOs](./type-derivation.html), [OpenAPI generation](./web-openapi-operations.html), AOT validation of request bodies) is about the contract between a server and a programmatic client.
 
 If your application is server-rendered HTML, a template-first framework will fit better than working around this. If it is an API with a separate frontend — which is the common case — nothing here affects you.
 
@@ -23,9 +23,9 @@ Two arrangements work today.
 **HTML from your own adapter**, bypassing `app.handle` for the HTML routes:
 
 ```ts
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-createServer(async (req, res) => {
+createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const path = (req.url ?? '/').split('?')[0] ?? '/';
 
   if (path === '/' || path.startsWith('/pages/')) {
@@ -40,10 +40,22 @@ createServer(async (req, res) => {
     return;
   }
 
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle({
+    method: req.method ?? 'GET',
+    path,
+    headers: Object.fromEntries(
+      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
+    ),
+  });
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```
+
+`handle` takes a `WebRequest` — `{ method, path, headers, rawBody?, query? }` — and there is no
+helper that converts a `node:http` request into one, so the adapter builds it. `path` is the URL
+with the query string removed, which this branch already computed. A route that reads a body needs
+`rawBody` too; [compression](./web-compression.html) and
+[streaming files](./web-streaming-files.html) show the same construction.
 
 The application's services are available to `renderPage` — resolve them from the container once at startup:
 

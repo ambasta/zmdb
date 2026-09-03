@@ -12,15 +12,25 @@ until the request body reaches a handler as bytes.
 
 ## What arrives today
 
-`WebRequest.rawBody` is `unknown`. `toNodeHandler` calls `req.setEncoding('utf8')`
-and accumulates the decoded string; `toFetchHandler` calls `request.text()`. Then it
-tries `JSON.parse` and falls back to the raw string.
+`WebRequest.rawBody` is `unknown` and **optional**. `toNodeHandler` reads a body only
+when the request has one — a `content-length` other than `0`, or any
+`transfer-encoding` — and otherwise attaches no listeners at all and leaves `rawBody`
+`undefined`. When there is a body it calls `req.setEncoding?.('utf8')` and accumulates
+the decoded string. `toFetchHandler` calls `request.text()`, and skips the body
+entirely for `GET` and `HEAD`. Either way it then tries `JSON.parse` and falls back to
+the raw string.
 
 The `setEncoding` is worth being precise about, because this page used to describe
 the wrong mechanism. It installs a `StringDecoder`, which holds partial multi-byte
 sequences across reads — so a character whose UTF-8 bytes straddle a chunk boundary
-survives, and a naive `String(chunk)` per chunk would have corrupted it. What
-neither version survives is a byte sequence that is not valid UTF-8 **at all**,
+survives, and the naive `String(chunk)` per chunk this used to do would have
+corrupted it. Note the `?.`: the adapter is structurally typed against a
+`{ method?, url?, headers, on, setEncoding? }` shape, so a hand-rolled or wrapped
+request object without `setEncoding` still works and still takes the per-chunk path —
+where the boundary-split corruption is live rather than historical. Real
+`node:http` requests have the method, so this is about proxies and test doubles.
+
+What no version survives is a byte sequence that is not valid UTF-8 **at all**,
 which is most of any image. A multipart body therefore reaches `ctx.body` as a
 lossily decoded string with its boundary markers intact and its file content
 replaced by U+FFFD. A JSON body with a base64 field works fine, which is the basis
@@ -47,15 +57,19 @@ export class UploadsController {
     if (!ALLOWED_TYPES.has(ctx.body.contentType)) throw new ValidationError('unsupported type', []);
     if (ctx.body.bytes > MAX_BYTES) throw new ValidationError('too large', []);
 
-    const key = `${viewer.id}/${randomUUID()}`; // never the client's filename
+    const key = `${viewer.id}/${globalThis.crypto.randomUUID()}`; // never the client's filename
     return { key, url: await this.storage.presign(key, ctx.body.contentType, ctx.body.bytes) };
   }
 
   @Post('/confirm')
   async confirm(ctx: Ctx<Record<never, string>, { key: string }>) {
     const viewer = principalOf(ctx);
-    const head = await this.storage.head(ctx.body.key); // verify it exists
+    assert<{ key: string }>(ctx.body);
+
+    // ownership first: `head` on a key you do not own is an existence oracle over
+    // the whole bucket, answerable one key at a time
     if (!ctx.body.key.startsWith(`${viewer.id}/`)) throw new Forbidden();
+    const head = await this.storage.head(ctx.body.key); // verify it exists
     return this.files.create({ owner_id: viewer.id, key: ctx.body.key, bytes: head.size, mime: head.contentType });
   }
 }
@@ -163,7 +177,10 @@ Three things, in order, and the middle one is not what this page previously assu
    honouring backpressure. And the case buffering cannot serve is the 200 MB upload,
    which workaround 1 says should not be going through the application anyway.
 3. **A `Pipe`** exposing it: `Pipe<unknown, Multipart>` fits the existing
-   `transform(value, ctx)` signature with no design change. No decorator —
+   `transform(value, ctx)` signature exactly, so the type needs no change. It does
+   need the chain wiring, which is a second dependency this page used to omit: pipes
+   are folded inside `runChain`, and the pipeline never calls `runChain`, so no `Pipe`
+   runs on any request today — there is no plug to plug into yet. No decorator —
    `@UploadedFile()` would be a second way to reach `ctx.body`, and this package's
    handlers take one `Ctx`, which is what keeps them ordinary functions.
 

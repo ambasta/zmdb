@@ -19,7 +19,9 @@ A handler **can** set the status, the headers and a non-JSON body — `json()`, 
 
 ## Why this is the blocker it looks like
 
-The same `string` body blocks [compression](./web-compression.html), [static files](./web-static-files.html), [templates](./web-templates.html), server-sent events from a handler, and [LLM token streaming](./llm-chat.html). One field, five features.
+The same `string` body blocks [compression](./web-compression.html), [static files](./web-static-files.html), server-sent events from a handler, and [LLM token streaming](./llm-chat.html). One field, four features — [templates](./web-templates.html) are not one of them, for the reason at the bottom of this page.
+
+SSE is the partial exception: `sseStream` is exported from `@zmdb/web` today, so a hand-written adapter can serve an event stream exactly like Workaround 2 below. What is blocked is returning one from a handler.
 
 It also means a large file is fully buffered — a 200MB download is 200MB of process memory per concurrent request, which fails under load rather than at test time.
 
@@ -46,9 +48,10 @@ Bypass `app.handle` for the routes that stream. This is legitimate: the framewor
 
 ```ts
 import { createReadStream, statSync } from 'node:fs';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
 
-createServer(async (req, res) => {
+createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const match = /^\/files\/(\d+)$/.exec(req.url ?? '');
   if (match !== null && req.method === 'GET') {
     const file = await lookup(Number(match[1]));
@@ -68,12 +71,22 @@ createServer(async (req, res) => {
   }
 
   // everything else goes to the app
-  const out = await app.handle(toWebRequest(req));
+  const url = req.url ?? '/';
+  const q = url.indexOf('?');
+  const out = await app.handle({
+    method: req.method ?? 'GET',
+    path: q === -1 ? url : url.slice(0, q),
+    headers: Object.fromEntries(
+      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
+    ),
+  });
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```
 
-Three things that matter in that code:
+Four things that matter in that code:
+
+- **`app.handle` takes a `WebRequest`, and you have to build it.** There is no `toWebRequest` helper to import — `{ method, path, headers, rawBody?, query? }`, with the query string split off the `url` — because the framework's own adapter is `toNodeHandler(router)`, which owns the whole `(req, res)` pair and so cannot be used for a server that also serves byte routes. If none of your routes read a body, the four lines above are the whole adapter.
 
 - **`pipeline`, not `.pipe()`.** `pipeline` propagates errors and destroys both streams on failure; a bare `pipe` leaks a file descriptor when the client disconnects mid-download.
 - **Never build a path from user input.** `join(dir, ctx.params.name)` with `../../etc/passwd` reads whatever the process can read. Look the file up by id in the database and use the stored path, as above.
@@ -134,7 +147,7 @@ The tag is there because of `content-length`. `body.length` on the untagged unio
 
 Two parameters that look like fussiness and are not. `Uint8Array<ArrayBuffer>` rather than `Uint8Array`, because a bare `Uint8Array` includes a `SharedArrayBuffer`-backed view, `BodyInit` excludes those, and `new Response(bytes)` therefore does not compile — the only alternative being a cast at the adapter. And `length: number | undefined` rather than `length?: number`, because under `exactOptionalPropertyTypes` a caller computing the length from a `stat` cannot write the optional form.
 
-Then two new factories:
+Then three new factories — `bytes`, `stream` and `file`. `file` is the one worth showing, because it is the one that composes a `stat` with a read stream:
 
 ```ts
 @Get('/files/:id')

@@ -35,17 +35,28 @@ Compressing at the edge is also strictly better than compressing in the applicat
 When you genuinely have no proxy — a bare `node:http` server on a VM:
 
 ```ts
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createGzip, createBrotliCompress } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 
-createServer(async (req, res) => {
-  const out = await app.handle(toWebRequest(req));
+createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  const url = req.url ?? '/';
+  const q = url.indexOf('?');
+  const out = await app.handle({
+    method: req.method ?? 'GET',
+    path: q === -1 ? url : url.slice(0, q),
+    headers: Object.fromEntries(
+      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
+    ),
+  });
 
   const accept = String(req.headers['accept-encoding'] ?? '');
   const encoding = accept.includes('br') ? 'br' : accept.includes('gzip') ? 'gzip' : undefined;
 
-  if (encoding === undefined || out.body.length < 1024) {
+  const size = new TextEncoder().encode(out.body).byteLength;
+
+  if (encoding === undefined || size < 1024) {
     res.writeHead(out.status, { ...out.headers }).end(out.body);
     return;
   }
@@ -56,10 +67,11 @@ createServer(async (req, res) => {
 });
 ```
 
-Four details that are not optional:
+Five details that are not optional:
 
+- **`WebRequest` has `path`, not `url`.** The query string is a separate optional `query` field, so the adapter has to split it off — handing the whole `req.url` to `handle` matches no route the moment a request carries `?`, and `{ url }` does not even compile against `WebRequest`. `toNodeHandler` does this same `indexOf('?')`/`slice` internally — and does not fill `query` in either, so `ctx.query` is `{}` under the node adapter unless your own adapter parses it.
 - **`vary: accept-encoding`.** Without it a shared cache serves a gzip response to a client that did not ask for one, and that client sees binary garbage.
-- **The 1024-byte threshold.** Compressing a 200-byte JSON response makes it larger and costs CPU.
+- **The 1024-byte threshold, measured in bytes.** `out.body.length` is UTF-16 code units, so a 1,024-character CJK document is about 3 KiB and would be measured as 1,024 — hence the `TextEncoder` above. Compressing a 200-byte JSON response makes it larger and costs CPU.
 - **Honour `accept-encoding`.** Sending brotli to a client that only advertised gzip breaks it.
 - **Do not set `content-length`.** The compressed length differs; the framework's headers do not include it, but if you add one, remove it here.
 
@@ -69,7 +81,7 @@ Four details that are not optional:
 
 **Responses containing a secret alongside attacker-controlled input.** Compression ratio leaks information about the plaintext, which is the BREACH attack: an attacker who can inject text into a response that also contains a CSRF token can recover the token from response sizes. If you compress a response containing both, either do not compress it, or make the secret vary per response. Rare in a JSON API, real in server-rendered HTML.
 
-The framework cannot decide this for you and the freeze says so rather than shipping an "automatic BREACH protection" flag: deciding it requires knowing that one field is a secret and another is attacker-controlled, and neither is visible in a `WebResponse`. What it does instead is take the three honest positions — the guidance above, a named `skip(response, ctx)` escape hatch, and one structural fix for the canonical case. [CSRF tokens](./web-csrf.html) are masked with a fresh random value per response, so the secret is different bytes every time and has no stable ratio to leak. That keeps working when somebody forgets the guidance, which an exclusion rule does not.
+The framework cannot decide this for you and the freeze says so rather than shipping an "automatic BREACH protection" flag: deciding it requires knowing that one field is a secret and another is attacker-controlled, and neither is visible in a `WebResponse`. What it does instead is take the three honest positions — the guidance above, a named `skip(response, ctx)` escape hatch, and one structural fix for the canonical case. [CSRF tokens](./web-csrf.html) will be masked with a fresh random value per response (frozen, not built), so the secret is different bytes every time and has no stable ratio to leak. That keeps working when somebody forgets the guidance, which an exclusion rule does not.
 
 ## Compress the payload instead
 
@@ -83,7 +95,7 @@ A response that does not include the fields the client ignores needs no compress
 
 ## What it would take
 
-The response body change in [streaming files](./web-streaming-files.html), and then an `Interceptor` over the union — `compress(response, ctx, options)` as a pure function with the interceptor as a thin wrapper, so negotiation is testable without a pipeline and an adapter-driven deployment can call it directly.
+The response body change in [streaming files](./web-streaming-files.html), the chain wiring that gives an `Interceptor` somewhere to run — `runChain` folds interceptors today and the pipeline has never called it — and then an `Interceptor` over the union — `compress(response, ctx, options)` as a pure function with the interceptor as a thin wrapper, so negotiation is testable without a pipeline and an adapter-driven deployment can call it directly.
 
 Three decisions in the freeze are worth knowing now, because they contradict what you might expect.
 
