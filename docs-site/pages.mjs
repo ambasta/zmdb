@@ -522,7 +522,7 @@ export const PAGE_META = {
     title: 'Composite Primary Keys',
     group: 'Schema',
     status: 'todo',
-    note: 'primaryKey() is a per-column flag and the DTO/key derivation reads a single PK column',
+    note: 'the key derives and queries correctly; the DDL emitter writes one PRIMARY KEY per column and keyset pagination reads only the first',
   },
   'bigint-keys': {
     title: 'bigint Primary Keys',

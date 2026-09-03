@@ -1,8 +1,10 @@
-> **ToDo / feature gap.** `PrimaryKey` is a per-column tag, and two of them do not
-> currently become one composite key downstream. The code that needs "the" primary
-> key — `findById`, `update`, `delete`, keyset pagination — reads a single column,
-> and the DDL emitter writes `PRIMARY KEY` on each column rather than one table
-> constraint. Both are fixable and neither is fixed.
+> **ToDo / feature gap.** `PrimaryKey` is a per-column tag, and the reflector does turn two of
+> them into one ordered key — `findById`, `update` and `delete` compile a full multi-column
+> `WHERE` from it. Two things do not: the DDL emitter writes `PRIMARY KEY` on each keyed column
+> instead of one table constraint, so the generated `CREATE TABLE` does not run anywhere, and
+> keyset pagination orders and cursors by the key's first column only, so a page boundary can
+> skip rows. There is also a hole in the _single_-column path — see "One-column keys take the
+> value, not a record" below, which is the part to read first if you are shipping.
 
 ## What the declaration says
 
@@ -59,40 +61,75 @@ await repo.findOne({ orgId: { eq: 1 }, userId: { eq: 7 } });
 await repo.find({ orgId: { eq: 1 } });
 ```
 
-## What the repository cannot do
+## What the repository does with a composite key
+
+`PrimaryKeyOf<T>` is a record when the key has two or more columns, so the key is an object and
+the three keyed methods take it directly:
 
 ```ts
-await repo.findById(???);        // no single value to pass
-await repo.update(???, patch);
-await repo.delete(???);
+const key: PrimaryKeyOf<Membership> = { orgId: 1, userId: 7 };
+
+await repo.findById(key);
+// SELECT * FROM "memberships" WHERE "orgId" = $1 AND "userId" = $2 LIMIT 1
+await repo.update(key, { role: 'admin' });
+// UPDATE "memberships" SET "role" = $1 WHERE "orgId" = $2 AND "userId" = $3 RETURNING *
+await repo.delete(key);
+// DELETE FROM "memberships" WHERE "orgId" = $1 AND "userId" = $2 RETURNING "orgId", "userId"
 ```
 
-Use the compiler for keyed writes until this lands:
+A key that is missing a column is refused before any SQL is compiled. The wording is being
+sharpened — it does not yet name the method or list more than one missing column — but the
+refusal itself is there and it is a `ValidationError`, not a query on half a key.
+
+Extra keys are ignored, so you can pass a whole row you already have:
 
 ```ts
-const q = createQueryCompiler('postgres')
-  .updateTable('memberships')
-  .set({ role: 'admin' })
-  .where('org_id', '=', 1)
-  .where('user_id', '=', 7)
-  .compile();
-
-await driver.execute(q);
+await repo.delete(row); // row is a Membership; only orgId and userId are read
 ```
+
+## One-column keys take the value, not a record
+
+> [!CAUTION]
+> On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value —
+> `42`, not `{ id: 42 }`. Passing the record form is currently accepted and produces a statement
+> with **no `WHERE` clause at all**:
+>
+> ```ts
+> await repo.findById({ id: 42 }); // SELECT * FROM "products" LIMIT 1            -> the first row
+> await repo.update({ id: 42 }, patch); // UPDATE "products" SET ... RETURNING *  -> every row
+> await repo.delete({ id: 42 }); // DELETE FROM "products" RETURNING "id"         -> every row
+> ```
+>
+> TypeScript rejects all three, so this only reaches you through an `any`, a cast, or a key that
+> arrived from a request body. The fix is to pass the value; the refusal is being added.
+
+The asymmetry is deliberate rather than an oversight to smooth over: a one-column key that
+accepted both forms is how code that will break the day the key gains a column gets written.
 
 ## What has to change
 
-Four pieces, in order:
+Three pieces:
 
-0. **`columnDdl`.** The `CREATE TABLE` op needs to collect the keyed columns and emit one
-   `PRIMARY KEY (…)` table constraint. This is the smallest of the four and the only one that
-   currently produces SQL that cannot run.
+1. **`columnDdl`.** The `CREATE TABLE` op needs to collect the keyed columns and emit one
+   `PRIMARY KEY (…)` table constraint, and `TableSnapshot` needs to carry the ordered key so that
+   `diff` can see a key change at all — today it compares only column names and types, so
+   changing a key produces no migration op whatsoever.
+2. **Keyset pagination.** `applyOrderBy(builder, order, pkColumn)` takes one tie-break column and
+   `list` passes `primaryKey[0]`, so a two-column key orders by its first column only. The cursor
+   is encoded from the same list, so the next page asks `WHERE "orgId" > $1` and skips every
+   remaining row of that org. It needs the full key, in key order, for the ordering and for the
+   cursor.
+3. **The one-column record form.** `buildKeyWhere` builds `{ [pkCol]: id }` for a one-column key,
+   so a record argument nests into `{ id: { id: 42 } }`, which `compileWhere` reads as an
+   operator map and emits nothing for. It has to be refused. See the caution above.
 
-1. **A key type.** `PrimaryKeyOf<T>` becomes a tuple or a record of the tagged columns rather than a single `Col<T>`. The declaration already carries what it needs — the reflector emits `primaryKey` as an _array_ of names, so the information is there and only the consuming types are narrow.
-2. **`buildKeyWhere`.** Already the single place that turns an id into a `WhereDTO<T>`; it needs to accept the record form and assemble a multi-column filter. The assertion there is already documented as taking a dynamic key name — this widens it, it does not change its nature.
-3. **Keyset pagination.** `applyOrderBy(builder, order, pkColumn)` takes one tie-break column; it needs the full key to keep cursors stable.
+Done since this page was written: `PrimaryKeyOf<T>` is already a record for a key of two or more
+columns, and `buildKeyWhere` already assembles the multi-column filter from the whole
+`schema.primaryKey`.
 
-Nothing about this is blocked by design. It is one DDL fix and a typed-signature change across three call sites.
+Nothing about this is blocked by design. The typed-signature change is already done; what is left
+is the DDL fix, the migration diff that has to see a key change, and two places that still read
+`primaryKey[0]`.
 
 ## Related
 
