@@ -12,6 +12,7 @@ import {
   createSchemaDdl,
   createSequenceDdl,
   createViewDdl,
+  quoteId,
 } from './schema-objects/index.ts';
 
 describe('Centralized Identifier Quoting Engine', () => {
@@ -29,6 +30,17 @@ describe('Centralized Identifier Quoting Engine', () => {
       expect(quoteIdentifier('postgres', 'usr"tbl')).toBe('"usr""tbl"');
       expect(quoteIdentifier('sqlite', 'usr"tbl')).toBe('"usr""tbl"');
       expect(quoteIdentifier('postgres', 'a"b"c')).toBe('"a""b""c"');
+    });
+
+    it('quoteId is the same function under the name the schema-object DDL publishes', () => {
+      // Two exported names for one behaviour is two places a fix can land, so this pins them
+      // together: `quoteId` is what a caller writing DDL by hand reaches for, and if it ever
+      // stops agreeing with the engine every generated identifier is quoted twice over.
+      for (const dialect of ['postgres', 'mysql', 'sqlite'] as const) {
+        for (const id of ['users', 'usr"tbl', 'usr`tbl', 'a b', 'users"; DROP TABLE users; --']) {
+          expect(quoteId(dialect, id)).toBe(quoteIdentifier(dialect, id));
+        }
+      }
     });
 
     it('escapes internal backticks in MySQL identifiers', () => {

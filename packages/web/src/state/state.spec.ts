@@ -5,14 +5,62 @@
 import { describe, it, expect } from 'vitest';
 
 import { Draft, Paid, pay, type Order } from './fixtures.ts';
-import { type Brand } from './index.ts';
+import { defineState, transition, type Brand } from './index.ts';
 
 describe('@zmdb/web state: branding erases at runtime', () => {
   it('create returns the very object it was given (zero-cost brand)', () => {
     const base = { id: 1, total: 10 };
     const draft: Brand<Order, 'Draft'> = Draft.create(base);
-    expect(draft).toEqual(base);
+    expect(draft).toBe(base);
     expect(Object.keys(draft)).toEqual(['id', 'total']); // no brand property
+  });
+});
+
+describe('@zmdb/web state: defineState', () => {
+  interface Ticket {
+    readonly id: number;
+  }
+
+  it('brands without touching the value, so create is an identity at runtime', () => {
+    // `toBe`, not `toEqual`: the SPEC's claim is zero cost, and a copy would satisfy a deep
+    // comparison while doubling the allocations on a hot path and breaking reference equality
+    // for anything holding the value already.
+    const Open = defineState<'Open', Ticket>();
+    const base: Ticket = { id: 1 };
+    expect(Open.create(base)).toBe(base);
+    expect(Object.getOwnPropertySymbols(Open.create(base))).toEqual([]);
+    expect(JSON.stringify(Open.create(base))).toBe('{"id":1}');
+  });
+
+  it('gives every state its own maker, and they are not the same object', () => {
+    const Open = defineState<'Open', Ticket>();
+    const Closed = defineState<'Closed', Ticket>();
+    expect(Open).not.toBe(Closed);
+    expect(Open.create).not.toBe(Closed.create);
+    // And yet the values they make are indistinguishable at runtime, which is the trade: the
+    // brand is a compile-time fact, so `is` cannot tell one state from another and does not
+    // claim to. Keeping states apart is `transition`'s signature's job, not this predicate's.
+    expect(Closed.is(Open.create({ id: 1 }))).toBe(true);
+  });
+
+  it('is() answers for anything that exists, and nothing that does not', () => {
+    const Open = defineState<'Open', Ticket>();
+    expect(Open.is({ id: 1 })).toBe(true);
+    expect(Open.is(0)).toBe(true);
+    expect(Open.is(null)).toBe(false);
+    expect(Open.is(undefined)).toBe(false);
+  });
+
+  it('runs the transition function and rebrands what it returned', () => {
+    // Not the argument: a transition is free to return a new object, and the brand has to
+    // follow the returned value rather than the one that went in.
+    const Open = defineState<'Open', Ticket>();
+    const Closed = defineState<'Closed', Ticket>();
+    const close = transition(Open, Closed, ticket => ({ id: ticket.id + 1 }));
+    const opened = Open.create({ id: 1 });
+    const closed = close(opened);
+    expect(closed).toEqual({ id: 2 });
+    expect(closed).not.toBe(opened);
   });
 });
 

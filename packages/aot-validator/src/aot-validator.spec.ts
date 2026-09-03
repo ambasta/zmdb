@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { escapePattern } from './emit/index.ts';
-import { validate, tags, getRegExp } from './index.ts';
+import { validate, tags, getEnumSet, getRegExp } from './index.ts';
 import { transformCode } from './transformer.ts';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.
@@ -120,6 +120,25 @@ describe('runtime-safety fallback and parity (pre-transform vs compiled)', () =>
     for (let i = 0; i < 100; i++) {
       expect(validate(enumRule, 'beta')).toBe(true);
       expect(validate(enumRule, 'delta')).toBe(false);
+    }
+  });
+
+  it('getEnumSet builds one Set per rule, keyed on the rule that holds the values', () => {
+    // The cache is a WeakMap on the argument array, not on its contents, which is what makes
+    // it safe: a `Rule` is built once at the call site and reused, so the Set outlives the
+    // call without an eviction policy and without keeping a dead rule alive. Two arrays with
+    // the same members are two rules and get two Sets — cheap, and the alternative is
+    // hashing the members on every lookup, which is the linear scan this exists to avoid.
+    const rule = tags.Enum('alpha', 'beta', 'gamma');
+    const set = getEnumSet(rule.args);
+    expect(set).toBeInstanceOf(Set);
+    expect([...set]).toEqual(['alpha', 'beta', 'gamma']);
+    expect(getEnumSet(rule.args)).toBe(set);
+    expect(getEnumSet(tags.Enum('alpha', 'beta', 'gamma').args)).not.toBe(set);
+
+    // And it is the same answer the rule gives, because it is the answer the rule reads.
+    for (const value of ['alpha', 'delta', '', 0, null, undefined]) {
+      expect(set.has(value)).toBe(validate(rule, value));
     }
   });
 

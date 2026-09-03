@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { Controller, Get, Post } from '../routing/index.ts';
-import { toOpenApi } from './index.ts';
+import { serveOpenApi, toOpenApi } from './index.ts';
 
 @Controller('/users')
 class UsersController {
@@ -21,6 +21,18 @@ describe('@zmdb/web openapi: toOpenApi', () => {
     expect(doc.info).toEqual({ title: 'Test', version: '1.0.0' });
     expect(Object.keys(doc.paths)).toContain('/users/{id}');
     expect(Object.keys(doc.paths)).toContain('/users');
+  });
+
+  it('serves the document from a handler, as the same object every request', () => {
+    // The handler is what gets mounted at /openapi.json, so the thing worth pinning is that
+    // it does not rebuild the document per request — a doc regenerated on every hit is a doc
+    // that can start disagreeing with itself under a controller registered later, and it
+    // makes the cheapest endpoint in the app the most expensive one.
+    const doc = toOpenApi([UsersController], { info: { title: 'Test', version: '1.0.0' } });
+    const handler = serveOpenApi(doc);
+    expect(handler()).toBe(doc);
+    expect(handler()).toBe(handler());
+    expect(JSON.parse(JSON.stringify(handler()))).toEqual(doc);
   });
 
   it('adds a path-parameter entry for :id', () => {

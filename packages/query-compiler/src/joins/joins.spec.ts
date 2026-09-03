@@ -31,4 +31,16 @@ describe('JOIN compilation (postgres golden)', () => {
     const q = joinableSelectFrom('a').innerJoin('b', 'b.a_id', 'a.id').compile();
     expect(q.text).toBe('SELECT * FROM "a" INNER JOIN "b" ON "b"."a_id" = "a"."id"');
   });
+
+  it('right-joins the target table, keeping rows with no match on the left', () => {
+    const q = joinableSelectFrom('products')
+      .rightJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+      .orderBy('suppliers.id', 'asc')
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "products" RIGHT JOIN "suppliers" ON "suppliers"."id" = "products"."supplier_id" ' +
+        'ORDER BY "suppliers"."id" ASC',
+    );
+    expect(q.parameters).toEqual([]);
+  });
 });

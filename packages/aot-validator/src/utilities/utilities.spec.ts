@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { is, assert, validate, equals, random, AssertError, type TypeIR } from './index.ts';
+import { is, assert, validate, equals, failWith, issuesFor, random, AssertError, type TypeIR } from './index.ts';
 
 // RED PHASE (#56 spec freeze): validator utility surface.
 
@@ -54,6 +54,40 @@ describe('assert<T>', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(AssertError);
       expect((e as AssertError).issues[0]?.path).toBe('input.id');
+    }
+  });
+});
+
+describe('failWith', () => {
+  // The one function emitted code imports at runtime, so what it throws is the AOT path's
+  // whole error contract: `assert<T>` inlined by the transformer and `assert(x, ir)` walked
+  // here have to be indistinguishable to a `catch` (REQ-AV-4).
+  it('throws the same error the walker does, from the issues it is handed', () => {
+    const issues = issuesFor({ id: -1, email: 'a@b.com', role: 'user' }, user);
+    expect(() => failWith(issues)).toThrow(AssertError);
+    try {
+      failWith(issues);
+    } catch (e) {
+      expect(e).toBeInstanceOf(AssertError);
+      // The first issue supplies the message, and every issue is still reachable — a
+      // handler that renders a form needs all of them, not the one that happened to be first.
+      expect((e as AssertError).message).toBe(issues[0]?.message);
+      expect((e as AssertError).issues).toEqual(issues);
+      expect((e as Error).name).toBe('AssertError');
+    }
+  });
+
+  it('still throws when there is nothing to say', () => {
+    // Reachable: an emitted check answers false and a caller asks for the issues in a
+    // configuration that does not collect them. Throwing nothing would turn a rejected value
+    // into an accepted one, which is the only outcome worse than an unhelpful message.
+    try {
+      failWith([]);
+      throw new Error('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AssertError);
+      expect((e as AssertError).message).toBe('validation failed');
+      expect((e as AssertError).issues).toEqual([]);
     }
   });
 });

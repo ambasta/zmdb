@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { createQueryCompiler } from '../index.ts';
-import { setOperation } from './index.ts';
+import { setOperation, SET_KEYWORD } from './index.ts';
 
 const qc = createQueryCompiler('postgres');
 const q1 = qc.selectFrom('users').where('role', '=', 'admin').compile();
@@ -21,6 +21,17 @@ describe('set operations (#120)', () => {
     expect(setOperation('unionAll', [q1, q2], 'postgres').text).toContain('UNION ALL');
     expect(setOperation('intersect', [q1, q2], 'postgres').text).toContain('INTERSECT');
     expect(setOperation('except', [q1, q2], 'postgres').text).toContain('EXCEPT');
+  });
+
+  it('SET_KEYWORD is the whole set of operators, and each one is what gets emitted', () => {
+    // The map is exported, so it is the published answer to "which operators are there" —
+    // the four `SetOp`s and nothing else. Asserting the keys as well as the values is what
+    // makes a fifth operator added to the type show up here rather than in a caller's SQL.
+    expect(Object.keys(SET_KEYWORD)).toEqual(['union', 'unionAll', 'intersect', 'except']);
+    for (const [op, keyword] of Object.entries(SET_KEYWORD)) {
+      const r = setOperation(op as keyof typeof SET_KEYWORD, [q1, q2], 'postgres');
+      expect(r.text).toContain(` ${keyword} `);
+    }
   });
 
   it('single query ⇒ passthrough', () => {

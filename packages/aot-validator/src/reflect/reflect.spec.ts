@@ -14,7 +14,7 @@ import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { findCallSites } from './callsites.ts';
-import { Reflector, type ReflectDiagnostic } from './index.ts';
+import { DEFAULT_LIMITS, irFromType, Reflector, schemaIrFromType, type ReflectDiagnostic } from './index.ts';
 import { ReflectSession } from './session.ts';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
@@ -594,6 +594,64 @@ describe('irFromType — budgets', () => {
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
     const reflector = new Reflector(session.checker, constructs as never, { limits: { maxNodes: 2 } });
     expect(JSON.stringify(reflector.typeIR(type as never))).toContain('more than 2 IR nodes');
+  });
+});
+
+describe('irFromType and schemaIrFromType', () => {
+  /** The type argument of a `probe<T>` / `pair<T>` call, with the node it was written at. */
+  function at(file: string, helper: string, label: string) {
+    const source = session.sourceFile(`${FIXTURES}${file}`);
+    const call = findCallSites(source as never, new Set([helper])).find(c => labelOf(c) === label);
+    expect(call, `no ${helper} labelled ${label}`).toBeDefined();
+    const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
+    return { type: type as never, location: source as never };
+  }
+
+  it('are the one-shot form of a reflector, diagnostics included', () => {
+    // Two entry points into the same walk, and the free one is what `transformFile` and the
+    // CLI reach for. If it forgot to hand the diagnostics back, a refusal would become a
+    // silent gap — which is the failure mode `unsupported` nodes exist to prevent.
+    const { type, location } = at('constructs.ts', 'probe', 'nested-object');
+    const reflector = new Reflector(session.checker, location, {});
+    const expected = { ir: reflector.typeIR(type), diagnostics: reflector.diagnostics };
+    expect(irFromType(session.checker, type, location)).toEqual(expected);
+
+    const table = at('tables.ts', 'pair', 'users');
+    const viaFunction = schemaIrFromType(session.checker, table.type, table.location);
+    expect(viaFunction.diagnostics).toEqual([]);
+    expect(viaFunction.ir).toEqual(tagged.get('users')?.ir);
+  });
+
+  it('read the same declaration two ways, because two back-ends ask different questions', () => {
+    // `irFromType` answers "what does a value of this look like" and `schemaIrFromType`
+    // answers "which table is this". Same type, and neither answer is derivable from the
+    // other: the structural walk has no table name, and the schema has no nesting.
+    const { type, location } = at('tables.ts', 'pair', 'users');
+    const structural = irFromType(session.checker, type, location).ir;
+    expect(structural.kind).toBe('object');
+    expect(schemaIrFromType(session.checker, type, location).ir.table).toBe('users');
+  });
+
+  it('default to DEFAULT_LIMITS, and take a partial override of it', () => {
+    // The point of the default being a named export is that a caller can raise one cap
+    // without restating the other two, and that the numbers are readable rather than folded
+    // into a constructor. Both are only true if the merge is a merge.
+    expect(DEFAULT_LIMITS).toEqual({ maxDepth: 32, maxNodes: 20_000, maxHelpers: 512 });
+
+    const { type, location } = at('constructs.ts', 'probe', 'nested-object');
+    const plain = irFromType(session.checker, type, location);
+    expect(plain.ir.kind).toBe('object');
+    expect(irFromType(session.checker, type, location, { limits: DEFAULT_LIMITS })).toEqual(plain);
+
+    // One cap named, and it is the one that fires — the other two keep their defaults rather
+    // than becoming `undefined` and refusing everything at `> undefined`. Each override is
+    // checked both ways round: the cap it names is reported, and the two it does not are not.
+    const depthCapped = JSON.stringify(irFromType(session.checker, type, location, { limits: { maxDepth: 1 } }).ir);
+    expect(depthCapped).toContain('nesting deeper than 1 levels');
+    expect(depthCapped).not.toContain('IR nodes');
+    const nodeCapped = JSON.stringify(irFromType(session.checker, type, location, { limits: { maxNodes: 1 } }).ir);
+    expect(nodeCapped).toContain('more than 1 IR nodes in one file');
+    expect(nodeCapped).not.toContain('nesting deeper');
   });
 });
 

@@ -20,7 +20,16 @@ import { emitUp, snapshot, type ChangeOp } from '@zmdb/query-compiler/migrations
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { appTypeOf, jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, wireTypeOf, type ColumnIR } from './ir.ts';
+import {
+  appTypeOf,
+  decodeWireValue,
+  encodeWireValue,
+  jsonSchemaFromIR,
+  objectTypeFromIR,
+  schemaFromIR,
+  wireTypeOf,
+  type ColumnIR,
+} from './ir.ts';
 
 export interface Events extends Table<'events'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -126,13 +135,35 @@ describe('a timestamp column, in all three of its types', () => {
 
   it('round-trips wire → app → wire without losing the offset', () => {
     // What the Postgres `TIMESTAMP` bug destroyed. The decode the web pipeline performs at
-    // the boundary is `new Date(iso)`, and it has to be lossless for the three types to be
-    // three spellings of one value rather than three values.
-    expect(new Date(ISO).toISOString()).toBe(ISO);
-    expect(WHEN.toISOString()).toBe(ISO);
+    // the boundary has to be lossless for the three types to be three spellings of one value
+    // rather than three values — so it is asked through the converter the boundary calls,
+    // not through `new Date` written out again here. A round trip that only holds for the
+    // expression the test happens to use is not a round trip.
+    expect(decodeWireValue(AT, ISO)).toEqual(WHEN);
+    expect(encodeWireValue(AT, WHEN)).toBe(ISO);
+    expect(encodeWireValue(AT, decodeWireValue(AT, ISO))).toBe(ISO);
     // A zoned string is the same instant, and comes back normalised to UTC — the offset is
     // *applied*, not dropped, which is the property `TIMESTAMPTZ` preserves and
     // `TIMESTAMP WITHOUT TIME ZONE` does not.
-    expect(new Date('2026-01-01T13:30:00.000+01:00').toISOString()).toBe(ISO);
+    expect(encodeWireValue(AT, decodeWireValue(AT, '2026-01-01T13:30:00.000+01:00'))).toBe(ISO);
+  });
+
+  it('crosses null, undefined and anything unconvertible without touching them', () => {
+    // A converter that produced `new Date('tomorrow')` would hand the app layer an `Invalid
+    // Date`, which passes `instanceof Date` and reaches the driver as NULL. Leaving the
+    // string alone is what lets the validator say `expected Date` and name the value.
+    expect(decodeWireValue(AT, null)).toBeNull();
+    expect(decodeWireValue(AT, undefined)).toBeUndefined();
+    expect(encodeWireValue(AT, null)).toBeNull();
+    expect(decodeWireValue(AT, 'tomorrow')).toBe('tomorrow');
+    expect(issuesFor(decodeWireValue(AT, 'tomorrow'), appTypeOf(AT))).toHaveLength(1);
+    // Already an app value: encode is what runs on a row, and a row holds a `Date`.
+    expect(encodeWireValue(AT, ISO)).toBe(ISO);
+  });
+
+  it('leaves a column with nothing to convert exactly as it found it', () => {
+    const name = IR.columns.find(c => c.name === 'name') as ColumnIR;
+    expect(decodeWireValue(name, 'launch')).toBe('launch');
+    expect(encodeWireValue(name, 'launch')).toBe('launch');
   });
 });

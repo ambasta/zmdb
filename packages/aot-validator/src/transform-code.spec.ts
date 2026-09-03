@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { zmdbAot, transformTypeChecks } from './plugin/index.ts';
-import { transformCode } from './transformer.ts';
+import { CALLEES, Rewriter, transformCode } from './transformer.ts';
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -120,5 +120,73 @@ describe('the scanner', () => {
     const seconds = (performance.now() - start) / 1000;
     const megabytes = (sample.length * iterations) / (1024 * 1024);
     expect(megabytes / seconds).toBeGreaterThan(1);
+  });
+});
+
+describe('CALLEES', () => {
+  it('names eight calls, and every one of them is a function somebody can call', async () => {
+    // The list is matched by identifier text, so a typo in it is not a type error anywhere:
+    // `assertEqual` would simply never match, the call would stay a runtime walk, and the
+    // build would report success. Resolving each name against the module that exports it is
+    // what turns that back into a failure.
+    expect([...CALLEES].toSorted()).toEqual([
+      'assert',
+      'assertEquals',
+      'equals',
+      'is',
+      'random',
+      'schemaOf',
+      'toJsonSchema',
+      'validate',
+    ]);
+
+    const utilities = await import('./utilities/index.ts');
+    const core = await import('@zmdb/schema-core');
+    const openapi = await import('@zmdb/schema-core/openapi');
+    const surface: Record<string, unknown> = { ...openapi, ...core, ...utilities };
+    for (const callee of CALLEES) {
+      expect(typeof surface[callee], `${callee} is in CALLEES but nothing exports it`).toBe('function');
+    }
+  });
+});
+
+describe('Rewriter', () => {
+  // `transformFile` hands the emitter offsets the compiler produced, which are coordinates in
+  // the *original* text, and then edits the buffer under them. Every test here is about that
+  // one hazard: an offset stays meaningful after the text it points past has changed length.
+  it('reads a span in original coordinates after an edit further along', () => {
+    const rewriter = new Rewriter('const a = f(1); const b = g(2);');
+    rewriter.replace(28, 29, '222222');
+    expect(rewriter.slice(10, 14)).toBe('f(1)');
+    expect(rewriter.text).toBe('const a = f(1); const b = g(222222);');
+  });
+
+  it('applies independent edits given in descending order', () => {
+    const rewriter = new Rewriter('a(1) + b(2) + c(3)');
+    rewriter.replace(14, 18, 'C');
+    rewriter.replace(7, 11, 'B');
+    rewriter.replace(0, 4, 'A');
+    expect(rewriter.text).toBe('A + B + C');
+  });
+
+  it('folds a nested edit into the one that contains it, rather than counting it twice', () => {
+    // The case that makes this a class instead of two string concatenations: an inner call is
+    // rewritten first, then the outer call is rewritten from text that already contains the
+    // inner result. A naive shift table would add the inner delta a second time and cut the
+    // buffer four characters short of where the outer span now ends.
+    const rewriter = new Rewriter('const ok = outer(inner(x));');
+    rewriter.replace(17, 25, 'INNERRESULT');
+    expect(rewriter.slice(11, 26)).toBe('outer(INNERRESULT)');
+    rewriter.replace(11, 26, `(${rewriter.slice(11, 26)})`);
+    expect(rewriter.text).toBe('const ok = (outer(INNERRESULT));');
+  });
+
+  it('leaves text it was never asked to change exactly as it was given', () => {
+    // Offsets rather than a printed AST is a deliberate choice, and this is the property it
+    // buys: comments, blank lines and formatting are not the transformer's to normalise.
+    const source = '// keep me\n\nconst  a   =  1;\n';
+    const rewriter = new Rewriter(source);
+    expect(rewriter.text).toBe(source);
+    expect(rewriter.slice(0, source.length)).toBe(source);
   });
 });

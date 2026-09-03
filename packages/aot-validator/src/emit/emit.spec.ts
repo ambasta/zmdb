@@ -8,10 +8,12 @@
 // hoisted function shared by every call site that mentions it, and the failure path is not
 // paid for until it is taken (REQ-AV-7).
 
+import type { TypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { equals, is, validate } from '../utilities/index.ts';
 import { FixtureProject } from './__testing__/project.ts';
+import { Emitter } from './index.ts';
 
 const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pattern<"^[^@]+@[^@]+$">; nickname?: string }
   interface Point { x: number; y: number }
@@ -317,5 +319,124 @@ describe('the runtime walker agrees about the same shapes', () => {
     expect(is({ id: 0, email: 'a@b' }, ir)).toBe(false);
     expect(equals({ id: 1, email: 'a@b', extra: 1 }, ir)).toBe(false);
     expect(validate({ id: 1, email: 'a@b' }, ir)).toEqual({ success: true, data: { id: 1, email: 'a@b' } });
+  });
+});
+
+describe('the Emitter, driven directly', () => {
+  // Everything above goes through a `FixtureProject`, which is a compiler, a reflection and an
+  // emitter in one call — the right shape for asserting what a build produces, and the wrong
+  // one for asserting whose fault it is when the answer is wrong. The emitter is a pure
+  // function of IR, so it can be asked on its own, and this is the half `zmdb-codegen` drives:
+  // it has its own IR from somewhere else and wants source text back.
+  const USER: TypeIR = {
+    kind: 'object',
+    name: 'User',
+    properties: [
+      {
+        name: 'id',
+        type: { kind: 'scalar', scalar: 'integer', constraints: { minimum: 1 } },
+        optional: false,
+        readonly: false,
+      },
+      { name: 'email', type: { kind: 'scalar', scalar: 'string' }, optional: false, readonly: false },
+    ],
+  };
+  const POINT: TypeIR = {
+    kind: 'object',
+    properties: [
+      { name: 'x', type: { kind: 'scalar', scalar: 'number' }, optional: false, readonly: false },
+      { name: 'y', type: { kind: 'scalar', scalar: 'number' }, optional: false, readonly: false },
+    ],
+  };
+
+  /** Compile what the emitter wrote and run it, which is what a bundler would end up doing. */
+  const run = (emitter: Emitter, code: string, value: unknown): unknown =>
+    new Function('input', `${emitter.prelude()}\nreturn ${code};`)(value);
+
+  it('turns IR into an expression that answers the same as the runtime walk', () => {
+    // REQ-AV-4 in its smallest form. The differential suite next door runs this over a corpus
+    // through a real build; here it is the emitter alone, so a disagreement points at one file.
+    const emitter = new Emitter();
+    const code = emitter.emitIs(USER, 'input');
+    expect(code).toBeDefined();
+    for (const value of [
+      { id: 1, email: 'a@b.com' },
+      { id: 0, email: 'a@b.com' },
+      { id: 1, email: 7 },
+      { id: 1 },
+      null,
+      [],
+      'nope',
+    ]) {
+      expect(run(emitter, code as string, value)).toBe(is(value, USER));
+    }
+    expect(emitter.diagnostics).toEqual([]);
+  });
+
+  it('needs no prelude for an anonymous type, and one for a named type', () => {
+    // `hasPrelude` is what a caller checks before deciding whether to touch the top of the
+    // file at all. Answering `true` when nothing was hoisted would mean every transformed
+    // module grew an edit — and a sourcemap change — for no reason.
+    const anonymous = new Emitter();
+    expect(anonymous.emitIs(POINT, 'input')).toBeDefined();
+    expect(anonymous.hasPrelude).toBe(false);
+    expect(anonymous.prelude()).toBe('');
+
+    const named = new Emitter();
+    expect(named.emitIs(USER, 'input')).toBeDefined();
+    expect(named.hasPrelude).toBe(true);
+    expect(named.prelude()).toContain('User');
+  });
+
+  it('shares one helper between two call sites naming the same type', () => {
+    // Per emitter, not per call: the emitter is the file, and two `is<User>(…)` in one module
+    // that each hoisted their own function would double the code for no behaviour.
+    const emitter = new Emitter();
+    const first = emitter.emitIs(USER, 'a');
+    const second = emitter.emitIs(USER, 'b');
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(emitter.prelude().match(/function /g) ?? []).toHaveLength(1);
+  });
+
+  it('imports AssertError from where it is told, under the prefix it is given', () => {
+    // Both options exist for the same consumer: `zmdb-codegen` writes a file that has to
+    // import from the package by name, and the prefix keeps the emitted identifiers from
+    // colliding with whatever the module already declares.
+    const emitter = new Emitter({ prefix: '_gen', errorModule: './my-errors.js' });
+    expect(emitter.emitAssert(USER, 'input', false)).toBeDefined();
+    const prelude = emitter.prelude();
+    expect(prelude).toContain('import { AssertError as _genAssertError } from "./my-errors.js";');
+    expect(prelude).not.toContain('_zmdb');
+  });
+
+  it('refuses rather than emitting a check for a type it does not understand', () => {
+    // The `f70186c6` rule, at the emitter's level: no partial answer. A refusal is `undefined`
+    // *and* a diagnostic, because a caller that only looked at the return value would leave
+    // the call site alone and never say why.
+    const emitter = new Emitter();
+    const node: TypeIR = {
+      kind: 'object',
+      properties: [
+        { name: 'bag', type: { kind: 'unsupported', reason: 'index signature' }, optional: false, readonly: false },
+      ],
+    };
+    expect(emitter.emitIs(node, 'input')).toBeUndefined();
+    expect(emitter.diagnostics.map(d => d.reason)).toEqual(['index signature']);
+    // `path` is deliberately not asserted. `EmitDiagnostic` documents it as "the property
+    // chain that reached it, as in the reflection", and it is not one: the `path` threaded
+    // through the walk is a JavaScript *expression*, because for `assert`/`validate` it
+    // becomes the `path` of a runtime issue, and `#refuse` reports that expression verbatim.
+    // For this refusal it reads ` + ".bag"`. Nothing surfaces it today — the reflector refuses
+    // an index signature first, so `transformFile` never reaches the emitter's copy — but the
+    // emitter-only refusals (an empty union, a `pattern` on a non-string, a dangling `ref`, the
+    // helper cap) do reach a build log through the same field. Writing the current answer down
+    // here would make it the contract, and it is a defect rather than a decision.
+  });
+
+  it('refuses at the helper cap instead of emitting a truncated check', () => {
+    const emitter = new Emitter({ maxHelpers: 0 });
+    expect(emitter.emitIs(USER, 'input')).toBeUndefined();
+    expect(emitter.diagnostics.length).toBeGreaterThan(0);
   });
 });

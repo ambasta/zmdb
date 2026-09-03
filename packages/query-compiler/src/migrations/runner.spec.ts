@@ -10,6 +10,7 @@ import {
   runCli,
   status,
   type Migration,
+  ensureVersionTable,
   type MigrationConnection,
   up,
 } from './runner.ts';
@@ -58,6 +59,19 @@ function tableInfo(): string[] {
 }
 
 describe('migration runner E2E (real SQLite connection)', () => {
+  it('creates the version table, and creating it again is not an error', async () => {
+    // Kysely tests this because every one of its migrate* entry points calls it first and
+    // one of them running against a fresh database is the normal case, not the edge one.
+    // The same is true here — `up`, `down` and `status` each begin with this call, so it
+    // has to be safe to make a second time or the second deploy fails.
+    await ensureVersionTable(conn);
+    expect(await conn.appliedVersions()).toEqual([]);
+    await ensureVersionTable(conn);
+    expect(
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_zmdb_migrations'").all(),
+    ).toHaveLength(1);
+  });
+
   it('up applies all pending migrations and records versions asynchronously', async () => {
     expect(await up(conn, migrations)).toEqual([1, 2]);
     expect(await conn.appliedVersions()).toEqual([1, 2]);
