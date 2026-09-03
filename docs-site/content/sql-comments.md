@@ -1,6 +1,10 @@
 > **ToDo / feature gap.** There is no way to attach a comment to a compiled
 > query. `CompiledQuery` is `{ text, parameters }` and the compiler emits no
-> leading comment, so there is no hook for a `/* app:checkout */` tag.
+> comment, so there is no hook for a `/* app:checkout */` tag.
+>
+> The format, the closed key set and the escaping rules are frozen in
+> `packages/query-compiler/src/comments/SPEC.md`. The wrapper below is the right
+> idea with an escaping bug and a dropped field, both fixed in place.
 
 ## Why anyone wants this
 
@@ -11,17 +15,27 @@ A comment in the SQL text survives into `pg_stat_statements`, the slow-query log
 The driver sees every statement and is the only place that knows what request it is serving, so a wrapper covers the whole application:
 
 ```ts
+const encode = (s: string): string => encodeURIComponent(s).replace(/'/g, "\\'");
+
 function tagged(inner: Driver, tags: () => Record<string, string>): Driver {
   return {
+    ...inner,
     execute(q) {
       const t = Object.entries(tags())
-        .map(([k, v]) => `${k}='${encodeURIComponent(v)}'`)
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([k, v]) => `${encode(k)}='${encode(v)}'`)
         .join(',');
       return inner.execute({ text: `${q.text} /*${t}*/`, parameters: q.parameters });
     },
   };
 }
 ```
+
+Three details in there that an earlier version of this page got wrong, and the second one is the reason this has a frozen spec:
+
+1. **`...inner`.** Returning a bare `{ execute }` drops `dialect`, which `Driver` declares and the repository reads to pick its SQL. A decorator spreads what it wraps.
+2. **`.replace(/'/g, "\\'")`.** `encodeURIComponent` alone is not enough — see the next section.
+3. **`.sort()`.** Sorted keys mean the same request produces the same statement text, so it is one `pg_stat_statements` row rather than one per key ordering. Same reason the [metrics page](./web-observability.html) sorts label keys.
 
 Construct it per request so the tags describe _this_ request:
 
@@ -32,20 +46,49 @@ const repo = defineRepository(users, driver);
 
 Because there is no ambient request context, the closure is how the tag gets in — which is more wiring than a global, and also the reason two concurrent requests cannot tag each other's queries.
 
+## Escaping, and why `encodeURIComponent` is not enough
+
 > [!WARNING]
-> `encodeURIComponent` is not decoration. A value containing `*/` terminates the
-> comment and the rest becomes SQL. Never interpolate an unescaped
-> request-derived string into statement text.
+> This is the one part of observability where the failure mode is SQL injection in
+> generated SQL. A value that closes the comment early turns the remainder of the
+> tag into statement text, on a statement the application built and trusts.
+
+Two facts, both easy to check in a REPL and neither of them obvious:
+
+**`encodeURIComponent('*/')` is `'*%2F'`.** The `/` is what makes a comment terminator unrepresentable — `*` is unreserved and passes straight through. Worth knowing, because a "sanitizer" that strips `*` looks like it addressed the warning and has done nothing.
+
+**`encodeURIComponent("o'brien")` is `"o'brien"`.** The apostrophe is unreserved and survives, so `${k}='${encodeURIComponent(v)}'` lets a value close its own quote and put the rest of the tag outside a quoted string. With `ctx.path` as the only value it is not exploitable — a path with `'` in it still cannot produce `*/` — but the escaping is one key away from being load-bearing, and this page was presenting it as the pattern to copy.
+
+The rule, which is sqlcommenter's: **encode, then escape the surviving `'` as `\'`.** That order is what makes it unambiguous, because `encodeURIComponent('\\')` is `'%5C'` — every backslash in the input becomes `%5C`, so the only backslash left in a value is the escaper's own. No double-escaping question, and a reader can parse the tag back out.
+
+```
+{ route: "/users/:id", controller: "o'brien*/DROP", action: 'list' }
+→  action='list',controller='o\'brien*%2FDROP',route='%2Fusers%2F%3Aid'
+```
+
+No `*/`, no unescaped `'`.
+
+The frozen design goes one step further and takes the string away: the keys are a closed union — `traceparent`, `controller`, `action`, `route`, `framework` — rather than a `Record<string, string>`, so there is no path from a caller to comment text at all. An open key set is the interface through which a request id gets tagged and the plan cache dies, and through which an unescaped value arrives.
 
 ## Caveats worth knowing before you turn it on
 
 - **Prepared-statement caches key on the text.** A comment that varies per request makes every statement unique, which defeats server-side plan caching on Postgres and fills `pg_stat_statements` with one entry per variant. Tag with the _route_, not the request id.
 - **MySQL strips some comment forms** depending on the client and `CLIENT_MULTI_STATEMENTS`; verify the tag actually lands in your slow log before relying on it.
-- **A trailing comment can confuse tooling** that appends its own `LIMIT`. Leading placement (`/*tag*/ SELECT ...`) is safer for pass-through proxies but is what some drivers strip.
+- **A trailing comment can confuse tooling** that appends its own `LIMIT` — real, and narrow: that tooling is a proxy rewriting statements, which has to parse SQL properly anyway. Trailing is nonetheless the frozen placement, for three reasons in increasing order of how annoying they are to find. Some proxies and MySQL clients strip a _leading_ comment, so the tag silently does not arrive. `text.startsWith('SELECT')` stays true, which snapshot assertions and `EXPLAIN` prefixing rely on. And a leading comment breaks the first-word verb extraction that [metrics](./web-observability.html) and most slow-query parsers use — so enabling tracing would degrade metrics, which is a self-inflicted bug worth avoiding by construction.
+
+## The one key that is a real trade
+
+Four of the five keys are low cardinality: `route`, `controller`, `action` and `framework` take one value per route per deploy, so the number of distinct statement texts is bounded by the route table.
+
+`traceparent` is not, and it is the whole point of the feature. It contains a fresh span id per query, so **every statement becomes unique** — and it is also what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it. There is no way to have both, so the frozen design names the trade rather than picking: `keys` is an explicit list, and putting `traceparent` in it is a decision to spend the plan cache on the correlation. Worth it while you are diagnosing; not a steady-state default. sqlcommenter's own documentation reaches the same conclusion.
 
 ## What it would take
 
-Adding an optional `comment?: string` to `CompiledQuery` and a `.comment(s)` on each builder. It is a small change with one real question attached: whether the comment counts as part of the query's identity for equality and snapshot tests, since a great many existing tests compare `CompiledQuery` objects with `toEqual`. Making the field optional and omitted-by-default keeps those green, which is probably the answer.
+Less than this page previously assumed, and the difference resolves the open question it left. **The comment does not go on `CompiledQuery` at all** — no `comment?: string` field and no `.comment(s)` builder method. It is rendered at execute time by the driver decorator, from compile-time metadata on the query plus the request's context.
+
+That answers "does the comment count as part of the query's identity for `toEqual`" by removing the question: a compiled query has no comment, so its identity is exactly what it is today, and the same compiled query can be reused across two requests that tag it differently. A `.comment(s)` builder method would have made a per-request value part of a per-route cached object, which is the kind of thing that works until the cache is switched on.
+
+What `CompiledQuery` does gain is an optional `telemetry` — the dialect, the operation and the table, which the compiler already knows — so nothing downstream has to parse SQL to label a metric. Optional and populated only when something reads it, so existing snapshots are byte-identical.
 
 ---
 

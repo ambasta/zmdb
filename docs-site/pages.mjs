@@ -725,7 +725,7 @@ export const PAGE_META = {
     title: 'SQL Comments',
     group: 'Data Access',
     status: 'todo',
-    note: 'the compiler emits no comment markers, so queries cannot be tagged for the database log',
+    note: 'the compiler emits no comment markers; the sqlcommenter format, closed key set and escaping rules are frozen (#579)',
   },
   streaming: {
     title: 'Streaming Results',
@@ -1647,19 +1647,19 @@ export const PAGE_META = {
     title: 'Health Checks',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no readiness/liveness aggregation module',
+    note: 'no readiness/liveness aggregation module; the split, response shapes, timeouts and caching are frozen (#579)',
   },
   'web-observability': {
     title: 'Observability',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no OpenTelemetry instrumentation of the router, pipeline or driver',
+    note: 'no OpenTelemetry instrumentation of the router, pipeline or driver; the metric names, units and attribute sources are frozen (#579)',
   },
   'web-tracing': {
     title: 'Distributed Tracing',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no span propagation across the request pipeline',
+    note: 'no span propagation across the request pipeline; the span hierarchy, attribute names and W3C propagation are frozen (#579)',
   },
   'web-devtools': {
     title: 'Devtools',
