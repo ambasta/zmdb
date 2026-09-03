@@ -127,6 +127,49 @@ column.
   `node:sqlite` adapter binds a `Date` as ISO-8601 UTC, matching the `TEXT` the DDL emitter
   declares and keeping lexicographic order chronological, while `pg` binds a `Date` itself.
 
+## 3b. Expression-valued writes (frozen — epic "Expression-valued writes")
+
+`update` accepts a `ColumnExpr` in place of a value, per column, using the closed vocabulary in
+`../query-compiler/SPEC.md` §5b:
+
+```ts
+update(id: PrimaryKeyOf<T>, payload: { readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]> }): …;
+await posts.update(7, { views: inc(1), published: not() });
+```
+
+**`create` refuses every variant.** Not as a policy but because there is nothing for the expression to read:
+`INSERT INTO "posts" ("views") VALUES ("views" + 1)` is a reference to a column of a row that does not exist
+yet, and Postgres rejects it with `column "views" does not exist`. The refusal names the column and says so,
+rather than letting the database produce that message about SQL the caller never wrote. The one expression
+that is legal on an `INSERT` is `proposed()`, and it lives in the upsert's update branch, which is an update.
+
+### The validation rule
+
+§3 validates a payload against the DTO's own type before any SQL is compiled. An expression is not a value
+of the column's type, so the per-key check splits:
+
+- A plain value is validated exactly as today.
+- A branded `ColumnExpr` **exempts that column from the row-level check** and its operand is validated
+  instead, against the column's own app type. So `inc` on a `bigint` column requires a `bigint` and rejects
+  a `number`, the same way writing a plain value there does — one map, not a second looser one for
+  operands.
+- `not` and `proposed` have no operand and nothing to check at runtime; both are constrained at the type
+  level (`../query-compiler/SPEC.md` §5b.2).
+- `concat`'s `with` must be a string. Its result is not length-checked, and §5b.5 says why in the one place
+  that matters.
+
+The exemption is narrow on purpose: it applies to the key carrying the expression and to nothing else, so a
+payload of `{ views: inc(1), email: 'not-an-email' }` still fails on `email`.
+
+**An expression cannot arrive from a request body**, so this does not widen the input surface. The brand is a
+`unique symbol` property and `JSON.parse` cannot produce one, which means a `ColumnExpr` is only ever
+constructed by code that imported `inc`. That is deliberate and it is the difference between this and the
+gap `compileWhere` has: an attacker who posts `{"views":{"op":"add","by":1000000}}` gets a plain object, and
+a plain object on a numeric column is a validation failure, not an expression.
+
+The keys an expression may not name are unchanged from §3: a primary key column is still refused in a patch,
+so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
+
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 
 `preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,

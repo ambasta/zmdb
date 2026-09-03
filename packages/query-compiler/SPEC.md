@@ -139,6 +139,197 @@ with a third argument, it is a number rather than a geometry, and it is a parame
 interpolated text. A closed enum, again, because the function name is emitted unquoted and the whole
 point of a spatial predicate is that a caller supplies the geometry — the value — and never the SQL.
 
+## 5b. Write expressions (frozen — epic "Expression-valued writes")
+
+`SET views = views + 1` needs no read, no version column and no retry loop, which is the whole reason this
+exists. But an expression on the write path is a second query language if it is allowed to grow, so the
+vocabulary is closed and the rule that closes it comes before the list.
+
+### 5b.1 The inclusion rule
+
+A variant is **in** when, on every supported dialect, it compiles to a single expression that
+
+1. references **exactly one column**, the one being assigned,
+2. binds **at most one parameter**, and
+3. consists entirely of tokens the emitter owns — no caller text reaches the SQL, and
+4. means the **same thing** on all three.
+
+It is **out** when it needs a second column reference, a subquery, a statement rewrite, or any token the
+caller supplies.
+
+Rule 4 is separate from rule 3 on purpose, and it is the one that does the work. The tempting version of
+this rule is "one operator token per dialect", and it is wrong in both directions:
+
+- It would exclude `concat`, which needs `CONCAT(…)` on MySQL because `||` there is logical OR unless
+  `PIPES_AS_CONCAT` is set — so the operator spelling on MySQL does not fail, it evaluates to `0` or `1`
+  and writes that. A function call is still one emitter-owned expression over one column, so `concat` is
+  in.
+- It would admit **division**, which is one token everywhere and three different results. Integer `/`
+  truncates on Postgres and SQLite and yields a decimal on MySQL, and division by zero raises on Postgres,
+  yields NULL on SQLite, and does either on MySQL depending on `sql_mode`. One declaration, three answers,
+  so there is no `div` variant and there will not be one.
+
+### 5b.2 The vocabulary
+
+```ts
+export const EXPR: unique symbol; // runtime brand
+declare const PHANTOM: unique symbol; // type-only
+
+export type ColumnExpr<T> = {
+  readonly [EXPR]: true;
+  readonly [PHANTOM]?: T;
+} & (
+  | { readonly op: 'add' | 'sub' | 'mul'; readonly by: T }
+  | { readonly op: 'not' }
+  | { readonly op: 'concat'; readonly with: string }
+  | { readonly op: 'coalesce'; readonly fallback: T }
+  | { readonly op: 'proposed' }
+);
+
+/** A value or a computed expression, per column. A value stays parameterised exactly as today. */
+export type SetValue<T> = T | ColumnExpr<T>;
+
+export function inc<T extends number | bigint>(by?: T): ColumnExpr<T>; // default 1
+export function dec<T extends number | bigint>(by?: T): ColumnExpr<T>; // default 1
+export function mul<T extends number>(by: T): ColumnExpr<T>;
+export function not(): ColumnExpr<boolean>;
+export function concat(withText: string): ColumnExpr<string>;
+export function coalesce<T>(fallback: T): ColumnExpr<T>;
+export function proposed<T>(): ColumnExpr<T>;
+```
+
+**There is no `column` field, and its absence is the design.** The column is the key of the `set()` object:
+`set({ views: inc(1) })` increments `views`. Two things follow, and both were the reason for dropping the
+field rather than making it optional. A cross-column reference — `SET a = b + 1` — becomes
+_unrepresentable_ rather than merely undocumented, so the non-goal in §5b.6 is enforced by the type instead
+of by a review comment. And no column name ever arrives as data on this path, so the identifier-from-caller
+problem that `opclass` and `IndexMethod` each had to solve separately does not exist here at all.
+
+**The runtime brand is a symbol, and the emitter tests for the symbol — never for `'op' in value`.** A
+`json` column can legitimately hold `{ op: 'add', by: 1 }`; that is somebody's stored document, and
+duck-typing would compile their data into SQL. The symbol also cannot survive `JSON.parse`, so a
+`ColumnExpr` is unforgeable from a request body — a property §3b of `../repository/SPEC.md` leans on rather
+than re-establishing.
+
+The `PHANTOM` field is type-only and exists to pin `T`. Without it, `{ op: 'not' }` mentions `T` nowhere, so
+it is a member of `ColumnExpr<number>` as much as of `ColumnExpr<boolean>` and `set({ views: not() })` would
+type-check. With it, `ColumnExpr<boolean>` is assignable to no other instantiation. The type-test:
+
+```ts
+// @ts-expect-error not() is boolean-only; views is a number
+qb.updateTable('posts').set({ views: not() });
+// @ts-expect-error inc() is numeric; published is a boolean
+qb.updateTable('posts').set({ published: inc(1) });
+```
+
+An entry in `set()` whose value does not carry the brand is bound as a parameter exactly as today, so every
+golden statement in §4 is unchanged.
+
+### 5b.3 The SQL, per variant, per dialect
+
+```
+set({ views: inc(1) }).where('id', '=', 7)
+postgres  UPDATE "posts" SET "views" = "views" + $1 WHERE "id" = $2     parameters: [1, 7]
+mysql     UPDATE `posts` SET `views` = `views` + ? WHERE `id` = ?       parameters: [1, 7]
+sqlite    UPDATE "posts" SET "views" = "views" + ? WHERE "id" = ?       parameters: [1, 7]
+
+set({ stock: dec(2) })
+postgres  UPDATE "posts" SET "stock" = "stock" - $1                     parameters: [2]
+
+set({ published: not() })
+postgres  UPDATE "posts" SET "published" = NOT "published"              parameters: []
+mysql     UPDATE `posts` SET `published` = NOT `published`              parameters: []
+
+set({ title: concat(' (draft)') })
+postgres  UPDATE "posts" SET "title" = "title" || $1                    parameters: [' (draft)']
+sqlite    UPDATE "posts" SET "title" = "title" || ?                     parameters: [' (draft)']
+mysql     UPDATE `posts` SET `title` = CONCAT(`title`, ?)               parameters: [' (draft)']
+
+set({ nickname: coalesce('anonymous') })
+postgres  UPDATE "users" SET "nickname" = COALESCE("nickname", $1)      parameters: ['anonymous']
+```
+
+`dec` emits `-` rather than `+` with a negated parameter, because `by` may be a `bigint` or a decimal
+string and negating it would be a per-type operation in JavaScript that the compiler has no business doing.
+
+`NOT` is the same token on all three; on MySQL it evaluates a `tinyint(1)` to `1` or `0`, which is what the
+column stores. `SET` parameters precede `WHERE` parameters, as they already do.
+
+### 5b.4 `proposed`, and the MySQL spelling
+
+`proposed()` is "the value this INSERT tried to write", and it is legal **only** inside
+`onConflict(...).doUpdate({...})`. Outside an upsert there is no proposed row, so a plain `update()`
+refuses it naming that:
+
+```
+proposed() references the row being inserted and is only valid inside onConflict().doUpdate() ("hits" on
+"counters")
+```
+
+```
+insertInto('counters').values({ key: 'k', hits: 1 }).onConflict('key').doUpdate({ hits: inc(1) })
+postgres  INSERT INTO "counters" ("key", "hits") VALUES ($1, $2) ON CONFLICT ("key") DO UPDATE SET "hits" = "hits" + $3
+mysql     INSERT INTO `counters` (`key`, `hits`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `hits` = `hits` + ?
+
+doUpdate({ hits: proposed() })
+postgres  … ON CONFLICT ("key") DO UPDATE SET "hits" = EXCLUDED."hits"
+mysql     … ON DUPLICATE KEY UPDATE `hits` = VALUES(`hits`)
+```
+
+The unqualified `"hits"` on the right-hand side is the stored row on every dialect, so `inc` inside an
+upsert increments the row that was already there — the atomic-counter recipe, and the reason `proposed`
+has to be a variant rather than the implicit meaning of a bare column. It also means the upsert path emits
+the same expression string as the plain `UPDATE` path, with `EXCLUDED` being the one thing that needs an
+explicit qualifier.
+
+**MySQL keeps `VALUES(col)`** — which is what the compiler already emits — and no minimum server version
+enters the contract. `VALUES()` in the `ON DUPLICATE KEY UPDATE` clause is deprecated as of MySQL 8.0.20 in
+favour of a row alias (`INSERT … AS new … SET c = new.c`), but deprecated is not removed: it still works,
+and it works on servers older than 8.0.19 and on MariaDB, which never implemented the alias form at all.
+Emitting the alias would break two populations to silence a warning in one. If MySQL removes `VALUES()`,
+the emitter needs a server-version probe, and that is named here as future work rather than built on
+speculation.
+
+### 5b.5 Nullability, and the one place the vocabulary bites
+
+Every arithmetic and concatenation variant is null-propagating on all three dialects: `NULL + 1` is `NULL`,
+`CONCAT('a', NULL)` is `NULL`, `NOT NULL` is `NULL`. So:
+
+- On a `NOT NULL` column the current value cannot be null, and `add`/`sub`/`mul`/`not` cannot produce one.
+- `coalesce` with a non-null fallback cannot produce null at all, which is the only variant that is safe
+  regardless of the column.
+- `concat` with a nullable column produces null, and if that column is `NOT NULL` the contradiction cannot
+  arise. If it is nullable, null is a legal value and the write succeeds.
+
+**`inc` on a nullable numeric column yields NULL, not `by`.** This is the classic surprise, and zmdb does
+not wrap it in a `COALESCE` to be helpful: that would make `inc` mean two different things depending on a
+column's nullability, and the author who wanted the wrapping cannot tell from the call site whether they
+got it. The vocabulary cannot compose either — there is no way to say "coalesce then add" — so the answer
+is that a counter should be `NOT NULL DEFAULT 0`, which is what the column wanted anyway, and anything
+beyond that is raw SQL. This is the closedness costing something, and it is accepted knowingly rather than
+discovered later.
+
+One guarantee genuinely weakens: a `varchar` column's `Length<n>` bound is enforced on the value a DTO
+validates, and `concat` produces a value no validator sees. Postgres and SQLite raise on overflow; MySQL
+**truncates silently** outside strict mode. The check that would prevent it is
+`char_length(col) + char_length($1) <= n`, which is a predicate rather than an assignment and therefore out
+of this vocabulary. So the gap is stated: a `concat` onto a length-bounded column is the one write where the
+declared bound is the database's business rather than zmdb's.
+
+### 5b.6 Non-goals (rejected, and not to be relitigated)
+
+- **Cross-column references.** `SET a = b + 1`. Unrepresentable by construction — there is no `column`
+  field. Once a second column may be named, the SET clause needs scope resolution, and scope resolution is
+  the general expression builder.
+- **A general expression AST.** Nested operators, arbitrary functions, casts. That is a second query
+  language with its own dialect table and its own escaping surface, living on the write path where a
+  mistake is durable rather than merely wrong once.
+- **Subqueries in `SET`.** `SET rank = (SELECT …)`. Needs a whole builder as an operand and re-opens
+  parameter numbering across two statements' worth of placeholders.
+- **`RETURNING` a computed value.** `RETURNING views + 1` is a projection, not an assignment; projections
+  are the select path's problem and the two should not share a vocabulary by accident.
+- **Division.** §5b.1, rule 4.
+
 ## 6. Non-goals / anti-patterns (rejected)
 
 - No runtime type resolution (no reliance on schema types at runtime).
