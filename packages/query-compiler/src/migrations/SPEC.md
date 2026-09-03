@@ -9,22 +9,30 @@
 ordering**. Serializing the same schema set twice yields identical bytes.
 
 ```ts
+interface ColumnSnapshot {
+  readonly name: string;
+  /** Abstract — `'timestamp'`, never `'TIMESTAMPTZ'`. See §3, and §1.5 for the object form. */
+  readonly type: string | ExtensionType;
+  readonly nullable: boolean;
+  readonly primaryKey: boolean;
+  /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
+  readonly length?: number;
+  /** A catalog default expression, verbatim. Recorded, never diffed — `../introspect/SPEC.md` §4. */
+  readonly default?: string;
+}
+
+interface TableSnapshot {
+  readonly name: string;
+  readonly columns: readonly ColumnSnapshot[]; // sorted by name
+  /** The ordered key. See §1.1. */
+  readonly primaryKey: readonly string[];
+}
+
 interface SchemaSnapshot {
   readonly version: 1;
-  readonly tables: readonly {
-    readonly name: string;
-    readonly columns: readonly {
-      readonly name: string;
-      /** Abstract — `'timestamp'`, never `'TIMESTAMPTZ'`. See §3. */
-      readonly type: string;
-      readonly nullable: boolean;
-      readonly primaryKey: boolean;
-      /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
-      readonly length?: number;
-    }[];
-    /** The ordered key. See §1.1. */
-    readonly primaryKey: readonly string[];
-  }[]; // tables sorted by name; columns sorted by name
+  readonly tables: readonly TableSnapshot[]; // sorted by name
+  /** Declared extensions, sorted by name. See §1.5. */
+  readonly extensions: readonly { readonly name: string; readonly schema?: string }[];
 }
 ```
 
@@ -198,6 +206,16 @@ Required, `[]` when there are none, for §1.1's reason: an absent field would ma
 extensions" the same value. `version` is deliberately not recorded — a version is what is installed, not
 what is declared, and recording it would make every `CREATE EXTENSION` a pinned upgrade the author did
 not ask for.
+
+`snapshot(schemas)` derives the list from the columns rather than being told it: the distinct
+`ExtensionType.extension` values across every column of every table are exactly the extensions the set
+needs, so a `vector` column and a declared `vector` extension cannot disagree. Introspection reads the
+list from the catalog instead (`../introspect/SPEC.md` §2), which is the one place the two can differ, and
+that difference is the drift `check` exists to report.
+
+`ColumnSnapshot.default` goes the other way: only introspection ever sets it, because a schema value holds
+`hasDefault` and no expression. That is a third reason `diff` leaves it alone — one of the two things a
+diff compares can never produce the field at all.
 
 `ColumnSnapshot.type` widens to `string | ExtensionType` (see `schema-core/src/ir/SPEC.md` §4.3), which
 makes `alter_column_type`'s `from` and `to` the same union and its comparison **structural**. `args` order

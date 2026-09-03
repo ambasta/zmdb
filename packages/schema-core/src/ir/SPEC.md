@@ -370,6 +370,31 @@ not have stayed: a `CoreSchema` cannot express a numeric precision, a codec, a w
 json payload shape or a relation, so going value → IR meant inventing a default for each of
 the five. Relations were the visible one — it returned `relations: []` unconditionally.
 
+### 5.1 Back-end: the IR printed back to a declaration (frozen — epic "Introspection")
+
+The reflection turns a declaration into a `SchemaIR`. `emitDeclarations` is the arrow going back, and it
+belongs on this list because it is a back-end onto the same IR rather than a separate tool: it takes the
+column facts and prints the tagged property that would produce them.
+
+The property that makes it honest is a round trip, and it is the same kind of argument §5 makes for
+`schemaFromIR`. **Reflecting a declaration, printing it back, and reflecting it again yields the same
+`SchemaIR`** — for any declaration the reflection can read, modulo formatting. That is testable against the
+existing fixture corpus rather than against a hand-written expectation, which matters because the reverse
+direction is where a plausible-looking wrong answer is cheapest to produce: a column widened by one step
+still compiles, still validates, and still writes.
+
+It is one printer for both callers. `scripts/codemod-tagged-schema.mjs` already prints tagged declarations
+from column facts, and it already carries the two facts a second printer would rediscover the hard way —
+the tag order, and that nullability is `(T & Tags) | null` with the tags inside, because an intersection
+distributes over a union and `null & Unique` is `never`. The full output contract, the per-dialect type
+mapping behind it and what happens to a column no tag can express live in
+`query-compiler/src/introspect/SPEC.md`.
+
+One asymmetry stays unfixed, deliberately: a default **value** cannot survive the trip. `HasDefault` says a
+column has one and not which one (§8 of the reflect spec), and a catalog default is an expression rather
+than a value, so it comes back as a comment beside the tag. It is the one row of §8's table that runs
+against the IR rather than in its favour, and the round-trip property above is stated modulo it.
+
 ## 6. The three types of a column (plan D3 / REQ-TF-13)
 
 One column has three renderings, and each layer owns one:
