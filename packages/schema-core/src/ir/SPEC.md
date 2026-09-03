@@ -152,6 +152,100 @@ users.id: a `Serial` column cannot be part of a composite primary key (key is (i
 give the table a single-column surrogate key or drop `Serial`
 ```
 
+### 4.2 Physical names (frozen — epic "Naming strategy")
+
+A column has a property name and a database name, and both are always present:
+
+```ts
+interface ColumnIR {
+  name: string; // the property, as declared
+  physicalName: string; // what SQL uses
+}
+interface SchemaIR {
+  table: string; // the declared name, and the schema set's identity for this table
+  physicalTable: string; // what SQL uses
+}
+```
+
+Neither field is optional and neither defaults at the point of use. With no strategy configured
+`physicalName === name` and `physicalTable === table`, which is the identity case written out rather
+than left absent. An optional field would put a `?? name` in every reader, and there are roughly
+twenty of them; the one that forgets it emits a statement naming a column the database does not have,
+and the symptom arrives at query time in a different package.
+
+The direction is fixed: **derived types read `name`, SQL reads `physicalName`.** `Entity<User>`,
+`CreateDTO<User>`, the JSON Schema document, the OpenAPI paths and the HTTP payload are all in
+property vocabulary; DDL, snapshots, `WHERE` clauses and result-set aliases are all in physical
+vocabulary. A layer that mixes the two is a layer that has to know a strategy, which is the thing
+this design exists to avoid.
+
+And one hard rule, which is the whole cost argument in a sentence: **nothing outside the IR producer
+may compute a physical name.** No strategy function is called downstream of the reflection — not in
+the query compiler, not in a repository, not per row. A naming strategy that is reachable at runtime
+is a function call per column per row, forever, and every other ORM's naming support is exactly that
+call (§1 north star 1). Here it runs once per column per build; see
+`aot-validator/src/reflect/SPEC.md` §7a for where.
+
+`schemaFromIR` (§5) is the one place the vocabulary switches. It keys `columns` by `physicalName` and
+sets `table` to `physicalTable`, so a `CoreSchema` value is entirely in SQL vocabulary, while the `ir`
+it carries is entirely in declaration vocabulary. Every existing consumer is already on the correct
+side of that line by accident of what it reads: the DDL emitter and `snapshot` take the value, the
+derived types and the validator take the IR.
+
+**Explicit beats strategy**, through one new tag:
+
+```ts
+interface User extends Table<'users'>, Physical<'user_accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  createdAt: Date & Sql<'timestamp'> & Physical<'created_ts'>;
+}
+```
+
+One tag rather than a `Column<'…'>` for columns and something else for tables, because the table needs
+the same escape hatch and cannot borrow the one it already has. `Table<'users'>` is the table's
+**identity** — `References<'users.id'>`, `OneToMany<'posts', …>` and every `populate` name it by that
+string — so it cannot double as the physical name without making the table strategy unable to ever
+apply. `Physical<N>` in interface position names the physical table, in property position the physical
+column, and the position is unambiguous. On a relation property it is refused: a relation is not a
+column and has no name in the database.
+
+Two properties reaching the same physical name is a build error, and the message names both
+**properties**, because the physical name is the one string in the failure that does not appear in the
+source:
+
+```
+users: `createdAt` and `created_at` both map to the column `created_at`; rename one property or give
+one an explicit `Physical<'…'>`
+```
+
+Two declared tables reaching the same physical table is the same error one level up:
+
+```
+`userAccount` and `user_accounts` both map to the table `user_accounts`; give one an explicit
+`Physical<'…'>`
+```
+
+The check runs over the strategy's **output**, not over the strategy, so an explicit override that
+lands on a name the strategy also produced is caught by the same rule. The column check is per table;
+the table check needs the whole set and therefore runs where the set is known.
+
+**Cross-table names stay in declared vocabulary.** `ColumnIR.references`, `RelationIR.target` and
+`RelationIR.via` are identifiers into the schema set, not fragments of SQL, and they are not
+translated when the IR is built. The tempting alternative is to re-run the strategy on the foreign
+name — `strategy.table('users')` is pure and right there — and it is wrong for a reason no test would
+catch quickly: it misses a `Physical<'…'>` on the target, so the foreign key points at a column that
+does not exist while every unit test on `users` alone still passes. A foreign name is resolved by
+looking the target up in the schema set, at the one point where the whole set is in hand
+(`snapshot(schemas)`, the DDL pass, a resolver handed to `resolveRelation`).
+
+**A derived name is derived from physical names.** Three exist today and each is a live case rather
+than a hypothetical: the FTS shadow table (`fts/index.ts` builds `${table}_fts`), the Postgres primary
+key constraint (`${table}_pkey`, §1.3 of the migrations spec), and any index name zmdb generates
+rather than being handed. A `Table<'userAccount'>` under a snake_case-plural strategy gets
+`user_accounts_fts`, not `userAccount_fts` — otherwise a snake_case database ends up with exactly one
+camelCase object in it, which is the shape of every naming-strategy bug report other ORMs receive. A
+name the caller supplies — `IndexDef.name`, a check constraint's name — is used as typed.
+
 ## 5. Back-end: `schemaFromIR(ir)`
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories

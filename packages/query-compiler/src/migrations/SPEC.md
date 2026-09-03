@@ -122,9 +122,71 @@ sqlite cannot alter the primary key of "memberships" ((user_id) → (user_id, or
 ALTER TABLE form for a key, so this needs a hand-written table rebuild — see the migration guide
 ```
 
+### 1.4 A snapshot is written in physical names (frozen — epic "Naming strategy")
+
+Every name in a `SchemaSnapshot` is a physical name: `TableSnapshot.name`, `ColumnSnapshot.name` and
+the `primaryKey` list of §1.1. There is no property name anywhere in a snapshot and no field to put
+one in. A snapshot describes a database, `diff` compares two databases, and a future `pull` reads one
+back out of a live server, which cannot report anything but physical names. Mixing the two vocabularies
+here would make `diff(pull(), snapshot(schemas))` compare a column against itself and report a change.
+
+`snapshot(schemas)` takes schema values, and by `schema-core/src/ir/SPEC.md` §4.2 a value is already
+entirely in physical vocabulary — `schemaFromIR` keys `columns` by `physicalName`. So this needs no
+translation pass and no access to a strategy, which is the point: the snapshot function stays a pure
+rearrangement of what it was handed.
+
+**Turning a strategy on under an existing database is a rename, and `diff` cannot discover that.** Two
+snapshots taken either side of the change differ by a dropped `createdAt` and an added `created_at`,
+which is byte-for-byte what a genuine drop and a genuine add look like. Guessing — pairing them by
+type, or by string similarity — is how a generated migration deletes a column of production data, so
+`diff` does not guess. It is told:
+
+```ts
+type RenameOp =
+  | { kind: 'rename_table'; from: string; to: string }
+  | { kind: 'rename_column'; table: string; from: string; to: string };
+
+function diff(
+  prev: SchemaSnapshot,
+  next: SchemaSnapshot,
+  opts?: { readonly renames?: readonly RenameOp[] },
+): readonly ChangeOp[];
+```
+
+The renames a caller passes in are the same values that come back out in the plan, so there is one
+vocabulary for "this column became that one" rather than an input shape and an output shape that have
+to be kept in step.
+
+A rename the caller supplies removes the pair from consideration, so the drop and the add are not also
+emitted. All three dialects can express both forms, which is why this is worth having rather than
+being a documentation note:
+
+```
+postgres  ALTER TABLE "users" RENAME COLUMN "createdAt" TO "created_at"
+mysql     ALTER TABLE `users` RENAME COLUMN `createdAt` TO `created_at`
+sqlite    ALTER TABLE "users" RENAME COLUMN "createdAt" TO "created_at"
+
+postgres  ALTER TABLE "userAccount" RENAME TO "user_accounts"
+```
+
+`RENAME COLUMN` needs MySQL 8.0 and SQLite 3.25; both predate the oldest version anything else in this
+package assumes. `down` swaps `from` and `to`, which is the one op where reversal is exact rather than
+approximate.
+
+Renames are emitted **before** every add and drop in the same plan. Otherwise a rename onto a name the
+same migration is adding collides, and the order that avoids it is not derivable from the op list at
+apply time. And a rename naming a column absent from `prev`, or a target absent from `next`, is refused
+rather than skipped: a stale rename list is worse than no rename list, because it silently reverts to
+drop-and-add for the column it was supposed to protect.
+
+A `naming` field is deliberately **not** added to the snapshot. The strategy's output is already
+recorded — it is the names — and a user-supplied function has no identity to record, so the field
+would be honest only for the two built-ins and misleading for the case it was added to help.
+
 ## 2. Diff engine
 
-`diff(prev, next): ChangeOp[]` — pure function producing ordered ops:
+`diff(prev, next, opts?)` — pure function producing ordered ops. The five original ops, plus the two
+the sections above add:
 
 ```ts
 type ChangeOp =
@@ -132,10 +194,14 @@ type ChangeOp =
   | { kind: 'drop_table'; table: string }
   | { kind: 'add_column'; table: string; column: ColumnSnapshot }
   | { kind: 'drop_column'; table: string; column: string }
-  | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string };
+  | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string }
+  | { kind: 'alter_primary_key'; table: string; from: readonly string[]; to: readonly string[] } // §1.3
+  | RenameOp; // §1.4
 ```
 
-`diff(x, x)` returns `[]`.
+`diff(x, x)` returns `[]`. Passing a rename alongside two identical snapshots is refused rather than
+ignored, by §1.4's stale-list rule: the target name is absent from `next`, because `next` still has the
+old one.
 
 ## 3. DDL emitter (per dialect)
 

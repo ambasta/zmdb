@@ -182,6 +182,60 @@ place the two front-ends had to agree by hand rather than by construction, and i
 a section because getting it wrong is invisible: the DDL is identical either way, and only
 the create path notices.
 
+## 7a. The naming strategy runs here, and only here (frozen — epic "Naming strategy")
+
+```ts
+export interface ReflectOptions {
+  readonly limits?: Partial<ReflectLimits>;
+  /** Resolved from `zmdb.config.ts` by the caller. Absent means identity. */
+  readonly naming?: NamingStrategy;
+}
+
+export interface NamingStrategy {
+  readonly column?: (property: string, context: { table: string }) => string;
+  readonly table?: (declared: string) => string;
+  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
+}
+```
+
+This module is the IR producer, so by `../../../schema-core/src/ir/SPEC.md` §4.2 it is the only place a
+strategy is ever called. `schemaIrFromType` calls `table` once per table and `column` once per column,
+writes the results into `physicalTable` and `physicalName`, and nothing downstream calls a strategy
+again. The alternative — a hook in the query compiler, where names become SQL — is where every other
+ORM put it, and it is a function call per column per row for the lifetime of the project. Having it
+here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than
+resolving names twice and agreeing by luck.
+
+The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one,
+else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy, and
+the strategy is never consulted for a column that already answered the question.
+
+`context.table` is the **declared** table name, not the physical one. A user function that special-cases
+a table wants the string the author wrote, and passing the declared name means that function reads the
+same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently
+changes which branch a `column` strategy takes.
+
+A strategy is a function from names to names and nothing else. It never sees a type, a tag, a `SchemaIR`
+or a value, which is what makes it safe to run at build time and what makes the transform's cache key a
+fingerprint of the resolved config rather than of the project. It also means the four things a name
+could plausibly be are not names for this purpose and are never passed to it: a relation property, a
+relation's `via`, a `References` target, and the payload of a `Rule`, `Codec` or `WireAs` tag.
+
+A collision is reported through the existing diagnostic channel — `#refuse` / `ReflectDiagnostic`,
+reaching the build as a `TransformDiagnostic` — and **not** thrown. Rule 1 of §2 is why: the transformer
+collects diagnostics per call site, so throwing would abort a whole file over one interface. It is a
+schema-level diagnostic rather than an `unsupported` node, because there is no single property to blame
+and neither of the two colliding columns may be dropped or quietly renamed. The message names both
+property names; the known defect in `EmitDiagnostic.path` (it carries an emitted-source expression
+rather than a property chain) must not be extended into this one.
+
+Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved,
+from `loadConfig` in `zmdb/src/config` — sub-issue #492 in the CLI epic, which the naming epic's
+implementation slice is blocked on for exactly this reason. Both AOT routes have to resolve the same
+config: the unplugin transformer and `zmdb-codegen` each read it and hand it over, and
+`yarn verify:fixtures` is the gate that proves the two routes emit the same physical names, because
+`fixtures/consumer-plugin` and `fixtures/consumer-cli` declare the same tables.
+
 ## 8. What a declaration says and a schema value cannot
 
 Five of these were the argument for deleting the value front-end, and they are still the
