@@ -351,6 +351,47 @@ there is no equivalent, and storing it as TEXT would produce an embedding no que
 Mapping to `TEXT` is the tempting fallback and it is a data-loss bug wearing a green test suite: the
 inserts succeed, the reads round-trip, and every similarity query silently returns nothing useful.
 
+### 4.4 Soft delete in the IR — and why general filters are not (frozen — epic "Entity filters")
+
+```ts
+interface SchemaIR {
+  softDelete?: { readonly column: string };
+}
+```
+
+From one tag: `interface User extends Table<'users'>, SoftDelete<'deletedAt'>`. It is in the IR because
+three things downstream have to know about it and none of them can be told at call time — `delete` is
+redefined into an `UPDATE`, the column is managed rather than written, and a `check` against a live
+database has to know the column is expected.
+
+The tag is validated at reflection, not at query time, and refuses rather than warning:
+
+- The named column must **exist**. A typo in a `SoftDelete<'deleted_at'>` on a table whose column is
+  `deletedAt` would otherwise produce a filter over a column that is not there, and the first symptom is a
+  SQL error on every read.
+- It must be **nullable**. The whole predicate is `IS NULL` meaning "live", so a `NOT NULL` column cannot
+  express a live row.
+- It must be a `timestamp`. A boolean `isDeleted` is expressible and deliberately not accepted: it records
+  that a row was deleted and not when, and the answer to "when" is the reason anybody keeps the row.
+
+```
+users: SoftDelete<'deletedAt'> names a column that is not NOT NULL-able; a soft-delete column must be
+nullable, because IS NULL is what "live" means
+```
+
+The column is dropped from `CreateDTO` and `UpdateDTO` — it is managed, like a serial key — and kept in
+`Entity`, because a caller who asked for deleted rows needs to see which ones they are.
+
+**A general filter is not in the IR, and this is a hard constraint rather than a preference.** A
+`FilterDef` carries `where: (params) => …`, and the IR is written to a file: `model.zmdb.generated.d.ts`
+and the `.witness.ts` files are the AOT route, and `snapshot()` serialises the same values. A function
+cannot survive that round trip, so an IR field holding one would be an IR that is only sometimes the IR —
+present in the source route, absent in the generated one, with the filter silently off in exactly the
+build the user shipped. So the IR carries the facts a tag can state in literal types, and everything
+parameterised lives as a value on the repository (`../../../repository/SPEC.md` §3c). Soft delete is on
+the declaration because it is a property of the table; a tenant filter is not on the declaration because
+its parameter is a property of the request.
+
 ## 5. Back-end: `schemaFromIR(ir)`
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories

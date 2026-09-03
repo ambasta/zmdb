@@ -330,6 +330,25 @@ declared bound is the database's business rather than zmdb's.
   are the select path's problem and the two should not share a vocabulary by accident.
 - **Division.** §5b.1, rule 4.
 
+## 5c. Null predicates (frozen — epic "Entity filters and soft delete")
+
+`OP_MAP` gains two entries, and they are the first zero-operand ones:
+
+| `op`          | SQL           |
+| ------------- | ------------- |
+| `is null`     | `IS NULL`     |
+| `is not null` | `IS NOT NULL` |
+
+`compileWhere` binds **no** parameter for either, and a `value` passed alongside one is ignored rather than
+bound — a bound-but-unused parameter would shift the numbering of every placeholder after it.
+
+They are needed rather than convenient: a soft-delete filter is `deletedAt IS NULL`, and there was no way
+to say that. The alternative a caller reaches for without them is `where('deletedAt', '=', null)`, which
+compiles to `"deletedAt" = $1` with a `null` parameter and **matches no rows at all** under SQL's
+three-valued logic. That failure is silent and reads as an empty table rather than as a mistake, which is
+the worst possible shape for the one predicate that gets conjoined into every query
+(`../repository/SPEC.md` §3c).
+
 ## 6. Non-goals / anti-patterns (rejected)
 
 - No runtime type resolution (no reliance on schema types at runtime).

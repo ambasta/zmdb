@@ -130,6 +130,40 @@ that wants one column asserts the length it expects.
 - `toJsonSchemaWithRelations(schema, variant)` adds a `$ref` per relation to the `entity`
   variant only — a to-many as an array of them. Input bodies are columns.
 
+### 3.1 Populating a filtered target (frozen — epic "Entity filters and soft delete")
+
+`compilePopulate` gains the target's filters, and the two relation kinds take them in different places
+because only one of them can drop a parent row.
+
+**To-many** — the filters conjoin the batched query's `WHERE`, after the `IN`:
+
+```
+SELECT * FROM "posts" WHERE "userId" IN ($1, $2) AND "posts"."deletedAt" IS NULL
+```
+
+Nothing about the parents changes; a parent whose children are all filtered out gets `[]`, which the
+relation's type already allows. The no-parent-keys case stays `WHERE 1 = 0` with nothing appended.
+
+**To-one** — a filtered target turns the join into a `LEFT JOIN` and the filters go in the **`ON`**:
+
+```
+SELECT * FROM "posts" LEFT JOIN "users"
+  ON "posts"."userId" = "users"."id" AND "users"."deletedAt" IS NULL
+```
+
+An `INNER JOIN` would delete the post from the result because its author is invisible, which is a claim
+about `posts` that a filter on `users` has no business making. And moving the predicate to a trailing
+`WHERE` undoes the left join: the unmatched row has `NULL` in every `users` column, so any filter other
+than an `IS NULL` evaluates to `NULL` there and the parent is dropped after all.
+
+An **unfiltered** target keeps the `INNER JOIN` this module emits today, so no golden statement moves.
+That leaves a known seam: `Populated<T, K>` types a to-one as `Entity<Target> | null`, which an `INNER
+JOIN` cannot produce — it drops the parent instead — so the filtered path is the first one where that
+declared type is true. Closing the gap for the unfiltered path is a real fix and is not this epic's.
+
+`ManyToMany` throws at resolution, so there is no third case. The read and write rules, the disabling
+API and where a filter is declared live in `../../../repository/SPEC.md` §3c.
+
 ## 4. Join rows
 
 `JoinRow<Base, Joined, Kind>` is `Base & Joined` for an `INNER` join and `Base &

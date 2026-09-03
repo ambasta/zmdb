@@ -170,6 +170,176 @@ a plain object on a numeric column is a validation failure, not an expression.
 The keys an expression may not name are unchanged from §3: a primary key column is still refused in a patch,
 so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
 
+## 3c. Entity filters and soft delete (frozen — epic "Entity filters and soft delete")
+
+A filter is a predicate the repository conjoins into **every** query it compiles. That makes it the
+highest-leverage piece of SQL in the system, so the shape is constrained before the behaviour.
+
+```ts
+export interface FilterDef<P = void> {
+  readonly name: string;
+  /** Conjoined with AND into the query's WHERE. Not a string — see below. */
+  readonly where: (params: P) => readonly Predicate[];
+  /** Applied unless explicitly disabled. Default true. */
+  readonly enabled?: boolean;
+  /** Also constrains UPDATE and DELETE. Default **true** — see the write rule. */
+  readonly appliesToWrites?: boolean;
+}
+
+class UserRepository extends BaseRepository<User> {
+  static readonly schema = UserSchema;
+  static readonly filters = [tenantFilter] as const;
+}
+
+users.findAll({ filters: { tenant: { tenantId: ctx.tenantId } } });
+users.findAll({ filters: { softDelete: false } });
+```
+
+**`where` returns predicates, never SQL text.** Two reasons and the second one is mechanical. A filter is
+applied to every statement, so a raw string there is not one injection point but all of them at once. And
+a fragment carrying its own `$1` would collide with the numbering of the statement it is spliced into —
+the compiler numbers placeholders across the whole query, and a filter is appended after the caller's
+predicates, so a hand-written fragment is wrong for every query except the first one it was tested
+against.
+
+Soft delete is declared instead of registered, as a tag, and lives in the IR
+(`../schema-core/src/ir/SPEC.md` §4.4): it is a property of the table, it needs no parameters, and three
+other code paths need to know about it. A parameterised filter cannot go there — the IR is serialised to
+a file for the AOT route and a function does not survive that.
+
+### The read rule
+
+Every read is filtered, and the list is written out because these are the paths that get forgotten:
+`findById`, `findOne`, `findAll`, `count`, `exists`, every aggregation, and the second query of a
+`populate`. `findById` included — a soft-deleted row is **not** findable by its id, which is the entire
+point rather than an edge case.
+
+`driver.execute` is not filtered and cannot be. zmdb does not parse the SQL a caller wrote, so raw SQL is
+outside the boundary; the spec says so plainly rather than leaving the impression that a filter is a
+property of the database.
+
+### The join rule, per relation kind
+
+The invariant, stated first because it decides both cases: **a filter on a target table never changes
+which parent rows are returned.** A filter says which rows of _its own_ table are visible; silently
+deleting a post because its author was soft-deleted is a different statement and not one anybody made.
+
+**To-many** — the batched second query, and the easy case. The filter conjoins that query's `WHERE`:
+
+```
+populate(['posts']) with posts soft-deletable
+SELECT * FROM "posts" WHERE "userId" IN ($1, $2) AND "posts"."deletedAt" IS NULL
+```
+
+The parent rows are already fetched and untouched; a parent whose children are all filtered out gets `[]`,
+which is a legal value of the relation. The no-parent-keys case stays `WHERE 1 = 0` with no filter
+appended — `1 = 0 AND …` adds nothing and the existing golden does not move.
+
+**To-one** — the single-query join, and the case with a real decision in it. A to-one populate of a
+**filtered** target becomes a `LEFT JOIN` with the filter **in the `ON` clause**:
+
+```
+posts.populate(['author']) with users soft-deletable
+SELECT * FROM "posts" LEFT JOIN "users"
+  ON "posts"."userId" = "users"."id" AND "users"."deletedAt" IS NULL
+```
+
+Both halves of that are forced. `INNER JOIN` would drop the post, violating the invariant. And the filter
+in a trailing `WHERE` instead of the `ON` turns the left join back into an inner one — the unmatched row
+has `NULL` in `users.deletedAt`, and `NULL IS NULL` is true, so that particular predicate survives it, but
+any other filter (`users.tenantId = $1`) would evaluate to `NULL` on the outer row and drop the post. A
+rule that works for one predicate shape and not the others is not a rule, so it is the `ON` clause,
+always.
+
+The parent's own filters stay in the `WHERE`, because there is no outer row to preserve there.
+
+A to-one populate of an **unfiltered** target keeps the `INNER JOIN` it emits today, so no existing golden
+moves. Worth recording that this leaves a seam: `Populated<T, K>` already types a to-one as
+`Entity<Target> | null`, and an `INNER JOIN` cannot produce that null — it drops the parent instead. The
+filtered path is the first place the declared type is actually true. Making the unfiltered path agree is a
+real fix and belongs to whoever owns `compilePopulate`, not to this epic.
+
+`ManyToMany` throws at resolution (`../schema-core/src/relations/SPEC.md` §2), so there is no third case.
+
+### The write rule
+
+`appliesToWrites` defaults to **true**. The default has to be the one where forgetting it is not a breach:
+an `update` or `delete` that ignores a tenant filter reaches another tenant's rows, and that is a security
+bug rather than a surprising result. A filter that genuinely should not constrain writes says so.
+
+Soft delete redefines `delete` rather than being filtered by it:
+
+```
+users.delete(7)
+UPDATE "users" SET "deletedAt" = $1 WHERE "id" = $2 AND "deletedAt" IS NULL
+```
+
+`deletedAt IS NULL` in the `WHERE` is what makes a second `delete` return `false` instead of overwriting
+the timestamp with a later one, which would move the record of when the row was deleted.
+
+Two more methods, and their existence is the point:
+
+- `hardDelete(id)` compiles a real `DELETE`. It is a separate method and **not**
+  `delete(id, { filters: { softDelete: false } })`, because "show me deleted rows" and "destroy this row"
+  are different intents and must not be the same spelling. An option that turns a reversible operation
+  into an irreversible one is a footgun with a review-proof appearance.
+- `restore(id)` sets `deletedAt` back to `NULL`. It runs with the soft-delete filter off by necessity — a
+  soft-deleted row is the only thing it can act on — and this is the **one** place the framework disables
+  a filter on the caller's behalf. Stated explicitly so it is not discovered as an inconsistency.
+
+An `update` against a soft-deleted row matches nothing and returns `undefined`, by the read rule.
+
+### Missing parameters
+
+A filter declared with parameters and invoked without them **throws**, before any SQL is compiled:
+
+```
+filter `tenant` requires parameters (tenantId) and none were supplied; pass them per call —
+findAll({ filters: { tenant: { tenantId } } }) — or disable it by name
+```
+
+It does not become `TRUE`, and it is not skipped. A filter that quietly stops applying when its parameter
+is absent is precisely the leak this feature exists to prevent, and it leaks on the code path that is
+hardest to test — the one where somebody forgot something.
+
+`undefined` and `null` for a declared parameter are missing parameters, not SQL `NULL`. A filter builder
+that let `undefined` through would emit `"tenantId" = NULL`, which matches no rows under three-valued
+logic, and "no rows" reads as an empty result rather than as an error.
+
+### Disabling
+
+Per name, always: `{ filters: { softDelete: false } }`.
+
+**`{ filters: false }` is rejected and is not in the type.** It is the one call that changes meaning
+without being edited: reviewed when the table had one filter, it silently disables the second filter
+somebody adds two years later, and nothing in the diff of that later change shows the call site. There is
+no blanket form and no `disableAll`.
+
+An unknown name in `filters` throws and lists the declared ones. A typo when disabling fails safe — the
+filter stays on — but confusingly, since the caller believes they widened the query and got fewer rows
+than they expected, so silence is the wrong response even though it is the safe one.
+
+A filter that must **never** be disabled is not expressible, and that is deliberate. Any option the
+application can pass, the application can pass by mistake, so a filter is not a security boundary; it is a
+default. A boundary that has to hold against application code belongs in the database — see
+`../query-compiler/src/schema-objects/SPEC.md` §6 for row-level security — and the spec says so rather
+than implying that `appliesToWrites: true` is one.
+
+### Confirming a filter was applied
+
+The honest answer is the compiled SQL, so there is an API that hands it over:
+
+```ts
+interface RepositoryOptions {
+  readonly onQuery?: (query: CompiledQuery, meta: { readonly filters: readonly string[] }) => void;
+}
+```
+
+`meta.filters` is the names of the filters that were applied to that statement, and it exists because
+reading `deletedAt IS NULL` out of a `WHERE` clause by eye is exactly the check that goes wrong under a
+join — the predicate is present, in the wrong clause, doing nothing. A name list is assertable in a test;
+a SQL string is assertable only against a golden that nobody updates carefully.
+
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 
 `preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,
