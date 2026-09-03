@@ -5,18 +5,17 @@
 
 ## Tools from schema objects
 
-LangChain's `DynamicStructuredTool` takes a Zod schema, and zmdb produces JSON Schema — so the bridge is one conversion:
+`DynamicStructuredTool` accepts a JSON Schema for its `schema`, and zmdb produces JSON Schema — so there is no conversion:
 
 ```ts
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 import { assert } from '@zmdb/aot-validator/utilities';
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { jsonSchemaToZod } from 'json-schema-to-zod';
 
 export const createUserTool = new DynamicStructuredTool({
   name: 'create_user',
   description: 'Create a user',
-  schema: jsonSchemaToZod(toJsonSchema(users, 'create')),
+  schema: toJsonSchema(users, 'create'),
   func: async input => {
     const dto = assert<CreateDTO<User>>(input); // check again, LangChain's parse is not yours
     const row = await userRepo.create(dto);
@@ -25,9 +24,16 @@ export const createUserTool = new DynamicStructuredTool({
 });
 ```
 
-The second `assert` is not paranoia. LangChain validates against the Zod schema it was given; the `assert` validates against the TypeScript type your repository accepts. If the JSON-Schema-to-Zod conversion loses a constraint — and it does, for anything beyond the basics — that is the check that notices.
+Do not route it through `json-schema-to-zod` on the way. The conversion drops `format`, so `date-time` and
+`int64` stop being described to the model at all, and it turns a `json` column's `{}` into `z.any()` — a
+parameter the model may fill with anything, announced to it as such.
 
-If you would rather skip the conversion, LangChain also accepts a JSON Schema directly on newer versions, which removes a dependency and a lossy step.
+The `assert` earns its place either way. LangChain validates against the schema it was given, which describes
+the columns; the `assert` validates against the TypeScript type your repository accepts. A `json` column is
+the clearest case — its JSON Schema is `{}` and constrains nothing, so the `assert` is the only thing standing
+between the model and a row.
+
+`func` must return a string: the result becomes a `ToolMessage`'s content, hence the `JSON.stringify`.
 
 ## A retriever over your own tables
 

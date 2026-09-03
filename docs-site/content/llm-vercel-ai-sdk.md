@@ -4,16 +4,18 @@
 
 ## Tools
 
-The AI SDK's `tool()` takes a Zod schema, so the bridge is a JSON Schema conversion — or, on recent versions, `jsonSchema()`, which skips Zod entirely and is the better path:
+`tool()` takes a Zod schema or one of the SDK's own `Schema` objects, and `jsonSchema()` builds the second from what zmdb already emits — so no Zod:
 
 ```ts
 import { tool, jsonSchema } from 'ai';
+import type { JSONSchema7 } from 'json-schema';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 import { assert } from '@zmdb/aot-validator/utilities';
 
 export const createUser = tool({
   description: 'Create a user',
-  parameters: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create')),
+  // `inputSchema` on v5; it was `parameters` on v4.
+  inputSchema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create') as JSONSchema7),
   execute: async input => {
     const dto = assert<CreateDTO<User>>(input);
     return userRepo.create(dto);
@@ -23,6 +25,8 @@ export const createUser = tool({
 
 `jsonSchema<T>()` carries your TypeScript type through for the SDK's inference while the runtime schema comes from your schema object — one declaration, both halves. The `assert` still earns its place: the SDK's schema handling is not the same code as your repository's type.
 
+The cast is not optional. `toJsonSchema` returns deeply `readonly` properties, and the SDK's parameter is a mutable JSON-Schema node — the shapes agree, the modifiers do not. It is one cast at one boundary, which is the shape of every hand-written adapter on this page.
+
 ## Structured output
 
 ```ts
@@ -31,7 +35,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 
 const { object } = await generateObject({
   model: anthropic('claude-opus-5'),
-  schema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create')),
+  schema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create') as JSONSchema7),
   prompt: transcript,
 });
 
@@ -55,7 +59,7 @@ Bun.serve({
     const url = new URL(request.url);
     if (url.pathname === '/api/chat') {
       const result = streamText({ model: anthropic('claude-opus-5'), messages: await body(request) });
-      return result.toDataStreamResponse();
+      return result.toUIMessageStreamResponse();
     }
     return app.fetch(request);
   },
@@ -78,11 +82,13 @@ const result = streamText({
       role: 'assistant',
       content: text,
       toolUse: null,
-      tokens: usage.completionTokens,
+      tokens: usage.outputTokens ?? null,
     });
   },
 });
 ```
+
+`outputTokens` is v5's name for what v4 called `completionTokens`, and it is optional — a provider that reports no usage leaves it `undefined`, which is why the column is nullable rather than `NOT NULL DEFAULT 0`.
 
 Write the user's message _before_ the call, not in `onFinish` — otherwise a failed generation loses the prompt and the user retypes it.
 
