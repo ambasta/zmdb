@@ -514,3 +514,300 @@ sub-issue, so none is edited here. What that sub-issue has to carry:
 - **Keyset pagination in the studio.** §14.2 — a browser needs a page number.
 - **`studio --host`, with or without a token.** §14.3 — the loopback bind _is_ the boundary, and a token
   in a URL lands in shell history and a proxy log.
+
+## Amendments (the module inspector and the REPL, #599)
+
+Two verbs — one that describes an application's module graph without constructing it, and one that
+boots an application into an interactive session — plus the four independent things that keep the
+second one out of a server (epic #598, sub-issue #599). The description's shape and its provenance
+are `@zmdb/web`'s `src/devtools/SPEC.md`; lazy semantics are that package's `src/modules/SPEC.md`
+§L1-L12. Frozen before code.
+
+### R0. The edits this amendment makes to the sections above
+
+§1's table gains two rows, at the end, in the second division rather than the first — neither verb
+reads the schema:
+
+| Command   | Reads                    | Writes            | Connects  |
+| --------- | ------------------------ | ----------------- | --------- |
+| `modules` | application declarations | stdout            | no        |
+| `repl`    | application declarations | whatever you type | yes (§R4) |
+
+§1's "Twelve in total, and the count is not the interesting number — the division is" paragraph
+becomes fourteen, with a **third** division, and the new sentence is the load-bearing part: ten
+verbs read or write a database or the tree that describes it, two are a code generator and a
+viewer, and two describe or inhabit an application's own object graph. The third division is the
+first thing in this CLI that reads `@zmdb/web` rather than the schema packages, and saying so is
+what keeps a future contributor from adding `--migrate` to `zmdb modules`.
+
+§3's per-command `result` table gains one row:
+
+| Command   | `result`                                         |
+| --------- | ------------------------------------------------ |
+| `modules` | `GraphDescription` — the value, serialised as-is |
+
+serialised as-is for the same reason `ops` is (`§3`): the CLI's machine-readable output is the
+library's type, so there is no second schema to keep in step. `repl` has no row because it has no
+`--json` (§R3).
+
+§16 gains the non-goals listed at the end of this amendment, and §15 gains two bullets — both about
+pages whose banners the `[Docs]` sub-issue owns, and one of which is wrong today rather than
+wrong-after-this:
+
+- `web-repl.md` repeats the `web-cli-apps.md` error §15 already records: it says `assert<T>()` "is
+  permissive" under type stripping. It throws `runtime type witness required in test/fallback mode`
+  (`../../../aot-validator/src/utilities/index.ts:568`). Because that sentence is false about the
+  code as committed and would have somebody trust an unchecked input, it is corrected now rather
+  than deferred; the banner, the new scope table and the `status` flip stay with the docs sub-issue.
+- `web-repl.md`'s "What it would take" asks how to discover the tokens to expose and concludes an
+  explicit map is needed either way. §R6 answers it — `tokens` from the description, and `get`
+  accepting a description string — so that section becomes an answer rather than an open question.
+
+### R1. The verb is `modules`, and `graph` is refused
+
+#599 and the roadmap both call it `zmdb graph`. In this CLI that name is unavailable, under the
+rule §1 and §13 are both about: a verb must not acquire a second meaning.
+
+`zmdb`'s other twelve verbs are about a database schema. In that company `graph` reads as the
+table graph — the foreign-key graph a `pull` walks, the dependency order a `push` sorts DDL into,
+the thing a schema visualiser would draw. A developer typing `zmdb graph` in a project with
+thirty tables and four modules cannot know which one they are asking for, and the output tells
+them only after the fact. `zmdb modules` names the thing it describes, matches
+`@zmdb/web`'s module vocabulary exactly, and leaves `graph` free for the schema graph if that is
+ever wanted — which is the same argument §12.1's `embed` makes against `export --embed`.
+
+The output is not only modules; it can include providers and controllers. That is a fair objection
+and it loses to the alternative, because `modules` is the graph's _granularity_ — the default
+projection is the module graph, and providers appear under `--providers`
+(`@zmdb/web`'s `src/devtools/SPEC.md` §8). A name describing the default is more useful than one
+describing the maximum.
+
+### R2. Naming the application, and there is no config field for it
+
+```
+zmdb modules [module-spec] [--format tree|dot] [--providers] [--module <name>] [--token <desc>] [--depth <n>]
+zmdb repl [module-spec] [--no-history]
+```
+
+`module-spec` is `<path>#<export>`, defaulting to `./src/app.module.ts#AppModule` — which is
+exactly what §13.1's scaffold writes, so the default works in a project this CLI created and
+nowhere else by accident. A missing file or a missing export exits 2 naming both halves, because
+`--project` and `--config` cannot help and guessing is worse: an inferred root module is a
+silently wrong graph, and `zmdb modules` exists to be trusted about a graph.
+
+In a workspace root the spec is required rather than resolved, which is §13.2's reasoning applied
+unchanged — "choosing the target package is not inferred" — and here the cost of a wrong guess is
+higher than a file in the wrong package, because the output looks right.
+
+**There is no `app` or `rootModule` field in `zmdb.config.ts`.** Every field that config carries
+describes the schema — `schema`, `out`, `driver`, `project`, `dialect` — and its own §7 is titled
+"The application does not read this file". A root-module field would invert that: the config would
+start describing the application, and the first thing to ask for it after this would be a port.
+Two commands taking one positional argument is cheaper than a config field that changes what the
+config is for.
+
+Loading the spec uses the same mechanism §4 already documents for the config file — Node's own
+type stripping — with the cost that section names, and one more that belongs here: **importing a
+root module evaluates that file and everything it imports.** Decorators run, which is the point,
+and any top-level side effect in application code runs too. `zmdb modules` constructs no provider
+and calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module
+scope was already opening on every import and is out of the CLI's hands. Naming it is the
+difference between a surprising connection and a documented one.
+
+### R3. `zmdb modules`: flags, the `--json` collision, and exit codes
+
+| flag          | effect                                                                        |
+| ------------- | ----------------------------------------------------------------------------- |
+| `--format`    | `tree` (default) or `dot`. Nothing else — a renderer is a pure function (§7). |
+| `--providers` | include provider and controller nodes; refused unfiltered above the threshold |
+| `--module`    | restrict to a module, its transitive imports and its own declarations         |
+| `--token`     | restrict to one token, its dependencies and its dependents                    |
+| `--depth`     | bound the transitive closure. Default 2                                       |
+
+**`--json` and `--format` collide, and the resolution is that `--json` wins by being the same
+thing.** The global `--json` (§3) already promises exactly one JSON document on stdout, and that
+document is `CliResult<GraphDescription>` — which _is_ the machine-readable form of this command,
+not a wrapper around a rendered string. So `--format` takes only the two human-or-tool renderings,
+and `--json --format dot` exits 2 with a sentence saying they ask for opposite things, following
+§2's existing convention and its `zmdb-codegen: --check and --watch ask for opposite things`
+precedent. Making `--format json` a third value would give the CLI two ways to ask for JSON that
+differ in whether the `CliResult` envelope is present, which is the sort of divergence that gets
+discovered by a script.
+
+Exit codes, under §2's three:
+
+| code | when                                                                                               |
+| ---- | -------------------------------------------------------------------------------------------------- |
+| 0    | described, with no `error`-severity finding — warnings included and printed                        |
+| 1    | at least one `error` finding: a cycle, an unresolved token, a duplicate provider, a shadowed route |
+| 2    | the module spec did not resolve, colliding flags, or `--providers` unfiltered above the threshold  |
+
+A finding exits 1 for the reason §7 gives for `check`: the tree is not in the state it should be,
+and there is nothing wrong with the invocation. And as there, it is **any** finding rather than a
+code per finding kind — §16 already rejects per-finding exit codes, and a graph description is
+where the temptation returns, because a cycle feels more serious than a duplicated token
+description. It is; that is what `severity` is for, and it is in the output rather than in the exit
+status. Warnings alone exit 0, so `zmdb modules` is usable as a CI gate without failing on a
+cosmetic finding.
+
+This makes `zmdb modules` the second command after `check` that is worth running in CI, and the
+two do not overlap: `check` is about the schema tree, this is about the application graph. A
+shadowed route or a cycle caught here is caught before a deploy rather than by a 404.
+
+### R4. `zmdb repl` boots the real application
+
+The session is built on **`createApp`**, not `createTestApp`, and the reasoning matters because
+`docs-site/content/web-repl.md` proposes the opposite.
+
+`createApp` already boots without a socket: it compiles the graph, registers routes and returns an
+object with `handle` and `fetch` (`@zmdb/web`'s `src/app/index.ts:26-40`). **An adapter binds a
+port; the app does not.** So there is no listening socket to avoid, and nothing to strip. What the
+page reaches for `createTestApp` for is `request()`, and that is one function over `app.handle`,
+not a reason to import a testing API.
+
+Two reasons not to import it. `TestApp` exposes `request`, `get`, `init` and dispose — and **no
+`container`** (`@zmdb/web`'s `src/testing/index.ts`), which is the single object a REPL session is
+most for. And `createTestApp` carries override semantics: a session built on it would be one
+option away from a graph that is not the application's, in a tool whose whole value is that it is
+the application's.
+
+The session calls `app.init()` before handing over the prompt, so `onModuleInit` and
+`onApplicationBootstrap` have run and a repository you resolve is usable rather than half-built.
+That is what puts `yes` in the `Connects` column of §R0's table, and it is what the `exit` handler
+is for: the session is an `await using` scope, so leaving it runs `onShutdown` in reverse order.
+`web-repl.md` is right that this is what stops the process hanging on an open pool, and it is
+better as a property of the command than as a snippet a reader must remember to copy.
+
+`--json` is rejected for `repl` with exit 2. §3 promises one JSON document on stdout, and an
+interactive session's stdout is a conversation; there is no document to be. `--yes` and `--force`
+are accepted and inert, as they are for every read-only verb.
+
+### R5. Four barriers, and the TTY rule is the one that matters in production
+
+DoD 6 of the epic asks that a REPL not be reachable from a running server, enforced rather than
+documented. Four independent things enforce it, and the design goal is that removing any one still
+leaves the property true:
+
+1. **No API starts a REPL.** `@zmdb/web` exports no such function, from any subpath, and
+   `node:repl` appears nowhere under `packages/web/src`. The only entry point is this command.
+2. **The entry is build-time only.** The command lives under `./src/cli/`, whose `./cli` export
+   joins `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` per §12 — the same gate that
+   keeps the config loader and the compiler session out of an application bundle. A server bundle
+   does not contain this code to reach.
+3. **`zmdb repl` requires a TTY.** With `stdin` not a TTY it exits 2, naming the reason. This is
+   §11's existing rule applied to a whole command rather than to a prompt, and it is the barrier
+   that survives contact with reality: a process under systemd, in a container, or on Lambda has
+   no TTY, so a REPL cannot be started inside it even by a shell escape that reaches the CLI. It
+   also refuses the specific attack the rule exists for — piping a socket into stdin — because
+   that is not a TTY either. The failure mode it prevents is a production process acquiring an
+   interactive prompt on a stream somebody else controls.
+4. **A gate.** `yarn verify:devtools-boundary` →
+   `.github/scripts/verify-devtools-boundary.mjs`, which also asserts that neither `zmdb`'s `.`
+   nor its `./web` re-exports the inspector (`@zmdb/web`'s `src/devtools/SPEC.md` §9). The facade
+   enumerates every public symbol by habit (`packages/zmdb/src/web.ts:1-2`), so that file is where
+   this rule breaks first, and a gate is the only thing that notices.
+
+**There is no socket, no `--inspect`, no `--host` and no `--port`.** §14.3's argument for `studio`
+applies here in a stronger form: for the studio, the loopback bind _is_ the security boundary; for
+the REPL there is no bind at all, so the boundary is satisfied vacuously. A remote-attach protocol
+— which is how NestJS's REPL and every language's debug server get reached — is the one design
+that would make barrier 3 pointless, because a TTY on the operator's machine plus a socket into
+the server is exactly the thing being refused.
+
+### R6. The banner, the scope, and where history goes
+
+The banner prints, on stderr so `--format dot` and any redirect stay clean: the resolved config
+path, the dialect and the database name, and the root module. **You should not be able to type a
+statement without knowing which database you are holding**, and there is no `--quiet` — the one
+line is the price of an interactive session against real data, and the failure it prevents is a
+`DELETE` typed into staging's twin. `web-repl.md`'s production warning becomes this line
+plus §R5's barriers, which is the difference between a warning and a mechanism.
+
+Scope exposed at the prompt:
+
+| name                      | is                                                             |
+| ------------------------- | -------------------------------------------------------------- |
+| `app`                     | the `App` from `createApp`                                     |
+| `container`               | `app.container`                                                |
+| `get(tokenOrDescription)` | `container.resolve`, also accepting a token's description text |
+| `tokens`                  | the token descriptions in the graph, from the description      |
+| `describe()`              | `describeGraph` over the root module, pretty-printed           |
+| `request(req)`            | `app.handle`, with a string shorthand for `GET`                |
+| `load(name)`              | `load()` on a lazy module handle, by name                      |
+
+`get` accepts a description string because the alternative is asking a user to import the token
+module by hand before they can resolve anything, and `web-repl.md` is right that discovering the
+tokens is the only real design question. It is answered by `tokens` and by the description
+accepting text — and the ambiguity that creates is the reason
+`duplicate-token-description` is a finding: two tokens with one description make `get('db')`
+undecidable, and the session says so rather than picking.
+
+There is no `$()`. NestJS's `$(Controller)` is a class-keyed lookup, which is meaningful there
+because its container is keyed by class; here the container is keyed by `Token`
+(`@zmdb/web`'s `src/di/index.ts`), and a class-keyed helper would have to be a second index over
+the graph description that resolves nothing the container knows about.
+
+History goes to `~/.zmdb_repl_history`, mode `0600`, matching `node:repl`'s own
+`~/.node_repl_history` convention so the location is already where a user's tooling ignores it.
+`ZMDB_REPL_HISTORY` relocates it; `--no-history` disables it. **It is never written inside the
+project tree**, and that is the whole reason the path is frozen rather than left to the
+implementation: a history file in the working directory gets committed, gets copied into a Docker
+image, and contains whatever was typed against production — which is the one artifact of this
+feature with a real chance of leaking a credential. `0600` because it is a transcript of
+statements, and a transcript is as sensitive as the statements.
+
+### R7. What #600 has to assert
+
+1. `zmdb modules` on the scaffold fixture exits 0 and its stdout parses as one JSON document under
+   `--json`, whose `result` deep-equals `describeGraph` of the same root module.
+2. `zmdb modules` on a fixture with a cycle exits **1**, prints the cycle path, and still emits a
+   complete description — the assertion that the inspector describes a graph that does not boot.
+3. A fixture with a shadowed route and one with a duplicate provider each exit 1; a fixture whose
+   only finding is a duplicate token description exits **0** and prints the warning.
+4. `--json --format dot` exits 2 and says the flags ask for opposite things; an unresolvable
+   module spec exits 2 naming the path and the export.
+5. `--providers` with no filter on a fixture above the threshold exits 2 and lists the module names
+   to filter by; with `--module` it exits 0.
+6. `zmdb repl` with `stdin` not a TTY exits 2, asserted by spawning it with a piped stdin — the
+   §R5 barrier asserted as a barrier, not as documentation.
+7. `zmdb repl --json` exits 2.
+8. The REPL's scope, tested against the session's evaluate function rather than a spawned process:
+   `get` resolves by token and by description, `tokens` lists the descriptions, `request('/users')`
+   returns the eager route's response, and `load(name)` loads a lazy module.
+9. `get('db')` where two tokens share that description reports the ambiguity rather than resolving
+   one of them.
+10. The session banner names the config path, the dialect and the database, on stderr — so stdout
+    under `--format dot` is exactly the diagram.
+11. History is written to the `ZMDB_REPL_HISTORY` path with mode `0600` and no file appears in the
+    fixture's working directory; `--no-history` writes nothing at all.
+12. `await using` semantics: leaving the session runs `onShutdown` on the fixture's provider, in
+    reverse order.
+13. `yarn verify:devtools-boundary` fails on a planted re-export of the inspector from
+    `packages/zmdb/src/web.ts`, and passes on the tree as committed.
+14. `mapping.mjs`'s `NO_REPL` argument and its `lazy-modules/e2e/*` argument are rewritten and the
+    cited rows (`:866`, `:873-879`, `:906`, `:907`) move from out-of-scope to covered, with titles
+    matching real `it()` text — which `yarn verify:api-coverage` checks and which is named here so
+    it is not discovered by that gate failing.
+
+### Non-goals (rejected in this amendment)
+
+- **`zmdb graph`** (§R1) — in a schema tool the name already means the table graph.
+- **`--format json`, or any JSON that is not the global `--json`'s one document** (§R3).
+- **Per-finding exit codes for `modules`** (§R3) — §16 already rejects them for `check`, and
+  `severity` is in the output.
+- **An `app` or `rootModule` field in `zmdb.config.ts`** (§R2) — §7 of this file says the
+  application does not read that file, and this would make the file describe the application.
+- **Inferring the root module in a workspace root** (§R2) — §13.2's reasoning, where a wrong guess
+  produces output that looks right.
+- **Building the session on `createTestApp`** (§R4) — no `container`, and override semantics in a
+  tool whose value is that the graph is the application's.
+- **A REPL socket, a remote attach, `--inspect`, `--host` or `--port`** (§R5) — §14.3's argument in
+  its strongest form, since there is no bind to secure.
+- **A REPL without a TTY, behind a flag** (§R5, §11) — the flag would be the whole vulnerability.
+- **`--quiet` for the banner** (§R6).
+- **A history file in the project directory, or history on by default without a mode** (§R6) — it
+  gets committed and it gets baked into an image.
+- **`$(Controller)`** (§R6) — the container is keyed by `Token`, not by class.
+- **Any write verb inside the REPL beyond what the application's own providers expose** — the
+  session is the application, and a CLI-level `--write` flag would be a second permission model on
+  top of §10's.

@@ -91,7 +91,7 @@ No connection needed. Iterating on a query shape in the REPL and reading the SQL
 > one for an incident, connect with a read-only role — and get the query reviewed
 > before running a write.
 
-The AOT transformer also does not run under type stripping, so `assert<T>()` in a REPL session is permissive. Do not use a REPL to test whether validation works; use a test. See [JIT vs AOT](./jit-vs-aot.html).
+The AOT transformer also does not run under type stripping, so `assert<T>()` in a REPL session does not validate — it throws `runtime type witness required in test/fallback mode`. It fails loudly rather than accepting anything, which is the right direction, but it does mean a REPL is not where you find out whether validation works. Use a test. See [JIT vs AOT](./jit-vs-aot.html).
 
 ## What it would take
 

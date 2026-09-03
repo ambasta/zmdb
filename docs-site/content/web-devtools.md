@@ -95,7 +95,9 @@ Without them a stack trace points into bundled output and the debugging experien
 
 ## What it would take
 
-A devtools UI needs data the framework does not currently expose: provider dependency edges (there are none to record — [`@Inject` is a field decorator](./web-injection-scopes.html) read at `build` time, and nothing keeps the graph), a per-request timeline (no observation hook), and a way to serve a UI (blocked on the [string response body](./web-static-files.html)).
+A devtools UI needs three things, and only two of them are missing: a per-request timeline (no observation hook) and a way to serve a UI (blocked on the [string response body](./web-static-files.html)). The third — provider dependency edges — turns out to be recorded already. [`@Inject` is a field decorator](./web-injection-scopes.html), and it writes `{ field, token }` into the class's decorator metadata at decoration time; the slot is simply never read by anything. An earlier version of this paragraph said there were "none to record", which was wrong: the graph is kept, by the classes. Edges into a `useFactory` are the real exception and are unknowable — a factory takes the whole container and can resolve anything — so those are the nodes to be careful about if you are deleting a provider because nothing appears to depend on it.
+
+`packages/web/src/devtools/SPEC.md` freezes what reads that metadata back, and it is a CLI over your declarations rather than a UI: no HTTP surface, and nothing in `@zmdb/web` serves the graph, because a `/__graph` route is a route-table oracle.
 
 The honest assessment: a graph visualiser is most valuable in a framework whose graph is hard to understand. Here the graph is one flat container and a list of routes, both printable in five lines. The route table and the duplicate test above cover the real need.
 
