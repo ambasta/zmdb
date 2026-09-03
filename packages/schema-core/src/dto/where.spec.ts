@@ -1,8 +1,9 @@
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
-import type { User } from './fixtures.ts';
-import { compileWhere, type WhereDTO, type WhereTarget } from './index.ts';
+import { ValidationError } from '../index.js';
+import type { User } from './fixtures.js';
+import { compileWhere, type WhereDTO, type WhereTarget } from './index.js';
 
 // Fake builder that records the where/orWhere calls (compiler-agnostic).
 function recorder() {
@@ -142,5 +143,91 @@ describe('WhereDTO + operator set (#179)', () => {
         } as WhereDTO<User>,
       ),
     ).toThrow('Builder does not support whereExists');
+  });
+});
+
+// #364. The operator allowlist was a truthy read on an object literal, so every
+// `Object.prototype` member passed it — as a function or an object — and reached the
+// compiler. Where-DTOs are the path user JSON takes into the query builder, so these
+// keys arrive from outside the process.
+//
+// The payloads are deliberately ones the type system cannot describe, so this is the
+// one place that widens, and `__proto__` has to come through `JSON.parse`: in an
+// object literal it sets the prototype instead of becoming a key.
+function fromUserJson(json: string): WhereDTO<User> {
+  const parsed: unknown = JSON.parse(json);
+  return parsed as WhereDTO<User>;
+}
+
+describe('compileWhere: the operator allowlist fails closed (#364)', () => {
+  const inherited = [
+    'toString',
+    'toLocaleString',
+    'valueOf',
+    'constructor',
+    'hasOwnProperty',
+    'isPrototypeOf',
+    'propertyIsEnumerable',
+    '__proto__',
+  ];
+
+  it.each(inherited)('rejects the inherited key %s instead of emitting it', key => {
+    const { b, calls } = recorder();
+    const where = fromUserJson(`{"email":{${JSON.stringify(key)}:"x"}}`);
+
+    expect(() => compileWhere(b, where)).toThrow(ValidationError);
+    expect(() => compileWhere(b, where)).toThrow(`unknown operator "${key}" on column "email"`);
+    // Nothing partially applied: the throw happens instead of the predicate, not after it.
+    expect(calls).toEqual([]);
+  });
+
+  it('rejects a misspelled operator rather than dropping the predicate', () => {
+    const { b } = recorder();
+
+    expect(() => compileWhere(b, fromUserJson('{"age":{"equals":42}}'))).toThrow(
+      'compileWhere: unknown operator "equals" on column "age"',
+    );
+  });
+
+  it('names the column and lists the operators it would have accepted', () => {
+    const { b } = recorder();
+    let issues: readonly { path: string; message: string; expected?: string }[] = [];
+    try {
+      compileWhere(b, fromUserJson('{"age":{"greaterThan":42}}'));
+    } catch (error) {
+      if (error instanceof ValidationError) issues = error.issues;
+    }
+
+    expect(issues).toEqual([
+      {
+        path: 'age',
+        message: 'unknown operator "greaterThan"',
+        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | isNull | notNull',
+        value: 42,
+      },
+    ]);
+  });
+
+  it('still accepts every operator it names, from untyped input', () => {
+    const { b, calls } = recorder();
+    compileWhere(
+      b,
+      fromUserJson(
+        '{"age":{"eq":1,"ne":2,"lt":3,"lte":4,"gt":5,"gte":6,"like":"a","ilike":"b"},"email":{"isNull":true},"role":{"notNull":true}}',
+      ),
+    );
+
+    expect(calls.map(call => call[2])).toEqual([
+      '=',
+      '!=',
+      '<',
+      '<=',
+      '>',
+      '>=',
+      'like',
+      'ilike',
+      'is null',
+      'is not null',
+    ]);
   });
 });

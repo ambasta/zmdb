@@ -4,9 +4,9 @@
 import type { CompiledQuery, SelectBuilder } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-import type { DeclaredTable, RelationKeys } from '../derive/index.ts';
-import type { Entity } from '../index.ts';
-import { isRecord } from '../index.ts';
+import type { DeclaredTable, RelationKeys } from '../derive/index.js';
+import type { Entity } from '../index.js';
+import { isRecord, ValidationError } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
@@ -105,6 +105,10 @@ const OP_SQL: Record<string, string> = {
   ilike: 'ilike',
 };
 
+// Every operator `applyField` accepts, for the error an unrecognised one raises.
+// `isNull`/`notNull` are handled ahead of the map, so they are not keys of it.
+const KNOWN_OPERATORS: readonly string[] = [...Object.keys(OP_SQL), 'isNull', 'notNull'];
+
 /**
  * A `{ table, select?, where? }` literal in a DTO, compiled into a subquery builder.
  *
@@ -192,8 +196,26 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
             else if (connector !== 'or' && b.whereNotIn) b = b.whereNotIn(col, value);
             else add('not in', value);
           } else {
-            const sql = OP_SQL[op];
-            if (sql) add(sql, value);
+            // `Object.hasOwn`, not a truthy read: `OP_SQL` is an object literal, so an
+            // operator named `toString`, `constructor`, `valueOf` or `__proto__` resolves
+            // through `Object.prototype` and passes a truthiness check as a function or an
+            // object. A where-DTO is the path user JSON takes into the builder, so those
+            // keys arrive from outside the process (#364).
+            const sql = Object.hasOwn(OP_SQL, op) ? OP_SQL[op] : undefined;
+            if (sql === undefined) {
+              // Fail closed. Skipping the key emitted a statement with one predicate
+              // fewer than the caller wrote, which on an UPDATE or DELETE is the whole
+              // table.
+              throw new ValidationError(`compileWhere: unknown operator "${op}" on column "${col}"`, [
+                {
+                  path: col,
+                  message: `unknown operator "${op}"`,
+                  expected: KNOWN_OPERATORS.join(' | '),
+                  value,
+                },
+              ]);
+            }
+            add(sql, value);
           }
         }
       }

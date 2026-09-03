@@ -62,6 +62,14 @@ calling `.where(col, op, value)` / `.orWhere(...)`. Operator mapping:
 
 - Field/operator order within a group is stable (object key order) for golden SQL.
 - Empty WhereDTO ⇒ no predicate added.
+- **An operator key that is not in the table above is a `ValidationError`** naming the
+  column, the key, and the set that would have been accepted. It is not skipped:
+  skipping emitted a statement with one predicate fewer than the caller wrote, which
+  on an `UPDATE` or `DELETE` is the whole table. The membership test is
+  `Object.hasOwn`, because the map is an object literal and every
+  `Object.prototype` member — `toString`, `constructor`, `valueOf`, `__proto__` —
+  passes a truthy read as a function or an object, and a where-DTO is the path user
+  JSON takes into the builder (#364).
 
 ### The fold is target-neutral; the predicate list is not
 
