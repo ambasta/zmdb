@@ -7,7 +7,10 @@ mutation. Epic #98.
 ## 1. Indexes & constraints (#99/#100/#101)
 
 ```ts
-type IndexColumn = string | { readonly expr: string };
+type IndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
 
 interface IndexDef {
   name: string;
@@ -15,6 +18,8 @@ interface IndexDef {
   columns: readonly IndexColumn[];
   unique?: boolean;
   where?: string;
+  method?: IndexMethod;
+  with?: Readonly<Record<string, number>>;
 }
 function createIndexDdl(def: IndexDef, dialect): string;
 function checkConstraintDdl(table: string, name: string, expr: string, dialect): string;
@@ -65,6 +70,47 @@ already handles materialized views and RLS:
 mysql does not support an expression index ("users_email_ci" on "users" uses lower(email));
 add a generated column and index that instead
 ```
+
+### 1.2 Method, operator class and options (frozen — epic "Database extensions")
+
+A vector index is not a b-tree, and the two things that make it one — the access method and its build
+parameters — have nowhere to go in the shape above. Both are added, and both are closed:
+
+```ts
+type IndexMethod = 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
+```
+
+```
+{ name: 'items_embedding_l2', table: 'items', method: 'ivfflat',
+  columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }], with: { lists: 100 } }
+
+postgres  CREATE INDEX "items_embedding_l2" ON "items" USING ivfflat ("embedding" vector_l2_ops) WITH (lists = 100)
+
+{ name: 'items_embedding_cos', table: 'items', method: 'hnsw',
+  columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }], with: { m: 16, ef_construction: 64 } }
+
+postgres  CREATE INDEX "items_embedding_cos" ON "items" USING hnsw ("embedding" vector_cosine_ops) WITH (m = 16, ef_construction = 64)
+```
+
+`method` is an enum and not a string for the same reason §1.1's expression form is a tagged object: it
+lands in the statement unquoted, so a free string there is caller-supplied text in SQL — the shape of
+#364. `opclass` is a string because the set is open (every extension ships its own), so it carries the
+identifier check instead: `/^[A-Za-z_][A-Za-z0-9_]*$/`, refused otherwise, the same rule as
+`ExtensionType.args`.
+
+`with` keys are closed **per method** — `lists` for `ivfflat`, `m` and `ef_construction` for `hnsw`, and
+nothing at all for the four ordinary methods — and every value must be a non-negative integer. A key the
+method does not define is refused naming both, because the pgvector tuning parameters are easy to
+misremember and `WITH (list = 100)` is a Postgres error at migration time rather than at build time:
+
+```
+ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are (lists)
+```
+
+Omitting `method` emits no `USING` clause, so every existing golden statement is unchanged. `ivfflat` and
+`hnsw` are refused on MySQL and SQLite by the same rule as the expression form, and `gin`, `gist` and
+`brin` are refused there too — they are Postgres access methods, and MySQL's `USING BTREE` / `USING HASH`
+are the only two it has.
 
 ## 2. Views (#102/#103/#104)
 
@@ -124,6 +170,48 @@ interface RlsPolicy {
 function enableRlsDdl(table, dialect): string; // ALTER TABLE "t" ENABLE ROW LEVEL SECURITY
 function createPolicyDdl(p: RlsPolicy, dialect): string; // CREATE POLICY "n" ON "t" FOR CMD USING (expr)
 ```
+
+## 7. Extensions (frozen — epic "Database extensions")
+
+An extension is a schema object like a view or a sequence, and it belongs here rather than beside the
+column types that need it, because installing one is a statement and using one is a type.
+
+```ts
+interface ExtensionDef {
+  readonly name: string;
+  readonly schema?: string;
+  readonly version?: string;
+}
+function createExtensionDdl(def: ExtensionDef, dialect): string;
+```
+
+```
+{ name: 'vector' }                                    CREATE EXTENSION IF NOT EXISTS "vector"
+{ name: 'postgis', schema: 'extensions' }             CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions"
+{ name: 'vector', version: '0.7.0' }                  CREATE EXTENSION IF NOT EXISTS "vector" VERSION '0.7.0'
+```
+
+`IF NOT EXISTS` is not optional and is not a flag. An extension is frequently installed by a DBA before
+zmdb ever runs, so the statement that assumes it is absent fails on precisely the well-run databases.
+`name` and `schema` are identifiers and go through `quoteIdentifier`; `version` is a string literal and
+is single-quoted, which is the one place in this module where the two differ in the same statement.
+
+MySQL and SQLite refuse — neither has the concept — with the same `UnsupportedFeatureError` as
+materialized views and RLS.
+
+**Ordering is part of the contract.** `CREATE EXTENSION` runs before anything that could name a type it
+provides, and index creation runs after the tables. A `vector` column in a table created before the
+extension is a migration that fails halfway, leaving the database in a state the snapshot does not
+describe — which is worse than either succeeding or failing cleanly. See
+`../migrations/SPEC.md` §1.5 for where that order is imposed and how a snapshot records extensions.
+
+**Dropping is not automatic, and this is the deliberate asymmetry.** An extension declared and then
+undeclared produces no `DROP EXTENSION`, because `DROP EXTENSION vector` fails while any column still
+uses the type and `DROP EXTENSION vector CASCADE` drops those columns instead — so the two available
+behaviours are "the migration fails" and "the migration deletes data". Neither is something to generate
+from the absence of a declaration, particularly when that absence often means "somebody else manages
+this one now". Removal is a hand-written migration, and the diff says so rather than staying silent
+about it.
 
 ## Frozen (all)
 

@@ -246,6 +246,111 @@ rather than being handed. A `Table<'userAccount'>` under a snake_case-plural str
 camelCase object in it, which is the shape of every naming-strategy bug report other ORMs receive. A
 name the caller supplies — `IndexDef.name`, a check constraint's name — is used as typed.
 
+### 4.3 Extension-backed column types (frozen — epic "Database extensions")
+
+`SqlType` stays closed, and `ColumnIR.sql` gains an alternative rather than a wider union:
+
+```ts
+interface ExtensionType {
+  readonly extension: string; // 'vector' | 'postgis' | 'citext' — the installable thing
+  readonly name: string; // 'vector' | 'geometry' | 'citext' — the type it provides
+  readonly args?: readonly (string | number)[]; // [1536] | ['Point', 4326]
+}
+
+interface ColumnIR {
+  sql: SqlType | ExtensionType;
+}
+```
+
+A `string` and an object are distinguishable in one `typeof`, so every existing switch over `SqlType`
+keeps its exhaustive shape behind that guard instead of growing a `default`. The two alternatives were
+cheaper to write and both cost more than they save:
+
+- **Widening `SqlType` with `'vector' | 'geometry' | 'citext'`** is a three-line diff, and it puts
+  Postgres extension types in the core vocabulary of a library that also targets MySQL and SQLite —
+  where `DDL_TYPES` would then owe them a row each, and the honest row is a refusal. It also cannot
+  carry `1536`, so it needs a second field beside it anyway, which is `length` again for a type that
+  is not `varchar`.
+- **`SqlType | string`** deletes the property `vocabulary.type-test.ts` exists to pin. Note that the
+  runtime is already open in the direction that matters least: `DDL_TYPES` is keyed by `string` and
+  `ddlType` falls back to `?? col.type`, so an unrecognised abstract type is passed through today. What
+  is closed is the _type_, and that is what makes the `appTypeOf` / `wireTypeOf` switches total. Open
+  it and both need a default, and a default is how a vector column becomes `unknown` on the wire
+  without anybody noticing.
+
+The cost of the chosen shape, stated so the implementation slice does not discover it: every consumer
+of a column's type handles both arms. Those are `ddlType`, `snapshot`, `diff`'s type comparison (which
+becomes structural, not `!==`), `appTypeOf`, `wireTypeOf`, `decodeDbValue` and
+`jsonSchemaForColumn` — seven, all of them already in the `verify:one-walker` exemption list, which is
+what makes the audit finite.
+
+The declaration side is one tag:
+
+```ts
+type Ext<E extends string, N extends string, A extends readonly (string | number)[] = []> = {
+  readonly __zmdbExt?: [E, N, A];
+};
+
+interface Item extends Table<'items'> {
+  embedding: number[] & Ext<'vector', 'vector', [1536]>;
+  location: GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
+  handle: string & Ext<'citext', 'citext'>;
+}
+```
+
+**`args` has exactly two kinds, and the distinction is enforced rather than conventional.** A `number`
+is emitted bare. A `string` is emitted bare as an identifier — `geometry(Point, 4326)` — and must match
+`/^[A-Za-z_][A-Za-z0-9_]*$/`, refused at derivation otherwise. That check is not defensive tidiness:
+`args` is the one place in the DDL where a value the author supplied reaches SQL without going through
+`quoteIdentifier` or a placeholder, which makes it the same shape as #364 one layer down. A quoted
+string literal is deliberately **not** a third kind — no extension type in scope takes one, and adding
+the tagged form now would be a field with no test and no caller, which is how a `params: string[]`
+dumping ground starts.
+
+The three types, each answering §6's three renderings, because a type that cannot answer all three is a
+type that will be guessed at somewhere:
+
+| Column                  | wire (JSON)                              | app                     | db (Postgres)          |
+| ----------------------- | ---------------------------------------- | ----------------------- | ---------------------- |
+| `vector(1536)`          | `number[]`, `minItems`/`maxItems` 1536   | `readonly number[]`     | `vector(1536)`         |
+| `geometry(Point, 4326)` | GeoJSON `{ type: 'Point', coordinates }` | the same GeoJSON object | `geometry(Point,4326)` |
+| `citext`                | `string`                                 | `string`                | `citext`               |
+
+The dimension becoming `minItems` and `maxItems` is validation the declaration already implied and the
+document was going to omit; a 1535-element embedding is the error this catches at the HTTP boundary
+instead of at the driver.
+
+Both non-scalar types need `decodeDbValue` to do real work, and what arrives depends on whether the
+driver has a type parser registered:
+
+- A **vector** arrives as an array (parser registered) or as pgvector's text form `'[1,2,3]'` (not
+  registered). Both are converted; anything else is passed through for the validator to reject, per §9.
+  A malformed text form is _not_ partially parsed — `Number('')` is `0`, so a lenient parse turns a
+  truncated payload into a valid-looking embedding, which is the failure mode that has no symptom.
+- A **geometry** arrives as WKB hex by default, which is not convertible without a PostGIS function.
+  So the projection is where this is solved rather than the decoder: a geometry column is selected as
+  `ST_AsGeoJSON("location") AS "location"` and written through `ST_GeomFromGeoJSON($n)`. That costs
+  nothing per row beyond the function call the database was going to have to do anyway, and it means
+  `decodeDbValue` sees JSON text and nothing dialect-specific. A geometry column reached by a bare
+  `SELECT *` is therefore a bug in the projection, not something the decoder papers over.
+
+`citext` needs no conversion, and it overlaps with the expression-index recipe on purpose:
+`{ expr: 'lower(email)' }` plus `Unique` gets case-insensitive uniqueness on every dialect, and a
+`citext` column gets it on Postgres only, in exchange for every comparison being case-insensitive rather
+than just the index. Prefer the expression index unless the column's _semantics_ are
+case-insensitive.
+
+**MySQL and SQLite refuse an extension type, and there is no fallback.** The refusal is an
+`UnsupportedFeatureError` at DDL time naming the dialect, the column and the extension:
+
+```
+sqlite does not support the extension type vector(1536) on "items"."embedding" (extension `vector`);
+there is no equivalent, and storing it as TEXT would produce an embedding no query can search
+```
+
+Mapping to `TEXT` is the tempting fallback and it is a data-loss bug wearing a green test suite: the
+inserts succeed, the reads round-trip, and every similarity query silently returns nothing useful.
+
 ## 5. Back-end: `schemaFromIR(ir)`
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories

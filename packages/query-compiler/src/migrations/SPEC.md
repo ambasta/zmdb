@@ -183,6 +183,48 @@ A `naming` field is deliberately **not** added to the snapshot. The strategy's o
 recorded — it is the names — and a user-supplied function has no identity to record, so the field
 would be honest only for the two built-ins and misleading for the case it was added to help.
 
+### 1.5 Extensions in the snapshot, and statement order (frozen — epic "Database extensions")
+
+A snapshot records the extensions the schema set declares, because otherwise "adding one" is not
+something a diff of two snapshots can see:
+
+```ts
+interface SchemaSnapshot {
+  readonly extensions: readonly { readonly name: string; readonly schema?: string }[]; // sorted by name
+}
+```
+
+Required, `[]` when there are none, for §1.1's reason: an absent field would make "old snapshot" and "no
+extensions" the same value. `version` is deliberately not recorded — a version is what is installed, not
+what is declared, and recording it would make every `CREATE EXTENSION` a pinned upgrade the author did
+not ask for.
+
+`ColumnSnapshot.type` widens to `string | ExtensionType` (see `schema-core/src/ir/SPEC.md` §4.3), which
+makes `alter_column_type`'s `from` and `to` the same union and its comparison **structural**. `args` order
+is significant, so `geometry(Point, 4326)` and `geometry(4326, Point)` are different types rather than the
+same set.
+
+```ts
+| { kind: 'create_extension'; name: string; schema?: string }
+```
+
+There is no `drop_extension` op — `../schema-objects/SPEC.md` §7 says why — so an undeclared extension
+leaves the snapshot without leaving the database. The diff reports it as an unmanaged object rather than
+dropping it silently or pretending it is gone.
+
+**Statement order within one plan**, which the ops list has to encode because nothing at apply time can
+recover it:
+
+1. `create_extension` — before anything that could name a type it provides.
+2. Renames (§1.4) — before the adds and drops they would otherwise collide with.
+3. Table and column drops, then creates, then `alter_column_type` and `alter_primary_key`.
+4. Index creation last, so an index over a column added in the same plan has a column to be over.
+
+A dimension change — `vector(1536)` to `vector(3072)` — is an ordinary `alter_column_type` and the
+emitter produces the `ALTER` for it. It will fail on a non-empty table, because Postgres cannot rewrite
+one embedding into another, and that failure is the correct outcome: re-embedding a corpus is a data
+migration and there is no DDL that can stand in for it. The emitter does not soften it into a comment.
+
 ## 2. Diff engine
 
 `diff(prev, next, opts?)` — pure function producing ordered ops. The five original ops, plus the two
@@ -196,7 +238,8 @@ type ChangeOp =
   | { kind: 'drop_column'; table: string; column: string }
   | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string }
   | { kind: 'alter_primary_key'; table: string; from: readonly string[]; to: readonly string[] } // §1.3
-  | RenameOp; // §1.4
+  | RenameOp // §1.4
+  | { kind: 'create_extension'; name: string; schema?: string }; // §1.5
 ```
 
 `diff(x, x)` returns `[]`. Passing a rename alongside two identical snapshots is refused rather than
