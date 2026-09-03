@@ -1,6 +1,9 @@
 > **ToDo / feature gap.** There is no CQRS module — no `CommandBus`, `QueryBus`,
 > `EventBus`, no `@CommandHandler` or `@Saga`. There is also no [event
 > emitter](./web-events.html) to build one on.
+>
+> `packages/web/src/cqrs/SPEC.md` freezes a **command** bus and refuses the query
+> bus, event sourcing and sagas outright. The reasons are in "What it would take".
 
 ## What you have to build with
 
@@ -78,12 +81,17 @@ export class CqrsModule {}
 
 ## Events
 
-There is no event bus, and [`web-events`](./web-events.html) is also a gap. For in-process events, an array of listeners is enough; for anything that must survive a crash, use the [transactional outbox](./transactional-outbox.html) — which _is_ built, and is the right pattern for domain events that trigger work elsewhere:
+There is no event bus, and [`web-events`](./web-events.html) is also a gap. For in-process events, an array of listeners is enough; for anything that must survive a crash, use the [transactional outbox](./transactional-outbox.html) — a pattern you assemble rather than a shipped helper, and the right one for domain events that trigger work elsewhere:
 
 ```ts
 await db.transaction(async tx => {
   await repo.withTransaction(tx).update(id, { published: true });
-  await outbox.withTransaction(tx).create({ type: 'post.published', payload: { id }, at: new Date() });
+  await outbox.withTransaction(tx).create({
+    id: globalThis.crypto.randomUUID(),
+    topic: 'post.published',
+    payload: JSON.stringify({ id }),
+    status: 'pending',
+  });
 });
 ```
 
@@ -107,7 +115,17 @@ Nothing in the declaration cares that no transaction writes to this table — it
 
 ## What it would take
 
-A CQRS module is mostly a typed dispatch mechanism, and the typed-map problem above is the whole design question. A plausible shape: a builder that accumulates `(kind, handler)` pairs into a type-level record, so `execute` is checked without a runtime lookup by string. That is a real piece of type-level work rather than a missing class, and it would want the [event emitter](./web-events.html) built first so sagas have something to subscribe to.
+Less than a builder that accumulates `(kind, handler)` pairs into a type-level record, which is what this section used to propose. The mapped type above already _is_ that record, and it needs no type-level work at all: `CommandBus<M>` is `{ [K in keyof M]: (input: M[K]['input']) => Promise<M[K]['result']> }` over an object literal of handlers, so a missing handler is a missing property and a handler for an undeclared command is an excess one.
+
+Which leaves the honest question: **a typed bus with no runtime lookup is a plain object, so what is the module for?** One thing, and it is worth the indirection on its own — it is the single place every write passes through, so validation, authorisation, the transaction and an audit hook are applied once instead of remembered at N call sites. A concern applied N times has N chances to be missing, and the missing one still compiles and still returns the right value for the inputs the test used. That is the whole of `packages/web/src/cqrs/SPEC.md`.
+
+Three things it refuses, so they are decisions rather than omissions:
+
+- **No query bus.** Reads already have a home, and `withReplicas` above already does the read/write split that CQRS is named for. A query bus adds a dispatch hop whose only property is symmetry — and the choke-point argument does not transfer, because a read has no transaction to centralise and its authorisation is [row-scoped filtering](./entity-filters.html), which belongs in the query.
+- **No event sourcing.** It replaces the repository rather than layering on it, which makes it a different persistence model.
+- **No sagas — yet.** A saga's easy part is calling three steps in order; its hard part is the terminal state of a failure that cannot be compensated, which needs durable per-step state. Built on an in-process emitter that state is lost on restart, which is usually the thing that interrupted the saga. Once the [outbox](./transactional-outbox.html) and [queues](./web-queues.html) exist, a saga is a consumer with a state row rather than a new subsystem.
+
+Commands also stay **interfaces**, not classes. A `@CommandHandler(SomeCommand)` decorator needs a constructor to point at, which would make commands the one place in this project where a runtime class is mandatory — and it would buy a lookup key that a string literal in the map already provides.
 
 ---
 

@@ -2,14 +2,19 @@
 > `@Processor`, no `@Process`. There is also no worker runtime; a zmdb application
 > is a request handler.
 
-## What is built, and why it is the important half
+## What matters more than the queue module
 
-The [transactional outbox](./transactional-outbox.html) is in the project, and it solves the problem that queue integrations usually get wrong: enqueueing atomically with the state change.
+The [transactional outbox](./transactional-outbox.html) solves the problem that queue integrations usually get wrong: enqueueing atomically with the state change. It is a pattern you assemble from existing pieces rather than a shipped helper — that page's banner says so, and an earlier version of this sentence claimed it was "in the project", which it is not.
 
 ```ts
 await db.transaction(async tx => {
   const post = await postRepo.withTransaction(tx).create(dto);
-  await outbox.withTransaction(tx).create({ type: 'post.created', payload: { id: post.id }, at: new Date() });
+  await outbox.withTransaction(tx).create({
+    id: globalThis.crypto.randomUUID(),
+    topic: 'post.created',
+    payload: JSON.stringify({ id: post.id }),
+    status: 'pending',
+  });
   return post;
 });
 ```
@@ -25,9 +30,9 @@ A polling loop, and it is less code than configuring most queue libraries:
 ```ts
 export async function drainOutbox(driver: Driver, handle: (job: Job) => Promise<void>): Promise<number> {
   const rows = await driver.execute({
-    text: `SELECT id, type, payload FROM outbox
-             WHERE processed_at IS NULL AND attempts < 5
-             ORDER BY id
+    text: `SELECT id, topic, payload, attempts FROM "zmdb_outbox"
+             WHERE "status" = 'pending'
+             ORDER BY "created_at"
              LIMIT 20
              FOR UPDATE SKIP LOCKED`,
     parameters: [],
@@ -37,11 +42,16 @@ export async function drainOutbox(driver: Driver, handle: (job: Job) => Promise<
     const job = assert<Job>(row);
     try {
       await handle(job);
-      await driver.execute({ text: 'UPDATE outbox SET processed_at = now() WHERE id = $1', parameters: [job.id] });
+      await driver.execute({
+        text: `UPDATE "zmdb_outbox" SET "status" = 'delivered', "delivered_at" = now() WHERE "id" = $1`,
+        parameters: [job.id],
+      });
     } catch (error) {
       await driver.execute({
-        text: 'UPDATE outbox SET attempts = attempts + 1, last_error = $2 WHERE id = $1',
-        parameters: [job.id, String(error).slice(0, 500)],
+        text: `UPDATE "zmdb_outbox"
+                 SET "attempts" = $2, "last_error" = $3, "status" = $4
+               WHERE "id" = $1`,
+        parameters: [job.id, job.attempts + 1, String(error).slice(0, 500), job.attempts + 1 >= 5 ? 'dead' : 'pending'],
       });
     }
   }
@@ -51,9 +61,11 @@ export async function drainOutbox(driver: Driver, handle: (job: Job) => Promise<
 
 `FOR UPDATE SKIP LOCKED` is what makes this safe with several workers: each transaction takes rows nobody else holds, so two workers never claim the same job and neither blocks. Without `SKIP LOCKED` the workers serialise; without `FOR UPDATE` they duplicate.
 
-This is raw SQL because [`UpdateBuilder.set()` cannot reference the current column value](./guide-increment-decrement.html) — `attempts = attempts + 1` is not expressible — and because `FOR UPDATE SKIP LOCKED` is not in the compiler. Use `driver.execute` directly with parameters, never string interpolation.
+It is also the part to reconsider before you run this at scale, and the [outbox](./transactional-outbox.html) page's dispatcher does. `SKIP LOCKED` holds a row lock for the length of the handler, so a slow handler holds locks on twenty rows and a crashed worker holds them until its connection is reaped — and it is Postgres and MySQL 8 only. A short **lease** column claims the batch in one `UPDATE` and then releases the lock, which is both cheaper and portable to SQLite.
 
-`attempts < 5` is your retry limit and your dead-letter queue in one: rows above the limit stop being picked up and stay in the table for inspection. Query them, because a silently-growing dead-letter set is how a broken integration hides for a month.
+This is raw SQL because [`UpdateBuilder.set()` cannot reference the current column value](./guide-increment-decrement.html) — `attempts = attempts + 1` is not expressible — and because `FOR UPDATE SKIP LOCKED` is not in the compiler. Note the workaround: the `SELECT` returns `attempts`, so the worker writes `job.attempts + 1` as a plain bound value. Use `driver.execute` directly with parameters, never string interpolation.
+
+`status = 'dead'` is the retry limit and the dead-letter queue in one: a dead row stops matching the candidate query and stays in the table for inspection. That is better than a `WHERE attempts < 5` predicate, which leaves the poison rows in the working set to be re-read and re-skipped on every poll. Query the dead ones, because a silently-growing dead-letter set is how a broken integration hides for a month.
 
 ## Running it
 
@@ -83,18 +95,29 @@ Sleep only when the queue was empty, so a backlog drains at full speed instead o
 
 ## Making the handler safe
 
+`Job` is the subset of the row the loop selected — declare it yourself, since `assert<T>` needs a type to generate against:
+
 ```ts
+interface Job {
+  readonly id: string;
+  readonly topic: string;
+  readonly payload: string;
+  readonly attempts: number;
+}
+
 async function dispatch(job: Job): Promise<void> {
-  switch (job.type) {
+  switch (job.topic) {
     case 'post.created':
-      return notifyFollowers(assert<{ id: number }>(job.payload));
+      return notifyFollowers(assert<{ id: number }>(JSON.parse(job.payload)));
     case 'user.registered':
-      return sendWelcome(assert<{ id: number }>(job.payload));
+      return sendWelcome(assert<{ id: number }>(JSON.parse(job.payload)));
     default:
-      throw new Error(`unknown job type ${job.type}`);
+      throw new Error(`unknown job topic ${job.topic}`);
   }
 }
 ```
+
+`payload` is a `text` column holding JSON rather than a `json` column, so the parse is yours — which is the point: the stored string is the message, byte for byte, rather than whatever the driver's JSON handling round-tripped it to.
 
 Two things worth being deliberate about:
 

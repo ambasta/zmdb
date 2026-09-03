@@ -2,12 +2,15 @@
 > `@OnEvent`, no `EventEmitter2` wrapper. The only event-shaped thing in the
 > project is [`@Subscribe`](./web-gateways.html), which dispatches WebSocket
 > messages, not domain events.
+>
+> The shape it will ship as is frozen in `packages/web/src/events/SPEC.md`, and
+> the emitter below is close to it deliberately.
 
 ## What to use instead, and why it is usually better
 
 The question to ask first is whether the event may be lost. That answer picks the mechanism, and getting it wrong is the actual bug — not the missing module.
 
-**If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is built, and it is the right answer for anything that triggers work elsewhere:
+**If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is the right answer for anything that triggers work elsewhere — though note it is a pattern you assemble, not a shipped helper; that page's own banner says so, and an earlier version of this paragraph claimed otherwise.
 
 ```ts
 import { createTransactionalDb } from '@zmdb/repository/transactions';
@@ -16,9 +19,16 @@ const db = createTransactionalDb(connection);
 
 await db.transaction(async tx => {
   await postRepo.withTransaction(tx).update(id, { published: true });
-  await outboxRepo.withTransaction(tx).create({ type: 'post.published', payload: { id }, at: new Date() });
+  await outboxRepo.withTransaction(tx).create({
+    id: globalThis.crypto.randomUUID(),
+    topic: 'post.published',
+    payload: JSON.stringify({ id }),
+    status: 'pending',
+  });
 });
 ```
+
+Those are the column names from the [outbox](./transactional-outbox.html) page's declaration. Earlier revisions of this page invented `{ type, payload, at }`, which no table on any page ever had.
 
 `repo.withTransaction(tx)` returns a **new repository bound to the transaction's connection** — every repository taking part has to be rebound. The original instances still hold the pooled driver, so `outboxRepo.create(…)` inside the callback would commit on its own connection and the atomicity would be a fiction that reads exactly like the correct code.
 
@@ -127,9 +137,16 @@ It is still lossy — a listener that is not connected misses it — so use it f
 
 ## What it would take
 
-The typed emitter above is most of it; making it a framework module means solving the dispatch typing generically (the `Map<keyof Events, …>` casts) and deciding on `@OnEvent` discovery, which conflicts with [there being no discovery](./web-discovery.html) — subscriptions would have to be registered explicitly, at which point the class above is the feature.
+The typed emitter above is most of it, and `packages/web/src/events/SPEC.md` freezes the rest. Four decisions in it are worth knowing about, because three of them differ from the class on this page:
 
-The more useful thing to build is an outbox _consumer_: a loop that polls the outbox table, dispatches, and marks rows done with at-least-once delivery. That is the part applications actually rewrite each time.
+- **The map is the API**, exactly as `AppEvents` is above. No `EventType<T>` token — a generic the caller instantiates is an assertion, not a check.
+- **`emit` returns `void` and `emitAndWait` returns a report.** The `void this.events.emit(…)` idiom below stops being necessary, because a `void`-returning method cannot be awaited by mistake. A `void` _operator_ is indistinguishable from a forgotten `await`, and it is the same keystroke either way.
+- **Failures are collected, not logged and not thrown.** Every handler gets its own `try`/`catch`, the failures land in an `EmitReport`, and the sink is a **required** `onError`. Defaulting it to `console.error` — which the class above does — puts a logger inside a package that has [deliberately never had one](./web-logging.html).
+- **Handlers run concurrently**, so no ordering is guaranteed. Awaiting them in sequence makes the emitter's latency the sum of its handlers' and creates an ordering dependency nobody declared.
+
+An earlier version of this section concluded that explicit registration makes `@OnEvent` pointless — "at which point the class above is the feature". That is too strong. What the decorator buys is not discovery: it is that the binding lives on the method rather than inside `onModuleInit`, where a handler whose `.on(…)` line was forgotten is silently never invoked and there is nothing to notice. `bind(this)` is one line that cannot be half-right. It stays a modest win, and `on` stays first-class.
+
+The remaining useful thing to build is the outbox _dispatcher_ — a loop that claims rows, publishes, and marks them done with at-least-once delivery. That is now frozen too, in `packages/query-compiler/src/outbox/SPEC.md`.
 
 ---
 

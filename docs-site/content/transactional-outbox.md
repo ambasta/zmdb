@@ -1,6 +1,10 @@
-> **ToDo / feature gap.** There is no outbox helper, no relay worker and no
+> **ToDo / feature gap.** There is no outbox helper, no dispatcher loop and no
 > event-publishing hook. The pattern below is entirely assembled from existing
 > pieces — which works, but you write and operate all of it.
+>
+> The shape it will ship as is frozen in
+> `packages/query-compiler/src/outbox/SPEC.md`, and everything on this page has
+> been aligned to it, so a table you create today will not need migrating.
 
 ## The problem it solves
 
@@ -18,68 +22,120 @@ The outbox fixes it by making the publish a _database write_, and moving the act
 ## The table
 
 ```ts
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
-export interface Outbox extends Table<'outbox'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
+type OutboxStatus = 'pending' | 'delivered' | 'dead';
+
+export interface Outbox extends Table<'zmdb_outbox'> {
+  id: string & Sql<'text'> & PrimaryKey;
   topic: string & Sql<'text'>;
-  payload: Record<string, unknown> & Sql<'json'>;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-  publishedAt: (Date & Sql<'timestamp'>) | null;
+  payload: string & Sql<'text'>;
+  status: OutboxStatus & Sql<'jsonEnum'>;
   attempts: number & Sql<'integer'> & HasDefault;
+  createdAt: Date & Sql<'timestamp'> & HasDefault;
+  leaseOwner: string & Sql<'text'> & HasDefault;
+  leaseUntil: Date & Sql<'timestamp'> & HasDefault;
+  deliveredAt: (Date & Sql<'timestamp'>) | null;
+  lastError: (string & Sql<'text'>) | null;
 }
 
 createIndexDdl(
-  { name: 'outbox_unpublished', table: 'outbox', columns: ['created_at'], where: 'published_at IS NULL' },
+  {
+    name: 'zmdb_outbox_pending',
+    table: 'zmdb_outbox',
+    columns: ['status', 'lease_until', 'created_at'],
+    where: "status = 'pending'",
+  },
   'postgres',
 );
 ```
 
-`publishedAt` being `| null` rather than absent is the whole state machine: a row is
-unpublished until it is not. `createdAt` and `attempts` say `HasDefault`, so the migration
-carries `DEFAULT now()` and `DEFAULT 0` — the values live in the DDL, not the declaration.
+Four things in that declaration are not the obvious choice, and each one is forced by what the query builder can actually emit — the reasoning is in `packages/query-compiler/src/outbox/SPEC.md`, and the short version is:
 
-The partial index matters: the relay scans only unpublished rows, and that set stays small even when the table does not. Partial indexes are supported — `IndexDef` has a `where` field.
+- **`status`, not `publishedAt IS NULL`.** `Operator` has no `is`, and an unrecognised operator is passed through into the SQL verbatim, so `where('publishedAt', 'is', null)` compiles to `"published_at" is $1` — a syntax error on Postgres. **No nullable column can be a predicate here.** `deliveredAt` and `lastError` stay nullable only because they are read and never filtered on.
+- **A third state.** `'dead'` is what stops one poisoned message from being retried forever; a two-state column cannot express it, and a threshold on `attempts` leaves the poison row in the working set on every poll.
+- **`payload` is `text`, not `json`.** A `json` column round-trips through the driver's own JSON handling, so key order and number formatting become the driver's choice and a payload cannot be signed, hashed for deduplication, or compared to a replay. Serialise once at the write and the stored string is the message.
+- **`id` is `text` and generated in the application** with `globalThis.crypto.randomUUID()`. `SqlType` has no `uuid`, and a `Serial` id would not be known until after the insert — which matters when the write is inside someone else's transaction.
+
+`createdAt`, `attempts`, `leaseOwner` and `leaseUntil` say `HasDefault`, so the migration carries `DEFAULT now()`, `DEFAULT 0`, `DEFAULT ''` and an epoch default — the values live in the DDL, not the declaration. `leaseUntil` defaulting to a past instant rather than being nullable is what makes "unclaimed" a comparison (`lease_until < now`) instead of an `IS NULL`.
+
+The partial index matters: the dispatcher scans only pending rows, and that set stays small even when the table does not. Partial indexes are Postgres and SQLite; **MySQL has none**, which is why `status` is the leading column — the full composite index still seeks straight to the pending rows.
 
 ## The write
 
 One transaction, two rows, no broker:
 
 ```ts
-await db.transaction(async () => {
-  const order = await orderRepo.create(dto);
-  await outboxRepo.create({ topic: 'order.created', payload: { id: order.id, total: order.total } });
+await db.transaction(async tx => {
+  const order = await orderRepo.withTransaction(tx).create(dto);
+  await outboxRepo.withTransaction(tx).create({
+    id: globalThis.crypto.randomUUID(),
+    topic: 'order.created',
+    payload: JSON.stringify({ id: order.id, total: order.total }),
+    status: 'pending',
+  });
 });
 ```
 
-## The relay
+`repo.withTransaction(tx)` returns a **new repository bound to the transaction's connection**, and every repository taking part has to be rebound. An `outboxRepo.create(…)` that skips it commits on its own pooled connection, and the atomicity is a fiction that reads exactly like the correct code.
 
-A separate loop. `FOR UPDATE SKIP LOCKED` is what lets you run more than one copy without two of them claiming the same row:
+## The dispatcher
+
+A separate loop, and the interesting part is how it claims a batch without two copies taking the same row.
+
+The obvious answer is `FOR UPDATE SKIP LOCKED`, and it is the wrong one here for two reasons. It is not expressible through the query builder at all — there is no lock clause on `SelectBuilder`, so it has to be hand-written SQL. And holding a row lock while calling a broker means the claim's lifetime is a network round trip per message, so a slow broker holds locks on a hundred rows and a crashed dispatcher holds them until its connection is reaped. `SKIP LOCKED` is also Postgres and MySQL 8 only.
+
+A **lease** does the same job with three ordinary statements and works on SQLite:
 
 ```ts
-async function relayOnce(driver: Driver) {
-  const claimed = await driver.execute({
-    text: `SELECT id, topic, payload FROM "outbox"
-           WHERE "published_at" IS NULL
-           ORDER BY "created_at"
-           LIMIT 100
-           FOR UPDATE SKIP LOCKED`,
-    parameters: [],
+async function dispatchOnce(tx: TransactionContext, batch = 100, leaseMs = 30_000) {
+  const token = globalThis.crypto.randomUUID();
+  const now = new Date();
+  const until = new Date(now.getTime() + leaseMs);
+
+  // 1. candidates
+  const ids = await tx.execute({
+    text: `SELECT "id" FROM "zmdb_outbox"
+           WHERE "status" = 'pending' AND "lease_until" < $1
+           ORDER BY "created_at" ASC LIMIT $2`,
+    parameters: [now, batch],
   });
 
-  for (const row of claimed) {
-    const msg = assert<{ id: number; topic: string; payload: unknown }>(row);
-    await broker.publish(msg.topic, msg.payload);
-    await driver.execute({
-      text: `UPDATE "outbox" SET "published_at" = now() WHERE "id" = $1`,
-      parameters: [msg.id],
-    });
-  }
-  return claimed.length;
+  // 2. claim — the UPDATE's own row locks are the mutual exclusion
+  await tx.execute({
+    text: `UPDATE "zmdb_outbox" SET "lease_owner" = $1, "lease_until" = $2
+           WHERE "status" = 'pending' AND "lease_until" < $3 AND "id" = ANY($4)`,
+    parameters: [token, until, now, ids.map(r => r.id)],
+  });
+
+  // 3. read back what we actually won
+  return tx.execute({
+    text: `SELECT "id", "topic", "payload", "attempts" FROM "zmdb_outbox" WHERE "lease_owner" = $1`,
+    parameters: [token],
+  });
 }
 ```
 
-The whole thing has to run inside one transaction for `SKIP LOCKED` to hold the claim, so wrap `relayOnce` in `db.transaction`. `SKIP LOCKED` is Postgres and MySQL 8; SQLite has no equivalent, so on SQLite run exactly one relay.
+Step 2 is the whole trick. The predicate is re-tested inside the `UPDATE`, so if another dispatcher claimed a candidate between steps 1 and 2, our `UPDATE` matches nothing for that row — the database's per-row write lock does the arbitration, and it is held for the length of one `UPDATE` rather than for the length of the publish.
+
+Step 3 exists because there is no way to ask how many rows an `UPDATE` changed: `Driver.execute` resolves to rows, and `RETURNING` is emitted without a dialect guard, so it is a syntax error on MySQL. Reading back by the lease token is how the dispatcher learns what it won.
+
+Publish outside the transaction, then mark each row:
+
+| Outcome                      | Mark                                                            |
+| ---------------------------- | --------------------------------------------------------------- |
+| published                    | `status = 'delivered'`, `deliveredAt = now`                     |
+| failed, attempts left        | `status = 'pending'`, `leaseUntil = now + backoff`, `lastError` |
+| failed, `attempts` exhausted | `status = 'dead'`, `lastError`                                  |
+
+A dispatcher that dies mid-batch needs no cleanup: its lease expires and the rows become candidates again.
+
+> [!NOTE]
+> `attempts = attempts + 1` is not expressible — `UpdateBuilder.set()` binds every
+> value as a parameter, so a column cannot reference itself (see
+> [increment/decrement](./guide-increment-decrement.html)). It costs nothing here:
+> step 3 already returned the authoritative `attempts` under a lease nobody else
+> can take, so the dispatcher writes `attempts + 1` as a literal value.
 
 > [!NOTE]
 > This is at-least-once delivery. The publish can succeed and the `UPDATE` can
@@ -89,18 +145,20 @@ The whole thing has to run inside one transaction for `SKIP LOCKED` to hold the 
 
 ## Operating it
 
-Three things need to exist before this is production-ready, and none of them are in zmdb:
+Two things you still write yourself, and one you always write:
 
-- **A scheduler.** No `@Cron`; run the relay as its own process or a `setInterval` in a worker. See [Task Scheduling](./web-task-scheduling.html).
-- **Backoff and a dead-letter path.** Increment `attempts`, and stop retrying past a threshold — otherwise one poisoned message blocks the queue behind it.
-- **A lag metric.** `MAX(now() - created_at) WHERE published_at IS NULL`, alerted on. An outbox that has stopped draining looks exactly like an outbox with nothing to do.
+- **Something to run the loop.** There is no `@Cron`, so run the dispatcher as its own process or a `setInterval` in a worker. See [Task Scheduling](./web-task-scheduling.html). Poll with a backoff — idle at 1s doubling to 30s — so an empty outbox is not a query per second forever.
+- **Stopping it.** The loop has to finish its in-flight batch before the process exits, or those rows wait out their lease before anyone retries them. Note that lifecycle hooks are detected on [controllers only](./web-standalone.html), so a dispatcher registered as a plain provider is never told to stop.
+- **A lag metric.** `MAX(now() - created_at) WHERE status = 'pending'`, alerted on. An outbox that has stopped draining looks exactly like an outbox with nothing to do, and this is the only signal that distinguishes them.
+
+Backoff and the dead-letter path are not on that list any more: they are `status = 'dead'` plus a `leaseUntil` in the future, both of which the table above can express.
 
 ## Listening instead of polling
 
-On Postgres, `NOTIFY` in a trigger wakes the relay immediately and keeps the poll as a floor:
+On Postgres, `NOTIFY` in a trigger wakes the dispatcher immediately and keeps the poll as a floor:
 
 ```sql
-CREATE TRIGGER outbox_notify AFTER INSERT ON outbox
+CREATE TRIGGER outbox_notify AFTER INSERT ON zmdb_outbox
   FOR EACH ROW EXECUTE FUNCTION pg_notify('outbox', '');
 ```
 
@@ -108,7 +166,9 @@ Keep the periodic poll. A missed notification — a reconnect, a restart — mus
 
 ## What it would take
 
-An `Outbox` declaration and repository in `@zmdb/repository`, a `relay(driver, publish, opts)` function with backoff built in, and something to run it on a timer. The last one is the blocker: without a scheduler in `@zmdb/web`, a shipped outbox would still leave the operationally hard half to the user, so this sits behind [task scheduling](./web-task-scheduling.html).
+Less than this page used to claim. The declaration, the claim protocol and the dispatcher are frozen in `packages/query-compiler/src/outbox/SPEC.md` as `outboxWriter(tx)` and `createOutboxDispatcher(opts)`, with `runOnce()` for tests and `start()`/`onShutdown()` for a process.
+
+Two corrections to what was here before. The declaration lands in `@zmdb/query-compiler`, not `@zmdb/repository`, because the claim is hand-written `CompiledQuery` text and the dispatcher needs the dialect — though note that package has **zero** dependencies today, so it does not import `Driver`; the dispatcher takes one structurally. And this no longer sits behind [task scheduling](./web-task-scheduling.html): the dispatcher owns its own timer and its own `onShutdown`, so a scheduler would only replace a `setInterval` it already has. What scheduling adds is coordination between replicas, and the lease means the dispatcher does not need any.
 
 ---
 
