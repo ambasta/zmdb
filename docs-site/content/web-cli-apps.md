@@ -124,7 +124,7 @@ Wrap each batch in a transaction if partial progress would be inconsistent; leav
 
 ## The transformer, again
 
-Running scripts with `--experimental-strip-types` skips the AOT transformer, so any `assert<T>()` in a script is permissive. For a script that validates a CSV or an external API response, build it with `tsup` instead of stripping types — otherwise your validation is decoration. See [JIT vs AOT](./jit-vs-aot.html).
+Running scripts with `--experimental-strip-types` skips the AOT transformer, so any `assert<T>()` in a script throws `runtime type witness required in test/fallback mode` on its first call — the transformer is what supplies the runtime witness, and without it there is nothing to validate against. It fails loudly rather than accepting anything, so a stripped script does not silently pass bad data; it stops. For a script that validates a CSV or an external API response, build it with `tsup` instead of stripping types. See [JIT vs AOT](./jit-vs-aot.html).
 
 ## What it would take
 

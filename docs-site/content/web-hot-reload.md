@@ -13,10 +13,12 @@ There is no watch mode in the framework and none is needed — Node's built-in w
 Node 26 runs TypeScript directly by stripping types, and `--watch` restarts on change. No build step, no nodemon, no ts-node.
 
 > [!WARNING]
-> Type stripping does **not** run the zmdb AOT transformer. Validators fall back to
-> a permissive path, so `is<T>()` may return `true` for invalid input in
-> development and correctly return `false` in production. That is the worst
-> direction for a bug to point.
+> Type stripping does **not** run the zmdb AOT transformer, and the validators have
+> no fallback: `is<T>()`, `assert<T>()` and `validate<T>()` all throw
+> `runtime type witness required in test/fallback mode` when the transformer has not
+> supplied a runtime witness. Validation does not silently weaken in development — it
+> stops working, which is the direction you want, but it does mean any code path that
+> validates is unrunnable under `--watch`.
 
 Add the canary test so this cannot go unnoticed:
 
@@ -26,7 +28,7 @@ it('the transformer is running', () => {
 });
 ```
 
-Run it in CI, where the build does run the transformer. If you rely on validation in development, use the `tsup` watcher below instead.
+Run it in CI, where the build does run the transformer. Under type stripping the same test fails by throwing rather than by returning `true`, which is still the signal you want. If you rely on validation in development, use the `tsup` watcher below instead.
 
 ## Watching a real build
 

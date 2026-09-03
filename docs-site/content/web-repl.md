@@ -4,7 +4,7 @@
 
 ## What replaces it, and why it is nearly as good
 
-Node's REPL plus a module graph that works standalone. Because `compileModule` needs no server and no lifecycle beyond `init()`, three lines get you every service:
+Node's REPL plus a module graph that works standalone. `compileModule` gives you `{ container, controllers }` with no lifecycle at all, and `createApp` wraps it in an `App` whose only startup step is `init()` — no server, no listener, no adapter. Six lines get you every service:
 
 ```bash
 node --experimental-strip-types
