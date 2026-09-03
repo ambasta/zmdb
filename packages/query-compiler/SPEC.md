@@ -349,6 +349,31 @@ three-valued logic. That failure is silent and reads as an empty table rather th
 the worst possible shape for the one predicate that gets conjoined into every query
 (`../repository/SPEC.md` §3c).
 
+## 5d. Cursors (frozen — epic "Streaming reads and query cancellation")
+
+**Nothing in this package changes**, and that is the frozen answer rather than an omission. A cursor is
+connection lifecycle; a `CompiledQuery` is text and parameters. Teaching the compiler about cursors would
+mean retaining per-query state, which §6 already rejects, and it would put a `DECLARE` in front of a
+statement whose transaction the compiler cannot see.
+
+Three properties this package already has become **load-bearing** because the streaming driver embeds
+`text` verbatim in `DECLARE <name> CURSOR FOR <text>` (`../repository/SPEC.md` §1a):
+
+- **`text` is exactly one statement, and carries no trailing semicolon.** Every golden in §4 shows this;
+  it was cosmetic and now it is required, because a `DECLARE` prefixing a semicolon-terminated string is a
+  syntax error and a `DECLARE` prefixing two statements would be something worse.
+- **Placeholders start at `$1` and are numbered over the statement alone.** The `DECLARE` prefix binds
+  nothing, so a driver can wrap the text without renumbering — the one thing that would have forced a
+  compiler change if it were not already true.
+- **Nothing the caller supplied reaches `text` unparameterised** (§5a, §5b.2), which is what makes wrapping
+  it in another statement safe at all. A compiler that interpolated even identifiers from data would turn
+  the cursor wrapper into an injection point one layer below where anybody would look for one.
+
+Streaming does not want a rewritten query either. No implicit `ORDER BY` is added: a cursor over an
+unordered `SELECT` is as well-defined as the non-streaming version of the same read, and inventing an
+ordering would change results silently and defeat any index the author chose. No implicit `LIMIT`, for the
+same reason — bounding a stream is what `batchSize` is for, and it bounds memory rather than the result.
+
 ## 6. Non-goals / anti-patterns (rejected)
 
 - No runtime type resolution (no reliance on schema types at runtime).

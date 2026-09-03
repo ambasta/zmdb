@@ -7,12 +7,198 @@
 
 ```ts
 interface Driver {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  readonly dialect?: Dialect;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 ```
 
 The repository never opens connections itself; a `Driver` is injected. Results are
 plain objects — **no proxies, no identity map**.
+
+`dialect` lets an adapter declare what it wraps, so a repository constructed without an explicit
+dialect can take the driver's. `opts` and `stream` are §1a. This is the one interface third parties
+implement, so both additions are optional and neither breaks an existing implementation.
+
+## 1a. Streaming and cancellation (frozen — epic "Streaming reads and query cancellation")
+
+This is the only epic that changes an interface third parties implement, so the shape is chosen for what
+it costs an existing driver, not for what is most convenient here.
+
+```ts
+export interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  /** Rows per round trip. A driver may clamp it; 0 or negative is refused. */
+  readonly batchSize?: number;
+}
+```
+
+Both additions to `Driver` are optional, and an adapter written against the old interface stays
+assignable: a one-parameter `execute(q)` is assignable to a two-parameter signature under TypeScript's
+parameter-count bivariance, so every driver in the wild — and every one-line mock in this repo's tests —
+keeps compiling. That is deliberate rather than lucky, and it is why cancellation is a second parameter
+to `execute` instead of a third method.
+
+### The two tiers of abort, and why there is no capability flag
+
+**Tier one, every driver, enforced here.** Before dispatching, the repository calls
+`signal.throwIfAborted()`. An already-aborted read never reaches the database.
+
+**Tier two, opt-in, driver-side.** A driver that can reach the server on a second connection cancels the
+running statement. A driver that ignores `opts` gives tier one only, so the signal is **advisory**: the
+promise rejects when the query finishes, not when the signal fires.
+
+There is no `Driver.cancels?: boolean`. A capability flag is a claim the driver author has to remember to
+keep true, and the first time it is stale it lies in the direction that costs a timeout. The observable
+difference between the tiers is _when_ the rejection arrives; both reject with the same value, and a
+caller that needs a bound on that has to impose it themselves. `stream` is different — it is a method, so
+its presence is a fact rather than an assertion, which is exactly why capability detection here is
+`typeof driver.stream === 'function'` and never a flag.
+
+An aborted operation rejects with the platform's own failure: `AbortSignal.throwIfAborted()` semantics,
+which means `signal.reason` when one was given and a `DOMException` named `AbortError` otherwise. Not a
+zmdb error class — a caller already has `err.name === 'AbortError'` and `signal.aborted`, and a wrapper
+would only hide them.
+
+**Abort is not a rollback.** Rows already yielded stay yielded, and a cancelled statement inside a
+transaction leaves that transaction open and in whatever state the server left it. Rolling back is still
+the caller's, on the same terms as any other failed statement.
+
+### `repo.stream()` — the consumer surface
+
+```ts
+interface StreamOptions extends ExecuteOptions {
+  /** Refuse rather than buffer when the driver has no cursor. Default false. */
+  readonly requireCursor?: boolean;
+}
+
+stream(where?: Partial<Entity<S>>, opts?: StreamOptions): AsyncIterable<Entity<S>> & AsyncDisposable;
+```
+
+The **driver** returns a plain `AsyncIterable`; the **repository** returns one that is also
+`AsyncDisposable`. Splitting it that way keeps the third-party bar at one method while the ergonomics
+live in the layer that can guarantee them:
+
+```ts
+await using rows = repo.stream({ status: 'pending' }, { signal });
+for await (const row of rows) …
+```
+
+`for await` already closes the iterator on `break`, `return` and `throw` — that is a language guarantee,
+not something a driver has to implement. What `await using` adds is the case `for await` cannot see: an
+iterable held in a variable and abandoned without ever being iterated, or iterated in a loop in a
+different function that returns early.
+
+The stream is **single-shot**. A second `[Symbol.asyncIterator]()` throws rather than opening a second
+cursor, because a cursor is not re-readable and the silent version of this does the work twice — or, on a
+transaction's single connection, interleaves two cursors on it.
+
+Rows cross `decodeDbValue` (§3a) one at a time rather than a batch at a time, so peak memory is one raw
+batch plus one decoded row. Reads are not validated, on this path as on every other (§3).
+
+### Cleanup, and the leak that cannot be detected
+
+`return()` on the iterator must close the cursor and release the connection, must be idempotent, and must
+not reject for a stream that was never started. A driver that closes on the last row and again on
+`return()` is a driver that double-releases a pooled connection, which shows up as an unrelated query
+failing on a connection someone else now holds.
+
+The leak that stays: an iterator obtained by hand and dropped. Nothing runs `return()` for it —
+`FinalizationRegistry` is not a guarantee, and a cursor holding a connection until GC decides to look is
+worse than the pool exhaustion it becomes. So the contract is that the connection is held until the
+iterator is closed, that `for await` and `await using` both close it, and that a consumer who steps the
+iterator manually owns calling `return()`. Named as a real hazard rather than papered over, because the
+alternative is a driver-side timeout, which would kill legitimately slow consumers.
+
+### No `stream` on the driver: buffer, and let the caller refuse
+
+The fallback runs `execute` and yields from the array. It is honest about being a fallback in two ways
+that a `console.warn` would not be — a library writing to stderr is unsuppressible and, in production,
+unread:
+
+- The `onQuery` hook (§3c) reports `{ buffered: true }`, so an application that opted into observability
+  sees which streams are not streaming.
+- `requireCursor: true` throws instead, naming the driver's constructor and that it implements no
+  `stream`. This exists because the failure mode of silent buffering is not "slower" — on the table
+  somebody reached for a stream to read, it is the process dying — and a warning does not prevent that.
+
+`batchSize` is meaningless in the fallback and ignored; the round trip already happened. Default
+`batchSize` is 100 where a cursor exists.
+
+### Per-dialect cancellation
+
+**Postgres** cancels out of band: `SELECT pg_cancel_backend($1)` on a _different_ connection, with the
+pid the streaming connection reported from `pg_backend_pid()`. Two consequences the bundled adapter
+cannot dodge. The pid has to be read on the same connection that runs the query, which means the stream
+must hold a checked-out connection rather than call `pool.query()` per statement — the same requirement
+the cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`config` overloads only, no
+`connect()`), so `pgDriver` gets a second connection only if it is given one:
+
+- `PgQueryable` gains an **optional** `connect?()`. When it is absent, `pgDriver` **omits `stream` from
+  the object it returns**, so the repository's buffering fallback engages by the normal capability check
+  instead of a cursor path that throws on first `next()`. Omitting beats throwing here: a driver that
+  advertises a method it cannot honour turns a documented degradation into a crash.
+- Cancellation additionally needs a connection that is _not_ the busy one. On a `Pool` that is any other
+  member; on a bare `Client` there is none, and a `pg_cancel_backend` sent down the blocked socket queues
+  behind the query it is meant to kill. `pg` exposes no way to tell the two apart through a structural
+  type, so it is explicit: `pgDriver(client, { cancelVia })`, a second `PgQueryable` used for nothing but
+  the cancel. Without it, abort is tier one plus "stop fetching further batches", which for a cursor is
+  most of the value anyway.
+
+**MySQL** is `KILL QUERY <id>` with the id from `CONNECTION_ID()`, on a second connection, under the same
+two constraints. **There is no bundled MySQL adapter**, so this is written for an implementer rather than
+as a description of shipped code.
+
+**SQLite** is synchronous and in-process. `StatementSync.prototype.iterate()` exists on the supported
+Node, so `sqliteDriver` can implement a real `stream` that steps rows and checks the signal between them
+— but that is the whole of it. `node:sqlite` exposes no `sqlite3_interrupt`, and no other JavaScript runs
+while a step is executing, so a single statement that takes ten seconds inside the engine (an unindexed
+`ORDER BY` over a large table) is uninterruptible and abort is observed only after it returns. Written
+down because "cancellation works on SQLite" and "abort stops the loop between rows" are different claims
+and only the second is true.
+
+### The cursor is the driver's, and the compiler emits nothing new
+
+No change to `@zmdb/query-compiler`. A `CompiledQuery` is text and parameters; a cursor is connection
+lifecycle, which the compiler has no access to and should not acquire — see its §6 non-goal on retained
+per-query state.
+
+The bundled Postgres adapter uses `DECLARE … CURSOR` with `FETCH FORWARD <batchSize>`, in an explicit
+transaction (Postgres closes a non-holdable cursor at transaction end), and `CLOSE` on cleanup — rather
+than taking `pg-cursor` as a second optional peer dependency. One fact the implementation slice must
+verify against a live server before building on it: whether `DECLARE c CURSOR FOR <text>` accepts bound
+parameters over the extended query protocol. If it does not, the parameters would have to be interpolated
+into the `DECLARE`, which zmdb will not do at any price, and the fallback is `pg-cursor` after all. That
+is a measurement, not a design decision, and it is recorded as unmade rather than guessed.
+
+### Inside a transaction
+
+`withTransaction(tx)` re-instantiates the repository against a `txDriver`, so a stream on the transaction
+repository runs on the transaction's connection with no extra machinery. Two things it does need:
+
+- The forwarding is `execute: (q, opts) => tx.execute(q, opts)`. As written today it is `q => tx.execute(q)`,
+  which drops the second argument silently — the one line where "cancellation reaches drivers" stops
+  reaching them. `stream` forwards the same way, and is **omitted** when the transaction object has none,
+  by the rule above.
+- **A stream must not outlive its transaction.** On scope exit, commit or rollback, the transaction closes
+  every stream it handed out — `return()` on each, so a leaked cursor is released before the connection
+  goes back to the pool rather than after. Any later `next()` rejects, naming the transaction rather than
+  reporting a closed cursor from the driver. Both halves are required: cleanup keeps the pool correct, and
+  the error keeps the consumer from reading a truncated result as a complete one.
+
+A stream **outside** a transaction opens one for the cursor's lifetime on Postgres, because it has to. So
+a stream held open while its consumer does slow per-row work holds a transaction open, which pins the
+vacuum horizon and is what `idle_in_transaction_session_timeout` exists to kill. This is an operational
+property of streaming, not a bug, and the answer to it is a smaller unit of work — which is the next
+paragraph.
+
+### What this does not replace
+
+Keyset pagination already ships (`applyKeysetFilter`, `encodeCursor`/`decodeCursor`), and the two solve
+different problems. A stream is "walk every row once, now, with bounded memory, inside one connection's
+lifetime". Keyset paging is "resume later, from another process, over a stateless request". A stream is
+**not resumable**: there is no token to hand a client, and the epic does not add one. A read that has to
+survive a round trip to a browser is a keyset page and always was.
 
 ## 2. BaseRepository surface
 
@@ -330,8 +516,14 @@ than implying that `appliesToWrites: true` is one.
 The honest answer is the compiled SQL, so there is an API that hands it over:
 
 ```ts
+interface QueryMeta {
+  readonly filters: readonly string[];
+  /** §1a — a stream the driver could not cursor, served by buffering the whole result. */
+  readonly buffered?: boolean;
+}
+
 interface RepositoryOptions {
-  readonly onQuery?: (query: CompiledQuery, meta: { readonly filters: readonly string[] }) => void;
+  readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
 }
 ```
 
@@ -339,6 +531,10 @@ interface RepositoryOptions {
 reading `deletedAt IS NULL` out of a `WHERE` clause by eye is exactly the check that goes wrong under a
 join — the predicate is present, in the wrong clause, doing nothing. A name list is assertable in a test;
 a SQL string is assertable only against a golden that nobody updates carefully.
+
+`buffered` rides on the same hook rather than getting its own, because both answer one question — what did
+this call actually do, as opposed to what does it look like it did — and an application that wired up one
+callback should not have to discover a second.
 
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 

@@ -1,9 +1,9 @@
 # SPEC — First-party driver adapters (frozen)
 
 Epic #209. Ships official `Driver` implementations so users don't hand-write one.
-A `Driver` is `{ execute(query: CompiledQuery): Promise<readonly Record<string,
-unknown>[]> }`. Adapters are thin, dependency-injected wrappers — the repository
-still never opens connections itself.
+The `Driver` interface itself is `../../SPEC.md` §1 — one required method, `execute`, plus an
+optional `dialect` and an optional `stream` (§1a there). Adapters are thin,
+dependency-injected wrappers — the repository still never opens connections itself.
 
 ## API
 
@@ -55,6 +55,53 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 - With `opts.prepared === true`, use a stable statement `name` derived from the SQL text so Postgres caches the plan (server-side prepared statement). Kept opt-in to preserve the zero-state default (see the benchmarks tail trade-off).
 - Internal statement name cache is LRU-bounded (default 1000 entries); evicting a statement issues `DEALLOCATE <name>` to clean up server-side state.
 - Never mutates the pool/client; no connection lifecycle management.
+
+### Streaming and cancellation, per adapter (frozen — epic "Streaming reads and query cancellation")
+
+The contract is `../../SPEC.md` §1a. What the two bundled adapters do under it:
+
+```ts
+interface SqliteOptions {
+  maxCacheSize?: number;
+} // unchanged
+interface PgOptions {
+  prepared?: boolean;
+  maxCacheSize?: number;
+  cancelVia?: PgQueryable;
+}
+
+export interface PgQueryable {
+  query(/* … as today … */): Promise<{ rows: Record<string, unknown>[] }>;
+  /** Optional. Without it, pgDriver ships no `stream`. */
+  connect?(): Promise<PgConnection>;
+}
+interface PgConnection extends PgQueryable {
+  release?(): void;
+}
+```
+
+**`sqliteDriver` streams for real.** `StatementSync.prototype.iterate()` exists on the supported Node, so
+`stream` steps the statement and checks `opts.signal` between rows. `batchSize` is ignored — there is no
+round trip to batch. The cache stays as it is, with one addition: a statement being iterated is not
+evictable, because dropping the handle mid-walk would free native memory the iterator is standing on.
+Cancellation is only ever between rows; `node:sqlite` exposes no `sqlite3_interrupt`, so a slow single
+statement runs to completion.
+
+**`pgDriver` streams only when it can check out a connection.** With no `connect` on the queryable, the
+returned object has **no `stream` property at all**, so the repository buffers by its normal capability
+check instead of taking a cursor path that would throw. With one: check out, read `pg_backend_pid()`,
+`BEGIN`, `DECLARE … CURSOR FOR <query.text>` with the parameters, `FETCH FORWARD <batchSize>` per round
+trip, then `CLOSE`, `COMMIT` and release on cleanup — in a `finally`, so an abandoned iterator that does
+get closed cannot leave the connection in a transaction.
+
+`cancelVia` is a separate queryable used for nothing but `SELECT pg_cancel_backend($1)`. It is explicit
+because the connection running the query cannot cancel it — the cancel would queue behind it — and a `Pool`
+and a `Client` are indistinguishable through `PgQueryable`. Omitted, abort still stops the next `FETCH`,
+which bounds the work to one batch.
+
+Prepared statements and cursors do not combine: `prepared: true` names a statement for plan reuse, and the
+cursor path issues `DECLARE`/`FETCH` utility statements instead. `stream` ignores `prepared` rather than
+half-applying it.
 
 ## Packaging
 
