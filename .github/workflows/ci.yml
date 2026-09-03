@@ -104,6 +104,18 @@ jobs:
       - name: Verify every REQ-TF criterion names a live enforcer
         run: yarn verify:tf-acceptance
 
+      # `verify:docs-coverage` checks the replacement claim against what Drizzle, Kysely,
+      # MikroORM, NestJS and Typia *document*. This checks it against what they *test*, which is
+      # the stronger half: a documented feature with no test is a promise, a tested one is a
+      # behaviour someone depends on. Every upstream suite in the pinned inventory either names a
+      # zmdb test or carries a written argument for why we do not want it.
+      #
+      # `scripts/harvest-api-tests.mjs` is what re-pins the inventory, and it is deliberately not
+      # run here: it clones five repositories, and an upstream landing a test at 3am should not
+      # turn our build red.
+      - name: Verify competitor API-test coverage
+        run: yarn verify:api-coverage
+
       # PRD §9.4's table, recomputed. The published assertion count had already drifted up by
       # five with nothing watching, which is what a document-as-invariant gets you (RISK-7).
       - name: Verify the escape-hatch ratchet

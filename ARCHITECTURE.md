@@ -335,6 +335,19 @@ Committing to a hard floor is itself an architecture decision — it removes cod
   `expectTypeOf`: vitest only _runs_ specs, so `expectTypeOf(...)` there is a
   runtime no-op. Those files hold no runtime code — they are a **compilation**
   gate, run by `yarn typecheck` (which is what CI runs). See PRD §9.6.
+- **The public surface is tested against what the incumbents test, not only
+  against what they document.** `yarn verify:docs-coverage` maps 396 upstream
+  documentation pages; `yarn verify:api-coverage` does the harder half — the 742
+  public-API test suites (9,258 assertions) that Drizzle, Kysely, MikroORM,
+  NestJS and Typia actually run. A documented feature with no test upstream is a
+  promise; a tested one is behaviour someone already depends on, so it is the
+  better inventory of what a data layer is expected to do. Every suite in
+  `tests/api-coverage/inventory.mjs` either names a zmdb test or carries a
+  written reason we do not want it, and the gate fails on a suite that has
+  neither. The inventory is **pinned to an upstream commit** and re-harvested
+  deliberately by `scripts/harvest-api-tests.mjs`, which clones the five
+  repositories; CI never runs it, because a competitor landing a test at 3am
+  should not turn our build red.
 - **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
   `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins
   `noImplicitAny` and asserts `experimentalDecorators: false`.

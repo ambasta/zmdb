@@ -27,9 +27,12 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling** harness. **1,043
+> **framework integrations**, and an **LLM function-calling** harness. **1,107
 > tests green** across 136 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
+> Those tests answer the 742 public-API suites Drizzle, Kysely, MikroORM, NestJS
+> and Typia run between them — each one either named against a zmdb test or
+> argued against in writing, counted by `yarn verify:api-coverage`.
 > Of the 276 docs-site pages, 190 document a capability that exists and 86 are
 > marked `todo` — a page that argues for a feature gap rather than describing one,
 > counted by `yarn verify:docs-coverage`.

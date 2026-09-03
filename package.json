@@ -28,6 +28,7 @@
     "test:watch": "vitest",
     "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
+    "verify:api-coverage": "node .github/scripts/verify-api-coverage.mjs",
     "verify:bench": "node .github/scripts/verify-bench-results.mjs",
     "verify:build-budget": "node .github/scripts/verify-build-budget.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
