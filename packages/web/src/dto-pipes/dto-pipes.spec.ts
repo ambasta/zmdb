@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import { createRequestData } from '@zmdb/app/data';
-import { defineSchema, serial, text } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 // Tests (#299) for DTO validation/serialization pipes — RED first (dto-pipes
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
 // Per packages/web/src/dto-pipes/SPEC.md.
@@ -13,11 +14,13 @@ import type { Ctx } from '../context/index.js';
 import { runChain } from '../middleware/index.js';
 import { validationPipe, serializationInterceptor, decodePipe, dtoChain } from './index.js';
 
-const ProfileSchema = defineSchema('profiles', {
-  id: serial().primaryKey(),
-  handle: text().notNull(),
-  ssn: text().sensitive(),
-});
+export interface Profile extends Table<'profiles'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  handle: string;
+  ssn?: string & Sensitive;
+}
+
+const { Profile: ProfileSchema } = schemasFrom(import.meta.url, ['Profile']);
 
 interface CreateUser {
   name: string;
