@@ -48,6 +48,50 @@ So `run(args)` takes its argument positionally, and `@Args` does not exist. `doc
 asks for `@Option` metadata, which fails for the same reason and is also unnecessary — §3 derives the option
 list from the args type instead of from decorators on it.
 
+### 1.1 The AOT transform does not rescue any of the three
+
+The fair objection to all of the above is that this project already rewrites TypeScript at build time, so a
+transform could desugar the parameter property, drop the parameter decorator and thread the constructor
+arguments. Taken one at a time, the transform is powerless over the first, unnecessary for the second, and
+would have to become a different thing entirely for the third.
+
+**`@Args()` fails before the transform can see the file.** With `experimentalDecorators: false` — which is
+what `tsconfig.json` sets, project-wide — the compiler answers a parameter decorator with `error TS1206:
+Decorators are not valid here.` `transformFile` is handed a `ReflectSession`'s checker and source file, so
+it runs strictly downstream of that error, on a program the consumer's editor is already reporting as
+broken. The only fix is `experimentalDecorators: true` in every consumer's tsconfig, which does not add
+parameter decorators so much as swap the implementation out from under every decorator already in use —
+`@Inject`, `@Get`, `@Module` — along with the `context.metadata` and `Symbol.metadata` polyfill they are
+built on. And it buys nothing: §3 gets the option list, the coercions and `--help` from
+`toJsonSchema<A>()`, which is the AOT reading the args type. The information a parameter decorator would
+have carried by hand is already derived, from the one place that cannot fall out of sync with the type.
+
+**The parameter property is not blocked by the transform's ability — it is blocked by the transform being
+optional.** `tsc` desugars a parameter property perfectly well, so a command that is _built_ can already
+contain one; what cannot contain one is a command that is _stripped_, which is the loading story §8 is
+about. The transformer is deliberately allowed to do nothing: it rewrites eight named call sites by text
+offset (`transformer.ts`'s `CALLEES`) and leaves alone any it cannot reach, and §8 depends on that
+degradation being survivable — an untransformed `assert<A>` still reaches a runtime fallback that throws a
+sentence naming the problem. An undesugared parameter property is not a degraded path. It is
+`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` at module load, before any zmdb code runs, so the surface would only
+exist for consumers who run a bundler plugin — which is exactly the mandatory bundler `zmdb`'s
+`src/config/SPEC.md` §4 rejects, for reasons that have nothing to do with commands.
+
+**Constructor injection needs a token, and a transform can only see a type.** Passing arguments to
+`new Ctor()` is the mechanical part and `Container.build` could do it from a static list. The part no
+transform can supply is what goes in the list. `@Inject(USERS)` names a **value** with identity, and
+`../di/SPEC.md` freezes that: "Tokens are explicit values", "no `emitDecoratorMetadata` / no reflection".
+From `constructor(users: UserRepository)` the transformer has a type and nothing else, and a type does not
+determine a token — a primary and a read replica are both `BaseRepository<User>` under two different
+tokens, and that is a normal thing to register, not a corner case. Making the type the key means a
+build-time registry mapping types to providers across the whole program, resolved by a tool the consumer
+may not be running: `emitDecoratorMetadata` with extra steps and a worse failure mode.
+
+There is also a blunter obstacle. The reflector refuses classes outright — `reflect/index.ts` answers a
+type with a method with `` `X` has a method (`m`); only data types can be checked `` — and a repository is
+nothing but methods. The AOT reflects the shape of data crossing a boundary. A dependency graph is made of
+behaviour, so the one component that reads types cannot describe a single node of it.
+
 ## 2. The surface
 
 ```ts
@@ -260,6 +304,8 @@ file.
 - **`@Option` per-property decorators.** §1, §3 — the args document already carries the option list.
 - **Constructor injection.** §1 — `Constructor<T>` is `new () => T`, and a parameter property does not
   survive type stripping.
+- **A build-time transform that supplies either of them.** §1.1 — a parameter decorator is a compiler error
+  upstream of the transform, and a constructor parameter's type is not a token.
 - **`createCommandApp(rootModule: unknown)`.** §2 — `ModuleClass` is what `compileModule` needs.
 - **`process.exit` inside `run`.** §2 — it truncates disposal, which is the hang this is meant to avoid.
 - **A runtime parser or a hand-written argv schema.** §3, §4 — `toJsonSchema` and `parseArgs` between them
