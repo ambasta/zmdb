@@ -1,9 +1,12 @@
-> **ToDo / feature gap.** There is no view layer — no `@Render`, no template
-> engine adapter, no `setViewEngine`. A handler can return rendered HTML itself
-> with `respond({ body: html, headers: { 'content-type': 'text/html' } })`, so
-> this is a missing convenience rather than a wall; what does not exist is any
-> integration that resolves a template name, caches compiled templates, or wires
-> an engine into the router.
+> **Declined, with a reason.** There is no view layer — no `@Render`, no template
+> engine adapter, no `setViewEngine` — and there will not be one. A handler returns
+> rendered HTML itself with
+> `respond({ body: html, headers: { 'content-type': 'text/html' } })`, which is the
+> supported arrangement rather than a workaround.
+>
+> The decision and its four reasons are recorded in
+> `packages/web/src/pipeline/SPEC.md` §A8. Everything on this page is current
+> advice, not a holding pattern.
 
 ## What zmdb is for
 
@@ -103,11 +106,18 @@ for (const post of items) {
 
 Then serve `dist/` from a CDN. This is what this documentation site does.
 
-## What it would take
+## Why this is declined rather than pending
 
-Three changes, in order: a response body that can carry a non-JSON string, a way for a handler to set `content-type`, and a way to return a rendered template. The first two are the same core changes [streaming](./web-streaming-files.html) needs.
+An earlier version of this page said a view layer needed three core changes first. Two of them already exist — `respond()` carries a non-JSON string and sets `content-type` — so the only thing left was the seam itself, and on inspection the seam does not earn its place. Four reasons, in the order that decided it:
 
-A template engine adapter itself would not be in the framework — [Directive 7](./anti-patterns.html) is zero required runtime dependencies, so the engine would be yours to bring, and the framework's part is a `@Render('post')` decorator plus a render function on the router. That ordering makes this a follow-on to the response-body work rather than an independent feature.
+1. **What a `@Render('post')` decorator does is move a string from a function into a response**, which the one-line `respond()` above already does. The convenience is one line deep.
+2. **A seam that resolves templates by name introduces a string key with no type behind it.** A renamed template, a misspelled variable and a missing partial all become runtime failures, in a project whose entire argument is that those are compile failures. This is the same objection that rejected a two-meaning `zmdb graph` verb and rejected parsing `.proto` files: an indirection through a name the compiler cannot check.
+3. **Compilation caching, partial resolution and hot reload are the engine's job**, and Eta, Nunjucks and Handlebars all do them better than a seam could.
+4. **The real risk is contextual escaping**, and a seam does not improve it by a single character. The warning above is the whole security story either way.
+
+So the framework's position is that an engine is a direct dependency of your application, called in your handler, returning a string. That needs no framework support, which is why there is none.
+
+If you are choosing a stack and server-rendered HTML is the product rather than an edge of it, a template-first framework will fit better than this one. That is not a limitation to work around; it is the design position in the first section of this page.
 
 ---
 

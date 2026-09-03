@@ -1,7 +1,11 @@
 > **ToDo / feature gap.** There is no compression middleware, and there cannot be
 > one at the handler level: `WebResponse.body` is a `string`, and a gzip payload is
-> bytes. A handler also cannot set `content-encoding`, since the router controls
-> the response headers.
+> bytes.
+>
+> The policy it will ship with is frozen in
+> `packages/web/src/compression/SPEC.md`, including which encodings and why brotli
+> is not one of them. A handler **can** set `content-encoding` — `respond()` takes
+> arbitrary headers, and an earlier version of this page said it could not.
 
 ## Where to compress instead
 
@@ -65,6 +69,8 @@ Four details that are not optional:
 
 **Responses containing a secret alongside attacker-controlled input.** Compression ratio leaks information about the plaintext, which is the BREACH attack: an attacker who can inject text into a response that also contains a CSRF token can recover the token from response sizes. If you compress a response containing both, either do not compress it, or make the secret vary per response. Rare in a JSON API, real in server-rendered HTML.
 
+The framework cannot decide this for you and the freeze says so rather than shipping an "automatic BREACH protection" flag: deciding it requires knowing that one field is a secret and another is attacker-controlled, and neither is visible in a `WebResponse`. What it does instead is take the three honest positions — the guidance above, a named `skip(response, ctx)` escape hatch, and one structural fix for the canonical case. [CSRF tokens](./web-csrf.html) are masked with a fresh random value per response, so the secret is different bytes every time and has no stable ratio to leak. That keeps working when somebody forgets the guidance, which an exclusion rule does not.
+
 ## Compress the payload instead
 
 Often the bigger win, and available today:
@@ -77,9 +83,17 @@ A response that does not include the fields the client ignores needs no compress
 
 ## What it would take
 
-The same change as [streaming files](./web-streaming-files.html): widen `WebResponse.body` beyond `string`, and let a handler or a filter set response headers. Then compression is a `Interceptor`-shaped wrapper — though even with that, the honest recommendation would remain "do it at the edge", because a CDN caches the compressed bytes and your process does not.
+The response body change in [streaming files](./web-streaming-files.html), and then an `Interceptor` over the union — `compress(response, ctx, options)` as a pure function with the interceptor as a thin wrapper, so negotiation is testable without a pipeline and an adapter-driven deployment can call it directly.
 
-That makes this a low-priority gap despite being conspicuously absent: the workaround is one proxy directive, and the proxy does it better.
+Three decisions in the freeze are worth knowing now, because they contradict what you might expect.
+
+**Brotli is declined.** `CompressionStream` supports `gzip`, `deflate` and `deflate-raw` and not `br` — `new CompressionStream('br')` throws on the Node this project targets, and there is no `zstd` either. Supporting brotli means `node:zlib`, which makes the middleware Node-only in a package whose response model was designed so `toFetchHandler` works on any Fetch runtime, and adds a Node-stream-to-web-stream conversion to the one path that is supposed to be a straight pipe. The case brotli wins — an asset compressed once at high quality and cached — is exactly the case this page says belongs at the edge, where brotli already exists.
+
+**The content-type list is an allow-list, not a deny-list of already-compressed formats.** The failure modes are asymmetric: a missing deny-list entry spends CPU inflating a JPEG on every request, a missing allow-list entry costs bandwidth and nothing else.
+
+**`vary: accept-encoding` is added even when the middleware decides _not_ to compress.** The header describes what the response depended on, not what happened. This is the detail most implementations get wrong, and getting it wrong means a shared cache stores whichever representation it saw first and serves gzip bytes to a client that cannot decode them.
+
+Even with all of it, the recommendation stays "do it at the edge": a CDN caches the compressed representation once and your process compresses per request. The workaround is one proxy directive and the proxy does it better.
 
 ---
 

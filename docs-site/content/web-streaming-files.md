@@ -1,7 +1,11 @@
 > **ToDo / feature gap.** `WebResponse.body` is a `string`. There is no
-> `ReadableStream`, no `AsyncIterable` and no `Buffer` in the response type, so a
+> `ReadableStream`, no `AsyncIterable` and no byte array in the response type, so a
 > handler cannot stream — the whole body must be a string in memory before the
 > response is returned.
+>
+> The shape it will ship as is frozen in
+> `packages/web/src/pipeline/SPEC.md`, in the amendment section at the end. The
+> workarounds below still apply until it lands.
 
 ```ts
 export interface WebResponse {
@@ -11,7 +15,7 @@ export interface WebResponse {
 }
 ```
 
-And a handler cannot even set that: the router serialises a handler's return value as a 200 JSON body. See [Request Lifecycle](./web-request-lifecycle.html).
+A handler **can** set the status, the headers and a non-JSON body — `json()`, `text()` and `respond()` do exactly that, and an earlier version of this page said otherwise. What it cannot do is return anything other than a string. See [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Why this is the blocker it looks like
 
@@ -109,11 +113,45 @@ if (range !== null) {
 
 Validate the numbers. A `start` beyond the file size or a reversed range should be a 416, not a stream that reads nothing.
 
+The frozen behaviour puts ranges in the [static file handler](./web-static-files.html) rather than in `file()`: a single range is a `206`, a start past the end is a `416` carrying `content-range: bytes */<size>`, and a malformed range, more than one range, or an `If-Range` all answer `200` with the whole file. Serving the whole file is always a correct answer to a `Range` request, and it is honest about the fact that `multipart/byteranges` is a second body format whose only real consumer is a PDF viewer.
+
 ## What it would take
 
-Widen `WebResponse.body` to `string | Uint8Array | ReadableStream`, and give a handler a way to return a full response rather than a value the router wraps. Both are breaking changes to core public types, which is why they have not been made incrementally — and both adapters need to handle each case (`toNodeHandler` piping a stream, `toFetchHandler` passing it to `Response`).
+Settled, and narrower than "widen the body". `body` becomes a **tagged** union, not `string | Uint8Array | ReadableStream`:
 
-That one change unblocks compression, static files, templates, SSE and LLM streaming together, so it is the highest-leverage item on the framework's list.
+```ts
+export type ResponseBody =
+  | { readonly kind: 'text'; readonly value: string }
+  | { readonly kind: 'bytes'; readonly value: Uint8Array<ArrayBuffer> }
+  | {
+      readonly kind: 'stream';
+      readonly value: ReadableStream<Uint8Array<ArrayBuffer>>;
+      readonly length: number | undefined;
+    };
+```
+
+The tag is there because of `content-length`. `body.length` on the untagged union means UTF-16 code units for a string and bytes for a `Uint8Array`, so the one question every adapter has to answer is the question the untagged version answers ambiguously and silently. The tag also makes a fourth arm a compile error at every consumer instead of a missed case.
+
+Two parameters that look like fussiness and are not. `Uint8Array<ArrayBuffer>` rather than `Uint8Array`, because a bare `Uint8Array` includes a `SharedArrayBuffer`-backed view, `BodyInit` excludes those, and `new Response(bytes)` therefore does not compile — the only alternative being a cast at the adapter. And `length: number | undefined` rather than `length?: number`, because under `exactOptionalPropertyTypes` a caller computing the length from a `stat` cannot write the optional form.
+
+Then two new factories:
+
+```ts
+@Get('/files/:id')
+async download(ctx: Ctx<{ id: string }>) {
+  const record = await this.repo.findById(Number(ctx.params.id));
+  return file(record.path, {
+    headers: { 'content-disposition': `attachment; filename="${encodeURIComponent(record.name)}"` },
+    onError: error => this.log.error({ id: record.id, error }),
+  });
+}
+```
+
+`onError` is **required**, and that is the part of the freeze worth knowing before you plan around it. Once the first byte is on the wire there is no status left to send and no exception filter left to run, so a failing stream is the one error in the framework that cannot be reported through a return value. The connection is destroyed rather than ended — under chunked transfer, omitting the terminating chunk is the only in-protocol way to say "this response is incomplete", and appending an error object to a JSON stream would hand the consumer a value it will parse as data.
+
+Client disconnect cancels the reader, which is what closes the file descriptor; backpressure is `res.write` returning `false`, because ignoring it turns a 2 GB download to one slow client into 2 GB of process memory — the same bug streaming was added to remove, reintroduced one layer down.
+
+One thing this page overstated: it is not five features behind one field. [Compression](./web-compression.html) and [static files](./web-static-files.html) do need it, and so does `graphql-sse`; [templates](./web-templates.html) never did — `respond()` has been enough for a rendered string for some time, and the freeze declines a view engine on its own merits rather than for want of a stream.
 
 ---
 

@@ -1,19 +1,30 @@
 > **ToDo / feature gap.** There is no multipart (`multipart/form-data`) parser and
 > no `FileInterceptor` analogue. Worse than missing: the bundled adapters cannot
-> carry binary at all — `toNodeHandler` accumulates the request body as
-> `String(chunk)`, which UTF-8-decodes each buffer and destroys any byte that is
-> not valid UTF-8.
+> carry binary at all — both decode the request body as UTF-8 text, which destroys
+> any byte sequence that is not valid UTF-8.
+>
+> The limits, the filename rule and the buffer-versus-stream decision are frozen in
+> `packages/web/src/upload/SPEC.md`, and the adapter change they depend on is in
+> `packages/web/src/pipeline/SPEC.md`.
 
 So this is not "write a parser and plug it in". Uploads have to bypass the router
 until the request body reaches a handler as bytes.
 
 ## What arrives today
 
-`WebRequest.rawBody` is `unknown`. The adapter joins the body into a string, tries
-`JSON.parse`, and falls back to the raw string. A multipart body therefore reaches
-`ctx.body` as a **lossily decoded string** with its boundary markers intact and its
-binary content corrupted. A JSON body with a base64 field works fine, which is the
-basis of the small-file workaround below.
+`WebRequest.rawBody` is `unknown`. `toNodeHandler` calls `req.setEncoding('utf8')`
+and accumulates the decoded string; `toFetchHandler` calls `request.text()`. Then it
+tries `JSON.parse` and falls back to the raw string.
+
+The `setEncoding` is worth being precise about, because this page used to describe
+the wrong mechanism. It installs a `StringDecoder`, which holds partial multi-byte
+sequences across reads — so a character whose UTF-8 bytes straddle a chunk boundary
+survives, and a naive `String(chunk)` per chunk would have corrupted it. What
+neither version survives is a byte sequence that is not valid UTF-8 **at all**,
+which is most of any image. A multipart body therefore reaches `ctx.body` as a
+lossily decoded string with its boundary markers intact and its file content
+replaced by U+FFFD. A JSON body with a base64 field works fine, which is the basis
+of the small-file workaround below.
 
 ## Workaround 1: presigned uploads (recommended)
 
@@ -135,18 +146,53 @@ Store the key, never the bytes. Filter by `owner_id` in the `where` on every rea
 
 ## What it would take
 
-Three things, in order:
+Three things, in order, and the middle one is not what this page previously assumed:
 
 1. **Bytes through the adapter.** `WebRequest.rawBody` is already `unknown`, so it
-   can carry a `Buffer` or a stream; `toNodeHandler` must stop stringifying chunks.
-   That is the blocking change and it is small.
-2. **A streaming multipart parser** behind a size limit and a part-count limit,
-   producing `{ fields, files }` with each file as a stream rather than a buffer.
-3. **A `Pipe`** exposing it: `Pipe<Buffer, Multipart>` fits the existing
-   `transform(value, ctx)` signature with no design change.
+   can carry a `Uint8Array`; the adapters must stop decoding a non-JSON body as
+   text. That is the blocking change and it is small. It comes with a
+   `maxBodyBytes` default of 1 MiB, because there is no request body limit today at
+   all — which makes every `POST` route in every deployment an unbounded allocation
+   reachable by one request.
+2. **A buffering multipart parser**, not a streaming one. The freeze picked
+   buffering, and the reason is worth knowing before you plan around it: a streaming
+   parser needs `WebRequest` to carry a `ReadableStream`, which means routing,
+   validation and `Ctx` construction all have to cope with a body that does not exist
+   yet at match time — a redesign of the request half of the pipeline. A bounded
+   buffer's safety is one comparison; a streaming parser's is every consumer
+   honouring backpressure. And the case buffering cannot serve is the 200 MB upload,
+   which workaround 1 says should not be going through the application anyway.
+3. **A `Pipe`** exposing it: `Pipe<unknown, Multipart>` fits the existing
+   `transform(value, ctx)` signature with no design change. No decorator —
+   `@UploadedFile()` would be a second way to reach `ctx.body`, and this package's
+   handlers take one `Ctx`, which is what keeps them ordinary functions.
 
-Even then, presigned uploads remain the better production answer for anything
-large.
+The limits, with defaults: 16 parts, 1 MiB per part, 8 MiB total, 100-byte field
+names, 255-byte filenames, 1 KiB of headers per part. Two of those are not obvious
+and both are real — a part with a ten-megabyte `content-disposition` line is an
+unbounded allocation containing no file content at all.
+
+Every limit has a default and none can be removed: `0`, `Infinity`, `-1` and a
+non-integer are all construction errors rather than clever ways to switch a check
+off. Raising a limit is the supported operation.
+
+**An over-limit body is destroyed, not drained.** Draining means reading a hostile
+request to completion in order to answer it politely, which is the resource
+consumption the limit just refused. The cost is real and stated rather than hidden:
+a client still writing its body may see a connection reset instead of the `413`. The
+mitigation belongs to the client — check the size before uploading, or send
+`Expect: 100-continue`, which lets the server refuse on the headers alone.
+
+**The client filename is a label and nothing else.** A filename containing a `\0` or
+a path separator makes the part a `400` rather than being stripped, because the
+sanitised version of `../../etc/passwd` is a filename somebody will concatenate. The
+storage key is generated. The declared content type is recorded verbatim and nothing
+in the parser branches on it — the framework does not sniff, because a magic-number
+table goes stale, disagrees with whatever library will process the bytes, and has
+nothing to say about `image/svg+xml`, which is the type that actually matters.
+
+Even with all of it, presigned uploads remain the better production answer for
+anything large.
 
 ---
 

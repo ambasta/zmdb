@@ -4,6 +4,10 @@
 > still missing is a module that maps a directory to routes, and streaming —
 > `WebResponse.body` is a `string`, so the whole file is read into memory and
 > binary content has to be handled outside the framework.
+>
+> The confinement, caching and range rules it will ship with are frozen in
+> `packages/web/src/static/SPEC.md`, enumerated technique by technique. Two things
+> below are corrected against it: the rejection status and the encoding check.
 
 ## Serve them somewhere else
 
@@ -90,7 +94,13 @@ createServer(async (req, res) => {
 - The trailing slash in `ROOT + '/'` matters. Without it, `/var/www/assets-secret` passes a `startsWith('/var/www/assets')` check.
 - **Do not serve a directory you also write to.** An upload directory served statically means an attacker who uploads an `.html` file gets stored XSS on your origin, and one who uploads a `.js` file gets script execution.
 - **Never serve the project root.** `.git`, `.env`, `node_modules` and your source maps are all in there.
-- Decode the URL before normalising, or `%2e%2e%2f` bypasses the check entirely. `req.url` from `node:http` is not decoded.
+- Decode the URL before normalising, or `%2e%2e%2f` bypasses the check entirely. `req.url` from `node:http` is not decoded. **Decode exactly once, then refuse any surviving `%`** — a single decode leaves `%252e%252e%252f` intact, and a decode loop replaces one bypass with a question about when the loop terminates. A legitimate asset filename does not contain a percent sign.
+- **Refuse a `\0`, a `\` and a leading `/` or `C:` outright**, and refuse any segment that is `..` or starts with `.`. The null byte truncates the path in any layer below that is C-shaped; the backslash is a separator on Windows; refusing dot-segments removes `.git`, `.env` and `.htaccess` as a class rather than as a list.
+- **Re-check containment against the _real_ path**, after resolving symlinks. Every string check above passes for `/var/www/assets/backup` when that name is a symlink to `/home/app/.ssh`. The frozen policy is follow-within-root-only: a symlink whose target is inside the root is served, one that escapes is refused.
+- **Open the file once and read everything from the descriptor** — size, mtime and bytes. A path checked and then re-opened by name is a time-of-check-to-time-of-use race: anyone who can create a file in the served directory replaces it with a symlink between the two operations, and all your checks passed on a file that no longer exists.
+- **Refuse anything that is not a regular file.** Reading a FIFO blocks the handler forever and `/dev/zero` is an infinite response body — denial of service through a path containing no traversal at all.
+
+**Every rejection should be the same `404`, not the `403` in the snippet above.** That is the one correction the freeze makes to this page's advice. Any distinction is an oracle: a `403` for "outside the root" and a `404` for "not found" tells an attacker exactly where the boundary is, so they can map the filesystem one request at a time without ever reading a file. Uniformity costs you one debugging session, which a required `onError` sink covers, and costs an attacker the whole reconnaissance phase.
 
 **`content-type` must be a fixed allow-list**, as above. Deriving it from the request, or falling back to something permissive, is how a `.txt` file gets interpreted as HTML. `application/octet-stream` as the default is deliberately boring — it downloads rather than renders.
 
@@ -109,9 +119,27 @@ Send `index.html` with `cache-control: no-cache` while the hashed assets get the
 
 ## What it would take
 
-The same core change as [streaming files](./web-streaming-files.html): a response body that can be bytes or a stream, and a way for a handler to set status and headers. Then `serveStatic` is a controller.
+The response body change in [streaming files](./web-streaming-files.html), and then a handler that returns a `WebResponse` — so `serveStatic` is a controller method and not an adapter branch:
 
-Even then it would not be the recommendation. A framework serving static files is convenient in development and the wrong layer in production, so the realistic destination is a small dev-only helper plus the proxy configuration above.
+```ts
+const assets = await createStaticHandler({ root: '/var/www/assets', onError: log });
+
+@Get('/assets/*')
+async asset(ctx: Ctx<{ '*': string }>) {
+  return this.assets.serve(ctx.params['*'], ctx.headers);
+}
+```
+
+`createStaticHandler` is async because it resolves the root to its real path **once, at construction**, and refuses a root that is missing or is not a directory. Resolving per request would re-read the same symlinks on every request and, worse, would let a root that becomes a symlink at runtime change what the handler serves without the process noticing.
+
+Four decisions in the freeze that differ from what a static handler usually does:
+
+- **The `ETag` is labelled weak** — `W/"<size>-<mtimeMs>"`. Size and mtime cannot distinguish two files of the same length written in the same millisecond, and a strong validator would have to hash the file, which reads all of it and defeats the streaming this exists for. The label is load-bearing: a strong validator licenses a client to assemble byte ranges from two different responses, so `If-Range` is ignored for the same reason.
+- **`cache-control` defaults to `public, max-age=0, must-revalidate`.** A `max-age` that is too long cannot be corrected for its duration, because the caches holding the stale copy never ask again. `immutable` is opt-in, for the content-hashed case where the operator knows the name changes when the bytes do.
+- **Directory listing has no option that enables it**, and a path resolving to a directory is a `404`. An `index` filename is a separate opt-in and is off by default.
+- **There is no single-page-application fallback inside the handler.** Which paths are the API and which are the app is a routing decision the handler cannot know, and a handler that guesses turns every mistyped API path into a `200` of HTML — which breaks clients in the most confusing way available. It stays in the controller, in one visible line.
+
+Even with all of it, this is not the recommendation. A framework serving static files is convenient in development and the wrong layer in production, so the destination is a correct handler plus the proxy configuration above.
 
 ---
 

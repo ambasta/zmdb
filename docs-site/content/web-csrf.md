@@ -1,6 +1,10 @@
 > **ToDo / feature gap.** There is no CSRF protection — no token middleware, no
-> `csurf` equivalent, no double-submit helper. A handler also cannot set a
-> response header, so a framework-issued token could not be delivered.
+> `csurf` equivalent, no double-submit helper.
+>
+> The threat model and the token strategy are frozen in
+> `packages/web/src/csrf/SPEC.md`. A handler **can** set a response header —
+> `json()` and `respond()` both take one, and an earlier version of this page said
+> otherwise, which is why it thought a token could not be delivered.
 
 ## Whether you need it at all
 
@@ -67,20 +71,38 @@ issue() {
 The client stores it and sends it as `x-csrf-token` on every mutation; you compare it against the same value in the non-`HttpOnly` cookie set above.
 
 ```ts
-function requireCsrf(ctx: Ctx<Record<string, string>, unknown>): void {
+const compareKey = await crypto.subtle.importKey(
+  'raw',
+  crypto.getRandomValues(new Uint8Array(32)), // per process, never leaves it
+  { name: 'HMAC', hash: 'SHA-256' },
+  false,
+  ['sign'],
+);
+const digest = async (value: string): Promise<string> =>
+  new Uint8Array(await crypto.subtle.sign('HMAC', compareKey, new TextEncoder().encode(value))).toBase64();
+
+async function requireCsrf(ctx: Ctx<Record<string, string>, unknown>): Promise<void> {
   const header = ctx.headers['x-csrf-token'] ?? '';
   const cookie = parseCookies(ctx.headers.cookie ?? '').csrf ?? '';
-  const a = Buffer.from(header);
-  const b = Buffer.from(cookie);
-  if (a.length === 0 || a.length !== b.length || !timingSafeEqual(a, b)) {
+  if (header === '' || (await digest(header)) !== (await digest(cookie))) {
     throw new ValidationError('invalid csrf token', []);
   }
 }
 ```
 
-`timingSafeEqual`, not `===`, and reject an empty token explicitly — otherwise two missing values compare equal and every unauthenticated request passes.
+Reject an empty token explicitly, or two missing values compare equal and every unauthenticated request passes.
 
-Double-submit relies on an attacker not being able to write your cookies. A subdomain takeover breaks that, so prefer a signed token bound to the session where the stakes are high.
+**That is a double-HMAC comparison, not `timingSafeEqual`, and the substitution is deliberate.** `node:crypto` is not importable in this project, Web Crypto has no constant-time comparison primitive, and a hand-rolled XOR-accumulate loop's constant-timeness is a property of the JIT rather than of the source — so it cannot be asserted by a test. MAC both sides under a random per-process key and compare the digests with `===`: an attacker cannot steer a digest they cannot predict, so the comparison's timing carries no information. This removes the requirement instead of trying to satisfy it, and it is what the freeze specifies.
+
+Double-submit relies on an attacker not being able to write your cookies, and the freeze does not use it for exactly that reason — a subdomain takeover, a compromised sibling application, or one plaintext response on any `*.example.com` host is enough, because cookies ignore the origin's scheme and port. What ships instead is a **stateless token bound to the session**:
+
+```
+nonce ‖ '.' ‖ base64url(HMAC-SHA256(secret, sessionId ‖ '.' ‖ nonce))
+```
+
+Verification recomputes the MAC over the session id taken from the request's own session, so a cookie the attacker can write is useless — they cannot produce a MAC for _your_ session. There is no CSRF cookie at all, which removes a second `SameSite`, `Secure`, `Path` and `Domain` to get wrong, and no server-side store, which is what a synchroniser token would have needed. The token has no separate expiry: its lifetime is the session's, because the session id is inside the MAC, so a login that rotates the session — where session fixation lives — rotates the token automatically.
+
+The issued token is also **masked per response** with a fresh random value. That adds no secrecy; it makes the bytes of the response different every time, which removes the [BREACH](./web-compression.html) side channel structurally rather than by remembering an exclusion rule.
 
 ## What to check regardless
 
@@ -88,11 +110,27 @@ Double-submit relies on an attacker not being able to write your cookies. A subd
 - **CORS is not CSRF protection.** A permissive `access-control-allow-origin` makes things worse, but a restrictive one does not stop a form post, which needs no preflight. See [CORS](./web-cors.html).
 - **Never reflect the request's `Origin`** into `access-control-allow-origin` with credentials enabled. That is equivalent to allowing every origin.
 
+## What it does not protect
+
+Worth stating as plainly as the freeze does, because a CSRF token in an audit looks like more than it is.
+
+- **XSS.** A script on your origin reads any token your page can read and sets any header your page can set. CSRF protection assumes the origin is not compromised. A missing escape is not a CSRF problem and no token configuration fixes it.
+- **A stolen session cookie.** The attacker replays the session directly.
+- **Network interception.** That is TLS's job.
+- **Clickjacking.** The user makes the request themselves, on your origin, with a valid token. `frame-ancestors` is the control.
+- **A mutating `GET`.** Bypasses every method-based defence there is, including this one.
+
 ## What it would take
 
-Two framework changes: a way for a handler or filter to set a response header (the same [handler-cannot-set-headers](./web-request-lifecycle.html) blocker that affects cookies, CORS and caching), and [guards wired into the router](./web-request-lifecycle.html) so a check applies without being called in each handler.
+One framework change, not two. A handler can already set a response header, so what is left is [guards wired into the router](./web-request-lifecycle.html) so a check applies without being called in each handler — which makes this **blocked in fact on the guards work**, even though no dependency edge records it. `Guard.canActivate` exists and `runChain` has no caller in the pipeline yet, so until that lands `verify(ctx)` at the top of a handler is the only working form.
 
-With those, CSRF is a `Guard` plus a token issuer — around fifty lines. Until then the origin check above is the recommendation, because for a bearer-token JSON API it is also the _correct_ answer rather than a workaround.
+The surface is `createCsrf({ secret, sessionOf, allowedOrigins })` returning `issue`, `verify` and `guard()`. Two things about it are there to prevent protection theatre rather than to be convenient:
+
+**`sessionOf` is required**, and `issue` and `verify` both **throw** when it returns `undefined`. A developer installing this on a bearer-token API has to write a function answering "which cookie session is this", discovers there is not one, and gets an error instead of a middleware that passes every request while looking like a control. A required argument that cannot be answered is a better warning than a paragraph of documentation.
+
+**The origin check is part of `verify`, not an alternative to it.** It costs one comparison, needs no token endpoint, and catches the case where a token leaked. `allowedOrigins` is required with no default and no wildcard, and the request's own `Origin` is never reflected.
+
+For a bearer-token JSON API the origin check above remains not just the workaround but the _correct_ answer, which is why the first section of this page comes before this one.
 
 ---
 
