@@ -7,9 +7,14 @@
 // the data files. Nothing here deletes or closes an issue — undoing a mistake is a human decision.
 //
 // Usage:
-//   node scripts/roadmap/file-issues.mjs --dry-run     # print what would be created
-//   node scripts/roadmap/file-issues.mjs               # create it
+//   node scripts/roadmap/file-issues.mjs --dry-run          # print what would be created
+//   node scripts/roadmap/file-issues.mjs                    # create it
+//   node scripts/roadmap/file-issues.mjs --refresh-bodies   # re-render bodies of issues that exist
 //   ROADMAP_SLEEP=2000 node scripts/roadmap/file-issues.mjs
+//
+// The data files are the source of truth, so editing one after a filing run leaves the tracker stale.
+// Epic bodies self-heal — the checklist pass at the end rewrites all of them every run — but a
+// sub-issue body is written once at creation, which is what `--refresh-bodies` is for.
 //
 // GitHub's secondary rate limit is the constraint that shapes this script: content-creating
 // requests are capped per minute and per hour, so every mutating call is spaced out and a 403 or
@@ -23,6 +28,7 @@ import { renderChecklist, renderEpic, renderSub } from './render.mjs';
 const REPO = process.env.ROADMAP_REPO ?? 'ambasta/zmdb';
 const SLEEP = Number(process.env.ROADMAP_SLEEP ?? 1500);
 const DRY = process.argv.includes('--dry-run');
+const REFRESH = process.argv.includes('--refresh-bodies');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -63,7 +69,7 @@ function existingIssues() {
   for (const chunk of raw.split('\n').filter(Boolean)) {
     for (const issue of JSON.parse(chunk)) {
       if (issue.pull_request) continue;
-      byTitle.set(issue.title, { number: issue.number, id: issue.id });
+      byTitle.set(issue.title, { number: issue.number, id: issue.id, body: issue.body ?? '' });
     }
   }
   return byTitle;
@@ -87,10 +93,19 @@ function blockedByNumbers(number) {
   }
 }
 
-async function ensureIssue(existing, title, body, labels) {
+/** GitHub hands bodies back with CRLF line endings; the renderer emits LF. Compare the text, not the newlines. */
+const sameBody = (a, b) => a.replaceAll('\r\n', '\n').trim() === b.replaceAll('\r\n', '\n').trim();
+
+async function ensureIssue(existing, title, body, labels, { refreshable = false } = {}) {
   const found = existing.get(title);
   if (found) {
-    console.log(`  = #${found.number} ${title}`);
+    if (REFRESH && refreshable && !DRY && !sameBody(found.body ?? '', body)) {
+      gh(['issue', 'edit', String(found.number), '--repo', REPO, '--body-file', '-'], { input: body });
+      await sleep(SLEEP);
+      console.log(`  ~ #${found.number} ${title}`);
+    } else {
+      console.log(`  = #${found.number} ${title}`);
+    }
     return { ...found, created: false };
   }
   if (DRY) {
@@ -154,7 +169,7 @@ for (const epic of EPICS) {
     const body = renderSub(sub, epic, created.number);
     const labels = ['sub-issue', ...(sub.labels ?? []), ...(epic.labels ?? []).filter(l => l.startsWith('area:'))];
     if (sub.blockedBy?.length) labels.push('blocked');
-    const ref = await ensureIssue(existing, title, body, [...new Set(labels)]);
+    const ref = await ensureIssue(existing, title, body, [...new Set(labels)], { refreshable: true });
     numbers.set(`${epic.key}:${sub.key}`, ref.number);
     ids.set(`${epic.key}:${sub.key}`, ref.id);
   }
@@ -203,6 +218,10 @@ for (const epic of EPICS) {
     '_Filled in by `scripts/roadmap/file-issues.mjs` once the children exist._',
     renderChecklist(children),
   );
+  if (sameBody(parent.body ?? '', body)) {
+    console.log(`  #${parent.number} checklist: already current`);
+    continue;
+  }
   gh(['issue', 'edit', String(parent.number), '--repo', REPO, '--body-file', '-'], { input: body });
   await sleep(SLEEP);
   console.log(`  #${parent.number} checklist: ${children.length} children`);
