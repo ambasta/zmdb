@@ -23,7 +23,7 @@ function requiresApiKey(ctx: WithHeaders): boolean {
 }
 ```
 
-`Ctx`, a GraphQL context, a `MessageContext` and a `GrpcCall` all satisfy that with no `extends` on any of them, no cast and no edit to a file the microservices layer does not own. One authorisation _function_ serves all four; the guard _interfaces_ stay separate.
+`Ctx` satisfies that today, and `MessageContext`, `GrpcCall` and a GraphQL context are each frozen with `headers` spelled the same way character for character, so each will satisfy it with no `extends` on any of them, no cast and no edit to a file the microservices layer does not own. One authorisation _function_ will serve all four; the guard _interfaces_ stay separate.
 
 **`@Subscribe` is not the pattern-matching primitive.** That name belongs to [gateways](./web-gateways.html), where a `Subscription` is a WebSocket event binding, and reusing it would give one word three meanings in one package. Messages get `@MessagePattern` and `@EventPattern`.
 

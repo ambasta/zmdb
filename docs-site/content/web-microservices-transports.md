@@ -101,7 +101,7 @@ This is the same arrangement `@Gateway`/`@Subscribe` uses for WebSockets — see
 
 ## The security details
 
-- **Authenticate the transport.** A broker reachable without credentials is a remote code path into every service subscribed to it. TLS and credentials on Redis, NATS and Kafka are not optional in any environment that is not your laptop.
+- **Authenticate the transport.** A broker reachable without credentials is a remote code path into every service subscribed to it. TLS and credentials on Redis, NATS and RabbitMQ are not optional in any environment that is not your laptop.
 - **Never trust a payload's identity claims.** `payload.userId` came from whoever published the message. Authorise from the transport's authenticated identity, not from the body.
 - **Do not put secrets in messages.** Broker messages get retained, replayed and logged. Pass an id.
 - **Assume at-least-once delivery.** Every broker replays. Make handlers idempotent — a unique key on the effect is more reliable than deduplicating in memory.
