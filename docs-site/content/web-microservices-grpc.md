@@ -1,19 +1,24 @@
-> **ToDo / feature gap.** There is no gRPC support — no `@GrpcMethod`, no proto
-> loading, no client factory. There is also no protobuf support anywhere in the
-> project; every serialization path is JSON.
+> **ToDo / feature gap.** There is no gRPC support — no service binding, no
+> streaming call types, no client factory.
+>
+> The shape it will ship as is frozen in
+> `packages/web/src/microservices/grpc/SPEC.md`, and the schema-source question
+> below is settled rather than open.
 
 ## Why this is a larger gap than the other transports
 
 gRPC is not just a transport. It brings a schema language (`.proto`), a code generator, HTTP/2 streaming and a wire format — and each of those overlaps something zmdb already does differently:
 
-| gRPC                          | zmdb equivalent                                                   |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `.proto` as the schema source | a TypeScript `interface` with tags                                |
-| `protoc` code generation      | [derived DTOs](./type-derivation.html), no generation step        |
-| protobuf wire format          | JSON, via `stringify`/`parse`                                     |
-| Streaming RPC                 | blocked by the [string response body](./web-streaming-files.html) |
+| gRPC                          | zmdb equivalent                                                        |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `.proto` as the schema source | a TypeScript type with `ProtoField<N>` tags — and `.proto` is _output_ |
+| `protoc` code generation      | [derived DTOs](./type-derivation.html), no generation step             |
+| protobuf wire format          | `protoEncode`/`protoDecode`, frozen alongside JSON                     |
+| Streaming RPC                 | an `async function*`, the same shape a GraphQL subscription uses       |
 
-So a gRPC integration would mean two schema sources of truth, which is the specific problem the project's [type-derived design](./anti-patterns.html) exists to avoid. That tension is why this is not simply a missing adapter.
+The first row is the one that used to be a tension and is now a decision: `.proto` is generated **from** the declared type, so there is one source of truth and the `.proto` is an artifact you commit and diff in CI. That resolves the conflict with the project's [type-derived design](./anti-patterns.html) rather than living with it.
+
+Two claims that used to be on this page are no longer true. Protobuf support **is** specified — `protoEncode`, `protoDecode` and `protoDescriptor` are frozen in `packages/aot-validator/src/emit/SPEC.md` §7b, with the `ProtoField<N>` and `Proto<K>` vocabulary in `packages/schema-core/src/ir/SPEC.md` §4.5. And streaming RPC is **not** blocked by the [string response body](./web-streaming-files.html): `WebResponse` is the HTTP pipeline's type and a gRPC stream never touches it. What gRPC streaming was waiting on is protobuf, which is now specified.
 
 ## What to use instead
 
@@ -91,7 +96,7 @@ server.addService(ordersService, {
 });
 ```
 
-Note the error handling: return a status code, never the error message. A gRPC error message propagates to the caller, and a database error string discloses schema and topology.
+Note the error handling: return a status code, never the error message. A gRPC error message propagates to the caller, and a database error string discloses schema and topology. The freeze makes this the default rather than the advice — anything other than a deliberately-thrown `GrpcError` becomes `INTERNAL` with a fixed string, and the real error goes to a required `onError` sink.
 
 Both surfaces share one container and one pool — see [Hybrid Applications](./web-hybrid-application.html) for the shutdown wiring, which you must write by hand.
 
@@ -104,9 +109,31 @@ Both surfaces share one container and one pool — see [Hybrid Applications](./w
 
 ## What it would take
 
-Protobuf support in `@zmdb/aot-validator` (a serialization backend alongside JSON), proto loading, `@GrpcMethod` metadata, a server adapter, and streaming — which needs the [response body change](./web-streaming-files.html).
+The schema-source question is answered: `.proto` is generated from the declared type, and the `TypeIR` that `toJsonSchema` walks is the input the emitter uses. What remains is the protobuf codecs, a `service`-block emitter beside them, and the binding.
 
-The prerequisite decision is the schema-source question above. The version that fits the project would generate `.proto` _from_ the declared type rather than the reverse, keeping one source of truth — the `TypeIR` that `toJsonSchema` walks is the same input a `.proto` emitter needs. That is a substantial piece of work and has not been scheduled.
+The binding has no decorator. A service is a `type` alias and the handlers are a mapped type over it:
+
+```ts
+type Orders = {
+  readonly get: { request: GetOrder; response: Order };
+  readonly watch: { request: WatchOrders; response: Order; responseStream: true };
+};
+
+const binding = bindGrpcService<Orders>(spec, {
+  get: async call => orders.findById(call.payload.id),
+  watch: async function* (call) {
+    for await (const row of orders.stream(call.payload, call.signal)) yield row;
+  },
+});
+```
+
+That shape is chosen for one property a decorator cannot have: **a service with an unimplemented method does not compile.** A gRPC service is a closed contract shared with another language, so an omission has to be a type error at the handler rather than an `UNIMPLEMENTED` status at the caller. It also means one binding covers all four call types — the streaming flags in the declaration decide the handler's signature, so a unary function where a server stream is declared is a compile error too. Nest needs `@GrpcMethod` and `@GrpcStreamMethod` because it loaded its `.proto` into an untyped object; generating the descriptor from the types means the flags are known statically.
+
+Nothing parses a `.proto`, at build time or runtime. `@grpc/proto-loader` would be startup I/O, a second implementation of the protobuf grammar whose disagreements with our emitter are wire bugs, and an untyped result needing a cast per message. Consuming somebody else's `.proto` is a real need and is a separate code generator emitting a `.d.ts` — the same one-source-of-truth answer run the other way, with no runtime surface.
+
+Two more decisions worth knowing before you plan around this. `credentials` is a required option with no default, because `createInsecure()` as a default is how plaintext reaches production. And a deadline is exposed as both an `AbortSignal` and a `remainingMs()`, because an outbound call inside a handler must inherit the remaining budget — otherwise three services with a 5-second deadline each take 15 seconds while the original caller left after 5, and all three log a success.
+
+`#561` is blocked in fact on the protobuf implementation slices, even though no dependency edge records it: without `protoEncode` and `protoDecode` there is nothing to serialise with.
 
 ---
 

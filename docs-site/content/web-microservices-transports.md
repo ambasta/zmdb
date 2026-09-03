@@ -1,7 +1,11 @@
-> **ToDo / feature gap.** There are no microservice transports — no
-> `@MessagePattern`, no `ClientProxy`, no TCP, Redis, NATS, Kafka, RabbitMQ or
-> MQTT adapters, and no `createMicroservice`. `@zmdb/web` is an HTTP request
-> handler.
+> **ToDo / feature gap.** There are no microservice transports yet — no
+> `@MessagePattern`, no dispatcher, and no Redis, NATS or RabbitMQ strategies.
+> `@zmdb/web` is an HTTP request handler.
+>
+> The shape they will ship as is frozen in
+> `packages/web/src/microservices/SPEC.md`, and the interfaces on this page have
+> been aligned to it. Kafka, MQTT and TCP are deferred, each with a reason — see
+> [Microservices](./web-microservices.html).
 
 ## What to build with instead
 
@@ -18,7 +22,12 @@ The `assert` at the boundary is the part a message-pattern framework tends to sk
 ```ts
 await db.transaction(async tx => {
   const order = await repo.withTransaction(tx).create(dto);
-  await outbox.withTransaction(tx).create({ type: 'order.placed', payload: { id: order.id }, at: new Date() });
+  await outbox.withTransaction(tx).create({
+    id: globalThis.crypto.randomUUID(),
+    topic: 'order.placed',
+    payload: JSON.stringify({ id: order.id }),
+    status: 'pending',
+  });
 });
 ```
 
@@ -34,7 +43,7 @@ Lossy by design: a listener that is disconnected misses it. Never use it for wor
 
 ## Request/response over a broker
 
-If you need it, the shape is a dispatcher over a name-to-handler map — which is what `@MessagePattern` compiles to anyway:
+The shape is a dispatcher over a name-to-handler map — which is what `@MessagePattern` compiles to anyway:
 
 ```ts
 type Handler = (payload: unknown) => Promise<unknown>;
@@ -67,7 +76,28 @@ subscriber.on('message', async (channel, raw) => {
 });
 ```
 
-This is the same pattern `@Gateway`/`@Subscribe` uses for WebSockets — see [Gateways](./web-gateways.html) — and `createGatewayDispatcher` is a working reference implementation to copy.
+Two things the frozen dispatcher does that this hand-written one does not, and both are the reason to prefer it once it lands.
+
+**A pattern with no handler is acknowledged, not thrown.** Throwing here is a rejection inside the subscriber callback, which on a broker with redelivery means the same unwanted message arrives forever. `createMessageDispatcher` reports it to a required `onUnhandled` sink and acks.
+
+**The reply is validated too.** `assert` on the way in is only half the boundary; a reply arrived over the same network from the same code you do not control. The frozen typed client takes a total map of response validators, so a pattern added without one is a compile error:
+
+```ts
+type OrderCalls = {
+  readonly 'order.get': { request: { id: number }; response: Order };
+};
+
+const client = createMessageClient<OrderCalls>(transport, {
+  timeoutMs: 5_000,
+  validate: { 'order.get': raw => assert<Order>(raw) },
+});
+
+const order = await client['order.get']({ id: 7 });
+```
+
+Declare that map as a `type`, not an `interface`. An `interface` has no implicit index signature, so it fails the constraint with an error naming a type you did not write — a real TypeScript wrinkle, documented in the spec rather than left to be discovered.
+
+This is the same arrangement `@Gateway`/`@Subscribe` uses for WebSockets — see [Gateways](./web-gateways.html) — and `createGatewayDispatcher` is a working reference implementation to copy. Note it takes **one** gateway instance, not an array.
 
 ## The security details
 
@@ -84,9 +114,11 @@ If you split, split along a boundary where you genuinely never need a transactio
 
 ## What it would take
 
-A transport interface (`send`, `subscribe`, `close`), a `@MessagePattern` decorator writing to `Symbol.metadata`, a dispatcher reading it, and one adapter per broker. Every broker client is a dependency, so under [Directive 7](./anti-patterns.html) they would be optional entry points with peer dependencies — the same arrangement the database drivers use.
+Less than this page used to claim, because the interfaces are now settled: `TransportStrategy`, `createMessageDispatcher`, `@MessagePattern`/`@EventPattern`, `createMessageClient`, and one strategy per broker as an optional peer dependency — the same arrangement the database drivers use.
 
-The framework-side piece worth building first is the pattern dispatcher and its metadata, since that is transport-agnostic and is what makes the adapters thin.
+Two corrections to what was here before. The decorator writes to `Symbol.metadata` and a reader called `getMessagePatterns(cls)` reads it, but **nothing scans** to find the classes: they are passed to the dispatcher explicitly, exactly as controllers are passed to a router. And the return-value rule is a type-level distinction rather than a convention — `@EventPattern` on a method that returns a value does not compile, in both the `async` and the synchronous form, so "an event handler's return value is ignored" is a sentence nobody has to remember.
+
+The framework-side piece worth building first is still the dispatcher, since it is transport-agnostic and is what makes the strategies thin.
 
 ---
 

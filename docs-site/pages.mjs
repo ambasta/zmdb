@@ -1687,7 +1687,7 @@ export const PAGE_META = {
     title: 'Hybrid Applications',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'depends on microservice transports, which are not built',
+    note: 'transports and the hybrid lifecycle are frozen (microservices/SPEC.md §10) but not built',
   },
   'web-serverless': {
     title: 'Serverless',
@@ -1762,25 +1762,25 @@ export const PAGE_META = {
     title: 'Microservices',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'no transport-strategy layer shipped; adapters are the seam.',
+    note: 'transport strategy frozen in microservices/SPEC.md; nothing shipped yet.',
   },
   'web-microservices-transports': {
     title: 'Broker Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'no Redis / MQTT / NATS / RabbitMQ / Kafka transport strategies',
+    note: 'Redis / NATS / RabbitMQ frozen and unbuilt; Kafka, MQTT and TCP deferred with reasons',
   },
   'web-microservices-grpc': {
     title: 'gRPC',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'no proto loader, no service binding, no streaming call types',
+    note: 'binding frozen in microservices/grpc/SPEC.md; blocked in fact on the protobuf codecs',
   },
   'web-microservices-custom-transport': {
     title: 'Custom Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'no documented CustomTransportStrategy seam yet; the adapter boundary is where it would go',
+    note: 'the public strategy contract and its stability promise are frozen; nothing shipped yet',
   },
   'web-graphql': {
     title: 'GraphQL',
