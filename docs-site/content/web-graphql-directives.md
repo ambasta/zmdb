@@ -1,8 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there are no schema
-> directives — no `@Directive`, no `SchemaDirectiveVisitor`, no `@auth` or
-> `@deprecated` handling. The design is frozen (see the last section): `@deprecated`
-> is emitted from a tag, and `@Directive` and the visitor are refused rather than
-> deferred.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there are no schema directives: no `@Directive`, no `SchemaDirectiveVisitor`, no
+> `@auth` or `@deprecated` handling. The design is frozen (see the last section) and
+> stays as a record; the table below is the part that still applies, because each
+> directive's zmdb equivalent exists today.
 
 ## What directives are used for, and what to use instead
 
@@ -80,9 +80,9 @@ Post: {
 
 **In a [`postSelect` hook](./lifecycle-hooks.html)**, when the transform should apply to every read of the column — decrypting an encrypted field, for instance. Note there is no matching pre-write transform, so the inbound direction is your service's job.
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it splits directives three ways rather than adding one mechanism for all of them.
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and will not be built. It is on record because of how it splits directives — three ways, rather than adding one mechanism for all of them.
 
 **`@deprecated` is emitted, from a tag.** It is the only directive the emitter writes, because it is pure schema — it changes what the document says and needs nothing at runtime:
 

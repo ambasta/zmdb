@@ -1,6 +1,9 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there are no scalars to
-> define — no `GraphQLScalarType` registration, no `@Scalar` decorator, no scalar
-> mapping from column types.
+> **Not planned.** There is no GraphQL layer, so there are no scalars to define —
+> no `GraphQLScalarType` registration, no `@Scalar` decorator, no scalar mapping
+> from column types — and [that is not changing](./web-graphql.html). The mapping
+> below is kept because it is the one written-down answer to what each `SqlType`
+> means in a schema language, and because the two-parse-path trap it documents bites
+> anyone writing a custom scalar by hand.
 
 ## The related constraint that does exist
 
@@ -111,11 +114,11 @@ interface User extends Table<'users'> {
 }
 ```
 
-An email scalar plus a column rule is the rule written twice. Put it on the column, and REST, GraphQL and a CLI backfill all get it.
+An email scalar plus a column rule is the rule written twice. Put it on the column, and REST, a CLI backfill and whatever GraphQL server you run in front all get it.
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/schema-core/src/sdl/SPEC.md`. Two functions, neither of them a table of `SqlType` members:
+The design is frozen, in `packages/schema-core/src/sdl/SPEC.md`, and neither function is being written. Two of them, neither a table of `SqlType` members:
 
 ```ts
 sdlOf<Entity<Post>>('Post'); // the type, walking the shared IR

@@ -1,4 +1,9 @@
-# SPEC — subscriptions: pub/sub, lifetime, backpressure and cleanup (frozen)
+# SPEC — subscriptions: pub/sub, lifetime, backpressure and cleanup (frozen, not planned)
+
+> **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under
+> them are closed as wontfix, and no code in this tree implements this document. It stays
+> frozen as the record of what was decided and why — the failure modes it names are the
+> ones anyone building this outside zmdb will meet.
 
 Part of `@zmdb/web`, exported from the `./graphql` subpath. `../SPEC.md` owns queries and mutations; this file
 owns the third operation and everything that only goes wrong once a connection is long-lived.

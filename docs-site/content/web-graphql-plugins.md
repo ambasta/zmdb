@@ -1,6 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no plugin system —
-> no Apollo `ApolloServerPlugin`, no envelop plugins, no request lifecycle events to
-> hook.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there is no plugin system: no Apollo `ApolloServerPlugin`, no envelop plugins,
+> no request lifecycle events to hook. The table below is the durable part, and it
+> was the argument against a plugin interface even when the layer was on the
+> roadmap: every hook such a thing would carry already has a home.
 
 ## What plugins are used for
 
@@ -95,7 +97,7 @@ The `viewer.id` in the key is not optional. A cache keyed on the query and varia
 
 Prefer caching at the data layer, where the key is a row and a tenant, over caching whole responses. See [Caching](./web-caching.html).
 
-## What it will take: nothing, and that is the frozen answer
+## What it would have taken: nothing, and that is the frozen answer
 
 The GraphQL design is frozen in `packages/web/src/graphql/SPEC.md`, and **there is no `ServerPlugin`**. That is a decision with reasons rather than a deferral, and it came from working backwards from the hooks such an interface would carry. Every one of them turned out to be impossible here, already yours, or a second name for something that exists:
 

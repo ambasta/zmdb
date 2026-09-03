@@ -9,6 +9,9 @@
 //   status:'supported' → the API is real (see the package SPECs / COOKBOOK)
 //   status:'todo'      → a legitimate capability that is not built yet. This is
 //                        roadmap, not an anti-pattern; `note` says what is missing.
+//   status:'wontfix'   → a capability with a frozen design that will not be built.
+//                        The page stays, so the answer and the alternative are
+//                        findable; `note` says why it was declined.
 //
 // Anti-patterns are absent from NAV on purpose and enumerated with rationale in
 // coverage/mapping.mjs, which the docs-coverage gate reads.

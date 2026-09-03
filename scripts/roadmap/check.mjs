@@ -28,6 +28,8 @@ const claimedBy = new Map();
 for (const epic of EPICS) {
   for (const page of epic.pages) {
     if (!(page in PAGE_META)) note(`epic ${epic.key}: page '${page}' is not in PAGE_META`);
+    else if (PAGE_META[page].status === 'wontfix')
+      note(`epic ${epic.key}: page '${page}' is marked not planned — drop the epic or un-decline the page`);
     else if (PAGE_META[page].status !== 'todo') note(`epic ${epic.key}: page '${page}' is already supported`);
     const owners = claimedBy.get(page) ?? [];
     owners.push(epic.key);

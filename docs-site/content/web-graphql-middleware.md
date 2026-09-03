@@ -1,6 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no GraphQL
-> middleware — no `graphql-middleware`, no envelop `onExecute` hooks, no
-> operation-level wrappers.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there is no GraphQL middleware: no `graphql-middleware`, no envelop `onExecute`
+> hooks, no operation-level wrappers. The four interfaces below are real and shipped,
+> and the two router changes at the end of this page are still on the roadmap — they
+> were never blocked on GraphQL.
 
 ## The middleware that does exist
 
@@ -101,22 +103,22 @@ const yoga = createYoga({ schema, context: () => ({ posts: app.container.resolve
 
 ## What it will take
 
-Two framework-internal changes, in order of value, and neither is blocked on GraphQL:
+Two framework-internal changes, in order of value, and neither of them was ever blocked on GraphQL — they are still worth having and still on the roadmap:
 
 1. **Wire `runChain` into the router**, with a chain registrable per controller or per route. This is the single change that would make the existing middleware interfaces useful as designed.
 2. **Let a filter's `WebResponse` reach the client**, so `ChainError(403, …)` produces a 403 rather than a 500. Today `ExceptionFilter.catch` returns a `WebResponse` that the router never sees.
 
 Until they land, `runChain` called explicitly plus the adapter and driver layers is the supported arrangement.
 
-The GraphQL side is frozen, in `packages/web/src/graphql/SPEC.md`, and it reuses these four interfaces rather than introducing a parallel set. There is **no `onExecute` hook and no plugin interface**, because `onExecute(ctx, next)` and `Interceptor.intercept(ctx, next)` are the same signature — see [Plugins](./web-graphql-plugins.html). Three things about the GraphQL wiring are worth knowing here, because each is visible from this page.
+The GraphQL side is frozen, in `packages/web/src/graphql/SPEC.md`, and will not be built — but the freeze is worth reading here, because it reuses these four interfaces rather than introducing a parallel set, and the reasoning transfers to the router. There is **no `onExecute` hook and no plugin interface**, because `onExecute(ctx, next)` and `Interceptor.intercept(ctx, next)` are the same signature — see [Plugins](./web-graphql-plugins.html). Three things about that wiring are worth keeping on record, because each is visible from this page.
 
-**A field's chain runs, without you calling it.** GraphQL is where `runChain` is wired first: the registry wraps each field's resolver, so unlike a route, a field with a chain declared on it actually gets one. The warning above is about the router, and it stays true.
+**A field's chain would have run without you calling it.** The freeze had the registry wrap each field's resolver, so unlike a route, a field with a chain declared on it actually got one. With the GraphQL layer dropped, `runChain` in the router is the only route to that property — the warning above is about the router, and it stays true.
 
 **A chain is declared at one of three levels, and flattened once.** Global, per type, or on a single field; the three are concatenated at registration into exactly one `Chain` per field, so nothing walks a hierarchy per request. Guards, pipes and interceptors concatenate broadest-first; **filters concatenate narrowest-first**, because the first filter that returns a response wins and a global catch-all placed first would swallow every error before a field's own filter saw it — a failure that leaves every test green.
 
 **A field with no chain in any layer is not wrapped at all.** The resolver map holds the bound method itself, so the cost of this feature to a schema that does not use it is zero rather than small.
 
-The context change that makes all of this work is that a GraphQL context _is_ a `Ctx` — one guard, usable on a route and on a field, with a `kind` field to tell them apart when it matters. `runChain` becomes generic so the extra members (`parent`, `field`, `request`) survive the pipes in the type as well as at runtime.
+The context change that would have made all of this work is that a GraphQL context _is_ a `Ctx` — one guard, usable on a route and on a field, with a `kind` field to tell them apart when it matters. That half outlives GraphQL: [the message and gRPC contexts](./web-microservices.html) are frozen with `headers` spelled the same way, so making `runChain` generic — so extra members survive the pipes in the type as well as at runtime — is still the change worth making.
 
 ---
 

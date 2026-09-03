@@ -178,6 +178,7 @@ function mdToHtml(md) {
 const STATUS_BADGE = {
   supported: '<span class="badge ok">Supported</span>',
   todo: '<span class="badge todo">TODO</span>',
+  wontfix: '<span class="badge muted">Not planned</span>',
 };
 
 // 26 groups and 274 pages do not fit on a screen, so groups collapse. The group
@@ -192,7 +193,12 @@ function navHtml(activeSlug, base = './') {
     h += `<details class="nav-group"${open}><summary class="nav-title">${group.title}<span class="count">${pages.length}</span></summary>`;
     for (const slug of pages) {
       const p = PAGES[slug];
-      const badge = p.status === 'todo' ? '<span class="dot todo" title="On the roadmap"></span>' : '';
+      const badge =
+        p.status === 'todo'
+          ? '<span class="dot todo" title="On the roadmap"></span>'
+          : p.status === 'wontfix'
+            ? '<span class="dot wontfix" title="Not planned"></span>'
+            : '';
       h += `<a class="nav-link${slug === activeSlug ? ' active' : ''}" href="${base}${slug}.html">${p.title}${badge}</a>`;
     }
     h += '</details>';
@@ -211,7 +217,9 @@ function pageHtml(slug, p) {
   const todoBanner =
     p.status === 'todo'
       ? `<div class="todo-banner"><b>🚧 TODO — not yet implemented.</b> This capability is on the roadmap and is <em>not</em> an anti-pattern for zmdb; it simply isn't built yet. ${p.note ? p.note : ''} Track / contribute via the issue tracker.</div>`
-      : '';
+      : p.status === 'wontfix'
+        ? `<div class="wontfix-banner"><b>Not planned.</b> This capability had a frozen design and will <em>not</em> be built — the page stays so the answer is findable, and so is what to reach for instead. ${p.note ? p.note : ''}</div>`
+        : '';
   const { html: body, toc } = mdToHtml(p.md);
   const tocHtml = toc.length
     ? `<nav class="toc"><div class="toc-title">On this page</div>${toc
@@ -324,7 +332,10 @@ const counts = Object.values(PAGES).reduce((a, p) => ((a[p.status] = (a[p.status
 // a stale claim is not something this page can express.
 const highlights = benchmarkHighlights(DASH);
 const STATS = [
-  { n: Object.keys(PAGES).length, l: `docs pages · ${counts.todo ?? 0} on the roadmap` },
+  {
+    n: Object.keys(PAGES).length,
+    l: `docs pages · ${counts.todo ?? 0} on the roadmap · ${counts.wontfix ?? 0} not planned`,
+  },
   highlights.aotSpeedup === null ? null : { n: highlights.aotSpeedup, l: 'AOT vs runtime validation' },
   highlights.validationLibraries === null
     ? null
@@ -495,7 +506,8 @@ writeFileSync(join(OUT, 'docs', 'openapi.json'), openApiJson);
 
 console.log(`published openapi spec: site/openapi.json (${openApiJson.length} bytes)`);
 console.log(
-  `built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO) + landing + unified benchmarks`,
+  `built docs: ${Object.keys(PAGES).length} pages (${counts.supported ?? 0} supported, ${counts.todo ?? 0} TODO, ` +
+    `${counts.wontfix ?? 0} not planned) + landing + unified benchmarks`,
 );
 if (missingData.length > 0) {
   console.log(`benchmarks: not measured on this build — ${missingData.join(', ')} (run \`yarn bench\`)`);

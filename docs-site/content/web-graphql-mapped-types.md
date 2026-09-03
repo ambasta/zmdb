@@ -1,6 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no
-> `PartialType`/`PickType`/`OmitType`/`IntersectionType` for GraphQL types, and no
-> `@ObjectType`/`@InputType` to derive from.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there is no `PartialType`/`PickType`/`OmitType`/`IntersectionType` for GraphQL
+> types, and no `@ObjectType`/`@InputType` to derive from. The argument below is
+> unaffected by that: TypeScript's own operators are what zmdb offers instead, and
+> they compose DTOs for the REST surface today.
 
 ## Why these helpers exist elsewhere, and would not here
 
@@ -90,9 +92,9 @@ Explicit, and it fails to compile when someone adds a sensitive column — provi
 
 Better still, do not fetch them: `select` keeps the column out of the SQL entirely.
 
-## What it will take
+## What it would have taken
 
-Nothing at all, for this page's subject. The operators are already better than the helpers, and the emitter takes a type argument, so a composed shape produces SDL and JSON Schema with no composition helper in between. This page's remaining gap is only that [the GraphQL layer](./web-graphql-resolvers.html) has to exist for `sdlOf` to be worth calling.
+Nothing at all, for this page's subject. The operators are already better than the helpers, and the emitter took a type argument, so a composed shape would have produced SDL and JSON Schema with no composition helper in between. The JSON Schema half of that is real today; the SDL half is not, because [the GraphQL layer is out of scope](./web-graphql.html).
 
 One constraint worth carrying over from the freeze: a composed type needs the name you pass. `sdlOf` refuses an **anonymous** object type — a nested `{ street: string }` inside a payload, say — rather than inventing `PostShipTo`, because a name the emitter chose is a public identifier in your schema that nobody wrote down. Give the shape an interface, or a `sdlOf` call of its own.
 

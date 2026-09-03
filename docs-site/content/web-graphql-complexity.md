@@ -1,7 +1,9 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no complexity
-> analysis — no depth limiter and no query cost estimation. The design is frozen
-> (see the last section); a `@cost` directive is not part of it, and the reason is
-> there too.
+> **Not planned.** There is no GraphQL layer, so there is no complexity
+> analysis — no depth limiter and no query cost estimation — and [the layer is out of
+> scope](./web-graphql.html), so there will not be. The design is frozen (see the last
+> section) and kept as a record; the risk it addresses is not GraphQL-specific, and
+> the two framework-side pieces at the end of this page are unaffected by the
+> decision.
 
 ## The underlying risk, which applies to any API
 
@@ -112,9 +114,9 @@ Set it on the database role rather than in application code where you can. A rol
 
 Complexity limits bound one request; rate limits bound a client. You need both, and the framework has neither — do it at the proxy, the CDN or an API gateway, which is also where it survives your process restarting. See [Rate Limiting](./web-rate-limiting.html).
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/complexity/SPEC.md`. One function, called by your own transport controller, between `parse` and `execute`:
+The design is frozen, in `packages/web/src/graphql/complexity/SPEC.md`, and will not be implemented — but it is the shape to copy if you write the estimator yourself. One function, called by your own transport controller, between `parse` and `execute`:
 
 ```ts
 const document = parse(query);
@@ -125,9 +127,9 @@ return json(await execute({ schema, document, variableValues: variables, operati
 ```
 
 > [!WARNING]
-> There is no ambient enforcement, and there will not be. `@zmdb/web` does not serve `/graphql` — [the registry hands back a schema and a resolver map and your controller mounts them](./web-graphql-resolvers.html) — so **an application that does not make this call has no limit.** That is stated rather than smoothed over, because it is the one way to end up unprotected while believing otherwise.
+> There is no ambient enforcement, and there will not be. `@zmdb/web` does not serve `/graphql` and will not — [a GraphQL server next to a zmdb application is composition, not a framework feature](./web-graphql-resolvers.html) — so **an application whose own transport does not make this call has no limit.** That is stated rather than smoothed over, because it is the one way to end up unprotected while believing otherwise.
 
-Four decisions in that design are worth knowing before it lands, because each is a place the obvious implementation is wrong.
+Four decisions in that design are worth keeping on record, because each is a place the obvious implementation is wrong.
 
 **The estimate is an upper bound, not an average.** Aliases count separately, a fragment costs once per spread site, and sibling inline fragments are **summed** rather than maxed — taking the maximum looks more accurate, but a list of an interface contains values matching different arms, so all of them really do execute. An estimator that can undercount is a limit that can be walked around, and every one of those three is a published bypass.
 

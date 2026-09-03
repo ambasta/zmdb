@@ -164,7 +164,7 @@ async download(ctx: Ctx<{ id: string }>) {
 
 Client disconnect cancels the reader, which is what closes the file descriptor; backpressure is `res.write` returning `false`, because ignoring it turns a 2 GB download to one slow client into 2 GB of process memory — the same bug streaming was added to remove, reintroduced one layer down.
 
-One thing this page overstated: it is not five features behind one field. [Compression](./web-compression.html) and [static files](./web-static-files.html) do need it, and so does `graphql-sse`; [templates](./web-templates.html) never did — `respond()` has been enough for a rendered string for some time, and the freeze declines a view engine on its own merits rather than for want of a stream.
+One thing this page overstated: it is not five features behind one field. [Compression](./web-compression.html) and [static files](./web-static-files.html) do need it; [templates](./web-templates.html) never did — `respond()` has been enough for a rendered string for some time, and the freeze declines a view engine on its own merits rather than for want of a stream.
 
 ---
 

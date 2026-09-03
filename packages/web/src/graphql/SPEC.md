@@ -1,4 +1,9 @@
-# SPEC — resolvers, binding and execution (frozen)
+# SPEC — resolvers, binding and execution (frozen, not planned)
+
+> **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under
+> them are closed as wontfix, and no code in this tree implements this document. It stays
+> frozen as the record of what was decided and why — the failure modes it names are the
+> ones anyone building this outside zmdb will meet.
 
 Part of `@zmdb/web`, a new `./graphql` subpath. The resolver half of the GraphQL core epic:
 `packages/schema-core/src/sdl/SPEC.md` freezes the SDL a type produces, and this freezes what runs when a

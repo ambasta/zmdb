@@ -49,8 +49,12 @@ describe('docs search index', () => {
       expect(record?.t).toBe(page.title);
       expect(record?.g.length).toBeGreaterThan(0);
       // A stub is searchable — it is how a reader discovers the feature is planned
-      // — but it is flagged so the ranking and the result row can say so.
+      // — but it is flagged so the ranking and the result row can say so. A declined
+      // feature is flagged too, with a different value, because "not planned" and
+      // "not yet" are different answers to the same search.
       expect(record?.d === 1).toBe(page.status === 'todo');
+      expect(record?.d === 2).toBe(page.status === 'wontfix');
+      expect(record?.d === undefined).toBe(page.status === 'supported');
     }
   });
 

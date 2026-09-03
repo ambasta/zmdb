@@ -1,7 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no federation — no
-> Apollo Federation directives, no subgraph schema building, no gateway, no
-> `@key`/`@external`/`@requires` support. The design is frozen (see the last
-> section) and covers the subgraph only; a gateway stays out of scope.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there is no federation: no Apollo Federation directives, no subgraph schema
+> building, no gateway, no `@key`/`@external`/`@requires` support. The design is
+> frozen (see the last section) and covered the subgraph only; the argument against
+> reaching for federation at all is the part of this page that still applies.
 
 ## What federation solves, and the cheaper answer
 
@@ -74,9 +75,9 @@ Deduplicate the ids, one batched call, index by id. A batch endpoint on the owni
 - **Validate every response.** Another team's service is an external dependency; a field going null after their deploy should be an error at your boundary, not `undefined` three layers in.
 - **Do not forward a raw error.** An upstream error message can carry table names and values. Log it; return something generic.
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/federation/SPEC.md`, and the deliverable is deliberately narrow: **a subgraph schema a real composer accepts.** No gateway, no router. The advice above stands — most applications reaching for federation want one deployable with real module boundaries — and this makes the subgraph correct for the ones that genuinely need one.
+The design is frozen, in `packages/web/src/graphql/federation/SPEC.md`, and is not being built. The deliverable was deliberately narrow: **a subgraph schema a real composer accepts.** No gateway, no router. The advice above stands — most applications reaching for federation want one deployable with real module boundaries — and this makes the subgraph correct for the ones that genuinely need one.
 
 **The directives are tags, not decorators.** A zmdb entity is an `interface`, so there is no class to decorate and no field position that can carry a decorator. `@key`, `@external`, `@requires` and `@provides` come from intersection tags, the same way `Unique` and `References` already do.
 

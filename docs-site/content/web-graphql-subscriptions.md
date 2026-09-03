@@ -1,9 +1,10 @@
-> **ToDo / feature gap.** There is no GraphQL, and therefore no subscriptions — no
-> `@Subscription`, no `PubSub`, no `graphql-ws` integration. The design is frozen
-> (see the last section), and it has **one** blocker rather than the two this page
-> used to claim: the GraphQL layer. A WebSocket never passes through `WebResponse`,
-> so [`WebResponse.body` being a `string`](./web-streaming-files.html) blocks
-> `graphql-sse` and not the `graphql-ws` path.
+> **Not planned.** There is no GraphQL, and therefore no subscriptions — no
+> `@Subscription`, no `PubSub`, no `graphql-ws` integration — and there will not be:
+> [GraphQL is out of scope](./web-graphql.html). The design is frozen (see the last
+> section) and stays in the tree as a record, because the four failure modes it
+> settles — cancellation, an expiring guard's verdict, a slow subscriber and a
+> filter mistaken for a permission check — are the same four in any long-lived
+> stream, including the `@Gateway` and SSE ones below that do work today.
 
 ## What exists for real-time
 
@@ -96,9 +97,9 @@ An in-process broadcast reaches clients connected to **this** instance. With sev
 
 `LISTEN/NOTIFY` solves it (every instance listens), as does Redis pub/sub. Sticky sessions do not: they pin a client to an instance but do not get the event there.
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/subscriptions/SPEC.md`. It follows [the GraphQL layer](./web-graphql-resolvers.html) and nothing else — the SSE work is a separate route to a separate protocol.
+The design is frozen, in `packages/web/src/graphql/subscriptions/SPEC.md`, and it is not going to be implemented — it followed [the GraphQL layer](./web-graphql-resolvers.html) and nothing else, and that layer is out of scope. It is documented here because a hand-rolled subscription server over the `@Gateway` above faces every one of these decisions.
 
 ```ts
 export interface PubSub {
@@ -117,9 +118,9 @@ Two methods, an `AbortSignal`, and an in-process implementation. Five of the dec
 
 **A filter is not an authorisation check, and the signature is what says so.** `filter(payload, args)` is not given the context — it cannot see the headers, the viewer or the container, so it is structurally incapable of being a permission check. A filter is about relevance; a guard is about permission; conflating them leaks data to the wrong subscriber, quietly, because a filter with a bug delivers rather than throwing. Where a filter is tempting for authorisation, put the identity in the **topic name** at subscribe time — `post.created:tenant-7` — which is the same rule as the third bullet above and is the one control no new field can be added without.
 
-**The socket is still yours.** zmdb implements the `graphql-transport-ws` protocol state machine — `connection_init`, `subscribe`, `next`, `error`, `complete`, and the close codes — and the WebSocket server stays where [the WebSocket adapter](./web-ws-adapter.html) already puts it, for the same reason nothing serves `POST /graphql`. The handshake is one callback: `connection_init`'s payload becomes the `RequestFacts` every guard reads, so one guard works on a route, on a field and on a subscription without an adapter shim.
+**The socket is still yours.** The freeze had zmdb implement the `graphql-transport-ws` protocol state machine — `connection_init`, `subscribe`, `next`, `error`, `complete`, and the close codes — with the WebSocket server left where [the WebSocket adapter](./web-ws-adapter.html) already puts it, for the same reason nothing serves `POST /graphql`. Since none of that is being built, the state machine is yours too if you want that protocol; the handshake was to be one callback, with `connection_init`'s payload becoming the `RequestFacts` every guard reads.
 
-The SSE pattern above will remain worth knowing regardless, because it needs no protocol beyond HTTP — and note that `sseStream` has a leak the freeze also fixes: its stream has no `cancel`, so a disconnecting client never closes the source iterable.
+The SSE pattern above is the one that matters now, because it needs no protocol beyond HTTP — and it carries a leak that was going to be fixed as part of this freeze and now needs its own fix: `sseStream`'s stream has no `cancel`, so a disconnecting client never closes the source iterable.
 
 ---
 

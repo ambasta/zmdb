@@ -1,6 +1,7 @@
-> **ToDo / feature gap.** There is no GraphQL layer, so there is no field
-> middleware — no `@UseMiddleware` on a field, no `middleware` option on `@Field`,
-> no per-field resolution wrapper.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> so there is no field middleware: no `@UseMiddleware` on a field, no `middleware`
+> option on `@Field`, no per-field resolution wrapper. The table below still holds,
+> and so does the `preSave` gap at the end, which was never a GraphQL problem.
 
 ## What field middleware is for
 
@@ -85,9 +86,9 @@ if (ms > 50) console.warn(JSON.stringify({ ms: Math.round(ms), sql: query.text }
 
 A slow field is nearly always a slow query or an N+1 pattern. Instrumenting the driver finds both; instrumenting the field tells you where you noticed.
 
-## What it will take
+## What it would have taken
 
-Field middleware presupposes field resolution, so it follows [the GraphQL layer](./web-graphql-resolvers.html) — but the shape it takes there is frozen, in `packages/web/src/graphql/SPEC.md` §5 and §11, and it is not a new decorator:
+Field middleware presupposes field resolution, so it followed [the GraphQL layer](./web-graphql-resolvers.html) — which is out of scope, so this is a record rather than a plan. The shape is frozen, in `packages/web/src/graphql/SPEC.md` §5 and §11, and it is not a new decorator:
 
 ```ts
 const ownerOnly: Chain = { guards: [OwnerOrAdmin], pipes: [], interceptors: [], filters: [] };

@@ -10,7 +10,11 @@
 //   'upstream/page': 'zmdb-slug'
 //       The topic is covered. The zmdb page may be marked status:'todo' in
 //       pages.mjs — that means "we intend to build this and the page says what is
-//       missing", which is a different statement from "covered".
+//       missing", which is a different statement from "covered". It may also be
+//       marked status:'wontfix' — "we designed this, decided against it, and the
+//       page says what to use instead". The eighteen GraphQL entries below are that
+//       case; the gate counts all three kinds separately so the difference is not
+//       lost in a total.
 //
 //   'upstream/page': ap('reason', 'see-slug')
 //       We deliberately do not have this page, because the thing it documents is

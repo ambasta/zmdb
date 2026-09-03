@@ -5,6 +5,11 @@
 //   status:'supported' -> the API is real; the page documents it
 //   status:'todo'      -> a legitimate capability we have not built yet (roadmap,
 //                         NOT an anti-pattern). `note` says what is missing.
+//   status:'wontfix'   -> a capability we had a frozen design for and then declined
+//                         to build. The page stays, because it is where the reader
+//                         finds out the answer is no and what to use instead; `note`
+//                         says why. Distinct from an anti-pattern, which never had a
+//                         page — and from 'todo', which is a promise.
 //
 // Anti-patterns are deliberately absent from NAV and enumerated, with rationale,
 // in coverage/mapping.mjs + the anti-patterns page.
@@ -1784,74 +1789,74 @@ export const PAGE_META = {
   'web-graphql': {
     title: 'GraphQL',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no GraphQL layer shipped; resolvers could sit on the DI container.',
+    status: 'wontfix',
+    note: 'out of scope — run a GraphQL server next to the application instead',
   },
   'web-graphql-resolvers': {
     title: 'Resolvers & Mutations',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no @Resolver/@Query/@Mutation decorators',
+    status: 'wontfix',
+    note: 'out of scope — a schema library calling your services directly is the answer',
   },
   'web-graphql-subscriptions': {
     title: 'Subscriptions',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no @Subscription decorator or pub/sub binding',
+    status: 'wontfix',
+    note: 'out of scope — @Gateway and SSE are what real-time runs on',
   },
   'web-graphql-scalars': {
     title: 'Scalars, Enums, Unions & Interfaces',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no SDL type emitters',
+    status: 'wontfix',
+    note: 'out of scope — the wire-type-to-SDL mapping stays as a record',
   },
   'web-graphql-mapped-types': {
     title: 'Mapped Types & Shared Models',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no PartialType/PickType analogue for SDL output',
+    status: 'wontfix',
+    note: "out of scope — TypeScript's own operators already compose the types",
   },
   'web-graphql-directives': {
     title: 'Directives & Extensions',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no directive or extension metadata',
+    status: 'wontfix',
+    note: 'out of scope — every directive here has a zmdb equivalent already',
   },
   'web-graphql-plugins': {
     title: 'Plugins',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no server plugin lifecycle',
+    status: 'wontfix',
+    note: 'out of scope — every hook a plugin would carry already has a home',
   },
   'web-graphql-complexity': {
     title: 'Complexity Limits',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no complexity estimator or plugin',
+    status: 'wontfix',
+    note: 'out of scope — the estimator would be yours to call between parse and execute',
   },
   'web-graphql-field-middleware': {
     title: 'Field Middleware',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no per-field middleware chain',
+    status: 'wontfix',
+    note: 'out of scope — a Chain binds to a route, and there are no fields to bind to',
   },
   'web-graphql-middleware': {
     title: 'Guards & Interceptors',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no GraphQL execution context for the middleware chain',
+    status: 'wontfix',
+    note: 'out of scope — the four middleware interfaces are HTTP-side and real',
   },
   'web-graphql-federation': {
     title: 'Federation',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no federated schema directives or gateway',
+    status: 'wontfix',
+    note: 'out of scope — one deployable with real module boundaries is the cheaper answer',
   },
   'web-graphql-schema-first': {
     title: 'Schema-First',
     group: 'Web Framework — GraphQL',
-    status: 'todo',
-    note: 'no SDL-to-resolver-type generator',
+    status: 'wontfix',
+    note: 'out of scope — and SDL as the source of truth is refused on principle',
   },
   'web-faq-errors': {
     title: 'Common Errors',

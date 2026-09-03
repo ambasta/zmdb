@@ -98,6 +98,7 @@ main{padding:34px 52px 72px;max-width:880px;min-width:0}
 .nav-top{padding-left:10px;font-weight:500}
 .dot{width:6px;height:6px;border-radius:50%;flex:none;margin-left:auto}
 .dot.todo{background:var(--todo)}
+.dot.wontfix{background:var(--muted)}
 .nav-group.hidden,.nav-link.hidden{display:none}
 .nav-empty{color:var(--muted);font-size:13px;padding:8px}
 
@@ -153,9 +154,13 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}
   vertical-align:middle;margin-left:10px}
 .badge.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .badge.todo{background:color-mix(in srgb,var(--todo) 16%,transparent);color:var(--todo)}
+.badge.muted{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted)}
 .todo-banner{background:color-mix(in srgb,var(--todo) 10%,transparent);border:1px solid var(--todo);
   border-radius:10px;padding:14px 16px;margin:18px 0}
 .todo-banner b{color:var(--todo)}
+.wontfix-banner{background:color-mix(in srgb,var(--muted) 10%,transparent);border:1px solid var(--line);
+  border-radius:10px;padding:14px 16px;margin:18px 0;color:var(--fg-soft)}
+.wontfix-banner b{color:var(--fg)}
 
 /* ---- on-this-page ---------------------------------------------------- */
 .toc-title{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:700;margin-bottom:10px}
@@ -348,7 +353,7 @@ function render(){
   list.innerHTML=hits.map(function(h,i){
     var r=h.r;
     return '<a class="pal-hit'+(i===0?' sel':'')+'" href="'+BASE+'docs/'+r.s+'.html">'+
-      '<span class="t">'+r.t+(r.d?' <span class="g">TODO</span>':'')+'<span class="g">'+r.g+'</span></span>'+
+      '<span class="t">'+r.t+(r.d?' <span class="g">'+(r.d===2?'NOT PLANNED':'TODO')+'</span>':'')+'<span class="g">'+r.g+'</span></span>'+
       '<span class="s">'+snippet(r.x,terms)+'</span></a>';
   }).join('');
 }
@@ -468,7 +473,8 @@ export function scoreRecord(rec, terms) {
     if (s === 0) return 0;
     total += s;
   }
-  // On a tie, a page that is still a stub should not outrank a written one.
+  // On a tie, a page that is a stub or a declined feature should not outrank a
+  // written one.
   return rec.d ? total - 3 : total;
 }
 
@@ -602,7 +608,9 @@ export function searchIndexScript(pages, nav) {
     // promises to cover.
     h: [...page.md.matchAll(/^#{2,3}\s+(.+)$/gm)].map(m => m[1].replace(/[`*]/g, '')),
     x: plainText(page.md).slice(0, 3000),
-    ...(page.status === 'todo' ? { d: 1 } : {}),
+    // 1 = on the roadmap, 2 = declined. Both are searchable and both rank below a
+    // written page; only the label on the row differs.
+    ...(page.status === 'todo' ? { d: 1 } : page.status === 'wontfix' ? { d: 2 } : {}),
   }));
   return `window.__ZMDB_SEARCH__=${JSON.stringify(records)};\n`;
 }

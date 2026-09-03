@@ -1,6 +1,9 @@
-> **ToDo / feature gap.** There is no GraphQL support — no `@Resolver`, `@Query`,
-> `@Mutation`, `@ObjectType` or `@Field`, no schema building, and no server. Every
-> `@zmdb/web` route returns JSON over HTTP.
+> **Not planned.** There is no GraphQL support — no `@Resolver`, `@Query`,
+> `@Mutation`, `@ObjectType` or `@Field`, no schema building, and no server — and
+> there will not be: [GraphQL is out of scope](./web-graphql.html). Every
+> `@zmdb/web` route returns JSON over HTTP. The composition below is the supported
+> way to put GraphQL in front of a zmdb application, and it needs nothing from the
+> framework.
 
 ## Running GraphQL alongside a zmdb application
 
@@ -133,9 +136,9 @@ The frozen design keeps this property rather than smoothing it over: a middlewar
 
 Also disable introspection in production and cap query depth and complexity — see [Query Complexity](./web-graphql-complexity.html).
 
-## What it will take
+## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`. Four decorators, a registry, and a type that ties the two halves together:
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it is not being implemented. Four decorators, a registry, and a type that ties the two halves together:
 
 ```ts
 @Resolver('Post')
@@ -153,7 +156,7 @@ class PostResolver implements ResolversOf<PostFields, AppContext> {
 }
 ```
 
-Three things about that shape are worth knowing before it lands, because each corrects something this page or its neighbours assumed.
+Three things about that shape are worth keeping on record, because each corrects something this page or its neighbours assumed.
 
 **`graphql` is not a dependency, and not a peer either.** This page used to say an optional entry point with a peer dependency; the freeze goes further. `parts()` hands back a `typeDefs` string and a plain nested map of functions, which is what `createSchema` above already takes, and the one place a `graphql` value is genuinely needed — constructing a custom scalar — takes the constructor as an argument. So there is nothing to declare, optional or otherwise.
 
@@ -161,7 +164,7 @@ Three things about that shape are worth knowing before it lands, because each co
 
 **A field with arguments cannot skip validation.** The registry requires a `validate` function for exactly those fields, in the type, so the `assert` two sections up is not advice you can forget — omitting it fails to compile. The validator is yours to pass because `assert<T>` only inlines where the checker can resolve `T`, which is your call site and not the framework's.
 
-Nothing serves `/graphql`. The registry produces the two halves and your own controller mounts them, so the composition at the top of this page stays exactly as shown — one container, one pool, both surfaces.
+Nothing serves `/graphql`, and nothing will. The composition at the top of this page is not a stopgap, it is the answer — one container, one pool, both surfaces, with the schema library as your dependency rather than the framework's.
 
 ---
 

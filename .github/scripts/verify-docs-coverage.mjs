@@ -58,6 +58,7 @@ for (const slug of contentFiles) {
 
 let covered = 0;
 let todo = 0;
+let declined = 0;
 
 for (const [source, pages] of Object.entries(INVENTORY)) {
   const table = MAPPING[source];
@@ -80,6 +81,7 @@ for (const [source, pages] of Object.entries(INVENTORY)) {
       }
       covered++;
       if (PAGE_META[target].status === 'todo') todo++;
+      if (PAGE_META[target].status === 'wontfix') declined++;
     } else if (target && typeof target === 'object' && target.antiPattern) {
       if (!target.see) {
         fail(`${source}: "${page}" is marked an anti-pattern with no \`see\` page`);
@@ -139,6 +141,7 @@ if (!antiPatternsMd.includes('<!-- generated: coverage/mapping.mjs antiPatterns(
 }
 
 const todoPages = Object.entries(PAGE_META).filter(([, m]) => m.status === 'todo');
+const declinedPages = Object.entries(PAGE_META).filter(([, m]) => m.status === 'wontfix');
 
 console.log(`docs coverage: ${inventoried} upstream pages, all accounted for`);
 for (const [key, src] of Object.entries(SOURCES)) {
@@ -155,8 +158,16 @@ console.log(
   `  ${''.padEnd(12)} ${String(todoPages.length).padStart(3)} zmdb pages marked TODO ` +
     `(${todo} upstream page(s) land on one)`,
 );
+// A page marked wontfix is still coverage — the reader gets an answer and an
+// alternative — but it is not a promise, so it is counted apart from the roadmap.
+console.log(
+  `  ${''.padEnd(12)} ${String(declinedPages.length).padStart(3)} zmdb pages marked not planned ` +
+    `(${declined} upstream page(s) land on one)`,
+);
 
 if (process.argv.includes('--summary')) {
   console.log('\nTODO pages:');
   for (const [slug, m] of todoPages) console.log(`  ${slug.padEnd(34)} ${m.note ?? ''}`);
+  console.log('\nNot-planned pages:');
+  for (const [slug, m] of declinedPages) console.log(`  ${slug.padEnd(34)} ${m.note ?? ''}`);
 }

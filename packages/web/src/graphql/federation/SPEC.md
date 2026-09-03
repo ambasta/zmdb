@@ -1,4 +1,9 @@
-# SPEC — federation: the directive set, key derivation, and reference resolvers (frozen)
+# SPEC — federation: the directive set, key derivation, and reference resolvers (frozen, not planned)
+
+> **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under
+> them are closed as wontfix, and no code in this tree implements this document. It stays
+> frozen as the record of what was decided and why — the failure modes it names are the
+> ones anyone building this outside zmdb will meet.
 
 Part of `@zmdb/web`, exported from the `./graphql` subpath, with the emission half in
 `@zmdb/schema-core/sdl`. `../SPEC.md` owns resolvers; this file owns what makes a subgraph composable.

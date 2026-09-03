@@ -1,4 +1,9 @@
-# SPEC — SDL emission from declared types (frozen)
+# SPEC — SDL emission from declared types (frozen, not planned)
+
+> **Not planned.** GraphQL is out of scope for zmdb: the epics and every sub-issue under
+> them are closed as wontfix, and no code in this tree implements this document. It stays
+> frozen as the record of what was decided and why — the failure modes it names are the
+> ones anyone building this outside zmdb will meet.
 
 Part of `@zmdb/schema-core`, a new `./sdl` subpath. The GraphQL back-end of the IR: a declared TypeScript type
 in, SDL text out, and a refusal with a path for everything GraphQL cannot say. Epic "GraphQL core — SDL

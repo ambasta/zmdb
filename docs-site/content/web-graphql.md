@@ -1,11 +1,14 @@
-> **ToDo / feature gap.** `@zmdb/web` ships **HTTP + WebSocket/SSE**, not a
-> GraphQL layer (no `@nestjs/graphql` analogue, no schema-first/code-first
-> resolver decorators).
+> **Not planned.** `@zmdb/web` ships **HTTP + WebSocket/SSE**, not a GraphQL layer
+> (no `@nestjs/graphql` analogue, no schema-first/code-first resolver decorators) —
+> and it is not going to. The three GraphQL epics are closed as wontfix. This page
+> and its neighbours stay as a record of the design that was frozen and of what to
+> reach for instead.
 
-## How it sits on the existing seams
+## How it would have sat on the existing seams
 
-The design is frozen — `packages/schema-core/src/sdl/SPEC.md` for the type half,
-`packages/web/src/graphql/SPEC.md` for the resolver half — and it is an **emitter +
+The design was frozen before the capability was dropped —
+`packages/schema-core/src/sdl/SPEC.md` for the type half,
+`packages/web/src/graphql/SPEC.md` for the resolver half — and it was an **emitter +
 a resolver registry over DI**:
 
 - SDL emitted from the declared TypeScript type by `sdlOf<T>(name)`, walking the
@@ -26,15 +29,19 @@ a resolver registry over DI**:
   [query cost](./web-graphql-complexity.html) is a function your transport calls
   between `parse` and `execute`.
 
-## Why it's still a ToDo
+## Why it is not being built
 
-The spec is frozen; the code is not written. GraphQL is a large surface (SDL,
-resolver binding, dataloader batching, subscriptions), and the pieces land
-epic by epic — deferred rather than excluded.
+The spec is frozen; the code will not be written. GraphQL is a large surface — SDL
+emission, resolver binding, dataloader batching, subscriptions, federation — and
+each of those is a maintenance surface that has to keep answering identically to the
+REST derivation beside it. The project would rather derive one API well than two,
+so the surface is excluded rather than deferred.
 
-One thing to know before adopting it: nothing serves `POST /graphql`. The transport
-is your own [controller route](./web-controllers.html), because a route zmdb owned
-would have to decide your authentication model.
+If you want GraphQL over a zmdb application, run a GraphQL server next to it: your
+services are plain objects and a schema library can call them directly, which is
+what [Resolvers & Mutations](./web-graphql-resolvers.html) shows end to end. Nothing
+zmdb ships serves `POST /graphql`, and nothing will — the transport, and with it
+your authentication model, stays yours.
 
 ## Cross-links
 

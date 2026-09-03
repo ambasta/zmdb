@@ -1,6 +1,8 @@
-> **ToDo / feature gap.** There is no GraphQL layer, and no SDL-first workflow —
-> no `typePaths`, no `GraphQLDefinitionsFactory`, no type generation from a
-> `.graphql` file.
+> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
+> and no SDL-first workflow: no `typePaths`, no `GraphQLDefinitionsFactory`, no type
+> generation from a `.graphql` file. The refusal of SDL-as-source-of-truth below is
+> not a consequence of that decision; it is the project's central design rule, and it
+> is the same reason there is no generator reading an OpenAPI document either.
 
 ## Why the project is code-first by construction
 
@@ -27,7 +29,7 @@ const migration = diff(previous, snapshot([schemaOf<Post>()]));
 
 Six derived artefacts, one declaration, and none of them can drift. Adding an SDL file as a second source of truth would reintroduce exactly the duplication the derivation exists to remove — and the drift would be silent, because nothing checks an SDL file against a table.
 
-That is the reason schema-first is now frozen as refused rather than merely unbuilt — see "What it will take" below for the two things that ship instead.
+That is the reason schema-first is frozen as refused rather than merely unbuilt — see "What it would have taken" below, where even the emitter half is now out of scope.
 
 ## Generating SDL, rather than consuming it
 
@@ -87,9 +89,9 @@ There is no `db pull` — nothing reads an existing database and emits declarati
 
 Schema-first GraphQL and database introspection are the same shape of problem — deriving code from an external declaration — and introspection is the one with real demand.
 
-## What it will take
+## What it would have taken
 
-The direction is frozen, in `packages/schema-core/src/sdl/SPEC.md` §11: an SDL **emitter**, and no SDL consumer.
+The direction is frozen, in `packages/schema-core/src/sdl/SPEC.md` §11: an SDL **emitter**, and no SDL consumer. Neither half is being built — the emitter went out of scope with the rest of GraphQL — but the asymmetry is the part worth keeping, because it is why `db pull` above is a different question with a different answer.
 
 The emitter is what the section above describes — `sdlOf` and `sdlFields` over the shared IR, a committed `schema.graphql`, and `git diff --exit-code` in CI. Nothing here parses GraphQL, so `graphql` is not a dependency, not a peer, and not an optional peer.
 
