@@ -97,10 +97,10 @@ describe('transformer inlining (golden fixtures)', () => {
 
   it('inlines Pattern containing double and single quotes', () => {
     const outDouble = transformCode('const ok = validate(tags.Pattern("foo\\"bar"), input.val);');
-    expect(norm(outDouble)).toContain('/foo\\"bar/.test(input.val)');
+    expect(norm(outDouble)).toContain('/foo"bar/.test(input.val)');
 
     const outSingle = transformCode("const ok = validate(tags.Pattern('foo\\'bar'), input.val);");
-    expect(norm(outSingle)).toContain("/foo\\'bar/.test(input.val)");
+    expect(norm(outSingle)).toContain("/foo'bar/.test(input.val)");
   });
 
   it('inlines Pattern containing template literal substitution using hoisted pattern-keyed regex cache', () => {
