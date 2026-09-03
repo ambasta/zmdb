@@ -69,13 +69,13 @@ export function defineState<B extends string, T>(
   if (opts?.discriminant !== undefined) {
     const d = opts.discriminant;
     if (Array.isArray(d)) {
-      discKey = d[0] as PropertyKey;
+      discKey = d[0];
       if (d.length >= 2) {
         discValue = d[1];
         hasDiscValue = true;
       }
     } else if (typeof d === 'string' || typeof d === 'symbol' || typeof d === 'number') {
-      discKey = d as PropertyKey;
+      discKey = d;
       hasDiscValue = false;
     }
   }
@@ -83,6 +83,7 @@ export function defineState<B extends string, T>(
   const customPredicate = opts?.predicate;
 
   function getValidationError(value: unknown): string | null {
+    // boundary: structural state guards evaluate unbranded input payloads against user-provided custom predicate T
     const targetName = name ? ` for "${name}"` : '';
 
     if (value === null || value === undefined) {
@@ -96,13 +97,15 @@ export function defineState<B extends string, T>(
       if (!(discKey in value)) {
         return `Invalid state payload${targetName}: missing discriminant property "${String(discKey)}"`;
       }
-      if (hasDiscValue && (value as Record<PropertyKey, unknown>)[discKey] !== discValue) {
-        const actual = (value as Record<PropertyKey, unknown>)[discKey];
-        return `Invalid state payload${targetName}: discriminant property "${String(discKey)}" expected ${JSON.stringify(discValue)}, got ${JSON.stringify(actual)}`;
+      if (hasDiscValue) {
+        const actual = Reflect.get(value, discKey);
+        if (actual !== discValue) {
+          return `Invalid state payload${targetName}: discriminant property "${String(discKey)}" expected ${JSON.stringify(discValue)}, got ${JSON.stringify(actual)}`;
+        }
       }
     }
 
-    if (customPredicate && !customPredicate(value as T)) {
+    if (customPredicate && !Reflect.apply(customPredicate, undefined, [value])) {
       return `Invalid state payload${targetName}: custom predicate validation failed`;
     }
 
