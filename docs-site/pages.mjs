@@ -631,8 +631,7 @@ export const PAGE_META = {
   upsert: {
     title: 'Upsert',
     group: 'Data Access',
-    status: 'todo',
-    note: 'the insert builder has no ON CONFLICT / ON DUPLICATE KEY clause',
+    status: 'supported',
   },
   filters: {
     title: 'Filters & Operators',

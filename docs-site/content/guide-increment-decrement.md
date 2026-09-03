@@ -88,7 +88,7 @@ No contention at all — inserts do not conflict — and you gain history. The c
 
 ## What it would take
 
-`set()` would need to accept an expression, not just a value — something like `set({ views: raw('views + ?', 1) })` or a small column-reference expression type. That is a genuine design decision rather than a missing helper: an expression type in the update path implies deciding how far it goes (arithmetic only? functions? subqueries?), how it is parameterised, and how it stays injection-safe. The same expression type unblocks [toggling a boolean](./guide-toggle-boolean.html), [bulk update](./guide-bulk-update.html) and `ON CONFLICT ... SET x = EXCLUDED.x` for [upsert](./upsert.html) — four features, one decision.
+`set()` would need to accept an expression, not just a value — something like `set({ views: raw('views + ?', 1) })` or a small column-reference expression type. That is a genuine design decision rather than a missing helper: an expression type in the update path implies deciding how far it goes (arithmetic only? functions? subqueries?), how it is parameterised, and how it stays injection-safe. The same expression type unblocks [toggling a boolean](./guide-toggle-boolean.html) and [bulk update](./guide-bulk-update.html) — three features, one decision. It is no longer needed for [upsert](./upsert.html): `SET x = EXCLUDED.x` ships, because the compiler writes that clause directly in the insert path rather than routing it through `set()`.
 
 ---
 
