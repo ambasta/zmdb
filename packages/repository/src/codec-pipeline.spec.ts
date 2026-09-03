@@ -2,45 +2,62 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import {
-  defineSchema,
-  serial,
-  text,
-  bigint,
-  boolean,
-  timestamp,
-  json,
-  jsonEnum,
-  primaryKey,
-  notNull,
-} from '@zmdb/schema-core';
-import type { CreateDTO, UpdateDTO, WhereDTO } from '@zmdb/schema-core';
+import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { CreateDTO, TaggedSchema, UpdateDTO, WhereDTO } from '@zmdb/schema-core';
 import { defineType } from '@zmdb/schema-core/custom-types';
+import type { Codec, HasDefault, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.ts';
 import { BaseRepository, ValidationError, type Driver } from './index.ts';
 
-const customCodec = defineType<string, string[], string>({
+export const customCodec = defineType<string, string[], string>({
   sqlType: 'text',
   toDb: tags => tags.join(','),
-  fromDb: raw => (raw ? raw.split(',') : []),
+  fromDb: raw => (typeof raw === 'string' && raw ? raw.split(',') : []),
   toWire: tags => tags.join(','),
-  fromWire: raw => (raw ? raw.split(',') : []),
+  fromWire: raw => (typeof raw === 'string' && raw ? raw.split(',') : []),
 });
 
-const EventSchema = defineSchema('events', {
-  id: primaryKey(serial()),
-  title: notNull(text()),
-  bigintVal: notNull(bigint()),
-  isPublished: notNull(boolean()),
-  createdAt: notNull(timestamp()),
-  payload: notNull(json()),
-  status: jsonEnum(['draft', 'published', 'archived']).notNull().defaultTo('draft'),
-  tags: { type: 'text' as const, flags: { nullable: false }, codec: customCodec },
-});
+export interface EventPayload {
+  key?: string;
+  count?: number;
+  user?: string;
+  permissions?: string[];
+  a?: number;
+}
 
-class EventRepository extends BaseRepository<typeof EventSchema> {
+export interface EventTable extends Table<'events'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  bigintVal: bigint & Sql<'bigint'>;
+  isPublished: boolean & Sql<'boolean'>;
+  createdAt: Date & Sql<'timestamp'>;
+  payload: EventPayload & Sql<'json'>;
+  status: ('draft' | 'published' | 'archived') & Sql<'jsonEnum'> & HasDefault;
+  tags: string[] & Sql<'text'> & Codec<'customCodec'> & WireAs<string>;
+}
+
+const { EventTable: baseSchema } = schemasFrom<{ EventTable: EventTable }>(import.meta.url, ['EventTable']);
+
+const tagsCol = baseSchema.columns.tags!;
+
+export const EventSchema: TaggedSchema<EventTable> = {
+  ...baseSchema,
+  columns: {
+    ...baseSchema.columns,
+    tags: {
+      ...tagsCol,
+      codec: customCodec,
+    },
+  },
+  ir: {
+    ...baseSchema.ir,
+    columns: baseSchema.ir.columns.map(c => (c.name === 'tags' ? { ...c, codec: 'customCodec' } : c)),
+  },
+};
+
+class EventRepository extends BaseRepository<EventTable> {
   static override readonly schema = EventSchema;
 }
 
@@ -91,7 +108,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
     expect(all[0]?.createdAt).toBeInstanceOf(Date);
     expect(all[0]?.payload).toEqual({ key: 'value', count: 42 });
 
-    const found = await repo.find({ status: 'published' } as WhereDTO<typeof EventSchema>);
+    const found = await repo.find({ status: 'published' } as WhereDTO<EventTable>);
     expect(found).toHaveLength(1);
     expect(found[0]?.createdAt).toBeInstanceOf(Date);
   });
@@ -123,7 +140,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
       payload: payloadObj,
       status: 'published',
       tags: ['conf', '2026'] as unknown as string[],
-    } as CreateDTO<typeof EventSchema>);
+    } as CreateDTO<EventTable>);
 
     expect(created.id).toBe(1);
     expect(created.createdAt).toBeInstanceOf(Date);
@@ -135,7 +152,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
     const updated = await repo.update(1, {
       createdAt: new Date('2026-08-31T00:00:00.000Z'),
       payload: { user: 'alice', permissions: ['read', 'write', 'admin'] },
-    } as UpdateDTO<typeof EventSchema>);
+    } as UpdateDTO<EventTable>);
 
     expect(updated?.createdAt.toISOString()).toBe('2026-08-31T00:00:00.000Z');
     expect(updated?.payload).toEqual({ user: 'alice', permissions: ['read', 'write', 'admin'] });
@@ -155,7 +172,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
     await expect(
       repo.create({
         title: 'Missing fields',
-      } as unknown as CreateDTO<typeof EventSchema>),
+      } as unknown as CreateDTO<EventTable>),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
 
@@ -167,7 +184,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
         isPublished: true,
         createdAt: 'not-a-valid-date',
         payload: { a: 1 },
-      } as unknown as CreateDTO<typeof EventSchema>),
+      } as unknown as CreateDTO<EventTable>),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
 
@@ -179,20 +196,18 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
         isPublished: true,
         createdAt: new Date(),
         payload: '{malformed json:',
-      } as unknown as CreateDTO<typeof EventSchema>),
+      } as unknown as CreateDTO<EventTable>),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
 
     // Filter with unknown column
-    await expect(repo.find({ unknownField: 'test' } as unknown as WhereDTO<typeof EventSchema>)).rejects.toBeInstanceOf(
+    await expect(repo.find({ unknownField: 'test' } as unknown as WhereDTO<EventTable>)).rejects.toBeInstanceOf(
       ValidationError,
     );
     expect(calls).toHaveLength(0);
 
     // Filter with invalid value type for known column
-    await expect(repo.find({ status: 123 } as unknown as WhereDTO<typeof EventSchema>)).rejects.toBeInstanceOf(
-      ValidationError,
-    );
+    await expect(repo.find({ status: 123 } as unknown as WhereDTO<EventTable>)).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
   });
 
@@ -214,7 +229,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
         isPublished: true,
         createdAt: new Date(),
         payload: {},
-      } as unknown as CreateDTO<typeof EventSchema>),
+      } as unknown as CreateDTO<EventTable>),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
 
@@ -226,7 +241,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
         isPublished: true,
         createdAt: new Date(),
         payload: {},
-      } as unknown as CreateDTO<typeof EventSchema>),
+      } as unknown as CreateDTO<EventTable>),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
   });

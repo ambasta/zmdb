@@ -34,8 +34,6 @@ import {
   isRecord,
   resolveRelation,
   ValidationError,
-  getRegisteredSchema,
-  type ColumnMeta,
   type CoreSchema,
   type CreateDTO,
   type DeclaredTable,
@@ -556,10 +554,6 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
  * `populate: ['orders']` is checked against `RelationKeys<User>` and the batched select it
  * runs comes from the same tag. `defineRepository` needs no subclass at all.
  */
-function getColumnType(col: ColumnMeta): string | undefined {
-  return col.type ?? col.sql;
-}
-
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
@@ -592,7 +586,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly #tableSchemas = new Map<string, CoreSchema>();
 
   protected static getSchemaForTable(table: string): CoreSchema | undefined {
-    return BaseRepository.#tableSchemas.get(table) ?? getRegisteredSchema(table);
+    return BaseRepository.#tableSchemas.get(table);
   }
 
   constructor(driver: Driver, dialect: DialectTarget = driver.dialect ?? 'postgres', options?: RepositoryOptions) {
@@ -1209,12 +1203,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const out: Record<string, unknown> = { ...row };
       for (const [key, val] of Object.entries(out)) {
         if (val === null || val === undefined) continue;
-        const colMeta = colsMap?.[key];
         const colIR = irCols.get(key);
-        if (colMeta) {
-          out[key] = this.decodeValueForColumn(val, colMeta);
-        } else if (colIR) {
-          out[key] = decodeDbValue(colIR, val);
+        if (colIR) {
+          out[key] = this.decodeValueForColumn(val, colIR);
         } else if (typeof val === 'bigint' && Number.isSafeInteger(Number(val))) {
           out[key] = Number(val);
         }
@@ -1223,57 +1214,29 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     });
   }
 
-  protected decodeValueForColumn(raw: unknown, col: ColumnMeta): unknown {
+  protected decodeValueForColumn(raw: unknown, col: ColumnIR): unknown {
     if (raw === null || raw === undefined) return raw;
     if (col.codec) {
-      return col.codec.fromDb(raw);
+      const customCodec = this.schema.columns[col.name]?.codec;
+      if (customCodec) return customCodec.fromDb(raw);
     }
-    const type = getColumnType(col);
-    switch (type) {
-      case 'timestamp':
-        if (raw instanceof Date) return raw;
-        if (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'bigint') {
-          const d = new Date(typeof raw === 'bigint' ? Number(raw) : raw);
-          return isNaN(d.getTime()) ? raw : d;
+    if (col.sql === 'json') {
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
         }
-        return raw;
-      case 'json':
-        if (typeof raw === 'string') {
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return raw;
-          }
-        }
-        return raw;
-      case 'bigint':
-        if (typeof raw === 'bigint') return raw;
-        if (typeof raw === 'number' || typeof raw === 'string') {
-          try {
-            return BigInt(raw);
-          } catch {
-            return raw;
-          }
-        }
-        return raw;
-      case 'boolean':
-        if (typeof raw === 'boolean') return raw;
-        if (typeof raw === 'number' || typeof raw === 'bigint') return Number(raw) !== 0;
-        if (typeof raw === 'string') return raw === 'true' || raw === '1';
-        return raw;
-      case 'integer':
-      case 'serial':
-      case 'numeric':
-        if (typeof raw === 'number') return raw;
-        if (typeof raw === 'bigint') return Number(raw);
-        if (typeof raw === 'string') {
-          const n = Number(raw);
-          return isNaN(n) ? raw : n;
-        }
-        return raw;
-      default:
-        return raw;
+      }
+      return raw;
     }
+    if (col.sql === 'boolean') {
+      if (typeof raw === 'boolean') return raw;
+      if (typeof raw === 'number' || typeof raw === 'bigint') return Number(raw) !== 0;
+      if (typeof raw === 'string') return raw === 'true' || raw === '1';
+      return raw;
+    }
+    return decodeDbValue(col, raw);
   }
 
   private get decodedColumns(): readonly ColumnIR[] {
@@ -2453,20 +2416,21 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   protected encodeRow(row: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
     for (const [key, val] of Object.entries(row)) {
-      const col = this.schema.columns[key];
+      const col = colsMap.get(key);
       out[key] = col ? this.encodeValueForColumn(val, col) : val;
     }
     return out;
   }
 
-  protected encodeValueForColumn(val: unknown, col: ColumnMeta): unknown {
+  protected encodeValueForColumn(val: unknown, col: ColumnIR): unknown {
     if (val === null || val === undefined) return val;
     if (col.codec) {
-      return col.codec.toDb(val);
+      const customCodec = this.schema.columns[col.name]?.codec;
+      if (customCodec) return customCodec.toDb(val);
     }
-    const type = getColumnType(col);
-    switch (type) {
+    switch (col.sql) {
       case 'timestamp':
         if (val instanceof Date) return val.toISOString();
         if (typeof val === 'number') return new Date(val).toISOString();
@@ -2488,6 +2452,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   protected validateWhere(where: unknown): void {
     if (!where || typeof where !== 'object' || where === null) return;
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
     for (const [key, val] of Object.entries(where)) {
       if (key === 'and' && Array.isArray(val)) {
         for (const sub of val) this.validateWhere(sub);
@@ -2496,7 +2461,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       } else if (key === 'exists' || key === 'notExists') {
         continue;
       } else {
-        const col = this.schema.columns[key];
+        const col = colsMap.get(key);
         if (!col) {
           throw new ValidationError(`unknown column "${key}" in query filter`);
         }
@@ -2517,23 +2482,21 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             } else if (opVal === null) {
               continue;
             } else {
-              if (!this.valueMatchesColumn(opVal, col)) throw new ValidationError(`invalid value for "${key}.${op}"`);
+              if (!this.filterValueMatches(opVal, col)) throw new ValidationError(`invalid value for "${key}.${op}"`);
             }
           }
         } else {
-          if (!this.valueMatchesColumn(val, col)) throw new ValidationError(`invalid filter value for "${key}"`);
+          if (!this.filterValueMatches(val, col)) throw new ValidationError(`invalid filter value for "${key}"`);
         }
       }
     }
   }
 
-  protected valueMatchesColumn(value: unknown, col: ColumnMeta): boolean {
+  private filterValueMatches(value: unknown, col: ColumnIR): boolean {
     if (value === null) return true;
     if (value === undefined) return false;
     if (col.codec) return true;
-    // boundary: column meta from defineSchema uses .type, while IR column uses .sql
-    const type = getColumnType(col);
-    switch (type) {
+    switch (col.sql) {
       case 'serial':
       case 'integer':
       case 'numeric':
@@ -2551,7 +2514,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         if (typeof value === 'number') return !isNaN(value);
         return false;
       case 'jsonEnum':
-        return typeof value === 'string' && (col.flags.enum ? col.flags.enum.includes(value) : true);
+        return typeof value === 'string' && (col.enum ? col.enum.includes(value) : true);
       case 'json':
         return typeof value === 'object';
       default:
@@ -2559,8 +2522,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
   }
 
-  protected encodeWhere<Where extends WhereDTO<unknown>>(where: Where | undefined): Where | undefined {
+  protected encodeWhere<Where extends WhereDTO<T> | Record<string, unknown>>(
+    where: Where | undefined,
+  ): Where | undefined {
+    // boundary: accumulated record maps schema columns to encoded DB values while preserving filter structures.
     if (!where || typeof where !== 'object' || where === null) return where;
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
     const acc: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(where)) {
       if (key === 'and' && Array.isArray(val)) {
@@ -2570,7 +2537,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       } else if (key === 'exists' || key === 'notExists') {
         acc[key] = val;
       } else {
-        const col = this.schema.columns[key];
+        const col = colsMap.get(key);
         if (!col) {
           acc[key] = val;
           continue;
@@ -2598,7 +2565,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
       }
     }
-    // boundary: accumulated record maps schema columns to encoded DB values while preserving filter structures.
     return acc as Where;
   }
 

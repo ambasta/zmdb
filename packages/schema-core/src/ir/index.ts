@@ -355,7 +355,6 @@ export const PROTO_SCALARS = [
 ] as const;
 
 export type ProtoScalar = (typeof PROTO_SCALARS)[number];
-
 // ---------------------------------------------------------------------------
 // Back-end: IR → schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
