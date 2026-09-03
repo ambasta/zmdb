@@ -43,6 +43,17 @@ Walk the module graph (acyclic) and:
 - An import cycle throws.
 - No consumer-surface `as`; suite + typecheck green.
 
+## Pending: a `commands` key
+
+`ModuleDef` gains `readonly commands?: readonly Constructor<object>[]` and `CompiledModule` gains
+`readonly commands: readonly object[]`, built the same way and in the same walk as `controllers`. Additive,
+with no behaviour change for a module that does not use it. The reasoning is in `../cli/SPEC.md` §6: a
+command class listed in `controllers` would be built correctly and then registered as a route source, and a
+command class listed nowhere is never built at all, so its `@Inject` fields throw.
+
+`runInit`/`runShutdown` take both lists for the same reason — a command whose repository needs
+`onModuleInit` would otherwise get an uninitialised one.
+
 ## Out of scope
 
 App bootstrap/lifecycle (epic #292), guards/pipes (#287).

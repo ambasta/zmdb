@@ -3,7 +3,7 @@
 > Part of `zmdb`, as a `bin` and as the build-time export `./cli` (§12). Config schema and loading are
 > `../config/SPEC.md`.
 
-## 1. Nine verbs, and `up` is not one of them
+## 1. The database verbs, and `up` is not one of them
 
 The issue proposing this asks for `up` to mean "upgrade a stored snapshot to the current format". `up`
 already means the opposite kind of thing in this project, twice:
@@ -33,10 +33,17 @@ and a rollback. A CLI that hides capability the library has is a worse CLI, so:
 | `upgrade`  | the stored snapshot           | the stored snapshot        | no       |
 | `export`   | declarations                  | stdout                     | no       |
 | `pull`     | the database                  | declaration files          | yes      |
+| `new`      | nothing                       | new files only (§13)       | no       |
+| `studio`   | declarations, the database    | nothing                    | yes      |
 
 `migrate`, `rollback` and `status` are thin dispatch over `up`, `down` and `status` in the shipped runner.
 They are the only three commands that need no new engine work, and saying so here is what keeps them from
 being redesigned.
+
+Two more verbs are frozen further down and are not about the schema at all: `new` writes files (§13) and
+`studio` serves a page (§14). Eleven in total, and the count is not the interesting number — the division
+is. The nine above read or write a database or the tree that describes it; the two below are a code
+generator and a viewer, and neither is allowed to acquire an opinion about migrations.
 
 ## 2. Argument parsing and exit codes are already decided
 
@@ -255,7 +262,199 @@ The work is in `index.ts` and the bin is argument parsing and exit codes only, a
 `packages/aot-validator/src/cli/bin.ts` already does. That split is what makes the commands testable
 without spawning a process.
 
-## 13. Non-goals (rejected)
+## 13. `new`, the scaffold command — and it is not called `generate`
+
+`zmdb generate` already means "generate a migration" (§4), and `docs-site/content/web-cli.md` reaches for
+`zmdb generate resource posts` for scaffolding. Both cannot be true, and the migration meaning is the one
+`generate` carries in every comparable tool, so **the scaffold verb is `new`**:
+`zmdb new <kind> <name> [--package <pkg>]`.
+
+### The docs page argues scaffolding is nearly worthless, and it is right about the part it measured
+
+> Scaffolding is the least valuable, because the thing it would scaffold is already about eight lines.
+
+That is accurate about the source file, and it is the reason the scaffolds are specified around what it
+does not measure. A controller really is eight lines. Its **test** is not, the module entry that registers
+it is in a file the scaffold did not create, and a repository provider is a factory whose three arguments
+are the thing people get wrong. So every template writes a spec file, and the templates that need wiring
+print the wiring rather than performing it (§13.3).
+
+### 13.1 What each template writes, file by file
+
+| `zmdb new …`        | Writes                                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project <name>`    | `package.json`, `tsconfig.json`, `zmdb.config.ts`, `src/app.module.ts`, `src/main.ts`, `src/health.controller.ts`, `src/health.controller.spec.ts`, `.gitignore` |
+| `schema <name>`     | `src/<name>.ts` (the `Table<'…'>` interface), `src/<name>.spec.ts`                                                                                               |
+| `controller <name>` | `src/<name>.controller.ts`, `src/<name>.controller.spec.ts`                                                                                                      |
+| `module <name>`     | `src/<name>.module.ts`, `src/<name>.module.spec.ts`                                                                                                              |
+| `repository <name>` | `src/<name>.repository.ts` (the token and the provider factory), `src/<name>.repository.spec.ts`                                                                 |
+| `command <name>`    | `src/<name>.command.ts`, `src/<name>.command.spec.ts` (see `@zmdb/web`'s `src/cli/SPEC.md`)                                                                      |
+
+No template writes a barrel file, and no template appends to one. A generated `index.ts` re-export is the
+first thing a scaffold does that the developer has to undo.
+
+Every `.spec.ts` uses `createTestApp` from `@zmdb/web/testing` and asserts behaviour, not existence. A
+generated test that asserts `expect(controller).toBeDefined()` is the habit this repository is built to
+avoid, and it is worse than no test because it makes the coverage number lie.
+
+The `project` template's `src/<name>.spec.ts` for `schema` carries the transformer canary that
+`web-cli-monorepo.md` already recommends, because that page is right that it belongs in every package that
+validates:
+
+```ts
+it('the transformer is running', () => {
+  expect(is<{ id: number }>({ id: 'x' })).toBe(false);
+});
+```
+
+Worth being precise about what that canary catches, since the docs are not. Untransformed, `is<T>(value)`
+does not quietly return `true`: `@zmdb/aot-validator`'s fallback `is` requires a runtime witness and throws
+`runtime type witness required in test/fallback mode` without one. So the canary fails either way, and the
+un-transformed build fails loudly rather than silently — which is the direction to want, and the opposite
+of what `docs-site/content/web-cli-apps.md` currently claims (it says an `assert<T>()` in a stripped script
+"is permissive"). §15 records the correction for the docs sub-issue.
+
+### 13.2 Monorepo targeting is explicit, and a wrong guess is unrecoverable
+
+Detection reads workspace globs from the nearest ancestor `package.json`'s `workspaces` field, or from
+`pnpm-workspace.yaml` if that is the file present. That is detection of the _layout_, and it is all that is
+inferred.
+
+**Choosing the target package is not inferred.** In a workspace root, `zmdb new controller posts` without
+`--package` is an exit-2 usage error listing the packages it found. Inside exactly one package it targets
+that package, because there is nothing to choose. The asymmetry is deliberate: writing a file into the
+wrong workspace is not a diagnostic you read, it is a file you find three days later in a package that
+should not import the framework, and `--package` costs one flag.
+
+`docs-site/content/web-cli-monorepo.md` reaches a conclusion this section agrees with and goes further
+than:
+
+> If a zmdb CLI ships, the monorepo-specific parts worth having are a schema registry check across
+> workspaces and a migration command that knows which app owns which tables — not project scaffolding.
+
+The registry check it wants is already `check`'s `uncommitted-schema` finding (§7) once `schema` globs are
+read through a project, and "which app owns which tables" is answered by each package having its own
+`zmdb.config.ts` and the discovery walk stopping at a package boundary. Neither needs a monorepo mode. So
+there is no `zmdb new library`, no `zmdb.workspace.json`, and no build orchestration — the package manager
+already does that, and doing it worse in one more place is how a CLI becomes the thing you fight.
+
+### 13.3 A scaffold never edits a file it did not create
+
+`zmdb new controller posts` prints the exact line to add and the file to add it to:
+
+```
+add to src/app.module.ts, in @Module({ controllers: [ … ] }):
+  PostsController,
+```
+
+The alternative is an AST rewrite of a hand-written file, and the compiler is right there to do it (§4 of
+`../config/SPEC.md` already opens a project). It is still refused. A generator that reformats a
+developer's module — moving a comment, reordering an array, normalising quotes — loses the trust it needs
+in order to be run a second time, and the operation it is being trusted with is worth one line of typing.
+
+Refusals: a template never overwrites an existing file (exit 1, naming it, and `--force` does **not**
+override this — §10's `--force` is about database destruction, and reusing it for files would mean one flag
+guarding two unrelated kinds of loss). A `<name>` that is not a valid identifier after casing is exit 2.
+`--dry-run` prints the file list and the contents to stdout and writes nothing.
+
+## 14. `studio` — read-only, loopback, and it renders nothing it has no declaration for
+
+`docs-site/content/cli-studio.md` is the most sceptical page in the documentation about its own subject,
+and its scepticism is the specification:
+
+> A studio is a tool that holds production credentials and executes arbitrary generated SQL. That is a
+> reasonable thing to build and a serious thing to ship, and it is not the next most valuable feature.
+
+Both halves of that are answered by narrowing, not by mitigation.
+
+**It executes no SQL it was given.** Every query is built by the repository from a declared table, a
+column name checked against that declaration, and bound parameters. There is no endpoint that accepts a
+SQL string, no `?sql=`, and no free-text filter that reaches the compiler. The browser sends a table name,
+a page cursor, and a column to sort by; anything not in the declaration is a 400 naming the column.
+
+**It holds no credential the executable did not already hold.** The page's objection is about
+credentials, and it predates the config file. `studio` opens the same `driver` thunk that `migrate` and
+`push` use — and it is strictly _less_ privileged than either, because it never issues DDL and never
+writes. A `studio` that made the credential question worse would have to be more privileged than the
+`migrate` sitting next to it in the same binary, and it is not.
+
+**Read-only, with no write mode behind a flag.** The page sketches "writes going through the
+repositories", and that is where this spec stops short of it. A write path needs the destructive-operation
+question of §10 asked per row instead of per statement, and a UI is the worst place to ask it. `studio` is
+`SELECT` only; the tool for a write is a repository call in a `command` (§13.1) that a reviewer can read.
+
+### 14.1 Which tables, and what "no declaration" means
+
+The tables are the ones in the config's `schema` set (`../config/SPEC.md` §5) — which is what the config
+file buys here, and the direct answer to the page's "nothing enumerates your tables, so the list is an
+argument". Under the CLI there is a list, and it is the same list `generate` diffs.
+
+A table that exists in the database and not in the declarations is **listed as unrenderable, not
+rendered**. Not hidden: a studio that silently omits a table is a studio you cannot trust to tell you
+what is in your database. It appears with the reason ("no declaration in the schema set — see `pull`"),
+and clicking it does nothing. Rendering it would require reading its columns from the server, which is
+introspection, which is a different epic and would make the studio the second thing in the project that
+types a column.
+
+### 14.2 The UI has no build step, because there is nowhere to put one
+
+`cli-studio.md` names the obstacle exactly — "no browser bundle anywhere in the project", in a project
+with zero runtime dependencies and no browser target. So there is no framework, no bundler, and no
+`node_modules` shipped to the browser: the studio serves **server-rendered HTML** from a `@zmdb/web`
+application, with the little interactivity it needs written as inline script and no build step. A form and
+a link are enough for a list, a detail view and a page control.
+
+This is a real constraint on how good the UI can be, and accepting it is the trade. The alternative is a
+bundler in the dependency tree of a package whose entire pitch is not having one, to make a local table
+viewer nicer.
+
+Rows are rendered **through the property list of `toJsonSchema<T>()`, never off the row object.** That is
+not a stylistic preference: `jsonSchemaFromShape` filters `column.sensitive` out of `properties`, so
+rendering from the document means a `Sensitive` column cannot reach the page, while rendering the row
+object means it appears the first time someone adds a column. Redaction that is structural does not need
+to be remembered.
+
+Pagination is `limit`/`offset` with a fixed page size, and this is the one place the project's own
+cursor-pagination advice is deliberately not taken: a data browser needs "page 7" and a total, a keyset
+cursor cannot provide either, and the cost of an offset scan on a local browsing session is a slow page
+rather than a production incident. `orderBy` is a single declared column with a direction.
+
+### 14.3 No authentication, and therefore no non-loopback flag
+
+`studio` binds `127.0.0.1` on an ephemeral port, prints the URL, and has no login. That is coherent
+exactly as long as the socket is unreachable from anywhere else, because the security boundary _is_ the
+loopback bind.
+
+So the decision the issue asks for: **there is no `--host` flag.** Not a flag that requires a token, not
+a flag behind a warning. The reasoning is that any non-loopback bind turns a no-auth read-only view of
+every table into an unauthenticated database viewer on a network, and the mitigation people would actually
+reach for — a token in the URL — puts a credential in shell history, a proxy log and a browser history,
+which is worse than the problem. A user who genuinely needs remote access has `ssh -L`, which
+authenticates properly and is one flag on a command they already know.
+
+`--port` exists, because a fixed port is sometimes needed for a browser bookmark and it does not change
+the boundary. Binding fails rather than falling back to `0.0.0.0` if loopback is unavailable.
+
+## 15. What the docs pages have to change
+
+The four pages this section is written against are `status: 'todo'` and owned by their own `[Docs]`
+sub-issue, so none is edited here. What that sub-issue has to carry:
+
+- `web-cli-apps.md` says a stripped script's `assert<T>()` "is permissive". It is not — the fallback
+  throws `runtime type witness required in test/fallback mode`. The page's advice (build it, do not strip
+  it) is right; its stated reason is the wrong direction, and "your validation is decoration" is the one
+  sentence in the docs that would make someone trust an unchecked input.
+- The same page proposes `@Command`/`@Option` decorators; `@zmdb/web`'s `src/cli/SPEC.md` ships `@Command`
+  and no `@Option`, because there are no parameter decorators in this project.
+- `web-cli.md` uses `zmdb generate resource posts` for scaffolding. The verb is `new` (§13).
+- `cli-studio.md` concludes the studio should ship "as an opt-in package rather than a CLI command" to keep
+  the credentials question in the user's hands. §14 ships it as a command, and the reason is that the
+  config file already answers the credentials question — the same `driver` thunk `migrate` uses, with less
+  privilege.
+- `web-cli-monorepo.md` needs no correction. Its conclusion is adopted in §13.2, including the two
+  monorepo features it says are the ones worth having.
+
+## 16. Non-goals (rejected)
 
 - **`up` as a command.** §1 — it already means "apply" twice in this project.
 - **Omitting `status` and a rollback.** §1 — both already ship as library functions.
@@ -267,3 +466,19 @@ without spawning a process.
 - **A separate package for the executable.** §12.
 - **Reconciling a `push`-built database with the migration ledger.** §6 — `push` is a development
   workflow, and pretending it has a history would be a lie the ledger has to keep.
+- **`generate` as the scaffold verb.** §13 — it already means "generate a migration".
+- **A generated barrel file, or appending to one.** §13.1.
+- **A generated test that asserts the generated thing exists.** §13.1 — it makes coverage lie.
+- **Inferring the target package in a workspace root.** §13.2 — `--package` costs one flag and a wrong
+  guess costs a file in the wrong package.
+- **`zmdb new library`, a workspace manifest, or build orchestration.** §13.2 — the package manager
+  already does it.
+- **A scaffold that edits an existing module.** §13.3 — and `--force` does not extend to overwriting a
+  file, because §10's `--force` is about a database.
+- **A studio write mode, behind any flag.** §14.
+- **Rendering a table the schema set does not declare.** §14.1 — it is listed with its reason instead.
+- **Hiding it instead.** §14.1 — a viewer that omits a table silently is not a viewer.
+- **A bundler or UI framework for the studio.** §14.2.
+- **Keyset pagination in the studio.** §14.2 — a browser needs a page number.
+- **`studio --host`, with or without a token.** §14.3 — the loopback bind _is_ the boundary, and a token
+  in a URL lands in shell history and a proxy log.
