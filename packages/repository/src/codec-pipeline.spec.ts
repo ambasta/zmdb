@@ -8,8 +8,8 @@ import { defineType } from '@zmdb/schema-core/custom-types';
 import type { Codec, HasDefault, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { BaseRepository, ValidationError, type Driver } from './index.js';
 
 export const customCodec = defineType<string, string[], string>({
   sqlType: 'text',

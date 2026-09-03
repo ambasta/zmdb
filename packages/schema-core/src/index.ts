@@ -12,7 +12,7 @@
 // The derived types have one spelling each, and it takes the declared type. See the
 // DTO suite below.
 
-export * from './custom-types/index.ts';
+export * from './custom-types/index.js';
 
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
