@@ -96,9 +96,9 @@ Now handlers take `(ctx)` and build a scope, services take `(scope, args)`, and 
 
 > [!WARNING]
 > Never store request state on a controller or provider field. Both are
-> **singletons** — `compileModule` builds each controller once. `this.currentUser =
-…` in a handler is a race that serves one user's data to another under
-> concurrency, and it will look correct in every single-request test.
+> **singletons** — `compileModule` builds each controller once. Writing
+> `this.currentUser = …` in a handler is a race that serves one user's data to
+> another under concurrency, and it will look correct in every single-request test.
 
 ## Request ids and logging
 

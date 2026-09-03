@@ -92,8 +92,9 @@ SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
 
 > [!NOTE]
 > `list` fetches `limit + 1` rows and trims, so `hasMore` is computed without a
-> separate `COUNT`. The operator set (`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/
-isNull/notNull`) and result shape come from [Filters](./filters.html) and the
+> separate `COUNT`. The operator set
+> (`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/isNull/notNull`) and result shape come
+> from [Filters](./filters.html) and the
 > [Read/Query DTOs](./read-dtos.html).
 
 ## Lifecycle Hooks

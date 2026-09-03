@@ -87,8 +87,8 @@ const repo = defineRepository(todos, tenantDriver(tenantId), { dialect: 'postgre
 > [!WARNING]
 > `SET LOCAL` is transaction-scoped, so the pattern above only holds if the
 > statement and the `SET` are in the same transaction — with a checked-out client
-> and no explicit `BEGIN`, each statement is its own transaction, so the `SET
-LOCAL` applies to the `SET` statement's transaction and not the next one.
+> and no explicit `BEGIN`, each statement is its own transaction, so the
+> `SET LOCAL` applies to the `SET` statement's own transaction and not the next one.
 > Either wrap both in `BEGIN`/`COMMIT`, or use plain `SET` on a client you hold
 > for the whole request. Verify with a test that a query for tenant A returns
 > nothing when the session is tenant B — a tenancy mechanism you have not tried
