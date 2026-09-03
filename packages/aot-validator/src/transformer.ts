@@ -21,7 +21,7 @@
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
 import type { ToolProvider } from '@zmdb/ai';
-import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
+import type { PropertyIR, SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 import {
   isLiteralTypeNode,
@@ -38,8 +38,6 @@ import { CALL_OWNERS, findOwnedCallSites, OWNED_CALLEES, type CallSite } from '.
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
-import type { irFromDescriptor } from './utilities/index.js';
-type TypeDescriptor = Parameters<typeof irFromDescriptor>[0];
 
 export { escapePattern };
 
@@ -542,18 +540,18 @@ function parseType(src: string): PType | undefined {
   return parse();
 }
 
-function pTypeToTypeDescriptor(t: PType): TypeDescriptor {
+function pTypeToTypeIR(t: PType): TypeIR {
   switch (t.kind) {
     case 'number':
     case 'string':
     case 'boolean':
-      return { kind: t.kind };
+      return { kind: 'scalar', scalar: t.kind };
     case 'object': {
-      const fields: Record<string, TypeDescriptor> = {};
+      const properties: PropertyIR[] = [];
       for (const f of t.fields) {
-        fields[f.name] = pTypeToTypeDescriptor(f.type);
+        properties.push({ name: f.name, type: pTypeToTypeIR(f.type), optional: false, readonly: false });
       }
-      return { kind: 'object', fields };
+      return { kind: 'object', properties };
     }
   }
 }
@@ -594,13 +592,13 @@ interface TsNodeRef {
   readonly forEachChild?: (cb: (child: TsNodeRef) => void) => void;
 }
 
-// boundary: tsTypeToTypeDescriptor inspects TS Type objects dynamically.
-export function tsTypeToTypeDescriptor(
+// boundary: tsTypeToTypeIR inspects TS Type objects dynamically into TypeIR.
+export function tsTypeToTypeIR(
   type: TsTypeRef | undefined,
   checker: TsCheckerRef | undefined,
   locationNode?: unknown,
   depth = 0,
-): TypeDescriptor | undefined {
+): TypeIR | undefined {
   if (!type || depth > 20) return undefined;
   const tObj = type;
   const cObj = checker;
@@ -609,135 +607,102 @@ export function tsTypeToTypeDescriptor(
 
   const typeStr = cObj?.typeToString?.(type) ?? '';
   if (typeStr === 'any' || typeStr === 'unknown' || typeStr === 'never') return undefined;
-  if (typeStr === 'string') return { kind: 'string' };
-  if (typeStr === 'number') return { kind: 'number' };
-  if (typeStr === 'boolean') return { kind: 'boolean' };
+  if (typeStr === 'string') return { kind: 'scalar', scalar: 'string' };
+  if (typeStr === 'number') return { kind: 'scalar', scalar: 'number' };
+  if (typeStr === 'boolean') return { kind: 'scalar', scalar: 'boolean' };
 
-  if (tObj.isStringLiteralType?.()) return { kind: 'enum', values: [String(tObj.value)] };
-  if (tObj.isNumberLiteralType?.()) return { kind: 'number' };
-  if (tObj.isBooleanLiteralType?.()) return { kind: 'boolean' };
+  if (tObj.isStringLiteralType?.()) return { kind: 'literal', value: String(tObj.value) };
+  if (tObj.isNumberLiteralType?.()) return { kind: 'scalar', scalar: 'number' };
+  if (tObj.isBooleanLiteralType?.()) return { kind: 'scalar', scalar: 'boolean' };
 
   const isArr = cObj?.isArrayType?.(type) || cObj?.isTupleType?.(type);
   if (isArr) {
     const typeArgs = cObj?.getTypeArguments?.(type);
     const elemType = typeArgs?.[0];
-    const ofDesc = elemType ? tsTypeToTypeDescriptor(elemType, checker, locationNode, depth + 1) : undefined;
-    return ofDesc ? { kind: 'array', of: ofDesc } : undefined;
+    const ofIR = elemType ? tsTypeToTypeIR(elemType, checker, locationNode, depth + 1) : undefined;
+    return ofIR ? { kind: 'array', element: ofIR } : undefined;
   }
 
   if (tObj.isUnionType?.()) {
     const types = tObj.getTypes?.() ?? [];
-    const isAllStringLiterals = types.length > 0 && types.every(t => t.isStringLiteralType?.());
-    if (isAllStringLiterals) {
-      return { kind: 'enum', values: types.map(t => String(t.value)) };
-    }
-    const branches: TypeDescriptor[] = [];
+    const branches: TypeIR[] = [];
     for (const b of types) {
-      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
-      if (!bDesc) return undefined;
-      branches.push(bDesc);
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (!bIR) return undefined;
+      branches.push(bIR);
     }
-    return { kind: 'union', branches };
+    return { kind: 'union', members: branches };
   }
 
   if (tObj.isIntersectionType?.()) {
     const types = tObj.getTypes?.() ?? [];
     for (const b of types) {
-      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
-      if (
-        bDesc &&
-        (bDesc.kind === 'string' ||
-          bDesc.kind === 'number' ||
-          bDesc.kind === 'boolean' ||
-          bDesc.kind === 'enum' ||
-          bDesc.kind === 'array' ||
-          bDesc.kind === 'union')
-      ) {
-        return bDesc;
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (bIR && (bIR.kind === 'scalar' || bIR.kind === 'literal' || bIR.kind === 'array' || bIR.kind === 'union')) {
+        return bIR;
       }
     }
-    const fields: Record<string, TypeDescriptor> = {};
+    const properties: PropertyIR[] = [];
+    const seenNames = new Set<string>();
     for (const b of types) {
-      const bDesc = tsTypeToTypeDescriptor(b, checker, locationNode, depth + 1);
-      if (bDesc && bDesc.kind === 'object' && bDesc.fields) {
-        Object.assign(fields, bDesc.fields);
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (bIR && bIR.kind === 'object') {
+        for (const prop of bIR.properties) {
+          if (!seenNames.has(prop.name)) {
+            seenNames.add(prop.name);
+            properties.push(prop);
+          }
+        }
       }
     }
-    return { kind: 'object', fields };
+    return { kind: 'object', properties };
   }
 
   const props = cObj?.getPropertiesOfType?.(type) ?? [];
   if (props.length > 0 || tObj.isObjectType?.()) {
-    const fields: Record<string, TypeDescriptor> = {};
+    const properties: PropertyIR[] = [];
     for (const p of props) {
       const propType =
         locationNode && cObj?.getTypeOfSymbolAtLocation
           ? cObj.getTypeOfSymbolAtLocation(p, locationNode)
           : cObj?.getTypeOfSymbol?.(p);
-      const fDesc = tsTypeToTypeDescriptor(propType, checker, locationNode, depth + 1);
-      if (!fDesc) return undefined;
-      fields[p.name] = fDesc;
+      const fIR = tsTypeToTypeIR(propType, checker, locationNode, depth + 1);
+      if (!fIR) return undefined;
+      properties.push({ name: p.name, type: fIR, optional: false, readonly: false });
     }
-    return { kind: 'object', fields };
+    return { kind: 'object', properties };
   }
 
   return undefined;
 }
 
-export function emitCheckFromDescriptor(d: TypeDescriptor, expr: string): string {
-  switch (d.kind) {
-    case 'number':
-      return `typeof ${expr} === "number"`;
-    case 'string':
-      return `typeof ${expr} === "string"`;
-    case 'boolean':
-      return `typeof ${expr} === "boolean"`;
-    case 'enum': {
-      const values = d.values ?? [];
-      return `(${values.map(v => `${expr} === ${JSON.stringify(v)}`).join(' || ')})`;
-    }
-    case 'array': {
-      const ofStr = d.of ? emitCheckFromDescriptor(d.of, '_i') : 'true';
-      return `Array.isArray(${expr}) && ((() => { for (const _i of ${expr}) { if (!(${ofStr})) return false; } return true; })())`;
-    }
-    case 'object': {
-      const parts = [`typeof ${expr} === "object"`, `${expr} !== null`];
-      for (const [key, fd] of Object.entries(d.fields ?? {})) {
-        parts.push(emitCheckFromDescriptor(fd, `${expr}.${key}`));
-      }
-      return parts.join(' && ');
-    }
-    case 'union': {
-      const branches = d.branches ?? [];
-      return `(${branches.map(b => `(${emitCheckFromDescriptor(b, expr)})`).join(' || ')})`;
-    }
-    default:
-      return 'false';
-  }
+export function tsTypeToTypeDescriptor(
+  type: TsTypeRef | undefined,
+  checker: TsCheckerRef | undefined,
+  locationNode?: unknown,
+  depth = 0,
+): TypeIR | undefined {
+  return tsTypeToTypeIR(type, checker, locationNode, depth);
 }
 
-export function emitExcessKeyGuardsFromDescriptor(d: TypeDescriptor, expr: string, varPrefix = '_c'): string[] {
-  if (d.kind !== 'object' || !d.fields) return [];
-  const guards: string[] = [];
-  const fieldKeys = Object.keys(d.fields);
-  const topCount = fieldKeys.length;
-  guards.push(
-    `let ${varPrefix} = 0; for (const _ in ${expr}) { if (++${varPrefix} > ${topCount}) return false; } if (${varPrefix} !== ${topCount}) return false;`,
-  );
-  let idx = 0;
-  for (const [key, fd] of Object.entries(d.fields)) {
-    if (fd.kind === 'object') {
-      guards.push(...emitExcessKeyGuardsFromDescriptor(fd, `${expr}.${key}`, `${varPrefix}_${idx++}`));
-    }
-  }
-  return guards;
+export function emitCheckFromIR(ir: TypeIR, expr: string): string {
+  const emitter = new Emitter();
+  const res = emitter.emitIs(ir, expr);
+  return res ?? 'false';
 }
 
-export function emitEqualsCheckFromDescriptor(d: TypeDescriptor, expr: string): string {
-  if (d.kind !== 'object') return emitCheckFromDescriptor(d, expr);
-  const check = emitCheckFromDescriptor(d, expr);
-  const excess = emitExcessKeyGuardsFromDescriptor(d, expr).join(' ');
-  return `((() => { if (!(${check})) return false; ${excess} return true; })())`;
+export function emitCheckFromDescriptor(ir: TypeIR, expr: string): string {
+  return emitCheckFromIR(ir, expr);
+}
+
+export function emitEqualsCheckFromIR(ir: TypeIR, expr: string): string {
+  const emitter = new Emitter();
+  const res = emitter.emitEquals(ir, expr);
+  return res ?? 'false';
+}
+
+export function emitEqualsCheckFromDescriptor(ir: TypeIR, expr: string): string {
+  return emitEqualsCheckFromIR(ir, expr);
 }
 
 // boundary: findTypeArgNode walks AST nodes to identify type argument nodes.
@@ -990,11 +955,11 @@ export function transformCode(code: string, options?: TransformOptions): string 
                 replacement = inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
               }
             } else if (typeSrc) {
-              let descriptor: TypeDescriptor | undefined = undefined;
+              let ir: TypeIR | undefined = undefined;
               if (options?.checker) {
                 const t = parseType(typeSrc);
                 if (t) {
-                  descriptor = pTypeToTypeDescriptor(t);
+                  ir = pTypeToTypeIR(t);
                 } else if (options?.sourceFile) {
                   const chk = options.checker as TsCheckerRef | undefined;
                   const sourceFile = options.sourceFile as TsNodeRef | undefined;
@@ -1002,30 +967,30 @@ export function transformCode(code: string, options?: TransformOptions): string 
                     const typeArgNode = findTypeArgNode(sourceFile, tokenStart, typeSrc);
                     if (typeArgNode) {
                       const tsType = chk.getTypeFromTypeNode?.(typeArgNode);
-                      descriptor = tsTypeToTypeDescriptor(tsType, chk, typeArgNode);
+                      ir = tsTypeToTypeIR(tsType, chk, typeArgNode);
                     }
-                    if (!descriptor && chk.resolveName) {
+                    if (!ir && chk.resolveName) {
                       const sym = chk.resolveName(typeSrc, 524288, sourceFile);
                       if (sym) {
                         const tsType = chk.getDeclaredTypeOfSymbol?.(sym);
-                        descriptor = tsTypeToTypeDescriptor(tsType, chk, sourceFile);
+                        ir = tsTypeToTypeIR(tsType, chk, sourceFile);
                       }
                     }
                   }
                 }
               }
 
-              if (descriptor) {
+              if (ir) {
                 const expr = argSrc.trim();
-                const check = `(${emitCheckFromDescriptor(descriptor, expr)})`;
+                const check = `(${emitCheckFromIR(ir, expr)})`;
                 if (kind === 'is') {
                   replacement = check;
                 } else if (kind === 'equals') {
-                  replacement = `(${emitEqualsCheckFromDescriptor(descriptor, expr)})`;
+                  replacement = `(${emitEqualsCheckFromIR(ir, expr)})`;
                 } else if (kind === 'assert') {
                   replacement = `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
                 } else if (kind === 'assertEquals') {
-                  const eq = emitEqualsCheckFromDescriptor(descriptor, expr);
+                  const eq = emitEqualsCheckFromIR(ir, expr);
                   replacement = `((() => { if (!(${eq})) throw new Error("assertion failed"); return ${expr}; })())`;
                 } else if (kind === 'validate') {
                   replacement = `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
