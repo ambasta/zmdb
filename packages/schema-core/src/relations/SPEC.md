@@ -33,6 +33,83 @@ are gone, along with `Cardinality`, `RelationDef`, `RelationsMap` and the six co
 types (`RelationEntityFromDef`, `RelationCardinalityFromDef`, `DerivedEntity`) that existed to
 recover a target's row type from a value built out of that type in the first place.
 
+### 1.1 Referential actions (frozen — epic "Referential actions")
+
+Two facts have to be said before the shape, because they change what this epic is.
+
+**There is no `RelationDef` to put `onDelete` on.** It was removed with the relation DSL (§1 above), so an
+action is declared as a tag on the column that holds the key — which is also where `References` already is,
+and a referential action is a property of the foreign key rather than of the relation that reads it:
+
+```ts
+interface Post extends Table<'posts'> {
+  userId: number & Sql<'integer'> & References<'users.id'> & OnDelete<'cascade'>;
+  editorId: (number & Sql<'integer'> & References<'users.id'> & OnDelete<'set null'>) | null;
+}
+
+type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
+```
+
+**And the DDL emits no `FOREIGN KEY` clause at all today.** `ColumnIR.references` is reflected and used to
+resolve relations, but nothing in `columnDdl` or `emitUp` writes a constraint, and `ColumnSnapshot` has no
+field for one. So this is not "add an action to the existing constraint" — the constraint is the new thing,
+and the action rides along with it. `../../../query-compiler/src/migrations/SPEC.md` §1.6 owns the snapshot
+field, the statements and the diff.
+
+Omitting both tags emits `NO ACTION`, explicitly rather than by leaving the clause off, because MySQL and
+Postgres both default to `NO ACTION` and writing it makes the emitted DDL say what the declaration means.
+
+Two separate tags rather than a second parameter on `References`, which is what
+`docs-site/content/cascading.md` currently sketches as `References<'users.id', { onDelete: 'cascade' }>`.
+`onDelete` and `onUpdate` are independently optional, so an options object makes absence a missing key in a
+partial object type where two tags make it the absence of a tag — and `References` would become the only
+member of the tag vocabulary taking a second type parameter, when every other tag composes by intersection.
+
+**A test currently asserts the opposite of this.**
+`packages/repository/src/tagged-to-ddl.spec.ts` pins `.not.toContain('REFERENCES')` under the title
+`drops the unique constraint and the foreign key on the way to the DDL`, and that title is cited three
+times by `tests/api-coverage/mapping.mjs`. Emitting a foreign key inverts the assertion **and** falsifies
+the title, so the implementation slice rewrites both and updates the mapping in the same change. Recorded
+here because a renamed test title is a build failure by design, and finding that out mid-implementation
+reads like a mistake rather than the plan.
+
+#### Two references to one table are two constraints
+
+`ColumnIR.references` is per column, and the grouping rule is that **each `References` is its own
+single-column foreign key**. It is spelled out because the obvious alternative — group the columns that
+reference the same table — is wrong on the most ordinary schema there is:
+
+```ts
+createdBy: number & Sql<'integer'> & References<'users.id'>;
+updatedBy: number & Sql<'integer'> & References<'users.id'>;
+```
+
+Grouped, those become one composite constraint requiring `createdBy` and `updatedBy` to point at the _same_
+user, which is a rule nobody wrote and which fails on the second edit of any row.
+
+A composite foreign key is therefore declared explicitly, at the table level, naming all three parts so
+nothing has to be parsed out of a dotted-and-comma'd string:
+
+```ts
+interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId', 'users', 'tenantId,id'> {}
+```
+
+Local columns, target table, target columns — positionally paired, equal lengths, refused otherwise, the
+same rule and the same diagnostic style as `ResolvedRelation` in §2.1. This depends on the composite-key
+epic having landed `SchemaIR.primaryKey` as an ordered list, because the target columns must be a key or a
+unique constraint on the target and there is nothing to check that against otherwise.
+
+#### `set null` and `set default` are refused at build time
+
+```
+posts.userId: OnDelete<'set null'> on a NOT NULL column; a delete would have to write NULL into a column
+that forbids it — make the column nullable, or use 'cascade' or 'restrict'
+```
+
+The database finds this at delete time, on a delete of a row that happens to have children, which is
+months later and in production. `set default` on a column with no `HasDefault` is refused the same way, for
+the same reason.
+
 ## 2. Resolving one
 
 `resolveRelation(ir, name)` turns a `RelationIR` into the pair of columns a query matches on:

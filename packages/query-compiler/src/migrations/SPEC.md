@@ -243,6 +243,132 @@ emitter produces the `ALTER` for it. It will fail on a non-empty table, because 
 one embedding into another, and that failure is the correct outcome: re-embedding a corpus is a data
 migration and there is no DDL that can stand in for it. The emitter does not soften it into a comment.
 
+### 1.6 Foreign keys and referential actions (frozen — epic "Referential actions")
+
+Nothing in this package emits a `FOREIGN KEY` clause today, so the snapshot gains the constraint and not
+just an action:
+
+```ts
+interface ForeignKeySnapshot {
+  readonly name: string;
+  readonly columns: readonly string[]; // on this table, in declaration order
+  readonly targetTable: string;
+  readonly targetColumns: readonly string[]; // positionally paired with `columns`
+  readonly onDelete: ReferentialAction; // 'no action' when undeclared
+  readonly onUpdate: ReferentialAction;
+}
+
+interface TableSnapshot {
+  readonly foreignKeys: readonly ForeignKeySnapshot[]; // sorted by name
+}
+```
+
+Required, `[]` when there are none, for §1.1's reason. All names are physical (§1.4).
+
+#### The name is always emitted, never left to the server
+
+```
+postgres  ALTER TABLE "posts" ADD CONSTRAINT "posts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
+mysql     ALTER TABLE `posts` ADD CONSTRAINT `posts_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+```
+
+The convention is `<table>_<column>_…_fkey`, which is Postgres's own, so an unnamed constraint created by
+hand already has the name zmdb would have generated. Leaving the name to the server is not an option
+because MySQL's generated names are **ordinal** — `posts_ibfk_1`, `posts_ibfk_2` — so adding a second
+foreign key renumbers nothing but changes which constraint a later `DROP CONSTRAINT posts_ibfk_2` hits, and
+a diff has no stable handle on anything.
+
+A generated name longer than 63 characters is **refused at build time**, naming the length and the limit,
+rather than truncated or hashed. Postgres silently truncates at 63 bytes, which can make two distinct
+constraints collide; and the alternative — a hash suffix — puts an unreadable name in the one message where
+a constraint name is actually read by a human:
+`violates foreign key constraint "posts_a1b2c3d4_fkey"`. An explicit `ForeignKey<…>` declaration may
+therefore need to carry its own name on a schema with long identifiers.
+
+#### The clause is a separate statement, except on SQLite
+
+Foreign keys are added by `ALTER TABLE … ADD CONSTRAINT` **after** every table in the plan exists, never
+inline in `CREATE TABLE`. A pair of tables that reference each other cannot be created inline in either
+order, and that pair is ordinary — a `users.primary_org_id` against an `orgs.owner_id`.
+
+**SQLite cannot `ADD CONSTRAINT`.** There is no such `ALTER TABLE` form, so on SQLite the foreign key is
+emitted inline in the `CREATE TABLE` instead:
+
+```
+sqlite  CREATE TABLE "posts" ("id" INTEGER PRIMARY KEY, "user_id" INTEGER NOT NULL, FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)
+```
+
+Which means a mutually-referencing pair of tables is **not expressible on SQLite** at all, and the emitter
+refuses it naming both tables rather than emitting a `CREATE TABLE` that fails. That is a real limit of the
+dialect, not of zmdb, and stating it here is cheaper than discovering it from `no such table` during a
+migration.
+
+#### The three dialect exceptions, and what is done about each
+
+- **InnoDB rejects `SET DEFAULT`.** MySQL parses the clause and then fails the `CREATE`/`ALTER` with
+  "Cannot add foreign key constraint", which names nothing useful. So `'set default'` is **refused at emit
+  time** on MySQL, naming the action, the constraint and the dialect. It is not downgraded to `NO ACTION`:
+  the two behaviours differ on exactly the delete the author was thinking about when they chose it.
+- **MySQL requires an index on the referencing columns and will create one silently.** zmdb emits it
+  itself, on MySQL only, named `<constraint>_idx`, immediately before the constraint. The reason is drift
+  rather than performance: a server-created index is a real index that introspection finds and that `diff`
+  then wants to drop, so every `check` on a MySQL database would report an index nobody declared. On
+  Postgres and SQLite no index is emitted, because neither server creates one and the choice is the
+  author's — with the note that without one, `ON DELETE CASCADE` scans the child table once per deleted
+  parent row.
+- **SQLite cannot alter a constraint.** Adding, dropping or changing the action of a foreign key on an
+  existing table needs the create/copy/drop/rename rebuild, exactly as `alter_primary_key` does (§1.3), so
+  the emitter **refuses** with the same class of error and the same shape of message:
+
+```
+sqlite cannot change the foreign key "posts_user_id_fkey" on "posts" (ON DELETE NO ACTION → CASCADE);
+SQLite has no ALTER TABLE form for a constraint, so this needs a hand-written table rebuild — see the
+migration guide
+```
+
+#### `PRAGMA foreign_keys` — zmdb turns it on
+
+SQLite enforces foreign keys only when `PRAGMA foreign_keys = ON`, the setting is **per connection**, and
+the default is off. So the choice is between DDL that is decorative and a setting zmdb changes on the
+caller's behalf, and the tie is broken by a fact about SQLite rather than by preference: **enabling the
+pragma does not validate the rows already in the table.** Enforcement applies to statements executed
+afterwards, so turning it on cannot fail a deploy over historical data.
+
+zmdb's `node:sqlite` adapter therefore issues `PRAGMA foreign_keys = ON` on every connection it opens. The
+alternative leaves an author who wrote `ON DELETE CASCADE` with no cascade, a passing test suite, and no
+signal anywhere — the emitted clause is a comment.
+
+For a driver zmdb did not open, it cannot set the pragma. The introspector reads it and reports it
+(`../introspect/SPEC.md` §8), so "foreign keys are declared but not enforced on this connection" is a
+finding rather than a silence, and `PRAGMA foreign_key_check` is the way to find pre-existing violations
+before enabling it on an old database.
+
+#### Diff
+
+```ts
+| { kind: 'add_foreign_key'; table: string; fk: ForeignKeySnapshot }
+| { kind: 'drop_foreign_key'; table: string; name: string }
+```
+
+An action change is a **drop then an add**, on both Postgres and MySQL, because neither has an `ALTER
+TABLE … ALTER CONSTRAINT` form that reaches `ON DELETE` — Postgres's only touches deferrability. Two ops
+rather than one, in that order, and the pair is inside the migration's transaction on Postgres.
+
+Constraints are compared structurally by every field except the name, so a constraint whose columns and
+target match but whose action differs is a change rather than a drop plus an unrelated add. Comparing by
+name alone would make a hand-named constraint look like a different one entirely.
+
+The statement order in §1.5 gains two positions, both forced by dependency:
+
+1. `create_extension`.
+2. **`drop_foreign_key`** — before any column or table drop, because a constraint referencing a column
+   blocks dropping it.
+3. Renames.
+4. Table and column drops, then creates, then `alter_column_type` and `alter_primary_key`.
+5. **`add_foreign_key`** — after every table and column it names exists.
+6. Index creation last. On MySQL the supporting index of a foreign key is the exception and is emitted with
+   its constraint, since the constraint cannot be created without it.
+
 ## 2. Diff engine
 
 `diff(prev, next, opts?)` — pure function producing ordered ops. The five original ops, plus the two
@@ -257,7 +383,9 @@ type ChangeOp =
   | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string }
   | { kind: 'alter_primary_key'; table: string; from: readonly string[]; to: readonly string[] } // §1.3
   | RenameOp // §1.4
-  | { kind: 'create_extension'; name: string; schema?: string }; // §1.5
+  | { kind: 'create_extension'; name: string; schema?: string } // §1.5
+  | { kind: 'add_foreign_key'; table: string; fk: ForeignKeySnapshot } // §1.6
+  | { kind: 'drop_foreign_key'; table: string; name: string }; // §1.6
 ```
 
 `diff(x, x)` returns `[]`. Passing a rename alongside two identical snapshots is refused rather than
