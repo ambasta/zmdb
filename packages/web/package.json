@@ -43,6 +43,7 @@
     "./app": "./src/app/index.ts",
     "./dto-pipes": "./src/dto-pipes/index.ts",
     "./openapi": "./src/openapi/index.ts",
+    "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",
     "./observability": "./src/observability/index.ts",
     "./otel": "./src/observability/otel.ts",

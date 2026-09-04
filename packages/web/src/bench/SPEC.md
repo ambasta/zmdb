@@ -15,6 +15,9 @@ request. This is the concrete, testable form of "no per-request reflection".
 - Builds a router with N routes, runs `handle` for `iters` iterations, returns
   `{ iters, totalMs, opsPerSec }`. Pure timing via `performance.now()`; no
   scoring, no averaging across unrelated things.
+- The same harness accepts one exact `versioning` strategy plus the selected
+  `version`, so unversioned, automatically expanded path, header and media-type
+  route tables can be measured with the same route count and request loop.
 - A companion `metadataReadCount` probe (test-only) asserts the metadata is read
   a **bounded** number of times during setup and **zero** additional times across
   many `handle` calls — the regression guard for init-time resolution.
@@ -38,6 +41,9 @@ request. This is the concrete, testable form of "no per-request reflection".
   **no additional** `getRoutes`/metadata reads (resolution is init-time).
 - `benchmarkRouter` returns a plausible positive `opsPerSec` for a small route
   set (smoke).
+- The path, header and media-type configurations all run through that same
+  benchmark surface; comparisons report raw samples rather than asserting a
+  universal timing threshold in CI.
 - `benchmarkAppStartup` returns raw positive timings for an eager module graph.
 - No consumer-surface `as`; suite + typecheck green.
 - Dashboard/docs note added honestly (docs sub-issue).

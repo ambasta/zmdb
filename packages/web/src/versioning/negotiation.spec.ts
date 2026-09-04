@@ -1,131 +1,702 @@
 import { describe, expect, it } from 'vitest';
 
-import { bodyText, createRouter, type GuardRegistry, type Router } from '../pipeline/index.js';
-import { Controller, Get } from '../routing/index.js';
+import type { Span, SpanContext } from '../observability/index.js';
+import { bodyText, createRouter, type Router } from '../pipeline/index.js';
+import { Controller, Get, getRoutes } from '../routing/index.js';
+import { Version, VersionNeutral } from './index.js';
 
-// Version negotiation. Tests freeze for the epic "OpenAPI security schemes and API versioning"
-// (#572 / spec freeze #573); the frozen text is `./SPEC.md`, and the list this file answers is its §8.
-// The document representation is `../openapi/versioned-documents.spec.ts`; the compile-time half of
-// §8 item 1 is `./versioning.type-test.ts`.
-//
-// **Most of §8 cannot be asserted at this freeze, and the reason is structural rather than an
-// omission.** `./index.ts` does not exist — this directory holds only `SPEC.md` — and a `.spec.ts`
-// that imports a module which is not there does not produce a failing test, it produces a file that
-// never collects, which is a broken suite and not a freeze. The #409 convention also rules out the
-// two ways round that: `declare`ing `Version` would make every assertion below a claim about a stub,
-// and a dynamic `import()` of a missing specifier laundered through a variable would hide the
-// specifier from the compiler, so nothing would check the types on the day the module lands.
-//
-// What that leaves out, and what has to be written by #576 in the same commit that adds the module:
-//
-//   - §8 items 3 (the `400` and `406` statuses and their `supported` bodies), 4 (`Accept` q-values,
-//     including `q=0`), 6 (`@VersionNeutral()` answering an undeclared version), 7
-//     (method-over-class precedence) and 8 (`@Version('1', '2')` expanding to two paths). Every one
-//     needs a route that *declares* a version, and `@Version` is the only way to declare one.
-//   - §8 item 10, the performance assertion. It needs N versions of M routes, so it needs the
-//     decorator too.
-//   - §8 item 9's second half: `@Version` on a route with no strategy configured is a registration
-//     error. Same reason.
-//
-// What is here is the two claims reachable through `createRouter`, which does exist: the registration
-// error that makes "serves every version" and "nobody thought about it" different inputs (§6), and
-// the behaviour of an unconfigured router, which is the thing the whole epic must not change.
+const jsonBody = async (response: Awaited<ReturnType<Router['handle']>>): Promise<unknown> =>
+  JSON.parse(await bodyText(response));
 
-/** §2: the strategy, given to the router at construction and not per registration. */
-type FrozenVersionStrategy =
-  | { readonly kind: 'path'; readonly prefix: string }
-  | { readonly kind: 'header'; readonly name: string; readonly default: string }
-  | { readonly kind: 'media-type'; readonly key: string; readonly default: string };
+@Controller('/plain')
+class PlainController {
+  @Get('')
+  list() {
+    return 'plain';
+  }
+}
 
-/**
- * §2's existing router option bag plus `versioning?: VersionStrategy`.
- *
- * No cast and no `as`: the current guard-only option bag accepts the wider object because its
- * additional `versioning` property is optional. The annotation is the whole boundary for this file,
- * and it disappears when `createRouter` takes the option for real.
- */
-const versionedRouter: (options?: {
-  readonly guardRegistry?: GuardRegistry;
-  readonly versioning?: FrozenVersionStrategy;
-}) => Router = createRouter;
-
-// The arrangement `docs-site/content/web-versioning.md` recommends today: the version is in the
-// controller's own prefix, and neither controller declares a version to the framework.
-@Controller('/v1/posts')
+@Version('1')
+@Controller('/posts')
 class PostsV1 {
   @Get('')
   list() {
-    return ['v1'];
+    return 'v1';
   }
 }
 
-@Controller('/v2/posts')
+@Version('2')
+@Controller('/posts')
 class PostsV2 {
   @Get('')
   list() {
-    return ['v2'];
+    return 'v2';
   }
 }
 
-describe('version negotiation (frozen: versioning/SPEC.md 4-7)', () => {
-  // §8 item 5, and the adversarial case for this half of the epic. Once a strategy is configured a
-  // route must say something, because `versionsOf` returning `undefined` and "serves every version"
-  // must not be the same text — the exact parallel of `../openapi/SPEC.md` §S4's strict security.
-  //
-  // A fresh router inside the arrow rather than one shared between the two assertions: `register`
-  // pushes into the bucket without checking for a route it already holds, so a second call on one
-  // router could throw about a duplicate and let the second assertion pass for the wrong reason.
-  //
-  // actual today, on the first assertion:
-  //   names the controller: expected [Function register] to throw an error
-  // — the `versioning` option is accepted and dropped on the floor, `PostsV1` registers happily, and
-  // a probe run of the same router then answered `GET /v1/posts` with `accept-version: 9` as
-  // `200 ["v1"]`. That is the permissive failure this test exists to make impossible: a client asking
-  // for a version the server has never heard of gets version 1's body and a success status.
-  it.fails('refuses to register a route that declares no version under a configured strategy', () => {
+@Version('1', '2')
+@Controller('/multi')
+class MultiVersionController {
+  @Get('')
+  list() {
+    return 'both';
+  }
+}
+
+@VersionNeutral()
+@Controller('/health')
+class HealthController {
+  @Get('')
+  check() {
+    return 'ok';
+  }
+}
+
+@VersionNeutral()
+@Controller('/shadow')
+class NeutralShadowController {
+  @Get('')
+  read() {
+    return 'neutral';
+  }
+}
+
+@Version('1')
+@Controller('/shadow')
+class VersionedShadowController {
+  @Get('')
+  read() {
+    return 'versioned';
+  }
+}
+
+@VersionNeutral()
+@Controller('/mixed-order')
+class NeutralParameterController {
+  @Get('/:id')
+  read() {
+    return 'neutral-parameter';
+  }
+}
+
+@Version('1')
+@Controller('/mixed-order')
+class VersionedFixedController {
+  @Get('/fixed')
+  read() {
+    return 'versioned-fixed';
+  }
+}
+
+@VersionNeutral()
+@Controller('/nearer')
+class NeutralController {
+  @Version('2')
+  @Get('/specific')
+  specific() {
+    return 'specific-v2';
+  }
+
+  @Get('/neutral')
+  neutral() {
+    return 'neutral';
+  }
+}
+
+@Version('1')
+@Controller('/nearer-other')
+class VersionedController {
+  @VersionNeutral()
+  @Get('/neutral')
+  neutral() {
+    return 'neutral';
+  }
+
+  @Get('/specific')
+  specific() {
+    return 'specific-v1';
+  }
+}
+
+class InheritedVersionBase {
+  @Version('2')
+  @Get('/read')
+  read() {
+    return 'inherited-v2';
+  }
+}
+
+@Version('1')
+@Controller('/inherited')
+class InheritedVersionController extends InheritedVersionBase {}
+
+@Version('1')
+@Controller('/order')
+class OrderedController {
+  @Get('/:id')
+  byId() {
+    return 'parameter';
+  }
+
+  @Get('/fixed')
+  fixed() {
+    return 'fixed';
+  }
+}
+
+@Version('1')
+@Controller('/duplicate')
+class DuplicateOne {
+  @Get('')
+  read() {
+    return 1;
+  }
+}
+
+@Version('1')
+@Controller('/duplicate')
+class DuplicateTwo {
+  @Get('')
+  read() {
+    return 2;
+  }
+}
+
+@Version('2')
+@Controller('/deferred')
+class DeferredController {
+  @Get('')
+  read() {
+    return 'deferred-v2';
+  }
+}
+
+@Version('1')
+@Controller('/perf')
+class OneVersionPerf {
+  @Get('/a')
+  a() {
+    return 'a';
+  }
+
+  @Get('/b')
+  b() {
+    return 'b';
+  }
+
+  @Get('/target')
+  target() {
+    return 'target';
+  }
+}
+
+@Version('1', '2', '3', '4', '5', '6', '7', '8')
+@Controller('/perf')
+class ManyVersionPerf {
+  @Get('/a')
+  a() {
+    return 'a';
+  }
+
+  @Get('/b')
+  b() {
+    return 'b';
+  }
+
+  @Get('/target')
+  target() {
+    return 'target';
+  }
+}
+
+function headerRouter() {
+  const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+  router.register(new PostsV1());
+  router.register(new PostsV2());
+  return router;
+}
+
+function mediaTypeRouter() {
+  const router = createRouter({ versioning: { kind: 'media-type', key: 'version', default: '1' } });
+  router.register(new PostsV1());
+  router.register(new PostsV2());
+  return router;
+}
+
+function countingPath(value: string): { readonly path: string; readonly reads: () => number } {
+  let reads = 0;
+  const path = {
+    length: value.length,
+    charCodeAt(index: number): number {
+      reads += 1;
+      return value.charCodeAt(index);
+    },
+    indexOf(search: string, from?: number): number {
+      reads += 1;
+      return value.indexOf(search, from);
+    },
+    slice(start?: number, end?: number): string {
+      reads += 1;
+      return value.slice(start, end);
+    },
+  } as unknown as string;
+  return { path, reads: () => reads };
+}
+
+function allocationGuardHeader(value: string): { readonly value: string; readonly reads: () => number } {
+  let reads = 0;
+  const guarded = {
+    length: value.length,
+    charCodeAt(index: number): number {
+      reads += 1;
+      return value.charCodeAt(index);
+    },
+    slice(): never {
+      throw new Error('known-version extraction must not slice');
+    },
+    split(): never {
+      throw new Error('known-version extraction must not split');
+    },
+    substring(): never {
+      throw new Error('known-version extraction must not substring');
+    },
+    toLowerCase(): never {
+      throw new Error('known-version extraction must not allocate a lower-cased copy');
+    },
+    trim(): never {
+      throw new Error('known-version extraction must not allocate a trimmed copy');
+    },
+  } as unknown as string;
+  return { value: guarded, reads: () => reads };
+}
+
+const TRACE_CONTEXT: SpanContext = {
+  traceId: '00000000000000000000000000000001',
+  spanId: '0000000000000001',
+  traceFlags: 1,
+};
+
+const NOOP_SPAN: Span = {
+  updateName: () => undefined,
+  setAttribute: () => undefined,
+  recordException: () => undefined,
+  setStatus: () => undefined,
+  end: () => undefined,
+  spanContext: () => TRACE_CONTEXT,
+};
+
+describe('version declarations', () => {
+  it('refuses a route with no version declaration under a configured strategy', () => {
     const register = () =>
-      versionedRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } }).register(new PostsV1());
-    expect(register, 'names the controller').toThrow(/PostsV1/);
-    expect(register, 'names the handler').toThrow(/\blist\b/);
+      createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } }).register(
+        new PlainController(),
+      );
+    expect(register).toThrow(/PlainController/);
+    expect(register).toThrow(/\blist\b/);
+    expect(register).toThrow(/@Version.*@VersionNeutral/);
   });
 
-  // Green: §8 item 9's first half, §4's `path` row and §5's `path` row at once. With no `versioning`
-  // configured there is no version code in `handle` at all, and an unknown version is an unknown
-  // path — the 404 the ordinary two-key table already returns. This is the assertion that #576 breaks
-  // if it adds a resolver that runs whether or not a strategy is configured, which is the cost
-  // `tests/api-coverage/mapping.mjs:154` refuses to pay and §1 promises not to.
-  //
-  // The body is asserted exactly, not just the status: §5 gives the `400` and `406` a `supported`
-  // list and deliberately withholds one from the `404`, because a body enumerating which versions of
-  // which paths exist is a route-table oracle. A shared "unsupported version" body would leak it
-  // from the one status that must stay uniform.
-  it('routes on method and path alone when no strategy is configured', async () => {
+  it('refuses @Version when no version strategy is configured', () => {
+    expect(() => createRouter().register(new PostsV1())).toThrow(/PostsV1\.list/);
+    expect(() => createRouter().register(new PostsV1())).toThrow(/createRouter.*versioning/);
+  });
+
+  it('keeps an unconfigured router on method and path alone', async () => {
+    @Controller('/v1/posts')
+    class ManualV1 {
+      @Get('')
+      list() {
+        return 'manual-v1';
+      }
+    }
+
     const router = createRouter();
-    router.register(new PostsV1());
-    router.register(new PostsV2());
-    const unversioned = await router.handle({ method: 'GET', path: '/posts', headers: {} });
+    router.register(new ManualV1());
+    const known = await router.handle({ method: 'GET', path: '/v1/posts', headers: { 'accept-version': '9' } });
     const unknown = await router.handle({ method: 'GET', path: '/v9/posts', headers: {} });
-    const known = await router.handle({ method: 'GET', path: '/v1/posts', headers: {} });
-    expect(`${unversioned.status} ${unknown.status} ${known.status} ${await bodyText(known)}`).toBe(
-      '404 404 200 ["v1"]',
-    );
-    expect(await bodyText(unknown), 'the 404 says nothing about which versions exist').toBe(
-      '{"error":"no route for GET /v9/posts"}',
-    );
+    expect(`${known.status} ${await bodyText(known)}`).toBe('200 "manual-v1"');
+    expect(`${unknown.status} ${await bodyText(unknown)}`).toBe('404 {"error":"no route for GET /v9/posts"}');
   });
 
-  // Green: §4's header and media-type rows say a request naming no version resolves to `default`, and
-  // an unconfigured router has no default to resolve to. A version-naming header on an unconfigured
-  // router is therefore an ordinary header — read by nothing, changing nothing — and it stays that
-  // way, because §8 item 9 makes a silent behaviour change the one outcome worse than a refusal.
-  it('ignores a version header when no strategy is configured', async () => {
-    const router = createRouter();
-    router.register(new PostsV1());
-    const withHeader = await router.handle({
+  it('uses the method declaration instead of a neutral controller declaration', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new NeutralController());
+    const v2 = await router.handle({
       method: 'GET',
-      path: '/v1/posts',
-      headers: { 'accept-version': '2', accept: 'application/json;version=2' },
+      path: '/nearer/specific',
+      headers: { 'accept-version': '2' },
     });
-    expect(`${withHeader.status} ${await bodyText(withHeader)}`).toBe('200 ["v1"]');
+    const v1 = await router.handle({
+      method: 'GET',
+      path: '/nearer/specific',
+      headers: { 'accept-version': '1' },
+    });
+    expect(`${v2.status} ${await bodyText(v2)} | ${v1.status}`).toBe('200 "specific-v2" | 400');
+  });
+
+  it('uses a neutral method instead of its controller version', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new VersionedController());
+    const unknown = await router.handle({
+      method: 'GET',
+      path: '/nearer-other/neutral',
+      headers: { 'accept-version': '99' },
+    });
+    const wrong = await router.handle({
+      method: 'GET',
+      path: '/nearer-other/specific',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${unknown.status} ${await bodyText(unknown)} | ${wrong.status}`).toBe('200 "neutral" | 400');
+  });
+
+  it('keeps an inherited method declaration ahead of the derived class declaration', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new InheritedVersionController());
+    const v2 = await router.handle({
+      method: 'GET',
+      path: '/inherited/read',
+      headers: { 'accept-version': '2' },
+    });
+    const v1 = await router.handle({
+      method: 'GET',
+      path: '/inherited/read',
+      headers: { 'accept-version': '1' },
+    });
+    expect(`${v2.status} ${await bodyText(v2)} | ${v1.status}`).toBe('200 "inherited-v2" | 400');
+  });
+});
+
+describe('path versioning', () => {
+  it('expands one multi-version route at registration and leaves routing metadata unchanged', async () => {
+    const metadataBefore = getRoutes(MultiVersionController);
+    const router = createRouter({ versioning: { kind: 'path', prefix: 'v' } });
+    router.register(new MultiVersionController());
+
+    const v1 = await router.handle({ method: 'GET', path: '/v1/multi', headers: {} });
+    const v2 = await router.handle({ method: 'GET', path: '/v2/multi', headers: {} });
+    const bare = await router.handle({ method: 'GET', path: '/multi', headers: {} });
+    const unknown = await router.handle({ method: 'GET', path: '/v9/multi', headers: {} });
+
+    expect(`${v1.status} ${await bodyText(v1)} | ${v2.status} ${await bodyText(v2)}`).toBe('200 "both" | 200 "both"');
+    expect(`${bare.status} ${unknown.status} ${await bodyText(unknown)}`).toBe(
+      '404 404 {"error":"no route for GET /v9/multi"}',
+    );
+    expect(getRoutes(MultiVersionController)).toEqual(metadataBefore);
+  });
+
+  it('keeps an explicitly neutral hand-versioned path unchanged', async () => {
+    @VersionNeutral()
+    @Controller('/v1/manual')
+    class ManualController {
+      @Get('')
+      list() {
+        return 'manual';
+      }
+    }
+
+    const router = createRouter({ versioning: { kind: 'path', prefix: 'v' } });
+    router.register(new ManualController());
+    const response = await router.handle({ method: 'GET', path: '/v1/manual', headers: {} });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "manual"');
+  });
+});
+
+describe('header versioning', () => {
+  it('uses the configured default when the request names no version', async () => {
+    const response = await headerRouter().handle({ method: 'GET', path: '/posts', headers: {} });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v1"');
+  });
+
+  it('routes a request to the handler for its declared version', async () => {
+    const response = await headerRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v2"');
+  });
+
+  it('runs route guards only for the selected version', async () => {
+    const calls: string[] = [];
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new PostsV1(), {
+      list: {
+        guards: [
+          {
+            canActivate: () => {
+              calls.push('v1');
+              return true;
+            },
+          },
+        ],
+      },
+    });
+    router.register(new PostsV2(), {
+      list: {
+        guards: [
+          {
+            canActivate: () => {
+              calls.push('v2');
+              return true;
+            },
+          },
+        ],
+      },
+    });
+
+    const response = await router.handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${response.status} ${await bodyText(response)} ${calls.join(',')}`).toBe('200 "v2" v2');
+  });
+
+  it('returns 400 with the route-specific supported versions for an unknown version', async () => {
+    const response = await headerRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { 'accept-version': '9' },
+    });
+    expect(response.status).toBe(400);
+    expect(await jsonBody(response)).toEqual({
+      error: 'unsupported version "9"',
+      supported: ['1', '2'],
+    });
+  });
+
+  it('keeps an unknown path a uniform 404 rather than leaking unrelated versions', async () => {
+    const response = await headerRouter().handle({
+      method: 'GET',
+      path: '/missing',
+      headers: { 'accept-version': '9' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('404 {"error":"no route for GET /missing"}');
+  });
+
+  it('lets a version-specific route shadow a neutral route regardless of registration order', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new NeutralShadowController());
+    router.register(new VersionedShadowController());
+
+    const v1 = await router.handle({
+      method: 'GET',
+      path: '/shadow',
+      headers: { 'accept-version': '1' },
+    });
+    const v2 = await router.handle({
+      method: 'GET',
+      path: '/shadow',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${await bodyText(v1)} ${await bodyText(v2)}`).toBe('"versioned" "neutral"');
+  });
+
+  it('preserves registration order between different neutral and versioned patterns', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new NeutralParameterController());
+    router.register(new VersionedFixedController());
+
+    const response = await router.handle({
+      method: 'GET',
+      path: '/mixed-order/fixed',
+      headers: { 'accept-version': '1' },
+    });
+    expect(await bodyText(response)).toBe('"neutral-parameter"');
+  });
+
+  it('lets a neutral route answer a version no route declares', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new HealthController());
+    const response = await router.handle({
+      method: 'GET',
+      path: '/health',
+      headers: { 'accept-version': '2099-01-01' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "ok"');
+  });
+
+  it('preserves first-registered route ordering within one version bucket', async () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new OrderedController());
+    const response = await router.handle({
+      method: 'GET',
+      path: '/order/fixed',
+      headers: { 'accept-version': '1' },
+    });
+    expect(await bodyText(response)).toBe('"parameter"');
+  });
+
+  it('refuses two routes with the same method, path and version', () => {
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.register(new DuplicateOne());
+    expect(() => router.register(new DuplicateTwo())).toThrow(/DuplicateTwo\.read/);
+    expect(() => router.register(new DuplicateTwo())).toThrow(/GET \/duplicate.*version "1"/);
+  });
+
+  it('keeps deferred construction behind the selected version', async () => {
+    let constructions = 0;
+    const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    router.registerDeferred(DeferredController, async () => {
+      constructions += 1;
+      return new DeferredController();
+    });
+
+    const wrong = await router.handle({
+      method: 'GET',
+      path: '/deferred',
+      headers: { 'accept-version': '1' },
+    });
+    expect(`${wrong.status} ${constructions}`).toBe('400 0');
+
+    const selected = await router.handle({
+      method: 'GET',
+      path: '/deferred',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${selected.status} ${await bodyText(selected)} ${constructions}`).toBe('200 "deferred-v2" 1');
+  });
+
+  it('uses the same versioned table when request tracing is configured', async () => {
+    const router = createRouter({
+      versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      tracer: { startSpan: () => NOOP_SPAN },
+    });
+    router.register(new PostsV2());
+    const response = await router.handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { 'accept-version': '2' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v2"');
+  });
+});
+
+describe('media-type versioning', () => {
+  it('uses the configured default when Accept names no version', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { accept: 'application/json' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v1"');
+  });
+
+  it('selects the highest-quality acceptable version', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: {
+        accept: 'application/json;version=2;q=0.1, application/json;version=1;q=0.9',
+      },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v1"');
+  });
+
+  it('selects a supported version when a higher-quality range names an unknown one', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: {
+        accept: 'application/json;version=9, application/json;version=2;q=0.5',
+      },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v2"');
+  });
+
+  it('treats q=0 as a prohibition rather than selecting that version', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { accept: 'application/json;version=1;q=0' },
+    });
+    expect(response.status).toBe(406);
+    expect(await jsonBody(response)).toEqual({
+      error: 'unsupported version "1"',
+      supported: ['1', '2'],
+    });
+  });
+
+  it('keeps q=0 prohibitive when the same version also appears without it', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: {
+        accept: 'application/json;version=1, application/json;version=1;q=0',
+      },
+    });
+    expect(response.status).toBe(406);
+    expect(await jsonBody(response)).toEqual({
+      error: 'unsupported version "1"',
+      supported: ['1', '2'],
+    });
+  });
+
+  it('returns 406 with supported versions for an unknown media-type version', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { accept: 'application/json;version=9' },
+    });
+    expect(response.status).toBe(406);
+    expect(await jsonBody(response)).toEqual({
+      error: 'unsupported version "9"',
+      supported: ['1', '2'],
+    });
+  });
+
+  it('does not read a version from Content-Type', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { 'content-type': 'application/json;version=2' },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v1"');
+  });
+
+  it('returns the selected version in the JSON response media type', async () => {
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { accept: 'application/json;version=2' },
+    });
+    expect(response.headers['content-type']).toBe('application/json; version=2');
+  });
+
+  it('extracts a known media-type version without string-allocation helpers', async () => {
+    const accept = allocationGuardHeader('application/json; Version="2"; q=1.000');
+    const response = await mediaTypeRouter().handle({
+      method: 'GET',
+      path: '/posts',
+      headers: { accept: accept.value },
+    });
+    expect(`${response.status} ${await bodyText(response)}`).toBe('200 "v2"');
+    expect(accept.reads()).toBeGreaterThan(0);
+  });
+});
+
+describe('startup-built resolution', () => {
+  it('does not inspect more path candidates when other versions are registered', async () => {
+    const one = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    one.register(new OneVersionPerf());
+    const onePath = countingPath('/perf/target');
+    const oneResponse = await one.handle({
+      method: 'GET',
+      path: onePath.path,
+      headers: { 'accept-version': '1' },
+    });
+
+    const many = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+    many.register(new ManyVersionPerf());
+    const manyPath = countingPath('/perf/target');
+    const manyResponse = await many.handle({
+      method: 'GET',
+      path: manyPath.path,
+      headers: { 'accept-version': '1' },
+    });
+
+    expect(`${await bodyText(oneResponse)} ${await bodyText(manyResponse)}`).toBe('"target" "target"');
+    expect(manyPath.reads()).toBe(onePath.reads());
   });
 });

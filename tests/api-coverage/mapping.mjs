@@ -151,11 +151,12 @@ const NO_REQUEST_SCOPE =
   'singleton and transient providers and passes request state explicitly through the context ' +
   'object, so there is no scope to bubble and nothing to resolve twice.';
 
-const NO_VERSIONING =
-  'NestJS resolves an API version per request out of the URI, a header, a media type or a custom ' +
-  'extractor, and 350 of its assertions are that matrix crossed with route conflicts. zmdb routes ' +
-  'on method and path only; a version lives in the path if you want one, which is a routing ' +
-  'decision the reader can see rather than a resolver running on every request.';
+const NO_CUSTOM_VERSIONING =
+  'NestJS lets an application supply an arbitrary version extractor and treats its answer as a ' +
+  'single value or an ordered preference list. zmdb supports one explicit path, header or media-type ' +
+  'strategy so the request contract is fixed in startup configuration and has a finite document ' +
+  'shape; a custom callback would be a fourth strategy no generated document can describe and a ' +
+  'precedence framework the versioning specification deliberately rejects.';
 
 const NO_PLATFORM_ADAPTER =
   'These are Express and Fastify adapter behaviours: body parsers, static file serving, app ' +
@@ -826,7 +827,7 @@ export const nestjs = {
     'web-middleware',
   ),
   'hello-world/e2e/middleware-before-init': oos(NO_PLATFORM_ADAPTER, 'web-overview'),
-  'hello-world/e2e/middleware-with-versioning': oos(NO_VERSIONING, 'web-versioning'),
+  'hello-world/e2e/middleware-with-versioning': 'runs route guards only for the selected version',
   'hello-world/e2e/instance': oos(NO_PLATFORM_ADAPTER, 'web-overview'),
   'hello-world/e2e/multiple': oos(NO_PLATFORM_ADAPTER, 'web-overview'),
   'query-method/e2e/query-method': 'strips the query string from the path',
@@ -883,8 +884,24 @@ export const nestjs = {
     '404s a path whose segment count matches no route',
   ],
   'route-conflict/e2e/wildcard*': 'collapses duplicate slashes and strips trailing slashes',
-  'route-conflict/e2e/versioned-wildcard': oos(NO_VERSIONING, 'web-versioning'),
-  'versioning/e2e/*': oos(NO_VERSIONING, 'web-versioning'),
+  'route-conflict/e2e/versioned-wildcard': 'preserves first-registered route ordering within one version bucket',
+  'versioning/e2e/custom-versioning': oos(NO_CUSTOM_VERSIONING, 'web-versioning'),
+  'versioning/e2e/default-versioning': [
+    'uses the configured default when the request names no version',
+    'uses the configured default when Accept names no version',
+  ],
+  'versioning/e2e/header-versioning': [
+    'routes a request to the handler for its declared version',
+    'returns 400 with the route-specific supported versions for an unknown version',
+    'lets a version-specific route shadow a neutral route regardless of registration order',
+  ],
+  'versioning/e2e/media-type-versioning': [
+    'selects the highest-quality acceptable version',
+    'treats q=0 as a prohibition rather than selecting that version',
+    'returns 406 with supported versions for an unknown media-type version',
+  ],
+  'versioning/e2e/uri-versioning':
+    'expands one multi-version route at registration and leaves routing metadata unchanged',
   'inspector/e2e/graph-inspector': 'describes the large fixture graph',
   'repl/e2e/*': [
     'boots the container and resolves a provider in the repl scope',

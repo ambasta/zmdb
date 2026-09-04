@@ -9,6 +9,8 @@ import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
 import { resolveGuards } from '../pipeline/guards.js';
 import type { GuardRegistry, RouteOptions, SecurityRequirement } from '../pipeline/index.js';
 import { getRoutes, isPublic } from '../routing/index.js';
+import { versionsOf, type VersionStrategy } from '../versioning/index.js';
+import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
 
 export type { SecurityAwareGuard } from '../middleware/index.js';
 export type { GuardRegistry, SecurityRequirement } from '../pipeline/index.js';
@@ -29,6 +31,9 @@ export interface RouteSchemas {
   readonly body?: JsonSchema;
   readonly response?: JsonSchema;
 }
+
+/** Per-route, per-version schemas for header and media-type strategies. */
+export type VersionSchemas = Readonly<Record<string, Readonly<Record<string, RouteSchemas>>>>;
 
 export interface OAuthFlow {
   readonly refreshUrl?: string;
@@ -89,18 +94,29 @@ export type SecurityScheme =
 export interface OpenApiOptions {
   readonly info?: { readonly title: string; readonly version: string };
   readonly schemas?: Readonly<Record<string, RouteSchemas>>;
+  readonly versioning?: VersionStrategy;
+  readonly versionSchemas?: VersionSchemas;
   readonly securitySchemes?: Readonly<Record<string, SecurityScheme>>;
   readonly routes?: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>;
   readonly guardRegistry?: GuardRegistry;
   readonly strictSecurity?: boolean;
 }
 
-interface OpenApiParameter {
+interface OpenApiPathParameter {
   readonly name: string;
   readonly in: 'path';
   readonly required: true;
   readonly schema: { readonly type: 'string' };
 }
+
+interface OpenApiHeaderParameter {
+  readonly name: string;
+  readonly in: 'header';
+  readonly required: false;
+  readonly schema: { readonly enum: readonly string[]; readonly default: string };
+}
+
+type OpenApiParameter = OpenApiPathParameter | OpenApiHeaderParameter;
 
 interface OpenApiOperation {
   operationId: string;
@@ -289,6 +305,263 @@ function securityFor(
   return undefined;
 }
 
+interface CollectedRoute {
+  readonly controllerName: string;
+  readonly handlerName: string;
+  readonly openapiPath: string;
+  readonly method: string;
+  readonly params: string[];
+  readonly publicRoute: boolean;
+  readonly routePath: string;
+  readonly schemaPath: string;
+  readonly versions: readonly string[] | 'neutral' | undefined;
+  readonly order: number;
+}
+
+interface RouteTraits {
+  readonly security: readonly SecurityRequirement[] | undefined;
+  readonly deprecated: true | undefined;
+}
+
+interface VersionSchemaEntry {
+  readonly version: string;
+  readonly route: CollectedRoute;
+  readonly schemas: RouteSchemas | undefined;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sameDocumentValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (Array.isArray(left)) {
+    return (
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => sameDocumentValue(value, right[index]))
+    );
+  }
+  if (!isRecord(left) || !isRecord(right)) {
+    return false;
+  }
+  const leftKeys = Object.keys(left).toSorted();
+  const rightKeys = Object.keys(right).toSorted();
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key, index) => key === rightKeys[index] && sameDocumentValue(left[key], right[key]))
+  );
+}
+
+function versioningError(route: CollectedRoute, problem: string): Error {
+  return new Error(
+    `OpenAPI versioning error at ${locationOf(route.controllerName, route.handlerName)}: ${problem}. ` +
+      'Use path versioning when versions need different operation shapes.',
+  );
+}
+
+function routeTraits(
+  route: CollectedRoute,
+  options: OpenApiOptions,
+  securitySchemes: Readonly<Record<string, SecurityScheme>>,
+  strictSecurity: boolean,
+): RouteTraits {
+  const routeOptions = options.routes?.[route.controllerName]?.[route.handlerName];
+  return {
+    security: securityFor(
+      routeOptions,
+      options.guardRegistry,
+      securitySchemes,
+      strictSecurity,
+      route.publicRoute,
+      route.controllerName,
+      route.handlerName,
+    ),
+    deprecated: routeOptions?.deprecated,
+  };
+}
+
+function operationFor(route: CollectedRoute, schemas: RouteSchemas | undefined, traits: RouteTraits): OpenApiOperation {
+  const operation: OpenApiOperation = {
+    operationId: operationIdForRoute(route.method, route.schemaPath),
+    responses: { '200': { description: 'OK' } },
+  };
+  if (route.params.length > 0) {
+    operation.parameters = route.params.map(name => ({
+      name,
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+    }));
+  }
+  if (schemas?.body !== undefined) {
+    operation.requestBody = { content: { 'application/json': { schema: schemas.body } } };
+  }
+  if (schemas?.response !== undefined) {
+    operation.responses = {
+      '200': { description: 'OK', content: { 'application/json': { schema: schemas.response } } },
+    };
+  }
+  if (traits.security !== undefined) {
+    operation.security = traits.security;
+  }
+  if (traits.deprecated === true) {
+    operation.deprecated = true;
+  }
+  return operation;
+}
+
+function versionSchemasFor(routes: readonly CollectedRoute[], options: OpenApiOptions): readonly VersionSchemaEntry[] {
+  const entries: VersionSchemaEntry[] = [];
+  const claimed = new Set<string>();
+  for (const route of routes) {
+    if (route.versions === undefined || route.versions === 'neutral') {
+      continue;
+    }
+    for (const version of route.versions) {
+      if (claimed.has(version)) {
+        throw versioningError(route, `version "${version}" is declared more than once for this method and path`);
+      }
+      claimed.add(version);
+      entries.push({
+        version,
+        route,
+        schemas: options.versionSchemas?.[route.routePath]?.[version] ?? options.schemas?.[route.schemaPath],
+      });
+    }
+  }
+  return entries;
+}
+
+function sharedTraits(
+  routes: readonly CollectedRoute[],
+  options: OpenApiOptions,
+  securitySchemes: Readonly<Record<string, SecurityScheme>>,
+  strictSecurity: boolean,
+): RouteTraits {
+  const firstRoute = routes[0];
+  if (firstRoute === undefined) {
+    return { security: undefined, deprecated: undefined };
+  }
+  const first = routeTraits(firstRoute, options, securitySchemes, strictSecurity);
+  for (let index = 1; index < routes.length; index += 1) {
+    const route = routes[index];
+    if (route === undefined) {
+      continue;
+    }
+    const next = routeTraits(route, options, securitySchemes, strictSecurity);
+    if (!sameDocumentValue(first, next)) {
+      throw versioningError(
+        route,
+        'versions have different security or deprecation metadata, which one OpenAPI operation cannot represent',
+      );
+    }
+  }
+  return first;
+}
+
+function headerOperation(
+  routes: readonly CollectedRoute[],
+  strategy: Extract<VersionStrategy, { readonly kind: 'header' }>,
+  options: OpenApiOptions,
+  securitySchemes: Readonly<Record<string, SecurityScheme>>,
+  strictSecurity: boolean,
+): OpenApiOperation {
+  const versionEntries = versionSchemasFor(routes, options);
+  const first = versionEntries[0];
+  if (first === undefined) {
+    throw versioningError(routes[0] ?? emptyCollectedRoute(), 'the operation declares no versions');
+  }
+  if (!versionEntries.some(entry => entry.version === strategy.default)) {
+    throw versioningError(
+      first.route,
+      `configured default "${strategy.default}" is not served by this operation, so its version header cannot be optional`,
+    );
+  }
+  for (let index = 1; index < versionEntries.length; index += 1) {
+    const next = versionEntries[index];
+    if (next !== undefined && !sameDocumentValue(first.schemas, next.schemas)) {
+      throw versioningError(next.route, 'header-versioned request or response schemas differ across versions');
+    }
+  }
+  const operation = operationFor(
+    first.route,
+    first.schemas,
+    sharedTraits(routes, options, securitySchemes, strictSecurity),
+  );
+  operation.parameters = [
+    ...(operation.parameters ?? []),
+    {
+      name: strategy.name,
+      in: 'header',
+      required: false,
+      schema: { enum: versionEntries.map(entry => entry.version), default: strategy.default },
+    },
+  ];
+  return operation;
+}
+
+function mediaTypeOperation(
+  routes: readonly CollectedRoute[],
+  strategy: Extract<VersionStrategy, { readonly kind: 'media-type' }>,
+  options: OpenApiOptions,
+  securitySchemes: Readonly<Record<string, SecurityScheme>>,
+  strictSecurity: boolean,
+): OpenApiOperation {
+  const versionEntries = versionSchemasFor(routes, options);
+  const first = versionEntries[0];
+  if (first === undefined) {
+    throw versioningError(routes[0] ?? emptyCollectedRoute(), 'the operation declares no versions');
+  }
+  for (let index = 1; index < versionEntries.length; index += 1) {
+    const next = versionEntries[index];
+    if (next !== undefined && !sameDocumentValue(first.schemas?.body, next.schemas?.body)) {
+      throw versioningError(
+        next.route,
+        'media-type versioning reads Accept rather than Content-Type, so request schemas must be identical',
+      );
+    }
+  }
+
+  const operation = operationFor(
+    first.route,
+    first.schemas?.body === undefined ? undefined : { body: first.schemas.body },
+    sharedTraits(routes, options, securitySchemes, strictSecurity),
+  );
+  const hasResponseSchema = versionEntries.some(entry => entry.schemas?.response !== undefined);
+  if (hasResponseSchema) {
+    const content: Record<string, { schema: JsonSchema }> = {};
+    for (const entry of versionEntries) {
+      if (entry.schemas?.response === undefined) {
+        throw versioningError(
+          entry.route,
+          'a media-type operation supplies a response schema for only some of its versions',
+        );
+      }
+      content[jsonMediaTypeForVersion(strategy.key, entry.version)] = { schema: entry.schemas.response };
+    }
+    operation.responses = { '200': { description: 'OK', content } };
+  }
+  return operation;
+}
+
+function emptyCollectedRoute(): CollectedRoute {
+  return {
+    controllerName: '<unknown>',
+    handlerName: '<unknown>',
+    openapiPath: '/',
+    method: 'get',
+    params: [],
+    publicRoute: false,
+    routePath: '/',
+    schemaPath: '/',
+    versions: undefined,
+    order: -1,
+  };
+}
+
 /**
  * Generate an OpenAPI 3.1 document from controller routes (+ optional per-route
  * schemas). Deterministic: paths sorted, methods lowercased operation keys.
@@ -298,96 +571,167 @@ export function toOpenApi(
   options: OpenApiOptions = {},
 ): OpenApiDocument {
   const info = options.info ?? { title: '@zmdb/web API', version: '0.0.0' };
-  const schemas = options.schemas ?? {};
   const securitySchemes = options.securitySchemes ?? {};
   const strictSecurity =
     (options.routes !== undefined || options.guardRegistry !== undefined) && (options.strictSecurity ?? true);
   const paths: Record<string, PathItem> = {};
+  const collected: CollectedRoute[] = [];
+  let order = 0;
 
-  // Collect routes across controllers, then emit in a stable order.
-  const collected: {
-    controllerName: string;
-    handlerName: string;
-    openapiPath: string;
-    method: string;
-    operationId: string;
-    params: string[];
-    publicRoute: boolean;
-    routePath: string;
-  }[] = [];
   for (const controller of controllers) {
     const cls = toClass(controller);
     if (cls === undefined) {
       continue;
     }
     for (const route of getRoutes(cls)) {
-      const { openapiPath, params } = toOpenApiPath(route.path);
+      const declaration = versionsOf(cls, route.handlerName);
+      const publicRoute = isPublic(cls, route.handlerName);
       const method = route.method.toLowerCase();
+
+      if (options.versioning === undefined) {
+        if (declaration !== undefined && declaration !== 'neutral') {
+          throw new Error(
+            `OpenAPI versioning error at ${locationOf(cls.name, route.handlerName)}: ` +
+              '@Version() requires OpenApiOptions.versioning',
+          );
+        }
+        const { openapiPath, params } = toOpenApiPath(route.path);
+        collected.push({
+          controllerName: cls.name,
+          handlerName: route.handlerName,
+          openapiPath,
+          method,
+          params,
+          publicRoute,
+          routePath: route.path,
+          schemaPath: route.path,
+          versions: declaration,
+          order,
+        });
+        order += 1;
+        continue;
+      }
+
+      if (declaration === undefined) {
+        throw new Error(
+          `OpenAPI versioning error at ${locationOf(cls.name, route.handlerName)}: ` +
+            'declare @Version(...) or @VersionNeutral()',
+        );
+      }
+
+      if (options.versioning.kind === 'path' && declaration !== 'neutral') {
+        for (const version of declaration) {
+          const expandedPath = pathForVersion(options.versioning.prefix, version, route.path);
+          const { openapiPath, params } = toOpenApiPath(expandedPath);
+          collected.push({
+            controllerName: cls.name,
+            handlerName: route.handlerName,
+            openapiPath,
+            method,
+            params,
+            publicRoute,
+            routePath: route.path,
+            schemaPath: expandedPath,
+            versions: undefined,
+            order,
+          });
+          order += 1;
+        }
+        continue;
+      }
+
+      const { openapiPath, params } = toOpenApiPath(route.path);
       collected.push({
         controllerName: cls.name,
         handlerName: route.handlerName,
         openapiPath,
         method,
-        operationId: operationIdForRoute(method, route.path),
         params,
-        publicRoute: isPublic(cls, route.handlerName),
+        publicRoute,
         routePath: route.path,
+        schemaPath: route.path,
+        versions: declaration,
+        order,
       });
+      order += 1;
     }
   }
-  collected.sort((a, b) =>
-    a.openapiPath === b.openapiPath ? a.method.localeCompare(b.method) : a.openapiPath.localeCompare(b.openapiPath),
-  );
+
+  collected.sort((left, right) => {
+    if (left.openapiPath !== right.openapiPath) {
+      return left.openapiPath.localeCompare(right.openapiPath);
+    }
+    if (left.method !== right.method) {
+      return left.method.localeCompare(right.method);
+    }
+    return left.order - right.order;
+  });
 
   const operationIds = new Set<string>();
-  const routeKeys = new Set<string>();
-  for (const entry of collected) {
-    const routeKey = `${entry.method} ${entry.openapiPath}`;
-    if (routeKeys.has(routeKey) || operationIds.has(entry.operationId)) {
-      throw new Error(`@zmdb/web: duplicate OpenAPI operationId ${entry.operationId} for ${routeKey}`);
+  for (let index = 0; index < collected.length;) {
+    const first = collected[index];
+    if (first === undefined) {
+      break;
     }
-    routeKeys.add(routeKey);
-    operationIds.add(entry.operationId);
-    const item = paths[entry.openapiPath] ?? {};
-    const operation: OpenApiOperation = {
-      operationId: entry.operationId,
-      responses: { '200': { description: 'OK' } },
-    };
-    if (entry.params.length > 0) {
-      operation.parameters = entry.params.map(name => ({
-        name,
-        in: 'path',
-        required: true,
-        schema: { type: 'string' },
-      }));
+    const group: CollectedRoute[] = [first];
+    index += 1;
+    while (
+      index < collected.length &&
+      collected[index]?.openapiPath === first.openapiPath &&
+      collected[index]?.method === first.method
+    ) {
+      const next = collected[index];
+      if (next !== undefined) {
+        group.push(next);
+      }
+      index += 1;
     }
-    const routeSchemas = schemas[entry.routePath];
-    if (routeSchemas?.body !== undefined) {
-      operation.requestBody = { content: { 'application/json': { schema: routeSchemas.body } } };
+
+    const versioning = options.versioning;
+    let operation: OpenApiOperation;
+    if (versioning?.kind === 'header' || versioning?.kind === 'media-type') {
+      const neutral = group.find(route => route.versions === 'neutral');
+      if (neutral !== undefined) {
+        if (group.length > 1) {
+          throw versioningError(
+            neutral,
+            'neutral and version-specific handlers share one method and path, whose runtime shadowing one operation cannot express',
+          );
+        }
+        operation = operationFor(
+          neutral,
+          options.schemas?.[neutral.schemaPath],
+          routeTraits(neutral, options, securitySchemes, strictSecurity),
+        );
+      } else {
+        operation =
+          versioning.kind === 'header'
+            ? headerOperation(group, versioning, options, securitySchemes, strictSecurity)
+            : mediaTypeOperation(group, versioning, options, securitySchemes, strictSecurity);
+      }
+    } else {
+      if (group.length > 1) {
+        const operationId = operationIdForRoute(first.method, first.schemaPath);
+        throw new Error(
+          `@zmdb/web: duplicate OpenAPI operationId ${operationId} for ${first.method} ${first.openapiPath}`,
+        );
+      }
+      operation = operationFor(
+        first,
+        options.schemas?.[first.schemaPath],
+        routeTraits(first, options, securitySchemes, strictSecurity),
+      );
     }
-    if (routeSchemas?.response !== undefined) {
-      operation.responses = {
-        '200': { description: 'OK', content: { 'application/json': { schema: routeSchemas.response } } },
-      };
+
+    if (operationIds.has(operation.operationId)) {
+      throw new Error(
+        `@zmdb/web: duplicate OpenAPI operationId ${operation.operationId} for ${first.method} ${first.openapiPath}`,
+      );
     }
-    const routeOptions = options.routes?.[entry.controllerName]?.[entry.handlerName];
-    const security = securityFor(
-      routeOptions,
-      options.guardRegistry,
-      securitySchemes,
-      strictSecurity,
-      entry.publicRoute,
-      entry.controllerName,
-      entry.handlerName,
-    );
-    if (security !== undefined) {
-      operation.security = security;
-    }
-    if (routeOptions?.deprecated === true) {
-      operation.deprecated = true;
-    }
-    item[entry.method] = operation;
-    paths[entry.openapiPath] = item;
+    operationIds.add(operation.operationId);
+    const item = paths[first.openapiPath] ?? {};
+    item[first.method] = operation;
+    paths[first.openapiPath] = item;
   }
 
   if (Object.keys(securitySchemes).length === 0) {

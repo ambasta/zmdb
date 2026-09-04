@@ -11,6 +11,8 @@ import { tracedDriver } from '../observability/index.js';
 import type { Observability } from '../observability/types.js';
 import { createRouter, type ResponseBody } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
+import { Version, type VersionStrategy } from '../versioning/index.js';
+import { pathForVersion } from '../versioning/runtime.js';
 
 /** A probe that counts reads of a class's Symbol.metadata. */
 export interface MetadataReadCounter {
@@ -47,11 +49,15 @@ export function countMetadataReads(target: object): MetadataReadCounter {
   };
 }
 
-/** Options for the router microbench. */
-export interface BenchmarkOptions {
+interface BenchmarkBaseOptions {
   readonly routes: number;
   readonly iters: number;
 }
+
+/** Options for the router microbench, including one exact versioned route table. */
+export type BenchmarkOptions =
+  | (BenchmarkBaseOptions & { readonly versioning?: undefined; readonly version?: undefined })
+  | (BenchmarkBaseOptions & { readonly versioning: VersionStrategy; readonly version: string });
 
 /** Honest microbench result — raw timings, no scoring. */
 export interface BenchmarkResult {
@@ -97,14 +103,25 @@ export function benchmarkAppStartup(rootModule: ModuleClass, iters: number): Ben
  * against a matching path. Returns raw timings — no averaging into a score.
  */
 export async function benchmarkRouter(options: BenchmarkOptions): Promise<BenchmarkResult> {
-  const controller = makeController(options.routes);
-  const router = createRouter();
+  const controller = makeController(options.routes, options.version);
+  const router = createRouter(options.versioning === undefined ? {} : { versioning: options.versioning });
   router.register(controller);
-  const path = `/bench/r${Math.max(0, options.routes - 1)}`;
+  const routePath = `/bench/r${Math.max(0, options.routes - 1)}`;
+  let path = routePath;
+  let headers: Readonly<Record<string, string>> = {};
+  if (options.versioning !== undefined) {
+    if (options.versioning.kind === 'path') {
+      path = pathForVersion(options.versioning.prefix, options.version, routePath);
+    } else if (options.versioning.kind === 'header') {
+      headers = { [options.versioning.name.toLowerCase()]: options.version };
+    } else {
+      headers = { accept: `application/json; ${options.versioning.key}=${options.version}` };
+    }
+  }
 
   const start = performance.now();
   for (let i = 0; i < options.iters; i += 1) {
-    await router.handle({ method: 'GET', path, headers: {} });
+    await router.handle({ method: 'GET', path, headers });
   }
   const totalMs = performance.now() - start;
   const opsPerSec = totalMs > 0 ? (options.iters / totalMs) * 1000 : options.iters;
@@ -216,7 +233,7 @@ function responseBodySize(body: ResponseBody): number {
 
 // Build a controller instance with `count` GET routes /bench/r0../bench/r{n-1}.
 // Defined via a factory so each benchmark gets a fresh class + metadata.
-function makeController(count: number): object {
+function makeController(count: number, version?: string): object {
   class BenchController {
     // Every route resolves to this one method, aliased under `count` names below. A benchmark
     // that allocated a fresh closure per route would be measuring that instead of the router.
@@ -231,6 +248,9 @@ function makeController(count: number): object {
   // programmatically it costs a synthesised context; the routing decorators only ever touch
   // `context.metadata`, which is what makes the substitution exact.
   Controller('/bench')(BenchController, classContext(BenchController));
+  if (version !== undefined) {
+    Version(version)(BenchController, classContext(BenchController));
+  }
   // Attach `count` routes by decorating dynamically-added methods. Since Stage-3
   // method decorators can't be applied dynamically, we register handlers on the
   // prototype and record routes through a single re-decoration pass: simplest is

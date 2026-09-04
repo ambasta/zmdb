@@ -23,6 +23,8 @@ export {
   Subscribe,
   TransportUnsupportedError,
   UnresolvedTokenError,
+  Version,
+  VersionNeutral,
   benchmarkAppStartup,
   benchmarkObservability,
   benchmarkRouter,
@@ -80,6 +82,7 @@ export {
   tracedDriver,
   validateWith,
   validationPipe,
+  versionsOf,
   SpanKind,
 } from '@zmdb/web';
 export type {
@@ -200,6 +203,8 @@ export type {
   WebMetadata,
   WebRequest,
   WebResponse,
+  VersionSchemas,
+  VersionStrategy,
   Worker,
   WorkerOptions,
   WithHeaders,

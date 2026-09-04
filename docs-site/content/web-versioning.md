@@ -1,117 +1,204 @@
-> **ToDo / partial.** There is no built-in `VersioningType` (URI/header/media-type)
-> negotiator like `@nestjs/common`. **URI versioning works today** via
-> controller path prefixes; header/media-type negotiation is roadmap.
->
-> The three strategies, what happens when a request names no version or an
-> unknown one, and where the version sits in the routing table are frozen in
-> `packages/web/src/versioning/SPEC.md`; the document representation is in
-> `packages/web/src/openapi/SPEC.md`.
+`@zmdb/web` negotiates one exact API version from the path, a request header or
+the `Accept` media type. The strategy is selected once when the router is
+created, and the same value is passed to OpenAPI generation so runtime and
+generated clients describe the same contract.
 
-## URI versioning now
+## Declare versions
 
 ```ts
-@Controller('/v1/users')
-class UsersV1 {
-  @Get('/') list(ctx: Ctx) {
-    /* ... */
-  }
-}
+import { toOpenApi, type VersionSchemas } from '@zmdb/web/openapi';
+import { createRouter } from '@zmdb/web/pipeline';
+import { Controller, Get } from '@zmdb/web/routing';
+import { Version, VersionNeutral } from '@zmdb/web/versioning';
 
-@Controller('/v2/users')
-class UsersV2 {
-  @Get('/') list(ctx: Ctx) {
-    /* v2 shape */
+@Version('1', '2')
+@Controller('/users')
+class UsersController {
+  @Get('/')
+  list() {
+    return [];
   }
 }
 ```
 
-Both mount independently; the [route table](./web-controllers.html) resolves them
-at boot with zero per-request cost.
+`@Version` accepts one or more exact strings. There is no ordering, range or
+"at least version 2": `'1'`, `'1.0'` and `'2024-11-05'` are all legitimate
+version names, and the framework cannot know whether semver or date rules apply.
 
-This stays the recommendation after the negotiator lands, for two reasons that are
-worth knowing before you reach for a header. Under the path strategy nothing runs
-per request — `@Version('1', '2')` registers two paths at boot and the existing
-route table answers both, so there is no resolution step at all. And a version in
-the path is the only strategy that can carry a **different response shape**, which
-is usually the reason to version in the first place; see below.
+Once a router has a strategy, every route must carry `@Version(...)` or
+`@VersionNeutral()`. Registration names the controller and handler when neither
+is present. `@VersionNeutral()` is the explicit declaration that the same route
+serves every version, including versions no other route declares.
 
-## Header/media-type versioning (roadmap, now specified)
-
-A negotiator, not a [Guard](./web-middleware.html). A guard runs after a route has
-been matched, so it can reject a version but cannot select between two handlers —
-which is why the earlier note here called this "integrating with route resolution".
-The frozen design makes the version a third key in the same startup-built table
-that already indexes by method and segment count, so a request costs one header
-read and two map lookups and never scans candidate routes.
+A method declaration overrides its controller declaration:
 
 ```ts
-const router = createRouter({ versioning: { kind: 'header', name: 'accept-version', default: '1' } });
+@VersionNeutral()
+@Controller('/health')
+class HealthController {
+  @Get('/') check() {
+    return { ok: true };
+  }
+
+  @Version('2')
+  @Get('/details')
+  details() {
+    return { dependencies: [] };
+  }
+}
 ```
 
-`default` is a required field, not an optional one. An API that refuses every
-request lacking a header it invented refuses every first request, every `curl` and
-every address bar, and that should not be the configuration you get by leaving
-something out.
+## Path versioning
 
-**A route must say which versions it serves**, once a strategy is configured. A
-registered route with neither `@Version` nor `@VersionNeutral()` fails at
-registration rather than quietly serving everything, because "serves every version"
-and "nobody thought about it" must not be the same text. The example above keeps
-working with one line added:
+```ts
+const versioning = { kind: 'path', prefix: 'v' } as const;
+const router = createRouter({ versioning });
+router.register(new UsersController());
+```
+
+`@Version('1', '2')` on `/users` registers `/v1/users` and `/v2/users` at
+startup. Request handling then uses the ordinary method/path table; it performs
+no version extraction or version-table lookup.
+
+Path versioning is the recommendation when request or response shapes change.
+Each version is an independent OpenAPI operation and can carry independent
+schemas:
+
+```ts
+const document = toOpenApi([UsersController], {
+  versioning,
+  schemas: {
+    '/v1/users': { response: { type: 'array' } },
+    '/v2/users': { response: { type: 'object' } },
+  },
+});
+```
+
+The generated operations have distinct path-derived names:
+
+- `GET /v1/users` → `get_v1_users`
+- `GET /v2/users` → `get_v2_users`
+
+Existing manually prefixed controllers remain valid under a path strategy by
+declaring that they already own their version:
 
 ```ts
 @VersionNeutral()
 @Controller('/v1/users')
-class UsersV1 { … }
+class UsersV1 {
+  /* ... */
+}
 ```
 
-which says what is true: this controller does its own versioning.
+## Header versioning
 
-**An unknown version gets a different status per strategy**, and each is the one
-HTTP already has for the question being asked — `404` under path versioning
-(nothing exists at `/v9/users`), `400` under header versioning (an unsupported
-value in a header the client controls) and `406` under media-type versioning, which
-is exactly what 406 means. The `400` and `406` bodies list the versions the route
-serves; a negotiation failure that does not say what would have worked makes the
-next request a guess.
+```ts
+const versioning = {
+  kind: 'header',
+  name: 'accept-version',
+  default: '1',
+} as const;
 
-**Versions are strings compared for equality.** There is no ordering and no "at
-least version 2", because `'1'`, `'1.0'` and `'2024-11-05'` are all versions real
-APIs use and any comparison rule would invent semver or date semantics the framework
-cannot know apply.
+const router = createRouter({ versioning });
+```
 
-## Where the version shows up in the generated document
+A missing header selects the required `default`. An unsupported value returns
+`400` with the versions that the matched route serves:
 
-This is the part that decides whether a generated client is usable, and the three
-strategies genuinely differ.
+```json
+{ "error": "unsupported version \"9\"", "supported": ["1", "2"] }
+```
 
-| strategy     | in the document                                                      |
-| ------------ | -------------------------------------------------------------------- |
-| `path`       | distinct paths, independent schemas and distinct `operationId`s      |
-| `media-type` | one path, each version's schemas under its own `content` key         |
-| `header`     | one path, the version as an `enum` header parameter with a `default` |
+An unknown path remains the ordinary uniform `404`; it does not reveal versions
+from unrelated routes.
 
-**A response shape that differs between versions is only expressible under path
-versioning.** Under header versioning it is a generation error that names path
-versioning as the fix: an OpenAPI operation has exactly one `responses` block and
-one `requestBody`, and the only dimension it offers is the `content` map keyed by
-media type — there is no dimension keyed by the value of a request header. Emitting
-one version's schema and dropping the other's produces a document that generates a
-client which compiles and is wrong, which is worse than refusing at build time.
+OpenAPI emits one operation with an optional enum header parameter. Header
+versions must use identical request and response schemas because one OpenAPI
+operation has no schema dimension keyed by a header value:
 
-So the division is: **header versioning is for versions that differ in behaviour,
-path versioning is for versions that differ in shape.** If you are versioning
-because the JSON changed, the URI versioning at the top of this page is not the
-workaround — it is the answer.
+```ts
+const versionSchemas = {
+  '/users': {
+    '1': { response: { type: 'array' } },
+    '2': { response: { type: 'array' } },
+  },
+} satisfies VersionSchemas;
 
-`toOpenApi` derives `operationId` from the expanded public path, so path versions
-are distinct without a separate naming rule: `GET /v1/posts` becomes
-`get_v1_posts`, while `GET /v2/posts` becomes `get_v2_posts`. A collision is a
-generation error rather than an operation silently disappearing.
+const document = toOpenApi([UsersController], {
+  versioning,
+  versionSchemas,
+});
+```
 
-`deprecated: true` is now expressible per handler in `RouteOptions` and appears
-on that OpenAPI operation. It changes documentation only; version negotiation
-still remains the separate gap described above.
+Generation also requires the configured default to be served by the operation;
+otherwise an optional header would describe a request that runtime refuses.
+
+## Media-type versioning
+
+```ts
+const versioning = {
+  kind: 'media-type',
+  key: 'version',
+  default: '1',
+} as const;
+
+const router = createRouter({ versioning });
+```
+
+The version is read from `Accept`, never request `Content-Type`. Several media
+ranges are ordered by `q`, and `q=0` prohibits that version. A missing version
+parameter selects `default`; an unsupported acceptable version returns `406`
+with the route's supported versions.
+
+Request schemas must be identical because request `Content-Type` does not select
+a version. Response schemas may differ: OpenAPI emits one response content key
+per version, and runtime returns the selected key as the JSON response
+`Content-Type`.
+
+```ts
+const versionSchemas = {
+  '/users': {
+    '1': {
+      body: { type: 'object' },
+      response: { type: 'array' },
+    },
+    '2': {
+      body: { type: 'object' },
+      response: { type: 'object' },
+    },
+  },
+} satisfies VersionSchemas;
+
+const document = toOpenApi([UsersController], {
+  versioning,
+  versionSchemas,
+});
+```
+
+The resulting response keys are `application/json; version=1` and
+`application/json; version=2`.
+
+## Startup-built resolution
+
+Version is a routing-table key, not a guard and not a scan over every registered
+route. Header and media-type requests select the method/version/segment-count
+bucket before matching candidate paths. Routes in other versions therefore do
+not increase candidate reads for the selected version.
+
+The media parser matches a version against a startup-built trie without
+`split`, `slice`, lower-casing or substring allocation on the known-version
+success path. Unsupported-version error bodies still allocate normally.
+
+Registration order within one version is unchanged. A version-specific route
+shadows a neutral route at the same method and path even when the neutral route
+was registered first. OpenAPI cannot represent that shadowing as one operation,
+so generating a document for a neutral and a specific handler on the same
+method/path is an error; use distinct paths when both need to be public.
+
+Custom extractor callbacks are not supported. A callback can return an
+application-defined value or preference list that has no finite generated
+document shape; mount a separately configured router when migrating between
+strategies.
 
 ## Cross-links
 

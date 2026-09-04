@@ -54,18 +54,18 @@ environment.
 Measured on 2026-09-04 with Node 26.8.1 on an AMD Ryzen 7 7840U, using
 `@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row
 is the median of six samples. All six mode orders were used, so every mode
-appeared twice in each ordinal position; each workload/mode received 1.5 seconds
-of warmup and the off path calibrated a 500 ms sample size shared by all three
+appeared twice in each ordinal position; each workload/mode received 750 ms of
+warmup and the off path calibrated a 250 ms sample size shared by all three
 modes.
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       333.48 |      2998676 |        baseline |                 0 |         1.128x |
-| request  | API no-op          |      1240.49 |       806131 |         +272.0% |                 0 |         1.131x |
-| request  | recording exporter |      6740.20 |       148364 |        +1921.2% |                 3 |         1.111x |
-| query    | off                |        70.32 |     14220414 |        baseline |                 0 |         1.041x |
-| query    | API no-op          |       282.05 |      3545424 |         +301.1% |                 0 |         1.734x |
-| query    | recording exporter |      2432.96 |       411021 |        +3359.8% |                 1 |         1.539x |
+| request  | off                |       308.15 |      3245190 |        baseline |                 0 |         1.071x |
+| request  | API no-op          |      1138.49 |       878354 |         +269.5% |                 0 |         1.033x |
+| request  | recording exporter |      6082.97 |       164393 |        +1874.0% |                 3 |         1.023x |
+| query    | off                |        68.48 |     14602262 |        baseline |                 0 |         1.036x |
+| query    | API no-op          |       276.87 |      3611796 |         +304.3% |                 0 |         1.083x |
+| query    | recording exporter |      2261.85 |       442116 |        +3202.8% |                 1 |         1.025x |
 
 The request workload is one matched `GET` and records the server, route and
 handler spans. The query workload is one compiled `SELECT` through

@@ -1,128 +1,245 @@
+import { Validator } from '@seriousme/openapi-schema-validator';
 import { describe, expect, it } from 'vitest';
 
 import { Controller, Get } from '../routing/index.js';
-import { toOpenApi } from './index.js';
+import { Version, VersionNeutral } from '../versioning/index.js';
+import { toOpenApi, type OpenApiDocument, type VersionSchemas } from './index.js';
 
-// How a versioned API appears in the document. Tests freeze for the epic "OpenAPI security schemes
-// and API versioning" (#572 / spec freeze #573); the frozen text is `./SPEC.md` §S7, plus
-// `## operationId (frozen — epic "The agent runtime")`, and the list this file answers is §S9 items 9
-// and 10. Resolution — where a version comes from and what an unknown one gets — is
-// `../versioning/SPEC.md` and `../versioning/negotiation.spec.ts`.
-//
-// **Two of the three representations §S7 specifies cannot be reached from the frozen surface, and
-// this file asserts neither.** §S7 requires header versioning to emit an `enum` parameter with a
-// default, and media-type versioning to emit per-version `content` keys. Both need `toOpenApi` to
-// know *which strategy* is configured, and the strategy is given to `createRouter` at construction
-// (`../versioning/SPEC.md` §2) while §S2's frozen `OpenApiOptions` gains only `securitySchemes`,
-// `routes` and `strictSecurity`. `versionsOf` can tell the generator which versions a route serves;
-// nothing can tell it whether they live in the path, in a header or in a media type, and the three
-// produce three different documents from the same metadata. Asserting the output here would mean
-// inventing the option that carries the strategy, which is a spec change and not a test. §S9 item 10
-// (header versioning with differing `RouteSchemas` throws) is unreachable for the same reason.
-//
-// What is left is the path strategy, which is the one §S7 recommends and the only one whose document
-// representation is a function of the route table alone.
-
-// The arrangement `docs-site/content/web-versioning.md` documents today and the one
-// `../versioning/SPEC.md` §6 keeps working under a configured path strategy: the version is written
-// into the controller's own prefix. After #576 the same two path items come from `@Version('1', '2')`
-// on one controller, which is why every claim below is about the emitted paths and not about how
-// they were declared.
-@Controller('/v1/posts')
-class PostsV1 {
+@Version('1', '2')
+@Controller('/posts')
+class PostsController {
   @Get('')
   list() {
-    return ['v1'];
-  }
-
-  @Get('/:id')
-  read() {
-    return { version: '1' };
+    return [];
   }
 }
 
-@Controller('/v2/posts')
-class PostsV2 {
+@Version('1')
+@Controller('/split')
+class SplitV1Controller {
   @Get('')
-  list() {
-    return ['v2'];
-  }
-
-  @Get('/:id')
   read() {
-    return { version: '2' };
+    return { version: 1 };
   }
 }
 
-const CONTROLLERS = [PostsV1, PostsV2];
-const INFO = { title: 'Posts API', version: '1.0.0' };
-
-/**
- * Every operation's generated `operationId`.
- */
-function operationIdsOf(controllers: readonly object[]): string {
-  const doc = toOpenApi(controllers, { info: INFO });
-  return Object.entries(doc.paths)
-    .flatMap(([path, item]) =>
-      Object.entries(item).map(([method, operation]) => `${method} ${path}=${operation.operationId}`),
-    )
-    .join(', ');
+@Version('2')
+@Controller('/split')
+class SplitV2Controller {
+  @Get('')
+  read() {
+    return { version: 2 };
+  }
 }
 
-describe('versioned documents (frozen: openapi/SPEC.md S7)', () => {
-  // §S9 item 9, first clause. Path versioning emits N path items and their `operationId`s "differ
-  // automatically because the derivation above is path-derived" — so the claim is not that the
-  // generator does something extra for versions, it is that the derived id is a function of the
-  // expanded path and therefore distinct without anybody arranging it.
-  //
-  // This is the one assertion in #574 that does not retire with #575. `operationId` is frozen by a
-  // different epic ("The agent runtime", `./SPEC.md` line 42), where it exists so
-  // `toolsFromOpenApi` has a stable tool name; §S7 depends on it and cannot be finished before it.
-  // The test is here because §S9 item 9 asks for it and because a version scheme that produces two
-  // operations with the *same* id produces a tool list with a silently dropped tool.
-  it('derives a distinct operationId for each version of a path-versioned route', () => {
-    expect(operationIdsOf(CONTROLLERS)).toBe(
-      [
-        'get /v1/posts=get_v1_posts',
-        'get /v1/posts/{id}=get_v1_posts_id',
-        'get /v2/posts=get_v2_posts',
-        'get /v2/posts/{id}=get_v2_posts_id',
-      ].join(', '),
-    );
-  });
+@Version('2')
+@Controller('/only-v2')
+class OnlyV2Controller {
+  @Get('')
+  read() {
+    return { version: 2 };
+  }
+}
 
-  // Green: §S7's "path versioning produces distinct paths … as separate path items". It holds today
-  // because the versions are separate controllers, and it has to still hold when one controller's
-  // `@Version('1', '2')` expands into these paths at registration. The failure it guards against is
-  // an expansion that emits one path item per *route* and lists the versions inside it, which is the
-  // shape header versioning needs and which would make a generated client for v1 able to call v2.
-  it('emits one path item per version rather than one per route', () => {
-    const doc = toOpenApi(CONTROLLERS, { info: INFO });
-    expect(Object.keys(doc.paths)).toEqual(['/v1/posts', '/v1/posts/{id}', '/v2/posts', '/v2/posts/{id}']);
-    expect(doc.paths['/v1/posts/{id}']?.get?.parameters, 'v1 has its own path parameter').toEqual([
-      { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-    ]);
-    expect(doc.paths['/v2/posts/{id}']?.get?.parameters, 'and so does v2').toEqual([
-      { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-    ]);
-  });
+@VersionNeutral()
+@Controller('/health')
+class HealthController {
+  @Get('')
+  read() {
+    return { ok: true };
+  }
+}
 
-  // Green, and the load-bearing half of §S7's claim that "per-version schemas need no new mechanism
-  // at all: the expanded paths are different keys". Two versions whose response shapes differ is
-  // exactly the case §S7 refuses under header versioning and sends here, so a document in which both
-  // versions share one schema would remove the reason path versioning is the recommendation. The
-  // `schemas` map is keyed by route path, and after #576 the expanded paths are what it is keyed by.
-  it('gives each version its own response schema from the path-keyed schema map', () => {
-    const doc = toOpenApi(CONTROLLERS, {
+@Version('1')
+@Controller('/health')
+class VersionedHealthController {
+  @Get('')
+  read() {
+    return { version: 1 };
+  }
+}
+
+@Controller('/undeclared')
+class UndeclaredController {
+  @Get('')
+  read() {
+    return {};
+  }
+}
+
+const INFO = { title: 'Versioned API', version: '1.0.0' };
+const STRING_LIST = { type: 'array', items: { type: 'string' } };
+const OBJECT = { type: 'object', properties: { id: { type: 'string' } } };
+const COMMON_BODY = { type: 'object', properties: { title: { type: 'string' } } };
+
+const IDENTICAL_VERSION_SCHEMAS: VersionSchemas = {
+  '/posts': {
+    '1': { body: COMMON_BODY, response: STRING_LIST },
+    '2': { body: COMMON_BODY, response: STRING_LIST },
+  },
+};
+
+async function validateOpenApi(document: OpenApiDocument): Promise<void> {
+  const validator = new Validator();
+  const json: Record<string, unknown> = JSON.parse(JSON.stringify(document));
+  const result = await validator.validate(json);
+  expect(result.valid, JSON.stringify(result.errors)).toBe(true);
+  expect(validator.version).toBe('3.1');
+}
+
+describe('versioned OpenAPI documents', () => {
+  it('expands path versions into independent valid operations with independent schemas', async () => {
+    const document = toOpenApi([PostsController], {
       info: INFO,
+      versioning: { kind: 'path', prefix: 'v' },
       schemas: {
-        '/v1/posts': { response: { type: 'array', items: { type: 'string' } } },
-        '/v2/posts': { response: { type: 'object', properties: { posts: { type: 'array' } } } },
+        '/v1/posts': { response: STRING_LIST },
+        '/v2/posts': { response: OBJECT },
       },
     });
-    const v1 = doc.paths['/v1/posts']?.get?.responses['200']?.content?.['application/json']?.schema;
-    const v2 = doc.paths['/v2/posts']?.get?.responses['200']?.content?.['application/json']?.schema;
-    expect(v1).toEqual({ type: 'array', items: { type: 'string' } });
-    expect(v2).toEqual({ type: 'object', properties: { posts: { type: 'array' } } });
+
+    expect(Object.keys(document.paths)).toEqual(['/v1/posts', '/v2/posts']);
+    expect(document.paths['/v1/posts']?.get?.operationId).toBe('get_v1_posts');
+    expect(document.paths['/v2/posts']?.get?.operationId).toBe('get_v2_posts');
+    expect(document.paths['/v1/posts']?.get?.responses['200']?.content?.['application/json']?.schema).toEqual(
+      STRING_LIST,
+    );
+    expect(document.paths['/v2/posts']?.get?.responses['200']?.content?.['application/json']?.schema).toEqual(OBJECT);
+    await validateOpenApi(document);
+  });
+
+  it('emits one valid header-versioned operation with an optional enum and default', async () => {
+    const document = toOpenApi([PostsController], {
+      info: INFO,
+      versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      versionSchemas: IDENTICAL_VERSION_SCHEMAS,
+    });
+
+    expect(document.paths['/posts']?.get?.parameters).toEqual([
+      {
+        name: 'accept-version',
+        in: 'header',
+        required: false,
+        schema: { enum: ['1', '2'], default: '1' },
+      },
+    ]);
+    expect(document.paths['/posts']?.get?.responses['200']?.content?.['application/json']?.schema).toEqual(STRING_LIST);
+    await validateOpenApi(document);
+  });
+
+  it('merges separately implemented header versions into one operation', () => {
+    const document = toOpenApi([SplitV1Controller, SplitV2Controller], {
+      versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      versionSchemas: {
+        '/split': {
+          '1': { response: OBJECT },
+          '2': { response: OBJECT },
+        },
+      },
+    });
+    expect(Object.keys(document.paths)).toEqual(['/split']);
+    expect(document.paths['/split']?.get?.parameters?.at(-1)?.schema).toEqual({
+      enum: ['1', '2'],
+      default: '1',
+    });
+  });
+
+  it('emits versioned response media types while keeping the request Content-Type unversioned', async () => {
+    const document = toOpenApi([PostsController], {
+      info: INFO,
+      versioning: { kind: 'media-type', key: 'version', default: '1' },
+      versionSchemas: {
+        '/posts': {
+          '1': { body: COMMON_BODY, response: STRING_LIST },
+          '2': { body: COMMON_BODY, response: OBJECT },
+        },
+      },
+    });
+    const operation = document.paths['/posts']?.get;
+
+    expect(operation?.requestBody?.content).toEqual({
+      'application/json': { schema: COMMON_BODY },
+    });
+    expect(operation?.responses['200']?.content).toEqual({
+      'application/json; version=1': { schema: STRING_LIST },
+      'application/json; version=2': { schema: OBJECT },
+    });
+    await validateOpenApi(document);
+  });
+
+  it('refuses differing header-versioned schemas and names path versioning', () => {
+    const generate = () =>
+      toOpenApi([PostsController], {
+        versioning: { kind: 'header', name: 'accept-version', default: '1' },
+        versionSchemas: {
+          '/posts': {
+            '1': { response: STRING_LIST },
+            '2': { response: OBJECT },
+          },
+        },
+      });
+    expect(generate).toThrow(/header-versioned request or response schemas differ/);
+    expect(generate).toThrow(/path versioning/);
+  });
+
+  it('refuses differing media-type request schemas because runtime ignores Content-Type versions', () => {
+    const generate = () =>
+      toOpenApi([PostsController], {
+        versioning: { kind: 'media-type', key: 'version', default: '1' },
+        versionSchemas: {
+          '/posts': {
+            '1': { body: STRING_LIST, response: OBJECT },
+            '2': { body: OBJECT, response: STRING_LIST },
+          },
+        },
+      });
+    expect(generate).toThrow(/reads Accept rather than Content-Type/);
+    expect(generate).toThrow(/path versioning/);
+  });
+
+  it('refuses an optional header default that the operation does not serve', () => {
+    expect(() =>
+      toOpenApi([OnlyV2Controller], {
+        versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      }),
+    ).toThrow(/default "1" is not served/);
+  });
+
+  it('documents a neutral route without a version parameter', async () => {
+    const document = toOpenApi([HealthController], {
+      info: INFO,
+      versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      schemas: { '/health': { response: OBJECT } },
+    });
+    expect(document.paths['/health']?.get?.parameters).toBeUndefined();
+    await validateOpenApi(document);
+  });
+
+  it('refuses neutral and specific shadowing that one OpenAPI operation cannot express', () => {
+    expect(() =>
+      toOpenApi([HealthController, VersionedHealthController], {
+        versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      }),
+    ).toThrow(/neutral and version-specific handlers/);
+  });
+
+  it('requires runtime and document generation to receive the same strategy decision', () => {
+    expect(() => toOpenApi([PostsController])).toThrow(/OpenApiOptions\.versioning/);
+    expect(() =>
+      toOpenApi([UndeclaredController], {
+        versioning: { kind: 'path', prefix: 'v' },
+      }),
+    ).toThrow(/declare @Version.*@VersionNeutral/);
+  });
+
+  it('is deterministic with version grouping and per-version schemas', () => {
+    const options = {
+      info: INFO,
+      versioning: { kind: 'media-type', key: 'version', default: '1' },
+      versionSchemas: IDENTICAL_VERSION_SCHEMAS,
+    } as const;
+    expect(JSON.stringify(toOpenApi([PostsController], options))).toBe(
+      JSON.stringify(toOpenApi([PostsController], options)),
+    );
   });
 });

@@ -10,7 +10,11 @@
 - Input: an array of controller **classes** (or instances), plus `options`:
   - `info?: { title; version }` (defaults provided),
   - `schemas?: Record<routePath, { body?; response? } schema>` — optional
-    per-route JSON Schemas produced from `@zmdb/schema-core`'s `toJsonSchema`.
+    per-route JSON Schemas produced from `@zmdb/schema-core`'s `toJsonSchema`,
+  - `versioning?: VersionStrategy` — the same single path, header or media-type
+    strategy passed to `createRouter`,
+  - `versionSchemas?: Record<routePath, Record<version, RouteSchemas>>` for the
+    header/media representations whose public path is shared.
 - Reads each controller's routes via `getRoutes`, and emits an
   **OpenAPI 3.1 document**:
   - `openapi: '3.1.0'`, `info`,
@@ -57,9 +61,9 @@ stable across regenerations. A renamed tool is a _new_ tool as far as a model is
 the prompt caches that make a tool loop affordable. An `operationId` that is derived from the route rather than
 from a counter or a hash changes only when the route does.
 
-Still not emitted: no `query` or `header` parameters, no `tags`, no per-status
-responses beyond the `200`, and a `schemas` map keyed by route path. Security
-and components are implemented by #575 as specified below.
+Still not emitted: no `query` or arbitrary `header` parameters beyond the
+configured version header, no `tags`, and no per-status responses beyond the
+`200`. Security and components are implemented by #575 as specified below.
 
 ## Out of scope
 
@@ -198,6 +202,8 @@ scheme declarations:
 export interface OpenApiOptions {
   readonly info?: { readonly title: string; readonly version: string };
   readonly schemas?: Readonly<Record<string, RouteSchemas>>;
+  readonly versioning?: VersionStrategy;
+  readonly versionSchemas?: Readonly<Record<string, Readonly<Record<string, RouteSchemas>>>>;
   readonly securitySchemes?: Readonly<Record<string, SecurityScheme>>;
   readonly routes?: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>;
   readonly guardRegistry?: GuardRegistry;
@@ -387,32 +393,60 @@ the pre-#575 arrangement rather than the recommendation.
 Strategies, resolution and status codes are `../versioning/SPEC.md`. What belongs here is the document
 representation, which differs per strategy and is where a generated client is made usable or confusing.
 
-**Path versioning** produces distinct paths. `@Version('1', '2')` on a `/users` route emits `/v1/users`
-and `/v2/users` as separate path items with independent `parameters`, `requestBody` and `responses`, and
-their `operationId`s differ automatically because the derivation above is path-derived
-(`get_v1_users`, `get_v2_users`). The `schemas` map is keyed by route path, so per-version schemas need no
-new mechanism at all: the expanded paths are different keys.
+Two corrections to the frozen S7 text are required by the already accepted
+runtime contract.
 
-**Media-type versioning** produces one path item per route, with each version's schemas under its own
-`content` key — `application/json; version=1` and `application/json; version=2`. 3.1's `content` map is
-keyed by a media type that may carry parameters, so this is legal.
+1. The original `OpenApiOptions` had no strategy carrier, although identical
+   route metadata has three different representations. `versioning` is therefore
+   the same `VersionStrategy` value passed to `createRouter`; generation refuses
+   `@Version` without it and refuses an undeclared route when it is present.
+2. The original media-type paragraph allowed differing **request** schemas, but
+   `../versioning/SPEC.md` §5 explicitly reads versions from `Accept` and never
+   from request `Content-Type`. A request body selected by a versioned
+   `Content-Type` would generate a client the runtime does not honour. Media
+   versions may therefore differ in response schema, while request schemas must
+   be identical; differing request shapes use path versioning.
 
-**Header versioning** produces one path item per route, with the version as a `parameters` entry:
+`versionSchemas` carries the schema dimension that a shared public path lacks:
+
+```ts
+export type VersionSchemas = Readonly<Record<string, Readonly<Record<string, RouteSchemas>>>>;
+```
+
+The outer key is the unexpanded route path and the inner key is one exact
+declared version. `schemas[routePath]` remains the common fallback when every
+version has the same shape.
+
+**Path versioning** produces distinct paths. `@Version('1', '2')` on a `/users`
+route emits `/v1/users` and `/v2/users` as separate path items with independent
+`parameters`, `requestBody` and `responses`, and their `operationId`s differ
+automatically because the derivation above is path-derived (`get_v1_users`,
+`get_v2_users`). The existing `schemas` map is keyed by the expanded route path,
+so no second schema mechanism is needed.
+
+**Header versioning** produces one path item per route, with the version as a
+`parameters` entry:
 
 ```json
 { "name": "accept-version", "in": "header", "required": false, "schema": { "enum": ["1", "2"], "default": "1" } }
 ```
 
 `required: false` with a `default` because `../versioning/SPEC.md` §V4 requires the header strategy to
-carry a default version; a client omitting the header gets it.
+carry a default version; a client omitting the header gets it. Generation fails
+when the configured default is not among that operation's versions, because
+OpenAPI requires a schema default to satisfy its enum and an optional header
+would otherwise describe a request the route refuses. Request and response
+schemas must be identical across header versions: one operation has one
+`requestBody` and one `responses` block, with no dimension keyed by a header
+value.
 
-**Differing request or response schemas across versions is expressible only under path versioning.**
-Under header versioning it is a **generation error**, and the message names path versioning as the fix.
-An operation object has exactly one `requestBody` and one `responses` block, and the only dimension it
-offers is the `content` map keyed by media type — there is no dimension keyed by the value of a request
-header. Emitting one version's schema and dropping the other's produces a document that generates a
-client which compiles and is wrong, which is worse than a refusal at build time. Under media-type
-versioning the `content` keys are that dimension, so differing schemas are fine.
+**Media-type versioning** produces one path item per route. Its request body, if
+present, remains under plain `application/json`. Its response schemas are under
+versioned content keys — `application/json; version=1` and
+`application/json; version=2` — and the runtime returns the selected key as the
+JSON response `Content-Type`. OpenAPI 3.1 permits media-type parameters in a
+content-map key, so generated clients can send the matching `Accept` value and
+select the correct response shape.
 
 The consequence, said out loud because it is a design position and not an accident: header versioning is
 for versions that differ in _behaviour_, and path versioning is for versions that differ in _shape_. An
@@ -422,6 +456,14 @@ API changing a response shape should put the version in the path, which is what
 **A route serving several versions with identical schemas** emits one operation under header and
 media-type versioning, and N identical operations under path versioning. Identical is the point: the
 handler is one function, and the document says the same thing N times because the paths are N resources.
+
+Several controllers may implement disjoint versions of the same header/media
+method and path; generation merges them into one operation. It refuses a
+duplicate version. A neutral route emits an ordinary unversioned operation, but
+a neutral and a version-specific handler sharing one method/path is a generation
+error: runtime shadowing cannot be encoded by one OpenAPI operation. Security
+and `deprecated` metadata must likewise agree across versions sharing an
+operation; differing operation metadata uses path versioning.
 
 ### S8. `deprecated`
 
@@ -458,8 +500,9 @@ exactly as before. A `Sunset` header or a warning log would be a runtime feature
 8. No top-level `security` appears in any generated document.
 9. Path versioning emits N paths with distinct `operationId`s; header versioning emits the `enum`
    parameter with the default; media-type versioning emits per-version `content` keys.
-10. Header versioning with two versions whose `RouteSchemas` differ throws, and the message names path
-    versioning.
+10. Header versioning with two versions whose `RouteSchemas` differ throws; media-type versioning with
+    differing request schemas throws while differing response schemas produce separate content keys.
+    Each refusal names path versioning.
 11. `deprecated: true` appears on the operation and nowhere else; `deprecated` absent emits no key.
 12. Generation stays deterministic with all of the above present — the same input twice is the same
     document, including the order of keys inside a requirement object.

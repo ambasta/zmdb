@@ -1628,8 +1628,7 @@ export const PAGE_META = {
   'web-versioning': {
     title: 'API Versioning',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'no version negotiator; path prefixes work today, and the three strategies are frozen (#573).',
+    status: 'supported',
   },
   'web-performance': {
     title: 'Performance & Keep-Alive',

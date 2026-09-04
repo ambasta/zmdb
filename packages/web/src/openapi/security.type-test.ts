@@ -171,7 +171,15 @@ export type _DocumentKeys = Expect<Equal<keyof Doc, FrozenDocumentKeys>>;
 // ---------------------------------------------------------------------------
 
 type FrozenRoutes = Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>;
-type FrozenOptionKeys = 'info' | 'schemas' | 'securitySchemes' | 'routes' | 'guardRegistry' | 'strictSecurity';
+type FrozenOptionKeys =
+  | 'info'
+  | 'schemas'
+  | 'versioning'
+  | 'versionSchemas'
+  | 'securitySchemes'
+  | 'routes'
+  | 'guardRegistry'
+  | 'strictSecurity';
 
 export type _OptionKeys = Expect<Equal<keyof Opts, FrozenOptionKeys>>;
 

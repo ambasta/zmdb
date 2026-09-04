@@ -66,6 +66,9 @@ export {
   type ResolvedRoute,
 } from './routing/index.js';
 
+// API version declarations and strategy types. See ./versioning.
+export { Version, VersionNeutral, versionsOf, type VersionStrategy } from './versioning/index.js';
+
 // Typed request context + compile-time path-param derivation. See ./context.
 export {
   extractParams,
@@ -227,6 +230,7 @@ export {
   type OpenApiDocument,
   type OpenApiOptions,
   type RouteSchemas,
+  type VersionSchemas,
   type JsonSchema,
   type OAuthFlows,
   type SecurityRequirement,

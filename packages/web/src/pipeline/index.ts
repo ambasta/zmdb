@@ -21,6 +21,8 @@ import type { Guard } from '../middleware/index.js';
 import { fromTraceContext } from '../observability/propagation.js';
 import type { Observability, Span, Tracer } from '../observability/types.js';
 import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
+import { versionsOf, type VersionStrategy } from '../versioning/index.js';
+import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
 import { resolveGuards, type GuardRegistry } from './guards.js';
 
 export type { Ctx } from '../context/index.js';
@@ -67,6 +69,7 @@ export interface RouteOptions {
 /** Router-wide guard configuration shared with OpenAPI generation. */
 export interface RouterOptions extends Observability {
   readonly guardRegistry?: GuardRegistry;
+  readonly versioning?: VersionStrategy;
 }
 
 /** A handler takes one Ctx and returns a (possibly async) result. */
@@ -78,6 +81,8 @@ interface BoundRoute {
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
+  readonly neutral?: true;
+  readonly versionJsonHeaders?: Readonly<Record<string, string>>;
 }
 
 // Routes are indexed by method, then by segment count, because a route can only
@@ -91,6 +96,25 @@ interface BoundRoute {
 // first-registered-wins is unchanged: a `/user/:id` declared before `/user/me`
 // still shadows it, exactly as the flat scan did.
 type MethodBuckets = Map<string, BoundRoute[][]>;
+type VersionBuckets = Map<string, Map<string, BoundRoute[][]>>;
+
+interface SupportedRoute {
+  readonly pattern: CompiledPattern;
+  readonly versions: string[];
+}
+
+type SupportedBuckets = Map<string, SupportedRoute[][]>;
+
+interface VersionTrieNode {
+  readonly children: Map<number, VersionTrieNode>;
+  version?: string;
+  id?: number;
+}
+
+interface VersionLookup {
+  readonly root: VersionTrieNode;
+  nextId: number;
+}
 
 function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number): BoundRoute[] {
   let bySegmentCount = buckets.get(method);
@@ -106,6 +130,444 @@ function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number)
   return bucket;
 }
 
+function versionBucketFor(
+  buckets: VersionBuckets,
+  neutralBuckets: MethodBuckets,
+  method: string,
+  version: string,
+  segmentCount: number,
+): BoundRoute[] {
+  let byVersion = buckets.get(method);
+  if (byVersion === undefined) {
+    byVersion = new Map();
+    buckets.set(method, byVersion);
+  }
+  let bySegmentCount = byVersion.get(version);
+  if (bySegmentCount === undefined) {
+    bySegmentCount = [];
+    byVersion.set(version, bySegmentCount);
+  }
+  let bucket = bySegmentCount[segmentCount];
+  if (bucket === undefined) {
+    bucket = [...(neutralBuckets.get(method)?.[segmentCount] ?? [])];
+    bySegmentCount[segmentCount] = bucket;
+  }
+  return bucket;
+}
+
+function addSpecificVersionRoute(
+  buckets: VersionBuckets,
+  neutralBuckets: MethodBuckets,
+  method: string,
+  version: string,
+  route: BoundRoute,
+): void {
+  const bucket = versionBucketFor(buckets, neutralBuckets, method, version, route.pattern.segmentCount);
+  const samePathNeutral = bucket.findIndex(
+    candidate => candidate.neutral === true && candidate.pattern.pattern === route.pattern.pattern,
+  );
+  if (samePathNeutral === -1) {
+    bucket.push(route);
+  } else {
+    bucket.splice(samePathNeutral, 0, route);
+  }
+}
+
+function addNeutralRoute(
+  buckets: VersionBuckets,
+  neutralBuckets: MethodBuckets,
+  method: string,
+  route: BoundRoute,
+): void {
+  bucketFor(neutralBuckets, method, route.pattern.segmentCount).push(route);
+  const byVersion = buckets.get(method);
+  if (byVersion === undefined) {
+    return;
+  }
+  for (const bySegmentCount of byVersion.values()) {
+    let bucket = bySegmentCount[route.pattern.segmentCount];
+    if (bucket === undefined) {
+      bucket = [];
+      bySegmentCount[route.pattern.segmentCount] = bucket;
+    }
+    bucket.push(route);
+  }
+}
+
+function supportedBucketFor(buckets: SupportedBuckets, method: string, segmentCount: number): SupportedRoute[] {
+  let bySegmentCount = buckets.get(method);
+  if (bySegmentCount === undefined) {
+    bySegmentCount = [];
+    buckets.set(method, bySegmentCount);
+  }
+  let bucket = bySegmentCount[segmentCount];
+  if (bucket === undefined) {
+    bucket = [];
+    bySegmentCount[segmentCount] = bucket;
+  }
+  return bucket;
+}
+
+function addSupportedRoute(
+  buckets: SupportedBuckets,
+  method: string,
+  pattern: CompiledPattern,
+  versions: readonly string[],
+): void {
+  const bucket = supportedBucketFor(buckets, method, pattern.segmentCount);
+  const existing = bucket.find(candidate => candidate.pattern.pattern === pattern.pattern);
+  if (existing === undefined) {
+    bucket.push({ pattern, versions: [...versions] });
+    return;
+  }
+  for (const version of versions) {
+    if (!existing.versions.includes(version)) {
+      existing.versions.push(version);
+    }
+  }
+}
+
+function supportedVersions(buckets: SupportedBuckets, method: string, path: string): readonly string[] | undefined {
+  for (const candidate of buckets.get(method)?.[countSegments(path)] ?? []) {
+    if (matchCompiled(candidate.pattern, path) !== undefined) {
+      return candidate.versions;
+    }
+  }
+  return undefined;
+}
+
+function createVersionLookup(initial: string): VersionLookup {
+  const lookup = { root: { children: new Map<number, VersionTrieNode>() }, nextId: 0 };
+  addKnownVersion(lookup, initial);
+  return lookup;
+}
+
+function addKnownVersion(lookup: VersionLookup, version: string): void {
+  let node = lookup.root;
+  for (let index = 0; index < version.length; index += 1) {
+    const code = version.charCodeAt(index);
+    let child = node.children.get(code);
+    if (child === undefined) {
+      child = { children: new Map() };
+      node.children.set(code, child);
+    }
+    node = child;
+  }
+  if (node.version === undefined) {
+    node.version = version;
+    node.id = lookup.nextId;
+    lookup.nextId += 1;
+  }
+}
+
+const COMMA = 44;
+const DOUBLE_QUOTE = 34;
+const EQUALS = 61;
+const SEMICOLON = 59;
+const SPACE = 32;
+const TAB = 9;
+const UNKNOWN_MEDIA_VERSION = '\u0000';
+
+function unquotedIndexOf(value: string, wanted: number, start: number, end: number): number {
+  let quoted = false;
+  for (let index = start; index < end; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === DOUBLE_QUOTE) {
+      quoted = !quoted;
+    } else if (!quoted && code === wanted) {
+      return index;
+    } else if (quoted && code === 92) {
+      index += 1;
+    }
+  }
+  return end;
+}
+
+function trimStart(value: string, start: number, end: number): number {
+  let trimmed = start;
+  while (trimmed < end) {
+    const code = value.charCodeAt(trimmed);
+    if (code !== SPACE && code !== TAB) {
+      break;
+    }
+    trimmed += 1;
+  }
+  return trimmed;
+}
+
+function trimEnd(value: string, start: number, end: number): number {
+  let trimmed = end;
+  while (trimmed > start) {
+    const code = value.charCodeAt(trimmed - 1);
+    if (code !== SPACE && code !== TAB) {
+      break;
+    }
+    trimmed -= 1;
+  }
+  return trimmed;
+}
+
+function asciiLower(code: number): number {
+  return code >= 65 && code <= 90 ? code + 32 : code;
+}
+
+function equalsAsciiIgnoringCase(value: string, start: number, end: number, expected: string): boolean {
+  const first = trimStart(value, start, end);
+  const last = trimEnd(value, first, end);
+  if (last - first !== expected.length) {
+    return false;
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    if (asciiLower(value.charCodeAt(first + index)) !== expected.charCodeAt(index)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function unquotedValueStart(value: string, start: number, end: number): number {
+  const first = trimStart(value, start, end);
+  const last = trimEnd(value, first, end);
+  return last - first >= 2 && value.charCodeAt(first) === DOUBLE_QUOTE && value.charCodeAt(last - 1) === DOUBLE_QUOTE
+    ? first + 1
+    : first;
+}
+
+function unquotedValueEnd(value: string, start: number, end: number): number {
+  const first = trimStart(value, start, end);
+  const last = trimEnd(value, first, end);
+  return last - first >= 2 && value.charCodeAt(first) === DOUBLE_QUOTE && value.charCodeAt(last - 1) === DOUBLE_QUOTE
+    ? last - 1
+    : last;
+}
+
+function knownVersion(lookup: VersionLookup, value: string, start: number, end: number): VersionTrieNode | undefined {
+  const first = unquotedValueStart(value, start, end);
+  const last = unquotedValueEnd(value, start, end);
+  let node = lookup.root;
+  for (let index = first; index < last; index += 1) {
+    const child = node.children.get(value.charCodeAt(index));
+    if (child === undefined) {
+      return undefined;
+    }
+    node = child;
+  }
+  return node.version === undefined ? undefined : node;
+}
+
+function quality(value: string, start: number, end: number): number {
+  const first = unquotedValueStart(value, start, end);
+  const last = unquotedValueEnd(value, start, end);
+  if (first === last) {
+    return 0;
+  }
+
+  const whole = value.charCodeAt(first);
+  if (whole !== 48 && whole !== 49) {
+    return 0;
+  }
+  if (first + 1 === last) {
+    return whole === 49 ? 1000 : 0;
+  }
+  if (value.charCodeAt(first + 1) !== 46) {
+    return 0;
+  }
+
+  let fraction = 0;
+  let scale = 100;
+  for (let index = first + 2; index < last; index += 1) {
+    const digit = value.charCodeAt(index) - 48;
+    if (digit < 0 || digit > 9 || scale === 0) {
+      return 0;
+    }
+    fraction += digit * scale;
+    scale = Math.floor(scale / 10);
+  }
+  if (whole === 49) {
+    return fraction === 0 ? 1000 : 0;
+  }
+  return fraction;
+}
+
+function versionInMember(
+  accept: string,
+  memberStart: number,
+  memberEnd: number,
+  key: string,
+  lookup: VersionLookup,
+): VersionTrieNode | null | undefined {
+  let parameterStart = unquotedIndexOf(accept, SEMICOLON, memberStart, memberEnd);
+  let found: VersionTrieNode | null | undefined;
+  while (parameterStart < memberEnd) {
+    const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, memberEnd);
+    const separator = unquotedIndexOf(accept, EQUALS, parameterStart + 1, parameterEnd);
+    if (separator < parameterEnd && equalsAsciiIgnoringCase(accept, parameterStart + 1, separator, key)) {
+      found = knownVersion(lookup, accept, separator + 1, parameterEnd) ?? null;
+    }
+    parameterStart = parameterEnd;
+  }
+  return found;
+}
+
+function qualityInMember(accept: string, memberStart: number, memberEnd: number): number {
+  let parameterStart = unquotedIndexOf(accept, SEMICOLON, memberStart, memberEnd);
+  let found = 1000;
+  while (parameterStart < memberEnd) {
+    const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, memberEnd);
+    const separator = unquotedIndexOf(accept, EQUALS, parameterStart + 1, parameterEnd);
+    if (separator < parameterEnd && equalsAsciiIgnoringCase(accept, parameterStart + 1, separator, 'q')) {
+      found = quality(accept, separator + 1, parameterEnd);
+    }
+    parameterStart = parameterEnd;
+  }
+  return found;
+}
+
+function isProhibited(accept: string, key: string, lookup: VersionLookup, versionId: number): boolean {
+  let memberStart = 0;
+  while (memberStart <= accept.length) {
+    const memberEnd = unquotedIndexOf(accept, COMMA, memberStart, accept.length);
+    const version = versionInMember(accept, memberStart, memberEnd, key, lookup);
+    if (version?.id === versionId && qualityInMember(accept, memberStart, memberEnd) === 0) {
+      return true;
+    }
+    if (memberEnd === accept.length) {
+      return false;
+    }
+    memberStart = memberEnd + 1;
+  }
+  return false;
+}
+
+function mediaTypeVersion(accept: string | undefined, key: string, fallback: string, lookup: VersionLookup): string {
+  if (accept === undefined) {
+    return fallback;
+  }
+
+  const onlyMemberEnd = unquotedIndexOf(accept, COMMA, 0, accept.length);
+  if (onlyMemberEnd === accept.length) {
+    const onlyVersion = versionInMember(accept, 0, onlyMemberEnd, key, lookup);
+    if (onlyVersion === undefined) {
+      return fallback;
+    }
+    if (onlyVersion === null || onlyVersion.version === undefined) {
+      return UNKNOWN_MEDIA_VERSION;
+    }
+    return qualityInMember(accept, 0, onlyMemberEnd) === 0 ? UNKNOWN_MEDIA_VERSION : onlyVersion.version;
+  }
+
+  let memberStart = 0;
+  let named = false;
+  let best: string | undefined;
+  let bestQuality = -1;
+  while (memberStart <= accept.length) {
+    const memberEnd = unquotedIndexOf(accept, COMMA, memberStart, accept.length);
+    const version = versionInMember(accept, memberStart, memberEnd, key, lookup);
+    if (version !== undefined) {
+      named = true;
+      const memberQuality = qualityInMember(accept, memberStart, memberEnd);
+      if (
+        version !== null &&
+        version.version !== undefined &&
+        version.id !== undefined &&
+        memberQuality > bestQuality &&
+        memberQuality > 0 &&
+        !isProhibited(accept, key, lookup, version.id)
+      ) {
+        best = version.version;
+        bestQuality = memberQuality;
+      }
+    }
+    if (memberEnd === accept.length) {
+      break;
+    }
+    memberStart = memberEnd + 1;
+  }
+
+  return best ?? (named ? UNKNOWN_MEDIA_VERSION : fallback);
+}
+
+function mediaTypeVersionLabel(accept: string | undefined, key: string): string {
+  if (accept === undefined) {
+    return '';
+  }
+  let memberStart = 0;
+  let selectedStart = 0;
+  let selectedEnd = 0;
+  let bestQuality = -1;
+  while (memberStart <= accept.length) {
+    const memberEnd = unquotedIndexOf(accept, COMMA, memberStart, accept.length);
+    let parameterStart = unquotedIndexOf(accept, SEMICOLON, memberStart, memberEnd);
+    while (parameterStart < memberEnd) {
+      const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, memberEnd);
+      const separator = unquotedIndexOf(accept, EQUALS, parameterStart + 1, parameterEnd);
+      if (separator < parameterEnd && equalsAsciiIgnoringCase(accept, parameterStart + 1, separator, key)) {
+        const memberQuality = qualityInMember(accept, memberStart, memberEnd);
+        if (memberQuality > bestQuality) {
+          selectedStart = unquotedValueStart(accept, separator + 1, parameterEnd);
+          selectedEnd = unquotedValueEnd(accept, separator + 1, parameterEnd);
+          bestQuality = memberQuality;
+        }
+      }
+      parameterStart = parameterEnd;
+    }
+    if (memberEnd === accept.length) {
+      break;
+    }
+    memberStart = memberEnd + 1;
+  }
+  return accept.slice(selectedStart, selectedEnd);
+}
+
+function requestedVersion(
+  strategy: Exclude<VersionStrategy, { readonly kind: 'path' }>,
+  headers: Readonly<Record<string, string>>,
+  headerName: string | undefined,
+  mediaTypeKey: string | undefined,
+  mediaLookup: VersionLookup | undefined,
+): string {
+  if (strategy.kind === 'header') {
+    return headers[headerName ?? strategy.name] ?? strategy.default;
+  }
+  return mediaLookup === undefined
+    ? strategy.default
+    : mediaTypeVersion(headers.accept, mediaTypeKey ?? strategy.key, strategy.default, mediaLookup);
+}
+
+function unsupportedVersion(
+  strategy: Exclude<VersionStrategy, { readonly kind: 'path' }>,
+  requested: string,
+  supported: readonly string[],
+  headers: Readonly<Record<string, string>>,
+  mediaTypeKey: string | undefined,
+): WebResponse {
+  const value =
+    strategy.kind === 'media-type' && requested === UNKNOWN_MEDIA_VERSION
+      ? mediaTypeVersionLabel(headers.accept, mediaTypeKey ?? strategy.key)
+      : requested;
+  return jsonResponse(strategy.kind === 'header' ? 400 : 406, {
+    error: `unsupported version "${value}"`,
+    supported,
+  });
+}
+
+function mediaVersionedResponse(
+  response: WebResponse,
+  versionHeaders: Readonly<Record<string, string>> | undefined,
+): WebResponse {
+  if (versionHeaders === undefined) {
+    return response;
+  }
+  const contentType = response.headers['content-type'];
+  if (contentType === undefined || !contentType.toLowerCase().startsWith('application/json')) {
+    return response;
+  }
+  if (response.headers === versionHeaders) {
+    return response;
+  }
+  return { ...response, headers: { ...response.headers, ...versionHeaders } };
+}
+
 const JSON_HEADERS: Readonly<Record<string, string>> = { 'content-type': 'application/json' };
 const TEXT_HEADERS: Readonly<Record<string, string>> = { 'content-type': 'text/plain; charset=utf-8' };
 const NO_HEADERS: Readonly<Record<string, string>> = {};
@@ -114,8 +576,12 @@ const EMPTY_TEXT: ResponseBody = Object.freeze({ kind: 'text', value: '' });
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 const STANDARD_HTTP_METHODS = new Set(['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE']);
 
-function jsonResponse(status: number, value: unknown): WebResponse {
-  return { status, body: textBody(JSON.stringify(value) ?? ''), headers: JSON_HEADERS };
+function jsonResponse(
+  status: number,
+  value: unknown,
+  headers: Readonly<Record<string, string>> = JSON_HEADERS,
+): WebResponse {
+  return { status, body: textBody(JSON.stringify(value) ?? ''), headers };
 }
 
 function textBody(value: string): ResponseBody {
@@ -362,11 +828,129 @@ export interface Router {
 /** Create a router. Routes and their effective guards are resolved once at register time. */
 export function createRouter(routerOptions: RouterOptions = {}): Router {
   const buckets: MethodBuckets = new Map();
+  const versioning = routerOptions.versioning;
+  const requestVersioning = versioning?.kind === 'header' || versioning?.kind === 'media-type' ? versioning : undefined;
+  const versionBuckets: VersionBuckets = new Map();
+  const neutralBuckets: MethodBuckets = new Map();
+  const supportedBuckets: SupportedBuckets = new Map();
+  const versionedRouteKeys = new Set<string>();
+  const versionHeaderName = versioning?.kind === 'header' ? versioning.name.toLowerCase() : undefined;
+  const mediaTypeKey = versioning?.kind === 'media-type' ? versioning.key.toLowerCase() : undefined;
+  const mediaVersionLookup = versioning?.kind === 'media-type' ? createVersionLookup(versioning.default) : undefined;
   const tracer = routerOptions.tracer;
   const requestDuration = routerOptions.meter?.histogram('http.server.request.duration', 's');
   // One stable branch protects the original request path. A comments-only
   // configuration does not activate spans or metrics.
   const observed = tracer === undefined && requestDuration === undefined ? undefined : true;
+
+  function claimVersionedRoute(
+    controller: ControllerCtor,
+    route: ResolvedRoute,
+    version: string,
+    publicPath: string,
+  ): void {
+    const key = `${route.method}\u0000${version}\u0000${publicPath}`;
+    if (versionedRouteKeys.has(key)) {
+      throw new Error(
+        `Version registration error at ${controller.name}.${route.handlerName}: ` +
+          `${route.method} ${publicPath} is already registered for version "${version}"`,
+      );
+    }
+    versionedRouteKeys.add(key);
+  }
+
+  function addBoundRoute(
+    controller: ControllerCtor,
+    route: ResolvedRoute,
+    handler: Handler,
+    validateBody: ((raw: unknown) => unknown) | undefined,
+    guards: readonly Guard[],
+  ): void {
+    const declaration = versionsOf(controller, route.handlerName);
+
+    if (versioning === undefined) {
+      if (declaration !== undefined && declaration !== 'neutral') {
+        throw new Error(
+          `Version registration error at ${controller.name}.${route.handlerName}: ` +
+            '@Version() requires createRouter({ versioning: ... })',
+        );
+      }
+      const pattern = compilePattern(route.path);
+      bucketFor(buckets, route.method, pattern.segmentCount).push({
+        route,
+        pattern,
+        handler,
+        ...(validateBody === undefined ? {} : { validateBody }),
+        ...(guards.length === 0 ? {} : { guards }),
+      });
+      return;
+    }
+
+    if (declaration === undefined) {
+      throw new Error(
+        `Version registration error at ${controller.name}.${route.handlerName}: ` +
+          'declare @Version(...) or @VersionNeutral()',
+      );
+    }
+
+    if (versioning.kind === 'path') {
+      if (declaration === 'neutral') {
+        const pattern = compilePattern(route.path);
+        bucketFor(buckets, route.method, pattern.segmentCount).push({
+          route,
+          pattern,
+          handler,
+          ...(validateBody === undefined ? {} : { validateBody }),
+          ...(guards.length === 0 ? {} : { guards }),
+        });
+        return;
+      }
+      for (const version of declaration) {
+        const publicPath = pathForVersion(versioning.prefix, version, route.path);
+        claimVersionedRoute(controller, route, version, publicPath);
+        const expanded = { ...route, path: publicPath };
+        const pattern = compilePattern(publicPath);
+        bucketFor(buckets, route.method, pattern.segmentCount).push({
+          route: expanded,
+          pattern,
+          handler,
+          ...(validateBody === undefined ? {} : { validateBody }),
+          ...(guards.length === 0 ? {} : { guards }),
+        });
+      }
+      return;
+    }
+
+    const pattern = compilePattern(route.path);
+    const base = {
+      route,
+      pattern,
+      handler,
+      ...(validateBody === undefined ? {} : { validateBody }),
+      ...(guards.length === 0 ? {} : { guards }),
+    };
+    if (declaration === 'neutral') {
+      addNeutralRoute(versionBuckets, neutralBuckets, route.method, { ...base, neutral: true });
+      return;
+    }
+    for (const version of declaration) {
+      claimVersionedRoute(controller, route, version, route.path);
+      if (mediaVersionLookup !== undefined) {
+        addKnownVersion(mediaVersionLookup, version);
+      }
+      addSpecificVersionRoute(versionBuckets, neutralBuckets, route.method, version, {
+        ...base,
+        ...(versioning.kind === 'media-type'
+          ? {
+              versionJsonHeaders: Object.freeze({
+                'content-type': jsonMediaTypeForVersion(versioning.key, version),
+              }),
+            }
+          : {}),
+      });
+    }
+    addSupportedRoute(supportedBuckets, route.method, pattern, declaration);
+  }
 
   async function handleObserved(req: WebRequest): Promise<WebResponse> {
     const started = Date.now();
@@ -397,9 +981,20 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
       let matched: BoundRoute | undefined;
       let matchedParams: Record<string, string> | undefined;
+      let requestVersion: string | undefined;
       const routeSpan = childSpan(tracer, serverSpan, 'zmdb.route');
       try {
-        const candidates = buckets.get(method)?.[countSegments(req.path)] ?? [];
+        const segmentCount = countSegments(req.path);
+        requestVersion =
+          requestVersioning === undefined
+            ? undefined
+            : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
+        const candidates =
+          requestVersion === undefined
+            ? (buckets.get(method)?.[segmentCount] ?? [])
+            : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
+              neutralBuckets.get(method)?.[segmentCount] ??
+              []);
         for (const candidate of candidates) {
           const params = matchCompiled(candidate.pattern, req.path);
           if (params !== undefined) {
@@ -422,6 +1017,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       let failure: unknown;
       try {
         if (matched === undefined || matchedParams === undefined) {
+          if (requestVersion !== undefined && requestVersioning !== undefined) {
+            const supported = supportedVersions(supportedBuckets, method, req.path);
+            if (supported !== undefined) {
+              response = unsupportedVersion(requestVersioning, requestVersion, supported, req.headers, mediaTypeKey);
+              return response;
+            }
+          }
           response = jsonResponse(404, { error: `no route for ${method} ${req.path}` });
           return response;
         }
@@ -470,7 +1072,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         const handlerCtx = handlerSpan === undefined ? ctx : { ...ctx, span: handlerSpan };
         try {
           const result = await matched.handler(handlerCtx);
-          response = isTaggedResponse(result) ? result : jsonResponse(200, result);
+          response = mediaVersionedResponse(
+            isTaggedResponse(result) ? result : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
+            matched.versionJsonHeaders,
+          );
           return response;
         } catch (error) {
           failed = true;
@@ -532,9 +1137,6 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         if (handler === undefined) {
           continue;
         }
-        // Resolve the pattern's segments and `:param` slots once, here, rather
-        // than re-deriving them from the same constant string per request.
-        const pattern = compilePattern(route.path);
         const opts = options[route.handlerName];
         const routeGuards = opts?.guards ?? [];
         const publicRoute = isPublic(ctor, route.handlerName);
@@ -544,13 +1146,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           );
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
-          route,
-          pattern,
-          handler,
-          ...(opts?.validateBody === undefined ? {} : { validateBody: opts.validateBody }),
-          ...(guards.length === 0 ? {} : { guards }),
-        });
+        addBoundRoute(ctor, route, handler, opts?.validateBody, guards);
       }
     },
 
@@ -567,16 +1163,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           }
           return resolved(ctx);
         };
-        const pattern = compilePattern(route.path);
         const guards = isPublic(controller, route.handlerName)
           ? []
           : resolveGuards(routerOptions.guardRegistry, controller.name);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
-          route,
-          pattern,
-          handler,
-          ...(guards.length === 0 ? {} : { guards }),
-        });
+        addBoundRoute(controller, route, handler, undefined, guards);
       }
     },
 
@@ -585,7 +1175,17 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         return handleObserved(req);
       }
       const method = req.method.toUpperCase();
-      const candidates = buckets.get(method)?.[countSegments(req.path)] ?? [];
+      const segmentCount = countSegments(req.path);
+      const requestVersion =
+        requestVersioning === undefined
+          ? undefined
+          : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
+      const candidates =
+        requestVersion === undefined
+          ? (buckets.get(method)?.[segmentCount] ?? [])
+          : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
+            neutralBuckets.get(method)?.[segmentCount] ??
+            []);
       for (const bound of candidates) {
         const params = matchCompiled(bound.pattern, req.path);
         if (params === undefined) {
@@ -622,7 +1222,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           const result = await bound.handler(ctx);
           // One symbol check on the hot path, no extra allocation: a handler that
           // returns a plain value takes exactly the path it took before.
-          return isTaggedResponse(result) ? result : jsonResponse(200, result);
+          return mediaVersionedResponse(
+            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            bound.versionJsonHeaders,
+          );
         } catch (error) {
           // A validation error out of the *handler* is the request's fault, not the
           // server's — a write that failed its own schema check on the way to the driver —
@@ -633,6 +1236,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
           return jsonResponse(500, { error: messageOf(error) });
+        }
+      }
+      if (requestVersion !== undefined && requestVersioning !== undefined) {
+        const supported = supportedVersions(supportedBuckets, method, req.path);
+        if (supported !== undefined) {
+          return unsupportedVersion(requestVersioning, requestVersion, supported, req.headers, mediaTypeKey);
         }
       }
       return jsonResponse(404, { error: `no route for ${method} ${req.path}` });

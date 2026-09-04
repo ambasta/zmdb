@@ -10,8 +10,8 @@ from, what happens when it is absent or unknown, and what it costs per request.
 
 ## 1. The argument this has to answer
 
-`tests/api-coverage/mapping.mjs:154` carries a committed argument against this
-feature, and 350 upstream NestJS assertions are marked out of scope by citing it:
+`tests/api-coverage/mapping.mjs` used to carry one committed argument against
+this feature across 568 upstream NestJS assertions:
 
 > zmdb routes on method and path only; a version lives in the path if you want
 > one, which is a routing decision the reader can see rather than a resolver
@@ -24,17 +24,19 @@ intact:
    strategy there is no resolver at all — §7. What `@Version` adds there is the
    path expansion at registration and the document representation, both of which
    happen once.
-2. **"A resolver running on every request" is refused as described.** What runs
-   per request under the header and media-type strategies is one header read and
-   two `Map.get`s against a table built at startup, with no per-route scan, no
-   regular expression and no allocation. NestJS's version resolution is a
-   per-request pass over candidate routes; this is not that.
+2. **"A resolver running on every request" is refused as described.** Header
+   versioning performs one header lookup before the startup-built method/version
+   table lookup. Media-type versioning performs one `Accept` read and an
+   allocation-free character/trie scan before the same table lookup. Neither
+   scans routes from another version or runs a regular expression. Of those, 404
+   version-related assertions are now mapped to focused tests; the remaining
+   164 custom-extractor assertions retain a narrower written argument because a
+   callback has no finite document representation.
 
-The clause that does change is "routes on method and path only". When #576 lands,
-the `NO_VERSIONING` rows in `mapping.mjs` become covered rather than out of scope,
-and that file's argument has to be rewritten to be about the _shape_ of
-negotiation rather than its absence. That is #576's work and is named here so it
-is not discovered by a failing `yarn verify:api-coverage`.
+The clause that does change is "routes on method and path only". The broad
+`NO_VERSIONING` argument in `mapping.mjs` is replaced by named coverage plus a
+narrow `NO_CUSTOM_VERSIONING` argument about the extractor callback that remains
+outside this finite strategy surface.
 
 ## 2. The surface
 
@@ -182,8 +184,10 @@ inside a `@VersionNeutral()` controller serves version 2 only, and a `@Version('
 expects from every other decorator in the package, and merging a neutral with a list has no meaning —
 neutral already includes the list.
 
-Two versions of the same method and path is a registration error, as it is today: a version is a third key
-in the table (§7) and a duplicate key is the same bug as a duplicate route.
+Two declarations claiming the same method, path and version are a registration
+error: version is a third key in the table (§7), so a duplicate versioned key
+cannot be represented. This is a new strictness for configured versioning.
+Unconfigured routing retains its existing first-registered-wins behaviour.
 
 ## 7. Resolution is built at startup
 
@@ -196,14 +200,24 @@ count:
 type VersionBuckets = Map<string, Map<string, BoundRoute[][]>>; // method → version → segmentCount → routes
 ```
 
-Per request, under `header` or `media-type`: one header read, one version extraction, two `Map.get`s and
-one array index. No per-route scan, no regular expression over the path, and no allocation — which is why
-the key is a nested map rather than a `method + '\0' + version` concatenation, since that concatenation is
-a string allocated on the hot path of every request and epic #564's cost constraint is about exactly that.
+Per request under `header`, the configured header value is already the version
+map key. Under `media-type`, a startup-built trie matches the version parameter
+directly against canonical registered strings; it does not `split`, `slice`,
+lower-case or otherwise create a substring on the known-version success path.
+Both strategies then use the nested method/version map and segment-count array.
+There is no cross-version route scan or regular expression over the path.
 
-Under `path`, **nothing runs per request.** `@Version('1', '2')` on a route under
+The no-allocation statement is specifically about successful version
+extraction. A sampled V8 allocation profile over 100,000 media-type requests at
+a 64-byte interval attributed zero sampled bytes to the parser functions, and
+the focused test supplies an `Accept` carrier whose allocating string helpers
+throw. An unsupported-version response necessarily allocates its JSON error
+body and, for an unknown media value, the value copied into that body.
+
+Under `path`, **no version extractor or version-table lookup runs per request.**
+`@Version('1', '2')` on a route under
 `{ kind: 'path', prefix: 'v' }` registers `/v1/users` and `/v2/users` at register time, and the existing
-two-key table answers both with no version code in `handle` at all. This is the property that makes path
+two-key table answers both without extracting or looking up a version. This is the property that makes path
 versioning the recommendation rather than merely one of three.
 
 A `@VersionNeutral()` route is registered into every version bucket that exists, and into a neutral bucket
@@ -238,6 +252,10 @@ that convenient is deliberate, and `@Version('1', '2')` on one method means the 
    one that refuses.
 10. A performance assertion in the existing shape: matching against a table with N versions of M routes
     does not read more candidates than matching one version of M routes.
+11. The successful media-type path does not call allocating string extraction
+    helpers, and the existing router microbenchmark can run all three strategies
+    so committed and versioned route-table timings can be compared without a
+    fixed CI threshold.
 
 ## Non-goals (rejected)
 

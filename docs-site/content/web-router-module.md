@@ -21,23 +21,25 @@ class HealthController {
 }
 ```
 
-## Versioning is a prefix
+## Versioning can expand a prefix
 
 ```ts
-@Controller('/v1/posts')
-export class PostsV1Controller {
+@Version('1', '2')
+@Controller('/posts')
+export class PostsController {
   /* … */
 }
 
-@Controller('/v2/posts')
-export class PostsV2Controller {
-  /* … */
-}
+const router = createRouter({ versioning: { kind: 'path', prefix: 'v' } });
+router.register(new PostsController());
 ```
 
-Both in `@Module({ controllers: [...] })`. There is no version negotiation by header or media type — if you need that, branch in the adapter before calling `app.handle`.
+This registers `/v1/posts` and `/v2/posts` at startup. Header and media-type
+strategies use the same `@Version` declaration with a different
+`createRouter({ versioning })` option; see [API Versioning](./web-versioning.html).
 
-A shared constant keeps it honest:
+Manual prefixes remain valid, including when a shared constant keeps them
+consistent:
 
 ```ts
 const V1 = '/api/v1';

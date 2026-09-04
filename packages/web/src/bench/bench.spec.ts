@@ -63,6 +63,31 @@ describe('@zmdb/web bench: microbench', () => {
     expect(result.totalMs).toBeGreaterThanOrEqual(0);
   });
 
+  it('measures path, header and media-type routing with the same workload', async () => {
+    const results = await Promise.all([
+      benchmarkRouter({
+        routes: 5,
+        iters: 200,
+        version: '1',
+        versioning: { kind: 'path', prefix: 'v' },
+      }),
+      benchmarkRouter({
+        routes: 5,
+        iters: 200,
+        version: '1',
+        versioning: { kind: 'header', name: 'accept-version', default: '1' },
+      }),
+      benchmarkRouter({
+        routes: 5,
+        iters: 200,
+        version: '1',
+        versioning: { kind: 'media-type', key: 'version', default: '1' },
+      }),
+    ]);
+    expect(results.map(result => result.iters)).toEqual([200, 200, 200]);
+    expect(results.every(result => result.opsPerSec > 0)).toBe(true);
+  });
+
   it('returns raw timings for repeated eager app creation', () => {
     const result = benchmarkAppStartup(XModule, 200);
     expect(result.iters).toBe(200);
