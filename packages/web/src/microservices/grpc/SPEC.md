@@ -45,6 +45,9 @@ protoDecode<T>(bytes: Uint8Array): T;
 protoDescriptor<T>(): string; // the .proto text, for the other language
 ```
 
+Those three message entry points now ship. The `grpcDescriptor` service-block
+emitter below does not; it remains owned by the gRPC work.
+
 `.proto` is **output**. The declared TypeScript type carrying `ProtoField<N>` and `Proto<K>` tags
 (`../../../../schema-core/src/ir/SPEC.md` §4.5) is the input. That is the same decision the whole project rests
 on and the same one `web-microservices-grpc.md` reached on its own before this freeze — "generate `.proto` _from_ the
@@ -81,8 +84,9 @@ is generated from the same declaration the handlers are checked against. Commit 
 contract-change review that `.proto` files are prized for is a pull request — which is exactly what
 `web-microservices-grpc.md` already recommends doing with an OpenAPI document.
 
-`grpcDescriptor` lives in `@zmdb/aot-validator`, next to `protoDescriptor`, **not here**. `@zmdb/web` does not
-gain a `TypeIR` walker; the walker exists once and this epic calls it. §8 is the rest of that boundary.
+`grpcDescriptor` belongs to this gRPC epic but lives in `@zmdb/aot-validator`, next to `protoDescriptor`,
+**not here**. `@zmdb/web` does not gain a `TypeIR` walker; the walker exists once and this epic calls it. §8 is
+the rest of that boundary.
 
 The `ServiceDefinition` object `@grpc/grpc-js`'s `Server.addService` wants is built from the same descriptor, with
 `protoEncode`/`protoDecode` as its `serialize`/`deserialize`. That is the entire reason `@grpc/proto-loader` is
@@ -194,7 +198,8 @@ next suspension point, and `finally` runs. There is no other cancellation path a
 **`web-microservices-grpc.md` claimed streaming RPC was "blocked by the string response body". That is
 wrong and is corrected on the page.** `WebResponse` (`../../pipeline/SPEC.md` §22) is the HTTP pipeline's type; a
 gRPC stream never touches it, and `toNodeHandler`'s tagged response-body handling is not on this path at all.
-gRPC streaming is blocked by nothing except protobuf, which is §8.
+The message-codec dependency is now satisfied; streaming remains unavailable because the gRPC service
+descriptor and binding are not implemented.
 
 ## 6. Deadlines, and propagating what is left of one
 
@@ -280,9 +285,10 @@ making it the default rather than the advice is the difference between a documen
 the alternatives are silence, which loses every internal failure, and `console.error`, which invents a logger
 this project has never had.
 
-A validation failure is `INVALID_ARGUMENT`, not `INTERNAL`, and it is produced by `protoDecode` failing rather
-than by a separate validator — a malformed protobuf frame and a frame whose fields do not match the declared type
-are the same event at this layer.
+A malformed frame that `protoDecode` rejects is `INVALID_ARGUMENT`, not `INTERNAL`. Protobuf decoding is not a
+complete application validator: implicit absence fills scalar zero values, an incompatible wire form is skipped,
+and validation tags such as bounds or patterns are outside the codec. A binding that promises those constraints
+must run the emitted `assert<T>` after decoding.
 
 A literal union rather than a numeric `enum`: the wire values are gRPC's and the adapter maps to them in one
 place, so the numbers never appear in application code, and a union is what every other status-like type in this
@@ -347,32 +353,27 @@ convenience.
 `credentials` is required here too. A client defaulting to insecure is worse than a server doing it, because the
 server at least fails visibly when a TLS client connects.
 
-No response validator, unlike `MessageClient`: `protoDecode<T>` **is** the validator. A protobuf frame that does
-not match the declared message fails to decode, which is the guarantee the broker path needs a separate
-`assert<T>` to get. That asymmetry is worth naming, because it is the one concrete thing gRPC buys over
-JSON-over-a-broker in this project.
+`protoDecode<T>` establishes the supported protobuf wire shape, not every validation constraint on `T`. The
+binding must make request and response validation explicit when bounds, patterns or other application rules are
+part of the service contract.
 
 ## 11. The boundary with the protobuf epic, stated as a dependency
 
 `#557` step 9 asks for this boundary. It runs exactly here:
 
-| Owned by the protobuf work (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Owned by this epic (`@zmdb/web`)   |
-| ----------------------------------------------------------------------- | ---------------------------------- |
-| `ProtoField<N>`, `Proto<K>` and their IR carriage                       | `GrpcServiceDef`, `GrpcMethodDef`  |
-| `protoEncode`, `protoDecode`, `protoDescriptor`                         | `bindGrpcService`, `GrpcHandlers`  |
-| `grpcDescriptor` — the `service` block emitter                          | passing its output to `addService` |
-| field-number and wire-type diagnostics                                  | `GrpcCall`, deadlines, metadata    |
+| Owned by the protobuf work (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Owned by this gRPC epic                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ProtoField<N>`, `Proto<K>` and their IR carriage                       | `GrpcServiceDef`, `GrpcMethodDef`                      |
+| `protoEncode`, `protoDecode`, `protoDescriptor`                         | `grpcDescriptor` — the `service` block emitter         |
+| field-number and wire-type diagnostics                                  | `bindGrpcService`, `GrpcHandlers`, calls and lifecycle |
 
-There is **one** `TypeIR` walker and it is not in `@zmdb/web`. `grpcDescriptor` is on the emitter side despite
-being a gRPC concept, because putting it here would mean a second walker over the same IR, and two walkers that
-disagree about a field number is a wire break neither codebase's tests can see.
+There is **one** `TypeIR` walker and it is not in `@zmdb/web`. The gRPC-owned `grpcDescriptor` implementation is
+on the emitter side despite being a gRPC concept, because putting it here would mean a second walker over the
+same IR, and two walkers that disagree about a field number is a wire break neither codebase's tests can see.
 
-**This makes the implementation slice a genuine dependency, which `#556` does not say.** `#556` states "This epic
-is independent of every other epic: it can be picked up without waiting on one." That is true of the epic and
-false of `#561`: without `protoEncode`, `protoDecode` and `grpcDescriptor`, there is nothing to serialise with,
-and `bindGrpcService` cannot construct a `ServiceDefinition`. `#561` is therefore blocked in fact on the protobuf
-implementation slices even though no `blocked_by` edge records it. Recorded here because a spec that let that be
-discovered during implementation would have cost a slice.
+The message-codec dependency this section originally recorded is now satisfied. The gRPC implementation still
+needs its own `grpcDescriptor` and binding before it can construct a `ServiceDefinition`; those are not part of
+the protobuf message epic.
 
 Everything else in this epic — `TransportStrategy`, the dispatcher, the broker strategies, the hybrid lifecycle —
 is genuinely independent, so the epic's claim holds for six of its seven sub-issues.

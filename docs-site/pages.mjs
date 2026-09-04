@@ -1097,20 +1097,17 @@ export const PAGE_META = {
   'protobuf-message': {
     title: 'Protobuf Messages',
     group: 'JSON & Serialization',
-    status: 'todo',
-    note: 'proto3 descriptors and both AOT codec directions ship; final cross-page documentation remains open',
+    status: 'supported',
   },
   'protobuf-encode': {
     title: 'protobuf encode',
     group: 'JSON & Serialization',
-    status: 'todo',
-    note: 'AOT encoder and decoder ship; final protobuf documentation remains in the open codec epic',
+    status: 'supported',
   },
   'protobuf-decode': {
     title: 'protobuf decode',
     group: 'JSON & Serialization',
-    status: 'todo',
-    note: 'AOT decoder ships; final protobuf documentation remains in the open codec epic',
+    status: 'supported',
   },
   'llm-function-calling': {
     title: 'LLM Function Calling',

@@ -8,7 +8,7 @@ import { is } from '@zmdb/aot-validator/utilities';
 is<User>(payload); // needs the transformer
 ```
 
-`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>`, `schemaOf<T>`, `protoDescriptor<T>` and `protoEncode<T>` are the ten calls the transformer currently rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema and protobuf calls name the build transform that should have replaced them.
+`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>`, `schemaOf<T>`, `protoDescriptor<T>`, `protoDecode<T>` and `protoEncode<T>` are the eleven calls the transformer currently rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema and protobuf calls name the build transform that should have replaced them.
 
 > [!IMPORTANT]
 > There is no fallback that inspects `T` at runtime, because there is nothing to inspect.

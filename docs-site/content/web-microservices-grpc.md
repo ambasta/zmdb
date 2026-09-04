@@ -13,12 +13,12 @@ gRPC is not just a transport. It brings a schema language (`.proto`), a code gen
 | ----------------------------- | ---------------------------------------------------------------------- |
 | `.proto` as the schema source | a TypeScript type with `ProtoField<N>` tags — and `.proto` is _output_ |
 | `protoc` code generation      | [derived DTOs](./type-derivation.html), no generation step             |
-| protobuf wire format          | `protoEncode`/`protoDecode`, frozen alongside JSON                     |
+| protobuf wire format          | `protoEncode`/`protoDecode`, emitted from the shared checked TypeIR    |
 | Streaming RPC                 | an `async function*`, the same shape a GraphQL subscription uses       |
 
 The first row is the one that used to be a tension and is now a decision: `.proto` is generated **from** the declared type, so there is one source of truth and the `.proto` is an artifact you commit and diff in CI. That resolves the conflict with the project's [type-derived design](./anti-patterns.html) rather than living with it.
 
-Two claims that used to be on this page are no longer true. Protobuf support **is** specified — `protoEncode`, `protoDecode` and `protoDescriptor` are frozen in `packages/aot-validator/src/emit/SPEC.md` §7b, with the `ProtoField<N>` and `Proto<K>` vocabulary in `packages/schema-core/src/ir/SPEC.md` §4.5. And streaming RPC was never blocked by the HTTP pipeline's former [string response body](./web-streaming-files.html): a gRPC stream never touches `WebResponse`. What gRPC streaming was waiting on is protobuf, which is now specified.
+Two claims that used to be on this page are no longer true. Protobuf message support now ships — `protoEncode`, `protoDecode` and `protoDescriptor` are emitted from the contract in `packages/aot-validator/src/emit/SPEC.md` §7b, with the `ProtoField<N>` and `Proto<K>` vocabulary in `packages/schema-core/src/ir/SPEC.md` §4.5. And streaming RPC was never blocked by the HTTP pipeline's former [string response body](./web-streaming-files.html): a gRPC stream never touches `WebResponse`. What remains is the gRPC-owned service descriptor and binding.
 
 ## What to use instead
 
@@ -109,7 +109,7 @@ Both surfaces share one container and one pool — see [Hybrid Applications](./w
 
 ## What it would take
 
-The schema-source question is answered: `.proto` is generated from the declared type, and the `TypeIR` that `toJsonSchema` walks is the input the emitter uses. What remains is the protobuf codecs, a `service`-block emitter beside them, and the binding.
+The schema-source question is answered: `.proto` is generated from the declared type, and the `TypeIR` that `toJsonSchema` walks is the input the emitter uses. The protobuf message codecs now ship. What remains is a `service`-block emitter beside them and the binding.
 
 The binding has no decorator. A service is a `type` alias and the handlers are a mapped type over it:
 
@@ -133,7 +133,7 @@ Nothing parses a `.proto`, at build time or runtime. `@grpc/proto-loader` would 
 
 Two more decisions worth knowing before you plan around this. `credentials` is a required option with no default, because `createInsecure()` as a default is how plaintext reaches production. And a deadline is exposed as both an `AbortSignal` and a `remainingMs()`, because an outbound call inside a handler must inherit the remaining budget — otherwise three services with a 5-second deadline each take 15 seconds while the original caller left after 5, and all three log a success.
 
-`#561` is blocked in fact on the protobuf implementation slices, even though no dependency edge records it: without `protoEncode` and `protoDecode` there is nothing to serialise with.
+The protobuf message dependency is now satisfied. The remaining gRPC work is the service-block descriptor, the `ServiceDefinition` adapter and the server/client binding.
 
 ---
 

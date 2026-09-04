@@ -1,9 +1,9 @@
-> **Codec support.** `ProtoField<N>` and `Proto<K>` are carried through the
-> shared TypeIR, and `protoDescriptor<T>()` emits a parser-valid proto3 descriptor
-> at build time. AOT [encode](./protobuf-encode.html) and
-> [decode](./protobuf-decode.html) are emitted from that same checked IR.
+> **Supported.** `ProtoField<N>` and `Proto<K>` define a proto3 message contract.
+> `protoDescriptor<T>()`, [`protoEncode<T>()`](./protobuf-encode.html) and
+> [`protoDecode<T>()`](./protobuf-decode.html) are emitted at build time from the
+> same checked TypeIR.
 
-## Declare the wire contract once
+## Field numbers are the wire contract
 
 ```ts
 import { protoDescriptor } from '@zmdb/aot-validator';
@@ -12,7 +12,7 @@ import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 type State = 'active' | 'paused';
 
 interface UserMessage {
-  id: number & Proto<'int32'> & ProtoField<1>;
+  id: bigint & Proto<'uint64'> & ProtoField<1>;
   name: string & ProtoField<2>;
   state: State & ProtoField<3>;
   seenAt?: Date & ProtoField<4>;
@@ -21,16 +21,114 @@ interface UserMessage {
 export const userProto = protoDescriptor<UserMessage>();
 ```
 
-The build transform replaces that call with proto3 text. Fields are ordered by
-number, string unions become enums with a generated zero member, nested objects
-become messages, arrays become `repeated`, optional or nullable singular fields
-become `optional`, and `Date` imports `google.protobuf.Timestamp`.
-
 Every property needs a unique `ProtoField<N>` in `1 … 536870911`, excluding the
 reserved `19000 … 19999` range. Missing, duplicate, out-of-range and reserved
 numbers are build diagnostics naming the message and property.
 
-## What you would use it for, and what to use instead
+The number, not the property name or declaration order, is the field's wire
+identity:
+
+- Never renumber a released field or reuse the number of a removed field.
+- Never change a field's scalar spelling or structural kind under an existing
+  number. For example, `int32` to `sint32` changes how the same wire value is
+  interpreted.
+- Renaming a property while keeping its number and wire type is wire-compatible,
+  although generated clients in another language will see a source-level rename.
+- Add a field with a fresh number and make absence safe for every receiver in the
+  rollout. Use an optional property when the application must distinguish absent
+  from the protobuf zero value.
+
+The build checks one declaration, not its history. It cannot detect that a number
+was used by an older release, and this surface does not emit `reserved`
+declarations for removed properties. Commit the generated descriptor and review
+its diff; keep retired numbers unused.
+
+## What the descriptor contains
+
+The build transform replaces `protoDescriptor<T>()` with proto3 text. Fields are
+ordered by number, string unions become enums with a generated zero member,
+nested objects become messages, arrays become `repeated`, optional or nullable
+singular fields become `optional`, and `Date` imports
+`google.protobuf.Timestamp`.
+
+## Integer widths are explicit
+
+An untagged `number` maps to `double`, the only protobuf scalar that can represent
+the full JavaScript `number` domain. Integer wire contracts need an explicit
+`Proto<K>`:
+
+| TypeScript                 | Protobuf |
+| -------------------------- | -------- |
+| `number`                   | `double` |
+| `number & Proto<'int32'>`  | `int32`  |
+| `number & Proto<'sint32'>` | `sint32` |
+| `bigint & Proto<'int64'>`  | `int64`  |
+| `bigint & Proto<'uint64'>` | `uint64` |
+| untagged `bigint`          | refused  |
+| `number & Proto<'int64'>`  | refused  |
+
+There is no silent integer default: choosing `int32` would truncate larger
+numbers, while choosing between signed, unsigned and zigzag encodings is part of
+the public wire contract. Every 64-bit integer is a `bigint` on both encode and
+decode, even when its current value would fit in a `number`. SQL tags do not
+select protobuf widths.
+
+## Presence and the zero-value surprise
+
+Proto3 implicit presence makes a required scalar's zero value indistinguishable
+from absence:
+
+```ts
+import { protoDecode, protoEncode } from '@zmdb/aot-validator';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+
+interface RequiredCount {
+  count: number & Proto<'int32'> & ProtoField<1>;
+}
+
+protoEncode<RequiredCount>({ count: 0 }); // Uint8Array []
+protoDecode<RequiredCount>(new Uint8Array()); // { count: 0 }
+
+interface OptionalCount {
+  count?: number & Proto<'int32'> & ProtoField<1>;
+}
+
+protoEncode<OptionalCount>({ count: 0 }); // Uint8Array [0x08, 0x00]
+protoDecode<OptionalCount>(new Uint8Array()); // {}
+```
+
+A required nullable field uses the same explicit wire presence as an optional
+field: `null` is omitted, a present zero is written, and absence decodes to
+`null`. An optional nullable property is refused because its three TypeScript
+states cannot round-trip through protobuf's two presence states.
+
+## Unknown fields during a rolling deployment
+
+The decoder skips unknown varint, fixed64, length-delimited and fixed32 fields,
+then discards their bytes. That lets an older consumer read the fields it knows
+from a message produced by a newer sender.
+
+It does not make an old intermediary transparent. If that service decodes and
+re-encodes the message, every field it did not know is gone before the next
+service receives it. During a mixed-version rollout, forward the original bytes
+through relays or deploy so no old hop has to decode and re-encode a newer
+message.
+
+## Interoperability evidence
+
+The repository tests make narrower, measurable claims instead of declaring
+blanket compatibility:
+
+- `interop.spec.ts` parses the emitted descriptor with protobufjs, decodes bytes
+  protobufjs produced, and gives emitted bytes back to protobufjs.
+- `protobuf.spec.ts` compares the scalar, packing, presence, nesting and
+  timestamp cases with fixed vectors produced with protoc 34.2, including exact
+  64-bit extrema.
+
+Those tests cover the supported mapping and fixtures. They do not claim support
+for the features refused below.
+
+## Scope and alternatives
 
 **Compact outbound wire format for internal service calls.** Use
 `protoEncode<T>(value)` for bytes compiled from the same declaration as the
@@ -45,39 +143,21 @@ the alternatives for JSON APIs.
 **gRPC.** The message codec is available, but transport integration remains
 separate — see [gRPC](./web-microservices-grpc.html).
 
-## Using a protobuf library alongside zmdb
-
-Nothing prevents it. Generate the `.proto` from the TypeScript declaration first,
-then let the protobuf library compile or load that descriptor:
+**Another protobuf library.** Generate the `.proto` from the TypeScript
+declaration, then let that library compile or load the artifact:
 
 ```ts
+import { writeFile } from 'node:fs/promises';
+
 await writeFile('user.proto', protoDescriptor<UserMessage>());
 ```
 
-The descriptor removes the second hand-written schema. Another protobuf library
-can still own either wire direction when an application needs features outside
-the supported mapping; validate its plain result at that boundary:
-
-```ts
-import { is } from '@zmdb/aot-validator/utilities';
-
-it('proto message satisfies the entity type', () => {
-  const decoded = UserMessage.decode(UserMessage.encode(fixture).finish());
-  expect(is<Entity<User>>(toPlain(decoded))).toBe(true);
-});
-```
-
-The generated validator is still doing real work here: protobuf libraries differ
-in how they represent 64-bit integers and timestamps, and the application adapter
-has to return the TypeScript shape it declared.
-
-Some source shapes are deliberately refused rather than left undecided:
-`Record<string, V>` is invisible to the current reflector, nested arrays have no
-direct proto3 spelling, optional-nullable fields have three source states but two
-wire states, and discriminated unions cannot become `oneof` until union arms have
-a field-number tag slot. Required singular-message cycles have no finite absent
-value and are refused. Unknown fields are discarded, so decode/re-encode is not
-safe for a proxy.
+The supported surface is proto3 message descriptors and AOT message codecs.
+Proto2 semantics, gRPC service definitions and transport binding, and runtime
+`.proto` parsing are non-goals. The current mapping also refuses maps because
+index signatures do not reach the reflector, `oneof` because union arms have no
+field-number tag slot, `bytes` because typed-array reflection is absent, nested
+arrays, optional-nullable fields, and required singular-message cycles.
 
 ---
 
