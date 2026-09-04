@@ -557,7 +557,7 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
  */
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
-  protected driver: Driver;
+  protected _driver?: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: DialectTarget;
   protected readonly dialectCapabilities: ReturnType<typeof dialectCapabilities>;

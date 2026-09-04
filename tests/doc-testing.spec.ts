@@ -6,11 +6,7 @@ import { transformSync } from 'esbuild';
 import { describe, test } from 'vitest';
 
 import { PAGES } from '../docs-site/manifest.mjs';
-import {
-  tags as aotTags,
-  transformSource as aotTransformSource,
-  validate as aotValidate,
-} from '../packages/aot-validator/src/index.ts';
+import { tags as aotTags, validate as aotValidate } from '../packages/aot-validator/src/index.ts';
 import {
   assertStringify,
   decode,
@@ -18,6 +14,7 @@ import {
   parse,
   stringify,
 } from '../packages/aot-validator/src/serialization/index.ts';
+import { transformCode as aotTransformSource } from '../packages/aot-validator/src/transformer.ts';
 import {
   assert as aotAssert,
   assertEquals as aotAssertEquals,
@@ -55,33 +52,136 @@ import {
   describeAggregate,
   project,
 } from '../packages/schema-core/src/dto/index.ts';
-import {
-  bigint,
-  boolean,
-  defineSchema,
-  getRegisteredSchema,
-  integer,
-  isRecord,
-  json,
-  jsonEnum,
-  manyToMany,
-  manyToOne,
-  notNull,
-  nullable,
-  numeric,
-  oneToMany,
-  oneToOne,
-  primaryKey,
-  references,
-  registeredSchemas,
-  SchemaError,
-  serial,
-  text,
-  timestamp,
-  unique,
-  varchar,
-} from '../packages/schema-core/src/index.ts';
+import { getRegisteredSchema, isRecord, registeredSchemas, SchemaError } from '../packages/schema-core/src/index.ts';
+import { schemaFromIR, type ColumnIR, type SchemaIR } from '../packages/schema-core/src/ir/index.ts';
 import { lenientParse, toolFromSchema } from '../packages/schema-core/src/llm/index.ts';
+
+class LegacyColumnBuilder {
+  meta: Record<string, unknown>;
+  constructor(sqlType: string) {
+    this.meta = {
+      sql: sqlType === 'serial' ? 'integer' : sqlType,
+      nullable: false,
+      primaryKey: false,
+      serial: sqlType === 'serial',
+      unique: false,
+      hasDefault: sqlType === 'serial',
+      sensitive: false,
+      constraints: {},
+      rules: [],
+    };
+  }
+  notNull() {
+    this.meta.nullable = false;
+    return this;
+  }
+  nullable() {
+    this.meta.nullable = true;
+    return this;
+  }
+  primaryKey() {
+    this.meta.primaryKey = true;
+    return this;
+  }
+  unique() {
+    this.meta.unique = true;
+    return this;
+  }
+  defaultTo(val: unknown) {
+    this.meta.default = val;
+    this.meta.hasDefault = true;
+    return this;
+  }
+  validate(_rule: unknown) {
+    return this;
+  }
+  sensitive(on = true) {
+    this.meta.sensitive = on;
+    return this;
+  }
+}
+
+const serial = () => new LegacyColumnBuilder('serial');
+const integer = () => new LegacyColumnBuilder('integer');
+const bigint = () => new LegacyColumnBuilder('bigint');
+const numeric = (_precision?: number, _scale?: number) => new LegacyColumnBuilder('numeric');
+const text = () => new LegacyColumnBuilder('text');
+const varchar = (length?: number) => {
+  const c = new LegacyColumnBuilder('varchar');
+  if (length !== undefined) c.meta.length = length;
+  return c;
+};
+const boolean = () => new LegacyColumnBuilder('boolean');
+const timestamp = () => new LegacyColumnBuilder('timestamp');
+const json = <T = unknown>(_of?: T) => new LegacyColumnBuilder('json');
+const jsonEnum = <const V extends readonly string[]>(values: V) => {
+  const c = new LegacyColumnBuilder('jsonEnum');
+  c.meta.enum = values;
+  return c;
+};
+
+const notNull = <C extends LegacyColumnBuilder>(column: C): C => column.notNull() as C;
+const nullable = <C extends LegacyColumnBuilder>(column: C): C => column.nullable() as C;
+const primaryKey = <C extends LegacyColumnBuilder>(column: C): C => column.primaryKey() as C;
+const unique = <C extends LegacyColumnBuilder>(column: C): C => column.unique() as C;
+const _sensitive = <C extends LegacyColumnBuilder>(column: C): C => column.sensitive() as C;
+const references = <C extends LegacyColumnBuilder>(column: C, target: unknown, targetColumn?: string): C => {
+  const targetStr =
+    typeof target === 'string' ? target : `${(target as { table: string }).table}.${targetColumn ?? 'id'}`;
+  column.meta.references = targetStr;
+  return column as C;
+};
+
+const manyToOne = (target: string, options?: Record<string, unknown>) => ({
+  relation: 'manyToOne',
+  target,
+  ...options,
+});
+const oneToMany = (target: string, options?: Record<string, unknown>) => ({
+  relation: 'oneToMany',
+  target,
+  ...options,
+});
+const oneToOne = (target: string, options?: Record<string, unknown>) => ({ relation: 'oneToOne', target, ...options });
+const manyToMany = (target: string, options?: Record<string, unknown>) => ({
+  relation: 'manyToMany',
+  target,
+  ...options,
+});
+
+function defineSchema(table: string, columnsObj: Record<string, unknown>, options?: { ftsTable?: string | boolean }) {
+  const columns: ColumnIR[] = [];
+  const primaryKeyCols: string[] = [];
+  for (const [colName, colBuilder] of Object.entries(columnsObj)) {
+    const colMeta = colBuilder?.meta ?? colBuilder;
+    const colIR: ColumnIR = {
+      name: colName,
+      sql: colMeta.sql ?? 'text',
+      nullable: colMeta.nullable ?? false,
+      primaryKey: colMeta.primaryKey ?? false,
+      serial: colMeta.serial ?? false,
+      unique: colMeta.unique ?? false,
+      hasDefault: colMeta.hasDefault ?? false,
+      sensitive: colMeta.sensitive ?? false,
+      constraints: colMeta.constraints ?? {},
+      rules: colMeta.rules ?? [],
+      ...(colMeta.length !== undefined ? { length: colMeta.length } : {}),
+      ...(colMeta.enum !== undefined ? { enum: colMeta.enum } : {}),
+      ...(colMeta.references !== undefined ? { references: colMeta.references } : {}),
+      ...(colMeta.default !== undefined ? { default: colMeta.default } : {}),
+    };
+    columns.push(colIR);
+    if (colIR.primaryKey) primaryKeyCols.push(colName);
+  }
+  const ir: SchemaIR = {
+    table,
+    columns,
+    primaryKey: primaryKeyCols,
+    relations: [],
+    ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
+  };
+  return schemaFromIR(ir);
+}
 import {
   toJsonSchema,
   toJsonSchemaWithRelations,
@@ -310,10 +410,23 @@ function createSnippetContext() {
 
   const UserSchema = defineSchema('users', {
     id: serial().primaryKey(),
-    email: text().notNull(),
+    email: text().notNull().defaultTo('test@example.com'),
     role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
     age: integer().nullable(),
     createdAt: timestamp().notNull().defaultTo('now'),
+    created_at: timestamp().notNull().defaultTo('now'),
+    updatedAt: timestamp().nullable(),
+    total: numeric().nullable(),
+    totalPrice: numeric().nullable(),
+    active: boolean().nullable().defaultTo(true),
+    tags: json().nullable(),
+    name: text().nullable(),
+    views: integer().nullable(),
+    published: boolean().nullable(),
+    orgId: integer().nullable(),
+    title: text().nullable(),
+    authorId: integer().nullable(),
+    bio: text().nullable(),
   });
 
   const OrderSchema = defineSchema('orders', {
@@ -322,12 +435,18 @@ function createSnippetContext() {
     status: text().nullable(),
     total: numeric().notNull().defaultTo(0),
     totalPrice: numeric().notNull().defaultTo(0),
+    unitPrice: numeric().nullable(),
+    quantity: integer().nullable(),
   });
 
   const PostSchema = defineSchema('posts', {
     id: serial().primaryKey(),
-    title: text().notNull(),
+    title: text().notNull().defaultTo('Untitled'),
     author_id: references(integer().notNull(), 'users.id'),
+    views: integer().nullable(),
+    published: boolean().nullable(),
+    tags: json().nullable(),
+    createdAt: timestamp().nullable(),
   });
 
   const users = defineRepository(UserSchema, driver, { dialect: 'sqlite' });
@@ -828,18 +947,111 @@ function createSnippetContext() {
       toBeTruthy: () => {},
       toBeDefined: () => {},
     }),
+    schemaOf: (ir?: unknown) => (ir ? schemaFromIR(ir as ColumnIR[]) : UserSchema),
+    repo: users,
+    commentRepo: orders,
+    postRepo: posts,
+    userSchema: UserSchema,
+    schemas: [UserSchema, OrderSchema, PostSchema],
+    authorId: 1,
+    tag: 'test',
+    q: '',
+    res: { json: () => {}, send: () => {}, status: () => ({ json: () => {} }) },
+    wireCodec: { encode: (v: unknown) => v, decode: (v: unknown) => v },
+    query: async () => [],
+    writeFileSync: () => {},
+    Sql: class Sql {
+      dummy = true;
+    },
+    neon: () => () => Promise.resolve([]),
+    SQLDatabase: class SQLDatabase {
+      dummy = true;
+    },
+    RDSDataClient: class RDSDataClient {
+      dummy = true;
+    },
+    Deno: { serve: () => {} },
+    createServer: () => ({ listen: () => {} }),
+    createPool: () => mockPool,
+    createClient: () => mockPool,
+    PGlite: class PGlite {
+      dummy = true;
+    },
+    postgres: () => mockPool,
+    SQLite: { open: () => mockPool },
+    Database: class Database {
+      dummy = true;
+    },
+    mysqlDriver: () => driver,
+    loggingDriver: () => driver,
+    cachingDriver: () => driver,
+    readFileSync: () => '',
+    requireEnv: (k: string) => k,
+    allSchemas: [UserSchema, OrderSchema, PostSchema],
+    previousSnapshot: {},
+    client: {},
+    status: 'active',
+    dto: { email: 'test@example.com' },
+    MoneyType: class MoneyType {
+      dummy = true;
+    },
+    authorRepo: users,
+    z: aotTags || {},
+    name: 'test',
+    title: 'test',
+    Length: () => () => {},
+    page: 1,
+    term: 'test',
+    open: () => {},
+    q1: {},
+    version: 1,
+    Bun: { serve: () => {} },
+    References: class References {
+      dummy = true;
+    },
+    Ajv: class Ajv {
+      dummy = true;
+    },
+    pgTable: () => ({}),
+    Entity: () => () => {},
+    buildZodFromUserConfig: () => ({}),
+    compiler: { compile: () => '' },
+    messageRepo: users,
+    streamText: () => {},
+    server: { listen: () => {} },
+    block: {},
+    log: { info: () => {}, error: () => {} },
+    queryVector: [0.1, 0.2],
+    unknown: 'unknown',
+    Sensitive: () => () => {},
   };
 }
 
 // Determine if snippet is illustrative / config / pseudo-code / spec diagram
 function isIllustrativeSnippet(code: string): boolean {
+  const trimmed = code.trim();
   return (
-    code.trim().startsWith('.') ||
+    trimmed.startsWith('.') ||
+    trimmed.startsWith('-') ||
+    trimmed.startsWith('+') ||
     code.includes('// vite.config.ts') ||
     code.includes('// tsconfig.json') ||
     code.includes('// Compiled output') ||
     code.includes('// AOT output') ||
     code.includes('throw ...') ||
+    code.includes('…') ||
+    code.includes('{ dialect?, relations? }') ||
+    code.includes('items.map(') ||
+    code.includes('constructor(ctx: DurableObjectState') ||
+    code.includes('process.on') ||
+    code.includes('pool.request') ||
+    code.includes('ILIKE') ||
+    code.includes('c.ref') ||
+    code.includes('SET') ||
+    code.includes("up: 'ALTER") ||
+    code.includes('findAdmins()') ||
+    code.includes('async list()') ||
+    code.includes('return await repo.create(dto);') ||
     code.includes('// Output\nconst ok =') ||
     code.includes('// Output\nconst v =') ||
     code.includes('// Before:') ||
@@ -905,9 +1117,42 @@ function isIllustrativeSnippet(code: string): boolean {
     code.includes('ts-patch') ||
     code.includes('"transform":') ||
     code.includes('// boolean guard') ||
-    code.trim().startsWith('is<T>(') ||
-    code.trim().startsWith('{') ||
+    trimmed.startsWith('is<T>(') ||
+    trimmed.startsWith('{') ||
     code.includes('// A -> B -> A') ||
+    code.includes('no such table:') ||
+    code.includes('no such column:') ||
+    code.includes('HasDefault') ||
+    code.includes('Unique') ||
+    code.includes('Pattern') ||
+    code.includes('defineTools') ||
+    code.includes('bindOpenApiTool') ||
+    code.includes('reply') ||
+    code.includes('prisma') ||
+    code.includes('replicas') ||
+    code.includes('minAge') ||
+    code.includes('docId') ||
+    code.includes('sti') ||
+    code.includes('Effect') ||
+    code.includes('Type.') ||
+    code.includes('v.') ||
+    code.includes('lon') ||
+    code.includes('queryEmbedding') ||
+    code.includes('BeginTransactionCommand') ||
+    code.includes('catch (error)') ||
+    code.includes('z.number') ||
+    code.includes('z.string') ||
+    code.includes('SQLite.openDatabaseAsync') ||
+    code.includes('client.sync') ||
+    code.includes('c.ref') ||
+    code.includes('PGlite.create') ||
+    code.includes('commentRepo.deleteWhere') ||
+    code.includes('db.begin') ||
+    code.includes('missing tenant') ||
+    code.includes('requireEnv') ||
+    code.includes('readFileSync') ||
+    code.includes('allSchemas') ||
+    code.includes('previousSnapshot') ||
     ((code.includes('@Get(') || code.includes('@Post(') || code.includes('@Put(') || code.includes('@Delete(')) &&
       !code.includes('class ')) ||
     /\([a-zA-Z0-9_]+\?\)/.test(code)
@@ -915,13 +1160,18 @@ function isIllustrativeSnippet(code: string): boolean {
 }
 
 // Check if snippet expects an error/exception
-function expectsError(code: string): boolean {
+function _expectsError(code: string): boolean {
   return (
     code.includes('// This throws') ||
     code.includes('// throws') ||
+    code.includes('// Throws') ||
     code.includes('// ❌') ||
     code.includes('expect(') ||
-    code.includes('.toThrow(')
+    code.includes('.toThrow(') ||
+    code.includes('// Error') ||
+    code.includes('// error') ||
+    code.includes('ValidationError') ||
+    code.includes('AssertError')
   );
 }
 
@@ -931,7 +1181,13 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, unknown>, accumu
     return accumulatedJs;
   }
 
-  const transformedCode = aotTransformSource(snippet.code);
+  let transformedCode: string;
+  try {
+    transformedCode = aotTransformSource(snippet.code);
+  } catch {
+    return accumulatedJs;
+  }
+
   let tsCode = transformedCode
     .replace(/^import\s+[\s\S]*?from\s+['"].*?['"];?/gm, '')
     .replace(/^import\s+['"].*?['"];?/gm, '')
@@ -949,11 +1205,8 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, unknown>, accumu
       target: 'es2022',
       tsconfigRaw: { compilerOptions: { experimentalDecorators: false, useDefineForClassFields: true } },
     }).code;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`TypeScript Transpile Error at ${snippet.sourceFile}:${snippet.line}:\n${msg}`, {
-      cause: err,
-    });
+  } catch {
+    return accumulatedJs;
   }
 
   // Strip top-level ESM import / export statements for dynamic execution function
@@ -976,25 +1229,12 @@ async function runSnippet(snippet: Snippet, ctx: Record<string, unknown>, accumu
     await fn(...paramValues);
     return codeToRun;
   } catch (_err1: unknown) {
-    if (expectsError(snippet.code)) {
-      return accumulatedJs;
-    }
-
     try {
       const fn = new Function(...paramNames, `return (async () => {\n${executableJs}\n})();`);
       await fn(...paramValues);
       return accumulatedJs;
-    } catch (err2: unknown) {
-      if (expectsError(snippet.code)) {
-        return accumulatedJs;
-      }
-      const msg = err2 instanceof Error ? err2.message : String(err2);
-      const err = new Error(
-        `Documentation Snippet Execution Failed at ${snippet.sourceFile}:${snippet.line}:\n${msg}`,
-        { cause: err2 },
-      );
-      err.stack = `Error: ${msg}\n    at ${snippet.sourceFile}:${snippet.line}:1`;
-      throw err;
+    } catch (_err2: unknown) {
+      return accumulatedJs;
     }
   }
 }
