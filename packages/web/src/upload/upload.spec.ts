@@ -363,6 +363,13 @@ describe('exceeding a limit (frozen: upload/SPEC.md 3, 6.2, 6.4)', () => {
       expect(handlerRan).toBe(false);
     }
   });
+
+  it('accepts a valid quoted boundary parameter', async () => {
+    const parse = await frozenExport<FrozenParseMultipart>('parseMultipart');
+    expect(parse(multipart([fieldPart('a', '1')]), `multipart/form-data; boundary="${BOUNDARY}"`).fields).toEqual({
+      a: '1',
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import type { Equal, Expect } from '@zmdb/schema-core';
 
 import type { multipartPipe } from '../dto-pipes/index.js';
 import type { Pipe } from '../middleware/index.js';
-import type { parseMultipart, Multipart, UploadLimits, UploadPart } from './index.js';
+import type { parseMultipart, UPLOAD_DEFAULTS, Multipart, UploadLimits, UploadPart } from './index.js';
 
 interface ExpectedLimits {
   readonly maxParts: number;
@@ -31,4 +31,5 @@ export type _LimitsAreTotal = Expect<Equal<UploadLimits, ExpectedLimits>>;
 export type _PartIsByteExact = Expect<Equal<UploadPart, ExpectedPart>>;
 export type _MultipartShape = Expect<Equal<Multipart, ExpectedMultipart>>;
 export type _ParserResult = Expect<Equal<ReturnType<typeof parseMultipart>, Multipart>>;
+export type _DefaultsAreTotal = Expect<Equal<typeof UPLOAD_DEFAULTS, UploadLimits>>;
 export type _MultipartPipe = Expect<Equal<ReturnType<typeof multipartPipe>, Pipe<unknown, Multipart>>>;
