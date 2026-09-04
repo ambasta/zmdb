@@ -588,17 +588,17 @@ function jsonResponse(
   serializer?: (v: unknown) => string,
   headers: Readonly<Record<string, string>> = JSON_HEADERS,
 ): WebResponse {
-  let bodyText: string;
+  let serializedText: string;
   if (serializer !== undefined) {
     try {
-      bodyText = serializer(value);
+      serializedText = serializer(value);
     } catch (_err) {
-      bodyText = JSON.stringify(value) ?? '';
+      serializedText = JSON.stringify(value) ?? '';
     }
   } else {
-    bodyText = JSON.stringify(value) ?? '';
+    serializedText = JSON.stringify(value) ?? '';
   }
-  return { status, body: textBody(bodyText), headers };
+  return { status, body: textBody(serializedText), headers };
 }
 
 function textBody(value: string): ResponseBody {
