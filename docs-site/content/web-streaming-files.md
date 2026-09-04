@@ -13,6 +13,27 @@ export type ResponseBody =
     };
 ```
 
+## Migrating from string response bodies
+
+Handler code that uses `json()`, `text()`, or `respond()` does not change; those
+factories now construct the tagged text arm internally. A plain handler return
+value also keeps its existing meaning and is serialized as `200 application/json`.
+
+Only code that reads or constructs `WebResponse.body` directly must account for
+the union:
+
+```ts
+return respond({
+  body: html,
+  headers: { 'content-type': 'text/html; charset=utf-8' },
+});
+```
+
+`respond()` deliberately remains string-only. Use `bytes()` for an in-memory
+binary body, `stream()` for an application-owned stream, and `file()` for a
+trusted file path. Consumers that need text in tests can call
+`await bodyText(response)`; doing so drains a stream.
+
 ## Stream from a handler
 
 Use `stream()` for an application-owned web stream:

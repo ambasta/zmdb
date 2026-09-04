@@ -7,6 +7,24 @@ For production assets, a CDN, object store, or reverse proxy is still the better
 layer. The application handler is for development and deployments that genuinely
 have no static edge.
 
+## Security boundary
+
+Before any convenience option, the handler fixes these rules:
+
+- request paths are decoded once and must remain relative to the configured root;
+- null bytes, backslashes, absolute paths, drive letters, empty segments,
+  dot-prefixed segments, and any surviving percent escape are refused;
+- an opened symlink is followed only when its real target remains inside the root;
+- directories, FIFOs, devices, sockets, unreadable files, and escaping paths all
+  receive the same empty `404`;
+- directory listing cannot be enabled. `index` is only an opt-in file for the
+  empty path, not a listing or a single-page-application fallback.
+
+The uniform `404` avoids turning the handler into a filesystem oracle. Refusal
+details go only to the required `onError` callback. Do not serve a directory the
+application also writes to: confinement does not make attacker-supplied HTML safe
+to host on the application's origin.
+
 ## Create the handler once
 
 ```ts
@@ -42,7 +60,7 @@ one path segment; nested asset paths need explicit routes or a prefix branch in 
 custom adapter until wildcard routing ships. The static handler itself accepts
 safe nested paths such as `css/app.css`.
 
-## Confinement comes before convenience
+## How confinement is enforced
 
 The handler applies all of these checks before returning bytes:
 

@@ -26,7 +26,7 @@
 >
 > Measured status: **2,281 tests green** across 212 files, with **144 expected-failing tests**.
 > Of 742 upstream public-API suites, 503 are covered and 239 are argued against.
-> Of 276 docs-site pages, 223 are supported, 41 are TODO, and 12 are not planned.
+> Of 276 docs-site pages, 228 are supported, 35 are TODO, and 13 are not planned.
 
 ## Quick Start
 

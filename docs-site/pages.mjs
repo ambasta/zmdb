@@ -1573,32 +1573,28 @@ export const PAGE_META = {
   'web-file-upload': {
     title: 'File Upload',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'bounded multipart parsing and its explicit Pipe ship; final six-page docs reconciliation remains (#571).',
+    status: 'supported',
   },
   'web-streaming-files': {
     title: 'Streaming Files',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'streaming, static serving, compression and bounded uploads ship; the epic still tracks CSRF and final docs reconciliation (#570–#571).',
+    status: 'supported',
   },
   'web-compression': {
     title: 'Compression',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'gzip/deflate negotiation and incremental transforms ship; the final six-page docs reconciliation remains (#571).',
+    status: 'supported',
   },
   'web-static-files': {
     title: 'Serving Static Files',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'the confined handler, validators and single-range streaming ship; the final six-page docs reconciliation remains (#571).',
+    status: 'supported',
   },
   'web-templates': {
     title: 'Server-Side Templates',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'declined with a reason — respond() returns HTML and no seam is shipping (#565).',
+    status: 'wontfix',
+    note: 'declined — call the template engine in the handler and return its HTML with respond()',
   },
   'web-task-scheduling': {
     title: 'Task Scheduling',
@@ -1689,8 +1685,7 @@ export const PAGE_META = {
   'web-csrf': {
     title: 'CSRF Protection',
     group: 'Web Framework — Security',
-    status: 'todo',
-    note: 'session-bound CSRF protection ships; final six-page docs reconciliation remains (#571).',
+    status: 'supported',
   },
   'web-encryption': {
     title: 'Encryption & Hashing',

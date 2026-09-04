@@ -14,13 +14,42 @@ A JSON API. Most routes return `application/json`, and that is a design position
 
 If your application is server-rendered HTML, a template-first framework will fit better than working around this. If it is an API with a separate frontend — which is the common case — nothing here affects you.
 
-## Serving HTML anyway
+## Render HTML from a handler
 
-Two arrangements work today.
+Call the engine in ordinary application code and return the rendered string:
+
+```ts
+import { Eta } from 'eta';
+import { respond, type Ctx } from '@zmdb/web';
+
+const eta = new Eta({ views: './views' });
+
+@Get('/posts/:id')
+async page(ctx: Ctx<{ id: string }>) {
+  const post = await this.posts.findById(Number(ctx.params.id));
+  const html = eta.render('post', { post });
+
+  return respond({
+    body: html,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': "default-src 'self'",
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+```
+
+That path uses the normal router, adapters, middleware, and streaming response
+model. A view-engine seam would only move the `eta.render()` call behind an
+unchecked string name.
+
+## Other arrangements
 
 **A separate frontend.** Next.js, SvelteKit, Astro or a static build talking to your zmdb API. The frontend gets its own deployment, its own caching and its own rendering model, and your API stays a JSON API. See [Next.js](./deploy-nextjs.html).
 
-**HTML from your own adapter**, bypassing `app.handle` for the HTML routes:
+**HTML outside the router.** A custom adapter can deliberately bypass
+`app.handle` when those routes belong to a separate rendering application:
 
 ```ts
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';

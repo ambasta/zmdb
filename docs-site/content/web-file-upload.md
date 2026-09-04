@@ -1,16 +1,55 @@
-> **ToDo / final docs reconciliation.** The bounded multipart parser and
-> `multipartPipe` ship. There is deliberately no `FileInterceptor` analogue;
-> complete middleware chains remain explicit `runChain` calls. The page stays in
-> the epic's ToDo set until #571 reconciles all six related guides.
->
-> The limits, filename rule and buffer-versus-stream decision are in
-> `packages/web/src/upload/SPEC.md`; the byte-preserving adapter prerequisite is
-> in `packages/web/src/pipeline/SPEC.md`.
+Small, bounded `multipart/form-data` uploads can use `parseMultipart()` or
+`multipartPipe()`. The complete request is buffered before dispatch, every limit
+is mandatory, and a client filename is only an opaque label: a null byte or path
+separator is a `400`, while an overlong safe label is truncated. Generate the
+storage key yourself and never concatenate the supplied filename into a path.
 
-Small, bounded uploads can use the built-in parser. Large or streaming uploads
-should still bypass the router.
+Large or streaming uploads should bypass the router or go directly to object
+storage.
 
-## What arrives today
+## Limits come first
+
+| Boundary           | Default   | Behaviour when exceeded                        |
+| ------------------ | --------- | ---------------------------------------------- |
+| adapter body       | 1 MiB     | `413` before dispatch; Node destroys the input |
+| parts              | 16        | `413`                                          |
+| one part           | 1 MiB     | `413`                                          |
+| complete multipart | 8 MiB     | `413`                                          |
+| field name         | 100 bytes | `413`                                          |
+| client filename    | 255 bytes | truncate the label                             |
+| one part's headers | 1 KiB     | `413`                                          |
+
+The adapter limit runs first, so the effective out-of-the-box request ceiling is
+1 MiB even though `maxTotalBytes` defaults to 8 MiB. Raise `maxBodyBytes` to at
+least the multipart ceiling when the route intentionally accepts more:
+
+```ts
+createServer(toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 }));
+const fetch = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
+```
+
+Every configured limit must remain a positive safe integer. `0`, `Infinity`,
+negative values, and non-integers are configuration errors rather than ways to
+disable a check.
+
+## Parse a bounded upload
+
+```ts
+import { parseMultipart } from '@zmdb/web';
+
+const form = parseMultipart(ctx.body, ctx.headers['content-type'] ?? '', {
+  maxParts: 8,
+  maxPartBytes: 512 * 1024,
+  maxTotalBytes: 4 * 1024 * 1024,
+});
+```
+
+`form.fields` is a string record; repeated names keep the last value.
+`form.files` contains exact bytes plus the untrusted filename and declared content
+type. For an explicit middleware chain, use `multipartPipe(limits)` before the
+ordinary validation pipe.
+
+## Request representation
 
 `WebRequest.rawBody` is `unknown` and **optional**. `toNodeHandler` reads a body
 only when `content-length` or `transfer-encoding` says one exists; `toFetchHandler`
@@ -22,7 +61,7 @@ another explicit content type, including `multipart/form-data`, reaches
 buffered before dispatch. An explicit chain can then apply `multipartPipe`, which
 parses boundaries and headers under mandatory per-part limits.
 
-## Workaround 1: presigned uploads (recommended)
+## For large uploads: presigned object storage
 
 The client uploads to object storage directly; your API only signs and records.
 This is the right architecture regardless of framework support — the bytes never
@@ -68,7 +107,7 @@ export class UploadsController {
 > origin. And verify the object on `/confirm` rather than trusting the client's
 > reported size — the signature constrains the upload, the confirmation records it.
 
-## Workaround 2: handle uploads before the router
+## For streaming uploads: handle them before the router
 
 For self-hosted deployments, take the raw stream in your adapter and never involve
 the router:
@@ -88,13 +127,13 @@ backpressure, and abort past a byte limit. Then `POST /files` through the router
 to record the metadata. Two requests, but each one is doing something the
 transport is actually good at.
 
-## Workaround 3: base64 in JSON, for small files
+## For tiny files: base64 in JSON
 
 ```ts
 @Post('/avatar')
 async avatar(ctx: Ctx<Record<never, string>, { data: string; mime: string }>) {
   assert<{ data: string; mime: string }>(ctx.body);
-  const bytes = Buffer.from(ctx.body.data, 'base64');
+  const bytes = Uint8Array.fromBase64(ctx.body.data);
   if (bytes.byteLength > 256 * 1024) throw new ValidationError('too large', []);
   return this.avatars.save(principalOf(ctx).id, bytes, ctx.body.mime);
 }
@@ -106,14 +145,14 @@ enforce the smaller decoded-file limit shown above. Cap at the proxy as well.
 
 ## Validating an upload, wherever you parse it
 
-| Check                                                         | Why                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Adapter size while reading; parser part limits while scanning | each layer stops at the first bound it can enforce                  |
-| Content type from the **bytes**, not the header               | `content-type` is client-supplied; sniff the magic number           |
-| A generated storage key                                       | a client filename means `../../etc/passwd` and overwrites           |
-| An explicit extension allow-list                              | not a deny-list; `.php5`, `.phtml`, `.svg` are what deny-lists miss |
-| Serve from a different origin                                 | an `.svg` or `.html` on your API origin executes with your cookies  |
-| Strip metadata from images                                    | EXIF carries GPS coordinates                                        |
+| Check                                                         | Why                                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Adapter size while reading; parser part limits while scanning | each layer stops at the first bound it can enforce                                                     |
+| Type accepted by the library that processes the bytes         | `content-type` is client-supplied; the parser deliberately trusts neither it nor a generic sniff table |
+| A generated storage key                                       | a client filename means `../../etc/passwd` and overwrites                                              |
+| An explicit extension allow-list                              | not a deny-list; `.php5`, `.phtml`, `.svg` are what deny-lists miss                                    |
+| Serve from a different origin                                 | an `.svg` or `.html` on your API origin executes with your cookies                                     |
+| Strip metadata from images                                    | EXIF carries GPS coordinates                                                                           |
 
 > [!WARNING]
 > Never write an uploaded file to a path built from a client-controlled name, and
@@ -143,7 +182,7 @@ and `numeric` are both spelled `number`.
 Store the key, never the bytes. Filter by `owner_id` in the `where` on every read
 — see [Authorization](./web-authorization.html).
 
-## What ships
+## Parser and pipe details
 
 Three pieces, in order:
 
@@ -157,7 +196,8 @@ Three pieces, in order:
    yet at match time — a redesign of the request half of the pipeline. A bounded
    buffer's safety is one comparison; a streaming parser's is every consumer
    honouring backpressure. And the case buffering cannot serve is the 200 MB upload,
-   which workaround 1 says should not be going through the application anyway.
+   which the presigned-object-storage section says should not be going through the
+   application anyway.
 3. **`multipartPipe` — shipped.** `Pipe<unknown, Multipart>` fits the existing
    `transform(value, ctx)` signature. The router does not auto-run complete chains,
    so handlers invoke `runChain` explicitly and place their ordinary
