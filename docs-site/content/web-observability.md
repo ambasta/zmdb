@@ -84,7 +84,7 @@ Requests, in your adapter — the framework has no hook that sees every request:
 ```ts
 createServer(async (req, res) => {
   const start = performance.now();
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   metrics.observe('http_duration_ms', performance.now() - start, {
     route: routeFor(req) ?? 'unmatched',
     method: req.method ?? 'GET',
@@ -93,6 +93,8 @@ createServer(async (req, res) => {
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```
+
+`webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 Queries, in a driver wrapper — the cleanest instrumentation point in the whole stack:
 

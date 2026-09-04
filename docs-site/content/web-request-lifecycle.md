@@ -116,14 +116,46 @@ const dto = assert<CreateDTO<Post>>(ctx.body);
 
 There is no content-type negotiation, no form parsing and no multipart. See [Raw Body](./web-raw-body.html).
 
-## Query strings
+## Building the `WebRequest` yourself
 
-`toNodeHandler` strips the query string and does **not** populate `query`, so `ctx.query` is `{}` under the Node adapter. `toFetchHandler` also leaves it unset. If you need query parameters, parse them and pass `query` yourself when calling `app.handle`:
+Every page that maps statuses, sets a cookie, adds CORS headers or logs a request does it in a hand-written adapter, because those are the things the router cannot do — and such an adapter calls `app.handle(request)` with a `WebRequest` it built. **There is no `toWebRequest` helper to import.** `toNodeHandler(router)` owns the whole `(req, res)` pair and writes the response itself, so it cannot be used by an adapter that needs to touch either one. The build is a dozen lines; every sample on those pages calls this function, so it is written out once here:
 
 ```ts
-const url = new URL(req.url ?? '/', 'http://x');
-const query = Object.fromEntries(url.searchParams);
-await app.handle({ method, path: url.pathname, headers, query, rawBody });
+import type { IncomingMessage } from 'node:http';
+import type { WebRequest } from '@zmdb/web';
+
+async function webRequest(req: IncomingMessage): Promise<WebRequest> {
+  const url = req.url ?? '/';
+  const q = url.indexOf('?');
+  req.setEncoding('utf8');
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  return {
+    method: req.method ?? 'GET',
+    path: q === -1 ? url : url.slice(0, q),
+    headers: Object.fromEntries(
+      Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : (value ?? '')]),
+    ),
+    query: Object.fromEntries(new URLSearchParams(q === -1 ? '' : url.slice(q + 1))),
+    ...(raw.length > 0 ? { rawBody: JSON.parse(raw) as unknown } : {}),
+  };
+}
+```
+
+Four things it has to get right:
+
+- **Consume the body before dispatching.** `req` is a stream; reading it after `app.handle` returns gets you nothing. `setEncoding('utf8')` installs a `StringDecoder` that holds a partial multi-byte sequence across chunk boundaries — concatenating `String(chunk)` instead corrupts any character whose UTF-8 bytes straddle a read.
+- **Omit `rawBody` rather than passing `undefined`.** The type is `rawBody?: unknown` under `exactOptionalPropertyTypes`, and `JSON.parse('')` throws.
+- **Flatten the headers.** `req.headers` values are `string | string[] | undefined`; `WebRequest.headers` is `Record<string, string>`.
+- **Pass `query`, because the framework does not.** See below.
+
+## Query strings
+
+`toNodeHandler` strips the query string and does **not** populate `query`, so `ctx.query` is `{}` under the Node adapter. `toFetchHandler` also leaves it unset. The `query` line in `webRequest` above is what fixes it, and it is the reason a hand-written adapter is worth having even when you want nothing else from one. Repeated keys collapse to the last value there; `QueryValues` is `Record<string, string | readonly string[]>`, so keep the array if you need `?tag=a&tag=b`:
+
+```ts
+const params = new URLSearchParams(q === -1 ? '' : url.slice(q + 1));
+const query = Object.fromEntries([...params.keys()].map(key => [key, params.getAll(key)]));
 ```
 
 ## What is not in the lifecycle at all

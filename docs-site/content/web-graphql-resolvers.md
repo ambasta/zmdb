@@ -50,7 +50,7 @@ const yoga = createYoga({
 ```ts
 createServer(async (req, res) => {
   if ((req.url ?? '').startsWith('/graphql')) return yoga(req, res);
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```

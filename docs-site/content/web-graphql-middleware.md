@@ -75,7 +75,7 @@ For concerns that must apply to _everything_, the adapter is the right place, an
 ```ts
 createServer(async (req, res) => {
   const start = performance.now();
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   metrics.observe('http_ms', performance.now() - start, { route: routeFor(req) ?? 'unmatched' });
   res.writeHead(out.status, { ...out.headers, 'x-content-type-options': 'nosniff' }).end(out.body);
 });

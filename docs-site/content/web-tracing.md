@@ -41,7 +41,7 @@ createServer(async (req, res) => {
   await tracer.startActiveSpan(`${req.method} ${route}`, async span => {
     span.setAttribute('http.route', route);
     try {
-      const out = await app.handle(toWebRequest(req));
+      const out = await app.handle(await webRequest(req));
       span.setAttribute('http.response.status_code', out.status);
       if (out.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
       res.writeHead(out.status, { ...out.headers }).end(out.body);
@@ -57,6 +57,8 @@ createServer(async (req, res) => {
 ```
 
 `span.end()` in a `finally` is not optional — a leaked span is a memory leak and a trace that never exports.
+
+`webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 `http.route` is the low-cardinality name. Without it, a trace backend shows one operation per id and aggregate latency is meaningless. `http.response.status_code`, not `http.status_code` — the v1.23.0 HTTP stabilisation renamed it.
 

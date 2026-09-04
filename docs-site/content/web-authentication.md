@@ -119,7 +119,7 @@ const STATUS = new Map<string, number>([
 
 createServer(async (req, res) => {
   try {
-    const out = await app.handle(toWebRequest(req));
+    const out = await app.handle(await webRequest(req));
     res.writeHead(out.status, { ...out.headers }).end(out.body);
   } catch (error) {
     const status = STATUS.get(errorName(error)) ?? 500;
@@ -128,7 +128,7 @@ createServer(async (req, res) => {
 });
 ```
 
-See [Exception Filters](./web-exception-filters.html) for the full pattern.
+See [Exception Filters](./web-exception-filters.html) for the full pattern. `webRequest(req)` is the `WebRequest` build the adapter has to do itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Verifying a JWT properly
 

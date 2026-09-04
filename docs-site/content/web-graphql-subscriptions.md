@@ -64,7 +64,7 @@ createServer(async (req, res) => {
     return;
   }
 
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   res.writeHead(out.status, { ...out.headers }).end(out.body);
 });
 ```

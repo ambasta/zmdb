@@ -71,7 +71,7 @@ const STATUS = new Map<string, number>([
 
 createServer(async (req, res) => {
   try {
-    const out = await app.handle(toWebRequest(req));
+    const out = await app.handle(await webRequest(req));
     res.writeHead(out.status, { ...out.headers }).end(out.body);
   } catch (error) {
     const status = STATUS.get(errorName(error)) ?? 500;
@@ -81,6 +81,8 @@ createServer(async (req, res) => {
 ```
 
 This works because `app.handle` propagates a throw it cannot classify. It is the honest workaround, and it puts the status policy in one readable table.
+
+`webRequest(req)` is the dozen-line `WebRequest` build every adapter sample here uses — there is no `toWebRequest` to import, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Never leak the error
 

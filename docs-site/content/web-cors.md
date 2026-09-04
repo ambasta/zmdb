@@ -27,12 +27,14 @@ createServer(async (req, res) => {
     return;
   }
 
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   res.writeHead(out.status, { ...out.headers, ...headers }).end(out.body);
 });
 ```
 
-Five details there are load-bearing.
+Six details there are load-bearing.
+
+**`webRequest(req)`.** There is no `toWebRequest` to import; `app.handle` takes a `WebRequest` the adapter builds itself, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 **`vary: origin`.** Without it, a shared cache or CDN serves the `access-control-allow-origin` computed for one origin to a request from another — which either breaks legitimate clients or grants access you did not intend.
 

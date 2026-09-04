@@ -31,7 +31,7 @@ In the Node adapter:
 
 ```ts
 createServer(async (req, res) => {
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
 
   const cookie = pendingCookieFor(req); // however your login route signals it
   const headers = cookie === undefined ? out.headers : { ...out.headers, 'set-cookie': cookie };
@@ -39,6 +39,8 @@ createServer(async (req, res) => {
   res.writeHead(out.status, headers).end(out.body);
 });
 ```
+
+`webRequest(req)` is the `WebRequest` build the adapter does itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html). Note that it consumes the request stream, so a login `POST` body reaches the handler only if the adapter reads it there rather than after `app.handle`.
 
 Getting the value from the handler to the adapter is the awkward part, since there is no response object to attach it to. The workable arrangement is to have the login route return the session id in its body and let the adapter turn that into a cookie for that one path:
 

@@ -86,7 +86,7 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
 
 Four things that matter in that code:
 
-- **`app.handle` takes a `WebRequest`, and you have to build it.** There is no `toWebRequest` helper to import — `{ method, path, headers, rawBody?, query? }`, with the query string split off the `url` — because the framework's own adapter is `toNodeHandler(router)`, which owns the whole `(req, res)` pair and so cannot be used for a server that also serves byte routes. If none of your routes read a body, the four lines above are the whole adapter.
+- **`app.handle` takes a `WebRequest`, and you have to build it.** There is no `toWebRequest` helper to import — `{ method, path, headers, rawBody?, query? }`, with the query string split off the `url` — because the framework's own adapter is `toNodeHandler(router)`, which owns the whole `(req, res)` pair and so cannot be used for a server that also serves byte routes. If none of your routes read a body, the four lines above are the whole adapter; the version that also reads one, and populates `query`, is in [Request Lifecycle](./web-request-lifecycle.html).
 
 - **`pipeline`, not `.pipe()`.** `pipeline` propagates errors and destroys both streams on failure; a bare `pipe` leaks a file descriptor when the client disconnects mid-download.
 - **Never build a path from user input.** `join(dir, ctx.params.name)` with `../../etc/passwd` reads whatever the process can read. Look the file up by id in the database and use the stored path, as above.

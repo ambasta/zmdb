@@ -68,7 +68,7 @@ which makes it the better place for access logging:
 createServer(async (req, res) => {
   const started = performance.now();
   const requestId = req.headers['x-request-id'] ?? randomUUID();
-  const out = await app.handle(toWebRequest(req));
+  const out = await app.handle(await webRequest(req));
   jsonLines({
     level: out.status >= 500 ? 'error' : 'info',
     requestId,
@@ -82,6 +82,8 @@ createServer(async (req, res) => {
 ```
 
 Echo the request id back, and accept an inbound one so a trace spans services.
+
+`webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
 > [!NOTE]
 > `ctx.path` is high-cardinality: `/users/1`, `/users/2`, … Fine in logs, wrong for
