@@ -134,67 +134,70 @@ export function schemasFromFiles(
 ): readonly CoreSchema<string>[] {
   if (files.length === 0) throw new Error('the configured schema file set is empty');
 
-  using session = ReflectSession.open({ project: options.project });
-  const schemas = new Map<string, CoreSchema<string>>();
-  const diagnostics: ReflectDiagnostic[] = [];
+  return withSession({ project: options.project }, session => {
+    const schemas = new Map<string, CoreSchema<string>>();
+    const diagnostics: ReflectDiagnostic[] = [];
 
-  for (const file of files.toSorted()) {
-    const sourceFile = session.sourceFile(file);
-    if (!sourceFile) {
-      throw new Error(
-        `${file} is not part of ${options.project}; the configured schema files must belong to the project`,
-      );
-    }
-
-    const broken = session.diagnostics(file);
-    if (broken.length > 0) {
-      throw new Error(
-        `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
-          broken
-            .slice(0, 5)
-            .map(one => `  TS${String(one.code)}: ${one.text}`)
-            .join('\n'),
-      );
-    }
-
-    const moduleSymbol = session.checker.getSymbolAtLocation(sourceFile);
-    if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
-    const exported = session.checker
-      .getExportsOfModule(moduleSymbol)
-      .toSorted((left, right) => left.name.localeCompare(right.name));
-
-    for (const symbol of exported) {
-      const type = session.checker.getDeclaredTypeOfSymbol(symbol);
-      const reflected = schemaIrFromType(session.checker, type, sourceFile, reflectOptions(options));
-      const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
-      if (!isTable) continue;
-
-      diagnostics.push(...reflected.diagnostics);
-      const schema = schemaFromIR(reflected.ir);
-      const previous = schemas.get(schema.ir.table);
-      if (previous !== undefined) {
-        if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
-          throw new Error(`configured schema files export conflicting declarations for table ${schema.ir.table}`);
-        }
-        continue;
+    for (const file of files.toSorted()) {
+      const sourceFile = session.sourceFile(file);
+      if (!sourceFile) {
+        throw new Error(
+          `${file} is not part of ${options.project}; the configured schema files must belong to the project`,
+        );
       }
-      schemas.set(schema.ir.table, schema);
-    }
-  }
 
-  if (diagnostics.length > 0) {
-    if (options.onDiagnostics) options.onDiagnostics(diagnostics);
-    else {
+      const broken = session.diagnostics(file);
+      if (broken.length > 0) {
+        throw new Error(
+          `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
+            broken
+              .slice(0, 5)
+              .map(one => `  TS${String(one.code)}: ${one.text}`)
+              .join('\n'),
+        );
+      }
+
+      const moduleSymbol = session.checker.getSymbolAtLocation(sourceFile);
+      if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+      const exported = session.checker
+        .getExportsOfModule(moduleSymbol)
+        .toSorted((left, right) => left.name.localeCompare(right.name));
+
+      for (const symbol of exported) {
+        const type = session.checker.getDeclaredTypeOfSymbol(symbol);
+        const reflected = schemaIrFromType(session.checker, type, sourceFile, reflectOptions(options));
+        const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
+        if (!isTable) continue;
+
+        diagnostics.push(...reflected.diagnostics);
+        const schema = schemaFromIR(reflected.ir);
+        const previous = schemas.get(schema.table);
+        if (previous !== undefined) {
+          if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
+            throw new Error(`configured schema files export conflicting declarations for table ${schema.table}`);
+          }
+          continue;
+        }
+        schemas.set(schema.table, schema);
+      }
+    }
+
+    if (diagnostics.length > 0) {
+      if (options.onDiagnostics) options.onDiagnostics(diagnostics);
+      else {
+        throw new Error(
+          `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
+            diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        );
+      }
+    }
+    if (schemas.size === 0) {
       throw new Error(
-        `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
-          diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+        `the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`,
       );
     }
-  }
-  if (schemas.size === 0) {
-    throw new Error(`the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`);
-  }
-  return [...schemas.values()].toSorted((left, right) => left.ir.table.localeCompare(right.ir.table));
+    return [...schemas.values()].toSorted((left, right) => left.table.localeCompare(right.table));
+  });
 }
 
 /**
