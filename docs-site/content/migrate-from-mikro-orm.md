@@ -72,6 +72,11 @@ await repo.list({ where: { age: { gte: 18 } }, orderBy: [{ column: 'email', dir:
 
 `$gte` / `$in` / `$like` become `gte` / `in` / `like` and lose the `$`. See [Filters & Operators](./filters.html).
 
+Request-scoped DataLoaders become an explicit `LoaderScope`: construct one at
+the request boundary, then use `loaderFor(repo)` for keyed reads or
+`relationLoader(repo, relation)` for declared relations. See
+[DataLoaders](./dataloaders.html).
+
 ## Things with no replacement, on purpose
 
 `identity map`, `unit of work`, `propagation`, `wrap()`, `metadata cache`, `metadata providers`, `entity constructors during hydration`. Each of these is on the [anti-patterns page](./anti-patterns.html) with the argument, and each of them is why there is no `reflect-metadata` and no boot-time discovery step.
@@ -82,7 +87,6 @@ await repo.list({ where: { age: { gte: 18 } }, orderBy: [{ column: 'email', dir:
 - cascades — [Cascading](./cascading.html)
 - `em.upsert` — [Upsert](./upsert.html)
 - `qb.stream()` — [Streaming](./streaming.html)
-- DataLoader — [DataLoaders](./dataloaders.html)
 - `mikro-orm generate-entities` — [pull](./cli-pull.html)
 
 ## Config

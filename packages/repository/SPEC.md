@@ -606,6 +606,10 @@ export interface LoaderScope {
   loaderFor<T extends DeclaredTable>(
     repo: BaseRepository<T>,
   ): { load(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined> };
+  relationLoader<T extends DeclaredTable, K extends RelationKeys<T>>(
+    repo: BaseRepository<T>,
+    relation: K,
+  ): { load(parent: Entity<T>): Promise<Populated<T, K>[K]> };
 }
 
 interface ReadOptions {
@@ -636,6 +640,12 @@ than concurrently**, so a batch of five thousand ids is `ceil(5000 / limit)` sta
 not one statement and not five thousand concurrent ones. Reusing that path rather than writing a second
 one is the point — a loader that built its own `IN` list would rediscover the placeholder limit in
 production.
+
+`relationLoader(repo, relation)` uses the same window and scope for parents obtained at separate call
+sites. It resolves the declaration through the ordinary populate machinery, so parent keys are
+deduplicated, target reads use the same sequential chunking, and the result has the declared cardinality:
+an array for to-many, a row or `null` for to-one. It is explicit; an ordinary `populate` does not consult
+the scope.
 
 ### Scoping, and why a module-level loader is a security bug
 
@@ -670,7 +680,7 @@ The scope is also the cache's lifetime bound. It holds no rows after the request
 `load(42)` calls do not receive the same object. That is a deliberate reversal of the convenient answer,
 and it is forced by decisions already frozen: `../schema-core/src/relations/SPEC.md` rejects "identity map
 / shared references", `src/replicas/SPEC.md` froze that the replica wrapper adds no identity map, and
-`attachRelations` already copies each child (`list.push({ ...c })`) rather than aliasing. The published
+`attachRelations` already gives each parent fresh child copies rather than aliases. The published
 anti-patterns entry says it outright — zmdb returns a fresh value per read, equality is structural — so a
 loader handing out shared references would make that sentence false for the one read path people use most.
 

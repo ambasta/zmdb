@@ -1,38 +1,33 @@
-import type { CompiledQuery } from '@zmdb/query-compiler';
-import type { DeclaredTable, Entity, PrimaryKeyOf } from '@zmdb/schema-core';
+import { DIALECT_PARAM_LIMITS, type CompiledQuery } from '@zmdb/query-compiler';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir';
-import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+import type { OneToMany, OneToOne, PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { BaseRepository, type Driver } from '../index.js';
-
-// Tests freeze for #466, against repository/SPEC.md §3d.
-//
-// `createLoaderScope` does not exist at d34bfbaf. This boundary reads the real
-// package export by name and transcribes only the callable shape frozen in the
-// spec. It supplies no batching implementation: every test currently fails with
-// `TypeError: @zmdb/repository exports no "createLoaderScope"`.
-interface EntityLoader<T extends DeclaredTable> {
-  load(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
-}
-
-interface LoaderScope {
-  loaderFor<T extends DeclaredTable>(repository: BaseRepository<T>): EntityLoader<T>;
-}
-
-const repositoryApi: object = await import('../index.js');
-
-function createLoaderScope(): LoaderScope {
-  const candidate: unknown = Reflect.get(repositoryApi, 'createLoaderScope');
-  if (typeof candidate !== 'function') {
-    throw new TypeError('@zmdb/repository exports no "createLoaderScope"');
-  }
-  return Reflect.apply(candidate, undefined, []) as LoaderScope;
-}
+import { BaseRepository, createLoaderScope, type Driver } from '../index.js';
 
 export interface LoaderUser extends Table<'users'> {
   id: number & Sql<'integer'> & PrimaryKey;
   email: string & Sql<'text'>;
+  orders?: LoaderOrder[] & OneToMany<'orders', 'userId'>;
+  profile?: LoaderProfile & OneToOne<'profiles', 'userId'>;
+}
+
+export interface LoaderOrder extends Table<'orders'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  total: number & Sql<'integer'>;
+}
+
+export interface LoaderProfile extends Table<'profiles'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  bio: string & Sql<'text'>;
+}
+
+export interface LoaderMembership extends Table<'memberships'> {
+  tenantId: string & Sql<'text'> & PrimaryKey;
+  userId: number & Sql<'integer'> & PrimaryKey;
+  role: string & Sql<'text'>;
 }
 
 function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
@@ -55,13 +50,33 @@ const USER_IR: SchemaIR = {
   table: 'users',
   columns: [column('id', 'integer', { primaryKey: true }), column('email', 'text')],
   primaryKey: ['id'],
-  relations: [],
+  relations: [
+    { name: 'orders', relation: 'oneToMany', target: 'orders', via: 'userId' },
+    { name: 'profile', relation: 'oneToOne', target: 'profiles', via: 'userId' },
+  ],
 };
 
 const UserSchema = schemaFromIR(USER_IR);
 
+const MEMBERSHIP_IR: SchemaIR = {
+  table: 'memberships',
+  columns: [
+    column('tenantId', 'text', { primaryKey: true }),
+    column('userId', 'integer', { primaryKey: true }),
+    column('role', 'text'),
+  ],
+  primaryKey: ['tenantId', 'userId'],
+  relations: [],
+};
+
+const MembershipSchema = schemaFromIR(MEMBERSHIP_IR);
+
 class Users extends BaseRepository<LoaderUser> {
   static override readonly schema = UserSchema;
+}
+
+class Memberships extends BaseRepository<LoaderMembership> {
+  static override readonly schema = MembershipSchema;
 }
 
 interface RecordingDriver extends Driver {
@@ -89,11 +104,20 @@ function rowsForIds(query: CompiledQuery): readonly Record<string, unknown>[] {
   return query.parameters.map(id => ({ id, email: `user-${String(id)}@example.com` }));
 }
 
-describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
-  // The recording driver is the oracle: 100 synchronous loads must produce one
+function rowsForMemberships(query: CompiledQuery): readonly Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  for (let index = 0; index < query.parameters.length; index += 2) {
+    const tenantId = query.parameters[index];
+    const userId = query.parameters[index + 1];
+    rows.push({ tenantId, userId, role: `${String(tenantId)}-${String(userId)}` });
+  }
+  return rows;
+}
+
+describe('request-scoped dataloaders (repository/SPEC.md 3d)', () => {
+  // The recording driver is the oracle: 100 synchronous loads produce one
   // dispatch with one IN statement, independent of machine or event-loop timing.
-  it.fails('coalesces findById calls in one tick into a single IN query', async () => {
+  it('coalesces findById calls in one tick into a single IN query', async () => {
     const driver = recordingDriver(rowsForIds);
     const loader = createLoaderScope().loaderFor(new Users(driver));
     const ids = Array.from({ length: 100 }, (_, index) => index + 1);
@@ -106,10 +130,9 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
     expect(driver.calls[0]?.parameters).toEqual(ids);
   });
 
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
   // The accepted #465 spec corrected the generated issue: duplicate callers get
   // structurally equal fresh shallow copies, not one shared entity reference.
-  it.fails('fetches a duplicated id once and resolves both callers', async () => {
+  it('fetches a duplicated id once and resolves both callers', async () => {
     const driver = recordingDriver(rowsForIds);
     const loader = createLoaderScope().loaderFor(new Users(driver));
 
@@ -120,10 +143,20 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
     expect(second).not.toBe(first);
     expect(driver.calls).toHaveLength(1);
     expect(driver.calls[0]?.parameters).toEqual([7]);
+
+    const zeroDriver = recordingDriver(query => query.parameters.map(() => ({ id: 0, email: 'user-0@example.com' })));
+    const zeroLoader = createLoaderScope().loaderFor(new Users(zeroDriver));
+
+    const [negativeZero, zero] = await Promise.all([zeroLoader.load(-0), zeroLoader.load(0)]);
+
+    expect(negativeZero).toEqual({ id: 0, email: 'user-0@example.com' });
+    expect(zero).toEqual(negativeZero);
+    expect(zero).not.toBe(negativeZero);
+    expect(zeroDriver.calls).toHaveLength(1);
+    expect(Object.is(zeroDriver.calls[0]?.parameters[0], -0)).toBe(true);
   });
 
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
-  it.fails('resolves undefined for an id the batch did not return', async () => {
+  it('resolves undefined for an id the batch did not return', async () => {
     const driver = recordingDriver(query => rowsForIds(query).filter(row => row.id !== 2));
     const loader = createLoaderScope().loaderFor(new Users(driver));
 
@@ -133,10 +166,9 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
     expect(driver.calls).toHaveLength(1);
   });
 
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
-  it.fails('rejects every call in a batch when the driver errors', async () => {
+  it('rejects every call in a batch when the driver errors', async () => {
     const failure = new Error('database unavailable');
-    const driver = recordingDriver(() => Promise.reject(failure));
+    const driver = recordingDriver((query, call) => (call === 0 ? Promise.reject(failure) : rowsForIds(query)));
     const loader = createLoaderScope().loaderFor(new Users(driver));
 
     const settled = await Promise.allSettled([loader.load(1), loader.load(2), loader.load(3)]);
@@ -147,12 +179,14 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
       { status: 'rejected', reason: failure },
     ]);
     expect(driver.calls).toHaveLength(1);
+
+    await expect(loader.load(1)).resolves.toEqual({ id: 1, email: 'user-1@example.com' });
+    expect(driver.calls).toHaveLength(2);
   });
 
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
   // Two explicit scope objects are the security boundary. Sharing the repository
   // is deliberate: only the scopes differ, so two calls prove no row leaked.
-  it.fails('does not share loaded rows between two scopes', async () => {
+  it('does not share loaded rows between two scopes', async () => {
     const driver = recordingDriver(rowsForIds);
     const repository = new Users(driver);
     const firstLoader = createLoaderScope().loaderFor(repository);
@@ -167,10 +201,9 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
     expect(driver.calls.map(query => query.parameters)).toEqual([[42], [42]]);
   });
 
-  // Actual at d34bfbaf: @zmdb/repository exports no createLoaderScope.
   // Awaiting an already-resolved promise yields to the microtask queue. The first
   // scheduled flush must therefore run before the second load; no timer is used.
-  it.fails('does not batch across ticks', async () => {
+  it('does not batch across ticks', async () => {
     const driver = recordingDriver(rowsForIds);
     const loader = createLoaderScope().loaderFor(new Users(driver));
 
@@ -184,5 +217,119 @@ describe('request-scoped dataloaders (frozen: repository/SPEC.md 3d)', () => {
     ]);
     expect(driver.calls).toHaveLength(2);
     expect(driver.calls.map(query => query.parameters)).toEqual([[1], [2]]);
+  });
+
+  it('reuses a loaded id inside one scope without sharing the cached row object', async () => {
+    const driver = recordingDriver(rowsForIds);
+    const loader = createLoaderScope().loaderFor(new Users(driver));
+
+    const first = await loader.load(9);
+    if (first) Reflect.set(first, 'email', 'mutated@example.com');
+    const second = await loader.load(9);
+
+    expect(first).not.toBe(second);
+    expect(second).toEqual({ id: 9, email: 'user-9@example.com' });
+    expect(driver.calls).toHaveLength(1);
+  });
+
+  it('chunks a batch that would exceed the dialect parameter limit', async () => {
+    const driver = recordingDriver(rowsForIds);
+    const loader = createLoaderScope().loaderFor(new Users(driver, 'sqlite'));
+    const ids = Array.from({ length: DIALECT_PARAM_LIMITS.sqlite + 1 }, (_, index) => index + 1);
+
+    const rows = await Promise.all(ids.map(id => loader.load(id)));
+
+    expect(rows).toHaveLength(ids.length);
+    expect(driver.calls).toHaveLength(2);
+    expect(driver.calls.map(query => query.parameters.length)).toEqual([DIALECT_PARAM_LIMITS.sqlite, 1]);
+  });
+
+  it('batches composite primary keys without crossing tuple boundaries', async () => {
+    const driver = recordingDriver(rowsForMemberships);
+    const loader = createLoaderScope().loaderFor(new Memberships(driver));
+    const keys = [
+      { tenantId: 'acme', userId: 1 },
+      { userId: 1, tenantId: 'acme' },
+      { tenantId: 'globex', userId: 2 },
+    ];
+
+    const rows = await Promise.all(keys.map(key => loader.load(key)));
+
+    expect(rows).toEqual([
+      { tenantId: 'acme', userId: 1, role: 'acme-1' },
+      { tenantId: 'acme', userId: 1, role: 'acme-1' },
+      { tenantId: 'globex', userId: 2, role: 'globex-2' },
+    ]);
+    expect(rows[0]).not.toBe(rows[1]);
+    expect(driver.calls).toHaveLength(1);
+    expect(driver.calls[0]).toEqual({
+      text: 'SELECT * FROM "memberships" WHERE "tenantId" = $1 AND "userId" = $2 OR "tenantId" = $3 AND "userId" = $4',
+      parameters: ['acme', 1, 'globex', 2],
+    });
+  });
+
+  it('coalesces declared relations across parents with their cardinality', async () => {
+    const driver = recordingDriver(query => {
+      if (query.text.includes('"profiles"')) {
+        return query.parameters
+          .filter(userId => userId !== 2)
+          .map(userId => ({ id: Number(userId) * 100, userId, bio: `profile-${String(userId)}` }));
+      }
+      return query.parameters.map(userId => ({
+        id: Number(userId) * 10,
+        userId,
+        total: Number(userId) * 100,
+      }));
+    });
+    const scope = createLoaderScope();
+    const repository = new Users(driver);
+    const orders = scope.relationLoader(repository, 'orders');
+    const profiles = scope.relationLoader(repository, 'profile');
+    const parents = [
+      { id: 1, email: 'one@example.com' },
+      { id: 2, email: 'two@example.com' },
+      { id: 3, email: 'three@example.com' },
+    ];
+
+    const [orderRows, profileRows] = await Promise.all([
+      Promise.all(parents.map(parent => orders.load(parent))),
+      Promise.all(parents.map(parent => profiles.load(parent))),
+    ]);
+
+    expect(orderRows).toEqual([
+      [{ id: 10, userId: 1, total: 100 }],
+      [{ id: 20, userId: 2, total: 200 }],
+      [{ id: 30, userId: 3, total: 300 }],
+    ]);
+    expect(profileRows).toEqual([
+      { id: 100, userId: 1, bio: 'profile-1' },
+      null,
+      { id: 300, userId: 3, bio: 'profile-3' },
+    ]);
+    expect(driver.calls).toHaveLength(2);
+    const orderQuery = driver.calls.find(query => query.text.includes('"orders"'));
+    const profileQuery = driver.calls.find(query => query.text.includes('"profiles"'));
+    expect(orderQuery?.parameters).toEqual([1, 2, 3]);
+    expect(profileQuery?.parameters).toEqual([1, 2, 3]);
+  });
+
+  it('keeps relation results scope-local and returns fresh child rows', async () => {
+    const driver = recordingDriver(query =>
+      query.parameters.map(userId => ({ id: Number(userId) * 10, userId, total: Number(userId) * 100 })),
+    );
+    const repository = new Users(driver);
+    const firstScope = createLoaderScope();
+    const firstLoader = firstScope.relationLoader(repository, 'orders');
+    const parent = { id: 4, email: 'four@example.com' };
+
+    const first = await firstLoader.load(parent);
+    const cached = await firstScope.relationLoader(repository, 'orders').load(parent);
+    const isolated = await createLoaderScope().relationLoader(repository, 'orders').load(parent);
+
+    expect(first).toEqual(cached);
+    expect(first).not.toBe(cached);
+    expect(first[0]).not.toBe(cached[0]);
+    expect(isolated).toEqual(first);
+    expect(driver.calls).toHaveLength(2);
   });
 });

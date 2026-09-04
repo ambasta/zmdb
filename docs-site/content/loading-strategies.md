@@ -38,7 +38,9 @@ The rule reduces to: **join when the cardinality is one, batch when it is many.*
 
 **No `eager: true`.** A relation is never loaded because of how it was declared, only because of how it was asked for. Two call sites with different needs do not fight over one setting.
 
-**No automatic batching across calls.** Two separate `findById` calls are two queries; nothing coalesces them into one. That is what a [DataLoader](./dataloaders.html) does, and it is a gap.
+**No automatic batching across calls.** Two direct `findById` calls are two queries. When a request needs
+cross-call batching, construct an explicit [`LoaderScope`](./dataloaders.html) and call its loader instead;
+ordinary repository reads never change behaviour because a scope happens to exist.
 
 **No nested populate.** `populate: ['posts']` loads posts; it does not load `posts.comments`. Do the second level yourself:
 

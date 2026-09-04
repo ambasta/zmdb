@@ -682,7 +682,7 @@ export const PAGE_META = {
     title: 'DataLoaders',
     group: 'Data Access',
     status: 'todo',
-    note: 'populate batches one query per relation per call; there is no request-scoped loader that batches across calls',
+    note: 'request-scoped entity and relation loaders ship; the final lifecycle and API reference remains for the docs slice',
   },
   aggregations: {
     title: 'Aggregations',

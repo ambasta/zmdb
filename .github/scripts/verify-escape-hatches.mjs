@@ -72,18 +72,19 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BUDGET = {
   any: { limit: 0, what: '`any` in a type position (`: any`, `<any>`, `any[]`, `as any`)' },
   suppressions: { limit: 0, what: '`@ts-expect-error` / `@ts-ignore`' },
-  // 1 rather than 2 since the builder DSL went: `makeColumn` needed a double cast because a
-  // column is not a `Column` until `Object.defineProperties` has attached the fluent methods,
-  // and that is not a type-changing operation. No builders, no chain, no cast.
-  doubleCasts: { limit: 1, what: '`as unknown as` double casts' },
-  // 59. It was 65 when `aot-validator/src/testing` landed, and came down by three with
+  // The final one was `attachRelations`' populated-row return. Repository loader work gave
+  // that helper overloads whose implementation is checked without asserting through
+  // `unknown`, so the double-cast ceiling is now zero.
+  doubleCasts: { limit: 0, what: '`as unknown as` double casts' },
+  // 57. It was 65 when `aot-validator/src/testing` landed, and came down by three with
   // `defineSchema`: its own rebuild-of-a-generic-record assertion, `makeColumn`'s, and
   // `references`'s. The fourth went with the repository's `relations` map — a `Populated<T, R,
   // K>` built from a relation *value* could not be indexed without one. The shallow-validator
   // public surface then consolidated the three successful validation returns behind one
-  // `certified` boundary, removing two more. Argued in §9.4, which is where a raise has to be
-  // argued.
-  assertions: { limit: 59, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
+  // `certified` boundary, removing two more. Repository loader work then replaced
+  // `attachRelations`' asserted return with checked overloads, removing two more. Argued in
+  // §9.4, which is where a raise has to be argued.
+  assertions: { limit: 57, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
   nonNull: { limit: 0, what: 'non-null assertions (`!`)' },
   lintDisables: { limit: 1, what: '`eslint-disable` / `oxlint-disable`' },
   dynamicCode: { limit: 0, what: '`new Function` / `eval` call sites' },

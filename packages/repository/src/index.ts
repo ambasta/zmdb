@@ -53,6 +53,20 @@ import {
 } from '@zmdb/schema-core/ir';
 import type { Sql } from '@zmdb/schema-core/tags';
 
+import {
+  createEntityLoader,
+  createRelationLoader,
+  LOADER_ENTITY_BATCH,
+  LOADER_ENTITY_KEY,
+  LOADER_FOR_SCOPE,
+  LOADER_RELATION_BATCH,
+  LOADER_RELATION_KEY,
+  RELATION_LOADER_FOR_SCOPE,
+  type EntityLoader,
+  type RelationLoader,
+  type RelationValueOf,
+} from './loaders/index.js';
+
 export interface Driver {
   readonly dialect?: Dialect;
   /** Enables compile-time query attributes when an execution wrapper consumes them. */
@@ -66,6 +80,10 @@ export interface Driver {
  * makes keyed access legal without asserting.
  */
 type EntityRow<T extends DeclaredTable> = Entity<T> & Record<string, unknown>;
+
+type RelationLoaderMap<T extends DeclaredTable> = {
+  [K in RelationKeys<T> & string]?: RelationLoader<T, K>;
+};
 
 export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
   joinRelation(relationName: string, kind?: 'inner' | 'left' | 'right'): RepositoryAggregateBuilder;
@@ -236,6 +254,26 @@ function describeKey(value: unknown): string {
   return typeof value === 'function' ? 'a function' : `a ${typeof value}`;
 }
 
+/** Type-tag one SQL key value so values such as `1`, `'1'` and `1n` cannot collide. */
+function loaderKeyPart(value: unknown): string {
+  if (value instanceof Date) return `d:${value.getTime()}`;
+  if (value === null) return 'z:';
+  if (value === undefined) return 'u:';
+  if (typeof value === 'string') return `s:${value.length}:${value}`;
+  if (typeof value === 'number') return `n:${String(value)}`;
+  if (typeof value === 'bigint') return `i:${String(value)}`;
+  if (typeof value === 'boolean') return `b:${String(value)}`;
+  throw new ValidationError(`dataloader keys must be SQL scalar values; got ${describeKey(value)}`);
+}
+
+/** Length-prefix each tagged part so composite-key boundaries are unambiguous. */
+function loaderKey(parts: readonly unknown[]): string {
+  return parts
+    .map(value => loaderKeyPart(value))
+    .map(part => `${part.length}:${part}`)
+    .join('');
+}
+
 /** Everything a write variant's validation needs, derived once. See `payloadShape`. */
 interface PayloadShape {
   readonly shape: ShapeIR;
@@ -304,11 +342,42 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
   /** The columns a driver may hand back in their storage form. See `decodeRows`. */
   #decoded: readonly ColumnIR[] | undefined;
+  /** Loader state is keyed by the explicit request-scope token, never globally. */
+  readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
+  readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
 
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
     this.dialect = dialect;
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
+  }
+
+  [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
+    const existing = this.#entityLoaders.get(scope);
+    if (existing) return existing;
+    const created = createEntityLoader(this);
+    this.#entityLoaders.set(scope, created);
+    return created;
+  }
+
+  [RELATION_LOADER_FOR_SCOPE]<K extends RelationKeys<T> & string>(scope: object, relation: K): RelationLoader<T, K> {
+    let loaders = this.#relationLoaders.get(scope);
+    if (!loaders) {
+      loaders = {};
+      this.#relationLoaders.set(scope, loaders);
+    }
+
+    const existing = Object.hasOwn(loaders, relation) ? loaders[relation] : undefined;
+    if (existing) return existing;
+
+    const created = createRelationLoader(this, relation);
+    Object.defineProperty(loaders, relation, {
+      configurable: false,
+      enumerable: true,
+      value: created,
+      writable: false,
+    });
+    return created;
   }
 
   // #37 — bind this repository to a transaction context so all its SQL runs
@@ -532,6 +601,67 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return where as WhereDTO<T>;
   }
 
+  /** Validate a typed key and return its values in schema declaration order. */
+  private loaderKeyValues(id: PrimaryKeyOf<T>): readonly unknown[] {
+    this.buildKeyWhere(id, 'findById');
+    const columns = this.schema.primaryKey;
+    if (columns.length === 1) return [id];
+    if (!isRecord(id)) {
+      throw new ValidationError(`composite primary key for schema ${this.tableName} requires an object map`);
+    }
+    return columns.map(column => id[column]);
+  }
+
+  [LOADER_ENTITY_KEY](id: PrimaryKeyOf<T>): string {
+    return loaderKey(this.loaderKeyValues(id));
+  }
+
+  /**
+   * Find a primary-key batch through the repository's compiler, decoder and
+   * dialect parameter ceiling. Composite tuples use OR-of-AND groups; SQL's
+   * AND-before-OR precedence keeps every tuple boundary intact.
+   */
+  async [LOADER_ENTITY_BATCH](ids: readonly PrimaryKeyOf<T>[]): Promise<readonly (Entity<T> | undefined)[]> {
+    const unique = sanitizeKeys(ids);
+    if (unique.length === 0) return [];
+
+    const columns = this.schema.primaryKey;
+    if (columns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
+    const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
+    const chunkSize = Math.max(1, Math.floor(parameterLimit / columns.length));
+    const found = new Map<string, Entity<T>>();
+
+    for (const chunk of chunkArray(unique, chunkSize)) {
+      let builder = this.qb.selectFrom(this.tableName);
+      if (columns.length === 1) {
+        const [column] = columns;
+        if (!column) throw new Error(`schema ${this.tableName} has empty primary key column`);
+        builder = builder.whereIn(column, chunk);
+      } else {
+        for (let tupleIndex = 0; tupleIndex < chunk.length; tupleIndex++) {
+          const id = chunk[tupleIndex];
+          if (id === undefined) continue;
+          const values = this.loaderKeyValues(id);
+          for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+            const column = columns[columnIndex];
+            if (!column) continue;
+            const value = values[columnIndex];
+            if (tupleIndex === 0 && columnIndex === 0) builder = builder.where(column, '=', value);
+            else if (columnIndex === 0) builder = builder.orWhere(column, '=', value);
+            else builder = builder.andWhere(column, '=', value);
+          }
+        }
+      }
+
+      const rows = await this.rows<EntityRow<T>>(builder.compile());
+      for (const row of rows) {
+        found.set(loaderKey(columns.map(column => row[column])), row);
+      }
+    }
+
+    return ids.map(id => found.get(this[LOADER_ENTITY_KEY](id)));
+  }
+
   // #218 — typed populate. When `opts.populate` names relations the type declares, the
   // result is widened with those relations *and only those*. Batched IN query per relation;
   // no proxies. Populate keys are `RelationKeys<T>`, so a misspelled relation is a compile
@@ -578,43 +708,60 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     for (const c of children) {
       const key = c[childFk];
       const list = byParent.get(key) ?? [];
-      list.push({ ...c });
+      list.push(c);
       byParent.set(key, list);
     }
     return byParent;
   }
 
   /** Batch-load and attach named relations to parent rows without mutating inputs. */
-  private async attachRelations<Row extends Record<string, unknown>>(
+  private attachRelations<K extends RelationKeys<T> & string>(
+    parents: readonly Entity<T>[],
+    names: readonly K[],
+  ): Promise<readonly Populated<T, K>[]>;
+  private attachRelations<Row extends object>(
     parents: readonly Row[],
     names: readonly string[],
-  ): Promise<readonly Row[]> {
+  ): Promise<readonly Row[]>;
+  private async attachRelations(parents: readonly object[], names: readonly string[]): Promise<readonly object[]> {
     if (parents.length === 0) return parents;
-    let current: Record<string, unknown>[] = parents.map(p => ({ ...p }));
+    let current: object[] = parents.map(parent => ({ ...parent }));
 
     for (const name of names) {
       const rel = this.relation(name);
       const byParent = await this.childrenByParent(
         rel.targetTable,
         rel.targetKey,
-        current.map(p => p[rel.parentKey]),
+        current.map(parent => Reflect.get(parent, rel.parentKey)),
       );
-      current = current.map(p => {
-        const pKey = p[rel.parentKey];
-        if (pKey === null || pKey === undefined) {
-          return { ...p, [name]: rel.toMany ? [] : null };
+      current = current.map(parent => {
+        const parentKey = Reflect.get(parent, rel.parentKey);
+        if (parentKey === null || parentKey === undefined) {
+          return { ...parent, [name]: rel.toMany ? [] : null };
         }
-        const list = byParent.get(pKey) ?? [];
-        return {
-          ...p,
-          [name]: rel.toMany ? list : (list[0] ?? null),
-        };
+        const list = byParent.get(parentKey) ?? [];
+        if (rel.toMany) {
+          return { ...parent, [name]: list.map(child => ({ ...child })) };
+        }
+        const first = list[0];
+        return { ...parent, [name]: first ? { ...first } : null };
       });
     }
 
-    // boundary: populated rows are built by copying parent rows and attaching the relation
-    // properties `Populated<T, K>` says are there.
-    return current as unknown as readonly Row[];
+    return current;
+  }
+
+  [LOADER_RELATION_KEY]<K extends RelationKeys<T> & string>(parent: Entity<T>, relation: K): string {
+    const resolved = this.relation(relation);
+    return loaderKey([Reflect.get(parent, resolved.parentKey)]);
+  }
+
+  async [LOADER_RELATION_BATCH]<K extends RelationKeys<T> & string>(
+    parents: readonly Entity<T>[],
+    relation: K,
+  ): Promise<readonly RelationValueOf<T, K>[]> {
+    const populated = await this.attachRelations(parents, [relation]);
+    return populated.map(parent => parent[relation]);
   }
 
   async findOne<K extends RelationKeys<T> & string>(
@@ -1324,4 +1471,11 @@ export function defineRepository<T extends DeclaredTable>(
   return new Repo(driver, opts?.dialect ?? 'postgres');
 }
 
+export {
+  createLoaderScope,
+  type EntityLoader,
+  type LoaderScope,
+  type RelationLoader,
+  type RelationValueOf,
+} from './loaders/index.js';
 export * from './transactions/index.js';

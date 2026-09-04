@@ -38,7 +38,10 @@ async list(ctx: Ctx<Record<never, string>, unknown>) {
 
 ## A per-request driver: the pattern that solves most of it
 
-Where the request-scoped value belongs to the _database session_ rather than to your code, build the driver per request. This is how you get tenant scoping, [row-level security](./deploy-supabase-edge.html), [query tagging](./sql-comments.html), [per-request batching](./dataloaders.html) and per-request query counting — all without ambient state:
+Where the request-scoped value belongs to the _database session_ rather than to your code, build the driver
+per request. This is how you get tenant scoping, [row-level security](./deploy-supabase-edge.html), [query
+tagging](./sql-comments.html) and per-request query counting without ambient state. Request batching is a
+separate explicit value: construct a [`LoaderScope`](./dataloaders.html) alongside the driver.
 
 ```ts
 function driverFor(tenant: string): Driver {
@@ -78,6 +81,7 @@ interface RequestScope {
   readonly userId: number;
   readonly requestId: string;
   readonly posts: PostRepo;
+  readonly loaders: LoaderScope;
 }
 
 function scopeFor(ctx: Ctx<Record<string, string>, unknown>): RequestScope {
@@ -88,6 +92,7 @@ function scopeFor(ctx: Ctx<Record<string, string>, unknown>): RequestScope {
     userId: claims.sub,
     requestId: ctx.headers['x-request-id'] ?? crypto.randomUUID(),
     posts: defineRepository(posts, driver, { dialect: 'postgres' }),
+    loaders: createLoaderScope(),
   };
 }
 ```
