@@ -26,6 +26,7 @@ export {
   type PushResult,
   type RollbackResult,
   type StatusResult,
+<<<<<<< HEAD
   type UpgradeResult,
   type WatchHttpArtifactsOptions,
   type ClientGenerateResult,

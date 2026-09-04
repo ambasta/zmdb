@@ -416,7 +416,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
       createQueryCompiler(postgresDialect)
         .selectFrom(trustedTable(OUTBOX_TABLE))
         .select(['id'])
-        .where('deliveredAt', unsafeOperator('is'), null)
+        .where('deliveredAt', 'is null', null)
         .compile(),
     ).toMatchObject({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
   });

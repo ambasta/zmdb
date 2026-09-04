@@ -34,9 +34,9 @@ import { ${name.constant}_STATUS, ${name.pascal}Module } from './${name.fileStem
 
 describe('${name.pascal}Module', () => {
   it('registers its status provider', async () => {
-    await using app = createTestApp(${name.pascal}Module);
-    const status = app.get(${name.constant}_STATUS);
-    expect(status).toEqual({ name: '${name.fileStem}', ready: true });
+    const app = createTestApp(${name.pascal}Module);
+    expect(app.get(${name.constant}_STATUS)).toEqual({ name: '${name.fileStem}', ready: true });
+    await app[Symbol.asyncDispose]();
   });
 });
 `,
