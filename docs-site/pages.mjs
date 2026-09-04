@@ -1692,7 +1692,7 @@ export const PAGE_META = {
     title: 'CSRF Protection',
     group: 'Web Framework — Security',
     status: 'todo',
-    note: 'no CSRF middleware; the threat model and a session-bound signed token are frozen (#565).',
+    note: 'session-bound CSRF protection ships; final six-page docs reconciliation remains (#571).',
   },
   'web-encryption': {
     title: 'Encryption & Hashing',

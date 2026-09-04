@@ -449,9 +449,9 @@ declined. It is declined.
 
 What a user does instead is call the engine and return the string, which needs no
 framework support at all and is what `../../../../docs-site/content/web-templates.md`
-now documents. `web-templates` stays `status: 'todo'` because `pages.mjs` has only
-`supported` and `todo`, and a declined feature is not supported; its `note` records
-the decision so the page is not mistaken for an unanswered gap.
+now documents. `web-templates` stays `status: 'todo'` for the mapped upstream
+feature page, while its note records the deliberate decline so it is not mistaken
+for an unanswered design question.
 
 ### A9. What #566 froze and #567 now satisfies
 

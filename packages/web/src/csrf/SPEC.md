@@ -192,8 +192,8 @@ origin, missing token, bad MAC and wrong session are indistinguishable, because 
 distinction is only useful to somebody probing.
 
 `guard()` returns a `Guard`, so protection is declared rather than called per
-handler. Route guards are now wired through `RouteOptions.guards`; the CSRF
-implementation can register this guard directly when it lands.
+handler. Route guards are wired through `RouteOptions.guards`, and the CSRF
+implementation registers there directly.
 
 ## 7. How a client gets a token, and how the surface resists theatre
 

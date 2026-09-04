@@ -1,10 +1,7 @@
-> **ToDo / feature gap.** There is no CSRF protection — no token middleware, no
-> `csurf` equivalent, no double-submit helper.
->
-> The threat model and the token strategy are frozen in
-> `packages/web/src/csrf/SPEC.md`. A handler **can** set a response header —
-> `json()` and `respond()` both take one, and an earlier version of this page said
-> otherwise, which is why it thought a token could not be delivered.
+> `createCsrf()` ships stateless, session-bound CSRF protection for
+> cookie-authenticated routes. It combines an explicit origin allow-list with a
+> signed token, exposes a route guard, and deliberately refuses to operate
+> without a cookie-session identity.
 
 ## Whether you need it at all
 
@@ -33,91 +30,101 @@ Set-Cookie: sid=…; HttpOnly; Secure; SameSite=Lax; Path=/
 
 Also set `HttpOnly` (so XSS cannot read the session) and `Secure` (so it never travels over plaintext). Neither is CSRF, both are non-negotiable.
 
-## The origin check
-
-One line, no token, and effective for a JSON API:
+## Configure the helper
 
 ```ts
-const SAFE = new Set(['https://app.example.com']);
+import { createCsrf } from '@zmdb/web';
 
-function requireSameOrigin(ctx: Ctx<Record<string, string>, unknown>): WebResponse | undefined {
-  if (ctx.method === 'GET' || ctx.method === 'HEAD') return undefined;
-  const origin = ctx.headers.origin ?? ctx.headers.referer;
-  if (origin === undefined || !SAFE.has(new URL(origin).origin)) {
-    return respond({ status: 403, body: '' });
-  }
-  return undefined;
+const csrf = await createCsrf({
+  // Load the same application-owned secret on every replica.
+  secret: csrfSecret,
+  sessionOf: ctx => sessionIdFromCookie(ctx.headers.cookie),
+  allowedOrigins: ['https://app.example.com'],
+});
+```
+
+`csrfSecret` is a non-empty `Uint8Array<ArrayBuffer>`. Load it from application
+configuration; generating it inside each process would invalidate outstanding
+tokens on restart and make replicas disagree.
+
+`allowedOrigins` is required, non-empty and has no wildcard form. Entries are
+normalised as origins, so a default port or trailing slash is harmless, while a
+path, query, credentials, opaque URL or wildcard is rejected during
+construction. On an unsafe request, a missing or malformed `Origin`/`Referer`
+is the same fixed 403 as a bad token.
+
+`headerName` defaults to `x-csrf-token` and may be changed to another valid HTTP
+field name.
+
+## Issue a token
+
+```ts
+@Get('/csrf')
+async token(ctx: AnyCtx) {
+  return { token: await csrf.issue(ctx) };
 }
 ```
 
-A CSRF rejection is a **403**, and `return respond({ status: 403 })` from the handler is the only
-way to produce one today: the pipeline maps a thrown `ValidationError` to 400 and anything else to
-500, and it never reads `ChainError.status`. So the check returns a response rather than throwing,
-and the handler returns it if there is one.
+Fetch this endpoint after login, keep the returned token in memory, and send it
+in `x-csrf-token` on protected mutations. The token has the lifetime of the
+session it is bound to: rotating the session id automatically invalidates the
+old token.
 
-Browsers set `Origin` on every cross-origin state-changing request and it cannot be forged by page JavaScript. Reject a missing origin on unsafe methods rather than allowing it — a permissive fallback defeats the check, and legitimate browser requests always include it.
-
-Requiring `content-type: application/json` helps too: a cross-site form post cannot set it, and a browser will not send a JSON preflight without CORS permission.
-
-## Double-submit tokens
-
-When you need a token — a cookie-authenticated app supporting older browsers:
-
-```ts
-@Post('/csrf')
-issue() {
-  const token = crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: 'base64url', omitPadding: true });
-  return json(
-    { token },
-    { headers: { 'set-cookie': `csrf=${token}; Secure; SameSite=Lax; Path=/` } },
-  );
-}
-```
-
-The client stores it and sends it as `x-csrf-token` on every mutation; you compare it against the same value in the non-`HttpOnly` cookie set above.
-
-> [!WARNING]
-> `WebResponse.headers` is `Readonly<Record<string, string>>`, so **exactly one `set-cookie` per
-> response** is representable. A login route that rotates the session cookie _and_ issues a CSRF
-> cookie cannot be written with today's response type — which is precisely the route a reader of
-> this page is writing. That is one more reason the freeze issues no CSRF cookie at all.
-
-```ts
-const compareKey = await crypto.subtle.importKey(
-  'raw',
-  crypto.getRandomValues(new Uint8Array(32)), // per process, never leaves it
-  { name: 'HMAC', hash: 'SHA-256' },
-  false,
-  ['sign'],
-);
-const digest = async (value: string): Promise<string> =>
-  new Uint8Array(await crypto.subtle.sign('HMAC', compareKey, new TextEncoder().encode(value))).toBase64();
-
-async function requireCsrf(ctx: Ctx<Record<string, string>, unknown>): Promise<WebResponse | undefined> {
-  const header = ctx.headers['x-csrf-token'] ?? '';
-  const cookie = parseCookies(ctx.headers.cookie ?? '').csrf ?? '';
-  if (header === '' || (await digest(header)) !== (await digest(cookie))) {
-    return respond({ status: 403, body: '' });
-  }
-  return undefined;
-}
-```
-
-Reject an empty token explicitly, or two missing values compare equal and every unauthenticated request passes.
-
-**That is a double-HMAC comparison, not `timingSafeEqual`, and the substitution is deliberate.** `.oxlintrc.json` bans importing `node:crypto` in this repository's own source ("Use
-`globalThis.crypto` and the Web Crypto API") — your application may import it, but the framework
-cannot ship the comparison — Web Crypto has no constant-time comparison primitive, and a hand-rolled XOR-accumulate loop's constant-timeness is a property of the JIT rather than of the source — so it cannot be asserted by a test. MAC both sides under a random per-process key and compare the digests with `===`: an attacker cannot steer a digest they cannot predict, so the comparison's timing carries no information. This removes the requirement instead of trying to satisfy it, and it is what the freeze specifies.
-
-Double-submit relies on an attacker not being able to write your cookies, and the freeze does not use it for exactly that reason — a subdomain takeover, a compromised sibling application, or one plaintext response on any `*.example.com` host is enough, because cookies ignore the origin's scheme and port. What ships instead is a **stateless token bound to the session**:
+The unmasked token is:
 
 ```
 nonce ‖ '.' ‖ base64url(HMAC-SHA256(secret, sessionId ‖ '.' ‖ nonce))
 ```
 
-Verification recomputes the MAC over the session id taken from the request's own session, so a cookie the attacker can write is useless — they cannot produce a MAC for _your_ session. There is no CSRF cookie at all, which removes a second `SameSite`, `Secure`, `Path` and `Domain` to get wrong, and no server-side store, which is what a synchroniser token would have needed. The token has no separate expiry: its lifetime is the session's, because the session id is inside the MAC, so a login that rotates the session — where session fixation lives — rotates the token automatically.
+Verification recomputes the MAC over the session id taken from the request. A
+cookie an attacker can write is therefore useless without the application
+secret. There is no CSRF cookie and no server-side token store.
 
-The issued token **will also be masked per response** with a fresh random value (frozen, #565). That adds no secrecy; it makes the bytes of the response different every time, which removes the [BREACH](./web-compression.html) side channel structurally rather than by remembering an exclusion rule.
+The returned token is masked with fresh random bytes on every issue. That adds
+no secrecy; it makes the response bytes different every time, removing the
+[BREACH](./web-compression.html) side channel structurally.
+
+## Protect routes
+
+```ts
+router.register(new OrdersController(), {
+  update: { guards: [csrf.guard()] },
+  remove: { guards: [csrf.guard()] },
+});
+```
+
+The keys are handler names in the existing `RouteOptions` record. The guard runs
+before body validation and the handler. A refusal produces the router's fixed
+`403 {"error":"forbidden"}` response.
+
+`GET`, `HEAD`, `OPTIONS` and `TRACE` are exempt. Every other exact method
+spelling is checked, including an unsafe request carrying a method-override
+header; zmdb does not interpret those headers.
+
+`verify(ctx)` exposes the same check for explicit composition. Ordinary CSRF
+refusals throw a status-carrying 403 with one fixed message. A missing session
+identity is instead a configuration error: `guard()` rethrows it rather than
+turning a bearer-token API into an apparently protected route.
+
+## Origin checks are part of verification
+
+Browsers set `Origin` on cross-origin state-changing requests and page
+JavaScript cannot forge it. `verify()` always checks `Origin`, falling back to
+the origin of `Referer`, before accepting the token.
+
+A missing origin, malformed URL, opaque origin such as `null`, joined duplicate
+header, or origin outside the explicit allow-list is rejected. The request's
+origin is never reflected into a response. CORS remains separate: a restrictive
+`access-control-allow-origin` does not stop a form post that needs no preflight.
+
+## Comparison strategy
+
+The implementation uses Web Crypto HMAC throughout. Web Crypto has no
+constant-time byte-comparison primitive, and a hand-written XOR accumulator
+would depend on JIT behaviour. Instead, verification MACs both the expected and
+supplied values under a fresh in-process comparison key, then compares those
+unpredictable digests. An attacker cannot steer either comparison value, so the
+branch timing reveals nothing about the application secret.
 
 ## What to check regardless
 
@@ -136,23 +143,6 @@ Worth stating as plainly as the freeze does, because a CSRF token in an audit lo
 - **Network interception.** That is TLS's job.
 - **Clickjacking.** The user makes the request themselves, on your origin, with a valid token. `frame-ancestors` is the control.
 - **A mutating `GET`.** Bypasses every method-based defence there is, including this one.
-
-## Applying the guard
-
-The router now runs guards supplied in `RouteOptions`, so `guard()` can be
-registered under every mutating handler. The CSRF helper itself remains a
-separate frozen feature; until it lands, `verify(ctx)` in the handler is the
-working form.
-
-The surface is `createCsrf({ secret, sessionOf, allowedOrigins })`, which is `async` — it returns
-a `Promise<Csrf>`, because importing the HMAC key is async — resolving to `issue`, `verify` and
-`guard()`. Two things about it are there to prevent protection theatre rather than to be convenient:
-
-**`sessionOf` is required**, and `issue` and `verify` both **throw** when it returns `undefined`. A developer installing this on a bearer-token API has to write a function answering "which cookie session is this", discovers there is not one, and gets an error instead of a middleware that passes every request while looking like a control. A required argument that cannot be answered is a better warning than a paragraph of documentation.
-
-**The origin check is part of `verify`, not an alternative to it.** It costs one comparison, needs no token endpoint, and catches the case where a token leaked. `allowedOrigins` is required with no default and no wildcard, and the request's own `Origin` is never reflected.
-
-For a bearer-token JSON API the origin check above remains not just the workaround but the _correct_ answer, which is why the first section of this page comes before this one.
 
 ---
 

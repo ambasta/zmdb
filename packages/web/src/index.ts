@@ -232,6 +232,9 @@ export {
 // Bounded multipart/form-data parsing. See ./upload.
 export { parseMultipart, UPLOAD_DEFAULTS, type Multipart, type UploadLimits, type UploadPart } from './upload/index.js';
 
+// Stateless, session-bound CSRF protection. See ./csrf.
+export { createCsrf, type Csrf, type CsrfOptions } from './csrf/index.js';
+
 // OpenAPI 3.1 generation from routes + schemas. See ./openapi.
 export {
   toOpenApi,

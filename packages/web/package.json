@@ -44,6 +44,7 @@
     "./cli": "./src/cli/index.ts",
     "./dto-pipes": "./src/dto-pipes/index.ts",
     "./upload": "./src/upload/index.ts",
+    "./csrf": "./src/csrf/index.ts",
     "./openapi": "./src/openapi/index.ts",
     "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",

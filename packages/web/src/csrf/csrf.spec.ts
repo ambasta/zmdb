@@ -5,28 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 import { type Ctx, type Guard, type QueryValues } from '../index.js';
 
-// CSRF protection. Tests freeze for epic #564 (spec freeze #565); the frozen text is `./SPEC.md`,
-// and this file is its §8 list, item by item, plus the method-override spoof the brief for this
-// freeze demanded on top of it — see `the safe-method exemption` below, which is the one place a
-// correct-looking implementation of §6 becomes a hole.
-//
-// `it.fails` for every frozen claim, never `.skip`: `.skip` vanishes from the summary line while
-// `it.fails` has its own bucket, so `N passed | M expected fail` makes M the size of the debt.
-// Vitest *fails* an `it.fails` whose body passes, so each of these self-retires in the slice that
-// implements it. Nothing is `declare`d — a declared stub throws `ReferenceError`, which reads the
-// same whether the feature is missing, misnamed or wrong.
-//
-// The shared actual: `packages/web/src/csrf/` holds `SPEC.md` and nothing else, so every test that
-// reaches the middleware reports
-//
-//   Error: @zmdb/web exports no "createCsrf" (frozen: csrf/SPEC.md 3)
-//
-// and the two tests in `the module` block record the `ENOENT` underneath it. Those two are the
-// only different actual in the file: everything else funnels through the one missing export, which
-// is why the per-test comments carry the frozen claim and the technique rather than repeating one
-// captured line forty times. Where a test's subject is the frozen *code sample* rather than the
-// absent module — the `Origin`-parsing rows — the comment says so explicitly and the platform half
-// of the finding is pinned by a green test at the bottom of the file.
+// CSRF protection for epic #564. The frozen text is `./SPEC.md`, and this file is
+// its §8 list item by item, plus the method-override spoof the tests freeze added
+// on top of it. Test titles are retained verbatim because API-coverage mapping
+// cites them.
 //
 // `globalThis.crypto` throughout and no `node:crypto`: `.oxlintrc.json` bans the import by name,
 // which is §5's whole reason for choosing double-HMAC over `timingSafeEqual`.
@@ -35,11 +17,9 @@ import { type Ctx, type Guard, type QueryValues } from '../index.js';
 // The frozen surface, declared locally
 // ---------------------------------------------------------------------------
 //
-// `AnyCtx` is what §3's signatures name, and it is **not exported** — it is declared privately at
-// `../middleware/index.ts:8`. Restated here over the real exported `Ctx` and `QueryValues`, so a
-// change to either breaks this file rather than being papered over. That the frozen public surface
-// of this module names a type a consumer cannot import is a defect in the freeze, not in this
-// file; `../graphql/SPEC.md` §10 already plans to export it, under a different epic.
+// `AnyCtx` is what §3's signatures name. Restated here over the real exported
+// `Ctx` and `QueryValues`, so a change to either breaks this file rather than
+// being papered over.
 type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 
 /** §3's options. `sessionOf` and `allowedOrigins` are required, which is §7's whole technique. */
@@ -65,12 +45,8 @@ type FrozenCreateCsrf = (options: FrozenCsrfOptions) => Promise<FrozenCsrf>;
 /**
  * Resolve `createCsrf` off the real package barrel.
  *
- * boundary: the export does not exist, and a static `import { createCsrf } from '../index.js'` is
- * a link-time SyntaxError that takes the whole file down rather than one test — moving this debt
- * out of the `expected fail` bucket instead of into it. `import './index.js'` is worse: the file
- * is absent, so it is a TS2307 against the typecheck gate. The lookup is dynamic and the message
- * names the missing export, so it is distinguishable from a middleware that exists and answers
- * wrongly, whose failure is an assertion diff.
+ * The lookup remains dynamic so the named barrel-export assertion fails as one
+ * focused test rather than taking down the entire file at module-link time.
  */
 async function frozenExport<T>(name: string): Promise<T> {
   const module: unknown = await import('../index.js');
@@ -109,13 +85,10 @@ function withToken(method: string, token: string, extra: Readonly<Record<string,
  * a documented status with its message, a rejection carrying no status at all, and no rejection —
  * rather than collapsing them into "did it reject".
  *
- * It also stands in a gap, and says so. §6 requires a `403`; `verify` has no documented error
- * type, and the only status-carrying error in the package is `ChainError`
- * (`../middleware/index.ts`), which the pipeline never inspects — `pipeline/index.ts` maps
- * anything that is not a `ValidationError` to a `500`. `guard()` does not close it either: a
- * `Guard` returning `false` becomes `ChainError(403)` inside `runChain`, and `runChain` has no
- * caller (§6 records that as blocked on #573). So this reads `error.status` because that is the
- * only shape a status could plausibly take, and reports its absence instead of guessing.
+ * Direct verification rejects with the package's status-carrying `ChainError`;
+ * `guard()` translates that ordinary refusal to `false`, which the router
+ * serializes as the same fixed 403. Reading `error.status` here checks the direct
+ * surface without coupling the test to the concrete error class.
  */
 async function rejectionOf(run: () => Promise<unknown>): Promise<string> {
   try {
@@ -141,13 +114,7 @@ function corruptAt(token: string, index: number): string {
 // ---------------------------------------------------------------------------
 
 describe('the module (frozen: csrf/SPEC.md 3)', () => {
-  // The root cause under every other failure in this file, asserted once so a reader is not left
-  // inferring it from thirty identical messages. It retires first, and on that day the rest of the
-  // file starts reporting assertion diffs instead of a missing name.
-  //
-  // actual today: `ENOENT: no such file or directory, open
-  // '/home/.../packages/web/src/csrf/index.ts'` — the directory holds `SPEC.md` alone.
-  it.fails('exists as a module and is exported from the package barrel', async () => {
+  it('exists as a module and is exported from the package barrel', async () => {
     const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
     expect(source.length).toBeGreaterThan(0);
     expect(typeof (await frozenExport<FrozenCreateCsrf>('createCsrf'))).toBe('function');
@@ -165,8 +132,7 @@ describe('the module (frozen: csrf/SPEC.md 3)', () => {
   // constant-timeness is a property of the JIT rather than of the source, which is precisely why
   // §5 refuses it — is not lint-visible either. So the loop's shape is checked too.
   //
-  // actual today: the same `ENOENT`, because there is no source to read.
-  it.fails('uses Web Crypto only, with no timing-safe comparison of its own', async () => {
+  it('uses Web Crypto only, with no timing-safe comparison of its own', async () => {
     const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
     expect(source).not.toMatch(/from\s+'node:crypto'/);
     expect(source).not.toMatch(/from\s+'node:buffer'/);
@@ -191,7 +157,7 @@ describe('a session-bound token (frozen: csrf/SPEC.md 3, 5, 8.1, 8.5)', () => {
   // The one green-in-spirit case, so every refusal below means something: a valid token from the
   // right session with an allowed origin passes. Without it a middleware that rejects everything
   // satisfies §8.1 through §8.6.
-  it.fails('accepts a valid token from the session it was issued to', async () => {
+  it('accepts a valid token from the session it was issued to', async () => {
     const csrf = await csrfFor('session-a');
     const token = await csrf.issue(ctxFor('GET'));
     await expect(csrf.verify(withToken('POST', token))).resolves.toBeUndefined();
@@ -202,7 +168,7 @@ describe('a session-bound token (frozen: csrf/SPEC.md 3, 5, 8.1, 8.5)', () => {
   // is not cosmetic: a `+` or a `/` in a value that travels in a header and gets copied into a
   // query string by somebody's client is a corruption bug, and `=` padding is what `omitPadding`
   // exists to remove. §5 chose `Uint8Array.prototype.toBase64` over `btoa` for exactly this.
-  it.fails('issues a two-segment base64url token', async () => {
+  it('issues a two-segment base64url token', async () => {
     const csrf = await csrfFor('session-a');
     const token = await csrf.issue(ctxFor('GET'));
     expect(token.split('.').length).toBe(2);
@@ -216,7 +182,7 @@ describe('a session-bound token (frozen: csrf/SPEC.md 3, 5, 8.1, 8.5)', () => {
   // silently withdraw that claim while every other test in this file still passed. Ten issues
   // rather than two, because two identical values could be a coincidence in a masking scheme with
   // a small mask space and ten cannot.
-  it.fails('returns a different string from every issue, and verifies all of them', async () => {
+  it('returns a different string from every issue, and verifies all of them', async () => {
     const csrf = await csrfFor('session-a');
     const tokens = await Promise.all(Array.from({ length: 10 }, () => csrf.issue(ctxFor('GET'))));
     expect(new Set(tokens).size).toBe(10);
@@ -230,7 +196,7 @@ describe('a session-bound token (frozen: csrf/SPEC.md 3, 5, 8.1, 8.5)', () => {
   // up inside the token instead of only inside the comparison. That is a bug with no symptom on
   // one process and a total outage on the second replica, and it is the exact failure mode §3
   // describes as "the bug that gets reported as 'CSRF errors under load'".
-  it.fails('verifies a token issued by another instance with the same secret', async () => {
+  it('verifies a token issued by another instance with the same secret', async () => {
     const first = await csrfFor('session-a');
     const second = await csrfFor('session-a');
     const token = await first.issue(ctxFor('GET'));
@@ -239,11 +205,18 @@ describe('a session-bound token (frozen: csrf/SPEC.md 3, 5, 8.1, 8.5)', () => {
 
   // §8.6, and it is the assertion that the MAC is over the secret at all: a token that verifies
   // under a different secret is a token whose signature is decorative.
-  it.fails('refuses a token issued under a different secret', async () => {
+  it('refuses a token issued under a different secret', async () => {
     const issuer = await csrfFor('session-a');
     const verifier = await csrfFor('session-a', { secret: OTHER_SECRET });
     const token = await issuer.issue(ctxFor('GET'));
     expect(await rejectionOf(() => verifier.verify(withToken('POST', token)))).toMatch(/^403: /);
+  });
+
+  it('uses the configured request header name', async () => {
+    const csrf = await csrfFor('session-a', { headerName: 'X-App-Csrf' });
+    const token = await csrf.issue(ctxFor('GET'));
+    await expect(csrf.verify(ctxFor('POST', { origin: ORIGIN, 'x-app-csrf': token }))).resolves.toBeUndefined();
+    expect(await rejectionOf(() => csrf.verify(withToken('POST', token)))).toMatch(/^403: /);
   });
 });
 
@@ -263,7 +236,7 @@ describe('every rejection is the same rejection (frozen: csrf/SPEC.md 6, 8.1, 8.
   // does not depend on it — a single-character corruption at any position in either segment is a
   // rejection, and every rejection renders identically — which is strictly stronger than the two
   // rows would have been, and the gap is recorded rather than papered over.
-  it.fails('answers identically for a missing token, a foreign session and any corruption', async () => {
+  it('answers identically for a missing token, a foreign session and any corruption', async () => {
     const csrf = await csrfFor('session-a');
     const other = await csrfFor('session-b');
     const token = await csrf.issue(ctxFor('GET'));
@@ -317,7 +290,7 @@ describe('the origin check runs always (frozen: csrf/SPEC.md 4, 8.2, 8.3)', () =
   // §8.2, the permissive-fallback bug: an unsafe method with no `Origin` and no `Referer` is
   // rejected **even when the token is valid**. "A permissive fallback defeats the check entirely,
   // and a legitimate browser request on an unsafe method always carries one."
-  it.fails('rejects an unsafe method with no Origin and no Referer even with a valid token', async () => {
+  it('rejects an unsafe method with no Origin and no Referer even with a valid token', async () => {
     const csrf = await csrfFor('session-a');
     const token = await csrf.issue(ctxFor('GET'));
     const bare = ctxFor('POST', { 'x-csrf-token': token });
@@ -327,7 +300,7 @@ describe('the origin check runs always (frozen: csrf/SPEC.md 4, 8.2, 8.3)', () =
   // §4's fallback: `ctx.headers.origin ?? ctx.headers.referer`. Asserted in both directions so the
   // test is not satisfied by a middleware that ignores `Referer` — a `Referer` carries a path and
   // `new URL(...).origin` is what strips it, which is the reason the sample calls `.origin`.
-  it.fails('accepts an allowed Referer when Origin is absent and refuses a foreign one', async () => {
+  it('accepts an allowed Referer when Origin is absent and refuses a foreign one', async () => {
     const csrf = await csrfFor('session-a');
     const token = await csrf.issue(ctxFor('GET'));
     const good = ctxFor('POST', { referer: `${ORIGIN}/orders/new`, 'x-csrf-token': token });
@@ -352,11 +325,9 @@ describe('the origin check runs always (frozen: csrf/SPEC.md 4, 8.2, 8.3)', () =
   // spends a section closing, and on a path an attacker controls with one header. Every row here
   // must be a `403`.
   //
-  // actual today: the shared `Error: @zmdb/web exports no "createCsrf"`. The finding above is
-  // about the frozen code sample rather than about shipped code, so it is asserted here and
-  // reported rather than left in a comment; `unparseable origins really are unparseable` below is
-  // the green test that pins the platform half of it.
-  it.fails.each([
+  // `unparseable origins really are unparseable` below pins the platform half
+  // of this rejection behaviour.
+  it.each([
     ['the literal string null', 'null'],
     ['an empty string', ''],
     ['a bare host with no scheme', 'app.example'],
@@ -376,7 +347,7 @@ describe('the origin check runs always (frozen: csrf/SPEC.md 4, 8.2, 8.3)', () =
   // quietly meaning what it looks like — `'*'` because it is what CORS accepts, and the empty list
   // because an empty allow-list that passes everything is the failure mode of every allow-list
   // implemented as "if the list is empty, skip the check".
-  it.fails.each([
+  it.each([
     ['a wildcard', ['*']],
     ['a wildcard subdomain', ['https://*.example']],
     ['an empty list', []],
@@ -391,7 +362,7 @@ describe('the origin check runs always (frozen: csrf/SPEC.md 4, 8.2, 8.3)', () =
   // What is not defensible is silently never matching, which presents as "CSRF rejects every
   // request" with nothing in the message to explain it (§8.10 having removed the detail). The
   // frozen text does not say which, so this asserts the behaviour that cannot be a silent outage.
-  it.fails('normalises an allowedOrigins entry that carries a default port or a trailing slash', async () => {
+  it('normalises an allowedOrigins entry that carries a default port or a trailing slash', async () => {
     const csrf = await csrfFor('session-a', { allowedOrigins: ['https://app.example:443/'] });
     const token = await csrf.issue(ctxFor('GET'));
     await expect(csrf.verify(withToken('POST', token))).resolves.toBeUndefined();
@@ -407,12 +378,12 @@ describe('what is protected (frozen: csrf/SPEC.md 6, 8.4)', () => {
   // origin, because the exemption has to hold for a request that carries neither — that is what
   // "exempt" means, and a middleware that exempts the method but still runs the origin check
   // breaks every ordinary page load.
-  it.fails.each([['GET'], ['HEAD'], ['OPTIONS'], ['TRACE']])('exempts %s with no token', async (method: string) => {
+  it.each([['GET'], ['HEAD'], ['OPTIONS'], ['TRACE']])('exempts %s with no token', async (method: string) => {
     const csrf = await csrfFor('session-a');
     await expect(csrf.verify(ctxFor(method))).resolves.toBeUndefined();
   });
 
-  it.fails.each([['POST'], ['PUT'], ['PATCH'], ['DELETE']])(
+  it.each([['POST'], ['PUT'], ['PATCH'], ['DELETE']])(
     'checks %s and refuses it with no token',
     async (method: string) => {
       const csrf = await csrfFor('session-a');
@@ -436,7 +407,7 @@ describe('what is protected (frozen: csrf/SPEC.md 6, 8.4)', () => {
   // why this belongs in a freeze rather than in a later bug report: the correct answer is that
   // `ctx.method` is the only method, and the assertion is what stops somebody adding the feature
   // later without noticing it punches a hole through §6. Both rows must be refused.
-  it.fails.each([
+  it.each([
     ['an X-HTTP-Method-Override of GET', { 'x-http-method-override': 'GET' }],
     ['an X-Method-Override of HEAD', { 'x-method-override': 'HEAD' }],
     ['an X-HTTP-Method of OPTIONS', { 'x-http-method': 'OPTIONS' }],
@@ -454,13 +425,10 @@ describe('what is protected (frozen: csrf/SPEC.md 6, 8.4)', () => {
   // one of the four exempt spellings must be checked, and `'gEt'` must not be treated as exempt
   // by a case-insensitive comparison that also accepts `'gEt'` from a hostile client while the
   // router dispatches something else.
-  it.fails.each([['post'], ['gEt'], ['GET\t'], ['']])(
-    'does not exempt the method spelling %s',
-    async (method: string) => {
-      const csrf = await csrfFor('session-a');
-      expect(await rejectionOf(() => csrf.verify(ctxFor(method, { origin: ORIGIN })))).toMatch(/^403: /);
-    },
-  );
+  it.each([['post'], ['gEt'], ['GET\t'], ['']])('does not exempt the method spelling %s', async (method: string) => {
+    const csrf = await csrfFor('session-a');
+    expect(await rejectionOf(() => csrf.verify(ctxFor(method, { origin: ORIGIN })))).toMatch(/^403: /);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -478,12 +446,12 @@ describe('an unanswerable session is an error (frozen: csrf/SPEC.md 7, 8.7)', ()
   // unbound token gives an audit a CSRF control that binds nothing. Passing the request gives a
   // deployment a middleware that is installed, configured, and inert. This is the test that fails
   // if somebody later "helpfully" makes it pass through.
-  it.fails('makes issue throw when sessionOf returns undefined', async () => {
+  it('makes issue throw when sessionOf returns undefined', async () => {
     const csrf = await csrfFor(undefined);
     expect(await rejectionOf(() => csrf.issue(ctxFor('GET')))).not.toBe('resolved');
   });
 
-  it.fails('makes verify throw rather than pass when sessionOf returns undefined', async () => {
+  it('makes verify throw rather than pass when sessionOf returns undefined', async () => {
     const csrf = await csrfFor(undefined);
     // Not a 403 and not a pass: §7's throw is a configuration error, and a `403` here would be
     // indistinguishable from an ordinary refusal and would read as "the middleware is working".
@@ -492,22 +460,25 @@ describe('an unanswerable session is an error (frozen: csrf/SPEC.md 7, 8.7)', ()
     expect(rejection).not.toMatch(/^403: /);
   });
 
+  it('makes verify throw on an exempt method when sessionOf returns undefined', async () => {
+    const csrf = await csrfFor(undefined);
+    const rejection = await rejectionOf(() => csrf.verify(ctxFor('GET')));
+    expect(rejection).not.toBe('resolved');
+    expect(rejection).not.toMatch(/^403: /);
+  });
+
   // §7's technique only works if the required argument really is required, so the surface has to
   // refuse an options object without one. Asserted through the boundary rather than at the type
   // level because a JavaScript consumer — the case §7 is actually worried about — has no types.
-  it.fails('refuses to construct without sessionOf or allowedOrigins', async () => {
+  it('refuses to construct without sessionOf or allowedOrigins', async () => {
     const create = await frozenExport<FrozenCreateCsrf>('createCsrf');
     const partial: unknown = { secret: SECRET };
     await expect(create(partial as FrozenCsrfOptions)).rejects.toThrow();
   });
 
-  // §6: `guard()` returns a `Guard`, "so protection is declared rather than called per handler".
-  // The frozen text records this as blocked in fact on #573 because `runChain` has no caller — so
-  // what is asserted here is only the surface, which is the half that can be honest today: the
-  // method exists and produces something with a `canActivate`. The wiring, and the fact that a
-  // `Guard` returning `false` becomes a `ChainError(403)` that the pipeline currently renders as a
-  // `500`, belong to #573 and are recorded in that issue rather than asserted here.
-  it.fails('exposes a guard with a canActivate', async () => {
+  // §6: `guard()` returns a `Guard`, so protection is declared in
+  // `RouteOptions.guards`; the router maps its `false` result to 403.
+  it('exposes a guard with a canActivate', async () => {
     const csrf = await csrfFor('session-a');
     const guard = csrf.guard();
     expect(typeof guard.canActivate).toBe('function');
@@ -517,7 +488,7 @@ describe('an unanswerable session is an error (frozen: csrf/SPEC.md 7, 8.7)', ()
 });
 
 // ---------------------------------------------------------------------------
-// Green — the platform facts the red tests rest on
+// Platform facts the security assertions rest on
 // ---------------------------------------------------------------------------
 
 describe('the platform under these tests', () => {
@@ -525,7 +496,7 @@ describe('the platform under these tests', () => {
   // worth having if `new URL` really does throw on every one of those inputs, and that is a
   // platform fact that a Node upgrade can change — WHATWG URL parsing has changed before. If it
   // ever stops throwing, this test goes red in the same run as the assumption it underwrites,
-  // instead of leaving six red tests standing for a reason that no longer exists.
+  // instead of leaving six rejection rows standing for a reason that no longer exists.
   it('really cannot parse null, an empty string, a bare host or two joined headers', () => {
     for (const value of ['null', '', 'app.example', '//app.example', `${ORIGIN}, https://evil.example`]) {
       expect(() => new URL(value)).toThrow(TypeError);
@@ -566,8 +537,8 @@ describe('the platform under these tests', () => {
     expect(typeof globalThis.crypto.randomUUID()).toBe('string');
   });
 
-  // Green. `corruptAt` is the technique three red assertions depend on, and a helper that returned
-  // its input unchanged would make all three pass for no reason at all.
+  // `corruptAt` is the technique three assertions depend on, and a helper that
+  // returned its input unchanged would make all three pass for no reason at all.
   it('has a corruptor that changes exactly one character', () => {
     const token = 'AAAABBBB.CCCCDDDD';
     const corrupted = corruptAt(token, 0);
