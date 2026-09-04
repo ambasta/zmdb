@@ -3,7 +3,8 @@
 > At-least-once delivery with a supported exactly-once-_effect_ mechanism, a jittered
 > backoff whose floor exists because the delay is a lease, a dead-letter path with a
 > closed reason set, and a drain whose bound lives inside `onShutdown` because
-> `runShutdown` has none (epic #585, sub-issue #586). Frozen before code.
+> `runShutdown` has none (epic #585, sub-issue #586). Frozen before code, then
+> reconciled with live #588's explicit backend requirement before that issue landed.
 
 `@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per
 replica, and the cron dialect are `../schedule/SPEC.md`. The SQL that claims a row under a
@@ -52,8 +53,9 @@ export interface Clock {
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
 
-/** The store port. Structural, so no dependency is added to this package — §3. */
+/** The store port. Structural; supported adapters are separate opt-in subpaths — §3. */
 export interface JobStore {
+  readonly dialect?: 'postgres' | 'mysql' | 'sqlite';
   execute(query: {
     readonly text: string;
     readonly parameters: readonly unknown[];
@@ -111,6 +113,13 @@ export interface Queue<M> {
     opts?: EnqueueOptions,
   ): Promise<string>;
 }
+
+export interface QueueOptions {
+  readonly store: JobStore;
+  readonly clock: Clock;
+}
+
+export declare function createQueue<M>(opts: QueueOptions): Queue<M>;
 
 export interface DeadJob {
   readonly jobId: string;
@@ -216,6 +225,11 @@ the handler and required on the worker**, with the worker's value as the default
 spelling that means "none": `timeoutMs: 0` and `timeoutMs: Infinity` are construction-time
 errors, not escape hatches.
 
+The lease must be strictly longer than the worker timeout and every handler override. A
+lease that expires first makes the same row claimable while its original handler is still
+within its advertised execution window. Equality is also refused because the claim
+predicate includes an expired lease at the current instant.
+
 This is the opposite of what `../health/SPEC.md` §4 decided for `ReadinessCheck.timeoutMs`,
 which is required with no default, and the asymmetry is real rather than an inconsistency. A
 readiness timeout that is wrong in the short direction marks a healthy pod unready and gets
@@ -253,7 +267,7 @@ assertion, and #587 asserts the relation directly.
 The enqueue side, the worker loop, `listDead`, `replay` and the clock are absent from the
 sketch entirely and are §§3-9.
 
-## 3. The store is a port, and the default backend's table is not in this package
+## 3. The store is a port, with a supported memory backend and an optional `pg` adapter
 
 `JobStore` is declared locally and structurally, and takes no import. This is the same
 construction `../observability/SPEC.md` §2 uses for `Tracer` and for the same directive:
@@ -263,26 +277,40 @@ Driver['execute'] })` structurally, so a `TransactionContext`
 (`packages/repository/src/transactions/index.ts:8-12`) satisfies `JobStore` with no
 adapter, and so does a `Driver` (`packages/repository/src/index.ts:51-54`).
 
-The port is not decoration. `@zmdb/web`'s dependencies are `@zmdb/aot-validator`,
-`@zmdb/repository` and `@zmdb/schema-core` — **not `@zmdb/query-compiler`** — and
-`CompiledQuery` is not re-exported from `@zmdb/repository`'s index, so naming that type here
-would mean adding a dependency to a package in order to spell an argument. The structural
-form costs nothing and keeps a Redis or SQS backend expressible, which is what the epic
-means by "queue backends are optional peer dependencies"; the constraint is satisfied by
-there being no dependency to make optional, and `packages/web/package.json` still declares
-no `peerDependencies` at all.
+The port is not decoration. `@zmdb/web`'s required dependencies are
+`@zmdb/aot-validator`, `@zmdb/repository` and `@zmdb/schema-core` — **not
+`@zmdb/query-compiler`** — and `CompiledQuery` is not re-exported from
+`@zmdb/repository`'s index, so naming that type here would mean adding a dependency merely
+to spell an argument. The structural form lets an existing repository `Driver` or
+transaction pass straight through.
 
-**#586's `Files` list is complete for the contract and wrong for the backend**, in the same
-way `#592`'s was (outbox §1). The default backend needs a table, a partial index and three
-claim statements, and none of those can be written in `@zmdb/web`: DDL and the query
-builders live in `@zmdb/query-compiler`, and the row declaration needs `Table<…>`/`Sql<…>`
-from `@zmdb/schema-core` in `@zmdb/repository`. The split:
+The original freeze then made a wrong inference: it treated that port as satisfying the
+epic's optional-backend constraint by itself. The live #588 issue is more specific and is
+the contract to land: `packages/web/src/queues/backends/` must contain a supported
+in-memory backend and one real adapter, and DoD 4 requires the real adapter's package to be
+an optional peer.
 
-| Piece                                      | Lands in                     |
-| ------------------------------------------ | ---------------------------- |
-| `JobHandler`, `JobContext`, `createWorker` | `@zmdb/web` — **this file**  |
-| the `zmdb_job` row and its index           | `@zmdb/repository`, per #588 |
-| the three claim statements                 | already frozen: outbox §4.2  |
+The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis.
+`createPgJobStore(poolOrClient)` delegates to the repository's measured `pgDriver`, so every
+query remains the same query and `dialect` is `postgres`. `pg` is an optional peer and a
+type-only import in shipped code: the caller constructs and owns the `Pool`/`Client`, and
+importing `@zmdb/web/queues` neither loads `pg` nor opens a connection.
+
+`createMemoryJobStore()` is the other supported backend. It owns one isolated
+`node:sqlite` `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique
+enqueue-dedupe constraint and `zmdb_job_pending`, and exposes the database for deterministic
+test setup and assertions. It is explicitly ephemeral; a durable deployment still creates
+the declared repository rows through its migration path.
+
+The split:
+
+| Piece                                                     | Lands in                                          |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/web/queues`                                |
+| supported ephemeral SQLite storage                        | `@zmdb/web/queues/backends/memory`                |
+| optional node-postgres adapter                            | `@zmdb/web/queues/backends/pg`, optional peer     |
+| durable `zmdb_job` rows and pending index declaration     | `@zmdb/repository/jobs`                           |
+| the three claim statements                                | worker SQL, following the protocol in outbox §4.2 |
 
 **`zmdb_job` is a second table with the outbox's shape, not the outbox table reused.** The
 temptation is strong and `web-queues.md` predicts it. It is refused because the two
@@ -360,13 +388,13 @@ Any other derivation loses, and the reasons are worth having:
 handler includes in its own transaction. The pre-check is not an optimisation — it is what
 makes §6's replay and §8's abandoned handler safe, and #587 asserts it in both roles.
 
-**Retention has an invariant, not a preference.** A marker deleted while its job can still
-be retried reopens the duplicate window, so retention must exceed the total retry horizon —
-`attempts × ceilingMs` at worst, and a great deal more once a dead job can be replayed
-weeks later. Both numbers are known at construction, so the worker refuses a configured
-retention below the horizon rather than leaving it as a documentation note. The default is
-30 days and the cleanup is a scheduled task, which is `../schedule/SPEC.md`'s subject and is
-the first place the two halves of this epic compose.
+**Retention is an operational invariant, but it is not a #588 constructor option.** A
+marker deleted while its job can still be retried or manually replayed reopens the duplicate
+window, so retention must exceed both horizons. The earlier freeze invented a 30-day
+default and a construction-time check even though neither live #588 nor #587 requires a
+retention field, and `WorkerOptions` has no such surface. Marker cleanup is scheduled work
+owned by #589; until that implementation lands, cleanup is not automatic and applications
+must retain markers themselves.
 
 **"Or the backend's own" is a trap and step 1 should not have offered it as an
 alternative.** SQS's content-based deduplication is a five-minute _enqueue-side_ window; it
@@ -569,10 +597,11 @@ worker per process is the recommendation, and where that is impossible the budge
 rather than repeated. And **a worker reached only through a provider is never drained at
 all**: `compileModule` returns `{ container, controllers }` and pushes only
 `def.controllers` into that array (`../modules/index.ts:94-95`), so `runShutdown` sees
-controllers and nothing else. Until hook detection reaches providers — which is the app
-epic's work and is named as out of scope by outbox §5 for the identical reason — a worker
-is held by a controller, and #587 asserts shutdown through that path so the test cannot pass
-by way of the broken one.
+controllers and nothing else. Neither live #587 nor #588 includes generic provider
+lifecycle in its test plan or DoD; #588 requires the worker's bounded `onShutdown` path.
+#593's outbox shutdown freeze separately pins today's provider gap, and #594's dispatcher
+lifecycle step and DoD own the later application-wide provider-hook change. Until it lands,
+a worker is held by a controller.
 
 **Step 1's abort of the idle sleep is not a nicety.** Outbox §5's poll backs off to
 `maxIdleMs: 30_000`, and a worker that waits out an idle sleep before noticing shutdown
@@ -625,7 +654,7 @@ not share them, and nothing registers itself at module load." That also means di
 `Map` built once in `createWorker` and a `Map.get` per job, which is the §1 cost-model
 constraint satisfied in the same construction `../pipeline/index.ts:52-61` uses for routes.
 
-## 11. What #587 has to assert
+## 11. What #587 freezes and #588 adds
 
 1. Compile-time, in a `*.type-test.ts`: a handler whose `name` and payload type come from
    different entries of the job map is rejected by `AnyJobHandler<M>`, and — as a companion
@@ -662,14 +691,16 @@ constraint satisfied in the same construction `../pipeline/index.ts:52-61` uses 
 12. `onShutdown` resolves promptly while the worker is inside its longest idle sleep,
     asserted against a `maxIdleMs` much larger than `graceMs`, so an implementation whose
     sleep is not abortable fails.
-13. A worker registered as a plain provider is **not** drained by `createApp`'s dispose, and
-    the same worker held by a controller is — the pair, so §9's limitation is pinned rather
-    than discovered later.
-14. Two workers over one store claim disjoint job sets, with no job run twice, driven by an
+13. Two workers over one store claim disjoint job sets, with no job run twice, driven by an
     interleaving rather than by wall-clock luck — the queue's form of outbox §9 item 3.
-15. A configured marker retention below `attempts × ceilingMs` is a construction error, and
-    so are `timeoutMs: 0`, `timeoutMs: Infinity` and a handler `concurrency` above the
-    worker's.
+14. `timeoutMs: 0`, `timeoutMs: Infinity`, a lease no longer than the effective timeout,
+    and a handler `concurrency` above the worker's are construction errors.
+15. The supported memory backend installs both queue tables, the unique enqueue-dedupe
+    constraint and the pending-claim index, and the runtime suite uses that backend rather
+    than duplicating its own schema.
+16. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the
+    `postgres` dialect and query result, and `packages/web/package.json` declares `pg` as an
+    optional peer.
 
 ## 12. Follow-ups this issue does not have to make
 
@@ -685,6 +716,11 @@ notes (`docs-site/pages.mjs`) become freeze citations in the shape
 `web-versioning`'s already has, and they stay `status: 'todo'` until the epic closes. Two
 neighbouring pages need corrections that this freeze creates: `transactional-outbox` and
 `web-queues` both hand-roll the loop this file specifies.
+
+Two later ownership boundaries are explicit rather than implied. #589 owns completion-marker
+cleanup because it is scheduled work; #594 owns lifecycle discovery for plain providers
+because its live dispatcher DoD requires participation in the application lifecycle. Neither
+is silently pulled into #588.
 
 ## Non-goals (rejected)
 
@@ -715,8 +751,9 @@ neighbouring pages need corrections that this freeze creates: `transactional-out
   `../schedule/SPEC.md`'s entire timezone question into a module that has no business with
   it.
 - **`container` on `JobContext`, or any per-job scope** (§10).
-- **A shipped Redis or SQS backend.** `JobStore` is the seam and picking a backend here
-  would pick it for everybody — outbox's "no broker" rejection, one layer up.
+- **A shipped Redis or SQS adapter.** The required real adapter is node-postgres because it
+  already speaks the SQL-shaped `JobStore`; adding a broker protocol would create a second
+  worker state machine rather than adapt this one.
 - **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason
   `../events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
 - **Metrics emitted from this module.** `RunReport` is the numbers; a `Meter` is

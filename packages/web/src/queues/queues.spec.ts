@@ -1,109 +1,11 @@
-// Tests freeze for #587, against queues/SPEC.md. The module does not exist yet, so every
-// queue-runtime assertion is `it.fails`. `loadQueues` dynamically imports the real future
-// subpath: there is no passing implementation hidden in this file. Once #588 lands, the import
-// succeeds and each body reaches the controllable in-memory store and fake clock below.
-import { DatabaseSync } from 'node:sqlite';
-
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
+// Runtime contract for #587/#588, against queues/SPEC.md. Every assertion reaches the
+// shipped worker through the supported in-memory backend and fake clock.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createToken, Inject } from '../di/index.js';
 import { compileModule, Module } from '../modules/index.js';
-
-interface Clock {
-  now(): number;
-  sleep(ms: number, signal: AbortSignal): Promise<void>;
-}
-
-interface JobStore {
-  execute(query: {
-    readonly text: string;
-    readonly parameters: readonly unknown[];
-  }): Promise<readonly Record<string, unknown>[]>;
-}
-
-type Backoff =
-  | { readonly kind: 'fixed'; readonly delayMs: number }
-  | { readonly kind: 'exponential'; readonly baseMs: number; readonly ceilingMs: number };
-
-interface JobContext {
-  readonly jobId: string;
-  readonly name: string;
-  readonly attempt: number;
-  readonly enqueuedAt: Date;
-  readonly idempotencyKey: string;
-  readonly signal: AbortSignal;
-}
-
-interface JobHandler<M, K extends keyof M & string> {
-  readonly name: K;
-  readonly validate: (raw: unknown) => M[K];
-  handle(payload: M[K], ctx: JobContext): Promise<void>;
-  readonly concurrency?: number;
-  readonly timeoutMs?: number;
-  readonly retries?: { readonly attempts: number; readonly backoff: Backoff };
-}
-
-type AnyJobHandler<M> = { readonly [K in keyof M & string]: JobHandler<M, K> }[keyof M & string];
-
-interface DeadJob {
-  readonly jobId: string;
-  readonly name: string;
-  readonly payload: string;
-  readonly attempts: number;
-  readonly reason: 'invalid-payload' | 'unknown-name' | 'attempts-exhausted';
-  readonly detail: string;
-  readonly enqueuedAt: Date;
-  readonly deadAt: Date;
-}
-
-interface Worker {
-  runOnce(): Promise<{
-    readonly claimed: number;
-    readonly done: number;
-    readonly retried: number;
-    readonly dead: number;
-    readonly skipped: number;
-  }>;
-  start(): void;
-  onShutdown(): Promise<void>;
-  listDead(opts: { readonly limit: number; readonly reason?: DeadJob['reason'] }): Promise<readonly DeadJob[]>;
-  replay(jobId: string): Promise<boolean>;
-}
-
-interface WorkerOptions<M> {
-  readonly handlers: readonly AnyJobHandler<M>[];
-  readonly store: JobStore;
-  readonly clock: Clock;
-  readonly concurrency: number;
-  readonly graceMs: number;
-  readonly leaseMs: number;
-  readonly onDead: (job: DeadJob) => void | Promise<void>;
-  readonly onHandlerError: (ctx: JobContext, error: unknown) => void;
-  readonly timeoutMs?: number;
-  readonly retries?: { readonly attempts: number; readonly backoff: Backoff };
-  readonly batch?: number;
-  readonly idleMs?: number;
-  readonly maxIdleMs?: number;
-}
-
-interface QueuesModule {
-  createWorker<M>(options: WorkerOptions<M>): Worker;
-}
-
-const QUEUES_MODULE = './index.js';
-
-function isQueuesModule(value: unknown): value is QueuesModule {
-  return (
-    typeof value === 'object' && value !== null && 'createWorker' in value && typeof value.createWorker === 'function'
-  );
-}
-
-async function loadQueues(): Promise<QueuesModule> {
-  const loaded: unknown = await import(QUEUES_MODULE);
-  if (!isQueuesModule(loaded)) throw new Error('@zmdb/web/queues does not export createWorker');
-  return loaded;
-}
+import { createMemoryJobStore, type MemoryJobStore } from './backends/memory.js';
+import { createQueue, createWorker, type Clock, type DeadJob, type JobHandler, type WorkerOptions } from './index.js';
 
 type Jobs = {
   readonly 'email.send': { readonly id: number };
@@ -147,30 +49,13 @@ class FakeClock implements Clock {
   }
 }
 
-interface MemoryStore extends JobStore {
-  readonly db: DatabaseSync;
-}
+type MemoryStore = MemoryJobStore;
 
+const stores = new Set<MemoryStore>();
 function memoryStore(): MemoryStore {
-  const db = new DatabaseSync(':memory:');
-  db.exec(`CREATE TABLE zmdb_job (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    payload TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    attempts INTEGER NOT NULL DEFAULT 0,
-    enqueued_at TEXT NOT NULL,
-    dedupe_key TEXT,
-    lease_owner TEXT NOT NULL DEFAULT '',
-    lease_until TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
-    last_error TEXT,
-    dead_reason TEXT,
-    dead_detail TEXT,
-    dead_at TEXT
-  )`);
-  db.exec('CREATE TABLE zmdb_job_done (key TEXT PRIMARY KEY, completed_at TEXT NOT NULL)');
-  const driver = sqliteDriver(db);
-  return { db, execute: query => driver.execute(query) };
+  const store = createMemoryJobStore();
+  stores.add(store);
+  return store;
 }
 
 function seed(
@@ -180,7 +65,7 @@ function seed(
   payload: string,
   options: { readonly attempts?: number; readonly key?: string; readonly status?: string } = {},
 ): void {
-  store.db
+  store.database
     .prepare(
       `INSERT INTO zmdb_job
        (id, name, payload, status, attempts, enqueued_at, dedupe_key, lease_until)
@@ -199,7 +84,7 @@ function seed(
 }
 
 function row(store: MemoryStore, id: string): Record<string, unknown> {
-  return store.db.prepare('SELECT * FROM zmdb_job WHERE id = ?').get(id) as Record<string, unknown>;
+  return store.database.prepare('SELECT * FROM zmdb_job WHERE id = ?').get(id) as Record<string, unknown>;
 }
 
 function validEmail(raw: unknown): Jobs['email.send'] {
@@ -246,16 +131,44 @@ function deferred(): { readonly promise: Promise<void>; readonly resolve: () => 
 }
 
 async function flush(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let turn = 0; turn < 12; turn += 1) await Promise.resolve();
 }
 
 beforeEach(() => vi.useRealTimers());
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  for (const store of stores) store.close();
+  stores.clear();
+});
 
 describe('queue worker (#587 tests freeze)', () => {
-  it.fails('validates a job payload at consume and dead-letters an invalid one', async () => {
-    const { createWorker } = await loadQueues();
+  it('enqueues one delayed row for a repeated dedupe key', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    const queue = createQueue<Jobs>({ store, clock });
+    const seen: number[] = [];
+    const worker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler(payload => Promise.resolve(void seen.push(payload.id))),
+      ),
+    );
+
+    const [first, repeated] = await Promise.all([
+      queue.enqueue('email.send', { id: 1 }, { delayMs: 100, dedupeKey: 'email:1' }),
+      queue.enqueue('email.send', { id: 1 }, { delayMs: 100, dedupeKey: 'email:1' }),
+    ]);
+
+    expect(repeated).toBe(first);
+    expect(store.database.prepare('SELECT COUNT(*) AS count FROM zmdb_job').get()).toMatchObject({ count: 1 });
+    expect(await worker.runOnce()).toMatchObject({ claimed: 0 });
+    clock.advance(101);
+    expect(await worker.runOnce()).toMatchObject({ claimed: 1, done: 1 });
+    expect(seen).toEqual([1]);
+  });
+
+  it('validates a job payload at consume and dead-letters an invalid one', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'bad', 'email.send', '{"id":"old-shape"}');
@@ -270,8 +183,7 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(row(store, 'bad')['attempts']).toBe(1);
   });
 
-  it.fails('retries with jittered exponential backoff up to the ceiling', async () => {
-    const { createWorker } = await loadQueues();
+  it('retries with jittered exponential backoff up to the ceiling', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'a', 'email.send', '{"id":1}');
@@ -298,8 +210,7 @@ describe('queue worker (#587 tests freeze)', () => {
     }
   });
 
-  it.fails('dead-letters after exhausted attempts, retaining the payload and the last error', async () => {
-    const { createWorker } = await loadQueues();
+  it('dead-letters after exhausted attempts, retaining the payload and the last error', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     const payload = '{"id":1,"source":"legacy"}';
@@ -331,8 +242,7 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(await worker.runOnce()).toMatchObject({ claimed: 0 });
   });
 
-  it.fails('replays a dead-lettered job', async () => {
-    const { createWorker } = await loadQueues();
+  it('replays a dead-lettered job', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'replay', 'email.send', '{"id":1}', { attempts: 5, status: 'dead' });
@@ -351,8 +261,7 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(row(store, 'replay')['attempts']).toBe(1);
   });
 
-  it.fails('aborts a handler that exceeds its timeout', async () => {
-    const { createWorker } = await loadQueues();
+  it('aborts a handler that exceeds its timeout', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'slow', 'email.send', '{"id":1}');
@@ -376,8 +285,7 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(signal?.aborted).toBe(true);
   });
 
-  it.fails('logs and requeues when a handler ignores its abort signal', async () => {
-    const { createWorker } = await loadQueues();
+  it('logs and requeues when a handler ignores its abort signal', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'first', 'email.send', '{"id":1}');
@@ -389,9 +297,14 @@ describe('queue worker (#587 tests freeze)', () => {
       workerOptions(
         store,
         clock,
-        handler(async payload => {
+        handler(async (payload, ctx) => {
           started.push(payload.id);
-          if (payload.id === 1) await release.promise;
+          if (payload.id === 1) {
+            await release.promise;
+            store.database
+              .prepare('INSERT INTO zmdb_job_done(key, completed_at) VALUES (?, ?) ON CONFLICT DO NOTHING')
+              .run(ctx.idempotencyKey, new Date(clock.now()).toISOString());
+          }
         }),
         { concurrency: 1, timeoutMs: 100, onHandlerError: (_ctx, error) => void errors.push(error) },
       ),
@@ -404,12 +317,18 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(started).toEqual([1]);
     expect(errors).toHaveLength(1);
     expect(row(store, 'first')['status']).toBe('pending');
+    const retryAfter = Date.parse(String(row(store, 'first')['lease_until'])) - clock.now();
     release.resolve();
     await pending;
+    clock.advance(retryAfter + 1);
+    const reports = [await worker.runOnce(), await worker.runOnce()];
+    expect(reports.reduce((total, report) => total + report.done, 0)).toBe(2);
+    expect(reports.reduce((total, report) => total + report.skipped, 0)).toBe(1);
+    expect(started.filter(id => id === 1)).toEqual([1]);
+    expect(started.filter(id => id === 2)).toEqual([2]);
   });
 
-  it.fails('respects the concurrency limit', async () => {
-    const { createWorker } = await loadQueues();
+  it('respects the concurrency limit', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     for (let id = 1; id <= 5; id += 1) seed(store, String(id), 'email.send', `{"id":${id}}`);
@@ -438,8 +357,44 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(peak).toBe(2);
   });
 
-  it.fails('drains in-flight jobs on shutdown within the grace period', async () => {
-    const { createWorker } = await loadQueues();
+  it('keeps the worker bound when runOnce is called concurrently', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    seed(store, '1', 'email.send', '{"id":1}');
+    seed(store, '2', 'email.send', '{"id":2}');
+    const releases = [deferred(), deferred()];
+    let active = 0;
+    let peak = 0;
+    const worker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler(async payload => {
+          active += 1;
+          peak = Math.max(peak, active);
+          await releases[payload.id - 1]?.promise;
+          active -= 1;
+        }),
+        { concurrency: 1 },
+      ),
+    );
+
+    const first = worker.runOnce();
+    const samePass = worker.runOnce();
+    await flush();
+    expect(peak).toBe(1);
+    releases[0]?.resolve();
+    await Promise.all([first, samePass]);
+
+    const second = worker.runOnce();
+    await flush();
+    expect(peak).toBe(1);
+    releases[1]?.resolve();
+    await second;
+    expect(peak).toBe(1);
+  });
+
+  it('drains in-flight jobs on shutdown within the grace period', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'drain', 'email.send', '{"id":1}');
@@ -460,8 +415,7 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(row(store, 'drain')['status']).toBe('done');
   });
 
-  it.fails('requeues an unfinished job rather than losing it when the grace period expires', async () => {
-    const { createWorker } = await loadQueues();
+  it('requeues an unfinished job rather than losing it when the grace period expires', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
     seed(store, 'stuck', 'email.send', '{"id":1}');
@@ -483,14 +437,22 @@ describe('queue worker (#587 tests freeze)', () => {
     expect(stored['status']).toBe('pending');
     expect(stored['attempts']).toBe(0);
     expect(Date.parse(String(stored['lease_until']))).toBeLessThanOrEqual(clock.now());
+
+    const recoveringWorker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler(() => Promise.resolve()),
+      ),
+    );
+    await expect(recoveringWorker.runOnce()).resolves.toMatchObject({ claimed: 1, done: 1 });
+    expect(row(store, 'stuck')['status']).toBe('done');
   });
 
-  it.fails('deduplicates a job with a repeated idempotency key', async () => {
-    const { createWorker } = await loadQueues();
+  it('deduplicates a job with a repeated idempotency key', async () => {
     const store = memoryStore();
     const clock = new FakeClock();
-    seed(store, 'delivery-1', 'email.send', '{"id":1}', { key: 'charge:1' });
-    seed(store, 'delivery-2', 'email.send', '{"id":1}', { key: 'charge:1' });
+    seed(store, 'delivery', 'email.send', '{"id":1}', { key: 'charge:1' });
     let effects = 0;
     const worker = createWorker(
       workerOptions(
@@ -498,15 +460,165 @@ describe('queue worker (#587 tests freeze)', () => {
         clock,
         handler(async (_payload, ctx) => {
           effects += 1;
-          store.db
+          store.database
             .prepare('INSERT INTO zmdb_job_done(key, completed_at) VALUES (?, ?) ON CONFLICT DO NOTHING')
             .run(ctx.idempotencyKey, new Date(clock.now()).toISOString());
+          throw new Error('effect committed before acknowledgement');
         }),
+        { retries: { attempts: 2, backoff: { kind: 'fixed', delayMs: 100 } } },
       ),
     );
 
-    expect(await worker.runOnce()).toMatchObject({ done: 2, skipped: 1 });
+    expect(await worker.runOnce()).toMatchObject({ retried: 1 });
+    const retryAfter = Date.parse(String(row(store, 'delivery')['lease_until'])) - clock.now();
+    clock.advance(retryAfter + 1);
+    expect(await worker.runOnce()).toMatchObject({ done: 1, skipped: 1 });
     expect(effects).toBe(1);
+  });
+
+  it('reports a one-based attempt that follows the stored attempt count', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    seed(store, 'attempts', 'email.send', '{"id":1}');
+    const seen: { readonly context: number; readonly stored: unknown }[] = [];
+    const worker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler((_payload, ctx) => {
+          seen.push({ context: ctx.attempt, stored: row(store, ctx.jobId)['attempts'] });
+          return Promise.reject(new Error('retry'));
+        }),
+        { retries: { attempts: 3, backoff: { kind: 'fixed', delayMs: 100 } } },
+      ),
+    );
+
+    await worker.runOnce();
+    clock.advance(126);
+    await worker.runOnce();
+
+    expect(seen).toEqual([
+      { context: 1, stored: 0 },
+      { context: 2, stored: 1 },
+    ]);
+  });
+
+  it('retries an unknown name before exposing a filterable dead letter', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    const payload = '{"message":"from-newer-deploy"}';
+    seed(store, 'unknown', 'audit.write', payload);
+    const worker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler(() => Promise.resolve()),
+        {
+          retries: { attempts: 2, backoff: { kind: 'fixed', delayMs: 100 } },
+        },
+      ),
+    );
+
+    expect(await worker.runOnce()).toMatchObject({ retried: 1, dead: 0 });
+    clock.advance(126);
+    expect(await worker.runOnce()).toMatchObject({ retried: 0, dead: 1 });
+    expect(await worker.listDead({ limit: 10, reason: 'unknown-name' })).toEqual([
+      expect.objectContaining({
+        jobId: 'unknown',
+        payload,
+        attempts: 2,
+        reason: 'unknown-name',
+      }),
+    ]);
+    expect(await worker.listDead({ limit: 10, reason: 'invalid-payload' })).toEqual([]);
+  });
+
+  it('replays a completed dead job as a marker-backed no-op', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    seed(store, 'completed', 'email.send', '{"id":1}', { attempts: 5, key: 'email:completed', status: 'dead' });
+    store.database
+      .prepare('INSERT INTO zmdb_job_done(key, completed_at) VALUES (?, ?)')
+      .run('email:completed', new Date(clock.now()).toISOString());
+    const run = vi.fn<JobHandler<Jobs, 'email.send'>['handle']>(() => Promise.resolve());
+    const worker = createWorker(workerOptions(store, clock, handler(run)));
+
+    expect(await worker.replay('completed')).toBe(true);
+    expect(await worker.runOnce()).toMatchObject({ done: 1, skipped: 1 });
+    expect(run).not.toHaveBeenCalled();
+    expect(row(store, 'completed')['status']).toBe('done');
+  });
+
+  it('aborts the longest idle sleep when shutdown starts', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    const worker = createWorker(
+      workerOptions(
+        store,
+        clock,
+        handler(() => Promise.resolve()),
+        {
+          idleMs: 30_000,
+          maxIdleMs: 30_000,
+        },
+      ),
+    );
+
+    worker.start();
+    await flush();
+    expect(clock.sleeps).toContain(30_000);
+    await expect(worker.onShutdown()).resolves.toBeUndefined();
+  });
+
+  it('lets two workers claim disjoint jobs from one store', async () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    for (let id = 1; id <= 4; id += 1) seed(store, String(id), 'email.send', `{"id":${id}}`);
+    const seen: number[] = [];
+    const makeWorker = () =>
+      createWorker(
+        workerOptions(
+          store,
+          clock,
+          handler(payload => Promise.resolve(void seen.push(payload.id))),
+          { concurrency: 2, batch: 2 },
+        ),
+      );
+
+    const firstWorker = makeWorker();
+    const secondWorker = makeWorker();
+    const reports = [
+      ...(await Promise.all([firstWorker.runOnce(), secondWorker.runOnce()])),
+      ...(await Promise.all([firstWorker.runOnce(), secondWorker.runOnce()])),
+    ];
+
+    expect(reports.reduce((total, report) => total + report.claimed, 0)).toBe(4);
+    expect(seen.toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+    expect(new Set(seen)).toHaveProperty('size', 4);
+  });
+
+  it('rejects leases that cannot cover timeouts and handler concurrency above the worker bound', () => {
+    const store = memoryStore();
+    const clock = new FakeClock();
+    const options = (overrides: Partial<WorkerOptions<Jobs>>) =>
+      workerOptions(
+        store,
+        clock,
+        handler(() => Promise.resolve()),
+        overrides,
+      );
+
+    expect(() => createWorker(options({ timeoutMs: 0 }))).toThrow(/timeoutMs/);
+    expect(() => createWorker(options({ timeoutMs: Number.POSITIVE_INFINITY }))).toThrow(/timeoutMs/);
+    expect(() => createWorker(options({ leaseMs: 5000, timeoutMs: 5000 }))).toThrow(
+      /leaseMs must be greater than timeoutMs/,
+    );
+    expect(() =>
+      createWorker(options({ handlers: [handler(() => Promise.resolve(), { timeoutMs: 30_000 })] })),
+    ).toThrow(/leaseMs must be greater than email\.send\.timeoutMs/);
+    expect(() =>
+      createWorker(options({ concurrency: 1, handlers: [handler(() => Promise.resolve(), { concurrency: 2 })] })),
+    ).toThrow(/cannot exceed worker concurrency/);
   });
 
   it('resolves handler dependencies from the container in the specified scope', () => {

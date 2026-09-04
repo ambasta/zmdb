@@ -182,6 +182,29 @@ export {
   type SseFrame,
 } from './gateways/index.js';
 
+// SQL-backed job workers with typed handlers, retries and bounded drain. See ./queues.
+export {
+  createQueue,
+  createWorker,
+  type AnyJobHandler,
+  type Backoff,
+  type Clock,
+  type DeadJob,
+  type DeadReason,
+  type EnqueueOptions,
+  type JobContext,
+  type JobDialect,
+  type JobHandler,
+  type JobOutcome,
+  type JobStore,
+  type Queue,
+  type QueueOptions,
+  type RetryPolicy,
+  type RunReport,
+  type Worker,
+  type WorkerOptions,
+} from './queues/index.js';
+
 // Testing utilities: in-process app + provider overrides. See ./testing.
 export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.js';
 

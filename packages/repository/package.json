@@ -35,6 +35,7 @@
     "./replicas": "./src/replicas/index.ts",
     "./integrations": "./src/integrations/index.ts",
     "./entity-modeling": "./src/entity-modeling/index.ts",
+    "./jobs": "./src/jobs/index.ts",
     "./drivers/sqlite": "./src/drivers/sqlite.ts",
     "./drivers/pg": "./src/drivers/pg.ts"
   },

@@ -18,7 +18,7 @@ npm add @zmdb/repository@alpha
 
 ## Entry points
 
-`@zmdb/repository`, `@zmdb/repository/seeding`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
+`@zmdb/repository`, `@zmdb/repository/seeding`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/jobs`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
 
 ## Documentation
 

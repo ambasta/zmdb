@@ -1628,8 +1628,7 @@ export const PAGE_META = {
   'web-queues': {
     title: 'Queues',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'no queue module or worker abstraction; the handler contract, retry, dead-letter and idempotency are frozen (#586).',
+    status: 'supported',
   },
   'web-versioning': {
     title: 'API Versioning',

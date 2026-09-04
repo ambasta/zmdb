@@ -985,10 +985,17 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/web@workspace:packages/web"
   dependencies:
+    "@types/pg": "npm:^8.23.1"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    pg: "npm:8.23.0"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    pg: ^8.23.0
+  peerDependenciesMeta:
+    pg:
+      optional: true
   languageName: unknown
   linkType: soft
 

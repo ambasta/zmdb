@@ -43,6 +43,9 @@
     "./openapi": "./src/openapi/index.ts",
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
+    "./queues": "./src/queues/index.ts",
+    "./queues/backends/memory": "./src/queues/backends/memory.ts",
+    "./queues/backends/pg": "./src/queues/backends/pg.ts",
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts"
   },
@@ -60,7 +63,17 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "8.23.0",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "pg": "^8.23.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

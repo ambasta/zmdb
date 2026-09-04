@@ -133,7 +133,7 @@ For cross-instance events you need a transport: Postgres `LISTEN/NOTIFY`, Redis 
 await driver.execute({ text: `NOTIFY post_published, $1`, parameters: [String(id)] });
 ```
 
-It is still lossy — a listener that is not connected misses it — so use it for invalidation, not for work that must happen. Work that must happen goes in the outbox or in a job row, both of which survive a listener being disconnected; `packages/web/src/queues/SPEC.md` (#586) is the consumer half of that.
+It is still lossy — a listener that is not connected misses it — so use it for invalidation, not for work that must happen. Work that must happen goes in the outbox or in a job row, both of which survive a listener being disconnected; the consumer half now ships as `createWorker` in `@zmdb/web/queues`, with its delivery contract recorded in `packages/web/src/queues/SPEC.md`.
 
 ## What it would take
 
@@ -146,7 +146,7 @@ The typed emitter above is most of it, and `packages/web/src/events/SPEC.md` fre
 
 An earlier version of this section concluded that explicit registration makes `@OnEvent` pointless — "at which point the class above is the feature". That is too strong. What the decorator buys is not discovery: it is that the binding lives on the method rather than inside `onModuleInit`, where a handler whose `.on(…)` line was forgotten is silently never invoked and there is nothing to notice. `bind(this)` is one line that cannot be half-right. It stays a modest win, and `on` stays first-class.
 
-The remaining useful thing to build is the outbox _dispatcher_ — a loop that claims rows, publishes, and marks them done with at-least-once delivery. That is now frozen too, in `packages/query-compiler/src/outbox/SPEC.md`, and so is the piece it deliberately left open: what a consumer does with a message it has already seen, which is `packages/web/src/queues/SPEC.md` (#586).
+The remaining useful thing to build is the outbox _dispatcher_ — a loop that claims rows, publishes, and marks them done with at-least-once delivery. That is frozen in `packages/query-compiler/src/outbox/SPEC.md`. Its consumer-side counterpart is no longer only a design: the queue worker supplies a stable idempotency key and checks the handler-owned completion marker before invoking work.
 
 ---
 
