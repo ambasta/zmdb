@@ -3,27 +3,14 @@ the engine's.
 
 ## Basic Usage
 
-```ts
-import { stringify } from '@zmdb/aot-validator/serialization';
-
-stringify({ name: 'alice', age: 30, active: true });
-// '{"name":"alice","age":30,"active":true}'
-
-stringify([1, 2, 3]); // '[1,2,3]'
-stringify({ user: { email: 'a@b.com' } }); // '{"user":{"email":"a@b.com"}}'
-stringify(null); // 'null'
-stringify(undefined); // undefined — not a string, exactly as JSON.stringify
-```
+<!-- snippet: json-stringify.ts#snippet-1 -->
 
 No replacer and no space parameter. Where you want either, call `JSON.stringify` directly; this entry point exists for the `bigint` policy and for the AOT path to hook into later, not to wrap the
 whole API.
 
 ## Bigint
 
-```ts
-stringify({ id: 123n });
-// TypeError: Do not know how to serialize a BigInt
-```
+<!-- snippet: json-stringify.ts#snippet-2 -->
 
 The check is applied at the top level _and_ through a replacer, so a `bigint` nested five levels down throws the same message rather than the engine's own wording. Normalising it is the point: one
 message means a caller can match on it.
@@ -31,12 +18,7 @@ message means a caller can match on it.
 A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated
 JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
 
-```ts
-export interface Event extends Table<'events'> {
-  id: bigint & Sql<'bigint'> & PrimaryKey;
-}
-// Entity<Event>['id'] is bigint; the JSON body carries "9007199254740993"
-```
+<!-- snippet: json-stringify.ts#snippet-3 -->
 
 So the boundary encoder converts, and `stringify` throwing is the backstop for a value that reached JSON without going through one. See [bigint keys](./bigint-keys.html).
 
@@ -44,11 +26,7 @@ So the boundary encoder converts, and `stringify` throwing is the backstop for a
 
 `assertStringify(value, schema?)` validates before serializing:
 
-```ts
-import { assertStringify } from '@zmdb/aot-validator/serialization';
-
-const json = assertStringify(payload, ir); // throws AssertError if payload is wrong
-```
+<!-- snippet: json-stringify.ts#snippet-4 -->
 
 > [!IMPORTANT] `assertStringify` is **not** one of the seventeen calls the transformer currently rewrites (`is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
 > `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`, `grpcDescriptor`, `loadGrpcService`), so its schema has to be a runtime argument.
@@ -56,9 +34,7 @@ const json = assertStringify(payload, ir); // throws AssertError if payload is w
 >
 > The transformed equivalent is two calls, and it is the one to write today:
 >
-> ```ts
-> const json = stringify(assert<CreateDTO<User>>(payload));
-> ```
+> <!-- snippet: json-stringify.ts#snippet-5 -->
 
 ## Comparison with `JSON.stringify`
 

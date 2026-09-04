@@ -3,38 +3,13 @@ Lifecycle hooks let you react to entity events — `beforeCreate`, `afterCreate`
 
 ## What is built
 
-```ts
-import { EventBus, type LifecycleEvent, type Subscriber } from '@zmdb/repository/entity-modeling';
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-1 -->
 
-```ts
-export type LifecycleEvent = 'beforeCreate' | 'afterCreate' | 'beforeUpdate' | 'afterUpdate' | 'beforeDelete' | 'afterDelete';
-
-export interface Subscriber {
-  on: LifecycleEvent;
-  run: (ctx: unknown) => void | Promise<void>;
-}
-
-class EventBus {
-  subscribe(s: Subscriber): () => void; // returns an unsubscribe
-  emit(event: LifecycleEvent, ctx: unknown): Promise<void>;
-}
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-2 -->
 
 That is the whole surface. Note the sub-path import — `EventBus` is not re-exported from the `@zmdb/repository` root.
 
-```ts
-const bus = new EventBus();
-
-const unsub = bus.subscribe({
-  on: 'beforeCreate',
-  run: ctx => {
-    console.log('about to create', ctx);
-  },
-});
-
-unsub(); // no longer called
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-3 -->
 
 `emit` walks subscribers in **registration order** and `await`s each one in turn — not `Promise.all`, so one slow subscriber delays the rest and delays the write.
 
@@ -46,38 +21,7 @@ the transactional outbox.
 
 There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
 
-```ts
-import { BaseRepository, type UpdatePatch } from '@zmdb/repository';
-import { EventBus } from '@zmdb/repository/entity-modeling';
-import type { CreateDTO, Entity, PrimaryKeyOf } from '@zmdb/schema-core';
-
-const bus = new EventBus();
-
-class UserRepository extends BaseRepository<User> {
-  static override readonly schema = UserSchema;
-
-  override async create(dto: CreateDTO<User>): Promise<Entity<User>> {
-    await bus.emit('beforeCreate', dto);
-    const created = await super.create(dto);
-    await bus.emit('afterCreate', created);
-    return created;
-  }
-
-  override async update(id: PrimaryKeyOf<User>, patch: UpdatePatch<User>): Promise<Entity<User> | undefined> {
-    await bus.emit('beforeUpdate', { id, patch });
-    const updated = await super.update(id, patch);
-    await bus.emit('afterUpdate', updated);
-    return updated;
-  }
-
-  override async delete(id: unknown): Promise<boolean> {
-    await bus.emit('beforeDelete', { id });
-    const deleted = await super.delete(id);
-    await bus.emit('afterDelete', { id, deleted });
-    return deleted;
-  }
-}
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-4 -->
 
 Verbose, and deliberately so — [the project's position](./why-zmdb.html) is that a write you can read top to bottom beats one whose side effects live in a registry somewhere else. The methods you did
 not override emit nothing, which is visible in this file rather than being a surprise at runtime.
@@ -106,41 +50,18 @@ uses the repository's internal keyed update path, so it fires `preUpdate` but no
 `Subscriber.run` takes `unknown`, so a handler typed `run: (ctx: { id: number }) => …` **does not compile**: `run` is a function-typed property, so its parameter is checked contravariantly. Narrow
 inside instead:
 
-```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-
-bus.subscribe({
-  on: 'afterCreate',
-  run: async ctx => {
-    const user = assert<{ id: number; email: string }>(ctx);
-    await audit.create({ action: 'create', entity: 'user', subject: user.id, at: new Date() });
-  },
-});
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-5 -->
 
 `assert<T>` **returns** the narrowed value — it is not an `asserts input is T` predicate — so bind the result rather than calling it as a bare statement. It costs one generated validator call and buys
 you a real error at the boundary instead of `undefined` reaching your audit table. The alternative — one bus per repository, so the type is known by construction — is often the better answer:
 
-```ts
-class TypedBus<T> {
-  #subs: ((ctx: T) => void | Promise<void>)[] = [];
-  on(fn: (ctx: T) => void | Promise<void>): () => void {
-    /* … */
-  }
-  async emit(ctx: T): Promise<void> {
-    for (const fn of this.#subs) await fn(ctx);
-  }
-}
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-6 -->
 
 Twelve lines, fully typed, no narrowing. `EventBus` earns its keep when subscribers are registered by code that does not know the entity — plugins, an audit module, a generic outbox writer.
 
 ## Ordering and failure
 
-```ts
-bus.subscribe({ on: 'beforeCreate', run: () => console.log('first') });
-bus.subscribe({ on: 'beforeCreate', run: () => console.log('second') });
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-7 -->
 
 Registration order, sequentially awaited.
 
@@ -160,17 +81,7 @@ exception means "actually fine".
 
 A soft delete is a column and a predicate:
 
-```ts
-import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/tags';
-
-export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-  deletedAt: (Date & Sql<'timestamp'>) | null;
-}
-
-const userSchema = schemaOf<User>();
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-8 -->
 
 The tags go **inside** the parentheses. `(Date & Sql<'timestamp'>) | null` is a nullable timestamp column. The other order is the trap: `(Date | null) & Unique` distributes to
 `(Date & Unique) | (null & Unique)`, and `null & Unique` is `never`, so the column stops being nullable. See [Tag Reference](./tags-reference.html).
@@ -180,19 +91,7 @@ The tag makes `deletedAt` framework-managed: it remains visible on returned enti
 
 The protected hook still follows the caller's operation rather than the emitted SQL:
 
-```ts
-class UserRepository extends BaseRepository<User> {
-  static override readonly schema = userSchema;
-
-  protected override preDelete(id: number): void {
-    audit('delete', id);
-  }
-
-  protected override preUpdate(): void {
-    // Not called by soft delete.
-  }
-}
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-9 -->
 
 Both `delete` and `hardDelete` invoke `preDelete` once. A soft delete emits an `UPDATE`, but does not invoke `preUpdate`.
 
@@ -201,9 +100,7 @@ Both `delete` and `hardDelete` invoke `preDelete` once. A soft delete emits an `
 `beforeCreate` setting `createdAt` is a hook that only fires when the write goes through your override. A column default fires always, including for migrations, bulk loads and anything writing outside
 your process:
 
-```ts
-createdAt: Date & Sql<'timestamp'> & HasDefault;
-```
+<!-- snippet: lifecycle-hooks.ts#snippet-10 -->
 
 ```sql
 ALTER TABLE "users" ALTER COLUMN "created_at" SET DEFAULT now();

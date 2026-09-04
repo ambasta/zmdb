@@ -1,17 +1,7 @@
 A table is a TypeScript type. You declare it once, as an interface, and everything else — the row type, the create and update DTOs, the DDL, the validator, the JSON Schema document — is derived from
 that one declaration.
 
-```ts
-import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'varchar'> & Length<255> & Unique;
-  name: (string & Sql<'text'>) | null;
-  role: ('admin' | 'user') & HasDefault;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-}
-```
+<!-- snippet: schema-declaration.ts#snippet-1 -->
 
 That is the whole column declaration. There is no second property map to keep in sync with it. `Unique` is carried into the IR, but the root dialects still need an explicit standalone unique index in
 a schema-object migration; see [Indexes & Constraints](./indexes-constraints.html).
@@ -23,11 +13,7 @@ a schema-object migration; see [Indexes & Constraints](./indexes-constraints.htm
 
 Each property is its **app type** intersected with **tags**. The app type is what your handler code sees; the tags say the things TypeScript has no syntax for.
 
-```ts
-id: number & Sql<'integer'> & Serial & PrimaryKey;
-// ^^          ^^^^^^^^^^^^^^^^ the SQL column type
-// the type your code sees      ^^^^^^^^^^^^^^^^^^ facts about the column
-```
+<!-- snippet: schema-declaration.ts#snippet-2 -->
 
 A tag is a phantom `unique symbol` property. It exists only in the type system: it erases completely, so a tagged type is the same value at runtime as the untagged one, and `number & Sql<'integer'>`
 is assignable to `number` in both directions. You can pass a row's `id` to anything that wants a `number`.
@@ -59,23 +45,7 @@ The full list is the [tag reference](./tags-reference.html). These five cover mo
 
 ## What you get from it
 
-```ts
-import { defineRepository, schemaOf } from 'zmdb';
-import type { CreateDTO, Entity, UpdateDTO } from 'zmdb/derive';
-
-type Row = Entity<User>;
-// { id: number; email: string; name: string | null; role: 'admin' | 'user'; createdAt: Date }
-
-type NewUser = CreateDTO<User>;
-// { email: string; name?: string | null; role?: 'admin' | 'user'; createdAt?: Date }
-// no `id`: it is Serial, so the database makes it
-
-type Patch = UpdateDTO<User>;
-// every field optional
-
-const users = defineRepository(schemaOf<User>(), driver);
-await users.create({ email: 'a@b.com' }); // validated before any SQL is sent
-```
+<!-- snippet: schema-declaration.ts#snippet-3 -->
 
 `CreateDTO` drops `Serial` columns entirely rather than making them optional, because there is no value you could usefully pass. Columns with `HasDefault` and nullable columns become optional —
 omitting a nullable column inserts `NULL`, which is what passing `null` does.
@@ -104,50 +74,20 @@ The named column must exist, be nullable, and use `Sql<'timestamp'>`. It remains
 `schemaOf<User>()` is a **compile-time** call. It has no runtime implementation and cannot have one: the answer is a function of a type argument, and type arguments do not exist at runtime. The zmdb
 transform replaces the call with a frozen object literal.
 
-```ts
-// what you write
-const users = defineRepository(schemaOf<User>(), driver);
-
-// what runs
-const users = defineRepository(
-  Object.freeze({ table: 'users', columns: { … }, primaryKey: ['id'], ir: { … } }),
-  driver,
-);
-```
+<!-- snippet: schema-declaration.ts#snippet-4 -->
 
 If the transform did not run, the call throws a message saying exactly that. It does not return an empty schema and let you find out in production. Set it up with the [build plugin](./aot-setup.html)
 or the [codegen CLI](./cli-codegen.html), which commits the generated files so a fresh clone needs no tool at all.
 
 ## Foreign keys
 
-```ts
-import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface Post extends Table<'posts'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  title: string & Sql<'text'>;
-  authorId: number & Sql<'integer'> & References<'users.id'>;
-}
-```
+<!-- snippet: schema-declaration.ts#snippet-5 -->
 
 `References<'users.id'>` is `table.column`, checked as a string literal. It reaches the DDL as a real `FOREIGN KEY` constraint, and [Relations](./relations.html) is how you traverse it in queries.
 
 ## JSON columns keep their shape
 
-```ts
-interface Preferences {
-  theme: 'light' | 'dark';
-  digest: boolean;
-}
-
-export interface Account extends Table<'accounts'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  prefs: Preferences & Sql<'json'>;
-}
-
-type Row = Entity<Account>;
-// Row['prefs']['theme'] is 'light' | 'dark'
-```
+<!-- snippet: schema-declaration.ts#snippet-6 -->
 
 The payload's shape survives every derivation, and the emitted validator checks it on the way in. This is the clearest thing the old builder DSL could not do: `json<Preferences>()` erased its type
 parameter at runtime, so the shape reached nothing downstream.
@@ -156,13 +96,7 @@ parameter at runtime, so the shape reached nothing downstream.
 
 `schemaOf<T>()` returns a plain frozen object when you need one:
 
-```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
-
-const schema = schemaOf<User>();
-const compiler = createQueryCompiler('postgres');
-const query = compiler.selectFrom(schema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
-```
+<!-- snippet: schema-declaration.ts#snippet-7 -->
 
 ```sql
 SELECT "id", "email" FROM "users" WHERE "role" = $1

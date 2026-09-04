@@ -6,16 +6,7 @@ serialization, OpenAPI, DDL, and repository CRUD — is produced from that singl
 Other tools make you write your types more than once: a TypeScript type, plus a schema, plus decorators, plus DTOs. Every one of those is a place for drift. zmdb removes the schema object entirely —
 the interface **is** the schema, and the build step reads it.
 
-```ts
-import type { HasDefault, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
-  role: ('admin' | 'user' | 'guest') & HasDefault;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-}
-```
+<!-- snippet: introduction.ts#snippet-1 -->
 
 That is the whole declaration. There is no runtime object, no import that survives to the bundle, and nothing to construct — the tags are phantom symbol slots that erase, and `role` is a plain union
 because TypeScript already has a way to say "one of these". Where the database needs to know something TypeScript cannot say, like `integer` versus `numeric`, a tag says it; everywhere else the type

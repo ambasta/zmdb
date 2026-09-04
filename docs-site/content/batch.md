@@ -5,31 +5,13 @@ operations that benefit from a single network call.
 
 Create a batch handle from compiled statements:
 
-```ts
-import { batch, createQueryCompiler } from '@zmdb/query-compiler';
-
-const compiler = createQueryCompiler('postgres');
-
-const stmt1 = compiler.insertInto('users').values({ name: 'Alice', email: 'alice@example.com' }).compile();
-
-const stmt2 = compiler.insertInto('users').values({ name: 'Bob', email: 'bob@example.com' }).compile();
-
-const batchHandle = batch([stmt1, stmt2]);
-// batchHandle.statements => [stmt1, stmt2]
-```
+<!-- snippet: batch.ts#snippet-1 -->
 
 ## Executing a Batch
 
 The `execute` method runs all statements via your driver:
 
-```ts
-const results = await batchHandle.execute(async statements => {
-  // Your driver must support multi-statement execution
-  // For PostgreSQL: client.query(text + ';' + text, [...params1, ...params2])
-  return driver.executeMulti(statements);
-});
-// results => [result1, result2]
-```
+<!-- snippet: batch.ts#snippet-2 -->
 
 The callback receives all compiled statements and returns an array of results in the same order.
 
@@ -39,29 +21,13 @@ The callback receives all compiled statements and returns an array of results in
 
 Combine multiple inserts into one batch:
 
-```ts
-const users = [
-  { name: 'Alice', email: 'alice@example.com' },
-  { name: 'Bob', email: 'bob@example.com' },
-  { name: 'Charlie', email: 'charlie@example.com' },
-];
-
-const statements = users.map(u => compiler.insertInto('users').values(u).compile());
-
-const result = await batch(statements).execute(driver.executeMulti.bind(driver));
-```
+<!-- snippet: batch.ts#snippet-3 -->
 
 ## Parameter Handling
 
 The query compiler handles parameter arrays correctly. Each statement has its own parameter list, which the batch executor flattens:
 
-```ts
-// stmt1.parameters => ['Alice', 'alice@example.com']
-// stmt2.parameters => ['Bob', 'bob@example.com']
-
-// After batch execute:
-// Combined params => ['Alice', 'alice@example.com', 'Bob', 'bob@example.com']
-```
+<!-- snippet: batch.ts#snippet-4 -->
 
 > [!WARNING] Batch does NOT guarantee atomicity by default. Wrap in a transaction if all-or-nothing semantics are required.
 
@@ -69,13 +35,7 @@ The query compiler handles parameter arrays correctly. Each statement has its ow
 
 An empty batch returns an empty array immediately without calling the runner:
 
-```ts
-const empty = batch([]);
-const result = await empty.execute(async () => {
-  throw new Error('Should not run');
-});
-// result => []
-```
+<!-- snippet: batch.ts#snippet-5 -->
 
 > [!TIP] Use batch for independent operations. If operations have dependencies (e.g., insert then query the ID), use a transaction instead.
 

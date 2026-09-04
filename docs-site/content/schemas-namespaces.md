@@ -8,12 +8,7 @@ applications to use the same database without naming collisions.
 
 Use `createSchemaDdl` to generate the DDL for creating a new schema (namespace).
 
-```ts
-import { createSchemaDdl } from '@zmdb/query-compiler/schema-objects';
-
-const ddl = createSchemaDdl('analytics', 'postgres');
-console.log(ddl);
-```
+<!-- snippet: schemas-namespaces.ts#snippet-1 -->
 
 ```sql
 CREATE SCHEMA "analytics"
@@ -23,13 +18,7 @@ CREATE SCHEMA "analytics"
 
 When working with multiple schemas, you need to reference objects using fully-qualified names. The `qualify` function generates properly quoted identifiers.
 
-```ts
-import { qualify } from '@zmdb/query-compiler/schema-objects';
-
-// Fully qualify a table name
-const tableRef = qualify('analytics', 'events', 'postgres');
-console.log(tableRef);
-```
+<!-- snippet: schemas-namespaces.ts#snippet-2 -->
 
 ```sql
 "analytics"."events"
@@ -39,17 +28,7 @@ console.log(tableRef);
 
 Use the qualified table name when compiling queries that span schemas.
 
-```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
-
-const compiler = createQueryCompiler('postgres');
-
-// Query a table in a specific schema
-const query = compiler.selectFrom('analytics.events').select(['event_id', 'event_type', 'occurred_at']).where('event_type', '=', 'page_view').limit(100).compile();
-
-console.log(query.text);
-console.log(query.parameters);
-```
+<!-- snippet: schemas-namespaces.ts#snippet-3 -->
 
 ```sql
 SELECT "event_id", "event_type", "occurred_at" FROM "analytics"."events" WHERE "event_type" = $1 LIMIT 100
@@ -62,14 +41,7 @@ SELECT "event_id", "event_type", "occurred_at" FROM "analytics"."events" WHERE "
 
 Each tenant can have their own schema, providing strong isolation.
 
-```ts
-// Creating schemas for each tenant
-const tenantSchemas = ['acme_corp', 'globex', 'soylent'];
-
-const createAllDdl = tenantSchemas.map(tenant => createSchemaDdl(tenant, 'postgres')).join(';\n');
-
-console.log(createAllDdl);
-```
+<!-- snippet: schemas-namespaces.ts#snippet-4 -->
 
 ```sql
 CREATE SCHEMA "acme_corp";
@@ -83,16 +55,7 @@ CREATE SCHEMA "soylent"
 
 Separate schemas for different teams or domains within an organization.
 
-```ts
-const teamSchemas = [
-  { name: 'auth', description: 'Authentication and users' },
-  { name: 'billing', description: 'Payments and invoices' },
-  { name: 'analytics', description: 'Event tracking and reporting' },
-];
-
-const ddl = teamSchemas.map(t => createSchemaDdl(t.name, 'postgres')).join(';\n');
-console.log(ddl);
-```
+<!-- snippet: schemas-namespaces.ts#snippet-5 -->
 
 ```sql
 CREATE SCHEMA "auth";
@@ -104,10 +67,7 @@ CREATE SCHEMA "analytics"
 
 PostgreSQL uses a `search_path` to resolve unqualified object names. The default is `$user, public`. You can set a custom search path to control which schema is searched first.
 
-```ts
-// Setting search path (run as migration or initial setup)
-const setSearchPathDdl = `SET search_path TO analytics, public`;
-```
+<!-- snippet: schemas-namespaces.ts#snippet-6 -->
 
 > [!NOTE] This DDL is a session-level setting. For permanent changes, use `ALTER DATABASE` or `ALTER ROLE`.
 
@@ -115,9 +75,7 @@ const setSearchPathDdl = `SET search_path TO analytics, public`;
 
 Schemas can be dropped with `CASCADE` to also drop all contained objects, or `RESTRICT` (default) to refuse if objects exist.
 
-```ts
-const dropSchemaDdl = `DROP SCHEMA IF EXISTS "staging" CASCADE`;
-```
+<!-- snippet: schemas-namespaces.ts#snippet-7 -->
 
 ```sql
 DROP SCHEMA IF EXISTS "staging" CASCADE

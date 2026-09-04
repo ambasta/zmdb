@@ -5,13 +5,7 @@ well-typed data reaches the database.
 
 Insert a new row. The payload is validated against `CreateDTO<S>` — auto-increment columns are rejected, and columns with defaults or nullable columns are optional.
 
-```ts
-const user = await users.create({
-  email: 'alice@example.com',
-  role: 'user', // optional, 'user' is the default
-});
-// user: Entity<UserSchema> — includes generated id, createdAt
-```
+<!-- snippet: crud.ts#snippet-1 -->
 
 **SQL emitted:**
 
@@ -26,33 +20,13 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING *
 
 Fetch rows by ID, by arbitrary where clause, or all rows.
 
-```ts
-// By primary key — the fastest path
-const user = await users.findById(1);
-// user: Entity<UserSchema> | undefined
-
-// By arbitrary columns
-const admin = await users.findOne({ role: 'admin' });
-// admin: Entity<UserSchema> | undefined
-
-// All rows — use with caution on large tables
-const allUsers = await users.findAll();
-// allUsers: readonly Entity<UserSchema>[]
-```
+<!-- snippet: crud.ts#snippet-2 -->
 
 ## Update
 
 Partial update. The payload is an `UpdatePatch<S>` — all fields are optional; ordinary values must match `UpdateDTO<S>`, and branded expression operands must match the same column type.
 
-```ts
-import { inc } from 'zmdb';
-
-const updated = await users.update(1, { role: 'admin' });
-// updated: Entity<UserSchema> | undefined (undefined if id not found)
-
-const post = await posts.increment(1, 'views');
-const affected = await posts.updateMany({ authorId: 7 }, { views: inc(1) });
-```
+<!-- snippet: crud.ts#snippet-3 -->
 
 **SQL emitted:**
 
@@ -67,12 +41,7 @@ The Postgres family, SQLite and SQL Server expression-bearing keyed updates retu
 
 > [!WARNING] Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:
 
-```ts
-const user = await users.findById(1);
-user.role = 'admin'; // ❌ This does NOTHING
-
-await users.update(1, { role: 'admin' }); // ✅ Explicit update required
-```
+<!-- snippet: crud.ts#snippet-4 -->
 
 ## Delete
 
@@ -80,10 +49,7 @@ Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn'
 `hardDelete(id)` for a deliberate physical delete and `restore(id)` to clear the managed timestamp. The [Entity Filters](./entity-filters.html) guide covers visibility escapes, write filters, relation
 targets, and unique-index behavior.
 
-```ts
-const deleted = await users.delete(1);
-// deleted: boolean
-```
+<!-- snippet: crud.ts#snippet-5 -->
 
 **SQL emitted:**
 
@@ -111,13 +77,7 @@ RETURNING "id"
 
 For an expression-valued update, only that key is removed from the ordinary row-value check; its operand is validated against the column's app type, and every ordinary sibling remains strict.
 
-```ts
-// This throws — id is auto-increment
-await users.create({ id: 999, email: 'test@example.com' });
-
-// This throws — missing required field
-await users.create({}); // email is required
-```
+<!-- snippet: crud.ts#snippet-6 -->
 
 > [!TIP] The validation error includes a structured `issues` array with paths and messages, useful for API error responses.
 

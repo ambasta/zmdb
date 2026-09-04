@@ -12,16 +12,7 @@ They have the same names because they mean the same constraints. They are not in
 
 This is the common case, and there is no `validate()` call in it:
 
-```ts
-import type { Max, MaxLength, Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'> & MaxLength<255>;
-  age: (number & Sql<'integer'> & Min<0> & Max<150>) | null;
-  role: 'admin' | 'user' | 'guest';
-}
-```
+<!-- snippet: validators-tags.ts#snippet-1 -->
 
 `assert<CreateDTO<User>>(body)` now checks the pattern, both lengths and both bounds, because they are part of the type it was generated from. The same constraints reach the
 [JSON Schema](./json-schema.html) and [OpenAPI](./openapi.html) output.
@@ -32,16 +23,7 @@ Note what `role` does _not_ have: there is no `Enum` type tag, because a literal
 
 The `@zmdb/aot-validator` package exports a `tags` object of rule constructors:
 
-```ts
-import { tags } from '@zmdb/aot-validator';
-
-tags.Min(18); // number >= 18
-tags.Max(100); // number <= 100
-tags.MinLength(1); // string length >= 1
-tags.MaxLength(255); // string length <= 255
-tags.Pattern('^\\d+$'); // matches regex
-tags.Enum('admin', 'user', 'guest'); // one of these values
-```
+<!-- snippet: validators-tags.ts#snippet-2 -->
 
 ## Two functions named `validate`
 
@@ -54,25 +36,14 @@ This is the one thing to get right about tags. The package exports **two** diffe
 
 **The root one is the tag evaluator** — it takes a single tag and a value, and it is the call the AOT transformer rewrites into an inline boolean:
 
-```ts
-import { tags, validate } from '@zmdb/aot-validator';
-
-validate(tags.Min(18), 21); // true
-validate(tags.MaxLength(5), 'too long'); // false
-validate(tags.Enum('admin', 'user'), 'guest'); // false
-```
+<!-- snippet: validators-tags.ts#snippet-3 -->
 
 The transformer scans for `validate(` whose first argument is a `tags.KIND(...)` call and replaces the whole expression with the equivalent comparison — `21 >= 18` — so there is no function call and
 no rule object at runtime. That rewrite is the reason the argument order is rule-first: it is what makes the call recognisable in the source.
 
 **The `utilities` one is the whole-value validator.** It takes a type argument, not tags, and gives you a result object instead of a boolean:
 
-```ts
-import { validate } from '@zmdb/aot-validator/utilities';
-
-validate<Age>(25);
-validate<CreateDTO<User>>(body);
-```
+<!-- snippet: validators-tags.ts#snippet-4 -->
 
 The second parameter is the escape hatch, not the interface: it accepts a schema built by hand for the rare caller that has one, and the transformer supplies it from the type argument otherwise. An
 untransformed call with neither throws rather than passing everything.
@@ -100,31 +71,11 @@ The two spellings mean exactly the same thing, which is the point:
 
 The runtime fallback validates by evaluating each tag rule:
 
-```ts
-// Runtime fallback (what runs without AOT):
-function validate(rule: Rule, expr: unknown): boolean {
-  switch (rule.kind) {
-    case 'Min':
-      return typeof expr === 'number' && expr >= rule.args[0];
-    case 'Pattern':
-      return typeof expr === 'string' && new RegExp(rule.args[0]).test(expr);
-    // ...
-  }
-}
-```
+<!-- snippet: validators-tags.ts#snippet-5 -->
 
 With AOT transformation enabled, the same validation becomes inlined:
 
-```ts
-// Authored:
-validate(
-  tags.Min(18),
-  userAge,
-)(
-  // AOT output:
-  typeof userAge === 'number' && userAge >= 18,
-);
-```
+<!-- snippet: validators-tags.ts#snippet-6 -->
 
 > [!IMPORTANT] The AOT transformer currently inlines `validate(tags.X(...), expr)` calls. Complex compositions may still fall back to the runtime validator in some cases.
 

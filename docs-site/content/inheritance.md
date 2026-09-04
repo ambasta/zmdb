@@ -5,56 +5,7 @@ runtime.
 
 Store all subtypes in one table with a discriminator column. Each subtype has a subset of columns that apply to it.
 
-```ts
-import { rowToSubtype, discriminatorFor } from '@zmdb/repository/entity-modeling';
-import { assert } from '@zmdb/aot-validator/utilities';
-import { schemaOf } from 'zmdb';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-// The table: every subtype's columns, with the type-specific ones nullable
-export interface EventRow extends Table<'events'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  // Discriminator column — a union, so the switch below is exhaustive
-  type: 'concert' | 'game';
-  // Common fields
-  created_at: Date & Sql<'timestamp'>;
-  // Type-specific fields (nullable in the table, populated per-type)
-  title: (string & Sql<'text'>) | null; // For "concert"
-  venue: (string & Sql<'text'>) | null; // For "concert"
-  artist: (string & Sql<'text'>) | null; // For "concert"
-  opponent: (string & Sql<'text'>) | null; // For "game"
-  home_score: (number & Sql<'integer'>) | null; // For "game"
-  away_score: (number & Sql<'integer'>) | null; // For "game"
-}
-
-// Define inheritance map
-const sti = {
-  discriminator: 'type',
-  map: {
-    concert: ['title', 'venue', 'artist'],
-    game: ['opponent', 'home_score', 'away_score'],
-  },
-} as const;
-
-// Map row to correct subtype
-type Concert = { type: 'concert'; title: string; venue: string; artist: string };
-type Game = { type: 'game'; opponent: string; home_score: number; away_score: number };
-type Event = Concert | Game;
-
-// In your repository
-const eventSchema = schemaOf<EventRow>();
-
-class EventRepository extends BaseRepository<Event> {
-  findById(id: number) {
-    return super.findById(id).then(row => {
-      if (!row) return null;
-      const subtype = rowToSubtype(sti, row);
-      // discriminated union, checked rather than asserted
-      return assert<Event>({ type: subtype.type, ...subtype.data });
-    });
-  }
-}
-```
+<!-- snippet: inheritance.ts#snippet-1 -->
 
 Generated DDL:
 
@@ -76,36 +27,13 @@ CREATE TABLE "events" (
 
 Use `discriminatorFor` to generate the correct discriminator value for a subtype.
 
-```ts
-import { discriminatorFor } from '@zmdb/repository/entity-modeling';
-
-const disc = discriminatorFor(sti, 'concert');
-// disc => 'concert'
-
-// Usage in create
-async function createConcert(data: Omit<Concert, 'type'>) {
-  return this.create({
-    type: disc,
-    ...data,
-  });
-}
-```
+<!-- snippet: inheritance.ts#snippet-2 -->
 
 ## Querying Subtypes
 
 Query the base table and filter by discriminator to get specific subtypes.
 
-```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
-
-const compiler = createQueryCompiler('postgres');
-
-// Get all concerts
-const concerts = compiler.selectFrom('events').select(['id', 'title', 'venue', 'artist']).where('type', '=', 'concert').compile();
-
-// concerts.text => SELECT ... WHERE "type" = $1
-// concerts.parameters => ['concert']
-```
+<!-- snippet: inheritance.ts#snippet-3 -->
 
 The declaration gets you two things here that the row shape alone does not: `type` narrows to `'concert' | 'game'`, so the `switch` below is exhaustive and a third subtype breaks the compile; and the
 per-subtype columns are typed as `| null`, which is what the table says. The part it cannot express is the invariant — that a `concert` row has a `title` and a `game` row does not — because that is a
@@ -118,18 +46,7 @@ per-subtype columns are typed as `| null`, which is what the table says. The par
 
 Use the discriminator to route to the correct handler for polymorphic associations.
 
-```ts
-async function handleEventAttachment(eventRow: Record<string, unknown>) {
-  const { type, data } = rowToSubtype(sti, eventRow);
-
-  switch (type) {
-    case 'concert':
-      return sendConcertNotification(data as Concert);
-    case 'game':
-      return updateScoreboard(data as Game);
-  }
-}
-```
+<!-- snippet: inheritance.ts#snippet-4 -->
 
 > [!TIP] Keep discriminator columns indexed for efficient filtering. Add a partial index if your DB supports it (e.g., `WHERE type IS NOT NULL`).
 

@@ -24,19 +24,7 @@ do not agree and a schema should not have to pick.
 Cockroach inherits the Postgres column map except that `integer` is `INT4` and `Serial` is `INT8 DEFAULT unique_rowid()`. SingleStore inherits MySQL except that `Serial` is `BIGINT AUTO_INCREMENT`;
 its table-level shard, sort and rowstore declarations are documented on the [SingleStore page](./dialect-singlestore.html).
 
-```ts
-interface Event extends Table<'events'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  kind: 'created' | 'updated' | 'deleted'; // → jsonEnum
-  sequence: bigint & Sql<'bigint'>;
-  amount: number & Sql<'numeric'> & Numeric<12, 2>;
-  label: string & Sql<'varchar'> & Length<80>;
-  body: string & Sql<'text'>;
-  payload: { source: string; retries: number } & Sql<'json'>;
-  live: boolean;
-  at: Date & Sql<'timestamp'>;
-}
-```
+<!-- snippet: column-types.ts#snippet-1 -->
 
 Note what is _not_ written there. `live: boolean` needs no `Sql<'boolean'>` and `at: Date` needs no `Sql<'timestamp'>` — the mapping is forced, so stating it twice would only create something to
 disagree about. And there is no `jsonEnum` tag at all: `'created' | 'updated' | 'deleted'` is a literal union, which is how TypeScript says that, and the reflection reads the members off the type.
@@ -66,16 +54,7 @@ back-end nobody exercised.
 
 The value's shape is the SQL type; everything else is a tag on the same property.
 
-```ts
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'varchar'> & Length<320> & Unique & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
-  role: ('admin' | 'user') & HasDefault;
-  bio: (string & Sql<'text'>) | null;
-  authorId: number & Sql<'integer'> & References<'users.id'>;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-}
-```
+<!-- snippet: column-types.ts#snippet-2 -->
 
 `References<'users.id'>` is a string literal read as `table.column`, so there is no wrapping function and no schema value to import — the whole reason the old
 `references(integer().notNull(), UserSchema, 'id')` had to be a function was that it needed the target's value at hand. The [tag reference](./tags-reference.html) has the rest.
