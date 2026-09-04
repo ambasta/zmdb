@@ -29,6 +29,28 @@ ALTER TABLE "posts"
   ON DELETE CASCADE ON UPDATE NO ACTION
 ```
 
+MySQL emits the supporting index before the named constraint:
+
+```sql
+CREATE INDEX `posts_authorId_fkey_idx` ON `posts` (`authorId`);
+ALTER TABLE `posts`
+  ADD CONSTRAINT `posts_authorId_fkey`
+  FOREIGN KEY (`authorId`) REFERENCES `authors` (`id`)
+  ON DELETE CASCADE ON UPDATE NO ACTION
+```
+
+SQLite has no `ALTER TABLE … ADD CONSTRAINT`, so the same action is inline in
+the table creation:
+
+```sql
+CREATE TABLE "posts" (
+  "id" INTEGER PRIMARY KEY,
+  "authorId" INTEGER NOT NULL,
+  FOREIGN KEY ("authorId") REFERENCES "authors" ("id")
+    ON DELETE CASCADE ON UPDATE NO ACTION
+)
+```
+
 Each `References<'table.column'>` is one single-column constraint. A composite
 foreign key is declared explicitly at table level so separate references are
 never grouped by guesswork:

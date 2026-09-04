@@ -78,7 +78,10 @@ the same tag.
 
 `eager: true` has no equivalent — that is lazy loading with the switch flipped, and both are excluded. Ask for what you want with `populate`. See [Loading Strategies](./loading-strategies.html).
 
-`cascade: true` also has no equivalent yet — see [Cascading](./cascading.html).
+`cascade: true` has no application-level equivalent: zmdb does not walk an
+object graph and persist or remove related rows. Database `ON DELETE` and
+`ON UPDATE` actions are supported through the declaration — see
+[Cascading](./cascading.html).
 
 ## Migrations
 

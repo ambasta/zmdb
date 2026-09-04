@@ -762,8 +762,7 @@ export const PAGE_META = {
   cascading: {
     title: 'Cascading',
     group: 'Transactions',
-    status: 'todo',
-    note: 'Database ON DELETE / ON UPDATE actions are generated; application-level object-graph cascades remain explicit',
+    status: 'supported',
   },
   'transactional-outbox': {
     title: 'Transactional Outbox',

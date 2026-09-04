@@ -31,6 +31,18 @@ live object graph. zmdb does not: ordinary reads bypass both mechanisms,
 mutating a returned row never schedules SQL, and every write remains an
 explicit repository call.
 
+## Application-level cascade emulation hides writes
+
+zmdb emits `ON DELETE` and `ON UPDATE` actions into database constraints; it
+does not make a repository walk an object graph and delete or persist related
+rows on the caller's behalf. Database actions are atomic with the parent write,
+apply to every database client and do not turn one repository call into an
+unbounded series of queries.
+
+When deleting related rows also has application side effects, write those
+operations explicitly inside a transaction. See [Cascading](./cascading.html)
+for the generated constraints and the explicit transaction pattern.
+
 <!-- generated: coverage/mapping.mjs antiPatterns() -->
 
 ## What is _not_ on this list
