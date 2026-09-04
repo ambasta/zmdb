@@ -7,9 +7,10 @@
 // the package tsconfig excluded `**/*.spec.ts`, so nothing compiled them either.
 // A repository whose methods had degraded to `Record<string, unknown>` would have
 // passed the suite green.
-import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
+import type { UpdatePatch } from '../index.js';
 import type { User, Users } from './fixtures.js';
 
 declare const repo: Users;
@@ -40,7 +41,7 @@ export type _Read7 = Expect<Mutual<Awaited<ReturnType<Users['findAll']>>[number]
 // --- writes (#206) ---------------------------------------------------------
 export type _Write1 = Expect<Equal<Parameters<Users['create']>[0], CreateDTO<User>>>;
 export type _Write2 = Expect<Equal<Awaited<ReturnType<Users['create']>>, Entity<User>>>;
-export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdateDTO<User>>>;
+export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdatePatch<User>>>;
 export type _Write4 = Expect<Equal<Awaited<ReturnType<Users['update']>>, Entity<User> | undefined>>;
 export type _Write5 = Expect<Equal<Awaited<ReturnType<Users['delete']>>, boolean>>;
 

@@ -66,15 +66,16 @@ There is no hook that maintains it in the DDL, and no `ON UPDATE CURRENT_TIMESTA
 const postSchema = schemaOf<Post>();
 
 class PostRepository extends BaseRepository<Post> {
-  protected override preUpdate(row: Record<string, unknown>): void {
-    row.updatedAt = new Date();
+  protected override preUpdate(patch: Record<string, unknown>): void {
+    patch.updatedAt = new Date();
   }
 }
 ```
 
-The hook mutates the payload in place and returns nothing, which is why it runs before the
-`SET` clause is built. It applies to writes through this repository only — anything writing
-directly to the table bypasses it.
+The hook mutates the validated patch in place and returns nothing, which is why
+it runs before the `SET` clause is built. It runs for `update`, `updateMany`,
+and `increment`; the conflict-update object of `upsert` does not run it.
+Anything writing directly to the table bypasses it.
 
 **A trigger** — in a [custom migration](./migrations-custom.html):
 

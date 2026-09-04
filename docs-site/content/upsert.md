@@ -4,7 +4,35 @@ Insert a row, and if it collides with a unique index, update it instead. One sta
 const row = await repo.upsert({ id: 1, email: 'ada@example.com', name: 'Ada', hits: 1 });
 ```
 
-`BaseRepository.upsert` validates the payload through the `create` variant — so required-field and excess-property checks apply exactly as they do to `create` — defaults the conflict target to the table's primary key, and returns the row. It returns `undefined` rather than throwing when the statement comes back with no row.
+`BaseRepository.upsert` validates the payload through the `create` variant — so
+required-field and excess-property checks apply exactly as they do to `create`
+— defaults the conflict target to the table's primary key, and has return type
+`Promise<Entity<T> | undefined>`. It returns `undefined` rather than throwing
+when the statement comes back with no row.
+
+Its `updateFields` option accepts either column names or an expression-aware
+`UpdatePatch<T>`:
+
+```ts
+import { inc, proposed } from 'zmdb';
+
+await repo.upsert(
+  { id: 1, email: 'ada@example.com', name: 'Ada', hits: 1 },
+  {
+    target: 'id',
+    updateFields: {
+      hits: inc(1),
+      name: proposed<string>(),
+    },
+  },
+);
+```
+
+The insert payload still passes `CreateDTO<T>` validation. Ordinary values in
+the update object pass the strict `UpdateDTO<T>` check, while each branded
+expression operand is validated against its column. `upsert` runs `preInsert`
+for the create payload; the conflict-update object does not also run
+`preUpdate`.
 
 ## The compiler's four update forms
 
@@ -26,12 +54,21 @@ If _every_ inserted column is a conflict target the set list would be empty SQL,
 // ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name"
 ```
 
-**`doUpdate({ hits: 9 })` — literal values**, bound as parameters appended after the insert's own. The insert carries four values, so the literal is `$5`:
+**`doUpdate({ hits: 9 })` — literal values or closed expressions.** Literals are
+bound as parameters appended after the insert's own. The insert carries four
+values, so the literal is `$5`:
 
 ```ts
 // INSERT INTO "users" ("id", "email", "name", "hits") VALUES ($1, $2, $3, $4)
 //   ON CONFLICT ("id") DO UPDATE SET "hits" = $5
 // parameters: [1, 'ada@example.com', 'Ada', 1, 9]
+```
+
+An expression refers to the column named by its key:
+
+```ts
+// doUpdate({ hits: inc(1) })
+// ... DO UPDATE SET "hits" = "hits" + $5
 ```
 
 **`doUpdate([])` throws.** An empty array reads as "update nothing" and means something else, so it is refused rather than compiled:
@@ -79,6 +116,13 @@ Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CO
 ## MySQL's `VALUES()` is deprecated, on purpose
 
 The MySQL branch writes `` `col` = VALUES(`col`) ``, which MySQL 8.0.20 and later deprecate in favour of a row alias (`… AS new ON DUPLICATE KEY UPDATE col = new.col`). It is kept because servers older than 8.0.20 do not understand the alias form. On a modern MySQL this produces a deprecation warning in the server log and nothing else — it is expected, not a bug.
+
+MySQL also has no `RETURNING`. For an expression-valued repository
+`updateFields` object, zmdb emits one `INSERT … ON DUPLICATE KEY UPDATE`
+statement without `RETURNING` and resolves to `undefined`; it does not perform
+a follow-up read. That branch is deliberately scoped to expression upserts and
+does not claim that every pre-existing MySQL repository write-returning path is
+resolved.
 
 ## What `upsert` does not reach
 

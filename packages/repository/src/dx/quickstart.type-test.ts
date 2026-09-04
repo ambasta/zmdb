@@ -4,9 +4,9 @@
 // The claim is that `defineRepository` loses nothing compared with a hand-written
 // subclass — DTOs, entity types and populate keys all still derive. It was
 // previously "checked" by `expectTypeOf` inside the E2E spec, a runtime no-op.
-import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-import { defineRepository, type Driver } from '../index.js';
+import { defineRepository, type Driver, type UpdatePatch } from '../index.js';
 import { UserSchema, type Order, type User } from './fixtures.js';
 
 declare const driver: Driver;
@@ -18,7 +18,7 @@ declare const driver: Driver;
 const users = defineRepository(UserSchema, driver, { dialect: 'sqlite' });
 export type _Dx1 = Expect<Equal<Parameters<typeof users.create>[0], CreateDTO<User>>>;
 export type _Dx2 = Expect<Equal<Awaited<ReturnType<typeof users.create>>, Entity<User>>>;
-export type _Dx3 = Expect<Equal<Parameters<typeof users.update>[1], UpdateDTO<User>>>;
+export type _Dx3 = Expect<Equal<Parameters<typeof users.update>[1], UpdatePatch<User>>>;
 export const _dxFindById: Promise<Entity<User> | undefined> = users.findById(1);
 
 // --- populate --------------------------------------------------------------

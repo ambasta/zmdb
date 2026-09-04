@@ -91,7 +91,7 @@ const u = await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const one = await users.findById(u.id); // Entity<S> | undefined
 const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
 const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
-const updated = await users.update(u.id, { role: 'admin' }); // validated vs UpdateDTO<S>
+const updated = await users.update(u.id, { role: 'admin' }); // UpdatePatch<S>; plain values validate as UpdateDTO<S>
 const gone = await users.delete(u.id); // boolean
 ```
 

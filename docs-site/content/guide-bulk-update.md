@@ -1,23 +1,23 @@
-> **ToDo / feature gap.** `BaseRepository.update` takes one id and there is no
-> `updateWhere`. The compiler's closed SET expressions operate on the same column;
-> they do not provide a `CASE` expression or a `VALUES` source, so "update many
-> rows, each to a different value" still has no typed form.
+> **ToDo / feature gap.** `BaseRepository.updateMany` applies one validated
+> patch to every matching row. The closed SET expressions operate on each row's
+> own column; they do not provide a `CASE` expression or a `VALUES` source, so
+> “update many rows, each to a different value” still has no typed form.
 
 ## Two different problems
 
-**Same value, many rows** — this works today, via the builder:
+**Same patch, many rows** — use the repository:
 
 ```ts
-const q = createQueryCompiler('postgres')
-  .updateTable('posts')
-  .set({ published: true })
-  .where('author_id', '=', authorId)
-  .compile();
+import { inc } from 'zmdb';
 
-await driver.execute(q);
+const affected = await postRepo.updateMany({ authorId }, { published: true });
+await postRepo.updateMany({ authorId }, { views: inc(1) });
 ```
 
-One statement. `UpdateBuilder` is `set / where / returning / compile`, which covers this case fully — the repository just does not expose it.
+The `where` is a typed `WhereDTO`, the patch is an expression-aware
+`UpdatePatch`, and both are compiled into one statement. Postgres and SQLite
+return the count of rows returned by the statement. MySQL omits unsupported
+`RETURNING` and resolves to `undefined`.
 
 **Different value per row** — this is the gap.
 
@@ -86,16 +86,14 @@ await driver.execute(q);
 
 There is no `deleteWhere` on the repository either — the builder covers it.
 
-## What it would take
+## What remains
 
-Two independent pieces:
-
-- **`updateWhere(where, values)` / `deleteWhere(where)` on the repository.** Straightforward — the builder already does this, and the DTO `where` already compiles. The reason to be careful is that an accidental empty `where` updates every row, so it should probably require a non-empty predicate.
-- **Per-row values in one statement.** Needs a `VALUES` source plus a `CASE` or source-column expression
-  surface. The current vocabulary deliberately references only the column named by the `set()` key, so this
-  is wider than [increment](./guide-increment-decrement.html) or [toggle](./guide-toggle-boolean.html).
-
-The first is a small, safe addition; the second is the real feature.
+Per-row values in one statement need a `VALUES` source plus a `CASE` or
+source-column expression surface. The current vocabulary deliberately
+references only the column named by the `set()` key, so this is wider than
+[increment](./guide-increment-decrement.html) or
+[toggle](./guide-toggle-boolean.html). Repository-level bulk delete is also a
+separate gap.
 
 ---
 

@@ -4,8 +4,8 @@
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
-import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } from '@zmdb/query-compiler';
+import type { ColumnExpr, CompiledQuery, Dialect, SetValue } from '@zmdb/query-compiler';
+import { chunkArray, createQueryCompiler, DIALECT_PARAM_LIMITS, EXPR, inc, sanitizeKeys } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
@@ -25,7 +25,7 @@ import {
   type JoinRow,
   type ResolvedRelation,
 } from '@zmdb/schema-core';
-import type { Populated, RelationKeys } from '@zmdb/schema-core/derive';
+import type { KeysCarrying, Populated, RelationKeys } from '@zmdb/schema-core/derive';
 import {
   compileWhere,
   applyOrderBy,
@@ -51,6 +51,7 @@ import {
   type ShapeIR,
   type TypeIR,
 } from '@zmdb/schema-core/ir';
+import type { Sql } from '@zmdb/schema-core/tags';
 
 export interface Driver {
   readonly dialect?: Dialect;
@@ -72,9 +73,38 @@ export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateS
 
 export { ValidationError, type ValidationIssue };
 
-export interface UpsertOptions {
+/** A literal value or a compiler-owned expression, per updatable column. */
+export type UpdatePatch<T extends DeclaredTable> = {
+  readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]>;
+};
+
+type NumericSqlKeys<T extends DeclaredTable> =
+  | KeysCarrying<T, Sql<'integer'>>
+  | KeysCarrying<T, Sql<'bigint'>>
+  | KeysCarrying<T, Sql<'numeric'>>;
+
+type NumericAppKeys<T extends DeclaredTable> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends number | bigint ? K : never;
+}[keyof T];
+
+/** Updatable columns whose declared app value and SQL storage are both numeric. */
+export type NumericColumnOf<T extends DeclaredTable> = Extract<
+  NumericSqlKeys<T>,
+  NumericAppKeys<T> & keyof UpdateDTO<T> & string
+>;
+
+type NumericOperandOf<T extends DeclaredTable, K extends NumericColumnOf<T>> = Exclude<
+  UpdateDTO<T>[K],
+  null | undefined
+>;
+
+type UpsertUpdateFields<T extends DeclaredTable> = [T] extends [never]
+  ? readonly string[] | Record<string, unknown>
+  : readonly (keyof UpdateDTO<T> & string)[] | UpdatePatch<T>;
+
+export interface UpsertOptions<T extends DeclaredTable = never> {
   readonly target?: string | readonly string[] | undefined;
-  readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
+  readonly updateFields?: UpsertUpdateFields<T> | undefined;
 }
 
 type RoutineType = RoutineDef['params'][number]['type'];
@@ -212,6 +242,30 @@ interface PayloadShape {
   readonly type: ObjectIR;
   /** The column names this variant accepts, for the excess check. */
   readonly accepted: ReadonlySet<string>;
+  /** The same accepted columns, keyed for expression-operand validation. */
+  readonly columns: ReadonlyMap<string, ColumnIR>;
+}
+
+const NO_EXPRESSION_OPERAND: unique symbol = Symbol('zmdb.no-expression-operand');
+
+function isColumnExpression(value: unknown): value is ColumnExpr<unknown> {
+  return typeof value === 'object' && value !== null && EXPR in value;
+}
+
+function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO_EXPRESSION_OPERAND {
+  switch (expression.op) {
+    case 'add':
+    case 'sub':
+    case 'mul':
+      return expression.by;
+    case 'concat':
+      return expression.with;
+    case 'coalesce':
+      return expression.fallback;
+    case 'not':
+    case 'proposed':
+      return NO_EXPRESSION_OPERAND;
+  }
 }
 
 /**
@@ -952,8 +1006,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }));
   }
 
-  // #207 — typed create/update. Signatures are the derived DTOs; runtime reuses
-  // validatePayload (validate-before-SQL) unchanged.
+  // #207 — typed writes. Create keeps the derived CreateDTO; update accepts the
+  // expression-aware UpdatePatch and validates its plain values and operands
+  // separately before SQL.
   async create(dto: CreateDTO<T>): Promise<Entity<T>> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
@@ -966,11 +1021,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return row;
   }
 
-  async upsert(dto: CreateDTO<T>, opts?: UpsertOptions): Promise<Entity<T> | undefined> {
+  async upsert(dto: CreateDTO<T>, opts?: UpsertOptions<T>): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
     const target = opts?.target ?? this.schema.primaryKey;
-    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(opts?.updateFields);
+    const requestedUpdateFields = opts?.updateFields;
+    const updateFields =
+      requestedUpdateFields !== undefined && !Array.isArray(requestedUpdateFields)
+        ? this.validateUpdatePatch(requestedUpdateFields)
+        : requestedUpdateFields;
+    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(updateFields);
+    if (
+      this.dialect === 'mysql' &&
+      updateFields !== undefined &&
+      !Array.isArray(updateFields) &&
+      this.hasColumnExpression(updateFields)
+    ) {
+      await this.driver.execute(ib.compile());
+      return undefined;
+    }
     const rows = await this.rows<EntityRow<T>>(ib.returning(['*']).compile());
     const row = rows[0];
     if (!row) {
@@ -980,8 +1049,50 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return row;
   }
 
-  async update(id: PrimaryKeyOf<T>, patch: UpdateDTO<T>): Promise<Entity<T> | undefined> {
-    const clean = this.validatePayload(patch, 'update');
+  async update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>): Promise<Entity<T> | undefined> {
+    return this.updateOne(id, patch);
+  }
+
+  async updateMany(where: WhereDTO<T>, patch: UpdatePatch<T>): Promise<number | undefined> {
+    const clean = this.validateUpdatePatch(patch);
+    this.preUpdate(clean);
+    if (Object.keys(clean).length === 0) return 0;
+    const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
+    if (this.dialect === 'mysql') {
+      await this.driver.execute(builder.compile());
+      return undefined;
+    }
+    const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
+    return (await this.driver.execute(builder.returning(returning).compile())).length;
+  }
+
+  async increment<K extends NumericColumnOf<T>>(
+    id: PrimaryKeyOf<T>,
+    column: K,
+    by?: NumericOperandOf<T, K>,
+  ): Promise<Entity<T> | undefined>;
+  async increment(id: PrimaryKeyOf<T>, column: string, by?: number | bigint): Promise<Entity<T> | undefined> {
+    const irColumn = this.payloadShape('update').columns.get(column);
+    if (
+      irColumn === undefined ||
+      irColumn.payload !== undefined ||
+      (irColumn.sql !== 'integer' && irColumn.sql !== 'bigint' && irColumn.sql !== 'numeric')
+    ) {
+      throw new ValidationError(`"${column}" is not an updatable numeric column of "${this.tableName}"`, [
+        {
+          path: `input.${column}`,
+          message: 'expected an updatable numeric column',
+          expected: 'integer, bigint, or numeric column',
+          value: column,
+        },
+      ]);
+    }
+    const operand = by ?? (irColumn.sql === 'bigint' ? 1n : 1);
+    return this.updateOne(id, { [column]: inc(operand) });
+  }
+
+  private async updateOne(id: PrimaryKeyOf<T>, patch: unknown): Promise<Entity<T> | undefined> {
+    const clean = this.validateUpdatePatch(patch);
     this.preUpdate(clean);
     // Built before the empty-patch shortcut so that a bad key is reported as `update` rather
     // than as the `findById` it would otherwise delegate to (§2.1: "the method in the message
@@ -990,12 +1101,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     if (Object.keys(clean).length === 0) {
       return this.firstMatching(where);
     }
-    const rows = await this.rows<EntityRow<T>>(
-      this.assertKeyed(
-        compileWhere(this.qb.updateTable(this.tableName).set(clean), where).returning(['*']).compile(),
-        'update',
-      ),
-    );
+    const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
+    if (this.dialect === 'mysql' && this.hasColumnExpression(clean)) {
+      await this.driver.execute(this.assertKeyed(builder.compile(), 'update'));
+      return undefined;
+    }
+    const rows = await this.rows<EntityRow<T>>(this.assertKeyed(builder.returning(['*']).compile(), 'update'));
     return rows[0];
   }
 
@@ -1034,7 +1145,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // fire only around the corresponding operation, in documented order.
   protected preInsert(_row: Record<string, unknown>): void {}
   protected postInsert(_row: Record<string, unknown>): void {}
-  protected preUpdate(_row: Record<string, unknown>): void {}
+  protected preUpdate(_patch: Record<string, unknown>): void {}
   protected preDelete(_id: PrimaryKeyOf<T>): void {}
   protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     return rows;
@@ -1065,6 +1176,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       shape,
       type: objectTypeFromShape(shape),
       accepted: new Set(shape.map(({ column }) => column.name)),
+      columns: new Map(shape.map(({ column }) => [column.name, column])),
     };
     this.#shapes.set(variant, built);
     return built;
@@ -1140,6 +1252,55 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (column.name in obj) out[column.name] = obj[column.name];
     }
     return out;
+  }
+
+  /**
+   * Validate a patch without teaching the DTO validator that arbitrary objects are
+   * column values. Plain values still cross the unchanged UpdateDTO object check;
+   * branded expressions are omitted from that object and their one operand is
+   * checked against the same column IR separately.
+   */
+  private validateUpdatePatch(payload: unknown): Record<string, unknown> {
+    if (!isRecord(payload)) {
+      throw new ValidationError('payload must be an object', [
+        { path: 'input', message: 'expected object', expected: 'object', value: payload },
+      ]);
+    }
+
+    const obj = this.sanitizePayload(payload);
+    const values: Record<string, unknown> = {};
+    const expressionIssues: ValidationIssue[] = [];
+    const { shape, type, columns } = this.payloadShape('update');
+
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+      if (!isColumnExpression(value)) {
+        values[key] = value;
+        continue;
+      }
+
+      const column = columns.get(key);
+      if (column === undefined) continue;
+      const operand = expressionOperand(value);
+      if (operand !== NO_EXPRESSION_OPERAND) {
+        expressionIssues.push(...issuesFor(operand, appTypeOf(column), `input.${key}`));
+      }
+    }
+
+    const issues = [...issuesFor(values, type), ...expressionIssues, ...this.excessIssues(obj, 'update')];
+    if (issues.length > 0) {
+      throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
+    }
+
+    const out: Record<string, unknown> = {};
+    for (const { column } of shape) {
+      if (column.name in obj) out[column.name] = obj[column.name];
+    }
+    return out;
+  }
+
+  private hasColumnExpression(patch: Record<string, unknown>): boolean {
+    return Object.values(patch).some(isColumnExpression);
   }
 }
 

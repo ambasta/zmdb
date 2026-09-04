@@ -50,9 +50,9 @@ through the transactional outbox.
 There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
+import { BaseRepository, type UpdatePatch } from '@zmdb/repository';
 import { EventBus } from '@zmdb/repository/entity-modeling';
-import type { CreateDTO, UpdateDTO, Entity } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, PrimaryKeyOf } from '@zmdb/schema-core';
 
 const bus = new EventBus();
 
@@ -66,7 +66,7 @@ class UserRepository extends BaseRepository<User> {
     return created;
   }
 
-  override async update(id: unknown, patch: UpdateDTO<User>): Promise<Entity<User> | undefined> {
+  override async update(id: PrimaryKeyOf<User>, patch: UpdatePatch<User>): Promise<Entity<User> | undefined> {
     await bus.emit('beforeUpdate', { id, patch });
     const updated = await super.update(id, patch);
     await bus.emit('afterUpdate', updated);
@@ -84,9 +84,34 @@ class UserRepository extends BaseRepository<User> {
 
 Verbose, and deliberately so — [the project's position](./why-zmdb.html) is that a write you can read top to bottom beats one whose side effects live in a registry somewhere else. The methods you did not override emit nothing, which is visible in this file rather than being a surprise at runtime.
 
-Match the base signatures exactly — `update(id: unknown, patch)` returns `Entity<S> | undefined` (undefined when no row matched) and `delete(id: unknown)` returns a `boolean`. Swallowing either in an override is how a hook starts lying about what happened.
+Match the base signatures exactly —
+`update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>)` returns
+`Entity<T> | undefined` (undefined when no row matched), and
+`delete(id: PrimaryKeyOf<T>)` returns a `boolean`. Swallowing either in an
+override is how a hook starts lying about what happened.
 
-And note what is _not_ covered: `create`, `update` and `delete` are the only write methods on `BaseRepository`, so anything that writes another way — the [query compiler](./insert.html) directly, a raw `driver.execute`, a migration, another service — emits nothing. A hook is a convenience, never an invariant. Invariants belong in the database.
+The `beforeUpdate` event above receives the caller's `UpdatePatch` before
+repository validation, because the explicit `emit` precedes `super.update`.
+That is different from the built-in protected `preUpdate` hook:
+
+```ts
+protected override preUpdate(patch: Record<string, unknown>): void {
+  // validated; undefined keys removed; accepted keys rebuilt in schema order
+  // branded expressions are the same objects supplied by the caller
+}
+```
+
+`preUpdate` runs for `update`, `updateMany`, and `increment`. `upsert` runs
+`preInsert` for its create payload and does not also run `preUpdate` for its
+conflict-update object.
+
+And note what the EventBus override does _not_ cover. `BaseRepository` also has
+`upsert`, `updateMany`, and `increment`; the `update` override above does not
+intercept them. In particular, `increment` uses the repository's internal keyed
+update path, so it fires `preUpdate` but not this public `update` override.
+Anything that writes through the [query compiler](./insert.html), a raw
+`driver.execute`, a migration, or another service also emits nothing. A hook is
+a convenience, never an invariant. Invariants belong in the database.
 
 ## `ctx` is `unknown` — narrow it
 

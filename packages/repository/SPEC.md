@@ -203,15 +203,15 @@ survive a round trip to a browser is a keyset page and always was.
 ## 2. BaseRepository surface
 
 ```ts
-abstract class BaseRepository<S extends CoreSchema<string>> {
+abstract class BaseRepository<T extends DeclaredTable> {
   constructor(driver: Driver);
   static readonly schema: CoreSchema<string>; // bound by subclass
 
-  findById(id: unknown): Promise<Entity<S> | undefined>;
-  findOne(where: Partial<Entity<S>>): Promise<Entity<S> | undefined>;
-  findAll(): Promise<readonly Entity<S>[]>;
-  create(payload: unknown): Promise<Entity<S>>; // validates CreateDTO<S>
-  update(id: unknown, payload: unknown): Promise<Entity<S> | undefined>; // UpdateDTO<S>
+  findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
+  findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
+  findAll(): Promise<readonly Entity<T>[]>;
+  create(payload: unknown): Promise<Entity<T>>; // validates CreateDTO<T>
+  update(id: PrimaryKeyOf<T>, payload: unknown): Promise<Entity<T> | undefined>; // UpdatePatch<T>
   delete(id: unknown): Promise<boolean>;
 }
 ```
@@ -306,8 +306,10 @@ column.
 
 ## 3. Validation interception
 
-- `create(payload)` validates against `CreateDTO<S>` before compiling INSERT.
-- `update(id, payload)` validates against `UpdateDTO<S>` before compiling UPDATE.
+- `create(payload)` validates against `CreateDTO<T>` before compiling INSERT.
+- `update(id, payload)` validates ordinary values against `UpdateDTO<T>` and
+  validates branded expression operands against the same column IR before
+  compiling UPDATE.
 - Invalid payload throws a structured validation error and **no SQL is executed**
   (driver.execute is not called).
 - The check is the DTO's own type: `objectTypeFromShape(shapeOfVariant(ir, variant))`
@@ -337,12 +339,26 @@ column.
 
 ## 3b. Expression-valued writes (frozen — epic "Expression-valued writes")
 
-`update` accepts a `ColumnExpr` in place of a value, per column, using the closed vocabulary in
-`../query-compiler/SPEC.md` §5b:
+`update`, `updateMany`, and the update branch of `upsert` accept a `ColumnExpr`
+in place of a value, per column, using the closed vocabulary in
+`../query-compiler/SPEC.md` §5b. `increment` is the numeric-column-only
+convenience over the same path:
 
 ```ts
-update(id: PrimaryKeyOf<T>, payload: { readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]> }): …;
+type UpdatePatch<T extends DeclaredTable> = {
+  readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]>;
+};
+
+update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>): Promise<Entity<T> | undefined>;
+updateMany(where: WhereDTO<T>, patch: UpdatePatch<T>): Promise<number | undefined>;
+increment<K extends NumericColumnOf<T>>(
+  id: PrimaryKeyOf<T>,
+  column: K,
+  by?: Exclude<UpdateDTO<T>[K], null | undefined>,
+): Promise<Entity<T> | undefined>;
+
 await posts.update(7, { views: inc(1), published: not() });
+await posts.increment(7, 'views');
 ```
 
 **`create` refuses every variant.** Not as a policy but because there is nothing for the expression to read:
@@ -377,6 +393,19 @@ a plain object on a numeric column is a validation failure, not an expression.
 
 The keys an expression may not name are unchanged from §3: a primary key column is still refused in a patch,
 so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
+
+### Return values and MySQL
+
+Postgres and SQLite expression-bearing `update`/`increment` calls return the
+computed row through `RETURNING *`. `updateMany` returns the number of rows the
+database returned from `RETURNING` (primary-key columns when present).
+
+MySQL has no `UPDATE … RETURNING`. The repository therefore emits no
+`RETURNING` for an expression-bearing keyed update or upsert update branch, and
+for every `updateMany`; those calls execute one atomic statement and resolve to
+`undefined`. There is no hidden follow-up `SELECT`. This is deliberately narrow:
+ordinary keyed updates and other pre-existing MySQL write-returning paths are
+outside this expression-write contract.
 
 ## 3c. Entity filters and soft delete (frozen — epic "Entity filters and soft delete")
 
@@ -745,8 +774,16 @@ write" without reaching for invalidation.
 
 ## 4. Lifecycle hooks (explicit, synchronous ordering)
 
-`preInsert(row)`, `postInsert(row)`, `preUpdate(row)`, `postSelect(rows)`,
+`preInsert(row)`, `postInsert(row)`, `preUpdate(patch)`, `postSelect(rows)`,
 `preDelete(id)`. Hooks are optional overrides; no hidden change tracking.
+
+`preUpdate` receives the validated patch that will be compiled: `undefined`
+properties are absent, accepted keys are rebuilt in schema order, ordinary
+values have passed the unchanged `UpdateDTO` check, and branded expressions are
+the same objects the caller supplied after their operands passed the column's
+app-type check. It runs for `update`, `updateMany`, and `increment`. `upsert`
+continues to run `preInsert` for its create payload; its conflict-update object
+does not also run `preUpdate`.
 
 ## 4a. Calling a stored routine (frozen — epic "Stored procedures and functions")
 

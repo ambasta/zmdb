@@ -31,16 +31,31 @@ export type {
 // Query compiler & Migrations.
 export {
   appendComment,
+  coalesce,
+  concat,
   serializeComment,
   withComments,
   createQueryCompiler,
+  dec,
+  inc,
+  mul,
+  not,
+  proposed,
   UnsupportedFeatureError,
   sanitizeKeys,
   chunkArray,
   DIALECT_PARAM_LIMITS,
 } from '@zmdb/query-compiler';
 export * as migrations from '@zmdb/query-compiler/migrations';
-export type { CommentKey, CommentKeys, CommentPairs, Dialect, CompiledQuery } from '@zmdb/query-compiler';
+export type {
+  ColumnExpr,
+  CommentKey,
+  CommentKeys,
+  CommentPairs,
+  CompiledQuery,
+  Dialect,
+  SetValue,
+} from '@zmdb/query-compiler';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.
 //
@@ -77,5 +92,7 @@ export type {
   ClosedTransactionContext,
   TransactionalDb,
   TxConnection,
+  NumericColumnOf,
+  UpdatePatch,
   UpsertOptions,
 } from '@zmdb/repository';

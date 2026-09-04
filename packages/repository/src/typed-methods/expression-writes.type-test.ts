@@ -10,8 +10,10 @@ import {
   type EXPR,
   type SetValue,
 } from '@zmdb/query-compiler';
-import type { CreateDTO, DeclaredTable, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, PrimaryKeyOf, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+
+import type { BaseRepository, NumericColumnOf, UpdatePatch, UpsertOptions } from '../index.js';
 
 export type _public_expression_surface = [
   typeof EXPR,
@@ -36,11 +38,7 @@ interface Post extends Table<'posts'> {
   nickname: (string & Sql<'text'>) | null;
 }
 
-type FrozenUpdatePatch<T extends DeclaredTable> = {
-  readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]>;
-};
-
-function acceptUpdate(_patch: FrozenUpdatePatch<Post>): void {}
+function acceptUpdate(_patch: UpdatePatch<Post>): void {}
 function acceptCreate(_payload: CreateDTO<Post>): void {}
 
 acceptUpdate({
@@ -88,3 +86,44 @@ acceptUpdate({ views: proposed<number>() });
 export type _accepted_set_value_admits_proposed = Expect<
   Equal<ColumnExpr<number> extends SetValue<number> ? true : false, true>
 >;
+
+export type _numeric_columns_come_from_numeric_sql_tags = Expect<
+  Equal<NumericColumnOf<Post>, 'views' | 'total' | 'ratio'>
+>;
+export type _update_parameter_is_the_public_patch = Expect<
+  Equal<Parameters<BaseRepository<Post>['update']>[1], UpdatePatch<Post>>
+>;
+export type _update_many_parameter_is_the_public_patch = Expect<
+  Equal<Parameters<BaseRepository<Post>['updateMany']>[1], UpdatePatch<Post>>
+>;
+export type _unbound_upsert_options_keep_the_existing_broad_surface = Expect<
+  Equal<NonNullable<UpsertOptions['updateFields']>, readonly string[] | Record<string, unknown>>
+>;
+export type _bound_upsert_options_use_the_table_patch = Expect<
+  Equal<
+    NonNullable<UpsertOptions<Post>['updateFields']>,
+    readonly (keyof UpdateDTO<Post> & string)[] | UpdatePatch<Post>
+  >
+>;
+type FrozenIncrement = <K extends NumericColumnOf<Post>>(
+  id: PrimaryKeyOf<Post>,
+  column: K,
+  by?: Exclude<UpdateDTO<Post>[K], null | undefined>,
+) => Promise<Entity<Post> | undefined>;
+export type _increment_signature_is_column_and_operand_specific = Expect<
+  Equal<BaseRepository<Post>['increment'], FrozenIncrement>
+>;
+
+function exerciseRepositorySurface(repo: BaseRepository<Post>): void {
+  repo.update(1, { views: inc(1), published: not() });
+  repo.updateMany({ published: false }, { title: concat('!') });
+  repo.upsert(
+    { views: 1, total: 1n, ratio: 1, published: false, title: 'draft', nickname: null },
+    { target: 'id', updateFields: { views: inc(1), title: proposed<string>() } },
+  );
+  repo.increment(1, 'views');
+  repo.increment(1, 'views', 2);
+  repo.increment(1, 'total', 2n);
+}
+
+void exerciseRepositorySurface;

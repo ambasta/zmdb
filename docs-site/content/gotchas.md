@@ -83,9 +83,10 @@ updateTable('posts').set({ views: inc(1) });
 ```
 
 The column is the `set()` key. The vocabulary has no cross-column reference, subquery, or caller-supplied SQL
-node, so `SET a = b + 1` remains outside this API. `BaseRepository.update()` does not accept these expressions
-yet; see [Incrementing and decrementing a value](./guide-increment-decrement.html) for the supported compiler
-form and the remaining repository gap.
+node, so `SET a = b + 1` remains outside this API. `BaseRepository.update()` and
+`updateMany()` accept the same branded expressions, and `increment()` exposes
+the numeric-only convenience; see
+[Incrementing and decrementing a value](./guide-increment-decrement.html).
 
 ## A streamed response body is one-shot
 

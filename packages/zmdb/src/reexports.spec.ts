@@ -5,7 +5,17 @@ import {
   tags as srcTags,
 } from '@zmdb/aot-validator';
 import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
-import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
+import {
+  coalesce as srcCoalesce,
+  concat as srcConcat,
+  createQueryCompiler as srcQC,
+  dec as srcDec,
+  inc as srcInc,
+  mul as srcMul,
+  not as srcNot,
+  proposed as srcProposed,
+  UnsupportedFeatureError as srcUFE,
+} from '@zmdb/query-compiler';
 import {
   driverMigrationConnection as srcDMC,
   up as srcUp,
@@ -29,13 +39,20 @@ import { describe, expect, it } from 'vitest';
 import {
   assert,
   BaseRepository,
+  coalesce,
+  concat,
   createQueryCompiler,
+  dec,
   defineRepository,
+  inc,
   is,
   migrations,
+  mul,
+  not,
   protoDecode,
   protoDescriptor,
   protoEncode,
+  proposed,
   schemaOf,
   tags,
   UnsupportedFeatureError,
@@ -62,6 +79,16 @@ describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports createQueryCompiler and UnsupportedFeatureError', () => {
     expect(createQueryCompiler).toBe(srcQC);
     expect(UnsupportedFeatureError).toBe(srcUFE);
+  });
+
+  it('exports expression constructors from the umbrella package', () => {
+    expect(inc).toBe(srcInc);
+    expect(dec).toBe(srcDec);
+    expect(mul).toBe(srcMul);
+    expect(not).toBe(srcNot);
+    expect(concat).toBe(srcConcat);
+    expect(coalesce).toBe(srcCoalesce);
+    expect(proposed).toBe(srcProposed);
   });
 
   it('re-exports validators is/assert/validate/tags and protobuf codec/descriptor calls', () => {

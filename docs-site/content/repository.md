@@ -1,4 +1,4 @@
-The repository pattern provides a typed, validated data access layer backed by your schema definition. zmdb's `BaseRepository` delivers full CRUD with lifecycle hooks, validation interception, and transaction support — all without proxies or an identity map.
+The repository pattern provides a typed, validated data access layer backed by your schema definition. zmdb's `BaseRepository` delivers CRUD, upsert, expression-valued updates, lifecycle hooks, validation interception, and transaction support — all without proxies or an identity map.
 
 ## Defining a Repository
 
@@ -53,14 +53,22 @@ const byEmail = await users.findOne({ email: 'a@b.com' });
 const all = await users.findAll();
 // all: readonly Entity<UserSchema>[]
 
-// UPDATE — validates against UpdateDTO<UserSchema> (all optional)
+// UPDATE — UpdatePatch<User>: strict values or branded expressions
 const updated = await users.update(created.id, { role: 'admin' });
 // updated: Entity<UserSchema> | undefined
+
+// UPDATE MANY — one validated patch over a typed WhereDTO
+const affected = await users.updateMany({ role: 'guest' }, { role: 'user' });
+// affected: number | undefined (undefined on MySQL)
 
 // DELETE — returns boolean indicating if a row was deleted
 const deleted = await users.delete(created.id);
 // deleted: boolean
 ```
+
+For a numeric column, `repo.increment(id, column, by?)` is the typed atomic
+shortcut. The column union is derived from updatable `integer`, `bigint`, and
+`numeric` declarations, and the operand preserves number versus bigint.
 
 ## Typed filtering & pagination
 
@@ -99,7 +107,8 @@ SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
 
 ## Lifecycle Hooks
 
-Hooks fire synchronously around CRUD operations. Override them in your subclass.
+Hooks fire synchronously around their corresponding repository operations.
+Override them in your subclass.
 
 ```ts
 class UserRepository extends BaseRepository<User> {
@@ -114,8 +123,10 @@ class UserRepository extends BaseRepository<User> {
     // Trigger welcome email, etc.
   }
 
-  protected preUpdate(row: Record<string, unknown>): void {
-    // Audit log, concurrency check
+  protected preUpdate(patch: Record<string, unknown>): void {
+    // Validated, undefined-stripped, schema-ordered patch.
+    // Branded expression objects are preserved by identity.
+    console.log('about to update', patch);
   }
 
   protected preDelete(id: unknown): void {
@@ -128,6 +139,10 @@ class UserRepository extends BaseRepository<User> {
   }
 }
 ```
+
+`preUpdate` runs for `update`, `updateMany`, and `increment`. `upsert` runs
+`preInsert` for its create payload; its conflict-update object does not also run
+`preUpdate`.
 
 ## Transactions
 
@@ -159,6 +174,7 @@ try {
 ## Cross-links
 
 - [CRUD](./crud.html) — detailed create/read/update/delete semantics
+- [Increment & Decrement](./guide-increment-decrement.html) — atomic expression writes
 - [Read DTOs](./read-dtos.html) — typed filtering, ordering, pagination
 - [Transactions](./transactions.html) — transaction management details
 - [Validation](./validators-is.html) — AOT-validated payloads

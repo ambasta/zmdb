@@ -1,26 +1,22 @@
-> **ToDo / repository gap.** `UpdateBuilder.set()` supports `not()`, but
-> `BaseRepository.update()` still accepts values only. Use the compiler builder
-> directly when the client genuinely requests a toggle.
-
-## What you cannot write
+Use the branded `not()` expression when the new state must be the inverse of
+the value currently stored:
 
 ```ts
-await userRepo.update(id, { active: { toggle: true } }); // no such API
+import { not } from 'zmdb';
+
+const user = await userRepo.update(id, { active: not() });
+await userRepo.updateMany({ suspended: false }, { active: not() });
 ```
 
-The compiler form is atomic:
+The repository validates the patch before emitting one atomic statement:
 
-```ts
-import { createQueryCompiler, not } from '@zmdb/query-compiler';
-
-const query = createQueryCompiler('postgres')
-  .updateTable('users')
-  .set({ active: not() })
-  .where('id', '=', id)
-  .compile();
-
-await driver.execute(query);
+```sql
+UPDATE "users" SET "active" = NOT "active" WHERE "id" = $1 RETURNING *
 ```
+
+`{ active: { toggle: true } }` remains invalid. The expression is identified by
+the compiler-owned symbol brand, not by a request-body object with a familiar
+shape.
 
 ## The read-then-write, and its race
 
@@ -33,16 +29,21 @@ Two concurrent toggles both read `false`, both write `true` — and the second t
 
 It is also the more common bug in practice: a double-clicked button sends two requests, both read the old value, and the row ends up in the state the user did not ask for.
 
-## Workaround — let the database do it
+## Compiler form
 
 ```ts
-await driver.execute({
-  text: 'UPDATE "users" SET "active" = NOT "active" WHERE "id" = $1',
-  parameters: [id],
-});
+import { createQueryCompiler, not } from 'zmdb';
+
+const query = createQueryCompiler('postgres')
+  .updateTable('users')
+  .set({ active: not() })
+  .where('id', '=', id)
+  .compile();
+
+await driver.execute(query);
 ```
 
-Atomic, and no read. On MySQL, booleans are `tinyint(1)`, so `NOT` works but returns `0`/`1`:
+On MySQL, booleans are `tinyint(1)`, so `NOT` works but stores `0`/`1`:
 
 ```sql
 UPDATE `users` SET `active` = NOT `active` WHERE `id` = ?
@@ -50,15 +51,9 @@ UPDATE `users` SET `active` = NOT `active` WHERE `id` = ?
 
 SQLite is the same. `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a `Sql<'boolean'>` column fine.
 
-Returning the new state, Postgres only:
-
-```ts
-const [row] = await driver.execute({
-  text: 'UPDATE "users" SET "active" = NOT "active" WHERE "id" = $1 RETURNING "active"',
-  parameters: [id],
-});
-const nowActive = row?.active === true;
-```
+Postgres and SQLite return the computed row. MySQL has no `UPDATE …
+RETURNING`, so an expression-bearing repository update omits it and resolves to
+`undefined` without a follow-up read.
 
 ## Prefer an explicit target state
 
@@ -72,9 +67,12 @@ async setActive(ctx: Ctx<{ id: string }, { active: boolean }>) {
 }
 ```
 
-A double-click now sets `false` twice, which is `false`. That is not a workaround for a missing feature — it is the better API, and it is why this gap bites less often than it looks like it should.
+A double-click now sets `false` twice, which is `false`. That is not a
+workaround for a missing feature — it is the better API, and it is why this
+race bites less often than it looks like it should.
 
-Use the raw `NOT` form when the client genuinely does not know the current state, which is rarer than it sounds.
+Use `not()` when the client genuinely does not know the current state, which is
+rarer than it sounds.
 
 ## Nullable booleans
 
@@ -86,10 +84,12 @@ UPDATE "users" SET "active" = NOT COALESCE("active", false) WHERE "id" = $1
 
 Decide what null means before writing the toggle. Usually it means the column should not have been nullable.
 
-## What it would take
+## Validation and hooks
 
-The compiler expression exists. The remaining gap is repository integration: `BaseRepository.update()` must
-accept the branded expression while preserving validation for every ordinary value in the same patch.
+An ordinary value in the same patch still passes the strict `UpdateDTO`
+validation. `not()` has no operand to validate at runtime, but its result type
+limits it to boolean-valued patch keys at compile time. `preUpdate` receives the
+same branded object after the complete patch has passed validation.
 
 ---
 

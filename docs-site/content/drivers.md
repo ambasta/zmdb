@@ -176,13 +176,10 @@ Two things to be careful about:
 [Transactions](./transactions.html).
 
 > [!WARNING]
-> `UpdateBuilder.set({ balance: dec(amount) })` emits
-> `balance = balance - $1`, but `BaseRepository.update()` does not accept the
-> expression yet. A read-then-write is **not** equivalent: two concurrent
-> transfers both read 100, both write 90, and one debit vanishes. Execute the
-> compiled update on the transaction's connection; if staying inside the
-> repository API, issue raw SQL there or `SELECT … FOR UPDATE` first so the
-> second transaction blocks. See
+> `repo.update(id, { balance: dec(amount) })` emits
+> `balance = balance - $1` through the repository's transaction-bound driver.
+> A read-then-write is **not** equivalent: two concurrent transfers can both
+> read 100, both write 90, and lose one debit. See
 > [Increment & Decrement](./guide-increment-decrement.html).
 
 ## Connection strings

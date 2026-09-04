@@ -12,17 +12,17 @@ Short, task-shaped answers to things people actually search for. Each one is a w
 
 ## Writing
 
-|                                                           |                                                                    |
-| --------------------------------------------------------- | ------------------------------------------------------------------ |
-| [Increment / decrement](./guide-increment-decrement.html) | **ToDo** — compiler support exists; repository integration remains |
-| [Toggle a boolean](./guide-toggle-boolean.html)           | **ToDo** — same repository blocker                                 |
-| [Bulk update](./guide-bulk-update.html)                   | **ToDo** — one statement per row today                             |
-| [Upsert](./upsert.html)                                   | **ToDo** — no `ON CONFLICT`                                        |
+|                                                           |                                                                  |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| [Increment / decrement](./guide-increment-decrement.html) | Repository `increment` and expression-valued patches             |
+| [Toggle a boolean](./guide-toggle-boolean.html)           | Atomic `not()` through `update` / `updateMany`                   |
+| [Bulk update](./guide-bulk-update.html)                   | One shared patch ships; different values per row remain **ToDo** |
+| [Upsert](./upsert.html)                                   | Typed conflict targets and expression-valued update fields       |
 
-Increment and toggle now have a closed expression vocabulary in `UpdateBuilder.set()`, while repository
-validation still accepts values only. Updating different rows to different values is a separate, wider
-`CASE` / `VALUES` problem. Each page separates what the compiler can emit from the remaining typed
-repository gap.
+Increment and toggle use the same closed expression vocabulary in
+`UpdateBuilder.set()` and `BaseRepository` patches. Updating different rows to
+different values is a separate, wider `CASE` / `VALUES` problem; `updateMany`
+covers one validated patch over all matching rows.
 
 ## Schema
 

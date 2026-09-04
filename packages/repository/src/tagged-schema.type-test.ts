@@ -14,7 +14,7 @@
 // test that is not transformed would throw.
 
 import { schemaOf, type Equal, type Expect, type Extends } from '@zmdb/schema-core';
-import type { CreateDTO, Entity, PrimaryKeyOf, UpdateDTO } from '@zmdb/schema-core/derive';
+import type { CreateDTO, Entity, PrimaryKeyOf } from '@zmdb/schema-core/derive';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 import type {
   HasDefault,
@@ -28,7 +28,7 @@ import type {
   Table,
 } from '@zmdb/schema-core/tags';
 
-import { defineRepository, type Driver } from './index.js';
+import { defineRepository, type Driver, type UpdatePatch } from './index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -70,7 +70,7 @@ export type _Row3 = Expect<Extends<Row['createdAt'], Date>>;
 // --- writes ----------------------------------------------------------------
 export type _Write1 = Expect<Equal<Parameters<Users['create']>[0], CreateDTO<User>>>;
 export type _Write2 = Expect<Equal<Awaited<ReturnType<Users['create']>>, Entity<User>>>;
-export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdateDTO<User>>>;
+export type _Write3 = Expect<Equal<Parameters<Users['update']>[1], UpdatePatch<User>>>;
 export type _Write4 = Expect<Equal<Awaited<ReturnType<Users['update']>>, Entity<User> | undefined>>;
 
 // The serial primary key is not in the create DTO at all, and the defaulted column is

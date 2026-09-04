@@ -52,6 +52,13 @@ const row = await repo.findOne({ email: { eq: dto.email } });
 
 Two round trips. Selecting on a unique column rather than `LAST_INSERT_ID()` is safer across a pool, where the second statement may land on a different connection.
 
+Expression-valued repository writes have a narrower explicit contract:
+`update(id, { count: inc(1) })`, `increment`, every `updateMany`, and an
+expression-valued `upsert` update object omit unsupported `RETURNING`, execute
+one statement, and resolve to `undefined`. They do not issue a hidden follow-up
+`SELECT`. This does not retrofit the other pre-existing repository write paths;
+the create example above still applies to them.
+
 ## `boolean` is `TINYINT(1)`
 
 MySQL has no boolean type, so `Sql<'boolean'>` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the schema is a MySQL one:

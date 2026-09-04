@@ -78,8 +78,10 @@ Drop `drizzle-zod`. `assert<CreateDTO<User>>(body)` is generated from the same d
 
 ## What you lose
 
-- `ON CONFLICT` — see [Upsert](./upsert.html)
-- expression updates (`sql\`views + 1\``) — see [Incrementing a value](./guide-increment-decrement.html)
+- arbitrary `ON CONFLICT` predicates — the typed common forms are covered by [Upsert](./upsert.html)
+- arbitrary SQL update expressions — the closed atomic forms (`inc`, `dec`,
+  `mul`, `not`, `concat`, `coalesce`, `proposed`) are covered by
+  [Incrementing a value](./guide-increment-decrement.html)
 - `drizzle-kit studio` / `pull` — see [CLI](./cli-overview.html)
 - the `pg`/`mysql`/`sqlite` type zoo: zmdb has ten column types, not sixty. `Sql<'json'>` and [custom types](./custom-types.html) cover most of the rest.
 

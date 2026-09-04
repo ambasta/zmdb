@@ -42,11 +42,18 @@ const allUsers = await users.findAll();
 
 ## Update
 
-Partial update. The payload is validated against `UpdateDTO<S>` — all fields are optional, but types must match.
+Partial update. The payload is an `UpdatePatch<S>` — all fields are optional;
+ordinary values must match `UpdateDTO<S>`, and branded expression operands must
+match the same column type.
 
 ```ts
+import { inc } from 'zmdb';
+
 const updated = await users.update(1, { role: 'admin' });
 // updated: Entity<UserSchema> | undefined (undefined if id not found)
+
+const post = await posts.increment(1, 'views');
+const affected = await posts.updateMany({ authorId: 7 }, { views: inc(1) });
 ```
 
 **SQL emitted:**
@@ -55,6 +62,11 @@ const updated = await users.update(1, { role: 'admin' });
 UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING *
 -- parameters: ['admin', 1]
 ```
+
+Postgres and SQLite expression-bearing keyed updates return the computed row;
+`updateMany` returns the number of rows returned. MySQL omits unsupported
+`RETURNING` for expression-bearing keyed updates and every `updateMany`, so
+those calls resolve to `undefined` without issuing a follow-up `SELECT`.
 
 > [!WARNING]
 > Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:
@@ -84,12 +96,17 @@ DELETE FROM "users" WHERE "id" = $1 RETURNING "id"
 
 ## Validation Semantics
 
-Both `create` and `update` run validation before compiling SQL:
+`create`, `update`, `updateMany`, and the update object passed to `upsert` run
+validation before compiling SQL:
 
 | Operation | Auto-increment fields   | Fields with defaults | Required fields    |
 | --------- | ----------------------- | -------------------- | ------------------ |
 | create    | **Rejected** (always)   | Optional             | Must be present    |
 | update    | Ignored (cannot update) | Optional             | N/A (all optional) |
+
+For an expression-valued update, only that key is removed from the ordinary
+row-value check; its operand is validated against the column's app type, and
+every ordinary sibling remains strict.
 
 ```ts
 // This throws — id is auto-increment

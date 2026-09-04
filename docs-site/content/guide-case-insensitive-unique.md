@@ -84,15 +84,23 @@ class UserRepository extends BaseRepository<User> {
   protected override preInsert(row: Record<string, unknown>): void {
     if (typeof row.email === 'string') row.email = row.email.toLowerCase();
   }
-  protected override preUpdate(row: Record<string, unknown>): void {
-    if (typeof row.email === 'string') row.email = row.email.toLowerCase();
+  protected override preUpdate(patch: Record<string, unknown>): void {
+    if (typeof patch.email === 'string') patch.email = patch.email.toLowerCase();
   }
 }
 ```
 
-Both hooks return `void` and take `Record<string, unknown>` — they are handed the sanitised payload _by reference_, so you normalise in place rather than returning a new object. A returned value is discarded. `upsert` goes through `preInsert` too.
+Both hooks return `void` and take `Record<string, unknown>`. `preInsert` receives
+the validated create payload; `preUpdate` receives the validated,
+`undefined`-stripped update patch in schema order. Both are passed _by
+reference_, so you normalise in place rather than returning a new object. A
+returned value is discarded. `upsert` goes through `preInsert`; its
+conflict-update object does not also run `preUpdate`.
 
-They also run **after** validation, which is the ordering you want here: a `Pattern` or `MaxLength` check sees what the caller actually sent, and the normalisation cannot smuggle a value past a constraint.
+They run **after** validation, so a `Pattern` or `MaxLength` check sees what the
+caller actually sent. Hook mutations are not validated a second time: keep this
+normalisation constraint-preserving, and remember that Unicode lowercasing can
+expand a string.
 
 Store lowercase, so the plain `Unique` constraint is now case-insensitive in effect.
 

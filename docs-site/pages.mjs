@@ -1287,20 +1287,18 @@ export const PAGE_META = {
   'guide-increment-decrement': {
     title: 'Incrementing and decrementing a value',
     group: 'Guides',
-    status: 'todo',
-    note: 'compiler expressions ship; BaseRepository.update() does not accept or validate them yet',
+    status: 'supported',
   },
   'guide-toggle-boolean': {
     title: 'Toggling a boolean',
     group: 'Guides',
-    status: 'todo',
-    note: 'compiler not() ships; BaseRepository.update() does not accept expressions yet',
+    status: 'supported',
   },
   'guide-bulk-update': {
     title: 'Updating many rows to different values',
     group: 'Guides',
     status: 'todo',
-    note: 'the closed SET vocabulary has no CASE expression or VALUES source',
+    note: 'updateMany applies one patch; different values per row still need CASE or a VALUES source',
   },
   'guide-array-defaults': {
     title: 'Array columns and empty defaults',
