@@ -10,13 +10,13 @@
 
 ## Packages
 
-| Package                                             | Status | Description                                                                                                                                                                                                                                                                                                               |
-| --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI) + LLM tool specs, a bounded chat loop, and MCP server/client cores                                                                                                                                                 |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner                                                                                                                                                                                                                           |
-| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De                                                                                                                                                                                                                                               |
-| [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                    |
-| [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
+| Package                                             | Status | Description                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI) + LLM tool specs, a bounded chat loop, and MCP server/client cores                                                                                                                                                                |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner                                                                                                                                                                                                                                          |
+| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De                                                                                                                                                                                                                                                              |
+| [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                                   |
+| [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, health probes, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
 > The original core (#1–#10, #62), benchmarking (#68), and perf/DNF epics
@@ -27,10 +27,10 @@
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
 > **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
-> and OpenAPI-derived tools** harness. **1,350 tests green** across 172 files,
+> and OpenAPI-derived tools** harness. **1,362 tests green** across 172 files,
 > including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **382 expected-failing tests** hold the frozen specs of features
+> Alongside them, **372 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.
@@ -38,7 +38,7 @@
 > MikroORM, NestJS and Typia run between them: 453 are answered by a named zmdb
 > test, 289 are argued against in writing, and `yarn verify:api-coverage` fails
 > on a suite that is neither.
-> Of the 276 docs-site pages, 196 document a capability that exists, 68 are marked
+> Of the 276 docs-site pages, 197 document a capability that exists, 67 are marked
 > `todo` — a page that argues for a feature gap rather than describing one — and 12
 > are marked not planned, where the answer is no and the page says what to reach for
 > instead. All three are counted by `yarn verify:docs-coverage`.

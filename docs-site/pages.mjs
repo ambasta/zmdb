@@ -1645,8 +1645,7 @@ export const PAGE_META = {
   'web-health-checks': {
     title: 'Health Checks',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'no readiness/liveness aggregation module; the split, response shapes, timeouts and caching are frozen (#579) and asserted by expected-failing tests (#580)',
+    status: 'supported',
   },
   'web-observability': {
     title: 'Observability',

@@ -1,94 +1,24 @@
-// Tests for the liveness/readiness probes frozen in ./SPEC.md (#580, epic #578).
-//
-// RED ON PURPOSE, AND VISIBLY SO. ./index.ts does not exist: #581 writes it. Every assertion
-// whose subject is unimplemented is `it.fails`, never `it.skip`, because a skipped test is
-// invisible in the summary line and an expected-failing one is counted there. When #581
-// lands, each `it.fails` that starts passing fails the suite with
-// `Error: Expect test to fail`, which is the ratchet: the implementer cannot land the code
-// without also deleting the `.fails`.
-//
-// THE IDIOM, used in all three of #580's spec files. An `it.fails` whose body cannot be
-// typechecked asserts nothing, so the frozen surface is transcribed from ./SPEC.md into the
-// block below and the missing function is a `const` holding a throwing implementation of its
-// frozen type. A `const` rather than `declare function` for three reasons: nothing throws at
-// module load, so collection succeeds and the tests appear in the summary; the type is checked
-// against the spec's signature at compile time, so a signature that drifts is a build failure;
-// and there is no `declare`d name that oxlint's `no-undef` would have to be told about. When
-// #581 lands, the block is replaced by one `import` and the test bodies are untouched.
-//
-// CURRENT ACTUALS. Every `it.fails` records, in a comment, what the code produces today.
-// Every one of them today throws from `healthRoutes`, because that is the entire subject of
-// the file — so where a *related* observable behaviour exists (the `json` helper's exact
-// output, `Promise.all`'s timing), it is recorded too, and one plain `it` locks it in.
+// Runtime acceptance tests for the liveness/readiness probes frozen by #580 and
+// implemented by #581 (epic #578).
 //
 // THE TIMING TESTS USE FAKE TIMERS. ./SPEC.md §4's bound is `max(timeoutMs) + 50ms` and §6
 // asks for a cache window; asserting either against the wall clock buys a flaky test in CI
-// for no extra confidence, so the clock is `vi.useFakeTimers()` and the *ordering* of
-// `advanceTimersByTimeAsync` against the pending promise is the assertion. #581 must
-// therefore implement the deadline with `setTimeout`, not with `performance.now()` polling;
-// that is a real constraint this freeze imposes and it is deliberate — a polling deadline
-// cannot be tested deterministically, so it should not be written.
+// for no extra confidence, so the clock is `vi.useFakeTimers()` and the ordering of
+// `advanceTimersByTimeAsync` against the pending promise is the assertion.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { json, type WebResponse } from '../pipeline/index.js';
-
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#581)
-// ---------------------------------------------------------------------------
-
-/** ./SPEC.md §2. The process is not wedged. Synchronous, and that is the whole mechanism. */
-interface LivenessCheck {
-  readonly name: string;
-  run(): boolean;
-}
-
-interface CheckResult {
-  readonly ok: boolean;
-  readonly detail?: string;
-}
-
-/** ./SPEC.md §2. The process can serve traffic. Asked with a deadline. */
-interface ReadinessCheck {
-  readonly name: string;
-  readonly timeoutMs: number;
-  readonly cacheMs?: number;
-  run(signal: AbortSignal): Promise<CheckResult>;
-}
-
-interface HealthChecks {
-  readonly liveness?: readonly LivenessCheck[];
-  readonly readiness?: readonly ReadinessCheck[];
-}
-
-interface HealthProbes {
-  readonly live: () => WebResponse;
-  readonly ready: () => Promise<WebResponse>;
-}
-
-const healthRoutes: (checks: HealthChecks) => HealthProbes = () => {
-  throw new Error('#580 tests freeze: healthRoutes is unimplemented (health SPEC §2)');
-};
-
-// ./SPEC.md §3: the detailed form is a *second route*, opt-in, mounted by the application
-// behind the `guards` field of `RouteOptions`. `healthRoutes` returns the public pair only,
-// so the detailed builder is a separate export and #581 owns its name. This is the shape
-// §3's table freezes; the assertions below are about that table, not about the identifier.
-interface DetailedCheck {
-  readonly name: string;
-  readonly ok: boolean;
-  readonly detail?: string;
-  readonly durationMs?: number;
-}
-
-interface DetailedBody {
-  readonly status: 'ok' | 'error';
-  readonly checks: readonly DetailedCheck[];
-}
-
-const detailedReadyRoute: (checks: HealthChecks) => () => Promise<WebResponse> = () => {
-  throw new Error('#580 tests freeze: detailedReadyRoute is unimplemented (health SPEC §3)');
-};
-// --------------------------- end frozen surface ---------------------------
+import type { Guard } from '../middleware/index.js';
+import { createRouter, json, type WebResponse } from '../pipeline/index.js';
+import { Controller, Get } from '../routing/index.js';
+import {
+  databaseReadinessCheck,
+  detailedReadyRoute,
+  healthRoutes,
+  type CheckResult,
+  type DetailedBody,
+  type HealthChecks,
+  type ReadinessCheck,
+} from './index.js';
 
 /** A readiness check that resolves immediately, and counts how often it ran. */
 const instantCheck = (
@@ -170,7 +100,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // change; the module is a controller and an aggregator."* That claim is the reason #581 is
   // small, so it is worth an assertion rather than a citation.
   //
-  // It also pins the exact bytes the `it.fails` tests below compare against. Recorded
+  // It also pins the exact bytes the health tests below compare against. Recorded
   // 2026-09-04 by calling `json` under `node --import scripts/ts-specifier-hook.mjs`:
   //   json({ status: 'error' }, { status: 503 }) serializes to {"status":"error"}.
   //   json({ status: 'ok' }) serializes to {"status":"ok"}.
@@ -193,10 +123,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // spec asks, "so a field added later fails the test instead of passing it". `toEqual` on a
   // parsed body would accept `{"status":"error","checks":[...]}` and that is the leak §3's
   // quoted warning is about.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('reports ready only when every readiness check passes', async () => {
+  it('reports ready only when every readiness check passes', async () => {
     const allPass = healthRoutes({
       readiness: [instantCheck('db', { ok: true }), instantCheck('cache', { ok: true })],
     });
@@ -221,10 +148,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   //
   // §1 is the reason this matters: a liveness probe that observes the database turns a
   // database blip into a restart storm across every replica at once.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('does not let a liveness check depend on an external service', () => {
+  it('does not let a liveness check depend on an external service', () => {
     let ran = 0;
     const probes = healthRoutes({
       liveness: [
@@ -258,13 +182,10 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // §4: a check that has not answered by its own deadline counts as failed, not as unknown,
   // and the other checks' real results stay intact. §6.3 additionally requires that
   // `durationMs` appears here and in no public body.
-  //
-  // Current actual: throws `Error: #580 tests freeze: detailedReadyRoute is unimplemented
-  // (health SPEC §3)`. Verified independently with `node` that `Promise.all` over one
-  // hanging and one resolved promise never settles, so an implementation without a per-check
-  // deadline hangs the endpoint rather than returning a partial result — which is why §4's
-  // bound is a requirement and not an optimisation.
-  it.fails('counts a timed-out check as failed and names it in the detailed form only', async () => {
+  // `Promise.all` over one hanging and one resolved promise never settles, so an
+  // implementation without a per-check deadline hangs the endpoint rather than returning a
+  // partial result — which is why §4's bound is a requirement and not an optimisation.
+  it('counts a timed-out check as failed and names it in the detailed form only', async () => {
     vi.useFakeTimers();
     const checks: HealthChecks = {
       readiness: [hangingCheck('db', 2000), instantCheck('cache', { ok: true })],
@@ -313,10 +234,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // §4 is why this is the shape that matters: serial execution makes the endpoint's worst
   // case grow with every check added, "which is how a probe that was fine with two
   // dependencies starts timing out at the orchestrator with six".
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('returns within the bounded time when every check hangs', async () => {
+  it('returns within the bounded time when every check hangs', async () => {
     vi.useFakeTimers();
     const slowest = hangingCheck('object-store', 2000);
     const fastest = hangingCheck('cache', 500);
@@ -355,10 +273,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // broken. §3 quotes the page's warning — `{"error":"connect ECONNREFUSED 10.0.1.14:5432"}`
   // hands an attacker your internal topology — so the assertion searches the whole public
   // body for every string a leak would carry.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('exposes no check detail to an unauthenticated caller', async () => {
+  it('exposes no check detail to an unauthenticated caller', async () => {
     const probes = healthRoutes({
       readiness: [
         instantCheck('primary-postgres', { ok: false, detail: 'connect ECONNREFUSED 10.0.1.14:5432' }),
@@ -377,14 +292,50 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     expect(response.headers['content-type']).toBe('application/json');
   });
 
+  it('requires the normal guard chain before returning the detailed form', async () => {
+    let authenticated = false;
+    let runs = 0;
+    const detailed = detailedReadyRoute({
+      readiness: [
+        {
+          name: 'primary-postgres',
+          timeoutMs: 1000,
+          run: () => {
+            runs += 1;
+            return Promise.resolve({ ok: false, detail: 'db-private' });
+          },
+        },
+      ],
+    });
+    const guard: Guard = { canActivate: () => authenticated };
+
+    @Controller('/health')
+    class HealthController {
+      @Get('/ready/detail')
+      readyDetail() {
+        return detailed();
+      }
+    }
+
+    const router = createRouter();
+    router.register(new HealthController(), { readyDetail: { guards: [guard] } });
+
+    const denied = await router.handle({ method: 'GET', path: '/health/ready/detail', headers: {} });
+    expect(denied.status).toBe(403);
+    expect(runs).toBe(0);
+
+    authenticated = true;
+    const response = await router.handle({ method: 'GET', path: '/health/ready/detail', headers: {} });
+    expect(runs).toBe(1);
+    expect(response).toMatchObject({ status: 503 });
+    expect(textOf(response)).toContain('"detail":"db-private"');
+  });
+
   // §6.6, both halves, and the asymmetry is the whole design (§5): caching a success delays
   // noticing a new failure by at most `cacheMs`, which the orchestrator's own
   // `periodSeconds x failureThreshold` already absorbs; caching a failure delays *recovery*
   // and nothing absorbs it.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('caches a successful readiness result for the specified window and does not cache a failure', async () => {
+  it('caches a successful readiness result for the specified window and does not cache a failure', async () => {
     vi.useFakeTimers();
 
     const passing = instantCheck('db', { ok: true }, { cacheMs: 5000 });
@@ -410,14 +361,10 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     expect(failing.runs()).toBe(2);
   });
 
-  // §6.7. §4 explains why this is a requirement rather than an optimisation: because the
-  // deadline abandons the promise instead of cancelling the query, an uncoalesced probe at a
-  // 1-second period is an unbounded fan-out of abandoned queries, each holding a connection.
-  // The probe becomes the outage it was testing for.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('coalesces ten concurrent ready() calls into exactly one run', async () => {
+  // §6.7. Concurrent callers share one run. After a deadline a later probe retries because
+  // failures are not cached; driver-level cancellation remains the only way to stop an
+  // abandoned operation that ignored the signal.
+  it('coalesces ten concurrent ready() calls into exactly one run', async () => {
     vi.useFakeTimers();
     const check = slowCheck('db', 100, 2000);
     const probes = healthRoutes({ readiness: [check] });
@@ -441,10 +388,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // interesting half is the *absent* key rather than the empty array, because an
   // implementation that reduces with `every` gets both right and one that reduces with
   // `some` gets both wrong.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('answers 200 from both probes with no checks registered', async () => {
+  it('answers 200 from both probes with no checks registered', async () => {
     const empty = healthRoutes({});
     expect(empty.live().status).toBe(200);
     expect(textOf(empty.live())).toBe('{"status":"ok"}');
@@ -460,10 +404,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // than the 500 an unhandled rejection would produce — and the thrown message must not
   // reach the public body. The message here is deliberately the shape of a real driver error,
   // because that is what actually gets thrown and what actually leaks.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('treats a check that throws as a failed check, not a failed endpoint', async () => {
+  it('treats a check that throws as a failed check, not a failed endpoint', async () => {
     const thrower: ReadinessCheck = {
       name: 'db',
       timeoutMs: 1000,
@@ -515,10 +456,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   // (`packages/repository/src/index.ts:51-54`), so the work keeps running. The assertion is
   // therefore about what the framework *does*, not about what stops: the signal aborts, and
   // the abandoned promise resolving later changes nothing.
-  //
-  // Current actual: throws `Error: #580 tests freeze: healthRoutes is unimplemented
-  // (health SPEC §2)`.
-  it.fails('aborts the signal at the deadline and ignores an answer that arrives afterwards', async () => {
+  it('aborts the signal at the deadline and ignores an answer that arrives afterwards', async () => {
     vi.useFakeTimers();
     let seen: AbortSignal | undefined;
     let settle: ((result: CheckResult) => void) | undefined;
@@ -534,19 +472,31 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     };
 
     const probes = healthRoutes({ readiness: [abandoned] });
-    const pending = probes.ready();
+    let responseSettled = false;
+    const pending = probes.ready().then(response => {
+      responseSettled = true;
+      return response;
+    });
     await vi.advanceTimersByTimeAsync(0);
     expect(seen).toBeDefined();
     expect(seen?.aborted).toBe(false);
 
-    await vi.advanceTimersByTimeAsync(1050);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(seen?.aborted).toBe(false);
+    expect(responseSettled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(seen?.aborted).toBe(true);
+    expect(responseSettled).toBe(false);
+
+    // A success arriving after the declared deadline but before the 50ms scheduling
+    // allowance expires is still a timeout, never a cacheable success.
+    settle?.({ ok: true });
+    await vi.advanceTimersByTimeAsync(0);
     const response = await pending;
     expect(response.status).toBe(503);
-    expect(seen?.aborted).toBe(true);
+    expect(responseSettled).toBe(true);
 
-    // The query the framework stopped waiting for is still out there. When it lands, it must
-    // not retroactively mark the probe healthy or resolve anything a second time.
-    settle?.({ ok: true });
+    // The late success did not retroactively mark the probe healthy or resolve it twice.
     await vi.advanceTimersByTimeAsync(1);
     expect(response.status).toBe(503);
 
@@ -555,5 +505,24 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     const second = probes.ready();
     await vi.advanceTimersByTimeAsync(1050);
     expect((await second).status).toBe(503);
+  });
+
+  it('ships a database readiness check that executes only SELECT 1', async () => {
+    const calls: unknown[] = [];
+    const check = databaseReadinessCheck(
+      {
+        execute: query => {
+          calls.push(query);
+          return Promise.resolve([]);
+        },
+      },
+      { name: 'primary-db', timeoutMs: 250, cacheMs: 2000 },
+    );
+
+    expect(check.name).toBe('primary-db');
+    expect(check.timeoutMs).toBe(250);
+    expect(check.cacheMs).toBe(2000);
+    expect(await check.run(new AbortController().signal)).toEqual({ ok: true });
+    expect(calls).toEqual([{ text: 'SELECT 1', parameters: [] }]);
   });
 });

@@ -2,7 +2,7 @@
 
 > Liveness and readiness kept apart by the type system rather than by a comment,
 > bounded response times, and two levels of detail with the safe one as the default
-> (epic #578, sub-issue #579). Frozen before code.
+> (epic #578, frozen by #579/#580 and implemented by #581).
 
 Instrumentation — spans, metrics, propagation — is `../observability/SPEC.md`. The SQL
 comment format is `../../../query-compiler/src/comments/SPEC.md`. This file is the two
@@ -111,23 +111,17 @@ fine, it is the status a proxy will retry or fail over on, and it is the one tha
 carry `Retry-After`. `500` says the request caused something to break, which sends the
 next reader to the wrong logs.
 
-**This corrects two claims on the docs page.** `web-health-checks.md` says _"What you
-cannot produce is a 503 with a body describing which checks failed"_ and the "What it
-would take" section names a status the handler can choose as a blocker. Both were true
-once. `json(value, { status: 503 })` has existed since `pipeline/index.ts:129`, so
-nothing about the response shape above needs a framework change; the module is a
-controller and an aggregator.
+**This corrected two historical claims on the docs page.** It once said that a handler
+could not produce a 503 body and therefore had to throw. `json(value, { status: 503 })`
+already existed, so nothing about the response shape above needed a framework change;
+the module is a controller and an aggregator.
 
 **The detailed form is a second route, not a query parameter.** `?verbose=1` makes one
-route sometimes safe and sometimes not, which puts the authorisation decision inside the
-handler where a route table cannot show it. Two routes means the guard is declared where
-guards are declared — the `guards` field of `RouteOptions` frozen in
-`../openapi/SPEC.md` §S3 — and `strictSecurity` then refuses to generate a document in
-which `/health/ready/detail` has neither a guard nor `@Public()`. Registering the
-detailed route is opt-in: `healthRoutes` returns the public pair, and the application
-mounts the detailed one itself if it wants it, because a detailed health endpoint that
-appears because a module was imported is the kind of thing that ends up on a public
-listener.
+route sometimes safe and sometimes not. `detailedReadyRoute(checks)` therefore builds
+only the opt-in detailed handler. The application registers that handler with the same
+`RouteOptions.guards` path as another protected handler; the health module has no bespoke
+authentication path and no ambient registration. A detailed endpoint that appears merely
+because a module was imported is the kind of thing that ends up on a public listener.
 
 `durationMs` appears in the detailed body and not the public one. It is a timing oracle:
 a `SELECT 1` that takes 400ms says the pool is exhausted, which is a load signal an
@@ -159,14 +153,16 @@ consequence that follows. A 2-second timeout against a wedged database with a 5-
 probe period consumes one connection every 5 seconds and never returns any, so a readiness
 probe can exhaust the pool it is testing — the probe becomes the outage.
 
-Two things in this spec bound that, and one of them is the reason §5 exists at all:
+Three things bound the effect honestly:
 
 1. The probe query must be trivial. `SELECT 1` is the documented one; a probe that grew
    into a smoke test is a different bug, already described on the page.
-2. **In-flight coalescing** (§5) means at most one run of a given check is outstanding at
-   any moment, no matter how often the endpoint is called. Without it, an abandoned query
-   plus a 1-second probe period is an unbounded fan-out of abandoned queries. This is why
-   coalescing is specified as a requirement rather than as an optimisation.
+2. **In-flight coalescing** (§5) means callers arriving while the aggregator is waiting
+   share one run rather than starting one each.
+3. The application must choose a probe period and driver/server timeout that bound
+   retries after a failed run. Once the aggregate deadline expires, a later probe retries
+   because failures are deliberately not cached; an operation that ignored the aborted
+   signal may still be running.
 
 The real fix is not in this epic. `Driver.execute` would need an optional
 `{ signal?: AbortSignal }` so a cancellation reaches the wire, which is
@@ -191,17 +187,18 @@ the whole design:
 
 So the bounded cost lands on the side that has slack, and the unbounded cost is refused.
 
-Concurrent calls to `ready()` while a check is running **share that run** rather than
-starting a second one. Under a cache miss with three replicas' probes arriving together
-this is the difference between one query and three, and under §4's abandoned-query
-behaviour it is the difference between a bounded and an unbounded number of occupied
-connections.
+Concurrent calls to `ready()` while the aggregator is waiting **share that run** rather
+than starting a second one. Once its deadline expires, a later probe retries because
+failures are not cached. If the dependency ignored the aborted signal, its abandoned
+operation may still be running; the module cannot truthfully promise otherwise until the
+driver accepts cancellation. Coalescing bounds a burst of callers, while the probe period,
+the cheap query and a driver-level timeout bound repeated abandoned work.
 
 Liveness is never cached. There is nothing to cache: `run(): boolean` is synchronous, so
 the cache would save a function call and add a staleness window to the one probe whose
 answer authorises a restart.
 
-## 6. What #580 has to assert
+## 6. Acceptance evidence
 
 1. Compile-time, in a `*.type-test.ts`: a `LivenessCheck` whose `run` returns
    `Promise<boolean>` is rejected, and a `ReadinessCheck` without `timeoutMs` is rejected.
@@ -223,6 +220,19 @@ answer authorises a restart.
    failure; a process with no dependencies is ready.
 9. A check that throws is a failed check, not a failed endpoint: `503` with that check's
    `ok: false`, and the thrown message must not reach the public body.
+10. The detailed handler is registered with `RouteOptions.guards`; a rejecting guard
+    returns `403` before any detailed check runs, while an accepting guard permits the detail.
+
+The implementation test also executes the shipped database example and asserts the exact
+compiled query record: `{ text: 'SELECT 1', parameters: [] }`.
+
+## 7. Database readiness example
+
+`databaseReadinessCheck(driver, { timeoutMs, cacheMs?, name? })` is the worked example.
+It uses only the public `Driver.execute` seam and exactly `SELECT 1`, with no table scan,
+schema dependency or `Driver.ping()` addition. A database is readiness, never liveness:
+losing it can make this instance unable to serve traffic, but it does not mean the process
+is wedged and should be restarted.
 
 ## Non-goals (rejected)
 

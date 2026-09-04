@@ -41,6 +41,7 @@
     "./app": "./src/app/index.ts",
     "./dto-pipes": "./src/dto-pipes/index.ts",
     "./openapi": "./src/openapi/index.ts",
+    "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts"

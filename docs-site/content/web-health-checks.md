@@ -1,36 +1,57 @@
-> **ToDo / feature gap.** There is no health check module — no `TerminusModule`,
-> no `@HealthCheck`, no built-in indicators. There is also no `Driver.ping()`.
->
-> The liveness/readiness split, the two response shapes, the timeout and caching
-> rules are frozen in `packages/web/src/health/SPEC.md`. The controller below is
-> close to what ships; the freeze makes the split enforceable rather than
-> conventional, and corrects two claims on this page.
-
-Writing one is a controller and a query, and doing it yourself avoids the two mistakes health-check libraries encourage.
+`@zmdb/web/health` provides app-owned liveness and readiness aggregation. Checks
+are passed explicitly; importing the module registers nothing and creates no global
+registry.
 
 ## A liveness and a readiness probe
 
 They answer different questions, and conflating them causes outages.
 
 ```ts
+import type { Driver } from '@zmdb/repository';
+import { Controller, Get, Public, createRouter, type Guard } from '@zmdb/web';
+import { databaseReadinessCheck, detailedReadyRoute, healthRoutes, type HealthChecks } from '@zmdb/web/health';
+
+declare const driver: Driver;
+declare const authenticated: Guard;
+
+const checks: HealthChecks = {
+  liveness: [{ name: 'init-finished', run: () => true }],
+  readiness: [databaseReadinessCheck(driver, { name: 'database', timeoutMs: 2_000, cacheMs: 1_000 })],
+};
+const health = healthRoutes(checks);
+const detailedReady = detailedReadyRoute(checks);
+
 @Controller('/health')
 export class HealthController {
-  @Inject(DRIVER) private readonly driver!: Driver;
-
+  @Public()
   @Get('/live')
   live() {
-    return { status: 'ok' };
+    return health.live();
   }
 
+  @Public()
   @Get('/ready')
-  async ready() {
-    await this.driver.execute({ text: 'SELECT 1', parameters: [] });
-    return { status: 'ok' };
+  ready() {
+    return health.ready();
+  }
+
+  @Get('/ready/detail')
+  readyDetail() {
+    return detailedReady();
   }
 }
+
+const router = createRouter();
+router.register(new HealthController(), {
+  readyDetail: { guards: [authenticated] },
+});
 ```
 
-The public body is `{"status":"ok"}` and nothing else. An earlier version of this example also returned how long the `SELECT 1` took, which is the mistake the warning below names and the frozen spec removes: a `SELECT 1` that takes 400ms tells an unauthenticated caller the pool is exhausted. Timings live in the separate guarded route, not this one.
+The public body is `{"status":"ok"}` or `{"status":"error"}` and nothing else.
+The detailed handler is separate and opt-in, and it uses the same route guard
+mechanism as another protected handler. `@Public()` makes the two public probes
+explicit to strict OpenAPI generation. A `SELECT 1` that takes 400ms tells an
+unauthenticated caller the pool is exhausted; that timing never appears publicly.
 
 **Liveness** asks "is this process wedged?" It must not touch a dependency. If liveness checks the database and the database has a hiccup, the orchestrator kills every replica at once — turning a brief database blip into a full outage, and the restart storm makes recovery slower.
 
@@ -64,8 +85,8 @@ async ready() {
 
 An earlier version of this page said a `503` was not producible and that a failing
 check therefore had to be a throw, which lands a `500`. That has not been true since
-handlers gained response factories — `json(value, { status })` is
-`packages/web/src/pipeline/index.ts:129`.
+handlers gained response factories — `json(value, { status })` is part of
+`@zmdb/web/pipeline`.
 
 Prefer `503` over `500`. Every orchestrator treats any non-2xx as failure, so the
 choice is for the human and the proxy reading it: `503` says the service is
@@ -78,26 +99,18 @@ which sends the next reader to the wrong logs.
 > `{"error":"connect ECONNREFUSED 10.0.1.14:5432"}` hands an attacker your internal
 > topology, hostnames and versions. Log the detail; return `{"status":"error"}`.
 
-## Add a timeout
+## Timeouts are part of each readiness check
 
-An unreachable database often does not refuse the connection — it hangs. A probe that never returns is worse than one that fails, because the orchestrator sees a timeout with no information and your probe threads accumulate.
-
-```ts
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms).unref()),
-  ]);
-}
-```
-
-```ts
-await withTimeout(this.driver.execute({ text: 'SELECT 1', parameters: [] }), 2_000);
-```
+An unreachable database often does not refuse the connection — it hangs. Every
+`ReadinessCheck` therefore requires `timeoutMs`; checks run concurrently and the
+aggregate returns no later than the largest timeout plus a 50ms scheduling allowance.
+At the declared timeout the check's `AbortSignal` is aborted; if the check still has
+not settled by the end of the allowance, its result becomes
+`{ ok: false, detail: 'timeout' }`.
 
 Note that [zmdb has no query cancellation](./query-cancellation.html), so the losing query keeps running on the server. The probe returns; the connection is occupied until the query finishes. `Driver.execute` takes no `AbortSignal` — the timeout stops the _waiting_, not the _work_.
 
-Which has a consequence worth stating, because it is how a health check becomes the incident. A 2-second timeout on a 5-second probe period against a database that hangs consumes one connection every 5 seconds and returns none of them, so the readiness probe exhausts the pool it is testing. Two things bound it: keep the probe query trivial (`SELECT 1`), and **coalesce** — never have two runs of the same check outstanding at once, so an abandoned query cannot fan out. The frozen module does the second for you; a hand-rolled probe has to remember.
+Which has a consequence worth stating, because it is how a health check becomes the incident. A 2-second timeout on a 5-second probe period against a database that hangs consumes one connection every 5 seconds and returns none of them, so the readiness probe can exhaust the pool it is testing. Concurrent callers share one run while the aggregator is waiting, but after a deadline the next probe retries because failures are never cached. If the driver ignored the aborted signal, the earlier query may still be running. Keep the query trivial (`SELECT 1`), set a driver/server timeout as well, and do not probe faster than the dependency can recover.
 
 ## Keep the check cheap
 
@@ -132,9 +145,7 @@ process.on('SIGTERM', async () => {
 
 The sleep matters. Closing the server immediately drops in-flight requests that the load balancer has already routed. See [Standalone Applications](./web-standalone.html).
 
-## What it would take
-
-Nothing framework-level is missing any more. The status a handler can choose used to be the blocker; it is not, so what remains is a check interface and an aggregator, and the frozen design is worth reading for one decision it makes differently from every library in this space.
+## The structural split
 
 **The liveness/readiness split is enforced by the type, not by a field.** The obvious shape is one interface with `kind: 'liveness' | 'readiness'`, which is a convention wearing a field name — nothing stops a liveness check awaiting a query, and the reviewer who would catch it is the reviewer a comment would have relied on. Instead a liveness check is **synchronous**:
 
@@ -159,7 +170,9 @@ Three other decisions:
 - **`timeoutMs` is required, and checks run concurrently** so the endpoint's bound is `max(timeoutMs)` rather than the sum — otherwise the worst case grows with every dependency added. A timed-out check counts as failed, not unknown; the orchestrator has two states.
 - **A success is cached, a failure is not.** Caching a success delays noticing a new failure by the cache window, which `periodSeconds × failureThreshold` already absorbs. Caching a failure delays _recovery_, with nothing absorbing it, during the incident where capacity matters most.
 
-A `Driver.ping()` is still not required; `SELECT 1` compiles on every dialect. What would genuinely help is an optional `signal` on `Driver.execute`, so the timeout above cancels rather than abandons — see [query cancellation](./query-cancellation.html).
+A `Driver.ping()` is not required; `SELECT 1` works on every dialect. What would
+genuinely help is an optional `signal` on `Driver.execute`, so the timeout above
+cancels rather than abandons — see [query cancellation](./query-cancellation.html).
 
 ---
 

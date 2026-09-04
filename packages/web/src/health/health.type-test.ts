@@ -2,55 +2,18 @@
 // No runtime code: a *compilation* gate run by `node scripts/typecheck.mjs`, and therefore
 // by CI. `packages/web/tsconfig.json` includes `src/**/*.ts`, so this file is compiled.
 //
-// SPEC.md §6.1 asks for exactly two assertions here, and says why they are the two:
-// they are the mechanism of §2, so they are the two that would notice the mechanism
-// being removed. A `kind: 'liveness' | 'readiness'` discriminant — the #579 sketch's
-// shape — would pass every runtime test in ./health.spec.ts and fail nothing, because
-// a convention wearing a field name has no compile-time consequence. These lines are
-// the consequence.
-//
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#581)
-// ---------------------------------------------------------------------------
-// `./index.ts` does not exist yet, so importing from it would be TS2307 and this file
-// would not compile at all — which is the one thing a tests freeze may not do. The
-// declarations below are transcribed verbatim from ./SPEC.md §2. When #581 lands,
-// delete them and write
-//
-//   import type { CheckResult, LivenessCheck, ReadinessCheck } from './index.js';
-//
-// and nothing else in this file changes. The same block appears in ./health.spec.ts;
-// both copies are deleted in the same commit.
+// The negative assertions are the mechanism of §2: a `kind:
+// 'liveness' | 'readiness'` discriminant would pass every runtime test because a
+// convention wearing a field name has no compile-time consequence.
+import type { Driver } from '@zmdb/repository';
 import type { Equal, Expect } from '@zmdb/schema-core';
 
 import type { WebResponse } from '../pipeline/index.js';
+import type { CheckResult, LivenessCheck, ReadinessCheck, databaseReadinessCheck, healthRoutes } from './index.js';
 
-/** The process is not wedged. Synchronous, and that is the whole mechanism. */
-interface LivenessCheck {
-  readonly name: string;
-  run(): boolean;
-}
-
-interface CheckResult {
-  readonly ok: boolean;
-  readonly detail?: string;
-}
-
-/** The process can serve traffic. Asked with a deadline, because dependencies hang. */
-interface ReadinessCheck {
-  readonly name: string;
-  readonly timeoutMs: number;
-  readonly cacheMs?: number;
-  run(signal: AbortSignal): Promise<CheckResult>;
-}
-
-type HealthRoutes = (checks: {
-  readonly liveness?: readonly LivenessCheck[];
-  readonly readiness?: readonly ReadinessCheck[];
-}) => { readonly live: () => WebResponse; readonly ready: () => Promise<WebResponse> };
-// --------------------------- end frozen surface ---------------------------
-
+type HealthRoutes = typeof healthRoutes;
 declare const readinessRun: (signal: AbortSignal) => Promise<CheckResult>;
+declare const driver: Driver;
 
 // --- §6.1 assertion 1: a liveness check cannot be asynchronous -------------
 //
@@ -70,6 +33,12 @@ export const liveOk: LivenessCheck = { name: 'init-finished', run: () => true };
 export const liveAsync: LivenessCheck = { name: 'db', run: async () => true };
 // @ts-expect-error — an explicit `Promise<boolean>` return type is the same rejection, spelled out.
 export const liveAsyncTyped: LivenessCheck = { name: 'db', run: (): Promise<boolean> => Promise.resolve(true) };
+const databaseLivenessRun = async (): Promise<boolean> => (
+  await driver.execute({ text: 'SELECT 1', parameters: [] }),
+  true
+);
+// @ts-expect-error — a database round trip is asynchronous and therefore cannot be registered as liveness.
+export const liveDatabase: LivenessCheck = { name: 'database', run: databaseLivenessRun };
 // @ts-expect-error — there is no `timeoutMs` on a `LivenessCheck`: a synchronous predicate has no deadline (§2).
 export const liveTimeout: LivenessCheck = { name: 'init', timeoutMs: 100, run: () => true };
 // @ts-expect-error — there is no `detail` either: §3 fixes the liveness body regardless of what a check would say.
@@ -107,3 +76,4 @@ export type _LiveReturn = Expect<Equal<ReturnType<LivenessCheck['run']>, boolean
 // downstream of it has a promise to wait on either.
 export type _LiveRouteReturn = Expect<Equal<ReturnType<ReturnType<HealthRoutes>['live']>, WebResponse>>;
 export type _ReadyRouteReturn = Expect<Equal<ReturnType<ReturnType<HealthRoutes>['ready']>, Promise<WebResponse>>>;
+export type _DatabaseExampleIsReadiness = Expect<Equal<ReturnType<typeof databaseReadinessCheck>, ReadinessCheck>>;
