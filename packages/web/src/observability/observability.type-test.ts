@@ -14,69 +14,28 @@
 //   - `Meter.histogram`'s `unit: 's'` literal — §7's seconds-not-milliseconds rule is a
 //     runtime assertion for the *value* and a compile-time one for the *unit*.
 //
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#582)
-// ---------------------------------------------------------------------------
-// `./index.ts` does not exist yet, so importing from it would be TS2307 and this file
-// would not compile at all — which is the one thing a tests freeze may not do. The
-// declarations below are transcribed verbatim from ./SPEC.md §2 and §5. When #582 lands,
-// delete them and write
-//
-//   import type {
-//     Attributes, CommentKey, Meter, Observability, QueryTelemetry, Span, SpanContext, Tracer,
-//   } from './index.js';
-//
-// and nothing else in this file changes. The same block appears in ./observability.spec.ts;
-// both copies are deleted in the same commit.
 import type { Equal, Expect } from '@zmdb/schema-core';
 
 import type { Ctx } from '../context/index.js';
-
-type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
-
-interface Span {
-  setAttribute(key: string, value: string | number | boolean): void;
-  recordException(error: Error): void;
-  setStatus(status: { readonly error: boolean }): void;
-  end(): void;
-  spanContext(): SpanContext;
-}
-
-interface SpanContext {
-  readonly traceId: string;
-  readonly spanId: string;
-  readonly traceFlags: number;
-}
-
-interface Tracer {
-  startSpan(name: string, options?: { readonly parent?: SpanContext; readonly link?: SpanContext }): Span;
-}
-
-interface Meter {
-  counter(name: string): { add(value: number, attributes: Attributes): void };
-  histogram(name: string, unit: 's'): { record(value: number, attributes: Attributes): void };
-}
-
-type Attributes = Readonly<Record<string, string | number | boolean>>;
-
-interface Observability {
-  readonly tracer?: Tracer;
-  readonly meter?: Meter;
-  readonly comments?: { readonly keys: readonly [CommentKey, ...CommentKey[]] };
-}
-
-interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite';
-  readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly collection: string;
-}
+import {
+  SpanKind,
+  type Attributes,
+  type CommentKey,
+  type Meter,
+  type Observability,
+  type QueryTelemetry,
+  type Span,
+  type SpanContext,
+  type SpanOptions,
+  type TraceCarrier,
+  type Tracer,
+} from './index.js';
 
 // §3: `Ctx` gains exactly one field. Written here as an intersection rather than a
 // re-declaration so that the assertions below are about the *real* `Ctx` — when #582 adds
 // `readonly span?: Span` to `../context/index.ts`, `TracedCtx` becomes `Ctx` and every
 // assertion still holds. Widening it to `Span | undefined` breaks `spanIsDefinite` below.
-type TracedCtx = Ctx & { readonly span?: Span };
-// --------------------------- end frozen surface ---------------------------
+type TracedCtx = Ctx;
 
 declare const tracer: Tracer;
 declare const meter: Meter;
@@ -152,14 +111,20 @@ export type _TracedCtxKeys = Expect<Equal<keyof TracedCtx, keyof Ctx | 'span'>>;
 // narrow: an added method is an added thing every adapter has to implement, and it would
 // arrive silently.
 export type _SpanMethods = Expect<
-  Equal<keyof Span, 'setAttribute' | 'recordException' | 'setStatus' | 'end' | 'spanContext'>
+  Equal<keyof Span, 'updateName' | 'setAttribute' | 'recordException' | 'setStatus' | 'end' | 'spanContext'>
 >;
-export type _SpanContextKeys = Expect<Equal<keyof SpanContext, 'traceId' | 'spanId' | 'traceFlags'>>;
+export type _SpanContextKeys = Expect<
+  Equal<keyof SpanContext, 'traceId' | 'spanId' | 'traceFlags' | 'isRemote' | 'traceState'>
+>;
+export type _SpanKindIsClosed = Expect<Equal<SpanKind, 'internal' | 'server' | 'client' | 'producer' | 'consumer'>>;
+export type _SpanOptionsKeys = Expect<Equal<keyof SpanOptions, 'parent' | 'link' | 'kind'>>;
+export type _TraceCarrierKeys = Expect<Equal<keyof TraceCarrier, 'traceparent' | 'tracestate'>>;
 export type _TracerMethods = Expect<Equal<keyof Tracer, 'startSpan'>>;
 export type _MeterMethods = Expect<Equal<keyof Meter, 'counter' | 'histogram'>>;
 export type _ObservabilityKeys = Expect<Equal<keyof Observability, 'tracer' | 'meter' | 'comments'>>;
 
 declare const span: Span;
+export const renamed: void = span.updateName('GET /posts/:id');
 export const statusOk: void = span.setStatus({ error: false });
 // @ts-expect-error — `setStatus` takes `{ error: boolean }`, not OpenTelemetry's `{ code: SpanStatusCode }` (§2: this is a port, not a re-export).
 export const statusCode: void = span.setStatus({ code: 2 });
@@ -169,10 +134,33 @@ export const statusCode: void = span.setStatus({ code: 2 });
 export const childSpan: Span = tracer.startSpan('zmdb.request', { parent: parentContext });
 export const linkedSpan: Span = tracer.startSpan('zmdb.request', { link: parentContext });
 export const rootSpan: Span = tracer.startSpan('zmdb.request');
+export const internalSpan: Span = tracer.startSpan('zmdb.internal', { kind: SpanKind.INTERNAL });
+export const serverSpan: Span = tracer.startSpan('zmdb.server', { kind: SpanKind.SERVER });
+export const clientSpan: Span = tracer.startSpan('zmdb.client', { kind: SpanKind.CLIENT });
+export const producerSpan: Span = tracer.startSpan('zmdb.producer', { kind: SpanKind.PRODUCER });
+export const consumerSpan: Span = tracer.startSpan('zmdb.consumer', { kind: SpanKind.CONSUMER });
 // @ts-expect-error — a `Span` is not a `SpanContext`: the port carries context, not the span object (§2, §8).
 export const parentIsSpan: Span = tracer.startSpan('zmdb.request', { parent: span });
 // @ts-expect-error — there is no `attributes` option; attributes are set through `setAttribute` (§2).
 export const spanWithAttrs: Span = tracer.startSpan('zmdb.request', { attributes: { 'url.path': '/posts/1' } });
+// @ts-expect-error — the span role is a closed union, not an arbitrary exporter string.
+export const invalidKind: Span = tracer.startSpan('zmdb.request', { kind: 'database' });
+
+export const remoteContext: SpanContext = {
+  traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+  spanId: '00f067aa0ba902b7',
+  traceFlags: 1,
+  isRemote: true,
+  traceState: 'vendor=value',
+};
+export const traceCarrier: TraceCarrier = {
+  traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+  tracestate: 'vendor=value',
+};
+// @ts-expect-error — the port preserves serialized tracestate rather than exposing an SDK TraceState object.
+export const objectTraceState: SpanContext = { ...remoteContext, traceState: { serialize: () => 'vendor=value' } };
+// @ts-expect-error — trace headers are strings at every transport boundary.
+export const numericTraceparent: TraceCarrier = { traceparent: 1 };
 
 // --- §7: the unit is a literal, so a millisecond histogram cannot be constructed ---
 //

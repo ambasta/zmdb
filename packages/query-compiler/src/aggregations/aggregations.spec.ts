@@ -99,3 +99,20 @@ describe('aggregate compilation (postgres golden)', () => {
     expect(q.text).toContain('sum(quantity * unit_price)::real AS "total"');
   });
 });
+
+describe('aggregate compile-time telemetry', () => {
+  it('keeps telemetry absent from the default compiled query', () => {
+    const q = aggregateSelectFrom('orders').count('id', 'count').compile();
+    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(q.telemetry).toBeUndefined();
+  });
+
+  it('attaches the compile-known SELECT and primary table when opted in', () => {
+    const q = aggregateSelectFrom('orders', 'postgres', { telemetry: true }).count('id', 'count').compile();
+    expect(q.telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'orders',
+    });
+  });
+});

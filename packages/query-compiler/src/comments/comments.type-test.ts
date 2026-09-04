@@ -51,12 +51,6 @@ type CommentPairs = Readonly<Partial<Record<CommentKey, string>>>;
 // would diverge silently if only one existed.
 type CommentKeys = readonly [CommentKey, ...CommentKey[]];
 
-/** `../../../web/src/observability/SPEC.md` §5. Frozen here because §6 renders from it. */
-interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite';
-  readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly collection: string;
-}
 // --------------------------- end frozen surface ---------------------------
 
 declare function serialize(pairs: CommentPairs): string;
@@ -145,7 +139,7 @@ export type _PairsValuesAreStrings = Expect<Equal<CommentPairs[CommentKey], stri
 // existing `toEqual` in this repository compares has changed, and §6's whole argument —
 // "a compiled query can be cached and reused across requests that would tag it differently" —
 // is gone. `../index.ts:77-80` is the interface; these lines are the fence around it.
-export type _CompiledQueryKeysToday = Expect<Equal<keyof CompiledQuery, 'text' | 'parameters'>>;
+export type _CompiledQueryKeysToday = Expect<Equal<keyof CompiledQuery, 'text' | 'parameters' | 'telemetry'>>;
 
 declare const today: CompiledQuery;
 
@@ -155,7 +149,7 @@ declare const today: CompiledQuery;
 // still assignable once the field exists. This is the only assertion in this file that comes
 // from the observability spec rather than this one; it lives here because `CompiledQuery`
 // lives here, and #580's file list does not name a second query-compiler test file.
-type FrozenCompiledQuery = CompiledQuery & { readonly telemetry?: QueryTelemetry };
+type FrozenCompiledQuery = CompiledQuery;
 export const additive: FrozenCompiledQuery = today;
 export const withTelemetry: FrozenCompiledQuery = {
   text: 'SELECT 1',

@@ -3,6 +3,7 @@ import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 import type { createApp } from '../app/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
+import type { Observability, Span, TraceCarrier } from '../observability/index.js';
 import {
   EventPattern,
   MessagePattern,
@@ -35,7 +36,12 @@ type FrozenSettlement =
   | { readonly kind: 'retry'; readonly afterMs: number }
   | { readonly kind: 'dead'; readonly reason: string };
 
-interface FrozenRawMessage {
+interface FrozenTraceCarrier {
+  readonly traceparent?: string;
+  readonly tracestate?: string;
+}
+
+interface FrozenRawMessage extends FrozenTraceCarrier {
   readonly pattern: string;
   readonly payload: unknown;
   readonly headers: Readonly<Record<string, string>>;
@@ -60,7 +66,7 @@ interface FrozenTransportCapabilities {
   readonly requestResponse: boolean;
 }
 
-interface FrozenTransportRequest {
+interface FrozenTransportRequest extends FrozenTraceCarrier {
   readonly pattern: string;
   readonly payload: unknown;
   readonly correlationId: string;
@@ -73,7 +79,7 @@ interface FrozenTransportStrategy {
   readonly capabilities: TransportCapabilities;
   listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
   send(request: TransportRequest): Promise<MessageReply>;
-  emit(pattern: string, payload: unknown): Promise<void>;
+  emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void>;
   close(graceMs: number): Promise<void>;
 }
 
@@ -85,6 +91,7 @@ interface FrozenMessageContext<T> {
   readonly correlationId: string;
   readonly deliveryAttempt: number;
   readonly transport: string;
+  readonly span?: Span;
 }
 
 type FrozenWithHeaders = { readonly headers: Readonly<Record<string, string>> };
@@ -102,6 +109,7 @@ interface FrozenDispatcherOptions {
   readonly onUndeliverable?: (message: RawMessage, settlement: Settlement) => void;
   readonly maxAttempts?: number;
   readonly retryAfterMs?: (attempt: number) => number;
+  readonly observability?: Observability;
 }
 
 interface FrozenMessageDispatcher {
@@ -126,6 +134,7 @@ function sku(raw: unknown): Sku {
 }
 
 export type SettlementShape = Expect<Equal<Settlement, FrozenSettlement>>;
+export type TraceCarrierShape = Expect<Equal<TraceCarrier, FrozenTraceCarrier>>;
 export type RawMessageShape = Expect<Equal<RawMessage, FrozenRawMessage>>;
 export type MessageReplyShape = Expect<Equal<MessageReply, FrozenMessageReply>>;
 export type DispatchOutcomeShape = Expect<Equal<DispatchOutcome, FrozenDispatchOutcome>>;
@@ -206,7 +215,7 @@ type FrozenClientPatterns = {
 };
 
 type FrozenCallsClient = {
-  readonly 'sku.get': (payload: Sku) => Promise<Placed>;
+  readonly 'sku.get': (payload: Sku, span?: Span) => Promise<Placed>;
 };
 
 interface FrozenCallsOptions {
@@ -231,7 +240,9 @@ type FrozenCreateMessageClient = <P extends ClientPatterns>(
 export type CreateClientSignature = Expect<Equal<typeof createMessageClient, FrozenCreateMessageClient>>;
 
 declare const client: MessageClient<Calls>;
+declare const span: Span;
 client['sku.get']({ sku: 'A' });
+client['sku.get']({ sku: 'A' }, span);
 // @ts-expect-error - request payloads are checked by pattern.
 client['sku.get']({ id: '1' });
 
@@ -247,7 +258,7 @@ type Events = {
 };
 
 type FrozenEvents = { readonly [pattern: string]: unknown };
-type FrozenEventPublisher = { readonly 'sku.seen': (payload: Sku) => Promise<void> };
+type FrozenEventPublisher = { readonly 'sku.seen': (payload: Sku, span?: Span) => Promise<void> };
 
 export type EventPatternsShape = Expect<Equal<EventPatterns, FrozenEvents>>;
 export type EventPublisherShape = Expect<Equal<EventPublisher<Events>, FrozenEventPublisher>>;
@@ -258,6 +269,7 @@ export type CreateEventPublisherSignature = Expect<Equal<typeof createEventPubli
 
 declare const publisher: EventPublisher<Events>;
 publisher['sku.seen']({ sku: 'A' });
+publisher['sku.seen']({ sku: 'A' }, span);
 // @ts-expect-error - event payloads are checked by pattern.
 publisher['sku.seen']({ id: '1' });
 
@@ -265,6 +277,7 @@ interface FrozenAppOptions {
   readonly transports?: readonly TransportStrategy[];
   readonly dispatcher?: DispatcherOptions;
   readonly graceMs?: number;
+  readonly observability?: Observability;
 }
 
 export type AppOptionsShape = Expect<Equal<AppOptions, FrozenAppOptions>>;

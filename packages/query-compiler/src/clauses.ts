@@ -10,8 +10,8 @@
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import type { CompiledQuery, Dialect } from './index.js';
-import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders } from './quoting.js';
+import type { CompiledQuery, Dialect, QueryTelemetry } from './index.js';
+import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unaliasedTable } from './quoting.js';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
@@ -181,8 +181,24 @@ export function tailClause(dialect: Dialect, tail: Tail): string {
 }
 
 /** Every `compile()` in this package returns this shape, frozen at both levels. */
-export function frozenQuery(text: string, params: readonly unknown[]): CompiledQuery {
-  return Object.freeze({ text, parameters: Object.freeze([...params]) });
+export function frozenQuery(text: string, params: readonly unknown[], telemetry?: QueryTelemetry): CompiledQuery {
+  const parameters = Object.freeze([...params]);
+  return telemetry === undefined ? Object.freeze({ text, parameters }) : Object.freeze({ text, parameters, telemetry });
+}
+
+/** Compile-known database attributes, absent when telemetry was not requested. */
+export function queryTelemetry(
+  dialect: Dialect,
+  operation: QueryTelemetry['operation'],
+  collection: string,
+  enabled: boolean,
+): QueryTelemetry | undefined {
+  if (!enabled) return undefined;
+  return Object.freeze({
+    system: dialect === 'postgres' ? 'postgresql' : dialect,
+    operation,
+    collection: unaliasedTable(collection),
+  });
 }
 
 // --- builder wiring --------------------------------------------------------

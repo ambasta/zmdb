@@ -119,6 +119,29 @@ export {
   type AdapterOptions,
 } from './pipeline/index.js';
 
+// Narrow telemetry ports, propagation and driver instrumentation. See ./observability.
+export {
+  SpanKind,
+  createTracedRouter,
+  tracedDriver,
+  consumerSpan,
+  fromTraceContext,
+  fromTraceparent,
+  toTraceHeaders,
+  toTraceparent,
+  type Attributes,
+  type CommentKey,
+  type ExecutingDriver,
+  type Meter,
+  type Observability,
+  type QueryTelemetry,
+  type Span,
+  type SpanContext,
+  type SpanOptions,
+  type TraceCarrier,
+  type Tracer,
+} from './observability/index.js';
+
 // zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.
 export { repositoryToken, validateWith } from './data/index.js';
 
@@ -260,9 +283,14 @@ export { createTestApp, type TestApp, type TestAppOptions } from './testing/inde
 // Router benchmark & perf verification. See ./bench.
 export {
   benchmarkAppStartup,
+  benchmarkObservability,
   benchmarkRouter,
   countMetadataReads,
   type BenchmarkOptions,
   type BenchmarkResult,
   type MetadataReadCounter,
+  type ObservabilityBenchmarkMode,
+  type ObservabilityBenchmarkOptions,
+  type ObservabilityBenchmarkResult,
+  type ObservabilityBenchmarkWorkload,
 } from './bench/index.js';

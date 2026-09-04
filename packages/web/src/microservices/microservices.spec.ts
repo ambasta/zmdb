@@ -7,6 +7,7 @@ import { countMetadataReads } from '../bench/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
 import { lazy, Module } from '../modules/index.js';
+import { toTraceHeaders, type Span, type SpanContext, type TraceCarrier, type Tracer } from '../observability/index.js';
 import { Controller, Get } from '../routing/index.js';
 import {
   createEventPublisher,
@@ -36,7 +37,12 @@ const NO_REDELIVERY: TransportCapabilities = { redelivery: false, deadLetter: fa
 interface FakeTransport extends TransportStrategy {
   dispatch: ((message: RawMessage) => Promise<DispatchOutcome>) | undefined;
   readonly sent: TransportRequest[];
-  readonly emitted: { readonly pattern: string; readonly payload: unknown }[];
+  readonly emitted: {
+    readonly pattern: string;
+    readonly payload: unknown;
+    readonly carrier?: TraceCarrier;
+  }[];
+  readonly emitArgumentCounts: number[];
 }
 
 interface FakeOptions {
@@ -49,13 +55,19 @@ interface FakeOptions {
 function fakeTransport(name: string, log: string[] = [], options: FakeOptions = {}): FakeTransport {
   const capabilities = options.capabilities ?? ALL_TRUE;
   const sent: TransportRequest[] = [];
-  const emitted: { readonly pattern: string; readonly payload: unknown }[] = [];
+  const emitted: {
+    readonly pattern: string;
+    readonly payload: unknown;
+    readonly carrier?: TraceCarrier;
+  }[] = [];
+  const emitArgumentCounts: number[] = [];
   const transport: FakeTransport = {
     name,
     capabilities,
     dispatch: undefined,
     sent,
     emitted,
+    emitArgumentCounts,
     listen(dispatch) {
       log.push(`listen:${name}`);
       if (options.listen === 'reject') {
@@ -71,8 +83,10 @@ function fakeTransport(name: string, log: string[] = [], options: FakeOptions = 
       }
       return Promise.resolve({ kind: 'result', correlationId: request.correlationId, payload: request.payload });
     },
-    emit(pattern, payload) {
-      emitted.push({ pattern, payload });
+    emit(...args: [pattern: string, payload: unknown, carrier?: TraceCarrier]) {
+      const [pattern, payload, carrier] = args;
+      emitArgumentCounts.push(args.length);
+      emitted.push({ pattern, payload, ...(carrier === undefined ? {} : { carrier }) });
       return Promise.resolve();
     },
     close(graceMs) {
@@ -88,6 +102,7 @@ interface DeliveryOptions {
   readonly correlationId?: string;
   readonly replyTo?: string;
   readonly deliveryAttempt?: number;
+  readonly carrier?: TraceCarrier;
   readonly parseError?: unknown;
 }
 
@@ -99,7 +114,73 @@ function delivery(pattern: string, payload: unknown = { id: 1 }, options: Delive
     correlationId: options.correlationId,
     replyTo: options.replyTo,
     deliveryAttempt: options.deliveryAttempt ?? 1,
+    ...options.carrier,
     ...(options.parseError === undefined ? {} : { parseError: options.parseError }),
+  };
+}
+
+const TRACE_STATE = 'vendor=state';
+const PARENT_CONTEXT = {
+  traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+  spanId: '00f067aa0ba902b7',
+  traceFlags: 1,
+  traceState: TRACE_STATE,
+} satisfies SpanContext;
+
+function fixedSpan(context: SpanContext = PARENT_CONTEXT): Span {
+  return {
+    updateName: () => undefined,
+    setAttribute: () => undefined,
+    recordException: () => undefined,
+    setStatus: () => undefined,
+    end: () => undefined,
+    spanContext: () => context,
+  };
+}
+
+function traceStateHeader(context: SpanContext | undefined): string | undefined {
+  return context?.traceState;
+}
+
+interface StartedSpan {
+  readonly name: string;
+  readonly parent?: SpanContext;
+  readonly link?: SpanContext;
+  ended: boolean;
+}
+
+function recordingTracer(): { readonly tracer: Tracer; readonly starts: StartedSpan[] } {
+  const starts: StartedSpan[] = [];
+  let nextId = 1;
+  return {
+    starts,
+    tracer: {
+      startSpan(name, options) {
+        nextId += 1;
+        const started: StartedSpan = {
+          name,
+          ...(options?.parent === undefined ? {} : { parent: options.parent }),
+          ...(options?.link === undefined ? {} : { link: options.link }),
+          ended: false,
+        };
+        starts.push(started);
+        const context: SpanContext = {
+          traceId: options?.parent?.traceId ?? nextId.toString(16).padStart(32, '0'),
+          spanId: nextId.toString(16).padStart(16, '0'),
+          traceFlags: 1,
+        };
+        return {
+          updateName: () => undefined,
+          setAttribute: () => undefined,
+          recordException: () => undefined,
+          setStatus: () => undefined,
+          end: () => {
+            started.ended = true;
+          },
+          spanContext: () => context,
+        };
+      },
+    },
   };
 }
 
@@ -743,6 +824,133 @@ describe('typed message clients (#559)', () => {
     expect(transport.sent[0]?.correlationId).not.toBe(transport.sent[1]?.correlationId);
   });
 
+  it('propagates request and event trace carriers through a loopback transport and ends consumer spans', async () => {
+    const recorded = recordingTracer();
+    const requestContexts: MessageContext<OrderRequest>[] = [];
+    const eventContexts: MessageContext<OrderRequest>[] = [];
+
+    class Consumer {
+      @MessagePattern('orders.get', orderRequest)
+      get(ctx: MessageContext<OrderRequest>): string {
+        requestContexts.push(ctx);
+        return `order:${String(ctx.payload.id)}`;
+      }
+
+      @EventPattern('orders.placed', orderRequest)
+      placed(ctx: MessageContext<OrderRequest>): void {
+        eventContexts.push(ctx);
+      }
+    }
+
+    const dispatcher = createMessageDispatcher([new Consumer()], {
+      ...sinks([]),
+      observability: { tracer: recorded.tracer },
+    });
+    const sent: TransportRequest[] = [];
+    const emitted: (TraceCarrier | undefined)[] = [];
+    const delivered: RawMessage[] = [];
+    let dispatch: ((message: RawMessage) => Promise<DispatchOutcome>) | undefined;
+    const transport: TransportStrategy = {
+      name: 'loopback',
+      capabilities: ALL_TRUE,
+      listen(handler) {
+        dispatch = handler;
+        return Promise.resolve();
+      },
+      async send(request) {
+        sent.push(request);
+        if (dispatch === undefined) {
+          throw new Error('loopback transport is not listening');
+        }
+        const message: RawMessage = {
+          pattern: request.pattern,
+          payload: request.payload,
+          headers: {},
+          correlationId: request.correlationId,
+          replyTo: `loopback:${request.correlationId}`,
+          deliveryAttempt: 1,
+          ...(request.traceparent === undefined ? {} : { traceparent: request.traceparent }),
+          ...(request.tracestate === undefined ? {} : { tracestate: request.tracestate }),
+        };
+        delivered.push(message);
+        const outcome = await dispatch(message);
+        if (outcome.reply === undefined) {
+          throw new Error('loopback request produced no reply');
+        }
+        return outcome.reply;
+      },
+      async emit(pattern, payload, carrier) {
+        emitted.push(carrier);
+        if (dispatch === undefined) {
+          throw new Error('loopback transport is not listening');
+        }
+        const message: RawMessage = {
+          pattern,
+          payload,
+          headers: {},
+          correlationId: undefined,
+          replyTo: undefined,
+          deliveryAttempt: 1,
+          ...carrier,
+        };
+        delivered.push(message);
+        await dispatch(message);
+      },
+      close() {
+        return Promise.resolve();
+      },
+    };
+    await transport.listen(message => dispatcher.dispatch(message, transport.name));
+
+    const span = fixedSpan();
+    const carrier = toTraceHeaders(span);
+    const client = createMessageClient<Calls>(transport, {
+      timeoutMs: 1_000,
+      validate: { 'orders.get': textReply },
+    });
+    const publisher = createEventPublisher<{ readonly 'orders.placed': OrderRequest }>(transport);
+
+    await expect(client['orders.get']({ id: 1 }, span)).resolves.toBe('order:1');
+    await publisher['orders.placed']({ id: 2 }, span);
+
+    expect(carrier).toEqual({
+      traceparent: `00-${PARENT_CONTEXT.traceId}-${PARENT_CONTEXT.spanId}-01`,
+      tracestate: TRACE_STATE,
+    });
+    expect(sent[0]).toMatchObject(carrier);
+    expect(emitted).toEqual([carrier]);
+    expect(
+      delivered.map(message => ({
+        traceparent: message.traceparent,
+        tracestate: message.tracestate,
+      })),
+    ).toEqual([carrier, carrier]);
+
+    expect(recorded.starts).toHaveLength(2);
+    expect(recorded.starts[0]).toMatchObject({
+      name: 'zmdb.message',
+      parent: {
+        traceId: PARENT_CONTEXT.traceId,
+        spanId: PARENT_CONTEXT.spanId,
+      },
+      ended: true,
+    });
+    expect(recorded.starts[0]?.link).toBeUndefined();
+    expect(traceStateHeader(recorded.starts[0]?.parent)).toBe(TRACE_STATE);
+    expect(recorded.starts[1]).toMatchObject({
+      name: 'zmdb.message',
+      link: {
+        traceId: PARENT_CONTEXT.traceId,
+        spanId: PARENT_CONTEXT.spanId,
+      },
+      ended: true,
+    });
+    expect(recorded.starts[1]?.parent).toBeUndefined();
+    expect(traceStateHeader(recorded.starts[1]?.link)).toBe(TRACE_STATE);
+    expect(requestContexts[0]?.span).toBeDefined();
+    expect(eventContexts[0]?.span).toBeDefined();
+  });
+
   it('two concurrent calls resolve their own replies when responses arrive out of order', async () => {
     const pending = new Map<
       number,
@@ -906,6 +1114,7 @@ describe('typed message clients (#559)', () => {
       { pattern: 'orders.placed', payload: { id: 1 } },
       { pattern: 'orders.cancelled', payload: { id: 2 } },
     ]);
+    expect(transport.emitArgumentCounts).toEqual([2, 2]);
   });
 
   it('the event publisher is not assimilated as a thenable', async () => {

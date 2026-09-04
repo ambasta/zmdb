@@ -59,7 +59,12 @@ Then build the repository per request with that driver. This is the same per-req
 
 ## Where the signal comes from
 
-`@zmdb/web`'s `Ctx` carries `params`, `body`, `query`, `headers`, `method` and `path` — no signal, since the framework's own request type does not model one. If you are behind `node:http`, `req.on('aborted')` is available at the adapter; if you are behind `fetch`, `request.signal` is. Either way it has to be captured at the adapter and passed down explicitly.
+`@zmdb/web`'s `Ctx` carries `params`, `body`, `query`, `headers`, `method`,
+`path` and optional `span` — still no signal, since the framework's own request
+type does not model one. The span is explicit observability context, not
+cancellation. If you are behind `node:http`, `req.on('aborted')` is available at
+the adapter; if you are behind `fetch`, `request.signal` is. Either way it has to
+be captured at the adapter and passed down explicitly.
 
 ## What it would take
 

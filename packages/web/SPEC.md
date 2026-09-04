@@ -8,7 +8,9 @@
 
 `@zmdb/web` sits **above** `@zmdb/repository` in the dependency DAG
 (ARCHITECTURE.md §3). It depends on `@zmdb/schema-core`, `@zmdb/aot-validator`,
-and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
+`@zmdb/query-compiler` and `@zmdb/repository`; it has **zero required
+third-party runtime dependencies**. Integrations such as `pg` and
+`@opentelemetry/api` are optional peers.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -33,8 +35,10 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other
   packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
-- `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/repository`
-  (all `workspace:^`). No other runtime deps. `devDependencies`: `typescript`.
+- `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`,
+  `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). No required
+  third-party runtime deps; `pg` and `@opentelemetry/api` are optional peers for
+  their respective integration subpaths.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish,
   exactly like the sibling packages).
 
@@ -49,8 +53,9 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 
 ### Build & publish wiring
 
-- `tsconfig.build.json`, and nothing else: `dist` mirrors `src`, so there is no entry
-  map to register a subpath in and no way for one to be left out.
+- `tsconfig.build.json` mirrors `src` into `dist`; every public root and subpath
+  is declared in the package `exports` map and repointed to emitted `.js` during
+  publishing.
 - Registered in `.github/scripts/prepare-publish.mjs` `META` (description +
   keywords) and in `.github/scripts/lib/publish-manifest.mjs` `PACKAGES`, ordered
   **after `repository`** and **before `zmdb`** (DAG order).
@@ -70,8 +75,8 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 ## Acceptance (this issue)
 
 - `@zmdb/web` resolves in dev (vitest/tsc) via `src` and builds to
-  `dist/index.js` + `dist/index.d.ts`; all fifteen subpaths import and typecheck
-  from an installed tarball (`yarn verify:publish`).
+  `dist/index.js` + `dist/index.d.ts`; every declared subpath imports and
+  typechecks from an installed tarball (`yarn verify:publish`).
 - A trivial Stage-3 class decorator that writes to `context.metadata` can be read
   back via `metadataOf(...)` at runtime — **without** `reflect-metadata` and
   **without** any `as` on the consumer surface.

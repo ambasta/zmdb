@@ -1,95 +1,83 @@
-> **ToDo / feature gap.** There is no OpenTelemetry integration — no auto
-> instrumentation, no span creation, no context propagation. Nothing in zmdb reads
-> or writes a `traceparent` header.
+> **Supported.** `createRouter` and `createApp` accept an `Observability`
+> configuration. The router creates request, route, validation and handler spans;
+> `tracedDriver` creates database spans; and HTTP and message carriers propagate
+> W3C `traceparent` plus optional `tracestate`.
 >
 > The span hierarchy, every attribute name, and propagation in both directions are
 > frozen in `packages/web/src/observability/SPEC.md` against semantic conventions
-> **v1.30.0**. Four attribute names on this page are the deprecated spellings and
-> are corrected below.
+> **v1.30.0**. zmdb ships ports and an optional OpenTelemetry adapter, not an SDK,
+> exporter, collector configuration or global auto-instrumentation.
 
-## What you get for free
+## Configure the framework
 
-Nothing framework-specific — but OpenTelemetry's Node auto-instrumentation patches `node:http`, `pg`, `mysql2` and `fetch` at the module level, which means:
-
-```ts
-// tracing.ts — imported before anything else
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-
-new NodeSDK({ instrumentations: [getNodeAutoInstrumentations()] }).start();
-```
-
-```bash
-node --import ./dist/tracing.js dist/main.js
-```
-
-gets you an HTTP server span per request and a database span per query, with correct parent-child nesting, without zmdb participating at all. That covers the two things a trace is usually for.
-
-The `--import` matters: the SDK must patch the modules before your code requires them. Importing it at the top of `main.ts` often works and sometimes silently does not, depending on hoisting.
-
-What is missing is the middle: no span for "handler", no route name on the HTTP span (so spans are grouped by `/posts/1` rather than `/posts/:id`), and no zmdb-level attributes.
-
-## Adding the missing layer
+The core entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no
+third-party runtime dependency. The optional adapter is the only surface that
+imports `@opentelemetry/api`, which is an optional peer:
 
 ```ts
-import { trace, SpanStatusCode } from '@opentelemetry/api';
-import { bodyText } from '@zmdb/web';
+import { metrics, trace } from '@opentelemetry/api';
+import { createApp } from '@zmdb/web';
+import { fromOpenTelemetry } from '@zmdb/web/otel';
 
-const tracer = trace.getTracer('zmdb-web');
-
-createServer(async (req, res) => {
-  const route = routeFor(req) ?? 'unmatched';
-  await tracer.startActiveSpan(`${req.method} ${route}`, async span => {
-    span.setAttribute('http.route', route);
-    try {
-      const out = await app.handle(await webRequest(req));
-      span.setAttribute('http.response.status_code', out.status);
-      if (out.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
-      res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
-    } catch (error) {
-      span.recordException(error instanceof Error ? error : new Error(String(error)));
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      throw error;
-    } finally {
-      span.end();
-    }
-  });
+const observability = fromOpenTelemetry({
+  tracer: trace.getTracer('checkout'),
+  meter: metrics.getMeter('checkout'),
 });
+
+await using app = createApp(AppModule, { observability });
 ```
 
-`span.end()` in a `finally` is not optional — a leaked span is a memory leak and a trace that never exports.
+If you construct the router directly, pass the same object to
+`createRouter(observability)`. The app forwards it to both the HTTP router and its
+message dispatcher.
 
-`webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
+OpenTelemetry's Node auto-instrumentation remains an alternative for patching
+`node:http`, database clients and `fetch`. Enabling its HTTP or database
+instrumentation alongside zmdb's corresponding spans can produce two spans for
+one operation, so choose deliberately.
+
+## The framework span tree
+
+For a matched route with validation and one query:
+
+```text
+POST /posts
+├── zmdb.route
+├── zmdb.validate
+└── zmdb.handler
+    └── INSERT posts
+```
 
 `http.route` is the low-cardinality name. Without it, a trace backend shows one operation per id and aggregate latency is meaningless. `http.response.status_code`, not `http.status_code` — the v1.23.0 HTTP stabilisation renamed it.
 
-The awkward part of this snippet is `routeFor(req)`, and it is awkward for a structural reason rather than a missing convenience. **`http.route` is not derivable from anything a handler or an adapter sees.** `Ctx` is `{ params, body, query, headers, method, path }` and `path` is the concrete `/posts/1`; only the matched route knows `/posts/:id`. That is why the frozen design has the **router** create the server span rather than the adapter — it is the one component that knows both the method and the pattern. A request that matches nothing has no route, so its span is named `GET` with the path as an attribute, because a raw path in a span name is unbounded cardinality by definition.
+**`http.route` is not derivable from anything a handler or an adapter sees.**
+`Ctx` carries `params`, `body`, `query`, `headers`, `method`, `path` and an
+optional `span`; `path` is the concrete `/posts/1`. Only the matched route knows
+`/posts/:id`, so the router creates the server span. A request that matches
+nothing has no `http.route`; its span is named only for the method, with the raw
+path kept as an attribute.
+
+There is deliberately no interceptor span. The router runs its effective guards,
+validation and handler, but `runChain` remains an explicit handler-level call.
 
 ## Query spans with useful attributes
 
-Even with auto-instrumentation giving you `pg` spans, adding zmdb-level context is worth it:
+`tracedDriver` instruments the execute boundary. Parenting is explicit: pass the
+handler's `ctx.span` when the query should appear beneath that handler.
 
 ```ts
-function traced(inner: Driver): Driver {
-  return {
-    async execute(query) {
-      return tracer.startActiveSpan('db.query', async span => {
-        span.setAttribute('db.query.text', query.text);
-        span.setAttribute('zmdb.db.parameter_count', query.parameters.length);
-        try {
-          return await inner.execute(query);
-        } catch (error) {
-          span.recordException(error instanceof Error ? error : new Error(String(error)));
-          span.setStatus({ code: SpanStatusCode.ERROR });
-          throw error;
-        } finally {
-          span.end();
-        }
-      });
-    },
-  };
+import { tracedDriver } from '@zmdb/web/observability';
+
+async function list(ctx: Ctx) {
+  const driver = tracedDriver(baseDriver, observability, ctx.span);
+  const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
+  return users.findAll();
 }
 ```
+
+There is no ambient current span and the OpenTelemetry adapter does not consult
+ambient context. Omitting the third argument therefore creates root database
+spans; passing `ctx.span` is what establishes the handler → query edge.
 
 > [!WARNING]
 > `db.query.text` is safe because zmdb's compiled SQL contains **placeholders**, not
@@ -110,56 +98,51 @@ goes flat.
 use `db.operation.parameter.<key>` for parameter _values_, which is exactly what the
 warning above forbids, and a neighbouring key would invite the confusion.
 
-In the frozen design the whole compile-time half of that set — system, operation,
-table — is attached to the compiled query rather than re-derived, which matters more
-than it sounds; see the note on statement parsing under
+The whole compile-time half of that set — system, operation and table — is
+attached to the compiled query rather than re-derived, which matters more than it
+sounds; see the note on statement parsing under
 [Observability](./web-observability.html).
 
-## Propagating to upstreams
+## Propagation
 
-Auto-instrumented `fetch` injects `traceparent`. Doing it manually:
+HTTP headers and message envelopes are carriers for `traceparent` and optional
+`tracestate`. The router extracts valid inbound context before creating the
+server span. A malformed `traceparent` is ignored and starts a new trace; it
+never fails the request. Invalid `tracestate` is dropped while a valid
+`traceparent` is retained.
+
+zmdb does not patch `fetch`. Use your SDK's propagation API, or write the
+framework span into an outbound carrier:
 
 ```ts
-import { propagation, context } from '@opentelemetry/api';
+import { toTraceHeaders } from '@zmdb/web/observability';
 
-const headers: Record<string, string> = {};
-propagation.inject(context.active(), headers);
+const headers = ctx.span === undefined ? {} : toTraceHeaders(ctx.span);
 await fetch(url, { headers });
 ```
 
-And accepting an incoming trace context in your adapter:
-
-```ts
-const parent = propagation.extract(context.active(), req.headers);
-await context.with(parent, () => tracer.startActiveSpan(name, handler));
-```
-
-Without the extract, your service starts a new trace and the caller's trace ends at your door — which is the single most common tracing misconfiguration, and the reason the framework doing it is the point of doing it in the framework.
-
-**A malformed `traceparent` is ignored, and a new trace begins. It never fails the request.** A header the client controls must not be able to produce a `400` on a route with nothing to do with tracing, and the alternative has a telemetry-shaped outage as its failure mode: one misconfigured upstream injecting a bad header takes down every service downstream of it at once. `tracestate` that fails to parse is dropped while `traceparent` is kept — nobody's correctness depends on the vendor field.
-
 The validation is exact and the frozen spec spells it out, including the case an implementation is most likely to get wrong: a version **above** `00` is accepted by reading the first four fields and ignoring the rest, because that is the forward-compatibility rule W3C requires. Rejecting it is how a service stops accepting traces the day the spec gains a field.
 
-The same header travels on a message envelope, and there the edge is not the same one. A **request/reply** consumer is a child of the producer's span; a **queued** consumer is _linked_ to it and starts its own trace. That is a rule in the frozen spec rather than a preference, because a parent-child edge across an unbounded queue delay produces a trace whose duration is the queue's latency — a waterfall claiming the request took four hours because the message sat in a queue, with the real work an invisible sliver at the end. A link keeps both properties: the consumer's duration is its own, and the producer is still one click away.
+The message client and event publisher accept an explicit span and put its carrier
+on `TransportRequest` / the emitted envelope. A custom `TransportStrategy` must
+preserve both carrier fields. A **request/reply** consumer is a child of the
+supplied span; a **queued** consumer is linked to it and starts its own trace.
+Linking avoids making queue delay look like handler duration.
 
 ## Connecting traces to SQL
 
-`pg_stat_activity` shows a slow query but not which request caused it. A [SQL comment](./sql-comments.html) closes the loop:
-
-```ts
-const traceId = trace.getActiveSpan()?.spanContext().traceId ?? '';
-const text = `${query.text} /* trace=${encodeURIComponent(traceId)} */`;
-```
-
-`encodeURIComponent` because `*/` in an interpolated value terminates the comment early and turns the rest into SQL. A trace id is hex so it is safe in practice; encode anyway, because the next person to extend this will add something that is not — and read the escaping section of [SQL comments](./sql-comments.html) before you do, because `encodeURIComponent` alone is not sufficient and the reason is not obvious.
-
-One thing to know before turning this on in production: a `traceparent` contains a fresh span id per query, so every statement text becomes unique. That is the trade the frozen design puts in your hands rather than deciding for you — it is what closes the loop from `pg_stat_activity` to a waterfall, and it is also what fills `pg_stat_statements` with one row per query.
+`pg_stat_activity` shows a slow query but not which request caused it. The
+sqlcommenter serializer and driver decorator remain the separate #583 gap; this
+page does not imply that configuring tracing changes SQL text. See
+[SQL Comments](./sql-comments.html) for the frozen escaping and statement-cache
+trade-offs.
 
 ## Sampling
 
 Trace everything in development, sample in production — a busy service produces more span volume than logs, and the cost is real:
 
 ```ts
+import { NodeSDK } from '@opentelemetry/sdk-node';
 import { TraceIdRatioBasedSampler, ParentBasedSampler } from '@opentelemetry/sdk-trace-base';
 
 new NodeSDK({ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.05) }) });
@@ -167,20 +150,19 @@ new NodeSDK({ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampl
 
 `ParentBasedSampler` keeps a trace whole: if the caller sampled it, you sample it. Independent sampling per service produces fragments, which are worse than no trace.
 
-## What it would take
+## Deliberate boundaries
 
-OpenTelemetry cannot be a dependency (Directive 7), and the frozen design's answer is a **narrow port** declared in `@zmdb/web` — a `Span` with five methods and a `Tracer` with one — plus an optional `@zmdb/web/otel` entry point holding the ten-line adapter behind a peer dependency.
+OpenTelemetry is not a required dependency. `@zmdb/web` declares a narrow port,
+and `@zmdb/web/otel` adapts the optional `@opentelemetry/api` peer.
 
-The port is a port rather than a claim of structural compatibility, which is a deliberately modest position. `@opentelemetry/api`'s `Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and a package forbidden from importing that API cannot compile the assertion that its own interface satisfies it. A claim that cannot be checked rots in silence. In the `otel` subpath the peer is a devDependency, so there the claim is typechecked — which is the only place it is worth making.
+The port is a port rather than a claim of structural compatibility, which is a deliberately modest position. `@opentelemetry/api`'s `Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and the dependency-free core entry points cannot compile an assertion against that API. A claim that cannot be checked rots in silence. In the `otel` subpath the peer is a devDependency, so there the claim is typechecked — which is the only place it is worth making.
 
-Two things follow from that, and both are why this is a spec and not a patch:
-
-- **`tracer` absent must cost nothing**, and the mechanism is one `undefined` check at the top of `handle` after which today's exact code path runs. Not a no-op tracer: a no-op span still costs a call per attribute, five to ten per request that a profiler cannot tell from real work, and it makes the fast and slow paths the same code so the fast one never gets measured alone.
-- **There is no ambient current span.** `AsyncLocalStorage` is the conventional answer and it is refused twice — it is a `node:async_hooks` import in a package whose whole shape is a Fetch handler, and it makes the current span implicit, which is only correct if every await boundary in the process behaves. The span rides on `Ctx` instead. More wiring, and the same property [SQL comments](./sql-comments.html) already credits: two concurrent requests cannot borrow each other's context.
-
-The span tree is four kinds — a server span, then routing, validation and the handler — and notably **not** an interceptor span, because `runChain` still has no caller in the pipeline, so a span wrapping an interceptor would never be recorded. A span that appears in a design document and never in a trace is worse than a missing one: somebody builds a panel for it and it is empty for a reason nobody can find.
-
-Realistically the auto-instrumentation plus the twenty lines above gets most of the value today. What it cannot get is `http.route`, which is the attribute the whole aggregate view depends on.
+- **No configured tracer or meter:** the original router path runs after one
+  branch; no no-op span is installed.
+- **No ambient context:** the current span rides explicitly on `Ctx`.
+- **No exporter, SDK or collector configuration:** application-owned.
+- **No global `fetch` patch and no sampling policy:** SDK responsibilities.
+- **No interceptor span:** `runChain` is still explicit rather than router-owned.
 
 ---
 

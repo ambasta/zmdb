@@ -1,4 +1,5 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { CompiledQuery } from '@zmdb/query-compiler';
 import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
 import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
@@ -52,6 +53,29 @@ function fakeDriver(rows: Record<string, unknown>[] = []): Driver & { calls: unk
   };
 }
 
+function telemetryDriver(enabled: boolean): Driver & { calls: CompiledQuery[] } {
+  const calls: CompiledQuery[] = [];
+  const execute = (query: CompiledQuery) => {
+    calls.push(query);
+    return Promise.resolve([{ id: 1, email: 'a@b.com', role: 'user' }]);
+  };
+  return enabled ? { calls, queryTelemetry: true, execute } : { calls, execute };
+}
+
+async function exerciseEveryRepositoryQueryBuilder(repo: UserRepository): Promise<void> {
+  await repo.findById(1);
+  await repo.create({ email: 'a@b.com', role: 'user' });
+  await repo.update(1, { role: 'admin' });
+  await repo.delete(1);
+  await repo.findJoined({
+    target: 'orders',
+    leftCol: 'users.id',
+    rightCol: 'orders.user_id',
+  });
+  await repo.aggregate(aggregate => aggregate.count('id', 'count'));
+  await repo.findByFullText('email', 'a@b.com');
+}
+
 describe('BaseRepository read methods', () => {
   it('findById compiles a SELECT and maps the row', async () => {
     const driver = fakeDriver([{ id: 1, email: 'a@b.com', role: 'user' }]);
@@ -67,6 +91,57 @@ describe('BaseRepository read methods', () => {
     const all = await repo.findAll();
     expect(all).toHaveLength(1);
     expect(Object.getPrototypeOf(all[0])).toBe(Object.prototype);
+  });
+
+  it('keeps every repository query path two-keyed unless the driver opts in', async () => {
+    const driver = telemetryDriver(false);
+    await exerciseEveryRepositoryQueryBuilder(new UserRepository(driver));
+
+    expect(driver.calls).toHaveLength(7);
+    for (const query of driver.calls) {
+      expect(Object.keys(query)).toEqual(['text', 'parameters']);
+      expect(query.telemetry).toBeUndefined();
+    }
+  });
+
+  it('passes driver telemetry through core CRUD, joins, aggregations and full-text search', async () => {
+    const driver = telemetryDriver(true);
+    await exerciseEveryRepositoryQueryBuilder(new UserRepository(driver));
+
+    expect(driver.calls.map(query => query.telemetry)).toEqual([
+      { system: 'postgresql', operation: 'SELECT', collection: 'users' },
+      { system: 'postgresql', operation: 'INSERT', collection: 'users' },
+      { system: 'postgresql', operation: 'UPDATE', collection: 'users' },
+      { system: 'postgresql', operation: 'DELETE', collection: 'users' },
+      { system: 'postgresql', operation: 'SELECT', collection: 'users' },
+      { system: 'postgresql', operation: 'SELECT', collection: 'users' },
+      { system: 'postgresql', operation: 'SELECT', collection: 'users' },
+    ]);
+  });
+
+  it('preserves the telemetry marker when rebinding a repository to a transaction', async () => {
+    const parent = telemetryDriver(true);
+    const transactionQueries: CompiledQuery[] = [];
+    const repo = new UserRepository(parent).withTransaction({
+      execute: query => {
+        transactionQueries.push(query);
+        return Promise.resolve([]);
+      },
+    });
+
+    await repo.findJoined({
+      target: 'orders',
+      leftCol: 'users.id',
+      rightCol: 'orders.user_id',
+    });
+
+    expect(parent.calls).toEqual([]);
+    expect(transactionQueries[0]?.telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'users',
+    });
+    expect(Object.keys(transactionQueries[0]?.telemetry ?? {})).toEqual(['system', 'operation', 'collection']);
   });
 });
 

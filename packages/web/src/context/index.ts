@@ -2,6 +2,8 @@
 // (epic #257, spec ./SPEC.md). Pure types + one small runtime helper. No `as`,
 // no reflection.
 
+import type { Span } from '../observability/types.js';
+
 /**
  * Derive a params object from a route path string. Each `:name` segment becomes
  * a required `string` property. Static paths yield an empty object type.
@@ -32,6 +34,7 @@ export interface Ctx<
   readonly headers: Readonly<Record<string, string>>;
   readonly method: string;
   readonly path: string;
+  readonly span?: Span;
 }
 
 /**

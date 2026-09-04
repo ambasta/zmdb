@@ -43,7 +43,7 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
   const runtime = runtimeOf(compiled);
   const transports = [...(options.transports ?? [])];
   const graceMs = transportGrace(options.graceMs ?? 5_000);
-  const router: Router = createRouter();
+  const router: Router = createRouter(options.observability);
   if (runtime === undefined) {
     for (const controller of controllers) {
       router.register(controller);
@@ -78,7 +78,12 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
       validateUndeliverableSink(transport, dispatcherOptions);
     }
 
-    const dispatcher = createMessageDispatcher(controllers, dispatcherOptions);
+    const dispatcher = createMessageDispatcher(
+      controllers,
+      options.observability === undefined
+        ? dispatcherOptions
+        : { ...dispatcherOptions, observability: options.observability },
+    );
     const started: TransportStrategy[] = [];
     try {
       for (const transport of transports) {

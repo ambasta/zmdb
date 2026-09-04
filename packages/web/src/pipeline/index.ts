@@ -18,6 +18,8 @@ import {
 } from '../context/index.js';
 import type { Constructor } from '../di/index.js';
 import type { Guard } from '../middleware/index.js';
+import { fromTraceContext } from '../observability/propagation.js';
+import type { Observability, Span, Tracer } from '../observability/types.js';
 import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
 import { resolveGuards, type GuardRegistry } from './guards.js';
 
@@ -31,6 +33,7 @@ export interface WebRequest {
   readonly headers: Readonly<Record<string, string>>;
   readonly rawBody?: unknown;
   readonly query?: QueryValues;
+  readonly scheme?: string;
 }
 
 /** A minimal, framework-neutral response body. */
@@ -62,7 +65,7 @@ export interface RouteOptions {
 }
 
 /** Router-wide guard configuration shared with OpenAPI generation. */
-export interface RouterOptions {
+export interface RouterOptions extends Observability {
   readonly guardRegistry?: GuardRegistry;
 }
 
@@ -109,6 +112,7 @@ const NO_HEADERS: Readonly<Record<string, string>> = {};
 const TEXT_BODY_KIND = 'text';
 const EMPTY_TEXT: ResponseBody = Object.freeze({ kind: 'text', value: '' });
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
+const STANDARD_HTTP_METHODS = new Set(['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE']);
 
 function jsonResponse(status: number, value: unknown): WebResponse {
   return { status, body: textBody(JSON.stringify(value) ?? ''), headers: JSON_HEADERS };
@@ -358,6 +362,164 @@ export interface Router {
 /** Create a router. Routes and their effective guards are resolved once at register time. */
 export function createRouter(routerOptions: RouterOptions = {}): Router {
   const buckets: MethodBuckets = new Map();
+  const tracer = routerOptions.tracer;
+  const requestDuration = routerOptions.meter?.histogram('http.server.request.duration', 's');
+  // One stable branch protects the original request path. A comments-only
+  // configuration does not activate spans or metrics.
+  const observed = tracer === undefined && requestDuration === undefined ? undefined : true;
+
+  async function handleObserved(req: WebRequest): Promise<WebResponse> {
+    const started = Date.now();
+    const method = req.method.toUpperCase();
+    const methodAttribute = STANDARD_HTTP_METHODS.has(method) ? method : '_OTHER';
+
+    // OpenTelemetry semantic conventions v1.30.0: start the SERVER span with the
+    // method-only fallback name, then update it once route resolution produces the
+    // low-cardinality route pattern.
+    const remoteParent =
+      tracer === undefined ? undefined : fromTraceContext(req.headers.traceparent, req.headers.tracestate);
+    const serverSpan =
+      tracer === undefined
+        ? undefined
+        : remoteParent === undefined
+          ? tracer.startSpan(method, { kind: 'server' })
+          : tracer.startSpan(method, { kind: 'server', parent: remoteParent });
+    try {
+      if (serverSpan !== undefined) {
+        serverSpan.setAttribute('http.request.method', methodAttribute);
+        serverSpan.setAttribute('url.path', req.path);
+        serverSpan.setAttribute('url.scheme', req.scheme ?? 'http');
+        const address = req.headers.host;
+        if (address !== undefined) {
+          serverSpan.setAttribute('server.address', address);
+        }
+      }
+
+      let matched: BoundRoute | undefined;
+      let matchedParams: Record<string, string> | undefined;
+      const routeSpan = childSpan(tracer, serverSpan, 'zmdb.route');
+      try {
+        const candidates = buckets.get(method)?.[countSegments(req.path)] ?? [];
+        for (const candidate of candidates) {
+          const params = matchCompiled(candidate.pattern, req.path);
+          if (params !== undefined) {
+            matched = candidate;
+            matchedParams = params;
+            break;
+          }
+        }
+      } finally {
+        routeSpan?.end();
+      }
+
+      if (serverSpan !== undefined && matched !== undefined) {
+        serverSpan.updateName(`${method} ${matched.route.path}`);
+        serverSpan.setAttribute('http.route', matched.route.path);
+      }
+
+      let response: WebResponse | undefined;
+      let failed = false;
+      let failure: unknown;
+      try {
+        if (matched === undefined || matchedParams === undefined) {
+          response = jsonResponse(404, { error: `no route for ${method} ${req.path}` });
+          return response;
+        }
+
+        const ctx = {
+          params: matchedParams,
+          body: req.rawBody,
+          query: req.query ?? {},
+          headers: req.headers,
+          method,
+          path: req.path,
+        };
+
+        for (const guard of matched.guards ?? []) {
+          try {
+            if (!(await guard.canActivate(ctx))) {
+              response = jsonResponse(403, { error: 'forbidden' });
+              return response;
+            }
+          } catch (error) {
+            failed = true;
+            failure = error;
+            response = jsonResponse(500, { error: messageOf(error) });
+            return response;
+          }
+        }
+
+        if (matched.validateBody !== undefined) {
+          const validationSpan = childSpan(tracer, serverSpan, 'zmdb.validate');
+          try {
+            ctx.body = matched.validateBody(req.rawBody);
+          } catch (error) {
+            failed = true;
+            failure = error;
+            recordFailure(validationSpan, error);
+            const message = messageOf(error);
+            const issues = validationIssuesOf(error);
+            response = jsonResponse(400, issues ? { error: message, issues } : { error: message });
+            return response;
+          } finally {
+            validationSpan?.end();
+          }
+        }
+
+        const handlerSpan = childSpan(tracer, serverSpan, 'zmdb.handler');
+        const handlerCtx = handlerSpan === undefined ? ctx : { ...ctx, span: handlerSpan };
+        try {
+          const result = await matched.handler(handlerCtx);
+          response = isTaggedResponse(result) ? result : jsonResponse(200, result);
+          return response;
+        } catch (error) {
+          failed = true;
+          failure = error;
+          recordFailure(handlerSpan, error);
+          if (error instanceof ValidationError || claimsValidationIssues(error)) {
+            const message = messageOf(error);
+            const issues = validationIssuesOf(error);
+            response = jsonResponse(400, issues ? { error: message, issues } : { error: message });
+            return response;
+          }
+          response = jsonResponse(500, { error: messageOf(error) });
+          return response;
+        } finally {
+          handlerSpan?.end();
+        }
+      } finally {
+        if (response !== undefined) {
+          const serverFailed = response.status >= 500;
+          const errorType = serverFailed ? (failed ? typeOfFailure(failure) : String(response.status)) : undefined;
+          if (serverSpan !== undefined) {
+            serverSpan.setAttribute('http.response.status_code', response.status);
+            if (errorType !== undefined) {
+              serverSpan.setAttribute('error.type', errorType);
+              serverSpan.setStatus({ error: true });
+            }
+            if (serverFailed && failed) {
+              serverSpan.recordException(errorValue(failure));
+            }
+          }
+          if (requestDuration !== undefined) {
+            const attributes: Record<string, string | number | boolean> = {
+              'http.request.method': methodAttribute,
+              'http.response.status_code': response.status,
+            };
+            if (matched !== undefined) {
+              attributes['http.route'] = matched.route.path;
+            }
+            if (errorType !== undefined) {
+              attributes['error.type'] = errorType;
+            }
+            requestDuration.record((Date.now() - started) / 1000, attributes);
+          }
+        }
+      }
+    } finally {
+      serverSpan?.end();
+    }
+  }
 
   return {
     register(controller: object, options: Readonly<Record<string, RouteOptions>> = {}): void {
@@ -419,6 +581,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     },
 
     async handle(req: WebRequest): Promise<WebResponse> {
+      if (observed !== undefined) {
+        return handleObserved(req);
+      }
       const method = req.method.toUpperCase();
       const candidates = buckets.get(method)?.[countSegments(req.path)] ?? [];
       for (const bound of candidates) {
@@ -505,6 +670,37 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function childSpan(tracer: Tracer | undefined, parent: Span | undefined, name: string): Span | undefined {
+  return tracer === undefined || parent === undefined
+    ? undefined
+    : tracer.startSpan(name, { kind: 'internal', parent: parent.spanContext() });
+}
+
+function recordFailure(span: Span | undefined, error: unknown): void {
+  if (span === undefined) {
+    return;
+  }
+  span.recordException(errorValue(error));
+  span.setStatus({ error: true });
+}
+
+function errorValue(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function typeOfFailure(error: unknown): string {
+  if (error instanceof Error) {
+    return error.constructor.name;
+  }
+  if (error !== null && typeof error === 'object') {
+    const ctor: unknown = Reflect.get(error, 'constructor');
+    if (typeof ctor === 'function' && ctor.name.length > 0) {
+      return ctor.name;
+    }
+  }
+  return typeof error;
+}
+
 // ---- Adapters (structurally typed; no hard node:http / Hono dependency) ----
 
 // The subset of node:http we touch. `setEncoding` and `writeHead` are optional
@@ -514,6 +710,7 @@ interface NodeReqLike {
   readonly method?: string;
   readonly url?: string;
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
+  readonly socket?: { readonly encrypted?: boolean };
   on(event: string, listener: (chunk: unknown) => void): void;
   setEncoding?(encoding: string): void;
 }
@@ -633,6 +830,7 @@ function dispatch(router: Router, req: NodeReqLike, res: NodeResLike, rawBody: u
       path: query === -1 ? url : url.slice(0, query),
       headers: flattenHeaders(req.headers),
       rawBody,
+      scheme: req.socket?.encrypted === true ? 'https' : 'http',
     })
     .then(
       response => {
@@ -790,6 +988,7 @@ export function toFetchHandler(
       path: url.pathname,
       headers: Object.fromEntries(request.headers),
       rawBody: raw.value,
+      scheme: url.protocol.slice(0, -1),
     });
     const headers = fetchHeaders(response);
     if (request.method === 'HEAD' || response.status === 204 || response.status === 304) {

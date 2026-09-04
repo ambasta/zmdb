@@ -1,158 +1,55 @@
 // Tests for the spans, metrics and trace propagation frozen in ./SPEC.md (#580, epic #578).
 //
-// RED ON PURPOSE, AND VISIBLY SO. ./index.ts does not exist and `createRouter` takes no
-// argument: #582 writes both. Every assertion whose subject is unimplemented is `it.fails`,
-// never `it.skip`, because a skipped test is invisible in the summary line and an
-// expected-failing one is counted there. When #582 lands, each `it.fails` that starts passing
-// fails the suite with `Error: Expect test to fail`, which is the ratchet: the implementer
-// cannot land the code without also deleting the `.fails`.
-//
-// THE IDIOM, used in all three of #580's spec files. An `it.fails` whose body cannot be
-// typechecked asserts nothing, so the frozen surface is transcribed from ./SPEC.md into the
-// block below and each missing function is a `const` holding a throwing implementation of its
-// frozen type. A `const` rather than `declare function` for three reasons: nothing throws at
-// module load, so collection succeeds and the tests appear in the summary; the type is checked
-// against the spec's signature at compile time, so a signature that drifts is a build failure;
-// and there is no `declare`d name that oxlint's `no-undef` would have to be told about. When
-// #582 lands, the block is replaced by one `import` and the test bodies are untouched.
-//
-// THE TRACER DOUBLE IS A RECORDER, NOT A MOCK. `recordingTracer` below keeps every span it
+// The tracer double is a recorder, not a mock. `recordingTracer` below keeps every span it
 // created, with its parent's span id, so the assertions are about the *shape of the tree* —
 // which is what §1 says is the public interface — rather than about the order of calls on a
 // spy. A call-order assertion passes an implementation that emits the right calls in the
 // wrong hierarchy, and the hierarchy is the thing a waterfall renders.
-//
-// CURRENT ACTUALS. Every `it.fails` records what the code produces today. That matters more
-// here than in the other two files, because ./SPEC.md §9.1's "byte-identical responses" and
-// §9.8's "produces a 200" are *already true* — there is no tracing code at all, so nothing
-// can perturb a response. Those halves would pass for the wrong reason, so each test below
-// also asserts the part that genuinely cannot hold today: that a span was recorded, or that
-// `ctx.span` is populated. The recorded 404/200 bodies are in the green baseline test.
 import { type CompiledQuery } from '@zmdb/query-compiler';
 import { describe, expect, it, vi } from 'vitest';
 
-import { bodyText, createRouter, json, type Ctx, type Router, type WebRequest } from '../pipeline/index.js';
+import { bodyText, createRouter, json, type Ctx, type WebRequest } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
+import {
+  consumerSpan,
+  createTracedRouter,
+  fromTraceparent,
+  toTraceparent,
+  tracedDriver,
+  type Attributes,
+  type ExecutingDriver,
+  type Meter,
+  type Observability,
+  type QueryTelemetry,
+  type SpanContext,
+  type Tracer,
+} from './index.js';
+import type { SpanKind } from './types.js';
 
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#582)
-// ---------------------------------------------------------------------------
-
-/** ./SPEC.md §2, and `../../../query-compiler/src/comments/SPEC.md` §2. */
-type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
-
-interface SpanContext {
-  readonly traceId: string;
-  readonly spanId: string;
-  readonly traceFlags: number;
-}
-
-interface Span {
-  setAttribute(key: string, value: string | number | boolean): void;
-  recordException(error: Error): void;
-  setStatus(status: { readonly error: boolean }): void;
-  end(): void;
-  spanContext(): SpanContext;
-}
-
-interface Tracer {
-  startSpan(name: string, options?: { readonly parent?: SpanContext; readonly link?: SpanContext }): Span;
-}
-
-type Attributes = Readonly<Record<string, string | number | boolean>>;
-
-interface Meter {
-  counter(name: string): { add(value: number, attributes: Attributes): void };
-  histogram(name: string, unit: 's'): { record(value: number, attributes: Attributes): void };
-}
-
-interface Observability {
-  readonly tracer?: Tracer;
-  readonly meter?: Meter;
-  readonly comments?: { readonly keys: readonly [CommentKey, ...CommentKey[]] };
-}
-
-/** ./SPEC.md §5. Attached to the compiled query by the compiler, not re-derived. */
-interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite';
-  readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly collection: string;
-}
-
-type TelemetryQuery = CompiledQuery & { readonly telemetry?: QueryTelemetry };
-
-/** ./SPEC.md §3: `Ctx` gains exactly one field, definite inside the tracer branch. */
-type TracedCtx = Ctx<Record<string, string>> & { readonly span?: Span };
-
-/**
- * ./SPEC.md §4: the server span is created by the **Router**, not by the adapter, because
- * `http.route` is not derivable from anything a handler or an adapter sees. So the seam is
- * `createRouter`'s argument. Today `createRouter` takes none (`createRouter.length` is 0,
- * asserted in the baseline test below); #582 widens it.
- */
-const createTracedRouter: (observability?: Observability) => Router = () => {
-  throw new Error('#580 tests freeze: createRouter does not accept an Observability yet (observability SPEC §3)');
-};
-
-/**
- * ./SPEC.md §4: one database span per query, created by the driver decorator. Named
- * structurally rather than against `@zmdb/repository`'s `Driver` so that this file does not
- * add a dependency; `Driver` is `{ dialect?, execute }` at `packages/repository/src/index.ts:51-54`.
- */
-interface ExecutingDriver {
-  readonly dialect?: 'postgres' | 'mysql' | 'sqlite';
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
-}
-
-const tracedDriver: (driver: ExecutingDriver, observability: Observability, parent?: Span) => ExecutingDriver = () => {
-  throw new Error('#580 tests freeze: tracedDriver is unimplemented (observability SPEC §4)');
-};
-
-/** ./SPEC.md §8, outbound. The one export §8 names: the framework does not wrap `fetch`. */
-const toTraceparent: (span: Span) => string = () => {
-  throw new Error('#580 tests freeze: toTraceparent is unimplemented (observability SPEC §8)');
-};
-
-/**
- * ./SPEC.md §8, inbound. §9.10 requires that `toTraceparent`'s output "is accepted by the
- * inbound parser", so the parser has to be reachable from a test; §8 names only the outbound
- * export, so this name is #582's to choose and this signature is what §9.10 needs. Returns
- * `undefined` for a malformed header, which is §8's "ignored, and a new trace begins".
- */
-const fromTraceparent: (header: string) => SpanContext | undefined = () => {
-  throw new Error('#580 tests freeze: fromTraceparent is unimplemented (observability SPEC §8)');
-};
-
-/**
- * ./SPEC.md §8, message transports: a request/reply consumer starts a **child** span and a
- * queued consumer starts a **linked** one. The envelope carries the same string
- * `toTraceparent` produces. The name and the exact argument shape are #582's; the discriminant
- * has to exist, because it is the only thing §9.11 can assert.
- */
-const consumerSpan: (
-  observability: Observability,
-  envelope: { readonly traceparent?: string },
-  delivery: 'queued' | 'request-reply',
-) => Span = () => {
-  throw new Error('#580 tests freeze: consumerSpan is unimplemented (observability SPEC §8)');
-};
-// --------------------------- end frozen surface ---------------------------
+type TelemetryQuery = CompiledQuery;
+type TracedCtx = Ctx<Record<string, string>>;
 
 // --- the recording tracer -------------------------------------------------
 
 interface RecordedSpan {
-  readonly name: string;
+  name: string;
+  readonly initialName: string;
+  readonly kind: SpanKind;
   readonly attributes: Record<string, string | number | boolean>;
   readonly context: SpanContext;
   readonly parent?: SpanContext;
   readonly link?: SpanContext;
   readonly exceptions: Error[];
+  readonly startedAt: number;
+  renamedAt?: number;
+  endedAt?: number;
   status?: { readonly error: boolean };
   ended: boolean;
 }
 
 interface RecordingTracer extends Tracer {
   readonly spans: readonly RecordedSpan[];
+  readonly events: string[];
   /** The recorded spans whose `parent` is `span`, in creation order. */
   childrenOf: (span: RecordedSpan) => readonly RecordedSpan[];
   readonly root: () => RecordedSpan | undefined;
@@ -162,32 +59,47 @@ const hex = (length: number, seed: number): string => seed.toString(16).padStart
 
 const recordingTracer = (traceId = hex(32, 0x4bf9)): RecordingTracer => {
   const spans: RecordedSpan[] = [];
+  const events: string[] = [];
   let nextId = 1;
+  let sequence = 0;
 
   const tracer: RecordingTracer = {
     spans,
+    events,
     root: () => spans.find(s => s.parent === undefined),
     childrenOf: parent => spans.filter(s => s.parent?.spanId === parent.context.spanId),
     startSpan: (name, options) => {
       nextId += 1;
+      sequence += 1;
       const context: SpanContext = {
         // §9.9: a child of an extracted context keeps the incoming trace id, so the recorder
         // has to inherit it rather than mint one, or the assertion would be vacuous.
         traceId: options?.parent?.traceId ?? traceId,
         spanId: hex(16, nextId),
         traceFlags: 1,
+        ...(options?.parent?.traceState === undefined ? {} : { traceState: options.parent.traceState }),
       };
       const recorded: RecordedSpan = {
         name,
+        initialName: name,
+        kind: options?.kind ?? 'internal',
         attributes: {},
         context,
         ...(options?.parent === undefined ? {} : { parent: options.parent }),
         ...(options?.link === undefined ? {} : { link: options.link }),
         exceptions: [],
+        startedAt: sequence,
         ended: false,
       };
       spans.push(recorded);
+      events.push(`start:${name}`);
       return {
+        updateName: updated => {
+          sequence += 1;
+          recorded.name = updated;
+          recorded.renamedAt = sequence;
+          events.push(`rename:${updated}`);
+        },
         setAttribute: (key, value) => {
           recorded.attributes[key] = value;
         },
@@ -198,7 +110,10 @@ const recordingTracer = (traceId = hex(32, 0x4bf9)): RecordingTracer => {
           recorded.status = status;
         },
         end: () => {
+          sequence += 1;
           recorded.ended = true;
+          recorded.endedAt = sequence;
+          events.push(`end:${recorded.name}`);
         },
         spanContext: () => context,
       };
@@ -247,7 +162,7 @@ const recordingMeter = (): RecordingMeter => {
 
 // --- the application under test -------------------------------------------
 
-/** A `CompiledQuery` carrying §5's `telemetry`, which today's compiler does not attach. */
+/** A `CompiledQuery` carrying the compile-time telemetry frozen in §5. */
 const telemetryQuery = (text: string, parameters: readonly unknown[], telemetry: QueryTelemetry): TelemetryQuery => ({
   text,
   parameters,
@@ -276,8 +191,7 @@ const seenContexts: TracedCtx[] = [];
  * Set by the nesting test only. §4 puts the database span under the *handler* span rather
  * than under the server span, and the only way to assert that is for a handler to actually
  * issue a query — so `create` runs one when this is set, through the decorator §4 names, with
- * `ctx.span` as the parent. Every other test leaves it `undefined`, which is why the green
- * baseline below can POST without touching the unimplemented decorator.
+ * `ctx.span` as the parent. Every other test leaves it `undefined`.
  */
 let queryObservability: Observability | undefined;
 
@@ -299,6 +213,16 @@ class PostsController {
     }
     return json({ title: ctx.body.title }, { status: 201 });
   }
+
+  @Get('/server-error/:id')
+  fail(): never {
+    throw new Error('handler failed');
+  }
+
+  @Get('/unavailable/:id')
+  unavailable() {
+    return json({ error: 'unavailable' }, { status: 503 });
+  }
 }
 
 const controller = () => new PostsController();
@@ -312,17 +236,16 @@ const validateTitle = (raw: unknown): unknown => {
 
 const GET_POST: WebRequest = { method: 'GET', path: '/posts/1', headers: {} };
 const VALID_TRACEPARENT = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+const VALID_TRACESTATE = 'vendor=value,other=state';
 
 describe('spans, metrics and propagation (#580 freeze of observability SPEC)', () => {
-  // GREEN, and the whole file leans on it. ./SPEC.md §9.1 asks for "byte-identical
-  // responses" and §9.8 for "a 200"; both are trivially true today because there is no
-  // tracing code, so the only way those assertions mean anything after #582 is if the bytes
-  // were written down before it. This test is that record.
+  // ./SPEC.md §9.1 asks for byte-identical responses on the unobserved path. This is the
+  // pre-instrumentation response record that keeps that claim executable.
   //
   // Recorded 2026-09-04 by driving the real `createRouter` under vitest. The seven
   // `traceparent` variants below — valid, malformed, uppercase hex, all-zero trace id,
   // version `ff`, version `01` with a trailing field, and absent — all produce the identical
-  // 200 today, which is exactly why §9.8's status assertion needs the span half beside it.
+  // 200, which is exactly why §9.8's status assertion needs the span half beside it.
   it('the untraced response is the byte-identical baseline this freeze recorded', async () => {
     const router = createRouter();
     router.register(controller(), { create: { validateBody: validateTitle } });
@@ -361,20 +284,15 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     expect(rejected.status).toBe(400);
     expect(await bodyText(rejected)).toBe('{"error":"title must be a string"}');
 
-    // §3's seam does not exist yet, stated as a number rather than as prose so that the day it
-    // changes is the day this line changes. #582 widens `createRouter` to take an
-    // `Observability`, at which point `length` becomes 0 still (the parameter is optional) —
-    // so the assertion that actually moves is `createTracedRouter` stopping to throw.
+    // The optional RouterOptions argument preserves the function's zero required arity.
     expect(createRouter.length).toBe(0);
     expect(Object.keys(createRouter())).toEqual(['register', 'registerDeferred', 'handle']);
   });
 
-  // GREEN. ./SPEC.md §5's central argument for attaching `telemetry` to the compiled query is
+  // ./SPEC.md §5's central argument for attaching `telemetry` to the compiled query is
   // that the alternative "is a bug that is already written down": `web-observability.md`
   // derives the operation name with `/^\s*(\w+)/`, and that page is live documentation, not a
-  // hypothetical. Both failure modes it names are asserted here against the page's own code,
-  // because §9.6's `it.fails` can only assert what the *fix* does — this is the assertion that
-  // the thing being fixed is real.
+  // hypothetical. Both failure modes it names are asserted here against the page's own code.
   //
   // Recorded 2026-09-04 with `node`, against the expression still printed at
   // `docs-site/content/web-observability.md:116`:
@@ -407,13 +325,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   //
   // With a throwing tracer, `handle` must reach the tracer, which proves the tracerless run's
   // silence came from a branch rather than from an implementation that ignores its argument.
-  //
-  // Current actual: `createTracedRouter` throws
-  // `Error: #580 tests freeze: createRouter does not accept an Observability yet
-  // (observability SPEC §3)`. The real `createRouter` today gives `ctx.span === undefined`
-  // for free, because `Ctx` has no `span` field at all — so the first half of this test
-  // already holds and only the second half can fail once #582 exists.
-  it.fails('allocates nothing per request or per query when no tracer is configured', async () => {
+  it('allocates nothing per request or per query when no tracer is configured', async () => {
     seenContexts.length = 0;
     const untraced = createTracedRouter({});
     untraced.register(controller());
@@ -440,27 +352,45 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
   // §9.3 and §9.4. Semconv requires `{method} {http.route}` with a low-cardinality route, so
   // the name is `GET /posts/:id` and never `GET /posts/1`. §4 explains why the router has to
-  // be the thing that creates it: `Ctx` is `{ params, body, query, headers, method, path }`
-  // and `path` is the concrete `/posts/1`, so only the matched route knows `/posts/:id`.
+  // be the thing that creates it: `Ctx.path` is the concrete `/posts/1`, and its optional
+  // handler span does not carry a matched pattern, so only the matched route knows `/posts/:id`.
   //
   // Every key is a literal string, per §9.4: "A test that compares against a constant
   // exported from the implementation would pass through a rename, which is the exact failure
   // §1 is about."
-  //
-  // Current actual: `createTracedRouter` throws `Error: #580 tests freeze: createRouter does
-  // not accept an Observability yet (observability SPEC §3)`. The untraced response today is
-  // `{"status":200,"body":"{\"id\":\"1\"}"}` with no span of any kind.
-  it.fails('creates a server span with the conventional name and attributes', async () => {
+  it('creates a server span with the conventional name and attributes', async () => {
     const tracer = recordingTracer();
     const router = createTracedRouter({ tracer });
     router.register(controller());
 
-    await router.handle({ ...GET_POST, headers: { host: 'api.example.test' } });
+    const request: WebRequest = {
+      method: 'GET',
+      headers: { host: 'api.example.test' },
+      get path() {
+        tracer.events.push('read:path');
+        return '/posts/1';
+      },
+    };
+    await router.handle(request);
 
     const root = tracer.root();
+    const routeSpan = tracer.spans.find(span => span.name === 'zmdb.route');
+    expect(root?.initialName).toBe('GET');
     expect(root?.name).toBe('GET /posts/:id');
     expect(root?.name).not.toContain('/posts/1');
+    expect(root?.kind).toBe('server');
     expect(root?.ended).toBe(true);
+    expect(routeSpan?.kind).toBe('internal');
+    expect(routeSpan?.parent?.spanId).toBe(root?.context.spanId);
+    expect(routeSpan?.startedAt).toBeGreaterThan(root?.startedAt ?? Number.POSITIVE_INFINITY);
+    expect(root?.renamedAt).toBeGreaterThan(routeSpan?.endedAt ?? Number.POSITIVE_INFINITY);
+
+    const routeStarted = tracer.events.indexOf('start:zmdb.route');
+    const routeEnded = tracer.events.indexOf('end:zmdb.route');
+    expect(routeStarted).toBeGreaterThan(-1);
+    expect(routeEnded).toBeGreaterThan(routeStarted);
+    expect(tracer.events.slice(routeStarted + 1, routeEnded)).toContain('read:path');
+    expect(tracer.events.indexOf('rename:GET /posts/:id')).toBeGreaterThan(routeEnded);
 
     expect(root?.attributes['http.request.method']).toBe('GET');
     expect(root?.attributes['http.route']).toBe('/posts/:id');
@@ -480,15 +410,69 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     await oddRouter.handle({ method: 'propfind', path: '/posts/1', headers: {} });
     expect(oddMethod.root()?.attributes['http.request.method']).toBe('_OTHER');
 
-    // §5: `error.type` is the thrown value's constructor name, and the status code is set at
-    // the end — so it is present here because the request completed, 400 and all.
-    const errored = recordingTracer();
-    const errorRouter = createTracedRouter({ tracer: errored });
+    // HTTP server 4xx responses are request failures, not server span errors. The validation
+    // child records its own exception while the SERVER span remains unset.
+    const rejected = recordingTracer();
+    const errorRouter = createTracedRouter({ tracer: rejected });
     errorRouter.register(controller(), { create: { validateBody: validateTitle } });
     await errorRouter.handle({ method: 'POST', path: '/posts', headers: {}, rawBody: { title: 1 } });
-    expect(errored.root()?.attributes['error.type']).toBe('TypeError');
-    expect(errored.root()?.attributes['http.response.status_code']).toBe(400);
-    expect(errored.root()?.status).toEqual({ error: true });
+    expect(rejected.root()?.attributes['http.response.status_code']).toBe(400);
+    expect(rejected.root()?.attributes).not.toHaveProperty('error.type');
+    expect(rejected.root()?.status).toBeUndefined();
+    expect(rejected.root()?.exceptions).toEqual([]);
+    const validation = rejected.spans.find(span => span.name === 'zmdb.validate');
+    expect(validation?.status).toEqual({ error: true });
+    expect(validation?.exceptions.map(error => error.message)).toEqual(['title must be a string']);
+
+    // A thrown server failure does mark the SERVER span and records the constructor name.
+    const failed = recordingTracer();
+    const failedRouter = createTracedRouter({ tracer: failed });
+    failedRouter.register(controller());
+    const failure = await failedRouter.handle({ method: 'GET', path: '/posts/server-error/1', headers: {} });
+    expect(failure.status).toBe(500);
+    expect(failed.root()?.attributes['error.type']).toBe('Error');
+    expect(failed.root()?.attributes['http.response.status_code']).toBe(500);
+    expect(failed.root()?.status).toEqual({ error: true });
+    expect(failed.root()?.exceptions.map(error => error.message)).toEqual(['handler failed']);
+
+    // A handler-returned 5xx has no thrown constructor, so the status code is the error type.
+    const unavailable = recordingTracer();
+    const unavailableRouter = createTracedRouter({ tracer: unavailable });
+    unavailableRouter.register(controller());
+    const unavailableResponse = await unavailableRouter.handle({
+      method: 'GET',
+      path: '/posts/unavailable/1',
+      headers: {},
+    });
+    expect(unavailableResponse.status).toBe(503);
+    expect(unavailable.root()?.attributes['error.type']).toBe('503');
+    expect(unavailable.root()?.status).toEqual({ error: true });
+    expect(unavailable.root()?.exceptions).toEqual([]);
+  });
+
+  it('ends request and route spans when route matching aborts', async () => {
+    const tracer = recordingTracer();
+    const router = createTracedRouter({ tracer });
+    router.register(controller());
+    let pathReads = 0;
+
+    await expect(
+      router.handle({
+        method: 'GET',
+        headers: {},
+        get path() {
+          pathReads += 1;
+          if (pathReads === 2) {
+            throw new Error('path read failed');
+          }
+          return '/posts/1';
+        },
+      }),
+    ).rejects.toThrow('path read failed');
+
+    expect(tracer.root()?.ended).toBe(true);
+    expect(tracer.root()?.attributes).not.toHaveProperty('http.response.status_code');
+    expect(tracer.spans.find(span => span.name === 'zmdb.route')?.ended).toBe(true);
   });
 
   // §9.3, the other half. §4: "A request that matches no route has no `http.route`, so its
@@ -496,10 +480,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // span name and an unmatched path is unbounded cardinality by definition." The raw path is
   // the whole risk here: a scanner hitting ten thousand distinct URLs is ten thousand span
   // names, which is the classic way to bankrupt a tracing bill.
-  //
-  // Current actual: `createTracedRouter` throws. The real router today answers
-  // `{"status":404,"body":"{\"error\":\"no route for GET /nope/1\"}"}` and records nothing.
-  it.fails('names the server span for the method alone when no route matched', async () => {
+  it('names the server span for the method alone when no route matched', async () => {
     const tracer = recordingTracer();
     const router = createTracedRouter({ tracer });
     router.register(controller());
@@ -508,13 +489,18 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     expect(response.status).toBe(404);
 
     const root = tracer.root();
+    expect(root?.initialName).toBe('GET');
     expect(root?.name).toBe('GET');
     expect(root?.name).not.toContain('/nope');
+    expect(root?.kind).toBe('server');
+    expect(root?.renamedAt).toBeUndefined();
     expect(root?.attributes).not.toHaveProperty('http.route');
     // §5: `url.path` is "the concrete path — an attribute, never a span name", so the path is
     // still recoverable for whoever is looking at the scanner.
     expect(root?.attributes['url.path']).toBe('/nope/1');
     expect(root?.attributes['http.response.status_code']).toBe(404);
+    expect(root?.attributes).not.toHaveProperty('error.type');
+    expect(root?.status).toBeUndefined();
   });
 
   // §9.2. Four span kinds in §4's nesting, and the nesting is asserted through `parent` span
@@ -525,10 +511,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // so a fifth span would be one that never executes — "it appears in this document, somebody
   // builds a panel expecting it, and the panel is empty for a reason nobody can find". The
   // issue body's five-span list is corrected to four here, and the absence is asserted.
-  //
-  // Current actual: `createTracedRouter` throws `Error: #580 tests freeze: createRouter does
-  // not accept an Observability yet (observability SPEC §3)`.
-  it.fails('nests routing, validation, handler and query spans under the server span', async () => {
+  it('nests routing, validation, handler and query spans under the server span', async () => {
     const tracer = recordingTracer();
     const router = createTracedRouter({ tracer });
     router.register(controller(), { create: { validateBody: validateTitle } });
@@ -542,6 +525,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
     const root = tracer.root();
     expect(root?.name).toBe('POST /posts');
+    expect(root?.kind).toBe('server');
     expect(root).toBeDefined();
 
     const children = root === undefined ? [] : tracer.childrenOf(root);
@@ -550,6 +534,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     // Every child of the server span is one of §4's three request-side kinds, and each shares
     // the trace: the tree is one level deep on the request side.
     for (const child of children) {
+      expect(child.kind).toBe('internal');
       expect(child.parent?.spanId).toBe(root?.context.spanId);
       expect(child.context.traceId).toBe(root?.context.traceId);
       expect(child.ended).toBe(true);
@@ -588,9 +573,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // (`pipeline/index.ts`), not a single `RouteOptions`. Verified by running the real router:
   // passing `{ validateBody }` directly registers no validator and the bad body is accepted
   // with a 201 and `{"title":1}`.
-  //
-  // Current actual: `createTracedRouter` throws.
-  it.fails('omits the validation span when validateBody is unset', async () => {
+  it('omits the validation span when validateBody is unset', async () => {
     const withValidator = recordingTracer();
     const validating = createTracedRouter({ tracer: withValidator });
     validating.register(controller(), { create: { validateBody: validateTitle } });
@@ -615,11 +598,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // no WITH clause"), so there is no builder call that would produce this text. Nothing is lost
   // — §9.6 is an assertion about where the label comes from, and a literal makes that sharper
   // than a builder would, because the text and the telemetry visibly disagree.
-  //
-  // Current actual: `tracedDriver` throws `Error: #580 tests freeze: tracedDriver is
-  // unimplemented (observability SPEC §4)`. Recorded with `node`: the docs page's
-  // `/^\s*(\w+)/` returns `"WITH"` for this exact text, which is the wrong label.
-  it.fails('takes query span attributes from the compiled query rather than parsing SQL at execution', async () => {
+  it('takes query span attributes from the compiled query rather than parsing SQL at execution', async () => {
     const tracer = recordingTracer();
     const cte = telemetryQuery(
       'WITH moved AS (DELETE FROM "staging" RETURNING *) INSERT INTO "orders" SELECT * FROM moved',
@@ -662,19 +641,15 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   });
 
   // §9.5. The statement is recorded — §6 argues zmdb "has an unusually strong right to do it",
-  // because `CompiledQuery` is `{ text, parameters }` with parameters bound by the driver, so
-  // the text contains no user data *by construction*. The parameter values are never recorded
-  // at any level and there is no option that enables it.
+  // because `CompiledQuery` always separates text from parameters and its optional telemetry
+  // contains no parameter values. The driver binds the parameters, so the text contains no
+  // user data *by construction*. Parameter values are never recorded at any level and there
+  // is no option that enables it.
   //
   // Asserted the way §9.5 asks: a distinctive parameter, then a search of *every* recorded
   // attribute on *every* span. A per-attribute assertion would miss the leak that arrives on
   // a key nobody thought of, which is the only way this leak ever arrives.
-  //
-  // Current actual: `tracedDriver` throws `Error: #580 tests freeze: tracedDriver is
-  // unimplemented (observability SPEC §4)`. Recorded with `node`: the real compiler produces
-  // `SELECT "id" FROM "users" WHERE "email" = $1` with `parameters: ["zz-canary-9f3a@example.test"]`,
-  // so the canary genuinely is in the query and absent from the text.
-  it.fails('records the statement but never parameter values', async () => {
+  it('records the statement but never parameter values', async () => {
     const canary = 'zz-canary-9f3a@example.test';
     const tracer = recordingTracer();
     const query = telemetryQuery('SELECT "id" FROM "users" WHERE "email" = $1', [canary], {
@@ -709,9 +684,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // (1500) and from nanoseconds, and it is asserted on the fake clock so the test is not a
   // 1.5-second sleep in CI. #582 must therefore measure with something `vi.useFakeTimers()`
   // controls — `Date.now()` or `performance.now()`, both of which vitest fakes by default.
-  //
-  // Current actual: `createTracedRouter` throws.
-  it.fails('records durations in seconds, not milliseconds', async () => {
+  it('records durations in seconds, not milliseconds', async () => {
     vi.useFakeTimers();
     try {
       const meter = recordingMeter();
@@ -759,16 +732,15 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
   // §9.9. Without extraction "the caller's trace ends at the door", which
   // `web-tracing.md` calls the single most common tracing misconfiguration.
-  //
-  // Current actual: `createTracedRouter` throws. Recorded with the real router: a request
-  // carrying this exact header produces a response byte-identical to one without it, which is
-  // precisely the failure — the header is read by nothing.
-  it.fails('extracts an incoming traceparent and continues the trace', async () => {
+  it('extracts an incoming traceparent and continues the trace', async () => {
     const tracer = recordingTracer('ffffffffffffffffffffffffffffffff');
     const router = createTracedRouter({ tracer });
     router.register(controller());
 
-    const response = await router.handle({ ...GET_POST, headers: { traceparent: VALID_TRACEPARENT } });
+    const response = await router.handle({
+      ...GET_POST,
+      headers: { traceparent: VALID_TRACEPARENT, tracestate: VALID_TRACESTATE },
+    });
     expect(await bodyText(response)).toBe('{"id":"1"}');
 
     const root = tracer.root() ?? tracer.spans[0];
@@ -777,6 +749,8 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     // this tracer would have minted.
     expect(root?.parent?.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
     expect(root?.parent?.spanId).toBe('00f067aa0ba902b7');
+    expect(root?.parent?.traceState).toBe(VALID_TRACESTATE);
+    expect(root?.parent?.isRemote).toBe(true);
     expect(root?.context.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
     expect(root?.context.traceId).not.toBe('ffffffffffffffffffffffffffffffff');
     expect(root?.context.spanId).not.toBe('00f067aa0ba902b7');
@@ -797,6 +771,8 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
       headers: { traceparent: VALID_TRACEPARENT, tracestate: 'this=is=not=valid,,,' },
     });
     expect(keptTracer.spans[0]?.context.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+    expect(keptTracer.spans[0]?.parent?.traceState).toBeUndefined();
+    expect(keptTracer.spans[0]?.parent?.isRemote).toBe(true);
   });
 
   // §9.8. Each of §8's malformed cases produces a 200 and a *root* span with a fresh trace id.
@@ -807,10 +783,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // misconfigured upstream injecting a bad header takes down every downstream service at
   // once", and a header a client controls must not be able to produce a 400 on a route that
   // has nothing to do with tracing.
-  //
-  // Current actual: `createTracedRouter` throws. All six malformed headers already produce
-  // `{"status":200,"body":"{\"id\":\"1\"}"}` today, recorded in the baseline test above.
-  it.fails('ignores a malformed traceparent and starts a new trace without failing the request', async () => {
+  it('ignores a malformed traceparent and starts a new trace without failing the request', async () => {
     const malformed: readonly [string, string][] = [
       ['wrong field count', '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7'],
       ['wrong length', '00-4bf92f-00f067aa0ba902b7-01'],
@@ -844,10 +817,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // A future version number with a trailing field is read by taking the first four fields and
   // ignoring the remainder; rejecting it means every downstream service loses the trace the
   // day one upstream upgrades.
-  //
-  // Current actual: `fromTraceparent` throws `Error: #580 tests freeze: fromTraceparent is
-  // unimplemented (observability SPEC §8)`.
-  it.fails('accepts a version 01 traceparent with a trailing field', () => {
+  it('accepts a version 01 traceparent with a trailing field', () => {
     const accepted = fromTraceparent('01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-what-comes-next');
     expect(accepted?.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
     expect(accepted?.spanId).toBe('00f067aa0ba902b7');
@@ -867,10 +837,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // The round trip is the assertion rather than a string comparison because it is the property
   // that matters: the two halves must agree, and a shared constant would let both drift
   // together.
-  //
-  // Current actual: `toTraceparent` throws `Error: #580 tests freeze: toTraceparent is
-  // unimplemented (observability SPEC §8)`.
-  it.fails('injects traceparent into an outgoing message', () => {
+  it('injects traceparent into an outgoing message', () => {
     const tracer = recordingTracer();
     const span = tracer.startSpan('zmdb.handler');
     const header = toTraceparent(span);
@@ -891,10 +858,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // reason: "a parent-child edge across an unbounded queue delay produces a trace whose
   // duration is the queue's latency and whose waterfall is unreadable". A trace that says a
   // request took four hours because the message sat in a queue is a trace nobody can use.
-  //
-  // Current actual: `consumerSpan` throws `Error: #580 tests freeze: consumerSpan is
-  // unimplemented (observability SPEC §8)`.
-  it.fails('links a queued consumer span and parents a request-reply one', () => {
+  it('links a queued consumer span and parents a request-reply one', () => {
     const queued = recordingTracer();
     consumerSpan({ tracer: queued }, { traceparent: VALID_TRACEPARENT }, 'queued');
     const queuedSpan = queued.spans[0];
@@ -931,11 +895,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   //
   // The property `sql-comments.md` names as the virtue of explicit propagation is the one
   // asserted here: two concurrent requests cannot see each other's span.
-  //
-  // Current actual: `createTracedRouter` throws. `Ctx` today is
-  // `{ params, body, query, headers, method, path }` with no `span` field, so
-  // `'span' in ctx` is `false` and there is nothing for a handler to read.
-  it.fails('hands the handler its own span through Ctx and not through ambient state', async () => {
+  it('hands the handler its own span through Ctx and not through ambient state', async () => {
     seenContexts.length = 0;
     const tracer = recordingTracer();
     const router = createTracedRouter({ tracer });
@@ -966,10 +926,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   // caller passed — which in a request is `ctx.span`. Without that edge the query span is a
   // root and the waterfall shows a request and an unrelated query, which is the exact gap
   // `web-tracing.md` papers over with a hand-written helper.
-  //
-  // Current actual: `tracedDriver` throws `Error: #580 tests freeze: tracedDriver is
-  // unimplemented (observability SPEC §4)`.
-  it.fails('parents each query span to the span it was given', async () => {
+  it('parents each query span to the span it was given', async () => {
     const tracer = recordingTracer();
     const parent = tracer.startSpan('zmdb.handler');
     const driver = tracedDriver(noRows(), { tracer }, parent);

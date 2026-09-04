@@ -31,14 +31,12 @@ function isWhitespace(ch: string | undefined): boolean {
   return ch !== undefined && /\s/.test(ch);
 }
 
-/**
- * Safely quote a table specification, which may be a table name (optionally dot-qualified)
- * or a table alias expression (e.g. `table as alias` or `schema.table AS alias`).
- *
- * Uses manual scanning for `AS` boundaries to avoid polynomial regex backtracking (ReDoS)
- * on arbitrary table specification inputs.
- */
-export function quoteTable(dialect: Dialect, tableSpec: string): string {
+interface TableSpec {
+  readonly table: string;
+  readonly alias?: string;
+}
+
+function splitTableSpec(tableSpec: string): TableSpec {
   const trimmed = tableSpec.trim();
   const lower = trimmed.toLowerCase();
   let searchIndex = 0;
@@ -51,17 +49,33 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
     const hasSpaceAfter = isWhitespace(trimmed[asIndex + 2]);
 
     if (hasSpaceBefore && hasSpaceAfter) {
-      const tableStr = trimmed.slice(0, asIndex).trim();
-      const aliasStr = trimmed.slice(asIndex + 2).trim();
-      if (tableStr.length > 0 && aliasStr.length > 0) {
-        const tablePart = quoteColumn(dialect, tableStr);
-        const aliasPart = quoteIdentifier(dialect, aliasStr);
-        return `${tablePart} AS ${aliasPart}`;
+      const table = trimmed.slice(0, asIndex).trim();
+      const alias = trimmed.slice(asIndex + 2).trim();
+      if (table.length > 0 && alias.length > 0) {
+        return { table, alias };
       }
     }
     searchIndex = asIndex + 2;
   }
-  return quoteColumn(dialect, trimmed);
+  return { table: trimmed };
+}
+
+/** The primary table named by a table specification, without an optional alias. */
+export function unaliasedTable(tableSpec: string): string {
+  return splitTableSpec(tableSpec).table;
+}
+
+/**
+ * Safely quote a table specification, which may be a table name (optionally dot-qualified)
+ * or a table alias expression (e.g. `table as alias` or `schema.table AS alias`).
+ *
+ * Uses manual scanning for `AS` boundaries to avoid polynomial regex backtracking (ReDoS)
+ * on arbitrary table specification inputs.
+ */
+export function quoteTable(dialect: Dialect, tableSpec: string): string {
+  const { table, alias } = splitTableSpec(tableSpec);
+  const tablePart = quoteColumn(dialect, table);
+  return alias === undefined ? tablePart : `${tablePart} AS ${quoteIdentifier(dialect, alias)}`;
 }
 
 /**

@@ -11,6 +11,35 @@
 
 ---
 
+## Observability overhead — off, API no-op and recording exporter
+
+Measured on 2026-09-04 with Node 26.8.1 on an AMD Ryzen 7 7840U,
+`@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row
+is the median of six samples after 1.5 seconds of warmup per workload/mode. The
+runner uses all six mode permutations, placing every mode twice in every
+ordinal position, and calibrates one 500 ms off-path iteration count that all
+three modes share.
+
+| workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
+| -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
+| request  | off                |       331.49 |      3016660 |        baseline |                 0 |         1.068x |
+| request  | API no-op          |      1262.20 |       792270 |         +280.8% |                 0 |         1.037x |
+| request  | recording exporter |      6607.54 |       151342 |        +1893.3% |                 3 |         1.007x |
+| query    | off                |        72.96 |     13706196 |        baseline |                 0 |         1.043x |
+| query    | API no-op          |       291.30 |      3432833 |         +299.3% |                 0 |         1.064x |
+| query    | recording exporter |      2467.01 |       405349 |        +3281.3% |                 1 |         1.016x |
+
+The request workload consumes one matched `GET` response and exports the
+server, route and handler spans. The query workload consumes one compiled
+`SELECT` result through `tracedDriver` and exports one client span. The
+recording case is a real `BasicTracerProvider` plus `SimpleSpanProcessor` and a
+bounded exporter; exporter flush/reset are outside the timed interval, and
+metrics are disabled in all three modes. The
+[raw artifact](./site/observability.json) carries all 36 samples, runtime
+provenance and a SHA-256 manifest of every benchmark input.
+
+---
+
 ## ORM — drizzle-benchmarks (real methodology: HTTP servers + k6)
 
 This is the upstream method: one **HTTP server per ORM** (each using its own

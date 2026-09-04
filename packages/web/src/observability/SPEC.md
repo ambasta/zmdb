@@ -31,6 +31,7 @@ port:
 
 ```ts
 export interface Span {
+  updateName(name: string): void;
   setAttribute(key: string, value: string | number | boolean): void;
   recordException(error: Error): void;
   setStatus(status: { readonly error: boolean }): void;
@@ -42,10 +43,21 @@ export interface SpanContext {
   readonly traceId: string;
   readonly spanId: string;
   readonly traceFlags: number;
+  readonly isRemote?: boolean;
+  readonly traceState?: string;
 }
 
+export type SpanKind = 'internal' | 'server' | 'client' | 'producer' | 'consumer';
+
 export interface Tracer {
-  startSpan(name: string, options?: { readonly parent?: SpanContext; readonly link?: SpanContext }): Span;
+  startSpan(
+    name: string,
+    options?: {
+      readonly kind?: SpanKind;
+      readonly parent?: SpanContext;
+      readonly link?: SpanContext;
+    },
+  ): Span;
 }
 
 export interface Meter {
@@ -62,15 +74,20 @@ export interface Observability {
 }
 ```
 
+`updateName` is the sixth span method for a concrete reason rather than
+convenience: the server span must exist before matching so `zmdb.route` can time
+the real lookup, while the conventional server-span name is only known after
+that lookup. The router starts it with the method, measures matching under the
+route child, then renames it to `{method} {http.route}`.
+
 **This spec does not claim structural compatibility with `@opentelemetry/api`.** Its
 `Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and a
-claim that a locally declared interface satisfies them cannot be compiled in a package
-that is forbidden from importing the thing it is claiming compatibility with. A claim that
-cannot be checked is a claim that rots in silence. So the port above is a port, the
-adapter from it to OpenTelemetry is roughly ten lines, and the adapter belongs in the
-optional `@zmdb/web/otel` entry point that `docs-site/content/web-tracing.md` already
-proposes — where the peer is a devDependency and the compatibility claim is therefore
-_typechecked_. That subpath is #582's work; this file freezes what it adapts to.
+claim that a locally declared interface satisfies them cannot be compiled from the
+dependency-free core entry points. A claim that cannot be checked is a claim that rots in
+silence. So the port above is a port, and the adapter lives in the optional `@zmdb/web/otel` entry point, where
+`@opentelemetry/api` is both an optional peer and a dev dependency and the
+compatibility claim is therefore _typechecked_. Importing `@zmdb/web` or
+`@zmdb/web/observability` does not resolve that peer.
 
 **`comments` corrects the sketch.** #579 has
 `comments?: { readonly enabled: boolean; readonly keys: readonly CommentKey[] }`, in which
@@ -114,18 +131,30 @@ Explicit propagation through `Ctx` costs more wiring and buys a property
 > is more wiring than a global, and also the reason two concurrent requests cannot tag
 > each other's queries.
 
+The OpenTelemetry adapter preserves that decision: it starts spans against the
+explicit parent context and does not install them into `context.active()`.
+Auto-instrumented libraries therefore remain a separate instrumentation layer;
+the framework's own database span is parented by passing `ctx.span` to
+`tracedDriver`.
+
 ## 4. The span hierarchy
 
-Four spans, not the five step 5 lists. The list of children is corrected because one of
-them cannot exist yet:
+One server span with three framework children, plus one database span per query.
+The list is shorter than the issue sketch because one of its children cannot
+exist yet:
 
 ```
 zmdb.request               server span, created by the Router
 ├── zmdb.route             route resolution
 ├── zmdb.validate          body validation, only when RouteOptions.validateBody is set
-├── zmdb.handler           the handler invocation
-└── <db operation>         one per query, created by the driver decorator
+└── zmdb.handler           the handler invocation
+    └── <db operation>     one per query, created by the driver decorator
 ```
+
+The database edge is explicit. `tracedDriver(inner, observability, ctx.span)`
+creates query spans under that request's handler. A process-wide wrapper with no
+parent still emits useful root database spans, but it cannot infer a request
+parent because §3 deliberately has no ambient current span.
 
 **No interceptor span.** #573 established that `runChain` has no caller in the pipeline —
 every call site in the repository is a `*.spec.ts` — so an interceptor never runs and a
@@ -136,20 +165,23 @@ the wiring, in whatever issue owns `runChain`.
 
 **The server span is created by the router, not by the adapter, and this is forced.**
 Semconv requires the span name to be `{method} {http.route}` with a low-cardinality route,
-and `http.route` is not derivable from anything a handler or an adapter sees: `Ctx` is
-`{ params, body, query, headers, method, path }` and `path` is the concrete `/posts/1`.
+and `http.route` is not derivable from anything a handler or an adapter sees: `Ctx` has
+`params`, `body`, `query`, `headers`, `method`, `path` and an optional handler `span`, while
+`path` is still the concrete `/posts/1`.
 Only the matched route knows `/posts/:id`. This is precisely the gap
 `docs-site/content/web-tracing.md` papers over with a hand-written `routeFor(req)` and
 that `web-observability.md` warns about, and moving span creation into the router is
 what closes it rather than documenting a workaround for it.
 
-A request that matches no route has no `http.route`, so its span name is the method alone —
-`GET` — because semconv forbids putting the raw path in a span name and an unmatched path
-is unbounded cardinality by definition.
+A request that matches no route has no `http.route`, so its span name remains
+the method alone — `GET` — because semconv forbids putting the raw path in a
+span name and an unmatched path is unbounded cardinality by definition.
 
 `zmdb.route` is a child rather than an attribute because route resolution is where a
 pathological route table shows up, and a duration is the only way to see it. It is expected
-to be microseconds; a `zmdb.route` that is not is the finding.
+to be microseconds; a `zmdb.route` that is not is the finding. The server span
+therefore starts before matching with the provisional method-only name, and
+`updateName` applies the matched pattern after `zmdb.route` ends.
 
 ## 5. Attributes, and which side of the compile they come from
 
@@ -164,6 +196,13 @@ Server span, `zmdb.request`:
 | `http.response.status_code` | runtime | set at the end, so it is absent on an abandoned span |
 | `error.type`                | runtime | the thrown value's constructor name, or the status   |
 | `server.address`            | runtime | the `host` header, when present                      |
+
+For a server span, a normal `4xx` response is not an OpenTelemetry error: it
+records `http.response.status_code` but leaves span status unset and omits
+`error.type`. A `5xx` response is an error. A validation or handler child can
+still record the exception it handled even when the server response is `400`;
+that distinction keeps the server convention correct without hiding where the
+request was rejected.
 
 Database span, one per `Driver.execute`:
 
@@ -229,12 +268,13 @@ invite exactly the confusion the refusal is about.
 ## 6. Statement recording, and the one thing that is never recorded
 
 **`db.query.text` is recorded by default, and zmdb has an unusually strong right to do it.**
-`CompiledQuery` is `{ text, parameters }` (`packages/query-compiler/src/index.ts:77-80`)
-with parameters bound by the driver, so the text is a placeholder-only template. It contains
-no user data by _construction_ — not because a redaction pass looked for values and did not
-find any. An ORM that interpolates has to default this off, because its "statement" is a
-document containing whatever was in the request; zmdb's cannot be, and the difference is
-worth stating rather than inheriting the cautious default from tools that need it.
+`CompiledQuery` always separates `text` from `parameters`; the optional compile-time
+`telemetry` field carries only the database system, operation and collection. Parameters
+are bound by the driver, so the text is a placeholder-only template. It contains no user
+data by _construction_ — not because a redaction pass looked for values and did not find
+any. An ORM that interpolates has to default this off, because its "statement" is a document
+containing whatever was in the request; zmdb's cannot be, and the difference is worth
+stating rather than inheriting the cautious default from tools that need it.
 
 `web-tracing.md` already makes this argument. The freeze keeps it and hardens the other
 half.
@@ -277,8 +317,9 @@ cardinality bound. `url.path` never appears on a metric — that is
 
 ## 8. Propagation, in both directions
 
-**Inbound.** `traceparent` and `tracestate` are read from the request headers and the
-server span is created as a child of the extracted context. `traceparent` is accepted when
+**Inbound.** `traceparent` and `tracestate` are read from the request headers by
+`fromTraceContext`, and the server span is created as a child of the extracted
+remote context. `traceparent` is accepted when
 it is exactly the W3C shape: four hyphen-separated fields of 2, 32, 16 and 2 lowercase hex
 digits, a trace-id that is not all zeroes, a span-id that is not all zeroes, and a version
 that is not `ff`. A version above `00` is accepted by reading the first four fields and
@@ -291,38 +332,48 @@ has nothing to do with tracing, and the failure mode of the alternative is a
 telemetry-shaped outage: a misconfigured upstream injecting a bad header takes down every
 downstream service at once. `tracestate` that fails to parse is dropped while
 `traceparent` is kept, because the two carry different things and the vendor field is the
-one nobody's correctness depends on.
+one nobody's correctness depends on. A valid list is preserved, in order, on
+`SpanContext.traceState`; `isRemote: true` survives the optional OpenTelemetry
+adapter so parent-based sampling can distinguish an extracted parent from a
+locally-created context.
 
 Without extraction the caller's trace ends at the door, which
 `docs-site/content/web-tracing.md` calls the single most common tracing
 misconfiguration. The framework doing it is the point of doing it in the framework.
 
-**Outbound.** The framework does not wrap `fetch`. It exports
+**Outbound.** The framework does not wrap `fetch`. It exports both the exact
+single-header helper and a carrier helper:
 
 ```ts
 export declare function toTraceparent(span: Span): string;
+export declare function toTraceHeaders(span: Span): {
+  readonly traceparent: string;
+  readonly tracestate?: string;
+};
 ```
 
-and the caller writes one header. Patching a global is what a no-dependency package should
-be least willing to do, the auto-instrumentation on `web-tracing.md` already patches
-`fetch` for anyone who wants that, and two things patching the same global is a debugging
-session nobody enjoys.
+and the caller writes those headers. Patching a global is what a no-dependency
+package should be least willing to do, the auto-instrumentation on
+`web-tracing.md` already patches `fetch` for anyone who wants that, and two
+things patching the same global is a debugging session nobody enjoys.
 
-**Message transports.** `../events`, `../cqrs` and `../microservices` carry objects rather
-than HTTP requests, so the context travels as a `traceparent` field on the envelope, with
-the same string `toTraceparent` produces and the same validation on the way in. A consumer
-that runs synchronously with its producer — a request/reply call — starts a **child** span.
-A consumer that dequeues a message some time after it was produced starts a span **linked**
-to the producer instead, because a parent-child edge across an unbounded queue delay
-produces a trace whose duration is the queue's latency and whose waterfall is unreadable.
-Semconv says the same; the reason is worth having in the file.
+**Message transports.** `../microservices` crosses a process boundary, so the
+same `traceparent`/`tracestate` carrier travels on its request and event
+envelopes and is validated on the way in. The application event registry and
+command bus are in-process calls, not transports, so they carry no wire header.
+A consumer that runs synchronously with its producer — a request/reply call —
+starts a **child** span. A consumer that dequeues a message some time after it
+was produced starts a span **linked** to the producer instead, because a
+parent-child edge across an unbounded queue delay produces a trace whose
+duration is the queue's latency and whose waterfall is unreadable. Semconv says
+the same; the reason is worth having in the file.
 
-## 9. What #580 has to assert
+## 9. What #580 asserts
 
 1. With no `Observability` configured, `Router.handle` produces byte-identical responses and
    the tracer port is never constructed — asserted by passing a `Tracer` whose every method
    throws, alongside a run with no tracer at all, so a no-op-tracer implementation fails.
-2. The span tree of one request is exactly §4's four kinds in that nesting, with
+2. The span tree of one request is exactly §4's hierarchy, with
    `zmdb.validate` absent when `validateBody` is unset and present when it is set.
 3. The server span's name is `GET /posts/:id` for a matched route and `GET` for an unmatched
    one, and `url.path` carries `/posts/1` in both.
@@ -341,15 +392,20 @@ Semconv says the same; the reason is worth having in the file.
    span with a fresh trace-id, and a version `01` header with a trailing field is
    _accepted_.
 9. A valid `traceparent` makes the server span a child of it, with the trace-id preserved.
-10. `toTraceparent(span)` round-trips: the string it produces is accepted by the inbound
-    parser and yields the same trace-id and span-id.
-11. A queued message's consumer span is linked, not parented, and a request/reply consumer
+10. Valid `tracestate` and the remote marker reach the adapter; malformed
+    `tracestate` is dropped without discarding a valid parent.
+11. `toTraceparent(span)` round-trips: the string it produces is accepted by the inbound
+    parser and yields the same trace-id and span-id; `toTraceHeaders` also carries state.
+12. HTTP, database and message spans use `server`, `client` and `consumer`
+    kinds respectively, while the framework children are `internal`.
+13. A `4xx` server response does not set error status, while a `5xx` does.
+14. A queued message's consumer span is linked, not parented, and a request/reply consumer
     span is parented.
 
 ## Non-goals (rejected)
 
-- **Depending on `@opentelemetry/api`** (§2), and claiming structural compatibility with it
-  from a package that cannot import it.
+- **Making `@opentelemetry/api` required or importing it from the core entry points** (§2).
+  The optional `@zmdb/web/otel` adapter is the only integration boundary.
 - **A no-op tracer instead of a branch** (§3).
 - **`AsyncLocalStorage` or any ambient current-span** (§3).
 - **An interceptor span** (§4), until `runChain` has a caller.

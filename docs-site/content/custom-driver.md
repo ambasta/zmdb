@@ -8,10 +8,19 @@ interface Driver {
 interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
+  readonly telemetry?: {
+    readonly system: 'postgresql' | 'mysql' | 'sqlite';
+    readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
+    readonly collection: string;
+  };
 }
 ```
 
-zmdb never opens a connection, never pools, never retries and never parses a connection string. It hands you text and parameters and expects rows back.
+zmdb never opens a connection, never pools, never retries and never parses a
+connection string. It hands you text and parameters and expects rows back. An
+observability wrapper may opt the compiler into the optional `telemetry` field;
+a normal driver can ignore it because execution still uses only text and bound
+parameters.
 
 ## The minimum
 

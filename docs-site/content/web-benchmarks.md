@@ -49,6 +49,32 @@ the module graph and the machine running it; the suite checks the benchmark
 itself and eager behavior, while callers record comparable runs in their own
 environment.
 
+## Observability overhead — off, API no-op and recording exporter
+
+Measured on 2026-09-04 with Node 26.8.1 on an AMD Ryzen 7 7840U, using
+`@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row
+is the median of six samples. All six mode orders were used, so every mode
+appeared twice in each ordinal position; each workload/mode received 1.5 seconds
+of warmup and the off path calibrated a 500 ms sample size shared by all three
+modes.
+
+| workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
+| -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
+| request  | off                |       331.49 |      3016660 |        baseline |                 0 |         1.068x |
+| request  | API no-op          |      1262.20 |       792270 |         +280.8% |                 0 |         1.037x |
+| request  | recording exporter |      6607.54 |       151342 |        +1893.3% |                 3 |         1.007x |
+| query    | off                |        72.96 |     13706196 |        baseline |                 0 |         1.043x |
+| query    | API no-op          |       291.30 |      3432833 |         +299.3% |                 0 |         1.064x |
+| query    | recording exporter |      2467.01 |       405349 |        +3281.3% |                 1 |         1.016x |
+
+The request workload is one matched `GET` and records the server, route and
+handler spans. The query workload is one compiled `SELECT` through
+`tracedDriver` and records one client span. The recording case uses a real
+`BasicTracerProvider`, `SimpleSpanProcessor` and bounded exporter; exporter
+flush/reset are outside the timed interval, and metrics are disabled in all
+three modes. The raw 36 samples, runtime provenance and SHA-256 manifest of
+every benchmark input are committed in `benchmarks/site/observability.json`.
+
 ## End-to-end HTTP — the-benchmarker/web-frameworks
 
 Beyond the in-process microbench, `@zmdb/web` participates in

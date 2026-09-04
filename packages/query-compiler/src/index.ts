@@ -5,7 +5,7 @@ export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { frozenQuery, tailClause, tailMethods, whereClause } from './clauses.js';
+import { frozenQuery, queryTelemetry, tailClause, tailMethods, whereClause } from './clauses.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
@@ -77,6 +77,19 @@ export function chunkArray<T>(array: readonly T[], chunkSize: number): T[][] {
 export interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
+  readonly telemetry?: QueryTelemetry;
+}
+
+/** Compile-time database attributes consumed by tracing and metrics. */
+export interface QueryTelemetry {
+  readonly system: 'postgresql' | 'mysql' | 'sqlite';
+  readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
+  readonly collection: string;
+}
+
+/** Optional compiler features that would otherwise change every query shape. */
+export interface QueryCompilerOptions {
+  readonly telemetry?: true;
 }
 
 interface WhereClause {
@@ -120,8 +133,8 @@ export interface SelectBuilder<T = unknown> {
   readonly _type?: T;
 }
 
-function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<T> {
-  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch });
+function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: boolean): SelectBuilder<T> {
+  const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
   const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
 
@@ -152,7 +165,7 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState): SelectBuilder<
         `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
         whereClause(d, state.wheres, params) +
         tailClause(d, state);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
     },
   };
 }
@@ -234,11 +247,12 @@ function makeInsert(
   row?: Record<string, unknown>,
   ret?: readonly string[],
   conflict?: ConflictState,
+  telemetry = false,
 ): InsertBuilder {
-  const setConflict = (c: ConflictState) => makeInsert(d, table, row, ret, c);
+  const setConflict = (c: ConflictState) => makeInsert(d, table, row, ret, c, telemetry);
   return {
-    values: r => makeInsert(d, table, r, ret, conflict),
-    returning: cols => makeInsert(d, table, row, cols ?? [], conflict),
+    values: r => makeInsert(d, table, r, ret, conflict, telemetry),
+    returning: cols => makeInsert(d, table, row, cols ?? [], conflict, telemetry),
     onConflict: target => {
       const normTarget = normalizeTarget(target);
       return {
@@ -297,7 +311,7 @@ function makeInsert(
       }
 
       text += returningClause(d, ret);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'INSERT', table, telemetry));
     },
   };
 }
@@ -308,16 +322,19 @@ function makeUpdate(
   row?: Record<string, unknown>,
   wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
+  telemetry = false,
 ): UpdateBuilder {
   return {
-    set: r => makeUpdate(d, table, r, wheres, ret),
-    where: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret),
-    orWhere: (col, op, value) => makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret),
+    set: r => makeUpdate(d, table, r, wheres, ret, telemetry),
+    where: (col, op, value) =>
+      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
+    orWhere: (col, op, value) =>
+      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
     whereIn: (col, values) =>
-      makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+      makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
     whereNotIn: (col, values) =>
-      makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
-    returning: cols => makeUpdate(d, table, row, wheres, cols ?? []),
+      makeUpdate(d, table, row, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret, telemetry),
+    returning: cols => makeUpdate(d, table, row, wheres, cols ?? [], telemetry),
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
       const params: unknown[] = [];
@@ -329,7 +346,7 @@ function makeUpdate(
         .join(', ');
       const text =
         `UPDATE ${quoteTable(d, table)} SET ${sets}` + whereClause(d, wheres, params) + returningClause(d, ret);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'UPDATE', table, telemetry));
     },
   };
 }
@@ -339,28 +356,30 @@ function makeDelete(
   table: string,
   wheres: readonly WhereClause[] = [],
   ret?: readonly string[],
+  telemetry = false,
 ): DeleteBuilder {
   return {
-    where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret),
-    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret),
+    where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
+    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
     whereIn: (col, values) =>
-      makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret),
+      makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
     whereNotIn: (col, values) =>
-      makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret),
-    returning: cols => makeDelete(d, table, wheres, cols ?? []),
+      makeDelete(d, table, [...wheres, { col, op: 'not in', value: values, connector: 'AND' }], ret, telemetry),
+    returning: cols => makeDelete(d, table, wheres, cols ?? [], telemetry),
     compile: () => {
       const params: unknown[] = [];
       const text = `DELETE FROM ${quoteTable(d, table)}` + whereClause(d, wheres, params) + returningClause(d, ret);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'DELETE', table, telemetry));
     },
   };
 }
 
-export function createQueryCompiler(dialect: Dialect = 'postgres'): QueryCompiler {
+export function createQueryCompiler(dialect: Dialect = 'postgres', options?: QueryCompilerOptions): QueryCompiler {
+  const telemetry = options?.telemetry === true;
   return {
-    selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }),
-    insertInto: table => makeInsert(dialect, table),
-    updateTable: table => makeUpdate(dialect, table),
-    deleteFrom: table => makeDelete(dialect, table),
+    selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }, telemetry),
+    insertInto: table => makeInsert(dialect, table, undefined, undefined, undefined, telemetry),
+    updateTable: table => makeUpdate(dialect, table, undefined, [], undefined, telemetry),
+    deleteFrom: table => makeDelete(dialect, table, [], undefined, telemetry),
   };
 }

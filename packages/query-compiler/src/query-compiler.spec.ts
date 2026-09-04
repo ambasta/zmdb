@@ -71,6 +71,51 @@ describe('postgres SELECT compilation', () => {
   });
 });
 
+describe('optional compile-time telemetry', () => {
+  it('keeps every default CRUD compiled-query object exactly two-keyed', () => {
+    const compiler = createQueryCompiler('postgres');
+    const queries = [
+      compiler.selectFrom('users').compile(),
+      compiler.insertInto('users').values({ email: 'a@b.com' }).compile(),
+      compiler.updateTable('users').set({ email: 'b@c.com' }).compile(),
+      compiler.deleteFrom('users').compile(),
+    ];
+
+    for (const query of queries) {
+      expect(Object.keys(query)).toEqual(['text', 'parameters']);
+      expect(query.telemetry).toBeUndefined();
+    }
+  });
+
+  it('attaches the dialect, operation and collection only when enabled', () => {
+    const postgres = createQueryCompiler('postgres', { telemetry: true });
+    const mysql = createQueryCompiler('mysql', { telemetry: true });
+    const sqlite = createQueryCompiler('sqlite', { telemetry: true });
+
+    expect(postgres.selectFrom('users').compile().telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'users',
+    });
+    expect(postgres.insertInto('orders').values({ sku: 'A' }).compile().telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'INSERT',
+      collection: 'orders',
+    });
+    expect(mysql.updateTable('accounts').set({ active: true }).compile().telemetry).toEqual({
+      system: 'mysql',
+      operation: 'UPDATE',
+      collection: 'accounts',
+    });
+    expect(sqlite.deleteFrom('sessions').compile().telemetry).toEqual({
+      system: 'sqlite',
+      operation: 'DELETE',
+      collection: 'sessions',
+    });
+    expect(postgres.selectFrom('analytics.users as u').compile().telemetry?.collection).toBe('analytics.users');
+  });
+});
+
 describe('utility functions', () => {
   it('sanitizeKeys removes null/undefined and deduplicates while preserving order', () => {
     const raw = [1, 2, null, 2, undefined, 3, 1, null, 4];

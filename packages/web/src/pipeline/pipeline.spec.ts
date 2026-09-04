@@ -306,13 +306,19 @@ describe('@zmdb/web pipeline: response control', () => {
 // does, so a test can reproduce a split character.
 class FakeReq {
   readonly listeners = new Map<string, (chunk: unknown) => void>();
+  readonly socket?: { readonly encrypted?: boolean };
   private decoder: StringDecoder | undefined;
 
   constructor(
     readonly method: string,
     readonly url: string,
     readonly headers: Record<string, string | string[] | undefined> = {},
-  ) {}
+    socket?: { readonly encrypted?: boolean },
+  ) {
+    if (socket !== undefined) {
+      this.socket = socket;
+    }
+  }
 
   on(event: string, listener: (chunk: unknown) => void): void {
     this.listeners.set(event, listener);
@@ -393,6 +399,26 @@ describe('@zmdb/web pipeline: node adapter', () => {
     toNodeHandler(makeRouter())(req, res);
     await state.done;
     expect(JSON.parse(state.body ?? '')).toEqual({ id: '7' });
+  });
+
+  it('maps the node socket transport to the request scheme', async () => {
+    const schemes: (string | undefined)[] = [];
+    const router: Router = {
+      register: () => undefined,
+      registerDeferred: () => undefined,
+      handle: request => {
+        schemes.push(request.scheme);
+        return Promise.resolve(json({ ok: true }));
+      },
+    };
+
+    for (const request of [new FakeReq('GET', '/plain'), new FakeReq('GET', '/tls', {}, { encrypted: true })]) {
+      const { res, state } = fakeRes({ writeHead: true });
+      toNodeHandler(router)(request, res);
+      await state.done;
+    }
+
+    expect(schemes).toEqual(['http', 'https']);
   });
 
   it('reads and validates a body when content-length says there is one', async () => {

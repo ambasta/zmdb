@@ -133,12 +133,12 @@ type _ShutdownIsAwaitable = Expect<Equal<ReturnType<OutboxDispatcher['onShutdown
 // §4.1 and §6 — the seams, which are structural
 // ===========================================================================
 
-// §4.1: the dispatcher's only database seam is `Driver`, and `Driver` is one method. So an
-// object literal is a driver, which is what makes the fake driver in ./outbox.spec.ts legal
-// without a mocking library.
+// §4.1: the dispatcher's only database seam is `Driver`. Its optional dialect and
+// compile-telemetry marker do not make an object literal stop being a driver, which is what
+// makes the fake driver in ./outbox.spec.ts legal without a mocking library.
 const structuralDriver: Driver = { execute: () => Promise.resolve([]) };
 void structuralDriver;
-type _DriverIsOneMethodPlusDialect = Expect<Mutual<keyof Driver, 'dialect' | 'execute'>>;
+type _DriverIsOneMethodPlusOptions = Expect<Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute'>>;
 
 // §6's closing claim: a repository joins an outbox transaction with no new adapter, because
 // `withTransaction` takes `{ execute: Driver['execute'] }` structurally and a `TransactionContext`

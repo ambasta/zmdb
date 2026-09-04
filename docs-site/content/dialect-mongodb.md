@@ -1,7 +1,7 @@
 > **ToDo / feature gap.** There is no MongoDB support. The query compiler emits
-> SQL text and `CompiledQuery` is `{ text: string; parameters: readonly unknown[] }`,
-> so there is no representation for a document-store query. `Dialect` is
-> `'postgres' | 'mysql' | 'sqlite'`.
+> SQL text; `CompiledQuery` always has `text` and `parameters` and may carry
+> optional SQL telemetry. None of those fields can represent a document-store
+> command. `Dialect` is `'postgres' | 'mysql' | 'sqlite'`.
 
 ## Why it is not a dialect
 
@@ -15,7 +15,11 @@ A dialect changes how a query is _written_. MongoDB changes what a query _is_:
 | Transactions | universal                  | replica sets and sharded clusters only        |
 | Keys         | your column                | `_id`, an `ObjectId` unless you override it   |
 
-`CompiledQuery` being a string is the concrete blocker. Supporting Mongo means the compiler's output type becomes a union, which means every driver, every test that reads `q.text`, and the `Driver` interface itself change shape. That is not an addition, it is a widening of the project's central data type.
+`CompiledQuery.text` being SQL is the concrete blocker. Optional telemetry does
+not change that representation. Supporting Mongo means the compiler's output
+type becomes a union, which means every driver, every test that reads `q.text`,
+and the `Driver` interface itself change shape. That is not an addition, it is a
+widening of the project's central data type.
 
 ## Where the schema model diverges
 
@@ -62,7 +66,12 @@ Note the `normalise` — `_id` as an `ObjectId` does not satisfy an `id: number`
 
 ## What it would take
 
-`CompiledQuery` becomes a discriminated union (`{ kind: 'sql', text, parameters }` | `{ kind: 'mongo', command }`), `Driver.execute` accepts it, and a second compiler emits command documents from the same builder calls. `WhereDTO`'s `FieldOps` maps almost directly onto Mongo's operators, so the filter half is genuinely close. `populate` maps to `$lookup`; migrations map to nothing, since there is no DDL.
+`CompiledQuery` becomes a discriminated union (`{ kind: 'sql', text, parameters,
+telemetry? }` | `{ kind: 'mongo', command }`), `Driver.execute` accepts it, and a
+second compiler emits command documents from the same builder calls.
+`WhereDTO`'s `FieldOps` maps almost directly onto Mongo's operators, so the
+filter half is genuinely close. `populate` maps to `$lookup`; migrations map to
+nothing, since there is no DDL.
 
 The blocker is not any of that individually — it is that the union touches every driver and every test in the project, for a target whose schema model is a different shape. There is no work planned.
 

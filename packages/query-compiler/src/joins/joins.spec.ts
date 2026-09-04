@@ -44,3 +44,22 @@ describe('JOIN compilation (postgres golden)', () => {
     expect(q.parameters).toEqual([]);
   });
 });
+
+describe('JOIN compile-time telemetry', () => {
+  it('keeps telemetry absent from the default compiled query', () => {
+    const q = joinableSelectFrom('products').leftJoin('suppliers', 'suppliers.id', 'products.supplier_id').compile();
+    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(q.telemetry).toBeUndefined();
+  });
+
+  it('attaches the compile-known SELECT and primary table when opted in', () => {
+    const q = joinableSelectFrom('products', 'postgres', { telemetry: true })
+      .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+      .compile();
+    expect(q.telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'products',
+    });
+  });
+});

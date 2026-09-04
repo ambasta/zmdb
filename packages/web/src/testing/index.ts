@@ -7,11 +7,13 @@ import { runInit, runShutdown } from '../lifecycle.js';
 import { compileModule, type ModuleClass, type ProviderDef } from '../modules/index.js';
 import { lifecycleInstances } from '../modules/lifecycle-instances.js';
 import { runtimeOf } from '../modules/runtime.js';
+import type { Observability } from '../observability/types.js';
 import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
 
 /** Options for `createTestApp`. */
 export interface TestAppOptions {
   readonly overrides?: readonly ProviderDef[];
+  readonly observability?: Observability;
 }
 
 /** A test application: drive requests in-process and resolve providers. */
@@ -31,7 +33,7 @@ export function createTestApp(rootModule: ModuleClass, options: TestAppOptions =
   const { container, controllers } = compiled;
   const instances = lifecycleInstances(container);
   const runtime = runtimeOf(compiled);
-  const router: Router = createRouter();
+  const router: Router = createRouter(options.observability);
   if (runtime === undefined) {
     for (const controller of controllers) {
       router.register(controller);

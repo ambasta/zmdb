@@ -58,4 +58,19 @@ describe('full-text search compilation', () => {
     );
     expect(q.parameters).toEqual(['"ltd"']);
   });
+
+  it('keeps telemetry absent from the default compiled query', () => {
+    const q = ftsSelectFrom('customers', 'postgres').whereMatch('company_name', 'ltd').compile();
+    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(q.telemetry).toBeUndefined();
+  });
+
+  it('attaches the compile-known SELECT and primary table when opted in', () => {
+    const q = ftsSelectFrom('customers', 'postgres', { telemetry: true }).whereMatch('company_name', 'ltd').compile();
+    expect(q.telemetry).toEqual({
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'customers',
+    });
+  });
 });

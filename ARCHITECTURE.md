@@ -216,8 +216,8 @@ refactor.
              └───────┬─────────┘
                      ▼
              ┌────────────────┐
-             │   @zmdb/web     │  (deps: schema-core, aot-validator, repository)
-             │ (decorator HTTP)│   full NestJS-parity layer — shipped
+             │   @zmdb/web     │  (deps: schema-core, query-compiler,
+             │ (decorator HTTP)│   aot-validator, repository) — full NestJS-parity layer, shipped
              └───────┬─────────┘
                      ▼
              ┌────────────────┐
@@ -235,20 +235,22 @@ refactor.
 - **repository is the composition layer** — it wires schema + compiler + validator
   into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
 - **web sits above repository** — controllers inject repositories, routes
-  validate via the AOT validator, responses serialize via the AOT serializer.
+  validate via the AOT validator, responses serialize via the AOT serializer,
+  and observability reads optional compile-time query metadata without parsing
+  SQL at execution.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the
   default install; the sub-packages remain the tree-shakeable/advanced path.
 
 ### 3.3 Current + planned package map
 
-| Package                | Responsibility                                                                                                                                                                                                                                                          | Runtime deps                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                        | none                                   |
-| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects                                                                                                                                        | none                                   |
-| `@zmdb/aot-validator`  | The reflection (a tagged interface -> `TypeIR`), the AOT transformer, `zmdb-codegen`, and `schemaOf`/`is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                        | none (ts is a devDep)                  |
-| `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                | schema-core, query-compiler            |
-| `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |
-| `zmdb`                 | Umbrella meta-package (curated root + subpath re-exports)                                                                                                                                                                                                               | all of the above                       |
+| Package                | Responsibility                                                                                                                                                                                                                                                                                                   | Runtime deps                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                                                                 | none                                                   |
+| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects                                                                                                                                                                                 | none                                                   |
+| `@zmdb/aot-validator`  | The reflection (a tagged interface -> `TypeIR`), the AOT transformer, `zmdb-codegen`, and `schemaOf`/`is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                                                                 | none (ts is a devDep)                                  |
+| `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                                                         | schema-core, query-compiler                            |
+| `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, observability and W3C trace propagation, WS/SSE, testing | schema-core, query-compiler, aot-validator, repository |
+| `zmdb`                 | Umbrella meta-package (curated root + subpath re-exports)                                                                                                                                                                                                                                                        | all of the above                                       |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 

@@ -1,6 +1,6 @@
-import { frozenQuery, renderPredicate, tailClause } from '../clauses.js';
+import { frozenQuery, queryTelemetry, renderPredicate, tailClause } from '../clauses.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { CompiledQuery, Dialect } from '../index.js';
+import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export { UnsupportedFeatureError };
@@ -24,9 +24,11 @@ function parseTableSpec(spec: string): { baseName: string; alias?: string } {
   return { baseName: spec.trim() };
 }
 
-export interface FtsOptions {
+export interface FtsTableOptions {
   ftsTable?: string | boolean | undefined;
 }
+
+export interface FtsOptions extends FtsTableOptions, QueryCompilerOptions {}
 
 interface Predicate {
   kind: 'match' | 'cmp';
@@ -43,15 +45,15 @@ interface State {
 }
 
 export interface FtsSelect {
-  whereMatch(column: string, term: string, options?: FtsOptions | string | boolean): FtsSelect;
+  whereMatch(column: string, term: string, options?: FtsTableOptions | string | boolean): FtsSelect;
   where(col: string, op: string, value: unknown): FtsSelect;
   limit(n: number): FtsSelect;
   offset(n: number): FtsSelect;
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): FtsSelect {
-  const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p });
+function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
+  const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p }, telemetry);
   return {
     whereMatch: (column, term, options) => {
       const ftsTable =
@@ -121,7 +123,7 @@ function make(d: Dialect, s: State): FtsSelect {
       }
 
       text += tailClause(d, s);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', s.table, telemetry));
     },
   };
 }
@@ -132,5 +134,6 @@ export function ftsSelectFrom(
   options?: FtsOptions | string | boolean,
 ): FtsSelect {
   const ftsTable = typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable;
-  return make(dialect, { table, preds: [], ftsTable });
+  const telemetry = typeof options === 'object' && options?.telemetry === true;
+  return make(dialect, { table, preds: [], ftsTable }, telemetry);
 }

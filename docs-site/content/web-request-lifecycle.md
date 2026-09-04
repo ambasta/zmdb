@@ -3,14 +3,15 @@ What happens between a request arriving and a response leaving, in order, with n
 ## The order
 
 1. **Adapter** — `toNodeHandler` or `toFetchHandler` builds a `WebRequest`: method, path (query string stripped), flattened headers, and a body on the decoded JSON/text-compatible path or as exact bytes. Both reject bodies above 1 MiB by default.
-2. **Route match** — the method (uppercased) and the path's segment count select a bucket of candidate routes; those are tried in registration order, matched against patterns that were compiled at registration, and the first to match yields `params`. An empty or exhausted bucket means no match.
-3. **Ctx construction** — `{ params, body, query, headers, method, path }`.
-4. **Guards** — app, controller and route guards run in that order. The first `false` returns **403**; `@Public()` routes bypass inherited guards.
-5. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
-6. **Handler** — awaited.
-7. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text`, `bytes`, `stream`, `file` or `respond`, which is sent as-is.
-8. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
-9. **No match** — **404** with `{ error: 'no route for GET /x' }`.
+2. **Observability** — with a tracer, the router extracts inbound `traceparent` and optional `tracestate`, starts the method-named server span, and times matching under `zmdb.route`; with a meter, it starts the request-duration clock. No ambient context is consulted.
+3. **Route match** — the method (uppercased) and the path's segment count select a bucket of candidate routes; those are tried in registration order, matched against patterns that were compiled at registration, and the first to match yields `params`. An empty or exhausted bucket means no match. A matched server span is then renamed with the low-cardinality route pattern.
+4. **Ctx construction** — `{ params, body, query, headers, method, path, span? }`; `span` exists only on the traced handler path.
+5. **Guards** — app, controller and route guards run in that order. The first `false` returns **403**; `@Public()` routes bypass inherited guards.
+6. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
+7. **Handler** — awaited.
+8. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text`, `bytes`, `stream`, `file` or `respond`, which is sent as-is.
+9. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
+10. **No match** — **404** with `{ error: 'no route for GET /x' }`.
 
 ## Returning something other than a 200 JSON body
 
@@ -99,8 +100,9 @@ guard must return true. The same record also carries the OpenAPI-only `security`
 override and `deprecated` marker.
 
 > [!NOTE]
-> `createApp` constructs `createRouter()` and calls `router.register(controller)`
-> with **no options**, so a module graph gets no guard registry or automatic body
+> `createApp(AppModule, { observability })` forwards observability to its router
+> and message dispatcher, but still calls `router.register(controller)` with **no route
+> options**. A module graph therefore gets no guard registry or automatic body
 > validation. Validate inside the handler with `assert<T>(ctx.body)` instead, or
 > build the router yourself.
 
@@ -184,8 +186,10 @@ const query = Object.fromEntries([...params.keys()].map(key => [key, params.getA
 ## What is not in the lifecycle at all
 
 No middleware registration, no per-request DI scope, no ambient request context
-and no `AsyncLocalStorage`. Response streaming and client-disconnect cancellation
-are available; query cancellation is a separate data-layer concern. See
+and no `AsyncLocalStorage`. A configured tracer is carried explicitly as
+`ctx.span`; there is no interceptor span because `runChain` is not router-owned.
+Response streaming and client-disconnect cancellation are available; query
+cancellation is a separate data-layer concern. See
 [Request Context](./web-request-context.html),
 [Injection Scopes](./web-injection-scopes.html),
 [Streaming Files](./web-streaming-files.html) and

@@ -50,6 +50,8 @@ import {
 
 export interface Driver {
   readonly dialect?: Dialect;
+  /** Enables compile-time query attributes when an execution wrapper consumes them. */
+  readonly queryTelemetry?: true;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 
@@ -151,7 +153,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   constructor(driver: Driver, dialect: Dialect = 'postgres') {
     this.driver = driver;
     this.dialect = dialect;
-    this.qb = createQueryCompiler(dialect);
+    this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
   }
 
   // #37 — bind this repository to a transaction context so all its SQL runs
@@ -165,7 +167,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // system from inside the base class. `new (this.constructor as …)` is the only way to
   // re-run field initialisers, which is the point: `Object.create` would share `#shapes`.
   withTransaction(tx: { execute: Driver['execute'] }): this {
-    const txDriver: Driver = { execute: q => tx.execute(q) };
+    const txDriver: Driver =
+      this.driver.queryTelemetry === true
+        ? { queryTelemetry: true, execute: q => tx.execute(q) }
+        : { execute: q => tx.execute(q) };
     const ctor = this.constructor as new (driver: Driver, dialect?: Dialect) => this;
     return new ctor(txDriver, this.dialect);
   }
@@ -467,7 +472,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // throws UnsupportedFeatureError (never a silently-wrong query).
   async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
     const ftsTable = this.schema.ftsTable;
-    const q = ftsSelectFrom(this.tableName, this.dialect, { ftsTable }).whereMatch(column, term).compile();
+    const q = ftsSelectFrom(
+      this.tableName,
+      this.dialect,
+      this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
+    )
+      .whereMatch(column, term)
+      .compile();
     return this.driver.execute(q);
   }
 
@@ -487,7 +498,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     where?: { col: string; op: string; value: unknown },
   ): Promise<readonly Record<string, unknown>[]> {
     const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
-    let b = joinableSelectFrom(this.tableName, this.dialect);
+    let b = joinableSelectFrom(
+      this.tableName,
+      this.dialect,
+      this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+    );
     b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, targetTable, join.leftCol, join.rightCol);
     if (where) b = b.where(where.col, where.op, where.value);
     return this.driver.execute(b.compile());
@@ -520,7 +535,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   private createRepositoryAggregateBuilder(): RepositoryAggregateBuilder {
-    let builder = aggregateSelectFrom(this.tableName, this.dialect);
+    let builder = aggregateSelectFrom(
+      this.tableName,
+      this.dialect,
+      this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+    );
     const resolveRelationJoin = (relationName: string) => this.resolveRelationJoin(relationName);
 
     const wrap = (b: AggregateSelect): RepositoryAggregateBuilder => {
@@ -582,7 +601,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           : builder.compile();
     } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
       const spec = specOrBuild;
-      let builder = aggregateSelectFrom(this.tableName, this.dialect);
+      let builder = aggregateSelectFrom(
+        this.tableName,
+        this.dialect,
+        this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+      );
       const joinedRelations = new Set<string>();
 
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {

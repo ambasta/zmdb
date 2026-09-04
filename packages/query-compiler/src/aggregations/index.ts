@@ -4,11 +4,12 @@ import {
   havingClause,
   joinClauses,
   joinMethods,
+  queryTelemetry,
   tailClause,
   tailMethods,
   whereClause,
 } from '../clauses.js';
-import type { CompiledQuery, Dialect } from '../index.js';
+import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export type { JoinKind } from '../clauses.js';
@@ -56,8 +57,8 @@ export interface AggregateSelect {
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): AggregateSelect {
-  const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p });
+function make(d: Dialect, s: State, telemetry: boolean): AggregateSelect {
+  const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p }, telemetry);
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
 
@@ -96,11 +97,19 @@ function make(d: Dialect, s: State): AggregateSelect {
         groupBy +
         havingClause(d, s.havings, params) +
         tailClause(d, s);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', s.table, telemetry));
     },
   };
 }
 
-export function aggregateSelectFrom(table: string, dialect: Dialect = 'postgres'): AggregateSelect {
-  return make(dialect, { table, items: [], joins: [], wheres: [], groups: [], havings: [], orderBys: [] });
+export function aggregateSelectFrom(
+  table: string,
+  dialect: Dialect = 'postgres',
+  options?: QueryCompilerOptions,
+): AggregateSelect {
+  return make(
+    dialect,
+    { table, items: [], joins: [], wheres: [], groups: [], havings: [], orderBys: [] },
+    options?.telemetry === true,
+  );
 }

@@ -1,6 +1,7 @@
 > **ToDo / feature gap.** There is no way to attach a comment to a compiled
-> query. `CompiledQuery` is `{ text, parameters }` and the compiler emits no
-> comment, so there is no hook for a `/* app:checkout */` tag.
+> query. `CompiledQuery` always carries `text` and `parameters` and may carry
+> optional compile-time `telemetry`, but the compiler emits no comment and there
+> is no sqlcommenter driver decorator yet.
 >
 > The format, the closed key set and the escaping rules are frozen in
 > `packages/query-compiler/src/comments/SPEC.md`. The wrapper below is the right
@@ -27,17 +28,18 @@ function tagged(inner: Driver, tags: () => Partial<Record<CommentKey, string>>):
         .sort(([a], [b]) => (a < b ? -1 : 1))
         .map(([k, v]) => `${encode(k)}='${encode(v)}'`)
         .join(',');
-      return inner.execute({ text: `${q.text} /*${t}*/`, parameters: q.parameters });
+      return inner.execute({ ...q, text: `${q.text} /*${t}*/` });
     },
   };
 }
 ```
 
-Three details in there that an earlier version of this page got wrong, and the second one is the reason this has a frozen spec:
+Four details in there that an earlier version of this page got wrong, and the third one is the reason this has a frozen spec:
 
 1. **`...inner`.** Returning a bare `{ execute }` drops `dialect`, which `Driver` declares and the repository reads to pick its SQL. A decorator spreads what it wraps.
-2. **`.replace(/'/g, "\\'")`.** `encodeURIComponent` alone is not enough — see the next section.
-3. **`.sort()`.** Sorted keys mean the same request produces the same statement text, so it is one `pg_stat_statements` row rather than one per key ordering. Same reason the [metrics page](./web-observability.html) sorts label keys.
+2. **`...q`.** Rebuilding `{ text, parameters }` drops optional compile-time `telemetry`, so tracing and metrics lose their operation and collection labels.
+3. **`.replace(/'/g, "\\'")`.** `encodeURIComponent` alone is not enough — see the next section.
+4. **`.sort()`.** Sorted keys mean the same request produces the same statement text, so it is one `pg_stat_statements` row rather than one per key ordering. Same reason the [metrics page](./web-observability.html) sorts label keys.
 
 Construct it per request so the tags describe _this_ request:
 
@@ -46,7 +48,7 @@ const driver = tagged(base, () => ({ route: routePattern, action: 'list' }));
 const repo = defineRepository(users, driver);
 ```
 
-Two things about those values, both of which an earlier version of this page got wrong. `routePattern` is `/users/:id` and not `ctx.path`, which is `/users/1` — the first caveat below is about exactly that difference, and getting the pattern is harder than this line makes it look: `Ctx` is `{ params, body, query, headers, method, path }`, so only the matched route knows it. The [metrics page](./web-observability.html) hits the same wall for `http.route` and for the same structural reason. And `method` is not one of the five frozen keys; `action` — the handler name — carries what you wanted it for, at one value per route rather than one per verb crossed with route.
+Two things about those values, both of which an earlier version of this page got wrong. `routePattern` is `/users/:id` and not `ctx.path`, which is `/users/1` — the first caveat below is about exactly that difference, and getting the pattern is harder than this line makes it look: `Ctx` carries `params`, `body`, `query`, `headers`, `method`, `path` and optional `span`, but not the matched route. The [metrics page](./web-observability.html) hits the same wall for `http.route` and for the same structural reason. And `method` is not one of the five frozen keys; `action` — the handler name — carries what you wanted it for, at one value per route rather than one per verb crossed with route.
 
 Because there is no ambient request context, the closure is how the tag gets in — which is more wiring than a global, and also the reason two concurrent requests cannot tag each other's queries.
 
@@ -88,13 +90,17 @@ Four of the five keys are low cardinality: `route`, `controller`, `action` and `
 
 `traceparent` is not, and it is the whole point of the feature. It contains a fresh span id per query, so **every statement becomes unique** — and it is also what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it. There is no way to have both, so the frozen design names the trade rather than picking: `keys` is an explicit list, and putting `traceparent` in it is a decision to spend the plan cache on the correlation. Worth it while you are diagnosing; not a steady-state default. sqlcommenter's own documentation reaches the same conclusion.
 
-## What it would take
+## What #583 still has to add
 
 Less than this page previously assumed, and the difference resolves the open question it left. **The comment does not go on `CompiledQuery` at all** — no `comment?: string` field and no `.comment(s)` builder method. It is rendered at execute time by the driver decorator, from compile-time metadata on the query plus the request's context.
 
 That answers "does the comment count as part of the query's identity for `toEqual`" by removing the question: a compiled query has no comment, so its identity is exactly what it is today, and the same compiled query can be reused across two requests that tag it differently. A `.comment(s)` builder method would have made a per-request value part of a per-route cached object, which is the kind of thing that works until the cache is switched on.
 
-What `CompiledQuery` does gain is an optional `telemetry` — the dialect, the operation and the table, which the compiler already knows — so nothing downstream has to parse SQL to label a metric. Optional and populated only when something reads it, so existing snapshots are byte-identical.
+`CompiledQuery` now has optional `telemetry` — the dialect, operation and table
+the compiler already knows — so nothing downstream has to parse SQL to label a
+metric. It is populated only when an observing driver requests it, leaving
+default snapshots byte-identical. #583 still owns the serializer, closed-key
+lookup and execute-time decorator that appends the comment.
 
 ---
 

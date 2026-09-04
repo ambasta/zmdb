@@ -51,8 +51,9 @@ export function requestLog(sink: Sink): Interceptor {
 Two corrections to the obvious version of this. `next()` resolves to the
 **handler's return value**, not a `WebResponse` — there is no `result.status` to
 log, because the router assigns the status after the chain is done. And `Ctx` has
-no `route` field: the six fields are `params`, `body`, `query`, `headers`,
-`method` and `path`. `ctx.path` is the concrete path, `/users/42`.
+no `route` field: it carries `params`, `body`, `query`, `headers`, `method`,
+`path` and optional `span`. `ctx.path` is the concrete path, `/users/42`; the
+span is explicit trace context, not a general state bag.
 
 > [!WARNING]
 > **The router does not call `runChain`**, so an interceptor registered on a
@@ -83,9 +84,10 @@ createServer(async (req, res) => {
 });
 ```
 
-Echo the request id back, and accept an inbound one so a trace spans services.
-The custom logger buffers a streamed body; `toNodeHandler` preserves
-backpressure and cancellation.
+Echo the request id back to correlate logs. Distributed traces use the W3C
+`traceparent` and optional `tracestate` carrier instead. The custom logger
+buffers a streamed body; `toNodeHandler` preserves backpressure and
+cancellation.
 
 `webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
@@ -105,6 +107,7 @@ import type { Driver } from '@zmdb/repository';
 
 export function loggingDriver(inner: Driver, sink: Sink): Driver {
   return {
+    ...inner,
     async execute(query) {
       const started = performance.now();
       try {
@@ -176,7 +179,8 @@ the assertion nobody writes, and it is the one that matters at 3am.
 ## Design notes
 
 - No global logger and no ambient context, so nothing to reset between tests and
-  nothing shared between concurrent requests.
+  nothing shared between concurrent requests. A traced handler can read
+  `ctx.span?.spanContext()` explicitly when a log needs trace correlation.
 - `sink` is one function type — adapt pino, `console`, or an array in a test in a
   single line.
 - Granular imports: `@zmdb/web/middleware`, `@zmdb/repository`.

@@ -1,0 +1,765 @@
+{
+  "schemaVersion": 1,
+  "suite": "@zmdb/web observability overhead",
+  "publicationStatus": "final",
+  "measuredAt": "2026-09-04T05:57:44.394Z",
+  "baseHead": "4a51c88d004b45cec13e7f67f4f846f02d86ba3d",
+  "dirty": true,
+  "inputs": {
+    "algorithm": "sha256",
+    "files": [
+      {
+        "path": "benchmarks/scripts/observability.mjs",
+        "sha256": "0f4f8de48a77f7098096f0f2c985913611fcb78e8696e88edf8983a4b68d6eba"
+      },
+      {
+        "path": "package.json",
+        "sha256": "24e02ff7f6a32def45ce07456f46a6ff49ec38bc49dd1b794e60e9ef2661799c"
+      },
+      {
+        "path": "yarn.lock",
+        "sha256": "273a049af4ec8aff48ef08d6b1482c86eae85b83f4f8a127626302081b691151"
+      },
+      {
+        "path": "scripts/ts-specifier-hook.mjs",
+        "sha256": "cbeeabe5ec40042868bab6f56325529ac85fe664195c30ffb925d112a043e61f"
+      },
+      {
+        "path": "packages/query-compiler/package.json",
+        "sha256": "defdd8072c948ce9bf7464c1712ae7b5695ea5c6ada093744be1e1fe0e6c723e"
+      },
+      {
+        "path": "packages/query-compiler/src/index.ts",
+        "sha256": "5b6c799fdfe28ec4c107adbeb439281e0c307eeb2ef5a8af0306ed6dd109f72c"
+      },
+      {
+        "path": "packages/repository/package.json",
+        "sha256": "ca5d040d4ce7c4e897f302aa6ec28d1a83451c9bc156bf27de1fe4debd14ba1a"
+      },
+      {
+        "path": "packages/repository/src/index.ts",
+        "sha256": "9dba37e91edf47243263872121c8374f32107fd041284a43116521fb441267ed"
+      },
+      {
+        "path": "packages/web/package.json",
+        "sha256": "7c6abcdc452fe2671faf8f7d649f4c86e3dd18f87c531e58a834b57580fe6d85"
+      },
+      {
+        "path": "packages/web/src/bench/index.ts",
+        "sha256": "7a9491b972b846516d1998ba059a95babf84c2391322c3e4df81445ad86aa7a6"
+      },
+      {
+        "path": "packages/web/src/context/index.ts",
+        "sha256": "9ac9bf7d9d19c11d0a3613fafb51d0fc93a1d076c47b123474661e558286b4ea"
+      },
+      {
+        "path": "packages/web/src/observability/index.ts",
+        "sha256": "aabcadec130c83fc3985f3f199db7596ef7a720e77f2a433fbb0f00b9c43d327"
+      },
+      {
+        "path": "packages/web/src/observability/otel.ts",
+        "sha256": "986b939e282d92a49abb9617187c9d1d7e67630854360a1f5b02e8f99b3d1cee"
+      },
+      {
+        "path": "packages/web/src/observability/propagation.ts",
+        "sha256": "2adb4d200103e381be88dd8bb214b64d600675b136b8e06e299280a1e79aeb80"
+      },
+      {
+        "path": "packages/web/src/observability/types.ts",
+        "sha256": "1e66733ac42fa6f896838ba3eaad8e1aff90145f1c20a9f8202a9483d874d784"
+      },
+      {
+        "path": "packages/web/src/pipeline/guards.ts",
+        "sha256": "2d5f72b43fba7f9fb81fc594d19e09e59bf2246e1a7a69faa62c447f21c9515d"
+      },
+      {
+        "path": "packages/web/src/pipeline/index.ts",
+        "sha256": "802426e444d62521ee925d5810ccbaf1ed32e20d033cfe1d8f92f00241674acd"
+      },
+      {
+        "path": "packages/web/src/polyfill.ts",
+        "sha256": "bd95c1571c88cd8fa43b123b0e8cec579e7e1a861b1763d9e7491d210ff61b62"
+      },
+      {
+        "path": "packages/web/src/routing/index.ts",
+        "sha256": "cbf1e39bef30fa3ead405833dcfdce070de41523c2a24078f6dbd6f08e54c5f6"
+      }
+    ]
+  },
+  "runtime": {
+    "node": "v26.8.1",
+    "platform": "linux/x64",
+    "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+    "logicalCpus": 16,
+    "totalMemoryBytes": 65044914176,
+    "loadAverage": [
+      1.97,
+      5.06,
+      8.78
+    ],
+    "cpuGovernor": "performance"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/sdk-trace-base": "2.11.0"
+  },
+  "methodology": {
+    "source": "packages/web/src/bench/index.ts via scripts/ts-specifier-hook.mjs",
+    "warmup": "each workload/mode ran until 1500 ms of timed hot-loop work had elapsed",
+    "warmupMs": 1500,
+    "warmupBatchIters": 50000,
+    "targetSampleMs": 500,
+    "maxSampleIters": 10000000,
+    "explicitIters": null,
+    "rounds": 6,
+    "order": "all six permutations; every mode appears twice in every ordinal position",
+    "permutations": [
+      [
+        "off",
+        "noop",
+        "recording-exporter"
+      ],
+      [
+        "noop",
+        "recording-exporter",
+        "off"
+      ],
+      [
+        "recording-exporter",
+        "off",
+        "noop"
+      ],
+      [
+        "recording-exporter",
+        "noop",
+        "off"
+      ],
+      [
+        "noop",
+        "off",
+        "recording-exporter"
+      ],
+      [
+        "off",
+        "recording-exporter",
+        "noop"
+      ]
+    ],
+    "workloads": {
+      "request": "one matched GET route; response status and body length consumed; three spans per operation",
+      "query": "one compiled SELECT through tracedDriver; returned row count consumed; one span per operation"
+    },
+    "modes": {
+      "off": "no Observability object passed to the hot path",
+      "noop": "@opentelemetry/api default no-op tracer adapted through fromOpenTelemetry",
+      "recording-exporter": "BasicTracerProvider + SimpleSpanProcessor + bounded recording SpanExporter through fromOpenTelemetry"
+    },
+    "exporter": "flush and reset occur outside the timed interval; metrics are disabled in every mode"
+  },
+  "warmups": [
+    {
+      "mode": "off",
+      "workload": "request",
+      "iterations": 4700000,
+      "hotLoopMs": 1505.7281060000007,
+      "wallMs": 1514.608854,
+      "lastOpsPerSec": 3265663.1327401646
+    },
+    {
+      "mode": "noop",
+      "workload": "request",
+      "iterations": 1250000,
+      "hotLoopMs": 1515.5785270000006,
+      "wallMs": 1518.133027,
+      "lastOpsPerSec": 833021.2002895869
+    },
+    {
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iterations": 250000,
+      "hotLoopMs": 1709.1524319999994,
+      "wallMs": 1710.2908359999997,
+      "lastOpsPerSec": 151831.14525522306
+    },
+    {
+      "mode": "off",
+      "workload": "query",
+      "iterations": 21550000,
+      "hotLoopMs": 1502.5981750000037,
+      "wallMs": 1504.430397,
+      "lastOpsPerSec": 14118901.481696874
+    },
+    {
+      "mode": "noop",
+      "workload": "query",
+      "iterations": 5300000,
+      "hotLoopMs": 1513.524279999996,
+      "wallMs": 1514.7626869999995,
+      "lastOpsPerSec": 3502802.907858903
+    },
+    {
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iterations": 650000,
+      "hotLoopMs": 1622.5199819999962,
+      "wallMs": 1622.949955,
+      "lastOpsPerSec": 402754.90801158734
+    }
+  ],
+  "samples": [
+    {
+      "round": 1,
+      "position": 1,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 543.4413509999995,
+      "opsPerSec": 3004614.935899498,
+      "nsPerOp": 332.8213502675104,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2060.1482079999987,
+      "opsPerSec": 792579.8705449258,
+      "nsPerOp": 1261.7024948065684,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 1,
+      "position": 3,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10759.452863,
+      "opsPerSec": 151757.90263601992,
+      "nsPerOp": 6589.442675670247,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2012.5155590000031,
+      "opsPerSec": 811338.820561137,
+      "nsPerOp": 1232.5306945233822,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10797.410554000002,
+      "opsPerSec": 151224.406243875,
+      "nsPerOp": 6612.689213587192,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 2,
+      "position": 3,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 539.1017619999984,
+      "opsPerSec": 3028801.0819003866,
+      "nsPerOp": 330.1636432896945,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10780.610897999999,
+      "opsPerSec": 151460.0624629649,
+      "nsPerOp": 6602.400551924507,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 534.1877999999997,
+      "opsPerSec": 3056662.8440409927,
+      "nsPerOp": 327.1541714028141,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 3,
+      "position": 3,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2086.0343219999995,
+      "opsPerSec": 782744.5516018698,
+      "nsPerOp": 1277.556002087171,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10808.302178999998,
+      "opsPerSec": 151072.01602602418,
+      "nsPerOp": 6619.3596028250295,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2067.435461000001,
+      "opsPerSec": 789786.2016985106,
+      "nsPerOp": 1266.1654481293856,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 4,
+      "position": 3,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 553.3676359999954,
+      "opsPerSec": 2950718.281616335,
+      "nsPerOp": 338.9005335515199,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2061.760654999998,
+      "opsPerSec": 791960.0153588154,
+      "nsPerOp": 1262.6900103623632,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 552.9483179999952,
+      "opsPerSec": 2952955.9035570016,
+      "nsPerOp": 338.6437294222524,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 3,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10838.721145999996,
+      "opsPerSec": 150648.03107353608,
+      "nsPerOp": 6637.989178311055,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "mode": "off",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 517.9550739999977,
+      "opsPerSec": 3152458.7400798537,
+      "nsPerOp": 317.2127163112909,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 6,
+      "position": 2,
+      "mode": "recording-exporter",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 10761.440095999991,
+      "opsPerSec": 151729.8786625148,
+      "nsPerOp": 6590.659722494409,
+      "checksum": 344527552,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "round": 6,
+      "position": 3,
+      "mode": "noop",
+      "workload": "request",
+      "iters": 1632832,
+      "totalMs": 2049.5325719999964,
+      "opsPerSec": 796685.0697115941,
+      "nsPerOp": 1255.2011303061163,
+      "checksum": 344527552,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 1,
+      "position": 1,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 514.3113169999997,
+      "opsPerSec": 13726026.954215368,
+      "nsPerOp": 72.85429376873637,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 2044.492882000006,
+      "opsPerSec": 3452910.5296244216,
+      "nsPerOp": 289.6107476346257,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 1,
+      "position": 3,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17307.251210999995,
+      "opsPerSec": 407889.78642161353,
+      "nsPerOp": 2451.6426576230924,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 1987.2229700000025,
+      "opsPerSec": 3552420.1896679923,
+      "nsPerOp": 281.4982312363954,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17278.74764,
+      "opsPerSec": 408562.6543707076,
+      "nsPerOp": 2447.6050106445955,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 2,
+      "position": 3,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 511.9535850000102,
+      "opsPerSec": 13789240.288257496,
+      "nsPerOp": 72.5203114236518,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17503.00514200001,
+      "opsPerSec": 403327.9395582318,
+      "nsPerOp": 2479.371999607336,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 514.1709319999791,
+      "opsPerSec": 13729774.595659731,
+      "nsPerOp": 72.83440766144267,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 3,
+      "position": 3,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 2068.408410999982,
+      "opsPerSec": 3412986.9915714925,
+      "nsPerOp": 292.9984797684667,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17562.532348000008,
+      "opsPerSec": 401960.88241249096,
+      "nsPerOp": 2487.8042708986873,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 2085.8059490000014,
+      "opsPerSec": 3384519.544296302,
+      "nsPerOp": 295.462911917655,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 4,
+      "position": 3,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 533.8848880000005,
+      "opsPerSec": 13222796.072100084,
+      "nsPerOp": 75.626969859271,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 2115.3584169999813,
+      "opsPerSec": 3337236.3488225183,
+      "nsPerOp": 299.6491394302448,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 533.8100569999951,
+      "opsPerSec": 13224649.680963324,
+      "nsPerOp": 75.61636974319889,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 5,
+      "position": 3,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17408.069214999996,
+      "opsPerSec": 405527.51214460295,
+      "nsPerOp": 2465.9239387028815,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "mode": "off",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 515.7996100000164,
+      "opsPerSec": 13686421.748166455,
+      "nsPerOp": 73.06511653668485,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "round": 6,
+      "position": 2,
+      "mode": "recording-exporter",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 17423.401127999998,
+      "opsPerSec": 405170.6637606605,
+      "nsPerOp": 2468.095766653809,
+      "checksum": 10589176,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    },
+    {
+      "round": 6,
+      "position": 3,
+      "mode": "noop",
+      "workload": "query",
+      "iters": 7059451,
+      "totalMs": 1998.1023710000154,
+      "opsPerSec": 3533077.735384933,
+      "nsPerOp": 283.039342719429,
+      "checksum": 10589176,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    }
+  ],
+  "summary": [
+    {
+      "workload": "request",
+      "mode": "off",
+      "samples": 6,
+      "itersPerSample": 1632832,
+      "medianNsPerOp": 331.49249677860246,
+      "medianOpsPerSec": 3016659.5314158225,
+      "minNsPerOp": 317.2127163112909,
+      "maxNsPerOp": 338.9005335515199,
+      "spreadMaxOverMin": 1.0683699490122145,
+      "overheadVsOffPercent": 0,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "workload": "request",
+      "mode": "noop",
+      "samples": 6,
+      "itersPerSample": 1632832,
+      "medianNsPerOp": 1262.1962525844658,
+      "medianOpsPerSec": 792269.8217114856,
+      "minNsPerOp": 1232.5306945233822,
+      "maxNsPerOp": 1277.556002087171,
+      "spreadMaxOverMin": 1.036530779934207,
+      "overheadVsOffPercent": 280.7616355876262,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "workload": "request",
+      "mode": "recording-exporter",
+      "samples": 6,
+      "itersPerSample": 1632832,
+      "medianNsPerOp": 6607.54488275585,
+      "medianOpsPerSec": 151342.14261786803,
+      "minNsPerOp": 6589.442675670247,
+      "maxNsPerOp": 6637.989178311055,
+      "spreadMaxOverMin": 1.0073673154210832,
+      "overheadVsOffPercent": 1893.271324982328,
+      "exportedSpans": 4898496,
+      "exporterChecksum": 549564800
+    },
+    {
+      "workload": "query",
+      "mode": "off",
+      "samples": 6,
+      "itersPerSample": 7059451,
+      "medianNsPerOp": 72.95970515271061,
+      "medianOpsPerSec": 13706195.74060666,
+      "minNsPerOp": 72.5203114236518,
+      "maxNsPerOp": 75.626969859271,
+      "spreadMaxOverMin": 1.0428384596622953,
+      "overheadVsOffPercent": 0,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "workload": "query",
+      "mode": "noop",
+      "samples": 6,
+      "itersPerSample": 7059451,
+      "medianNsPerOp": 291.3046137015462,
+      "medianOpsPerSec": 3432832.687725784,
+      "minNsPerOp": 281.4982312363954,
+      "maxNsPerOp": 299.6491394302448,
+      "spreadMaxOverMin": 1.0644796527286409,
+      "overheadVsOffPercent": 299.26780555352013,
+      "exportedSpans": 0,
+      "exporterChecksum": 0
+    },
+    {
+      "workload": "query",
+      "mode": "recording-exporter",
+      "samples": 6,
+      "itersPerSample": 7059451,
+      "medianNsPerOp": 2467.009852678345,
+      "medianOpsPerSec": 405349.009414914,
+      "minNsPerOp": 2447.6050106445955,
+      "maxNsPerOp": 2487.8042708986873,
+      "spreadMaxOverMin": 1.0164239164731506,
+      "overheadVsOffPercent": 3281.3319934814594,
+      "exportedSpans": 7059451,
+      "exporterChecksum": 4146960279
+    }
+  ]
+}

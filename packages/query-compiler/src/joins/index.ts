@@ -3,11 +3,12 @@ import {
   frozenQuery,
   joinClauses,
   joinMethods,
+  queryTelemetry,
   tailClause,
   tailMethods,
   whereClause,
 } from '../clauses.js';
-import type { CompiledQuery, Dialect } from '../index.js';
+import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { quoteTable } from '../quoting.js';
 
 export type { JoinKind } from '../clauses.js';
@@ -32,8 +33,8 @@ export interface JoinableSelect {
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State): JoinableSelect {
-  const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch });
+function make(d: Dialect, s: State, telemetry: boolean): JoinableSelect {
+  const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch }, telemetry);
   return {
     ...joinMethods(s.joins, next),
     ...tailMethods(s, next),
@@ -45,11 +46,15 @@ function make(d: Dialect, s: State): JoinableSelect {
         joinClauses(d, s.joins) +
         whereClause(d, s.wheres, params) +
         tailClause(d, s);
-      return frozenQuery(text, params);
+      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', s.table, telemetry));
     },
   };
 }
 
-export function joinableSelectFrom(table: string, dialect: Dialect = 'postgres'): JoinableSelect {
-  return make(dialect, { table, joins: [], wheres: [], orderBys: [] });
+export function joinableSelectFrom(
+  table: string,
+  dialect: Dialect = 'postgres',
+  options?: QueryCompilerOptions,
+): JoinableSelect {
+  return make(dialect, { table, joins: [], wheres: [], orderBys: [] }, options?.telemetry === true);
 }

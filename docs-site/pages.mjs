@@ -729,7 +729,7 @@ export const PAGE_META = {
     title: 'SQL Comments',
     group: 'Data Access',
     status: 'todo',
-    note: 'the compiler emits no comment markers; the sqlcommenter format, closed key set and escaping rules are frozen (#579) and asserted by expected-failing tests (#580)',
+    note: 'compile-time query telemetry ships, but no sqlcommenter serializer or execute-time comment decorator exists yet (#583)',
   },
   streaming: {
     title: 'Streaming Results',
@@ -1645,14 +1645,12 @@ export const PAGE_META = {
   'web-observability': {
     title: 'Observability',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'no OpenTelemetry instrumentation of the router, pipeline or driver; the metric names, units and attribute sources are frozen (#579) and asserted by expected-failing tests (#580)',
+    status: 'supported',
   },
   'web-tracing': {
     title: 'Distributed Tracing',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'no span propagation across the request pipeline; the span hierarchy, attribute names and W3C propagation are frozen (#579) and asserted by expected-failing tests (#580)',
+    status: 'supported',
   },
   'web-devtools': {
     title: 'Devtools',

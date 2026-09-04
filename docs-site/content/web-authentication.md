@@ -3,9 +3,10 @@ equivalent. Authentication is a function you write and call: read a credential
 from `ctx.headers`, verify it, and get a principal back.
 
 The one structural constraint to design around: **`Ctx` is readonly and has no
-`state` bag**. Its six fields are `params`, `body`, `query`, `headers`, `method`
-and `path` — so a guard cannot attach a principal for the handler to pick up
-later.
+`state` bag**. It carries `params`, `body`, `query`, `headers`, `method`, `path`
+and optional `span`. The span is framework-owned trace context, not a general
+extension point, so a guard still cannot attach a principal for the handler to
+pick up later.
 
 ## Verify where you use it
 
@@ -109,9 +110,9 @@ a 403 and the handler does not run. `@Public()` bypasses inherited app/controlle
 guards and cannot also declare a route guard or a non-empty explicit security
 requirement.
 
-`createApp` still constructs its router without a guard registry or per-route
-options, so applications using module bootstrap must either construct the router
-explicitly or keep the check in the handler.
+`createApp` can pass observability to its router, but it still has no guard
+registry or per-route registration options. Applications using module bootstrap
+must therefore construct the router explicitly or keep the check in the handler.
 
 ## Getting a 401 out
 

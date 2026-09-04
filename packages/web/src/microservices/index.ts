@@ -3,9 +3,11 @@
 // validation, handler dispatch, request correlation and bounded client waits.
 
 import '../polyfill.js';
+import { consumerSpan, toTraceHeaders } from '../observability/index.js';
+import type { Observability, Span, TraceCarrier } from '../observability/index.js';
 
 /** A parsed delivery constructed by a transport strategy. */
-export interface RawMessage {
+export interface RawMessage extends TraceCarrier {
   readonly pattern: string;
   readonly payload: unknown;
   readonly headers: Readonly<Record<string, string>>;
@@ -41,7 +43,7 @@ export interface TransportCapabilities {
 }
 
 /** One outbound request, including framework-owned correlation and cancellation. */
-export interface TransportRequest {
+export interface TransportRequest extends TraceCarrier {
   readonly pattern: string;
   readonly payload: unknown;
   readonly correlationId: string;
@@ -55,7 +57,7 @@ export interface TransportStrategy {
   readonly capabilities: TransportCapabilities;
   listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
   send(request: TransportRequest): Promise<MessageReply>;
-  emit(pattern: string, payload: unknown): Promise<void>;
+  emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void>;
   close(graceMs: number): Promise<void>;
 }
 
@@ -71,6 +73,7 @@ export interface MessageContext<T> {
   readonly correlationId: string;
   readonly deliveryAttempt: number;
   readonly transport: string;
+  readonly span?: Span;
 }
 
 /** Public, validator-free description of one decorated handler. */
@@ -88,6 +91,7 @@ export interface DispatcherOptions {
   readonly onUndeliverable?: (message: RawMessage, settlement: Settlement) => void;
   readonly maxAttempts?: number;
   readonly retryAfterMs?: (attempt: number) => number;
+  readonly observability?: Observability;
 }
 
 /** Startup-built exact-pattern dispatcher. */
@@ -101,6 +105,7 @@ export interface AppOptions {
   readonly transports?: readonly TransportStrategy[];
   readonly dispatcher?: DispatcherOptions;
   readonly graceMs?: number;
+  readonly observability?: Observability;
 }
 
 /** Pattern map for a request/response client. Declare concrete maps as type aliases. */
@@ -110,7 +115,7 @@ export interface ClientPatterns {
 
 /** One callable property per request pattern. */
 export type MessageClient<P extends ClientPatterns> = {
-  readonly [K in keyof P]: (payload: P[K]['request']) => Promise<P[K]['response']>;
+  readonly [K in keyof P]: (payload: P[K]['request'], span?: Span) => Promise<P[K]['response']>;
 };
 
 /** Required timeout and total response-validation map. */
@@ -126,7 +131,7 @@ export interface EventPatterns {
 
 /** One callable property per event pattern. */
 export type EventPublisher<E extends EventPatterns> = {
-  readonly [K in keyof E]: (payload: E[K]) => Promise<void>;
+  readonly [K in keyof E]: (payload: E[K], span?: Span) => Promise<void>;
 };
 
 /** A request was made against a strategy without request/reply support. */
@@ -409,6 +414,15 @@ export function createMessageDispatcher(consumers: readonly object[], options: D
         correlationId: message.correlationId ?? globalThis.crypto.randomUUID(),
         deliveryAttempt: message.deliveryAttempt,
         transport,
+        ...(options.observability?.tracer === undefined
+          ? {}
+          : {
+              span: consumerSpan(
+                options.observability,
+                message,
+                binding.semantics === 'request' ? 'request-reply' : 'queued',
+              ),
+            }),
       };
 
       try {
@@ -421,11 +435,15 @@ export function createMessageDispatcher(consumers: readonly object[], options: D
         }
         return { settlement: { kind: 'ack' } };
       } catch (error) {
+        context.span?.recordException(error instanceof Error ? error : new Error(String(error)));
+        context.span?.setStatus({ error: true });
         if (binding.semantics === 'request') {
           observe(() => options.onHandlerError(message, error));
           return withReply({ kind: 'ack' }, errorReply(message, 'message handler failed'));
         }
         return { settlement: failureSettlement(message, error) };
+      } finally {
+        context.span?.end();
       }
     },
   };
@@ -436,8 +454,8 @@ function requestMethod(
   pattern: string,
   timeoutMs: number,
   validate: Function,
-): (payload: unknown) => Promise<unknown> {
-  return async (payload: unknown): Promise<unknown> => {
+): (payload: unknown, span?: Span) => Promise<unknown> {
+  return async (payload: unknown, span?: Span): Promise<unknown> => {
     if (!transport.capabilities.requestResponse) {
       throw new TransportUnsupportedError(transport.name);
     }
@@ -458,6 +476,7 @@ function requestMethod(
       correlationId,
       timeoutMs,
       signal: controller.signal,
+      ...(span === undefined ? {} : toTraceHeaders(span)),
     };
 
     try {
@@ -501,7 +520,7 @@ export function createMessageClient<P extends ClientPatterns>(
 
 /** Build a typed one-way publisher. Methods are cached on first property access. */
 export function createEventPublisher<E extends EventPatterns>(transport: TransportStrategy): EventPublisher<E> {
-  const methods = new Map<string, (payload: unknown) => Promise<void>>();
+  const methods = new Map<string, (payload: unknown, span?: Span) => Promise<void>>();
   // boundary: the mapped return type limits consumer-visible properties to
   // keyof E; the proxy only turns those string properties into emit calls.
   const target: EventPublisher<E> = Object.create(null);
@@ -518,7 +537,12 @@ export function createEventPublisher<E extends EventPatterns>(transport: Transpo
       if (existing !== undefined) {
         return existing;
       }
-      const method = (payload: unknown): Promise<void> => transport.emit(property, payload);
+      const method = (payload: unknown, span?: Span): Promise<void> => {
+        if (span === undefined) {
+          return transport.emit(property, payload);
+        }
+        return transport.emit(property, payload, toTraceHeaders(span));
+      };
       methods.set(property, method);
       return method;
     },

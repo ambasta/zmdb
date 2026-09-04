@@ -4,9 +4,10 @@
 import { describe, it, expect } from 'vitest';
 
 import { Module } from '../modules/index.js';
+import type { Observability, Span, SpanContext } from '../observability/index.js';
 import { createRouter } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
-import { benchmarkAppStartup, benchmarkRouter, countMetadataReads } from './index.js';
+import { benchmarkAppStartup, benchmarkObservability, benchmarkRouter, countMetadataReads } from './index.js';
 
 @Controller('/x')
 class XController {
@@ -18,6 +19,25 @@ class XController {
 
 @Module({ controllers: [XController] })
 class XModule {}
+
+const BENCH_CONTEXT: SpanContext = {
+  traceId: '00000000000000000000000000000001',
+  spanId: '0000000000000001',
+  traceFlags: 1,
+};
+
+const BENCH_SPAN: Span = {
+  updateName: () => undefined,
+  setAttribute: () => undefined,
+  recordException: () => undefined,
+  setStatus: () => undefined,
+  end: () => undefined,
+  spanContext: () => BENCH_CONTEXT,
+};
+
+const NOOP_OBSERVABILITY: Observability = {
+  tracer: { startSpan: () => BENCH_SPAN },
+};
 
 describe('@zmdb/web bench: init-time resolution', () => {
   it('reads controller metadata only at register, not per handle', async () => {
@@ -48,5 +68,24 @@ describe('@zmdb/web bench: microbench', () => {
     expect(result.iters).toBe(200);
     expect(result.opsPerSec).toBeGreaterThan(0);
     expect(result.totalMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('measures request and query workloads with consumed results', async () => {
+    for (const workload of ['request', 'query'] as const) {
+      const off = await benchmarkObservability({ mode: 'off', workload, iters: 20 });
+      const noop = await benchmarkObservability({
+        mode: 'noop',
+        workload,
+        iters: 20,
+        observability: NOOP_OBSERVABILITY,
+      });
+
+      expect(off.workload).toBe(workload);
+      expect(off.iters).toBe(20);
+      expect(off.opsPerSec).toBeGreaterThan(0);
+      expect(off.totalMs).toBeGreaterThanOrEqual(0);
+      expect(off.checksum).toBeGreaterThan(0);
+      expect(noop.checksum).toBe(off.checksum);
+    }
   });
 });

@@ -147,6 +147,26 @@ for (const pkgDirName of packageDirs) {
   }
 }
 
+// The OpenTelemetry API is an optional integration peer. Only the explicit
+// adapter subpath may reach it; importing the package root or the dependency-free
+// observability ports must not ask a consumer to install that peer.
+const webManifest = JSON.parse(readFileSync(join(PACKAGES_DIR, 'web', 'package.json'), 'utf8'));
+for (const [subpath, target] of Object.entries(webManifest.exports ?? {})) {
+  if (typeof target !== 'string' || subpath === './otel') continue;
+  const chain = importGraph.findImportPath(
+    join(PACKAGES_DIR, 'web', target),
+    ({ specifier }) => specifier === '@opentelemetry/api' || specifier.startsWith('@opentelemetry/api/'),
+  );
+  if (chain !== null) {
+    const trail = chain
+      .slice(0, -1)
+      .map(file => file.slice(ROOT.length + 1))
+      .join(' -> ');
+    console.error(`[ERROR] @zmdb/web export "${subpath}" reaches optional @opentelemetry/api: ${trail}`);
+    errorsCount++;
+  }
+}
+
 // Every subpath actually loads, under `node`, with no bundler and no transform.
 //
 // This is a check on the *source*, and it is worth being precise about that, because the

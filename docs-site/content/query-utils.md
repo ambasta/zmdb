@@ -8,11 +8,22 @@ q.text; // 'SELECT * FROM "users" WHERE "id" = $1'
 q.parameters; // [1]
 ```
 
-`CompiledQuery` is `{ readonly text: string; readonly parameters: readonly unknown[] }` and nothing else — so it logs, snapshots and compares cleanly:
+Every `CompiledQuery` has readonly `text` and `parameters`. The default compiler
+still returns exactly those two keys, so existing logs, snapshots and equality
+checks remain unchanged:
 
 ```ts
 expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [1] });
 ```
+
+Observability can opt into a third, optional compile-time field:
+
+```ts
+const observed = createQueryCompiler('postgres', { telemetry: true }).selectFrom('users').compile();
+observed.telemetry; // { system: 'postgresql', operation: 'SELECT', collection: 'users' }
+```
+
+The compiler attaches it rather than asking a driver to parse generated SQL.
 
 ## Compiling for every dialect at once
 
@@ -48,13 +59,14 @@ export function explain(q: CompiledQuery): string {
 
 ## Counting queries
 
-The `Driver` interface being one method makes instrumentation trivial:
+The single execute boundary makes instrumentation straightforward:
 
 ```ts
 export function countingDriver(inner: Driver) {
   const queries: CompiledQuery[] = [];
   return {
     driver: {
+      ...inner,
       execute: q => {
         queries.push(q);
         return inner.execute(q);

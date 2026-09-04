@@ -1,6 +1,7 @@
 A `Driver` is the whole database abstraction: one method that runs a compiled
-query and returns rows. Everything above it — repositories, transactions,
-replicas, logging, caching — composes around that one method.
+query and returns rows, plus optional capability metadata. Everything above it —
+repositories, transactions, replicas, logging, caching and observability —
+composes around that execute boundary.
 
 ```ts
 import type { CompiledQuery } from '@zmdb/query-compiler';
@@ -8,13 +9,15 @@ import type { Dialect } from '@zmdb/query-compiler';
 
 export interface Driver {
   readonly dialect?: Dialect;
+  readonly queryTelemetry?: true;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 ```
 
-`CompiledQuery` is `{ text, parameters }`. The driver's job is to hand both to
-your client and return the rows; it is not to interpret, rewrite or inspect the
-SQL. `Driver` lives in `@zmdb/repository`, not in the compiler.
+`CompiledQuery` always has `text` and `parameters`. It may also have optional
+compile-time `telemetry` when an observing wrapper requests it. An ordinary
+driver hands the text and parameters to the client and returns rows; it does not
+parse SQL. `Driver` lives in `@zmdb/repository`, not in the compiler.
 
 ## First-party drivers
 
@@ -101,9 +104,11 @@ const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), 
 ```
 
 This is the extension point the framework leans on hardest. Logging, tracing,
-retries, a query budget, replica routing and per-tenant connections are all
-driver wrappers, so each one covers handlers, workers and CLI scripts alike
-rather than just the HTTP path. See [Logging](./web-logging.html),
+metrics, retries, a query budget, replica routing and per-tenant connections are
+all driver wrappers, so each one covers handlers, workers and CLI scripts alike
+rather than just the HTTP path. `tracedDriver` preserves the wrapped dialect,
+sets `queryTelemetry: true`, and accepts an explicit parent span such as
+`ctx.span`; there is no ambient current span. See [Logging](./web-logging.html),
 [Read Replicas](./read-replicas.html) and [Request Context](./web-request-context.html).
 
 ## With a repository

@@ -42,6 +42,8 @@
     "./dto-pipes": "./src/dto-pipes/index.ts",
     "./openapi": "./src/openapi/index.ts",
     "./health": "./src/health/index.ts",
+    "./observability": "./src/observability/index.ts",
+    "./otel": "./src/observability/otel.ts",
     "./gateways": "./src/gateways/index.ts",
     "./events": "./src/events/index.ts",
     "./cqrs": "./src/cqrs/index.ts",
@@ -64,18 +66,25 @@
   },
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
     "@types/pg": "^8.23.1",
     "pg": "8.23.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "pg": "^8.23.0"
   },
   "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
     "pg": {
       "optional": true
     }
