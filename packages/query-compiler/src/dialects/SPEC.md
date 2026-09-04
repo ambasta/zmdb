@@ -666,6 +666,26 @@ single-row updates, so the tag exists to make the transactional hot path sayable
 So the implementation slice adds an optional table-options field to the snapshot, which means it also
 appears in the snapshot JSON on disk and therefore in the diff — see §5.4.
 
+The field is exact rather than an open options bag:
+
+```ts
+interface TableOptions {
+  readonly shardKey?: readonly string[];
+  readonly sortKey?: readonly string[];
+  readonly rowstore?: true;
+}
+
+interface TableSnapshot {
+  readonly name: string;
+  readonly columns: readonly ColumnSnapshot[];
+  readonly tableOptions?: TableOptions;
+}
+```
+
+It is optional so every snapshot written before this dialect remains byte-identical. `rowstore?: true`
+rather than `boolean` leaves no second spelling for columnstore: absence is columnstore, because that is
+SingleStore's default.
+
 ### 5.2 A table declaring neither a shard key nor `Rowstore` is refused
 
 `dialect-singlestore.md:42` puts it well: a `CREATE TABLE` with no sort key and no rowstore hint "is a
@@ -744,10 +764,13 @@ export class UnsupportedFeatureError extends Error {
 the sentence that saves the reader an hour goes. The existing two-argument calls are unchanged.
 
 **`feature` becomes a closed vocabulary.** Today it is any string, and two call sites happen to agree on
-`'row-level security'`. The values are the `DialectFeature` union plus the four statement-level refusals
-named in §3 (`'pagination without ORDER BY'`, `'upsert without a conflict target'`, `'returning'`,
-`'table options change'`). A closed set is what lets one test enumerate every refusal the matrix expects and
-fail when a new one appears undocumented.
+`'row-level security'`. The runtime values are the existing human-readable feature names (`'materialized
+views'`, `'row-level security'`, `'full-text search'`), the closed extension operator/predicate names from
+`../../SPEC.md` §5a (`'l2'`, `'cosine'`, `'ip'`, `'st_contains'`, `'st_within'`, `'st_intersects'`,
+`'st_dwithin'`), and the statement-level refusals named here (`'pagination without ORDER BY'`, `'upsert
+without a conflict target'`, `'returning'`, `'alter column type'`, `'table options change'`). Trait property
+names such as `materializedView` are not error messages. A closed set is what lets one test enumerate every
+refusal the matrix expects and fail when a new one appears undocumented.
 
 **Compile-time where it is genuinely available, runtime where it is not.** There are exactly two
 compile-time levers, and it is worth being precise about them because "compile-time error where possible" is
@@ -838,27 +861,21 @@ key is present, and **the docs page says "golden SQL only" in the same words thi
 flipped to `supported` while implying CI coverage that does not exist would be worse than the current
 `todo`, which at least tells the truth.
 
-## 9. What the docs pages have to change
+## 9. Docs corrections now, support rewrite later
 
-Owned by #510, listed here so the corrections are not rediscovered:
+The tests freeze corrects the design claims that became false as soon as this spec was accepted:
 
-1. **`dialect-mssql.md:20`** — `DATETIME2` becomes `DATETIMEOFFSET(3)`, with the zone-aware reasoning from
-   §3.6.
-2. **`dialect-mssql.md:49`** — "type mappings for all ten column types" is right; the page should name
-   `UNIQUEIDENTIFIER` as unreachable rather than listing it, since `SqlType` has no `uuid` member.
-3. **`dialect-mssql.md:23`** — the pagination paragraph is correct and should state the decision: refused,
-   not synthesised, with the reason (§3.3).
-4. **`dialect-cockroach.md:70`** — "`serial` → `UUID DEFAULT gen_random_uuid()`" must go. It would make
-   `Entity<T>` lie about the column's type (§4.1). The page's own earlier advice, at lines 26 to 41, is the
-   correct answer and should be what the section points at.
-5. **`dialect-cockroach.md`** — add the `integer` → `INT4` divergence (§4.2) and the full-text-search
-   refusal (§4.3), neither of which the page mentions.
-6. **`dialect-singlestore.md:52`** — "turns a deploy-time error into a compile-time one" is wrong; the
-   reflector has no dialect, so the earliest check is migration generation (§5.4).
-7. **`dialect-singlestore.md:52`** — "suppressed foreign-key emission" describes a no-op (§5.5).
-8. **All three pages** — the coverage row from §8, in those words. And every page that recites
-   `Dialect` as three members: `dialect-mssql.md:4`, `dialect-cockroach.md:1` and
-   `dialect-singlestore.md:1`.
+- SQL Server uses `DATETIMEOFFSET(3)`, has no reachable `UNIQUEIDENTIFIER` abstract type, concatenates
+  through `CONCAT`, and refuses unordered pagination rather than synthesising an order (§3).
+- Cockroach keeps `serial` numeric as `INT8 DEFAULT unique_rowid()`, maps `integer` to `INT4`, refuses
+  Postgres full-text SQL, and leaves UUID keys as the explicit declaration the page already demonstrates
+  (§4).
+- SingleStore's unique-index check is at migration generation rather than type reflection, and there is no
+  foreign-key SQL to suppress in the current snapshot/emitter (§5).
+
+#510 still owns the support-state rewrite: the coverage row from §8, replacing the workaround-focused
+bodies once implementations exist, and any `pages.mjs` status changes. Until then every page remains
+`todo` and every sentence saying the new string is not yet a `Dialect` value remains true.
 
 ## 10. Non-goals (rejected)
 

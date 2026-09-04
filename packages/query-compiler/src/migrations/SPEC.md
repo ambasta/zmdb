@@ -467,11 +467,14 @@ passed through unchanged rather than guessed at.
 in `../dialects/SPEC.md` §1. Three statements here are emitted in one dialect's grammar for all of them:
 `add_column` says `ADD COLUMN`, which T-SQL rejects; `alter_column_type` says `ALTER COLUMN c TYPE t`, which
 is the Postgres spelling and not MySQL's `MODIFY COLUMN`; and `emitDown` of a `drop_table` produces
-`CREATE TABLE t ()`, an empty column list that only Postgres parses. The first two are fixed as part of the
-dialect-traits work, since that is where a per-dialect spelling acquires somewhere to live. The third is not
-a spelling problem — the columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of
-a `drop_table` becomes a refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot
-run on three dialects out of six.
+`CREATE TABLE t ()`, an empty column list that only Postgres parses. SQL Server uses
+`ALTER COLUMN c t` with no `TYPE`; SQLite has no direct alter-type statement at all, and the five-field op
+does not contain the complete table snapshot a rebuild would need, so SQLite refuses `'alter column type'`.
+The first two spellings and that refusal are fixed as part of the dialect-traits work, since that is where a
+per-dialect answer acquires somewhere to live. The `drop_table` reversal is not a spelling problem — the
+columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of a `drop_table` becomes a
+refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot run on three dialects out
+of six.
 
 The type map itself gains three columns and one correction. `mssql` maps `timestamp` to `DATETIMEOFFSET(3)`
 rather than `DATETIME2`, following the same rule the Postgres row is annotated with: a `timestamp` gets the

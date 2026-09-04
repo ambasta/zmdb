@@ -49,7 +49,14 @@ Sharding on `customer_id` means a query filtered by customer touches one partiti
 
 ## What a real dialect would change
 
-`ShardKey<…>` and `SortKey<…>` tags on the `extends` clause — the same place `Fts<…>` sits, because both are facts about the table rather than about one column — flowing into the DDL emitter, plus a rowstore/columnstore flag, suppressed foreign-key emission, and a reflection refusal for a `Unique` column outside the shard key. That last one is the most valuable part, because it turns a deploy-time error into a compile-time one.
+`ShardKey<…>` and `SortKey<…>` tags on the `extends` clause — the same place
+`Fts<…>` sits, because both are facts about the table rather than one column —
+would flow through the snapshot into DDL, with a `Rowstore` tag for the explicit
+alternative to SingleStore's default columnstore. A unique index outside the shard
+key can be refused when DDL is generated, before a migration is written; it cannot
+be a compile-time reflection error because reflection has no dialect value. There
+is no foreign-key SQL to suppress today: `ColumnSnapshot` carries no foreign keys
+and the emitter produces none on any dialect.
 
 ---
 
