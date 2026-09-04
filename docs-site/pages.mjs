@@ -600,7 +600,7 @@ export const PAGE_META = {
     title: 'Schema-First (existing database)',
     group: 'Schema',
     status: 'todo',
-    note: 'catalog readers and declaration emission ship; complete drift reporting and the adoption CLI remain',
+    note: 'catalog readers, declaration emission and drift reporting ship; the adoption CLI remains',
   },
   crud: {
     title: 'CRUD',

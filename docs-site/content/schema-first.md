@@ -1,7 +1,8 @@
 > **ToDo / feature gap.** PostgreSQL, MySQL and SQLite catalog readers now
 > produce a normalized `CatalogSchemaSnapshot`, and `emitDeclarations()` turns
-> it into deterministic TypeScript. There is still no complete drift report or
-> `zmdb pull` command, so adoption uses a small library script plus review.
+> it into deterministic TypeScript. `detectDrift()` compares that snapshot with
+> declarations in both directions. The `zmdb pull`/`check` command wiring and
+> complete adoption workflow remain, so this page stays TODO.
 
 ## What "schema first" means here
 
@@ -62,23 +63,29 @@ See [pull](./cli-pull.html).
    mistake, so check both directions:
 
    ```ts
-   import { createIntrospector } from '@zmdb/query-compiler/introspect';
-   import { diff, snapshot } from '@zmdb/query-compiler/migrations';
+   import { createIntrospector, detectDrift } from '@zmdb/query-compiler/introspect';
+   import { snapshot } from '@zmdb/query-compiler/migrations';
    import { expect } from 'vitest';
 
    const live = await createIntrospector('postgres').snapshot(driver, {
      schemas: ['public'],
    });
    const declared = snapshot([schemaOf<LegacyUser>()]);
+   const report = detectDrift(live, declared, { dialect: 'postgres' });
 
-   expect(diff(live, declared)).toEqual([]);
-   expect(diff(declared, live)).toEqual([]);
+   expect(report.clean, JSON.stringify(report, null, 2)).toBe(true);
    ```
 
-   Run this against a restored production dump in CI. The current `diff`
-   compares table presence, column presence, and normalized type. The dedicated
-   drift-report slice owns nullability, lengths, ordered primary keys, foreign
-   keys, indexes, extensions, and the completeness claim.
+   Run this against a restored production dump in CI. The two typed finding
+   lists contain migration `ChangeOp` values, so a failure names the table,
+   column and type difference. Defaults and catalog aliases are normalized as
+   evidence rather than drift; pass `{ dialect: 'mysql' }` to omit an InnoDB
+   index whose sole purpose is supporting its foreign key.
+
+   The report deliberately inherits the current migration `diff` coverage:
+   table and column presence, normalized type changes, and extensions. Ordered
+   keys, foreign keys and general indexes become reportable when their migration
+   operation slices land; drift does not maintain a second comparator.
 
 4. **Generate forward from there.** Once the baseline is committed,
    [generate](./cli-generate.html) works normally: change the interface, diff
@@ -92,10 +99,10 @@ retain catalog evidence even when no declaration can express it. The emitter
 then omits unsafe mappings, returns warnings structurally, and puts the same
 warning in the generated file.
 
-The remaining work is the complete two-direction drift report and the adoption
-CLI. The mapping itself remains intentionally reviewable: `inet`, `bytea`, an
-arbitrary SQLite declaration, or an enum without recovered members cannot
-become an honest tagged property. See [Database Extensions](./db-extensions.html).
+The remaining work is the adoption CLI and its overwrite/output policy. The
+mapping itself remains intentionally reviewable: `inet`, `bytea`, an arbitrary
+SQLite declaration, or an enum without recovered members cannot become an
+honest tagged property. See [Database Extensions](./db-extensions.html).
 
 ---
 

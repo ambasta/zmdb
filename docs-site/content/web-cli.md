@@ -70,11 +70,14 @@ A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and vali
 
 **Introspection command wiring.** There is no `db pull` command, but the library
 now reads PostgreSQL, MySQL, and SQLite catalogs and emits reviewed TypeScript
-declarations. The remaining gap is executable config/driver/output wiring and
-complete drift reporting; see [`cli-pull`](./cli-pull.html). `cli-studio` still
-needs its own server and UI.
+declarations, and `detectDrift()` compares those snapshots with declarations.
+The remaining gap is executable config/driver/output wiring; see
+[`cli-pull`](./cli-pull.html). `cli-studio` still needs its own server and UI.
 
-**Migration generation from a diff against the live database.** `snapshot`/`diff`/`emitUp` compare two _schema snapshots_, so you can diff code against a committed snapshot — but not against what the database actually has. See [Migrations](./migrations.html).
+**Migration generation from a diff against the live database.** `detectDrift()`
+can compare declarations with an introspected snapshot, but generation still
+uses the committed snapshot workflow and there is no reviewed command that
+applies live findings. See [Migrations](./migrations.html).
 
 **A project starter.** `create-zmdb-app` does not exist. Copy the [Quick Start](./quick-start.html) or the [blog tutorial](./tutorial-blog-api.html).
 

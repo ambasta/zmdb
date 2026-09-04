@@ -1,7 +1,8 @@
 > **ToDo / feature gap.** The library reads PostgreSQL, MySQL and SQLite
-> catalogs and emits deterministic, formatter-clean TypeScript declarations.
-> There is still no complete drift report, `pull`, or `generate-entities`
-> command. This page remains TODO because executable dispatch has not landed.
+> catalogs, emits deterministic formatter-clean TypeScript declarations, and
+> reports declaration drift in both directions. There is still no `pull` or
+> `generate-entities` command. This page remains TODO because executable
+> dispatch has not landed.
 
 ## Read the catalog and emit declarations today
 
@@ -63,37 +64,38 @@ relations, referential actions, and indexes that cannot be represented by one
 ## Adopting an existing database
 
 Generate the declarations, review every `TODO`, make any application-specific
-edits, and then compare the reviewed declaration with the live catalog. Until
-the dedicated drift reporter lands, an explicit two-direction test keeps that
-comparison visible:
+edits, and then compare the reviewed declaration with the live catalog through
+the drift front end:
 
 ```ts
-import { createIntrospector } from '@zmdb/query-compiler/introspect';
-import { diff, snapshot } from '@zmdb/query-compiler/migrations';
+import { createIntrospector, detectDrift } from '@zmdb/query-compiler/introspect';
+import { snapshot } from '@zmdb/query-compiler/migrations';
 
 it('declarations match the live database', async () => {
   const live = await createIntrospector('postgres').snapshot(driver, {
     schemas: ['public'],
   });
   const declared = snapshot([schemaOf<User>(), schemaOf<Order>()]);
+  const report = detectDrift(live, declared, { dialect: 'postgres' });
 
-  expect(diff(live, declared)).toEqual([]);
-  expect(diff(declared, live)).toEqual([]);
+  expect(report.clean, JSON.stringify(report, null, 2)).toBe(true);
 });
 ```
 
-Run this against a restored production dump in CI. The current migration diff
-compares table presence, column presence, and normalized type. The dedicated
-drift reporter still owns nullability, lengths, ordered keys, foreign keys,
-indexes, extensions, visibility limits, and command exit codes.
+Run this against a restored production dump in CI. `onlyInDatabase` and
+`onlyInDeclarations` are typed migration operations. The report normalizes
+catalog aliases and defaults, excludes `_zmdb_migrations` by default, accepts
+custom exclusion globs, and can omit MySQL's generated foreign-key support
+index. Its comparison coverage remains exactly the migration `diff` coverage;
+it does not maintain a second comparator.
 
 ## Why the `pull` command is not shipped
 
 The catalog-to-declaration library path has landed. The command still needs to
 resolve a configured driver, choose and protect an output directory, report
 warnings in human and JSON modes, define overwrite behavior, and distinguish
-catalog failure from reviewable loss. Complete two-direction drift reporting is
-a separate remaining library slice used by `check`.
+catalog failure from reviewable loss. The library report is ready for that
+command to format and map to stable exit codes.
 
 Until that executable wiring lands, keep the script above in the project so its
 driver construction and output path are reviewable rather than hidden in a

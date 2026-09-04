@@ -19,6 +19,7 @@ import {
   type SchemaSnapshot,
   type TableSnapshot,
 } from '../migrations/index.js';
+import { normalizeDriftSnapshot } from './drift.js';
 import { CatalogRowError, createIntrospector } from './index.js';
 
 // Introspection tests freeze for #430. The SQLite rows below come from a real
@@ -122,7 +123,7 @@ interface FrozenDriftReport {
 type FrozenDetectDrift = (
   live: FrozenSchemaSnapshot,
   declared: FrozenSchemaSnapshot,
-  options?: { readonly exclude?: readonly string[] },
+  options?: { readonly exclude?: readonly string[]; readonly dialect?: Dialect },
 ) => FrozenDriftReport;
 
 async function frozenExport<T>(name: string): Promise<T> {
@@ -663,7 +664,7 @@ describe('the round trip and drift report', () => {
     }
   });
 
-  it.fails('excludes bookkeeping tables from the drift check', async () => {
+  it('excludes bookkeeping tables from the drift check', async () => {
     const detectDrift = await frozenExport<FrozenDetectDrift>('detectDrift');
     const ledger = emptyTable('_zmdb_migrations', [
       { name: 'version', type: 'integer', nullable: false, primaryKey: true },
@@ -673,7 +674,17 @@ describe('the round trip and drift report', () => {
     expect(report).toEqual({ onlyInDatabase: [], onlyInDeclarations: [], clean: true });
   });
 
-  it.fails('reports drift in both directions', async () => {
+  it('accepts a configurable drift exclusion list', async () => {
+    const detectDrift = await frozenExport<FrozenDetectDrift>('detectDrift');
+    const shadow = emptyTable('audit_shadow', [{ name: 'id', type: 'integer', nullable: false, primaryKey: true }]);
+    const report = detectDrift(emptySnapshot([shadow]), emptySnapshot(), {
+      exclude: ['_zmdb_migrations', 'audit_*'],
+    });
+
+    expect(report).toEqual({ onlyInDatabase: [], onlyInDeclarations: [], clean: true });
+  });
+
+  it('reports drift in both directions', async () => {
     const detectDrift = await frozenExport<FrozenDetectDrift>('detectDrift');
     const id: FrozenColumnSnapshot = { name: 'id', type: 'integer', nullable: false, primaryKey: true };
     const databaseOnly: FrozenColumnSnapshot = {
@@ -702,6 +713,97 @@ describe('the round trip and drift report', () => {
       kind: 'add_column',
       table: 'users',
       column: declarationOnly,
+    });
+  });
+
+  it('ignores a default expression the database normalised', async () => {
+    const detectDrift = await frozenExport<FrozenDetectDrift>('detectDrift');
+    const live = emptySnapshot([
+      emptyTable('events', [
+        {
+          name: 'created_at',
+          type: 'timestamp',
+          catalogType: 'timestamp with time zone',
+          nullable: false,
+          primaryKey: false,
+          default: "'now()'",
+        },
+      ]),
+    ]);
+    const declared = emptySnapshot([
+      emptyTable('events', [
+        {
+          name: 'created_at',
+          type: 'timestamp',
+          catalogType: 'timestamptz',
+          nullable: false,
+          primaryKey: false,
+          default: 'now()',
+        },
+      ]),
+    ]);
+
+    const normalized = normalizeDriftSnapshot(live, 'live');
+    expect(normalized.tables[0]?.columns[0]).toEqual({
+      name: 'created_at',
+      type: 'timestamp',
+      nullable: false,
+      primaryKey: false,
+    });
+    expect(column(live, 'events', 'created_at').default).toBe("'now()'");
+    expect(detectDrift(live, declared)).toEqual({
+      onlyInDatabase: [],
+      onlyInDeclarations: [],
+      clean: true,
+    });
+  });
+
+  it('ignores an index MySQL created to support a foreign key', async () => {
+    const detectDrift = await frozenExport<FrozenDetectDrift>('detectDrift');
+    const foreignKey: FrozenForeignKeySnapshot = {
+      name: 'posts_account_id_fkey',
+      columns: ['account_id'],
+      targetTable: 'accounts',
+      targetColumns: ['id'],
+      onDelete: 'cascade',
+      onUpdate: 'no action',
+    };
+    const accountId: FrozenColumnSnapshot = {
+      name: 'account_id',
+      type: 'integer',
+      nullable: false,
+      primaryKey: false,
+    };
+    const generatedIndex: FrozenIndexSnapshot = {
+      name: 'posts_account_id_fkey_idx',
+      columns: ['account_id'],
+      unique: false,
+    };
+    const explicitIndex: FrozenIndexSnapshot = {
+      name: 'posts_recent_idx',
+      columns: ['account_id'],
+      unique: false,
+    };
+    const liveTable: FrozenTableSnapshot = {
+      ...emptyTable('posts', [accountId]),
+      foreignKeys: [foreignKey],
+      indexes: [generatedIndex, explicitIndex],
+    };
+    const declaredTable: FrozenTableSnapshot = {
+      ...emptyTable('posts', [accountId]),
+      foreignKeys: [foreignKey],
+      indexes: [explicitIndex],
+    };
+    const live = emptySnapshot([liveTable]);
+    const declared = emptySnapshot([declaredTable]);
+
+    const normalized = normalizeDriftSnapshot(live, 'live', { dialect: 'mysql' });
+    expect(normalized.tables[0]?.indexes).toEqual([explicitIndex]);
+    expect(table(live, 'posts').indexes).toEqual([generatedIndex, explicitIndex]);
+    expect(detectDrift(live, declared, { dialect: 'mysql' })).toEqual({
+      onlyInDatabase: [],
+      onlyInDeclarations: [],
+      clean: true,
     });
   });
 });

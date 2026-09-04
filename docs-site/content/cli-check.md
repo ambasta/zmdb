@@ -47,10 +47,11 @@ Against SQLite in memory this is fast enough to run on every push. Against Postg
 
 The strongest of the three, and the one that catches a hand-edited snapshot:
 apply every migration to an empty database, read it with the shipped
-introspector, and compare the result to the committed snapshot. The reader
-exists, but the complete drift reporter and `zmdb check` wiring do not. Until
-those land, the narrower approximation below compares the _generated_ DDL
-against the migration files:
+introspector, and compare the result to the committed snapshot. The reader and
+two-direction `detectDrift()` report exist; the `zmdb check` wiring does not.
+Until that command lands, a project script can fail on `report.clean` and print
+the two typed operation lists. The narrower approximation below compares the
+_generated_ DDL against the migration files:
 
 ```ts
 const fromSchema = diff({ version: 1, tables: [], extensions: [] }, snapshot(all)).map(o => emitUp(o, 'postgres'));
@@ -67,8 +68,8 @@ This only holds if every migration was generated rather than hand-written, so it
 - **Destructive operations**, flagged rather than silently emitted. `diff()` produces `DROP COLUMN` for a column you forgot to declare — see [generate](./cli-generate.html).
 - **Duplicate versions** across migration files, which is the [team](./migrations-teams.html) failure mode.
 - **Missing `down`**, or a `down` that is empty.
-- **Complete drift against the live database**, built over the shipped
-  [introspection](./cli-pull.html) API and surfaced with stable exit codes.
+- **Live drift**, built over the shipped [introspection](./cli-pull.html) API;
+  the command still needs to format the report and surface stable exit codes.
 
 The first three are lint rules over data you already have and would be the easy wins.
 

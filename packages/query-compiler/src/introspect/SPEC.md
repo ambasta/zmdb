@@ -1,8 +1,8 @@
 # Introspection: catalog → snapshot → declaration — Spec (frozen)
 
 > Part of `@zmdb/query-compiler` (module `src/introspect/`). Epic "Introspection — the DDL-to-declaration
-> direction". Frozen for TDD. The catalog-reader and declaration-emission slices are implemented; drift
-> reporting remains frozen for its own implementation slice.
+> direction". Frozen for TDD. The catalog readers, declaration emitter and two-direction drift report are
+> implemented; the adoption CLI and guide remain separate slices.
 
 ## 1. Why the reverse direction is not the forward one inverted
 
@@ -56,6 +56,19 @@ export interface EmitOptions {
   readonly dialect: Dialect;
 }
 export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): Promise<EmitDeclarationsResult>;
+
+export interface DriftOptions {
+  /** Table-name globs. Default: `['_zmdb_migrations']`; an explicit list replaces it. */
+  readonly exclude?: readonly string[];
+  /** Enables dialect-owned noise rules, currently the MySQL foreign-key support index rule. */
+  readonly dialect?: Dialect;
+}
+export interface DriftReport {
+  readonly onlyInDatabase: readonly ChangeOp[];
+  readonly onlyInDeclarations: readonly ChangeOp[];
+  readonly clean: boolean;
+}
+export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, opts?: DriftOptions): DriftReport;
 ```
 
 `CatalogSchemaSnapshot` is structurally a `SchemaSnapshot` and adds the catalog-only evidence plus the
@@ -251,8 +264,9 @@ whitespace. Comparing verbatim therefore reports an `alter` after a server upgra
 and comparing loosely means writing an expression normaliser for three dialects' expression grammars —
 the same trade `../schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason. So
 the default is recorded, shown by `pull`, printed in the generated comment, and not diffed. When a
-normalisation policy exists it can be turned on; inventing one here would put the least trustworthy
-comparison in the tool people run in CI.
+drift report is requested, its normalization boundary explicitly removes `default` and `catalogType`
+evidence before delegating to `diff`: the normalized abstract `type` is compared, while two server
+spellings of the same default remain review evidence rather than schema drift.
 
 ## 5. Recognising a generated key column, per dialect
 
@@ -335,19 +349,42 @@ less than a snapshot that does not lie.
 
 ## 8. The drift check
 
-`check` is `diff(introspect.snapshot(driver), snapshot(declaredSchemas))`, and what it can and cannot say
-has to be written down, because a check that overstates its coverage is worse than no check.
+`detectDrift(live, declared, opts)` is one normalization boundary around the migration comparator, not a
+second comparator:
 
-Compared: tables, columns, abstract types, nullability, lengths, primary keys and their order, and
-declared extensions.
+```ts
+onlyInDatabase = diff(normalizedDeclared, normalizedLive);
+onlyInDeclarations = diff(normalizedLive, normalizedDeclared);
+clean = onlyInDatabase.length === 0 && onlyInDeclarations.length === 0;
+```
 
-Not compared: the migration ledger and anything matching `exclude`; default expressions (§4); objects in
-schemas outside `schemas`; and objects the connecting role cannot see, which `information_schema` reports
-as absent (§2). The result therefore states the role and the schema list, so an empty diff is evidence of
-something specific rather than of nothing.
+The two lists retain `ChangeOp` payloads, so a finding names the table, column and differing types rather
+than reducing the result to a boolean. As migration `diff` gains an operation, drift sees it through both
+calls without another implementation.
 
-Also not compared, because the snapshot has no field for them: check constraints, triggers, procedures,
-grants, partial-index predicates and collations. The check says so in its own output. Implying
+Normalization has three explicit rules:
+
+1. Table selection reuses the catalog reader's glob matcher. With no `exclude`, `_zmdb_migrations` is
+   omitted. An explicit list replaces the default, so a caller adding custom bookkeeping patterns also
+   names the ledger when it should remain excluded.
+2. `catalogType` and `default` are removed from the compared copies. Catalog aliases have already
+   collapsed into the abstract `type`, and §4 makes defaults evidence rather than a compared field.
+   Neither input snapshot is mutated.
+3. With `{ dialect: 'mysql' }`, a live non-unique btree index is omitted only when its name is the foreign
+   key name or `<foreign-key>_idx` and its plain column list exactly equals that foreign key's columns.
+   That is the index InnoDB creates or zmdb emits solely to support the constraint. A differently named,
+   partial, expression, unique or differently shaped index remains.
+
+The shipped migration comparator currently reports table presence, column presence, normalized type
+changes and declared extensions. The richer ordered-key, foreign-key and index evidence is preserved by
+normalization for the migration slices that add their `ChangeOp` arms; drift does not pre-implement them.
+
+Not compared: default expressions (§4); objects in schemas outside `schemas`; and objects the connecting
+role cannot see, which `information_schema` reports as absent (§2). The migration ledger and configured
+bookkeeping tables are removed before comparison.
+
+Also not reported by the current migration comparator: check constraints, triggers, procedures, grants,
+partial-index predicates and collations. The eventual command says so in its own output. Implying
 completeness is how a green `check` becomes the reason nobody looked.
 
 Exit behaviour, since this runs in CI:
@@ -363,11 +400,11 @@ must not be reported to a human as "your schema has drifted".
 
 ## 9. The CLI boundary
 
-This epic ships the library and stops there: `Introspector`, `snapshot`, `emitDeclarations`. `zmdb pull`
-and `zmdb check` belong to the CLI epic, where §2.6's invariant says a command is argument parsing plus
-one library call — so a command that grows a catalog query is a command doing this module's job. The
-driver and the schema list come from the resolved config (#492). Neither side keeps a private copy of the
-catalog SQL.
+This epic ships the library and stops there: `Introspector`, `snapshot`, `emitDeclarations` and
+`detectDrift`. `zmdb pull` and `zmdb check` belong to the CLI epic, where §2.6's invariant says a command
+is argument parsing plus one library call — so a command that grows a catalog query or a private
+comparison is a command doing this module's job. The driver and the schema list come from the resolved
+config (#492). Neither side keeps a private copy of the catalog SQL.
 
 ## 10. Non-goals (rejected)
 
@@ -376,6 +413,7 @@ catalog SQL.
 - **Preserving hand edits across a regeneration.** §6.
 - **Inverting a naming strategy.** §6 — not invertible, and the emitter does not need it to be.
 - **Evaluating a default expression.** §4.
-- **Diffing default expressions before a normalisation policy exists.** §4.
+- **Diffing default expressions.** §4 — the drift normalization removes them rather than guessing whether
+  two dialect expressions are equivalent.
 - **A hand-written SQL parser for `sqlite_master.sql`.** It is a last resort for facts the pragmas do not
   carry, every use warns, and it is never the source for a fact a pragma reports.

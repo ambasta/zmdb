@@ -10,6 +10,7 @@ export {
   type EmittedDeclarationFile,
   type EmitOptions,
 } from './emit.js';
+export { detectDrift, type DriftOptions, type DriftReport } from './drift.js';
 export {
   CatalogRowError,
   type CatalogColumnSnapshot,
