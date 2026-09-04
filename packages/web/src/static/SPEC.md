@@ -64,10 +64,10 @@ production static handler was missing.
    performed on the full string and open a different file.
 3. **Refuse a `\` anywhere.** It is a path separator on Windows and never
    meaningful in a URL path, so a backslash is either an attack or a mistake.
-4. **Refuse an absolute path, a drive letter (`C:`) and a UNC prefix (`//`).** A
-   leading `/` is stripped from the pathname before this check; anything still
-   absolute after decoding is an attempt to replace the root rather than index into
-   it.
+4. **Refuse a leading `/`, an absolute path, a drive letter (`C:`) and a UNC
+   prefix (`//`).** The handler accepts a path relative to its configured root;
+   anything absolute after decoding is an attempt to replace that root rather than
+   index into it.
 5. **Split on `/` and refuse any segment equal to `..`, and any segment beginning
    with `.`.** The `..` refusal is done on segments rather than by trusting
    `normalize`, because normalisation is a string transformation whose result still
@@ -89,12 +89,14 @@ resolved.startsWith(root + sep)`. The separator in the prefix is load-bearing �
    inside the root is served, a symlink that escapes is refused — which supports
    the common deployment where a release directory is symlinked into place while
    refusing the one that leaks.
-9. **Open once, and read from the descriptor.** Every stat, size, mtime and byte
-   comes from the same open file handle, never from a second lookup by path. A
-   path checked and then re-opened is a time-of-check-to-time-of-use race: an
-   attacker who can create files in the served directory replaces a regular file
-   with a symlink between the two operations and the checks all passed on the
-   file that no longer exists.
+9. **Open once, and read from the descriptor.** Every response size, mtime and
+   byte comes from the same open file handle, never from a second open by path.
+   Platforms without a descriptor-to-realpath facility may stat the resolved
+   target only to compare filesystem identity with the descriptor; that stat is
+   not response metadata. A path checked and then re-opened is a
+   time-of-check-to-time-of-use race: an attacker who can create files in the
+   served directory replaces a regular file with a symlink between the two
+   operations and the checks all passed on the file that no longer exists.
 10. **Refuse anything that is not a regular file.** A directory, a FIFO, a device
     or a socket. Reading a FIFO blocks the handler forever, and `/dev/zero` is an
     infinite response body — both are denial of service through a path that
@@ -127,14 +129,15 @@ deployment can alert on it without alerting on every favicon request.
 ```ts
 const fh = await open(resolved); // once, by path, no second lookup
 const stat = await fh.stat(); // from the descriptor
-const body = fh.readableWebStream(); // ReadableStream<Uint8Array<ArrayBuffer>>
+const body = descriptorStream(fh, start, end); // ReadableStream<Uint8Array<ArrayBuffer>>
 ```
 
-`readableWebStream()` is what makes the `stream` arm of `ResponseBody` reachable
-from a file with no adapter-specific code, and its cancellation closes the
-descriptor — which is why `../pipeline/SPEC.md` §A3's disconnect handling is a
-prerequisite and not a refinement. `length` is the descriptor's `stat().size`, so a
-static response always carries a `content-length` and is never chunked.
+The descriptor-backed stream is what makes the `stream` arm of `ResponseBody`
+reachable from a file with no adapter-specific code, and its cancellation closes
+the descriptor — which is why `../pipeline/SPEC.md` §A3's disconnect handling is a
+prerequisite and not a refinement. `length` is derived from the descriptor's
+`stat().size`, so a static response always carries a `content-length` and is never
+chunked.
 
 `file(path, options)` in the pipeline is this sequence without the confinement
 checks, for a handler that already knows the path it wants. Everything in §2 is the
@@ -209,8 +212,9 @@ the same reason the ETag is labelled weak** — `If-Range` requires a strong
 validator, and answering it with a weak one is how a client ends up splicing two
 versions of a file together.
 
-`content-range` and the window are applied by opening the descriptor with a start
-and end, so a range response streams the window and never reads the rest.
+`content-range` and the window are applied while reading the already-open
+descriptor with explicit positions, so a range response streams the window and
+never reads the rest.
 
 ## 7. Content types are an allow-list
 
@@ -244,8 +248,9 @@ the filename and its escaping.
 4. A FIFO and a directory are both `404`, not a hang and not a listing.
 5. There is no option that enables directory listing — a compile-time assertion
    over `StaticOptions`, since a missing runtime option is not observable.
-6. A `304` on a matching `If-None-Match` carries no body, no `content-length`, and
-   never opens the file (asserted by a descriptor count or an `open` spy).
+6. A `304` on a matching `If-None-Match` carries no body, no `content-length`,
+   closes the descriptor before returning, and never constructs the body stream
+   (asserted by a descriptor count or an `open` spy).
 7. `If-None-Match` wins over a contradicting `If-Modified-Since`.
 8. Every range row in §6's table, including that two ranges and an `If-Range` both
    answer `200` with the whole file, and that `start >= size` is a `416` carrying

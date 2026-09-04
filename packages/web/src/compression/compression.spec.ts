@@ -3,28 +3,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { type Ctx, type QueryValues, type WebResponse } from '../index.js';
+import { text, type AnyCtx, type WebResponse } from '../index.js';
 
-// Response compression. Tests freeze for epic #564 (spec freeze #565); the frozen text is
-// `./SPEC.md`, and this file is its §10 list, item by item. §10 item 1 — no `br` in
-// `ContentCoding` — is a compile-time claim and lives in `./compression.type-test.ts`.
-//
-// `it.fails` for every frozen claim, never `.skip`: `.skip` vanishes from the summary line while
-// `it.fails` has its own bucket, so `N passed | M expected fail` makes M the size of the debt.
-// Vitest *fails* an `it.fails` whose body passes, so each of these self-retires in the slice that
-// implements it. Nothing is `declare`d — a declared stub throws `ReferenceError`, which reads the
-// same whether the feature is missing, misnamed or wrong.
-//
-// The shared actual: `packages/web/src/compression/` holds `SPEC.md` and nothing else, so every
-// test that reaches the middleware reports
-//
-//   Error: @zmdb/web exports no "compress" (frozen: compression/SPEC.md 2)
-//
-// and the two tests in the `the module` block record the `ENOENT` underneath it — those two are the
-// only different actual in the file, because they read the source text rather than calling the
-// export. Everything else funnels through the one missing name, which is why the per-test comments
-// carry the frozen claim and the technique that distinguishes it rather than repeating one captured
-// line sixty times.
+// Response-compression acceptance for epic #564 (spec freeze #565). The frozen text is
+// `./SPEC.md`, and this file is its §10 list item by item. §10 item 1 — no `br` in
+// `ContentCoding` — is a compile-time claim in `./compression.type-test.ts`.
 //
 // `TextEncoder` and `Uint8Array` throughout and never `Buffer`, per §9 and `.oxlintrc.json`.
 
@@ -32,13 +15,7 @@ import { type Ctx, type QueryValues, type WebResponse } from '../index.js';
 // The frozen surface, declared locally
 // ---------------------------------------------------------------------------
 //
-// `AnyCtx` is what §2's signatures name and it is **not exported** — it is declared privately at
-// `../middleware/index.ts:8`. Restated here over the real exported `Ctx` and `QueryValues` so a
-// change to either breaks this file. That §2's public `CompressionOptions.skip` and `compress`
-// both name a type a consumer cannot import is a defect in the freeze rather than in this file;
-// `./compression.type-test.ts` turns it into a gate, and `../graphql/SPEC.md` §10 plans the export
-// under a different epic.
-type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
+// `AnyCtx` is part of the public compression signature; the type test pins its exact shape.
 
 type FrozenTextBody = { readonly kind: 'text'; readonly value: string };
 type FrozenBytesBody = { readonly kind: 'bytes'; readonly value: Uint8Array<ArrayBuffer> };
@@ -74,12 +51,8 @@ type FrozenCompress = (response: FrozenResponse, ctx: AnyCtx, options?: FrozenCo
 /**
  * Resolve `compress` off the real package barrel.
  *
- * boundary: the export does not exist, and a static `import { compress } from '../index.js'` is a
- * link-time SyntaxError that takes the whole file down rather than one test — moving this debt out
- * of the `expected fail` bucket instead of into it. `import './index.js'` is worse: the file is
- * absent, so it is a TS2307 against the typecheck gate. The lookup is dynamic and the message
- * names the missing export, so it is distinguishable from a middleware that exists and answers
- * wrongly, whose failure is an assertion diff.
+ * The dynamic lookup keeps a missing barrel export as one focused assertion instead of a
+ * link-time failure that prevents the negotiation table from reporting.
  */
 async function frozenExport<T>(name: string): Promise<T> {
   const module: unknown = await import('../index.js');
@@ -211,13 +184,8 @@ function outcome(response: FrozenResponse): string {
 // ---------------------------------------------------------------------------
 
 describe('the module (frozen: compression/SPEC.md 2)', () => {
-  // The root cause under every other failure in this file, asserted once so a reader is not left
-  // inferring it from thirty identical messages. It retires first, and on that day the rest of the
-  // file starts reporting assertion diffs instead of a missing name.
-  //
-  // actual today: `ENOENT: no such file or directory, open
-  // '/home/.../packages/web/src/compression/index.ts'` — the directory holds `SPEC.md` alone.
-  it.fails('exists as a module and exports both halves of the split', async () => {
+  // Pin both source modules and the curated package-barrel exports.
+  it('exists as a module and exports both halves of the split', async () => {
     const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
     expect(source.length).toBeGreaterThan(0);
     expect(typeof (await frozenExport<FrozenCompress>('compress'))).toBe('function');
@@ -237,10 +205,25 @@ describe('the module (frozen: compression/SPEC.md 2)', () => {
   // form rather than the word `zlib` so that a comment explaining why the module does not use it
   // cannot fail it. The positive half — that a `CompressionStream` is what is used instead — is
   // what stops the claim being satisfiable by a module that compresses nothing at all.
-  it.fails('imports no Node-only compressor', async () => {
+  it('imports no Node-only compressor', async () => {
     const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
     expect(source).not.toMatch(/from\s+'node:zlib'/);
     expect(source).toMatch(/new CompressionStream\(/);
+  });
+
+  it('preserves handler-controlled responses through both public entry points', async () => {
+    const compress = await frozenExport<FrozenCompress>('compress');
+    const marker = Symbol.for('zmdb.web.response');
+    const direct = compress(text(LONG), accepting('gzip'));
+    expect(marker in direct).toBe(true);
+
+    const interceptor = await frozenExport<
+      () => {
+        intercept(ctx: AnyCtx, next: () => Promise<unknown>): Promise<unknown>;
+      }
+    >('compressionInterceptor').then(create => create());
+    const intercepted = await interceptor.intercept(accepting('gzip'), () => Promise.resolve(text(LONG)));
+    expect(typeof intercepted === 'object' && intercepted !== null && marker in intercepted).toBe(true);
   });
 });
 
@@ -252,7 +235,7 @@ describe('negotiation (frozen: compression/SPEC.md 4, 10.2)', () => {
   // Every row of §4, one test each. The adversarial rows first, because they are the ones a
   // negotiation written as `accept.includes('gzip')` gets wrong — which is exactly what the
   // `web-compression.md` docs page shows a reader today.
-  it.fails.each([
+  it.each([
     // §4.1: `q=0` is *forbidden*, not merely unpreferred — and it is the row `includes('gzip')`
     // fails on, sending gzip to a client that explicitly refused it.
     ['gzip;q=0', 'none'],
@@ -299,7 +282,7 @@ describe('negotiation (frozen: compression/SPEC.md 4, 10.2)', () => {
   // does not mean gzip is safe to assume." Its own test because the two wrong answers are
   // opposite — assuming gzip breaks an old client, and answering 406 breaks every client — and a
   // row in the table above could not assert both.
-  it.fails('does not compress and does not answer 406 when Accept-Encoding is absent', async () => {
+  it('does not compress and does not answer 406 when Accept-Encoding is absent', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const result = compress(textResponse(), ctxFor({}));
     expect(outcome(result)).toBe('200 encoding=none vary=accept-encoding length=none');
@@ -309,7 +292,7 @@ describe('negotiation (frozen: compression/SPEC.md 4, 10.2)', () => {
   // unacceptable and we cannot satisfy anything it will accept, so RFC 9110 §12.5.3's answer is a
   // `406` with an empty body. §4 calls it "a real client configuration rather than a hypothetical",
   // and each row is a different way of saying it.
-  it.fails.each([['identity;q=0'], ['identity;q=0, br'], ['*;q=0'], ['*;q=0, br;q=1'], ['identity;q=0, *;q=0']])(
+  it.each([['identity;q=0'], ['identity;q=0, br'], ['*;q=0'], ['*;q=0, br;q=1'], ['identity;q=0, *;q=0']])(
     'answers 406 for %s',
     async (header: string) => {
       const compress = await frozenExport<FrozenCompress>('compress');
@@ -323,7 +306,7 @@ describe('negotiation (frozen: compression/SPEC.md 4, 10.2)', () => {
   // sees the word `identity`: a client that forbids identity but accepts gzip gets gzip, because
   // there *is* something satisfiable. This is the row that separates "nothing acceptable remains"
   // from "identity was excluded".
-  it.fails('compresses rather than answering 406 when identity is refused but gzip is offered', async () => {
+  it('compresses rather than answering 406 when identity is refused but gzip is offered', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const result = compress(textResponse(), accepting('identity;q=0, gzip'));
     expect(result.status).toBe(200);
@@ -338,7 +321,7 @@ describe('negotiation (frozen: compression/SPEC.md 4, 10.2)', () => {
 describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 10.7, 10.8)', () => {
   // §5's refusals, one row each, in §5's own order. Every one is "a refusal rather than a
   // preference", and the table is the only form in which a reader can check that none went missing.
-  it.fails.each([
+  it.each([
     // §5: a 204, a 304 and any 1xx have no body to compress.
     ['a 204', { status: 204, headers: { 'content-type': 'text/plain' } }],
     ['a 304', { status: 304, headers: { 'content-type': 'text/plain' } }],
@@ -367,7 +350,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // tests `content-encoding !== undefined` skips it correctly and one that tests for a *known*
   // coding re-encodes it and produces a response no client can decode. §5's words are "Something
   // upstream encoded this body and re-encoding it is a bug, not double the compression."
-  it.fails.each([['gzip'], ['deflate'], ['identity'], ['br'], ['gzip, deflate']])(
+  it.each([['gzip'], ['deflate'], ['identity'], ['br'], ['gzip, deflate']])(
     'never re-encodes a body already marked %s',
     async (existing: string) => {
       const compress = await frozenExport<FrozenCompress>('compress');
@@ -389,7 +372,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // body will not be sent, so compressing wastes the work *and*, worse, "produces a
   // `content-length` for a representation that never ships", which is a client waiting for bytes
   // that do not exist.
-  it.fails('does not compress a HEAD response', async () => {
+  it('does not compress a HEAD response', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const result = compress(textResponse(), accepting('gzip', 'HEAD'));
     expect(result.headers['content-encoding']).toBeUndefined();
@@ -401,7 +384,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // later 'fixes' it by buffering", and it is the single most likely thing to be quietly
   // normalised away, because it looks like an inconsistency until the reason is read: there is no
   // way to learn a stream's size without buffering the thing streaming exists to avoid.
-  it.fails('compresses a stream with no length and skips one whose length is under minBytes', async () => {
+  it('compresses a stream with no length and skips one whose length is under minBytes', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const small = utf8.encode('{"ok":true}');
     const unknownLength = compress(streamResponse([small], undefined), accepting('gzip'));
@@ -416,7 +399,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // output larger, and the CPU is spent for a negative result" — so exactly `minBytes` is
   // compressed and one byte less is not, and an implementation written with `>` instead of `>=`
   // differs from one written the other way on precisely this input.
-  it.fails.each([
+  it.each([
     ['text', 1023, undefined],
     ['text', 1024, 'gzip'],
     ['bytes', 1023, undefined],
@@ -440,7 +423,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // two, which is why they are here — and §6's own argument for an allow-list over a deny-list is
   // that the missing entry costs bandwidth rather than CPU, so getting the suffix rule wrong is
   // the cheap kind of mistake and worth catching anyway.
-  it.fails.each([
+  it.each([
     ['text/html; charset=utf-8', 'gzip'],
     ['text/css', 'gzip'],
     ['text/plain', 'gzip'],
@@ -476,7 +459,7 @@ describe('when compression is skipped (frozen: compression/SPEC.md 5, 6, 10.3, 1
   // would otherwise be compressed, `skip` is consulted exactly once, receives the real response and
   // ctx, and its `true` is honoured. It deliberately does not assert a call count on an
   // already-refused response, because both answers are defensible under the frozen text.
-  it.fails('lets skip win over every other condition', async () => {
+  it('lets skip win over every other condition', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const calls: string[] = [];
     const skip = (response: FrozenResponse, ctx: AnyCtx): boolean => {
@@ -506,7 +489,7 @@ describe('headers after compressing (frozen: compression/SPEC.md 7, 10.5, 10.6)'
   // bytes to a client that cannot decode them. The header describes what the response *depended
   // on*, not what happened, so a skipped compression still varies. Every row above asserts this in
   // passing; this test is the one that says it on its own, so a reader looking for §10.5 finds it.
-  it.fails('sends vary: accept-encoding on a response it chose not to compress', async () => {
+  it('sends vary: accept-encoding on a response it chose not to compress', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const skipped = compress(textResponse({ 'content-type': 'image/png' }), accepting('gzip'));
     expect(skipped.headers['vary']).toBe('accept-encoding');
@@ -519,7 +502,7 @@ describe('headers after compressing (frozen: compression/SPEC.md 7, 10.5, 10.6)'
   // must end up varying on both. A middleware that assigns rather than appends silently turns a
   // correctly-cached localised response into one cache entry for every language, served to
   // everybody.
-  it.fails('appends to an existing vary rather than replacing it', async () => {
+  it('appends to an existing vary rather than replacing it', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const result = compress(textResponse({ 'content-type': 'text/html', vary: 'accept-language' }), accepting('gzip'));
     const vary = (result.headers['vary'] ?? '').split(',').map(part => part.trim().toLowerCase());
@@ -545,7 +528,7 @@ describe('headers after compressing (frozen: compression/SPEC.md 7, 10.5, 10.6)'
   // is allowed to identify several representations of the same resource, which is exactly the
   // relationship between the coded and uncoded forms, and it is why `../static/SPEC.md` §6 does
   // not claim a strong one.
-  it.fails('removes content-length without recomputing it, and leaves etag alone', async () => {
+  it('removes content-length without recomputing it, and leaves etag alone', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const original = utf8.encode(LONG);
     const response = bytesResponse(original, {
@@ -573,25 +556,82 @@ describe('headers after compressing (frozen: compression/SPEC.md 7, 10.5, 10.6)'
   // body; a multi-byte character is where a compressor that round-trips through a string re-encodes
   // and changes the bytes. The comparison is on numbers rather than on the views so a failure
   // prints the differing byte instead of two typed-array dumps.
-  it.fails.each([['gzip'], ['deflate']])('round-trips a multi-chunk body through %s', async (coding: string) => {
+  it.each([['gzip'], ['deflate']])('round-trips a multi-chunk body through %s', async (coding: string) => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const chunks = [utf8.encode(LONG), utf8.encode('✓ second chunk '), utf8.encode(LONG)];
     const expected = concat(chunks);
     const result = compress(streamResponse(chunks, undefined), accepting(coding));
     expect(result.headers['content-encoding']).toBe(coding);
-    const inflated = await inflate(result.body, coding === 'deflate' ? 'deflate' : 'gzip');
+    expect(result.body.kind).toBe('stream');
+    if (result.body.kind !== 'stream') {
+      return;
+    }
+    // A ReadableStream is single-consumer. Tee once so the test can independently prove both
+    // round-trip correctness and that the encoded representation is smaller.
+    const [forInflation, forSize] = result.body.value.tee();
+    const inflated = await drain(
+      forInflation.pipeThrough(new DecompressionStream(coding === 'deflate' ? 'deflate' : 'gzip')),
+    );
     expect([...inflated]).toEqual([...expected]);
     // And the compression actually did something — a "compressor" that passes bytes through and
     // sets the header would satisfy the round-trip and break every client.
-    const compressed = await bodyBytes(result.body);
+    const compressed = await drain(forSize);
     expect(compressed.length).toBeLessThan(expected.length);
   });
 
-  it.fails('round-trips a text body containing multi-byte characters', async () => {
+  it('round-trips a text body containing multi-byte characters', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const result = compress(textResponse(), accepting('gzip'));
     const inflated = await inflate(result.body, 'gzip');
     expect(new TextDecoder().decode(inflated)).toBe(LONG);
+  });
+
+  it('emits compressed bytes before the source produces its final chunk', { timeout: 2000 }, async () => {
+    const compress = await frozenExport<FrozenCompress>('compress');
+    let releaseFinal = (): void => undefined;
+    const finalAllowed = new Promise<void>(resolve => {
+      releaseFinal = resolve;
+    });
+    let markFinalPull = (): void => undefined;
+    const finalPullStarted = new Promise<void>(resolve => {
+      markFinalPull = resolve;
+    });
+    let pulls = 0;
+    const source = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      async pull(controller) {
+        pulls += 1;
+        if (pulls === 1) {
+          controller.enqueue(utf8.encode('a'.repeat(128 * 1024)));
+          return;
+        }
+        markFinalPull();
+        await finalAllowed;
+        controller.enqueue(utf8.encode('last'));
+        controller.close();
+      },
+    });
+    const result = compress(
+      {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+        body: { kind: 'stream', value: source, length: undefined },
+      },
+      accepting('gzip'),
+    );
+    expect(result.body.kind).toBe('stream');
+    if (result.body.kind !== 'stream') {
+      return;
+    }
+    const reader = result.body.value.getReader();
+    const firstRead = reader.read();
+    await finalPullStarted;
+    const first = await firstRead;
+    expect(first.done).toBe(false);
+    expect(first.value?.byteLength).toBeGreaterThan(0);
+    releaseFinal();
+    while (!(await reader.read()).done) {
+      // drain
+    }
   });
 });
 
@@ -617,7 +657,7 @@ describe('a source that fails mid-stream (frozen: compression/SPEC.md 9, 10.10)'
   // its own rejection handler as well as passing the original `onError` through calls the sink
   // twice — which turns one incident into two alerts and, in a deployment that pages on the sink,
   // doubles the noise of every client that hangs up.
-  it.fails('lets a mid-stream error out of the compressed stream and reports it once', async () => {
+  it('lets a mid-stream error out of the compressed stream and reports it once', async () => {
     const compress = await frozenExport<FrozenCompress>('compress');
     const seen: unknown[] = [];
     const boom = new Error('source went away');
@@ -645,7 +685,7 @@ describe('a source that fails mid-stream (frozen: compression/SPEC.md 9, 10.10)'
 });
 
 // ---------------------------------------------------------------------------
-// Green — the platform facts the red tests rest on
+// Platform facts the behavior tests rest on
 // ---------------------------------------------------------------------------
 
 describe('the platform under these tests', () => {
@@ -669,9 +709,8 @@ describe('the platform under these tests', () => {
   });
 
   // Green. §10.6's round-trip is only a test if `DecompressionStream` is the platform's inverse of
-  // `CompressionStream`, and the multi-chunk and multi-byte properties the red tests rely on are
-  // properties of the platform pair rather than of the middleware. Verified here so a red test
-  // that fails later fails about the middleware.
+  // `CompressionStream`, and the multi-chunk and multi-byte properties the behavior tests rely on
+  // are properties of the platform pair rather than of the middleware.
   it('has a CompressionStream and DecompressionStream that are inverses over multiple chunks', async () => {
     const chunks = [utf8.encode(LONG), utf8.encode('✓\u{1f600}'), utf8.encode(LONG)];
     const expected = concat(chunks);

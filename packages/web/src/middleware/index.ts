@@ -5,7 +5,7 @@
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { WebResponse } from '../pipeline/index.js';
 
-type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
+export type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 
 /** Authorization gate: a `false` short-circuits the request (403). */
 export interface Guard {

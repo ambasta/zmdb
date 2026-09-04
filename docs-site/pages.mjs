@@ -1595,19 +1595,19 @@ export const PAGE_META = {
     title: 'Streaming Files',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'stream(), bytes() and file() ship; the epic still tracks static serving, compression, uploads and CSRF (#568–#570).',
+    note: 'streaming, static serving and compression ship; the epic still tracks uploads, CSRF and final docs reconciliation (#569–#571).',
   },
   'web-compression': {
     title: 'Compression',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'streaming responses ship; compression negotiation remains frozen, not shipped, and brotli is declined (#568).',
+    note: 'gzip/deflate negotiation and incremental transforms ship; the final six-page docs reconciliation remains (#571).',
   },
   'web-static-files': {
     title: 'Serving Static Files',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no static file handler; the confinement, caching and range rules are frozen (#565).',
+    note: 'the confined handler, validators and single-range streaming ship; the final six-page docs reconciliation remains (#571).',
   },
   'web-templates': {
     title: 'Server-Side Templates',

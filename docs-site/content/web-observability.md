@@ -125,12 +125,12 @@ exporter flush/reset outside the timed interval and metrics disabled.
 
 | workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       303.68 |        baseline |                 0 |         1.076x |
-| request  | API no-op          |      1120.50 |         +269.0% |                 0 |         1.083x |
-| request  | recording exporter |      6032.76 |        +1886.5% |                 3 |         1.048x |
-| query    | off                |        68.19 |        baseline |                 0 |         1.068x |
-| query    | API no-op          |       271.03 |         +297.5% |                 0 |         1.068x |
-| query    | recording exporter |      2269.28 |        +3227.9% |                 1 |         1.013x |
+| request  | off                |       304.06 |        baseline |                 0 |         1.109x |
+| request  | API no-op          |      1163.36 |         +282.6% |                 0 |         1.042x |
+| request  | recording exporter |      6260.40 |        +1958.9% |                 3 |         1.070x |
+| query    | off                |        71.01 |        baseline |                 0 |         3.206x |
+| query    | API no-op          |       314.43 |         +342.8% |                 0 |         1.544x |
+| query    | recording exporter |      2493.28 |        +3411.2% |                 1 |         1.321x |
 
 The request workload is one matched `GET`; the query workload is one compiled
 `SELECT` through `tracedDriver`. These are nanosecond-scale framework

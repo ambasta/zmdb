@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readlinkSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,28 +8,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type WebResponse } from '../index.js';
 
-// Static file serving. Tests freeze for epic #564 (spec freeze #565); the frozen text is
-// `./SPEC.md`, and this file is its §8 list, item by item. §8 item 5 — "there is no option that
-// enables directory listing" — is a compile-time claim and lives in `./static.type-test.ts`.
+// Static file serving acceptance for epic #564 (spec freeze #565). The frozen text is
+// `./SPEC.md`, and this file is its §8 list item by item. §8 item 5 — "there is no option that
+// enables directory listing" — is a compile-time claim in `./static.type-test.ts`.
 //
-// `./SPEC.md`'s own preamble says this is "the one file in the epic where a mistake is a disclosed
-// private key rather than a slow response", so the confinement refusals come first and are a
-// table: one row per technique, one `it.fails` per row, so the count in `N passed | M expected
-// fail` is the number of techniques still unrefused rather than the number of files still unbuilt.
-//
-// `it.fails`, never `.skip`: `.skip` disappears from the summary line while `it.fails` has its own
-// bucket, and vitest *fails* an `it.fails` whose body passes, so every test here self-retires in
-// the slice that implements it.
-//
-// The shared actual, recorded once because there is only one. `packages/web/src/static/` contains
-// `SPEC.md` and nothing else — no `index.ts` — so every test below currently reports
-//
-//   Error: @zmdb/web exports no "createStaticHandler" (frozen: static/SPEC.md 1)
-//
-// from the `frozenExport` boundary, and `the module exists at all` records the `ENOENT` underneath
-// it. The per-test comments therefore carry the frozen claim and the technique that distinguishes
-// it, and note the actual only where it differs from the shared one. Repeating one identical
-// captured line thirty times would bury the two places it is not identical.
+// `./SPEC.md` calls this the file where a mistake can disclose a private key, so the confinement
+// refusals come first and stay one test per technique. No title is renamed: API coverage cites
+// these titles exactly.
 
 // ---------------------------------------------------------------------------
 // The frozen surface, declared locally
@@ -73,14 +58,8 @@ type FrozenCreateStaticHandler = (options: FrozenStaticOptions) => Promise<Froze
 /**
  * Resolve `createStaticHandler` off the real package barrel.
  *
- * boundary: the export does not exist, and a static `import { createStaticHandler } from
- * '../index.js'` is a link-time SyntaxError that takes the whole file down rather than one test —
- * which moves this debt out of the `expected fail` bucket instead of into it. `import
- * './index.js'` is worse still: the file is absent, so it is a TS2307 that fails the typecheck
- * gate. The lookup is therefore dynamic, and the message names the missing export so it is
- * distinguishable from a handler that exists and answers wrongly, whose failure is an assertion
- * diff. Nothing here is `declare`d: a declared stub throws `ReferenceError`, which reads the same
- * whether the feature is missing, misnamed or wrong.
+ * The dynamic lookup keeps a missing barrel export as one focused assertion instead of a
+ * link-time failure that prevents the rest of the security table from reporting.
  */
 async function frozenExport<T>(name: string): Promise<T> {
   const module: unknown = await import('../index.js');
@@ -112,6 +91,8 @@ let errors: string[] = [];
 
 /** 1,000 bytes of known content, so a range window's size is checkable by arithmetic. */
 const BIN = new Uint8Array(1000).map((_, index) => index % 251);
+/** Larger than the implementation's read window, so cancellation really happens mid-file. */
+const LARGE = new Uint8Array(256 * 1024).map((_, index) => index % 251);
 
 /**
  * Make a path that is not a regular file. §2.10 names "a directory, a FIFO, a device or a socket"
@@ -134,6 +115,7 @@ beforeAll(async () => {
   await mkdir(join(base, 'assets-private'), { recursive: true });
   await writeFile(join(root, 'app.css'), 'body{color:red}\n');
   await writeFile(join(root, 'data.bin'), BIN);
+  await writeFile(join(root, 'large.bin'), LARGE);
   await writeFile(join(root, 'unknown.zzz'), 'opaque');
   await writeFile(join(root, '.env'), 'SECRET=1\n');
   await writeFile(join(root, 'sub', 'nested.txt'), 'nested\n');
@@ -209,20 +191,43 @@ function openDescriptors(): number {
   return readdirSync('/proc/self/fd').length;
 }
 
+/** Count only descriptors that currently name this fixture, ignoring unrelated concurrent tests. */
+function openDescriptorsFor(pathname: string): number {
+  let count = 0;
+  for (const descriptor of readdirSync('/proc/self/fd')) {
+    try {
+      if (readlinkSync(`/proc/self/fd/${descriptor}`) === pathname) {
+        count += 1;
+      }
+    } catch {
+      // A descriptor may close between readdir and readlink.
+    }
+  }
+  return count;
+}
+
 // ---------------------------------------------------------------------------
 
 describe('the module (frozen: static/SPEC.md 1)', () => {
-  // The root cause under every other failure in this file, asserted once so a reader is not left
-  // inferring it from thirty identical messages. It retires first, and on the day it does the
-  // rest of the file starts reporting assertion diffs instead of a missing name.
-  //
-  // actual today: `ENOENT: no such file or directory, open
-  // '/home/.../packages/web/src/static/index.ts'` — the directory holds `SPEC.md` alone.
-  it.fails('exists as a module and is exported from the package barrel', async () => {
+  // Pin both the source module and the curated package-barrel export.
+  it('exists as a module and is exported from the package barrel', async () => {
     const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
     expect(source.length).toBeGreaterThan(0);
     const create = await frozenExport<FrozenCreateStaticHandler>('createStaticHandler');
     expect(typeof create).toBe('function');
+  });
+
+  it('loads no Node runtime module until a static handler is constructed', async () => {
+    const source = await readFile(join(import.meta.dirname, 'index.ts'), 'utf8');
+    expect(source).not.toMatch(/^import\s+(?!type\b).*from\s+'node:/m);
+    expect(source).toMatch(/import\('node:fs\/promises'\)/);
+  });
+
+  it('returns a handler-controlled response that the pipeline can recognize', async () => {
+    const handler = await serving();
+    const served = await handler.serve('app.css', {});
+    expect(Symbol.for('zmdb.web.response') in served).toBe(true);
+    await readBody(served.body);
   });
 });
 
@@ -278,7 +283,7 @@ const REFUSALS: readonly (readonly [string, string])[] = [
 ];
 
 describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 3, 8.1)', () => {
-  it.fails.each(REFUSALS)('refuses a path with %s', async (_technique: string, pathname: string) => {
+  it.each(REFUSALS)('refuses a path with %s', async (_technique: string, pathname: string) => {
     const handler = await serving();
     const refused = await handler.serve(pathname, {});
     const missing = await handler.serve('no-such-file.css', {});
@@ -297,7 +302,7 @@ describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 
   // an adapter turns into a 500 carrying a stack — a different answer from a 404, and therefore
   // the oracle §3 exists to close. Asserted here as the 404 it has to be, and recorded as a gap
   // in the frozen text rather than silently assumed.
-  it.fails('refuses an overlong UTF-8 encoding of dot-dot without letting URIError escape', async () => {
+  it('refuses an overlong UTF-8 encoding of dot-dot without letting URIError escape', async () => {
     const handler = await serving();
     const refused = await handler.serve('%c0%ae%c0%ae%2fsecret.txt', {});
     expect(await rejection(refused)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
@@ -308,13 +313,13 @@ describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 
   // every symlink would pass the second half and disclose the key. The fixture's `escape.txt`
   // really does point at a really readable file outside the root, so a handler that skips the
   // real-path re-check answers 200 with `PRIVATE KEY`.
-  it.fails('refuses a symlink whose target escapes the root', async () => {
+  it('refuses a symlink whose target escapes the root', async () => {
     const handler = await serving();
     const escaped = await handler.serve('escape.txt', {});
     expect(await rejection(escaped)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
   });
 
-  it.fails('serves a symlink whose target is inside the root', async () => {
+  it('serves a symlink whose target is inside the root', async () => {
     const handler = await serving();
     const served = await handler.serve('inside.css', {});
     expect(served.status).toBe(200);
@@ -329,7 +334,7 @@ describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 
   // sibling directory, so that is what the fixture builds. The bug the row is about is real —
   // `'/base/assets-private/x'.startsWith('/base/assets')` is `true` — it is just only reachable
   // through step 8.
-  it.fails('refuses a sibling directory whose name extends the root', async () => {
+  it('refuses a sibling directory whose name extends the root', async () => {
     const handler = await serving();
     const sibling = await handler.serve('priv/x', {});
     expect(await rejection(sibling)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
@@ -339,13 +344,13 @@ describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 
   // at all, so the failure mode is a hung request rather than a leaked file, and a test that only
   // asserted the status would hang with it. The timeout is explicit and short so a regression
   // reports as a failure rather than as a stuck suite.
-  it.fails('refuses a FIFO rather than blocking on it', { timeout: 2000 }, async () => {
+  it('refuses a FIFO rather than blocking on it', { timeout: 2000 }, async () => {
     const handler = await serving();
     const pipe = await handler.serve('pipe', {});
     expect(await rejection(pipe)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
   });
 
-  it.fails('refuses a directory rather than listing it', async () => {
+  it('refuses a directory rather than listing it', async () => {
     const handler = await serving();
     const directory = await handler.serve('dir', {});
     expect(await rejection(directory)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
@@ -355,7 +360,7 @@ describe('confinement: every refusal is the same 404 (frozen: static/SPEC.md 2, 
   // and **not** for an ordinary miss, so a deployment can alert on it without alerting on every
   // favicon. Two claims in one test because the distinction is the claim: either alone is
   // satisfied by a sink that fires always or never.
-  it.fails('reports a refusal to onError and stays silent on an ordinary miss', async () => {
+  it('reports a refusal to onError and stays silent on an ordinary miss', async () => {
     const seen: string[] = [];
     const handler = await serving({ onError: error => seen.push(String(error)) });
     await handler.serve('../secret.txt', {});
@@ -374,7 +379,7 @@ describe('createStaticHandler validates root (frozen: static/SPEC.md 1, 8.12)', 
   // the first request" is the load-bearing half — a handler that defers the check serves for the
   // lifetime of a process that was misconfigured at boot, and a `root` that becomes a symlink at
   // runtime changes what is served without the process noticing.
-  it.fails.each([
+  it.each([
     ['a missing directory', 'no-such-directory'],
     ['a regular file', 'plain-file'],
     ['a FIFO', 'assets/pipe'],
@@ -383,7 +388,7 @@ describe('createStaticHandler validates root (frozen: static/SPEC.md 1, 8.12)', 
     await expect(create({ root: join(base, relative), onError: () => undefined })).rejects.toThrow();
   });
 
-  it.fails('resolves the root once, so a later swap of the root symlink changes nothing', async () => {
+  it('resolves the root once, so a later swap of the root symlink changes nothing', async () => {
     const linked = join(base, 'current');
     await symlink(root, linked);
     const handler = await frozenExport<FrozenCreateStaticHandler>('createStaticHandler').then(create =>
@@ -406,7 +411,7 @@ describe('directory listing and index (frozen: static/SPEC.md 5, 8.5)', () => {
   // that an option is absent, only that a particular spelling of it does nothing. What a runtime
   // test *can* say is that the default answer for a directory is a 404 and not a listing, which
   // is the observable §5 promises, and that is what this is.
-  it.fails('never lists a directory', async () => {
+  it('never lists a directory', async () => {
     const handler = await serving();
     const listing = await handler.serve('sub', {});
     expect(await rejection(listing)).toBe('404 bytes=0 [x-content-type-options=nosniff]');
@@ -420,7 +425,7 @@ describe('directory listing and index (frozen: static/SPEC.md 5, 8.5)', () => {
   // exist", and the fixture deliberately has no `index.html` so a handler that invented one
   // would answer 404 here for the wrong reason. So the pair is asserted: absent by default, and
   // used when named.
-  it.fails('appends index only when the option names one', async () => {
+  it('appends index only when the option names one', async () => {
     await writeFile(join(root, 'index.html'), '<h1>root</h1>');
     const bare = await serving();
     expect((await bare.serve('', {})).status).toBe(404);
@@ -444,7 +449,7 @@ describe('conditional requests (frozen: static/SPEC.md 6, 8.6, 8.7)', () => {
   // that labelling it strong would license a client to assemble byte ranges from two different
   // responses, so the label is what keeps the range table below correct. Asserted as a shape
   // rather than as a literal, because `mtimeMs` is whatever the filesystem said.
-  it.fails('sends a weak ETag built from size and mtimeMs', async () => {
+  it('sends a weak ETag built from size and mtimeMs', async () => {
     const handler = await serving();
     const served = await handler.serve('app.css', {});
     expect(served.headers['etag']).toMatch(/^W\/"16-\d+(\.\d+)?"$/);
@@ -453,24 +458,22 @@ describe('conditional requests (frozen: static/SPEC.md 6, 8.6, 8.7)', () => {
     expect(served.headers['accept-ranges']).toBe('bytes');
   });
 
-  // §8.6, and the technique is the point. "Never opens the file" cannot be asserted from the
-  // response — a 304 has no body either way — so it is asserted from the descriptor count.
+  // §8.6, and the technique is the point. A 304 has no body either way, so the test asserts that
+  // the file has no retained descriptor when the response returns.
   //
   // §8.6 offers "a descriptor count or an `open` spy". The spy is not available: `StaticOptions`
   // has no injection seam for `open`, by design, and the handler calls `node:fs/promises` itself.
-  // So the count is the only technique the frozen surface permits, and it is a fact about this
-  // process rather than about the handler: `/proc/self/fd` is Linux-only, which is why the first
-  // assertion is that the reading works at all rather than that it is unchanged. A platform with
-  // no `/proc` fails loudly here instead of passing vacuously.
-  it.fails('answers 304 on a matching If-None-Match without opening the file', async () => {
+  // So the count is the only technique the frozen surface permits. It is scoped to this fixture
+  // rather than every process descriptor so concurrently running test files cannot add noise.
+  it('answers 304 on a matching If-None-Match without opening the file', async () => {
     const handler = await serving();
     const first = await handler.serve('app.css', {});
     await readBody(first.body);
     const etag = first.headers['etag'] ?? '';
-    const before = openDescriptors();
-    expect(before).toBeGreaterThan(0);
+    const target = join(root, 'app.css');
+    expect(openDescriptorsFor(target)).toBe(0);
     const notModified = await handler.serve('app.css', { 'if-none-match': etag });
-    expect(openDescriptors()).toBe(before);
+    expect(openDescriptorsFor(target)).toBe(0);
     expect(notModified.status).toBe(304);
     // No body and no content-length. A 304 carrying either is a client that waits for bytes that
     // never arrive, or a cache that stores a zero-length representation.
@@ -487,7 +490,7 @@ describe('conditional requests (frozen: static/SPEC.md 6, 8.6, 8.7)', () => {
   // the entity tag win, and a handler that checks the date first answers 200 and re-sends the
   // whole file on every conditional request — a performance bug that no status assertion on
   // either header alone can see.
-  it.fails('lets If-None-Match win over a contradicting If-Modified-Since', async () => {
+  it('lets If-None-Match win over a contradicting If-Modified-Since', async () => {
     const handler = await serving();
     const first = await handler.serve('data.bin', {});
     await readBody(first.body);
@@ -515,7 +518,7 @@ describe('range requests (frozen: static/SPEC.md 6, 8.8, 8.9)', () => {
   // transcriptions — multiple ranges and `If-Range`, both ignored — are the ones a later
   // "improvement" would silently reverse, and they are the reason this is a table and not three
   // representative cases.
-  it.fails.each([
+  it.each([
     ['bytes=0-499', 206, 'bytes 0-499/1000', 0, 500],
     ['bytes=500-', 206, 'bytes 500-999/1000', 500, 500],
     ['bytes=-500', 206, 'bytes 500-999/1000', 500, 500],
@@ -541,7 +544,8 @@ describe('range requests (frozen: static/SPEC.md 6, 8.8, 8.9)', () => {
       // is how many bytes came out of the stream, so that is what is counted.
       const bytes = await readBody(answer.body);
       expect(bytes.length).toBe(length);
-      expect(bytes.slice(0, 4)).toEqual(BIN.slice(start, start + 4));
+      const compared = Math.min(4, length);
+      expect(bytes.slice(0, compared)).toEqual(BIN.slice(start, start + compared));
       expect(answer.headers['content-length']).toBe(String(length));
     },
   );
@@ -549,7 +553,7 @@ describe('range requests (frozen: static/SPEC.md 6, 8.8, 8.9)', () => {
   // §6: `start >= size` is the one range that is an error rather than a fallback, and it carries
   // the unsatisfied-range form of `content-range` so the client learns the size it should have
   // asked about. A 416 with no `content-range` leaves a resuming download with no way forward.
-  it.fails('answers 416 with content-range for a start past the end', async () => {
+  it('answers 416 with content-range for a start past the end', async () => {
     const handler = await serving();
     const answer = await handler.serve('data.bin', { range: 'bytes=1000-1500' });
     expect(answer.status).toBe(416);
@@ -560,7 +564,7 @@ describe('range requests (frozen: static/SPEC.md 6, 8.8, 8.9)', () => {
   // §6: `If-Range` is ignored for the same reason the ETag is weak. Answering it with a weak
   // validator is how a client splices two versions of a file together, and "ignored" here means
   // the whole file — not the range, and not a 412.
-  it.fails('ignores If-Range and sends the whole file', async () => {
+  it('ignores If-Range and sends the whole file', async () => {
     const handler = await serving();
     const answer = await handler.serve('data.bin', { range: 'bytes=0-9', 'if-range': 'W/"16-0"' });
     expect(answer.status).toBe(200);
@@ -574,7 +578,7 @@ describe('range requests (frozen: static/SPEC.md 6, 8.8, 8.9)', () => {
 // ---------------------------------------------------------------------------
 
 describe('content types are an allow-list (frozen: static/SPEC.md 7, 8.10)', () => {
-  it.fails.each([
+  it.each([
     ['app.css', 'text/css'],
     ['unknown.zzz', 'application/octet-stream'],
   ])('serves %s as %s', async (pathname: string, type: string) => {
@@ -587,7 +591,7 @@ describe('content types are an allow-list (frozen: static/SPEC.md 7, 8.10)', () 
   // §7: overridable by `contentTypes` but never *derived*. The override is asserted alongside the
   // fallback because a handler that ignores the option and a handler that has no option are
   // indistinguishable from the fallback alone.
-  it.fails('lets contentTypes override the map without deriving anything', async () => {
+  it('lets contentTypes override the map without deriving anything', async () => {
     const handler = await serving({ contentTypes: { '.zzz': 'application/x-zzz' } });
     const answer = await handler.serve('unknown.zzz', {});
     expect(answer.headers['content-type']).toBe('application/x-zzz');
@@ -598,7 +602,7 @@ describe('content types are an allow-list (frozen: static/SPEC.md 7, 8.10)', () 
   // and §8.10 says "every response", which includes the ones §3 makes indistinguishable. A 404
   // with no headers at all is the more likely first implementation, so this is the assertion that
   // catches it, and the `rejection()` helper's expected string above encodes the same claim.
-  it.fails('sends nosniff on a 200, a 404, a 304 and a 416', async () => {
+  it('sends nosniff on a 200, a 404, a 304 and a 416', async () => {
     const handler = await serving();
     const ok = await handler.serve('app.css', {});
     await readBody(ok.body);
@@ -614,7 +618,7 @@ describe('content types are an allow-list (frozen: static/SPEC.md 7, 8.10)', () 
   // download is `file()` with an explicit disposition, where the caller owns the filename and its
   // escaping. Asserted because the alternative — a handler that helpfully attaches one derived
   // from the path — puts an unescaped, client-influenced string into a header.
-  it.fails('never sets content-disposition', async () => {
+  it('never sets content-disposition', async () => {
     const handler = await serving();
     const answer = await handler.serve('unknown.zzz', {});
     expect(answer.headers['content-disposition']).toBeUndefined();
@@ -633,37 +637,37 @@ describe('a client disconnect closes the descriptor (frozen: static/SPEC.md 4, 8
   // one descriptor per aborted download runs out of them after `ulimit -n` requests and then
   // fails every request, including the ones that were working.
   //
-  // Counted rather than spied for the reason in `answers 304 ...` above, and over ten iterations
-  // rather than one because a single leaked descriptor is inside the noise of anything else the
-  // process is doing, while ten is not.
-  it.fails('releases the descriptor when the response stream is cancelled mid-file', async () => {
+  // Counted rather than spied for the reason in `answers 304 ...` above. The count is scoped to a
+  // fixture larger than one read window, proving both that a descriptor is open after the first
+  // chunk and that cancellation closes that same descriptor.
+  it('releases the descriptor when the response stream is cancelled mid-file', async () => {
     const handler = await serving();
-    const before = openDescriptors();
-    expect(before).toBeGreaterThan(0);
+    const target = join(root, 'large.bin');
+    expect(openDescriptorsFor(target)).toBe(0);
     for (let index = 0; index < 10; index += 1) {
-      const answer = await handler.serve('data.bin', {});
+      const answer = await handler.serve('large.bin', {});
       expect(answer.body.kind).toBe('stream');
       if (answer.body.kind === 'stream') {
         const reader = answer.body.value.getReader();
         await reader.read();
+        expect(openDescriptorsFor(target)).toBe(1);
         await reader.cancel(new Error('client went away'));
+        expect(openDescriptorsFor(target)).toBe(0);
       }
     }
-    expect(openDescriptors()).toBe(before);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Green — the fixtures, and the reason each red test can be trusted
+// Fixtures, and the reason each behavior test can be trusted
 // ---------------------------------------------------------------------------
 
 describe('the fixtures under these tests', () => {
   // Green, and not padding. Every refusal above is a claim about what the handler does with an
   // input; none of them says anything unless the input is genuinely dangerous. If `escape.txt`
   // stopped being a symlink, or `secret.txt` stopped being readable, or the FIFO were created as
-  // an ordinary file, the corresponding red test would go green for a reason that has nothing to
-  // do with confinement — and vitest reports a passing `it.fails` as a failure, so the file would
-  // "retire" itself while the hole stayed open. This test is what makes that impossible.
+  // an ordinary file, the corresponding behavior test could pass for a reason that has nothing to
+  // do with confinement. This test is what makes that impossible.
   it('really are a readable secret, an escaping symlink and a FIFO', async () => {
     expect(await readFile(join(base, 'secret.txt'), 'utf8')).toBe('PRIVATE KEY\n');
     expect(await readFile(join(root, 'escape.txt'), 'utf8')).toBe('PRIVATE KEY\n');
@@ -676,7 +680,7 @@ describe('the fixtures under these tests', () => {
     expect(join(base, 'assets-private').startsWith(`${root}/`)).toBe(false);
   });
 
-  // Green. `openDescriptors()` is the technique two red tests depend on, and a technique that
+  // `openDescriptors()` is the technique two descriptor tests depend on, and a technique that
   // silently returns a constant would make both of them pass for no reason. This pins that it
   // actually moves when a descriptor is opened.
   it('counts descriptors, so the leak tests measure something', async () => {

@@ -72,7 +72,7 @@ async download(ctx: Ctx<{ id: string }>) {
 `file()` opens a path the application already trusts, measures it, and streams it
 without materialising the whole file. It does not confine user input to a root,
 decode URL paths, implement ranges or generate cache validators. Those security
-and HTTP policies belong to the forthcoming
+and HTTP policies belong to the shipped
 [static-file handler](./web-static-files.html).
 
 For large public downloads, a presigned object-storage URL is still usually the

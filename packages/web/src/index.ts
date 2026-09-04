@@ -119,6 +119,12 @@ export {
   type AdapterOptions,
 } from './pipeline/index.js';
 
+// Confined static files with validators and single-range streaming. See ./static.
+export { createStaticHandler, type StaticHandler, type StaticOptions } from './static/index.js';
+
+// Incremental, cross-runtime gzip/deflate middleware. See ./compression.
+export { compress, compressionInterceptor, type CompressionOptions, type ContentCoding } from './compression/index.js';
+
 // Narrow telemetry ports, propagation and driver instrumentation. See ./observability.
 export {
   SpanKind,
@@ -166,6 +172,7 @@ export {
 export {
   runChain,
   ChainError,
+  type AnyCtx,
   type Guard,
   type SecurityAwareGuard,
   type Pipe,

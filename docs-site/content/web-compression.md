@@ -1,120 +1,122 @@
-> **ToDo / feature gap.** There is no compression middleware. The response union
-> prerequisite has shipped, so the remaining work is negotiation and an
-> incremental transform over text, bytes and streams.
->
-> The policy it will ship with is frozen in
-> `packages/web/src/compression/SPEC.md`, including which encodings and why brotli
-> is not one of them. A handler **can** set `content-encoding` — `respond()` takes
-> arbitrary headers, and an earlier version of this page said it could not.
+`compress(response, ctx)` negotiates gzip or deflate and transforms text, bytes,
+or an existing stream incrementally. It is the application-layer fallback for a
+deployment with no reverse proxy or CDN.
 
-## Where to compress instead
+Prefer compression at the edge when one exists. A CDN compresses once and caches
+the encoded representation; an application repeats the CPU work for every
+request.
 
-For almost every deployment, not in the application. This is a case where the missing feature is genuinely something else's job.
-
-**A reverse proxy or CDN.** Nginx, Caddy, Cloudflare, Fastly and every managed platform compress responses, and they do it in C against a tuned buffer rather than in your event loop.
-
-```nginx
-gzip on;
-gzip_types application/json text/plain;
-gzip_min_length 1024;
-```
-
-```
-# Caddy — brotli and gzip, negotiated
-encode zstd gzip
-```
-
-Vercel, Netlify, Cloudflare Pages and Fly all compress by default with no configuration. If you deploy to any of them, this gap has no effect on you at all.
-
-**A load balancer.** ALB and Cloud Load Balancing both do it.
-
-Compressing at the edge is also strictly better than compressing in the application: the CDN caches the compressed representation once and serves it to everyone, where an application compresses the same bytes per request.
-
-## Workaround — compress in your adapter
-
-When you genuinely have no proxy — a bare `node:http` server on a VM:
+## Compress a response
 
 ```ts
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createGzip, createBrotliCompress } from 'node:zlib';
-import { pipeline } from 'node:stream/promises';
-import { Readable } from 'node:stream';
-import { bodyText } from '@zmdb/web';
+import { compress, json } from '@zmdb/web';
 
-createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  const url = req.url ?? '/';
-  const q = url.indexOf('?');
-  const out = await app.handle({
-    method: req.method ?? 'GET',
-    path: q === -1 ? url : url.slice(0, q),
-    headers: Object.fromEntries(
-      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
-    ),
-  });
+@Get('/report')
+report(ctx: Ctx) {
+  return compress(json(buildReport()), ctx);
+}
+```
 
-  const accept = String(req.headers['accept-encoding'] ?? '');
-  const encoding = accept.includes('br') ? 'br' : accept.includes('gzip') ? 'gzip' : undefined;
+The function preserves handler-controlled responses, appends
+`vary: accept-encoding`, removes the old `content-length`, and returns a stream
+body whose length is unknown until it finishes.
 
-  const body = await bodyText(out);
-  const size = new TextEncoder().encode(body).byteLength;
+`compressionInterceptor()` is the same operation as an `Interceptor` for code
+that already composes a middleware chain:
 
-  if (encoding === undefined || size < 1024) {
-    res.writeHead(out.status, { ...out.headers }).end(body);
-    return;
-  }
-
-  res.writeHead(out.status, { ...out.headers, 'content-encoding': encoding, vary: 'accept-encoding' });
-  const compressor = encoding === 'br' ? createBrotliCompress() : createGzip();
-  await pipeline(Readable.from([body]), compressor, res);
+```ts
+const compression = compressionInterceptor({
+  minBytes: 2048,
+  skip: (response, ctx) => ctx.path === '/secret-form',
 });
 ```
 
-Five details that are not optional:
+There is no global registration or module-level state. Call `compress()` directly
+from a handler/custom adapter, or place the interceptor in an explicit chain.
 
-- **`WebRequest` has `path`, not `url`.** The query string is a separate optional `query` field, so the adapter has to split it off — handing the whole `req.url` to `handle` matches no route the moment a request carries `?`, and `{ url }` does not even compile against `WebRequest`. `toNodeHandler` does this same `indexOf('?')`/`slice` internally — and does not fill `query` in either, so `ctx.query` is `{}` under the node adapter unless your own adapter parses it.
-- **`vary: accept-encoding`.** Without it a shared cache serves a gzip response to a client that did not ask for one, and that client sees binary garbage.
-- **The 1024-byte threshold, measured in bytes.** JavaScript string length is
-  UTF-16 code units, so a 1,024-character CJK document is about 3 KiB — hence
-  the `TextEncoder` above. Compressing a 200-byte JSON response makes it larger
-  and costs CPU.
-- **Honour `accept-encoding`.** Sending brotli to a client that only advertised gzip breaks it.
-- **Do not set `content-length`.** The compressed length differs; the framework's headers do not include it, but if you add one, remove it here.
+## Negotiation
 
-## Do not compress everything
+Supported content codings are exactly `gzip` and `deflate`.
 
-**Already-compressed content.** Images, video, PDFs, zip files — compressing them wastes CPU and can grow the payload. Filter by content type.
+- Missing `accept-encoding` means no compression.
+- `q=0` forbids a coding, even if the same coding appears again.
+- Client quality values win; equal values prefer gzip.
+- `*` applies only to codings not explicitly named.
+- If no supported coding remains and identity is also forbidden by
+  `identity;q=0` or an applicable `*;q=0`, the result is an empty `406`.
 
-**Responses containing a secret alongside attacker-controlled input.** Compression ratio leaks information about the plaintext, which is the BREACH attack: an attacker who can inject text into a response that also contains a CSRF token can recover the token from response sizes. If you compress a response containing both, either do not compress it, or make the secret vary per response. Rare in a JSON API, real in server-rendered HTML.
+Brotli, zstd, and `deflate-raw` are not part of the public union. The web
+platform's `CompressionStream` on the supported Node runtime accepts gzip and
+deflate but rejects `br`; using `node:zlib` would make this otherwise Fetch-runtime
+middleware Node-only. Brotli for cached assets belongs at the edge.
 
-The framework cannot decide this for you and the freeze says so rather than shipping an "automatic BREACH protection" flag: deciding it requires knowing that one field is a secret and another is attacker-controlled, and neither is visible in a `WebResponse`. What it does instead is take the three honest positions — the guidance above, a named `skip(response, ctx)` escape hatch, and one structural fix for the canonical case. [CSRF tokens](./web-csrf.html) will be masked with a fresh random value per response (frozen, not built), so the secret is different bytes every time and has no stable ratio to leak. That keeps working when somebody forgets the guidance, which an exclusion rule does not.
+## What is not compressed
 
-## Compress the payload instead
+Compression is skipped when:
 
-Often the bigger win, and available today:
+- `content-encoding` is already present, including `identity`;
+- the status is informational, `204`, or `304`;
+- the request method is `HEAD`;
+- `content-type` is absent or outside the allow-list;
+- a text/byte body is below `minBytes` (default 1024 bytes);
+- a stream declares a length below `minBytes`;
+- `skip(response, ctx)` returns `true`.
+
+An unknown-length stream is compressed without buffering to discover its size.
+The default media types are `text/*`, JSON, JavaScript, XML, XHTML, SVG, and
+`+json`/`+xml` subtypes. `types` replaces that list with explicit media types or
+patterns such as `text/*` and `*+json`.
+
+`vary: accept-encoding` is still appended when compression is skipped. The header
+records that the representation depended on request negotiation; omitting it lets
+a shared cache serve encoded bytes to a client that cannot decode them.
+
+## Incremental body transform
+
+Text and bytes become a single source chunk, then pass through
+`CompressionStream`. Existing streams pipe through directly. The implementation
+does not materialize a stream or recompute compressed length, and measured tests
+verify that compressed bytes arrive before the source produces its final chunk.
+
+Source failures remain visible on the compressed stream. A stream created by
+`stream()` still reports through its original `onError` sink, and the adapter owns
+the post-headers connection-destroy behavior.
+
+## BREACH
+
+Do not compress a response that contains both a long-lived secret and
+attacker-controlled text. Compression ratios can reveal whether injected text
+matches the secret; TLS does not hide response length.
+
+The framework cannot infer which fields are secret or attacker-controlled.
+`skip(response, ctx)` is the explicit escape hatch:
 
 ```ts
-await repo.list({ select: ['id', 'title'], page: { limit: 20 } });
+const safe = compress(response, ctx, {
+  skip: (_response, request) => request.path === '/account/recovery',
+});
 ```
 
-A response that does not include the fields the client ignores needs no compression. `select` narrows the SQL and the type together — see [Query Performance](./perf-queries.html). Cutting a 200KB response to 20KB beats compressing 200KB, and it saves the database work too.
+This is guidance, not an automatic protection flag. The right answer is to avoid
+placing stable secrets beside reflected input, rotate/mask the secret, or skip
+compression for that response.
 
-## What it would take
+## Edge configuration
 
-The chain wiring that gives an `Interceptor` somewhere to run — `runChain` folds
-interceptors today and the pipeline has never called it — and then an
-`Interceptor` over the shipped union: `compress(response, ctx, options)` as a
-pure function with the interceptor as a thin wrapper.
+```nginx
+gzip on;
+gzip_types application/json text/plain text/css application/javascript;
+gzip_min_length 1024;
+```
 
-Three decisions in the freeze are worth knowing now, because they contradict what you might expect.
+```text
+# Caddy
+encode zstd gzip
+```
 
-**Brotli is declined.** `CompressionStream` supports `gzip`, `deflate` and `deflate-raw` and not `br` — `new CompressionStream('br')` throws on the Node this project targets, and there is no `zstd` either. Supporting brotli means `node:zlib`, which makes the middleware Node-only in a package whose response model was designed so `toFetchHandler` works on any Fetch runtime, and adds a Node-stream-to-web-stream conversion to the one path that is supposed to be a straight pipe. The case brotli wins — an asset compressed once at high quality and cached — is exactly the case this page says belongs at the edge, where brotli already exists.
-
-**The content-type list is an allow-list, not a deny-list of already-compressed formats.** The failure modes are asymmetric: a missing deny-list entry spends CPU inflating a JPEG on every request, a missing allow-list entry costs bandwidth and nothing else.
-
-**`vary: accept-encoding` is added even when the middleware decides _not_ to compress.** The header describes what the response depended on, not what happened. This is the detail most implementations get wrong, and getting it wrong means a shared cache stores whichever representation it saw first and serves gzip bytes to a client that cannot decode them.
-
-Even with all of it, the recommendation stays "do it at the edge": a CDN caches the compressed representation once and your process compresses per request. The workaround is one proxy directive and the proxy does it better.
+Managed platforms commonly provide this layer already. Use the application
+middleware only when that layer is genuinely absent.
 
 ---
 
-See also: [Streaming Files](./web-streaming-files.html) · [Query Performance](./perf-queries.html) · [Deployment](./deployment.html)
+See also: [Streaming Files](./web-streaming-files.html) · [Static Files](./web-static-files.html) · [Deployment](./deployment.html)
