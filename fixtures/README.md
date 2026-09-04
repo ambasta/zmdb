@@ -1,6 +1,6 @@
 # Consumer fixtures
 
-Two projects that use zmdb the way somebody who installed it would, kept here so that CI
+Three projects use zmdb the way somebody who installed it would, kept here so that CI
 builds them rather than trusting that they still work.
 
 They contain the **same program**, declared the same way, and reach the compiled validator by
@@ -24,6 +24,11 @@ fixture into a temp directory, runs `--check` over the committed one, and then a
 non-generated sources are byte-identical, that the committed witness makes the same calls the
 plugin fixture's source still makes, that both print the same bytes, and that both compile to
 the same check — measuring each, since by then they are known to be the same code.
+
+`llm-adapters/` is compile-only and independent of that pair. It pins the real
+`@langchain/core` and `ai` packages, then checks the frozen plain-object adapter
+shapes against their constructors. The framework dependencies belong to that private
+consumer fixture; neither becomes a dependency or peer of `@zmdb/schema-core`.
 
 ## Working on them
 

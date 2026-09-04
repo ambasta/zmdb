@@ -1,0 +1,12 @@
+{
+  "name": "@zmdb-fixture/llm-adapters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@langchain/core": "1.2.9",
+    "@zmdb/schema-core": "workspace:^",
+    "ai": "7.0.83",
+    "zod": "4.1.12"
+  }
+}

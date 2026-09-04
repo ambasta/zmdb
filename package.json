@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "benchmarks"
+    "benchmarks",
+    "fixtures/llm-adapters"
   ],
   "type": "module",
   "scripts": {

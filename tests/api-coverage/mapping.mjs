@@ -1037,9 +1037,9 @@ export const typia = {
   'protobuf.message': 'emits a .proto descriptor that a reference parser accepts',
   'protobuf.validateDecode': 'decodes bytes produced by a reference implementation',
   'protobuf.validateEncode': 'produces bytes a reference implementation decodes',
-  'llm.schema': 'produces a schema an LLM tool call can be validated against',
-  'llm.parameters': 'produces a schema an LLM tool call can be validated against',
-  'llm.application': 'produces a schema an LLM tool call can be validated against',
+  'llm.schema': 'emits an OpenAI strict schema with additionalProperties false at every level',
+  'llm.parameters': 'emits input_schema for anthropic',
+  'llm.application': 'emits the Gemini subset and omits no required information',
   'llm.controller': oos(
     'typia.llm.controller turns a class of methods into a tool-calling application, so the ' +
       'framework decides which function an LLM may invoke. zmdb generates the JSON Schema for a ' +
@@ -1047,7 +1047,7 @@ export const typia = {
       'application, which is where the authorization decision about calling it also lives.',
     'llm-json-schema',
   ),
-  'llm.structuredOutput': 'produces a schema an LLM tool call can be validated against',
+  'llm.structuredOutput': 'keeps the json-schema provider byte-identical to toolFromSchema',
   'llm.parse': 'decodes the two types JSON cannot carry, and copies the rest through',
   'llm.coerce': 'coerce.number converts numeric strings',
   'llm.createCoerce': oos(NO_FACTORY_FORM, 'jit-vs-aot'),
