@@ -40,11 +40,16 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase     | order                                                       |
-| --------- | ----------------------------------------------------------- |
-| `init()`  | eager `onModuleInit` (all) → `onApplicationBootstrap` (all) |
-| lazy load | that module's `onModuleInit` → `onApplicationBootstrap`     |
-| shutdown  | `onShutdown` in **reverse** construction order              |
+| phase     | order                                                                                 |
+| --------- | ------------------------------------------------------------------------------------- |
+| `init()`  | eager providers/controllers: `onModuleInit` (all) → `onApplicationBootstrap` (all)    |
+| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass          |
+| shutdown  | every constructed provider/controller: `onShutdown` in **reverse construction order** |
+
+“All” means every constructed object provider and controller. Value providers
+enter the ledger when registered; factory providers enter only when resolved.
+A factory first resolved after `init()` is still shut down, without retroactive
+init hooks, and an unresolved factory is never constructed for lifecycle.
 
 ## Graceful shutdown with `await using`
 

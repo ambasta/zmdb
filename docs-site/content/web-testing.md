@@ -49,6 +49,10 @@ await app.init(); // runs onModuleInit hooks
 // dispose runs onShutdown hooks at scope exit
 ```
 
+The test harness uses the same provider/controller construction ledger as
+`createApp`: a provider resolved with `app.get()` participates in lifecycle, and
+an unresolved factory is not constructed just for shutdown.
+
 ## Design notes
 
 - **Overrides apply before build** — the injected value is the override, through

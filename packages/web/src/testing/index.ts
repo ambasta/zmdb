@@ -5,6 +5,7 @@
 import type { Container, Token } from '../di/index.js';
 import { runInit, runShutdown } from '../lifecycle.js';
 import { compileModule, type ModuleClass, type ProviderDef } from '../modules/index.js';
+import { lifecycleInstances } from '../modules/lifecycle-instances.js';
 import { runtimeOf } from '../modules/runtime.js';
 import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
 
@@ -28,7 +29,7 @@ export interface TestApp extends AsyncDisposable {
 export function createTestApp(rootModule: ModuleClass, options: TestAppOptions = {}): TestApp {
   const compiled = compileModule(rootModule, options.overrides ?? []);
   const { container, controllers } = compiled;
-  const eagerControllers = [...controllers];
+  const instances = lifecycleInstances(container);
   const runtime = runtimeOf(compiled);
   const router: Router = createRouter();
   if (runtime === undefined) {
@@ -49,11 +50,11 @@ export function createTestApp(rootModule: ModuleClass, options: TestAppOptions =
   return {
     request: req => router.handle(req),
     get: resolve,
-    init: () => runInit(eagerControllers),
+    init: () => runInit(instances),
     [Symbol.asyncDispose]: async () => {
       runtime?.beginShutdown();
       await runtime?.waitForLoads();
-      await runShutdown(controllers);
+      await runShutdown(instances);
     },
   };
 }

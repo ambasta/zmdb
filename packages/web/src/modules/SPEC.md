@@ -25,6 +25,9 @@ Walk the module graph (acyclic) and:
   edges, unresolved injections, cycles and duplicate provider tokens,
 - create one `Container`, register eager providers and build eager controllers,
 - retain per-app handles that instantiate lazy subtrees on first use,
+- record value providers, resolved factory results and built controllers once
+  by object identity, in actual construction order, for application lifecycle;
+  unresolved factories do not enter that ledger,
 - expose `{ container, controllers, lazy }`.
 - **Singleton** providers resolve once and cache; **transient** re-run the factory
   on each `resolve`. Detect and throw on an **import cycle**.
@@ -54,8 +57,10 @@ with no behaviour change for a module that does not use it. The reasoning is in 
 command class listed in `controllers` would be built correctly and then registered as a route source, and a
 command class listed nowhere is never built at all, so its `@Inject` fields throw.
 
-`runInit`/`runShutdown` take both lists for the same reason — a command whose repository needs
-`onModuleInit` would otherwise get an uninitialised one.
+Commands enter the same internal construction ledger when they are built.
+`runInit`/`runShutdown` consume that ledger rather than concatenating public
+lists, so a command and every provider it actually resolves receive the same
+lifecycle ordering as a controller.
 
 ## Out of scope
 
@@ -374,8 +379,8 @@ order to shut it down would open the pool it is about to close — the exact inv
 stated as a guarantee rather than left as an accident: **`onShutdown` runs only on instances that
 exist.**
 
-A loaded module's instances are appended to the single ordered instance list that
-`CompiledModule.controllers` and the provider registry feed, so `runShutdown`'s reverse iteration
+A loaded module's instances are appended to the single ordered lifecycle ledger that value
+providers, resolved factory results and built controllers feed, so `runShutdown`'s reverse iteration
 (`../lifecycle.ts:48-54`) tears them down before the eager providers they depend on, which is the
 same guarantee an eager module gets and for the same reason.
 

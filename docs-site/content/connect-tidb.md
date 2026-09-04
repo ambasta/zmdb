@@ -46,7 +46,11 @@ Declare it as `id: bigint & Sql<'bigint'> & PrimaryKey` on the interface — `Se
 
 **Optimistic transactions retry.** TiDB's default transaction mode can fail on write conflict and expects the client to retry. Nothing in zmdb retries, so wrap it — the loop is the same one on the [Cockroach page](./dialect-cockroach.html).
 
-**`SELECT ... FOR UPDATE` behaves differently** under optimistic transactions. If you rely on row locks — the [transactional outbox](./transactional-outbox.html) does — use pessimistic transaction mode, which is the default on recent versions but worth confirming.
+**`SELECT ... FOR UPDATE` behaves differently** under optimistic transactions.
+If your own raw SQL relies on row locks, use pessimistic transaction mode,
+which is the default on recent versions but worth confirming. The shipped
+[transactional outbox](./transactional-outbox.html) does not need that mode: it
+claims with a conditional lease update and authoritative token read-back.
 
 ## HTAP and follower reads
 

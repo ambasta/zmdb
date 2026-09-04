@@ -28,9 +28,9 @@ So `OutboxRow extends Table<'zmdb_outbox'>` cannot be declared here without givi
 dependency, and `Driver` is `../../../repository/src/index.ts:51`, one package further out. Putting the
 dispatcher here would invert the dependency direction that `repository → query-compiler` already establishes.
 
-`transactional-outbox.md`'s own closing section says "An `Outbox` declaration and repository in
-`@zmdb/repository`". That was right. This file is the compiler half, and it is the half where the hard
-decisions are.
+The pre-implementation `transactional-outbox.md` page put the declaration and
+repository in `@zmdb/repository`. That was right. This file is the compiler
+half, and it is the half where the hard decisions are.
 
 ## 2. The table, and why `deliveredAt: Date | null` cannot express the state machine
 
@@ -41,7 +41,7 @@ export interface OutboxRow extends Table<'zmdb_outbox'> {
   id: string & Sql<'text'> & PrimaryKey;
   topic: string & Sql<'text'>;
   payload: string & Sql<'text'>;
-  status: OutboxStatus & Sql<'jsonEnum'>;
+  status: OutboxStatus & Sql<'jsonEnum'> & HasDefault;
   attempts: number & Sql<'integer'> & HasDefault;
   createdAt: Date & Sql<'timestamp'> & HasDefault;
   leaseOwner: string & Sql<'text'> & HasDefault;
@@ -50,6 +50,11 @@ export interface OutboxRow extends Table<'zmdb_outbox'> {
   lastError: (string & Sql<'text'>) | null;
 }
 ```
+
+`OutboxRow` is the app-facing shape. `OutboxSchema`, which snapshots feed into migration planning, records the
+physical snake_case names used by the dedicated migration and every dispatcher query. Keeping the snapshot
+names equal to the actual table matters more than making an internal storage declaration look like an
+application DTO.
 
 Four differences from the issue's `OutboxRecord`, and every one of them is forced.
 
@@ -93,17 +98,21 @@ two states, so it cannot carry a third. `attempts` cannot either: a threshold on
 candidate query has to re-apply on every poll, so a poison row stays in the working set forever and keeps
 paying for itself. `status = 'dead'` drops the row out of the index (§3) and out of the candidate query, once.
 
-`transactional-outbox.md` names the failure mode — "otherwise one poisoned message blocks the queue behind
-it" — and lists it under what is _not_ in zmdb. This is where it stops being the user's problem.
+The pre-implementation page named the failure mode: otherwise one poisoned
+message blocks the queue behind it. This is where it stops being the user's
+problem.
 
 ### 2.3 `payload` is `text`, not `json`
 
-`transactional-outbox.md` declares `payload: Record<string, unknown> & Sql<'json'>`. The issue says `string`,
-and the issue is right, for a reason neither states: a `json` column round-trips through the driver's own JSON
-handling, so the bytes a consumer receives are not the bytes that were written — key order, number formatting
-and unicode escaping are all the driver's choice. A payload that is signed, hashed for deduplication, or
-compared to a replay is then not comparable to itself. Serialising once at the emit boundary makes the stored
-string the message, and a broker takes a string anyway.
+The pre-implementation page declared
+`payload: Record<string, unknown> & Sql<'json'>`. The issue says `string`, and
+the issue is right, for a reason neither states: a `json` column round-trips
+through the driver's own JSON handling, so the bytes a consumer receives are
+not the bytes that were written — key order, number formatting and unicode
+escaping are all the driver's choice. A payload that is signed, hashed for
+deduplication, or compared to a replay is then not comparable to itself.
+Serialising once at the emit boundary makes the stored string the message, and
+a broker takes a string anyway.
 
 It also means a payload that is not JSON — protobuf in base64, a CloudEvents envelope — needs no new column
 type.
@@ -116,9 +125,11 @@ No `uuid`. So the id is `text`, generated in the application with `globalThis.cr
 `.oxlintrc.json:66` bans `node:crypto` and its message names `globalThis.crypto` as the replacement, so this
 is the sanctioned route rather than a workaround.
 
-A `Serial` id, which is what `transactional-outbox.md` uses, is deliberately rejected: the id has to be known
-**before** the insert, because `emitInTransaction` (§6) writes inside the caller's transaction and the caller
-may want to log or return the event id without waiting for a `RETURNING` that MySQL cannot do (§4.1).
+A `Serial` id, which the pre-implementation page used, is deliberately
+rejected: the id has to be known **before** the insert, because
+`emitInTransaction` (§6) writes inside the caller's transaction and the caller
+may want to log or return the event id without waiting for a `RETURNING` that
+MySQL cannot do (§4.1).
 
 `createdAt` is `timestamp` and dialect-specific by the repository's existing rule: a `Date` in Node,
 `TIMESTAMPTZ` in Postgres, an ISO string in OpenAPI. Nothing here restates that mapping.
@@ -141,27 +152,37 @@ createIndexDdl(
 predicate is expressible even though the query builder's `WHERE` is not — which is worth noticing, because it
 is why §2.1's restriction lands on the dispatcher's queries and not on its schema.
 
-**Partial indexes are Postgres and SQLite only. MySQL has none.** On MySQL the `where` is dropped and the same
-index is created in full, and that is why `status` is the **leading column**: a full composite index on
+**Partial indexes are Postgres and SQLite only. MySQL has none.** `outboxPendingIndexDdl` drops the `where` on
+MySQL before calling `createIndexDdl`; the generic emitter itself remains deliberately literal and would emit
+invalid MySQL SQL if handed a predicate. The outbox's MySQL index is therefore created in full, and that is why
+`status` is the **leading column**: a full composite index on
 `(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from
 "index over a small set" to "index prefix over a small set" rather than to a table scan. An index ordered
-`(created_at, status)` — the natural way to write it, and the shape `transactional-outbox.md` uses — would
-degrade to a scan of every row ever written.
+`(created_at, status)` would degrade to a scan of every row ever written.
 
-`#593` asserts the emitted DDL per dialect, including that the MySQL form has no `WHERE`.
+`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also
+executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all three
+dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the
+SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering. MySQL's
+migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status:
+MySQL rejects a `TEXT` primary key and a `TEXT` column in this index without a prefix length. The Node surface
+remains `string`; the bounded spelling is a storage requirement, not a narrower application type.
 
 ## 4. Claiming a row with what exists
 
-`transactional-outbox.md` claims rows with `SELECT … FOR UPDATE SKIP LOCKED`, and then notes the consequence:
-"The whole thing has to run inside one transaction for `SKIP LOCKED` to hold the claim". That is correct and it
-is the reason not to do it. The broker publishes for the entire batch then happen with row locks held and a
-transaction open, so **one slow broker holds a transaction for the length of a batch** — which on Postgres also
-holds back the oldest-transaction horizon and blocks vacuum on every table, not just this one. A pattern whose
-job is decoupling should not couple the broker's latency to the database's transaction age.
+The pre-implementation page claimed rows with
+`SELECT … FOR UPDATE SKIP LOCKED`, then noted that the whole operation had to
+run inside one transaction for the lock to hold. That is correct and it is the
+reason not to do it. The broker publishes for the entire batch with row locks
+held and a transaction open, so **one slow broker holds a transaction for the
+length of a batch** — which on Postgres also holds back the
+oldest-transaction horizon and blocks vacuum on every table, not just this one.
+A pattern whose job is decoupling should not couple the broker's latency to the
+database's transaction age.
 
-It is also not expressible: `SelectBuilder` (`../index.ts:98-121`) has no lock clause of any kind, and SQLite
-has no `SKIP LOCKED` at all — which is why `transactional-outbox.md` has to say "on SQLite run exactly one
-relay".
+It is also not expressible: `SelectBuilder` (`../index.ts:98-121`) has no lock
+clause of any kind, and SQLite has no `SKIP LOCKED` at all — which is why the
+pre-implementation page restricted SQLite to one relay.
 
 ### 4.1 And a compare-and-swap cannot report whether it won
 
@@ -202,7 +223,9 @@ it needs no transaction spanning the batch — statement 2 commits on its own.
 
 Statement 1 may therefore return rows this dispatcher does not win, and statement 3 is what says which it
 actually has. That is the point: the read-back is authoritative, so nothing downstream has to reason about the
-race.
+race. A read-back has no SQL ordering guarantee, so the dispatcher restores the candidate ID order before
+publishing the rows it won. That is what makes §7's single-dispatcher ordering row true rather than an
+assumption about a database's current query plan.
 
 `token` is `globalThis.crypto.randomUUID()` per batch, not per dispatcher. A per-dispatcher token would make
 statement 3 return rows from a _previous_ batch that this dispatcher claimed and then failed to mark, which is
@@ -245,6 +268,7 @@ export declare function createOutboxDispatcher(opts: OutboxDispatcherOptions): O
 export interface OutboxDispatcher {
   runOnce(): Promise<{ readonly claimed: number; readonly delivered: number; readonly failed: number }>;
   start(): void;
+  onModuleInit(): void;
   onShutdown(): Promise<void>;
 }
 ```
@@ -252,6 +276,12 @@ export interface OutboxDispatcher {
 One pass: claim (§4.2), then for each row `publish(topic, payload)`, then mark. Marking is per row and
 outside any transaction, because the batch's rows are independent and one failed publish must not roll back
 the successes.
+
+Before calling `publish`, the dispatcher validates the row returned by the driver: `id`, `topic` and `payload`
+must be strings and `attempts` must be a non-negative integer. A malformed payload with a usable row identity
+is marked `dead` immediately and passed to `onDead`; it is not retried forever. Payload-specific decoding stays
+with the consumer because the stored message is deliberately allowed to be any byte-stable string, not only
+JSON.
 
 | Outcome                             | Written                                                                              |
 | ----------------------------------- | ------------------------------------------------------------------------------------ |
@@ -274,20 +304,20 @@ stops an empty outbox from being a permanent query load. On Postgres, `LISTEN/NO
 latency to nothing and the poll stays as a floor — `transactional-outbox.md` already documents that, including
 why the poll must not be removed, and it is not restated or shipped here.
 
-`onShutdown` is the `OnShutdown` hook from `../../../web/src/lifecycle.ts:20-22`, which `runShutdown` runs in
-reverse construction order (`:49-54`). **`createApp` calls `runShutdown(controllers)`** (`../../../web/src/app/index.ts:39`),
-so the hook fires for controllers only and a dispatcher registered as a plain provider would never be told to
-stop. Until hook detection reaches providers — the app epic's work, not this one's — a dispatcher is held by a
-controller, and `#593` asserts shutdown through that path so the test cannot pass by way of the broken one. It
-stops claiming, waits for
-the in-flight batch, and does **not** wait for the lease to expire — the rows it did not reach are still
-`pending` with a future `leaseUntil`, so they are picked up `leaseMs` later by whatever is still running. Late
-is the correct failure here; the alternative is a shutdown that blocks on a broker.
+`onModuleInit` is the app lifecycle alias for `start`; `onShutdown` is the matching
+awaitable hook. A dispatcher registered as a constructed provider therefore starts during
+`app.init()` and is drained by disposal. A factory first resolved after init is still drained,
+but is not retroactively started, and an unresolved factory is never constructed merely to
+stop it. Shutdown runs in reverse actual construction order, so the dispatcher drains before
+the driver its factory resolved. It stops claiming, waits for the in-flight batch to finish
+its publish-and-mark steps, and does **not** wait for the lease interval after that work is
+done. If the process dies instead of shutting down cleanly, the future lease remains the
+recovery mechanism and another dispatcher picks the row up after `leaseMs`.
 
-`#592` step 8 asks what happens "on a dialect without `SKIP LOCKED`". The answer is that the question does not
-arise: §4.2 never uses it, so SQLite runs as many dispatchers as Postgres does, and
-`transactional-outbox.md`'s "on SQLite run exactly one relay" restriction is retired by this design rather
-than documented.
+`#592` step 8 asks what happens "on a dialect without `SKIP LOCKED`". The
+answer is that the question does not arise: §4.2 never uses it, so SQLite runs
+as many dispatchers as Postgres does, and the old single-relay restriction is
+retired by this design.
 
 ## 6. The publish path, and the guarantee that is the whole point
 
@@ -351,7 +381,7 @@ The reverse ordering — mark first, then publish — is refused: it converts a 
 **loss**, and a lost event in a system whose entire purpose is not losing events is the worse trade by a wide
 margin.
 
-## 9. What #593 has to assert
+## 9. What the implementation tests assert
 
 1. `an outbox row written in a transaction is gone after a rollback` — §6, against a real driver, asserting the
    table is empty.
@@ -371,7 +401,14 @@ margin.
    quietly break.
 10. `no claim statement emits RETURNING` — §4.1, so the MySQL defect cannot reach the outbox.
 11. `the dispatcher's idle interval doubles to the cap and resets on work` — §5.
-12. `shutdown stops claiming and does not wait for the lease` — §5, asserting in-flight rows are still pending.
+12. `shutdown stops claiming and does not wait for the lease` — §5, asserting the current batch finishes and
+    no later poll starts.
+13. `the declared table migration has dialect-correct timestamps and defaults` — §1-3, including execution
+    against a real SQLite database.
+14. `OutboxSchema` enters an ordinary schema snapshot — §1-2, so the table is declared data rather than runtime
+    table creation hidden inside the dispatcher.
+15. `the sqlite candidate plan uses the pending index` — §3, so the index is exercised rather than merely
+    present in `sqlite_master`.
 
 ## Non-goals (rejected)
 
@@ -395,5 +432,6 @@ margin.
   something to add on top with the poll kept as a floor.
 - **No broker.** `publish` is a function the application supplies. A shipped adapter for one broker is the
   transports epic's, and picking one here would be picking it for everybody.
-- **No scheduler.** `start()` is a timer; running the dispatcher as a managed background worker is `#585`'s,
-  and `transactional-outbox.md` correctly names that as the thing this waited on.
+- **No scheduler.** `start()` owns the bounded polling timer and provider
+  lifecycle starts it; an externally scheduled environment can call
+  `runOnce()`. The durable job queue is a separate consumer-side subsystem.

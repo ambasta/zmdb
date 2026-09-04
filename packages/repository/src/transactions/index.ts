@@ -1,12 +1,13 @@
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 
 export type TransactionState = 'active' | 'closed' | 'committed' | 'rolled_back' | string;
 
 export interface TransactionContext<State extends string = 'active'> {
   readonly _state?: State | undefined;
+  readonly dialect?: Dialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
 }
@@ -19,6 +20,7 @@ export function markTransactionClosed<State extends string = 'active'>(
 ): ClosedTransactionContext {
   return {
     _state: 'closed',
+    ...(tx.dialect === undefined ? {} : { dialect: tx.dialect }),
     execute: query => tx.execute(query),
     savepoint: <R>(fn: (ctx: ClosedTransactionContext) => Promise<R>): Promise<R> =>
       tx.savepoint(innerTx => fn(markTransactionClosed(innerTx))),
@@ -26,6 +28,7 @@ export function markTransactionClosed<State extends string = 'active'>(
 }
 
 export interface TxConnection {
+  readonly dialect?: Dialect;
   raw(sql: string): Promise<void>;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
@@ -38,6 +41,7 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
   let savepointSeq = 0;
 
   const makeContext = <State extends string = 'active'>(): TransactionContext<State> => ({
+    ...(conn.dialect === undefined ? {} : { dialect: conn.dialect }),
     execute: query => conn.execute(query),
     savepoint: async <R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R> => {
       const name = `s${++savepointSeq}`;

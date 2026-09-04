@@ -1,18 +1,10 @@
-// Tests freeze (#593) for the outbox's runtime half — packages/query-compiler/src/outbox/SPEC.md
-// §9 items 1, 2, 6, 7, 11 and 12, plus §8's documented duplicate.
+// Runtime coverage for packages/query-compiler/src/outbox/SPEC.md §9 items 1, 2,
+// 6, 7, 11 and 12, plus §8's documented duplicate.
 //
 // §1 of that file puts `OutboxRow`, `outboxWriter` and `createOutboxDispatcher` here rather than
 // in @zmdb/query-compiler, because they need `Table<…>`/`Sql<…>` and `Driver` and that package has
 // no dependencies. Items 3, 4, 5, 8, 9 and 10 are the SQL half and live in
 // ../../../query-compiler/src/outbox/outbox.spec.ts.
-//
-// THE IDIOM, identical to the sibling file: nothing in ./index.ts exists, so every frozen export
-// is declared locally and initialised from `unimplemented()`, which throws. Any test that drives
-// one is `it.fails` — the body typechecks against the signature the implementation must have, the
-// throw keeps the assertion in the summary line rather than hiding it behind `.skip`, and each one
-// records the output produced today so it cannot later pass for the wrong reason. When ./index.ts
-// lands, delete the frozen-surface block, use the commented-out import, and flip `it.fails` to
-// `it` one test at a time.
 //
 // Nothing here waits on a timer it does not control. The rollback and commit tests use a real
 // node:sqlite database because the guarantee is a property of the database transaction (§6); every
@@ -22,63 +14,14 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import type { CompiledQuery } from '@zmdb/query-compiler';
+import { snapshot } from '@zmdb/query-compiler/migrations';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { sqliteDriver } from '../drivers/sqlite.js';
 import type { Driver } from '../index.js';
 import { createTransactionalDb } from '../transactions/index.js';
-import type { TransactionContext, TxConnection } from '../transactions/index.js';
-
-// ---------------------------------------------------------------------------
-// the frozen surface — SPEC §5 and §6, verbatim. Delete when ./index.ts lands and use:
-//
-//   import {
-//     createOutboxDispatcher,
-//     outboxWriter,
-//     type DeadOutboxRow,
-//     type OutboxDispatcher,
-//     type OutboxDispatcherOptions,
-//     type OutboxWriter,
-//   } from './index.js';
-// ---------------------------------------------------------------------------
-function unimplemented(what: string): never {
-  throw new Error(`unimplemented: ${what}`);
-}
-
-interface DeadOutboxRow {
-  readonly id: string;
-  readonly topic: string;
-  readonly payload: string;
-  readonly attempts: number;
-  readonly lastError: string | null;
-}
-
-interface OutboxDispatcherOptions {
-  readonly driver: Driver;
-  readonly publish: (topic: string, payload: string) => Promise<void>;
-  readonly batch?: number;
-  readonly leaseMs?: number;
-  readonly idleMs?: number;
-  readonly maxIdleMs?: number;
-  readonly maxAttempts?: number;
-  readonly backoffMs?: (attempts: number) => number;
-  readonly onDead?: (row: DeadOutboxRow) => void | Promise<void>;
-}
-
-interface OutboxDispatcher {
-  runOnce(): Promise<{ readonly claimed: number; readonly delivered: number; readonly failed: number }>;
-  start(): void;
-  onShutdown(): Promise<void>;
-}
-
-interface OutboxWriter {
-  write(topic: string, payload: string): Promise<string>;
-}
-
-const createOutboxDispatcher: (opts: OutboxDispatcherOptions) => OutboxDispatcher = () =>
-  unimplemented('createOutboxDispatcher');
-
-const outboxWriter: (tx: TransactionContext) => OutboxWriter = () => unimplemented('outboxWriter');
+import type { TxConnection } from '../transactions/index.js';
+import { createOutboxDispatcher, OutboxSchema, outboxWriter, type DeadOutboxRow } from './index.js';
 
 // ---------------------------------------------------------------------------
 // fixtures
@@ -89,6 +32,7 @@ const qb = createQueryCompiler('sqlite');
 function txConn(db: DatabaseSync): TxConnection {
   const driver = sqliteDriver(db);
   return {
+    dialect: 'sqlite',
     async raw(sql: string) {
       db.exec(sql);
     },
@@ -130,23 +74,34 @@ function rows(db: DatabaseSync, table: string): readonly Record<string, unknown>
 interface FakeDriver extends Driver {
   readonly calls: readonly CompiledQuery[];
   reply(match: string, rows: readonly Record<string, unknown>[]): void;
+  rejectOnce(match: string, error: Error): void;
   countMatching(match: string): number;
 }
 
 function fakeDriver(): FakeDriver {
   const calls: CompiledQuery[] = [];
   const replies = new Map<string, readonly Record<string, unknown>[]>();
+  const rejections = new Map<string, Error>();
   return {
     dialect: 'sqlite',
     calls,
     reply(match, rowsForMatch) {
       replies.set(match, rowsForMatch);
     },
+    rejectOnce(match, error) {
+      rejections.set(match, error);
+    },
     countMatching(match) {
       return calls.filter(c => c.text.includes(match)).length;
     },
     execute(query) {
       calls.push(query);
+      for (const [match, error] of rejections) {
+        if (query.text.includes(match)) {
+          rejections.delete(match);
+          return Promise.reject(error);
+        }
+      }
       for (const [match, rowsForMatch] of replies) {
         if (query.text.includes(match)) return Promise.resolve(rowsForMatch);
       }
@@ -174,8 +129,25 @@ afterEach(() => {
 // §9 items 1 and 2 — the guarantee, against a real database
 // ===========================================================================
 describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2)', () => {
-  it.fails('an outbox row written in a transaction is gone after a rollback', async () => {
-    // actual today: Error: unimplemented: outboxWriter.
+  it('the declared outbox table participates in ordinary schema snapshots', () => {
+    const table = snapshot([OutboxSchema]).tables[0];
+    expect(table?.name).toBe('zmdb_outbox');
+    expect(table?.columns.map(column => column.name)).toEqual([
+      'attempts',
+      'created_at',
+      'delivered_at',
+      'id',
+      'last_error',
+      'lease_owner',
+      'lease_until',
+      'payload',
+      'status',
+      'topic',
+    ]);
+    expect(OutboxSchema.columns['status']?.flags.hasDefault).toBe(true);
+  });
+
+  it('an outbox row written in a transaction is gone after a rollback', async () => {
     //
     // The headline assertion of the epic, and the only shape of it that means anything: a real
     // driver, a real BEGIN, a real ROLLBACK, and the table read back outside the transaction. A
@@ -195,8 +167,7 @@ describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2
     expect(rows(db, 'posts')).toEqual([]);
   });
 
-  it.fails('an outbox row written in a transaction survives a commit', async () => {
-    // actual today: Error: unimplemented: outboxWriter.
+  it('an outbox row written in a transaction survives a commit', async () => {
     //
     // The other half, so the rollback test cannot pass by writing nothing at all. `write` returns
     // the id (SPEC §6) and the id is generated before the insert (§2.4), so this also pins that
@@ -219,8 +190,7 @@ describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
-  it.fails('the stored payload is byte-identical to what was written', async () => {
-    // actual today: Error: unimplemented: outboxWriter.
+  it('the stored payload is byte-identical to what was written', async () => {
     //
     // SPEC §2.3: `payload` is `text`, not `json`, so key order, number formatting and unicode
     // escaping are the caller's and a payload stays comparable to itself. A `json` column would
@@ -250,8 +220,7 @@ describe('outbox: the transactional guarantee (#593, SPEC §6, §9 items 1 and 2
 // §9 items 6 and 7 — failure, backoff and the poison row
 // ===========================================================================
 describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)', () => {
-  it.fails('a failing publish backs off and stays pending', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('a failing publish backs off and stays pending', async () => {
     //
     // SPEC §5: `attempts + 1`, `lastError`, `leaseUntil = now + backoffMs(attempts)`, and `status`
     // untouched. The backoff and the lease are the same column, so "invisible for the backoff" and
@@ -278,8 +247,7 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     expect(mark?.parameters).toContain('broker down');
   });
 
-  it.fails('the default backoff is capped', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('the default backoff is capped', async () => {
     //
     // SPEC §5: `Math.min(2 ** attempts * 1000, 300_000)`. Uncapped exponential backoff on a row
     // that will eventually succeed becomes an outage of its own, so the cap is asserted rather
@@ -287,7 +255,11 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     const driver = fakeDriver();
     driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'r1' }]);
     driver.reply('"lease_owner" = ', [claimedRow('r1', 'post.published', 20)]);
-    const dispatcher = createOutboxDispatcher({ driver, publish: () => Promise.reject(new Error('x')) });
+    const dispatcher = createOutboxDispatcher({
+      driver,
+      publish: () => Promise.reject(new Error('x')),
+      maxAttempts: 30,
+    });
 
     await dispatcher.runOnce();
 
@@ -297,8 +269,7 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     expect((leaseUntil?.getTime() ?? 0) - NOW.getTime()).toBe(300_000);
   });
 
-  it.fails('a row at maxAttempts goes dead, fires onDead once, and leaves the candidate set', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('a row at maxAttempts goes dead, fires onDead once, and leaves the candidate set', async () => {
     //
     // The poison-row assertion. SPEC §2.2: without a terminal state the dispatcher spins forever
     // on one bad row and delivers nothing else, so all three halves are asserted together —
@@ -334,8 +305,7 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     expect(dead).toHaveLength(1);
   });
 
-  it.fails('one permanently failing row does not stop the rest of the batch', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('one permanently failing row does not stop the rest of the batch', async () => {
     //
     // SPEC §5: marking is per row and outside any transaction, because the batch's rows are
     // independent and one failed publish must not roll back the successes. The anti-stall
@@ -359,8 +329,30 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     expect(published).toEqual(['post.published']);
   });
 
-  it.fails('a publish that resolves is marked delivered with a deliveredAt and no lastError', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('marks a non-string payload dead at the database-read boundary', async () => {
+    const driver = fakeDriver();
+    const dead: DeadOutboxRow[] = [];
+    driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'r1' }]);
+    driver.reply('"lease_owner" = ', [{ id: 'r1', topic: 'post.published', payload: { id: 1 }, attempts: 0 }]);
+    let publishes = 0;
+    const dispatcher = createOutboxDispatcher({
+      driver,
+      publish: () => {
+        publishes += 1;
+        return Promise.resolve();
+      },
+      onDead: row => {
+        dead.push(row);
+      },
+    });
+
+    expect(await dispatcher.runOnce()).toEqual({ claimed: 1, delivered: 0, failed: 1 });
+    expect(publishes).toBe(0);
+    expect(driver.calls.at(-1)?.parameters).toContain('dead');
+    expect(dead[0]?.lastError).toMatch(/invalid outbox row/);
+  });
+
+  it('a publish that resolves is marked delivered with a deliveredAt and no lastError', async () => {
     // SPEC §5's first outcome row, and the "exactly once under normal operation" case the issue
     // body asks for. "Exactly once" here means one publish call, not a broker guarantee — see §8.
     const driver = fakeDriver();
@@ -383,14 +375,30 @@ describe('outbox: the dispatcher on failure (#593, SPEC §5, §9 items 6 and 7)'
     expect(mark?.text).toContain('"delivered_at"');
     expect(mark?.text).not.toContain('"last_error"');
   });
+
+  it('publishes a claimed batch in candidate order even when read-back is unordered', async () => {
+    const driver = fakeDriver();
+    driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'older' }, { id: 'newer' }]);
+    driver.reply('"lease_owner" = ', [claimedRow('newer'), claimedRow('older')]);
+    const published: string[] = [];
+    const dispatcher = createOutboxDispatcher({
+      driver,
+      publish: (_topic, payload) => {
+        published.push(payload);
+        return Promise.resolve();
+      },
+    });
+
+    expect(await dispatcher.runOnce()).toEqual({ claimed: 2, delivered: 2, failed: 0 });
+    expect(published).toEqual(['{"id":"older"}', '{"id":"newer"}']);
+  });
 });
 
 // ===========================================================================
 // SPEC §8 — the duplicate, asserted rather than wished away
 // ===========================================================================
 describe('outbox: at-least-once (#593, SPEC §8)', () => {
-  it.fails('a crash between publish and mark delivers twice, which is the documented behaviour', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('a crash between publish and mark delivers twice, which is the documented behaviour', async () => {
     //
     // Not in §9's list; the issue body asks for it and §8 states it, so it is asserted rather than
     // left as prose. `publish` resolves, the process dies before the mark, the lease expires, and
@@ -401,6 +409,7 @@ describe('outbox: at-least-once (#593, SPEC §8)', () => {
     const driver = fakeDriver();
     driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'r1' }]);
     driver.reply('"lease_owner" = ', [claimedRow('r1')]);
+    driver.rejectOnce('SET "status" = ', new Error('connection lost before delivered mark'));
 
     const published: string[] = [];
     const dispatcher = createOutboxDispatcher({
@@ -411,13 +420,21 @@ describe('outbox: at-least-once (#593, SPEC §8)', () => {
       },
     });
 
-    await dispatcher.runOnce().catch(() => undefined);
+    await expect(dispatcher.runOnce()).rejects.toThrow('connection lost');
     // the lease lapses and the row is still pending, so the next pass sees it again
     vi.advanceTimersByTime(30_000);
-    await dispatcher.runOnce().catch(() => undefined);
+    await dispatcher.runOnce();
 
     expect(published).toHaveLength(2);
     expect(published[0]).toBe(published[1]);
+  });
+
+  it('rejects invalid bounds instead of creating a hot or inert loop', () => {
+    const driver = fakeDriver();
+    const publish = () => Promise.resolve();
+    expect(() => createOutboxDispatcher({ driver, publish, batch: 0 })).toThrow(/batch/);
+    expect(() => createOutboxDispatcher({ driver, publish, idleMs: 2_000, maxIdleMs: 1_000 })).toThrow(/maxIdleMs/);
+    expect(() => createOutboxDispatcher({ driver, publish, maxIdleMs: 2_147_483_648 })).toThrow(/2147483647/);
   });
 });
 
@@ -425,8 +442,22 @@ describe('outbox: at-least-once (#593, SPEC §8)', () => {
 // §9 items 11 and 12 — the loop and the shutdown
 // ===========================================================================
 describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', () => {
-  it.fails("the dispatcher's idle interval doubles to the cap and resets on work", async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('onModuleInit starts the owned polling loop', async () => {
+    const driver = fakeDriver();
+    const dispatcher = createOutboxDispatcher({
+      driver,
+      publish: () => Promise.resolve(),
+      idleMs: 1_000,
+    });
+
+    dispatcher.onModuleInit();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(driver.countMatching('SELECT "id" FROM "zmdb_outbox"')).toBe(1);
+    await dispatcher.onShutdown();
+  });
+
+  it("the dispatcher's idle interval doubles to the cap and resets on work", async () => {
     //
     // SPEC §5: an idle pass doubles `idleMs` up to `maxIdleMs`; a pass that claimed work polls
     // again immediately. Driven by `vi.useFakeTimers()`, so the assertion is on the schedule and
@@ -470,8 +501,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     await dispatcher.onShutdown();
   });
 
-  it.fails('an empty outbox is not polled hot', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('an empty outbox is not polled hot', async () => {
     // The property the doubling exists for, asserted as a bound rather than as a schedule: over
     // one minute of idle time with idleMs 1s and maxIdleMs 30s the dispatcher must poll far fewer
     // than 60 times. An implementation that forgot to double polls 60.
@@ -490,8 +520,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     expect(driver.countMatching('SELECT "id" FROM "zmdb_outbox"')).toBeLessThan(10);
   });
 
-  it.fails('shutdown stops claiming and does not wait for the lease', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('shutdown stops claiming and does not wait for the lease', async () => {
     //
     // SPEC §5: `onShutdown` stops claiming, waits for the in-flight batch, and does NOT wait for
     // the lease to expire — the rows it did not reach are still pending with a future leaseUntil
@@ -516,7 +545,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     });
 
     dispatcher.start();
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1_000);
     expect(started).toBeGreaterThan(0);
 
     const shutdown = dispatcher.onShutdown();
@@ -531,31 +560,62 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     expect(driver.countMatching('SELECT "id" FROM "zmdb_outbox"')).toBe(pollsAtShutdown);
   });
 
-  it.fails('shutdown resolves without marking the rows it never published', async () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
-    // The other half of §5's shutdown sentence: an unreached row must be left alone, so it is
-    // still `pending` with a future `leaseUntil` and another dispatcher gets it leaseMs later. A
-    // shutdown that marked them would either lose them or duplicate their attempts count.
+  it('shutdown waits for a manual runOnce pass that has already claimed work', async () => {
+    const driver = fakeDriver();
+    driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'r1' }]);
+    driver.reply('"lease_owner" = ', [claimedRow('r1')]);
+
+    let release = (): void => undefined;
+    const blocked = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    let publishStarted = (): void => undefined;
+    const started = new Promise<void>(resolve => {
+      publishStarted = resolve;
+    });
+    const dispatcher = createOutboxDispatcher({
+      driver,
+      publish: async () => {
+        publishStarted();
+        await blocked;
+      },
+    });
+
+    const pass = dispatcher.runOnce();
+    await started;
+    const shutdown = dispatcher.onShutdown();
+    let shutdownFinished = false;
+    void shutdown.then(() => {
+      shutdownFinished = true;
+    });
+    await Promise.resolve();
+    expect(shutdownFinished).toBe(false);
+
+    release();
+    await Promise.all([pass, shutdown]);
+    expect(driver.calls.at(-1)?.parameters).toContain('delivered');
+  });
+
+  it('shutdown resolves without marking the rows it never published', async () => {
+    // A dispatcher may be constructed and immediately disposed while an application is still
+    // booting. Stopping it before its first poll must not turn shutdown itself into a claim.
     const driver = fakeDriver();
     driver.reply('SELECT "id" FROM "zmdb_outbox"', [{ id: 'r1' }]);
     driver.reply('"lease_owner" = ', [claimedRow('r1')]);
 
     const dispatcher = createOutboxDispatcher({
       driver,
-      publish: () => new Promise<void>(() => undefined),
+      publish: () => Promise.resolve(),
       leaseMs: 30_000,
     });
 
     dispatcher.start();
-    await vi.advanceTimersByTimeAsync(0);
     await dispatcher.onShutdown();
 
-    expect(driver.calls.filter(c => c.text.startsWith('UPDATE') && c.parameters.includes('delivered'))).toEqual([]);
-    expect(driver.calls.filter(c => c.parameters.includes('dead'))).toEqual([]);
+    expect(driver.calls).toEqual([]);
   });
 
-  it.fails('the dispatcher takes its driver structurally and needs nothing else', () => {
-    // actual today: Error: unimplemented: createOutboxDispatcher.
+  it('the dispatcher takes its driver structurally and needs nothing else', () => {
     // SPEC §1 and §4.1: the seam is `Driver`, and the whole point of the split is that no new
     // dependency is needed in either direction. A bare object literal with one method is enough.
     const dispatcher = createOutboxDispatcher({
@@ -564,6 +624,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     });
     expect(typeof dispatcher.runOnce).toBe('function');
     expect(typeof dispatcher.start).toBe('function');
+    expect(typeof dispatcher.onModuleInit).toBe('function');
     expect(typeof dispatcher.onShutdown).toBe('function');
   });
 

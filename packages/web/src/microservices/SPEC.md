@@ -518,8 +518,8 @@ argument §2.1 makes about `ack()`.
 Startup order inside `init()`:
 
 1. `compileModule(rootModule)` — already done in `createApp`, synchronous, no I/O.
-2. `runInit(controllers)` — `onModuleInit` then `onApplicationBootstrap`, both full passes
-   (`../lifecycle.ts:39-47`). Unchanged.
+2. `runInit(lifecycleInstances)` — `onModuleInit` then `onApplicationBootstrap`, both full passes
+   over constructed providers and controllers (`../lifecycle.ts`). Unchanged in phase order.
 3. Build the dispatcher from `controllers` — pattern map resolved once (§5).
 4. `transport.listen(dispatch)` for each transport, in declaration order, awaited.
 
@@ -540,13 +540,13 @@ leaks one broker connection per attempt, and the broker's connection limit becom
 Shutdown, in `[Symbol.asyncDispose]`, in this order:
 
 1. `close(graceMs)` each transport in **reverse** declaration order — stop intake first, then drain.
-2. `runShutdown(controllers)` — reverse construction order (`../lifecycle.ts:49-54`).
+2. `runShutdown(lifecycleInstances)` — reverse construction order (`../lifecycle.ts`).
 
 Transports close before the hooks run, because a handler whose repository has already been disposed is worse than
-a message that waits for the next process. Note that `runShutdown` covers **controllers only** — a transport
-registered as a provider would never be torn down, which is the constraint `web-hybrid-application.md`
-documents — and putting transports in `AppOptions` rather than in the container is what sidesteps it: the app
-owns them, so `#556`'s §2.7 "no module-level connection singletons" holds by construction.
+a message that waits for the next process. An ordinary constructed provider now receives shutdown, but a
+transport still belongs in `AppOptions`: `close(graceMs)` needs the app-wide grace bound and must stop intake
+before any provider/controller hook runs. App ownership also keeps `#556`'s §2.7 "no module-level connection
+singletons" true by construction.
 
 HTTP is unaffected by all of this. `createApp` does not create a server; the caller does, with
 `toNodeHandler(router)` or `app.fetch`. Which raises a real defect worth naming: `toNodeHandler(app)` appears in
@@ -653,6 +653,6 @@ public list above load-bearing rather than aspirational.
   be forgotten.
 - **No HTTP-serves-anyway degradation on broker failure.** §10 — a process that passes its health check and drops
   every message is the outcome nobody notices.
-- **No transport in the DI container.** §10 — `runShutdown` covers controllers only, so a provider-registered
-  connection is never closed.
+- **No transport in the DI container.** §10 — transport shutdown needs `close(graceMs)` before ordinary
+  provider/controller hooks; the generic `OnShutdown` signature cannot carry that app-wide bound.
 - **No filesystem or metadata discovery.** §4 — `web-discovery.md`, unchanged.

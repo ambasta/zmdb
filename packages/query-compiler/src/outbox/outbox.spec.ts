@@ -1,19 +1,6 @@
-// Tests freeze (#593) for the outbox's SQL half — packages/query-compiler/src/outbox/SPEC.md.
-// Items 3, 4, 5, 8, 9 and 10 of that file's §9 live here; §9's 1, 2, 6, 7, 11 and 12 need
-// `createOutboxDispatcher`/`outboxWriter`, which §1 places in @zmdb/repository, so they are
-// in packages/repository/src/outbox/outbox.spec.ts.
-//
-// THE IDIOM. Nothing in ./index.ts exists yet. Every frozen export is declared locally in the
-// `--- the frozen surface ---` block below and initialised from `unimplemented()`, which throws.
-// A test that drives one of those is `it.fails`: the body typechecks against the signature the
-// implementation must have, and the throw keeps the assertion visible in the summary line
-// instead of hidden behind `.skip`. When ./index.ts lands, delete the block, replace it with the
-// commented-out import above it, and flip `it.fails` to `it` one test at a time.
-//
-// Every `it.fails` carries the output the code produces TODAY, so an implementation cannot make
-// one pass for the wrong reason. Where "today" is "the function does not exist", the recorded
-// actual is `Error: unimplemented: <name>` and a sibling `it` (green) records the behaviour of
-// the shipped primitive the implementation has to work with.
+// Outbox SQL and migration coverage for packages/query-compiler/src/outbox/SPEC.md.
+// The repository-side writer and dispatcher tests live in
+// packages/repository/src/outbox/outbox.spec.ts.
 //
 // This package has no dependencies and must keep none (SPEC §1), so the real-database tests use
 // `node:sqlite` — a Node builtin — with a six-line `execute` shim rather than
@@ -25,68 +12,19 @@ import { describe, expect, it } from 'vitest';
 import { createQueryCompiler } from '../index.js';
 import type { CompiledQuery, Dialect } from '../index.js';
 import { createIndexDdl } from '../schema-objects/index.js';
-
-// ---------------------------------------------------------------------------
-// the frozen surface — delete when ./index.ts lands and use instead:
-//
-//   import {
-//     OUTBOX_TABLE,
-//     outboxCandidatesQuery,
-//     outboxClaimQuery,
-//     outboxMarkDeadQuery,
-//     outboxMarkDeliveredQuery,
-//     outboxMarkRetryQuery,
-//     outboxPendingIndexDdl,
-//     outboxReadBackQuery,
-//     type OutboxStatus,
-//   } from './index.js';
-//
-// SPEC.md names none of these: §1 promises "the three claim statements" in this package and §4.2
-// gives their SQL, but no function names. These are this test's proposal — see NOTES.md.
-// ---------------------------------------------------------------------------
-function unimplemented(what: string): never {
-  throw new Error(`unimplemented: ${what}`);
-}
-
-type OutboxStatus = 'pending' | 'delivered' | 'dead';
-
-const OUTBOX_TABLE = 'zmdb_outbox';
-
-const outboxPendingIndexDdl: (dialect: Dialect) => string = () => unimplemented('outboxPendingIndexDdl');
-
-const outboxCandidatesQuery: (
-  dialect: Dialect,
-  args: { readonly now: Date; readonly batch: number },
-) => CompiledQuery = () => unimplemented('outboxCandidatesQuery');
-
-const outboxClaimQuery: (
-  dialect: Dialect,
-  args: { readonly now: Date; readonly token: string; readonly leaseUntil: Date; readonly ids: readonly string[] },
-) => CompiledQuery = () => unimplemented('outboxClaimQuery');
-
-const outboxReadBackQuery: (dialect: Dialect, args: { readonly token: string }) => CompiledQuery = () =>
-  unimplemented('outboxReadBackQuery');
-
-const outboxMarkDeliveredQuery: (
-  dialect: Dialect,
-  args: { readonly id: string; readonly token: string; readonly deliveredAt: Date; readonly attempts: number },
-) => CompiledQuery = () => unimplemented('outboxMarkDeliveredQuery');
-
-const outboxMarkRetryQuery: (
-  dialect: Dialect,
-  args: {
-    readonly id: string;
-    readonly token: string;
-    readonly attempts: number;
-    readonly lastError: string;
-    readonly leaseUntil: Date;
-  },
-) => CompiledQuery = () => unimplemented('outboxMarkRetryQuery');
-
-const outboxMarkDeadQuery: (
-  dialect: Dialect,
-  args: { readonly id: string; readonly token: string; readonly attempts: number; readonly lastError: string },
-) => CompiledQuery = () => unimplemented('outboxMarkDeadQuery');
+import {
+  OUTBOX_TABLE,
+  outboxCandidatesQuery,
+  outboxClaimQuery,
+  outboxMarkDeadQuery,
+  outboxMarkDeliveredQuery,
+  outboxMarkRetryQuery,
+  outboxMigration,
+  outboxPendingIndexDdl,
+  outboxReadBackQuery,
+  outboxTableDdl,
+  type OutboxStatus,
+} from './index.js';
 
 // ---------------------------------------------------------------------------
 // fixtures
@@ -209,28 +147,78 @@ function readRow(db: DatabaseSync, id: string): Record<string, unknown> {
   return db.prepare(`SELECT * FROM ${OUTBOX_TABLE} WHERE id = ?`).get(id) as Record<string, unknown>;
 }
 
+describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
+  it('uses each dialect timestamp type and creates the pending index', () => {
+    expect(outboxTableDdl('postgres')).toContain('"created_at" TIMESTAMPTZ');
+    expect(outboxTableDdl('mysql')).toContain('`id` VARCHAR(36) PRIMARY KEY');
+    expect(outboxTableDdl('mysql')).toContain('`status` VARCHAR(16)');
+    expect(outboxTableDdl('mysql')).toContain('`lease_owner` VARCHAR(36)');
+    expect(outboxTableDdl('mysql')).toContain('`created_at` DATETIME(3)');
+    expect(outboxTableDdl('sqlite')).toContain('"created_at" TEXT');
+    expect(outboxTableDdl('sqlite')).toContain(
+      `"created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
+    );
+    for (const dialect of DIALECTS) {
+      const migration = outboxMigration(42, dialect);
+      expect(migration.version).toBe(42);
+      expect(migration.up).toContain('CREATE TABLE');
+      expect(migration.up).toContain('zmdb_outbox_pending');
+      expect(migration.down).toContain('DROP TABLE');
+    }
+  });
+
+  it('applies as a real sqlite migration with defaults and the partial index', () => {
+    const db = new DatabaseSync(':memory:');
+    const migration = outboxMigration(1, 'sqlite');
+    db.exec(migration.up);
+    db.prepare(`INSERT INTO ${OUTBOX_TABLE} (id, topic, payload) VALUES (?, ?, ?)`).run('r1', 't', '{}');
+
+    const row = readRow(db, 'r1');
+    expect(row['status']).toBe('pending');
+    expect(row['attempts']).toBe(0);
+    expect(row['created_at']).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    expect(row['lease_owner']).toBe('');
+    expect(row['lease_until']).toBe('1970-01-01T00:00:00.000Z');
+    expect(
+      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'zmdb_outbox_pending'").get(),
+    ).toEqual({
+      sql:
+        'CREATE INDEX "zmdb_outbox_pending" ON "zmdb_outbox" ("status", "lease_until", "created_at") ' +
+        "WHERE status = 'pending'",
+    });
+  });
+
+  it('uses the pending index for the sqlite candidate query', () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec(outboxMigration(1, 'sqlite').up);
+    const query = outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 });
+    const plan = db
+      .prepare(`EXPLAIN QUERY PLAN ${query.text}`)
+      .all(...query.parameters.map(bindable)) as readonly Record<string, unknown>[];
+
+    expect(plan.some(row => String(row['detail']).includes('USING INDEX zmdb_outbox_pending'))).toBe(true);
+  });
+});
+
 // ===========================================================================
 // §9 item 8 — the pending index is partial on postgres and sqlite and full on mysql
 // ===========================================================================
 describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
-  it.fails('the pending index is partial on postgres', () => {
-    // actual today: Error: unimplemented: outboxPendingIndexDdl
+  it('the pending index is partial on postgres', () => {
     expect(outboxPendingIndexDdl('postgres')).toBe(
       'CREATE INDEX "zmdb_outbox_pending" ON "zmdb_outbox" ("status", "lease_until", "created_at") ' +
         "WHERE status = 'pending'",
     );
   });
 
-  it.fails('the pending index is partial on sqlite', () => {
-    // actual today: Error: unimplemented: outboxPendingIndexDdl
+  it('the pending index is partial on sqlite', () => {
     expect(outboxPendingIndexDdl('sqlite')).toBe(
       'CREATE INDEX "zmdb_outbox_pending" ON "zmdb_outbox" ("status", "lease_until", "created_at") ' +
         "WHERE status = 'pending'",
     );
   });
 
-  it.fails('the pending index has no WHERE on mysql, which has no partial index', () => {
-    // actual today: Error: unimplemented: outboxPendingIndexDdl.
+  it('the pending index has no WHERE on mysql, which has no partial index', () => {
     //
     // And when it exists it cannot simply forward to `createIndexDdl`: that emitter has no
     // dialect guard on `where` (../schema-objects/index.ts:23 emits ` WHERE ${def.where}`
@@ -286,8 +274,7 @@ describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
 // §9 items 9 and 10, plus §4.2's golden SQL
 // ===========================================================================
 describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', () => {
-  it.fails('the candidate query is the same three-clause select on every dialect', () => {
-    // actual today: Error: unimplemented: outboxCandidatesQuery.
+  it('the candidate query is the same three-clause select on every dialect', () => {
     // The expected text is what the shipped builders produce for §4.2 statement 1 — note that
     // the literals in SPEC §4.2 are hand-written prose: the real statement binds them.
     expect(outboxCandidatesQuery('postgres', { now: NOW, batch: 100 })).toEqual({
@@ -306,8 +293,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     );
   });
 
-  it.fails('the claim statement is one conditional UPDATE with the candidate ids bound in', () => {
-    // actual today: Error: unimplemented: outboxClaimQuery.
+  it('the claim statement is one conditional UPDATE with the candidate ids bound in', () => {
     // `set()` values are pushed before the where parameters (../index.ts:323-329), which is why
     // the token and the lease take $1 and $2 rather than the last two slots.
     expect(outboxClaimQuery('postgres', { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a', 'b'] })).toEqual({
@@ -318,16 +304,14 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     });
   });
 
-  it.fails('the read-back selects by lease owner and is what says which rows were won', () => {
-    // actual today: Error: unimplemented: outboxReadBackQuery
+  it('the read-back selects by lease owner and is what says which rows were won', () => {
     expect(outboxReadBackQuery('postgres', { token: 'tok' })).toEqual({
       text: 'SELECT "id", "topic", "payload", "attempts" FROM "zmdb_outbox" WHERE "lease_owner" = $1',
       parameters: ['tok'],
     });
   });
 
-  it.fails('every mark statement carries the lease-owner guard', () => {
-    // actual today: Error: unimplemented: outboxMarkDeliveredQuery.
+  it('every mark statement carries the lease-owner guard', () => {
     // SPEC §4.3: without `AND "lease_owner" = :token` a dispatcher whose lease expired mid-publish
     // would still write, which loses the `attempts` count.
     const marks = [
@@ -347,8 +331,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     }
   });
 
-  it.fails('the delivered mark sets status, deliveredAt and an incremented attempts', () => {
-    // actual today: Error: unimplemented: outboxMarkDeliveredQuery
+  it('the delivered mark sets status, deliveredAt and an incremented attempts', () => {
     expect(outboxMarkDeliveredQuery('postgres', { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 })).toEqual({
       text:
         'UPDATE "zmdb_outbox" SET "status" = $1, "delivered_at" = $2, "attempts" = $3 ' +
@@ -357,8 +340,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     });
   });
 
-  it.fails('the retry mark pushes leaseUntil into the future and leaves status pending', () => {
-    // actual today: Error: unimplemented: outboxMarkRetryQuery.
+  it('the retry mark pushes leaseUntil into the future and leaves status pending', () => {
     // SPEC §5: the backoff and the lease are the same column, so a retried row is invisible for
     // exactly the backoff using the ordered comparison the candidate query already has.
     const q = outboxMarkRetryQuery('postgres', {
@@ -375,8 +357,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     expect(q.text).not.toContain('"status"');
   });
 
-  it.fails('the dead mark is the terminal state and sets no lease', () => {
-    // actual today: Error: unimplemented: outboxMarkDeadQuery
+  it('the dead mark is the terminal state and sets no lease', () => {
     const q = outboxMarkDeadQuery('postgres', { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' });
     expect(q.text).toBe(
       'UPDATE "zmdb_outbox" SET "status" = $1, "attempts" = $2, "last_error" = $3 ' +
@@ -385,8 +366,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     expect(q.parameters[0]).toBe('dead');
   });
 
-  it.fails('the candidate query never emits IS NULL', () => {
-    // actual today: Error: unimplemented: outboxCandidatesQuery.
+  it('the candidate query never emits IS NULL', () => {
     // SPEC §2.1 is a rule, not an observation: `Operator` has no `is` member and `sqlOperator`
     // passes an unrecognised operator through verbatim, so a later change that reaches for
     // `delivered_at IS NULL` compiles to something that is a syntax error on postgres. See the
@@ -411,8 +391,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     ).toEqual({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" is $1', parameters: [null] });
   });
 
-  it.fails('no claim or mark statement emits RETURNING', () => {
-    // actual today: Error: unimplemented: outboxCandidatesQuery.
+  it('no claim or mark statement emits RETURNING', () => {
     // SPEC §4.1: `returningClause` (../index.ts:196-199) has no dialect guard, so a RETURNING in
     // any outbox statement is a syntax error the moment somebody runs it on MySQL.
     const statements = DIALECTS.flatMap(dialect => [
@@ -455,8 +434,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
 // §9 items 3, 4, 5 — the protocol, against a real database, interleaved by hand
 // ===========================================================================
 describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §9 items 3-5)', () => {
-  it.fails('two claims against one row: the second claims nothing', () => {
-    // actual today: Error: unimplemented: outboxCandidatesQuery.
+  it('two claims against one row: the second claims nothing', () => {
     // The interleaving is a fixed statement order, not two racing timers: A and B both read the
     // candidate set, then A claims, then B claims. Nothing here depends on wall-clock luck.
     const db = outboxDb();
@@ -475,8 +453,7 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     expect(run(outboxReadBackQuery('sqlite', { token: 'token-B' }))).toEqual([]);
   });
 
-  it.fails('a lapsed lease is reclaimable', () => {
-    // actual today: Error: unimplemented: outboxCandidatesQuery.
+  it('a lapsed lease is reclaimable', () => {
     // The clock is advanced by passing a later `now`, not by waiting: SPEC §4.2's predicate is
     // `lease_until < :now`, so a value is the whole mechanism.
     const db = outboxDb();
@@ -492,8 +469,7 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     expect(run(outboxReadBackQuery('sqlite', { token: 'token-A' }))).toEqual([]);
   });
 
-  it.fails('a mark whose lease was stolen writes nothing', () => {
-    // actual today: Error: unimplemented: outboxClaimQuery.
+  it('a mark whose lease was stolen writes nothing', () => {
     // SPEC §4.3's guard. The assertion is on `attempts`, because a mark that lands with the
     // wrong owner is invisible in `status` alone.
     const db = outboxDb();
@@ -510,8 +486,7 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     expect(row['delivered_at']).toBeNull();
   });
 
-  it.fails('a dead row leaves the candidate set for good', () => {
-    // actual today: Error: unimplemented: outboxMarkDeadQuery.
+  it('a dead row leaves the candidate set for good', () => {
     // SPEC §2.2: this is why `status` has a third value instead of a threshold on `attempts` —
     // a threshold leaves the poison row in the working set to be re-read on every poll.
     const db = outboxDb();

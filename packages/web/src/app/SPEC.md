@@ -16,10 +16,10 @@
   - **`lazy: readonly LazyModuleHandle[]`** — per-app handles for lazily
     imported modules; empty when the graph has none.
   - **`init(): Promise<void>`** — invoke lifecycle `onModuleInit` /
-    `onApplicationBootstrap` hooks (in module-graph order) on any provider/
-    controller that implements them.
+    `onApplicationBootstrap` hooks (in construction order) on every constructed
+    provider/controller that implements them.
   - **`[Symbol.asyncDispose](): Promise<void>`** — invoke `onShutdown` hooks in
-    reverse order; enables `await using app = createApp(...)`.
+    reverse construction order; enables `await using app = createApp(...)`.
 
 ### Lifecycle hook interfaces
 
@@ -29,8 +29,16 @@
 
 ### Order
 
-- `init()`: `onModuleInit` (all, deps-first) then `onApplicationBootstrap` (all).
-- shutdown: `onShutdown` in **reverse** registration order.
+- A `useValue` provider enters the lifecycle ledger when it is registered. A
+  `useFactory` provider enters only after its factory actually returns, and a
+  controller enters after construction. Object identity is recorded once.
+- `init()`: `onModuleInit` (all constructed instances, deps-first) then
+  `onApplicationBootstrap` (all).
+- A factory first resolved after `init()` does not receive retroactive init
+  hooks, but it does enter the ledger and receives shutdown. An unresolved
+  factory is never constructed merely to run a hook.
+- shutdown: `onShutdown` in **reverse construction order**, so a dependent is
+  stopped before the dependency its factory resolved.
 
 ## Invariants
 
@@ -44,8 +52,11 @@
 ## Acceptance
 
 - `createApp(Root)` handles a request routed to a module controller (200).
-- `init()` calls `onModuleInit`/`onApplicationBootstrap` on implementers, in
-  order; `await using` (dispose) calls `onShutdown` in reverse.
+- `init()` calls `onModuleInit`/`onApplicationBootstrap` on constructed
+  provider/controller implementers, in order; `await using` (dispose) calls
+  `onShutdown` in reverse construction order.
+- A constructed lazy provider is shut down; an unresolved provider factory is
+  neither constructed nor shut down.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope

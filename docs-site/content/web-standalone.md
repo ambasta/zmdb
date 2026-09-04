@@ -98,16 +98,17 @@ export class PostsController implements OnModuleInit, OnShutdown {
 }
 ```
 
-`init()` runs every eager controller's `onModuleInit`, then every eager
-`onApplicationBootstrap`. A lazily imported module runs both passes when it
-loads. Disposal runs `onShutdown` for constructed instances in **reverse**
-construction order; a lazy module that never loaded has nothing to shut down.
+`init()` runs `onModuleInit` on every constructed eager provider and controller,
+then `onApplicationBootstrap` on the same ledger. A lazily imported module runs
+both passes on the instances it constructs. Disposal runs `onShutdown` in
+**reverse construction order**, so a dependent stops before the dependency its
+factory resolved; a lazy module that never loaded has nothing to stop.
 
-> [!WARNING]
-> Lifecycle hooks are detected on **controllers only**. A provider with an
-> `onModuleInit` method is never called — `createApp` walks `controllers`, not the
-> container's bindings. Put startup work in a controller, or do it eagerly in the
-> provider's factory.
+> [!NOTE]
+> Value providers enter lifecycle immediately. Factory providers enter only when
+> resolved: one resolved after `init()` is still shut down, but does not receive
+> retroactive init hooks, and an unresolved factory is never built merely to stop
+> it.
 
 ## Graceful shutdown
 
@@ -116,7 +117,7 @@ construction order; a lazy module that never loaded has nothing to shut down.
 ```ts
 await using app = createApp(AppModule);
 await app.init();
-// on scope exit: every constructed controller's onShutdown, in reverse order
+// on scope exit: every constructed provider/controller's onShutdown, in reverse order
 ```
 
 With a long-lived server you want the signal handlers too, since the scope never exits:

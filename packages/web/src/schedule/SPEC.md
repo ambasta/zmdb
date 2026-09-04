@@ -471,11 +471,10 @@ because the lease expires anyway.
 
 `graceMs` is a construction option for the reason `../queues/SPEC.md` §9 spells out at
 length: `../lifecycle.ts:49-54` awaits each `onShutdown` indefinitely and in sequence, and
-`createApp` invokes it as `[Symbol.asyncDispose]: () => runShutdown(controllers)`
-(`../app/index.ts:39`), which takes no arguments and so cannot carry a deadline. The same
-consequence applies: a scheduler reached only through a provider is never drained, because
-`compileModule` pushes only controllers into the array `runShutdown` walks
-(`../modules/index.ts:94-95`).
+`createApp` invokes it from `[Symbol.asyncDispose]()` over its construction ledger, which
+takes no arguments and so cannot carry a deadline. A scheduler registered as a value provider,
+or returned by a factory that was actually resolved, enters that ledger and is drained;
+an unresolved factory is never constructed for shutdown.
 
 ## 10. What #587 has to assert
 

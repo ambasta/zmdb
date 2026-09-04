@@ -10,27 +10,24 @@
 
 The question to ask first is whether the event may be lost. That answer picks the mechanism, and getting it wrong is the actual bug — not the missing module.
 
-**If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is the right answer for anything that triggers work elsewhere — though note it is a pattern you assemble, not a shipped helper; that page's own banner says so, and an earlier version of this paragraph claimed otherwise.
+**If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is the
+shipped answer for anything that triggers work elsewhere.
 
 ```ts
+import { outboxWriter } from '@zmdb/repository/outbox';
 import { createTransactionalDb } from '@zmdb/repository/transactions';
 
 const db = createTransactionalDb(connection);
 
 await db.transaction(async tx => {
   await postRepo.withTransaction(tx).update(id, { published: true });
-  await outboxRepo.withTransaction(tx).create({
-    id: globalThis.crypto.randomUUID(),
-    topic: 'post.published',
-    payload: JSON.stringify({ id }),
-    status: 'pending',
-  });
+  await outboxWriter(tx).write('post.published', JSON.stringify({ id }));
 });
 ```
 
-Those are the column names from the [outbox](./transactional-outbox.html) page's declaration. Earlier revisions of this page invented `{ type, payload, at }`, which no table on any page ever had.
-
-`repo.withTransaction(tx)` returns a **new repository bound to the transaction's connection** — every repository taking part has to be rebound. The original instances still hold the pooled driver, so `outboxRepo.create(…)` inside the callback would commit on its own connection and the atomicity would be a fiction that reads exactly like the correct code.
+`repo.withTransaction(tx)` returns a **new repository bound to the transaction's connection**. `outboxWriter`
+takes that same transaction as its only constructor argument, so it cannot accidentally write through the
+pooled driver.
 
 The state change and the event commit together or not at all. An in-memory emitter cannot give you that — the process can die between the commit and the emit, and the event is gone with no trace. This is the failure mode that makes emitter-based side effects unreliable in a way that is invisible in testing.
 
@@ -101,7 +98,10 @@ export class PostsController {
 }
 ```
 
-Subscribe in a controller's `onModuleInit`. `onApplicationBootstrap` and `onShutdown` run too, but all three are detected on [controllers only](./web-standalone.html) — an emitter or a dispatcher registered as a plain provider is never initialised and never told to stop:
+Subscribe in a controller's `onModuleInit`. The same lifecycle hooks also run on
+constructed providers, so an owned dispatcher can be registered as a provider
+and started/drained by the app. The emitter shown here has no lifecycle of its
+own; the controller hook is where this subscription is declared:
 
 ```ts
 async onModuleInit() {
@@ -146,7 +146,7 @@ The typed emitter above is most of it, and `packages/web/src/events/SPEC.md` fre
 
 An earlier version of this section concluded that explicit registration makes `@OnEvent` pointless — "at which point the class above is the feature". That is too strong. What the decorator buys is not discovery: it is that the binding lives on the method rather than inside `onModuleInit`, where a handler whose `.on(…)` line was forgotten is silently never invoked and there is nothing to notice. `bind(this)` is one line that cannot be half-right. It stays a modest win, and `on` stays first-class.
 
-The remaining useful thing to build is the outbox _dispatcher_ — a loop that claims rows, publishes, and marks them done with at-least-once delivery. That is frozen in `packages/query-compiler/src/outbox/SPEC.md`. Its consumer-side counterpart is no longer only a design: the queue worker supplies a stable idempotency key and checks the handler-owned completion marker before invoking work.
+The outbox dispatcher now ships. Its `publish` callback remains at-least-once, so consumers still need an idempotency rule. For durable in-process jobs, the queue worker supplies a stable key and checks the handler-owned completion marker before invoking work.
 
 ---
 

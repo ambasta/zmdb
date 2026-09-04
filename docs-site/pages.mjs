@@ -772,8 +772,7 @@ export const PAGE_META = {
   'transactional-outbox': {
     title: 'Transactional Outbox',
     group: 'Transactions',
-    status: 'todo',
-    note: 'no outbox table helper and no dispatcher loop; both are frozen (#592), and the consumer half is frozen too (#586).',
+    status: 'supported',
   },
   'read-replicas': {
     title: 'Read Replicas',

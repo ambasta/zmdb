@@ -107,11 +107,16 @@ await reports.sendDigests();
 
 `await using` disposes the app when the script ends, so the pool closes and the process exits. No `listen`, no server — the module graph works standalone. See [Standalone Applications](./web-standalone.html).
 
-## Lifecycle hooks only fire for controllers
+## Provider and controller lifecycle
 
-The constraint to plan around: `createApp` detects `onModuleInit`, `onApplicationBootstrap` and `onShutdown` on **controllers only**, never on providers. So a gateway or worker that needs startup work either lives on a controller class, or you call its setup explicitly in `main.ts` as above.
+`createApp` detects `onModuleInit`, `onApplicationBootstrap` and `onShutdown` on
+constructed providers as well as controllers. A value provider participates
+immediately; a factory provider participates once resolved. Shutdown reverses
+actual construction order, so a worker drains before the driver it resolved.
 
-Explicit is arguably better here — the order in which the HTTP server, the worker and the WebSocket server start and stop is visible in one file rather than distributed across hook implementations.
+Explicit composition is still useful when the order in which an external HTTP
+server, worker and WebSocket server start and stop should remain visible in one
+file rather than distributed across hook implementations.
 
 ## What it would take
 
@@ -132,9 +137,9 @@ The ordering is fixed and each step's position is load-bearing: `onModuleInit` a
 
 **If a transport fails to connect, `init()` rejects and nothing serves.** The tempting alternative — serve HTTP, report the broker failure — produces a process that passes its health check and silently drops every message, which is worse than either extreme because nothing notices. A deployment that genuinely wants HTTP-only degradation gets it by not passing the transport to `createApp`, which is the `main.ts` composition at the top of this page: two statements, failing independently.
 
-Putting transports in `AppOptions` rather than the container is also what sidesteps the constraint above — the app owns them, so a connection registered as a provider and never torn down is not a shape you can write.
-
-Still open and still independently useful: extending hook detection to providers.
+Putting transports in `AppOptions` rather than the container still carries a
+different property: the app can stop intake with the shared `graceMs` bound
+before ordinary provider/controller shutdown begins.
 
 ---
 

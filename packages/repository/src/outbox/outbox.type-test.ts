@@ -7,75 +7,21 @@
 // surface rather than merely undocumented.
 //
 // No runtime code. This file is compiled by `node scripts/typecheck.mjs` and therefore by CI; it
-// is not run by vitest. Nothing here is `it.fails` — a type-level assertion has no such mode, so
-// while ./index.ts does not exist the declarations below are the spec's text transcribed, and the
-// job when the implementation lands is to delete them and add:
-//
-//   import type {
-//     DeadOutboxRow, OutboxDispatcher, OutboxDispatcherOptions, OutboxRow, OutboxStatus, OutboxWriter,
-//   } from './index.js';
-//
-// leaving every assertion below untouched. If an assertion then fails, the implementation diverged
-// from the frozen surface, which is the entire point of writing them out here first.
+// checks the shipped exports directly against the frozen surface.
 import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
-import type { HasDefault, PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+import type { HasDefault, PrimaryKey, Sql } from '@zmdb/schema-core/tags';
 
 import type { Driver } from '../index.js';
 import type { TransactionContext } from '../transactions/index.js';
-
-// ---------------------------------------------------------------------------
-// SPEC §2.1 and §2.3 — the row, transcribed
-// ---------------------------------------------------------------------------
-type OutboxStatus = 'pending' | 'delivered' | 'dead';
-
-interface OutboxRow extends Table<'zmdb_outbox'> {
-  id: string & Sql<'text'> & PrimaryKey;
-  topic: string & Sql<'text'>;
-  payload: string & Sql<'text'>;
-  status: OutboxStatus & Sql<'jsonEnum'>;
-  attempts: number & Sql<'integer'> & HasDefault;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-  leaseOwner: string & Sql<'text'> & HasDefault;
-  leaseUntil: Date & Sql<'timestamp'> & HasDefault;
-  deliveredAt: (Date & Sql<'timestamp'>) | null;
-  lastError: (string & Sql<'text'>) | null;
-}
-
-// ---------------------------------------------------------------------------
-// SPEC §5 and §6 — the surface, transcribed
-// ---------------------------------------------------------------------------
-interface DeadOutboxRow {
-  readonly id: string;
-  readonly topic: string;
-  readonly payload: string;
-  readonly attempts: number;
-  readonly lastError: string | null;
-}
-
-interface OutboxDispatcherOptions {
-  readonly driver: Driver;
-  readonly publish: (topic: string, payload: string) => Promise<void>;
-  readonly batch?: number;
-  readonly leaseMs?: number;
-  readonly idleMs?: number;
-  readonly maxIdleMs?: number;
-  readonly maxAttempts?: number;
-  readonly backoffMs?: (attempts: number) => number;
-  readonly onDead?: (row: DeadOutboxRow) => void | Promise<void>;
-}
-
-interface OutboxDispatcher {
-  runOnce(): Promise<{ readonly claimed: number; readonly delivered: number; readonly failed: number }>;
-  start(): void;
-  onShutdown(): Promise<void>;
-}
-
-interface OutboxWriter {
-  write(topic: string, payload: string): Promise<string>;
-}
-
-declare function createOutboxDispatcher(opts: OutboxDispatcherOptions): OutboxDispatcher;
-declare function outboxWriter(tx: TransactionContext): OutboxWriter;
+import {
+  outboxWriter,
+  type DeadOutboxRow,
+  type OutboxDispatcher,
+  type OutboxDispatcherOptions,
+  type OutboxRow,
+  type OutboxStatus,
+  type OutboxWriter,
+} from './index.js';
 
 declare const driver: Driver;
 declare const tx: TransactionContext;
@@ -100,6 +46,7 @@ type _LeaseOwnerIsNotNullable = Expect<Equal<null extends OutboxRow['leaseOwner'
 // `pending` with a future lease, not a state — so the union being closed is an assertion, not a
 // formality.
 type _StatusIsAClosedUnion = Expect<Equal<OutboxStatus, 'pending' | 'delivered' | 'dead'>>;
+type _StatusCarriesItsPhysicalDefault = Expect<Equal<OutboxRow['status'] extends HasDefault ? true : false, true>>;
 // @ts-expect-error - 'retrying' is not a status: a retry is `pending` with a future leaseUntil (§2.2).
 const notAStatus: OutboxStatus = 'retrying';
 void notAStatus;
@@ -175,9 +122,11 @@ type _RunOnceReport = Expect<
   >
 >;
 
-// §5: `start` is fire-and-forget and `onShutdown` is the awaitable. A `start(): Promise<void>` that
-// resolved when the loop stopped would be un-awaitable in an init hook without hanging it.
+// §5: `start` and its lifecycle alias are fire-and-forget; `onShutdown` is the awaitable. A
+// `start(): Promise<void>` that resolved when the loop stopped would be un-awaitable in an init hook
+// without hanging it.
 type _StartIsSync = Expect<Equal<ReturnType<OutboxDispatcher['start']>, void>>;
+type _InitIsSync = Expect<Equal<ReturnType<OutboxDispatcher['onModuleInit']>, void>>;
 type _ShutdownIsAwaitable = Expect<Equal<ReturnType<OutboxDispatcher['onShutdown']>, Promise<void>>>;
 
 // ===========================================================================

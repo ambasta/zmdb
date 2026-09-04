@@ -245,14 +245,13 @@ command in `controllers` would work by accident and would then be registered as 
 `ModuleDef` gains `readonly commands?: readonly Constructor<object>[]` and `CompiledModule` gains
 `readonly commands: readonly object[]`. Additive, no behaviour change for an existing module.
 
-**Lifecycle hooks do not run for it either.** `createApp` calls `runInit(controllers)` and
-`runShutdown(controllers)` from `../lifecycle.ts`, over the controller list only. A command whose
-dependency needs `onModuleInit` — a connection pool, most obviously — would get an uninitialised one. So
-`runInit`/`runShutdown` receive controllers **and** commands. This is exactly the change
-`docs-site/content/web-cli-apps.md` names in its "What it would take": "it would need hook detection
-extended to providers so a command class need not be a controller." The page is right about the need and
-slightly off about the shape — the extension is to commands, an explicitly listed set, not to providers,
-which would mean instantiating every provider in the graph to ask whether it has a hook.
+**Provider lifecycle is no longer the blocker, but the command still has to be built.**
+`createApp` now drives one construction ledger containing value providers, factory results that
+were actually resolved, and built controllers. A command whose construction resolves a connection
+pool therefore records the pool before the command, and reverse shutdown stops the command first.
+`ModuleDef.commands` must build each command through the container and append it to that same
+ledger; no second lifecycle list is needed. The `web-cli-apps.md` claim that provider hook detection
+is still missing is corrected with this change.
 
 Nothing else changes. The container is the same `Container`, the token is the same token, and
 `repositoryToken<T>` from `../data/index.ts` is how a command gets a repository — so a command and a
@@ -313,6 +312,6 @@ file.
 - **`allowNegative` for string options.** §4.
 - **Merging `--` passthrough into the DTO.** §4.
 - **A `--json` envelope imposed on a command's stdout.** §5 — the command owns its output.
-- **Extending lifecycle-hook detection to every provider.** §6 — that means constructing the whole graph
-  to ask a question; an explicit `commands` list answers it for free.
+- **Constructing unresolved providers to look for hooks.** §6 — provider lifecycle records only values
+  and factory results that already exist; shutdown must not create a dependency just to stop it.
 - **Listing a command in `controllers` to get it built.** §6 — it would register it as a route source.

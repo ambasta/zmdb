@@ -159,10 +159,11 @@ persistence model and a different product, not a `@zmdb/web` module.
 **No sagas — yet, and for a concrete reason.** A saga's easy part is calling three steps in order; its hard part
 is the terminal state of a failure that cannot be compensated, which requires durable per-step state, an
 attempt count and a retry schedule. A saga built on the in-process emitter loses all of that on restart —
-precisely when it is needed, because the restart is usually what interrupted the saga. So the honest
-prerequisite is durable step state, which is the outbox (`../../../query-compiler/src/outbox/SPEC.md`) and the
-queue epic. Once those exist a saga is a queue consumer with a state row and a compensation table, not a new
-subsystem, and it can be specified then without inventing durability twice.
+precisely when it is needed, because the restart is usually what interrupted the saga. The outbox
+(`../../../query-compiler/src/outbox/SPEC.md`) and queue worker now supply durable delivery and retries, but
+they do not invent the saga's state row or compensation contract. A saga is a queue consumer with those two
+application-owned records, not a hidden arm of the command bus, and it can be specified separately without
+inventing durability twice.
 
 **No `CommandBus` on the container as a required provider.** It is a value produced by `createCommandBus` and
 registered like any other provider. A framework-owned singleton would need a registration API, and the mapped

@@ -37,6 +37,7 @@
     "./aggregations": "./src/aggregations/index.ts",
     "./migrations": "./src/migrations/index.ts",
     "./migrations/runner": "./src/migrations/runner.ts",
+    "./outbox": "./src/outbox/index.ts",
     "./set-ops": "./src/set-ops/index.ts",
     "./schema-objects": "./src/schema-objects/index.ts"
   },

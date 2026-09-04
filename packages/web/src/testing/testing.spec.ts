@@ -96,4 +96,44 @@ describe('@zmdb/web testing: createTestApp', () => {
     }
     expect(calls).toEqual(['init', 'bootstrap', 'shutdown']);
   });
+
+  it('runs lifecycle hooks for constructed providers, like createApp', async () => {
+    const calls: string[] = [];
+    const LIFECYCLE = createToken<object>('TEST_LIFECYCLE');
+    const UNUSED = createToken<object>('TEST_LIFECYCLE_UNUSED');
+
+    class LifecycleProvider {
+      onModuleInit(): void {
+        calls.push('provider:init');
+      }
+      onApplicationBootstrap(): void {
+        calls.push('provider:bootstrap');
+      }
+      onShutdown(): void {
+        calls.push('provider:shutdown');
+      }
+    }
+
+    @Module({
+      providers: [
+        { token: LIFECYCLE, useFactory: () => new LifecycleProvider() },
+        {
+          token: UNUSED,
+          useFactory: () => {
+            calls.push('unused:built');
+            return {};
+          },
+        },
+      ],
+    })
+    class LifecycleModule {}
+
+    {
+      await using app = createTestApp(LifecycleModule);
+      app.get(LIFECYCLE);
+      await app.init();
+      expect(calls).toEqual(['provider:init', 'provider:bootstrap']);
+    }
+    expect(calls).toEqual(['provider:init', 'provider:bootstrap', 'provider:shutdown']);
+  });
 });

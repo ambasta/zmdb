@@ -132,7 +132,11 @@ Running scripts with `--experimental-strip-types` skips the AOT transformer, so 
 
 ## What it would take
 
-A `@Command('backfill')` decorator with `@Option` metadata, a `CommandFactory.run(AppModule)` entry point that reads them, and help text generation. Perhaps two hundred lines, and it would need [hook detection extended to providers](./web-standalone.html) so a command class need not be a controller.
+A `@Command('backfill')` decorator with `@Option` metadata, an explicit
+`commands` list on the module, a `CommandFactory.run(AppModule)` entry point that
+reads them, and help text generation. Constructed provider lifecycle already
+works; the command runner would add each built command to the same construction
+ledger without pretending it is a controller.
 
 Worth honesty about the value: the dispatcher above is thirty lines and does not hide the exit codes, the argument types or the disposal — all three of which are places a decorator-based command runner tends to obscure behaviour you need to see in an operational script.
 

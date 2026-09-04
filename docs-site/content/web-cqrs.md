@@ -83,17 +83,16 @@ export class CqrsModule {}
 
 ## Events
 
-There is no event bus, and [`web-events`](./web-events.html) is also a gap. For in-process events, an array of listeners is enough; for anything that must survive a crash, use the [transactional outbox](./transactional-outbox.html) — a pattern you assemble rather than a shipped helper, and the right one for domain events that trigger work elsewhere:
+There is no event bus, and [`web-events`](./web-events.html) is also a gap. For in-process events, an array of
+listeners is enough; for anything that must survive a crash, use the shipped
+[transactional outbox](./transactional-outbox.html):
 
 ```ts
+import { outboxWriter } from '@zmdb/repository/outbox';
+
 await db.transaction(async tx => {
   await repo.withTransaction(tx).update(id, { published: true });
-  await outbox.withTransaction(tx).create({
-    id: globalThis.crypto.randomUUID(),
-    topic: 'post.published',
-    payload: JSON.stringify({ id }),
-    status: 'pending',
-  });
+  await outboxWriter(tx).write('post.published', JSON.stringify({ id }));
 });
 ```
 
@@ -125,7 +124,7 @@ Three things it refuses, so they are decisions rather than omissions:
 
 - **No query bus.** Reads already have a home, and `withReplicas` above already does the read/write split that CQRS is named for. A query bus adds a dispatch hop whose only property is symmetry — and the choke-point argument does not transfer, because a read has no transaction to centralise and its authorisation is [row-scoped filtering](./entity-filters.html), which belongs in the query.
 - **No event sourcing.** It replaces the repository rather than layering on it, which makes it a different persistence model.
-- **No sagas — yet.** A saga's easy part is calling three steps in order; its hard part is the terminal state of a failure that cannot be compensated, which needs durable per-step state. Built on an in-process emitter that state is lost on restart, which is usually the thing that interrupted the saga. The queue worker now supplies durable retries; once the [outbox](./transactional-outbox.html) dispatcher exists, a saga is a consumer with a state row rather than a new subsystem.
+- **No sagas — yet.** A saga's easy part is calling three steps in order; its hard part is the terminal state of a failure that cannot be compensated, which needs durable per-step state. Built on an in-process emitter that state is lost on restart, which is usually the thing that interrupted the saga. The [outbox](./transactional-outbox.html) and queue worker now provide durable delivery and retries; a saga still needs an explicit state row and compensation contract rather than being smuggled into the command bus.
 
 Commands also stay **types**, not classes — a `type` alias specifically, since only those satisfy the map's index signature. A `@CommandHandler(SomeCommand)` decorator needs a constructor to point at, which would make commands the one place in this project where a runtime class is mandatory — and it would buy a lookup key that a string literal in the map already provides.
 

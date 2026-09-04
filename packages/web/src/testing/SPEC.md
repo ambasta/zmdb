@@ -18,7 +18,8 @@ useFactory }`) that replace a provider before controllers are built — so a
   - **`request(req: WebRequest): Promise<WebResponse>`** — drive a route
     in-process (no socket), same pipeline as production.
   - **`get<T>(token): T`** — resolve any provider (e.g. to assert on a spy).
-  - **`init()` / `[Symbol.asyncDispose]()`** — lifecycle, same as `App`.
+  - **`init()` / `[Symbol.asyncDispose]()`** — provider/controller lifecycle,
+    same as `App`, including constructed-only shutdown for lazy factories.
 
 ## Invariants
 
@@ -32,6 +33,8 @@ useFactory }`) that replace a provider before controllers are built — so a
 - A controller built by `createTestApp` with an overridden provider uses the
   **stub** (verified via `request` + `get`).
 - `request` routes to a controller (200) with no server.
+- Constructed provider hooks run in the same order as `createApp`; an unresolved
+  factory is not built for lifecycle.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope

@@ -581,8 +581,8 @@ Step 5's protocol, with the timing:
 **The grace period is a construction option, and it has to be, because
 `runShutdown` has no bound.** `../lifecycle.ts:49-54` is
 `for (…) { … await instance.onShutdown(); }` — each hook is awaited indefinitely and they
-run in sequence. `createApp` invokes it as `[Symbol.asyncDispose]: () => runShutdown(controllers)`
-(`../app/index.ts:39`), and `[Symbol.asyncDispose]()` takes no arguments, so there is no
+run in sequence. `createApp` invokes it from `[Symbol.asyncDispose]()` over the construction
+ledger, and `[Symbol.asyncDispose]()` takes no arguments, so there is no
 place for a caller to pass a deadline even if it wanted to. This is the same reasoning
 `../microservices/SPEC.md` §2.5 used to give `close(graceMs)` a required parameter, arriving
 at the opposite mechanics: the bound cannot be an argument here, so it is a worker field,
@@ -594,14 +594,9 @@ Two consequences follow that the docs have to carry. **Grace periods add**, beca
 `runShutdown` is sequential: two workers with `graceMs: 30_000` are a sixty-second shutdown,
 while a deployment's `terminationGracePeriodSeconds` is one number for the whole pod. One
 worker per process is the recommendation, and where that is impossible the budget is divided
-rather than repeated. And **a worker reached only through a provider is never drained at
-all**: `compileModule` returns `{ container, controllers }` and pushes only
-`def.controllers` into that array (`../modules/index.ts:94-95`), so `runShutdown` sees
-controllers and nothing else. Neither live #587 nor #588 includes generic provider
-lifecycle in its test plan or DoD; #588 requires the worker's bounded `onShutdown` path.
-#593's outbox shutdown freeze separately pins today's provider gap, and #594's dispatcher
-lifecycle step and DoD own the later application-wide provider-hook change. Until it lands,
-a worker is held by a controller.
+rather than repeated. A worker registered as a value provider, or returned by a factory that
+was actually resolved, enters that ledger and is drained automatically. An unresolved factory
+does not: shutdown never constructs a worker merely to stop it.
 
 **Step 1's abort of the idle sleep is not a nicety.** Outbox §5's poll backs off to
 `maxIdleMs: 30_000`, and a worker that waits out an idle sleep before noticing shutdown
@@ -691,14 +686,17 @@ constraint satisfied in the same construction `../pipeline/index.ts:52-61` uses 
 12. `onShutdown` resolves promptly while the worker is inside its longest idle sleep,
     asserted against a `maxIdleMs` much larger than `graceMs`, so an implementation whose
     sleep is not abortable fails.
-13. Two workers over one store claim disjoint job sets, with no job run twice, driven by an
+13. A worker registered as a constructed provider is drained by `createApp`'s dispose, while
+    an unresolved worker factory is neither constructed nor drained — the pair that pins §9's
+    constructed-only lifecycle rule.
+14. Two workers over one store claim disjoint job sets, with no job run twice, driven by an
     interleaving rather than by wall-clock luck — the queue's form of outbox §9 item 3.
-14. `timeoutMs: 0`, `timeoutMs: Infinity`, a lease no longer than the effective timeout,
+15. `timeoutMs: 0`, `timeoutMs: Infinity`, a lease no longer than the effective timeout,
     and a handler `concurrency` above the worker's are construction errors.
-15. The supported memory backend installs both queue tables, the unique enqueue-dedupe
+16. The supported memory backend installs both queue tables, the unique enqueue-dedupe
     constraint and the pending-claim index, and the runtime suite uses that backend rather
     than duplicating its own schema.
-16. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the
+17. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the
     `postgres` dialect and query result, and `packages/web/package.json` declares `pg` as an
     optional peer.
 

@@ -20,14 +20,11 @@ The `assert` at the boundary is the part a message-pattern framework tends to sk
 **The [transactional outbox](./transactional-outbox.html) for asynchronous work.** This is where a message broker is genuinely better than HTTP, and the outbox is the half that matters:
 
 ```ts
+import { outboxWriter } from '@zmdb/repository/outbox';
+
 await db.transaction(async tx => {
   const order = await repo.withTransaction(tx).create(dto);
-  await outbox.withTransaction(tx).create({
-    id: globalThis.crypto.randomUUID(),
-    topic: 'order.placed',
-    payload: JSON.stringify({ id: order.id }),
-    status: 'pending',
-  });
+  await outboxWriter(tx).write('order.placed', JSON.stringify({ id: order.id }));
 });
 ```
 

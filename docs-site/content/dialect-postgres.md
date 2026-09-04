@@ -50,7 +50,9 @@ Postgres has a lot the builder does not model. All of them work through [raw SQL
 - `JSONB` operators (`->>`, `@>`, `?`) — see [JSON Properties](./json-properties.html)
 - full-text search with `tsvector` — see [Full-Text Search](./full-text-search.html)
 - window functions, recursive CTEs, `LATERAL`
-- `FOR UPDATE SKIP LOCKED` — see [Transactional Outbox](./transactional-outbox.html)
+- `FOR UPDATE SKIP LOCKED` — raw SQL only; the
+  [Transactional Outbox](./transactional-outbox.html) deliberately uses a
+  portable conditional lease update instead
 - arrays, ranges, and every extension type — see [Database Extensions](./db-extensions.html)
 
 ## Operational settings worth having

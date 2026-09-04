@@ -74,11 +74,11 @@ first matching route.
 > subsequent request gets the same rejection until the process restarts. Either let
 > the failure be fatal (shape 1) or add your own retry inside the factory.
 
-## 3. `onModuleInit` on a controller
+## 3. `onModuleInit` on a provider or controller
 
-`app.init()` awaits `onModuleInit`, then `onApplicationBootstrap`, on each eager
-controller in registration order. A lazy module runs the same two passes when
-it loads:
+`app.init()` awaits `onModuleInit`, then `onApplicationBootstrap`, on each
+constructed eager provider and controller in construction order. A lazy module
+runs the same two passes on the instances constructed when it loads:
 
 ```ts
 @Controller('/users')
@@ -96,21 +96,21 @@ class UsersController {
 ```
 
 > [!NOTE]
-> Hooks are detected on **controllers only**. A provider that implements
-> `onModuleInit` is never called — `createApp` iterates the built controllers, not
-> the container's bindings. If a provider needs shutdown, expose it through a
-> controller's `onShutdown`, or dispose it yourself after `await using` ends.
+> A value provider enters the lifecycle ledger immediately. A factory provider
+> enters only after it has actually been resolved. If that first resolution
+> happens after `app.init()`, it receives shutdown but not retroactive init
+> hooks; an unresolved factory receives neither.
 
-Shutdown runs `onShutdown` in **reverse** construction order, so a controller
-declared after the one holding the pool gets to flush before the pool closes.
+Shutdown runs `onShutdown` in **reverse construction order**, so a provider or
+controller flushes before the dependency its factory or injected fields resolved.
 
 ## Which shape to pick
 
-| Situation                                       | Shape                     |
-| ----------------------------------------------- | ------------------------- |
-| The app cannot serve traffic without it         | 1 — top-level await       |
-| Expensive, not needed on every route            | 2 — a promise-typed token |
-| A readiness check on something already injected | 3 — `onModuleInit`        |
+| Situation                                     | Shape                     |
+| --------------------------------------------- | ------------------------- |
+| The app cannot serve traffic without it       | 1 — top-level await       |
+| Expensive, not needed on every route          | 2 — a promise-typed token |
+| A readiness check or owned resource lifecycle | 3 — `onModuleInit`        |
 
 ## Ordering inside the module graph
 

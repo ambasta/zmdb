@@ -1,10 +1,9 @@
 > **ToDo / feature gap.** There is no scheduler yet, but the design is no longer open:
 > `@Cron`, `@Interval`, the cron dialect, the daylight-saving rules and the per-task
-> lease are frozen in `packages/web/src/schedule/SPEC.md` (#586). The only lifecycle
-> hooks are `onModuleInit`, `onApplicationBootstrap` and `onShutdown`, and they still run
-> on [controllers only](./web-standalone.html) — which is why a scheduler has to be held
-> by a controller to be drained. The queue half now ships, so a future task can enqueue
-> durable, deduplicated work without doing that work while it holds the scheduler lease.
+> lease are frozen in `packages/web/src/schedule/SPEC.md` (#586). A scheduler can be a
+> provider: constructed providers receive `onModuleInit`, `onApplicationBootstrap` and
+> `onShutdown` through the app lifecycle. The queue half now ships, so a future task can
+> enqueue durable, deduplicated work without doing that work while it holds the scheduler lease.
 
 ## The decision that matters more than the missing decorator
 
@@ -143,7 +142,9 @@ Four details:
 - **`unref()`** so the timer does not hold the process open.
 - **`clearInterval` in `onShutdown`**, or a rolling deploy leaves the old process ticking.
 
-Note that `onApplicationBootstrap` runs on **controllers**, so the scheduler has to be a controller class — even if it has no useful routes. That is an artefact of the hook detection, not a design intent. The frozen spec keeps this constraint rather than working around it, and pins a shutdown assertion to the controller path so the limitation is recorded rather than rediscovered.
+Register this scheduler as a provider rather than as a route-free controller.
+A value provider is initialized at `app.init()` and drained at disposal; a
+factory provider participates once something actually resolves it.
 
 ## Idempotency, which is the part people skip
 
@@ -162,7 +163,7 @@ If the insert affected no rows, today's run already happened — return. A uniqu
 
 The design question this section used to name — coordination — is answered, in `packages/web/src/schedule/SPEC.md` (#586). It is a per-task lease rather than a pluggable lock, held while the task runs and renewed at a third of its TTL, and it is per task rather than per process so that fifty tasks spread across replicas instead of piling onto whichever one won a global election.
 
-What #589 still owns is a cron parser (~150 lines; no dependency, and the dialect is frozen so that a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR), the scheduler loop, lease coordination and scheduled cleanup of queue completion markers. Generic hook detection for plain providers is instead required by #594's dispatcher lifecycle DoD. Until that application-lifecycle change lands, the scheduler has to be held by a controller, exactly as the note above says.
+What #589 still owns is a cron parser (~150 lines; no dependency, and the dialect is frozen so that a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR), the scheduler loop, lease coordination and scheduled cleanup of queue completion markers. Provider lifecycle support is already present.
 
 Two things the freeze settled that are worth knowing before you write your own. **The scheduler's state is an absolute instant, not a wall-clock time**, which is what makes daylight saving one conversion rule instead of two special cases: a 02:30 task in `Europe/Berlin` fires once on the spring-forward day, at 03:30 local, and once on the fall-back day, at the earlier of the two 02:30s. `Date` cannot represent a zoned wall-clock time at all — `new Date('2026-03-29T02:30:00')` is parsed in the _host_ zone, which is the thing a scheduler must not depend on — and `Temporal` is not in Node yet, so this is `Intl.DateTimeFormat` and `formatToParts`. And **`timeZone` defaults to `'UTC'` and never to the host zone**, because the host zone is a container setting and a base-image bump should not move your nightly job.
 

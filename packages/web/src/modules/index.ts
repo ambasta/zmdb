@@ -12,6 +12,7 @@ import {
   type Token,
 } from '../di/index.js';
 import { runInit } from '../lifecycle.js';
+import { createLifecycleRecorder, lifecycleInstances } from './lifecycle-instances.js';
 import { rememberRuntime, type CompiledRoute } from './runtime.js';
 
 /** A provider binds a token to a value or a factory, with an optional scope. */
@@ -106,15 +107,16 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
 
   const container = new Container();
   const controllers: object[] = [];
+  const recordInstance = createLifecycleRecorder(container);
   for (const override of overrides) {
-    registerProvider(container, override);
+    registerProvider(container, override, recordInstance);
   }
 
   // Preserve the original eager path: imports are in post-order, and each
   // module registers its providers immediately before building its controllers.
   if (plan.lazyRoots.length === 0) {
     for (const moduleClass of plan.moduleOrder) {
-      instantiateEagerModule(moduleClass, plan.definitions, container, controllers, overrides);
+      instantiateEagerModule(moduleClass, plan.definitions, container, controllers, overrides, recordInstance);
     }
     return { container, controllers, lazy: [] };
   }
@@ -125,7 +127,7 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
   let shuttingDown = false;
 
   const instantiateModules = (order: readonly ModuleClass[]): object[] => {
-    const freshControllers: object[] = [];
+    const firstInstance = lifecycleInstances(container).length;
     for (const moduleClass of order) {
       if (instantiated.has(moduleClass)) {
         continue;
@@ -134,19 +136,19 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
       const def = plan.definitions.get(moduleClass);
       for (const provider of def?.providers ?? []) {
         if (!isOverridden(overrides, provider)) {
-          registerProvider(container, provider);
+          registerProvider(container, provider, recordInstance);
         }
       }
       const instances = new Map<Constructor<object>, object>();
       controllerInstances.set(moduleClass, instances);
       for (const Controller of def?.controllers ?? []) {
         const instance = container.build(Controller);
+        recordInstance(instance);
         instances.set(Controller, instance);
         controllers.push(instance);
-        freshControllers.push(instance);
       }
     }
-    return freshControllers;
+    return lifecycleInstances(container).slice(firstInstance);
   };
 
   const eagerOrder = plan.moduleOrder.filter(module => plan.eagerModules.has(module));
@@ -413,15 +415,18 @@ function instantiateEagerModule(
   container: Container,
   controllers: object[],
   overrides: readonly ProviderDef[],
+  recordInstance: (value: unknown) => void,
 ): void {
   const def = definitions.get(moduleClass);
   for (const provider of def?.providers ?? []) {
     if (!isOverridden(overrides, provider)) {
-      registerProvider(container, provider);
+      registerProvider(container, provider, recordInstance);
     }
   }
   for (const Controller of def?.controllers ?? []) {
-    controllers.push(container.build(Controller));
+    const controller = container.build(Controller);
+    recordInstance(controller);
+    controllers.push(controller);
   }
 }
 
@@ -429,10 +434,19 @@ function isOverridden(overrides: readonly ProviderDef[], provider: ProviderDef):
   return overrides.some(override => override.token === provider.token);
 }
 
-function registerProvider(container: Container, provider: ProviderDef): void {
+function registerProvider(container: Container, provider: ProviderDef, recordInstance: (value: unknown) => void): void {
   if ('useValue' in provider) {
     container.register(provider.token, provider.useValue);
+    recordInstance(provider.useValue);
   } else {
-    container.registerFactory(provider.token, provider.useFactory, provider.scope ?? 'singleton');
+    container.registerFactory(
+      provider.token,
+      c => {
+        const value = provider.useFactory(c);
+        recordInstance(value);
+        return value;
+      },
+      provider.scope ?? 'singleton',
+    );
   }
 }

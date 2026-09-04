@@ -1,6 +1,5 @@
-// Tests freeze (#593) for the one assertion in packages/query-compiler/src/outbox/SPEC.md §5 that
-// cannot be made from either the outbox package or the events package: that a dispatcher registered
-// on an application is actually drained when the application shuts down.
+// Application-level coverage for packages/query-compiler/src/outbox/SPEC.md §5: a dispatcher
+// registered as a provider participates in startup and graceful shutdown.
 //
 // §5 promises `onShutdown()` "stops claiming, waits for the in-flight batch, and does not wait for
 // the lease". ../../../repository/src/outbox/outbox.spec.ts asserts that promise against the
@@ -8,26 +7,9 @@
 // dispatcher whose `onShutdown` is correct and never invoked loses its in-flight batch on every
 // deploy, and that failure is invisible to both suites above.
 //
-// WHAT IT FOUND, and why half this file is green rather than red. `createApp` (./index.ts:38-39)
-// drives `runInit(controllers)` and `runShutdown(controllers)` — CONTROLLERS ONLY. A provider's
-// `onModuleInit` and `onShutdown` are never called, even for a `useValue` provider that is already
-// constructed and resolvable. Verified 2026-09-04 by running a module with one lifecycle-implementing
-// controller and one lifecycle-implementing provider through `createApp().init()` and
-// `Symbol.asyncDispose`:
-//
-//   LOG=["controller:init","controller:shutdown"]
-//   RESOLVED=true          // the provider instance was there the whole time
-//
-// So the green tests below pin that as today's shipped behaviour, and the `it.fails` tests state
-// what §5 needs. The natural home for a dispatcher is a provider — SPEC §6 of ../cqrs/SPEC.md makes
-// the same point about the command bus, "registered like any other provider" — and a provider is
-// exactly what never gets drained.
-//
-// THE IDIOM: this file has no missing imports at all. `createApp` and `@Module` both exist, and the
-// dispatcher is stood in for by a hand-written object with the frozen `OutboxDispatcher` shape, so
-// every test here is executable today. That is deliberate: the gap is in code that already ships,
-// so asserting it needs no stub, and an `it.fails` here means "the framework does not do this yet"
-// rather than "this module is unwritten".
+// The lifecycle ledger records value providers immediately and factory providers only after their
+// factory returns. That distinction prevents shutdown from constructing an unused dispatcher just
+// to stop it, while still recording dependencies before the object whose factory resolved them.
 import { describe, expect, it } from 'vitest';
 
 import { createToken } from '../di/index.js';
@@ -40,6 +22,7 @@ import { createApp } from './index.js';
 interface OutboxDispatcher {
   runOnce(): Promise<{ readonly claimed: number; readonly delivered: number; readonly failed: number }>;
   start(): void;
+  onModuleInit(): void;
   onShutdown(): Promise<void>;
 }
 
@@ -80,15 +63,8 @@ class RecordingDispatcher implements OutboxDispatcher {
 const DISPATCHER = createToken<RecordingDispatcher>('OUTBOX_DISPATCHER');
 const UNUSED = createToken<RecordingDispatcher>('OUTBOX_DISPATCHER_UNUSED');
 
-// ===========================================================================
-// the gap
-// ===========================================================================
-describe('outbox on an app: a dispatcher provider is not drained (#593, outbox SPEC §5)', () => {
-  it('today: a provider that implements onShutdown is never called', async () => {
-    // Today's shipped behaviour, pinned so the `it.fails` below cannot be read as a mystery.
-    // `createApp` passes only `controllers` to `runInit`/`runShutdown` (./index.ts:38-39), and a
-    // provider is not a controller. Recorded actual (2026-09-04): started 0, drained 0, while the
-    // instance itself resolves fine from the container.
+describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5)', () => {
+  it('a value provider participates in init and shutdown without losing its container binding', async () => {
     const dispatcher = new RecordingDispatcher();
 
     @Module({ providers: [{ token: DISPATCHER, useValue: dispatcher }] })
@@ -98,16 +74,12 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
     await app.init();
     await app[Symbol.asyncDispose]();
 
-    expect(dispatcher.started).toBe(0);
-    expect(dispatcher.drained).toBe(0);
-    // ...and it was reachable the entire time, so nothing was lazy or missing.
+    expect(dispatcher.started).toBe(1);
+    expect(dispatcher.drained).toBe(1);
     expect(app.container.resolve(DISPATCHER)).toBe(dispatcher);
   });
 
-  it('today: the same hooks on a controller ARE driven', async () => {
-    // The control. Same hooks, same detection, different list — which is what proves the finding
-    // above is about the registration and not about the structural detection in ../lifecycle.ts.
-    //
+  it('the same hooks on a controller remain driven', async () => {
     // The instance is observed through a shared log rather than through the container, because
     // `compileModule` does NOT register controllers as providers: `app.container.resolve(TheClass)`
     // throws `UnresolvedTokenError: @zmdb/web: no provider registered for token "undefined"` from
@@ -135,20 +107,7 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
     expect(log).toEqual(['start', 'drain']);
   });
 
-  it.fails('a dispatcher registered as a provider is started on init and drained on dispose', async () => {
-    // actual today: AssertionError: expected +0 to be 1 // Object.is equality — the provider is never
-    // driven; see the green test above.
-    //
-    // What outbox SPEC §5 needs. The dispatcher belongs on the container as a provider — it is a
-    // value with a driver and a publish function, it is injected into whatever writes outbox rows,
-    // and ../cqrs/SPEC.md §6 makes the identical argument for the command bus. Registering it as a
-    // controller to get a lifecycle would put it in the router's registration loop
-    // (./index.ts:29-31), which is wrong for an object with no routes.
-    //
-    // Landing this means `createApp` driving provider instances too. That is a change to
-    // ./SPEC.md's lifecycle contract and is NOT in #593's scope — this test is the freeze's
-    // statement of the prerequisite, and it should stay `it.fails` until that spec change is made.
-    // See NOTES.md.
+  it('a dispatcher registered as a provider is started on init and drained on dispose', async () => {
     const dispatcher = new RecordingDispatcher();
 
     @Module({ providers: [{ token: DISPATCHER, useValue: dispatcher }] })
@@ -164,17 +123,14 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
     expect(dispatcher.claiming).toBe(false);
   });
 
-  it.fails('a lazily-constructed dispatcher provider is drained only if it was built', async () => {
-    // actual today: AssertionError: expected +0 to be 1 // Object.is equality.
-    //
-    // The half that makes the change above safe to specify, and the reason it is not simply "drain
+  it('a lazily-constructed dispatcher provider is drained only if it was built', async () => {
+    // The half that makes provider lifecycle safe, and the reason it is not simply "drain
     // everything": a `useFactory` provider that nobody resolved was never constructed, so there is
     // nothing to drain and forcing its construction during SHUTDOWN would start a dispatcher in
-    // order to stop it. ../lifecycle.ts:48-53 already tolerates `undefined` entries — `runShutdown`
-    // takes `readonly (object | undefined)[]` — which is the signature a provider walk needs and
-    // which the controller walk never uses. So the contract this asserts is: drain the instances the
-    // container actually built, in reverse construction order, and skip the rest.
+    // order to stop it. A provider first resolved after `app.init()` did not exist for init, but it
+    // joins the construction ledger and is still drained.
     const built: RecordingDispatcher[] = [];
+    let unusedBuilt = 0;
 
     @Module({
       providers: [
@@ -186,7 +142,13 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
             return d;
           },
         },
-        { token: UNUSED, useFactory: () => new RecordingDispatcher() },
+        {
+          token: UNUSED,
+          useFactory: () => {
+            unusedBuilt += 1;
+            return new RecordingDispatcher();
+          },
+        },
       ],
     })
     class OutboxModule {}
@@ -197,18 +159,17 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
     await app[Symbol.asyncDispose]();
 
     expect(built).toHaveLength(1);
+    expect(unusedBuilt).toBe(0);
+    expect(resolved.started).toBe(0);
     expect(resolved.drained).toBe(1);
   });
 
-  it.fails('shutdown drains a dispatcher before the driver it depends on', async () => {
-    // actual today: AssertionError: expected [] to deeply equal [ 'dispatcher', 'driver' ].
-    //
-    // ../lifecycle.ts:47 already documents the ordering rule — "`onShutdown` in reverse construction
+  it('shutdown drains a dispatcher before the driver it depends on', async () => {
+    // ../lifecycle.ts documents the ordering rule — "`onShutdown` in reverse construction
     // order, so a dependent tears down before what it depends on" — and it is exactly the rule the
     // outbox needs: a dispatcher whose driver is closed underneath it fails its in-flight batch's
-    // marks, which outbox SPEC §8 then turns into duplicate deliveries on the next process. The
-    // ordering is asserted here because it is the property that makes "waits for the in-flight
-    // batch" achievable at all.
+    // marks. OWNER is deliberately registered before DRIVER, so declaration order cannot make this
+    // pass: resolving OWNER constructs DRIVER first, then OWNER, and shutdown reverses that order.
     const order: string[] = [];
 
     class Driver {
@@ -217,24 +178,25 @@ describe('outbox on an app: a dispatcher provider is not drained (#593, outbox S
       }
     }
     class Dispatcher {
+      constructor(readonly driver: Driver) {}
+
       onShutdown(): void {
         order.push('dispatcher');
       }
     }
-    const driver = new Driver();
-    const dispatcher = new Dispatcher();
     const DRIVER = createToken<Driver>('OUTBOX_DRIVER');
     const OWNER = createToken<Dispatcher>('OUTBOX_DISPATCHER_OWNER');
 
     @Module({
       providers: [
-        { token: DRIVER, useValue: driver },
-        { token: OWNER, useValue: dispatcher },
+        { token: OWNER, useFactory: c => new Dispatcher(c.resolve(DRIVER)) },
+        { token: DRIVER, useFactory: () => new Driver() },
       ],
     })
     class OutboxModule {}
 
     const app = createApp(OutboxModule);
+    app.container.resolve(OWNER);
     await app.init();
     await app[Symbol.asyncDispose]();
 

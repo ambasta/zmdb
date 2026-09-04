@@ -96,7 +96,7 @@ await queue.enqueue('email.send', { userId: 42 });
 
 Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the container first when they have injected dependencies, then pass those instances in the `handlers` array.
 
-The worker itself implements `onShutdown()`. Hold it from a controller, or delegate a controller's lifecycle hook to it, because the current application lifecycle still drives controllers rather than plain providers. The worker does not install process signal handlers. Generic provider lifecycle discovery is later #594 work; it is not part of #588's worker contract.
+The worker itself implements `onShutdown()`. Register a value instance as a provider, or resolve a factory provider before it is needed, and application disposal drains it automatically. The worker has no `onModuleInit`, so start it explicitly during bootstrap. It does not install process signal handlers.
 
 ## Transactions, delay and enqueue deduplication
 

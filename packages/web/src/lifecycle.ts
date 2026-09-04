@@ -1,14 +1,15 @@
 // @zmdb/web — lifecycle hooks, shared by the app bootstrap and the test harness.
 //
-// `createApp` and `createTestApp` both have to work out which controllers
-// implement which hook and drive them in the right order. They used to carry a
+// `createApp` and `createTestApp` both have to work out which constructed
+// providers and controllers implement which hook and drive them in the right
+// order. They used to carry a
 // copy each, and the copies disagreed: the test harness ran `onModuleInit` but
 // never `onApplicationBootstrap`, though testing/SPEC.md says its lifecycle is
 // "same as App". One implementation, one behaviour.
 //
 // Detection is structural `in`-narrowing on the instance: no reflection, no cast.
 
-/** Called after a controller is constructed. Providers are not driven — `runInit` walks controllers only. */
+/** Called after the eager application instances are constructed. */
 export interface OnModuleInit {
   onModuleInit(): void | Promise<void>;
 }

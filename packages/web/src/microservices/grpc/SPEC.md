@@ -304,7 +304,7 @@ export interface GrpcServerOptions {
 ```
 
 `AppOptions` (`../SPEC.md` §10) gains `readonly grpc?: GrpcServerOptions`, and everything else follows that
-file's ordering with no exception: the server binds in `init()` after `runInit(controllers)`, a failed bind
+file's ordering with no exception: the server binds in `init()` after `runInit(lifecycleInstances)`, a failed bind
 rejects `init()` and closes what was already opened, and the server shuts down before the shutdown hooks run so
 no handler outlives the repository it uses.
 
