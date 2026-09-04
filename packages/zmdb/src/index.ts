@@ -2,8 +2,20 @@
 // named re-exports: implementations remain in their owning packages, while
 // advanced surfaces live under concern-based `@zmdb/core/*` entry points.
 
-export { AssertError, assert, is, validate } from '@zmdb/validator';
-export { type ValidateResult } from '@zmdb/validator';
+export {
+  AssertError,
+  assert,
+  assertShallow,
+  assertEquals,
+  equals,
+  is,
+  isShallow,
+  makeRng,
+  random,
+  validate,
+  validateShallow,
+} from '@zmdb/validator';
+export type { ValidateResult } from '@zmdb/validator';
 
 export { Container, Inject, Module, createApplication, createToken } from '@zmdb/app';
 export type {
@@ -25,24 +37,44 @@ export type { Observability } from '@zmdb/app/observability';
 export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/orm';
 export { type Driver, type UpdatePatch } from '@zmdb/orm';
 
-export { schemaOf } from '@zmdb/schema';
-export { type CreateDTO, type Entity, type PrimaryKeyOf, type ReadDTO, type UpdateDTO } from '@zmdb/schema';
-export { type ValidationIssue } from '@zmdb/validator';
 export {
-  type HasDefault,
-  type Max,
-  type MaxLength,
-  type Min,
-  type MinLength,
-  type Pattern,
-  type Physical,
-  type PrimaryKey,
-  type References,
-  type Sensitive,
-  type Serial,
-  type Sql,
-  type Table,
-  type Unique,
+  createStateUpdatePayload,
+  decodeValue,
+  defineEntityStateMachine,
+  defineStateTransitions,
+  defineType,
+  encodeValue,
+  schemaOf,
+} from '@zmdb/schema';
+export type {
+  AllowedTargetStates,
+  CreateDTO,
+  CustomType,
+  Entity,
+  EntityStateMachine,
+  EntityStateMachineOptions,
+  PrimaryKeyOf,
+  ReadDTO,
+  StateTransitions,
+  StateUpdateDTO,
+  UpdateDTO,
+} from '@zmdb/schema';
+export { type ValidationIssue } from '@zmdb/validator';
+export type {
+  HasDefault,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  Pattern,
+  Physical,
+  PrimaryKey,
+  References,
+  Sensitive,
+  Serial,
+  Sql,
+  Table,
+  Unique,
 } from '@zmdb/schema/tags';
 
 export { createApp } from '@zmdb/web/app';
