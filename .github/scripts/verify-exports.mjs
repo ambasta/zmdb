@@ -133,9 +133,22 @@ for (const pkgDirName of packageDirs) {
  * `@zmdb/*` is followed rather than stopped at, because the umbrella package is the one
  * consumers actually import: a guard that gave up at the package boundary would miss the
  * only import graph that matters.
+ *
+ * A relative specifier needs the same `.js` -> `.ts` mapping `scripts/ts-specifier-hook.mjs`
+ * does at runtime, and for the same reason: the sources name their siblings as `./x.js`, and
+ * no `x.js` exists. Without it every walk below stopped at its entry file — measured, one
+ * file per export instead of sixteen for `@zmdb/web` — so the reachability check reported
+ * success by never looking.
  */
+function relativeTarget(file, specifier) {
+  const direct = join(dirname(file), specifier);
+  if (existsSync(direct)) return direct;
+  const sibling = direct.replace(/\.js$/, '.ts');
+  return existsSync(sibling) ? sibling : direct;
+}
+
 function resolveSpecifier(file, specifier) {
-  if (specifier.startsWith('.')) return join(dirname(file), specifier);
+  if (specifier.startsWith('.')) return relativeTarget(file, specifier);
   const match = /^(@[^/]+\/[^/]+|[^@][^/]*)(\/.*)?$/.exec(specifier);
   const target = match && WORKSPACE.get(match[1]);
   if (!target) return null;
