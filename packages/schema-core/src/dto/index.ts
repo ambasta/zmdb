@@ -5,7 +5,7 @@ import type { ComparisonPredicate, CompiledQuery, Dialect, SelectBuilder } from 
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
-import type { ColumnMeta, ColumnsMap, CoreSchema, Entity } from '../index.js';
+import type { Entity } from '../index.js';
 import { isRecord, ValidationError } from '../index.js';
 
 // ---------------------------------------------------------------------------
