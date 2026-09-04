@@ -38,7 +38,7 @@
 > MikroORM, NestJS and Typia run between them: 503 are answered by a named zmdb
 > test, 239 are argued against in writing, and `yarn verify:api-coverage` fails
 > on a suite that is neither.
-> Of the 276 docs-site pages, 218 document a capability that exists, 46 are marked
+> Of the 276 docs-site pages, 219 document a capability that exists, 45 are marked
 > `todo` — a page that argues for a feature gap rather than describing one — and 12
 > are marked not planned, where the answer is no and the page says what to reach for
 > instead. All three are counted by `yarn verify:docs-coverage`.

@@ -72,6 +72,13 @@ Same shape of result, same one-query-per-relation strategy. See [Loading Strateg
 
 `drizzle-kit generate` becomes a script calling `snapshot()` + `diff()` + `emitUp()`. The snapshot file plays the same role as Drizzle's `meta/_journal.json` + snapshot pair. See [generate](./cli-generate.html) for the script and [CLI Overview](./cli-overview.html) for what is missing.
 
+For an existing Drizzle-managed database, start with
+[schema-first adoption](./schema-first.html) instead of translating the schema
+object blind: introspect into a staging directory, review the generated tags and
+warnings, commit a baseline snapshot, and run `detectDrift()` against a restored
+database in CI. The future [pull command](./cli-pull.html) will package that
+library workflow rather than define a second one.
+
 ## Validation
 
 Drop `drizzle-zod`. `assert<CreateDTO<User>>(body)` is generated from the same declaration by the transformer, so there is no second schema to keep in sync. See [assert()](./validators-assert.html).

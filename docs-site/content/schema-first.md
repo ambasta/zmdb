@@ -1,8 +1,9 @@
-> **ToDo / feature gap.** PostgreSQL, MySQL and SQLite catalog readers now
-> produce a normalized `CatalogSchemaSnapshot`, and `emitDeclarations()` turns
-> it into deterministic TypeScript. `detectDrift()` compares that snapshot with
-> declarations in both directions. The `zmdb pull`/`check` command wiring and
-> complete adoption workflow remain, so this page stays TODO.
+PostgreSQL, MySQL and SQLite catalog readers produce a normalized
+`CatalogSchemaSnapshot`. `emitDeclarations()` turns it into deterministic
+TypeScript, and `detectDrift()` compares that live snapshot with reviewed
+declarations in both directions. Those library APIs are the supported adoption
+path; the future `zmdb pull` and `zmdb check` commands will package the same
+calls behind project configuration.
 
 ## What "schema first" means here
 
@@ -22,7 +23,7 @@ See [pull](./cli-pull.html).
 
 ## Adopting zmdb on an existing database
 
-1. **Generate a reviewed starting point.**
+1. **Generate a reviewed starting point in a staging directory.**
 
    ```ts
    import { mkdir, writeFile } from 'node:fs/promises';
@@ -36,7 +37,7 @@ See [pull](./cli-pull.html).
    const emitted = await emitDeclarations(live, { dialect: 'postgres' });
 
    for (const file of emitted.files) {
-     const path = join('src/schema', file.path);
+     const path = join('.zmdb/introspected', file.path);
      await mkdir(dirname(path), { recursive: true });
      await writeFile(path, file.source);
    }
@@ -45,14 +46,16 @@ See [pull](./cli-pull.html).
    The emitter keeps physical table and column names in `Table<'…'>` and the
    properties, adds fixed-order tags, preserves database defaults as comments,
    and emits unambiguous to-one relations. It never falls back to `unknown`.
-   Review every structural warning and matching `TODO` comment before treating
-   the declarations as application truth.
+   Review every structural warning and matching `TODO` comment. Generated files
+   are overwritten wholesale: copy the accepted declarations into your
+   application-owned schema directory and make necessary hand edits there,
+   rather than editing `.zmdb/introspected`.
 
 2. **Take a baseline snapshot** so future diffs start from reality rather than
    from empty:
 
    ```ts
-   writeFileSync('migrations/snapshot.json', JSON.stringify(snapshot([schemaOf<LegacyUser>()]), null, 2));
+   await writeFile('migrations/snapshot.json', JSON.stringify(snapshot([schemaOf<LegacyUser>()]), null, 2));
    ```
 
    Commit it without a corresponding migration file. That is the "this already
@@ -91,7 +94,7 @@ See [pull](./cli-pull.html).
    [generate](./cli-generate.html) works normally: change the interface, diff
    against the snapshot, and review the SQL.
 
-## What remains
+## Limits and drift noise
 
 The three readers use `information_schema` plus `pg_catalog` for PostgreSQL,
 `information_schema` for MySQL, and bound table-valued PRAGMAs for SQLite. They
@@ -99,10 +102,23 @@ retain catalog evidence even when no declaration can express it. The emitter
 then omits unsafe mappings, returns warnings structurally, and puts the same
 warning in the generated file.
 
-The remaining work is the adoption CLI and its overwrite/output policy. The
-mapping itself remains intentionally reviewable: `inet`, `bytea`, an arbitrary
-SQLite declaration, or an enum without recovered members cannot become an
-honest tagged property. See [Database Extensions](./db-extensions.html).
+- Defaults and catalog type aliases are retained as evidence but normalized out
+  of drift comparison; servers routinely rewrite their spelling.
+- Pass `{ dialect: 'mysql' }` so the live-side normalization can omit a strict
+  foreign-key support-index shape. Other indexes are preserved.
+- A custom `exclude` list replaces the default, so include
+  `_zmdb_migrations` yourself when adding project bookkeeping patterns.
+- Catalog visibility follows the connecting role. An object the role cannot see
+  looks absent, so run CI with a role whose visibility matches the scope you
+  intend to check.
+- Views, triggers, stored routine bodies, grants and policies are not emitted as
+  table declarations. Keep their SQL and review process separate.
+- `inet`, `bytea`, an arbitrary SQLite declaration, or an enum without recovered
+  members cannot become an honest tagged property. The emitter warns instead of
+  widening one silently. See [Database Extensions](./db-extensions.html).
+
+The `pull` and `check` executables remain CLI work, not missing library
+semantics. See [pull](./cli-pull.html) for that command boundary.
 
 ---
 

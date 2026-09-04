@@ -599,8 +599,7 @@ export const PAGE_META = {
   'schema-first': {
     title: 'Schema-First (existing database)',
     group: 'Schema',
-    status: 'todo',
-    note: 'catalog readers, declaration emission and drift reporting ship; the adoption CLI remains',
+    status: 'supported',
   },
   crud: {
     title: 'CRUD',

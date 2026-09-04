@@ -1,5 +1,12 @@
 The hard part of this migration is not syntax, it is the change in model: MikroORM manages your objects, zmdb does not. Plan for the `EntityManager` to disappear rather than to be replaced.
 
+If the MikroORM application already has a live database, begin with the
+[schema-first adoption path](./schema-first.html): introspect into a staging
+directory, review every warning, copy the accepted declarations into
+application-owned files, take a baseline snapshot, and keep it honest with
+`detectDrift()` in CI. That is safer than translating hundreds of decorators by
+hand before comparing either result with the catalog.
+
 ## Entities become declared types
 
 ```ts
@@ -87,7 +94,9 @@ the request boundary, then use `loaderFor(repo)` for keyed reads or
 - cascades — [Cascading](./cascading.html)
 - `em.upsert` — [Upsert](./upsert.html)
 - `qb.stream()` — [Streaming](./streaming.html)
-- `mikro-orm generate-entities` — [pull](./cli-pull.html)
+- the `mikro-orm generate-entities` command — use the
+  [schema-first library workflow](./schema-first.html); command packaging belongs
+  to [pull](./cli-pull.html)
 
 ## Config
 
