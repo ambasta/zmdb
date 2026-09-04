@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
 
-import { is, assert, validate, equals, failWith, issuesFor, random, AssertError, type TypeIR } from './index.js';
+import {
+  is,
+  isShallow,
+  assert,
+  assertShallow,
+  validate,
+  validateShallow,
+  equals,
+  failWith,
+  issuesFor,
+  random,
+  AssertError,
+  type TypeIR,
+} from './index.js';
 
 // RED PHASE (#56 spec freeze): validator utility surface.
 
@@ -26,6 +39,28 @@ const user: TypeIR = {
         members: [
           { kind: 'literal', value: 'admin' },
           { kind: 'literal', value: 'user' },
+        ],
+      },
+      optional: false,
+      readonly: false,
+    },
+  ],
+};
+
+const nested: TypeIR = {
+  kind: 'object',
+  properties: [
+    {
+      name: 'user',
+      type: {
+        kind: 'object',
+        properties: [
+          {
+            name: 'id',
+            type: { kind: 'scalar', scalar: 'number' },
+            optional: false,
+            readonly: false,
+          },
         ],
       },
       optional: false,
@@ -97,6 +132,47 @@ describe('validate<T>', () => {
     const r = validate({ id: -1, email: 123, role: 'nope' }, user);
     expect(r.success).toBe(false);
     expect(r.errors?.length).toBe(3);
+  });
+});
+
+describe('shallow validator fallback', () => {
+  it('throws the untransformed-build error for every shallow entry point', () => {
+    for (const call of [
+      () => isShallow<{ user: { id: number } }>({ user: { id: 1 } }),
+      () => assertShallow<{ user: { id: number } }>({ user: { id: 1 } }),
+      () => validateShallow<{ user: { id: number } }>({ user: { id: 1 } }),
+    ]) {
+      expect(call).toThrow('runtime type witness required in test/fallback mode');
+    }
+  });
+
+  it('walks the explicit witness only to the supplied depth', () => {
+    const malformedBelowLimit = { user: { id: 'not a number' } };
+    expect(isShallow<{ user: { id: number } }, 1>(malformedBelowLimit, nested, 1)).toBe(true);
+    expect(isShallow<{ user: { id: number } }, 2>(malformedBelowLimit, nested, 2)).toBe(false);
+    expect(assertShallow<{ user: { id: number } }, 1>(malformedBelowLimit, nested, 1)).toBe(malformedBelowLimit);
+    expect(validateShallow<{ user: { id: number } }, 1>(malformedBelowLimit, nested, 1)).toEqual({
+      success: true,
+      data: malformedBelowLimit,
+    });
+    expect(validateShallow<{ user: { id: number } }, 2>(malformedBelowLimit, nested, 2)).toEqual({
+      success: false,
+      errors: [
+        {
+          path: 'input.user.id',
+          expected: 'number',
+          value: 'not a number',
+          message: 'expected number',
+        },
+      ],
+    });
+    expect(isShallow({ user: 'not an object' }, nested, 1)).toBe(false);
+  });
+
+  it.each([0, -1, 1.5, Number.NaN])('refuses invalid fallback depth %s', depth => {
+    expect(() => isShallow({ user: { id: 1 } }, nested, depth)).toThrow(
+      'shallow validation fallback depth must be a positive integer',
+    );
   });
 });
 

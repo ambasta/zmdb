@@ -146,7 +146,7 @@ describe('CALLEES', () => {
     ]);
   });
 
-  it.fails('names every transformed call, and every one of them is a function somebody can call', async () => {
+  it('names every transformed call, and every one of them is a function somebody can call', async () => {
     const utilities = await import('./utilities/index.js');
     const validator = await import('./index.js');
     const core = await import('@zmdb/schema-core');

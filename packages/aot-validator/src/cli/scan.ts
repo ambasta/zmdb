@@ -62,6 +62,8 @@ export interface Entry {
   readonly callee: string;
   /** The type argument, verbatim from the source it was read in. */
   readonly typeText: string;
+  /** The non-default shallow depth, when this call carries one. */
+  readonly depthText?: string;
   /** The export name in the generated module. Derived, so it is stable across runs. */
   readonly name: string;
 }
@@ -232,10 +234,13 @@ function capitalise(text: string): string {
 
 const PREFIXES: Readonly<Record<string, string>> = {
   is: 'Is',
+  isShallow: 'IsShallow',
   equals: 'Equals',
   assert: 'Assert',
+  assertShallow: 'AssertShallow',
   assertEquals: 'AssertEquals',
   validate: 'Validate',
+  validateShallow: 'ValidateShallow',
   random: 'Random',
   toJsonSchema: 'JsonSchema',
   schemaOf: 'Schema',
@@ -254,7 +259,7 @@ const MAX_SLUG = 48;
  * it has to come out the same on every run or the codegen produces a diff per invocation.
  * It is derived only from the callee and the type text, both of which are in the source.
  */
-export function exportName(callee: string, typeText: string, taken: ReadonlySet<string>): string {
+export function exportName(callee: string, typeText: string, taken: ReadonlySet<string>, depthText?: string): string {
   const slug = typeText
     .replaceAll(/[^A-Za-z0-9]+/g, ' ')
     .trim()
@@ -262,7 +267,16 @@ export function exportName(callee: string, typeText: string, taken: ReadonlySet<
     .map(capitalise)
     .join('')
     .slice(0, MAX_SLUG);
-  const base = `zmdb${PREFIXES[callee] ?? capitalise(callee)}${slug}`;
+  const depth =
+    depthText === undefined
+      ? ''
+      : `Depth${depthText
+          .replaceAll(/[^A-Za-z0-9]+/g, ' ')
+          .trim()
+          .split(/\s+/)
+          .map(capitalise)
+          .join('')}`;
+  const base = `zmdb${PREFIXES[callee] ?? capitalise(callee)}${slug}${depth}`;
   if (!taken.has(base)) return base;
   // Two different types with the same slug — `Pick<User, 'id'>` and `Pick<User, "id">`,
   // say. Numbering is ugly and deterministic, which is the right trade for a generated
@@ -290,8 +304,11 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   is: '@zmdb/aot-validator/utilities',
   equals: '@zmdb/aot-validator/utilities',
   assert: '@zmdb/aot-validator/utilities',
+  assertShallow: '@zmdb/aot-validator/utilities',
   assertEquals: '@zmdb/aot-validator/utilities',
   validate: '@zmdb/aot-validator/utilities',
+  validateShallow: '@zmdb/aot-validator/utilities',
+  isShallow: '@zmdb/aot-validator/utilities',
   random: '@zmdb/aot-validator/utilities',
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
@@ -382,21 +399,43 @@ export function scan(input: ScanInput): ScanResult {
   const refusals: ScanRefusal[] = [];
   const calleeSources = new Map<string, string>();
   const taken = new Set<string>();
-  /** `callee\u0000typeText` → the entry, so two call sites for one type share an export. */
+  /** `callee\u0000typeText\u0000depthText` → the entry, so equivalent call sites share an export. */
   const byKey = new Map<string, Entry>();
   /** Heads still to resolve, and the file each was written in. */
   const pending: { readonly names: ReadonlySet<string>; readonly file: SourceFile; readonly typeText: string }[] = [];
 
-  const add = (callee: string, typeText: string, file: SourceFile, node: Node): Entry => {
-    const key = `${callee}\u0000${typeText}`;
+  const add = (
+    callee: string,
+    typeText: string,
+    file: SourceFile,
+    node: Node,
+    depthText?: string,
+    depthNode?: Node,
+  ): Entry => {
+    const key = `${callee}\u0000${typeText}\u0000${depthText ?? ''}`;
     const existing = byKey.get(key);
     if (existing) return existing;
-    const entry: Entry = { callee, typeText, name: exportName(callee, typeText, taken) };
+    const entry: Entry =
+      depthText === undefined
+        ? { callee, typeText, name: exportName(callee, typeText, taken) }
+        : { callee, typeText, depthText, name: exportName(callee, typeText, taken, depthText) };
     taken.add(entry.name);
     byKey.set(key, entry);
     entries.push(entry);
-    pending.push({ names: referencedNames(node), file, typeText });
+    const names = new Set(referencedNames(node));
+    if (depthNode !== undefined) {
+      for (const name of referencedNames(depthNode)) names.add(name);
+    }
+    pending.push({ names, file, typeText });
     return entry;
+  };
+
+  const depthOf = (site: CallSite, file: SourceFile): { readonly text?: string; readonly node?: Node } => {
+    if (!site.callee.endsWith('Shallow')) return {};
+    const node = site.node.typeArguments?.[1];
+    if (node === undefined) return {};
+    const text = file.text.slice(node.getStart(), node.end).trim();
+    return text === '1' ? {} : { text, node };
   };
 
   // The witness is written next to the source, so the source's own relative specifiers
@@ -417,18 +456,23 @@ export function scan(input: ScanInput): ScanResult {
   if (witnessFile) {
     for (const site of findCallSites(witnessFile, CALLEES)) {
       const typeText = witnessFile.text.slice(site.typeArgument.getStart(), site.typeArgument.end);
-      const name = exportName(site.callee, typeText, new Set());
+      const depth = depthOf(site, witnessFile);
+      const name = exportName(site.callee, typeText, new Set(), depth.text);
       // Referenced by identifier, not by import: the source may have been edited by hand
       // since, and what matters is whether the name is still used anywhere in it.
       if (!referencesName(sourceText, name)) continue;
-      add(site.callee, typeText, witnessFile, site.typeArgument);
+      add(site.callee, typeText, witnessFile, site.typeArgument, depth.text, depth.node);
       calleeSources.set(site.callee, calleeSpecifier(facts(witnessFile), site));
     }
   }
 
   for (const site of findCallSites(sourceFile, CALLEES)) {
     const typeText = sourceText.slice(site.typeArgument.getStart(), site.typeArgument.end);
-    sites.push({ site, entry: add(site.callee, typeText, sourceFile, site.typeArgument) });
+    const depth = depthOf(site, sourceFile);
+    sites.push({
+      site,
+      entry: add(site.callee, typeText, sourceFile, site.typeArgument, depth.text, depth.node),
+    });
     // The source's answer overrides the witness's: the witness only ever says what a
     // previous run wrote, and the user may since have changed where they import from.
     calleeSources.set(site.callee, calleeSpecifier(facts(sourceFile), site));

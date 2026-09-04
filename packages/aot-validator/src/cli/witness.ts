@@ -61,6 +61,7 @@ function end(name: string): string {
 /** The type each callee's signature needs beyond the type argument itself. */
 const SUPPORT_TYPES: Readonly<Record<string, string>> = {
   validate: 'ValidateResult',
+  validateShallow: 'ValidateResult',
   toJsonSchema: 'JsonSchemaObject',
   schemaOf: 'TaggedSchema',
 };
@@ -153,6 +154,7 @@ interface Signature {
  */
 function signature(entry: Entry): Signature {
   const type = entry.typeText;
+  const typeArguments = entry.depthText === undefined ? type : `${type}, ${entry.depthText}`;
   switch (entry.callee) {
     case 'is':
     case 'equals':
@@ -162,15 +164,36 @@ function signature(entry: Entry): Signature {
         plain: 'value',
         call: `${entry.callee}<${type}>(value)`,
       };
+    case 'isShallow':
+      return {
+        parameters: 'value: unknown',
+        returns: `value is ${type}`,
+        plain: 'value',
+        call: `isShallow<${typeArguments}>(value)`,
+      };
     case 'assert':
     case 'assertEquals':
       return { parameters: 'value: unknown', returns: type, plain: 'value', call: `${entry.callee}<${type}>(value)` };
+    case 'assertShallow':
+      return {
+        parameters: 'value: unknown',
+        returns: type,
+        plain: 'value',
+        call: `assertShallow<${typeArguments}>(value)`,
+      };
     case 'validate':
       return {
         parameters: 'value: unknown',
         returns: `ValidateResult<${type}>`,
         plain: 'value',
         call: `validate<${type}>(value)`,
+      };
+    case 'validateShallow':
+      return {
+        parameters: 'value: unknown',
+        returns: `ValidateResult<${type}>`,
+        plain: 'value',
+        call: `validateShallow<${typeArguments}>(value)`,
       };
     case 'random':
       return { parameters: '', returns: type, plain: '', call: `random<${type}>()` };

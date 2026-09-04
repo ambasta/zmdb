@@ -1,0 +1,340 @@
+{
+  "schemaVersion": 1,
+  "suite": "@zmdb/aot-validator populated-row shallow validation",
+  "publicationStatus": "final",
+  "measuredAt": "2026-09-04T16:50:31.236Z",
+  "baseHead": "0fb44accf620aeff19cc8c14d5d4905b87ff11b5",
+  "dirty": true,
+  "inputs": {
+    "algorithm": "sha256",
+    "files": [
+      {
+        "path": "benchmarks/harness/validation/run-shallow.sh",
+        "sha256": "9873ed820045dbff4d9101dc593f37e3ca3ee45e005a4f9f377a29382ad0d662"
+      },
+      {
+        "path": "benchmarks/harness/validation/shallow-source.ts",
+        "sha256": "ad00cf800a9531f7d5a9b37e3c31dc5a665b0a920f93c5e4bd3cd0e705ee488f"
+      },
+      {
+        "path": "benchmarks/harness/validation/shallow.generated.ts",
+        "sha256": "6ef10347b154ca28ffdb342bbb78ca42c2042278426a176f6ce361db21d1678b"
+      },
+      {
+        "path": "benchmarks/harness/validation/shallow.bench.ts",
+        "sha256": "0991858a916752a2ef0513f0c30d020f34fca41970053d9ef6a49409ba3a7222"
+      },
+      {
+        "path": "benchmarks/harness/validation/tsconfig.json",
+        "sha256": "82c27a433bbee068c9ac85ed0df4bb0147cd1dff6ef5eb280dd083592a7f46cd"
+      },
+      {
+        "path": "benchmarks/scripts/generate-validation-model.mjs",
+        "sha256": "3e83bd155501f0fa950598c66e8661287b98207e45ecd611f0438b1522196533"
+      },
+      {
+        "path": "scripts/ts-specifier-hook.mjs",
+        "sha256": "cbeeabe5ec40042868bab6f56325529ac85fe664195c30ffb925d112a043e61f"
+      }
+    ]
+  },
+  "runtime": {
+    "node": "v26.8.1",
+    "platform": "linux/x64",
+    "host": "lander",
+    "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+    "logicalCpus": 16,
+    "totalMemoryBytes": 65044914176,
+    "loadAverage": [
+      2.53,
+      4.09,
+      3.66
+    ],
+    "cpuGovernor": "performance"
+  },
+  "workload": {
+    "row": "PopulatedOrderRow",
+    "poolSize": 8,
+    "relations": [
+      "customer",
+      "warehouse",
+      "carrier"
+    ],
+    "relationsPerRow": 3,
+    "list": "items",
+    "listItemsPerRow": 100
+  },
+  "methodology": {
+    "source": "transformFile output in benchmarks/harness/validation/shallow.generated.ts via scripts/ts-specifier-hook.mjs",
+    "comparison": "is<PopulatedOrderRow> versus isShallow<PopulatedOrderRow, 1>",
+    "warmup": "each mode ran until 500 ms of timed hot-loop work had elapsed",
+    "warmupMs": 500,
+    "warmupBatchIters": 10000,
+    "targetSampleMs": 300,
+    "maxSampleIters": 30000000,
+    "maxFinalSpread": 1.25,
+    "rounds": 6,
+    "order": "six alternating orders; each mode appears three times in each ordinal position",
+    "permutations": [
+      [
+        "full",
+        "shallow-depth-1"
+      ],
+      [
+        "shallow-depth-1",
+        "full"
+      ],
+      [
+        "full",
+        "shallow-depth-1"
+      ],
+      [
+        "shallow-depth-1",
+        "full"
+      ],
+      [
+        "full",
+        "shallow-depth-1"
+      ],
+      [
+        "shallow-depth-1",
+        "full"
+      ]
+    ],
+    "inputRotation": "every operation selects the next row from an eight-row power-of-two pool",
+    "resultObservation": "every boolean result contributes to an accepted count checked after the timed interval"
+  },
+  "semanticChecks": [
+    {
+      "name": "valid populated row",
+      "expected": {
+        "full": true,
+        "shallow": true
+      },
+      "actual": {
+        "full": true,
+        "shallow": true
+      }
+    },
+    {
+      "name": "invalid field inside a populated relation",
+      "expected": {
+        "full": false,
+        "shallow": true
+      },
+      "actual": {
+        "full": false,
+        "shallow": true
+      }
+    },
+    {
+      "name": "invalid field inside a list item",
+      "expected": {
+        "full": false,
+        "shallow": true
+      },
+      "actual": {
+        "full": false,
+        "shallow": true
+      }
+    },
+    {
+      "name": "invalid top-level scalar",
+      "expected": {
+        "full": false,
+        "shallow": false
+      },
+      "actual": {
+        "full": false,
+        "shallow": false
+      }
+    },
+    {
+      "name": "invalid relation shape",
+      "expected": {
+        "full": false,
+        "shallow": false
+      },
+      "actual": {
+        "full": false,
+        "shallow": false
+      }
+    },
+    {
+      "name": "invalid list shape",
+      "expected": {
+        "full": false,
+        "shallow": false
+      },
+      "actual": {
+        "full": false,
+        "shallow": false
+      }
+    }
+  ],
+  "warmups": [
+    {
+      "mode": "full",
+      "iterations": 1050000,
+      "hotLoopMs": 500.8160789999994,
+      "wallMs": 501.103783,
+      "opsPerSec": 2096578.0533575907
+    },
+    {
+      "mode": "shallow-depth-1",
+      "iterations": 49500000,
+      "hotLoopMs": 500.0875180000014,
+      "wallMs": 500.545029,
+      "opsPerSec": 98982674.46859144
+    }
+  ],
+  "samples": [
+    {
+      "round": 1,
+      "position": 1,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 288.42084,
+      "opsPerSec": 2180750.877779844,
+      "nsPerOp": 458.55765103168017
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 303.7268980000001,
+      "opsPerSec": 97768104.16046849,
+      "nsPerOp": 10.228284659777003
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 295.190116,
+      "opsPerSec": 100595519.26189832,
+      "nsPerOp": 9.940800617535668
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 280.14021200000025,
+      "opsPerSec": 2245211.4086356135,
+      "nsPerOp": 445.39235644080713
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 287.060743,
+      "opsPerSec": 2191083.2997460747,
+      "nsPerOp": 456.3952452724596
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 296.9604549999999,
+      "opsPerSec": 99995815.94121684,
+      "nsPerOp": 10.000418423385396
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 295.98594600000024,
+      "opsPerSec": 100325043.81137061,
+      "nsPerOp": 9.967600930034802
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 280.61895400000003,
+      "opsPerSec": 2241381.029451061,
+      "nsPerOp": 446.15350396041816
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 283.76916500000016,
+      "opsPerSec": 2216498.751723076,
+      "nsPerOp": 451.1619955673846
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 293.8863970000002,
+      "opsPerSec": 101041774.31526366,
+      "nsPerOp": 9.896896672458148
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "mode": "shallow-depth-1",
+      "iterations": 29694803,
+      "accepted": 29694803,
+      "totalMs": 290.8375769999998,
+      "opsPerSec": 102100984.70184967,
+      "nsPerOp": 9.79422483456111
+    },
+    {
+      "round": 6,
+      "position": 2,
+      "mode": "full",
+      "iterations": 628974,
+      "accepted": 628974,
+      "totalMs": 279.8847689999993,
+      "opsPerSec": 2247260.550287399,
+      "nsPerOp": 444.9862299554502
+    }
+  ],
+  "summary": [
+    {
+      "mode": "full",
+      "samples": 6,
+      "iterationsPerSample": 628974,
+      "medianNsPerOp": 448.6577497639014,
+      "medianOpsPerSec": 2228870.4486353644,
+      "minNsPerOp": 444.9862299554502,
+      "maxNsPerOp": 458.55765103168017,
+      "spreadMaxOverMin": 1.0304985191959506
+    },
+    {
+      "mode": "shallow-depth-1",
+      "samples": 6,
+      "iterationsPerSample": 29694803,
+      "medianNsPerOp": 9.954200773785235,
+      "medianOpsPerSec": 100460099.48217419,
+      "minNsPerOp": 9.79422483456111,
+      "maxNsPerOp": 10.228284659777003,
+      "spreadMaxOverMin": 1.0443179355740555
+    }
+  ],
+  "comparison": {
+    "shallowVsFullSpeedup": 45.072202174729945,
+    "shallowTimeReductionPercent": 97.78133760555268
+  },
+  "sink": 2769124081
+}

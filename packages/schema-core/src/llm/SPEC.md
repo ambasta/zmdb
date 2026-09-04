@@ -193,7 +193,7 @@ other, and the shape is the thing worth sharing when the type cannot be.
 
 **It does not happen at AOT time, and step 4 is wrong about that.** `toolFor(provider, name, schema, opts)`
 takes a schema _value_ and a provider _string_; `P` is inferred from an argument. The transform reads **type**
-arguments — `CALLEES` is eight names and a call site's type argument is what the reflector reads — so
+arguments — `CALLEES` is fourteen names and a call site's type argument is what the reflector reads — so
 `toolFor` cannot join that list, and there would be nothing for it to do if it did. Frozen: `toolFor` throws
 a `ToolSpecRefusal`-carrying error at the call, which for a tool registry built at module scope is startup
 rather than first request.

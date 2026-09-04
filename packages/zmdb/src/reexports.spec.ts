@@ -4,7 +4,14 @@ import {
   protoEncode as srcProtoEncode,
   tags as srcTags,
 } from '@zmdb/aot-validator';
-import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
+import {
+  is as srcIs,
+  isShallow as srcIsShallow,
+  assert as srcAssert,
+  assertShallow as srcAssertShallow,
+  validate as srcValidate,
+  validateShallow as srcValidateShallow,
+} from '@zmdb/aot-validator/utilities';
 import {
   coalesce as srcCoalesce,
   concat as srcConcat,
@@ -38,6 +45,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assert,
+  assertShallow,
   BaseRepository,
   coalesce,
   concat,
@@ -46,6 +54,7 @@ import {
   defineRepository,
   inc,
   is,
+  isShallow,
   migrations,
   mul,
   not,
@@ -57,6 +66,7 @@ import {
   tags,
   UnsupportedFeatureError,
   validate,
+  validateShallow,
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,
@@ -91,10 +101,13 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(proposed).toBe(srcProposed);
   });
 
-  it('re-exports validators is/assert/validate/tags and protobuf codec/descriptor calls', () => {
+  it('exports the shallow validators from the umbrella package', () => {
     expect(is).toBe(srcIs);
+    expect(isShallow).toBe(srcIsShallow);
     expect(assert).toBe(srcAssert);
+    expect(assertShallow).toBe(srcAssertShallow);
     expect(validate).toBe(srcValidate);
+    expect(validateShallow).toBe(srcValidateShallow);
     expect(tags).toBe(srcTags);
     expect(protoDecode).toBe(srcProtoDecode);
     expect(protoDescriptor).toBe(srcProtoDescriptor);

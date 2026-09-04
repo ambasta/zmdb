@@ -145,7 +145,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | ---------------------- | -------------------------------------------------------------------------------------------- |
 | `@zmdb/schema-core`    | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI |
 | `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
-| `@zmdb/aot-validator`  | Type reflection, the transformer, is/assert/validate/equals/random, serialization            |
+| `@zmdb/aot-validator`  | Type reflection, full/shallow is/assert/validate, equals/random, serialization               |
 | `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                                          |
 
 ## Next Steps

@@ -17,8 +17,10 @@
 //   - a dashboard JSON's upstreamCommit no longer matches the pinned submodule
 //   - an observability result, when present, is diagnostic, incomplete, measured
 //     from changed input bytes, uses different dependencies, or is inconsistent
+//   - the shallow-validation result is missing, unstable, measured from changed
+//     input bytes, semantically incomplete, or inconsistent with RESULTS.md
 //
-// The last one is the interesting one: bumping an upstream submodule silently
+// The last two are the interesting ones: bumping an upstream submodule silently
 // invalidates every number measured against the old one. Reading the gitlink
 // out of the tree catches that without checking the submodules out.
 //
@@ -74,6 +76,24 @@ const OBSERVABILITY_INPUTS = [
   'packages/web/src/routing/index.ts',
 ];
 const OBSERVABILITY_PUBLICATIONS = ['benchmarks/RESULTS.md', 'docs-site/content/web-benchmarks.md'];
+const SHALLOW_VALIDATION_MODES = ['full', 'shallow-depth-1'];
+const SHALLOW_VALIDATION_PERMUTATIONS = [
+  ['full', 'shallow-depth-1'],
+  ['shallow-depth-1', 'full'],
+  ['full', 'shallow-depth-1'],
+  ['shallow-depth-1', 'full'],
+  ['full', 'shallow-depth-1'],
+  ['shallow-depth-1', 'full'],
+];
+const SHALLOW_VALIDATION_INPUTS = [
+  'benchmarks/harness/validation/run-shallow.sh',
+  'benchmarks/harness/validation/shallow-source.ts',
+  'benchmarks/harness/validation/shallow.generated.ts',
+  'benchmarks/harness/validation/shallow.bench.ts',
+  'benchmarks/harness/validation/tsconfig.json',
+  'benchmarks/scripts/generate-validation-model.mjs',
+  'scripts/ts-specifier-hook.mjs',
+];
 
 const errors = [];
 const fail = msg => errors.push(msg);
@@ -169,6 +189,13 @@ if (!existsSync(observabilityPath)) {
   await verifyObservabilityResult(observabilityPath);
 }
 
+const shallowValidationPath = join(BENCH, 'site', 'shallow-validation.json');
+if (!existsSync(shallowValidationPath)) {
+  fail('benchmarks/site/shallow-validation.json is missing — run the focused benchmark with --write-final');
+} else {
+  await verifyShallowValidationResult(shallowValidationPath);
+}
+
 if (errors.length > 0) {
   console.error(`\n${errors.length} problem(s) with the committed benchmark results:`);
   for (const e of errors) console.error(`  ✖ ${e}`);
@@ -176,6 +203,7 @@ if (errors.length > 0) {
     '\nBenchmarks are measured locally, not in CI:\n' +
       '  git submodule update --init --depth 1\n' +
       '  yarn bench            # measure + normalise into benchmarks/site/\n' +
+      '  bash benchmarks/harness/validation/run-shallow.sh --write-final\n' +
       '  git add benchmarks/site benchmarks/RESULTS.md\n',
   );
   process.exit(1);
@@ -395,6 +423,288 @@ async function verifyObservabilityInputs(rel, inputs) {
       fail(`${rel} input ${entry.path} hash is stale: recorded ${String(entry.sha256)}, actual ${actual}`);
     }
   }
+}
+
+async function verifyShallowValidationResult(path) {
+  const rel = 'benchmarks/site/shallow-validation.json';
+  let data;
+  try {
+    data = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (err) {
+    fail(`${rel} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  if (data.schemaVersion !== 1) fail(`${rel} schemaVersion must be 1`);
+  if (data.suite !== '@zmdb/aot-validator populated-row shallow validation') {
+    fail(`${rel} has the wrong suite label`);
+  }
+  if (data.publicationStatus !== 'final') fail(`${rel} must have publicationStatus "final"`);
+  if (typeof data.dirty !== 'boolean') fail(`${rel} must record whether the worktree was dirty`);
+  if (typeof data.measuredAt !== 'string' || !Number.isFinite(Date.parse(data.measuredAt))) {
+    fail(`${rel} has no valid measuredAt timestamp`);
+  }
+  if (typeof data.baseHead !== 'string' || !/^[0-9a-f]{40}$/.test(data.baseHead)) {
+    fail(`${rel} has no full baseHead`);
+  }
+  await verifyShallowValidationInputs(rel, data.inputs);
+
+  if (
+    typeof data.runtime?.node !== 'string' ||
+    typeof data.runtime?.platform !== 'string' ||
+    typeof data.runtime?.host !== 'string' ||
+    typeof data.runtime?.cpu !== 'string' ||
+    !positive(data.runtime?.logicalCpus)
+  ) {
+    fail(`${rel} has incomplete runtime provenance`);
+  }
+
+  if (
+    data.workload?.row !== 'PopulatedOrderRow' ||
+    data.workload?.poolSize !== 8 ||
+    JSON.stringify(data.workload?.relations) !== JSON.stringify(['customer', 'warehouse', 'carrier']) ||
+    data.workload?.relationsPerRow !== 3 ||
+    data.workload?.list !== 'items' ||
+    data.workload?.listItemsPerRow !== 100
+  ) {
+    fail(`${rel} does not describe the required three-relation, 100-item populated row`);
+  }
+
+  if (
+    data.methodology?.source !==
+    'transformFile output in benchmarks/harness/validation/shallow.generated.ts via scripts/ts-specifier-hook.mjs'
+  ) {
+    fail(`${rel} was not measured from the generated transformer output`);
+  }
+  if (data.methodology?.comparison !== 'is<PopulatedOrderRow> versus isShallow<PopulatedOrderRow, 1>') {
+    fail(`${rel} has the wrong comparison label`);
+  }
+  if (data.methodology?.rounds !== 6) fail(`${rel} must record six rounds`);
+  if (data.methodology?.maxFinalSpread !== 1.25) fail(`${rel} must enforce the declared 1.25x spread ceiling`);
+  if (JSON.stringify(data.methodology?.permutations) !== JSON.stringify(SHALLOW_VALIDATION_PERMUTATIONS)) {
+    fail(`${rel} does not record the required balanced mode order`);
+  }
+  for (const key of ['warmupMs', 'warmupBatchIters', 'targetSampleMs', 'maxSampleIters']) {
+    if (!positive(data.methodology?.[key])) fail(`${rel} methodology.${key} must be positive`);
+  }
+
+  verifyShallowSemantics(rel, data.semanticChecks);
+
+  const samples = data.samples;
+  if (!Array.isArray(samples) || samples.length !== 12) {
+    fail(`${rel} must contain 12 raw samples (6 rounds × 2 modes)`);
+  } else {
+    for (let round = 1; round <= SHALLOW_VALIDATION_PERMUTATIONS.length; round += 1) {
+      const expected = SHALLOW_VALIDATION_PERMUTATIONS[round - 1];
+      const actual = samples
+        .filter(sample => sample.round === round)
+        .toSorted((left, right) => left.position - right.position)
+        .map(sample => sample.mode);
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        fail(`${rel} round ${round} does not match the declared balanced order`);
+      }
+    }
+    for (const mode of SHALLOW_VALIDATION_MODES) {
+      const selected = samples.filter(sample => sample.mode === mode);
+      if (selected.length !== 6) {
+        fail(`${rel} must contain six ${mode} samples`);
+        continue;
+      }
+      for (const position of [1, 2]) {
+        if (selected.filter(sample => sample.position === position).length !== 3) {
+          fail(`${rel} ${mode} must appear three times at position ${position}`);
+        }
+      }
+      for (const sample of selected) verifyShallowSample(rel, sample);
+    }
+  }
+
+  const summary = data.summary;
+  if (!Array.isArray(summary) || summary.length !== 2) {
+    fail(`${rel} must contain one summary row per validation mode`);
+  } else if (Array.isArray(samples) && samples.length === 12) {
+    for (const mode of SHALLOW_VALIDATION_MODES) {
+      const rows = summary.filter(row => row.mode === mode);
+      if (rows.length !== 1) {
+        fail(`${rel} must contain exactly one ${mode} summary row`);
+        continue;
+      }
+      const row = rows[0];
+      const selected = samples.filter(sample => sample.mode === mode);
+      const values = selected.map(sample => sample.nsPerOp);
+      for (const key of [
+        'iterationsPerSample',
+        'medianNsPerOp',
+        'medianOpsPerSec',
+        'minNsPerOp',
+        'maxNsPerOp',
+        'spreadMaxOverMin',
+      ]) {
+        if (!positive(row[key])) fail(`${rel} ${mode} summary.${key} must be positive`);
+      }
+      if (row.samples !== 6) fail(`${rel} ${mode} summary must aggregate six samples`);
+      if (new Set(selected.map(sample => sample.iterations)).size !== 1) {
+        fail(`${rel} ${mode} samples do not share one calibrated iteration count`);
+      }
+      if (row.iterationsPerSample !== selected[0]?.iterations) {
+        fail(`${rel} ${mode} summary iteration count does not match its samples`);
+      }
+      if (!approximately(row.medianNsPerOp, median(values))) {
+        fail(`${rel} ${mode} medianNsPerOp does not match the raw samples`);
+      }
+      if (!approximately(row.medianOpsPerSec, 1_000_000_000 / row.medianNsPerOp)) {
+        fail(`${rel} ${mode} medianOpsPerSec does not match medianNsPerOp`);
+      }
+      if (!approximately(row.minNsPerOp, Math.min(...values))) {
+        fail(`${rel} ${mode} minNsPerOp does not match the raw samples`);
+      }
+      if (!approximately(row.maxNsPerOp, Math.max(...values))) {
+        fail(`${rel} ${mode} maxNsPerOp does not match the raw samples`);
+      }
+      if (!approximately(row.spreadMaxOverMin, row.maxNsPerOp / row.minNsPerOp)) {
+        fail(`${rel} ${mode} spread does not match max/min`);
+      }
+      if (row.spreadMaxOverMin > data.methodology.maxFinalSpread) {
+        fail(`${rel} ${mode} spread exceeds the publication ceiling`);
+      }
+    }
+    verifyShallowComparison(rel, data, summary);
+    verifyShallowPublication(rel, summary);
+  }
+
+  if (!Number.isSafeInteger(data.sink) || data.sink <= 0) {
+    fail(`${rel} has no positive observed-result sink`);
+  }
+
+  if (!errors.some(error => error.startsWith(rel))) {
+    console.log(`${rel}: 12 raw samples, six balanced orders, semantics and provenance verified`);
+  }
+}
+
+function verifyShallowSemantics(rel, checks) {
+  const expected = [
+    ['valid populated row', true, true],
+    ['invalid field inside a populated relation', false, true],
+    ['invalid field inside a list item', false, true],
+    ['invalid top-level scalar', false, false],
+    ['invalid relation shape', false, false],
+    ['invalid list shape', false, false],
+  ];
+  if (!Array.isArray(checks) || checks.length !== expected.length) {
+    fail(`${rel} must record all six semantic preflight checks`);
+    return;
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    const [name, full, shallow] = expected[index];
+    const check = checks[index];
+    if (
+      check?.name !== name ||
+      check?.expected?.full !== full ||
+      check?.expected?.shallow !== shallow ||
+      check?.actual?.full !== full ||
+      check?.actual?.shallow !== shallow
+    ) {
+      fail(`${rel} semantic check ${index + 1} does not match the required ${name} outcome`);
+    }
+  }
+}
+
+function verifyShallowSample(rel, sample) {
+  for (const key of ['round', 'position', 'iterations', 'accepted', 'totalMs', 'opsPerSec', 'nsPerOp']) {
+    if (!positive(sample[key])) fail(`${rel} sample ${sample.mode} has invalid ${key}`);
+  }
+  if (!Number.isSafeInteger(sample.iterations) || sample.accepted !== sample.iterations) {
+    fail(`${rel} sample ${sample.mode} did not observe one accepted result per valid input`);
+  }
+  const expectedNs = (sample.totalMs * 1_000_000) / sample.iterations;
+  if (!approximately(sample.nsPerOp, expectedNs)) {
+    fail(`${rel} sample ${sample.mode} nsPerOp does not match totalMs/iterations`);
+  }
+  const expectedOps = (sample.iterations / sample.totalMs) * 1000;
+  if (!approximately(sample.opsPerSec, expectedOps)) {
+    fail(`${rel} sample ${sample.mode} opsPerSec does not match iterations/totalMs`);
+  }
+}
+
+function verifyShallowComparison(rel, data, summary) {
+  const full = summary.find(row => row.mode === 'full');
+  const shallow = summary.find(row => row.mode === 'shallow-depth-1');
+  if (full === undefined || shallow === undefined) return;
+  const expectedSpeedup = full.medianNsPerOp / shallow.medianNsPerOp;
+  const expectedReduction = (1 - shallow.medianNsPerOp / full.medianNsPerOp) * 100;
+  if (!approximately(data.comparison?.shallowVsFullSpeedup, expectedSpeedup)) {
+    fail(`${rel} shallowVsFullSpeedup does not match the two medians`);
+  }
+  if (!approximately(data.comparison?.shallowTimeReductionPercent, expectedReduction)) {
+    fail(`${rel} shallowTimeReductionPercent does not match the two medians`);
+  }
+}
+
+function verifyShallowPublication(rel, summary) {
+  const labels = {
+    full: 'full',
+    'shallow-depth-1': 'shallow depth 1',
+  };
+  const expectedRows = new Set(
+    summary.map(row =>
+      [
+        labels[row.mode],
+        row.medianNsPerOp.toFixed(2),
+        String(Math.round(row.medianOpsPerSec)),
+        `${row.spreadMaxOverMin.toFixed(3)}x`,
+      ].join('|'),
+    ),
+  );
+  const source = readFileSync(join(ROOT, 'benchmarks', 'RESULTS.md'), 'utf8');
+  const rows = new Set(
+    source
+      .split('\n')
+      .filter(line => line.startsWith('|'))
+      .map(line =>
+        line
+          .split('|')
+          .slice(1, -1)
+          .map(cell => cell.trim().replaceAll(',', ''))
+          .join('|'),
+      ),
+  );
+  for (const expected of expectedRows) {
+    if (!rows.has(expected)) fail(`benchmarks/RESULTS.md does not publish shallow-validation row: ${expected}`);
+  }
+}
+
+async function verifyShallowValidationInputs(rel, inputs) {
+  if (inputs?.algorithm !== 'sha256') {
+    fail(`${rel} inputs.algorithm must be "sha256"`);
+    return;
+  }
+  if (!Array.isArray(inputs.files)) {
+    fail(`${rel} inputs.files must be an array`);
+    return;
+  }
+  const paths = inputs.files.map(entry => entry?.path);
+  if (JSON.stringify(paths) !== JSON.stringify(SHALLOW_VALIDATION_INPUTS)) {
+    fail(`${rel} input path manifest does not match the verifier's closed list`);
+    return;
+  }
+  for (const entry of inputs.files) {
+    const path = join(ROOT, entry.path);
+    if (!existsSync(path)) {
+      fail(`${rel} input ${entry.path} is missing`);
+      continue;
+    }
+    const actual = await sha256(readFileSync(path));
+    if (entry.sha256 !== actual) {
+      fail(`${rel} input ${entry.path} hash is stale: recorded ${String(entry.sha256)}, actual ${actual}`);
+    }
+  }
+}
+
+function median(values) {
+  if (values.length === 0) return Number.NaN;
+  const sorted = values.toSorted((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 async function sha256(bytes) {

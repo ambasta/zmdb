@@ -48,6 +48,7 @@ const TSCONFIG = {
       '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
       '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
       '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
+      '@consumer/validation': [`${ROOT}packages/aot-validator/src/utilities/index.ts`],
     },
   },
   include: ['**/*.ts'],
@@ -304,6 +305,44 @@ export const decodeMessage = (bytes: Uint8Array): Message => protoDecode<Message
     expect(generated).toContain('@zmdb/aot-validator/protobuf/wire');
     expect(generated).toContain('export function zmdbProtoDecodeMessage(bytes)');
     expect(declaration).toContain('export declare function zmdbProtoDecodeMessage(bytes: Uint8Array): Message;');
+  });
+});
+
+describe('shallow validator calls', () => {
+  it('keeps distinct depths distinct and generates every public shallow form', () => {
+    const run = generate(`import {
+  assertShallow,
+  isShallow,
+  validateShallow,
+} from '@consumer/validation';
+
+import type { Order } from './model.js';
+
+export const acceptsTop = (value: unknown): boolean => isShallow<Order>(value);
+export const acceptsOne = (value: unknown): boolean => isShallow<Order, 1>(value);
+export const acceptsTwo = (value: unknown): boolean => isShallow<Order, 2>(value);
+export const insistsTwo = (value: unknown): Order => assertShallow<Order, 2>(value);
+export const explainsTwo = (value: unknown) => validateShallow<Order, 2>(value);
+`);
+    ok(run.result);
+    expect(run.app).toContain('zmdbIsShallowOrder(value)');
+    expect(run.app).toContain('zmdbIsShallowOrderDepth2(value)');
+    expect(run.app).toContain('zmdbAssertShallowOrderDepth2(value)');
+    expect(run.app).toContain('zmdbValidateShallowOrderDepth2(value)');
+    expect(run.app).not.toContain('isShallow<Order');
+    expect(run.app.match(/zmdbIsShallowOrder\(value\)/g)).toHaveLength(2);
+
+    const generated = readFileSync(join(run.src, 'app.zmdb.generated.js'), 'utf8');
+    const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
+    expect(generated).not.toMatch(/\bisShallow\b|\bassertShallow\b|\bvalidateShallow\b/);
+    expect(generated).toContain('import { AssertError as _zmdbAssertError } from "@consumer/validation";');
+    expect(declaration).toContain('export declare function zmdbIsShallowOrder(value: unknown): value is Order;');
+    expect(declaration.match(/declare function zmdbIsShallowOrder\(/g)).toHaveLength(1);
+    expect(declaration).toContain('export declare function zmdbIsShallowOrderDepth2(value: unknown): value is Order;');
+    expect(declaration).toContain('export declare function zmdbAssertShallowOrderDepth2(value: unknown): Order;');
+    expect(declaration).toContain(
+      'export declare function zmdbValidateShallowOrderDepth2(value: unknown): ValidateResult<Order>;',
+    );
   });
 });
 

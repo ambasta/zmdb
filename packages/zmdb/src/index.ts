@@ -65,7 +65,18 @@ export type {
 // whether or not the build inlined anything.
 // `ValidationIssue` is not re-exported here: the utilities subpath re-exports schema-core's
 // declaration rather than declaring a second one, and it is already above.
-export { equals, is, assert, assertEquals, random, validate, AssertError } from '@zmdb/aot-validator/utilities';
+export {
+  equals,
+  is,
+  isShallow,
+  assert,
+  assertShallow,
+  assertEquals,
+  random,
+  validate,
+  validateShallow,
+  AssertError,
+} from '@zmdb/aot-validator/utilities';
 export type { ValidateResult } from '@zmdb/aot-validator/utilities';
 export { protoDecode, protoDescriptor, protoEncode, tags } from '@zmdb/aot-validator';
 

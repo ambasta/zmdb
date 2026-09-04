@@ -97,9 +97,31 @@ publishes the ratios per session instead of one number.
 ```sh
 yarn bench:validation                              # whole field
 node benchmarks/scripts/bench.mjs validation --libs=zmdb,zmdb-aot,typia,zod,valibot
-yarn bench:validation:generate                     # refresh the two generated modules
+yarn bench:validation:generate                     # refresh the three generated modules
 cd benchmarks/harness/validation && ./run.sh       # the DCE-proof local harness
 ```
+
+### Populated-row full vs shallow validation
+
+The focused shallow benchmark uses a separate `PopulatedOrderRow` declaration with
+exactly three populated relation objects (`customer`, `warehouse`, `carrier`) and an
+`items` list containing 100 rows. The generator writes
+`validation/shallow.generated.ts` from public `is<PopulatedOrderRow>` and
+`isShallow<PopulatedOrderRow, 1>` calls, and the benchmark imports only that
+transformer output.
+
+```sh
+bash benchmarks/harness/validation/run-shallow.sh
+bash benchmarks/harness/validation/run-shallow.sh --write-final
+```
+
+The default command prints diagnostic JSON. `--write-final` writes
+`site/shallow-validation.json` only when both modes stay within the declared 1.25×
+max/min spread ceiling. Every run first checks six semantic probes, rotates through
+eight distinct populated rows, observes every boolean result, and uses six balanced
+orders so each mode appears three times in each position. The final artifact records
+all 12 raw samples, runtime provenance, and a SHA-256 manifest of every benchmark
+input; `yarn verify:bench` recomputes the manifest and the published summary rows.
 
 `--libs` also filters the normalisation step, so a partial run rewrites the
 dashboard JSON with only the libraries it measured. To refresh a couple of rows

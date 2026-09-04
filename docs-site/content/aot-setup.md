@@ -1,4 +1,7 @@
-AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. The validator transforms `is<T>()`, `assert<T>()`, and `validate<T>()` calls into direct JavaScript boolean expressions — no Zod-style runtime parsers, no reflection.
+AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime
+parsing overhead. The validator transforms the full and depth-limited
+`is`/`assert`/`validate` families into direct JavaScript checks — no Zod-style runtime
+parsers, no reflection.
 
 ## Why AOT?
 

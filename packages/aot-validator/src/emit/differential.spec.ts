@@ -16,7 +16,7 @@
 import type { TypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { equals, is, issuesFor, type ValidationIssue } from '../utilities/index.js';
+import { equals, is, isShallow, issuesFor, validateShallow, type ValidationIssue } from '../utilities/index.js';
 import { FixtureProject } from './__testing__/project.js';
 
 const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pattern<"^[^@]+@[^@]+$">; nickname?: string }
@@ -29,7 +29,12 @@ const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pa
   type Colour = "red" | "green" | "blue";
   type Mixed = string | number | null;
   type Pair = [number, string];
-  type Maybe = User | null;`;
+  type Maybe = User | null;
+
+  function isShallow<T, D extends number = 1>(value: unknown): value is T;
+  function validateShallow<T, D extends number = 1>(
+    value: unknown,
+  ): { success: boolean; data?: T; errors?: readonly unknown[] };`;
 
 /**
  * Values thrown at every type, so each check is asked about shapes it was not written
@@ -169,6 +174,66 @@ const CASES: readonly Case[] = [
   },
 ];
 
+interface ShallowCase extends Case {
+  readonly depth: number;
+}
+
+const SHALLOW_CASES: readonly ShallowCase[] = [
+  {
+    type: 'Nested',
+    depth: 1,
+    values: [
+      { user: { id: 'below the limit', email: 7 }, labels: [1] },
+      { user: null, labels: [] },
+      { user: { id: 1, email: 'a@b' }, labels: {} },
+    ],
+  },
+  {
+    type: 'Nested',
+    depth: 2,
+    values: [
+      { user: { id: 1, email: 'a@b' }, labels: ['x', 2] },
+      { user: { id: 0, email: 'a@b' }, labels: [] },
+      { user: { id: 1, email: 'nope' }, labels: [] },
+    ],
+  },
+  {
+    type: 'Shape',
+    depth: 1,
+    values: [
+      { kind: 'circle', r: 1 },
+      { kind: 'circle', r: -1 },
+      { kind: 'square', side: 'below the limit' },
+      { kind: 'triangle', side: 2 },
+    ],
+  },
+  {
+    type: 'User[]',
+    depth: 1,
+    values: [[], [{ id: 'below the limit', email: 7 }], {}],
+  },
+  {
+    type: 'User[]',
+    depth: 2,
+    values: [[], [{ id: 1, email: 'a@b' }], [{ id: 0, email: 'a@b' }], [{}]],
+  },
+  {
+    type: 'Pair',
+    depth: 1,
+    values: [[1, 'a'], ['below the limit', 7], [1], [1, 'a', 2]],
+  },
+  {
+    type: 'Pair',
+    depth: 2,
+    values: [[1, 'a'], ['wrong', 'a'], [1, 7], [1], [1, 'a', 2]],
+  },
+  {
+    type: 'Maybe',
+    depth: 1,
+    values: [null, { id: 1, email: 'a@b' }, { id: 0, email: 'a@b' }, undefined],
+  },
+];
+
 /** The three emitted entry points, plus the IR both sides share. */
 interface Compiled {
   readonly ir: TypeIR;
@@ -198,6 +263,26 @@ function compile(type: string): Compiled {
       return result.success ? [] : (result.errors ?? []);
     },
     code: `${predicate.code}\n${strict.code}\n${report.code}`,
+  };
+}
+
+interface ShallowCompiled {
+  readonly ir: TypeIR;
+  readonly is: (value: unknown) => boolean;
+  readonly issues: (value: unknown) => readonly ValidationIssue[];
+}
+
+function compileShallow(type: string, depth: number): ShallowCompiled {
+  const ir = project.ir(type);
+  const predicate = project.build(`const check = (input) => isShallow<${type}, ${String(depth)}>(input);`);
+  const report = project.build(`const check = (input) => validateShallow<${type}, ${String(depth)}>(input);`);
+  return {
+    ir,
+    is: value => predicate.check(value) as boolean,
+    issues: value => {
+      const result = report.check(value) as { success: boolean; errors?: readonly ValidationIssue[] };
+      return result.success ? [] : (result.errors ?? []);
+    },
   };
 }
 
@@ -238,6 +323,28 @@ describe.each(CASES)('$type', ({ type, values }) => {
     // `is` — so "rejects it" and "has something to say about it" can drift apart.
     for (const value of corpus) {
       expect(compiled.issues(value).length === 0, `${type} / ${label(value)}`).toBe(compiled.is(value));
+    }
+  });
+});
+
+describe.each(SHALLOW_CASES)('$type at shallow depth $depth', ({ type, depth, values }) => {
+  const compiled = compileShallow(type, depth);
+  const corpus = [...values, ...WILD];
+
+  it('accepts and rejects exactly what the depth-limited runtime walker does', () => {
+    for (const value of corpus) {
+      expect(compiled.is(value), `isShallow<${type}, ${String(depth)}>(${label(value)})`).toBe(
+        isShallow(value, compiled.ir, depth),
+      );
+    }
+  });
+
+  it('reports the same shallow issues, at the same paths, in the same order', () => {
+    for (const value of corpus) {
+      const runtime = validateShallow(value, compiled.ir, depth);
+      expect(compiled.issues(value), `validateShallow<${type}, ${String(depth)}>(${label(value)})`).toEqual(
+        runtime.success ? [] : (runtime.errors ?? []).map(issue => ({ ...issue })),
+      );
     }
   });
 });

@@ -61,9 +61,14 @@ export interface ValidateResult<T> {
  * alternative is rebuilding it on every call for a shape that never changes.
  */
 type RefTable = ReadonlyMap<string, ObjectIR>;
+type CheckDepth = number | undefined;
 
 const REF_TABLES = new WeakMap<TypeIR & object, RefTable>();
 const NO_REFS: RefTable = new Map();
+
+function childDepth(depth: CheckDepth): CheckDepth {
+  return depth === undefined ? undefined : Math.max(0, depth - 1);
+}
 
 function collectRefs(node: TypeIR, into: Map<string, ObjectIR>): void {
   switch (node.kind) {
@@ -152,7 +157,7 @@ function constraintsMatch(constraints: Constraints | undefined, value: unknown):
   return true;
 }
 
-function matches(value: unknown, node: TypeIR, refs: RefTable): boolean {
+function matches(value: unknown, node: TypeIR, refs: RefTable, depth?: number): boolean {
   switch (node.kind) {
     case 'unknown':
       return true;
@@ -167,23 +172,27 @@ function matches(value: unknown, node: TypeIR, refs: RefTable): boolean {
     case 'array': {
       if (!Array.isArray(value)) return false;
       if (!constraintsMatch(node.constraints, value)) return false;
-      for (const item of value) if (!matches(item, node.element, refs)) return false;
+      if (depth !== undefined && depth <= 1) return true;
+      const nestedDepth = childDepth(depth);
+      for (const item of value) if (!matches(item, node.element, refs, nestedDepth)) return false;
       return true;
     }
     case 'tuple': {
       if (!Array.isArray(value) || value.length !== node.elements.length) return false;
+      if (depth !== undefined && depth <= 1) return true;
+      const nestedDepth = childDepth(depth);
       for (const [index, element] of node.elements.entries()) {
-        if (!matches(value[index], element, refs)) return false;
+        if (!matches(value[index], element, refs, nestedDepth)) return false;
       }
       return true;
     }
     case 'object':
-      return objectMatches(value, node, refs, undefined);
+      return objectMatches(value, node, refs, undefined, depth);
     case 'union':
-      return unionMatches(value, node, refs);
+      return unionMatches(value, node, refs, depth);
     case 'ref': {
       const target = refs.get(node.name);
-      return target ? objectMatches(value, target, refs, undefined) : false;
+      return target ? objectMatches(value, target, refs, undefined, depth) : false;
     }
     case 'unsupported':
       // The emitter refuses to compile one of these, so the only way to be here is a
@@ -193,29 +202,37 @@ function matches(value: unknown, node: TypeIR, refs: RefTable): boolean {
 }
 
 /** `skip` is a discriminant the union has already established. */
-function objectMatches(value: unknown, node: ObjectIR, refs: RefTable, skip: string | undefined): boolean {
+function objectMatches(
+  value: unknown,
+  node: ObjectIR,
+  refs: RefTable,
+  skip: string | undefined,
+  depth?: number,
+): boolean {
   if (!isRecord(value)) return false;
+  if (depth === 0) return true;
+  const nestedDepth = childDepth(depth);
   for (const property of node.properties) {
     if (property.name === skip) continue;
     const member = value[property.name];
     if (property.optional && member === undefined) continue;
-    if (!matches(member, property.type, refs)) return false;
+    if (!matches(member, property.type, refs, nestedDepth)) return false;
   }
   return true;
 }
 
-function unionMatches(value: unknown, node: UnionIR, refs: RefTable): boolean {
+function unionMatches(value: unknown, node: UnionIR, refs: RefTable, depth?: number): boolean {
   if (node.members.length === 0) return false;
   const discriminant = discriminantOf(node.members);
   if (discriminant) {
     if (!isRecord(value)) return false;
     const tag = value[discriminant.key];
     for (const arm of discriminant.arms) {
-      if (tag === arm.value) return objectMatches(value, arm.node, refs, discriminant.key);
+      if (tag === arm.value) return objectMatches(value, arm.node, refs, discriminant.key, depth);
     }
     return false;
   }
-  for (const member of node.members) if (matches(value, member, refs)) return true;
+  for (const member of node.members) if (matches(value, member, refs, depth)) return true;
   return false;
 }
 
@@ -263,14 +280,21 @@ function constraintIssues(
   }
 }
 
-function collectIssues(value: unknown, node: TypeIR, path: string, out: ValidationIssue[], refs: RefTable): void {
+function collectIssues(
+  value: unknown,
+  node: TypeIR,
+  path: string,
+  out: ValidationIssue[],
+  refs: RefTable,
+  depth?: number,
+): void {
   switch (node.kind) {
     case 'unknown':
       return;
     case 'null':
     case 'undefined':
     case 'literal':
-      if (!matches(value, node, refs)) report(out, path, expectedOf(node), value);
+      if (!matches(value, node, refs, depth)) report(out, path, expectedOf(node), value);
       return;
     case 'scalar':
       // The shape is reported first and stops the walk: `minLength 3` about a number
@@ -284,8 +308,10 @@ function collectIssues(value: unknown, node: TypeIR, path: string, out: Validati
         return;
       }
       constraintIssues(node.constraints, value, path, out);
+      if (depth !== undefined && depth <= 1) return;
+      const nestedDepth = childDepth(depth);
       for (const [index, item] of value.entries()) {
-        collectIssues(item, node.element, `${path}[${index}]`, out, refs);
+        collectIssues(item, node.element, `${path}[${index}]`, out, refs, nestedDepth);
       }
       return;
     }
@@ -294,20 +320,22 @@ function collectIssues(value: unknown, node: TypeIR, path: string, out: Validati
         report(out, path, expectedOf(node), value);
         return;
       }
+      if (depth !== undefined && depth <= 1) return;
+      const nestedDepth = childDepth(depth);
       for (const [index, element] of node.elements.entries()) {
-        collectIssues(value[index], element, `${path}[${index}]`, out, refs);
+        collectIssues(value[index], element, `${path}[${index}]`, out, refs, nestedDepth);
       }
       return;
     }
     case 'object':
-      objectIssues(value, node, path, out, refs);
+      objectIssues(value, node, path, out, refs, depth);
       return;
     case 'union':
-      unionIssues(value, node, path, out, refs);
+      unionIssues(value, node, path, out, refs, depth);
       return;
     case 'ref': {
       const target = refs.get(node.name);
-      if (target) objectIssues(value, target, path, out, refs);
+      if (target) objectIssues(value, target, path, out, refs, depth);
       else report(out, path, node.name, value);
       return;
     }
@@ -317,23 +345,39 @@ function collectIssues(value: unknown, node: TypeIR, path: string, out: Validati
   }
 }
 
-function objectIssues(value: unknown, node: ObjectIR, path: string, out: ValidationIssue[], refs: RefTable): void {
+function objectIssues(
+  value: unknown,
+  node: ObjectIR,
+  path: string,
+  out: ValidationIssue[],
+  refs: RefTable,
+  depth?: number,
+): void {
   if (!isRecord(value)) {
     report(out, path, expectedOf(node), value);
     return;
   }
+  if (depth === 0) return;
+  const nestedDepth = childDepth(depth);
   for (const property of node.properties) {
     const member = value[property.name];
     if (property.optional && member === undefined) continue;
-    collectIssues(member, property.type, `${path}${accessorPath(property.name)}`, out, refs);
+    collectIssues(member, property.type, `${path}${accessorPath(property.name)}`, out, refs, nestedDepth);
   }
 }
 
-function unionIssues(value: unknown, node: UnionIR, path: string, out: ValidationIssue[], refs: RefTable): void {
+function unionIssues(
+  value: unknown,
+  node: UnionIR,
+  path: string,
+  out: ValidationIssue[],
+  refs: RefTable,
+  depth?: number,
+): void {
   const discriminant = discriminantOf(node.members);
   if (!discriminant) {
     // No arm to blame: one issue naming the whole union, at the union's own path.
-    if (!matches(value, node, refs)) report(out, path, expectedOf(node), value);
+    if (!matches(value, node, refs, depth)) report(out, path, expectedOf(node), value);
     return;
   }
   if (!isRecord(value)) {
@@ -343,7 +387,7 @@ function unionIssues(value: unknown, node: UnionIR, path: string, out: Validatio
   const tag = value[discriminant.key];
   for (const arm of discriminant.arms) {
     if (tag === arm.value) {
-      objectIssues(value, arm.node, path, out, refs);
+      objectIssues(value, arm.node, path, out, refs, depth);
       return;
     }
   }
@@ -566,10 +610,24 @@ function refusal(path: string, reason: string): Error {
 // ---------------------------------------------------------------------------
 
 const MISSING = 'runtime type witness required in test/fallback mode';
+const INVALID_SHALLOW_DEPTH = 'shallow validation fallback depth must be a positive integer';
 
 function required(schema: TypeIR | undefined): TypeIR {
   if (!schema) throw new Error(MISSING);
   return schema;
+}
+
+function shallowDepth(depth: number | undefined): number {
+  const resolved = depth ?? 1;
+  if (!Number.isInteger(resolved) || resolved <= 0) throw new Error(INVALID_SHALLOW_DEPTH);
+  return resolved;
+}
+
+function certified<T>(input: unknown): T {
+  // boundary: the caller reaches this only after the runtime witness walk has
+  // accepted `input`; this single certification point serves every returning
+  // assertion form instead of adding one type assertion per public function.
+  return input as T;
 }
 
 export function is<T = unknown>(input: unknown, schema?: TypeIR): input is T {
@@ -583,10 +641,7 @@ export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
   // Two passes, as the emitted form does it: the allocation-free check first, and the
   // issue walk only once we already know a throw is coming (REQ-AV-7).
   if (matches(input, node, refs)) {
-    // boundary: `T` is the caller's compile-time type and `node` is its runtime
-    // witness; the check having passed is the proof. This is the certification point
-    // of the whole package — the assertion IS the API.
-    return input as T;
+    return certified<T>(input);
   }
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs);
@@ -596,10 +651,45 @@ export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
 export function validate<T = unknown>(input: unknown, schema?: TypeIR): ValidateResult<T> {
   const node = required(schema);
   const refs = refsOf(node);
-  // boundary: same certification as `assert`, returned instead of thrown.
-  if (matches(input, node, refs)) return { success: true, data: input as T };
+  if (matches(input, node, refs)) return { success: true, data: certified<T>(input) };
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs);
+  return { success: false, errors: issues };
+}
+
+/**
+ * Validate only through depth `D`; an ordinary call is replaced at build time.
+ *
+ * The optional witness and runtime depth exist for tests and generated fallback
+ * modules. A real untransformed call has neither and throws `MISSING`, exactly as
+ * the full-depth utility family does.
+ */
+export function isShallow<T = unknown, D extends number = 1>(input: unknown, schema?: TypeIR, depth?: D): input is T {
+  const node = required(schema);
+  return matches(input, node, refsOf(node), shallowDepth(depth));
+}
+
+export function assertShallow<T = unknown, D extends number = 1>(input: unknown, schema?: TypeIR, depth?: D): T {
+  const node = required(schema);
+  const refs = refsOf(node);
+  const limit = shallowDepth(depth);
+  if (matches(input, node, refs, limit)) return certified<T>(input);
+  const issues: ValidationIssue[] = [];
+  collectIssues(input, node, 'input', issues, refs, limit);
+  failWith(issues);
+}
+
+export function validateShallow<T = unknown, D extends number = 1>(
+  input: unknown,
+  schema?: TypeIR,
+  depth?: D,
+): ValidateResult<T> {
+  const node = required(schema);
+  const refs = refsOf(node);
+  const limit = shallowDepth(depth);
+  if (matches(input, node, refs, limit)) return { success: true, data: certified<T>(input) };
+  const issues: ValidationIssue[] = [];
+  collectIssues(input, node, 'input', issues, refs, limit);
   return { success: false, errors: issues };
 }
 
@@ -613,8 +703,7 @@ export function assertEquals<T = unknown>(input: unknown, schema?: TypeIR): T {
   const node = required(schema);
   const refs = refsOf(node);
   if (matches(input, node, refs) && hasNoExcessKeys(input, node, refs)) {
-    // boundary: see `assert` — validated input, certified once.
-    return input as T;
+    return certified<T>(input);
   }
   const issues: ValidationIssue[] = [];
   collectIssues(input, node, 'input', issues, refs);

@@ -159,14 +159,14 @@ types). An invalid route, payload, injection, or state transition **must fail `t
 > surface, enumerated internal boundaries, count tracked toward zero.**
 >
 > ✅ **P4 as written is met, and `yarn verify:escape-hatches` is what keeps it met** (§9.4).
-> The 2026-09-02 recount over 85 shipped files: **65 framework assertions, every one under a
+> The 2026-09-04 recount over 167 shipped files: **59 framework assertions, every one under a
 > `// boundary:` comment**, **0 `any`**, **0 non-null `!`**, **0 `@ts-expect-error` in src**,
 > **1 lint suppression** (argued in §9.4), and **0 consumer-facing `as`** in the docs. The
 > first audit on 2026-08-31 found **91 assertions / 14 boundary comments / 19 non-null `!` /
 > 4 `as any`** across 67 files; the gap was mechanical, not irreducible — four structural
 > fixes account for all 63, see §9.4.
 >
-> This is still **not** "zero escape hatches": 65 assertions remain, each an argued trust
+> This is still **not** "zero escape hatches": 59 assertions remain, each an argued trust
 > boundary. What changed is that the count is now checked rather than published — CI fails on
 > an increase and on an assertion nobody explained. The claim to make is the precise one —
 > _assertion-free public surface, enumerated and individually justified internal boundaries,
@@ -809,31 +809,31 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 | **REQ-NF-11** | Branded/phantom types must contribute **0 bytes** to bundle output and **0 ns** of runtime evaluation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **REQ-NF-12** | Publishing: ESM-only, single `exports` map, Trusted Publishing (OIDC) with provenance, `latest` tracking highest-precedence release. License **GPL-3.0-or-later**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **REQ-NF-13** | Every capability must be documented on the docs site before it counts as shipped (**0 TODO** policy), including an **Anti-patterns** page explaining each deliberate exclusion.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **REQ-NF-14** | ✅ **Met.** Framework `as`/assertion count is tracked in CI and must be **monotonically non-increasing**, with every remaining assertion carrying a `// boundary:` comment. Enforced by `yarn verify:escape-hatches`, which recomputes every row of §9.4 off a parse tree and fails on an increase or on an undocumented assertion. Ratchet (2026-09-02): **65 assertions, 56 boundary comments, 0 non-null `!`, 0 `any`, 1 argued lint suppression** — see §9.4.                                                                                                                                                                                                                                                                                                                                                                                         |
+| **REQ-NF-14** | ✅ **Met.** Framework `as`/assertion count is tracked in CI and must be **monotonically non-increasing**, with every remaining assertion carrying a `// boundary:` comment. Enforced by `yarn verify:escape-hatches`, which recomputes every row of §9.4 off a parse tree and fails on an increase or on an undocumented assertion. Ratchet (2026-09-04): **59 assertions, 59 boundary comments, 0 non-null `!`, 0 `any`, 1 argued lint suppression** — see §9.4.                                                                                                                                                                                                                                                                                                                                                                                         |
 | **REQ-NF-15** | ✅ **Met (2026-09-03).** Every public export is exercised by a functional test, and "public" is decided by reading the export names off each published subpath rather than by grepping. The bar for _enough_ tests is set outside this repo: the **742 public-API test suites (9,258 assertions)** Drizzle, Kysely, MikroORM, NestJS and Typia run are inventoried at a pinned commit, and each is either mapped to a zmdb test or argued against with a reason. Enforced by `yarn verify:api-coverage`; re-harvested deliberately by `scripts/harvest-api-tests.mjs`, never in CI. Today: **453 suites answered by 198 of our 868 tests, 289 argued against under 59 distinct rationales** — and the gate prints its widest credits (currently 64 suites resting on one populate test) so that fan-in stays visible instead of averaging into the total. |
 
-### 9.4 Escape-hatch audit — ratcheted in CI as of 2026-09-02
+### 9.4 Escape-hatch audit — ratcheted in CI as of 2026-09-04
 
 **`yarn verify:escape-hatches` is the audit.** The table below is what
 `.github/scripts/verify-escape-hatches.mjs` prints, and CI fails on any row that goes up or
 on any assertion whose enclosing function has no `// boundary:` comment. RISK-7 — "P4 holds
 today but nothing keeps it holding" — is closed by that script, not by this section.
 
-Counted off a real parse tree, per package, over the **85 shipped source files** in
+Counted off a real parse tree, per package, over the **167 shipped source files** in
 `packages/*/src`. Tests are excluded and the script says why: `*.spec.ts`, `*.type-test.ts`,
 `__testing__/` and `__fixtures__/`. A file whose job is to prove a type _rejects_ something
 is nothing but `@ts-expect-error`, and 45 of those are not 45 escape hatches.
 
-| Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | 2026-09-03 (DSL deleted) | Ceiling |
-| ------------------------------------------ | --------------------------: | --------------------------------: | -----------------------: | ------: |
-| `: any` / `<any>` / `any[]` / `as any`     |                       **0** |                             **0** |                    **0** |       0 |
-| `@ts-expect-error` / `@ts-ignore` in src   |                       **0** |                             **0** |                    **0** |       0 |
-| `as unknown as` double casts               |                       **1** |                             **2** |                    **1** |       1 |
-| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |                   **62** |      62 |
-| `// boundary:` comments                    |                      **37** |                            **56** |                   **54** |       — |
-| Non-null assertions (`!`)                  |                       **0** |                             **0** |                    **0** |       0 |
-| `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |                    **1** |       1 |
-| `new Function` / `eval` call sites         |                       **0** |                             **0** |                    **0** |       0 |
+| Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | 2026-09-03 (DSL deleted) | 2026-09-04 current | Ceiling |
+| ------------------------------------------ | --------------------------: | --------------------------------: | -----------------------: | -----------------: | ------: |
+| `: any` / `<any>` / `any[]` / `as any`     |                       **0** |                             **0** |                    **0** |              **0** |       0 |
+| `@ts-expect-error` / `@ts-ignore` in src   |                       **0** |                             **0** |                    **0** |              **0** |       0 |
+| `as unknown as` double casts               |                       **1** |                             **2** |                    **1** |              **1** |       1 |
+| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |                   **62** |             **59** |      59 |
+| `// boundary:` comments                    |                      **37** |                            **56** |                   **54** |             **59** |       — |
+| Non-null assertions (`!`)                  |                       **0** |                             **0** |                    **0** |              **0** |       0 |
+| `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |                    **1** |              **1** |       1 |
+| `new Function` / `eval` call sites         |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 
 The third column is plan D2 landing: `defineSchema`, ten column builders and eight
 function-style modifiers deleted. It took three assertions and one double cast with it, and
@@ -841,6 +841,11 @@ they are the good kind of removal — nothing was rewritten to dodge a cast, the
 needed the cast is gone. Both ceilings came down in the same commit, which is the direction
 this table is supposed to move; see the four structural fixes at the end of this section for
 the shape of the argument.
+
+Subsequent work had already brought the assertion ceiling from 62 to 61. The shallow
+validator public surface then replaced the three successful validator-return casts with one
+shared `certified` boundary, taking the measured count from 61 to 59 without weakening a
+check.
 
 Three rows moved between the first two columns, and none of them because the code got worse:
 
@@ -871,16 +876,16 @@ Three rows moved between the first two columns, and none of them because the cod
   for `T` to appear. `oxlint`'s `no-unused-vars` is right about the shape and wrong about the
   intent, so the suppression names the reason. It is the only one in the tree.
 
-Per-package distribution of the 2026-09-02 recount:
+Per-package distribution of the 2026-09-04 recount:
 
-| Package                | Assertions | `// boundary:` | What the boundaries are                                                       |
-| ---------------------- | ---------: | -------------: | ----------------------------------------------------------------------------- |
-| `@zmdb/aot-validator`  |         28 |             18 | checker `Type` → `TypeReference`, `JSON.parse` → `T`, `input as T` after `is` |
-| `@zmdb/schema-core`    |         12 |             10 | untrusted DTO payload reads, the custom-type registry, `every` as a predicate |
-| `@zmdb/repository`     |         11 |             10 | driver row → `Entity<S>`, the subclass statics, cursor payload                |
-| `@zmdb/web`            |         10 |             15 | decorator-metadata reads, DI token → instance, brand attach                   |
-| `@zmdb/query-compiler` |          1 |              1 | the `compile()` duck-type guard                                               |
-| `zmdb` (umbrella)      |          0 |              0 | —                                                                             |
+| Package                | Assertions | `// boundary:` | What the boundaries are                                                              |
+| ---------------------- | ---------: | -------------: | ------------------------------------------------------------------------------------ |
+| `@zmdb/aot-validator`  |         26 |             16 | checker `Type` → `TypeReference`, `JSON.parse` → `T`, one certified validator return |
+| `@zmdb/schema-core`    |         12 |             10 | untrusted DTO payload reads, the custom-type registry, `every` as a predicate        |
+| `@zmdb/repository`     |         10 |              9 | driver row → `Entity<S>`, the subclass statics, cursor payload                       |
+| `@zmdb/web`            |         10 |             22 | decorator-metadata reads, DI token → instance, brand attach                          |
+| `@zmdb/query-compiler` |          1 |              2 | the `compile()` duck-type guard                                                      |
+| `zmdb` (umbrella)      |          0 |              0 | —                                                                                    |
 
 `@zmdb/web` has more boundary comments than assertions, which is the intended direction: a
 boundary is a place where types stop proving things, and several of them are guards and

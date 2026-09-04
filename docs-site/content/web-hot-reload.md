@@ -14,7 +14,7 @@ Node 26 runs TypeScript directly by stripping types, and `--watch` restarts on c
 
 > [!WARNING]
 > Type stripping does **not** run the zmdb AOT transformer, and the validators have
-> no fallback: `is<T>()`, `assert<T>()` and `validate<T>()` all throw
+> no implicit fallback: the full and shallow `is`/`assert`/`validate` families all throw
 > `runtime type witness required in test/fallback mode` when the transformer has not
 > supplied a runtime witness. Validation does not silently weaken in development — it
 > stops working, which is the direction you want, but it does mean any code path that

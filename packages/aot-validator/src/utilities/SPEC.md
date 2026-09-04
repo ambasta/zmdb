@@ -67,12 +67,11 @@ because the call is gone, and passed explicitly by tests exactly as the witness 
 
 ### These are three new callees, and that has a visible cost
 
-`CALLEES` in `../transformer.ts` currently has eleven names after the protobuf descriptor, decoder and encoder
-slices, and `it('names every transformed call, and every one of them is a function somebody can call',
-…)` in `../transform-code.spec.ts` asserts that list literally. These three shallow calls would therefore
-make fourteen. The implementation slice
-updates the literal assertion and every current count in code and docs rather than relying on the
-eight-to-eleven arithmetic this section originally froze.
+`CALLEES` in `../transformer.ts` has fourteen names, and
+`it('names every transformed call, and every one of them is a function somebody can call', …)` in
+`../transform-code.spec.ts` asserts that list literally. The three shallow functions are exported from the
+same runtime utilities module as their full-depth siblings, and `zmdb-codegen` includes a non-default depth
+in a generated wrapper's identity so two checks over one type cannot collapse onto one implementation.
 
 The alternative was a second type argument on the existing `is`/`assert`/`validate` — no new callees, no
 test churn. It is rejected because it makes every existing call site's strength depend on a default, and

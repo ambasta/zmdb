@@ -30,7 +30,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
-import { transformFile } from '../transformer.js';
+import { CALLEES, transformFile } from '../transformer.js';
 import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.js';
 import {
   artifactPaths,
@@ -77,8 +77,7 @@ export interface CodegenResult {
  * argument? Reading a file and matching a regex is orders of magnitude less than asking the
  * compiler for its AST, and in a real project almost every file answers no.
  */
-const MENTIONS_CALLEE =
-  /\b(?:is|equals|assert|assertEquals|validate|random|toJsonSchema|schemaOf|protoDescriptor|protoDecode|protoEncode)\s*</;
+const MENTIONS_CALLEE = new RegExp(`\\b(?:${[...CALLEES].join('|')})\\s*<`);
 
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);
@@ -250,6 +249,7 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
 
     const errorModule =
       candidate.calleeSources.get('assert') ??
+      candidate.calleeSources.get('assertShallow') ??
       candidate.calleeSources.get('assertEquals') ??
       '@zmdb/aot-validator/utilities';
     const transformed = transformFile(candidate.paths.witness, candidate.witness, { session, emit: { errorModule } });

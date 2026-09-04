@@ -25,11 +25,12 @@ rather than resolved — they ask for opposite things.
 
 ## 2. What it rewrites
 
-`src/cli/scan.ts` finds calls to the eleven callees the transformer currently knows — `is`,
-`assert`, `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`,
-`protoDescriptor`, `protoDecode`, `protoEncode` — with a type argument. The scan is textual and
-deliberately cheap, because most files have none; the compiler is only asked about the
-files that do.
+`src/cli/scan.ts` finds calls to the fourteen callees the transformer currently knows — `is`,
+`isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`, `validateShallow`,
+`random`, `toJsonSchema`, `schemaOf`, `protoDescriptor`, `protoDecode`, `protoEncode` — with a type
+argument. The scan is textual and deliberately cheap, because most files have none; the compiler is
+only asked about the files that do. A non-default shallow depth is part of the generated export's
+identity, so `isShallow<Row, 1>` and `isShallow<Row, 2>` cannot collapse onto one wrapper.
 
 Per source file that validates anything, **three files beside it and one edit to the
 source**. `is<User>(data)` becomes `zmdbIsUser(data)`, imported from a generated module.

@@ -40,6 +40,37 @@ provenance and a SHA-256 manifest of every benchmark input.
 
 ---
 
+## Populated-row validation — full vs shallow depth 1
+
+Measured on 2026-09-04 with Node 26.8.1 on an AMD Ryzen 7 7840U, from a dirty
+worktree based on `0fb44acc`. The workload rotates eight `PopulatedOrderRow`
+values; every row has exactly three populated relation objects (`customer`,
+`warehouse`, `carrier`) and an `items` list containing 100 rows. Both functions
+are the real transformer output from `is<PopulatedOrderRow>` and
+`isShallow<PopulatedOrderRow, 1>`, not hand-written approximations.
+
+| mode            | median ns/op | median ops/s | max/min spread |
+| --------------- | -----------: | -----------: | -------------: |
+| full            |       448.66 |    2,228,870 |         1.030x |
+| shallow depth 1 |         9.95 |  100,460,099 |         1.044x |
+
+Depth 1 used 2.22% of the full validator's time in this session, a measured
+45.07× ratio. It makes a deliberately weaker promise: it checks top-level
+scalars, relation object shapes and list array-ness, but not fields inside those
+relations or list elements. Six semantic probes establish that distinction
+before timing, including malformed nested fields that full rejects and shallow
+accepts.
+
+Each row is the median of six samples after 500 ms of warmup per mode. The
+runner uses six alternating orders, places each mode three times in each
+position, observes every boolean result, and refuses publication above a 1.25×
+max/min spread. This is one local-machine session, not a cross-machine
+performance guarantee. The
+[raw artifact](./site/shallow-validation.json) carries all 12 samples, runtime
+provenance and a SHA-256 manifest of every benchmark input.
+
+---
+
 ## ORM — drizzle-benchmarks (real methodology: HTTP servers + k6)
 
 This is the upstream method: one **HTTP server per ORM** (each using its own

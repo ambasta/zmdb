@@ -76,12 +76,14 @@ const BUDGET = {
   // column is not a `Column` until `Object.defineProperties` has attached the fluent methods,
   // and that is not a type-changing operation. No builders, no chain, no cast.
   doubleCasts: { limit: 1, what: '`as unknown as` double casts' },
-  // 61. It was 65 when `aot-validator/src/testing` landed, and came down by three with
+  // 59. It was 65 when `aot-validator/src/testing` landed, and came down by three with
   // `defineSchema`: its own rebuild-of-a-generic-record assertion, `makeColumn`'s, and
   // `references`'s. The fourth went with the repository's `relations` map — a `Populated<T, R,
-  // K>` built from a relation *value* could not be indexed without one. Argued in §9.4, which
-  // is where a raise has to be argued.
-  assertions: { limit: 61, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
+  // K>` built from a relation *value* could not be indexed without one. The shallow-validator
+  // public surface then consolidated the three successful validation returns behind one
+  // `certified` boundary, removing two more. Argued in §9.4, which is where a raise has to be
+  // argued.
+  assertions: { limit: 59, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
   nonNull: { limit: 0, what: 'non-null assertions (`!`)' },
   lintDisables: { limit: 1, what: '`eslint-disable` / `oxlint-disable`' },
   dynamicCode: { limit: 0, what: '`new Function` / `eval` call sites' },
