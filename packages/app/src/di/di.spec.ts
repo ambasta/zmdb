@@ -4,7 +4,7 @@
 // Per ./SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Container, createToken, Inject, UnresolvedTokenError } from './index.ts';
+import { Container, createToken, Inject, UnresolvedTokenError } from './index.js';
 
 class Logger {
   log(msg: string): string {
