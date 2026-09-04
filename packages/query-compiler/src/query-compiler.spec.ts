@@ -71,6 +71,31 @@ describe('postgres SELECT compilation', () => {
   });
 });
 
+describe('zero-operand null predicates', () => {
+  // Actual at 9e6b9757:
+  //   SELECT * FROM "users" WHERE "deletedAt" is null $1 AND "tenantId" = $2
+  //   parameters ["ignored", 7]
+  // `is not null` has the same defect: it binds its ignored value and shifts the
+  // following placeholder.
+  it.fails('compiles zero-operand null predicates without shifting later parameters', () => {
+    const isNull = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('deletedAt', 'is null', 'ignored')
+      .andWhere('tenantId', '=', 7)
+      .compile();
+    const isNotNull = createQueryCompiler('postgres')
+      .selectFrom('users')
+      .where('deletedAt', 'is not null', 123)
+      .andWhere('active', '=', true)
+      .compile();
+
+    expect(isNull.text).toBe('SELECT * FROM "users" WHERE "deletedAt" IS NULL AND "tenantId" = $1');
+    expect(isNull.parameters).toEqual([7]);
+    expect(isNotNull.text).toBe('SELECT * FROM "users" WHERE "deletedAt" IS NOT NULL AND "active" = $1');
+    expect(isNotNull.parameters).toEqual([true]);
+  });
+});
+
 describe('optional compile-time telemetry', () => {
   it('keeps every default CRUD compiled-query object exactly two-keyed', () => {
     const compiler = createQueryCompiler('postgres');

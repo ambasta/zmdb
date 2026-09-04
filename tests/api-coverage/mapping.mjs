@@ -724,13 +724,18 @@ export const mikroOrm = {
       'is advice that is wrong on two of the three dialects it would be emitted for.',
     'perf-queries',
   ),
-  filters: oos(
-    'MikroORM filters are conditions injected into every query for an entity — soft delete, ' +
-      'tenancy — sometimes enabled globally. zmdb compiles the predicates the call names and no ' +
-      'others: a WHERE clause that appears because of configuration elsewhere makes the SQL ' +
-      'unpredictable from the call site, and a shared base repository method is the visible way.',
-    'repository',
-  ),
+  filters: [
+    'applies a declared filter to every single-table read',
+    'applies the target filter when populating a to-one relation',
+    'applies the target filter to the batched query of a to-many populate',
+    'applies a filter to an aggregation and a group-by',
+    'applies a write filter to updateMany and deleteMany',
+    'throws when a parameterised filter is called without its parameter, naming the filter',
+    'disables one named filter for one call and leaves the others applied',
+    'soft-deletes by updating rather than deleting, and hides the row from subsequent reads',
+    'reads soft-deleted rows only when the filter is explicitly disabled',
+    'applies a filter before LIMIT rather than post-filtering rows',
+  ],
   formulas: oos(
     'A formula property is a SQL expression that loads as if it were a column, so a read of an ' +
       'entity silently evaluates it. zmdb projects computed values through the aggregate ' +

@@ -25,6 +25,8 @@ Put the filter in a repository subclass so there is one place it can be wrong:
 
 ```ts
 class PostRepository extends BaseRepository<Post> {
+  static readonly schema = postSchema;
+
   private live(where: WhereDTO<Post> = {}): WhereDTO<Post> {
     return { ...where, deletedAt: { isNull: true } };
   }
@@ -55,11 +57,13 @@ Same shape, with the tenant coming from the request rather than a constant. Take
 
 ```ts
 class TenantPostRepository extends BaseRepository<Post> {
+  static readonly schema = postSchema;
+
   constructor(
     driver: Driver,
     private readonly tenantId: number,
   ) {
-    super(driver, postSchema);
+    super(driver);
   }
 
   override find(where: WhereDTO<Post> = {}) {
@@ -83,7 +87,14 @@ Set the variable in your driver, per connection, per request. This is the only v
 
 ## What it would take
 
-A `filters` option on `defineRepository` holding named `WhereDTO<S>` factories plus a default-enabled flag, merged in `BaseRepository`'s single where-building path. The merge is the design question: two filters both constraining `deletedAt` need an `and` at the DTO level, and [`WhereDTO` has no `and`/`or` combinators](./filters.html) — so this gap sits behind that one.
+The frozen design does not use `WhereDTO` factories. Parameterised filters are named
+repository values whose `where(params)` returns compiler predicates; soft delete alone is
+declared by a `SoftDelete<'deletedAt'>` tag because `delete`, DTO derivation, and schema
+checking all need that table-level fact. Active predicates are conjoined while SQL is
+compiled, and one filter can be disabled explicitly by name for one call.
+
+That contract is not implemented yet, so the explicit repository and row-level-security
+workarounds above remain the supported choices today.
 
 ---
 
