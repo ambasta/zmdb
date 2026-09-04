@@ -67,12 +67,12 @@ because the call is gone, and passed explicitly by tests exactly as the witness 
 
 ### These are three new callees, and that has a visible cost
 
-`CALLEES` in `../transformer.ts` is exactly eight names, and
-`it('names every transformed call, and every one of them is a function somebody can call', …)` in
-`../transform-code.spec.ts` asserts that list literally. Eleven callees break the assertion, and the word
-"eight" is also written into `../transformer.ts` twice, `../cli/SPEC.md` and
-`docs-site/content/cli-codegen.md`. The implementation slice updates all of them; recorded here so it reads
-as the plan rather than as collateral damage.
+`CALLEES` in `../transformer.ts` currently has ten names after the protobuf descriptor and encoder
+slices, and `it('names every transformed call, and every one of them is a function somebody can call',
+…)` in `../transform-code.spec.ts` asserts that list literally. The protobuf decoder will make eleven;
+these three shallow calls would therefore make fourteen if they land after it. The implementation slice
+updates the literal assertion and every current count in code and docs rather than relying on the
+eight-to-eleven arithmetic this section originally froze.
 
 The alternative was a second type argument on the existing `is`/`assert`/`validate` — no new callees, no
 test churn. It is rejected because it makes every existing call site's strength depend on a default, and

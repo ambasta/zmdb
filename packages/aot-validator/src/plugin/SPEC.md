@@ -126,7 +126,7 @@ has it.
 
 A file zmdb has nothing to do with is delegated unchanged: `node_modules`, `.d.ts`, anything that is not a
 source extension, and — before the compiler is involved at all — anything whose text does not contain one of
-the eight names in `CALLEES`. That scan is measured at over a megabyte a second (SPEC §7), which matters
+the names in `CALLEES`. That scan is measured at over a megabyte a second (SPEC §7), which matters
 here more than in a bundler plugin because it is what keeps an app's three thousand unrelated modules on the
 path they would take with zmdb uninstalled.
 

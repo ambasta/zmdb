@@ -47,9 +47,9 @@ const json = assertStringify(payload, ir); // throws AssertError if payload is w
 ```
 
 > [!IMPORTANT]
-> `assertStringify` is **not** one of the eight calls the transformer rewrites (`is`, `assert`,
-> `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`), so its schema has
-> to be a runtime argument. With none, it throws
+> `assertStringify` is **not** one of the ten calls the transformer currently rewrites (`is`,
+> `assert`, `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`,
+> `protoDescriptor`, `protoEncode`), so its schema has to be a runtime argument. With none, it throws
 > `runtime type witness required in test/fallback mode`.
 >
 > The transformed equivalent is two calls, and it is the one to write today:

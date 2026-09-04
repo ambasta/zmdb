@@ -256,6 +256,34 @@ export const explain = (value: unknown) => validate<Order>(value);
 });
 
 // -----------------------------------------------------------------------------
+// Protobuf calls
+// -----------------------------------------------------------------------------
+
+describe('a protobuf encoder call', () => {
+  it('writes a checked Uint8Array wrapper and preserves the wire-runtime import', () => {
+    const run = generate(`import { protoEncode } from '@zmdb/aot-validator';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+
+export interface Message {
+  value: number & Proto<'int32'> & ProtoField<1>;
+}
+
+export const encodeMessage = (value: Message): Uint8Array => protoEncode<Message>(value);
+`);
+    ok(run.result);
+    expect(run.app).toContain('zmdbProtoEncodeMessage(value)');
+    expect(run.app).not.toContain('protoEncode<Message>');
+
+    const generated = readFileSync(join(run.src, 'app.zmdb.generated.js'), 'utf8');
+    const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
+    expect(generated).toContain('ProtoWriter');
+    expect(generated).toContain('@zmdb/aot-validator/protobuf/wire');
+    expect(generated).toContain('export function zmdbProtoEncodeMessage(value)');
+    expect(declaration).toContain('export declare function zmdbProtoEncodeMessage(value: Message): Uint8Array;');
+  });
+});
+
+// -----------------------------------------------------------------------------
 // Whose file it is
 // -----------------------------------------------------------------------------
 

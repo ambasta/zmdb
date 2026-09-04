@@ -40,6 +40,7 @@
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts",
+    "./protobuf/wire": "./src/protobuf/wire.ts",
     "./reflect": "./src/reflect/index.ts",
     "./testing": "./src/testing/index.ts",
     "./codegen": "./src/cli/index.ts",

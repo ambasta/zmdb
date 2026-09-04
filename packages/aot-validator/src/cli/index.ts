@@ -73,11 +73,12 @@ export interface CodegenResult {
 }
 
 /**
- * Cheap pre-filter: does this file even mention one of the eight functions with a type
+ * Cheap pre-filter: does this file even mention one of the transformed functions with a type
  * argument? Reading a file and matching a regex is orders of magnitude less than asking the
  * compiler for its AST, and in a real project almost every file answers no.
  */
-const MENTIONS_CALLEE = /\b(?:is|equals|assert|assertEquals|validate|random|toJsonSchema|schemaOf)\s*</;
+const MENTIONS_CALLEE =
+  /\b(?:is|equals|assert|assertEquals|validate|random|toJsonSchema|schemaOf|protoDescriptor|protoEncode)\s*</;
 
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);

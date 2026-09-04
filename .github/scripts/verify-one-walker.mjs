@@ -109,6 +109,11 @@ const MAY_READ = new Map([
       '`serial`, a literal union is a `jsonEnum`, and a bare `number` is neither. Deciding ' +
       'which SQL type a declaration means is the opposite of reading one back.',
   ],
+  [
+    'packages/aot-validator/src/protobuf/encode.ts',
+    "the matched `case 'timestamp'` is the encoder's private `TimestampPlan` discriminant. " +
+      'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',
+  ],
 ]);
 
 const problems = [];

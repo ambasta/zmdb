@@ -49,6 +49,7 @@ import {
 } from '@zmdb/schema-core/ir';
 
 import { emitProtoDescriptor } from '../protobuf/descriptor.js';
+import { emitProtoEncoder } from '../protobuf/encode.js';
 import { validatePatternComplexity } from '../regex-complexity.js';
 import {
   discriminantOf,
@@ -78,6 +79,8 @@ export interface EmitOptions {
   readonly maxHelpers?: number;
   /** Module specifier the emitted prelude imports `AssertError` from. */
   readonly errorModule?: string;
+  /** Module specifier the emitted prelude imports `ProtoWriter` from. */
+  readonly protobufModule?: string;
 }
 
 /** A refusal. `path` is the property chain that reached it, as in the reflection. */
@@ -137,6 +140,7 @@ export class Emitter {
   readonly #prefix: string;
   readonly #maxHelpers: number;
   readonly #errorModule: string;
+  readonly #protobufModule: string;
   readonly #helpers: (string | undefined)[] = [];
   readonly #diagnostics: EmitDiagnostic[] = [];
   /** `target:name` → helper, for the emission in progress. Lets a `ref` resolve. */
@@ -145,6 +149,7 @@ export class Emitter {
   readonly #shared = new Map<string, string>();
   #counter = 0;
   #needsAssertError = false;
+  #needsProtoWriter = false;
   #hasIssueHelper = false;
   #hasFreeze = false;
   #hasIntSample = false;
@@ -154,6 +159,7 @@ export class Emitter {
     this.#prefix = options.prefix ?? '_zmdb';
     this.#maxHelpers = options.maxHelpers ?? DEFAULT_MAX_HELPERS;
     this.#errorModule = options.errorModule ?? '@zmdb/aot-validator/errors';
+    this.#protobufModule = options.protobufModule ?? '@zmdb/aot-validator/protobuf/wire';
   }
 
   get diagnostics(): readonly EmitDiagnostic[] {
@@ -162,7 +168,7 @@ export class Emitter {
 
   /** True once anything has been hoisted, so a caller knows a prelude is needed. */
   get hasPrelude(): boolean {
-    return this.#needsAssertError || this.#helpers.length > 0;
+    return this.#needsAssertError || this.#needsProtoWriter || this.#helpers.length > 0;
   }
 
   /**
@@ -173,6 +179,9 @@ export class Emitter {
     const lines: string[] = [];
     if (this.#needsAssertError) {
       lines.push(`import { AssertError as ${this.#prefix}AssertError } from ${JSON.stringify(this.#errorModule)};`);
+    }
+    if (this.#needsProtoWriter) {
+      lines.push(`import { ProtoWriter as ${this.#prefix}ProtoWriter } from ${JSON.stringify(this.#protobufModule)};`);
     }
     for (const helper of this.#helpers) if (helper !== undefined) lines.push(helper);
     return lines.join('\n');
@@ -279,6 +288,25 @@ export class Emitter {
     return result.source === undefined ? undefined : JSON.stringify(result.source);
   }
 
+  /** `protoEncode<T>(expr)` -> a call to a compile-time-produced straight-line encoder. */
+  emitProtoEncode(node: TypeIR, name: string, expr: string): string | undefined {
+    const fingerprint = `protoEncode:${name}:${JSON.stringify(node)}`;
+    const cached = this.#shared.get(fingerprint);
+    if (cached !== undefined) return `${cached}(${expr.trim()})`;
+
+    const result = emitProtoEncoder(node, name, {
+      namespace: this.#name('Proto'),
+      writer: `${this.#prefix}ProtoWriter`,
+    });
+    for (const diagnostic of result.diagnostics) this.#diagnostics.push(diagnostic);
+    if (result.entry === undefined) return undefined;
+    if (!this.#append(result.helpers)) return undefined;
+
+    this.#needsProtoWriter = true;
+    this.#shared.set(fingerprint, result.entry);
+    return `${result.entry}(${expr.trim()})`;
+  }
+
   /**
    * A finished value, hoisted once and deeply frozen.
    *
@@ -358,6 +386,16 @@ export class Emitter {
     const name = this.#name(hint);
     this.#helpers[slot] = `function ${name}(${parameters.join(', ')}) { ${body.join(' ')} }`;
     return name;
+  }
+
+  /** Append a complete external back-end's helpers without weakening the per-file cap. */
+  #append(helpers: readonly string[]): boolean {
+    if (this.#helpers.length + helpers.length > this.#maxHelpers) {
+      this.#refuse('', `more than ${this.#maxHelpers} emitted helpers in one file`);
+      return false;
+    }
+    this.#helpers.push(...helpers);
+    return true;
   }
 
   #bind(expr: string): Bound {

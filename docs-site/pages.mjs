@@ -1100,13 +1100,13 @@ export const PAGE_META = {
     title: 'Protobuf Messages',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'proto3 descriptors ship; protobuf wire encoder and decoder remain open',
+    note: 'proto3 descriptors and the AOT encoder ship; the decoder and final codec docs remain open',
   },
   'protobuf-encode': {
     title: 'protobuf encode',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'no protobuf wire encoder',
+    note: 'AOT encoder ships; final protobuf documentation remains in the open codec epic',
   },
   'protobuf-decode': {
     title: 'protobuf decode',

@@ -25,10 +25,11 @@ rather than resolved — they ask for opposite things.
 
 ## 2. What it rewrites
 
-`src/cli/scan.ts` finds calls to the eight callees the transformer knows — `is`, `assert`,
-`equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf` — with a type
-argument. The scan is textual and deliberately cheap, because most files have none; the
-compiler is only asked about the files that do.
+`src/cli/scan.ts` finds calls to the ten callees the transformer currently knows — `is`,
+`assert`, `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`,
+`protoDescriptor`, `protoEncode` — with a type argument. The scan is textual and
+deliberately cheap, because most files have none; the compiler is only asked about the
+files that do.
 
 Per source file that validates anything, **three files beside it and one edit to the
 source**. `is<User>(data)` becomes `zmdbIsUser(data)`, imported from a generated module.

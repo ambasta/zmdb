@@ -24,6 +24,7 @@ import type { TypeIR } from '@zmdb/schema-core/ir';
 import type { Diagnostic } from 'typescript/unstable/sync';
 
 import { AssertError } from '../../errors.js';
+import { ProtoWriter } from '../../protobuf/wire.js';
 import { findCallSites } from '../../reflect/callsites.js';
 import { Reflector } from '../../reflect/index.js';
 import { ReflectSession } from '../../reflect/session.js';
@@ -225,18 +226,31 @@ export class FixtureProject implements Disposable {
   }
 }
 
-const IMPORT_LINE = /^import \{ AssertError as (\w+) \} from "[^"]*";\n/;
+const ASSERT_ERROR_IMPORT = /^import \{ AssertError as (\w+) \} from "[^"]*";\n/m;
+const PROTO_WRITER_IMPORT = /^import \{ ProtoWriter as (\w+) \} from "[^"]*";\n/m;
 
 /** Evaluate emitted code and hand back its `check`. */
 export function evaluate(code: string): (input: unknown) => unknown {
-  const match = IMPORT_LINE.exec(code);
-  if (!match) return new Function(`${code}\nreturn check;`)() as (input: unknown) => unknown;
-  // `new Function` has no module scope, so the emitted import becomes a parameter. It
-  // has to be the *same* class the runtime path throws, not a re-declaration: that
-  // identity is the reason the emitted prelude imports it at all.
-  const alias = match[1] as string;
-  const factory = new Function(alias, `${code.replace(IMPORT_LINE, '')}\nreturn check;`) as (
-    error: unknown,
+  const parameters: string[] = [];
+  const values: unknown[] = [];
+  let executable = code;
+
+  const assertion = ASSERT_ERROR_IMPORT.exec(executable);
+  if (assertion) {
+    parameters.push(assertion[1] as string);
+    values.push(AssertError);
+    executable = executable.replace(ASSERT_ERROR_IMPORT, '');
+  }
+
+  const protobuf = PROTO_WRITER_IMPORT.exec(executable);
+  if (protobuf) {
+    parameters.push(protobuf[1] as string);
+    values.push(ProtoWriter);
+    executable = executable.replace(PROTO_WRITER_IMPORT, '');
+  }
+
+  const factory = new Function(...parameters, `${executable}\nreturn check;`) as (
+    ...args: readonly unknown[]
   ) => (input: unknown) => unknown;
-  return factory(AssertError);
+  return factory(...values);
 }

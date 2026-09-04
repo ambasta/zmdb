@@ -34,6 +34,7 @@
       "@zmdb/query-compiler": ["./packages/query-compiler/src/index.ts"],
       "@zmdb/query-compiler/*": ["./packages/query-compiler/src/*/index.ts"],
       "@zmdb/aot-validator": ["./packages/aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/protobuf/wire": ["./packages/aot-validator/src/protobuf/wire.ts"],
       "@zmdb/aot-validator/*": ["./packages/aot-validator/src/*/index.ts"],
       "@zmdb/repository": ["./packages/repository/src/index.ts"],
       "@zmdb/repository/drivers/*": ["./packages/repository/src/drivers/*.ts"],

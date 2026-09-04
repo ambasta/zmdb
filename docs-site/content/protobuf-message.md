@@ -1,7 +1,7 @@
 > **Partial support.** `ProtoField<N>` and `Proto<K>` are carried through the
 > shared TypeIR, and `protoDescriptor<T>()` emits a parser-valid proto3 descriptor
-> at build time. The wire-format [encoder](./protobuf-encode.html) and
-> [decoder](./protobuf-decode.html) do not exist yet.
+> at build time. The AOT wire-format [encoder](./protobuf-encode.html) also
+> ships; the [decoder](./protobuf-decode.html) does not yet.
 
 ## Declare the wire contract once
 
@@ -32,11 +32,10 @@ numbers are build diagnostics naming the message and property.
 
 ## What you would use it for, and what to use instead
 
-**Compact wire format for internal service calls.** The descriptor is available,
-but zmdb still has no binary codec. Today the executable path is JSON via
-[`stringify`](./json-stringify.html) / [`parse`](./json-parse.html).
-`stringify` currently follows the runtime `JSON.stringify` path and `parse`
-follows `JSON.parse`; neither supplies a binary schema contract.
+**Compact outbound wire format for internal service calls.** Use
+`protoEncode<T>(value)` for bytes compiled from the same declaration as the
+descriptor. Inbound bytes still need an ordinary protobuf decoder and an adapter
+to the TypeScript shape until `protoDecode<T>()` lands.
 
 **A schema contract between services in different languages.** Emit
 `protoDescriptor<T>()` during the build and feed the resulting `.proto` text to
@@ -44,7 +43,7 @@ the other language's ordinary protobuf generator. OpenAPI and JSON Schema remain
 the alternatives for JSON APIs.
 
 **gRPC.** Not available — see [gRPC](./web-microservices-grpc.html), which still
-needs the encoder and decoder.
+needs the decoder and transport integration.
 
 ## Using a protobuf library alongside zmdb
 
@@ -55,9 +54,9 @@ then let the protobuf library compile or load that descriptor:
 await writeFile('user.proto', protoDescriptor<UserMessage>());
 ```
 
-The descriptor removes the second hand-written schema. Until zmdb's encoder and
-decoder land, a library still owns the byte conversion; validate its plain result
-at that boundary:
+The descriptor removes the second hand-written schema. zmdb can own the encode
+direction; a library still owns decode, so validate its plain result at that
+boundary:
 
 ```ts
 import { is } from '@zmdb/aot-validator/utilities';
@@ -74,9 +73,7 @@ has to return the TypeScript shape it declared.
 
 ## What remains
 
-1. **An encoder** generated from the same IR, including proto3 zero omission,
-   packed scalar arrays and exact-width integer handling.
-2. **A decoder** over the same mapping, including bounded malformed-input
+1. **A decoder** over the same mapping, including bounded malformed-input
    handling and the declared unknown-field policy.
 
 Some source shapes are deliberately refused rather than left undecided:

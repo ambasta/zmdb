@@ -135,6 +135,7 @@ describe('CALLEES', () => {
       'equals',
       'is',
       'protoDescriptor',
+      'protoEncode',
       'random',
       'schemaOf',
       'toJsonSchema',

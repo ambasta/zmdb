@@ -33,7 +33,7 @@ import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complex
 /**
  * The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`.
  *
- * Exported because `zmdb-codegen` asks the same question about the same eight names, and
+ * Exported because `zmdb-codegen` asks the same question about the same names, and
  * two lists would drift: a callee added here and not there is a call the bundler inlines
  * and the CLI leaves as a runtime walk, which is a silent performance cliff between two
  * paths that are supposed to be equivalent.
@@ -48,12 +48,13 @@ export const CALLEES: ReadonlySet<string> = new Set([
   'toJsonSchema',
   'schemaOf',
   'protoDescriptor',
+  'protoEncode',
 ]);
 
 /**
  * What the reflector made of the type argument.
  *
- * Three shapes because there are three questions. Six of the eight callees ask "what does
+ * Three shapes because there are three questions. The validation callees ask "what does
  * a value of this type look like", which is the structural walk. `toJsonSchema<T>()` asks
  * "which columns does this document describe", which needs per-property optionality and
  * tags and no structure below the first level. `schemaOf<T>()` asks "which table is this",
@@ -207,6 +208,7 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
     case 'schemaOf':
       return { kind: 'schema', ir: reflector.schemaIR(type) };
     case 'protoDescriptor':
+    case 'protoEncode':
       return { kind: 'protobuf', node: reflector.protobufIR(type), name: protobufName(type) };
     default:
       return { kind: 'type', node: reflector.typeIR(type) };
@@ -218,7 +220,9 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
   // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
   if (reflected.kind === 'schema') return emitter.emitSchemaValue(reflected.ir);
-  if (reflected.kind === 'protobuf') return emitter.emitProtoDescriptor(reflected.node, reflected.name);
+  if (reflected.kind === 'protobuf' && site.callee === 'protoDescriptor') {
+    return emitter.emitProtoDescriptor(reflected.node, reflected.name);
+  }
 
   const node = reflected.node;
   if (site.callee === 'random') return emitter.emitRandom(node);
@@ -231,6 +235,8 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
   const expression = rewriter.slice(argument.getStart(), argument.end);
 
   switch (site.callee) {
+    case 'protoEncode':
+      return emitter.emitProtoEncode(node, reflected.kind === 'protobuf' ? reflected.name : 'Message', expression);
     case 'is':
       return emitter.emitIs(node, expression);
     case 'equals':

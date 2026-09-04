@@ -133,7 +133,7 @@ describe('wire interop', () => {
     });
   });
 
-  it.fails('produces bytes a reference implementation decodes', () => {
+  it('produces bytes a reference implementation decodes', () => {
     const { value: bytes } = encode(
       project,
       'InteropMessage',

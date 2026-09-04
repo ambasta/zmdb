@@ -18,7 +18,7 @@ npm add @zmdb/aot-validator@alpha
 
 ## Entry points
 
-`@zmdb/aot-validator`, `@zmdb/aot-validator/advanced`, `@zmdb/aot-validator/emit`, `@zmdb/aot-validator/errors`, `@zmdb/aot-validator/serialization`, `@zmdb/aot-validator/utilities`, `@zmdb/aot-validator/plugin`, `@zmdb/aot-validator/reflect`, `@zmdb/aot-validator/testing`, `@zmdb/aot-validator/codegen`, `@zmdb/aot-validator/transformer`, `@zmdb/aot-validator/unplugin`
+`@zmdb/aot-validator`, `@zmdb/aot-validator/advanced`, `@zmdb/aot-validator/emit`, `@zmdb/aot-validator/errors`, `@zmdb/aot-validator/serialization`, `@zmdb/aot-validator/utilities`, `@zmdb/aot-validator/plugin`, `@zmdb/aot-validator/protobuf/wire`, `@zmdb/aot-validator/reflect`, `@zmdb/aot-validator/testing`, `@zmdb/aot-validator/codegen`, `@zmdb/aot-validator/transformer`, `@zmdb/aot-validator/unplugin`
 
 ## Documentation
 

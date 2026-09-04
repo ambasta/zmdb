@@ -239,6 +239,8 @@ const PREFIXES: Readonly<Record<string, string>> = {
   random: 'Random',
   toJsonSchema: 'JsonSchema',
   schemaOf: 'Schema',
+  protoDescriptor: 'ProtoDescriptor',
+  protoEncode: 'ProtoEncode',
 };
 
 /** How long a slug may get before it stops being a name and starts being the type. */
@@ -292,6 +294,8 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   random: '@zmdb/aot-validator/utilities',
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
+  protoDescriptor: '@zmdb/aot-validator',
+  protoEncode: '@zmdb/aot-validator',
 };
 
 /**

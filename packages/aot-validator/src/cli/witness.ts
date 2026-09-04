@@ -178,6 +178,15 @@ function signature(entry: Entry): Signature {
       return { parameters: '', returns: 'JsonSchemaObject', plain: '', call: `toJsonSchema<${type}>()` };
     case 'schemaOf':
       return { parameters: '', returns: `TaggedSchema<${type}>`, plain: '', call: `schemaOf<${type}>()` };
+    case 'protoDescriptor':
+      return { parameters: '', returns: 'string', plain: '', call: `protoDescriptor<${type}>()` };
+    case 'protoEncode':
+      return {
+        parameters: `value: ${type}`,
+        returns: 'Uint8Array',
+        plain: 'value',
+        call: `protoEncode<${type}>(value)`,
+      };
     default:
       // `CALLEES` is the only source of `callee`, and every member of it is above. A new one
       // added there and not here would otherwise generate a wrapper that calls nothing.
@@ -603,7 +612,7 @@ interface EditContext {
  * The second half is not tidiness: `import { is } from 'zmdb'` with no `is` left in the file
  * is an error under `noUnusedLocals`, so a codegen that left it behind would break the build
  * it was supposed to speed up. Only bindings this rewrite could have orphaned are considered
- * — the eight callee names, and a namespace or default binding of a module a callee came
+ * — the callee names, and a namespace or default binding of a module a callee came
  * from — and only when the name is referenced nowhere in what is left.
  */
 function importEdits(sourceFile: SourceFile, context: EditContext): TextEdit[] {

@@ -26,6 +26,21 @@ export function protoDescriptor<_T>(): string {
   );
 }
 
+/**
+ * Encode `value` as protobuf at build time.
+ *
+ * The type argument and its field tags do not exist at runtime, so the build plugin
+ * replaces this call with a generated encoder. An unreplaced call cannot guess a wire
+ * contract and fails by name.
+ */
+export function protoEncode<T>(_value: T): Uint8Array {
+  throw new Error(
+    'protoEncode<T>(value) was not replaced at build time. It is compiled away by the zmdb transform ' +
+      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+      'be read at runtime, so there is no protobuf wire contract to fall back to.',
+  );
+}
+
 export interface Rule {
   readonly kind: string;
   readonly args: readonly unknown[];

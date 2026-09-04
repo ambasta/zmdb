@@ -8,7 +8,7 @@ import { is } from '@zmdb/aot-validator/utilities';
 is<User>(payload); // needs the transformer
 ```
 
-`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>` and `schemaOf<T>` are the eight calls the transformer rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — `runtime type witness required in test/fallback mode`, or for `schemaOf<T>()` a longer message naming the plugin that should have run.
+`is<T>`, `assert<T>`, `validate<T>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>`, `schemaOf<T>`, `protoDescriptor<T>` and `protoEncode<T>` are the ten calls the transformer currently rewrites. It replaces each with emitted code built from `T`'s reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema and protobuf calls name the build transform that should have replaced them.
 
 > [!IMPORTANT]
 > There is no fallback that inspects `T` at runtime, because there is nothing to inspect.
@@ -45,9 +45,9 @@ const json = stringify(user); // JSON.stringify, plus one fixed bigint TypeError
 const result = parse(json); // { success, data? , issues? } — malformed JSON is a value, not a throw
 ```
 
-`parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the eight.
+`parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the transformed validation calls.
 
-**A validator with an explicit schema.** Every one of the eight takes an optional second argument — a `TypeIR`, and only that. It is the escape hatch for a caller that already holds one:
+**A validator with an explicit schema.** The six validation/generation utilities accept a `TypeIR` value as their fallback witness (`random` takes it first; the five value-checking calls take it second). The schema and protobuf calls cannot use that escape hatch because their public contract is compile-time-only:
 
 ```ts
 import { assert, type TypeIR } from '@zmdb/aot-validator/utilities';

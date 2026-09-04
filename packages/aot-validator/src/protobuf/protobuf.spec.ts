@@ -4,8 +4,8 @@ import { buildValue, decode, descriptor, encode, openProtoProject } from './__te
 
 // Tests freeze for #478. The normative mapping is `../emit/SPEC.md` §7b and
 // `@zmdb/schema-core/ir`'s SPEC §4.5. Descriptor/reflection assertions owned by
-// #479 are green; encoder and decoder assertions remain `it.fails` until their
-// implementation slices replace the call sites with real emitted code.
+// #479 are green. #480's encoder-only assertions are green; decoder-only and
+// mixed round-trip assertions remain `it.fails` until #481 replaces that call.
 //
 // Byte vectors marked "protoc 34.2" were generated from
 // `./__fixtures__/reference.proto`; the canonical 150 vector is also the example
@@ -14,6 +14,33 @@ import { buildValue, decode, descriptor, encode, openProtoProject } from './__te
 const project = openProtoProject();
 
 afterAll(() => project.close());
+
+const ALL_SCALARS_SOURCE = `{
+  defaultDouble: 1.5,
+  int32: -2147483648,
+  int64: -9223372036854775808n,
+  uint32: 4294967295,
+  uint64: 18446744073709551615n,
+  sint32: -2147483648,
+  sint64: -9007199254740993n,
+  fixed32: 4294967295,
+  fixed64: 9007199254740993n,
+  sfixed32: -2147483648,
+  sfixed64: -9007199254740993n,
+  float: 1.5,
+  double: -2.25,
+  bool: true,
+  string: "zmdb"
+}`;
+
+const ALL_SCALARS_BYTES = Uint8Array.from([
+  0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x3f, 0x10, 0x80, 0x80, 0x80, 0x80, 0xf8, 0xff, 0xff, 0xff, 0xff,
+  0x01, 0x18, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01, 0x20, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x28,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01, 0x30, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x38, 0x81, 0x80,
+  0x80, 0x80, 0x80, 0x80, 0x80, 0x20, 0x45, 0xff, 0xff, 0xff, 0xff, 0x49, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,
+  0x00, 0x55, 0x00, 0x00, 0x00, 0x80, 0x59, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xdf, 0xff, 0x65, 0x00, 0x00, 0xc0,
+  0x3f, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xc0, 0x70, 0x01, 0x7a, 0x04, 0x7a, 0x6d, 0x64, 0x62,
+]);
 
 function refusal(source: string, expected: readonly RegExp[]): void {
   const result = project.transform(source);
@@ -26,31 +53,31 @@ function refusal(source: string, expected: readonly RegExp[]): void {
 }
 
 describe('protobuf specification vectors', () => {
-  it.fails('encodes a varint field to the bytes the specification gives', () => {
+  it('encodes a varint field to the bytes the specification gives', () => {
     const { value } = encode(project, 'CanonicalInt32', '{ value: 150 }');
     expect(value).toEqual(Uint8Array.from([0x08, 0x96, 0x01]));
   });
 
-  it.fails('zigzags a negative sint32', () => {
+  it('zigzags a negative sint32', () => {
     const { value } = encode(project, 'CanonicalSint32', '{ value: -1 }');
     // protoc 34.2: field tag 08, then zigzag(-1) = 01.
     expect(value).toEqual(Uint8Array.from([0x08, 0x01]));
   });
 
-  it.fails('defaults an untagged number to double', () => {
+  it('defaults an untagged number to double', () => {
     const { value } = encode(project, 'DefaultDouble', '{ value: 1.5 }');
     // protoc 34.2: fixed64 wire type and IEEE-754 little-endian payload.
     expect(value).toEqual(Uint8Array.from([0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x3f]));
   });
 
-  it.fails('does not let a SQL integer tag imply protobuf int32', () => {
+  it('does not let a SQL integer tag imply protobuf int32', () => {
     const { value } = encode(project, 'SqlInteger', '{ value: 1.5 }');
     expect(value).toEqual(Uint8Array.from([0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x3f]));
   });
 
   // These are a pair. The same empty wire message means an explicitly written
   // required zero and no required field at all under proto3 implicit presence.
-  it.fails('omits a required field holding its zero value', () => {
+  it('omits a required field holding its zero value', () => {
     const { value } = encode(project, 'RequiredInt32', '{ value: 0 }');
     expect(value).toEqual(new Uint8Array());
   });
@@ -83,37 +110,10 @@ describe('protobuf specification vectors', () => {
   });
 
   it.fails('round-trips every emitted scalar without losing 64-bit precision', () => {
-    const source = `{
-      defaultDouble: 1.5,
-      int32: -2147483648,
-      int64: -9223372036854775808n,
-      uint32: 4294967295,
-      uint64: 18446744073709551615n,
-      sint32: -2147483648,
-      sint64: -9007199254740993n,
-      fixed32: 4294967295,
-      fixed64: 9007199254740993n,
-      sfixed32: -2147483648,
-      sfixed64: -9007199254740993n,
-      float: 1.5,
-      double: -2.25,
-      bool: true,
-      string: "zmdb"
-    }`;
-    const bytes = encode(project, 'AllScalars', source).value;
+    const bytes = encode(project, 'AllScalars', ALL_SCALARS_SOURCE).value;
     // protoc 34.2 over `AllScalarsReference`: this makes the scalar matrix an
     // interoperability test rather than a self-consistent round trip.
-    expect(bytes).toEqual(
-      Uint8Array.from([
-        0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x3f, 0x10, 0x80, 0x80, 0x80, 0x80, 0xf8, 0xff, 0xff, 0xff,
-        0xff, 0x01, 0x18, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01, 0x20, 0xff, 0xff, 0xff, 0xff,
-        0x0f, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01, 0x30, 0xff, 0xff, 0xff, 0xff, 0x0f,
-        0x38, 0x81, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x20, 0x45, 0xff, 0xff, 0xff, 0xff, 0x49, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x20, 0x00, 0x55, 0x00, 0x00, 0x00, 0x80, 0x59, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xdf,
-        0xff, 0x65, 0x00, 0x00, 0xc0, 0x3f, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xc0, 0x70, 0x01, 0x7a,
-        0x04, 0x7a, 0x6d, 0x64, 0x62,
-      ]),
-    );
+    expect(bytes).toEqual(ALL_SCALARS_BYTES);
     const { value } = decode<{
       defaultDouble: number;
       int32: number;
@@ -176,7 +176,7 @@ describe('protobuf specification vectors', () => {
     expect(typeof value.value).toBe('bigint');
   });
 
-  it.fails('packs a repeated numeric field', () => {
+  it('packs a repeated numeric field', () => {
     const { value } = encode(project, 'PackedInt32', '{ values: [1, 2, 150] }');
     // protoc 34.2: one length-delimited packed payload.
     expect(value).toEqual(Uint8Array.from([0x0a, 0x04, 0x01, 0x02, 0x96, 0x01]));
@@ -191,7 +191,7 @@ describe('protobuf specification vectors', () => {
     expect(decode(project, 'PackedState', enumBytes).value).toEqual({ values: ['active', 'paused'] });
   });
 
-  it.fails('leaves repeated strings unpacked', () => {
+  it('leaves repeated strings unpacked', () => {
     const { value } = encode(project, 'RepeatedStrings', '{ values: ["a", "bc"] }');
     // protoc 34.2: each string has its own field tag and length.
     expect(value).toEqual(Uint8Array.from([0x0a, 0x01, 0x61, 0x0a, 0x02, 0x62, 0x63]));
@@ -230,12 +230,50 @@ describe('protobuf specification vectors', () => {
 });
 
 describe('encoder boundaries from #480', () => {
-  it.fails('orders encoded fields by field number rather than declaration order', () => {
+  it('emits direct property access without a runtime descriptor walk', () => {
+    const { code } = encode(project, 'CanonicalInt32', '{ value: 150 }');
+    expect(code).toMatch(/_v\.value/);
+    expect(code).not.toMatch(/descriptor|Object\.entries|Reflect\./);
+  });
+
+  it('encodes the frozen scalar matrix, including exact 64-bit extrema', () => {
+    expect(encode(project, 'AllScalars', ALL_SCALARS_SOURCE).value).toEqual(ALL_SCALARS_BYTES);
+  });
+
+  it('writes explicit optional and nullable zero presence while omitting absence', () => {
+    expect(encode(project, 'OptionalInt32', '{}').value).toEqual(new Uint8Array());
+    expect(encode(project, 'OptionalInt32', '{ value: 0 }').value).toEqual(Uint8Array.from([0x08, 0x00]));
+    expect(encode(project, 'NullableInt32', '{ value: null }').value).toEqual(new Uint8Array());
+    expect(encode(project, 'NullableInt32', '{ value: 0 }').value).toEqual(Uint8Array.from([0x08, 0x00]));
+  });
+
+  it('packs repeated bool and enum fields', () => {
+    expect(encode(project, 'PackedBool', '{ values: [true, false, true] }').value).toEqual(
+      Uint8Array.from([0x0a, 0x03, 0x01, 0x00, 0x01]),
+    );
+    expect(encode(project, 'PackedState', '{ values: ["active", "paused"] }').value).toEqual(
+      Uint8Array.from([0x0a, 0x02, 0x01, 0x02]),
+    );
+  });
+
+  it('encodes nested, repeated nested and Timestamp fields', () => {
+    expect(encode(project, 'NestedEnvelope', '{ value: { value: 150 } }').value).toEqual(
+      Uint8Array.from([0x1a, 0x03, 0x08, 0x96, 0x01]),
+    );
+    expect(encode(project, 'RepeatedNested', '{ values: [{ value: 1 }, { value: 2 }] }').value).toEqual(
+      Uint8Array.from([0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02, 0x08, 0x02]),
+    );
+    expect(encode(project, 'TimestampMessage', '{ at: new Date("2020-01-02T03:04:05.006Z") }').value).toEqual(
+      Uint8Array.from([0x0a, 0x0b, 0x08, 0xa5, 0xbb, 0xb5, 0xf0, 0x05, 0x10, 0x80, 0x9b, 0xee, 0x02]),
+    );
+  });
+
+  it('orders encoded fields by field number rather than declaration order', () => {
     const { value } = encode(project, 'OutOfOrderFields', '{ later: 3, first: 1 }');
     expect(value).toEqual(Uint8Array.from([0x08, 0x01, 0x18, 0x03]));
   });
 
-  it.fails('encodes a nested message longer than 127 bytes', () => {
+  it('encodes a nested message longer than 127 bytes', () => {
     const { value } = encode(project, 'LongNestedEnvelope', '{ value: { text: "x".repeat(128) } }');
     // Inner message: 0a 80 01 + 128 bytes = 131; outer length is therefore 83 01.
     expect(value).toHaveLength(134);
@@ -243,7 +281,7 @@ describe('encoder boundaries from #480', () => {
     expect(value.slice(6)).toEqual(new Uint8Array(128).fill(0x78));
   });
 
-  it.fails('returns an exactly-sized Uint8Array', () => {
+  it('returns an exactly-sized Uint8Array', () => {
     const { value } = encode(project, 'CanonicalInt32', '{ value: 150 }');
     expect(value).toBeInstanceOf(Uint8Array);
     expect(value.byteOffset).toBe(0);
@@ -406,7 +444,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses an untagged bigint because its signedness is unknown', () => {
+  it('refuses an untagged bigint because its signedness is unknown', () => {
     refusal('const check = () => protoEncode<UntaggedBigint>({ value: 1n });', [
       /UntaggedBigint/,
       /value/,
@@ -415,7 +453,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a number tagged as a 64-bit integer', () => {
+  it('refuses a number tagged as a 64-bit integer', () => {
     refusal('const check = () => protoEncode<NumberAsInt64>({ value: 1 });', [
       /NumberAsInt64/,
       /value/,
@@ -424,7 +462,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses bytes because reflection cannot carry Uint8Array', () => {
+  it('refuses bytes because reflection cannot carry Uint8Array', () => {
     refusal('const check = () => protoEncode<BytesMessage>({ value: new Uint8Array([1]) });', [
       /BytesMessage/,
       /value/,
