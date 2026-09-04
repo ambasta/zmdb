@@ -220,7 +220,38 @@ export function schemaIrsFrom<const Names extends readonly string[]>(
           'the checker to have a declared type for them.',
       );
     }
-    const type = checker.getDeclaredTypeOfSymbol(symbol);
+
+    // Before anything is read off the type: a file that does not compile has error types in it,
+    // and an error type reflects as a refusal per column rather than as the one problem it is.
+    const broken = session.diagnostics(file);
+    if (broken.length > 0) {
+      throw new Error(
+        `${file} does not compile, so its types cannot be read (${broken.length} diagnostic(s)):\n` +
+          broken
+            .slice(0, 5)
+            .map(one => `  TS${String(one.code)}: ${one.text}`)
+            .join('\n'),
+      );
+    }
+
+    const { checker } = session;
+    const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+    if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+    const exported = new Map(checker.getExportsOfModule(moduleSymbol).map(symbol => [symbol.name, symbol]));
+
+    const irs: Record<string, SchemaIR> = {};
+    const diagnostics: ReflectDiagnostic[] = [];
+    for (const name of names) {
+      const symbol = exported.get(name);
+      if (!symbol) {
+        // Naming the exports is worth the line: the usual cause is a missing `export`, and the
+        // message "User is not exported" is not obviously that when the interface is right there.
+        throw new Error(
+          `${file} exports no \`${name}\`. It has to be \`export interface ${name}\` — the module's ` +
+            `export table is how the name is resolved. Exports found: ${[...exported.keys()].join(', ') || 'none'}.`,
+        );
+      }
+      const type = checker.getDeclaredTypeOfSymbol(symbol);
       // One reflector per name, which `schemaIrFromType` gives us: the node budget and the
       // helper-name table are per-reflection state, and sharing them across unrelated tables
       // would make one table's refusals show up against another's.

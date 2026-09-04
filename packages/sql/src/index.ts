@@ -127,14 +127,7 @@ export type {
   SpatialPredicate,
   VectorColumnOf,
 } from './extensions/index.js';
-export {
-  formatPlaceholder,
-  quoteColumn,
-  quoteIdentifier,
-  quoteTable,
-  renumberPlaceholders,
-  sanitizeExpression,
-};
+export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders, sanitizeExpression };
 export type { SanitizedExpression };
 export type Operator =
   | '='
