@@ -18,6 +18,7 @@ import { compileModule, type LazyModuleHandle, type ModuleClass } from '../modul
 import { lifecycleInstances } from '../modules/lifecycle-instances.js';
 import { runtimeOf } from '../modules/runtime.js';
 import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
+import { rememberAppCompilation } from './runtime.js';
 
 export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.js';
 export type { AppOptions } from '../microservices/index.js';
@@ -138,7 +139,7 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
     }
   };
 
-  return {
+  const app: App = {
     container,
     lazy,
     handle: req => router.handle(req),
@@ -155,6 +156,8 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
       return disposePromise;
     },
   };
+  rememberAppCompilation(app, compiled);
+  return app;
 }
 
 function transportGrace(value: number): number {

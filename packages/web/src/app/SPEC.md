@@ -17,8 +17,9 @@
     imported modules; empty when the graph has none.
   - **`init(): Promise<void>`** — invoke lifecycle `onModuleInit` /
     `onApplicationBootstrap` hooks (in construction order) on every constructed
-    provider/controller that implements them, then build the message dispatcher
-    and open configured transports. Repeated calls share one initialization.
+    provider/controller/command that implements them, then build the message
+    dispatcher and open configured transports. Repeated calls share one
+    initialization.
   - **`[Symbol.asyncDispose](): Promise<void>`** — invoke `onShutdown` hooks in
     reverse construction order; configured transports close first, in reverse
     declaration order, under the application grace bound.
@@ -37,7 +38,8 @@ dispatcher sinks/policy, and an optional positive `graceMs` whose default is
 
 - A `useValue` provider enters the lifecycle ledger when it is registered. A
   `useFactory` provider enters only after its factory actually returns, and a
-  controller enters after construction. Object identity is recorded once.
+  controller or command enters after construction. Object identity is recorded
+  once.
 - `init()`: `onModuleInit` (all constructed instances, deps-first), then
   `onApplicationBootstrap` (all), then dispatcher construction, then
   `transport.listen` in declaration order.
@@ -68,8 +70,8 @@ dispatcher sinks/policy, and an optional positive `graceMs` whose default is
 
 - `createApp(Root)` handles a request routed to a module controller (200).
 - `init()` calls `onModuleInit`/`onApplicationBootstrap` on constructed
-  provider/controller implementers, in order; `await using` (dispose) calls
-  `onShutdown` in reverse construction order.
+  provider/controller/command implementers, in order; `await using` (dispose)
+  calls `onShutdown` in reverse construction order.
 - A constructed lazy provider is shut down; an unresolved provider factory is
   neither constructed nor shut down.
 - Transport startup follows bootstrap hooks; partial startup closes what

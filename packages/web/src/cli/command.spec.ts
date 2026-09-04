@@ -1,58 +1,14 @@
 import { parseArgs } from 'node:util';
 
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
-import { createToken, Inject, type Constructor, type Container } from '@zmdb/web/di';
-import { compileModule, Module, type CompiledModule, type ModuleClass, type ModuleDef } from '@zmdb/web/modules';
+import { createToken, Inject, type Container } from '@zmdb/web/di';
+import { compileModule, Module, type ModuleClass } from '@zmdb/web/modules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Tests freeze for packages/web/src/cli/SPEC.md (#499, epic #497).
-//
-// RED ON PURPOSE. `@zmdb/web/cli` does not exist at HEAD 83cb5c25. A static import would make
-// this file fail collection and typecheck instead of contributing expected failures, so the exact
-// frozen surface is transcribed below. `Command` is the one necessary no-op decorator: throwing
-// from a decorator runs while this module is evaluated and would again lose every test. The
-// executable boundary is `createCommandApp`, a typed value that throws a diagnostic error.
-//
-// When #501 lands, delete the frozen block and import the same names from './index.js'. Nothing is
-// `declare`d at runtime, and every test that reaches the throwing boundary is `it.fails`.
+import { Command, createCommandApp, type CommandApp } from './index.js';
 
-function unimplemented(what: string): never {
-  throw new Error(`#499 tests freeze: ${what} is unimplemented (web cli SPEC)`);
-}
-
-interface CommandDef<A> {
-  readonly name: string;
-  readonly description: string;
-  readonly args?: JsonSchemaObject;
-  readonly validate?: (raw: unknown) => A;
-  readonly positionals?: readonly string[];
-}
-
-type CommandClass<A> = abstract new () => { run(args: A): unknown };
-
-interface CommandApp extends AsyncDisposable {
-  readonly container: Container;
-  run(argv?: readonly string[]): Promise<number>;
-  init(): Promise<void>;
-}
-
-const Command = <A>(
-  _def: CommandDef<A>,
-): (<T extends CommandClass<A>>(target: T, context: ClassDecoratorContext<T>) => void) => {
-  return <T extends CommandClass<A>>(_target: T, _context: ClassDecoratorContext<T>): void => {};
-};
-
-const createCommandApp: (rootModule: ModuleClass) => CommandApp = () => unimplemented('createCommandApp');
-
-// Module.commands is frozen in modules/SPEC.md but absent from the current public types. This
-// widening is additive and passes the real object to the real decorator without a cast: excess
-// properties are legal once the object has a named wider type. compileModule therefore remains
-// the real implementation under test.
-type FrozenModuleDef = ModuleDef & { readonly commands?: readonly Constructor<object>[] };
-
-function FrozenModule(definition: FrozenModuleDef) {
-  return Module(definition);
-}
+// Regression coverage for packages/web/src/cli/SPEC.md. These tests were frozen as expected
+// failures in #499 and became ordinary assertions when #501 supplied the real public surface.
 
 function metadataFor(target: Function): DecoratorMetadata {
   const existing = target[Symbol.metadata];
@@ -110,11 +66,6 @@ function applyFieldDecorator<T>(
     for (const initializer of initializers) initializer.call(this);
     return value;
   };
-}
-
-function commandsOf(compiled: CompiledModule): readonly object[] | undefined {
-  const view: CompiledModule & { readonly commands?: readonly object[] } = compiled;
-  return view.commands;
 }
 
 interface ImportArgs {
@@ -201,12 +152,12 @@ applyClassDecorator(StatusCommand, Command<void>({ name: 'status', description: 
 class ImportModule {
   readonly name = 'import';
 }
-applyClassDecorator(ImportModule, FrozenModule({ commands: [ImportUsers] }));
+applyClassDecorator(ImportModule, Module({ commands: [ImportUsers] }));
 
 class MultipleCommandsModule {
   readonly name = 'multiple-commands';
 }
-applyClassDecorator(MultipleCommandsModule, FrozenModule({ commands: [ImportUsers, StatusCommand] }));
+applyClassDecorator(MultipleCommandsModule, Module({ commands: [ImportUsers, StatusCommand] }));
 
 interface NestedObjectArgs {
   readonly config: { readonly region: string };
@@ -253,12 +204,12 @@ applyClassDecorator(
 class NestedObjectModule {
   readonly name = 'nested-object';
 }
-applyClassDecorator(NestedObjectModule, FrozenModule({ commands: [NestedObjectCommand] }));
+applyClassDecorator(NestedObjectModule, Module({ commands: [NestedObjectCommand] }));
 
 class NestedArrayModule {
   readonly name = 'nested-array';
 }
-applyClassDecorator(NestedArrayModule, FrozenModule({ commands: [NestedArrayCommand] }));
+applyClassDecorator(NestedArrayModule, Module({ commands: [NestedArrayCommand] }));
 
 let exitResult: unknown;
 
@@ -275,7 +226,7 @@ applyClassDecorator(ResultCommand, Command<void>({ name: 'result', description: 
 class ResultModule {
   readonly name = 'result';
 }
-applyClassDecorator(ResultModule, FrozenModule({ commands: [ResultCommand] }));
+applyClassDecorator(ResultModule, Module({ commands: [ResultCommand] }));
 
 const REPOSITORY = createToken<{ readonly name: string; readonly events?: string[] }>('REPOSITORY');
 const UNUSED = createToken<object>('UNUSED');
@@ -312,7 +263,7 @@ class InjectedModule {
 }
 applyClassDecorator(
   InjectedModule,
-  FrozenModule({
+  Module({
     providers: [{ token: REPOSITORY, useValue: sharedRepository }],
     controllers: [InjectedController],
     commands: [InjectedCommand],
@@ -349,7 +300,7 @@ class LifecycleModule {
 }
 applyClassDecorator(
   LifecycleModule,
-  FrozenModule({
+  Module({
     providers: [
       {
         token: REPOSITORY,
@@ -420,9 +371,7 @@ beforeEach(() => {
 });
 
 describe('command argv mapping (frozen: web cli SPEC §3-§4)', () => {
-  // Current actual for every row: createCommandApp throws the diagnostic frozen above. Catching
-  // each row separately is deliberate: this one table executes all conventions even while red.
-  it.fails('maps every argv convention onto the args DTO', async () => {
+  it('maps every argv convention onto the args DTO', async () => {
     const cases: readonly {
       readonly name: string;
       readonly argv: readonly string[];
@@ -464,6 +413,11 @@ describe('command argv mapping (frozen: web cli SPEC §3-§4)', () => {
         expected: { file: 'users.csv' },
       },
       {
+        name: 'help after terminator stays passthrough',
+        argv: ['import-users', 'users.csv', '--', '--help'],
+        expected: { file: 'users.csv' },
+      },
+      {
         name: 'digit boundary',
         argv: ['import-users', 'users.csv', '--v2-api'],
         expected: { file: 'users.csv', v2Api: true },
@@ -496,7 +450,7 @@ describe('command argv mapping (frozen: web cli SPEC §3-§4)', () => {
 });
 
 describe('command validation and registration (frozen: web cli SPEC §3-§4)', () => {
-  it.fails('reports an unknown flag as a usage error with command help', async () => {
+  it('reports an unknown flag as a usage error with command help', async () => {
     const result = await execute(ImportModule, ['import-users', 'users.csv', '--wat']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('unknown option');
@@ -506,7 +460,7 @@ describe('command validation and registration (frozen: web cli SPEC §3-§4)', (
     expect(seenArgs).toEqual([]);
   });
 
-  it.fails('hands run the exact object returned by validate', async () => {
+  it('hands run the exact object returned by validate', async () => {
     const narrowed: ImportArgs = { file: 'validated.csv', limit: 7 };
     validationOverride = narrowed;
     await execute(ImportModule, ['import-users', 'raw.csv', '--limit', '99']);
@@ -514,7 +468,7 @@ describe('command validation and registration (frozen: web cli SPEC §3-§4)', (
     expect(seenArgs[0]).toBe(narrowed);
   });
 
-  it.fails('validates command arguments with the emitted validator and reports a usage error', async () => {
+  it('validates command arguments with the emitted validator and reports a usage error', async () => {
     const result = await execute(ImportModule, ['import-users']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('file');
@@ -524,15 +478,15 @@ describe('command validation and registration (frozen: web cli SPEC §3-§4)', (
     expect(seenArgs).toEqual([]);
   });
 
-  it.fails('refuses a nested object argument at registration and names the property', () => {
+  it('refuses a nested object argument at registration and names the property', () => {
     expect(() => createCommandApp(NestedObjectModule)).toThrow(/config.*nested|nested.*config/i);
   });
 
-  it.fails('refuses an array of objects at registration and names the property', () => {
+  it('refuses an array of objects at registration and names the property', () => {
     expect(() => createCommandApp(NestedArrayModule)).toThrow(/rows.*nested|nested.*rows/i);
   });
 
-  it.fails('derives --help from the args type', async () => {
+  it('derives --help from the args type', async () => {
     const result = await execute(ImportModule, ['import-users', '--help']);
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
@@ -545,7 +499,7 @@ describe('command validation and registration (frozen: web cli SPEC §3-§4)', (
 });
 
 describe('command dispatch and help (frozen: web cli SPEC §7)', () => {
-  it.fails('lists every command and description when no name is supplied', async () => {
+  it('lists every command and description when no name is supplied', async () => {
     const result = await execute(MultipleCommandsModule, []);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('import-users');
@@ -554,7 +508,7 @@ describe('command dispatch and help (frozen: web cli SPEC §7)', () => {
     expect(result.stdout).toContain('Print status');
   });
 
-  it.fails('lists commands on an unknown name and exits 2', async () => {
+  it('lists commands on an unknown name and exits 2', async () => {
     const result = await execute(MultipleCommandsModule, ['missing']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('missing');
@@ -562,13 +516,13 @@ describe('command dispatch and help (frozen: web cli SPEC §7)', () => {
     expect(result.stderr).toContain('status');
   });
 
-  it.fails('lets a single registered command omit its name', async () => {
+  it('lets a single registered command omit its name', async () => {
     const result = await execute(ImportModule, ['users.csv']);
     expect(result.code).toBe(0);
     expect(seenArgs).toEqual([{ file: 'users.csv' }]);
   });
 
-  it.fails('writes command help to stdout and exits 0', async () => {
+  it('writes command help to stdout and exits 0', async () => {
     const result = await execute(ImportModule, ['import-users', '--help']);
     expect(result).toMatchObject({ code: 0, stderr: '' });
     expect(result.stdout).toContain('Load users from a CSV');
@@ -577,7 +531,7 @@ describe('command dispatch and help (frozen: web cli SPEC §7)', () => {
 });
 
 describe('command return values (frozen: web cli SPEC §5)', () => {
-  it.fails("returns the command's exit code from its return value", async () => {
+  it("returns the command's exit code from its return value", async () => {
     const cases = [
       { name: 'void', value: undefined, expected: 0 },
       { name: 'negative number', value: -1, expected: 0 },
@@ -603,7 +557,7 @@ describe('command return values (frozen: web cli SPEC §5)', () => {
     expect(actual).toEqual(cases.map(testCase => ({ name: testCase.name, code: testCase.expected })));
   });
 
-  it.fails('maps a thrown error to exit 1 and readable stderr', async () => {
+  it('maps a thrown error to exit 1 and readable stderr', async () => {
     exitResult = new Error('fixture exploded');
     const result = await execute(ResultModule, ['result']);
     expect(result.code).toBe(1);
@@ -620,9 +574,9 @@ describe('command DI and lifecycle (frozen: web cli SPEC §6-§7)', () => {
     expect(controller instanceof InjectedController ? controller.repository : undefined).toBe(sharedRepository);
   });
 
-  it.fails('injects a repository into a command through the compile-time container', () => {
+  it('injects a repository into a command through the compile-time container', () => {
     const compiled = compileModule(InjectedModule);
-    const commands = commandsOf(compiled);
+    const commands = compiled.commands;
     expect(commands).toHaveLength(1);
     expect(commands?.[0]).toBeInstanceOf(InjectedCommand);
     expect(compiled.controllers).toHaveLength(1);
@@ -631,7 +585,7 @@ describe('command DI and lifecycle (frozen: web cli SPEC §6-§7)', () => {
     expect(command instanceof InjectedCommand ? command.repository : undefined).toBe(sharedRepository);
   });
 
-  it.fails('shares one singleton provider between a controller and a command', async () => {
+  it('shares one singleton provider between a controller and a command', async () => {
     const result = await execute(InjectedModule, ['injected']);
     const compiled = compileModule(InjectedModule);
     const controller = compiled.controllers.find(value => value instanceof InjectedController);
@@ -640,17 +594,17 @@ describe('command DI and lifecycle (frozen: web cli SPEC §6-§7)', () => {
     expect(result.container.resolve(REPOSITORY)).toBe(sharedRepository);
   });
 
-  it.fails('runs provider and command init before dispatch', async () => {
+  it('runs provider and command init before dispatch', async () => {
     await execute(LifecycleModule, ['lifecycle']);
     expect(lifecycleEvents.slice(0, 3)).toEqual(['provider:init', 'command:init', 'command:run:lifecycle-repository']);
   });
 
-  it.fails('shuts a command down before the provider it resolved', async () => {
+  it('shuts a command down before the provider it resolved', async () => {
     await execute(LifecycleModule, ['lifecycle']);
     expect(lifecycleEvents.slice(-2)).toEqual(['command:shutdown', 'provider:shutdown']);
   });
 
-  it.fails('does not construct an unresolved provider merely to run lifecycle hooks', async () => {
+  it('does not construct an unresolved provider merely to run lifecycle hooks', async () => {
     await execute(LifecycleModule, ['lifecycle']);
     expect(unusedFactoryCalls).toBe(0);
   });

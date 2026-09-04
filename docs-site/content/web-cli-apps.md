@@ -1,113 +1,134 @@
-> **ToDo / feature gap.** There is no CLI application mode — no
-> `CommandFactory.run`, no `@Command`/`@Option` decorators, no `nest-commander`
-> equivalent.
+Command applications use the same module graph, dependency injection and lifecycle as an HTTP application,
+without creating a listener. `@zmdb/web/cli` supplies the `@Command` decorator and `createCommandApp`.
 
-## What works today
+## Declare a command
 
-A module graph without a server, which is most of the value:
-
-```ts
-// scripts/report.ts
-import { createApp } from '@zmdb/web';
-import { AppModule } from '../src/app.module.ts';
-import { REPORTS } from '../src/tokens.ts';
-
-await using app = createApp(AppModule);
-await app.init();
-const reports = app.container.resolve(REPORTS);
-
-console.log(JSON.stringify(await reports.monthly(), undefined, 2));
-```
-
-`createApp` builds eager controllers, registers lazy-controller routes, and
-gives you the container. `app.init()` runs the eager `onModuleInit` and
-`onApplicationBootstrap` hooks; a lazy module runs its hooks when loaded. No
-socket is opened — `App` has [no `listen()`](./web-standalone.html), so nothing
-starts listening unless you call an adapter.
-
-`await using` matters. `App` is `AsyncDisposable`, and without disposal the connection pool keeps the process alive after your work finishes — the script hangs rather than exiting, which is the first thing people hit here.
-
-## A command dispatcher
+The arguments are an ordinary DTO. Its emitted JSON Schema drives option parsing, number coercion and help;
+its emitted validator checks the final object before `run` receives it.
 
 ```ts
-// scripts/task.ts
-import { parseArgs } from 'node:util';
+import { assert } from '@zmdb/aot-validator';
+import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { Command, createCommandApp } from '@zmdb/web/cli';
+import { Inject } from '@zmdb/web/di';
+import { Module } from '@zmdb/web/modules';
 
-const { positionals, values } = parseArgs({
-  allowPositionals: true,
-  options: {
-    limit: { type: 'string', default: '100' },
-    'dry-run': { type: 'boolean', default: false },
-    verbose: { type: 'boolean', short: 'v', default: false },
-  },
-});
+import { POSTS } from '../src/tokens.js';
+import type { PostRepository } from '../src/types.js';
 
-interface Options {
-  readonly limit: number;
-  readonly dryRun: boolean;
-  readonly verbose: boolean;
+interface BackfillArgs {
+  readonly tenant: string;
+  readonly limit?: number;
+  readonly dryRun?: boolean;
+  readonly tag?: readonly string[];
 }
 
-await using app = createApp(AppModule);
-await app.init();
+@Command<BackfillArgs>({
+  name: 'backfill-slugs',
+  description: 'Backfill missing post slugs',
+  args: toJsonSchema<BackfillArgs>(),
+  validate: raw => assert<BackfillArgs>(raw),
+  positionals: ['tenant'],
+})
+class BackfillSlugs {
+  @Inject(POSTS) private readonly posts!: PostRepository;
 
-const COMMANDS: Record<string, (c: Container, o: Options) => Promise<void>> = {
-  backfill: backfillSlugs,
-  reindex: rebuildSearchIndex,
-  digest: sendDigests,
-};
+  async run(args: BackfillArgs): Promise<void> {
+    const page = await this.posts.list({
+      page: { limit: args.limit ?? 500 },
+    });
 
-const name = positionals[0] ?? '';
-const command = COMMANDS[name];
-if (command === undefined) {
-  console.error(`usage: task <${Object.keys(COMMANDS).join('|')}> [--limit n] [--dry-run] [-v]`);
-  process.exit(1);
-}
-
-try {
-  await command(app.container, {
-    limit: Number(values.limit),
-    dryRun: values['dry-run'] === true,
-    verbose: values.verbose === true,
-  });
-} catch (error) {
-  console.error(String(error));
-  process.exit(1);
-}
-```
-
-`parseArgs` is a Node built-in, so this has no dependency. A missing exit code on failure is a real bug: a script that logs an error and exits 0 makes CI and cron think it succeeded.
-
-## Make destructive commands ask
-
-```ts
-async function backfillSlugs(container: Container, options: Options): Promise<void> {
-  const posts = container.resolve(POSTS);
-  const { items } = await posts.list({ page: { limit: options.limit } });
-
-  for (const row of items) {
-    const slug = slugify(row.title);
-    if (options.dryRun) {
-      console.log(`${row.id}: ${row.slug ?? '∅'} -> ${slug}`);
-      continue;
+    for (const post of page.items) {
+      if (args.dryRun === true) {
+        console.log(`${post.id}: ${post.slug ?? '∅'} -> ${slugify(post.title)}`);
+      } else {
+        await this.posts.update(post.id, { slug: slugify(post.title) });
+      }
     }
-    await posts.update(row.id, { slug });
   }
-  console.log(`${options.dryRun ? 'would update' : 'updated'} ${items.length} rows`);
+}
+
+@Module({
+  providers: [postRepositoryProvider],
+  commands: [BackfillSlugs],
+})
+class AppModule {}
+
+await using app = createCommandApp(AppModule);
+await app.init();
+process.exitCode = await app.run();
+```
+
+The class has a zero-argument constructor. Dependencies use the same `@Inject` fields as controllers, and a
+controller and command in one module resolve the same singleton provider.
+
+There is deliberately no `@Args()` or `@Option()` parameter decorator. Stage-3 decorators have no parameter
+form, and the JSON Schema document already carries the option names and scalar types without duplicating
+them in decorator metadata.
+
+## argv conventions
+
+For the declaration above:
+
+```text
+backfill-slugs acme --limit 100 --dry-run --tag urgent --tag repair
+```
+
+becomes:
+
+```ts
+{
+  tenant: 'acme',
+  limit: 100,
+  dryRun: true,
+  tag: ['urgent', 'repair'],
 }
 ```
 
-`--dry-run` printing the diff is the difference between reviewing a backfill and discovering it afterwards. Default it to _off_ but make it the first thing anyone running the command does — and print which database you are connected to:
+The parser follows the conventional spellings:
+
+- `dryRun` becomes `--dry-run`, while `--no-dry-run` supplies `false`.
+- A repeated array flag is always an array, including a single occurrence.
+- JSON Schema `number` and `integer` properties are coerced before validation.
+- `positionals` binds names in declaration order.
+- Values after `--` are passthrough and never enter the DTO.
+- Unknown flags, missing required values and validator failures print command help and return exit code 2.
+
+Nested objects and arrays of objects are refused when the application is created: argv is a flat boundary.
+A property tagged `Sensitive` is absent from the emitted document, so no flag is registered for it; secrets
+belong in the environment rather than process arguments.
+
+## Help and exit codes
+
+With several commands, no name or `--help` prints every command and its description. A single registered
+command may omit its name, which keeps a one-command binary terse. `command --help` is derived from the same
+args document used by the parser, so it cannot drift from accepted flags.
+
+`run` returns an exit code and never calls `process.exit`:
+
+| Command result       |                        Exit code |
+| -------------------- | -------------------------------: |
+| `undefined` / `void` |                                0 |
+| number               |     floored and clamped to 0–255 |
+| `true` / `false`     |                            0 / 1 |
+| thrown error         |    1, with the message on stderr |
+| usage error          | 2, with generated help on stderr |
+
+Assign the result to `process.exitCode`. Calling `process.exit(...)` would skip `await using` disposal and can
+leave a pool or driver open.
+
+## Lifecycle and operational safety
+
+`app.init()` runs provider and command `onModuleInit` / `onApplicationBootstrap` hooks in construction order.
+Disposal runs `onShutdown` in reverse construction order, so a command closes before the provider it
+resolved. An unresolved provider factory is not constructed merely to look for hooks.
+
+For destructive work, keep an explicit `--dry-run`, print the target database, and process bounded keyset
+pages rather than one offset scan:
 
 ```ts
 console.error(`database: ${new URL(env.DATABASE_URL).host}`);
-```
 
-A one-line reminder of the target host has prevented more incidents than any amount of confirmation prompting.
-
-## Batching, not one big query
-
-```ts
 let after: string | undefined;
 for (;;) {
   const page = await posts.list({
@@ -115,31 +136,23 @@ for (;;) {
     page: { limit: 500, ...(after !== undefined ? { after } : {}) },
   });
 
-  for (const row of page.items) await posts.update(row.id, { slug: slugify(row.title) });
+  for (const row of page.items) {
+    if (!args.dryRun) await posts.update(row.id, { slug: slugify(row.title) });
+  }
 
   if (!page.hasMore) break;
   after = page.cursor;
 }
 ```
 
-Keyset pagination rather than `offset`, because an offset scan over a large table gets slower as it progresses and can skip rows when concurrent writes shift the ordering. See [Cursor Pagination](./guide-cursor-pagination.html).
+## The transformer still matters
 
-Wrap each batch in a transaction if partial progress would be inconsistent; leave it out if resumability matters more.
-
-## The transformer, again
-
-Running scripts with `--experimental-strip-types` skips the AOT transformer, so any `assert<T>()` in a script throws `runtime type witness required in test/fallback mode` on its first call — the transformer is what supplies the runtime witness, and without it there is nothing to validate against. It fails loudly rather than accepting anything, so a stripped script does not silently pass bad data; it stops. For a script that validates a CSV or an external API response, build it with `tsup` instead of stripping types. See [JIT vs AOT](./jit-vs-aot.html).
-
-## What it would take
-
-A `@Command('backfill')` decorator with `@Option` metadata, an explicit
-`commands` list on the module, a `CommandFactory.run(AppModule)` entry point that
-reads them, and help text generation. Constructed provider lifecycle already
-works; the command runner would add each built command to the same construction
-ledger without pretending it is a controller.
-
-Worth honesty about the value: the dispatcher above is thirty lines and does not hide the exit codes, the argument types or the disposal — all three of which are places a decorator-based command runner tends to obscure behaviour you need to see in an operational script.
+Running a command source through Node type stripping skips the AOT transformer. An untransformed
+`assert<T>()` therefore throws `runtime type witness required in test/fallback mode` rather than accepting
+unvalidated input. Build command entry points with the configured transformer, and keep a transformer canary
+in generated-project tests.
 
 ---
 
-See also: [CLI](./web-cli.html) · [Standalone Applications](./web-standalone.html) · [Cursor Pagination](./guide-cursor-pagination.html)
+See also: [CLI](./web-cli.html) · [Standalone Applications](./web-standalone.html) ·
+[Cursor Pagination](./guide-cursor-pagination.html)

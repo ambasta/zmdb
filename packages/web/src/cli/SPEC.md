@@ -160,11 +160,11 @@ the command.
 
 Three consequences of using the document as the source, each of which will otherwise be found the hard way:
 
-- **A `Sensitive` property silently is not an option.** `jsonSchemaFromShape` filters `column.sensitive` out
-  of `properties`, so a field tagged `Sensitive` produces no flag and `--token` comes back as
-  `ERR_PARSE_ARGS_UNKNOWN_OPTION`. That is refused explicitly at registration with a message naming the
-  property, because the raw failure blames the user's command line for a mistake in the type. A secret does
-  not belong in argv anyway — it belongs in the environment — so refusing is also the right advice.
+- **A `Sensitive` property is not an option.** `jsonSchemaFromShape` filters `column.sensitive` out of
+  `properties`, so the command runner never registers a flag for it and `--token` is a usage error. The
+  emitted document also erases the property's name, so the frozen `CommandDef` surface cannot produce an
+  earlier registration error naming it. A secret does not belong in argv anyway — it belongs in the
+  environment.
 - **Nothing below the first level is described.** `toJsonSchema` is documented as having "no structure below
   the first level", so a nested object or a nested array in an args type is refused at registration. argv is
   flat; this costs nothing.
@@ -232,26 +232,17 @@ owns its stdout, and imposing an envelope on it would be imposing an output form
 succeeded", and the whole reason the framework owns the exit code is that this is the mistake it can make
 structurally impossible.
 
-## 6. Container binding needs one change to `@Module`, and the docs page already predicted it
+## 6. Container binding extends `@Module` without a second registry
 
-The issue asks for this to be confirmed against the existing DI rather than assumed. It does not work
-today, in two ways.
+`compileModule` now builds `def.commands ?? []` through the same `Container` as controllers and exposes the
+instances on `CompiledModule.commands`. A class listed nowhere is never instantiated, and constructing one
+directly would still make an `@Inject` initializer throw. Listing a command in `controllers` remains wrong:
+it would be treated as an HTTP route source.
 
-**`compileModule` builds controllers and nothing else.** `../modules/index.ts` walks
-`def.controllers ?? []` and calls `container.build(Controller)`; a class listed nowhere is never
-instantiated, and its `@Inject` fields therefore never resolve — the initialiser throws
-`@Inject field "…" was initialized outside container.build(...)` if you construct it yourself. Listing a
-command in `controllers` would work by accident and would then be registered as an HTTP route source, so
-`ModuleDef` gains `readonly commands?: readonly Constructor<object>[]` and `CompiledModule` gains
-`readonly commands: readonly object[]`. Additive, no behaviour change for an existing module.
-
-**Provider lifecycle is no longer the blocker, but the command still has to be built.**
-`createApp` now drives one construction ledger containing value providers, factory results that
-were actually resolved, and built controllers. A command whose construction resolves a connection
-pool therefore records the pool before the command, and reverse shutdown stops the command first.
-`ModuleDef.commands` must build each command through the container and append it to that same
-ledger; no second lifecycle list is needed. The `web-cli-apps.md` claim that provider hook detection
-is still missing is corrected with this change.
+`createApp` drives one construction ledger containing value providers, factory results that were actually
+resolved, built controllers and built commands. A command whose construction resolves a connection pool
+therefore records the pool before the command, and reverse shutdown stops the command first. No second
+lifecycle list or command-specific container exists.
 
 Nothing else changes. The container is the same `Container`, the token is the same token, and
 `repositoryToken<T>` from `../data/index.ts` is how a command gets a repository — so a command and a

@@ -1,39 +1,18 @@
-// Type-level freeze for packages/web/src/cli/SPEC.md §2 and modules/SPEC.md's pending
-// `commands` key (#499). `@zmdb/web/cli` does not exist at HEAD 83cb5c25, so the surface is
-// transcribed here. When #501 lands, replace this block with imports from './index.js' and keep
-// the assertions unchanged.
-//
 // This file is compiled by `node scripts/typecheck.mjs` and is not a Vitest test file. Every
 // `@ts-expect-error` is therefore checked by TS2578 if the forbidden shape becomes legal.
 
 import type { Equal, Expect } from '@zmdb/schema-core';
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
-import type { Constructor, Container } from '@zmdb/web/di';
+import type { Constructor } from '@zmdb/web/di';
 import type { CompiledModule, ModuleClass, ModuleDef } from '@zmdb/web/modules';
 
-interface CommandDef<A> {
-  readonly name: string;
-  readonly description: string;
-  readonly args?: JsonSchemaObject;
-  readonly validate?: (raw: unknown) => A;
-  readonly positionals?: readonly string[];
-}
-
-type CommandClass<A> = abstract new () => { run(args: A): unknown };
+import { createCommandApp, type Command, type CommandApp, type CommandClass, type CommandDef } from './index.js';
 
 type CommandDecorator = <A>(
   def: CommandDef<A>,
 ) => <T extends CommandClass<A>>(target: T, context: ClassDecoratorContext<T>) => void;
 
-interface CommandApp extends AsyncDisposable {
-  readonly container: Container;
-  run(argv?: readonly string[]): Promise<number>;
-  init(): Promise<void>;
-}
-
 type CreateCommandApp = (rootModule: ModuleClass) => CommandApp;
-type FrozenModuleDef = ModuleDef & { readonly commands?: readonly Constructor<object>[] };
-type FrozenCompiledModule = CompiledModule & { readonly commands: readonly object[] };
 
 interface ImportArgs {
   readonly file: string;
@@ -41,10 +20,6 @@ interface ImportArgs {
 }
 
 type FrozenDefKeys = 'name' | 'description' | 'args' | 'validate' | 'positionals';
-
-const Command: CommandDecorator = _definition => {
-  return (_target, _context): void => {};
-};
 
 export type _CommandDefKeys = Expect<Equal<keyof CommandDef<ImportArgs>, FrozenDefKeys>>;
 export type _ArgsDocument = Expect<Equal<CommandDef<ImportArgs>['args'], JsonSchemaObject | undefined>>;
@@ -60,8 +35,8 @@ export type _RunReturn = Expect<Equal<ReturnType<CommandApp['run']>, Promise<num
 export type _InitReturn = Expect<Equal<ReturnType<CommandApp['init']>, Promise<void>>>;
 export type _DisposeReturn = Expect<Equal<ReturnType<CommandApp[typeof Symbol.asyncDispose]>, PromiseLike<void>>>;
 export type _CreateSignature = Expect<Equal<CreateCommandApp, (rootModule: ModuleClass) => CommandApp>>;
-export type _ModuleCommands = Expect<Equal<FrozenModuleDef['commands'], readonly Constructor<object>[] | undefined>>;
-export type _CompiledCommands = Expect<Equal<FrozenCompiledModule['commands'], readonly object[]>>;
+export type _ModuleCommands = Expect<Equal<ModuleDef['commands'], readonly Constructor<object>[] | undefined>>;
+export type _CompiledCommands = Expect<Equal<CompiledModule['commands'], readonly object[]>>;
 
 class RootModule {
   readonly name = 'root';
@@ -70,10 +45,6 @@ class RootModule {
 class ImportUsers {
   run(_args: ImportArgs): void {}
 }
-
-const createCommandApp: CreateCommandApp = _rootModule => {
-  throw new Error('#499 type freeze: createCommandApp is unimplemented');
-};
 
 const importUsers: CommandClass<ImportArgs> = ImportUsers;
 void importUsers;

@@ -26,8 +26,9 @@ export type _LoadReturns = Expect<Equal<ReturnType<LazyModuleHandle['load']>, Pr
 export type _LazySignature = Expect<Equal<typeof lazy, (module: ModuleClass) => FrozenLazyImport>>;
 export type _ImportsWiden = Expect<Equal<ModuleDef['imports'], FrozenImports>>;
 export type _LazyRequired = Expect<Equal<CompiledModule['lazy'], readonly FrozenHandle[]>>;
-export type _CompiledKeys = Expect<Equal<keyof CompiledModule, 'container' | 'controllers' | 'lazy'>>;
+export type _CompiledKeys = Expect<Equal<keyof CompiledModule, 'container' | 'controllers' | 'commands' | 'lazy'>>;
 export type _ControllersUnchanged = Expect<Equal<CompiledModule['controllers'], readonly object[]>>;
+export type _CommandsAdded = Expect<Equal<CompiledModule['commands'], readonly object[]>>;
 
 type ImportEntry = NonNullable<ModuleDef['imports']>[number];
 

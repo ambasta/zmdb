@@ -1742,7 +1742,7 @@ export const PAGE_META = {
     title: 'Building CLI Applications',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'no command decorators or argv parser bound to the container',
+    note: 'command applications ship; the final CLI docs pass waits on scaffolding and studio',
   },
   'web-microservices': {
     title: 'Microservices',

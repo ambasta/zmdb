@@ -32,6 +32,7 @@ export interface LazyImport {
 /** The `@Module` definition. */
 export interface ModuleDef {
   readonly controllers?: readonly Constructor<object>[];
+  readonly commands?: readonly Constructor<object>[];
   readonly providers?: readonly ProviderDef[];
   readonly imports?: readonly (ModuleClass | LazyImport)[];
   readonly exports?: readonly Token<unknown>[];
@@ -49,6 +50,7 @@ export interface LazyModuleHandle {
 export interface CompiledModule {
   readonly container: Container;
   readonly controllers: readonly object[];
+  readonly commands: readonly object[];
   readonly lazy: readonly LazyModuleHandle[];
 }
 
@@ -107,6 +109,7 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
 
   const container = new Container();
   const controllers: object[] = [];
+  const commands: object[] = [];
   const recordInstance = createLifecycleRecorder(container);
   for (const override of overrides) {
     registerProvider(container, override, recordInstance);
@@ -116,9 +119,17 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
   // module registers its providers immediately before building its controllers.
   if (plan.lazyRoots.length === 0) {
     for (const moduleClass of plan.moduleOrder) {
-      instantiateEagerModule(moduleClass, plan.definitions, container, controllers, overrides, recordInstance);
+      instantiateEagerModule(
+        moduleClass,
+        plan.definitions,
+        container,
+        controllers,
+        commands,
+        overrides,
+        recordInstance,
+      );
     }
-    return { container, controllers, lazy: [] };
+    return { container, controllers, commands, lazy: [] };
   }
 
   const controllerInstances = new Map<ModuleClass, Map<Constructor<object>, object>>();
@@ -146,6 +157,11 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
         recordInstance(instance);
         instances.set(Controller, instance);
         controllers.push(instance);
+      }
+      for (const Command of def?.commands ?? []) {
+        const instance = container.build(Command);
+        recordInstance(instance);
+        commands.push(instance);
       }
     }
     return lifecycleInstances(container).slice(firstInstance);
@@ -265,7 +281,7 @@ export function compileModule(rootModule: ModuleClass, overrides: readonly Provi
     }
   }
 
-  const compiled: CompiledModule = { container, controllers, lazy: lazyHandles };
+  const compiled: CompiledModule = { container, controllers, commands, lazy: lazyHandles };
   rememberRuntime(compiled, {
     routes,
     beginShutdown: () => {
@@ -369,8 +385,10 @@ function buildCompilePlan(rootModule: ModuleClass): CompilePlan {
 
 function validateInjections(plan: CompilePlan, overrides: readonly ProviderDef[]): void {
   for (const moduleClass of plan.moduleOrder) {
-    for (const Controller of plan.definitions.get(moduleClass)?.controllers ?? []) {
-      for (const injection of injectionsOf(Controller)) {
+    const def = plan.definitions.get(moduleClass);
+    const injectables = [...(def?.controllers ?? []), ...(def?.commands ?? [])];
+    for (const Injectable of injectables) {
+      for (const injection of injectionsOf(Injectable)) {
         if (overrides.some(override => override.token === injection.token)) {
           continue;
         }
@@ -380,7 +398,7 @@ function validateInjections(plan: CompilePlan, overrides: readonly ProviderDef[]
         }
         if (plan.eagerModules.has(moduleClass) && !plan.eagerModules.has(providerModule)) {
           throw new Error(
-            `@zmdb/web: eager class ${Controller.name} injects lazy-only token ` +
+            `@zmdb/web: eager class ${Injectable.name} injects lazy-only token ` +
               `"${injection.token.description}" from ${providerModule.name}; import ${providerModule.name} eagerly`,
           );
         }
@@ -414,6 +432,7 @@ function instantiateEagerModule(
   definitions: ReadonlyMap<ModuleClass, ModuleDef>,
   container: Container,
   controllers: object[],
+  commands: object[],
   overrides: readonly ProviderDef[],
   recordInstance: (value: unknown) => void,
 ): void {
@@ -427,6 +446,11 @@ function instantiateEagerModule(
     const controller = container.build(Controller);
     recordInstance(controller);
     controllers.push(controller);
+  }
+  for (const Command of def?.commands ?? []) {
+    const command = container.build(Command);
+    recordInstance(command);
+    commands.push(command);
   }
 }
 

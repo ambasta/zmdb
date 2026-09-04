@@ -5,7 +5,7 @@
 
 ## Contract
 
-### `@Module({ controllers?, providers?, imports?, exports? })`
+### `@Module({ controllers?, commands?, providers?, imports?, exports? })`
 
 A Stage-3 **class** decorator recording a module definition in `context.metadata`:
 
@@ -13,6 +13,8 @@ A Stage-3 **class** decorator recording a module definition in `context.metadata
   value) or `{ token, useFactory }` (a factory `(c: Container) => T`), optionally
   `{ scope: 'singleton' | 'transient' }` (default `singleton`).
 - **`controllers`**: `readonly Constructor[]` built through the container.
+- **`commands`**: `readonly Constructor[]` built through the same container and
+  lifecycle ledger, but never registered as HTTP route sources.
 - **`imports`**: other `@Module` classes, or `lazy(ModuleClass)` declarations.
 - **`exports`**: the declared subset intended for importers. Visibility remains
   aspirational; the current shared container does not enforce it (see §L10).
@@ -23,12 +25,13 @@ Walk the module graph (acyclic) and:
 
 - validate the complete graph before constructing anything, including lazy
   edges, unresolved injections, cycles and duplicate provider tokens,
-- create one `Container`, register eager providers and build eager controllers,
+- create one `Container`, register eager providers and build eager controllers
+  and commands,
 - retain per-app handles that instantiate lazy subtrees on first use,
-- record value providers, resolved factory results and built controllers once
-  by object identity, in actual construction order, for application lifecycle;
-  unresolved factories do not enter that ledger,
-- expose `{ container, controllers, lazy }`.
+- record value providers, resolved factory results, built controllers and built
+  commands once by object identity, in actual construction order, for
+  application lifecycle; unresolved factories do not enter that ledger,
+- expose `{ container, controllers, commands, lazy }`.
 - **Singleton** providers resolve once and cache; **transient** re-run the factory
   on each `resolve`. Detect and throw on an **import cycle**.
 
@@ -45,17 +48,19 @@ Walk the module graph (acyclic) and:
 - A root module with providers + controllers + an imported module compiles: its
   controllers are built and their injected providers resolve (incl. from imports
   it exports).
+- A declared command is built through the same container, but does not enter the
+  router's controller list.
 - A transient provider yields a fresh value per resolve; a singleton is cached.
 - An import cycle throws.
 - No consumer-surface `as`; suite + typecheck green.
 
-## Pending: a `commands` key
+## Command declarations (#501)
 
-`ModuleDef` gains `readonly commands?: readonly Constructor<object>[]` and `CompiledModule` gains
-`readonly commands: readonly object[]`, built the same way and in the same walk as `controllers`. Additive,
-with no behaviour change for a module that does not use it. The reasoning is in `../cli/SPEC.md` §6: a
-command class listed in `controllers` would be built correctly and then registered as a route source, and a
-command class listed nowhere is never built at all, so its `@Inject` fields throw.
+`ModuleDef.commands` and `CompiledModule.commands` are built in the same walk as
+`controllers`. The addition is inert for a module that does not use it. A
+command class listed in `controllers` would be built correctly and then
+registered as a route source; a command class listed nowhere is never built, so
+its `@Inject` fields throw.
 
 Commands enter the same internal construction ledger when they are built.
 `runInit`/`runShutdown` consume that ledger rather than concatenating public
@@ -82,7 +87,8 @@ the class. **Nothing about the import cost is deferred.** What is deferred is:
 
 1. constructing the module's providers, which is where a connection pool is opened;
 2. running its `useFactory` functions, which is where a client handshakes;
-3. building its controllers, which is where their `@Inject` fields resolve;
+3. building its controllers and commands, which is where their `@Inject` fields
+   resolve;
 4. its `onModuleInit` and `onApplicationBootstrap` hooks, which is where a warmup happens.
 
 That is the whole of the win, and it is worth having: an application whose admin module opens a
@@ -128,6 +134,7 @@ export interface LazyImport {
 
 export interface ModuleDef {
   readonly controllers?: readonly Constructor<object>[];
+  readonly commands?: readonly Constructor<object>[];
   readonly providers?: readonly ProviderDef[];
   readonly imports?: readonly (ModuleClass | LazyImport)[];
   readonly exports?: readonly Token<unknown>[];
@@ -145,6 +152,7 @@ export interface LazyModuleHandle {
 export interface CompiledModule {
   readonly container: Container;
   readonly controllers: readonly object[];
+  readonly commands: readonly object[];
   readonly lazy: readonly LazyModuleHandle[];
 }
 ```
