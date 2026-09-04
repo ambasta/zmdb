@@ -12,13 +12,12 @@
 // The derived types have one spelling each, and it takes the declared type. See the
 // DTO suite below.
 
+import type { CustomType } from './custom-types/index.js';
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
 import type { DeclaredTable, UpdateDTO } from './derive/index.js';
-import type { ColumnIR, ExtensionType, SchemaIR } from './ir/index.js';
-
-import type { CustomType } from './custom-types/index.js';
+import type { ExtensionType, SchemaIR } from './ir/index.js';
 
 export type SqlType =
   | 'serial'
