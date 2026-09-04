@@ -472,6 +472,10 @@ jobs:
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '26'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable --check-cache
 
       - name: Audit dependencies
         # Metro 0.87.0 is the current release and is used only by the committed
