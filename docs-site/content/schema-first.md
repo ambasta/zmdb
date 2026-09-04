@@ -1,15 +1,15 @@
-> **ToDo / feature gap.** There is no introspection. Nothing reads a live
-> database catalogue and produces a declaration, and nothing compares a declaration
-> against what is actually deployed. Your declared types are the only source of
-> truth zmdb can see.
+> **ToDo / feature gap.** PostgreSQL, MySQL and SQLite catalog readers now
+> produce a normalized `CatalogSchemaSnapshot`. There is still no declaration emitter,
+> complete drift report or `zmdb pull` command, so adopting an existing database
+> still involves writing and reviewing the declaration yourself.
 
 ## What "schema first" means here
 
 Two different workflows get called schema-first, and only one of them is missing:
 
-**Writing the SQL yourself and keeping the declarations in step.** This works today, and for some teams it is the right way round — the DBA owns the DDL, the application describes what it expects. You write the migration by hand and you write the matching interface by hand. Nothing generates either from the other, which means nothing catches a mismatch either. See below for how to close that gap with a test.
+**Writing the SQL yourself and keeping the declarations in step.** This works today, and for some teams it is the right way round — the DBA owns the DDL, the application describes what it expects. You write the migration by hand and you write the matching interface by hand. The catalog reader removes the hand-written catalog SQL from a comparison, but declaration emission and a complete drift report are still separate missing slices.
 
-**Generating declarations from an existing database.** This does not exist. There is no `zmdb pull`. See [pull](./cli-pull.html).
+**Generating declarations from an existing database.** This still does not exist. The reader produces a snapshot, not TypeScript, and there is no `zmdb pull`. See [pull](./cli-pull.html).
 
 ## Adopting zmdb on an existing database
 
@@ -36,35 +36,31 @@ Two different workflows get called schema-first, and only one of them is missing
 
    Commit it without a corresponding migration file. That is the "this already exists" marker.
 
-3. **Prove the declaration matches the database.** This is the step that replaces introspection, and it is worth doing properly because everything downstream — DDL, DTOs, validators, OpenAPI — inherits the mistake if the declaration is wrong. Type-first makes that list longer, not shorter: one interface now feeds all four.
+3. **Compare the declaration with the catalog snapshot.** This is worth doing properly because everything downstream — DDL, DTOs, validators, OpenAPI — inherits the mistake if the declaration is wrong. Type-first makes that list longer, not shorter: one interface now feeds all four.
 
    ```ts
-   import { expect, it } from 'vitest';
+   import { createIntrospector } from '@zmdb/query-compiler/introspect';
+   import { diff, snapshot } from '@zmdb/query-compiler/migrations';
+   import { expect } from 'vitest';
 
-   it('schema matches the live table', async () => {
-     const rows = await driver.execute({
-       text: `SELECT column_name, data_type, is_nullable
-              FROM information_schema.columns WHERE table_name = $1`,
-       parameters: ['users'],
-     });
-     const declared = schemaOf<LegacyUser>();
-     const actual = new Set(rows.map(r => r.column_name));
-     for (const name of Object.keys(declared.columns)) {
-       expect(actual).toContain(name);
-     }
-     expect(actual.size).toBe(Object.keys(declared.columns).length);
+   const live = await createIntrospector('postgres').snapshot(driver, {
+     schemas: ['public'],
    });
+   const declared = snapshot([schemaOf<LegacyUser>()]);
+
+   expect(diff(live, declared)).toEqual([]);
+   expect(diff(declared, live)).toEqual([]);
    ```
 
-   Run it against a restored production dump in CI. It is twenty lines and it catches the whole class of "the declaration says `Sql<'text'>`, the column is `varchar(50)`" problems.
+   Run it against a restored production dump in CI. This proves the normalized table/column/type snapshot is clean in both directions. The current `diff` does not yet compare every recovered primary key, foreign key or index fact; the dedicated drift-report slice owns that completeness claim.
 
 4. **Generate forward from there.** Once the baseline is committed, [generate](./cli-generate.html) works normally: change the interface, diff against the snapshot, review the SQL.
 
-## What introspection would need
+## What remains
 
-Three dialect-specific catalogue readers (`information_schema` gets you most of Postgres and MySQL; SQLite needs `pragma table_info`), a mapping from database types back into the ten-member `SqlType` union, and a decision about what to do with types that do not map — a `varchar(50)` is `varchar(50)`, but `inet` or `tsvector` has no representation. See [Database Extensions](./db-extensions.html) for that half of the problem.
+The three dialect-specific readers now use `information_schema` plus `pg_catalog` for PostgreSQL, `information_schema` for MySQL, and bound table-valued PRAGMAs for SQLite. They normalize representable types, retain catalog type evidence, preserve default expressions, and keep unrepresentable types visible rather than dropping the column.
 
-The mapping is lossy in one direction and closed in the other, which is why this is a real design task and not a scripting task.
+What remains is turning that snapshot into deterministic TypeScript and reporting all drift fields in both directions. The mapping is still lossy when producing an application type — `inet`, `bytea` or an arbitrary SQLite declaration cannot become an honest tagged property without a warning. See [Database Extensions](./db-extensions.html).
 
 ---
 

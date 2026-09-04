@@ -99,6 +99,16 @@ const MAY_READ = new Map([
       '`AUTO_INCREMENT`. This is the one place a `SqlType` becomes something other than a check.',
   ],
   [
+    'packages/query-compiler/src/introspect/mysql.ts',
+    'the reverse MySQL catalog boundary. Its input is external catalog text, so no declaration ' +
+      'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
+  ],
+  [
+    'packages/query-compiler/src/introspect/postgres.ts',
+    'the reverse Postgres catalog boundary. Its input is external catalog text, so no declaration ' +
+      'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
+  ],
+  [
     'packages/repository/src/index.ts',
     'one flag, `autoIncrement`, for the refusal when a payload supplies a column the database ' +
       'generates. That is a fact about who writes the column, not about what values it admits.',

@@ -1,39 +1,41 @@
-> **ToDo / feature gap.** There is no introspection anywhere in zmdb. Nothing
-> reads a database catalogue, so there is no `pull`, no `generate-entities`, and
-> no way to detect that the deployed schema has drifted from your declarations.
-> This is a missing capability, not missing packaging — unlike most of the
-> [other CLI pages](./cli-overview.html).
+> **ToDo / feature gap.** The library now reads PostgreSQL, MySQL and SQLite
+> catalogs into a normalized snapshot. There is still no declaration emitter,
+> complete drift report, `pull` or `generate-entities` command. This page remains
+> TODO because the catalog reader is the first half of the workflow, not the CLI.
 
-## Adopting an existing database
-
-Write the declarations by hand, then prove they match. The proving step is what replaces introspection, and it is worth more than a one-off generator because it keeps working:
+## Read the catalog today
 
 ```ts
-it('declarations match the live database', async () => {
-  const rows = await driver.execute({
-    text: `SELECT table_name, column_name, data_type, is_nullable
-           FROM information_schema.columns
-           WHERE table_schema = 'public'`,
-    parameters: [],
-  });
+import { createIntrospector } from '@zmdb/query-compiler/introspect';
 
-  const live = new Map<string, Set<string>>();
-  for (const r of rows) {
-    const t = String(r.table_name);
-    const columns = live.get(t) ?? new Set<string>();
-    columns.add(String(r.column_name));
-    live.set(t, columns);
-  }
-
-  for (const s of [schemaOf<User>(), schemaOf<Order>()]) {
-    const cols = live.get(s.table);
-    if (cols === undefined) throw new Error(`table ${s.table} missing`);
-    expect([...Object.keys(s.columns)].sort()).toEqual([...cols].sort());
-  }
+const live = await createIntrospector('postgres').snapshot(driver, {
+  schemas: ['public'],
+  exclude: ['audit_*'],
 });
 ```
 
-Run it against a restored production dump in CI. Thirty lines, and it catches the entire class of drift a `pull` would have surfaced once.
+Catalog queries use bound values, driver rows are validated before use, and the result is sorted like a declared snapshot. The reader also preserves catalog type evidence and default expressions. It deliberately does not invent TypeScript for types the declaration vocabulary cannot represent.
+
+## Adopting an existing database
+
+Write the declarations by hand, then compare them with the catalog snapshot. Until the dedicated drift reporter lands, an explicit test keeps that comparison visible:
+
+```ts
+import { createIntrospector } from '@zmdb/query-compiler/introspect';
+import { diff, snapshot } from '@zmdb/query-compiler/migrations';
+
+it('declarations match the live database', async () => {
+  const live = await createIntrospector('postgres').snapshot(driver, {
+    schemas: ['public'],
+  });
+  const declared = snapshot([schemaOf<User>(), schemaOf<Order>()]);
+
+  expect(diff(live, declared)).toEqual([]);
+  expect(diff(declared, live)).toEqual([]);
+});
+```
+
+Run it against a restored production dump in CI. This currently compares table, column and normalized type presence in both directions. The dedicated drift reporter will add complete reporting for every recovered key, foreign-key and index fact.
 
 The full walkthrough is on [Schema-first](./schema-first.html).
 
@@ -81,15 +83,15 @@ Sql<'json'>` is the spelling, and it validates as "not a primitive", which is ho
 catalogue can tell you. And a dropped `Length<50>` no longer just loses a DDL detail: it loses
 the validator's `maxLength` and the OpenAPI document's too.
 
-## Why this is not shipped
+## Why `pull` is not shipped
 
-The type mapping is the whole difficulty, and it is not a matter of writing more cases:
+The reader-side type mapping now ships. Producing declarations is a separate product because its lossy cases need named warnings and review:
 
-- **It is not injective.** `SqlType` has ten members; Postgres has a few hundred types. `varchar(50)` and `varchar(500)` both come back as `character varying` plus a separate length column, and `uuid`, `inet`, `tsvector` and every extension type map to nothing — see [Database Extensions](./db-extensions.html).
-- **Three catalogues.** `information_schema` covers Postgres and MySQL unevenly; SQLite needs `pragma table_info` plus parsing the stored `CREATE TABLE` text for anything else.
+- **It is not injective.** `SqlType` has ten members; Postgres has a few hundred types. `varchar(50)` and `varchar(500)` both report `character varying` plus separate length evidence, while `uuid`, `inet` and `tsvector` have no declared-type equivalent. Extension-backed types such as `citext` and `vector` retain their catalog evidence but still need an emitter policy — see [Database Extensions](./db-extensions.html).
+- **Three catalogues.** The readers handle their different sources, but those sources expose different amounts of evidence. A generated declaration must explain every loss rather than hide it.
 - **Silent wrongness is worse than absence.** A generator that emits `Sql<'text'>` for a `varchar(50)` produces a declaration that type-checks, generates DTOs, and then generates a migration that widens the column in production. A wrong declaration is more dangerous than none, because everything downstream — DDL, DTOs, the validator, the OpenAPI document — trusts it. Type-first widens the blast radius: the declaration is now the single source for five things rather than one.
 
-A drift _checker_ — comparing a snapshot against the catalogue and reporting differences without trying to name types it does not know — is a much smaller and safer feature, and is the more likely thing to land first.
+The catalog-to-snapshot half has landed. Deterministic declaration emission and a complete two-direction drift report remain the two library slices needed before a `pull` command can be honest.
 
 ---
 

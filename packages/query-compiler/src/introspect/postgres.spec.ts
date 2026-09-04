@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import type { CompiledQuery, Dialect } from '../index.js';
 import type { ColumnSnapshot, SchemaSnapshot, TableSnapshot } from '../migrations/index.js';
+import { createIntrospector } from './index.js';
 
 // This suite never turns an unavailable server into an expected failure. It probes at
 // collection time: a reachable benchmark Postgres registers real expected-failing
@@ -34,8 +35,6 @@ interface FrozenIntrospector {
   readonly dialect: Dialect;
   snapshot(driver: FrozenDriver, options?: { readonly schemas?: readonly string[] }): Promise<FrozenSchemaSnapshot>;
 }
-
-type FrozenCreateIntrospector = (dialect: Dialect) => FrozenIntrospector;
 
 interface PgPool {
   query(text: string, values?: readonly unknown[]): Promise<{ readonly rows: readonly Record<string, unknown>[] }>;
@@ -113,12 +112,7 @@ async function probePostgres(): Promise<PostgresProbe> {
 }
 
 async function introspectorFor(dialect: Dialect): Promise<FrozenIntrospector> {
-  const module: unknown = await import('../index.js');
-  const value: unknown = Reflect.get(Object(module), 'createIntrospector');
-  if (typeof value !== 'function') {
-    throw new Error('@zmdb/query-compiler exports no "createIntrospector" (frozen: introspect/SPEC.md 1)');
-  }
-  return (value as FrozenCreateIntrospector)(dialect);
+  return createIntrospector(dialect);
 }
 
 function pgDriver(pool: PgPool): FrozenDriver {
@@ -136,6 +130,95 @@ function column(snapshot: FrozenSchemaSnapshot, tableName: string, columnName: s
   if (!found) throw new Error(`snapshot has no column "${tableName}.${columnName}"`);
   return found;
 }
+
+function fixturePostgres(schema: string, calls: CompiledQuery[]): FrozenDriver {
+  const columnRow = (
+    ordinal: number,
+    name: string,
+    dataType: string,
+    udtName: string,
+    options: {
+      readonly default?: string | null;
+      readonly identity?: string;
+      readonly nullable?: boolean;
+    } = {},
+  ): Record<string, unknown> => ({
+    table_name: 'accounts',
+    ordinal_position: ordinal,
+    column_name: name,
+    is_nullable: options.nullable === true ? 'YES' : 'NO',
+    data_type: dataType,
+    udt_name: udtName,
+    character_maximum_length: null,
+    numeric_precision: null,
+    numeric_scale: null,
+    column_default: options.default ?? null,
+    attidentity: options.identity ?? '',
+    atttypmod: -1,
+    typtype: 'b',
+    domain_name: null,
+    domain_base_type: null,
+    extension_name: null,
+  });
+
+  return {
+    async execute(query) {
+      calls.push(query);
+      const sql = query.text.toLowerCase();
+      if (sql.includes('information_schema.tables')) {
+        return [{ table_schema: schema, table_name: 'accounts' }];
+      }
+      if (sql.includes('information_schema.columns')) {
+        return [
+          columnRow(1, 'id', 'bigint', 'int8', { default: "nextval('accounts_id_seq'::regclass)" }),
+          columnRow(2, 'identity_id', 'bigint', 'int8', { identity: 'd' }),
+          columnRow(3, 'email', 'text', 'text'),
+          columnRow(4, 'created_at', 'timestamp with time zone', 'timestamptz', { default: 'now()' }),
+        ];
+      }
+      if (sql.includes("constraint_type = 'primary key'")) {
+        return [{ table_name: 'accounts', column_name: 'id', ordinal_position: 1 }];
+      }
+      if (sql.includes("constraint_type = 'foreign key'")) return [];
+      if (sql.includes('pg_catalog.pg_index')) return [];
+      if (sql.includes('pg_catalog.pg_extension')) return [];
+      throw new Error(`unrecorded Postgres catalog query: ${query.text}`);
+    },
+  };
+}
+
+it('reads validated Postgres fixture rows and distinguishes serial from identity', async () => {
+  const schema = `tenant'); DROP SCHEMA public; --`;
+  const calls: CompiledQuery[] = [];
+  const actual = await createIntrospector('postgres').snapshot(fixturePostgres(schema, calls), {
+    schemas: [schema],
+  });
+
+  expect(actual.tables.map(table => table.name)).toEqual(['accounts']);
+  expect(column(actual, 'accounts', 'id')).toMatchObject({
+    type: 'serial',
+    catalogType: 'bigint',
+    primaryKey: true,
+  });
+  expect(column(actual, 'accounts', 'identity_id')).toMatchObject({
+    type: 'serial',
+    catalogType: 'bigint',
+    primaryKey: false,
+  });
+  expect(column(actual, 'accounts', 'created_at').default).toBe('now()');
+  expect(actual.warnings).toContainEqual({
+    table: 'accounts',
+    column: 'identity_id',
+    reason:
+      'Postgres identity was normalized to serial; regenerating uses a sequence default rather than an identity attribute',
+  });
+
+  const scoped = calls.filter(call => !call.text.includes('pg_catalog.pg_extension'));
+  for (const call of scoped) {
+    expect(call.text).not.toContain(schema);
+    expect(call.parameters).toContain(schema);
+  }
+});
 
 const postgres = await probePostgres();
 
@@ -169,8 +252,7 @@ function reachablePostgres(): ReachablePostgres {
 }
 
 describe.skipIf(postgres.kind === 'unreachable')('introspection against reachable real Postgres', () => {
-  // actual today on a reachable server: the createIntrospector export is absent.
-  it.fails('reads tables and columns from a reachable real Postgres server', async () => {
+  it('reads tables and columns from a reachable real Postgres server', async () => {
     const live = reachablePostgres();
     const actual = await (
       await introspectorFor('postgres')
@@ -187,7 +269,7 @@ describe.skipIf(postgres.kind === 'unreachable')('introspection against reachabl
     expect(column(actual, 'accounts', 'created_at').default).toBe('now()');
   });
 
-  it.fails('recognises serial and identity columns from a real Postgres database', async () => {
+  it('recognises serial and identity columns from a real Postgres database', async () => {
     const live = reachablePostgres();
     const actual = await (
       await introspectorFor('postgres')

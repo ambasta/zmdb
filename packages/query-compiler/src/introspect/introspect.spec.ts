@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CompiledQuery, Dialect } from '../index.js';
 import {
+  diff,
   emitUp,
   snapshot,
   type ChangeOp,
@@ -18,6 +19,7 @@ import {
   type SchemaSnapshot,
   type TableSnapshot,
 } from '../migrations/index.js';
+import { CatalogRowError, createIntrospector } from './index.js';
 
 // Introspection tests freeze for #430. The SQLite rows below come from a real
 // node:sqlite DatabaseSync. The MySQL rows are the byte-for-byte textual capture in
@@ -90,8 +92,6 @@ interface FrozenIntrospector {
   snapshot(driver: FrozenDriver, options?: FrozenIntrospectOptions): Promise<FrozenSchemaSnapshot>;
 }
 
-type FrozenCreateIntrospector = (dialect: Dialect) => FrozenIntrospector;
-
 interface FrozenEmitOptions {
   readonly dialect: Dialect;
 }
@@ -132,8 +132,7 @@ async function frozenExport<T>(name: string): Promise<T> {
 }
 
 async function introspectorFor(dialect: Dialect): Promise<FrozenIntrospector> {
-  const create = await frozenExport<FrozenCreateIntrospector>('createIntrospector');
-  return create(dialect);
+  return createIntrospector(dialect);
 }
 
 function bindable(value: unknown): null | number | bigint | string | Uint8Array {
@@ -331,8 +330,7 @@ describe('real node:sqlite catalog evidence', () => {
     }
   });
 
-  // actual today: @zmdb/query-compiler exports no "createIntrospector".
-  it.fails('reads tables, columns, nullability and primary keys from a real sqlite database', async () => {
+  it('reads tables, columns, nullability and primary keys from a real sqlite database', async () => {
     const database = sqliteFixture();
     try {
       const introspector = await introspectorFor('sqlite');
@@ -367,7 +365,7 @@ describe('real node:sqlite catalog evidence', () => {
   });
 
   // table_info.pk is a 1-based key ordinal: tenant_id reports 2 and user_id 1.
-  it.fails('reads a composite primary key in declaration order', async () => {
+  it('reads a composite primary key in declaration order', async () => {
     const database = sqliteFixture();
     try {
       const actual = await (await introspectorFor('sqlite')).snapshot(sqliteDriver(database));
@@ -379,7 +377,7 @@ describe('real node:sqlite catalog evidence', () => {
 
   // SQLite does not return a constraint name. The normalized snapshot uses the same
   // deterministic <table>_<column>_fkey name as the declaration path.
-  it.fails('reads foreign keys with their referential actions', async () => {
+  it('reads foreign keys with their referential actions', async () => {
     const database = sqliteFixture();
     try {
       const actual = await (await introspectorFor('sqlite')).snapshot(sqliteDriver(database));
@@ -400,7 +398,7 @@ describe('real node:sqlite catalog evidence', () => {
 
   // PRAGMA index_info identifies an expression as cid=-2/name=NULL; sqlite_master.sql
   // is therefore the measured fallback for lower(slug).
-  it.fails('reads indexes including a unique one and an expression one', async () => {
+  it('reads indexes including a unique one and an expression one', async () => {
     const database = sqliteFixture();
     try {
       const actual = await (await introspectorFor('sqlite')).snapshot(sqliteDriver(database));
@@ -415,7 +413,7 @@ describe('real node:sqlite catalog evidence', () => {
 
   // SQLite and the real MySQL capture are always available. The gated real-Postgres
   // arm lives in postgres.spec.ts and announces itself when the benchmark server is absent.
-  it.fails('recognises a serial column per dialect', async () => {
+  it('recognises a serial column per dialect', async () => {
     const database = sqliteFixture();
     try {
       const sqlite = await (await introspectorFor('sqlite')).snapshot(sqliteDriver(database));
@@ -434,7 +432,7 @@ describe('real node:sqlite catalog evidence', () => {
     }
   });
 
-  it.fails('preserves a column default expression', async () => {
+  it('preserves a column default expression', async () => {
     const database = sqliteFixture();
     try {
       const actual = await (await introspectorFor('sqlite')).snapshot(sqliteDriver(database));
@@ -469,11 +467,9 @@ describe('captured real MySQL catalog rows', () => {
     ]);
   });
 
-  it.fails('reads MySQL catalog rows captured from a real server', async () => {
+  it('reads MySQL catalog rows captured from a real server', async () => {
     const capture = mysqlCapture();
-    const actual = await (
-      await introspectorFor('mysql')
-    ).snapshot(mysqlFixtureDriver(capture), {
+    const actual = await createIntrospector('mysql').snapshot(mysqlFixtureDriver(capture), {
       schemas: [capture.provenance.schema],
     });
 
@@ -485,6 +481,21 @@ describe('captured real MySQL catalog rows', () => {
       nullable: false,
       default: '1',
     });
+    expect(column(actual, 'accounts', 'id')).toMatchObject({ type: 'serial', catalogType: 'bigint' });
+    expect(column(actual, 'accounts', 'email')).toMatchObject({
+      type: 'varchar',
+      catalogType: 'varchar(255)',
+      length: 255,
+    });
+    expect(column(actual, 'accounts', 'balance').type).toBe('numeric');
+    expect(column(actual, 'accounts', 'status').type).toBe('jsonEnum');
+    expect(column(actual, 'accounts', 'created_at').type).toBe('timestamp');
+    expect(column(actual, 'posts', 'body')).toMatchObject({ type: 'text', catalogType: 'longtext' });
+    expect(actual.warnings).toContainEqual({
+      table: 'posts',
+      column: 'body',
+      reason: 'MySQL type longtext was widened to text',
+    });
     expect(table(actual, 'posts').foreignKeys).toEqual([
       {
         name: 'posts_account_fkey',
@@ -495,6 +506,115 @@ describe('captured real MySQL catalog rows', () => {
         onUpdate: 'restrict',
       },
     ]);
+  });
+});
+
+it('produces a snapshot that diffs cleanly against the declared snapshot for the same schema', async () => {
+  const declared = snapshot([RoundTripUserSchema]);
+  const declaredTable = declared.tables[0];
+  if (!declaredTable) throw new Error('the RoundTripUser declaration produced no table');
+
+  const database = new DatabaseSync(':memory:');
+  try {
+    database.exec(
+      emitUp({ kind: 'create_table', table: declaredTable.name, columns: declaredTable.columns }, 'sqlite'),
+    );
+    const live = await createIntrospector('sqlite').snapshot(sqliteDriver(database));
+
+    expect(coreProjection(live)).toEqual(coreProjection(declared));
+    expect(diff(live, declared)).toEqual([]);
+    expect(diff(declared, live)).toEqual([]);
+  } finally {
+    database.close();
+  }
+});
+
+describe('catalog input boundary', () => {
+  it('validates catalog rows and reports a malformed one', async () => {
+    const malformed: FrozenDriver = {
+      async execute() {
+        return [{ schema: 'main', name: 42, type: 'table', wr: 0 }];
+      },
+    };
+
+    await expect(createIntrospector('sqlite').snapshot(malformed)).rejects.toBeInstanceOf(CatalogRowError);
+    await expect(createIntrospector('sqlite').snapshot(malformed)).rejects.toThrow(
+      /sqlite pragma_table_list row 0 field "name" must be a string/,
+    );
+
+    const malformedFlag: FrozenDriver = {
+      async execute() {
+        return [{ schema: 'main', name: 'accounts', type: 'table', wr: 2 }];
+      },
+    };
+    await expect(createIntrospector('sqlite').snapshot(malformedFlag)).rejects.toThrow(
+      /sqlite pragma_table_list row 0 field "wr" must be 0 or 1/,
+    );
+  });
+
+  it('binds a caller-supplied schema name instead of interpolating it', async () => {
+    const schema = `tenant'); DROP SCHEMA public; --`;
+
+    for (const dialect of ['postgres', 'mysql'] as const) {
+      const calls: CompiledQuery[] = [];
+      await createIntrospector(dialect).snapshot(
+        {
+          async execute(query) {
+            calls.push(query);
+            return [];
+          },
+        },
+        { schemas: [schema] },
+      );
+
+      const scoped = calls.filter(
+        call => call.text.includes('information_schema') || call.text.includes('pg_catalog.pg_index'),
+      );
+      expect(scoped.length, dialect).toBeGreaterThan(0);
+      for (const call of scoped) {
+        expect(call.text, dialect).not.toContain(schema);
+        expect(call.parameters, dialect).toContain(schema);
+      }
+    }
+  });
+
+  it('applies SQLite affinity without inventing serial columns', async () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(`
+      CREATE TABLE exact_serial (id INTEGER PRIMARY KEY);
+      CREATE TABLE descending_key (id INTEGER PRIMARY KEY DESC);
+      CREATE TABLE int_key (id INT PRIMARY KEY);
+      CREATE TABLE nullable_text_key (id TEXT PRIMARY KEY);
+      CREATE TABLE composite_key (a INTEGER, b INTEGER, PRIMARY KEY (a, b));
+      CREATE TABLE no_rowid (id INTEGER PRIMARY KEY) WITHOUT ROWID;
+      CREATE TABLE affinities (
+        sized VARCHAR(12),
+        arbitrary STRING,
+        bytes BLOB,
+        untyped
+      );
+    `);
+
+    try {
+      const actual = await createIntrospector('sqlite').snapshot(sqliteDriver(database));
+      expect(column(actual, 'exact_serial', 'id')).toMatchObject({ type: 'serial', nullable: false });
+      expect(column(actual, 'descending_key', 'id')).toMatchObject({ type: 'integer', nullable: true });
+      expect(column(actual, 'int_key', 'id').type).toBe('integer');
+      expect(column(actual, 'nullable_text_key', 'id')).toMatchObject({ type: 'text', nullable: true });
+      expect(column(actual, 'composite_key', 'a').type).toBe('integer');
+      expect(column(actual, 'no_rowid', 'id').type).toBe('integer');
+      expect(column(actual, 'affinities', 'sized')).toMatchObject({ type: 'varchar', length: 12 });
+      expect(column(actual, 'affinities', 'arbitrary').type).toBe('numeric');
+      expect(column(actual, 'affinities', 'bytes')).toMatchObject({ type: 'BLOB', catalogType: 'BLOB' });
+      expect(column(actual, 'affinities', 'untyped')).toMatchObject({ type: '', catalogType: '' });
+      expect(actual.warnings).toContainEqual({
+        table: 'affinities',
+        column: 'arbitrary',
+        reason: 'SQLite declared type STRING was normalized by NUMERIC affinity',
+      });
+    } finally {
+      database.close();
+    }
   });
 });
 

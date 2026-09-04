@@ -1,7 +1,8 @@
 # Introspection: catalog → snapshot → declaration — Spec (frozen)
 
 > Part of `@zmdb/query-compiler` (module `src/introspect/`). Epic "Introspection — the DDL-to-declaration
-> direction". Frozen for TDD; no implementation lands in the freeze.
+> direction". Frozen for TDD. The catalog-reader slice is implemented; declaration emission and drift
+> reporting remain frozen for their own implementation slices.
 
 ## 1. Why the reverse direction is not the forward one inverted
 
@@ -31,7 +32,7 @@ export interface IntrospectionDriver {
 
 export interface Introspector {
   readonly dialect: Dialect;
-  snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<SchemaSnapshot>;
+  snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
 }
 
 export declare function createIntrospector(dialect: Dialect): Introspector;
@@ -57,6 +58,11 @@ export interface EmitOptions {
 export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): EmitDeclarationsResult;
 ```
 
+`CatalogSchemaSnapshot` is structurally a `SchemaSnapshot` and adds the catalog-only evidence plus the
+ordered keys, foreign keys, indexes and extensions already frozen by the dependent migration epics. At
+this base those migration implementations have not landed, so the richer exported type is the explicit
+bridge rather than making this reader slice implement their diff and DDL work.
+
 `IntrospectionDriver` is the structural slice of the driver the repository already injects:
 `execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
 `@zmdb/repository` and cannot import its `Driver` without reversing the package graph.
@@ -64,6 +70,11 @@ export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOpt
 Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings:
 the schema list and the globs are caller input, and this is a module whose entire job is to send SQL
 naming things the caller chose.
+
+The package DAG makes `@zmdb/query-compiler` and `@zmdb/aot-validator` dependency-free siblings. Catalog
+rows are therefore validated here by explicit zero-dependency field validators rather than asserted or
+imported through a forbidden sibling edge. A wrong-shaped row throws `CatalogRowError` naming the catalog,
+row and field before any value is used.
 
 ## 2. Catalog sources, per dialect
 

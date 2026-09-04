@@ -1,11 +1,12 @@
 > **ToDo / feature gap.** There is no `zmdb push`. The DDL emitters are public
 > API, so pushing the current schema straight at a database is a short script —
-> and unlike `drizzle-kit push`, it never reads the database to work out what to
-> change, because there is [no introspection](./cli-pull.html).
+> and the example below deliberately targets an empty database. Catalog readers
+> now exist, but there is no complete live-drift policy or supported incremental
+> `push` workflow yet.
 
 ## What push means here, and what it cannot mean
 
-`drizzle-kit push` diffs your schema against the _live_ database and applies the difference. zmdb cannot do that. What it can do is emit the full DDL for your schema objects and apply it to an empty database:
+`drizzle-kit push` diffs your schema against the _live_ database and applies the difference. zmdb can read a live catalog into a snapshot, but its current diff does not yet compare every recovered key, foreign-key and index fact, and there is no reviewed apply workflow around that result. What is supported here is emitting the full DDL for your schema objects and applying it to an empty database:
 
 ```ts
 // scripts/push.ts — creates everything from scratch

@@ -600,7 +600,7 @@ export const PAGE_META = {
     title: 'Schema-First (existing database)',
     group: 'Schema',
     status: 'todo',
-    note: 'no introspection: schema objects are the only source of truth, there is no DDL-to-schema direction',
+    note: 'catalog readers ship; declaration emission, complete drift reporting and the adoption CLI remain',
   },
   crud: {
     title: 'CRUD',
@@ -856,7 +856,7 @@ export const PAGE_META = {
     title: 'pull (introspect)',
     group: 'CLI',
     status: 'todo',
-    note: 'no database introspection: nothing reads a live catalogue back into a schema object',
+    note: 'catalog readers ship; no declaration emitter or pull command',
   },
   'cli-check': {
     title: 'check',

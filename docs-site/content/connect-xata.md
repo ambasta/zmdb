@@ -41,7 +41,7 @@ Two consequences:
 - **Declare every column, including Xata's.** A column absent from the schema object looks like a column to drop when you generate a migration. See [Schema-first](./schema-first.html).
 - **Prefer letting zmdb own the schema.** Creating tables through zmdb migrations rather than the Xata UI means one source of truth. Mixing the two gives you two systems that both believe they define the table.
 
-If you are adopting an existing Xata database, write the schema objects by hand and add the drift test from [Schema-first](./schema-first.html) — there is no [introspection](./cli-pull.html) to do it for you.
+If you are adopting an existing Xata database, use the PostgreSQL catalog reader as evidence, write the schema objects by hand, and add the comparison from [Schema-first](./schema-first.html). Declaration emission and the [`pull` command](./cli-pull.html) have not landed.
 
 ## File attachments and search
 
