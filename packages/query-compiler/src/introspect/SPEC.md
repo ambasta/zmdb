@@ -7,7 +7,7 @@
 ## 1. Why the reverse direction is not the forward one inverted
 
 Forward, the type map is a total function out of a closed vocabulary: `Sql<'text'>` is `TEXT`, always, and
-`DDL_TYPES` has one row per abstract type per dialect. Backward it is a partial function out of an open
+each root `DialectTypeMap` has one row per abstract type. Backward it is a partial function out of an open
 one. Postgres will report `character varying`, `varchar`, `text`, `citext`, `name`, a domain over any of
 those, or an enum — several collapsing onto one `SqlType`, one carrying a constraint no tag can state, and
 one mapping to nothing at all. A spec that said "map the type back" would produce an emitter that widens
