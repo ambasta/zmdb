@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import type { Dialect } from '../index.js';
 import type { ColumnSnapshot, SchemaSnapshot, TableSnapshot } from '../migrations/index.js';
 
-type FrozenIndexColumn = string | { readonly expr: string; readonly opclass?: string };
+type FrozenIndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
 
 interface FrozenIndexSnapshot {
   readonly name: string;
@@ -135,6 +138,40 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     expect(document.source).toMatch(/TODO:.*payload.*bytea/i);
     expect(document.source).not.toMatch(/^\s*payload\s*:/m);
     expect(document.source).not.toContain('unknown');
+  });
+
+  it('emits extension-backed declarations with their app type and Ext tag', async () => {
+    const input: FrozenSchemaSnapshot = {
+      version: 1,
+      tables: [
+        tableOf('documents', [
+          {
+            name: 'embedding',
+            type: { extension: 'vector', name: 'vector', args: [3] },
+            catalogType: 'vector',
+            nullable: false,
+            primaryKey: false,
+          },
+          {
+            name: 'handle',
+            type: { extension: 'citext', name: 'citext' },
+            catalogType: 'citext',
+            nullable: true,
+            primaryKey: false,
+          },
+        ]),
+      ],
+      extensions: [{ name: 'citext' }, { name: 'vector' }],
+    };
+
+    const result = await emitDeclarations(input, { dialect: 'postgres' });
+    const document = result.files.find(file => file.path === 'documents.ts');
+    if (!document) throw new Error('emitter produced no documents.ts');
+
+    expect(document.source).toContain("import type { Ext, Table } from '@zmdb/schema-core/tags';");
+    expect(document.source).toContain("embedding: readonly number[] & Ext<'vector', 'vector', [3]>;");
+    expect(document.source).toContain("handle: (string & Ext<'citext', 'citext'>) | null;");
+    expect(result.warnings).toEqual([]);
   });
 
   it('emits an unambiguous many-to-one relation and its exact reference', async () => {

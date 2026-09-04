@@ -16,7 +16,7 @@
 
 import type { CreateDTO, Entity, UpdateDTO } from './derive/index.js';
 import type { Equal, Expect } from './index.js';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.js';
+import type { Ext, HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.js';
 
 interface UserMetadata {
   preferences: { theme: 'light' | 'dark' };
@@ -63,14 +63,6 @@ export type _U1 = Expect<Equal<UpdateDTO<JsonRow> extends { meta: unknown } ? tr
 export type _U2 = Expect<Equal<Required<UpdateDTO<JsonRow>>['meta'], UserMetadata & Sql<'json'>>>;
 
 // Extension-backed app types (#424), frozen by `ir/SPEC.md` §4.3.
-//
-// The public `Ext` tag does not exist yet, so this compile-only freeze uses its
-// exact optional marker shape locally. The runtime/IR behavior is frozen by the
-// expected-failing tests; these assertions pin the application-facing types and
-// prove ordinary values need no cast.
-type FrozenExt<E extends string, N extends string, A extends readonly (string | number)[] = []> = {
-  readonly __zmdbExt?: [E, N, A];
-};
 
 interface GeoJsonPoint {
   readonly type: 'Point';
@@ -78,15 +70,15 @@ interface GeoJsonPoint {
 }
 
 interface ExtensionRow extends Table<'extension_rows'> {
-  embedding: readonly number[] & FrozenExt<'vector', 'vector', [1536]>;
-  location: GeoJsonPoint & FrozenExt<'postgis', 'geometry', ['Point', 4326]>;
+  embedding: readonly number[] & Ext<'vector', 'vector', [1536]>;
+  location: GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
 }
 
 export type _EmbeddingAppType = Expect<
-  Equal<Entity<ExtensionRow>['embedding'], readonly number[] & FrozenExt<'vector', 'vector', [1536]>>
+  Equal<Entity<ExtensionRow>['embedding'], readonly number[] & Ext<'vector', 'vector', [1536]>>
 >;
 export type _GeometryAppType = Expect<
-  Equal<Entity<ExtensionRow>['location'], GeoJsonPoint & FrozenExt<'postgis', 'geometry', ['Point', 4326]>>
+  Equal<Entity<ExtensionRow>['location'], GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>>
 >;
 
 export const extensionEmbedding: Entity<ExtensionRow>['embedding'] = [0.1, 0.2, 0.3];

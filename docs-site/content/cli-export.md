@@ -46,12 +46,14 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 
 ## What it does not include
 
-The export covers what `snapshot()` implements today — tables, columns, abstract types, nullability, primary keys and `varchar` lengths. It does **not** include:
+The export covers what `snapshot()` implements today — required extension
+installation, tables, columns, core and extension-backed types, nullability,
+primary keys and `varchar` lengths. It does **not** include:
 
 - defaults, unique constraints or foreign keys
 - indexes — those come from `createIndexDdl`, see [Indexes & Constraints](./indexes-constraints.html)
 - views, materialized views, sequences, generated columns
-- triggers, functions, extensions
+- triggers, functions, or extension upgrades/removal
 - anything from a [hand-written migration](./migrations-custom.html)
 
 So `schema.sql` is not a complete database definition once your project has any of the above. If you want a genuinely complete dump, that is `pg_dump --schema-only` against a migrated database — which is a different tool doing a different job, and the right one for a backup.

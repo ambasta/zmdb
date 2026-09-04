@@ -41,7 +41,10 @@ const { RoundTripUser: RoundTripUserSchema } = schemasFrom<{ RoundTripUser: Roun
 );
 
 type ReferentialAction = 'no action' | 'restrict' | 'cascade' | 'set null' | 'set default';
-type FrozenIndexColumn = string | { readonly expr: string; readonly opclass?: string };
+type FrozenIndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
 
 interface FrozenForeignKeySnapshot {
   readonly name: string;

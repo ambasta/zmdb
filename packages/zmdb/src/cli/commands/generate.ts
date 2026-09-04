@@ -7,7 +7,7 @@ import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } 
 import type { ResolvedConfig } from '../../config/index.js';
 import { writeTextAtomically } from '../atomic.js';
 
-const EMPTY_SNAPSHOT: SchemaSnapshot = { version: 1, tables: [] };
+const EMPTY_SNAPSHOT: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
 export type GenerateResult =
   | { readonly ops: readonly ChangeOp[] }
@@ -39,7 +39,10 @@ export async function generateMigration(
   const versionText = migrationVersion(options.now ?? new Date());
   const migrationPath = join(config.outDir, `${versionText}_${name}.sql`);
   const up = ops.map(operation => emitUp(operation, config.dialect));
-  const down = ops.toReversed().map(operation => emitDown(operation, config.dialect));
+  const down = ops
+    .toReversed()
+    .filter(operation => operation.kind !== 'create_extension')
+    .map(operation => emitDown(operation, config.dialect));
   const migration = `-- zmdb:up\n${statements(up)}-- zmdb:down\n${statements(down)}`;
 
   await writeTextAtomically(migrationPath, migration);
@@ -87,6 +90,8 @@ function derivedName(ops: readonly ChangeOp[]): string {
   const operation = ops[0];
   if (operation === undefined) return 'schema_change';
   switch (operation.kind) {
+    case 'create_extension':
+      return `create_${operation.name}_extension`;
     case 'create_table':
       return `create_${operation.table}`;
     case 'drop_table':

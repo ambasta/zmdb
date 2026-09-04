@@ -43,7 +43,11 @@ Four rows are worth a sentence:
 
 ## That is the whole set
 
-Ten abstract types, closed. Anything else — `uuid`, `date`, `time`, `interval`, `inet`, `cidr`, arrays, `vector`, `geometry` — is a [custom type](./custom-types.html) or a `json` column.
+Ten abstract types, closed. A type supplied by a database extension uses
+`Ext<Extension, Name, Args>` instead, including `vector`, `geometry`, and
+`citext`. Other storage types such as `uuid`, `date`, `time`, `interval`,
+`inet`, `cidr`, and arrays still need a [custom type](./custom-types.html) or a
+`json` column.
 
 The union is small on purpose. Every back-end has to answer for every member: the DDL emitter needs a spelling in three dialects, the validator needs a check, the JSON Schema generator needs a keyword, the seeder needs a generator. Ten members means sixty answers, all of them written down and tested. A `SqlType` with forty members would mean most of those answers were guesses, and the guesses would be in whichever back-end nobody exercised.
 

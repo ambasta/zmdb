@@ -16,7 +16,7 @@ import { driver } from '../src/config.js';
 
 const all = Object.values(schemas).filter(s => typeof s === 'object' && s !== null && 'table' in s);
 
-for (const op of diff({ version: 1, tables: [] }, snapshot(all))) {
+for (const op of diff({ version: 1, tables: [], extensions: [] }, snapshot(all))) {
   const sql = emitUp(op, 'postgres');
   console.log(sql);
   await driver.execute({ text: sql, parameters: [] });
@@ -39,7 +39,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');
-  for (const op of diff({ version: 1, tables: [] }, snapshot(all))) db.exec(emitUp(op, 'sqlite'));
+  for (const op of diff({ version: 1, tables: [], extensions: [] }, snapshot(all))) {
+    db.exec(emitUp(op, 'sqlite'));
+  }
   return db;
 }
 ```

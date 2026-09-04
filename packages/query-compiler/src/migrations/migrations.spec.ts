@@ -19,6 +19,7 @@ import {
   snapshot,
   type ChangeOp,
   type ColumnSnapshot,
+  type ExtensionType,
   type SchemaSnapshot,
   type SnapshotableSchema,
   type TableSnapshot,
@@ -26,7 +27,7 @@ import {
 
 // RED PHASE (#40 spec freeze): diff engine + DDL emitter goldens.
 
-const snap = (tables: SchemaSnapshot['tables']): SchemaSnapshot => ({ version: 1, tables });
+const snap = (tables: SchemaSnapshot['tables']): SchemaSnapshot => ({ version: 1, tables, extensions: [] });
 
 const usersV1 = snap([
   {
@@ -656,7 +657,7 @@ describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => 
 });
 
 function asSnapshot(tables: readonly FrozenTableSnapshot[]): SchemaSnapshot {
-  return { version: 1, tables: tables as readonly TableSnapshot[] };
+  return { version: 1, tables: tables as readonly TableSnapshot[], extensions: [] };
 }
 
 const postsColumns: TableSnapshot['columns'] = [
@@ -772,7 +773,9 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
       ],
     };
     const run = (): readonly FrozenChangeOp[] =>
-      diffForDialect({ version: 1, tables: [] }, asSnapshot([organizations, users]), { dialect: 'sqlite' });
+      diffForDialect({ version: 1, tables: [], extensions: [] }, asSnapshot([organizations, users]), {
+        dialect: 'sqlite',
+      });
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/sqlite/i);
     expect(run).toThrow(/organizations/);
@@ -836,99 +839,74 @@ describe('routine body diff (frozen: schema-objects/SPEC.md 8.6)', () => {
 
 // Extension-backed column tests freeze (#424), against `./SPEC.md` §1.5,
 // `../schema-objects/SPEC.md` §7 and `@zmdb/schema-core/ir`'s SPEC §4.3.
-interface FrozenExtensionType {
-  readonly extension: string;
-  readonly name: string;
-  readonly args?: readonly (string | number)[];
-}
-
-interface FrozenExtensionSnapshot {
-  readonly name: string;
-  readonly schema?: string;
-}
-
-type FrozenColumnSnapshot = Omit<ColumnSnapshot, 'type'> & {
-  readonly type: string | FrozenExtensionType;
-};
-
-type FrozenExtensionTableSnapshot = Omit<TableSnapshot, 'columns'> & {
-  readonly columns: readonly FrozenColumnSnapshot[];
-};
-
-type FrozenSchemaSnapshot = Omit<SchemaSnapshot, 'tables'> & {
-  readonly extensions: readonly FrozenExtensionSnapshot[];
-  readonly tables: readonly FrozenExtensionTableSnapshot[];
-};
-
-interface FrozenCreateExtension {
-  readonly kind: 'create_extension';
-  readonly name: string;
-  readonly schema?: string;
-}
-
-interface FrozenExtensionCreateTable {
-  readonly kind: 'create_table';
-  readonly table: string;
-  readonly columns: readonly FrozenColumnSnapshot[];
-}
-
-type FrozenExtensionChangeOp = ChangeOp | FrozenCreateExtension | FrozenExtensionCreateTable;
-
-const vector1536: FrozenExtensionType = {
+const vector1536: ExtensionType = {
   extension: 'vector',
   name: 'vector',
   args: [1536],
 };
 
-const geometryPoint4326: FrozenExtensionType = {
+const geometryPoint4326: ExtensionType = {
   extension: 'postgis',
   name: 'geometry',
   args: ['Point', 4326],
 };
 
-const itemColumns: readonly FrozenColumnSnapshot[] = [
+const itemColumns: readonly ColumnSnapshot[] = [
   { name: 'id', type: 'integer', nullable: false, primaryKey: true },
   { name: 'embedding', type: vector1536, nullable: false, primaryKey: false },
 ];
 
-const noExtensions: FrozenSchemaSnapshot = {
+const noExtensions: SchemaSnapshot = {
   version: 1,
   extensions: [],
   tables: [],
 };
 
-const vectorItems: FrozenSchemaSnapshot = {
+const vectorItems: SchemaSnapshot = {
   version: 1,
   extensions: [{ name: 'vector' }],
   tables: [{ name: 'items', columns: itemColumns }],
 };
 
-function extensionDiff(previous: FrozenSchemaSnapshot, next: FrozenSchemaSnapshot): readonly FrozenExtensionChangeOp[] {
-  return diff(
-    previous as unknown as SchemaSnapshot,
-    next as unknown as SchemaSnapshot,
-  ) as readonly FrozenExtensionChangeOp[];
+const vector3072: ExtensionType = {
+  extension: 'vector',
+  name: 'vector',
+  args: [3072],
+};
+
+const vectorItems3072: SchemaSnapshot = {
+  version: 1,
+  extensions: [{ name: 'vector' }],
+  tables: [
+    {
+      name: 'items',
+      columns: [
+        { name: 'id', type: 'integer', nullable: false, primaryKey: true },
+        { name: 'embedding', type: vector3072, nullable: false, primaryKey: false },
+      ],
+    },
+  ],
+};
+
+function extensionDiff(previous: SchemaSnapshot, next: SchemaSnapshot): readonly ChangeOp[] {
+  return diff(previous, next);
 }
 
-function extensionUp(op: FrozenExtensionChangeOp, dialect: Dialect): unknown {
-  return emitUp(op as unknown as ChangeOp, dialect);
-}
-
-function extensionDdlType(dialect: Dialect, column: FrozenColumnSnapshot): unknown {
-  return ddlType(dialect, column as unknown as ColumnSnapshot);
+function extensionUp(op: ChangeOp, dialect: Dialect): string {
+  return emitUp(op, dialect);
 }
 
 describe('database extensions and extension-backed types (frozen: migrations/SPEC.md 1.5)', () => {
-  it.fails('emits CREATE EXTENSION IF NOT EXISTS before any table that uses it', () => {
+  it('emits CREATE EXTENSION IF NOT EXISTS before any table that uses it', () => {
     expect(extensionDiff(noExtensions, vectorItems).map(op => extensionUp(op, 'postgres'))).toEqual([
       'CREATE EXTENSION IF NOT EXISTS "vector"',
       'CREATE TABLE "items" ("id" INTEGER PRIMARY KEY, "embedding" vector(1536) NOT NULL)',
     ]);
   });
 
-  it.fails('renders a parameterised extension type', () => {
+  it('renders a parameterised extension type', () => {
     expect(
-      extensionDdlType('postgres', {
+      ddlType('postgres', {
         name: 'embedding',
         type: vector1536,
         nullable: false,
@@ -936,7 +914,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
       }),
     ).toBe('vector(1536)');
     expect(
-      extensionDdlType('postgres', {
+      ddlType('postgres', {
         name: 'location',
         type: geometryPoint4326,
         nullable: false,
@@ -945,25 +923,41 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
     ).toBe('geometry(Point,4326)');
   });
 
-  it.fails('refuses an extension type on mysql, naming the dialect and the type', () => {
+  it('refuses an extension type on mysql, naming the dialect and the type', () => {
     const run = () => extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns }, 'mysql');
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/mysql/i);
     expect(run).toThrow(/vector\(1536\)/i);
   });
 
-  it.fails('refuses an extension type on sqlite, naming the dialect and the type', () => {
+  it('refuses an extension type on sqlite, naming the dialect and the type', () => {
     const run = () => extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns }, 'sqlite');
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/sqlite/i);
     expect(run).toThrow(/vector\(1536\)/i);
   });
 
-  it.fails('does not drop an extension on diff', () => {
+  it('does not drop an extension on diff', () => {
     expect(extensionDiff(noExtensions, vectorItems)).toEqual([
       { kind: 'create_extension', name: 'vector' },
       { kind: 'create_table', table: 'items', columns: itemColumns },
     ]);
     expect(extensionDiff(vectorItems, noExtensions)).toEqual([{ kind: 'drop_table', table: 'items' }]);
+  });
+
+  it('compares extension type arguments structurally and emits a dimension change as an alter', () => {
+    const changes = extensionDiff(vectorItems, vectorItems3072);
+    expect(changes).toEqual([
+      {
+        kind: 'alter_column_type',
+        table: 'items',
+        column: 'embedding',
+        from: vector1536,
+        to: vector3072,
+      },
+    ]);
+    expect(changes.map(op => extensionUp(op, 'postgres'))).toEqual([
+      'ALTER TABLE "items" ALTER COLUMN "embedding" TYPE vector(3072)',
+    ]);
   });
 });

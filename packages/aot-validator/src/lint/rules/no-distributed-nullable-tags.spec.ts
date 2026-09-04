@@ -122,3 +122,34 @@ it('reports a tag distributed across undefined', async () => {
     ],
   });
 });
+
+it('moves null outside an extension-backed column tag', async () => {
+  const code =
+    "import type { Ext, Table } from '@zmdb/schema-core/tags';\n\n" +
+    "interface Document extends Table<'documents'> {\n" +
+    "  embedding: (readonly number[] | null) & Ext<'vector', 'vector', [3]>;\n" +
+    '}\n';
+  const output =
+    "import type { Ext, Table } from '@zmdb/schema-core/tags';\n\n" +
+    "interface Document extends Table<'documents'> {\n" +
+    "  embedding: (readonly number[] & Ext<'vector', 'vector', [3]>) | null;\n" +
+    '}\n';
+  await runRuleCase(rule, {
+    valid: [],
+    invalid: [
+      {
+        code,
+        output,
+        errors: [
+          {
+            message: 'Move null and undefined outside the tagged intersection; nullish values cannot carry zmdb tags.',
+            line: 4,
+            column: 14,
+            endLine: 4,
+            endColumn: 71,
+          },
+        ],
+      },
+    ],
+  });
+});

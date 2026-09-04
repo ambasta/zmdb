@@ -27,6 +27,7 @@
 
 import type {
   Codec,
+  Ext,
   Fts,
   HasDefault,
   Length,
@@ -129,6 +130,20 @@ export interface Invoice extends Table<'invoices'> {
   author: Author & ManyToOne<'authors', 'authorId'>;
 }
 taggedOnly<Invoice>('invoices');
+
+export interface GeoJsonPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
+}
+
+export interface ExtensionItem extends Table<'extension_items'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  __zmdbExt: string & Sql<'text'>;
+  embedding: readonly number[] & Ext<'vector', 'vector', [1536]>;
+  location: GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
+  handle: string & Ext<'citext', 'citext'>;
+}
+taggedOnly<ExtensionItem>('extension-items');
 
 export interface Listing extends Table<'listings'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

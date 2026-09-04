@@ -245,8 +245,9 @@ same set.
 ```
 
 There is no `drop_extension` op — `../schema-objects/SPEC.md` §7 says why — so an undeclared extension
-leaves the snapshot without leaving the database. The diff reports it as an unmanaged object rather than
-dropping it silently or pretending it is gone.
+leaves the snapshot without leaving the database. The operation list contains no removal; callers that
+need unmanaged-object reporting must compare the two snapshots separately rather than treating absence
+as permission to drop database objects.
 
 **Statement order within one plan**, which the ops list has to encode because nothing at apply time can
 recover it:

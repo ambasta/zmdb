@@ -1,3 +1,4 @@
+import type { ExtensionType } from '../migrations/index.js';
 import {
   action,
   booleanField,
@@ -63,6 +64,7 @@ interface PostgresIndexRow {
   readonly where: string | null;
   readonly position: number;
   readonly definition: string;
+  readonly opclass: string | null;
 }
 
 function postgresSchemas(options: IntrospectOptions): readonly string[] {
@@ -137,6 +139,7 @@ function parseIndex(row: Readonly<Record<string, unknown>>, index: number): Post
     where: nullableTextField(row, 'predicate', catalog, index),
     position: integerField(row, 'position', catalog, index),
     definition: textField(row, 'definition', catalog, index),
+    opclass: nullableTextField(row, 'operator_class', catalog, index),
   };
 }
 
@@ -150,7 +153,7 @@ function catalogType(column: PostgresColumn): string {
 }
 
 function postgresType(column: PostgresColumn): {
-  readonly type: string;
+  readonly type: string | ExtensionType;
   readonly length?: number;
   readonly warning?: string;
 } {
@@ -175,16 +178,15 @@ function postgresType(column: PostgresColumn): {
   }
   if (column.typeKind === 'e') return { type: 'jsonEnum' };
   if (column.extension === 'citext' || column.udtName === 'citext') {
-    return {
-      type: 'citext',
-      warning: 'Postgres extension type citext is retained as catalog text until extension-backed snapshots land',
-    };
+    return { type: { extension: 'citext', name: 'citext' } };
   }
   if (column.extension === 'vector' || column.udtName === 'vector') {
-    const type = column.typeModifier > 0 ? `vector(${String(column.typeModifier)})` : 'vector';
     return {
-      type,
-      warning: `Postgres extension type ${type} is retained as catalog text until extension-backed snapshots land`,
+      type: {
+        extension: 'vector',
+        name: 'vector',
+        ...(column.typeModifier > 0 ? { args: [column.typeModifier] } : {}),
+      },
     };
   }
   if (normalized === 'integer' || normalized === 'int4') return { type: 'integer' };
@@ -267,17 +269,20 @@ function unquoteIdentifier(value: string): string {
   return value;
 }
 
-function indexColumn(definition: string, tableColumns: ReadonlySet<string>): CatalogIndexColumn {
-  const match = /^("(?:[^"]|"")*"|[A-Za-z_][A-Za-z0-9_$]*)(?:\s+([A-Za-z_][A-Za-z0-9_$]*))?$/.exec(definition.trim());
+function indexColumn(
+  definition: string,
+  tableColumns: ReadonlySet<string>,
+  opclass: string | null,
+): CatalogIndexColumn {
+  const match = /^("(?:[^"]|"")*"|[A-Za-z_][A-Za-z0-9_$]*)$/.exec(definition.trim());
   const named = match?.[1];
   if (named !== undefined) {
     const column = unquoteIdentifier(named);
     if (tableColumns.has(column)) {
-      const opclass = match?.[2];
-      return opclass === undefined ? column : { expr: definition.trim(), opclass };
+      return opclass === null ? column : { column, opclass };
     }
   }
-  return { expr: definition.trim() };
+  return { expr: definition.trim(), ...(opclass === null ? {} : { opclass }) };
 }
 
 function indexes(
@@ -300,7 +305,7 @@ function indexes(
     const method = first.method.toLowerCase();
     const snapshot: CatalogIndexSnapshot = {
       name: first.name,
-      columns: values.map(value => indexColumn(value.definition, columns.get(first.table) ?? new Set())),
+      columns: values.map(value => indexColumn(value.definition, columns.get(first.table) ?? new Set(), value.opclass)),
       unique: first.unique,
       ...(method === 'btree' ? {} : { method }),
       ...(first.where === null ? {} : { where: first.where }),
@@ -381,12 +386,14 @@ async function postgresSnapshot(
         `SELECT ns.nspname AS table_schema, tbl.relname AS table_name, idx.relname AS index_name, ` +
           `i.indisunique AS is_unique, i.indisprimary AS is_primary, am.amname AS method, ` +
           `pg_catalog.pg_get_expr(i.indpred, i.indrelid) AS predicate, positions.position, ` +
-          `pg_catalog.pg_get_indexdef(i.indexrelid, positions.position, true) AS definition ` +
+          `pg_catalog.pg_get_indexdef(i.indexrelid, positions.position, true) AS definition, ` +
+          `CASE WHEN opc.opcdefault THEN NULL ELSE opc.opcname END AS operator_class ` +
           `FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class tbl ON tbl.oid = i.indrelid ` +
           `JOIN pg_catalog.pg_namespace ns ON ns.oid = tbl.relnamespace ` +
           `JOIN pg_catalog.pg_class idx ON idx.oid = i.indexrelid ` +
           `JOIN pg_catalog.pg_am am ON am.oid = idx.relam ` +
           `CROSS JOIN LATERAL generate_series(1, i.indnkeyatts) AS positions(position) ` +
+          `JOIN pg_catalog.pg_opclass opc ON opc.oid = i.indclass[positions.position - 1] ` +
           `WHERE ns.nspname IN (${schemaSlots}) ORDER BY tbl.relname, idx.relname, positions.position`,
         schemas,
       ),

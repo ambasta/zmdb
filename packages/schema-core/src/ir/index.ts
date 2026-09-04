@@ -173,10 +173,17 @@ export interface RelationIR {
   readonly via: string;
 }
 
+/** A SQL type installed by a database extension rather than the closed core vocabulary. */
+export interface ExtensionType {
+  readonly extension: string;
+  readonly name: string;
+  readonly args?: readonly (string | number)[];
+}
+
 export interface ColumnIR {
   readonly name: string;
   /** Abstract SQL type. The dialect renders the spelling — see plan D3. */
-  readonly sql: SqlType;
+  readonly sql: SqlType | ExtensionType;
   readonly nullable: boolean;
   readonly primaryKey: boolean;
   /** Database-generated. Absent from `CreateDTO`, not merely optional. */
@@ -257,10 +264,10 @@ export const KNOWN_CONSTRAINT_KINDS = ['minimum', 'maximum', 'minLength', 'maxLe
 export type ConstraintKind = (typeof KNOWN_CONSTRAINT_KINDS)[number];
 
 /**
- * The tag vocabulary as data: **IR field → the escaped name of the tag's symbol
- * slot**. `../tags` is types-only and must stay that way, so the reflection cannot
- * import the tags themselves; it matches on the escaped name the checker reports
- * (`__@zmdbSerial@1`) instead.
+ * The tag vocabulary as data: **IR field → the tag name the reflection recognises**.
+ * `../tags` is types-only and must stay that way, so the reflection cannot import the
+ * tags themselves. It matches the escaped unique-symbol name the checker reports
+ * (`__@zmdbSerial@1`), except for `Ext`'s frozen structural `__zmdbExt` marker.
  *
  * Keyed by the IR field rather than by the tag's public name because that is the
  * mapping every consumer actually wants, and because keeping it in one table is what
@@ -272,6 +279,7 @@ export const TAG_NAMES = {
   table: 'zmdbTable',
   ftsTable: 'zmdbFts',
   sql: 'zmdbSqlType',
+  extension: 'zmdbExt',
   primaryKey: 'zmdbPrimaryKey',
   serial: 'zmdbSerial',
   unique: 'zmdbUnique',
@@ -423,6 +431,30 @@ function constrained(scalar: ScalarKind, col: ColumnIR, format?: string): Scalar
   };
 }
 
+function extensionDimension(type: ExtensionType): number | undefined {
+  if (type.name !== 'vector') return undefined;
+  const dimension = type.args?.[0];
+  return typeof dimension === 'number' && Number.isInteger(dimension) && dimension >= 0 ? dimension : undefined;
+}
+
+function extensionAppBase(col: ColumnIR, type: ExtensionType): TypeIR {
+  if (type.name === 'vector') {
+    const dimension = extensionDimension(type);
+    return {
+      kind: 'array',
+      element: { kind: 'scalar', scalar: 'number' },
+      ...(dimension === undefined ? {} : { constraints: { minLength: dimension, maxLength: dimension } }),
+    };
+  }
+  if (type.name === 'citext') return constrained('string', col);
+  return {
+    kind: 'unsupported',
+    reason:
+      `extension type "${type.name}" on column "${col.name}" needs its declared application shape ` +
+      'carried in the IR',
+  };
+}
+
 /**
  * The **app** type: what handler code sees. A `timestamp` is a `Date` here, and
  * a `bigint` is a `bigint`.
@@ -432,6 +464,12 @@ export function appTypeOf(col: ColumnIR): TypeIR {
 }
 
 function appBaseOf(col: ColumnIR): TypeIR {
+  if (typeof col.sql !== 'string') {
+    if (col.sql.name === 'vector' || col.sql.name === 'citext') return extensionAppBase(col, col.sql);
+    if (col.payload !== undefined) return col.payload;
+    return extensionAppBase(col, col.sql);
+  }
+
   // A declared app type wins over the SQL type it is stored as. `amount: Money &
   // Sql<'integer'> & Codec<'Money'>` is an integer in the database and a `Money` in the
   // app, and a validator that checked `integer` here would reject every valid value.
@@ -525,6 +563,7 @@ export function wireTypeOf(col: ColumnIR): TypeIR {
       reason: `the codec "${col.codec}" does not say what column "${col.name}" looks like on the wire; add WireAs<…> to the declaration`,
     };
   }
+  if (typeof col.sql !== 'string') return appTypeOf(col);
   if (col.sql === 'timestamp') return withNull(constrained('string', col, 'date-time'), col.nullable);
   if (col.sql === 'bigint') return withNull(constrained('string', col, 'int64'), col.nullable);
   return appTypeOf(col);
@@ -552,6 +591,8 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
 
   const declared = declaredWireKeywords(col);
   if (declared) return nullableType(declared, col.nullable);
+
+  if (typeof col.sql !== 'string') return nullableType(extensionJsonSchema(col, col.sql), col.nullable);
 
   switch (col.sql) {
     case 'serial':
@@ -595,6 +636,71 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
   // Nullable widens the `type` keyword. A `json` column has no `type` to widen,
   // which is the pre-existing behaviour and is preserved deliberately.
   return nullableType(base, col.nullable);
+}
+
+function extensionJsonSchema(col: ColumnIR, type: ExtensionType): Record<string, unknown> {
+  if (type.name === 'vector') {
+    const dimension = extensionDimension(type);
+    return {
+      type: 'array',
+      items: { type: 'number' },
+      ...(dimension === undefined ? {} : { minItems: dimension, maxItems: dimension }),
+    };
+  }
+  if (type.name === 'citext') return jsonSchemaForType(constrained('string', col));
+  return col.payload === undefined ? {} : jsonSchemaForType(col.payload);
+}
+
+function jsonSchemaForType(type: TypeIR): Record<string, unknown> {
+  switch (type.kind) {
+    case 'scalar': {
+      const scalar = JSON_SCALAR_TYPES[type.scalar];
+      if (scalar === undefined) return {};
+      return {
+        type: scalar,
+        ...(type.format === undefined ? {} : { format: type.format }),
+        ...(type.constraints?.minimum === undefined ? {} : { minimum: type.constraints.minimum }),
+        ...(type.constraints?.maximum === undefined ? {} : { maximum: type.constraints.maximum }),
+        ...(type.constraints?.minLength === undefined ? {} : { minLength: type.constraints.minLength }),
+        ...(type.constraints?.maxLength === undefined ? {} : { maxLength: type.constraints.maxLength }),
+        ...(type.constraints?.pattern === undefined ? {} : { pattern: type.constraints.pattern }),
+      };
+    }
+    case 'literal':
+      return { const: type.value };
+    case 'null':
+      return { type: 'null' };
+    case 'array':
+      return {
+        type: 'array',
+        items: jsonSchemaForType(type.element),
+        ...(type.constraints?.minLength === undefined ? {} : { minItems: type.constraints.minLength }),
+        ...(type.constraints?.maxLength === undefined ? {} : { maxItems: type.constraints.maxLength }),
+      };
+    case 'tuple':
+      return {
+        type: 'array',
+        prefixItems: type.elements.map(jsonSchemaForType),
+        minItems: type.elements.length,
+        maxItems: type.elements.length,
+      };
+    case 'object': {
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+      for (const property of type.properties) {
+        properties[property.name] = jsonSchemaForType(property.type);
+        if (!property.optional) required.push(property.name);
+      }
+      return { type: 'object', properties, required };
+    }
+    case 'union':
+      return { anyOf: type.members.map(jsonSchemaForType) };
+    case 'undefined':
+    case 'unknown':
+    case 'ref':
+    case 'unsupported':
+      return {};
+  }
 }
 
 function nullableType(schema: Record<string, unknown>, nullable: boolean): Record<string, unknown> {
@@ -825,6 +931,20 @@ function asBigInt(value: unknown): unknown {
   return typeof value === 'string' && DECIMAL.test(value) ? BigInt(value) : value;
 }
 
+const VECTOR_COMPONENT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+function asVector(value: unknown): unknown {
+  if (Array.isArray(value) || typeof value !== 'string' || !value.startsWith('[') || !value.endsWith(']')) {
+    return value;
+  }
+  const body = value.slice(1, -1);
+  if (body === '') return [];
+  const fields = body.split(',');
+  if (fields.some(field => !VECTOR_COMPONENT.test(field.trim()))) return value;
+  const vector = fields.map(field => Number(field.trim()));
+  return vector.every(Number.isFinite) ? vector : value;
+}
+
 function codecFor(col: ColumnIR, codecs: CodecRegistry): Codec | undefined {
   if (col.codec === undefined) return undefined;
   const codec = codecs[col.codec];
@@ -892,11 +1012,14 @@ export function decodeWire(
  * of them, and keeps this function out of the dialect's business — which is the constraint
  * the whole IR is written under.
  *
- * Only the two columns whose app type is not JSON-representable need it, which is not a
- * coincidence: they are the same two that need a wire type, for the same reason.
+ * `timestamp` and `bigint` are the only core types whose app values need a distinct JSON
+ * wire form. The db crossing also handles extension vectors: their app and wire forms are
+ * both number arrays, but a driver without pgvector's parser can return the database text
+ * form instead.
  */
 export function decodeDbValue(col: ColumnIR, value: unknown): unknown {
   if (value === null || value === undefined) return value;
+  if (typeof col.sql !== 'string') return col.sql.name === 'vector' ? asVector(value) : value;
   if (col.sql === 'timestamp') return asDate(value);
   if (col.sql === 'bigint') {
     // A driver that read an 8-byte integer into a `number`. Safe integers only: past 2^53
@@ -911,7 +1034,10 @@ export function decodeDbValue(col: ColumnIR, value: unknown): unknown {
 
 /** Which columns `decodeDbValue` can change — so a read path can skip the walk entirely. */
 export function dbDecodedColumns(ir: SchemaIR): readonly ColumnIR[] {
-  return ir.columns.filter(col => col.sql === 'timestamp' || col.sql === 'bigint');
+  return ir.columns.filter(col => {
+    if (typeof col.sql === 'string') return col.sql === 'timestamp' || col.sql === 'bigint';
+    return col.sql.name === 'vector';
+  });
 }
 
 /** A row as a JSON body: the app→wire encode, for a response. */

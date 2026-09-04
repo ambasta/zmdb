@@ -53,7 +53,10 @@ Postgres has a lot the builder does not model. All of them work through [raw SQL
 - `FOR UPDATE SKIP LOCKED` — raw SQL only; the
   [Transactional Outbox](./transactional-outbox.html) deliberately uses a
   portable conditional lease update instead
-- arrays, ranges, and every extension type — see [Database Extensions](./db-extensions.html)
+- arrays and ranges
+- extension operators and spatial functions — extension-backed columns and
+  indexes are declared, while their typed query expressions remain a gap; see
+  [Database Extensions](./db-extensions.html)
 
 ## Operational settings worth having
 

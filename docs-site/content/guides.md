@@ -32,8 +32,8 @@ covers one validated patch over all matching rows.
 | [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process       |
 | [Case-insensitive unique](./guide-case-insensitive-unique.html)               | Expression index on PostgreSQL/SQLite; generated column on MySQL |
 | [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                              |
-| [Vector search](./guide-vector-search.html)                                   | **ToDo** — `SqlType` has no vector                               |
-| [PostGIS](./guide-postgis.html)                                               | **ToDo** — same                                                  |
+| [Vector search](./guide-vector-search.html)                                   | **ToDo** — column/index DDL ships; typed distance remains        |
+| [PostGIS](./guide-postgis.html)                                               | **ToDo** — column/index DDL ships; typed predicates remain       |
 
 ## Local development
 

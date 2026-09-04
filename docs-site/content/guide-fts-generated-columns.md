@@ -44,14 +44,19 @@ Three details in that expression that matter:
 Then the index, which is where the speed comes from:
 
 ```ts
-createIndexDdl({ name: 'articles_search_gin', table: 'articles', columns: ['search'] }, 'postgres');
+createIndexDdl(
+  {
+    name: 'articles_search_gin',
+    table: 'articles',
+    method: 'gin',
+    columns: ['search'],
+  },
+  'postgres',
+);
+// 'CREATE INDEX "articles_search_gin" ON "articles" USING gin ("search")'
 ```
 
-That emits a btree by default. A `tsvector` needs GIN, which `IndexDef` cannot express — so write this one by hand in the [migration](./migrations-custom.html):
-
-```sql
-CREATE INDEX articles_search_gin ON articles USING GIN (search);
-```
+The explicit `method: 'gin'` emits the access method a `tsvector` index needs.
 
 Without GIN the query still works and scans the table, which is the failure mode to watch for — correct results, no error, and a plan full of `Seq Scan`.
 

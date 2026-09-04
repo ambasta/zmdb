@@ -40,6 +40,7 @@ import {
   TAG_NAMES,
   type ColumnIR,
   type Constraints,
+  type ExtensionType,
   type ObjectIR,
   type PropertyIR,
   type ProtoScalar,
@@ -116,12 +117,40 @@ const TAG_FIELD_BY_NAME: ReadonlyMap<string, TagField> = new Map(
   Object.entries(TAG_NAMES).map(([field, symbolName]) => [symbolName, field as TagField]),
 );
 
+interface RecognizedTag {
+  readonly name: string;
+  /** Present only for a unique-symbol tag, where duplicate installs have distinct ids. */
+  readonly identity?: string;
+}
+
+/**
+ * Normalise both tag encodings without importing the type-only vocabulary.
+ *
+ * Most tags are unique-symbol properties (`__@zmdbSerial@1`). `Ext` is the single
+ * structural marker frozen by the IR contract, and the exact `__zmdbExt` spelling is
+ * recognised as the same `zmdbExt` vocabulary entry.
+ */
+function recognizedTag(symbol: TsSymbol): RecognizedTag | undefined {
+  const match = TAG_PATTERN.exec(symbol.escapedName);
+  const uniqueName = match?.[1];
+  if (uniqueName !== undefined && TAG_FIELD_BY_NAME.has(uniqueName)) {
+    return { name: uniqueName, identity: symbol.escapedName };
+  }
+  // `Ext` contributes an optional structural property. A required application
+  // column with the same spelling is ordinary data and must not disappear.
+  if (symbol.name === `__${TAG_NAMES.extension}` && (symbol.flags & SymbolFlags.Optional) !== 0) {
+    return { name: TAG_NAMES.extension };
+  }
+  return undefined;
+}
+
 // Both vocabularies as sets, behind predicates rather than `has` plus a cast. The tags fix
 // each of these to a literal, but the checker hands them back as `string`, so this is the
 // one place the narrowing has to be earned — and a predicate earns it for every caller.
 const SQL_TYPE_SET: ReadonlySet<string> = new Set<string>(SQL_TYPES);
 const RELATION_KIND_SET: ReadonlySet<string> = new Set<string>(RELATION_KINDS);
 const PROTO_SCALAR_SET: ReadonlySet<string> = new Set<string>(PROTO_SCALARS);
+const SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function isSqlType(value: string): value is SqlType {
   return SQL_TYPE_SET.has(value);
@@ -147,8 +176,7 @@ type MutableConstraints = { -readonly [K in keyof Constraints]: Constraints[K] }
 
 /** Whether a property symbol is one of our tag slots rather than real data. */
 function isTagProperty(symbol: TsSymbol): boolean {
-  const match = TAG_PATTERN.exec(symbol.escapedName);
-  return match !== null && TAG_FIELD_BY_NAME.has(match[1] ?? '');
+  return recognizedTag(symbol) !== undefined;
 }
 
 /**
@@ -163,7 +191,7 @@ function isTagProperty(symbol: TsSymbol): boolean {
  * JSON boundary, so there is nothing to check and nothing lost by ignoring it.
  */
 function isPhantomProperty(symbol: TsSymbol): boolean {
-  return symbol.escapedName.startsWith('__@');
+  return isTagProperty(symbol) || symbol.escapedName.startsWith('__@');
 }
 
 const OPTIONAL = SymbolFlags.Optional;
@@ -688,9 +716,9 @@ export class Reflector {
   #readTags(type: Type): ReadonlyMap<TagField, Type> {
     const found = new Map<TagField, Type>();
     for (const symbol of this.#checker.getPropertiesOfType(type)) {
-      const match = TAG_PATTERN.exec(symbol.escapedName);
-      if (!match) continue;
-      const field = TAG_FIELD_BY_NAME.get(match[1] ?? '');
+      const tag = recognizedTag(symbol);
+      if (tag === undefined) continue;
+      const field = TAG_FIELD_BY_NAME.get(tag.name);
       if (field === undefined) continue;
 
       // Plan D5. `unique symbol` identity is nominal, so two installed copies of
@@ -699,14 +727,16 @@ export class Reflector {
       // this name-based reflection carries on working — the emitted validator and the
       // derived type disagree, and neither side reports it. The escaped name is the
       // only place that asymmetry is visible, so it is caught here.
-      const first = this.#tagIdentity.get(match[1] ?? '');
-      if (first === undefined) this.#tagIdentity.set(match[1] ?? '', symbol.escapedName);
-      else if (first !== symbol.escapedName) {
-        this.#refuse(
-          symbol.name,
-          `the tag \`${match[1]}\` resolves to two different declarations (\`${first}\` and \`${symbol.escapedName}\`), ` +
-            'which means two copies of @zmdb/schema-core are installed; deduplicate them',
-        );
+      if (tag.identity !== undefined) {
+        const first = this.#tagIdentity.get(tag.name);
+        if (first === undefined) this.#tagIdentity.set(tag.name, tag.identity);
+        else if (first !== tag.identity) {
+          this.#refuse(
+            symbol.name,
+            `the tag \`${tag.name}\` resolves to two different declarations (\`${first}\` and \`${tag.identity}\`), ` +
+              'which means two copies of @zmdb/schema-core are installed; deduplicate them',
+          );
+        }
       }
 
       const value = this.#typeOf(symbol);
@@ -827,6 +857,60 @@ export class Reflector {
       return undefined;
     }
     return declared;
+  }
+
+  #extensionOf(property: string, tags: ReadonlyMap<TagField, Type>): ExtensionType | undefined {
+    const spec = this.#nonNullable(tags.get('extension'));
+    if (spec === undefined) return undefined;
+    if (!this.#checker.isTupleType(spec)) {
+      this.#refuse(property, 'Ext<E, N, A> needs an extension name, type name and argument tuple', this.#print(spec));
+      return undefined;
+    }
+
+    const [extensionType, nameType, argsType] = this.#typeArguments(spec);
+    const extension = literalOf(extensionType);
+    const name = literalOf(nameType);
+    if (typeof extension !== 'string' || typeof name !== 'string' || argsType === undefined) {
+      this.#refuse(
+        property,
+        'Ext<E, N, A> needs literal extension and type names plus an argument tuple',
+        this.#print(spec),
+      );
+      return undefined;
+    }
+    if (!SQL_IDENTIFIER.test(name)) {
+      this.#refuse(property, `extension type name \`${name}\` is not a SQL identifier`, name);
+      return undefined;
+    }
+    if (!this.#checker.isTupleType(argsType)) {
+      this.#refuse(
+        property,
+        'Ext<E, N, A> arguments must be a tuple of string or number literals',
+        this.#print(argsType),
+      );
+      return undefined;
+    }
+
+    const args: (string | number)[] = [];
+    for (const argumentType of this.#typeArguments(argsType)) {
+      const argument = literalOf(argumentType);
+      if (typeof argument === 'number' && Number.isFinite(argument)) {
+        args.push(argument);
+        continue;
+      }
+      if (typeof argument === 'string' && SQL_IDENTIFIER.test(argument)) {
+        args.push(argument);
+        continue;
+      }
+      this.#refuse(
+        property,
+        'extension type arguments must be finite number literals or SQL identifiers',
+        this.#print(argumentType),
+      );
+      return undefined;
+    }
+
+    return { extension, name, ...(args.length === 0 ? {} : { args }) };
   }
 
   #protoScalarOf(tags: ReadonlyMap<TagField, Type>): ProtoScalar | undefined {
@@ -966,7 +1050,11 @@ export class Reflector {
     }
 
     const enumValues = literalUnion(data);
-    const declaredSql = this.#sqlOf(tags) ?? this.#inferSql(property, data, enumValues);
+    const declaredSql = this.#sqlOf(tags);
+    const extension = this.#extensionOf(property, tags);
+    if (declaredSql !== undefined && extension !== undefined) {
+      this.#refuse(property, 'a column cannot carry both Sql<…> and Ext<…>; choose one database type');
+    }
     const constraints = this.#constraintsFromTags(tags);
     const length = numberOf(this.#nonNullable(tags.get('length')));
     const precision = this.#precisionOf(tags);
@@ -979,13 +1067,19 @@ export class Reflector {
     // `Serial` that only set `serial` would demand the key the database is about to make.
     const serial = tags.has('serial');
     const hasDefault = serial || tags.has('hasDefault');
+    if (serial && extension !== undefined) {
+      this.#refuse(property, 'Serial cannot be combined with an extension-backed column type');
+    }
 
     // A generated `integer` is what `serial` means, and the declaration says it in two tags
     // rather than one because the old `Sql<'serial'>` made a serial key's value unassignable
     // to an `integer` foreign key — see `ColumnSqlType` in `@zmdb/schema-core/tags`. The IR
     // keeps the one-word spelling, because that is the word two of the three dialects want
     // in the DDL and every renderer reads it.
-    const sql = serial && declaredSql === 'integer' ? 'serial' : declaredSql;
+    const coreSql = declaredSql ?? (extension === undefined ? this.#inferSql(property, data, enumValues) : undefined);
+    const sql: ColumnIR['sql'] =
+      extension ??
+      (serial && coreSql === 'integer' ? 'serial' : (coreSql ?? this.#inferSql(property, data, enumValues)));
 
     const payload = this.#declaredApp(property, data, sql, typeof codec === 'string');
 
@@ -1035,7 +1129,17 @@ export class Reflector {
    * "not a primitive", which is precisely the check an unshaped `json` column emits, so
    * the type and the validator say the same thing rather than one of them saying more.
    */
-  #declaredApp(property: string, data: readonly Type[], sql: SqlType, codec: boolean): TypeIR | undefined {
+  #declaredApp(
+    property: string,
+    data: readonly Type[],
+    sql: SqlType | ExtensionType,
+    codec: boolean,
+  ): TypeIR | undefined {
+    if (typeof sql !== 'string') {
+      const [only] = data;
+      if (data.length !== 1 || only === undefined || isUnknown(only) || isNonPrimitive(only)) return undefined;
+      return this.#type(only, property, 1);
+    }
     if (!codec && sql !== 'json') return undefined;
     const [only] = data;
     if (data.length !== 1 || only === undefined || isUnknown(only) || isNonPrimitive(only)) return undefined;

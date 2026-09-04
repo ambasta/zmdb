@@ -1,4 +1,7 @@
-Generated migrations cover tables and columns. Everything else — views, triggers, extensions, data backfills, index rebuilds — is a migration you write. The runner does not care which kind it is.
+Generated migrations cover tables, columns, and installation of extensions
+required by extension-backed columns. Everything else — views, triggers,
+extension upgrades or removal, data backfills, index rebuilds — is a migration
+you write. The runner does not care which kind it is.
 
 ## The shape
 

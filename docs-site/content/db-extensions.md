@@ -1,77 +1,91 @@
-> **ToDo / feature gap.** There is no `CREATE EXTENSION` emitter and there are no
-> extension-backed column types. `SqlType` is a closed union of ten members, so
-> `vector`, `geometry`, `citext`, `hstore` and `ltree` cannot be declared as
-> columns.
+> **ToDo / partial feature gap.** Extension installation, parameterised
+> extension-backed columns and PostgreSQL index methods are supported. Typed vector
+> distance expressions and PostGIS predicates are not yet available, so those queries
+> still use raw SQL.
 
-## Why this blocks more than it looks like
+## Declaring an extension-backed column
 
-Several other pages are downstream of this one:
-
-- [Vector similarity search](./guide-vector-search.html) — needs `vector(n)` and the `<->` / `<=>` operators
-- [Geometry and point columns](./guide-postgis.html) — needs `geometry` / `point`
-- [Case-insensitive unique email](./guide-case-insensitive-unique.html) — `citext` is one answer; the other is a supported functional index on `lower(email)`
-
-## What you can do today
-
-**Install the extension in a migration.** It is a plain statement, so a hand-written migration carries it fine:
+`SqlType` remains the closed core vocabulary. An extension type uses `Ext` instead, keeping the installable extension, the SQL type it provides and its parameters separate:
 
 ```ts
-const migrations = [
+import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+interface GeoJsonPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
+}
+
+export interface Document extends Table<'documents'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  embedding: readonly number[] & Ext<'vector', 'vector', [1536]>;
+  location: GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
+  handle: string & Ext<'citext', 'citext'>;
+}
+```
+
+The snapshot derives the required extensions from those columns. A diff from an empty snapshot emits installation first, before any table names the installed type:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "citext";
+CREATE EXTENSION IF NOT EXISTS "postgis";
+CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE TABLE "documents" (
+  "embedding" vector(1536) NOT NULL,
+  "handle" citext NOT NULL,
+  "id" INTEGER PRIMARY KEY,
+  "location" geometry(Point,4326) NOT NULL
+);
+```
+
+Extension names are sorted for stable snapshots. Removing the declaration does **not** generate `DROP EXTENSION`: a safe removal needs a hand-written migration after checking every dependent object.
+
+MySQL and SQLite refuse extension installation and extension-backed column DDL. There is no `TEXT` fallback, because a value that round-trips as text is still unusable by the extension operators it was declared for.
+
+## Index methods and operator classes
+
+`IndexDef` supports PostgreSQL access methods, operator classes and method-specific options:
+
+```ts
+import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+
+const sql = createIndexDdl(
   {
-    version: 1,
-    name: 'extensions',
-    up: 'CREATE EXTENSION IF NOT EXISTS vector',
-    down: 'DROP EXTENSION IF EXISTS vector',
+    name: 'documents_embedding_hnsw',
+    table: 'documents',
+    method: 'hnsw',
+    columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+    with: { m: 16, ef_construction: 64 },
   },
-];
+  'postgres',
+);
 ```
 
-See [Custom Migrations](./migrations-custom.html).
+This emits:
 
-**Add the column in the same migration.** The schema object cannot describe it, so the DDL is hand-written and `snapshot()` will not see the column:
-
-```ts
-up: 'ALTER TABLE "documents" ADD COLUMN "embedding" vector(1536)',
+```sql
+CREATE INDEX "documents_embedding_hnsw" ON "documents"
+  USING hnsw ("embedding" vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64)
 ```
 
-> [!WARNING]
-> A column the snapshot does not know about is a column `diff()` cannot protect. If a later migration is generated from the schema object, it will not drop your hand-added column — `diff` only emits changes it can derive — but it also will not stop someone re-adding it. Keep hand-managed columns in a comment next to the schema object.
+Methods and option keys are closed sets. Operator classes are extension-defined identifiers and are refused unless they match `/^[A-Za-z_][A-Za-z0-9_]*$/`.
 
-**Query it with raw SQL**, since the builder cannot parameterise a distance
-expression in `ORDER BY` or project one with an alias. Its low-level `where()`
-accepts raw operator strings, including `<->`, but that fall-through is not a
-typed vector surface:
+## Querying remains the gap
+
+Use raw SQL for vector distance ordering/projection and PostGIS predicates. The low-level query compiler accepts raw operator strings, but there is not yet a typed expression carrying a bound vector into `ORDER BY` or a typed `ST_DWithin` predicate:
 
 ```ts
 const rows = await driver.execute({
-  text: `SELECT id, embedding <-> $1 AS distance FROM documents ORDER BY distance LIMIT 10`,
+  text: `SELECT id, embedding <-> $1 AS distance
+         FROM documents
+         ORDER BY embedding <-> $1
+         LIMIT 10`,
   parameters: [JSON.stringify(queryEmbedding)],
 });
 ```
 
-**Model it as a shadow column** if you want the row type to include it. Declare the real column in the migration and a `Sql<'json'>` stand-in on the interface so `Entity<T>` has the field:
-
-```ts
-export interface Document extends Table<'documents'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  body: string & Sql<'text'>;
-  // NOTE: the real column is `vector(1536)`, created in migration 1.
-  // Sql<'json'> so the row type is right; never write through the repository.
-  embedding: (number[] & Sql<'json'>) | null;
-}
-```
-
-This works for reads on Postgres, where `pgvector` returns a JSON-ish array literal your driver can parse. It is a workaround with a comment on it, not a supported pattern — the honest version is that the type system is not modelling the column, and type-first makes that sharper rather than softer: the declaration is now the single source for the DDL too, so generating a migration from it would emit `json` and quietly replace your `vector`.
-
-## What it would take
-
-Two changes, and the second is the interesting one:
-
-1. `SqlType` gains an escape hatch — `{ kind: 'extension'; sqlType: string }` — so a column can name a type the compiler does not know. The DDL emitter passes it through, and the app type is whatever the property says — `number[] & Sql<{ extension: 'vector(1536)' }>`, or a tag of its own.
-2. **Operators.** `Operator` is already `... | (string & {})`, so `<->` compiles today. What is missing is that `WhereDTO`'s `FieldOps` has a fixed key set, so there is no typed way to express a distance ordering. Extension operators need either a per-type ops map or an explicit raw-expression escape in the DTO.
-
-The first is small. The second is a design decision about how much of SQL the typed DTO should cover, which is why this is not just waiting on someone to type it out.
+That remaining surface is deliberately closed rather than a free-form function/operator builder: vector operators and geometry functions place schema-authored identifiers beside request values, so each operator must be selected from a known set and every value must remain parameterised.
 
 ---
 
-See also: [Column Types](./column-types.html) · [Custom Types & Codecs](./custom-types.html) · [Custom Migrations](./migrations-custom.html)
+See also: [Vector similarity search](./guide-vector-search.html) · [PostGIS](./guide-postgis.html) · [Custom Types & Codecs](./custom-types.html)

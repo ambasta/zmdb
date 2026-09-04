@@ -33,12 +33,13 @@ uses it.
 
 ## 2. What a column is, as data
 
-`ColumnMeta` is what the query compiler reads. It is deliberately small — a SQL type and a
-flag map — and it is **lossy**, which is why §3's `ir` field exists.
+`ColumnMeta` is what the query compiler reads. It is deliberately small — a core SQL type
+or extension descriptor and a flag map — and it is **lossy**, which is why §3's `ir` field
+exists.
 
 ```ts
 interface ColumnMeta {
-  readonly type: SqlType; // serial | integer | bigint | numeric | text | varchar | boolean | timestamp | json | jsonEnum
+  readonly type: SqlType | ExtensionType;
   readonly flags: {
     readonly nullable: boolean; // required: every column is one or the other
     readonly primaryKey?: boolean;
@@ -54,6 +55,11 @@ interface ColumnMeta {
   readonly validation?: readonly ValidationRule[];
 }
 ```
+
+`SqlType` remains the closed string union (`serial | integer | bigint | numeric | text |
+varchar | boolean | timestamp | json | jsonEnum`). An extension-backed column uses the
+object arm `{ extension, name, args? }`, preserving the installable extension, its provided
+type, and any type arguments without admitting arbitrary strings into the core vocabulary.
 
 A `Serial` column carries `autoIncrement: true` **and** `hasDefault: true`. Both, always,
 and not as a convenience: the sequence belongs to the database, so `INSERT` may omit the

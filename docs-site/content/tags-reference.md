@@ -1,6 +1,6 @@
 Every tag, in one place. Import from `zmdb/tags` (or `@zmdb/schema-core/tags`) unless noted.
 
-A tag is an optional `unique symbol` property slot:
+Most tags are optional `unique symbol` property slots:
 
 ```ts
 declare const zmdbSerial: unique symbol;
@@ -8,6 +8,10 @@ export type Serial = { readonly [zmdbSerial]?: true };
 ```
 
 All three parts are load-bearing. `unique symbol` cannot be forged or collide with a data property of the same name. `?` means no runtime value is ever required, so the tag erases to nothing — a tagged declaration and its untagged twin compile to byte-identical JavaScript. And an all-optional (weak) object type is not assignable from an unrelated type, which is what makes `T[K] extends Serial` an exact question rather than a structural coincidence.
+
+`Ext<E, N, A>` is the one structural exception. Its optional `__zmdbExt`
+tuple carries the installable extension, SQL type name, and validated arguments
+through reflection without adding a runtime symbol.
 
 The module has **zero runtime exports**. There is nothing to import at runtime, no decorator metadata, no registry.
 
@@ -29,6 +33,7 @@ interface Article extends Table<'articles'>, Fts<'articles_fts'> {}
 | Tag                  | Payload          | Emits                                                     |
 | -------------------- | ---------------- | --------------------------------------------------------- |
 | `Sql<T>`             | a SQL type name  | the column's DDL type                                     |
+| `Ext<E, N, A>`       | three type args  | extension installation and the supplied column type       |
 | `PrimaryKey`         | —                | `PRIMARY KEY`; two columns → composite                    |
 | `Serial`             | —                | auto-increment, **and** `hasDefault`                      |
 | `Unique`             | —                | `UNIQUE`                                                  |
@@ -71,7 +76,10 @@ amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
 
 Plus `Serial`, which is `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` (SQLite's rowid alias is what makes it auto-increment there).
 
-That is the whole set. Anything else — `uuid`, `date`, `interval`, `inet`, arrays, `vector` — is a [custom type](./custom-types.html) or a `json` column. [Column Types](./column-types.html) has the reasoning.
+That is the whole core set. Extension-backed types such as `vector`,
+`geometry`, and `citext` use `Ext`; other storage types such as `uuid`, `date`,
+`interval`, `inet`, and arrays need a [custom type](./custom-types.html) or a
+`json` column. [Column Types](./column-types.html) has the reasoning.
 
 > [!NOTE]
 > `timestamp` is `TIMESTAMPTZ` in Postgres, not `TIMESTAMP`. Postgres reads the latter as "without time zone", which stores the wall clock and forgets the offset. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so it gets `DATETIME(3)`, keeping the milliseconds a `Date` has, with the application owning the zone.

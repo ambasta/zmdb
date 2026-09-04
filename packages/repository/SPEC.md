@@ -330,9 +330,12 @@ column.
   a `Date` for `TIMESTAMPTZ` and a string for `int8`, `node:sqlite` a string for `TEXT` and
   a number for `INTEGER`. Every row the repository returns is walked through
   `decodeDbValue` so `Entity<S>` holds one form regardless of driver — a `Date` for a
-  `timestamp`, a `bigint` for a `bigint`.
+  `timestamp`, a `bigint` for a `bigint`, and a number array for an extension vector even
+  when pgvector's parser is absent and the driver returns text.
 - The walk reads what arrived rather than what the dialect is, so it needs no dialect
-  table, and it is skipped entirely (`dbDecodedColumns`) for a schema with no such column.
+  table, and it is skipped entirely (`dbDecodedColumns`) for a schema with no `timestamp`,
+  `bigint`, or extension vector column. Only `timestamp` and `bigint` differ at the JSON
+  wire layer; vectors are arrays there and in the app.
 - The other direction belongs to the driver, which knows what its client binds: the
   `node:sqlite` adapter binds a `Date` as ISO-8601 UTC, matching the `TEXT` the DDL emitter
   declares and keeping lexicographic order chronological, while `pg` binds a `Date` itself.

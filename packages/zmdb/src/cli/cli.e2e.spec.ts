@@ -160,6 +160,7 @@ function writeMigration(project: Project, version: number, name: string, up: str
 function usersSnapshot(): Record<string, unknown> {
   return {
     version: 1,
+    extensions: [],
     tables: [
       {
         name: 'users',
@@ -271,7 +272,53 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
     expect(sql).toContain('-- zmdb:down');
     expect(JSON.parse(readFileSync(join(project.migrations, 'snapshot.json'), 'utf8'))).toMatchObject({
       version: 1,
+      extensions: [],
       tables: [{ name: 'users' }],
+    });
+  });
+
+  it('generates extension DDL before its table without an automatic extension drop', () => {
+    const project = copyProject();
+    write(
+      join(project.root, 'src', 'schema.ts'),
+      `import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+export interface Item extends Table<'items'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
+}
+`,
+    );
+    write(
+      project.config,
+      `export default {
+  schema: 'src/**/*.ts',
+  dialect: 'postgres',
+  project: './tsconfig.json',
+  out: './migrations',
+};
+`,
+    );
+
+    const invocation = run(project, 'generate', '--name', 'vector_items');
+    expect(invocation.status).toBe(0);
+    expect(invocation.stderr).toBe('');
+
+    const migration = readdirSync(project.migrations).find(file => /^\d{14}_vector_items\.sql$/.test(file));
+    expect(migration).toBeDefined();
+    if (migration === undefined) throw new Error('generate wrote no extension migration');
+
+    const sql = readFileSync(join(project.migrations, migration), 'utf8');
+    const extension = sql.indexOf('CREATE EXTENSION IF NOT EXISTS "vector"');
+    const table = sql.indexOf('CREATE TABLE "items"');
+    expect(extension).toBeGreaterThanOrEqual(0);
+    expect(table).toBeGreaterThan(extension);
+    expect(sql).toContain('DROP TABLE "items"');
+    expect(sql).not.toContain('DROP EXTENSION');
+    expect(JSON.parse(readFileSync(join(project.migrations, 'snapshot.json'), 'utf8'))).toMatchObject({
+      version: 1,
+      extensions: [{ name: 'vector' }],
+      tables: [{ name: 'items' }],
     });
   });
 
@@ -399,7 +446,7 @@ THIS IS NOT SQL;
   // Current actual: exit 2 with an implementation-gap JSON error and no finding.
   it.fails('detects a snapshot that does not match its migration history', () => {
     const project = copyProject();
-    writeSnapshot(project, { version: 1, tables: [] });
+    writeSnapshot(project, { version: 1, tables: [], extensions: [] });
 
     const invocation = run(project, 'check', '--json');
     expect(invocation.status).toBe(1);

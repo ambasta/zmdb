@@ -4,8 +4,10 @@
 // the tag order and nullable-intersection parentheses here prevents those two generated
 // paths from producing declarations that reflect differently.
 
+import type { ExtensionType } from '../migrations/index.js';
+
 export interface TaggedPropertyColumn {
-  readonly sql: string;
+  readonly sql: string | ExtensionType;
   readonly nullable?: boolean;
   readonly primaryKey?: boolean;
   readonly unique?: boolean;
@@ -33,6 +35,29 @@ const TS_TYPE: Readonly<Record<string, string>> = Object.freeze({
   boolean: 'boolean',
   timestamp: 'Date',
 });
+
+function extensionBase(type: ExtensionType): string | undefined {
+  if (type.extension === 'citext' && type.name === 'citext') return 'string';
+  if (type.extension === 'vector' && type.name === 'vector') return 'readonly number[]';
+  return undefined;
+}
+
+function extensionName(type: ExtensionType): string {
+  const args = type.args ?? [];
+  return args.length === 0 ? type.name : `${type.name}(${args.map(String).join(',')})`;
+}
+
+function extensionTag(type: ExtensionType): string | undefined {
+  const args = type.args ?? [];
+  if (args.some(value => typeof value === 'number' && !Number.isFinite(value))) return undefined;
+  const parameters = [`'${escapeTypeString(type.extension)}'`, `'${escapeTypeString(type.name)}'`];
+  if (args.length > 0) {
+    parameters.push(
+      `[${args.map(value => (typeof value === 'string' ? `'${escapeTypeString(value)}'` : String(value))).join(', ')}]`,
+    );
+  }
+  return `Ext<${parameters.join(', ')}>`;
+}
 
 /** Escape a value for a single-quoted TypeScript string literal. */
 export function escapeTypeString(value: unknown): string {
@@ -64,7 +89,18 @@ export function renderTaggedProperty(name: string, column: TaggedPropertyColumn)
     parts.push(tag);
   };
 
-  if (column.sql === 'jsonEnum') {
+  if (typeof column.sql !== 'string') {
+    const base = extensionBase(column.sql);
+    if (base === undefined) {
+      return { reason: `no TypeScript type for extension-backed SQL type \`${extensionName(column.sql)}\`` };
+    }
+    const tag = extensionTag(column.sql);
+    if (tag === undefined) {
+      return { reason: `extension-backed SQL type \`${extensionName(column.sql)}\` has an invalid argument` };
+    }
+    parts.push(base);
+    use(tag);
+  } else if (column.sql === 'jsonEnum') {
     if (!column.enumValues?.length) {
       return { reason: 'a `jsonEnum` column with no members has no type' };
     }

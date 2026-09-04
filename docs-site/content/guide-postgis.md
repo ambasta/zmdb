@@ -1,26 +1,62 @@
-> **ToDo / feature gap.** `SqlType` has no `geometry` or `geography`, so a PostGIS
-> column cannot be declared — `Sql<'geography'>` is a type error, not an escape
-> hatch — and `IndexDef` cannot emit `USING GIST`.
+> **ToDo / partial feature gap.** Declared PostGIS-backed columns, ordered
+> extension installation and `USING gist` index DDL are supported. Catalog pull
+> cannot infer a PostGIS column's application shape and omits that property from
+> emitted declarations. Typed spatial projections and predicates are also not yet
+> available, so writes and radius queries still use raw SQL.
 
-## What works today
+## Declare the column
 
-PostGIS is an extension and the driver takes raw SQL, so the functionality is available — the schema declaration is not.
+```ts
+import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
-**Migration** ([custom migration](./migrations-custom.html)):
+interface GeoJsonPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
+}
 
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-
-CREATE TABLE venues (
-  id serial PRIMARY KEY,
-  name text NOT NULL,
-  location geography(Point, 4326) NOT NULL
-);
-
-CREATE INDEX venues_location_gist ON venues USING GIST (location);
+export interface Venue extends Table<'venues'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  name: string & Sql<'text'>;
+  location: GeoJsonPoint & Ext<'postgis', 'geography', ['Point', 4326]>;
+}
 ```
 
-`geography` versus `geometry` is the first real decision:
+The migration snapshot derives the `postgis` dependency and emits it before the table:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "postgis";
+CREATE TABLE "venues" (
+  "id" INTEGER PRIMARY KEY,
+  "location" geography(Point,4326) NOT NULL,
+  "name" TEXT NOT NULL
+);
+```
+
+The application and wire shape is the declared GeoJSON object. A bare database projection may still return WKB, so select a GeoJSON projection explicitly until the typed spatial projection surface lands.
+
+## Create the spatial index
+
+```ts
+import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+
+const indexSql = createIndexDdl(
+  {
+    name: 'venues_location_gist',
+    table: 'venues',
+    method: 'gist',
+    columns: ['location'],
+  },
+  'postgres',
+);
+```
+
+This emits:
+
+```sql
+CREATE INDEX "venues_location_gist" ON "venues" USING gist ("location")
+```
+
+## Geometry or geography
 
 |                             | `geometry`                     | `geography` |
 | --------------------------- | ------------------------------ | ----------- |
@@ -29,18 +65,20 @@ CREATE INDEX venues_location_gist ON venues USING GIST (location);
 | Speed                       | faster                         | slower      |
 | Correct over long distances | no                             | yes         |
 
-For "venues within 5km" use `geography`, where `ST_DWithin` takes metres. With `geometry(Point, 4326)`, `ST_DWithin(a, b, 5000)` means 5000 _degrees_ — a filter that matches everything, silently. This is the most common PostGIS bug and it produces no error.
+For "venues within 5km" use `geography`, where `ST_DWithin` takes metres. With `geometry(Point, 4326)`, `ST_DWithin(a, b, 5000)` means 5000 degrees and can silently match everything.
 
-## Inserting
+## Insert
+
+The typed writer does not yet lower GeoJSON through `ST_GeomFromGeoJSON`, so use a parameterised statement:
 
 ```ts
 await driver.execute({
-  text: 'INSERT INTO venues (name, location) VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326))',
+  text: 'INSERT INTO venues (name, location) VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography)',
   parameters: [name, lon, lat],
 });
 ```
 
-`ST_MakePoint(x, y)` is **longitude first**. Every mapping API hands you `lat, lng`, so this is where coordinates get swapped — and swapped coordinates are valid points, so nothing errors; your London venue is just in the Atlantic.
+`ST_MakePoint(x, y)` is longitude first. Swapped latitude/longitude remains a valid point, so the database cannot diagnose it.
 
 ## Radius search
 
@@ -56,54 +94,27 @@ const rows = await driver.execute({
 });
 ```
 
-Use `ST_DWithin` in the `WHERE`, not `ST_Distance(...) < r`. Only `ST_DWithin` uses the GIST index; the comparison form computes a distance for every row in the table. Same class of mistake as ordering by a computed alias in [vector search](./guide-vector-search.html).
+Use `ST_DWithin` in `WHERE`, not `ST_Distance(...) < r`. Only `ST_DWithin` can use the GIST index.
 
-## Typing the results
+## Type raw results
 
 ```ts
-interface Venue {
+interface VenueHit {
   id: number;
   name: string;
   metres: number;
 }
-const venues = rows.map(r => assert<Venue>(r));
+const venues = rows.map(r => assert<VenueHit>(r));
 ```
 
-Geometry columns come back as WKB hex by default, which is rarely what you want. Select `ST_AsGeoJSON(location)` and parse, or `ST_X`/`ST_Y` for points:
+For a geometry value itself, project `ST_AsGeoJSON(location)` or scalar coordinates:
 
 ```sql
-SELECT id, name, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM venues
+SELECT id, name, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon
+FROM venues
 ```
 
-## Declaring the table anyway
-
-You can declare the non-spatial columns and leave `location` out:
-
-```ts
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface Venue extends Table<'venues'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  name: string & Sql<'text'>;
-  // location: geography(Point, 4326) — no tag can say this
-}
-```
-
-Leaving the column out is the only option: `Sql<T>` is constrained to the ten `SqlType`
-members, so there is nothing to write that both typechecks and lies convincingly. A
-comment is more honest than a `Sql<'text'>` that would make `push` emit the wrong DDL.
-
-Repository reads with an explicit `select` work fine. But `create` cannot populate a `NOT NULL` geography column, so inserts must go through raw SQL — or make the column nullable and set it in a second statement, which is worse. In practice: raw SQL for writes, the repository for everything else.
-
-## Managed Postgres
-
-PostGIS availability varies. Available on RDS, Cloud SQL, Azure, [Supabase](./connect-supabase.html), [Neon](./connect-neon.html) and Crunchy. Not available on [PGlite](./connect-pglite.html), so tests touching spatial queries need a real Postgres in a container — see [Local Postgres](./guide-local-postgres.html).
-
-## What it would take
-
-The same two changes as [vector search](./guide-vector-search.html): an extensible `SqlType` with a defined type mapping and serialisation story, and index expressions plus a `USING <method>` option in `IndexDef`. PostGIS additionally wants type _modifiers_ (`geography(Point, 4326)`), which vector needs too (`vector(1536)`) — so a design that handles a parameterised custom type covers both.
-
-Until then, PostGIS in zmdb means a hand-written migration and raw SQL for the spatial predicates, which is a smaller compromise than it sounds: PostGIS queries are usually hand-written anyway.
+PostGIS is available on RDS, Cloud SQL, Azure, Supabase, Neon and Crunchy. It is not available on PGlite, so spatial execution tests need real PostgreSQL.
 
 ---
 

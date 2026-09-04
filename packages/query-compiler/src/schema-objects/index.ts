@@ -5,13 +5,18 @@ import { ddlType } from '../migrations/index.js';
 import { quoteIdentifier } from '../quoting.js';
 
 export { UnsupportedFeatureError };
+export { createExtensionDdl, type ExtensionDef } from './extensions.js';
 
 export function quoteId(dialect: Dialect, id: string): string {
   return quoteIdentifier(dialect, id);
 }
 
 // §1 indexes & constraints
-export type IndexColumn = string | { readonly expr: string };
+export type IndexMethod = 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
+export type IndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
 
 export interface IndexDef {
   name: string;
@@ -19,30 +24,130 @@ export interface IndexDef {
   columns: readonly IndexColumn[];
   unique?: boolean;
   where?: string;
+  method?: IndexMethod;
+  with?: Readonly<Record<string, number>>;
 }
-export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
-  const expression = def.columns.find(column => typeof column !== 'string');
-  if (dialect === 'mysql' && expression !== undefined) {
+
+const INDEX_OPTIONS = {
+  btree: [],
+  hash: [],
+  gin: [],
+  gist: [],
+  brin: [],
+  ivfflat: ['lists'],
+  hnsw: ['m', 'ef_construction'],
+} as const satisfies Readonly<Record<IndexMethod, readonly string[]>>;
+
+const INDEX_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function isIndexMethod(value: string): value is IndexMethod {
+  return Object.hasOwn(INDEX_OPTIONS, value);
+}
+
+function indexMethod(value: unknown, def: IndexDef): IndexMethod | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string' && isIndexMethod(value)) return value;
+  throw new TypeError(`invalid index method ${JSON.stringify(value)} ("${def.name}")`);
+}
+
+function assertIndexMethodSupported(method: IndexMethod | undefined, def: IndexDef, dialect: Dialect): void {
+  if (dialect === 'postgres' && def.unique === true && method !== undefined && method !== 'btree') {
+    throw new UnsupportedFeatureError(
+      `unique ${method} index`,
+      dialect,
+      `postgres does not support a unique ${method} index ("${def.name}" on "${def.table}")`,
+    );
+  }
+  if (method === undefined || dialect === 'postgres') return;
+  if (dialect === 'mysql' && (method === 'btree' || method === 'hash')) return;
+  throw new UnsupportedFeatureError(
+    `index method ${method}`,
+    dialect,
+    `${dialect} does not support the index method ${method} ("${def.name}" on "${def.table}")`,
+  );
+}
+
+function indexOptions(def: IndexDef, method: IndexMethod | undefined): string {
+  const options = def.with;
+  if (options === undefined || Object.keys(options).length === 0) return '';
+  if (method === undefined) {
+    throw new TypeError(`index options require a method ("${def.name}")`);
+  }
+
+  const allowed: readonly string[] = INDEX_OPTIONS[method];
+  for (const key of Object.keys(options)) {
+    if (!allowed.includes(key)) {
+      throw new TypeError(
+        `${method} does not take the option \`${key}\` ("${def.name}"); ` +
+          `${method} options are (${allowed.join(', ')})`,
+      );
+    }
+  }
+
+  const rendered: string[] = [];
+  for (const key of allowed) {
+    const value = options[key];
+    if (value === undefined) continue;
+    if (!Number.isInteger(value) || value < 0) {
+      throw new TypeError(`${method} option \`${key}\` must be a non-negative integer ("${def.name}")`);
+    }
+    rendered.push(`${key} = ${value}`);
+  }
+  return rendered.length === 0 ? '' : ` WITH (${rendered.join(', ')})`;
+}
+
+type StructuredIndexColumn = Exclude<IndexColumn, string>;
+type ExpressionIndexColumn = Extract<StructuredIndexColumn, { readonly expr: string }>;
+
+function isExpressionColumn(column: StructuredIndexColumn): column is ExpressionIndexColumn {
+  return Object.hasOwn(column, 'expr');
+}
+
+function renderIndexColumn(column: IndexColumn, def: IndexDef, dialect: Dialect): string {
+  if (typeof column === 'string') return quoteId(dialect, column);
+
+  const expression = isExpressionColumn(column);
+  if (expression && dialect === 'mysql') {
+    const expr = column.expr;
     throw new UnsupportedFeatureError(
       `expression index "${def.name}"`,
       dialect,
-      `mysql does not support an expression index ("${def.name}" on "${def.table}" uses ${expression.expr}); ` +
+      `mysql does not support an expression index ("${def.name}" on "${def.table}" uses ${expr}); ` +
         'add a generated column and index that instead',
     );
   }
 
-  const cols = def.columns
-    .map(column => {
-      if (typeof column === 'string') return quoteId(dialect, column);
-      // boundary: index expressions are schema-authored DDL, never user input. The caller owns
-      // identifier quoting inside the expression; parsing or rewriting it would violate the
-      // contract that migrations compare and emit this string unchanged.
-      return column.expr;
-    })
-    .join(', ');
+  const value = expression ? column.expr : column.column;
+  const rendered = expression ? value : quoteId(dialect, value);
+  if (column.opclass === undefined) return rendered;
+  if (dialect !== 'postgres') {
+    throw new UnsupportedFeatureError(
+      `index operator class ${column.opclass}`,
+      dialect,
+      `${dialect} does not support the index operator class ${column.opclass} ("${def.name}")`,
+    );
+  }
+  if (!INDEX_IDENTIFIER.test(column.opclass)) {
+    throw new TypeError(
+      `index operator class ${JSON.stringify(column.opclass)} is not a SQL identifier ("${def.name}")`,
+    );
+  }
+  return `${rendered} ${column.opclass}`;
+}
+
+export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
+  const method = indexMethod(def.method, def);
+  assertIndexMethodSupported(method, def, dialect);
+  const cols = def.columns.map(column => renderIndexColumn(column, def, dialect)).join(', ');
   const unique = def.unique ? 'UNIQUE ' : '';
+  const mysqlMethod = dialect === 'mysql' && method !== undefined ? ` USING ${method.toUpperCase()}` : '';
+  const postgresMethod = dialect === 'postgres' && method !== undefined ? ` USING ${method}` : '';
+  const withOptions = indexOptions(def, method);
   const where = def.where ? ` WHERE ${def.where}` : '';
-  return `CREATE ${unique}INDEX ${quoteId(dialect, def.name)} ON ${quoteId(dialect, def.table)} (${cols})${where}`;
+  return (
+    `CREATE ${unique}INDEX ${quoteId(dialect, def.name)}${mysqlMethod} ON ${quoteId(dialect, def.table)}` +
+    `${postgresMethod} (${cols})${withOptions}${where}`
+  );
 }
 export function checkConstraintDdl(table: string, name: string, expr: string, dialect: Dialect): string {
   return `ALTER TABLE ${quoteId(dialect, table)} ADD CONSTRAINT ${quoteId(dialect, name)} CHECK (${expr})`;

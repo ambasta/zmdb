@@ -3,7 +3,7 @@ import { diff, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } from '@zmd
 
 import type { ResolvedConfig } from '../../config/index.js';
 
-const EMPTY_SNAPSHOT: SchemaSnapshot = { version: 1, tables: [] };
+const EMPTY_SNAPSHOT: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
 export interface ExportResult {
   readonly ops: readonly ChangeOp[];

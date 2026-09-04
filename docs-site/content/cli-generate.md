@@ -41,6 +41,10 @@ each written through a sibling temporary file followed by `rename`; a failed
 migration rename leaves neither a partial target nor a temporary file. The
 snapshot is updated only after the migration file is in place.
 
+`create_extension` has no generated inverse: the down section removes dependent
+tables and columns but leaves the extension installed. Dropping it safely needs
+a hand-written migration after checking every dependent object.
+
 If the diff is empty, the command exits 0 and writes nothing. With `--json`,
 stdout is one result document; human-readable errors stay on stderr.
 
@@ -54,8 +58,9 @@ The SQL is in your pull request, which is the point. Look for:
 
 ## The first migration
 
-With no stored snapshot, the command diffs against `{ version: 1, tables: [] }`
-and writes the initial migration plus `snapshot.json`.
+With no stored snapshot, the command diffs against
+`{ version: 1, tables: [], extensions: [] }` and writes the initial migration
+plus `snapshot.json`.
 
 For an existing database you are adopting, do the opposite: write the snapshot with no migration, so the baseline is "this already exists". See [Schema-first](./schema-first.html).
 

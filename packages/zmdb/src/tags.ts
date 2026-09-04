@@ -9,6 +9,7 @@
 // constraints under two spellings — see `PLAN-type-first.md` D6.
 export type {
   Codec,
+  Ext,
   Fts,
   HasDefault,
   Length,

@@ -82,7 +82,7 @@ compile error instead of a check that never runs.
 ```ts
 interface ColumnIR {
   name: string;
-  sql: SqlType; // abstract
+  sql: SqlType | ExtensionType; // abstract core type or extension descriptor (§4.3)
   nullable: boolean;
   primaryKey: boolean;
   serial: boolean;
@@ -615,13 +615,15 @@ an error. Leaving the string alone makes the validator say `expected Date`, whic
 and actionable. `decodeWire` copies through keys the variant does not have, for the same
 reason: deciding what a payload may contain belongs to exactly one place, and this is not it.
 
-Only `timestamp` and `bigint` need a conversion of their own, which is not a coincidence —
-they are the same two columns that need a wire type, for the same reason. `decodeDbValue` is
-written in terms of what _arrived_ rather than in terms of the dialect: `pg` hands back a
-`Date` for a `timestamptz` and a string for an `int8`, SQLite hands back the `TEXT` it
-stored, and a third driver will do something else again. A `bigint` a driver read into a
-`number` is converted only when it is a safe integer; past 2^53 the digits are already gone,
-and `BigInt(9007199254740993)` would state a value the database never held.
+`timestamp` and `bigint` are the only core types whose app and JSON wire forms differ: JSON
+cannot carry a `Date` or a `bigint` directly. The db→app crossing additionally decodes an
+extension `vector` when a driver returns pgvector's text form, even though its app and wire
+forms are both number arrays. `decodeDbValue` is written in terms of what _arrived_ rather
+than in terms of the dialect: `pg` hands back a `Date` for a `timestamptz`, a string for an
+`int8`, and either an array or text for a vector; SQLite hands back the `TEXT` it stored, and
+a third driver will do something else again. A `bigint` a driver read into a `number` is
+converted only when it is a safe integer; past 2^53 the digits are already gone, and
+`BigInt(9007199254740993)` would state a value the database never held.
 
 A `Codec<'Name'>` column is converted by the application's own `CodecRegistry`, and a name
 with nothing behind it **throws** rather than passing the value through — the column's whole
@@ -634,11 +636,11 @@ point is that it needs converting (plan D4).
 - [x] `ConstraintKind` and `keyof Constraints` cannot drift (compile-time).
 - [x] All five constraint keywords survive from schema value to JSON Schema.
 - [x] An unrecognised rule kind is retained as a named rule, not dropped.
-- [x] `appTypeOf`/`wireTypeOf` differ for `timestamp` and `bigint` and agree elsewhere.
+- [x] `appTypeOf`/`wireTypeOf` differ only for core `timestamp` and `bigint`; extension vectors are arrays at both layers.
 - [x] The 30 pre-existing `openapi` golden tests pass against the IR-backed emitter, unchanged.
 - [x] `encodeWire(decodeWire(body))` is the identity on a body, and a value neither can convert is passed through untouched.
 - [x] A named codec absent from the registry throws, in both directions, naming the column and the codec.
-- [x] `decodeDbValue` converts a `bigint` a driver read into a `number` only while it is a safe integer.
+- [x] `decodeDbValue` converts valid vector text to a finite number array, leaves malformed text untouched, and converts a `bigint` read as a `number` only while it is a safe integer.
 - [x] `objectTypeFromIR` keeps sensitive columns and `jsonSchemaFromIR` drops them, at every variant.
 
 ## 11. Non-goals (rejected)

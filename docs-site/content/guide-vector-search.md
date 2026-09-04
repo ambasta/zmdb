@@ -1,71 +1,104 @@
-> **ToDo / feature gap.** `SqlType` is a closed set of ten types —
-> `serial integer bigint numeric text varchar boolean timestamp json jsonEnum`.
-> There is no `vector`, so a `pgvector` column cannot be declared, and
-> `IndexDef` cannot express an HNSW or IVFFlat index with an operator class.
+> **ToDo / partial feature gap.** A `vector(n)` column, ordered extension
+> installation, and HNSW/IVFFlat index DDL are supported. Typed distance
+> projection and ordering are not yet available, so similarity queries still use
+> raw SQL.
 
-## What works today
+## Declare the column
 
-Everything except the declaration. `pgvector` is a normal Postgres extension, and the driver is a raw-SQL escape hatch — so a working vector search is a migration plus two queries.
+```ts
+import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
-**The migration** ([custom migration](./migrations-custom.html)):
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-
-CREATE TABLE embeddings (
-  id bigserial PRIMARY KEY,
-  document_id integer NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  chunk text NOT NULL,
-  embedding vector(1536) NOT NULL
-);
-
-CREATE INDEX embeddings_hnsw ON embeddings
-  USING hnsw (embedding vector_cosine_ops)
-  WITH (m = 16, ef_construction = 64);
+export interface Embedding extends Table<'embeddings'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  documentId: number & Sql<'integer'>;
+  chunk: string & Sql<'text'>;
+  embedding: readonly number[] & Ext<'vector', 'vector', [1536]>;
+}
 ```
 
-The operator class must match your distance operator — `vector_cosine_ops` for `<=>`, `vector_l2_ops` for `<->`. Mismatch means the index is silently unused and every query scans.
+The migration snapshot records `vector` once and emits:
 
-**Insert:**
+```sql
+CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE TABLE "embeddings" (
+  "chunk" TEXT NOT NULL,
+  "documentId" INTEGER NOT NULL,
+  "embedding" vector(1536) NOT NULL,
+  "id" INTEGER PRIMARY KEY
+);
+```
+
+The derived JSON Schema describes the embedding as a numeric array with `minItems` and `maxItems` both set to `1536`. Database reads accept either a driver-parsed array or pgvector's text form without partially parsing malformed values.
+
+## Create the index
+
+```ts
+import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+
+const indexSql = createIndexDdl(
+  {
+    name: 'embeddings_hnsw',
+    table: 'embeddings',
+    method: 'hnsw',
+    columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+    with: { m: 16, ef_construction: 64 },
+  },
+  'postgres',
+);
+```
+
+The result is:
+
+```sql
+CREATE INDEX "embeddings_hnsw" ON "embeddings"
+  USING hnsw ("embedding" vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64)
+```
+
+Use `ivfflat` with `{ lists: N }`, or `hnsw` with `m` and `ef_construction`. An option belonging to another method is refused before migration execution. The operator class must match the query operator — `vector_cosine_ops` for `<=>`, `vector_l2_ops` for `<->`.
+
+## Insert and search
+
+Writes still need the pgvector text encoding at the driver boundary:
 
 ```ts
 await driver.execute({
-  text: 'INSERT INTO embeddings (document_id, chunk, embedding) VALUES ($1, $2, $3)',
+  text: 'INSERT INTO embeddings ("documentId", chunk, embedding) VALUES ($1, $2, $3)',
   parameters: [docId, chunk, JSON.stringify(vector)],
 });
 ```
 
-`pgvector` accepts the `[0.1,0.2,...]` text form, which `JSON.stringify` on a `number[]` produces exactly.
+`pgvector` accepts the `[0.1,0.2,...]` form that `JSON.stringify(number[])` produces.
 
-**Search:**
+The typed query builder does not yet project or order by a distance expression, so search remains raw SQL:
 
 ```ts
 const rows = await driver.execute({
   text: `SELECT id, chunk, 1 - (embedding <=> $1::vector) AS similarity
          FROM embeddings
-         WHERE document_id = ANY($2)
+         WHERE "documentId" = ANY($2)
          ORDER BY embedding <=> $1::vector
          LIMIT $3`,
   parameters: [JSON.stringify(queryVector), allowedDocIds, 10],
 });
 ```
 
-Two things that go wrong here:
+Two details are easy to get wrong:
 
-- **The `ORDER BY` must use the raw distance operator.** `ORDER BY similarity DESC` sorts on the computed alias and the index cannot serve it — you get a full scan plus a sort. Order by `embedding <=> $1` ascending and compute similarity for display only.
-- **`<=>` is cosine _distance_.** Smaller is closer, so `1 - distance` is the similarity. Sorting descending on the distance returns the least relevant results, which looks like a broken embedding model rather than a broken query.
+- **Order by the raw distance expression.** Ordering by the projected `similarity` alias prevents the approximate index from serving the order.
+- **`<=>` is cosine distance.** Smaller is closer; `1 - distance` is similarity. Sort the distance ascending.
 
 ## Filtering and recall
 
-A `WHERE` alongside an approximate index reduces recall: HNSW walks the graph and then your filter discards candidates, so a narrow filter can return fewer rows than `LIMIT`. Options, in order:
+A `WHERE` alongside an approximate index reduces recall: HNSW walks the graph and then your filter discards candidates, so a narrow filter can return fewer rows than `LIMIT`.
 
-- Raise `hnsw.ef_search` (`SET LOCAL hnsw.ef_search = 100`) to widen the search.
-- Partition or use a partial index per tenant if the filter is tenant-scoped.
-- Post-filter with a larger `LIMIT` and trim in the application.
+- Raise `hnsw.ef_search` (`SET LOCAL hnsw.ef_search = 100`).
+- Partition or use a partial index for a tenant-scoped filter.
+- Post-filter a larger result set and trim in the application.
 
-Tenant isolation is the case to be careful about: leaking another tenant's chunk into a RAG context is a data breach, so the filter must be a parameter, applied server-side, and never derived from anything the client sends beyond an authenticated id.
+Tenant isolation still belongs in a parameterised server-side predicate. A client-supplied tenant id must never decide which rows enter a RAG context.
 
-## Typing the results
+## Typing raw results
 
 ```ts
 interface Hit {
@@ -76,7 +109,7 @@ interface Hit {
 const hits = rows.map(r => assert<Hit>(r));
 ```
 
-`bigserial` arrives as a string from node-postgres. `assert` rather than a cast, because raw SQL results are outside the type system — this is exactly the boundary the validator exists for.
+Raw SQL results are outside the declared row type, so validate rather than cast them.
 
 ## Which extension
 
@@ -85,17 +118,6 @@ const hits = rows.map(r => assert<Hit>(r));
 | `pgvector`        | the default; HNSW and IVFFlat, works on most managed Postgres                 |
 | `pgvectorscale`   | pgvector plus a disk-backed index, for large corpora                          |
 | A vector database | Pinecone, Qdrant, Weaviate — a separate system to operate and keep consistent |
-
-Keeping embeddings in Postgres means one backup, one transaction and one join to your metadata. That is worth a lot, and it is why the workaround above is a legitimate destination rather than a stopgap.
-
-## What it would take
-
-Two things, in order of difficulty:
-
-- **An extensible `SqlType`.** Today it is a closed union, which is what makes DDL generation and type mapping total. Opening it means a story for how a custom type maps to a TypeScript type, how it serialises, and what `diff`/`emitUp` do with it. Same blocker as [PostGIS](./guide-postgis.html) and `citext` — see [Database Extensions](./db-extensions.html).
-- **Index expressions and options in `IndexDef`.** Needed for `USING hnsw (col vector_cosine_ops) WITH (...)`. Also what [case-insensitive unique](./guide-case-insensitive-unique.html) needs.
-
-Neither is a small addition, and both would change the shape of the schema API — which is why the honest answer today is the migration above.
 
 ---
 

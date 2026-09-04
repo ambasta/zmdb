@@ -589,7 +589,7 @@ export const PAGE_META = {
     title: 'Database Extensions',
     group: 'Schema',
     status: 'todo',
-    note: 'no CREATE EXTENSION emitter and no extension-backed column types (vector, geometry, citext)',
+    note: 'extension DDL and column types exist; typed vector/spatial query expressions remain',
   },
   'stored-routines': {
     title: 'Stored Procedures & Functions',
@@ -1324,13 +1324,13 @@ export const PAGE_META = {
     title: 'Vector similarity search',
     group: 'Guides',
     status: 'todo',
-    note: 'no vector column type and no distance operators; depends on database extensions',
+    note: 'vector columns and indexes exist; typed distance projection and ordering remain',
   },
   'guide-postgis': {
     title: 'Geometry and point columns',
     group: 'Guides',
     status: 'todo',
-    note: 'no geometry/point column type; depends on database extensions',
+    note: 'geometry columns and indexes exist; typed spatial projections and predicates remain',
   },
   'guide-local-postgres': {
     title: 'A local PostgreSQL',

@@ -215,8 +215,8 @@ undeclared produces no `DROP EXTENSION`, because `DROP EXTENSION vector` fails w
 uses the type and `DROP EXTENSION vector CASCADE` drops those columns instead — so the two available
 behaviours are "the migration fails" and "the migration deletes data". Neither is something to generate
 from the absence of a declaration, particularly when that absence often means "somebody else manages
-this one now". Removal is a hand-written migration, and the diff says so rather than staying silent
-about it.
+this one now". Removal is a hand-written migration, and the generated operation list intentionally
+contains no extension-removal entry.
 
 ## 8. Stored routines (frozen — epic "Stored procedures and functions")
 

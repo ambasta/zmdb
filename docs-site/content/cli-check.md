@@ -53,7 +53,7 @@ those land, the narrower approximation below compares the _generated_ DDL
 against the migration files:
 
 ```ts
-const fromSchema = diff({ version: 1, tables: [] }, snapshot(all)).map(o => emitUp(o, 'postgres'));
+const fromSchema = diff({ version: 1, tables: [], extensions: [] }, snapshot(all)).map(o => emitUp(o, 'postgres'));
 const fromMigrations = migrations.map(m => m.up);
 
 // not a string comparison — the operation order differs. Compare statement sets.

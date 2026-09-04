@@ -131,7 +131,11 @@ function column(snapshot: FrozenSchemaSnapshot, tableName: string, columnName: s
   return found;
 }
 
-function fixturePostgres(schema: string, calls: CompiledQuery[]): FrozenDriver {
+function fixturePostgres(
+  schema: string,
+  calls: CompiledQuery[],
+  fixtureOptions: { readonly extensionColumns?: boolean } = {},
+): FrozenDriver {
   const columnRow = (
     ordinal: number,
     name: string,
@@ -139,8 +143,10 @@ function fixturePostgres(schema: string, calls: CompiledQuery[]): FrozenDriver {
     udtName: string,
     options: {
       readonly default?: string | null;
+      readonly extension?: string;
       readonly identity?: string;
       readonly nullable?: boolean;
+      readonly typeModifier?: number;
     } = {},
   ): Record<string, unknown> => ({
     table_name: 'accounts',
@@ -154,11 +160,11 @@ function fixturePostgres(schema: string, calls: CompiledQuery[]): FrozenDriver {
     numeric_scale: null,
     column_default: options.default ?? null,
     attidentity: options.identity ?? '',
-    atttypmod: -1,
+    atttypmod: options.typeModifier ?? -1,
     typtype: 'b',
     domain_name: null,
     domain_base_type: null,
-    extension_name: null,
+    extension_name: options.extension ?? null,
   });
 
   return {
@@ -174,14 +180,46 @@ function fixturePostgres(schema: string, calls: CompiledQuery[]): FrozenDriver {
           columnRow(2, 'identity_id', 'bigint', 'int8', { identity: 'd' }),
           columnRow(3, 'email', 'text', 'text'),
           columnRow(4, 'created_at', 'timestamp with time zone', 'timestamptz', { default: 'now()' }),
+          ...(fixtureOptions.extensionColumns === true
+            ? [
+                columnRow(5, 'handle', 'USER-DEFINED', 'citext', { extension: 'citext' }),
+                columnRow(6, 'embedding', 'USER-DEFINED', 'vector', {
+                  extension: 'vector',
+                  typeModifier: 3,
+                }),
+              ]
+            : []),
         ];
       }
       if (sql.includes("constraint_type = 'primary key'")) {
         return [{ table_name: 'accounts', column_name: 'id', ordinal_position: 1 }];
       }
       if (sql.includes("constraint_type = 'foreign key'")) return [];
-      if (sql.includes('pg_catalog.pg_index')) return [];
-      if (sql.includes('pg_catalog.pg_extension')) return [];
+      if (sql.includes('pg_catalog.pg_index')) {
+        return fixtureOptions.extensionColumns === true
+          ? [
+              {
+                table_name: 'accounts',
+                index_name: 'accounts_embedding_hnsw',
+                is_unique: false,
+                is_primary: false,
+                method: 'hnsw',
+                predicate: null,
+                position: 1,
+                definition: 'embedding',
+                operator_class: 'vector_cosine_ops',
+              },
+            ]
+          : [];
+      }
+      if (sql.includes('pg_catalog.pg_extension')) {
+        return fixtureOptions.extensionColumns === true
+          ? [
+              { name: 'citext', schema: 'public' },
+              { name: 'vector', schema: 'public' },
+            ]
+          : [];
+      }
       throw new Error(`unrecorded Postgres catalog query: ${query.text}`);
     },
   };
@@ -218,6 +256,42 @@ it('reads validated Postgres fixture rows and distinguishes serial from identity
     expect(call.text).not.toContain(schema);
     expect(call.parameters).toContain(schema);
   }
+});
+
+it('retains Postgres extension columns as ExtensionType snapshots', async () => {
+  const calls: CompiledQuery[] = [];
+  const actual = await createIntrospector('postgres').snapshot(
+    fixturePostgres('public', calls, {
+      extensionColumns: true,
+    }),
+  );
+
+  expect(column(actual, 'accounts', 'handle').type).toEqual({
+    extension: 'citext',
+    name: 'citext',
+  });
+  expect(column(actual, 'accounts', 'embedding').type).toEqual({
+    extension: 'vector',
+    name: 'vector',
+    args: [3],
+  });
+  expect(actual.extensions).toEqual([{ name: 'citext' }, { name: 'vector' }]);
+  expect(actual.tables[0]?.indexes).toEqual([
+    {
+      name: 'accounts_embedding_hnsw',
+      columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+      unique: false,
+      method: 'hnsw',
+    },
+  ]);
+  expect(actual.warnings).toEqual([
+    {
+      table: 'accounts',
+      column: 'identity_id',
+      reason:
+        'Postgres identity was normalized to serial; regenerating uses a sequence default rather than an identity attribute',
+    },
+  ]);
 });
 
 const postgres = await probePostgres();

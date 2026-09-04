@@ -861,6 +861,7 @@ describe('what only a tagged declaration can say', () => {
   }
 
   const invoice = (): SchemaIR => taggedOnly('invoices');
+  const extensionItems = (): SchemaIR => taggedOnly('extension-items');
 
   it('carries numeric precision, which ColumnFlags has no field for', () => {
     expect(invoice().columns.find(c => c.name === 'amount')?.precision).toEqual([12, 2]);
@@ -890,6 +891,23 @@ describe('what only a tagged declaration can say', () => {
 
   it('carries a codec name', () => {
     expect(invoice().columns.find(c => c.name === 'currency')?.codec).toBe('currency');
+  });
+
+  it('carries extension-backed SQL types and their declared application shapes', () => {
+    const columns = new Map(extensionItems().columns.map(column => [column.name, column]));
+    expect(columns.get('__zmdbExt')).toMatchObject({ sql: 'text' });
+    expect(columns.get('embedding')).toMatchObject({
+      sql: { extension: 'vector', name: 'vector', args: [1536] },
+      payload: { kind: 'array', element: { kind: 'scalar', scalar: 'number' } },
+    });
+    expect(columns.get('location')).toMatchObject({
+      sql: { extension: 'postgis', name: 'geometry', args: ['Point', 4326] },
+      payload: { kind: 'object', name: 'GeoJsonPoint' },
+    });
+    expect(columns.get('handle')).toMatchObject({
+      sql: { extension: 'citext', name: 'citext' },
+      payload: { kind: 'scalar', scalar: 'string' },
+    });
   });
 
   it("carries a codec's three types: the app shape, the wire form, and the stored type", () => {

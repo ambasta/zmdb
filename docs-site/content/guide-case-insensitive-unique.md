@@ -117,14 +117,21 @@ Also note: the local part of an email address is technically case-sensitive per 
 
 ## `citext`
 
-Postgres has a case-insensitive text type, in the `citext` extension:
+Postgres has a case-insensitive text type in the `citext` extension. Declare the
+storage type directly:
 
-```sql
-CREATE EXTENSION IF NOT EXISTS citext;
-ALTER TABLE users ALTER COLUMN email TYPE citext;
+```ts
+import type { Ext, Table } from 'zmdb/tags';
+
+interface User extends Table<'users'> {
+  email: string & Ext<'citext', 'citext'>;
+}
 ```
 
-Now `=` and `Unique` are insensitive with no query changes. Since `SqlType` has no `citext`, declare the column as `Sql<'text'>` and change the type in a migration — see [Database Extensions](./db-extensions.html). Cleanest option if you are Postgres-only, and it applies to every writer.
+The generated migration installs `citext` before creating the table. Comparisons
+and a unique index on that column are then case-insensitive with no query
+changes. This is the cleanest option if you are Postgres-only, and it applies to
+every writer. See [Database Extensions](./db-extensions.html).
 
 ## Declaration boundary
 

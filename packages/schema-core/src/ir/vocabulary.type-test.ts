@@ -98,7 +98,8 @@ export const CONSTRAINT_TO_TAG: { readonly [K in ConstraintKind]: string } = {
 //
 // `TAG_NAMES` is how `@zmdb/aot-validator`'s reflection recognises a tag: `../tags` is
 // types-only, so the reflection matches on the escaped symbol name (`__@zmdbSerial@1`)
-// instead of importing the tag. A tag with no entry there is a tag the reflection
+// instead of importing the tag. `Ext` is the one frozen structural marker and normalises
+// `__zmdbExt` to the same table entry. A tag with no entry there is a tag the reflection
 // cannot see, and the resulting IR is quietly missing a flag — which is the *exact*
 // failure the IR was introduced to end.
 //
@@ -117,9 +118,9 @@ export const FLAG_TAG_REACHABLE: {
   sensitive: 'sensitive',
 };
 
-// And every symbol name in the table is one of the `declare const zmdb*` slots in
-// `../tags`. Spelled as a prefix check rather than a list because the declarations are
-// `declare const`, invisible outside that module by design.
+// Every recogniser name keeps the `zmdb*` prefix. Spelled as a prefix check rather than
+// a list because the unique-symbol declarations are invisible outside `../tags`, while
+// the structural `__zmdbExt` marker is normalised before lookup.
 type StartsWithZmdb<S extends string> = S extends `zmdb${string}` ? true : false;
 export type _V6 = Expect<Equal<StartsWithZmdb<(typeof TAG_NAMES)[TagField]>, true>>;
 

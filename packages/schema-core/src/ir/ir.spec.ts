@@ -26,10 +26,12 @@ import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { describe, expect, it } from 'vitest';
 
 import type {
+  Ext,
   Fts,
   HasDefault,
   Length,
   Max,
+  MaxLength,
   Min,
   MinLength,
   Pattern,
@@ -110,14 +112,32 @@ export interface Tag extends Table<'tags'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
 }
 
+export interface GeoJsonPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
+}
+
+export interface ExtensionRow extends Table<'extension_rows'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  embedding: readonly number[] & Ext<'vector', 'vector', [1536]>;
+  location: GeoJsonPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
+  handle: string & Ext<'citext', 'citext'> & MinLength<3> & MaxLength<64> & Pattern<'^[a-z]+$'>;
+}
+
+export interface InvalidExtensionRow extends Table<'invalid_extension_rows'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  embedding: readonly number[] & Ext<'vector', 'vector', ['not valid SQL']>;
+}
+
 const {
   Event: eventsIR,
+  ExtensionRow: extensionIR,
   Everything: everythingIR,
   Membership: membershipsIR,
   Note: notesIR,
   Tag: tagsIR,
   User: usersIR,
-} = schemaIrsFrom(import.meta.url, ['User', 'Membership', 'Event', 'Note', 'Everything', 'Tag']);
+} = schemaIrsFrom(import.meta.url, ['User', 'Membership', 'Event', 'Note', 'Everything', 'Tag', 'ExtensionRow']);
 
 function column(name: string, ir: SchemaIR = usersIR): ColumnIR {
   const found = ir.columns.find(c => c.name === name);
@@ -519,6 +539,88 @@ describe('decodeWire / encodeWire — the crossing between the layers (plan D3)'
     // alternative is storing whatever JSON carried in the one column that needed converting.
     expect(() => decodeWire(withCodec, 'create', { total: '1250' })).toThrow(/not in the registry/);
     expect(() => encodeWire(withCodec, { total: 1250 })).toThrow(/"Money"/);
+  });
+});
+
+describe('extension-backed columns', () => {
+  const extensionColumn = (name: string): ColumnIR => column(name, extensionIR);
+
+  it('reflects Ext into the SQL type and preserves the declared application shape', () => {
+    expect(extensionColumn('embedding')).toMatchObject({
+      sql: { extension: 'vector', name: 'vector', args: [1536] },
+      payload: { kind: 'array', element: { kind: 'scalar', scalar: 'number' } },
+    });
+    expect(extensionColumn('location')).toMatchObject({
+      sql: { extension: 'postgis', name: 'geometry', args: ['Point', 4326] },
+      payload: { kind: 'object', name: 'GeoJsonPoint' },
+    });
+    expect(extensionColumn('handle')).toMatchObject({
+      sql: { extension: 'citext', name: 'citext' },
+      payload: { kind: 'scalar', scalar: 'string' },
+    });
+  });
+
+  it('refuses a non-identifier extension argument during reflection', () => {
+    const diagnostics: { readonly path: string; readonly reason: string }[] = [];
+    schemaIrsFrom(import.meta.url, ['InvalidExtensionRow'], {
+      onDiagnostics: found => diagnostics.push(...found),
+    });
+    expect(diagnostics).toEqual([
+      {
+        path: 'embedding',
+        reason: 'extension type arguments must be finite number literals or SQL identifiers',
+        source: '"not valid SQL"',
+      },
+    ]);
+  });
+
+  it('derives the geometry and citext JSON Schema shapes', () => {
+    expect(appTypeOf(extensionColumn('handle'))).toEqual({
+      kind: 'scalar',
+      scalar: 'string',
+      constraints: { minLength: 3, maxLength: 64, pattern: '^[a-z]+$' },
+    });
+    expect(jsonSchemaForColumn(extensionColumn('location'))).toEqual({
+      type: 'object',
+      properties: {
+        type: { const: 'Point' },
+        coordinates: {
+          type: 'array',
+          prefixItems: [{ type: 'number' }, { type: 'number' }],
+          minItems: 2,
+          maxItems: 2,
+        },
+      },
+      required: ['type', 'coordinates'],
+    });
+    expect(jsonSchemaForColumn(extensionColumn('handle'))).toEqual({
+      type: 'string',
+      minLength: 3,
+      maxLength: 64,
+      pattern: '^[a-z]+$',
+    });
+  });
+
+  it('decodes pgvector text without accepting a partial numeric parse', () => {
+    const vector = extensionColumn('embedding');
+    expect(decodeDbValue(vector, '[1, -2.5, 3e-2]')).toEqual([1, -2.5, 0.03]);
+    expect(decodeDbValue(vector, '[1,,3]')).toBe('[1,,3]');
+    expect(decodeDbValue(vector, '[1, nope, 3]')).toBe('[1, nope, 3]');
+  });
+
+  it('does not validate a vector element-wise on the default read path', () => {
+    const vector = extensionColumn('embedding');
+    let elementReads = 0;
+    const value = new Proxy([0.1, 0.2, 0.3], {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) elementReads++;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    expect(dbDecodedColumns(extensionIR).map(candidate => candidate.name)).toEqual(['embedding']);
+    expect(decodeDbValue(vector, value)).toBe(value);
+    expect(elementReads).toBe(0);
   });
 });
 

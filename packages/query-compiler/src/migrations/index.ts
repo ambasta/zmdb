@@ -2,8 +2,16 @@
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.
 export * from './runner.js';
+import { UnsupportedFeatureError } from '../errors.js';
 import type { Dialect } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
+import { createExtensionDdl } from '../schema-objects/extensions.js';
+
+export interface ExtensionType {
+  readonly extension: string;
+  readonly name: string;
+  readonly args?: readonly (string | number)[];
+}
 
 export interface ColumnSnapshot {
   readonly name: string;
@@ -14,7 +22,7 @@ export interface ColumnSnapshot {
    * same snapshot is diffed and then emitted for Postgres, MySQL and SQLite. `ddlType`
    * below is where it becomes a real one.
    */
-  readonly type: string;
+  readonly type: string | ExtensionType;
   readonly nullable: boolean;
   readonly primaryKey: boolean;
   /** `varchar(255)` → `255`. MySQL rejects a `VARCHAR` with no length. */
@@ -29,9 +37,16 @@ export interface TableSnapshot {
 export interface SchemaSnapshot {
   readonly version: 1;
   readonly tables: readonly TableSnapshot[];
+  readonly extensions: readonly ExtensionSnapshot[];
+}
+
+export interface ExtensionSnapshot {
+  readonly name: string;
+  readonly schema?: string;
 }
 
 export type ChangeOp =
+  | { readonly kind: 'create_extension'; readonly name: string; readonly schema?: string }
   | { readonly kind: 'create_table'; readonly table: string; readonly columns: readonly ColumnSnapshot[] }
   | { readonly kind: 'drop_table'; readonly table: string }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
@@ -40,8 +55,8 @@ export type ChangeOp =
       readonly kind: 'alter_column_type';
       readonly table: string;
       readonly column: string;
-      readonly from: string;
-      readonly to: string;
+      readonly from: string | ExtensionType;
+      readonly to: string | ExtensionType;
     };
 
 /**
@@ -59,7 +74,7 @@ export interface SnapshotableSchema {
     Record<
       string,
       {
-        readonly type: string;
+        readonly type: string | ExtensionType;
         readonly flags: {
           readonly nullable: boolean;
           readonly primaryKey?: boolean | undefined;
@@ -71,30 +86,79 @@ export interface SnapshotableSchema {
 }
 
 export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot {
+  const extensions = new Map<string, ExtensionSnapshot>();
   const tables: TableSnapshot[] = schemas
     .map(schema => {
       const columns: ColumnSnapshot[] = Object.entries(schema.columns)
-        .map(([name, meta]) => ({
-          name,
-          type: meta.type,
-          nullable: meta.flags.nullable,
-          primaryKey: meta.flags.primaryKey === true,
-          // Written only when there is one, so a snapshot of a schema with no `varchar`
-          // is byte-identical to the one the previous version of this function produced.
-          ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
-        }))
+        .map(([name, meta]) => {
+          if (typeof meta.type !== 'string') {
+            extensions.set(meta.type.extension, { name: meta.type.extension });
+          }
+          return {
+            name,
+            type: meta.type,
+            nullable: meta.flags.nullable,
+            primaryKey: meta.flags.primaryKey === true,
+            // Written only when there is one, so columns that are not `varchar` do not
+            // acquire a meaningless field in the version-1 snapshot.
+            ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
+          };
+        })
         .toSorted((a, b) => a.name.localeCompare(b.name));
       return { name: schema.table, columns };
     })
     .toSorted((a, b) => a.name.localeCompare(b.name));
 
-  return { version: 1, tables };
+  return {
+    version: 1,
+    tables,
+    extensions: [...extensions.values()].toSorted((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+function sameType(previous: string | ExtensionType, next: string | ExtensionType): boolean {
+  if (typeof previous === 'string' || typeof next === 'string') return previous === next;
+  if (previous.extension !== next.extension || previous.name !== next.name) return false;
+  const previousArgs = previous.args ?? [];
+  const nextArgs = next.args ?? [];
+  return previousArgs.length === nextArgs.length && previousArgs.every((value, index) => value === nextArgs[index]);
+}
+
+export const CHANGE_PHASES = [
+  ['create_extension'],
+  ['drop_table', 'drop_column'],
+  ['create_table', 'add_column'],
+  ['alter_column_type'],
+] as const satisfies readonly (readonly ChangeOp['kind'][])[];
+
+const CHANGE_PHASE = new Map<ChangeOp['kind'], number>(
+  CHANGE_PHASES.flatMap((kinds, phase) => kinds.map(kind => [kind, phase] as const)),
+);
+
+function orderChanges(ops: readonly ChangeOp[]): readonly ChangeOp[] {
+  const phaseOf = (kind: ChangeOp['kind']): number => {
+    const phase = CHANGE_PHASE.get(kind);
+    if (phase === undefined) throw new Error(`change kind "${kind}" has no migration phase`);
+    return phase;
+  };
+  return ops.toSorted((left, right) => phaseOf(left.kind) - phaseOf(right.kind));
 }
 
 export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly ChangeOp[] {
   const ops: ChangeOp[] = [];
   const prevTables = new Map(prev.tables.map(t => [t.name, t]));
   const nextTables = new Map(next.tables.map(t => [t.name, t]));
+  const prevExtensions = new Set(prev.extensions.map(extension => extension.name));
+
+  for (const extension of next.extensions) {
+    if (!prevExtensions.has(extension.name)) {
+      ops.push({
+        kind: 'create_extension',
+        name: extension.name,
+        ...(extension.schema === undefined ? {} : { schema: extension.schema }),
+      });
+    }
+  }
 
   // Dropped tables.
   for (const t of prev.tables) {
@@ -116,12 +180,12 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
       const bc = beforeCols.get(c.name);
       if (!bc) {
         ops.push({ kind: 'add_column', table: t.name, column: c });
-      } else if (bc.type !== c.type) {
+      } else if (!sameType(bc.type, c.type)) {
         ops.push({ kind: 'alter_column_type', table: t.name, column: c.name, from: bc.type, to: c.type });
       }
     }
   }
-  return ops;
+  return orderChanges(ops);
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +206,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
 // the only option that does not turn an unknown into a wrong guess.
 
 /** What each dialect calls each abstract type, where the answer is a constant. */
-const DDL_TYPES: Readonly<Record<Dialect, Readonly<Record<string, string>>>> = {
+export const DDL_TYPES = {
   postgres: {
     serial: 'SERIAL',
     integer: 'INTEGER',
@@ -186,10 +250,46 @@ const DDL_TYPES: Readonly<Record<Dialect, Readonly<Record<string, string>>>> = {
     json: 'TEXT',
     jsonEnum: 'TEXT',
   },
-};
+} as const satisfies Readonly<Record<Dialect, Readonly<Record<string, string>>>>;
+
+export type DdlSqlType = keyof (typeof DDL_TYPES)['postgres'];
 
 function ddlScalarType(dialect: Dialect, type: string): string {
-  return DDL_TYPES[dialect][type] ?? type;
+  const types: Readonly<Record<string, string>> = DDL_TYPES[dialect];
+  return types[type] ?? type;
+}
+
+const EXTENSION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function extensionTypeDdl(type: ExtensionType): string {
+  if (!EXTENSION_IDENTIFIER.test(type.name)) {
+    throw new TypeError(`extension type name ${JSON.stringify(type.name)} is not a SQL identifier`);
+  }
+  const args = type.args ?? [];
+  const rendered = args.map(argument => {
+    if (typeof argument === 'number' && Number.isFinite(argument)) return String(argument);
+    if (typeof argument === 'string' && EXTENSION_IDENTIFIER.test(argument)) return argument;
+    throw new TypeError(
+      `extension type ${type.name} argument ${JSON.stringify(argument)} must be a finite number or SQL identifier`,
+    );
+  });
+  return `${type.name}${rendered.length === 0 ? '' : `(${rendered.join(',')})`}`;
+}
+
+function unsupportedExtensionType(
+  dialect: Dialect,
+  type: ExtensionType,
+  column: string,
+  table?: string,
+): UnsupportedFeatureError {
+  const rendered = extensionTypeDdl(type);
+  const location = table === undefined ? `column "${column}"` : `"${table}"."${column}"`;
+  return new UnsupportedFeatureError(
+    `extension type ${rendered}`,
+    dialect,
+    `${dialect} does not support the extension type ${rendered} on ${location} (extension \`${type.extension}\`); ` +
+      'there is no equivalent, and storing it as TEXT would produce a value the database cannot use',
+  );
 }
 
 /**
@@ -208,6 +308,10 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
   const isColumn = typeof typeOrColumn !== 'string';
   const column = isColumn ? typeOrColumn : undefined;
   const type = isColumn ? typeOrColumn.type : typeOrColumn === 'serial' ? 'integer' : typeOrColumn;
+  if (typeof type !== 'string') {
+    if (dialect !== 'postgres') throw unsupportedExtensionType(dialect, type, column?.name ?? 'unknown');
+    return extensionTypeDdl(type);
+  }
   const mapped = ddlScalarType(dialect, type);
 
   // A length belongs to the type, not to the column: `VARCHAR(255)`, not `VARCHAR 255`.
@@ -232,11 +336,19 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
   return mapped;
 }
 
-function columnDdl(d: Dialect, col: ColumnSnapshot): string {
+function columnDdl(d: Dialect, col: ColumnSnapshot, table: string): string {
   // PRIMARY KEY implies NOT NULL, so we don't emit both.
   const pk = col.primaryKey ? ' PRIMARY KEY' : '';
   const nn = !col.primaryKey && !col.nullable ? ' NOT NULL' : '';
-  return `${quoteIdentifier(d, col.name)} ${ddlType(d, col)}${pk}${nn}`;
+  const type =
+    typeof col.type === 'string'
+      ? ddlType(d, col)
+      : d === 'postgres'
+        ? extensionTypeDdl(col.type)
+        : (() => {
+            throw unsupportedExtensionType(d, col.type, col.name, table);
+          })();
+  return `${quoteIdentifier(d, col.name)} ${type}${pk}${nn}`;
 }
 
 /**
@@ -248,27 +360,36 @@ function columnDdl(d: Dialect, col: ColumnSnapshot): string {
  * the column is a key, which only matters for MySQL's `AUTO_INCREMENT`. Neither is
  * reachable by an `ALTER`: a change *to* `serial` is not something the diff can express.
  */
-function alteredType(dialect: Dialect, column: string, type: string): string {
+function alteredType(dialect: Dialect, table: string, column: string, type: string | ExtensionType): string {
+  if (typeof type !== 'string' && dialect !== 'postgres') {
+    throw unsupportedExtensionType(dialect, type, column, table);
+  }
   return ddlType(dialect, { name: column, type, nullable: true, primaryKey: false });
 }
 
 export function emitUp(op: ChangeOp, dialect: Dialect): string {
   switch (op.kind) {
+    case 'create_extension':
+      return createExtensionDdl(op, dialect);
     case 'create_table':
-      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c)).join(', ')})`;
+      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c, op.table)).join(', ')})`;
     case 'drop_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'add_column':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column, op.table)}`;
     case 'drop_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.column, op.to)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.to)}`;
   }
 }
 
 export function emitDown(op: ChangeOp, dialect: Dialect): string {
   switch (op.kind) {
+    case 'create_extension':
+      throw new Error(
+        `extension "${op.name}" is not dropped automatically; write a hand-authored migration after checking dependants`,
+      );
     case 'create_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'drop_table':
@@ -278,6 +399,6 @@ export function emitDown(op: ChangeOp, dialect: Dialect): string {
     case 'drop_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.column, op.from)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.from)}`;
   }
 }

@@ -12,6 +12,7 @@ const TAG_MODULES: ReadonlySet<string> = new Set(['@zmdb/schema-core/tags', 'zmd
 const TAG_EXPORTS: ReadonlySet<string> = new Set([
   'AnyRelation',
   'Codec',
+  'Ext',
   'Fts',
   'HasDefault',
   'Length',

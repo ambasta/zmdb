@@ -468,15 +468,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   /**
    * The db→app crossing on the way out (plan D3).
    *
-   * `Entity<T>` says a `timestamp` column is a `Date` and a `bigint` column is a `bigint`.
-   * A driver may or may not agree: `pg` returns a `Date` for a `timestamptz` and a string
-   * for an `int8`, and SQLite returns the `TEXT` it stored, because `TIMESTAMPTZ` and
-   * `TEXT` is what the DDL emitter declares for those two dialects. So the row a caller
-   * gets was, for one of the three dialects, not the type the type said — silently, since
-   * nothing between the driver and the caller looked.
+   * `Entity<T>` says a `timestamp` column is a `Date`, a `bigint` column is a `bigint`, and
+   * an extension vector is a number array. A driver may or may not agree: `pg` returns a
+   * `Date` for a `timestamptz`, a string for an `int8`, and pgvector's text form when its
+   * parser is absent; SQLite returns the `TEXT` it stored. So a raw row can disagree with
+   * the declared app type silently unless this boundary converts it.
    *
-   * Only the two columns whose app type JSON cannot carry can change, and a schema with
-   * neither skips the walk entirely rather than copying every row to no effect.
+   * A schema without a `timestamp`, `bigint`, or extension vector skips the walk entirely
+   * rather than copying every row to no effect. Only `timestamp` and `bigint` need distinct
+   * JSON wire forms; vector decoding is specific to the db→app crossing.
    */
   private decodeRows(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     const columns = this.decodedColumns;
@@ -968,8 +968,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     // boundary: the same claim `rows<Row>` makes, and for the same reason — the aggregate
     // query that just ran is what decides the shape, and a driver row is opaque. It does not
     // go through `rows` because an aggregate row is not an entity row: `decodeRows` would
-    // walk it looking for this table's `timestamp` and `bigint` columns, and `COUNT(*)`
-    // is not one of them.
+    // walk it looking for this table's `timestamp`, `bigint`, and extension vector columns,
+    // and `COUNT(*)` is not one of them.
     return mappedRows as readonly Out[];
   }
 

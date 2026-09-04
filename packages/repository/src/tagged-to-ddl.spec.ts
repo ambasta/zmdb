@@ -22,6 +22,7 @@ import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
 import type { WhereDTO } from '@zmdb/schema-core/dto';
 import { schemaFromIR } from '@zmdb/schema-core/ir';
 import type {
+  Ext,
   Fts,
   HasDefault,
   Length,
@@ -74,18 +75,25 @@ export interface Document extends Table<'documents'>, Fts<true> {
   body: string & Sql<'text'>;
 }
 
+export interface VectorItem extends Table<'vector_items'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
+}
+
 const {
   Document: Documents,
   Membership: Memberships,
   User: Users,
-} = schemasFrom<{ User: User; Membership: Membership; Document: Document }>(import.meta.url, [
+  VectorItem: VectorItems,
+} = schemasFrom<{ User: User; Membership: Membership; Document: Document; VectorItem: VectorItem }>(import.meta.url, [
   'User',
   'Membership',
   'Document',
+  'VectorItem',
 ]);
 
 const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
-const EMPTY: SchemaSnapshot = { version: 1, tables: [] };
+const EMPTY: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
 /**
  * What one table has to supply to be driven through every repository method.
@@ -172,6 +180,20 @@ describe('the DDL a tagged declaration reaches the database as', () => {
         '"createdAt" TEXT NOT NULL, "email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY, ' +
         '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" TEXT NOT NULL, ' +
         '"visits" INTEGER NOT NULL)',
+    ]);
+  });
+
+  it('carries an extension type from the declaration through the snapshot into ordered DDL', () => {
+    const taken = snapshot([VectorItems]);
+    expect(taken.extensions).toEqual([{ name: 'vector' }]);
+    expect(taken.tables[0]?.columns.find(column => column.name === 'embedding')?.type).toEqual({
+      extension: 'vector',
+      name: 'vector',
+      args: [3],
+    });
+    expect(ddl(VectorItems, 'postgres')).toEqual([
+      'CREATE EXTENSION IF NOT EXISTS "vector"',
+      'CREATE TABLE "vector_items" ("embedding" vector(3) NOT NULL, "id" INTEGER PRIMARY KEY)',
     ]);
   });
 

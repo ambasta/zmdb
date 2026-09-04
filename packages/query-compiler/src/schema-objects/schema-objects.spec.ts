@@ -2,16 +2,37 @@ import { describe, expect, it } from 'vitest';
 
 import { ddlType } from '../migrations/index.js';
 import {
+  createExtensionDdl,
   createIndexDdl,
   createRoutineDdl,
   dropRoutineDdl,
   quoteId,
   replaceRoutineStatements,
   routineFingerprint,
-  type IndexDef,
   type RoutineDef,
   UnsupportedFeatureError,
 } from './index.js';
+
+describe('extension DDL (frozen: schema-objects/SPEC.md 7)', () => {
+  it('quotes extension identifiers and version literals in the frozen clause order', () => {
+    expect(createExtensionDdl({ name: 'vector' }, 'postgres')).toBe('CREATE EXTENSION IF NOT EXISTS "vector"');
+    expect(createExtensionDdl({ name: 'postgis', schema: 'extensions' }, 'postgres')).toBe(
+      'CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions"',
+    );
+    expect(createExtensionDdl({ name: 'vector', version: "0.7'0" }, 'postgres')).toBe(
+      "CREATE EXTENSION IF NOT EXISTS \"vector\" VERSION '0.7''0'",
+    );
+  });
+
+  it('refuses extension installation on mysql and sqlite', () => {
+    for (const dialect of ['mysql', 'sqlite'] as const) {
+      expect(() => createExtensionDdl({ name: 'vector' }, dialect)).toThrow(UnsupportedFeatureError);
+      expect(() => createExtensionDdl({ name: 'vector' }, dialect)).toThrow(
+        new RegExp(`${dialect} does not support database extensions`),
+      );
+    }
+  });
+});
 
 // Stored-routine DDL tests landed expected-failing in #437 against the normative
 // `./SPEC.md` §8 contract. #438 retires only this declaration/DDL/replacement
@@ -231,52 +252,109 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
   });
 });
 
-type FrozenIndexMethod = 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
-
-type FrozenIndexColumn =
-  | string
-  | { readonly column: string; readonly opclass?: string }
-  | { readonly expr: string; readonly opclass?: string };
-
-type FrozenIndexDef = Omit<IndexDef, 'columns'> & {
-  readonly columns: readonly FrozenIndexColumn[];
-  readonly method?: FrozenIndexMethod;
-  readonly with?: Readonly<Record<string, number>>;
-};
-
-function vectorIndexDdl(def: FrozenIndexDef): string {
-  try {
-    return createIndexDdl(def as unknown as IndexDef, 'postgres');
-  } catch (error) {
-    return error instanceof Error ? `${error.name}: ${error.message}` : `threw ${String(error)}`;
-  }
-}
-
 describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
-  it.fails('emits an ivfflat index with its lists option', () => {
+  it('emits an ivfflat index with its lists option', () => {
     expect(
-      vectorIndexDdl({
-        name: 'items_embedding_l2',
-        table: 'items',
-        method: 'ivfflat',
-        columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
-        with: { lists: 100 },
-      }),
+      createIndexDdl(
+        {
+          name: 'items_embedding_l2',
+          table: 'items',
+          method: 'ivfflat',
+          columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
+          with: { lists: 100 },
+        },
+        'postgres',
+      ),
     ).toBe('CREATE INDEX "items_embedding_l2" ON "items" USING ivfflat ("embedding" vector_l2_ops) WITH (lists = 100)');
   });
 
-  it.fails('emits an hnsw index with m and ef_construction', () => {
+  it('emits an hnsw index with m and ef_construction', () => {
     expect(
-      vectorIndexDdl({
-        name: 'items_embedding_cos',
-        table: 'items',
-        method: 'hnsw',
-        columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
-        with: { m: 16, ef_construction: 64 },
-      }),
+      createIndexDdl(
+        {
+          name: 'items_embedding_cos',
+          table: 'items',
+          method: 'hnsw',
+          columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+          with: { m: 16, ef_construction: 64 },
+        },
+        'postgres',
+      ),
     ).toBe(
       'CREATE INDEX "items_embedding_cos" ON "items" USING hnsw ' +
         '("embedding" vector_cosine_ops) WITH (m = 16, ef_construction = 64)',
     );
+  });
+
+  it('validates options against the selected method', () => {
+    expect(() =>
+      createIndexDdl(
+        {
+          name: 'items_embedding_l2',
+          table: 'items',
+          method: 'ivfflat',
+          columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
+          with: { m: 16 },
+        },
+        'postgres',
+      ),
+    ).toThrow('ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are (lists)');
+    expect(() =>
+      createIndexDdl(
+        {
+          name: 'items_embedding_l2',
+          table: 'items',
+          method: 'ivfflat',
+          columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
+          with: { lists: 1.5 },
+        },
+        'postgres',
+      ),
+    ).toThrow('ivfflat option `lists` must be a non-negative integer');
+  });
+
+  it('refuses postgres-only methods on mysql and sqlite', () => {
+    for (const dialect of ['mysql', 'sqlite'] as const) {
+      expect(() =>
+        createIndexDdl(
+          {
+            name: 'items_embedding_l2',
+            table: 'items',
+            method: 'ivfflat',
+            columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
+          },
+          dialect,
+        ),
+      ).toThrow(UnsupportedFeatureError);
+    }
+  });
+
+  it('refuses a unique vector index before emitting invalid PostgreSQL DDL', () => {
+    expect(() =>
+      createIndexDdl(
+        {
+          name: 'items_embedding_unique',
+          table: 'items',
+          method: 'hnsw',
+          unique: true,
+          columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+        },
+        'postgres',
+      ),
+    ).toThrow('postgres does not support a unique hnsw index ("items_embedding_unique" on "items")');
+  });
+
+  it('refuses an operator class that is not a SQL identifier', () => {
+    expect(() =>
+      createIndexDdl(
+        {
+          name: 'items_embedding_l2',
+          table: 'items',
+          method: 'ivfflat',
+          columns: [{ column: 'embedding', opclass: 'vector_l2_ops) WHERE true; --' }],
+        },
+        'postgres',
+      ),
+    ).toThrow('index operator class "vector_l2_ops) WHERE true; --" is not a SQL identifier');
   });
 });

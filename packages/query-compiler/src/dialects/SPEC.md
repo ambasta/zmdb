@@ -531,8 +531,9 @@ including `timestamp: 'TIMESTAMPTZ'` — are inherited rather than repeated.
 
 `Entity<T>` types a `Serial` column as `number`. A dialect that emitted `UUID` would give the application a
 string where the type promised a number, silently, for every read — the exact class of bug
-`../../../repository/src/index.ts:186`'s `decodeRows` exists to close for `timestamp` and `bigint`. A dialect
-table maps a declared type to a spelling; it does not get to change what the column holds.
+`../../../repository/src/index.ts:481`'s `decodeRows` closes for driver-shaped `timestamp`, `bigint`, and
+extension vector values. A dialect table maps a declared type to a spelling; it does not get to change what
+the column holds.
 
 What it does get to do is make Cockroach's own behaviour explicit. Cockroach's `SERIAL` is not a sequence:
 it is `INT8` with a `unique_rowid()` default, which embeds the node id specifically to avoid the

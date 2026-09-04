@@ -61,7 +61,13 @@ export class DocsRetriever extends BaseRetriever {
 
 `findByFullText(column, term)` takes the column to match against and the term — there is no options object, no limit and no ranking, so slice in your code or drop to the [FTS builder](./full-text-search.html) for `ORDER BY rank`. It returns `readonly Record<string, unknown>[]` rather than typed entities, because a joined FTS row is not the entity shape; hence the `String(...)` at the boundary. The schema needs `ftsTable` declared or the call throws `UnsupportedFeatureError` — never a silently-wrong query.
 
-For vector similarity, you need `pgvector`, which zmdb cannot declare as a column — see [Vector Search](./guide-vector-search.html) and [Database Extensions](./db-extensions.html). The query is [raw SQL](./raw-sql.html).
+For vector similarity, declare a `pgvector` column with
+`Ext<'vector', 'vector', [dimensions]>`; zmdb installs the extension and emits
+the column DDL, while `createIndexDdl` emits its HNSW or IVFFlat index. Typed
+distance expressions are not available yet, so the similarity query remains
+[raw SQL](./raw-sql.html). See
+[Vector Search](./guide-vector-search.html) and
+[Database Extensions](./db-extensions.html).
 
 ## Chat memory in your database
 

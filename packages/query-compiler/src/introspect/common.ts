@@ -3,7 +3,10 @@ import type { ColumnSnapshot, SchemaSnapshot, TableSnapshot } from '../migration
 
 export type ReferentialAction = 'no action' | 'restrict' | 'cascade' | 'set null' | 'set default';
 
-export type CatalogIndexColumn = string | { readonly expr: string; readonly opclass?: string };
+export type CatalogIndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
 
 export interface CatalogForeignKeySnapshot {
   readonly name: string;

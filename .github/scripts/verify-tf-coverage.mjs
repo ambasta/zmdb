@@ -8,13 +8,13 @@
 //
 // What it adds is the half that compiles fine while being wrong:
 //
-//   1. **A slot with no tag, or a tag with no slot.** `declare const zmdbFts` is invisible
-//      outside `tags/index.ts`, so an unused one is dead weight nobody can see, and a tag
-//      referring to a slot that no longer exists would not compile — but a *slot* the tags
-//      stopped using compiles forever.
-//   2. **A slot missing from `TAG_NAMES`, or named twice.** The type test checks the shape
+//   1. **A marker with no tag, or a tag with no marker.** Most markers are invisible
+//      `declare const zmdbFts` symbol slots. `Ext` is the one frozen structural marker,
+//      `__zmdbExt`, normalised to the same `zmdbExt` vocabulary name. An unused marker is
+//      dead weight nobody can see, and one the tags stopped using compiles forever.
+//   2. **A marker missing from `TAG_NAMES`, or named twice.** The type test checks the shape
 //      of the values (`zmdb${string}`), not that they name real declarations. A tag whose
-//      slot is not in `TAG_NAMES` is a tag the reflection cannot see: the declaration
+//      marker is not in `TAG_NAMES` is a tag the reflection cannot see: the declaration
 //      compiles, the derived types honour it, and the emitted validator quietly does not.
 //   3. **A `TagField` the reflection never reads.** `TAG_NAMES` is a promise that a tag
 //      reaches the IR. The reflection keeps it by asking for each field by name —
@@ -161,8 +161,8 @@ function declaredMembers(node) {
 // ---------------------------------------------------------------------------
 
 /**
- * The vocabulary as `tags/index.ts` declares it: the symbol slots, and which exported tag
- * types spell each one.
+ * The vocabulary as `tags/index.ts` declares it: symbol slots plus the structural
+ * `__zmdbExt` marker, and which exported tag types spell each one.
  *
  * A tag is recognised by *referring to a slot* rather than by name or position, which is
  * what keeps `Nullable<T>` and `NonNull<T>` out of the count — they are readability aliases
@@ -170,6 +170,7 @@ function declaredMembers(node) {
  */
 function vocabularyOf(sourceFile) {
   const slots = new Map();
+  const structural = new Set();
   const tags = new Map();
   const exported = new Set();
 
@@ -188,11 +189,21 @@ function vocabularyOf(sourceFile) {
     const used = new Set();
     walk(statement.type, node => {
       if (node.kind === SyntaxKind.Identifier && node.text.startsWith('zmdb')) used.add(node.text);
+      if (
+        node.kind === SyntaxKind.PropertySignature &&
+        node.name?.kind === SyntaxKind.Identifier &&
+        node.name.text.startsWith('__zmdb')
+      ) {
+        const marker = node.name.text.slice(2);
+        used.add(marker);
+        slots.set(marker, lineOf(sourceFile, node));
+        structural.add(marker);
+      }
     });
     if (used.size > 0) tags.set(statement.name.text, used);
   }
 
-  return { slots, tags, exported };
+  return { slots, structural, tags, exported };
 }
 
 /**
@@ -435,9 +446,9 @@ try {
   };
 
   const tagsFile = file(core.program, TAGS);
-  const { slots, tags, exported } = vocabularyOf(tagsFile);
+  const { slots, structural, tags, exported } = vocabularyOf(tagsFile);
 
-  // --- 1. every slot is spelled by a tag, and every tag spells a real slot ---
+  // --- 1. every marker is spelled by a tag, and every tag spells a real marker ---
   const spelled = new Set([...tags.values()].flatMap(used => [...used]));
   for (const [slot, line] of slots) {
     if (!spelled.has(slot)) {
@@ -450,7 +461,7 @@ try {
     }
   }
 
-  // --- 2. slots and TAG_NAMES are a bijection --------------------------------
+  // --- 2. markers and TAG_NAMES are a bijection ------------------------------
   const namedBy = new Map();
   for (const [field, symbolName] of Object.entries(TAG_NAMES)) {
     const already = namedBy.get(symbolName);
@@ -643,10 +654,11 @@ try {
 
   // --- the report -----------------------------------------------------------
   console.log(
-    `tag vocabulary: ${slots.size} symbol slot(s), ${tags.size} exported tag(s), ${TAG_FIELDS.length} IR field(s)\n`,
+    `tag vocabulary: ${slots.size - structural.size} symbol slot(s), ${structural.size} structural marker(s), ` +
+      `${tags.size} exported tag(s), ${TAG_FIELDS.length} IR field(s)\n`,
   );
   const pad = (text, width) => String(text).padEnd(width);
-  console.log('  slot                   IR field(s)                tag(s)');
+  console.log('  marker                 IR field(s)                tag(s)');
   for (const [slot] of slots) {
     const fields = (namedBy.get(slot) ?? ['—']).join(', ');
     const spellings = [...tags]
@@ -675,4 +687,4 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log('\nevery slot has a tag, every tag reaches the IR, and every constraint is read whole.');
+console.log('\nevery marker has a tag, every tag reaches the IR, and every constraint is read whole.');

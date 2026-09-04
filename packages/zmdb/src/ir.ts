@@ -34,6 +34,7 @@ export type {
   ColumnIR,
   ConstraintKind,
   Constraints,
+  ExtensionType,
   JsonSchemaObject,
   Layer,
   LiteralIR,

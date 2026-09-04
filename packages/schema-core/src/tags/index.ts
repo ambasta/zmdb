@@ -9,7 +9,8 @@
 //     nickname: (string & MinLength<3>) | null;
 //   }
 //
-// EVERY tag is an OPTIONAL unique-symbol slot, and all three parts carry weight:
+// Every established tag is an OPTIONAL unique-symbol slot, and all three parts carry
+// weight:
 //
 //   - `unique symbol` is un-forgeable and cannot collide with a real data
 //     property of the same name. A consumer cannot accidentally (or deliberately)
@@ -117,6 +118,19 @@ export type ColumnSqlType = Exclude<SqlType, 'serial'>;
 
 /** The abstract SQL column type. Dialects render the spelling — see `../ir`. */
 export type Sql<T extends ColumnSqlType> = { readonly [zmdbSqlType]?: T };
+
+/**
+ * A column type supplied by a database extension.
+ *
+ * The installable extension and the SQL type are separate because PostGIS installs
+ * `postgis` and provides `geometry`. Arguments are type parameters rather than a SQL
+ * fragment, so reflection can validate and render each one without parsing SQL. This is
+ * the one structural marker in the vocabulary: the frozen IR contract names
+ * `__zmdbExt` directly, so it needs neither a `declare const` nor a runtime symbol.
+ */
+export type Ext<E extends string, N extends string, A extends readonly (string | number)[] = []> = {
+  readonly __zmdbExt?: [E, N, A];
+};
 
 export type PrimaryKey = { readonly [zmdbPrimaryKey]?: true };
 /** Database-generated. Omitted from `CreateDTO` entirely, not made optional. */

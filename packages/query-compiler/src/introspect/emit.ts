@@ -30,7 +30,7 @@ interface ForeignKeyEvidence {
   readonly onUpdate?: ReferentialAction;
 }
 
-type IndexColumnEvidence = string | { readonly expr: string };
+type IndexColumnEvidence = string | { readonly column: string } | { readonly expr: string };
 
 interface IndexEvidence {
   readonly name: string;
@@ -86,6 +86,7 @@ const FORMAT_OPTIONS: FormatConfig = {
 
 const RESERVED_INTERFACE_NAMES = new Set([
   'Date',
+  'Ext',
   'HasDefault',
   'Length',
   'ManyToOne',
@@ -549,7 +550,14 @@ function unrepresentableReason(column: ColumnSnapshot, detail: string): string {
 }
 
 function catalogType(column: ColumnSnapshot): string {
-  return (optionalString(column, 'catalogType') ?? column.type) || '(untyped column)';
+  const type = optionalString(column, 'catalogType') ?? snapshotTypeName(column.type);
+  return type || '(untyped column)';
+}
+
+function snapshotTypeName(type: ColumnSnapshot['type']): string {
+  if (typeof type === 'string') return type;
+  const args = type.args ?? [];
+  return args.length === 0 ? type.name : `${type.name}(${args.map(String).join(',')})`;
 }
 
 function columnDefault(column: ColumnSnapshot): string | undefined {
@@ -624,7 +632,13 @@ function indexColumns(value: unknown): readonly IndexColumnEvidence[] | undefine
       continue;
     }
     if (!record(candidate)) return undefined;
+    const column = optionalString(candidate, 'column');
     const expression = optionalString(candidate, 'expr');
+    if (column !== undefined) {
+      if (expression !== undefined) return undefined;
+      result.push({ column });
+      continue;
+    }
     if (expression === undefined) return undefined;
     result.push({ expr: expression });
   }

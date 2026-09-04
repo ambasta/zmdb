@@ -278,9 +278,9 @@ intersection over a union and `null & Unique` reduces to `never` — silently dr
 `emitDeclarations` is that printer promoted to a library function, and the codemod becomes a caller. A
 second printer is the four-walkers problem from `schema-core/src/ir/SPEC.md` §1, in a new place.
 
-Tag order, frozen as the codemod already emits it: the base type, `Sql<…>`, `Length<…>`, then `Serial` or
-`HasDefault` (never both — `Serial` implies it), `PrimaryKey`, `Unique`, `Sensitive`, `References<…>`, the
-constraint tags in their vocabulary order, and `Rule<…>` last.
+Tag order, frozen as the codemod already emits it: the base type, `Sql<…>` or `Ext<…>`, `Length<…>`, then
+`Serial` or `HasDefault` (never both — `Serial` implies it), `PrimaryKey`, `Unique`, `Sensitive`,
+`References<…>`, the constraint tags in their vocabulary order, and `Rule<…>` last.
 
 **One file per table**, named from the physical table name. A single file grows to thousands of lines and
 makes every regeneration a conflict in one place; a name derived from the database needs no naming

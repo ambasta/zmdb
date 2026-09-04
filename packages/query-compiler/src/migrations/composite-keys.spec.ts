@@ -184,6 +184,7 @@ describe('the key on the snapshot (frozen: migrations/SPEC.md 1.1)', () => {
 /** `(user_id)`: `org_id` is present and not keyed. */
 const keyedOnUser: SchemaSnapshot = {
   version: 1,
+  extensions: [],
   tables: [
     {
       name: 'memberships',
@@ -223,6 +224,7 @@ const keyedOnBothReversed: FrozenTableSnapshot[] = [
  */
 const asSnapshot = (tables: readonly FrozenTableSnapshot[]): SchemaSnapshot => ({
   version: 1,
+  extensions: [],
   tables: tables as readonly TableSnapshot[],
 });
 

@@ -1,6 +1,7 @@
+import { SQL_TYPES } from '@zmdb/schema-core/ir';
 import { describe, it, expect } from 'vitest';
 
-import { ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';
+import { DDL_TYPES, ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';
 
 // The DDL type map: what each dialect calls each abstract column type.
 //
@@ -33,6 +34,12 @@ const TYPES: Readonly<Record<string, readonly [string, string, string]>> = {
 };
 
 describe('ddlType', () => {
+  it('keeps DDL_TYPES exhaustive over SqlType', () => {
+    for (const dialect of ['postgres', 'mysql', 'sqlite'] as const) {
+      expect(Object.keys(DDL_TYPES[dialect]).toSorted()).toEqual([...SQL_TYPES].toSorted());
+    }
+  });
+
   for (const [type, [postgres, mysql, sqlite]] of Object.entries(TYPES)) {
     it(`renders ${type} per dialect`, () => {
       expect(ddlType('postgres', col(type))).toBe(postgres);
@@ -132,11 +139,11 @@ describe('the snapshot stays abstract', () => {
   });
 
   it('omits length entirely when there is none', () => {
-    // So a snapshot of a schema with no `varchar` is byte-identical to one taken before
-    // the field existed, and a stored migration state does not diff against itself.
+    // The required extension list belongs to the snapshot as a whole; the column still
+    // carries no meaningless `length` field.
     const taken = snapshot([{ table: 't', columns: { id: { type: 'integer', flags: { nullable: false } } } }]);
     expect(JSON.stringify(taken)).toBe(
-      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}]}]}',
+      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}]}],"extensions":[]}',
     );
   });
 });

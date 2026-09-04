@@ -16,7 +16,7 @@
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
 import type { DeclaredTable, UpdateDTO } from './derive/index.js';
-import type { SchemaIR } from './ir/index.js';
+import type { ExtensionType, SchemaIR } from './ir/index.js';
 
 export type SqlType =
   | 'serial'
@@ -67,7 +67,7 @@ export interface ColumnFlags {
 }
 
 export interface ColumnMeta {
-  readonly type: SqlType;
+  readonly type: SqlType | ExtensionType;
   readonly flags: ColumnFlags;
   readonly default?: unknown;
   readonly references?: { readonly target: string };
