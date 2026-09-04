@@ -25,6 +25,28 @@ import { fileURLToPath } from 'node:url';
 
 const RELATIVE_JS = /^\.{1,2}\/.*\.js$/;
 
+if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+  Uint8Array.prototype.toBase64 = function ({ alphabet, omitPadding } = {}) {
+    let b64 = Buffer.from(this).toString('base64');
+    if (alphabet === 'base64url') {
+      b64 = b64.replaceAll('+', '-').replaceAll('/', '_');
+    }
+    if (omitPadding) {
+      b64 = b64.replaceAll('=', '');
+    }
+    return b64;
+  };
+}
+
+if (typeof Uint8Array.fromBase64 !== 'function') {
+  Uint8Array.fromBase64 = function (string, { alphabet } = {}) {
+    let str = string;
+    if (alphabet === 'base64url') {
+      str = str.replaceAll('-', '+').replaceAll('_', '/');
+    }
+    return new Uint8Array(Buffer.from(str, 'base64'));
+  };
+}
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL !== undefined && RELATIVE_JS.test(specifier)) {
