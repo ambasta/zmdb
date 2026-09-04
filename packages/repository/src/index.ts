@@ -1080,6 +1080,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.keyColumns;
   }
 
+  private get pkColumn(): string {
+    return this.keyColumns[0] ?? 'id';
+  }
+
   /**
    * The one row-shape trust boundary in this package (ARCHITECTURE §2.1).
    *
@@ -2487,7 +2491,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     } catch {
       savepointName = `sp_graph_${Math.random().toString(36).substring(2, 9)}`;
       try {
-        await this.driver.execute({ text: `SAVEPOINT ${savepointName}`, parameters: [] });
+        await this.driver.execute({ text: 'SAVEPOINT ' + savepointName, parameters: [] });
       } catch {
         savepointName = null;
       }
@@ -2498,7 +2502,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (isTopLevelTx) {
         await this.driver.execute({ text: 'COMMIT', parameters: [] });
       } else if (savepointName) {
-        await this.driver.execute({ text: `RELEASE SAVEPOINT ${savepointName}`, parameters: [] });
+        await this.driver.execute({ text: 'RELEASE SAVEPOINT ' + savepointName, parameters: [] });
       }
       return result;
     } catch (err) {
@@ -2510,7 +2514,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
       } else if (savepointName) {
         try {
-          await this.driver.execute({ text: `ROLLBACK TO SAVEPOINT ${savepointName}`, parameters: [] });
+          await this.driver.execute({ text: 'ROLLBACK TO SAVEPOINT ' + savepointName, parameters: [] });
         } catch {
           /* ignore */
         }

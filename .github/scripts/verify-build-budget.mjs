@@ -96,6 +96,8 @@ const BUDGET = {
   snapshotUpdates: { limit: 3, exact: false, what: 'snapshot updates for the whole build' },
 };
 
+/** Wall-time ceiling per module, in milliseconds. Measured at 6.0; loose on purpose. */
+const MS_PER_MODULE = 100;
 // ---------------------------------------------------------------------------
 // The project
 // ---------------------------------------------------------------------------
