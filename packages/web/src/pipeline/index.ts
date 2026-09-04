@@ -557,7 +557,7 @@ function mediaTypeVersionLabel(accept: string | undefined, key: string): string 
     const memberEnd = unquotedIndexOf(accept, COMMA, memberStart, accept.length);
     let parameterStart = unquotedIndexOf(accept, SEMICOLON, memberStart, memberEnd);
     while (parameterStart < memberEnd) {
-      const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, memberEnd);
+      const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, parameterEnd);
       const separator = unquotedIndexOf(accept, EQUALS, parameterStart + 1, parameterEnd);
       if (separator < parameterEnd && equalsAsciiIgnoringCase(accept, parameterStart + 1, separator, key)) {
         const memberQuality = qualityInMember(accept, memberStart, memberEnd);
