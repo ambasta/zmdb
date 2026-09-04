@@ -621,8 +621,9 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     return output.failure(errorMessage(error), 2);
   }
 
+  let session: Awaited<ReturnType<typeof createReplSession>> | undefined;
   try {
-    await using session = await createReplSession(root, {
+    session = await createReplSession(root, {
       configPath: parsed.config,
       moduleSpec: options.moduleSpec,
       cwd: io.cwd,
@@ -636,6 +637,10 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     return 0;
   } catch (error) {
     return output.failure(errorMessage(error), 1);
+  } finally {
+    if (session) {
+      await session[Symbol.asyncDispose]();
+    }
   }
 }
 
