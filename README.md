@@ -1,11 +1,11 @@
 # zmdb
 
 > A TypeScript data layer framework that eliminates schema drift maintenance hell.
-> Written entirely by LLMs.
+> Written entire by LLMs
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│  Define once. Everything derives. Zero boilerplate.        │
+│  Define once. Everything derives. Zero boilerplate.         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -19,30 +19,14 @@
 | [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, startup-built API versioning, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, streaming, confined static files, gzip/deflate compression, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, health probes, opt-in tracing/metrics and transport propagation, typed application events and command boundaries, Redis/NATS/RabbitMQ strategies, SQL-backed queues, cron and interval scheduling, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
 
-> Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
-> The original core (#1–#10, #62), benchmarking (#68), and perf/DNF epics
-> (#75–#78) are complete. Follow-up feature-gap epics cover the read/query **DTO family**
-> (Get/List/Search/Projection, typed WhereDTO/OrderBy/Pagination, typed
-> populate/join/aggregate results, OpenAPI get/list/search), **schema objects**
-> (indexes, views, sequences, generated columns, namespaces, RLS), **set
-> operations + batch**, **read replicas**, **custom types & codecs**,
-> **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
-> and OpenAPI-derived tools** harness. **2,281 tests green** across 212 files,
-> including real `node:sqlite` E2E, a Kysely
-> head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **144 expected-failing tests** hold the frozen specs of features
-> not yet built: each one calls the API the spec requires and carries the output
-> today's code produces, so a gap is a number in the summary line rather than a
-> paragraph in a design document.
-> Those tests are held against the 742 public-API suites Drizzle, Kysely,
-> MikroORM, NestJS and Typia run between them: 503 are answered by a named zmdb
-> test, 239 are argued against in writing, and `yarn verify:api-coverage` fails
-> on a suite that is neither.
-> Of the 276 docs-site pages, 221 document a capability that exists, 43 are marked
-> `todo` — a page that argues for a feature gap rather than describing one — and 12
-> are marked not planned, where the answer is no and the page says what to reach for
-> instead. All three are counted by `yarn verify:docs-coverage`.
+> Status legend:
+> ✅ complete.
+> 🚧 in progress.
+> 🔜 planned.
+>
+> Measured status: **2,281 tests green** across 212 files, with **144 expected-failing tests**.
+> Of 742 upstream public-API suites, 503 are covered and 239 are argued against.
+> Of 276 docs-site pages, 221 are supported, 43 are TODO, and 12 are not planned.
 
 ## Quick Start
 
@@ -84,68 +68,39 @@ Both are fully supported — see the [Quick Start](https://ambasta.github.io/zmd
 
 ## Documentation
 
-📚 **Full documentation site:** **https://ambasta.github.io/zmdb/** — schema,
-CRUD, relations, transactions, migrations, the query builder, validators and
-Ser/De are written up in full. The docs incorporate the union of the
-[MikroORM](https://mikro-orm.io/docs/guide),
-[Drizzle](https://orm.drizzle.team/docs/overview) and
-[Typia](https://typia.io/docs) documentation surfaces — 396 upstream pages, every
-one either mapped to a zmdb page or argued against, which is what
-`yarn verify:docs-coverage` checks. **Every page has a body**: the read/query
-DTOs, filters, pagination, projections, populate/join/aggregate results, schema
-objects, set operations, batch, read replicas, custom types, seeding, entity
-modeling, framework integrations, and the LLM harness are all documented. A page
-marked `todo` is one whose subject zmdb does not do yet; it says so, says what it
-would take, and shows the workaround. Features that are
-**anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map,
-unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately
-excluded and explained on the
-[Anti-patterns](https://ambasta.github.io/zmdb/docs/anti-patterns.html) page.
+📚 **Full documentation site:** **<https://ambasta.github.io/zmdb/>** schema, CRUD, relations, transactions, migrations, the query builder, validators and Ser/De are written up in full.
+**Every page has a body**: The read/query DTOs, filters, pagination, projections, populate/join/aggregate results, schema objects, set operations, batch, read replicas, custom types, seeding, entity
+modeling, framework integrations, and the LLM harness are all documented.
+
+Features that are **anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map, unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately excluded and
+explained on the [Anti-patterns](https://ambasta.github.io/zmdb/docs/anti-patterns.html) page.
 
 See also [ARCHITECTURE.md](./ARCHITECTURE.md) and the [COOKBOOK.md](./COOKBOOK.md).
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the
-[COOKBOOK.md](./COOKBOOK.md) for real-world usage (model definition, CRUD,
-transactions, relations, validation, Ser/De, JSON/OpenAPI).
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the [COOKBOOK.md](./COOKBOOK.md) for real-world usage (model definition, CRUD, transactions, relations, validation, Ser/De, JSON/OpenAPI).
 
 ## Benchmarks
 
-We run zmdb inside the **actual upstream benchmark harnesses** against the
-**real competitor libraries** — including the real drizzle-benchmarks method
-(HTTP server per ORM + k6 load) against **real PostgreSQL 16**. This honestly
-surfaces both throughput and, crucially, **which routes/cases zmdb cannot
-express** (each listed individually, never summed into a score):
+We run zmdb inside the **actual upstream benchmark harnesses** against the **real competitor libraries** — including the real drizzle-benchmarks method (HTTP server per ORM + k6 load) against
+**PostgreSQL 16**. This honestly surfaces both throughput and, crucially, **which routes/cases zmdb cannot express** (each listed individually, never summed into a score):
 
 - **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  routes + k6 vs Drizzle / Kysely. **zmdb now serves all 13 routes (0 DNF)** —
-  joins (#85/#88), aggregations (#90/#93), and full-text search (#95/#97) are
-  implemented and each previously-DNF route returns HTTP 200 with correct data,
-  verified on real Postgres. On the **full 13-route k6 run** (real Northwind,
-  427k-request replay) zmdb leads on throughput (2,916 req/s) and average latency
-  (102ms); **drizzle keeps the best tail** (p95 173.8ms vs zmdb 215.5) — a real
-  trade-off, not a "fastest ORM" claim. Server-side prepared statements
-  (`ZMDB_PREPARED=1`) reproducibly lift zmdb to 3,068 req/s / 97ms avg and narrow
-  the tail (p95 209.5) — kept opt-in to preserve the zero-state default. (Aggregate
-  routes also use a different projection shape; see RESULTS.md.)
-- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
-  runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
-  cases (no DNF) but runs its **runtime** validator (the AOT transformer is not
-  yet a wired build plugin), so JIT/AOT libraries are 6–24× faster on assert —
-  the AOT premise is unproven here and not claimed.
+  routes + k6 vs Drizzle / Kysely. **zmdb now serves all 13 routes (0 DNF)** - joins (#85/#88), aggregations (#90/#93), and full-text search (#95/#97) are implemented and each previously-DNF route
+  returns HTTP 200 with correct data, verified on real Postgres. On the **full 13-route k6 run** (real Northwind, 427k-request replay) zmdb leads on throughput (2,916 req/s) and average latency
+  (102ms); **drizzle keeps the best tail** (p95 173.8ms vs zmdb 215.5) — a real trade-off, not a "fastest ORM" claim. Server-side prepared statements (`ZMDB_PREPARED=1`) reproducibly lift
+  zmdb to 3,068 req/s / 97ms avg and narrow the tail (p95 209.5) — kept opt-in to preserve the zero-state default. (Aggregate routes also use a different projection shape; see RESULTS.md.)
+- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks) runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
+  cases (no DNF) but runs its **runtime** validator (the AOT transformer is not yet a wired build plugin), so JIT/AOT libraries are 6–24× faster on assert - the AOT premise is unproven here and not claimed.
 
-**Honesty policy:** DNF routes/cases are enumerated individually, not aggregated.
-Typia (needs its AOT build) and Prisma (engine not installed) are DNF. We never
-silently skip or fake an in-scope case, and we do not claim a "fastest" title we
-have not earned across the full workload.
+**Honesty policy:** DNF routes/cases are enumerated individually, not aggregated. Typia (needs its AOT build) and Prisma (engine not installed) are DNF. We never silently skip or fake an in-scope
+case, and we do not claim a "fastest" title we have not earned across the full workload.
 
 Full results + per-route/per-case DNF listings:
-[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction (HTTP servers +
-k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
+[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction (HTTP servers + k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
 
-📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream
-sites): **https://ambasta.github.io/zmdb/benchmarks/**
+📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream sites): **<https://ambasta.github.io/zmdb/benchmarks/>**
 
 ## Requirements
 
