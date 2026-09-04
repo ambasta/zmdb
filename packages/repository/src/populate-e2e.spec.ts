@@ -181,6 +181,7 @@ describe('populate many-to-many E2E (real SQLite)', () => {
     expect(p1?.tags).toHaveLength(2);
     expect(p1?.tags.map(t => t.name).toSorted()).toEqual(['Database', 'TypeScript']);
 
+    // oxlint-disable-next-line zmdb/no-unbounded-find
     const all = await posts.find({}, { populate: ['tags'] });
     expect(all).toHaveLength(3);
     const byId = new Map(all.map(p => [p.id, p]));
