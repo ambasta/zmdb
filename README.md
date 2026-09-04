@@ -30,7 +30,7 @@
 > and OpenAPI-derived tools** harness. **1,956 tests green** across 206 files,
 > including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **312 expected-failing tests** hold the frozen specs of features
+> Alongside them, **324 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.

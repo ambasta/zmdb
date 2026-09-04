@@ -37,7 +37,10 @@ up: 'ALTER TABLE "documents" ADD COLUMN "embedding" vector(1536)',
 > [!WARNING]
 > A column the snapshot does not know about is a column `diff()` cannot protect. If a later migration is generated from the schema object, it will not drop your hand-added column — `diff` only emits changes it can derive — but it also will not stop someone re-adding it. Keep hand-managed columns in a comment next to the schema object.
 
-**Query it with raw SQL**, since the builder has no operator for `<->`:
+**Query it with raw SQL**, since the builder cannot parameterise a distance
+expression in `ORDER BY` or project one with an alias. Its low-level `where()`
+accepts raw operator strings, including `<->`, but that fall-through is not a
+typed vector surface:
 
 ```ts
 const rows = await driver.execute({

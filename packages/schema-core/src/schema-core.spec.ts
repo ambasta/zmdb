@@ -22,6 +22,7 @@ import {
   ValidationError,
   type ValidationIssue,
 } from './index.js';
+import { jsonSchemaForColumn, type ColumnIR } from './ir/index.js';
 
 describe('schemaOf<T>()', () => {
   it('throws when the build transform did not run', () => {
@@ -118,5 +119,44 @@ describe('isRecord', () => {
   it('narrows, so the read after it needs no assertion', () => {
     const body: unknown = { age: 'twenty' };
     expect(isRecord(body) ? body.age : 'not a record').toBe('twenty');
+  });
+});
+
+// Extension-type JSON Schema tests freeze (#424), against `./ir/SPEC.md` §4.3.
+// The local widening reaches the real `jsonSchemaForColumn` at one boundary;
+// the declaration-side app types are compile-only contracts in `json.type-test.ts`.
+interface FrozenExtensionType {
+  readonly extension: string;
+  readonly name: string;
+  readonly args?: readonly (string | number)[];
+}
+
+type FrozenExtensionColumn = Omit<ColumnIR, 'sql'> & {
+  readonly sql: ColumnIR['sql'] | FrozenExtensionType;
+};
+
+const embeddingColumn: FrozenExtensionColumn = {
+  name: 'embedding',
+  sql: { extension: 'vector', name: 'vector', args: [1536] },
+  nullable: false,
+  primaryKey: false,
+  serial: false,
+  unique: false,
+  hasDefault: false,
+  sensitive: false,
+  constraints: {},
+  rules: [],
+};
+
+describe('extension-backed derived schema (frozen: ir/SPEC.md 4.3)', () => {
+  // Actual at 24289df8: the closed SqlType switch has no matching arm and
+  // returns an empty schema object.
+  it.fails('derives number[] with the dimension as minItems and maxItems in JSON Schema', () => {
+    expect(jsonSchemaForColumn(embeddingColumn as unknown as ColumnIR)).toEqual({
+      type: 'array',
+      items: { type: 'number' },
+      minItems: 1536,
+      maxItems: 1536,
+    });
   });
 });

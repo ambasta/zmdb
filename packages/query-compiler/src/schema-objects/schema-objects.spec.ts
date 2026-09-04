@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { ddlType } from '../migrations/index.js';
 import {
+  createIndexDdl,
   createRoutineDdl,
   dropRoutineDdl,
   quoteId,
   replaceRoutineStatements,
   routineFingerprint,
+  type IndexDef,
   type RoutineDef,
   UnsupportedFeatureError,
 } from './index.js';
@@ -225,6 +227,56 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
     expect(routineFingerprint(withTrailingWhitespace)).toBe(routineFingerprint(archiveFunction));
     expect(routineFingerprint({ ...archiveFunction, deterministic: true })).not.toBe(
       routineFingerprint(archiveFunction),
+    );
+  });
+});
+
+type FrozenIndexMethod = 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
+
+type FrozenIndexColumn =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
+
+type FrozenIndexDef = Omit<IndexDef, 'columns'> & {
+  readonly columns: readonly FrozenIndexColumn[];
+  readonly method?: FrozenIndexMethod;
+  readonly with?: Readonly<Record<string, number>>;
+};
+
+function vectorIndexDdl(def: FrozenIndexDef): string {
+  try {
+    return createIndexDdl(def as unknown as IndexDef, 'postgres');
+  } catch (error) {
+    return error instanceof Error ? `${error.name}: ${error.message}` : `threw ${String(error)}`;
+  }
+}
+
+describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
+  it.fails('emits an ivfflat index with its lists option', () => {
+    expect(
+      vectorIndexDdl({
+        name: 'items_embedding_l2',
+        table: 'items',
+        method: 'ivfflat',
+        columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
+        with: { lists: 100 },
+      }),
+    ).toBe('CREATE INDEX "items_embedding_l2" ON "items" USING ivfflat ("embedding" vector_l2_ops) WITH (lists = 100)');
+  });
+
+  it.fails('emits an hnsw index with m and ef_construction', () => {
+    expect(
+      vectorIndexDdl({
+        name: 'items_embedding_cos',
+        table: 'items',
+        method: 'hnsw',
+        columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
+        with: { m: 16, ef_construction: 64 },
+      }),
+    ).toBe(
+      'CREATE INDEX "items_embedding_cos" ON "items" USING hnsw ' +
+        '("embedding" vector_cosine_ops) WITH (m = 16, ef_construction = 64)',
     );
   });
 });
