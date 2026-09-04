@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import type { Ctx } from '../context/index.js';
 import { createToken, Inject } from '../di/index.js';
 import { lazy, Module } from '../modules/index.js';
+import { bodyText } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { createTestApp } from './index.js';
 
@@ -44,14 +45,14 @@ describe('@zmdb/web testing: createTestApp', () => {
     const app = createTestApp(AppModule);
     const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ msg: 'real' });
+    expect(JSON.parse(await bodyText(res))).toEqual({ msg: 'real' });
   });
 
   it('applies a provider override (stub is injected)', async () => {
     const stub: Greeter = { greet: () => 'stubbed' };
     const app = createTestApp(AppModule, { overrides: [{ token: GreeterToken, useValue: stub }] });
     const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
-    expect(JSON.parse(res.body)).toEqual({ msg: 'stubbed' });
+    expect(JSON.parse(await bodyText(res))).toEqual({ msg: 'stubbed' });
     expect(app.get(GreeterToken)).toBe(stub);
   });
 
@@ -59,7 +60,7 @@ describe('@zmdb/web testing: createTestApp', () => {
     const stub: Greeter = { greet: () => 'lazy-stubbed' };
     const app = createTestApp(LazyAppModule, { overrides: [{ token: GreeterToken, useValue: stub }] });
     const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
-    expect(JSON.parse(res.body)).toEqual({ msg: 'lazy-stubbed' });
+    expect(JSON.parse(await bodyText(res))).toEqual({ msg: 'lazy-stubbed' });
     expect(app.get(GreeterToken)).toBe(stub);
   });
 

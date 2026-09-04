@@ -42,31 +42,28 @@ const { object } = await generateObject({
 await userRepo.create(assert<CreateDTO<User>>(object));
 ```
 
-## Streaming, and where it collides with `@zmdb/web`
+## Streaming through `@zmdb/web`
 
-`WebResponse.body` is a `string`, so a `@zmdb/web` handler cannot return the SDK's streaming response. This is the [shared streaming blocker](./web-streaming-files.html).
-
-Two ways round it:
-
-**Bypass the framework for streaming routes.** `App` exposes `fetch(request)`, so you can hand non-streaming traffic to zmdb and handle streaming routes directly:
+The response layer can carry the SDK's `ReadableStream`. Convert the SDK
+`Response` into a tagged stream response:
 
 ```ts
-const app = createApp(AppModule);
-await app.init();
+const result = streamText({
+  model: anthropic('claude-opus-5'),
+  messages,
+});
+const response = result.toUIMessageStreamResponse();
+if (response.body === null) return respond({ status: response.status });
 
-Bun.serve({
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === '/api/chat') {
-      const result = streamText({ model: anthropic('claude-opus-5'), messages: await body(request) });
-      return result.toUIMessageStreamResponse();
-    }
-    return app.fetch(request);
-  },
+return stream(response.body, {
+  status: response.status,
+  headers: Object.fromEntries(response.headers),
+  onError: error => logger.error({ error }),
 });
 ```
 
-**Or use a Next.js route handler** for the streaming endpoint and `@zmdb/web` for the rest. Both are the same idea: the streaming path does not go through the framework.
+The framework handles backpressure and disconnect cancellation. The provider SDK
+still owns its event format and token-stream semantics.
 
 ## Persisting `useChat` history
 

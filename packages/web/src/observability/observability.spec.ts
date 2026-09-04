@@ -31,7 +31,7 @@
 import { type CompiledQuery } from '@zmdb/query-compiler';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRouter, json, type Ctx, type Router, type WebRequest } from '../pipeline/index.js';
+import { bodyText, createRouter, json, type Ctx, type Router, type WebRequest } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
 
 // ---------------------------------------------------------------------------
@@ -341,25 +341,25 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     for (const header of headers) {
       const response = await router.handle({ ...GET_POST, headers: header });
       expect(response.status).toBe(200);
-      expect(response.body).toBe('{"id":"1"}');
+      expect(await bodyText(response)).toBe('{"id":"1"}');
       expect(response.headers['content-type']).toBe('application/json');
     }
 
     const unmatched = await router.handle({ method: 'GET', path: '/nope/1', headers: {} });
     expect(unmatched.status).toBe(404);
-    expect(unmatched.body).toBe('{"error":"no route for GET /nope/1"}');
+    expect(await bodyText(unmatched)).toBe('{"error":"no route for GET /nope/1"}');
 
     const wrongMethod = await router.handle({ method: 'DELETE', path: '/posts/1', headers: {} });
     expect(wrongMethod.status).toBe(404);
-    expect(wrongMethod.body).toBe('{"error":"no route for DELETE /posts/1"}');
+    expect(await bodyText(wrongMethod)).toBe('{"error":"no route for DELETE /posts/1"}');
 
     const created = await router.handle({ method: 'POST', path: '/posts', headers: {}, rawBody: { title: 'hi' } });
     expect(created.status).toBe(201);
-    expect(created.body).toBe('{"title":"hi"}');
+    expect(await bodyText(created)).toBe('{"title":"hi"}');
 
     const rejected = await router.handle({ method: 'POST', path: '/posts', headers: {}, rawBody: { title: 1 } });
     expect(rejected.status).toBe(400);
-    expect(rejected.body).toBe('{"error":"title must be a string"}');
+    expect(await bodyText(rejected)).toBe('{"error":"title must be a string"}');
 
     // §3's seam does not exist yet, stated as a number rather than as prose so that the day it
     // changes is the day this line changes. #582 widens `createRouter` to take an
@@ -419,7 +419,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     untraced.register(controller());
     const response = await untraced.handle(GET_POST);
 
-    expect(response.body).toBe('{"id":"1"}');
+    expect(await bodyText(response)).toBe('{"id":"1"}');
     expect(seenContexts).toHaveLength(1);
     expect(seenContexts[0]?.span).toBeUndefined();
     expect('span' in (seenContexts[0] ?? {})).toBe(false);
@@ -769,7 +769,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     router.register(controller());
 
     const response = await router.handle({ ...GET_POST, headers: { traceparent: VALID_TRACEPARENT } });
-    expect(response.body).toBe('{"id":"1"}');
+    expect(await bodyText(response)).toBe('{"id":"1"}');
 
     const root = tracer.root() ?? tracer.spans[0];
     // The server span is a *child* of the extracted context, so it is not a root at all: its
@@ -829,7 +829,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
       const response = await router.handle({ ...GET_POST, headers: { traceparent: header } });
       expect(response.status, label).toBe(200);
-      expect(response.body, label).toBe('{"id":"1"}');
+      expect(await bodyText(response), label).toBe('{"id":"1"}');
 
       const root = tracer.spans[0];
       expect(root?.parent, label).toBeUndefined();

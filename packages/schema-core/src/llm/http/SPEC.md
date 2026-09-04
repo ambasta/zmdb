@@ -241,8 +241,8 @@ requests a default 60-second timeout.
   unchanged.
 - **No `process.env` access.** §1 — `apiKey` is a required argument.
 - **No retries in the driver.** §2 — a policy about idempotence belongs to the caller.
-- **No streaming driver.** `../chat/SPEC.md` §2 — the loop's product is a message list, and the framework's
-  response body is a string.
+- **No streaming driver.** `../chat/SPEC.md` §2 — the loop's product is a message list; response streaming
+  exists, but this provider/route contract does not produce a token stream.
 - **No header or cookie parameters in a generated tool.** §4 — a model choosing a header value is a model
   choosing an identity.
 - **No nested `body` object in a generated tool.** §4 — it would be the only nesting in the system.

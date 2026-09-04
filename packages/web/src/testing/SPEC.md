@@ -40,17 +40,14 @@ Assertion library / matchers (use the project's vitest).
 
 ## Amendments (streaming responses, #565)
 
-`WebResponse.body` becomes a three-arm tagged union
-(`../pipeline/SPEC.md` §A1), and this harness is the largest consumer that reads it
-as a string — roughly twenty assertion sites do `JSON.parse(response.body)`.
+`WebResponse.body` is a three-arm tagged union (`../pipeline/SPEC.md` §A1), and
+in-process assertions read every arm through the shipped `bodyText` helper.
 
 - **`request` still returns a `WebResponse`.** It is the production type driven
   through the production pipeline, and a test-only response shape would be a second
   thing to keep honest.
-- **Assertions read the body through `bodyText`** (`../pipeline/SPEC.md` §A6), which
-  is async and consumes a stream body. The migration is mechanical and #567 owns it;
-  it is named here so the freeze does not leave twenty broken call sites as a
-  surprise for whoever picks that slice up.
+- **Assertions read the body through `bodyText`** (`../pipeline/SPEC.md` §A6),
+  which is async and consumes a stream body.
 - **No `json()` reader on `TestApp`.** `JSON.parse(await bodyText(res))` in a test is
   one line and says exactly what it does; a harness method that parses would also
   have to decide what an unparseable body means, and in a test the answer is "the

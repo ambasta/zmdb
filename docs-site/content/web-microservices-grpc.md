@@ -18,7 +18,7 @@ gRPC is not just a transport. It brings a schema language (`.proto`), a code gen
 
 The first row is the one that used to be a tension and is now a decision: `.proto` is generated **from** the declared type, so there is one source of truth and the `.proto` is an artifact you commit and diff in CI. That resolves the conflict with the project's [type-derived design](./anti-patterns.html) rather than living with it.
 
-Two claims that used to be on this page are no longer true. Protobuf support **is** specified — `protoEncode`, `protoDecode` and `protoDescriptor` are frozen in `packages/aot-validator/src/emit/SPEC.md` §7b, with the `ProtoField<N>` and `Proto<K>` vocabulary in `packages/schema-core/src/ir/SPEC.md` §4.5. And streaming RPC is **not** blocked by the [string response body](./web-streaming-files.html): `WebResponse` is the HTTP pipeline's type and a gRPC stream never touches it. What gRPC streaming was waiting on is protobuf, which is now specified.
+Two claims that used to be on this page are no longer true. Protobuf support **is** specified — `protoEncode`, `protoDecode` and `protoDescriptor` are frozen in `packages/aot-validator/src/emit/SPEC.md` §7b, with the `ProtoField<N>` and `Proto<K>` vocabulary in `packages/schema-core/src/ir/SPEC.md` §4.5. And streaming RPC was never blocked by the HTTP pipeline's former [string response body](./web-streaming-files.html): a gRPC stream never touches `WebResponse`. What gRPC streaming was waiting on is protobuf, which is now specified.
 
 ## What to use instead
 

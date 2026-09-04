@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createRouter, type Router } from '../pipeline/index.js';
+import { bodyText, createRouter, type Router } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 
 // Version negotiation. Tests freeze for the epic "OpenAPI security schemes and API versioning"
@@ -103,8 +103,10 @@ describe('version negotiation (frozen: versioning/SPEC.md 4-7)', () => {
     const unversioned = await router.handle({ method: 'GET', path: '/posts', headers: {} });
     const unknown = await router.handle({ method: 'GET', path: '/v9/posts', headers: {} });
     const known = await router.handle({ method: 'GET', path: '/v1/posts', headers: {} });
-    expect(`${unversioned.status} ${unknown.status} ${known.status} ${known.body}`).toBe('404 404 200 ["v1"]');
-    expect(unknown.body, 'the 404 says nothing about which versions exist').toBe(
+    expect(`${unversioned.status} ${unknown.status} ${known.status} ${await bodyText(known)}`).toBe(
+      '404 404 200 ["v1"]',
+    );
+    expect(await bodyText(unknown), 'the 404 says nothing about which versions exist').toBe(
       '{"error":"no route for GET /v9/posts"}',
     );
   });
@@ -121,6 +123,6 @@ describe('version negotiation (frozen: versioning/SPEC.md 4-7)', () => {
       path: '/v1/posts',
       headers: { 'accept-version': '2', accept: 'application/json;version=2' },
     });
-    expect(`${withHeader.status} ${withHeader.body}`).toBe('200 ["v1"]');
+    expect(`${withHeader.status} ${await bodyText(withHeader)}`).toBe('200 ["v1"]');
   });
 });

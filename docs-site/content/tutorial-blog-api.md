@@ -183,7 +183,7 @@ export class PostsController {
 import { createServer } from 'node:http';
 import { Module } from '@zmdb/web/modules';
 import { createApp } from '@zmdb/web/app';
-import { toNodeHandler, createRouter } from '@zmdb/web/pipeline';
+import { bodyText, toNodeHandler, createRouter } from '@zmdb/web/pipeline';
 import { PostsController } from './posts.controller.ts';
 import { postRepo } from './repositories.ts';
 import { postRepoToken } from './tokens.ts';
@@ -200,14 +200,17 @@ await app.init(); // runs onModuleInit / onApplicationBootstrap
 createServer((req, res) => {
   app
     .handle({ method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers as Record<string, string> })
-    .then(r => {
+    .then(async r => {
       res.writeHead(r.status, r.headers);
-      res.end(r.body);
+      res.end(await bodyText(r));
     });
 }).listen(3000);
 ```
 
 `app.fetch(request)` is the same application behind a `Request`/`Response` pair, which is what you want on Workers, Deno and Bun. See [Application Bootstrap](./web-app.html).
+The module-level Node snippet buffers a streamed response; use
+`toNodeHandler(router)` when the route surface is registered directly on a
+router and must stream with backpressure.
 
 ## 8. OpenAPI, derived
 

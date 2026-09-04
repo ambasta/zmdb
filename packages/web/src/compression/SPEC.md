@@ -10,9 +10,9 @@ middleware over the response union and not part of the pipeline's contract, and
 rather than in `../static/SPEC.md` because it applies to every response and not only
 to files.
 
-Depends on `../pipeline/SPEC.md`'s streaming amendment. A compressor over a string
-body is a string in memory and a compressed string in memory, which is worse than
-not compressing.
+The `../pipeline/SPEC.md` streaming amendment shipped in #567. Compression remains
+a separate middleware over that union; this spec owns negotiation and the
+incremental transform, not the response model.
 
 ## 1. The honest recommendation comes first
 

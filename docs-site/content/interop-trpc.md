@@ -40,19 +40,22 @@ it('the transformer is running', () => {
 
 If you are choosing between them for the HTTP layer:
 
-|                              | tRPC                    | `@zmdb/web`                                              |
-| ---------------------------- | ----------------------- | -------------------------------------------------------- |
-| Client types                 | inferred, no generation | via [OpenAPI](./openapi.html) generation                 |
-| Public REST API              | needs `trpc-openapi`    | native — controllers _are_ REST                          |
-| Non-TypeScript consumers     | poor fit                | fine                                                     |
-| Dependency-injected services | DIY in context          | [built-in container](./web-di.html)                      |
-| Runtime dependencies         | `@trpc/server`          | zero                                                     |
-| Streaming / subscriptions    | yes                     | [not supported](./streaming.html) — `body` is a `string` |
-| Class + decorator style      | no                      | yes                                                      |
+|                              | tRPC                    | `@zmdb/web`                              |
+| ---------------------------- | ----------------------- | ---------------------------------------- |
+| Client types                 | inferred, no generation | via [OpenAPI](./openapi.html) generation |
+| Public REST API              | needs `trpc-openapi`    | native — controllers _are_ REST          |
+| Non-TypeScript consumers     | poor fit                | fine                                     |
+| Dependency-injected services | DIY in context          | [built-in container](./web-di.html)      |
+| Runtime dependencies         | `@trpc/server`          | zero                                     |
+| Streaming responses          | yes                     | yes — `stream()` / `ReadableStream`      |
+| Subscription protocol        | built in                | application-owned                        |
+| Class + decorator style      | no                      | yes                                      |
 
 The honest split: tRPC for an internal TypeScript-to-TypeScript API where the inferred client is the whole point; `@zmdb/web` for a public REST API where OpenAPI is the contract and consumers are not all TypeScript.
 
-tRPC's subscription support is a real advantage today, because `WebResponse.body` is a `string` and `@zmdb/web` cannot stream from a handler.
+tRPC's subscription protocol remains a real advantage: `@zmdb/web` can stream a
+response body, but it does not define subscription routing, reconnection or a
+client protocol.
 
 ## Both, side by side
 

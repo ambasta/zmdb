@@ -6,12 +6,15 @@ response.
 ## In-process requests
 
 ```ts
-import { createTestApp } from '@zmdb/web';
+import { bodyText, createTestApp } from '@zmdb/web';
 
 const app = createTestApp(AppModule);
 const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
-// res.status, res.body — same pipeline as production, no network
+expect(JSON.parse(await bodyText(res))).toEqual({ message: 'hello' });
 ```
+
+`request()` returns the production `WebResponse`. Use `bodyText()` to read text,
+bytes or a stream uniformly; reading a stream consumes it.
 
 ## Overriding a provider
 

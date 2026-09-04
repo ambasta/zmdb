@@ -83,9 +83,11 @@ updateTable('posts').set({ views: 1 });
 
 There is no expression form yet. See [Incrementing and decrementing a value](./guide-increment-decrement.html) for the raw-SQL workaround and the tracked gap.
 
-## `@zmdb/web` responses are strings
+## A streamed response body is one-shot
 
-`WebResponse.body` is a `string`. Returning a `ReadableStream` from a handler will be stringified, not streamed. See [Streaming Files](./web-streaming-files.html).
+`stream()` preserves a `ReadableStream`, and `bodyText(response)` drains it.
+Once a test or in-process consumer has drained that body, the same response
+cannot be sent afterwards. See [Streaming Files](./web-streaming-files.html).
 
 ## The DI container has no `@Injectable()`
 

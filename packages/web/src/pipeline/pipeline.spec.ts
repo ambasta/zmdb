@@ -7,7 +7,17 @@ import { ValidationError } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
 import { Controller, Get, Post } from '../routing/index.js';
-import { createRouter, json, respond, text, toFetchHandler, toNodeHandler, type Ctx, type Router } from './index.js';
+import {
+  bodyText,
+  createRouter,
+  json,
+  respond,
+  text,
+  toFetchHandler,
+  toNodeHandler,
+  type Ctx,
+  type Router,
+} from './index.js';
 
 @Controller('/users')
 class UsersController {
@@ -66,7 +76,7 @@ describe('@zmdb/web pipeline: route table', () => {
     router.register(new ShadowController());
     // `/:id` is declared before `/me`, so it shadows it — as a flat scan did.
     const shadowed = await router.handle({ method: 'GET', path: '/shadow/me', headers: {} });
-    expect(JSON.parse(shadowed.body)).toEqual({ via: 'param', id: 'me' });
+    expect(JSON.parse(await bodyText(shadowed))).toEqual({ via: 'param', id: 'me' });
   });
 
   it('keeps identically-shaped routes of different methods apart', async () => {
@@ -74,8 +84,8 @@ describe('@zmdb/web pipeline: route table', () => {
     router.register(new ShadowController());
     const get = await router.handle({ method: 'GET', path: '/shadow/7', headers: {} });
     const post = await router.handle({ method: 'POST', path: '/shadow/7', headers: {} });
-    expect(JSON.parse(get.body)).toEqual({ via: 'param', id: '7' });
-    expect(JSON.parse(post.body)).toEqual({ via: 'post', id: '7' });
+    expect(JSON.parse(await bodyText(get))).toEqual({ via: 'param', id: '7' });
+    expect(JSON.parse(await bodyText(post))).toEqual({ via: 'post', id: '7' });
   });
 
   it('404s a path whose segment count matches no route', async () => {
@@ -99,7 +109,7 @@ describe('@zmdb/web pipeline: dispatch', () => {
   it('routes to the handler and extracts params (200)', async () => {
     const res = await makeRouter().handle({ method: 'GET', path: '/users/42', headers: {} });
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ id: '42' });
+    expect(JSON.parse(await bodyText(res))).toEqual({ id: '42' });
   });
 
   it('validates the body before the handler (invalid → 400, handler skipped)', async () => {
@@ -121,7 +131,7 @@ describe('@zmdb/web pipeline: dispatch', () => {
     });
     const res = await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: {} });
     expect(res.status).toBe(400);
-    expect(JSON.parse(res.body)).toEqual({
+    expect(JSON.parse(await bodyText(res))).toEqual({
       error: 'invalid user body',
       issues: [{ path: 'input.name', message: 'name required', expected: 'string' }],
     });
@@ -130,7 +140,7 @@ describe('@zmdb/web pipeline: dispatch', () => {
   it('passes a valid body through to the handler (201/200)', async () => {
     const res = await makeRouter().handle({ method: 'POST', path: '/users', headers: {}, rawBody: { name: 'ada' } });
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ created: 'ada' });
+    expect(JSON.parse(await bodyText(res))).toEqual({ created: 'ada' });
   });
 
   it('returns 404 for an unknown route', async () => {
@@ -225,45 +235,45 @@ describe('@zmdb/web pipeline: response control', () => {
     const res = await get('/r/dto');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toBe('application/json');
-    expect(JSON.parse(res.body)).toEqual({ status: 'draft', body: 'hello', headers: { a: 'b' } });
+    expect(JSON.parse(await bodyText(res))).toEqual({ status: 'draft', body: 'hello', headers: { a: 'b' } });
   });
 
   it('returns a text body verbatim, with no JSON quoting', async () => {
     const res = await get('/r/plain');
     expect(res.status).toBe(200);
-    expect(res.body).toBe('plain');
+    expect(await bodyText(res)).toBe('plain');
     expect(res.headers['content-type']).toBe('text/plain; charset=utf-8');
   });
 
   it('answers a path parameter as raw bytes, not as a JSON string', async () => {
     const res = await get('/r/echo/0');
-    expect(res.body).toBe('0');
-    expect(res.body).not.toBe('"0"');
+    expect(await bodyText(res)).toBe('0');
+    expect(await bodyText(res)).not.toBe('"0"');
   });
 
   it('can answer with a genuinely empty body', async () => {
     const res = await get('/r/empty');
-    expect(res.body).toBe('');
+    expect(await bodyText(res)).toBe('');
   });
 
   it('honours an explicit status and merges extra headers over the JSON default', async () => {
     const res = await get('/r/created');
     expect(res.status).toBe(201);
     expect(res.headers).toEqual({ 'content-type': 'application/json', location: '/r/1' });
-    expect(JSON.parse(res.body)).toEqual({ ok: true });
+    expect(JSON.parse(await bodyText(res))).toEqual({ ok: true });
   });
 
   it('assumes no content type for respond(), so a redirect sends only what was asked', async () => {
     const res = await get('/r/redirect');
     expect(res.status).toBe(302);
     expect(res.headers).toEqual({ location: '/login' });
-    expect(res.body).toBe('');
+    expect(await bodyText(res)).toBe('');
   });
 
   it('sends a 204 with an empty body', async () => {
     const res = await get('/r/nocontent');
     expect(res.status).toBe(204);
-    expect(res.body).toBe('');
+    expect(await bodyText(res)).toBe('');
   });
 
   it('does not let one response’s headers leak into the next', async () => {
@@ -281,7 +291,7 @@ describe('@zmdb/web pipeline: response control', () => {
     expect(Object.keys(res)).toEqual(['status', 'body', 'headers']);
     expect(JSON.parse(JSON.stringify(res))).toEqual({
       status: 200,
-      body: 'x',
+      body: { kind: 'text', value: 'x' },
       headers: { 'content-type': 'text/plain; charset=utf-8' },
     });
   });
@@ -343,8 +353,15 @@ function fakeRes(options: { writeHead: boolean }) {
     setHeader(name: string, value: string) {
       state.headers[name] = value;
     },
-    end(body: string) {
-      state.body = body;
+    write() {
+      return true;
+    },
+    once() {},
+    destroy() {
+      settle();
+    },
+    end(body?: string | Uint8Array<ArrayBuffer>) {
+      state.body = typeof body === 'string' ? body : body === undefined ? undefined : new TextDecoder().decode(body);
       settle();
     },
     ...(options.writeHead

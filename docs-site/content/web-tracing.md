@@ -33,6 +33,7 @@ What is missing is the middle: no span for "handler", no route name on the HTTP 
 
 ```ts
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { bodyText } from '@zmdb/web';
 
 const tracer = trace.getTracer('zmdb-web');
 
@@ -44,7 +45,7 @@ createServer(async (req, res) => {
       const out = await app.handle(await webRequest(req));
       span.setAttribute('http.response.status_code', out.status);
       if (out.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
-      res.writeHead(out.status, { ...out.headers }).end(out.body);
+      res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
     } catch (error) {
       span.recordException(error instanceof Error ? error : new Error(String(error)));
       span.setStatus({ code: SpanStatusCode.ERROR });

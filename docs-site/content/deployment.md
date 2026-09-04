@@ -88,7 +88,7 @@ See [Configuration](./configuration.html), including the `Number(undefined)` tra
 
 ```ts
 import { createServer } from 'node:http';
-import { createApp } from '@zmdb/web';
+import { bodyText, createApp } from '@zmdb/web';
 
 const app = createApp(AppModule);
 await app.init();
@@ -102,11 +102,14 @@ const server = createServer(async (req, res) => {
     headers: req.headers as Record<string, string>,
     rawBody: Buffer.concat(chunks).toString('utf8'),
   });
-  res.writeHead(out.status, out.headers).end(out.body);
+  res.writeHead(out.status, out.headers).end(await bodyText(out));
 });
 
 server.listen(env.PORT);
 ```
+
+This hand-written module adapter buffers streamed responses. At router level,
+`toNodeHandler` streams with backpressure and cancellation.
 
 `App` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
 

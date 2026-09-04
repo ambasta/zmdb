@@ -579,10 +579,20 @@ class FakeReq {
   }
 }
 
-function fakeRes(): { statusCode: number; setHeader(name: string, value: string): void; end(body: string): void } {
+function fakeRes(): {
+  statusCode: number;
+  setHeader(name: string, value: string): void;
+  write(chunk: Uint8Array<ArrayBuffer>): boolean;
+  once(event: string, listener: () => void): void;
+  destroy(error?: Error): void;
+  end(body?: string | Uint8Array<ArrayBuffer>): void;
+} {
   return {
     statusCode: 0,
     setHeader: () => undefined,
+    write: () => true,
+    once: () => undefined,
+    destroy: () => undefined,
     end: () => undefined,
   };
 }

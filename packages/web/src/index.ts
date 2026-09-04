@@ -100,11 +100,19 @@ export {
   json,
   text,
   respond,
+  bytes,
+  stream,
+  file,
+  bodyText,
   type Router,
   type WebRequest,
   type WebResponse,
+  type ResponseBody,
   type RouteOptions,
   type ResponseOptions,
+  type StreamOptions,
+  type FileResponseOptions,
+  type AdapterOptions,
 } from './pipeline/index.js';
 
 // zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.

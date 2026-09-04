@@ -24,6 +24,7 @@ Two arrangements work today.
 
 ```ts
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { bodyText } from '@zmdb/web';
 
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const path = (req.url ?? '/').split('?')[0] ?? '/';
@@ -47,9 +48,12 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
       Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
     ),
   });
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
 });
 ```
+
+This custom adapter buffers a streamed response. Use `toNodeHandler` for routes
+that must preserve streaming and backpressure.
 
 `handle` takes a `WebRequest` — `{ method, path, headers, rawBody?, query? }` — and there is no
 helper that converts a `node:http` request into one, so the adapter builds it. `path` is the URL

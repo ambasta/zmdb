@@ -193,8 +193,8 @@ next suspension point, and `finally` runs. There is no other cancellation path a
 
 **`web-microservices-grpc.md` claimed streaming RPC was "blocked by the string response body". That is
 wrong and is corrected on the page.** `WebResponse` (`../../pipeline/SPEC.md` §22) is the HTTP pipeline's type; a
-gRPC stream never touches it, and `toNodeHandler`'s `end(body: string)` is not on this path at all. gRPC
-streaming is blocked by nothing except protobuf, which is §8.
+gRPC stream never touches it, and `toNodeHandler`'s tagged response-body handling is not on this path at all.
+gRPC streaming is blocked by nothing except protobuf, which is §8.
 
 ## 6. Deadlines, and propagating what is left of one
 

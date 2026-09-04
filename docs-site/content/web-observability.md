@@ -82,6 +82,8 @@ Getting the route pattern is harder than the two lines above suggest, and for a 
 Requests, in your adapter — the framework has no hook that sees every request:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 createServer(async (req, res) => {
   const start = performance.now();
   const out = await app.handle(await webRequest(req));
@@ -90,11 +92,13 @@ createServer(async (req, res) => {
     method: req.method ?? 'GET',
     status: String(out.status),
   });
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
 });
 ```
 
 `webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
+This custom metrics adapter buffers a streamed response; use `toNodeHandler`
+when preserving the stream is required.
 
 Queries, in a driver wrapper — the cleanest instrumentation point in the whole stack:
 

@@ -3,7 +3,9 @@
 > and every repository method resolves to an array or a single row. There is no
 > `AsyncIterable` result and no cursor API.
 
-This is one of two shared blockers in the project; the other is that [`WebResponse.body` is a `string`](./web-streaming-files.html), so even if a query streamed, the HTTP layer could not stream the response.
+The HTTP half is no longer a blocker:
+[`WebResponse.body` supports streams](./web-streaming-files.html). What remains
+on this page is query execution: drivers and repositories still materialise rows.
 
 ## What breaks without it
 
@@ -67,7 +69,12 @@ You lose the typed builder for that query and keep it everywhere else. Compile t
 
 ## What it would take
 
-The `Driver` interface has to grow a second, optional method — `stream?(query): AsyncIterable<Record<string, unknown>>` — because making `execute` return an iterable would break every existing driver and every test that does `rows.length`. Then repositories need streaming variants (`findAllStream`, `listStream`), and the HTTP layer needs `WebResponse.body` to accept an iterable. Three packages, one shared prerequisite. The `Driver` change is small and additive; the response-body change is the one that touches everything.
+The `Driver` interface has to grow a second, optional method —
+`stream?(query): AsyncIterable<Record<string, unknown>>` — because making
+`execute` return an iterable would break every existing driver and every test
+that does `rows.length`. Repositories then need streaming variants
+(`findAllStream`, `listStream`); a handler can convert the iterable with
+`ReadableStream.from(...)` and return `stream(...)`.
 
 ---
 

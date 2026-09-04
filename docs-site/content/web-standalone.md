@@ -33,6 +33,7 @@ That is the router-level API. With a module graph, go through `createApp` and ad
 
 ```ts
 import { createApp } from '@zmdb/web/app';
+import { bodyText } from '@zmdb/web/pipeline';
 
 const app = createApp(AppModule);
 await app.init();
@@ -49,11 +50,13 @@ createServer(async (req, res) => {
     rawBody: raw.length > 0 ? JSON.parse(raw) : undefined,
   });
 
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
 }).listen(3000, '0.0.0.0');
 ```
 
 Note `path` excludes the query string — `WebRequest` has a separate `query` field, and passing `/users?a=1` as `path` means no route matches.
+This hand-written module adapter buffers streamed responses; the router-level
+`toNodeHandler` above preserves streaming and backpressure.
 
 ## Behind a Fetch runtime
 

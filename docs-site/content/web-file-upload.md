@@ -1,40 +1,25 @@
 > **ToDo / feature gap.** There is no multipart (`multipart/form-data`) parser and
-> no `FileInterceptor` analogue. Worse than missing: the bundled adapters cannot
-> carry binary at all — both decode the request body as UTF-8 text, which destroys
-> any byte sequence that is not valid UTF-8.
+> no `FileInterceptor` analogue. The bundled adapters now preserve a multipart
+> request as bounded bytes, but they do not parse its parts.
 >
 > The limits, the filename rule and the buffer-versus-stream decision are frozen in
-> `packages/web/src/upload/SPEC.md`, and the adapter change they depend on is in
-> `packages/web/src/pipeline/SPEC.md`.
+> `packages/web/src/upload/SPEC.md`; the byte-preserving adapter prerequisite
+> shipped from `packages/web/src/pipeline/SPEC.md`.
 
-So this is not "write a parser and plug it in". Uploads have to bypass the router
-until the request body reaches a handler as bytes.
+So this is not "write a parser and plug it in". Small, bounded uploads can reach a
+handler as bytes, but parsing and per-part limits are still application work.
+Large or streaming uploads should still bypass the router.
 
 ## What arrives today
 
-`WebRequest.rawBody` is `unknown` and **optional**. `toNodeHandler` reads a body only
-when the request has one — a `content-length` other than `0`, or any
-`transfer-encoding` — and otherwise attaches no listeners at all and leaves `rawBody`
-`undefined`. When there is a body it calls `req.setEncoding?.('utf8')` and accumulates
-the decoded string. `toFetchHandler` calls `request.text()`, and skips the body
-entirely for `GET` and `HEAD`. Either way it then tries `JSON.parse` and falls back to
-the raw string.
+`WebRequest.rawBody` is `unknown` and **optional**. `toNodeHandler` reads a body
+only when `content-length` or `transfer-encoding` says one exists; `toFetchHandler`
+skips bodies for `GET` and `HEAD`. Both reject more than 1 MiB by default.
 
-The `setEncoding` is worth being precise about, because this page used to describe
-the wrong mechanism. It installs a `StringDecoder`, which holds partial multi-byte
-sequences across reads — so a character whose UTF-8 bytes straddle a chunk boundary
-survives, and the naive `String(chunk)` per chunk this used to do would have
-corrupted it. Note the `?.`: the adapter is structurally typed against a
-`{ method?, url?, headers, on, setEncoding? }` shape, so a hand-rolled or wrapped
-request object without `setEncoding` still works and still takes the per-chunk path —
-where the boundary-split corruption is live rather than historical. Real
-`node:http` requests have the method, so this is about proxies and test doubles.
-
-What no version survives is a byte sequence that is not valid UTF-8 **at all**,
-which is most of any image. A multipart body therefore reaches `ctx.body` as a
-lossily decoded string with its boundary markers intact and its file content
-replaced by U+FFFD. A JSON body with a base64 field works fine, which is the basis
-of the small-file workaround below.
+Content type selects the representation. JSON and `text/*` use the decoded path;
+another explicit content type, including `multipart/form-data`, reaches
+`ctx.body` as an exact `Uint8Array<ArrayBuffer>`. The complete request is still
+buffered before dispatch, and no multipart boundaries or headers are parsed.
 
 ## Workaround 1: presigned uploads (recommended)
 
@@ -115,9 +100,8 @@ async avatar(ctx: Ctx<Record<never, string>, { data: string; mime: string }>) {
 ```
 
 Fine for an avatar or a small attachment. Base64 costs 33% in size and the whole
-payload is buffered in memory, so put a hard cap on it — and remember the adapter
-has **no body size limit of its own**, which makes an unbounded endpoint here a
-trivial memory-exhaustion target. Cap at the proxy as well.
+payload is buffered in memory, so keep the adapter's mandatory size bound low and
+enforce the smaller decoded-file limit shown above. Cap at the proxy as well.
 
 ## Validating an upload, wherever you parse it
 
@@ -162,12 +146,9 @@ Store the key, never the bytes. Filter by `owner_id` in the `where` on every rea
 
 Three things, in order, and the middle one is not what this page previously assumed:
 
-1. **Bytes through the adapter.** `WebRequest.rawBody` is already `unknown`, so it
-   can carry a `Uint8Array`; the adapters must stop decoding a non-JSON body as
-   text. That is the blocking change and it is small. It comes with a
-   `maxBodyBytes` default of 1 MiB, because there is no request body limit today at
-   all — which makes every `POST` route in every deployment an unbounded allocation
-   reachable by one request.
+1. **Bytes through the adapter — shipped.** A non-JSON, non-text request reaches
+   `WebRequest.rawBody` as a `Uint8Array`, and both adapters enforce
+   `maxBodyBytes` with a 1 MiB default before dispatch.
 2. **A buffering multipart parser**, not a streaming one. The freeze picked
    buffering, and the reason is worth knowing before you plan around it: a streaming
    parser needs `WebRequest` to carry a `ReadableStream`, which means routing,

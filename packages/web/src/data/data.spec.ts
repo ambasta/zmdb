@@ -10,7 +10,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { Container, Inject } from '../di/index.js';
-import { createRouter, type Ctx } from '../pipeline/index.js';
+import { bodyText, createRouter, type Ctx } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
 import { repositoryToken, validateWith, wireDecoder, wireEncoder } from './index.js';
 
@@ -70,12 +70,12 @@ describe('@zmdb/web data: Orders end-to-end (node:sqlite)', () => {
       rawBody: { userId: 1, total: 42 },
     });
     expect(created.status).toBe(200);
-    const order = JSON.parse(created.body);
+    const order = JSON.parse(await bodyText(created));
     expect(order.userId).toBe(1);
 
     const got = await router.handle({ method: 'GET', path: `/orders/${order.id}`, headers: {} });
     expect(got.status).toBe(200);
-    expect(JSON.parse(got.body).total).toBe(42);
+    expect(JSON.parse(await bodyText(got)).total).toBe(42);
   });
 
   it('rejects an invalid body without persisting (400)', async () => {
@@ -203,7 +203,7 @@ describe('@zmdb/web data: an ISO body persisted and returned (node:sqlite)', () 
     });
 
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toMatchObject({ name: 'launch', at: ISO, seq: '7' });
+    expect(JSON.parse(await bodyText(res))).toMatchObject({ name: 'launch', at: ISO, seq: '7' });
     // And the cell holds the same instant in the form the DDL declared.
     expect(db.prepare('SELECT at, seq FROM events').all()).toEqual([{ at: ISO, seq: 7 }]);
   });

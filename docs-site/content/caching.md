@@ -68,7 +68,13 @@ Often the right layer, because it caches the whole computation rather than one q
 @HttpGet('/categories')
 async list() {
   const rows = await this.repo.findAll();
-  return { status: 200, body: stringify(rows), headers: { 'cache-control': 'public, max-age=60' } };
+  return respond({
+    body: stringify(rows),
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'public, max-age=60',
+    },
+  });
 }
 ```
 

@@ -57,9 +57,11 @@ Not yet — see [Upsert](./upsert.html) for the gap and the two-statement workar
 
 Yes, through JSON Schema — `toJsonSchema()` in either direction. You do not need it for validation, and mixing the two means two validators over one type. See [Zod](./interop-zod.html).
 
-## Why is `@zmdb/web`'s `WebResponse.body` a string?
+## Can `@zmdb/web` stream a response?
 
-Because streaming responses are not modelled yet. It is the single blocker behind [streaming files](./web-streaming-files.html), [compression](./web-compression.html) and [static file serving](./web-static-files.html).
+Yes. `WebResponse.body` is a tagged text/bytes/stream union, with `stream()`,
+`bytes()` and `file()` factories. Compression and confined static-file serving
+remain separate features. See [Streaming Files](./web-streaming-files.html).
 
 ## What is the Node version floor?
 

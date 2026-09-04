@@ -112,6 +112,8 @@ If you would rather keep handlers throwing domain errors, map them once in your
 adapter instead:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 const STATUS = new Map<string, number>([
   ['Unauthenticated', 401],
   ['Forbidden', 403],
@@ -120,13 +122,16 @@ const STATUS = new Map<string, number>([
 createServer(async (req, res) => {
   try {
     const out = await app.handle(await webRequest(req));
-    res.writeHead(out.status, { ...out.headers }).end(out.body);
+    res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
   } catch (error) {
     const status = STATUS.get(errorName(error)) ?? 500;
     res.writeHead(status, { 'www-authenticate': 'Bearer' }).end('{"error":"unauthenticated"}');
   }
 });
 ```
+
+This custom error mapper buffers a streamed response. Use `toNodeHandler` when
+the route must preserve streaming, backpressure and cancellation.
 
 See [Exception Filters](./web-exception-filters.html) for the full pattern. `webRequest(req)` is the `WebRequest` build the adapter has to do itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 

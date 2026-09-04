@@ -4,6 +4,7 @@ There is no `app.enableCors()`, and CORS cannot be implemented inside a handler:
 
 ```ts
 import { createServer } from 'node:http';
+import { bodyText } from '@zmdb/web';
 
 const ALLOWED = new Set(['https://app.example.com', 'https://staging.example.com']);
 
@@ -28,13 +29,17 @@ createServer(async (req, res) => {
   }
 
   const out = await app.handle(await webRequest(req));
-  res.writeHead(out.status, { ...out.headers, ...headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers, ...headers }).end(await bodyText(out));
 });
 ```
 
 Six details there are load-bearing.
 
 **`webRequest(req)`.** There is no `toWebRequest` to import; `app.handle` takes a `WebRequest` the adapter builds itself, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
+
+**`bodyText(out)`.** This custom header wrapper buffers streamed responses. Use
+the built-in Node adapter when backpressure and client-disconnect cancellation
+matter.
 
 **`vary: origin`.** Without it, a shared cache or CDN serves the `access-control-allow-origin` computed for one origin to a request from another — which either breaks legitimate clients or grants access you did not intend.
 

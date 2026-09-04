@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
+import { text } from '../pipeline/index.js';
 import { runChain, type Guard, type Pipe, type Interceptor, type ExceptionFilter, type Chain } from './index.js';
 
 function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
@@ -67,7 +68,7 @@ describe('@zmdb/web middleware: chain', () => {
 
   it('a matching exception filter maps a thrown handler error', async () => {
     const filter: ExceptionFilter = {
-      catch: error => ({ status: 418, body: JSON.stringify({ teapot: String(error) }), headers: {} }),
+      catch: error => text(JSON.stringify({ teapot: String(error) }), { status: 418 }),
     };
     const chain: Chain = { guards: [], pipes: [], interceptors: [], filters: [filter] };
     const result = await runChain(chain, ctxWith({}), () => {

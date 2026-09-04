@@ -210,12 +210,17 @@ Storing `tokens` on the row is what makes this exact rather than a guess — and
 
 ## Streaming
 
-`WebResponse.body` is a `string`, so a `@zmdb/web` handler cannot stream a model response token by token. Two options:
+`WebResponse.body` can carry a stream. The shipped `ChatDriver.next` contract
+still returns one complete assistant message, so token streaming needs a
+provider-specific stream at the route:
 
-- **`sseStream`** from `@zmdb/web/gateways` for server-sent events — see [WebSockets & SSE](./web-ws-adapter.html)
-- **Bypass the framework** for that one route, using `app.fetch` with a `ReadableStream` response constructed directly
+- Adapt a provider SDK's native `Response.body` directly with `stream()`.
+- For SSE, build an application-owned stream whose `cancel` closes the provider
+  iterator. The existing `sseStream` helper still lacks that cancellation
+  contract — see [WebSockets & SSE](./web-ws-adapter.html).
 
-See [Streaming Files](./web-streaming-files.html) for the shared blocker.
+See [Streaming Files](./web-streaming-files.html) for cancellation and error
+semantics.
 
 ## What remains application-owned
 

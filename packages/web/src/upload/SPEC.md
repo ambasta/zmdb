@@ -3,12 +3,9 @@
 > Parsing `multipart/form-data` under limits that cannot be removed (epic #564,
 > sub-issue #565). Frozen before code.
 
-Blocked in fact on `../pipeline/SPEC.md` §A7 and not on the response union: today
-`toNodeHandler` calls `req.setEncoding('utf8')` and accumulates `String(chunk)`, and
-`readFetchBody` calls `request.text()`. Both are correct for JSON and both destroy
-every byte sequence that is not valid UTF-8, so a multipart body currently reaches a
-handler as a lossily-decoded string with its boundaries intact and its file content
-corrupted. Nothing here is implementable until `rawBody` can carry bytes.
+The `../pipeline/SPEC.md` §A7 prerequisite shipped in #567: multipart bodies now
+reach `rawBody` as exact bytes under a mandatory adapter limit. What remains in
+this spec is the bounded parser and its pipeline integration.
 
 ## 1. The recommendation this feature does not replace
 

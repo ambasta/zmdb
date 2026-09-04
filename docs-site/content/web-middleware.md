@@ -5,7 +5,7 @@ a deterministic order with no reflection.
 ## The four roles
 
 ```ts
-import type { Guard, Pipe, Interceptor, ExceptionFilter } from '@zmdb/web';
+import { json, type Guard, type Pipe, type Interceptor, type ExceptionFilter } from '@zmdb/web';
 
 const AuthGuard: Guard = { canActivate: ctx => Boolean(ctx.headers.authorization) };
 
@@ -23,7 +23,7 @@ const Timing: Interceptor = {
 };
 
 const NotFoundFilter: ExceptionFilter = {
-  catch: err => (err instanceof RangeError ? { status: 404, body: '{}', headers: {} } : undefined), // undefined → let another filter/handler win
+  catch: err => (err instanceof RangeError ? json({}, { status: 404 }) : undefined), // undefined → let another filter/handler win
 };
 ```
 
@@ -57,7 +57,9 @@ const result = await runChain(chain, ctx, c => c.body);
 > chain, and `createApp` registers controllers with no options at all — so a chain
 > runs only where you invoke it inside a handler. Two consequences follow: a
 > `ChainError(403)` reaching the router serialises as a **500**, not a 403, and a
-> filter's returned `WebResponse` is serialised as the **body of a 200**. See
+> filter response built as an untagged `{ status, body, headers }` literal is
+> serialised as the **body of a 200**. Responses built with `json`, `text`,
+> `bytes`, `stream` or `respond` keep their own status and headers. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Applying a chain in practice
@@ -91,8 +93,9 @@ it('every mutating route rejects an unauthenticated request', async () => {
   reflection and no metadata reads on the request path.
 - **Typed folding** — `Pipe<In, Out>` composes so the handler's body type follows
   from the pipes, with no `as` on the consumer surface.
-- **Filters return `WebResponse`**, whose `body` is a **`string`** — stringify it
-  yourself.
+- **Filters return `WebResponse`**. Build one with `json`, `text`, `bytes`,
+  `stream` or `respond`; use `bodyText` only when middleware deliberately needs
+  to consume a body.
 - Granular import: `import { runChain } from '@zmdb/web/middleware'`.
 
 ## Concerns that belong elsewhere

@@ -69,7 +69,10 @@ See [Typed Request Context](./web-context.html).
 
 ## `ctx.body` is a string when you expected an object
 
-The adapter's parse falls back to the raw string on a `JSON.parse` failure — it does not throw and does not check `content-type`. A malformed body, or a form-encoded one, arrives as a string.
+For `application/json`, `application/*+json`, `text/*`, or a request with no
+content type, parsing falls back to the decoded string on a `JSON.parse` failure.
+Other explicit content types are preserved as bytes; for example,
+`application/x-www-form-urlencoded` arrives as a `Uint8Array`.
 
 Validate at the top of the handler and the failure becomes a 400 instead of a confusing `undefined` deeper in:
 

@@ -22,7 +22,10 @@ export const dbErrors: ExceptionFilter = {
 };
 ```
 
-Build the response with `json`, `text` or `respond` rather than as an object literal. A hand-built `{ status, body, headers }` is a valid `WebResponse` — and `body` is a **`string`**, not an object, so you stringify it yourself — but it is untagged, and the router serialises an untagged return value as a 200. See the warning below.
+Build the response with `json`, `text`, `bytes`, `stream` or `respond` rather
+than as an object literal. The factories construct the tagged body union and
+mark the response for pass-through; an untagged object remains an ordinary
+handler value and is serialized as a 200. See the warning below.
 
 ## The gap you must plan around
 
@@ -32,8 +35,8 @@ const result = await runChain({ guards: [], pipes: [], interceptors: [], filters
 
 > [!WARNING]
 > `runChain` returns the filter's `WebResponse` **as a value**, and the router
-> serialises a returned value as a **200** unless it was built by `json`, `text` or
-> `respond` — those tag the object, and a tagged response is passed through with its
+> serialises a returned value as a **200** unless it was built by `json`, `text`,
+> `bytes`, `stream` or `respond` — those tag the object, and a tagged response is passed through with its
 > own status. So `catch: () => json(body, { status: 409 })` really is a 409, while
 > `catch: () => ({ status: 409, body, headers })` is a 200 whose body contains the
 > number 409. Measured both ways. See
@@ -63,6 +66,8 @@ throw new ValidationError('title is required', [{ path: ['title'], message: 'req
 **For any other status, map it in your adapter.** The one place that can set a status and headers:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 const STATUS = new Map<string, number>([
   ['NotFoundError', 404],
   ['UniqueViolation', 409],
@@ -72,7 +77,7 @@ const STATUS = new Map<string, number>([
 createServer(async (req, res) => {
   try {
     const out = await app.handle(await webRequest(req));
-    res.writeHead(out.status, { ...out.headers }).end(out.body);
+    res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
   } catch (error) {
     const status = STATUS.get(errorName(error)) ?? 500;
     res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify({ error: publicMessage(status) }));
@@ -80,7 +85,9 @@ createServer(async (req, res) => {
 });
 ```
 
-This works because `app.handle` propagates a throw it cannot classify. It is the honest workaround, and it puts the status policy in one readable table.
+This example uses `bodyText`, so it buffers a streamed response. Use
+`toNodeHandler` when the adapter must preserve streaming. The status mapping
+remains in one readable table.
 
 `webRequest(req)` is the dozen-line `WebRequest` build every adapter sample here uses — there is no `toWebRequest` to import, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 

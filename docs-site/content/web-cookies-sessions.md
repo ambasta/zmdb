@@ -30,13 +30,16 @@ Split on the **first** `=` only. A cookie value can contain `=` (base64 padding,
 In the Node adapter:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 createServer(async (req, res) => {
   const out = await app.handle(await webRequest(req));
+  const body = await bodyText(out);
 
   const cookie = pendingCookieFor(req); // however your login route signals it
   const headers = cookie === undefined ? out.headers : { ...out.headers, 'set-cookie': cookie };
 
-  res.writeHead(out.status, headers).end(out.body);
+  res.writeHead(out.status, headers).end(body);
 });
 ```
 
@@ -47,12 +50,14 @@ Getting the value from the handler to the adapter is the awkward part, since the
 ```ts
 const path = (req.url ?? '/').split('?')[0];
 if (path === '/auth/login' && out.status === 200) {
-  const { sid } = JSON.parse(out.body) as { sid: string };
+  const { sid } = JSON.parse(body) as { sid: string };
   headers['set-cookie'] = `sid=${sid}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`;
 }
 ```
 
 Ugly, and honest about it. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for.
+The custom cookie adapter buffers a streamed body; the login response is
+deliberately a small JSON text response.
 
 ## The attributes, and why each one
 

@@ -1,163 +1,112 @@
-`ctx.body` is JSON, parsed by the adapter. There is no body parser to configure, no `rawBody` option and no multipart handling — but the parse is deliberately forgiving in a way you need to know about.
+The adapters preserve binary request bodies as bytes and keep JSON/text on the
+decoded path. There is still no multipart parser, configurable body-parser stack
+or inbound request stream exposed to handlers.
 
 ## What the adapters do
 
-`toNodeHandler` first decides whether there is a body to read at all. Per RFC
-9112 a request with neither `content-length` nor `transfer-encoding` has none, so
-those requests — most `GET`s, `HEAD`s and `DELETE`s — are dispatched immediately
-without attaching stream listeners. `content-length: 0` counts as no body too.
+`toNodeHandler` first decides whether there is a body to read. Per RFC 9112, a
+request with neither `content-length` nor `transfer-encoding` has none, so most
+`GET`, `HEAD` and `DELETE` requests dispatch without attaching body listeners.
+`content-length: 0` counts as no body too.
 
-When there is one, the adapter calls `req.setEncoding('utf8')` and accumulates
-the decoded string:
-
-```ts
-rawBody: raw.length > 0 ? parseJson(raw) : undefined;
-```
-
-`setEncoding` matters for correctness, not just speed: it installs a
-`StringDecoder`, which holds a partial multi-byte character across reads. Decoding
-each chunk on its own — which this adapter used to do — corrupts any character
-whose UTF-8 bytes straddle a chunk boundary, so a large body containing non-ASCII
-text would silently arrive with `�` in it.
-
-`parseJson` returns the parsed value — or, on a parse failure, **the original string**:
+Both adapters enforce `maxBodyBytes`, defaulting to 1 MiB:
 
 ```ts
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
+const nodeHandler = toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
+const fetchHandler = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 ```
 
-So `ctx.body` is:
+The value must be a positive safe integer. A body over the limit receives `413`
+and is not dispatched.
 
-| Request      | `ctx.body`                                |
-| ------------ | ----------------------------------------- |
-| Empty body   | `undefined`                               |
-| Valid JSON   | the parsed value                          |
-| Invalid JSON | the raw **string**                        |
-| `text/plain` | the raw string (unless it parses as JSON) |
-| Form-encoded | the raw string                            |
+Content type selects the representation delivered as `ctx.body`:
 
-Content-type is never consulted. A `GET` with no body gives `undefined`; `toFetchHandler` skips reading the body entirely for `GET` and `HEAD`.
+| Request content type                          | `ctx.body`                                    |
+| --------------------------------------------- | --------------------------------------------- |
+| Empty body                                    | `undefined`                                   |
+| `application/json` or an `application/*+json` | parsed JSON, or the decoded string if invalid |
+| `text/*`                                      | decoded string, unless it parses as JSON      |
+| another explicit content type                 | `Uint8Array<ArrayBuffer>` with exact bytes    |
+| no content type                               | decoded/JSON path for compatibility           |
 
-This is why validating is not optional:
+The Node adapter uses `setEncoding('utf8')` only on the decoded path, preserving
+partial multi-byte characters across chunks. The Fetch adapter reads bytes first
+and decodes only after applying the same content-type rule.
+
+Validation remains essential:
 
 ```ts
 const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
-Without it, a malformed request hands your handler a string where it expects an object, and the failure surfaces somewhere less useful. With it, you get a 400.
+Without it, malformed JSON reaches a handler as a string instead of the object
+the handler expects.
 
-## Getting the genuine raw bytes
+## Exact bytes and webhook signatures
 
-You cannot, from a handler — the adapter has already consumed the stream and thrown the text away. Read it in your own adapter instead:
-
-```ts
-createServer(async (req, res) => {
-  const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c);
-  const raw = Buffer.concat(chunks);
-
-  const out = await app.handle({
-    method: req.method ?? 'GET',
-    path: (req.url ?? '/').split('?')[0] ?? '/',
-    headers: req.headers as Record<string, string>,
-    rawBody: raw, // pass the Buffer through untouched
-  });
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
-});
-```
-
-`WebRequest.rawBody` is `unknown`, so a `Buffer` passes through unchanged and `ctx.body` is that `Buffer`. Parse it in the handler:
+For a non-JSON content type, the handler receives exact bytes:
 
 ```ts
 @Post('/hook')
-async hook(ctx: Ctx<Record<never, string>, unknown>) {
-  const buffer = ctx.body;
-  if (!(buffer instanceof Buffer)) throw new ValidationError('expected a raw body', []);
-  const payload = assert<StripeEvent>(JSON.parse(buffer.toString('utf8')));
-  // …
+hook(ctx: Ctx<Record<never, string>, unknown>) {
+  if (!(ctx.body instanceof Uint8Array)) {
+    throw new ValidationError('expected a binary body', []);
+  }
+  verifySignature(ctx.body);
 }
 ```
 
-## Webhook signature verification
-
-The reason raw bytes matter. A signature covers the exact bytes sent, and `JSON.parse` then `JSON.stringify` does not round-trip — key order, number formatting and unicode escapes all change, so re-serialising invalidates every signature.
+A provider that sends `application/json` still takes the JSON path, so its
+pre-parse bytes are not available to the handler. If that provider signs the
+exact JSON bytes, use a route-specific adapter that verifies before parsing.
+Re-serializing parsed JSON is not equivalent: key order, number formatting and
+Unicode escapes can all change.
 
 ```ts
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-function verify(raw: Buffer, header: string, secret: string): boolean {
+function verify(raw: Uint8Array, header: string, secret: string): boolean {
   const expected = createHmac('sha256', secret).update(raw).digest();
-  const given = Buffer.from(header, 'hex');
+  const given = Uint8Array.fromHex(header);
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 ```
 
-Three things this gets right:
+Three details matter:
 
-- **HMAC over the raw buffer**, not a re-serialised object.
-- **`timingSafeEqual`**, not `===`. String comparison short-circuits on the first differing byte, which leaks the signature a byte at a time to a patient attacker.
-- **A length check first**, because `timingSafeEqual` throws on mismatched lengths.
+- HMAC the exact bytes, not a re-serialized object.
+- Use `timingSafeEqual`, not `===`.
+- Check lengths first because `timingSafeEqual` throws when they differ.
 
-Also check the timestamp the provider sends and reject anything older than a few minutes, or a captured request can be replayed forever.
-
-Verify **before** parsing and before any database work. A webhook endpoint is unauthenticated by definition; the signature is the only thing standing between it and an attacker.
-
-## Size limits
-
-There are none. `toNodeHandler` accumulates the whole body in memory with no cap, so a large upload is a memory-exhaustion vector. Cap it in your adapter:
-
-```ts
-const MAX = 1_000_000;
-let size = 0;
-const chunks: Buffer[] = [];
-for await (const c of req) {
-  size += c.length;
-  if (size > MAX) {
-    res.writeHead(413).end('{"error":"payload too large"}');
-    return;
-  }
-  chunks.push(c);
-}
-```
-
-Do this. Behind a reverse proxy you may already have a limit, but relying on a proxy config for a memory-safety property is not a control you can see in the code.
+Also verify the provider timestamp and reject stale requests, or a captured
+request can be replayed indefinitely.
 
 ## Multipart and file uploads
 
-Not supported, and awkward to add: the adapter reads the whole body into memory and `WebResponse.body` is a `string`, so there is no streaming in either direction. For uploads, the arrangement that avoids the problem entirely is a presigned URL — the client uploads directly to object storage and posts you the resulting key:
+`multipart/form-data` now arrives as bounded bytes instead of lossy UTF-8 text,
+but multipart parsing is not shipped. The complete body is still buffered before
+dispatch, so this is suitable only within the configured `maxBodyBytes`.
 
-```ts
-@Post('/uploads')
-async presign(ctx: Ctx<Record<never, string>, unknown>) {
-  const { filename, contentType } = assert<{ filename: string; contentType: string }>(ctx.body);
-  return { url: await presignPut(key(filename), contentType), key: key(filename) };
-}
-```
-
-Better than proxying bytes through your application regardless of framework: no memory pressure, no timeout, no bandwidth cost. Validate the content type and cap the size in the presign policy, not after the fact.
-
-If you must accept multipart, handle it in the adapter with `busboy` before calling `app.handle`, and pass the parsed fields as `rawBody`.
+For large uploads, a presigned object-storage URL remains the better design: the
+client uploads directly and posts the resulting key. If the application must
+parse multipart itself, raise the adapter limit deliberately, parse the
+`Uint8Array` with a bounded parser, and enforce the part limits in the frozen
+upload spec.
 
 ## Form-encoded bodies
 
-Parse them in the adapter:
+`application/x-www-form-urlencoded` arrives as bytes. Decode and parse it
+explicitly:
 
 ```ts
-const parsed = req.headers['content-type']?.startsWith('application/x-www-form-urlencoded')
-  ? Object.fromEntries(new URLSearchParams(raw))
-  : raw.length > 0
-    ? JSON.parse(raw)
-    : undefined;
+if (!(ctx.body instanceof Uint8Array)) {
+  throw new ValidationError('expected form bytes', []);
+}
+const form = Object.fromEntries(new URLSearchParams(new TextDecoder().decode(ctx.body)));
 ```
 
-Every value is a string, so coerce and validate — and remember `Number('abc')` is `NaN`, which passes a `number` check.
+Every value is a string, so coerce and validate it.
 
 ---
 
-See also: [Request Lifecycle](./web-request-lifecycle.html) · [Streaming](./streaming.html) · [Authentication](./web-authentication.html)
+See also: [Request Lifecycle](./web-request-lifecycle.html) · [Streaming Files](./web-streaming-files.html) · [File Upload](./web-file-upload.html)

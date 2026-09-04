@@ -84,9 +84,8 @@ One method, no streaming, no retries, no token accounting. All three are real ne
 derivable from a declaration:
 
 - **Streaming** is refused here because the loop's product is a message list, and a token stream is a
-  different shape with a different consumer. `WebResponse.body` is a `string` besides, which is the same
-  blocker `llm-chat.md` already documents; `sseStream` from `@zmdb/web/gateways` is the route, and it belongs
-  to the route rather than to the loop.
+  different shape with a different consumer. The web response layer can carry a stream; a provider-specific
+  token stream still belongs to the route or driver rather than to this loop.
 - **Retries** belong to the driver, because retryability is a provider's status codes.
   `docs-site/content/llm-http.md` has the fifteen lines, including the jitter, and a retry policy inside the
   loop would be a second one fighting it.
@@ -305,7 +304,7 @@ chooses whether and where to retain it.
 - **No default for `maxTurns`.** §4 — any number defensible enough to default to is a number that lets a
   runaway run.
 - **No streaming in the driver interface.** §2 — a token stream is a different product with a different
-  consumer, and the framework's response body is a string.
+  consumer; the web response layer is no longer the constraint.
 - **No retries, backoff or rate-limit handling in the loop.** §2 — retryability is a provider's status codes,
   and `llm-http.md` already has the code.
 - **No `Message` export.** §1 — the name is taken, in the reader's own file, by the example this repository

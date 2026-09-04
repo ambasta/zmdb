@@ -1,9 +1,7 @@
 > **ToDo / feature gap.** There is no static file serving — no `ServeStaticModule`,
 > no `useStaticAssets`. A handler can now set the status, headers and body via
-> `respond()`, so returning a small text asset is possible in userland; what is
-> still missing is a module that maps a directory to routes, and streaming —
-> `WebResponse.body` is a `string`, so the whole file is read into memory and
-> binary content has to be handled outside the framework.
+> `respond()`, `bytes()` or `file()`. What remains is the security-sensitive
+> handler that confines paths to a root and implements caching and ranges.
 >
 > The confinement, caching and range rules it will ship with are frozen in
 > `packages/web/src/static/SPEC.md`, enumerated technique by technique. Two things
@@ -43,6 +41,7 @@ import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { join, normalize, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { bodyText } from '@zmdb/web';
 
 const ROOT = '/var/www/assets';
 
@@ -89,13 +88,15 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
       Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
     ),
   });
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
 });
 ```
 
 `app.handle` takes a `WebRequest`, which is `{ method, path, headers, rawBody?, query? }` — a
 `path` with the query string already removed, not a `url`. This branch has one, so it reuses it;
 [compression](./web-compression.html) shows the same construction with the body-reading half.
+The custom fallback buffers an application stream; `toNodeHandler` is the
+backpressure-aware adapter when no static-file branch is needed.
 
 ## The security details, which are the whole point
 

@@ -43,17 +43,19 @@ Use this when you want zmdb's DI and OpenAPI for the API surface and Hono's midd
 
 ## Hono middleware fills real gaps
 
-This is the strongest argument for the combination. Several things `@zmdb/web` cannot do are one Hono middleware away, because `WebResponse.body` is a `string`:
+This is the strongest argument for the combination. Several cross-cutting
+features `@zmdb/web` does not ship are one Hono middleware away:
 
-| Gap in `@zmdb/web`                      | Hono             |
-| --------------------------------------- | ---------------- |
-| [Streaming responses](./streaming.html) | `hono/streaming` |
-| [Compression](./web-compression.html)   | `compress()`     |
-| [Static files](./web-static-files.html) | `serveStatic()`  |
-| [CSRF](./web-csrf.html)                 | `csrf()`         |
-| Rate limiting, CORS, secure headers     | middleware       |
+| Gap in `@zmdb/web`                      | Hono            |
+| --------------------------------------- | --------------- |
+| [Compression](./web-compression.html)   | `compress()`    |
+| [Static files](./web-static-files.html) | `serveStatic()` |
+| [CSRF](./web-csrf.html)                 | `csrf()`        |
+| Rate limiting, CORS, secure headers     | middleware      |
 
 Put those outside the mount, where Hono owns the `Response`.
+For an application-owned response stream, `@zmdb/web` itself provides
+`stream()`.
 
 ## Choosing between them
 

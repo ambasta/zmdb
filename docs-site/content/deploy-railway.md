@@ -5,7 +5,7 @@ Railway runs a long-running container, which is the easy case: a real pool, real
 ```ts
 // src/main.ts
 import { createServer } from 'node:http';
-import { createApp } from '@zmdb/web';
+import { bodyText, createApp } from '@zmdb/web';
 import { AppModule } from './app-module.js';
 
 const app = createApp(AppModule);
@@ -22,11 +22,14 @@ const server = createServer(async (req, res) => {
     rawBody: Buffer.concat(chunks).toString('utf8'),
   });
 
-  res.writeHead(out.status, out.headers).end(out.body);
+  res.writeHead(out.status, out.headers).end(await bodyText(out));
 });
 
 server.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 ```
+
+This module-level adapter buffers streamed responses. Use `toNodeHandler` at
+router level when streaming and backpressure must be preserved.
 
 Two Railway-specific requirements: bind `0.0.0.0`, not `localhost`, or the health check cannot reach you; and use `process.env.PORT`, which Railway assigns.
 

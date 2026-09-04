@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
 import { Module } from '../modules/index.js';
+import { bodyText } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { createApp, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './index.js';
 
@@ -35,7 +36,7 @@ describe('@zmdb/web app: createApp', () => {
     const app = createApp(AppModule);
     const res = await app.handle({ method: 'GET', path: '/ping', headers: {} });
     expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ pong: true });
+    expect(JSON.parse(await bodyText(res))).toEqual({ pong: true });
   });
 
   it('runs init hooks in order and onShutdown on dispose (reversed)', async () => {

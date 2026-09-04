@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp, type App } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
 import { compileModule, type CompiledModule } from '../modules/index.js';
+import { bodyText } from '../pipeline/index.js';
 import {
   AppModule,
   BrokenLazyAppModule,
@@ -216,7 +217,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
     await app.init();
     const response = await app.handle({ method: 'GET', path: '/admin', headers: {} });
     expect(response.status).toBe(200);
-    expect(response.body).toBe('"admin"');
+    expect(await bodyText(response)).toBe('"admin"');
   });
 
   // §L12.4 second half: "the count of registered routes is the same whether or not any load has
@@ -370,7 +371,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
     const second = await app.handle({ method: 'GET', path: '/broken', headers: {} });
     expect(first.status, 'first request').toBe(500);
     expect(second, 'second request is byte-identical to the first').toEqual(first);
-    expect(first.body).toContain('the pool could not be opened');
+    expect(await bodyText(first)).toContain('the pool could not be opened');
     expect(
       factoryCalls.filter(call => call === 'BROKEN_POOL'),
       'factory calls',
@@ -468,7 +469,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
 
     const disposing = app[Symbol.asyncDispose]();
     const late = await app.handle({ method: 'GET', path: '/slow', headers: {} });
-    expect(late.body, 'a request arriving after dispose began').toContain('application is shutting down');
+    expect(await bodyText(late), 'a request arriving after dispose began').toContain('application is shutting down');
 
     slowGate.open();
     expect((await triggering).status, 'the triggering request still succeeds').toBe(200);
@@ -535,7 +536,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
     await app.init();
     const response = await app.handle({ method: 'GET', path: '/users/me', headers: {} });
     expect(response.status).toBe(200);
-    expect(response.body, 'GET /users/:id was declared first').toBe('"byId"');
+    expect(await bodyText(response), 'GET /users/:id was declared first').toBe('"byId"');
   });
 });
 

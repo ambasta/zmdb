@@ -65,6 +65,8 @@ The adapter sees the status, the byte count and every request including the 404s
 which makes it the better place for access logging:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 createServer(async (req, res) => {
   const started = performance.now();
   const requestId = req.headers['x-request-id'] ?? randomUUID();
@@ -77,11 +79,13 @@ createServer(async (req, res) => {
     status: out.status,
     ms: round(performance.now() - started),
   });
-  res.writeHead(out.status, { ...out.headers, 'x-request-id': String(requestId) }).end(out.body);
+  res.writeHead(out.status, { ...out.headers, 'x-request-id': String(requestId) }).end(await bodyText(out));
 });
 ```
 
 Echo the request id back, and accept an inbound one so a trace spans services.
+The custom logger buffers a streamed body; `toNodeHandler` preserves
+backpressure and cancellation.
 
 `webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 

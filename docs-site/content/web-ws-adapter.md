@@ -109,16 +109,16 @@ Remove sockets on `close` **and** on `error`, or the set grows forever and you b
 
 ## Server-sent events
 
-`sseStream` exists in the gateways module and formats an SSE event stream. It cannot be returned from an HTTP handler, because `WebResponse.body` is a `string` — so write it to a Node response directly:
+The response layer can now carry an SSE stream, but the existing `sseStream`
+helper has not earned direct `stream(sseStream(...))` wiring. Its public byte
+type is still `Uint8Array<ArrayBufferLike>`, while `stream()` deliberately
+requires `Uint8Array<ArrayBuffer>`, and its source has no `cancel` hook to call
+`iterator.return()` when a client disconnects.
 
-```ts
-res.writeHead(200, {
-  'content-type': 'text/event-stream',
-  'cache-control': 'no-cache',
-  connection: 'keep-alive',
-});
-for await (const chunk of sseStream(events)) res.write(chunk);
-```
+Use `stream()` with an application-owned SSE `ReadableStream` that implements
+`cancel`, or adapt a provider stream that already propagates cancellation. Do
+not put a long-lived iterator or cursor behind the current helper and assume a
+disconnect releases it.
 
 Send a comment line (`: ping\n\n`) every 20–30 seconds or proxies will close an idle stream. See [Streaming](./streaming.html).
 

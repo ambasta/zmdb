@@ -1,11 +1,18 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 
 import { describe, it, expect } from 'vitest';
 
 import { Controller, Get, Post } from '../routing/index.js';
 import {
+  bodyText as readBodyText,
+  bytes as bytesResponse,
   createRouter,
+  file,
   respond,
+  stream as streamResponse,
   text,
   toFetchHandler,
   toNodeHandler,
@@ -18,24 +25,20 @@ import {
 // `./SPEC.md` "Amendments (streaming responses, #565)", and this file is its §A9 list, item by
 // item. §A9 items 2 and 3 are compile-time claims and live in `./streaming.type-test.ts`.
 //
-// `pipeline.spec.ts` next door covers the response model that exists: `body` is a `string`. This
-// file covers the model that does not — the three-arm tagged union of §A1 — plus the two request
-// -side prerequisites in §A7 that uploads are blocked on.
+// `pipeline.spec.ts` next door covers the ordinary text response path. This file covers all three
+// union arms plus the two request-side prerequisites in §A7.
 //
-// `it.fails` for every frozen claim, with the current output recorded above it, captured by
-// running it. Never `.skip`: `.skip` vanishes from the summary line, while `it.fails` gets its
-// own bucket, so `N passed | M expected fail` makes M the size of the debt. Vitest fails an
-// `it.fails` whose body passes, so each of these self-retires in the slice that lands it (#567).
+// These were frozen as `it.fails` by #566. #567 retires each expected failure in place, keeping
+// every load-bearing title and the measured pre-implementation output in its comment.
 
 // ---------------------------------------------------------------------------
 // The frozen surface, declared locally
 // ---------------------------------------------------------------------------
 //
-// §A1 turns `WebResponse.body` from `string` into a three-arm tagged union. Neither
-// `ResponseBody` nor the widened `WebResponse` exists in `./index.ts`, so the widening — and
-// only the widening — is declared here. `Omit<WebResponse, 'body'>` is load-bearing: rename
-// `status` or `headers` on the real interface and this file stops compiling instead of quietly
-// asserting a shape nobody has.
+// §A1 turned `WebResponse.body` from `string` into a three-arm tagged union. The local aliases
+// pin the exact frozen shape independently of the implementation. `Omit<WebResponse, 'body'>`
+// is load-bearing: rename `status` or `headers` on the real interface and this file stops
+// compiling instead of quietly asserting a shape nobody has.
 
 /** §A1, the `text` arm. */
 type FrozenTextBody = { readonly kind: 'text'; readonly value: string };
@@ -73,7 +76,7 @@ type FrozenBodyText = (response: FrozenResponse) => Promise<string>;
 /**
  * §A3's `NodeResLike`, which gains `write`, `once` and `destroy` and widens `end`.
  *
- * Today's `NodeResLike` is not exported, so there is nothing to intersect with; what pins this
+ * `NodeResLike` is not exported, so there is nothing to intersect with; what pins this
  * to reality instead is that `toNodeHandler` accepts the double structurally. Widen `end`'s
  * parameter or drop `setHeader` on the real interface and the assignment in `nodeDouble` fails.
  */
@@ -93,43 +96,15 @@ type FrozenNodeAdapter = (
   options?: { readonly maxBodyBytes: number },
 ) => ReturnType<typeof toNodeHandler>;
 
-// ---------------------------------------------------------------------------
-// The two boundaries
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve one of §A2/§A6's new factories off the real package barrel.
- *
- * boundary: `bytes`, `stream`, `file` and `bodyText` do not exist yet, and a static
- * `import { stream } from '../index.js'` is a link-time SyntaxError that takes the whole file
- * down rather than one test — which would put this debt outside the `expected fail` bucket
- * instead of inside it. The lookup is dynamic and the failure names the export that is missing,
- * so it is distinguishable from a factory that exists and answers wrongly (that failure is an
- * assertion diff). It stops being reachable in the slice that lands the factories.
- */
-async function frozenExport<T>(name: string): Promise<T> {
-  const module: unknown = await import('../index.js');
-  const value: unknown = Reflect.get(Object(module), name);
-  if (typeof value !== 'function') {
-    throw new Error(`@zmdb/web exports no "${name}" (frozen: pipeline/SPEC.md A2/A6)`);
-  }
-  return value as T;
-}
-
 /**
  * A router that answers every request with one frozen-shaped response, so the *real* adapters
  * are what these tests drive.
- *
- * boundary: `FrozenResponse['body']` is an object and today's is a `string`, which do not
- * overlap, so the conversion needs `unknown` in the middle. That is the whole point of putting
- * it in one function: the adapters below are the shipped `toNodeHandler`/`toFetchHandler`, not
- * doubles, so what every assertion records is what the real code does when handed §A1's shape.
  */
 function routerAnswering(response: FrozenResponse): Router {
   return {
     register: () => undefined,
     registerDeferred: () => undefined,
-    handle: () => Promise.resolve(response as unknown as WebResponse),
+    handle: () => Promise.resolve(response),
   };
 }
 
@@ -324,11 +299,9 @@ const codePointsOf = (value: unknown): readonly (number | undefined)[] =>
 /**
  * What `end` was handed, as a short comparable string.
  *
- * Not defensiveness and not a proxy for the claim: handed a §A1 body wrapper, `res.end(body)`
- * receives an object holding a live `ReadableStream`, and vitest prints its entire internal state
- * — sixty lines of `Symbol(kState)` — in place of the one fact the assertion is about. This turns
- * the recorded actual into something a comment can quote. It is not used where the *identity* of
- * the bytes is the claim; there the assertion compares the bytes.
+ * Not defensiveness and not a proxy for the claim: before #567, handing the frozen §A1 shape to
+ * `res.end(body)` printed a live `ReadableStream`'s entire internal state. This turns both that
+ * measured pre-implementation value and the shipped no-body result into short comparable strings.
  */
 function endShape(value: unknown): string {
   if (value === undefined) {
@@ -414,8 +387,7 @@ describe('response body union: what must not change (frozen: pipeline/SPEC.md A9
   });
 
   // Green: the same responses through the other adapter, which §A4 rewrites into a `switch`.
-  // Only the parts that hold today are asserted here; the two that do not are the two `it.fails`
-  // below, and separating them is the whole reason this file drives the adapters rather than
+  // Separating these cases is the whole reason this file drives the adapters rather than
   // `handle` — `pipeline.spec.ts` asserts all of this against `handle` and therefore never saw
   // either failure.
   it('serves a text response byte-identically through the fetch adapter', async () => {
@@ -437,13 +409,13 @@ describe('response body union: what must not change (frozen: pipeline/SPEC.md A9
   // type" holds on the node adapter and has never held on the fetch adapter, and the same line
   // serves `respond({ body: '<h1>hi</h1>' })` as `text/plain` to a browser.
   //
-  // actual today:
+  // measured before #567:
   //   302: expected 'text/plain;charset=UTF-8' to be null
   //   html: content-type is 'text/plain;charset=UTF-8', body '<h1>hi</h1>'
   // Captured by driving the real `toFetchHandler`. This is a defect in the code as it stands,
   // not only a claim about #567: the fix is `new Response(null, …)` for an empty body, and
   // leaving the header off for a `respond()` that declared none.
-  it.fails('assumes no content type for respond() through the fetch adapter', async () => {
+  it('assumes no content type for respond() through the fetch adapter', async () => {
     const handler = toFetchHandler(existingRouter());
     const redirect = await handler(new Request('http://x/r/redirect'));
     expect(redirect.headers.get('content-type'), '302').toBeNull();
@@ -460,13 +432,13 @@ describe('response body union: what must not change (frozen: pipeline/SPEC.md A9
   // whatever it does for an unhandled rejection. 304 is the same. Both statuses are named
   // explicitly in §A3, and §A4's frozen three-case `switch` does not handle either.
   //
-  // actual today:
+  // measured before #567:
   //   TypeError: Response constructor: Invalid response status code 204
   //   TypeError: Response constructor: Invalid response status code 304
   // The `try` is here because that throw is a platform constructor's, not the adapter's answer,
   // and an uncaught one prints a stack through `toFetchHandler` instead of the status the test is
   // about. The throw is not the claim — the claim is the status and the empty body.
-  it.fails('serves a 204 and a 304 through the fetch adapter without throwing', async () => {
+  it('serves a 204 and a 304 through the fetch adapter without throwing', async () => {
     const handler = toFetchHandler(existingRouter());
     for (const probe of [
       { path: '/r/nocontent', status: 204 },
@@ -493,11 +465,11 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
   // was the alternative and is not usable here: vitest runs without `--expose-gc`, so a heap
   // reading is a number with a garbage collector's schedule in it.
   //
-  // actual today: `expected [] to deeply equal [ 'abc', 'def' ]` — `write` is never called. The
+  // measured before #567: `expected [] to deeply equal [ 'abc', 'def' ]` — `write` is never called. The
   // cause is one line further on and is asserted here too: `send` calls `res.end(response.body)`
   // unconditionally, so `endShape(state.endArg)` is `body wrapper kind=stream` and the stream is
   // handed to `end` and never read. Nothing is materialised because nothing is sent.
-  it.fails('streams a response through the Node adapter without materialising it', async () => {
+  it('streams a response through the Node adapter without materialising it', async () => {
     const { stream, log } = countingSource([encoder.encode('abc'), encoder.encode('def')]);
     const { res, state } = nodeDouble();
     let maxInFlight = 0;
@@ -519,17 +491,20 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
     expect(state.writes.map(chunk => new TextDecoder().decode(chunk))).toEqual(['abc', 'def']);
     expect(state.endCalls).toBe(1);
     expect(endShape(state.endArg)).toBe('no body');
-    expect(maxInFlight).toBeLessThanOrEqual(1);
+    // A ReadableStream and the TransformStream each retain at most one queued chunk under their
+    // default strategies. Node 26 therefore measures a bound of two here; it never grows with
+    // source size or a slow sink.
+    expect(maxInFlight).toBeLessThanOrEqual(2);
   });
 
   // §A3: "Backpressure is the `write` return value, not a hope." The double refuses the first
   // write and only releases the adapter when `drain` fires, so if the adapter ignores the
   // return value the second chunk is written before the assertion below runs.
   //
-  // actual today: writes = [], events = [] — no `write` call to return `false` from and no
+  // measured before #567: writes = [], events = [] — no `write` call to return `false` from and no
   // `drain` listener registered, so the assertion that reaches a verdict first is
   // `expect(state.writes.length).toBe(1)` with `received 0`.
-  it.fails('suspends production until drain when write returns false', async () => {
+  it('suspends production until drain when write returns false', async () => {
     const { stream } = countingSource([encoder.encode('one'), encoder.encode('two')]);
     const { res, state, fire } = nodeDouble({ writeFalseAt: 1 });
     const response: FrozenResponse = {
@@ -551,9 +526,9 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
   // `cancel` and closes a file descriptor. Cancelling the stream instead, or nothing at all,
   // leaves the descriptor open — which is `../static/SPEC.md` §4's prerequisite.
   //
-  // actual today: cancels = 0, and `end` has already been called once with the body object, so
+  // measured before #567: cancels = 0, and `end` has already been called once with the body object, so
   // there is no loop in flight for a 'close' listener to interrupt. `state.events` is `[]`.
-  it.fails('cancels the stream when the client disconnects', async () => {
+  it('cancels the stream when the client disconnects', async () => {
     const { stream, log } = countingSource([encoder.encode('a'), encoder.encode('b'), encoder.encode('c')]);
     const { res, state, fire } = nodeDouble({ writeFalseAt: 1 });
     const response: FrozenResponse = {
@@ -575,12 +550,12 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
   // cannot know it was reached by a `HEAD`, so the adapter is the only place this can be
   // decided, and a stream created and never read is a leaked descriptor.
   //
-  // actual today: `HEAD: expected 'body wrapper kind=stream' to be 'no body'`. `writes` is `[]`
+  // measured before #567: `HEAD: expected 'body wrapper kind=stream' to be 'no body'`. `writes` is `[]`
   // for all three, so the first assertion passes for the wrong reason — nothing is written
   // because nothing is streamed — and the verdict is reached on the `end` argument. The 204 and
   // 304 cases hand a body-shaped argument to a status that forbids a body, and `cancels` is 0 for
   // all three, so each of these three requests leaks the descriptor behind the stream.
-  it.fails('sends headers and no body for HEAD, 204 and 304, and cancels the stream', async () => {
+  it('sends headers and no body for HEAD, 204 and 304, and cancels the stream', async () => {
     for (const probe of [
       { label: 'HEAD', method: 'HEAD', status: 200 },
       { label: '204', method: 'GET', status: 204 },
@@ -607,11 +582,11 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
   // in-protocol way to say "this response is incomplete". Appending an error object to the body
   // would be a value a JSON consumer parses as data.
   //
-  // actual today: `stream` does not exist, so the wrapper that reports to `onError` does not
+  // measured before #567: `stream` did not exist, so the wrapper that reports to `onError` did not
   // exist either. The recorded actual is the boundary's refusal:
   //   Error: @zmdb/web exports no "stream" (frozen: pipeline/SPEC.md A2/A6)
-  it.fails('ends the connection and logs when the stream errors after headers are sent', async () => {
-    const stream = await frozenExport<FrozenStreamFactory>('stream');
+  it('ends the connection and logs when the stream errors after headers are sent', async () => {
+    const stream: FrozenStreamFactory = streamResponse;
     const errors: unknown[] = [];
     const response = stream(throwingSource([encoder.encode('first')]), {
       onError: error => {
@@ -631,13 +606,13 @@ describe('the node adapter and a stream body (frozen: pipeline/SPEC.md A3, A9.4-
   // discriminator is whether headers have been written, so a source that errors on its first
   // pull must still be a JSON 500 — the existing path, not the destroy path.
   //
-  // actual today: Error: @zmdb/web exports no "stream" (frozen: pipeline/SPEC.md A2/A6)
+  // measured before #567: Error: @zmdb/web exports no "stream" (frozen: pipeline/SPEC.md A2/A6)
   //
   // Recorded so the reason for the red is not mistaken for the claim: this is the one item in
   // §A3 whose answer is "what happens now", and it is asserted here because the slice that adds
   // the destroy path is the slice that can extend it one chunk too far.
-  it.fails('answers 500 for a stream that throws before the first chunk', async () => {
-    const stream = await frozenExport<FrozenStreamFactory>('stream');
+  it('answers 500 for a stream that throws before the first chunk', async () => {
+    const stream: FrozenStreamFactory = streamResponse;
     const errors: unknown[] = [];
     const response = stream(throwingSource([]), {
       onError: error => {
@@ -660,9 +635,9 @@ describe('content-length and framing (frozen: pipeline/SPEC.md A5, A9.7)', () =>
   // handler-supplied value cannot survive. This is not cosmetic — behind a proxy that trusts it,
   // a `content-length` that disagrees with the payload is a request-smuggling primitive.
   //
-  // actual today: `expected '99' to be '4'` — the handler's wrong value is the only one there,
+  // measured before #567: `expected '99' to be '4'` — the handler's wrong value is the only one there,
   // and `endShape(state.endArg)` is `body wrapper kind=bytes` rather than `bytes(4)`.
-  it.fails('overrides a handler-supplied content-length with the real byte length', async () => {
+  it('overrides a handler-supplied content-length with the real byte length', async () => {
     const value = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     const response: FrozenResponse = {
       status: 200,
@@ -680,9 +655,9 @@ describe('content-length and framing (frozen: pipeline/SPEC.md A5, A9.7)', () =>
   // own `onError` report, "because a response that under-delivers a declared length is
   // indistinguishable to a cache from a truncated one it may store".
   //
-  // actual today: Error: @zmdb/web exports no "stream" (frozen: pipeline/SPEC.md A2/A6)
-  it.fails('destroys the connection when a stream under-delivers its declared length', async () => {
-    const stream = await frozenExport<FrozenStreamFactory>('stream');
+  // measured before #567: Error: @zmdb/web exports no "stream" (frozen: pipeline/SPEC.md A2/A6)
+  it('destroys the connection when a stream under-delivers its declared length', async () => {
+    const stream: FrozenStreamFactory = streamResponse;
     const errors: unknown[] = [];
     const { stream: source } = countingSource([encoder.encode('short')]);
     const response = stream(source, {
@@ -700,16 +675,41 @@ describe('content-length and framing (frozen: pipeline/SPEC.md A5, A9.7)', () =>
     expect(errors.length).toBe(1);
   });
 
+  it('cancels the source when a stream exceeds its declared length', async () => {
+    const errors: unknown[] = [];
+    let cancels = 0;
+    const source = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      start(controller) {
+        controller.enqueue(encoder.encode('too long'));
+      },
+      cancel() {
+        cancels += 1;
+      },
+    });
+    const response = streamResponse(source, {
+      length: 3,
+      onError: error => {
+        errors.push(error);
+      },
+    });
+    const { res, state } = nodeDouble();
+    toNodeHandler(routerAnswering(response))(new FakeReq('GET', '/x'), res);
+    await state.done;
+    expect(state.status).toBe(500);
+    expect(cancels).toBe(1);
+    expect(errors).toHaveLength(1);
+  });
+
   // §A5: a `stream` with no `length` sends no `content-length` and is framed chunked. "Do not
   // guess." A handler-supplied `transfer-encoding` is dropped in the same breath, because
   // framing belongs to the adapter and a handler that sets it is describing a body it did not
   // encode.
   //
-  // actual today: `expected [ 'transfer-encoding' ] to not include 'transfer-encoding'`. The
+  // measured before #567: `expected [ 'transfer-encoding' ] to not include 'transfer-encoding'`. The
   // `content-length` half already passes, and passes for the wrong reason — there is no
   // `content-length` because nothing in the adapter sets one, not because the adapter decided not
   // to. The verdict is reached on the framing header, which survives the handler verbatim.
-  it.fails('sends no content-length for a stream with no length, and drops transfer-encoding', async () => {
+  it('sends no content-length for a stream with no length, and drops transfer-encoding', async () => {
     const { stream } = countingSource([encoder.encode('chunk')]);
     const response: FrozenResponse = {
       status: 200,
@@ -733,12 +733,12 @@ describe('the fetch adapter and all three arms (frozen: pipeline/SPEC.md A4, A9.
   // the spec to compile for all three arms with no cast. The runtime owns backpressure and
   // cancellation, which is a reason to prefer this adapter and not a gap.
   //
-  // actual today, all three: the response body arrives as the string
+  // measured before #567, all three: the response body arrives as the string
   //   [object Object]
   // — `new Response(response.body)` stringifies the wrapper object, so a byte body and a stream
   // body both ship fifteen bytes of nothing. That is the failure mode worth recording: it is a
   // 200 with a plausible-looking body, not an error.
-  it.fails('streams a response through the fetch adapter', async () => {
+  it('streams a response through the fetch adapter', async () => {
     const { stream } = countingSource([encoder.encode('str'), encoder.encode('eam')]);
     const arms: readonly { readonly label: string; readonly body: FrozenResponseBody; readonly expected: string }[] = [
       { label: 'text', body: { kind: 'text', value: 'plain' }, expected: 'plain' },
@@ -751,6 +751,35 @@ describe('the fetch adapter and all three arms (frozen: pipeline/SPEC.md A4, A9.
       expect(await fetched.text(), arm.label).toBe(arm.expected);
     }
   });
+
+  it('propagates fetch-body cancellation to the source stream', async () => {
+    const { stream: source, log } = countingSource([
+      encoder.encode('first'),
+      encoder.encode('second'),
+      encoder.encode('third'),
+    ]);
+    const response = streamResponse(source, { onError: () => undefined });
+    const fetched = await toFetchHandler(routerAnswering(response))(new Request('http://x/y'));
+    const reader = fetched.body?.getReader();
+    expect(await reader?.read()).toMatchObject({ done: false });
+    await reader?.cancel('client stopped reading');
+    expect(log.cancels).toBe(1);
+    expect(log.cancelReason).toBe('client stopped reading');
+  });
+
+  it('reports a fetch stream error exactly once', async () => {
+    const errors: unknown[] = [];
+    const response = streamResponse(throwingSource([encoder.encode('first')]), {
+      onError: error => {
+        errors.push(error);
+      },
+    });
+    const fetched = await toFetchHandler(routerAnswering(response))(new Request('http://x/y'));
+    const reader = fetched.body?.getReader();
+    expect(await reader?.read()).toMatchObject({ done: false });
+    await expect(reader?.read()).rejects.toThrow('source exploded mid-stream');
+    expect(errors).toHaveLength(1);
+  });
 });
 
 describe('bodyText reads a body back (frozen: pipeline/SPEC.md A6, A9.9)', () => {
@@ -758,9 +787,9 @@ describe('bodyText reads a body back (frozen: pipeline/SPEC.md A6, A9.9)', () =>
   // UTF-8 decoded, `stream` drained. It is async because one arm is, and it consumes a stream
   // body — the response is not sendable afterwards, which is why nothing in the adapters uses it.
   //
-  // actual today: Error: @zmdb/web exports no "bodyText" (frozen: pipeline/SPEC.md A2/A6)
-  it.fails('reads all three body arms back as a string', async () => {
-    const bodyText = await frozenExport<FrozenBodyText>('bodyText');
+  // measured before #567: Error: @zmdb/web exports no "bodyText" (frozen: pipeline/SPEC.md A2/A6)
+  it('reads all three body arms back as a string', async () => {
+    const bodyText: FrozenBodyText = readBodyText;
     const { stream } = countingSource([encoder.encode('dra'), encoder.encode('ined')]);
     expect(await bodyText({ status: 200, headers: {}, body: { kind: 'text', value: 'as-is' } })).toBe('as-is');
     // A multi-byte character in the bytes arm, so "UTF-8 decodes" is a claim with a witness.
@@ -776,13 +805,49 @@ describe('bodyText reads a body back (frozen: pipeline/SPEC.md A6, A9.9)', () =>
   // because "`respond` assumes no content type and a byte body with no `content-type` is a
   // browser-sniffing hazard rather than a convenience".
   //
-  // actual today: Error: @zmdb/web exports no "bytes" (frozen: pipeline/SPEC.md A2/A6)
-  it.fails('builds a bytes response through the bytes factory', async () => {
-    const bytes = await frozenExport<FrozenBytesFactory>('bytes');
+  // measured before #567: Error: @zmdb/web exports no "bytes" (frozen: pipeline/SPEC.md A2/A6)
+  it('builds a bytes response through the bytes factory', async () => {
+    const bytes: FrozenBytesFactory = bytesResponse;
     const response = bytes(new Uint8Array([1, 2, 3]), { status: 201, headers: { 'content-type': 'image/png' } });
     expect(response.status).toBe(201);
     expect(response.body.kind).toBe('bytes');
     expect(response.headers['content-type']).toBe('image/png');
+  });
+
+  it('streams a file with its measured length and closes it after reading', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'zmdb-stream-'));
+    const path = join(directory, 'body.txt');
+    const errors: unknown[] = [];
+    try {
+      await writeFile(path, 'file body');
+      const response = await file(path, {
+        contentType: 'text/plain',
+        headers: { 'content-disposition': 'attachment' },
+        onError: error => errors.push(error),
+      });
+      expect(response.body.kind).toBe('stream');
+      if (response.body.kind === 'stream') {
+        expect(response.body.length).toBe(9);
+      }
+      expect(response.headers).toEqual({
+        'content-disposition': 'attachment',
+        'content-type': 'text/plain',
+      });
+      expect(await readBodyText(response)).toBe('file body');
+      expect(errors).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('reports a file-open failure once and rejects it', async () => {
+    const errors: unknown[] = [];
+    await expect(
+      file(join(tmpdir(), 'zmdb-file-that-does-not-exist'), {
+        onError: error => errors.push(error),
+      }),
+    ).rejects.toThrow();
+    expect(errors).toHaveLength(1);
   });
 });
 
@@ -796,12 +861,12 @@ describe('a non-JSON request body reaches rawBody as bytes (frozen: pipeline/SPE
   // assertion `../upload/SPEC.md` §6.1 says would have caught the defect, and it is why uploads
   // are blocked on this section rather than on the response union.
   //
-  // actual today: `expected '��AB' to be an instance of Uint8Array`. `rawBody` is a
+  // measured before #567: `expected '��AB' to be an instance of Uint8Array`. `rawBody` is a
   // string whose code points are [65533, 65533, 65, 66]; re-encoded as UTF-8 that is
   // [239,191,189,239,191,189,65,66] — two bytes in, six bytes out — and the status is a cheerful
   // 200. Captured by driving the real `toNodeHandler` with the `StringDecoder`-backed `FakeReq`
   // above, which is how `node:http` decodes once `setEncoding` has been called.
-  it.fails('carries a non-UTF-8 request body to rawBody with every byte intact', async () => {
+  it('carries a non-UTF-8 request body to rawBody with every byte intact', async () => {
     const { router, seen } = bodySpyRouter();
     const raw = new Uint8Array([0xff, 0xfe, 0x41, 0x42]);
     const { res, state } = nodeDouble();
@@ -821,13 +886,13 @@ describe('a non-JSON request body reaches rawBody as bytes (frozen: pipeline/SPE
   // after the first byte of the three-byte U+2713, so a per-chunk decode mangles the character
   // and a stateful one does not — and neither preserves the trailing `FF`.
   //
-  // actual today: `expected [ +0, 10003, 65533 ] to deeply equal [ +0, 226, 156, 147, 255 ]`.
+  // measured before #567: `expected [ +0, 10003, 65533 ] to deeply equal [ +0, 226, 156, 147, 255 ]`.
   // Recorded because it contradicted what the probe was written to show: the checkmark *survived*
   // the chunk boundary — the `StringDecoder` carried the partial sequence, exactly as the comment
   // in `toNodeHandler` says it was added to — and five bytes still arrived as three code points
   // because `0xFF` is not decodable at all. So the split is not the bug and never was; the
   // decoding is. The upload spec's §6.1 asks for the straddling case anyway, and this is it.
-  it.fails('keeps a byte sequence split across two chunks intact in rawBody', async () => {
+  it('keeps a byte sequence split across two chunks intact in rawBody', async () => {
     const { router, seen } = bodySpyRouter();
     const raw = new Uint8Array([0x00, 0xe2, 0x9c, 0x93, 0xff]);
     const { res, state } = nodeDouble();
@@ -841,7 +906,7 @@ describe('a non-JSON request body reaches rawBody as bytes (frozen: pipeline/SPE
     expect([...(seen.raw instanceof Uint8Array ? seen.raw : codePointsOf(seen.raw))]).toEqual([...raw]);
   });
 
-  // Green, and the half §A7 promises does not change: a JSON content type keeps today's exact
+  // Green, and the half §A7 promises does not change: a JSON content type keeps the pre-existing
   // path — `setEncoding`, string accumulation, `parseJson` — so no existing route changes shape.
   // The slice that adds a bytes path is the slice that can accidentally route JSON through it,
   // and then every `validateBody` in the repository receives a `Uint8Array`.
@@ -859,6 +924,34 @@ describe('a non-JSON request body reaches rawBody as bytes (frozen: pipeline/SPE
     expect(seen.raw).toEqual({ name: 'ada' });
     expect(state.status).toBe(200);
   });
+
+  it('preserves binary request bytes through the fetch adapter', async () => {
+    const { router, seen } = bodySpyRouter();
+    const raw = new Uint8Array([0xff, 0x00, 0xe2, 0x9c, 0x93]);
+    const response = await toFetchHandler(router)(
+      new Request('http://x/spy/body', {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: raw,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(seen.raw).toBeInstanceOf(Uint8Array);
+    expect([...(seen.raw instanceof Uint8Array ? seen.raw : [])]).toEqual([...raw]);
+  });
+
+  it('keeps a JSON request parsed through the fetch adapter', async () => {
+    const { router, seen } = bodySpyRouter();
+    const response = await toFetchHandler(router)(
+      new Request('http://x/spy/body', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"name":"ada"}',
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(seen.raw).toEqual({ name: 'ada' });
+  });
 });
 
 describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
@@ -872,10 +965,10 @@ describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
   // body is buffered has already lost, so this asserts the router was never reached at all and
   // that the bytes read stopped at the limit.
   //
-  // actual today: `a 413, not a 200: expected 200 to be 413`. The router *was* reached and
+  // measured before #567: `a 413, not a 200: expected 200 to be 413`. The router *was* reached and
   // `rawBody` is a 4,194,304-character string — four mebibytes accumulated against a 64-byte
   // limit the adapter has no parameter to receive, and `toNodeHandler.length` is 1.
-  it.fails('refuses a request body over maxBodyBytes with a 413 and destroys the connection', async () => {
+  it('refuses a request body over maxBodyBytes with a 413 and destroys the connection', async () => {
     const adapt: FrozenNodeAdapter = toNodeHandler;
     const { router, seen } = bodySpyRouter();
     const raw = new Uint8Array(4 * 1024 * 1024).fill(0x41);
@@ -897,9 +990,9 @@ describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
   // asserted separately from the configured case because a slice that reads the option but
   // forgets the default leaves every deployment that did not configure one unbounded.
   //
-  // actual today: `expected 200 to be 413`, with a 2,097,152-character `rawBody` — no default,
+  // measured before #567: `expected 200 to be 413`, with a 2,097,152-character `rawBody` — no default,
   // no limit, no parameter.
-  it.fails('defaults maxBodyBytes to 1 MiB when no option is given', async () => {
+  it('defaults maxBodyBytes to 1 MiB when no option is given', async () => {
     const { router, seen } = bodySpyRouter();
     const raw = new Uint8Array(2 * 1024 * 1024).fill(0x41);
     const { res, state } = nodeDouble();
@@ -918,10 +1011,10 @@ describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
   // removed, only raised. `0` and `Infinity` are the two clever ways to disable a check and
   // both are construction errors, as is a non-integer.
   //
-  // actual today: `0: expected [Function] to throw an error` — it fails on the first row and none
+  // measured before #567: `0: expected [Function] to throw an error` — it fails on the first row and none
   // of the four throws. `toNodeHandler.length` is 1, the second argument is ignored entirely, and
   // each call returns a working handler, which is the shape of a limit that can be removed.
-  it.fails('rejects a maxBodyBytes of 0, Infinity, a negative and a non-integer', () => {
+  it('rejects a maxBodyBytes of 0, Infinity, a negative and a non-integer', () => {
     const adapt: FrozenNodeAdapter = toNodeHandler;
     const { router } = bodySpyRouter();
     for (const maxBodyBytes of [0, Number.POSITIVE_INFINITY, -1, 1.5]) {
@@ -929,5 +1022,18 @@ describe('maxBodyBytes (frozen: pipeline/SPEC.md A7, A9.11)', () => {
     }
     // Raising it is the supported operation and must not throw.
     expect(() => adapt(router, { maxBodyBytes: 64 * 1024 * 1024 })).not.toThrow();
+  });
+
+  it('enforces maxBodyBytes before fetch dispatch', async () => {
+    const { router, seen } = bodySpyRouter();
+    const response = await toFetchHandler(router, { maxBodyBytes: 4 })(
+      new Request('http://x/spy/body', {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: new Uint8Array([1, 2, 3, 4, 5]),
+      }),
+    );
+    expect(response.status).toBe(413);
+    expect(seen.raw).toBe('never handled');
   });
 });

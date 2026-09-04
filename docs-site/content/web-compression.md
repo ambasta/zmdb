@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** There is no compression middleware, and there cannot be
-> one at the handler level: `WebResponse.body` is a `string`, and a gzip payload is
-> bytes.
+> **ToDo / feature gap.** There is no compression middleware. The response union
+> prerequisite has shipped, so the remaining work is negotiation and an
+> incremental transform over text, bytes and streams.
 >
 > The policy it will ship with is frozen in
 > `packages/web/src/compression/SPEC.md`, including which encodings and why brotli
@@ -39,6 +39,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { createGzip, createBrotliCompress } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
+import { bodyText } from '@zmdb/web';
 
 createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = req.url ?? '/';
@@ -54,16 +55,17 @@ createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const accept = String(req.headers['accept-encoding'] ?? '');
   const encoding = accept.includes('br') ? 'br' : accept.includes('gzip') ? 'gzip' : undefined;
 
-  const size = new TextEncoder().encode(out.body).byteLength;
+  const body = await bodyText(out);
+  const size = new TextEncoder().encode(body).byteLength;
 
   if (encoding === undefined || size < 1024) {
-    res.writeHead(out.status, { ...out.headers }).end(out.body);
+    res.writeHead(out.status, { ...out.headers }).end(body);
     return;
   }
 
   res.writeHead(out.status, { ...out.headers, 'content-encoding': encoding, vary: 'accept-encoding' });
   const compressor = encoding === 'br' ? createBrotliCompress() : createGzip();
-  await pipeline(Readable.from([out.body]), compressor, res);
+  await pipeline(Readable.from([body]), compressor, res);
 });
 ```
 
@@ -71,7 +73,10 @@ Five details that are not optional:
 
 - **`WebRequest` has `path`, not `url`.** The query string is a separate optional `query` field, so the adapter has to split it off — handing the whole `req.url` to `handle` matches no route the moment a request carries `?`, and `{ url }` does not even compile against `WebRequest`. `toNodeHandler` does this same `indexOf('?')`/`slice` internally — and does not fill `query` in either, so `ctx.query` is `{}` under the node adapter unless your own adapter parses it.
 - **`vary: accept-encoding`.** Without it a shared cache serves a gzip response to a client that did not ask for one, and that client sees binary garbage.
-- **The 1024-byte threshold, measured in bytes.** `out.body.length` is UTF-16 code units, so a 1,024-character CJK document is about 3 KiB and would be measured as 1,024 — hence the `TextEncoder` above. Compressing a 200-byte JSON response makes it larger and costs CPU.
+- **The 1024-byte threshold, measured in bytes.** JavaScript string length is
+  UTF-16 code units, so a 1,024-character CJK document is about 3 KiB — hence
+  the `TextEncoder` above. Compressing a 200-byte JSON response makes it larger
+  and costs CPU.
 - **Honour `accept-encoding`.** Sending brotli to a client that only advertised gzip breaks it.
 - **Do not set `content-length`.** The compressed length differs; the framework's headers do not include it, but if you add one, remove it here.
 
@@ -95,7 +100,10 @@ A response that does not include the fields the client ignores needs no compress
 
 ## What it would take
 
-The response body change in [streaming files](./web-streaming-files.html), the chain wiring that gives an `Interceptor` somewhere to run — `runChain` folds interceptors today and the pipeline has never called it — and then an `Interceptor` over the union — `compress(response, ctx, options)` as a pure function with the interceptor as a thin wrapper, so negotiation is testable without a pipeline and an adapter-driven deployment can call it directly.
+The chain wiring that gives an `Interceptor` somewhere to run — `runChain` folds
+interceptors today and the pipeline has never called it — and then an
+`Interceptor` over the shipped union: `compress(response, ctx, options)` as a
+pure function with the interceptor as a thin wrapper.
 
 Three decisions in the freeze are worth knowing now, because they contradict what you might expect.
 

@@ -77,7 +77,7 @@ The `exit` handler is what stops the process hanging on an open pool.
 > const { createTestApp } = await import('@zmdb/web/testing');
 > const t = createTestApp(AppModule);
 > await t.request({ method: 'GET', path: '/posts/1', headers: {} });
-{ status: 200, body: '{"id":1,...}', headers: { 'content-type': 'application/json' } }
+{ status: 200, body: { kind: 'text', value: '{"id":1,...}' }, headers: { 'content-type': 'application/json' } }
 ```
 
 No socket, no port. This is the closest thing to `$(PostsController).byId(1)` and it exercises more of the stack.

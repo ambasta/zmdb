@@ -137,7 +137,11 @@ A `bigint` column's **wire** type is a string with `format: 'int64'` automatical
 
 ## In `@zmdb/web`
 
-Handlers return a value and the framework serializes it; `WebResponse.body` is a `string`. Reach for `stringify` explicitly when you want the `bigint` policy, and for `wireEncoder` when the response has codec or `bigint` columns that need converting.
+Handlers return a value and the framework serializes it into the text arm of
+`WebResponse.body`. Reach for `stringify` explicitly when you want the `bigint`
+policy, and for `wireEncoder` when the response has codec or `bigint` columns
+that need converting. The `bytes()` and `stream()` factories bypass JSON
+serialization deliberately.
 
 ---
 

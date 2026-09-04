@@ -22,9 +22,10 @@
 
 - **`router.handle(req: WebRequest): Promise<WebResponse>`** where:
   - `WebRequest = { method: string; path: string; headers; rawBody?: unknown; query? }`
-  - `WebResponse = { status: number; body: string; headers }` — **amended by #565**,
-    see [Amendments](#amendments-streaming-responses-565): `body` becomes a
-    three-arm tagged union and `rawBody` carries bytes for a non-JSON request.
+  - `WebResponse = { status: number; body: ResponseBody; headers }`, where
+    `ResponseBody` is the three-arm tagged union in
+    [A1](#a1-webresponsebody-is-a-three-arm-tagged-union), and `rawBody`
+    carries bytes for a non-JSON request.
 - Pipeline steps, in order:
   1. **Match** — the method and the path's segment count (`countSegments`) select
      a bucket of the cached table; candidates are tried in registration order
@@ -52,6 +53,11 @@ choose a status, add headers, or send a body that is not JSON, it returns one of
   `content-type: text/plain; charset=utf-8`.
 - **`respond({ status?, body?, headers? })`** — full control, **no** assumed
   content type; for HTML, CSV, a redirect, or a `204`.
+- **`bytes(value, options?)`** — an exact byte body.
+- **`stream(value, { length?, onError, ... })`** — a web stream with required
+  post-headers error reporting.
+- **`file(path, { contentType?, onError, ... })`** — a known file path as a
+  bounded stream; path confinement belongs to the static-file handler.
 
 These are recognised by a marker symbol (`Symbol.for('zmdb.web.response')`), not
 by inspecting the result's shape. This is load-bearing: `{ status: 'draft' }` is
@@ -61,10 +67,13 @@ plain `{ status, body, headers }` record every existing consumer reads.
 
 ### Adapters (thin, optional, structurally typed — no hard deps)
 
-- **`toNodeHandler(router)`** → an \`(req, res) => void\` compatible with
-  \`node:http\` (reads method/url/headers, buffers the body, writes the response).
+- **`toNodeHandler(router, options?: { maxBodyBytes: number })`** → an \`(req,
+  res) => void\`
+  compatible with \`node:http\` (reads method/url/headers, buffers the bounded
+  request body, and streams the response with backpressure).
   Typed structurally so \`node:http\` is not a dependency.
-- **`toFetchHandler(router)`** → a \`(request: Request) => Promise<Response>\`
+- **`toFetchHandler(router, options?: { maxBodyBytes: number })`** → a
+  \`(request: Request) => Promise<Response>\`
   usable by Hono / any Fetch-based runtime. Typed against the global \`Request\`/
   \`Response\` (Node 26 has them) — no Hono dependency.
 
@@ -92,21 +101,21 @@ headers:{location}})` sends neither a body nor a `content-type`; a returned
 
 Guards/pipes/interceptors/filters (epic #287), modules (#282), OpenAPI (#302).
 
-## Amendments (streaming responses, #565)
+## Amendments (streaming responses, #565; implemented by #567)
 
-Epic #564 needs a response that is not a fully materialised string, and everything
+Epic #564 needed a response that is not a fully materialised string, and everything
 else in that epic — compression, static files, uploads, templates, CSRF — is
 downstream of this one type. Five things in the contract above change, one thing
 that looks like it should change does not, and one thing outside the response model
 turns out to be a prerequisite.
 
-The promise this amendment keeps, which is narrower than "nothing changes": every
-response the three existing factories produce today sends **the same bytes, with the
+The promise this implementation keeps, which is narrower than "nothing changes":
+every response the three pre-existing factories produce sends **the same bytes, with the
 same headers, in the same number of writes**. What changes is what a handler is
 _able_ to return. The one deliberate exception is §A7's request body limit, and it
 is called out as an exception rather than folded in.
 
-### A1. `WebResponse.body` becomes a three-arm tagged union
+### A1. `WebResponse.body` is a three-arm tagged union
 
 ```ts
 export type ResponseBody =
@@ -219,7 +228,8 @@ prevent. Both factories are new, so requiring the argument breaks nothing.
 where the failure is per-stream, so the report cannot name what was being sent; and
 it leaves the fetch adapter with nothing, because a runtime that owns the response
 never hands the error back. Putting it on the response also keeps the promise in §A1
-— `toNodeHandler(router)` still takes one argument.
+— streaming does not add an adapter-level error callback; the adapter's only
+optional configuration is the request-body limit.
 
 `stream()` therefore returns a response whose `value` is the caller's stream
 **wrapped** in a pass-through that reports to `onError` and re-raises. That is what
@@ -234,10 +244,8 @@ least testable point in the process is not.
 
 ### A3. The Node adapter contract
 
-`NodeResLike` is currently `{ statusCode, setHeader, writeHead?, end(body: string) }`
-— no `write`, no event registration, no `destroy`. It gains exactly four members,
-and no more, because every member is a claim about what a non-`node:http` response
-object must provide:
+`NodeResLike` contains exactly the members below, and no more, because every member
+is a claim about what a non-`node:http` response object must provide:
 
 ```ts
 interface NodeResLike {
@@ -272,7 +280,10 @@ res.end();
 **Backpressure is the `write` return value, not a hope.** Ignoring it buffers the
 entire stream in the socket's outgoing queue, which turns a 2 GB file served to one
 slow client into 2 GB of process memory — the exact bug streaming was added to fix,
-reintroduced in the adapter.
+reintroduced in the adapter. The platform stream queues remain bounded: measured on
+Node 26, a source piped through one default `TransformStream` can have two chunks
+pulled before the first write (one per queue), and the count does not grow while
+`write()` is waiting for `drain`.
 
 **Client disconnect cancels the reader.** The adapter registers `res.once('close',
 …)`; if the loop has not finished, it calls `reader.cancel()`. Cancelling the
@@ -308,18 +319,30 @@ structural on purpose.
 ### A4. The fetch adapter contract
 
 ```ts
+if (request.method === 'HEAD' || response.status === 204 || response.status === 304) {
+  await cancelStreamBody(response);
+  return new Response(null, { status: response.status, headers });
+}
+
 switch (response.body.kind) {
   case 'text':
+    return new Response(textBodyWithoutImplicitContentType(response, headers), {
+      status: response.status,
+      headers,
+    });
   case 'bytes':
   case 'stream':
-    return new Response(response.body.value, { status: response.status, headers: { ...response.headers } });
+    return new Response(response.body.value, { status: response.status, headers });
 }
 ```
 
 Verified to compile for all three arms with the `Uint8Array<ArrayBuffer>` of §A1 and
 with no cast. The runtime owns backpressure and cancellation, so this adapter has no
 loop and no disconnect handling of its own — which is a reason to prefer it, not a
-gap.
+gap. A no-body status cancels a stream and passes `null` to `Response`, because the
+platform rejects even an empty-string body for `204` and `304`. A text arm with no
+declared `content-type` is passed as encoded bytes so the platform does not invent
+`text/plain`; `respond()` therefore keeps its no-assumed-content-type contract.
 
 Two consequences worth being explicit about. Cancellation reaches the application
 only if the stream's underlying source implements `cancel`, so a source that only
@@ -363,20 +386,19 @@ for the assertion and the test harness and is why nothing in the adapters uses i
 
 ### A7. The request side, which is a prerequisite and a behaviour change
 
-Uploads cannot work on top of the response model alone, because the request body
-never arrives intact. `toNodeHandler` calls `req.setEncoding('utf8')` and
-accumulates `String(chunk)`; `readFetchBody` calls `request.text()`. Both are
-correct for JSON and both destroy any byte sequence that is not valid UTF-8, so
-`../upload/SPEC.md` is blocked on this and not on the union above.
+Before #567, uploads could not work on top of the response model alone because both
+adapters decoded every request as text and destroyed byte sequences that were not
+valid UTF-8. The adapters now preserve non-JSON, non-text bodies as bytes.
 
 - **`WebRequest.rawBody` carries a `Uint8Array<ArrayBuffer>`** when the request's
   `content-type` is neither `application/json` (or a `+json` suffix) nor `text/*`.
-  A JSON content type keeps today's exact path — `setEncoding`, string accumulation,
+  A JSON content type keeps the pre-existing path — `setEncoding`, string accumulation,
   `parseJson` — so the fast path is untouched and no existing route changes shape.
-- **`maxBodyBytes`, default 1 MiB, on both adapters.** There is no request body limit
-  today at all, which makes every `POST` route in every deployment an unbounded
-  allocation reachable by one request. Exceeding it answers `413` and then destroys
-  the connection, for the reason `../upload/SPEC.md` §3 gives about draining.
+- **`maxBodyBytes`, default 1 MiB, on both adapters.** Before #567 there was no
+  request-body limit, making every `POST` route an unbounded allocation reachable
+  by one request. Exceeding the implemented limit answers `413`; the Node adapter
+  then destroys the connection for the reason `../upload/SPEC.md` §3 gives about
+  draining.
 - This **is** a change to what already happens, and it is the one exception to the
   promise at the top of this amendment. It is the right exception: the alternative is
   shipping a documented memory-exhaustion default so that a deployment which needs
@@ -409,7 +431,7 @@ now documents. `web-templates` stays `status: 'todo'` because `pages.mjs` has on
 `supported` and `todo`, and a declined feature is not supported; its `note` records
 the decision so the page is not mistaken for an unanswered gap.
 
-### A9. What #566 has to assert
+### A9. What #566 froze and #567 now satisfies
 
 1. `text('0')` still answers the single byte `0`, and `respond({ status: 302,
 headers })` still sends no body and no `content-type` — the byte-for-byte promise,
@@ -431,7 +453,8 @@ headers })` still sends no body and no `content-type` — the byte-for-byte prom
    a `500` with a JSON body.
 7. A `bytes` response's `content-length` is its `byteLength` even when the handler
    set a different one; a `stream` with a declared `length` that under-delivers
-   destroys; a `stream` with no `length` sends no `content-length`.
+   destroys, and one that over-delivers cancels its source; a `stream` with no
+   `length` sends no `content-length`.
 8. All three arms round-trip through `toFetchHandler`.
 9. `bodyText` reads all three arms, and the existing twenty assertion sites use it.
 10. A non-JSON, non-text request body reaches `rawBody` as bytes with every byte

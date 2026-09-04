@@ -1594,19 +1594,19 @@ export const PAGE_META = {
     title: 'File Upload',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'multipart/form-data parsing is not shipped; the limits and the buffered-parser decision are frozen (#565).',
+    note: 'bounded exact request bytes ship; multipart/form-data parsing and its per-part limits remain frozen, not shipped (#569).',
   },
   'web-streaming-files': {
     title: 'Streaming Files',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'WebResponse.body is a string; the tagged three-arm union that replaces it is frozen (#565).',
+    note: 'stream(), bytes() and file() ship; the epic still tracks static serving, compression, uploads and CSRF (#568–#570).',
   },
   'web-compression': {
     title: 'Compression',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'depends on streaming responses; the negotiation policy is frozen and brotli is declined (#565).',
+    note: 'streaming responses ship; compression negotiation remains frozen, not shipped, and brotli is declined (#568).',
   },
   'web-static-files': {
     title: 'Serving Static Files',

@@ -90,6 +90,7 @@ Adding a column does not break every test that built a row by hand. Use a distin
 ## HTTP handlers
 
 ```ts
+import { bodyText } from '@zmdb/web';
 import { createTestApp } from '@zmdb/web/testing';
 
 const app = createTestApp(AppModule, {
@@ -100,7 +101,7 @@ await app.init();
 it('GET /users', async () => {
   const res = await app.request({ method: 'GET', path: '/users', headers: {} });
   expect(res.status).toBe(200);
-  expect(JSON.parse(res.body)).toHaveLength(1);
+  expect(JSON.parse(await bodyText(res))).toHaveLength(1);
 });
 ```
 

@@ -33,18 +33,19 @@ router.register(new UsersController(), {
 
 ## The pipeline
 
-`router.handle(req)` returns `{ status, body, headers }`:
+`router.handle(req)` returns `{ status, body, headers }`, where `body` is tagged
+as `text`, `bytes` or `stream`:
 
-| step          | behavior                                                                                                                                              |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **match**     | method + segment count select a bucket of the cached table, then `matchCompiled`; no match → **404**                                                  |
-| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                      |
-| **invoke**    | call the handler with the typed `Ctx`                                                                                                                 |
-| **serialize** | JSON-encode the result → **200**; a thrown handler → **500**. A result from `json`/`text`/`respond` is returned verbatim, status and headers included |
+| step          | behavior                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **match**     | method + segment count select a bucket of the cached table, then `matchCompiled`; no match → **404**                                             |
+| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                 |
+| **invoke**    | call the handler with the typed `Ctx`                                                                                                            |
+| **serialize** | JSON-encode the result → **200**; a thrown handler → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim |
 
 ```ts
 await router.handle({ method: 'GET', path: '/users/42', headers: {} });
-// { status: 200, body: '{"id":"42"}', ... }
+// { status: 200, body: { kind: 'text', value: '{"id":"42"}' }, ... }
 
 await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: { nope: 1 } });
 // { status: 400, ... }  — validateBody threw; create() never ran
@@ -69,7 +70,8 @@ const handler = toFetchHandler(router); // (Request) => Promise<Response>
 ```
 
 Both adapters are **structurally typed** — `@zmdb/web` does not depend on
-`node:http` or Hono; you bring the runtime.
+`node:http` or Hono; you bring the runtime. Both default request bodies to 1 MiB;
+pass `{ maxBodyBytes }` to raise that bound.
 
 ## Design notes
 

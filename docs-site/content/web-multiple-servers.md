@@ -99,15 +99,19 @@ await app.init();
 Or, if the modules must stay separate, dispatch by prefix in the adapter:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 createServer(async (req, res) => {
   const path = (req.url ?? '/').split('?')[0] ?? '/';
   const target = path.startsWith('/admin') ? adminApp : publicApp;
   const out = await target.handle(await webRequest(req));
-  res.writeHead(out.status, { ...out.headers }).end(out.body);
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
 });
 ```
 
 Note that `adminApp`'s controllers must then declare the `/admin` prefix themselves — the dispatcher does not strip it, and a mismatch produces a 404 that looks like a routing bug. `webRequest(req)` is the `WebRequest` the dispatcher builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
+This prefix dispatcher buffers a streamed response; separate
+`toNodeHandler(...)` servers preserve streaming.
 
 Prefix dispatch on a single port is **not** a security boundary. Anything reachable on the port is reachable; use separate ports and a loopback bind for that.
 

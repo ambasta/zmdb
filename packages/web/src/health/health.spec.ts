@@ -142,7 +142,18 @@ const slowCheck = (name: string, ms: number, timeoutMs: number): ReadinessCheck 
   };
 };
 
-const bodyOf = (response: WebResponse): DetailedBody => JSON.parse(response.body) as DetailedBody;
+function textOf(response: WebResponse): string {
+  switch (response.body.kind) {
+    case 'text':
+      return response.body.value;
+    case 'bytes':
+      return new TextDecoder().decode(response.body.value);
+    case 'stream':
+      throw new TypeError('health responses must not stream');
+  }
+}
+
+const bodyOf = (response: WebResponse): DetailedBody => JSON.parse(textOf(response)) as DetailedBody;
 
 describe('health probes (#580 freeze of health SPEC)', () => {
   beforeEach(() => {
@@ -161,19 +172,17 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   //
   // It also pins the exact bytes the `it.fails` tests below compare against. Recorded
   // 2026-09-04 by calling `json` under `node --import scripts/ts-specifier-hook.mjs`:
-  //   json({ status: 'error' }, { status: 503 })
-  //     -> { status: 503, body: '{"status":"error"}', headers: { 'content-type': 'application/json' } }
-  //   json({ status: 'ok' })
-  //     -> { status: 200, body: '{"status":"ok"}',    headers: { 'content-type': 'application/json' } }
+  //   json({ status: 'error' }, { status: 503 }) serializes to {"status":"error"}.
+  //   json({ status: 'ok' }) serializes to {"status":"ok"}.
   it('the framework already produces the exact 503 body this spec freezes', () => {
     const failing = json({ status: 'error' }, { status: 503 });
     expect(failing.status).toBe(503);
-    expect(failing.body).toBe('{"status":"error"}');
+    expect(textOf(failing)).toBe('{"status":"error"}');
     expect(failing.headers['content-type']).toBe('application/json');
 
     const passing = json({ status: 'ok' });
     expect(passing.status).toBe(200);
-    expect(passing.body).toBe('{"status":"ok"}');
+    expect(textOf(passing)).toBe('{"status":"ok"}');
 
     // §3 chose 503 over 500 for the human and the proxy, not for the orchestrator. Assert the
     // number rather than "not 2xx", because "not 2xx" is what makes 500 look acceptable.
@@ -197,11 +206,11 @@ describe('health probes (#580 freeze of health SPEC)', () => {
 
     const good = await allPass.ready();
     expect(good.status).toBe(200);
-    expect(good.body).toBe('{"status":"ok"}');
+    expect(textOf(good)).toBe('{"status":"ok"}');
 
     const bad = await oneFails.ready();
     expect(bad.status).toBe(503);
-    expect(bad.body).toBe('{"status":"error"}');
+    expect(textOf(bad)).toBe('{"status":"error"}');
   });
 
   // §2's mechanism has a runtime shadow worth asserting even though ./health.type-test.ts owns
@@ -232,7 +241,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     const response: WebResponse = probes.live();
     expect(ran).toBe(1);
     expect(response.status).toBe(200);
-    expect(response.body).toBe('{"status":"ok"}');
+    expect(textOf(response)).toBe('{"status":"ok"}');
     // Not a promise. `then` being absent is what proves the whole path was synchronous, and
     // it is the property a future refactor to `async live()` would break silently.
     expect(response).not.toHaveProperty('then');
@@ -240,7 +249,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
 
     const failing = healthRoutes({ liveness: [{ name: 'shutting-down', run: () => false }] });
     expect(failing.live().status).toBe(503);
-    expect(failing.live().body).toBe('{"status":"error"}');
+    expect(textOf(failing.live())).toBe('{"status":"error"}');
   });
 
   // §6.3 and §6.4 together, because the timeout's `detail: 'timeout'` is only observable in
@@ -289,10 +298,10 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     const publicResponse = await healthRoutes({
       readiness: [instantCheck('db', { ok: false, detail: 'timeout' }), instantCheck('cache', { ok: true })],
     }).ready();
-    expect(publicResponse.body).toBe('{"status":"error"}');
-    expect(publicResponse.body).not.toContain('durationMs');
-    expect(publicResponse.body).not.toContain('timeout');
-    expect(publicResponse.body).not.toContain('db');
+    expect(textOf(publicResponse)).toBe('{"status":"error"}');
+    expect(textOf(publicResponse)).not.toContain('durationMs');
+    expect(textOf(publicResponse)).not.toContain('timeout');
+    expect(textOf(publicResponse)).not.toContain('db');
   });
 
   // §6.5, and the assertion is deliberately built so a serial implementation fails: three
@@ -338,7 +347,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
 
     expect(settled).toBe(true);
     expect(response.status).toBe(503);
-    expect(response.body).toBe('{"status":"error"}');
+    expect(textOf(response)).toBe('{"status":"error"}');
   });
 
   // §6.2, §6.3 and §6.9's shared requirement, asserted as one property because it is one
@@ -360,9 +369,9 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     const response = await probes.ready();
     expect(response.status).toBe(503);
     // Two shapes and no third (§3), asserted as an exact string.
-    expect(response.body).toBe('{"status":"error"}');
+    expect(textOf(response)).toBe('{"status":"error"}');
     for (const leak of ['10.0.1.14', '5432', 'ECONNREFUSED', 'postgres', 'redis', 'checks', 'durationMs']) {
-      expect(response.body).not.toContain(leak);
+      expect(textOf(response)).not.toContain(leak);
     }
     // And the header set is the framework's own, so a probe cannot be fingerprinted by it.
     expect(response.headers['content-type']).toBe('application/json');
@@ -424,7 +433,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     expect(responses).toHaveLength(10);
     for (const response of responses) {
       expect(response.status).toBe(200);
-      expect(response.body).toBe('{"status":"ok"}');
+      expect(textOf(response)).toBe('{"status":"ok"}');
     }
   });
 
@@ -438,9 +447,9 @@ describe('health probes (#580 freeze of health SPEC)', () => {
   it.fails('answers 200 from both probes with no checks registered', async () => {
     const empty = healthRoutes({});
     expect(empty.live().status).toBe(200);
-    expect(empty.live().body).toBe('{"status":"ok"}');
+    expect(textOf(empty.live())).toBe('{"status":"ok"}');
     expect((await empty.ready()).status).toBe(200);
-    expect((await empty.ready()).body).toBe('{"status":"ok"}');
+    expect(textOf(await empty.ready())).toBe('{"status":"ok"}');
 
     const explicitlyEmpty = healthRoutes({ liveness: [], readiness: [] });
     expect(explicitlyEmpty.live().status).toBe(200);
@@ -472,17 +481,17 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     const response = await probes.ready();
 
     expect(response.status).toBe(503);
-    expect(response.body).toBe('{"status":"error"}');
-    expect(response.body).not.toContain('svc_orders');
-    expect(response.body).not.toContain('password');
-    expect(response.body).not.toContain('not connected');
+    expect(textOf(response)).toBe('{"status":"error"}');
+    expect(textOf(response)).not.toContain('svc_orders');
+    expect(textOf(response)).not.toContain('password');
+    expect(textOf(response)).not.toContain('not connected');
 
     // The detailed form records the failure without the message: §3's table has `detail` on a
     // failed check, and a thrown message is not a detail this module is willing to forward.
     const detailed = await detailedReadyRoute({ readiness: [thrower] })();
     const body = bodyOf(detailed);
     expect(body.checks.find(c => c.name === 'db')?.ok).toBe(false);
-    expect(detailed.body).not.toContain('svc_orders');
+    expect(textOf(detailed)).not.toContain('svc_orders');
 
     // A liveness check that throws is the same rule: 503, not a crashed endpoint. This is the
     // one place `run(): boolean` cannot help, because a synchronous throw is still a throw.
@@ -497,7 +506,7 @@ describe('health probes (#580 freeze of health SPEC)', () => {
       ],
     });
     expect(live.live().status).toBe(503);
-    expect(live.live().body).toBe('{"status":"error"}');
+    expect(textOf(live.live())).toBe('{"status":"error"}');
   });
 
   // §4's honest limit, asserted so that #581 "does not quietly implement a `timeoutMs` that

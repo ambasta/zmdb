@@ -2,21 +2,22 @@ What happens between a request arriving and a response leaving, in order, with n
 
 ## The order
 
-1. **Adapter** — `toNodeHandler` or `toFetchHandler` builds a `WebRequest`: method, path (query string stripped), flattened headers, and `rawBody` parsed as JSON when the text is non-empty.
+1. **Adapter** — `toNodeHandler` or `toFetchHandler` builds a `WebRequest`: method, path (query string stripped), flattened headers, and a body on the decoded JSON/text-compatible path or as exact bytes. Both reject bodies above 1 MiB by default.
 2. **Route match** — the method (uppercased) and the path's segment count select a bucket of candidate routes; those are tried in registration order, matched against patterns that were compiled at registration, and the first to match yields `params`. An empty or exhausted bucket means no match.
 3. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
 4. **Ctx construction** — `{ params, body, query, headers, method, path }`.
 5. **Handler** — awaited.
-6. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text` or `respond`, which is sent as-is.
+6. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text`, `bytes`, `stream`, `file` or `respond`, which is sent as-is.
 7. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
 8. **No match** — **404** with `{ error: 'no route for GET /x' }`.
 
 ## Returning something other than a 200 JSON body
 
-Return a plain value and you get `200 application/json`. To choose anything else, return one of three factories:
+Return a plain value and you get `200 application/json`. To choose anything
+else, use a response factory:
 
 ```ts
-import { json, text, respond } from '@zmdb/web';
+import { bytes, file, json, respond, stream, text } from '@zmdb/web';
 
 return json(created, { status: 201, headers: { location: `/posts/${id}` } });
 return text(ctx.params.id); // text/plain, body verbatim
@@ -51,10 +52,13 @@ async byId(ctx: Ctx<{ id: string }>) {
 That yields a 400, not a 404 — which is honest but not correct REST. If you need real status codes, wrap `app.handle` and post-process, or map in the adapter:
 
 ```ts
+import { bodyText } from '@zmdb/web';
+
 const out = await app.handle(req);
-const body: unknown = JSON.parse(out.body);
+const text = await bodyText(out);
+const body: unknown = JSON.parse(text);
 const status = out.status === 400 && isNotFound(body) ? 404 : out.status;
-res.writeHead(status, { ...out.headers }).end(out.body);
+res.writeHead(status, { ...out.headers }).end(text);
 ```
 
 Ugly, and the honest description of where the framework is today. Everything downstream of it — [status codes](./web-exception-filters.html), [cookies](./web-cookies-sessions.html), [CORS](./web-cors.html), [caching headers](./web-caching.html), [redirects](./web-request-lifecycle.html) — needs the same wrapper.
@@ -106,9 +110,13 @@ list(ctx: Ctx) {
 
 A guard returning `false` throws `ChainError(403)`, and a throwing pipe throws `ChainError(400)` — but `ChainError` reaches the router as an ordinary error, so it serialises as a **500** unless you also map it. See [Guards](./web-middleware.html) and [Interceptors](./web-middleware.html).
 
-## The body is parsed JSON, or the raw string
+## The request body is JSON, text or exact bytes
 
-`parseJson` returns the parsed value, and falls back to the original text if parsing fails. So `ctx.body` is `unknown` and may be a string on malformed input — which is why validating it is not optional:
+The adapters parse `application/json` and `+json`; `text/*` stays on the
+decoded compatibility path, where valid JSON is parsed and other text remains
+a string. Every other non-empty content type is preserved as `Uint8Array`. So
+`ctx.body` is `unknown`, and validating the representation you expect is not
+optional:
 
 ```ts
 const dto = assert<CreateDTO<Post>>(ctx.body);
@@ -160,7 +168,13 @@ const query = Object.fromEntries([...params.keys()].map(key => [key, params.getA
 
 ## What is not in the lifecycle at all
 
-No middleware registration, no per-request DI scope, no ambient request context, no `AsyncLocalStorage`, no streaming (`WebResponse.body` is a `string`), no cancellation. Each has a page: [Request Context](./web-request-context.html), [Injection Scopes](./web-injection-scopes.html), [Streaming](./streaming.html), [Query Cancellation](./query-cancellation.html).
+No middleware registration, no per-request DI scope, no ambient request context
+and no `AsyncLocalStorage`. Response streaming and client-disconnect cancellation
+are available; query cancellation is a separate data-layer concern. See
+[Request Context](./web-request-context.html),
+[Injection Scopes](./web-injection-scopes.html),
+[Streaming Files](./web-streaming-files.html) and
+[Query Cancellation](./query-cancellation.html).
 
 ---
 
