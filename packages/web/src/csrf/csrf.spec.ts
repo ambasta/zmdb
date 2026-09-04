@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import '../polyfill.js';
 import { type Ctx, type Guard, type QueryValues } from '../index.js';
 
 // CSRF protection for epic #564. The frozen text is `./SPEC.md`, and this file is
