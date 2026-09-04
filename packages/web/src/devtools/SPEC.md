@@ -12,9 +12,9 @@ its provenance, its failure reporting and the subpath it lives behind.
 
 ## 1. The argument this has to answer, and it mostly survives
 
-`tests/api-coverage/mapping.mjs:166` carries a committed argument against this feature, cited
-by three rows — `injector/e2e/introspection` (:866), `inspector/e2e/graph-inspector` (:906)
-and `repl/e2e/*` (:907):
+An earlier `tests/api-coverage/mapping.mjs` carried a committed argument against this feature,
+cited by three rows — `injector/e2e/introspection`, `inspector/e2e/graph-inspector` and
+`repl/e2e/*`:
 
 > The NestJS REPL and graph inspector are developer tooling that introspects a booted
 > application graph. zmdb resolves its graph at module construction and has no runtime
@@ -45,13 +45,11 @@ declaration (:36), the type slot (:39), two comments (:42, :76), and the writer 
 appends (:79, :81). Every occurrence belongs to that writer; nothing consumes the slot. The edges
 exist, unread, in the one place that cannot fall out of sync with the source. §4 reads them.
 
-So when #600 lands, those three rows plus `lazy-modules/e2e/*` (:873) become covered rather
-than out of scope, and `NO_REPL` has to be rewritten to be about the _shape_ of the tooling —
-a CLI over declarations rather than a socket into a live process — instead of its absence.
-`lazy-modules/e2e/*`'s own argument needs the same treatment: its first half ("there is nothing
-to defer") becomes false and its second ("no half-built graph") stays true and becomes the
-point. That rewrite is #600's work and is named here so it is not discovered by a failing
-`yarn verify:api-coverage`.
+Those three rows plus `lazy-modules/e2e/*` now cite live tests. `NO_REPL` was deleted when the
+TTY-only session shipped; the replacement is executable evidence for the intended shape — a
+CLI over a local application process with no socket, host or remote-attach protocol.
+`lazy-modules/e2e/*` likewise moved from "there is nothing to defer" to tests for eager
+validation and deferred construction. `yarn verify:api-coverage` checks every cited title.
 
 ## 2. The surface, and why it cannot take an `App`
 

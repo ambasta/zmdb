@@ -664,8 +664,8 @@ shadowed route or a cycle caught here is caught before a deploy rather than by a
 
 ### R4. `zmdb repl` boots the real application
 
-The session is built on **`createApp`**, not `createTestApp`, and the reasoning matters because
-`docs-site/content/web-repl.md` proposes the opposite.
+The session is built on **`createApp`**, not `createTestApp`. An earlier version of
+`docs-site/content/web-repl.md` proposed the opposite.
 
 `createApp` already boots without a socket: it compiles the graph, registers routes and returns an
 object with `handle` and `fetch` (`@zmdb/web`'s `src/app/index.ts:26-40`). **An adapter binds a
@@ -724,12 +724,20 @@ the server is exactly the thing being refused.
 
 ### R6. The banner, the scope, and where history goes
 
-The banner prints, on stderr so `--format dot` and any redirect stay clean: the resolved config
-path, the dialect and the database name, and the root module. **You should not be able to type a
-statement without knowing which database you are holding**, and there is no `--quiet` — the one
-line is the price of an interactive session against real data, and the failure it prevents is a
-`DELETE` typed into staging's twin. `web-repl.md`'s production warning becomes this line
-plus §R5's barriers, which is the difference between a warning and a mechanism.
+The banner prints on stderr: the resolved config path, the root module, the available scope and
+the history location. The original freeze also required the application's dialect and database
+name. Measuring the two real boundaries makes that claim impossible: `ZmdbConfig` has a dialect
+but no database-name field, §7 says the application does not read that config, and `Driver`
+exposes `dialect?` plus `execute()` but no connection identity. Invoking the config's separate
+driver thunk would open the wrong object graph, while scanning resolved provider values for a URL
+would execute factories and risk printing credentials.
+
+The banner therefore prints `dialect: application-owned` and `database:
+application-owned`, with those reasons, rather than inventing assurance it cannot have. The root
+module and config path still make the session's code boundary explicit; the application must put a
+safe database identity in its own provider or startup output if it wants one. There is no
+`--quiet`: the boundary statement and scope inventory are part of starting an interactive shell
+against real data.
 
 Scope exposed at the prompt:
 
@@ -757,12 +765,13 @@ the graph description that resolves nothing the container knows about.
 
 History goes to `~/.zmdb_repl_history`, mode `0600`, matching `node:repl`'s own
 `~/.node_repl_history` convention so the location is already where a user's tooling ignores it.
-`ZMDB_REPL_HISTORY` relocates it; `--no-history` disables it. **It is never written inside the
-project tree**, and that is the whole reason the path is frozen rather than left to the
-implementation: a history file in the working directory gets committed, gets copied into a Docker
-image, and contains whatever was typed against production — which is the one artifact of this
-feature with a real chance of leaking a credential. `0600` because it is a transcript of
-statements, and a transcript is as sensitive as the statements.
+`ZMDB_REPL_HISTORY` relocates it; a relative value resolves under the home directory, never the
+cwd. `--no-history` disables it, and an explicit path inside the nearest package tree is refused.
+That is the whole reason the path is frozen rather than left to the implementation: a history file
+in the working directory gets committed, gets copied into a Docker image, and contains whatever
+was typed against production — which is the one artifact of this feature with a real chance of
+leaking a credential. `0600` because it is a transcript of statements, and a transcript is as
+sensitive as the statements.
 
 ### R7. What #600 has to assert
 
@@ -784,18 +793,17 @@ statements, and a transcript is as sensitive as the statements.
    returns the eager route's response, and `load(name)` loads a lazy module.
 9. `get('db')` where two tokens share that description reports the ambiguity rather than resolving
    one of them.
-10. The session banner names the config path, the dialect and the database, on stderr — so stdout
-    under `--format dot` is exactly the diagram.
+10. The session banner names the config path and root module, inventories the scope, and states
+    explicitly that dialect and database identity are application-owned rather than guessed.
 11. History is written to the `ZMDB_REPL_HISTORY` path with mode `0600` and no file appears in the
     fixture's working directory; `--no-history` writes nothing at all.
 12. `await using` semantics: leaving the session runs `onShutdown` on the fixture's provider, in
     reverse order.
 13. `yarn verify:devtools-boundary` fails on a planted re-export of the inspector from
     `packages/zmdb/src/web.ts`, and passes on the tree as committed.
-14. `mapping.mjs`'s `NO_REPL` argument and its `lazy-modules/e2e/*` argument are rewritten and the
-    cited rows (`:866`, `:873-879`, `:906`, `:907`) move from out-of-scope to covered, with titles
-    matching real `it()` text — which `yarn verify:api-coverage` checks and which is named here so
-    it is not discovered by that gate failing.
+14. `mapping.mjs` deletes `NO_REPL`, rewrites `lazy-modules/e2e/*`, and moves the inspector,
+    lazy-module and REPL rows from out-of-scope to covered with titles matching real `it()` text;
+    `yarn verify:api-coverage` checks every title.
 
 ### Non-goals (rejected in this amendment)
 

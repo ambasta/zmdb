@@ -163,12 +163,6 @@ const NO_PLATFORM_ADAPTER =
   'Response and ships a thin node:http bridge, so the host is the platform and there is no ' +
   'adapter abstraction with two implementations to keep honest.';
 
-const NO_REPL =
-  'NestJS exposes an interactive shell over a booted application. zmdb now describes the declared ' +
-  'module graph on demand, including providers, routes and injection edges, without retaining a ' +
-  'runtime metadata store; it does not yet ship the separate interactive session that boots the ' +
-  'real container and runs arbitrary user expressions.';
-
 const NO_PROTOBUF =
   'Typia compiles Protobuf encoders and decoders from the same types it validates. zmdb emits ' +
   'JSON serializers and OpenAPI documents. Protobuf is a reasonable thing to generate from the ' +
@@ -898,7 +892,13 @@ export const nestjs = {
   'route-conflict/e2e/versioned-wildcard': oos(NO_VERSIONING, 'web-versioning'),
   'versioning/e2e/*': oos(NO_VERSIONING, 'web-versioning'),
   'inspector/e2e/graph-inspector': 'describes the large fixture graph',
-  'repl/e2e/*': oos(NO_REPL, 'web-repl'),
+  'repl/e2e/*': [
+    'boots the container and resolves a provider in the repl scope',
+    'does not start an HTTP listener',
+    'the repl does not listen on a non-loopback address',
+    'awaits and prints a promise result',
+    'releases connections on exit',
+  ],
   'websockets/e2e/*': oos(NO_WEBSOCKETS, 'web-gateways'),
   'microservices/e2e/*': oos(NO_MICROSERVICES, 'web-microservices'),
   'graphql-code-first/e2e/*': oos(NO_GRAPHQL, 'web-graphql'),

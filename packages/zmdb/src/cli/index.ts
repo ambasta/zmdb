@@ -1,22 +1,29 @@
 // zmdb/cli — argument handling for developer and schema commands.
 //
-// The module inspector is the first shipped command. It lives on a build-time
-// subpath so esbuild and the application-source loader cannot enter a server
-// bundle through any runtime export.
+// The module inspector and REPL live on a build-time subpath so esbuild,
+// node:repl and the application-source loader cannot enter a server bundle
+// through any runtime export.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { describeGraph, renderDot, renderTree, type GraphDescription, type GraphFilter } from '@zmdb/web/devtools';
 import type { ModuleClass } from '@zmdb/web/modules';
 
+import { createReplSession, replHistoryPath } from './repl.js';
+
 export interface CliEnvironment {
   readonly cwd?: string;
   readonly stdinIsTTY?: boolean;
+  readonly input?: NodeJS.ReadableStream;
+  readonly output?: NodeJS.WritableStream;
   readonly stdout?: (text: string) => void;
   readonly stderr?: (text: string) => void;
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+  readonly homeDirectory?: string;
 }
 
 export interface CliResult<T> {
@@ -30,8 +37,12 @@ export interface CliResult<T> {
 interface RuntimeEnvironment {
   readonly cwd: string;
   readonly stdinIsTTY: boolean;
+  readonly input: NodeJS.ReadableStream;
+  readonly output: NodeJS.WritableStream;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
+  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly homeDirectory: string;
 }
 
 interface ModulesOptions {
@@ -43,14 +54,21 @@ interface ModulesOptions {
   readonly config: string;
 }
 
+interface ReplOptions {
+  readonly moduleSpec: string;
+  readonly config: string;
+  readonly history: boolean;
+}
+
 const DEFAULT_MODULE_SPEC = './src/app.module.ts#AppModule';
 const USAGE = `zmdb — schema and application developer tools.
 
   zmdb modules [path#export] [--format tree|dot] [--providers]
                [--module <name>] [--token <description>] [--depth <n>] [--json]
-  zmdb repl [path#export]
+  zmdb repl [path#export] [--no-history]
 
 The modules command describes declarations without constructing providers.
+The repl command requires a TTY and never opens a network listener.
 `;
 
 let applicationLoader: Promise<void> | undefined;
@@ -76,7 +94,7 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
     return runModules(argv.slice(1), io);
   }
   if (command === 'repl') {
-    return refuseUnavailableRepl(argv.slice(1), io);
+    return runRepl(argv.slice(1), io);
   }
 
   io.stderr(`zmdb: unknown command "${command}"\n`);
@@ -327,7 +345,7 @@ async function installApplicationLoader(): Promise<void> {
   await applicationLoader;
 }
 
-function refuseUnavailableRepl(argv: readonly string[], io: RuntimeEnvironment): number {
+async function runRepl(argv: readonly string[], io: RuntimeEnvironment): Promise<number> {
   if (argv.includes('--json')) {
     io.stderr('zmdb repl: --json is unavailable because an interactive session is not one JSON document\n');
     return 2;
@@ -336,8 +354,79 @@ function refuseUnavailableRepl(argv: readonly string[], io: RuntimeEnvironment):
     io.stderr('zmdb repl: stdin must be a TTY; piped or network-controlled input is refused\n');
     return 2;
   }
-  io.stderr('zmdb repl: the interactive session is not shipped yet\n');
-  return 2;
+
+  const parsed = parseRepl(argv, io.cwd);
+  if ('error' in parsed) {
+    io.stderr(`zmdb repl: ${parsed.error}\n`);
+    return 2;
+  }
+
+  let root: ModuleClass;
+  try {
+    root = await loadRootModule(parsed.moduleSpec, io.cwd);
+  } catch (error) {
+    io.stderr(`zmdb repl: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 2;
+  }
+
+  try {
+    await using session = await createReplSession(root, {
+      configPath: parsed.config,
+      moduleSpec: parsed.moduleSpec,
+      cwd: io.cwd,
+      input: io.input,
+      output: io.output,
+      stderr: io.stderr,
+      historyPath: parsed.history ? replHistoryPath(io.environment, io.homeDirectory) : null,
+      terminal: io.stdinIsTTY && streamIsTTY(io.output),
+    });
+    await session.closed;
+    return 0;
+  } catch (error) {
+    io.stderr(`zmdb repl: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+}
+
+function parseRepl(argv: readonly string[], cwd: string): ReplOptions | { readonly error: string } {
+  let moduleSpec: string | undefined;
+  let config = resolve(cwd, 'zmdb.config.ts');
+  let history = true;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index] ?? '';
+    if (!argument.startsWith('-')) {
+      if (moduleSpec !== undefined) {
+        return { error: `unexpected positional argument "${argument}"` };
+      }
+      moduleSpec = argument;
+      continue;
+    }
+    if (argument === '--no-history') {
+      history = false;
+      continue;
+    }
+    if (argument === '--yes' || argument === '--force') {
+      continue;
+    }
+    if (argument === '--config') {
+      const value = argv[index + 1];
+      if (value === undefined) {
+        return { error: '--config needs a path' };
+      }
+      config = resolve(cwd, value);
+      index += 1;
+      continue;
+    }
+    return { error: `unknown option "${argument}"` };
+  }
+
+  if (moduleSpec === undefined && isWorkspaceRoot(cwd)) {
+    return {
+      error: `a workspace root must name the application as <path>#<export>; the default is ${DEFAULT_MODULE_SPEC}`,
+    };
+  }
+  return { moduleSpec: moduleSpec ?? DEFAULT_MODULE_SPEC, config, history };
 }
 
 function invocationError(
@@ -362,12 +451,21 @@ function invocationError(
 }
 
 function runtimeEnvironment(environment: CliEnvironment): RuntimeEnvironment {
+  const output = environment.output ?? process.stdout;
   return {
     cwd: environment.cwd ?? process.cwd(),
     stdinIsTTY: environment.stdinIsTTY ?? process.stdin.isTTY === true,
-    stdout: environment.stdout ?? (text => process.stdout.write(text)),
+    input: environment.input ?? process.stdin,
+    output,
+    stdout: environment.stdout ?? (text => output.write(text)),
     stderr: environment.stderr ?? (text => process.stderr.write(text)),
+    environment: environment.environment ?? process.env,
+    homeDirectory: environment.homeDirectory ?? homedir(),
   };
+}
+
+function streamIsTTY(stream: NodeJS.WritableStream): boolean {
+  return 'isTTY' in stream && stream.isTTY === true;
 }
 
 function isWorkspaceRoot(cwd: string): boolean {

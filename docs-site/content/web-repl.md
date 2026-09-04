@@ -1,114 +1,157 @@
-> **ToDo / feature gap.** There is no REPL helper — no `repl()` entry point, no
-> `$(Controller)` or `methods()` helpers, no interactive shell that boots the
-> module graph.
+> **Local REPL available.** `zmdb repl` boots the real application container,
+> runs its startup lifecycle and opens a TTY-only Node REPL. It creates no HTTP
+> server, debug socket or remote-attach port.
 
-## What replaces it, and why it is nearly as good
+## Start the application shell
 
-Node's REPL plus a module graph that works standalone. `compileModule` gives you
-`{ container, controllers, lazy }` with no lifecycle owner, and `createApp`
-wraps it in an `App` whose startup step is `init()` — no server, no listener,
-no adapter. Six lines get you every eager service:
+Name the root module as `<path>#<export>`:
 
 ```bash
-node --experimental-strip-types
+zmdb repl ./src/app.module.ts#AppModule
 ```
 
-```ts
-> const { createApp } = await import('@zmdb/web');
-> const { AppModule } = await import('./src/app.module.ts');
-> const app = createApp(AppModule);
-> await app.init();
-> const posts = app.container.resolve(POSTS);
-> await posts.list({ page: { limit: 5 } });
+In a single-package project the default is
+`./src/app.module.ts#AppModule`. A workspace root must name the module
+explicitly, so the command cannot silently choose the wrong package.
+
+Application TypeScript is loaded through the same Stage-3 decorator transform
+used by `zmdb modules`. Importing the module runs its top-level code. The REPL
+then calls `createApp(AppModule)` and `app.init()`; it does not construct a test
+application or apply provider overrides.
+
+Before the prompt, stderr shows:
+
+- the resolved CLI config path and root module;
+- that dialect and database identity are application-owned;
+- the prompt bindings, provider-token descriptions and history location.
+
+The CLI cannot truthfully infer the live database name. Applications do not
+read `zmdb.config.ts`, `Driver` has no connection-name field, and inspecting
+provider values could execute factories or print credentials. Put a safe
+environment label in your own startup output if operators need one.
+
+## Prompt scope
+
+| Binding                   | Value                                                           |
+| ------------------------- | --------------------------------------------------------------- |
+| `app`                     | the initialized `App`                                           |
+| `container`               | `app.container`                                                 |
+| `get(tokenOrDescription)` | resolves a token object or one unique token description         |
+| `tokens`                  | provider-token descriptions from the declared module graph      |
+| `describe()`              | a readable module, provider, controller and finding description |
+| `request(req)`            | `app.handle`; a string is shorthand for a `GET` request         |
+| `load(name)`              | loads a lazy module handle by its class name                    |
+
+Examples:
+
+```text
+zmdb> tokens
+[ 'DATABASE', 'POSTS_REPOSITORY' ]
+zmdb> get('POSTS_REPOSITORY')
+BaseRepository { ... }
+zmdb> await get('POSTS_REPOSITORY').findById(42)
+{ id: 42, title: 'Measured, not guessed' }
+zmdb> await request('/health')
+{ status: 200, body: ..., headers: ... }
 ```
 
-`app.container` is public and `resolve` takes a token, so anything your modules register is reachable. That is the substance of what a REPL command provides.
+`get` still accepts the original token object:
 
-For a declared lazy subtree, load its per-app handle before resolving one of its
-tokens:
-
-```ts
-> await app.lazy.find(handle => handle.name === 'AdminModule')?.load()
+```text
+zmdb> const { POSTS } = await import('./src/tokens.js')
+zmdb> get(POSTS)
 ```
 
-## A small script that does the setup
+Two distinct tokens may share one description. In that case
+`get('db')` refuses with an ambiguity error instead of selecting one; importing
+the actual token remains unambiguous.
 
-```ts
-// scripts/repl.ts
-import repl from 'node:repl';
-import { createApp } from '@zmdb/web';
-import { AppModule } from '../src/app.module.ts';
-import { POSTS, USERS, DRIVER } from '../src/tokens.ts';
+## Top-level await
 
-const app = createApp(AppModule);
-await app.init();
-const server = repl.start('zmdb> ');
+The prompt uses Node's asynchronous REPL evaluator. Promise results are awaited
+and printed:
 
-Object.assign(server.context, {
-  app,
-  posts: app.container.resolve(POSTS),
-  users: app.container.resolve(USERS),
-  driver: app.container.resolve(DRIVER),
-  sql: (text: string, parameters: readonly unknown[] = []) =>
-    app.container.resolve(DRIVER).execute({ text, parameters }),
-});
-
-server.on('exit', () => {
-  void app[Symbol.asyncDispose]().then(() => process.exit(0));
-});
+```text
+zmdb> await get('POSTS_REPOSITORY').list({ page: { limit: 5 } })
+{ items: [ ... ], total: 37 }
 ```
+
+There is no need to write `.then(console.log)`.
+
+## Lazy modules
+
+Lazy declarations are validated when the app boots but instantiated only when
+loaded. Use the named handle before resolving one of its providers:
+
+```text
+zmdb> await load('AdminModule')
+zmdb> get('ADMIN_REPOSITORY')
+```
+
+`load` shares the application's normal single-flight and lifecycle behavior.
+An unknown or duplicated lazy-module name is refused rather than guessed.
+
+## History
+
+History defaults to:
+
+```text
+~/.zmdb_repl_history
+```
+
+The file is mode `0600`. Relocate it with `ZMDB_REPL_HISTORY`; a relative value
+is resolved under the home directory, not the current project. A path inside
+the nearest package tree is refused.
+
+Disable history for a sensitive session:
 
 ```bash
-node --experimental-strip-types scripts/repl.ts
+zmdb repl ./src/app.module.ts#AppModule --no-history
 ```
 
-```
-zmdb> await posts.findById(1)
-zmdb> await sql('SELECT count(*) FROM posts')
-```
+The project directory never receives a history file.
 
-The `exit` handler is what stops the process hanging on an open pool.
+## Shutdown
 
-## Calling a handler rather than a service
+Leaving with `.exit`, Ctrl-D or an input close ends the session. The command
+then disposes the `App`, waits for in-flight lazy loads and calls `onShutdown`
+in reverse construction order. A pool registered as a provider therefore
+closes through the same lifecycle as the server application.
 
-`createTestApp` drives the full request path — routing, params, body parsing — which is often what you actually want to poke at:
-
-```ts
-> const { createTestApp } = await import('@zmdb/web/testing');
-> const t = createTestApp(AppModule);
-> await t.request({ method: 'GET', path: '/posts/1', headers: {} });
-{ status: 200, body: { kind: 'text', value: '{"id":1,...}' }, headers: { 'content-type': 'application/json' } }
-```
-
-No socket, no port. This is the closest thing to `$(PostsController).byId(1)` and it exercises more of the stack.
-
-## Inspecting a query without running it
-
-The most useful REPL trick in the project:
-
-```ts
-> compiler.selectFrom('posts').select(['id', 'title']).where('published', '=', true).compile()
-{ text: 'SELECT "id", "title" FROM "posts" WHERE "published" = $1', parameters: [true] }
-```
-
-No connection needed. Iterating on a query shape in the REPL and reading the SQL beats guessing. See [Debugging Queries](./logging.html).
-
-## Do not point it at production
+## Security boundary
 
 > [!WARNING]
-> A REPL against a production database is a shell with full write access, no audit
-> trail and no undo. A mistyped `delete` has no confirmation step. If you must use
-> one for an incident, connect with a read-only role — and get the query reviewed
-> before running a write.
+> The REPL has whatever database authority the application providers have. It
+> adds no confirmation or read-only layer. Prefer a read-only database role for
+> incident work.
 
-The AOT transformer also does not run under type stripping, so `assert<T>()` in a REPL session does not validate — it throws `runtime type witness required in test/fallback mode`. It fails loudly rather than accepting anything, which is the right direction, but it does mean a REPL is not where you find out whether validation works. Use a test. See [JIT vs AOT](./jit-vs-aot.html).
+The boundary is structural:
 
-## What it would take
+- stdin must be a TTY; piped and network-controlled input exits 2;
+- there is no `--host`, `--port`, `--inspect` or remote protocol;
+- `--json` is refused because an interactive conversation is not one JSON
+  document;
+- `node:repl` exists only under the build-time `zmdb/cli` entry;
+- `yarn verify:devtools-boundary` proves no production export reaches the REPL
+  or inspector implementation.
 
-Small: a `@zmdb/web/repl` entry point that boots a module, populates the context from a token map, and disposes on exit — essentially the script above, generalised. The only real design question is how to discover the tokens to expose, since [there is no discovery mechanism](./web-discovery.html), so it would take an explicit map either way.
+## AOT calls in the prompt
 
-Given that, the twenty-line script is close to the whole feature, and committing it to your own repository lets you tailor the context.
+The application source loader lowers decorators, but it does not run the zmdb
+AOT validator transform over expressions typed at the prompt. An untransformed
+`assert<T>()` throws `runtime type witness required in test/fallback mode`; it
+does not silently accept input. Use the built application or a test when
+checking generated validation.
+
+Pure query compilation remains useful in the shell:
+
+```text
+zmdb> compiler.selectFrom('posts').select(['id']).where('published', '=', true).compile()
+{ text: 'SELECT "id" FROM "posts" WHERE "published" = $1', parameters: [ true ] }
+```
 
 ---
 
-See also: [Standalone Applications](./web-standalone.html) · [Debugging Queries](./logging.html) · [Testing Applications](./web-testing.html)
+See also: [Module Inspector](./web-devtools.html) ·
+[Lazy Modules](./web-lazy-modules.html) · [Standalone Applications](./web-standalone.html) ·
+[Debugging Queries](./logging.html)

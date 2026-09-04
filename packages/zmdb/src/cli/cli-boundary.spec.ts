@@ -212,8 +212,7 @@ describe('the zmdb CLI boundary', () => {
     expect(wide.stderr).toContain('WideModule');
   });
 
-  // §R7.14. The inspector and lazy rows cite live tests; the REPL row remains honestly out of scope
-  // until #603 ships the interactive session.
+  // §R7.14. The inspector, lazy and REPL rows all cite live tests.
   //
   // What this does *not* do is check the titles. `yarn verify:api-coverage` does that — it requires a
   // cited title to match real `it()` text — so a second copy of that check here would be a second
@@ -224,7 +223,7 @@ describe('the zmdb CLI boundary', () => {
   // `import` of it makes `node scripts/typecheck.mjs` fail with TS2307 on this file. The four keys
   // each sit on one line immediately followed by `oos(`, verified by reading the file, so the text
   // form is exact rather than approximate.
-  it('covers the inspector and lazy-module rows while the unshipped REPL stays out of scope', () => {
+  it('covers the inspector, REPL and lazy-module rows in the api-coverage mapping', () => {
     const source = readFileSync(join(ROOT, 'tests', 'api-coverage', 'mapping.mjs'), 'utf8');
     const cited = ['injector/e2e/introspection', 'lazy-modules/e2e/*', 'inspector/e2e/graph-inspector', 'repl/e2e/*'];
     const state = cited.map(key => {
@@ -232,12 +231,7 @@ describe('the zmdb CLI boundary', () => {
       const outOfScope = new RegExp(`'${literal}':\\s*oos\\(`).test(source);
       return `${key}: ${outOfScope ? 'oos' : 'covered'}`;
     });
-    expect(state).toEqual([
-      'injector/e2e/introspection: covered',
-      'lazy-modules/e2e/*: covered',
-      'inspector/e2e/graph-inspector: covered',
-      'repl/e2e/*: oos',
-    ]);
+    expect(state).toEqual(cited.map(key => `${key}: covered`));
   });
 
   // Green, and it is §R4's whole argument as an assertion rather than as prose. The session is built

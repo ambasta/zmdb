@@ -1659,7 +1659,7 @@ export const PAGE_META = {
     title: 'Devtools',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'the programmatic and CLI module-graph inspector ships; the final epic docs pass remains blocked on the REPL (#603/#604)',
+    note: 'the module-graph inspector and local CLI REPL ship; the final three-page epic docs pass is #604',
   },
   'web-hot-reload': {
     title: 'Hot Reload',
@@ -1670,7 +1670,7 @@ export const PAGE_META = {
     title: 'REPL',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no REPL entry point that boots the container',
+    note: 'the local TTY-only REPL ships; the final lazy/inspector/REPL docs pass is #604',
   },
   'web-multiple-servers': {
     title: 'Multiple Servers',

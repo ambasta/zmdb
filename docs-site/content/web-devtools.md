@@ -132,4 +132,5 @@ editor or `chrome://inspect` can map framework frames back to TypeScript.
 ---
 
 See also: [Modules](./web-modules.html) · [Lazy Modules](./web-lazy-modules.html) ·
-[Debugging Queries](./logging.html) · [Testing Applications](./web-testing.html)
+[REPL](./web-repl.html) · [Debugging Queries](./logging.html) ·
+[Testing Applications](./web-testing.html)
