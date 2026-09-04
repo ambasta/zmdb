@@ -14,7 +14,14 @@ import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { findCallSites } from './callsites.js';
-import { DEFAULT_LIMITS, irFromType, Reflector, schemaIrFromType, type ReflectDiagnostic } from './index.js';
+import {
+  DEFAULT_LIMITS,
+  irFromType,
+  Reflector,
+  schemaIrFromType,
+  type ReflectDiagnostic,
+  type ReflectOptions,
+} from './index.js';
 import { ReflectSession } from './session.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
@@ -43,7 +50,7 @@ beforeAll(() => {
   // A type read out of a file that does not compile is a guess. Checking first turns
   // "the reflection is wrong" into "the fixture is broken", which are very different
   // afternoons.
-  for (const file of ['constructs.ts', 'tables.ts']) {
+  for (const file of ['constructs.ts', 'tables.ts', 'naming-strategy.ts']) {
     const diagnostics = session.diagnostics(`${FIXTURES}${file}`);
     if (diagnostics.length > 0) {
       throw new Error(
@@ -653,6 +660,101 @@ describe('irFromType and schemaIrFromType', () => {
     const nodeCapped = JSON.stringify(irFromType(session.checker, type, location, { limits: { maxNodes: 1 } }).ir);
     expect(nodeCapped).toContain('more than 1 IR nodes in one file');
     expect(nodeCapped).not.toContain('nesting deeper');
+  });
+});
+
+describe('build-time naming strategy (frozen: reflect/SPEC.md 7a)', () => {
+  interface FrozenNamingStrategy {
+    readonly column?: (property: string, context: { readonly table: string }) => string;
+    readonly table?: (declared: string) => string;
+    readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
+  }
+
+  type FrozenReflectOptions = ReflectOptions & { readonly naming?: FrozenNamingStrategy };
+  type FrozenColumnIR = ColumnIR & { readonly physicalName: string };
+  type FrozenSchemaIR = Omit<SchemaIR, 'columns'> & {
+    readonly physicalTable: string;
+    readonly columns: readonly FrozenColumnIR[];
+  };
+
+  function reflectNamingCase(label: string, options: FrozenReflectOptions = {}) {
+    const source = session.sourceFile(`${FIXTURES}naming-strategy.ts`);
+    const call = findCallSites(source as never, new Set(['namingCase'])).find(c => labelOf(c) === label);
+    expect(call, `no namingCase labelled ${label}`).toBeDefined();
+    const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
+
+    // boundary: #417 freezes the `naming` option before `ReflectOptions` ships it.
+    // The assertion is confined to the one real exported call; the result widening
+    // below only exposes the two required IR fields the same frozen spec names.
+    const result = schemaIrFromType(session.checker, type as never, source as never, options as ReflectOptions);
+    return { ...result, ir: result.ir as FrozenSchemaIR };
+  }
+
+  // actual today: `naming` is ignored, the callback is never called, and the IR
+  // contains neither `physicalTable` nor `physicalName`.
+  it.fails('applies the column strategy once, into the IR', () => {
+    const calls: string[] = [];
+    const result = reflectNamingCase('camel-case', {
+      naming: {
+        column(property, context) {
+          calls.push(`${context.table}.${property}`);
+          return property === 'createdAt' ? 'created_at' : property;
+        },
+      },
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir.physicalTable).toBe('userAccount');
+    expect(result.ir.columns.map(column => [column.name, column.physicalName])).toEqual([
+      ['id', 'id'],
+      ['createdAt', 'created_at'],
+    ]);
+    expect(calls).toEqual(['userAccount.id', 'userAccount.createdAt']);
+  });
+
+  // actual today: both physical fields are absent rather than carrying the
+  // identity value explicitly.
+  it.fails('leaves physicalName equal to name when no strategy is configured', () => {
+    const result = reflectNamingCase('camel-case');
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir.physicalTable).toBe(result.ir.table);
+    expect(result.ir.columns.map(column => column.physicalName)).toEqual(result.ir.columns.map(column => column.name));
+  });
+
+  // actual today: the local `Physical<'created_ts'>` tag is ignored and no
+  // strategy callback runs, because neither surface exists in the reflector.
+  it.fails('lets an explicit column name beat the strategy', () => {
+    const calls: string[] = [];
+    const result = reflectNamingCase('explicit-column', {
+      naming: {
+        column(property) {
+          calls.push(property);
+          return `strategy_${property}`;
+        },
+      },
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir.columns.map(column => [column.name, column.physicalName])).toEqual([
+      ['id', 'strategy_id'],
+      ['createdAt', 'created_ts'],
+    ]);
+    expect(calls).toEqual(['id']);
+  });
+
+  // actual today: the two properties are accepted with zero diagnostics because
+  // the strategy is never applied.
+  it.fails('fails the build when two properties collide on one physical name, naming both', () => {
+    const result = reflectNamingCase('collision', {
+      naming: {
+        column: property => (property === 'createdAt' ? 'created_at' : property),
+      },
+    });
+
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]?.reason).toContain('createdAt');
+    expect(result.diagnostics[0]?.reason).toContain('created_at');
+    expect(result.diagnostics[0]?.reason).toContain('both map to the column');
   });
 });
 

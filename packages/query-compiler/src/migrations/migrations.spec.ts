@@ -1,8 +1,16 @@
+import { schemasFrom, type SchemasFromOptions } from '@zmdb/aot-validator/testing';
+import type { Entity } from '@zmdb/schema-core';
+import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
-import type { Dialect } from '../index.js';
-import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '../schema-objects/index.js';
+import { createQueryCompiler, type Dialect } from '../index.js';
+import {
+  createIndexDdl,
+  replaceRoutineStatements,
+  routineFingerprint,
+  type RoutineDef,
+} from '../schema-objects/index.js';
 import {
   diff,
   emitUp,
@@ -39,6 +47,58 @@ const usersV2 = snap([
   },
 ]);
 
+interface FrozenNamingStrategy {
+  readonly column?: (property: string, context: { readonly table: string }) => string;
+  readonly table?: (declared: string) => string;
+  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
+}
+
+type FrozenSchemasFromOptions = SchemasFromOptions & { readonly naming?: FrozenNamingStrategy };
+
+export interface NamingUser extends Table<'userAccount'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  createdAt: Date & Sql<'timestamp'>;
+}
+
+// The config-loader dependency stays stubbed here by one literal strategy. The
+// real test helper and reflection path receive it through the frozen options
+// boundary; no naming implementation is introduced by this tests-freeze slice.
+const namingStrategy = {
+  column: (property: string) => (property === 'createdAt' ? 'created_at' : property),
+  table: (declared: string) => (declared === 'userAccount' ? 'user_accounts' : declared),
+  index: (table: string, columns: readonly string[], unique: boolean) =>
+    `${table}_${columns.join('_')}_${unique ? 'uniq' : 'idx'}`,
+} satisfies FrozenNamingStrategy;
+
+const namingOptions = { naming: namingStrategy } satisfies FrozenSchemasFromOptions;
+
+// boundary: `SchemasFromOptions` does not carry `naming` yet. This is the one
+// widened call into the real reflection -> schemaFromIR path; #418 replaces the
+// assertion with the shipped option.
+const { NamingUser: namingUserSchema } = schemasFrom<{ NamingUser: NamingUser }>(
+  import.meta.url,
+  ['NamingUser'],
+  namingOptions as SchemasFromOptions,
+);
+
+const compileNamingCalls: string[] = [];
+const compileNamingStrategy = {
+  column(property: string, context: { readonly table: string }) {
+    compileNamingCalls.push(`column:${context.table}.${property}`);
+    return property === 'createdAt' ? 'created_at' : property;
+  },
+  table(declared: string) {
+    compileNamingCalls.push(`table:${declared}`);
+    return declared === 'userAccount' ? 'user_accounts' : declared;
+  },
+} satisfies FrozenNamingStrategy;
+const compileNamingOptions = { naming: compileNamingStrategy } satisfies FrozenSchemasFromOptions;
+const { NamingUser: compileNamingUserSchema } = schemasFrom<{ NamingUser: NamingUser }>(
+  import.meta.url,
+  ['NamingUser'],
+  compileNamingOptions as SchemasFromOptions,
+);
+
 describe('diff engine', () => {
   it('identical snapshots → no ops', () => {
     expect(diff(usersV1, usersV1)).toEqual([]);
@@ -67,6 +127,109 @@ describe('DDL emitter (postgres)', () => {
 
   it('down reverses up for add_column', () => {
     expect(emitDown(addAge, 'postgres')).toBe('ALTER TABLE "users" DROP COLUMN "age"');
+  });
+});
+
+describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1.4)', () => {
+  function namingTable() {
+    const table = snapshot([namingUserSchema]).tables[0];
+    expect(table).toBeDefined();
+    return table as TableSnapshot;
+  }
+
+  function timestampColumn(table: TableSnapshot) {
+    const column = table.columns.find(candidate => candidate.type === 'timestamp');
+    expect(column).toBeDefined();
+    return column as TableSnapshot['columns'][number];
+  }
+
+  // actual today:
+  //   CREATE TABLE "userAccount" ("createdAt" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)
+  // The `Entity` half already uses property vocabulary; the missing half is the
+  // schema value and DDL carrying physical vocabulary from the same declaration.
+  it.fails('emits DDL with physical names and derives Entity with property names', () => {
+    const entity: Entity<NamingUser> = { id: 1, createdAt: new Date(0) };
+    expect(Object.keys(entity).toSorted()).toEqual(['createdAt', 'id']);
+
+    const table = namingTable();
+    expect(emitUp({ kind: 'create_table', table: table.name, columns: table.columns }, 'postgres')).toBe(
+      'CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)',
+    );
+  });
+
+  // actual today:
+  //   CREATE INDEX "userAccount_createdAt_idx" ON "userAccount" ("createdAt")
+  // The literal strategy receives the names produced by the real schema/snapshot
+  // path, so the emitted name can only be physical when that path is physical.
+  it.fails('derives an index name from physical names', () => {
+    const table = namingTable();
+    const column = timestampColumn(table);
+    const name = namingStrategy.index?.(table.name, [column.name], false);
+    expect(name).toBeDefined();
+    expect(createIndexDdl({ name: name as string, table: table.name, columns: [column.name] }, 'postgres')).toBe(
+      'CREATE INDEX "user_accounts_created_at_idx" ON "user_accounts" ("created_at")',
+    );
+  });
+
+  // actual today: the table is `userAccount` and the timestamp column is
+  // `createdAt`; neither physical name reaches the snapshot.
+  it.fails('records physical names in the snapshot', () => {
+    expect(snapshot([namingUserSchema])).toEqual({
+      version: 1,
+      tables: [
+        {
+          name: 'user_accounts',
+          columns: [
+            { name: 'created_at', type: 'timestamp', nullable: false, primaryKey: false },
+            { name: 'id', type: 'integer', nullable: false, primaryKey: true },
+          ],
+        },
+      ],
+    });
+  });
+
+  // actual today:
+  //   CREATE INDEX "user_accounts_created_at_partial" ON "userAccount" ("createdAt")
+  //   WHERE createdAt IS NOT NULL
+  // The structured identifiers are still declared names, while the raw predicate
+  // is already emitted byte-for-byte and must stay that way.
+  it.fails('does not rewrite a raw SQL fragment', () => {
+    const table = namingTable();
+    const column = timestampColumn(table);
+    const ddl = createIndexDdl(
+      {
+        name: 'user_accounts_created_at_partial',
+        table: table.name,
+        columns: [column.name],
+        where: 'createdAt IS NOT NULL',
+      },
+      'postgres',
+    );
+
+    expect(ddl).toBe(
+      'CREATE INDEX "user_accounts_created_at_partial" ON "user_accounts" ("created_at") WHERE createdAt IS NOT NULL',
+    );
+    expect(ddl).not.toContain('WHERE created_at IS NOT NULL');
+  });
+
+  // actual today: the naming callbacks are never reached, so the configured
+  // schema still compiles as SELECT "createdAt" FROM "userAccount".
+  it.fails('resolves naming before query compilation without runtime strategy calls', () => {
+    const baseline = createQueryCompiler('postgres').selectFrom('userAccount').select(['createdAt']).compile().text;
+    const resolvedCalls = compileNamingCalls.length;
+    const physicalColumn = Object.keys(compileNamingUserSchema.columns).find(name => name !== 'id');
+    expect(physicalColumn).toBeDefined();
+
+    const named = createQueryCompiler('postgres')
+      .selectFrom(compileNamingUserSchema.table)
+      .select([physicalColumn ?? ''])
+      .compile().text;
+
+    expect(baseline).toBe('SELECT "createdAt" FROM "userAccount"');
+    expect(named).toBe('SELECT "created_at" FROM "user_accounts"');
+    expect(named).not.toBe(baseline);
+    expect(resolvedCalls).toBe(3);
+    expect(compileNamingCalls).toHaveLength(resolvedCalls);
   });
 });
 

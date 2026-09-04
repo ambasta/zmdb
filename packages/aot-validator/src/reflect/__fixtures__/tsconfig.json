@@ -12,6 +12,7 @@
     "codemod-refusals.ts",
     "schema-values.ts",
     "schema-values-refusals.ts",
-    "payloads.ts"
+    "payloads.ts",
+    "naming-strategy.ts"
   ]
 }
