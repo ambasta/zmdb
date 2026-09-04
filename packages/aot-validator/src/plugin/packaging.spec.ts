@@ -48,7 +48,7 @@ describe('the manifest', () => {
   });
 
   it('exports the build-time entry points a bundler imports', () => {
-    for (const subpath of ['./plugin', './reflect', './transformer', './unplugin']) {
+    for (const subpath of ['./lint', './plugin', './reflect', './transformer', './unplugin']) {
       expect(Object.keys(manifest.exports)).toContain(subpath);
     }
   });
