@@ -929,8 +929,8 @@ export function createQueryCompiler(
 ): QueryCompiler {
   const telemetry = options?.telemetry === true;
   return {
-    selectFrom: (table, options) => {
-      const ftsTable = typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable;
+    selectFrom: (table, opts) => {
+      const ftsTable = typeof opts === 'string' || typeof opts === 'boolean' ? opts : opts?.ftsTable;
       return makeSelect(
         dialect,
         {
