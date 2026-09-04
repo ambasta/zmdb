@@ -87,11 +87,20 @@ export interface SecurityHeadersOptions {
 }
 
 /** Router initialization configuration options. */
-export interface RouterOptions extends Observability {
+export type RouterOptions = Observability & {
   readonly guardRegistry?: GuardRegistry;
   readonly cors?: CorsOptions | boolean;
   readonly security?: SecurityHeadersOptions | boolean;
   readonly versioning?: VersionStrategy;
+  readonly [key: string]: unknown;
+};
+
+/** Per-handler pipeline, guard and OpenAPI options. */
+export interface RouteOptions {
+  readonly validateBody?: (raw: unknown) => unknown;
+  readonly guards?: readonly Guard[];
+  readonly security?: readonly SecurityRequirement[];
+  readonly deprecated?: true;
 }
 
 /** A handler takes one Ctx and returns a (possibly async) result. */
