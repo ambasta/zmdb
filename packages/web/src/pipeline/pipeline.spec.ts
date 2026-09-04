@@ -574,7 +574,7 @@ describe('@zmdb/web pipeline: security headers & CORS options', () => {
     });
 
     expect(preflight.status).toBe(204);
-    expect(preflight.body).toBe('');
+    expect(await bodyText(preflight)).toBe('');
     expect(preflight.headers['access-control-allow-origin']).toBe('https://client.example.com');
     expect(preflight.headers['access-control-allow-methods']).toBe('POST, OPTIONS');
     expect(preflight.headers['access-control-allow-headers']).toBe('Content-Type, Authorization');
