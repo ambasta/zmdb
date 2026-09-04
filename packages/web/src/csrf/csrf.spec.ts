@@ -3,35 +3,36 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+if (typeof (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 !== 'function') {
+  (
+    Uint8Array as unknown as {
+      fromBase64: (string: string, options?: { alphabet?: string }) => Uint8Array<ArrayBuffer>;
+    }
+  ).fromBase64 = function (string: string, options?: { alphabet?: string }): Uint8Array<ArrayBuffer> {
+    const base64 = options?.alphabet === 'base64url' ? string.replace(/-/g, '+').replace(/_/g, '/') : string;
+    const binary = globalThis.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  };
+}
+
 if (typeof (Uint8Array.prototype as unknown as { toBase64?: unknown }).toBase64 !== 'function') {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const urlChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   (
     Uint8Array.prototype as unknown as {
       toBase64: (options?: { alphabet?: string; omitPadding?: boolean }) => string;
     }
   ).toBase64 = function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string {
-    const table = options?.alphabet === 'base64url' ? urlChars : chars;
-    let res = '';
-    const len = this.length;
-    for (let i = 0; i < len; i += 3) {
-      const b0 = this[i]!;
-      const b1 = i + 1 < len ? this[i + 1]! : 0;
-      const b2 = i + 2 < len ? this[i + 2]! : 0;
-      res += table[b0 >> 2]!;
-      res += table[((b0 & 3) << 4) | (b1 >> 4)]!;
-      if (i + 1 < len) {
-        res += table[((b1 & 15) << 2) | (b2 >> 6)]!;
-      } else if (!options?.omitPadding) {
-        res += '=';
-      }
-      if (i + 2 < len) {
-        res += table[b2 & 63]!;
-      } else if (!options?.omitPadding && i + 1 < len) {
-        res += '=';
-      }
+    let binary = '';
+    for (let i = 0; i < this.length; i++) binary += String.fromCharCode(this[i]!);
+    let base64 = globalThis.btoa(binary);
+    if (options?.alphabet === 'base64url') {
+      base64 = base64.replace(/\+/g, '-').replace(/\//g, '_');
     }
-    return res;
+    if (options?.omitPadding) {
+      base64 = base64.replace(/=+$/, '');
+    }
+    return base64;
   };
 }
 
