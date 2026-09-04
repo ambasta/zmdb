@@ -1056,11 +1056,10 @@ export const PAGE_META = {
   'validators-shallow': {
     title: 'Shallow Validation',
     group: 'Validation',
-    status: 'todo',
-    note: 'no depth-limited validator variant; is()/assert() always walk the whole tree',
+    status: 'supported',
   },
   'validators-misc': {
-    title: 'equals, prune & other utilities',
+    title: 'equals, random & other utilities',
     group: 'Validation',
     status: 'supported',
   },

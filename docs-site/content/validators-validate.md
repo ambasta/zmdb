@@ -1,5 +1,11 @@
 `validate<T>()` is non-throwing validation: it returns a result object rather than raising. Use it where a failure is an expected outcome you have to render — a request body, a config file, a queue message — and [`assert`](./validators-assert.html) where a failure means a bug.
 
+> [!WARNING]
+> Use full-depth `validate<T>()` for untrusted input. `validateShallow<T, D>()`
+> deliberately omits checks below `D` and can report success for malformed nested
+> data; it is only for rechecking data whose deeper contents are already trusted.
+> See [Shallow Validation](./validators-shallow.html).
+
 ```ts
 interface ValidateResult<T> {
   readonly success: boolean;
