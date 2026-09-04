@@ -57,7 +57,9 @@ const tags = typeof raw === 'string' ? assert<string[]>(JSON.parse(raw)) : raw;
 
 ## Appending
 
-There is no expression support in `set()`, so read-modify-write races here exactly as it does for [counters](./guide-increment-decrement.html). Postgres can do it atomically:
+The closed `set()` expression vocabulary has no JSON or array-append variant, so read-modify-write still races
+here exactly as it does for counters outside the supported [`inc()` form](./guide-increment-decrement.html).
+Postgres can append atomically:
 
 ```ts
 await driver.execute({

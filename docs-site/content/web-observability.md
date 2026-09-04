@@ -119,18 +119,19 @@ compile-time telemetry exists so the driver does not have to guess.
 
 The committed run measured all three configurations on 2026-09-04 with Node
 26.8.1 on an AMD Ryzen 7 7840U. Each row is the median of six samples after a
-1.5-second warmup; all six mode orders were used. The recording case used a real
-`BasicTracerProvider`, `SimpleSpanProcessor` and bounded `SpanExporter`, with
-exporter flush/reset outside the timed interval and metrics disabled.
+750 ms warmup per workload and mode; all six mode orders were used. The
+recording case used a real `BasicTracerProvider`, `SimpleSpanProcessor` and
+bounded `SpanExporter`, with exporter flush/reset outside the timed interval
+and metrics disabled.
 
 | workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       333.48 |        baseline |                 0 |         1.128x |
-| request  | API no-op          |      1240.49 |         +272.0% |                 0 |         1.131x |
-| request  | recording exporter |      6740.20 |        +1921.2% |                 3 |         1.111x |
-| query    | off                |        70.32 |        baseline |                 0 |         1.041x |
-| query    | API no-op          |       282.05 |         +301.1% |                 0 |         1.734x |
-| query    | recording exporter |      2432.96 |        +3359.8% |                 1 |         1.539x |
+| request  | off                |       329.90 |        baseline |                 0 |         1.053x |
+| request  | API no-op          |      1228.46 |         +272.4% |                 0 |         1.103x |
+| request  | recording exporter |      6356.08 |        +1826.7% |                 3 |         1.086x |
+| query    | off                |        72.65 |        baseline |                 0 |         1.039x |
+| query    | API no-op          |       286.97 |         +295.0% |                 0 |         1.077x |
+| query    | recording exporter |      2293.43 |        +3057.0% |                 1 |         1.023x |
 
 The request workload is one matched `GET`; the query workload is one compiled
 `SELECT` through `tracedDriver`. These are nanosecond-scale framework

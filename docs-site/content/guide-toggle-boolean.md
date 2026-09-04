@@ -1,11 +1,25 @@
-> **ToDo / feature gap.** Same cause as [increment](./guide-increment-decrement.html):
-> `UpdateBuilder.set()` takes values, so `SET active = NOT active` is not
-> expressible.
+> **ToDo / repository gap.** `UpdateBuilder.set()` supports `not()`, but
+> `BaseRepository.update()` still accepts values only. Use the compiler builder
+> directly when the client genuinely requests a toggle.
 
 ## What you cannot write
 
 ```ts
 await userRepo.update(id, { active: { toggle: true } }); // no such API
+```
+
+The compiler form is atomic:
+
+```ts
+import { createQueryCompiler, not } from '@zmdb/query-compiler';
+
+const query = createQueryCompiler('postgres')
+  .updateTable('users')
+  .set({ active: not() })
+  .where('id', '=', id)
+  .compile();
+
+await driver.execute(query);
 ```
 
 ## The read-then-write, and its race
@@ -74,7 +88,8 @@ Decide what null means before writing the toggle. Usually it means the column sh
 
 ## What it would take
 
-An expression type in `set()` — the same one that unblocks [increment](./guide-increment-decrement.html), [bulk update](./guide-bulk-update.html) and [upsert](./upsert.html). `NOT column` is a narrower case than arithmetic and would fall out of the same design.
+The compiler expression exists. The remaining gap is repository integration: `BaseRepository.update()` must
+accept the branded expression while preserving validation for every ordinary value in the same patch.
 
 ---
 

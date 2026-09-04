@@ -235,12 +235,11 @@ a plausible-looking bug that delivers an old message alongside a new one.
 
 ### 4.3 Why the lease also makes `attempts = attempts + 1` unnecessary
 
-`makeUpdate`'s `compile` (`../index.ts:323-329`) pushes **every** `set()` value as a bound parameter, so a SET
-that references a column — `attempts = attempts + 1` — cannot be written. It does not need to be. Statement 3
-returned `attempts` under this dispatcher's lease, so `set({ attempts: row.attempts + 1 })` in §5's mark step
-is a read-modify-write on a row nobody else may touch. The missing SQL expression costs nothing _given the
-lease_, and would be genuinely unsafe without it — which is worth stating, because the natural reading is that
-the increment is a workaround for a compiler gap rather than a consequence of the concurrency design.
+`makeUpdate` can emit a same-column increment, but this dispatcher does not need one. Statement 3 returned
+`attempts` under this dispatcher's lease, so `set({ attempts: row.attempts + 1 })` in §5's mark step is a
+read-modify-write on a row nobody else may touch. An `inc(1)` expression would also be atomic, but it would not
+strengthen the guarantee the lease already provides; the explicit value records the count this dispatcher
+actually observed.
 
 Every mark statement additionally carries `AND "lease_owner" = :token`, so a dispatcher whose lease expired
 while it was publishing writes nothing. That is the difference between at-least-once and at-least-once with a
@@ -420,8 +419,8 @@ margin.
   It is a real defect and it belongs to whoever owns `../index.ts:196-199`.
 - **No `IS NULL` operator.** §2.1 — a real gap, worth closing, and not by a subsystem that can express itself
   without it. Adding an operator that changes how `null` binds in every existing query is not an outbox change.
-- **No `attempts = attempts + 1`.** §4.3 — the lease makes the read-modify-write safe, so a column-referencing
-  SET buys nothing here and would need a whole expression language to buy anything anywhere.
+- **No `attempts = attempts + 1`.** §4.3 — the lease makes the read-modify-write safe, so the compiler's
+  column-increment expression buys no additional correctness here.
 - **No per-topic ordering.** §7 — a per-topic lease means one stuck topic blocks itself indefinitely, which is
   a worse failure than unordered delivery for every application that does not need order.
 - **No exactly-once.** §8 — it needs a distributed transaction with the broker, which is the thing being

@@ -1288,19 +1288,19 @@ export const PAGE_META = {
     title: 'Incrementing and decrementing a value',
     group: 'Guides',
     status: 'todo',
-    note: 'UpdateBuilder.set() takes values only, so an update cannot reference the current column value',
+    note: 'compiler expressions ship; BaseRepository.update() does not accept or validate them yet',
   },
   'guide-toggle-boolean': {
     title: 'Toggling a boolean',
     group: 'Guides',
     status: 'todo',
-    note: 'same gap as increment/decrement: no column references in SET',
+    note: 'compiler not() ships; BaseRepository.update() does not accept expressions yet',
   },
   'guide-bulk-update': {
     title: 'Updating many rows to different values',
     group: 'Guides',
     status: 'todo',
-    note: 'same gap as increment/decrement: no CASE expression in SET',
+    note: 'the closed SET vocabulary has no CASE expression or VALUES source',
   },
   'guide-array-defaults': {
     title: 'Array columns and empty defaults',

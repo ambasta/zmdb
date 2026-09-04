@@ -12,14 +12,17 @@ Short, task-shaped answers to things people actually search for. Each one is a w
 
 ## Writing
 
-|                                                           |                                                       |
-| --------------------------------------------------------- | ----------------------------------------------------- |
-| [Increment / decrement](./guide-increment-decrement.html) | **ToDo** — `set()` cannot reference the current value |
-| [Toggle a boolean](./guide-toggle-boolean.html)           | **ToDo** — same blocker                               |
-| [Bulk update](./guide-bulk-update.html)                   | **ToDo** — one statement per row today                |
-| [Upsert](./upsert.html)                                   | **ToDo** — no `ON CONFLICT`                           |
+|                                                           |                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Increment / decrement](./guide-increment-decrement.html) | **ToDo** — compiler support exists; repository integration remains |
+| [Toggle a boolean](./guide-toggle-boolean.html)           | **ToDo** — same repository blocker                                 |
+| [Bulk update](./guide-bulk-update.html)                   | **ToDo** — one statement per row today                             |
+| [Upsert](./upsert.html)                                   | **ToDo** — no `ON CONFLICT`                                        |
 
-Four of these share one cause: `UpdateBuilder.set()` takes values, not expressions. Each page has the workaround that works today and what the fix would need.
+Increment and toggle now have a closed expression vocabulary in `UpdateBuilder.set()`, while repository
+validation still accepts values only. Updating different rows to different values is a separate, wider
+`CASE` / `VALUES` problem. Each page separates what the compiler can emit from the remaining typed
+repository gap.
 
 ## Schema
 

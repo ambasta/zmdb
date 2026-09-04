@@ -8,9 +8,12 @@ export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
 import { frozenQuery, queryTelemetry, tailClause, tailMethods, whereClause } from './clauses.js';
+import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
+export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
+export type { ColumnExpr, SetValue } from './expressions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
 export type Operator =
   | '='
@@ -273,6 +276,30 @@ function upsertSetSql(d: Dialect, cols: readonly string[]): string {
   return cols.map(c => `${quoteIdentifier(d, c)} = ${value(c)}`).join(', ');
 }
 
+function setValueSql(
+  d: Dialect,
+  table: string,
+  column: string,
+  value: unknown,
+  params: unknown[],
+  scope: 'update' | 'upsert',
+): string {
+  if (!isColumnExpr(value)) {
+    params.push(value);
+    return formatPlaceholder(d, params.length);
+  }
+
+  const emitted = emitColumnExpr(value, {
+    dialect: d,
+    table,
+    column,
+    parameterIndex: params.length + 1,
+    scope,
+  });
+  params.push(...emitted.params);
+  return emitted.sql;
+}
+
 function makeInsert(
   d: Dialect,
   table: string,
@@ -322,10 +349,7 @@ function makeInsert(
           setSql = upsertSetSql(d, conflict.updateFields);
         } else if (conflict.updateFields) {
           setSql = Object.entries(conflict.updateFields)
-            .map(([k, val]) => {
-              params.push(val);
-              return `${quoteIdentifier(d, k)} = ${formatPlaceholder(d, params.length)}`;
-            })
+            .map(([k, val]) => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, val, params, 'upsert')}`)
             .join(', ');
         } else {
           const targetSet = new Set(conflict.target ?? []);
@@ -371,10 +395,7 @@ function makeUpdate(
       if (!row) throw new Error('updateTable requires set()');
       const params: unknown[] = [];
       const sets = Object.keys(row)
-        .map(k => {
-          params.push(row[k]);
-          return `${quoteIdentifier(d, k)} = ${formatPlaceholder(d, params.length)}`;
-        })
+        .map(k => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, row[k], params, 'update')}`)
         .join(', ');
       const text =
         `UPDATE ${quoteTable(d, table)} SET ${sets}` + whereClause(d, wheres, params) + returningClause(d, ret);

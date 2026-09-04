@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** `UpdateBuilder.set()` takes values, not expressions, so
-> `SET views = views + 1` is not expressible. There is no `sql` expression type in
-> the update path.
+> **ToDo / repository gap.** `UpdateBuilder.set()` supports the closed `inc()` /
+> `dec()` expression vocabulary, but `BaseRepository.update()` still accepts values
+> only. Use the compiler builder directly when the write must be atomic.
 
 ## What you cannot write
 
@@ -8,6 +8,23 @@
 await postRepo.update(id, { views: { increment: 1 } }); // no such API
 c.updateTable('posts').set({ views: c.ref('views').plus(1) }); // no such API
 ```
+
+The compiler form is deliberately smaller than a general expression builder:
+
+```ts
+import { createQueryCompiler, inc } from '@zmdb/query-compiler';
+
+const query = createQueryCompiler('postgres')
+  .updateTable('posts')
+  .set({ views: inc(1) })
+  .where('id', '=', id)
+  .compile();
+
+await driver.execute(query);
+```
+
+The column comes from the `set()` key, the delta remains a parameter, and the same call emits the correct
+placeholder and quoting for MySQL and SQLite.
 
 ## The read-modify-write, and why it is wrong alone
 
@@ -18,9 +35,9 @@ await postRepo.update(id, { views: (post?.views ?? 0) + 1 });
 
 Two concurrent requests both read `10` and both write `11`. One view is lost. Under load you lose most of them, and nothing errors — the count is just quietly low, which is why this bug survives in production for years.
 
-## Workaround 1 — raw SQL through the driver
+## Raw SQL through the driver
 
-The correct fix, because the database does the arithmetic atomically:
+The same atomic statement can be executed directly when code is not using the compiler builder:
 
 ```ts
 await driver.execute({
@@ -88,7 +105,10 @@ No contention at all — inserts do not conflict — and you gain history. The c
 
 ## What it would take
 
-`set()` would need to accept an expression, not just a value — something like `set({ views: raw('views + ?', 1) })` or a small column-reference expression type. That is a genuine design decision rather than a missing helper: an expression type in the update path implies deciding how far it goes (arithmetic only? functions? subqueries?), how it is parameterised, and how it stays injection-safe. The same expression type unblocks [toggling a boolean](./guide-toggle-boolean.html) and [bulk update](./guide-bulk-update.html) — three features, one decision. It is no longer needed for [upsert](./upsert.html): `SET x = EXCLUDED.x` ships, because the compiler writes that clause directly in the insert path rather than routing it through `set()`.
+The compiler decision is made: expressions are a closed, symbol-branded vocabulary over the same column,
+not caller-supplied SQL or a general AST. The remaining work is repository integration:
+`BaseRepository.update()` must accept `SetValue<T>`, validate an expression's operand, and skip only that
+column's ordinary row-value check. Until then, use the compiler form above or raw SQL.
 
 ---
 

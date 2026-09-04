@@ -176,11 +176,13 @@ Two things to be careful about:
 [Transactions](./transactions.html).
 
 > [!WARNING]
-> `UpdateBuilder.set()` takes plain values, so `balance = balance - $1` cannot be
-> expressed. A read-then-write is **not** equivalent: two concurrent transfers
-> both read 100, both write 90, and one debit vanishes. Until relative updates
-> land, either issue the arithmetic as raw SQL on the transaction's connection, or
-> `SELECT … FOR UPDATE` first so the second transaction blocks. See
+> `UpdateBuilder.set({ balance: dec(amount) })` emits
+> `balance = balance - $1`, but `BaseRepository.update()` does not accept the
+> expression yet. A read-then-write is **not** equivalent: two concurrent
+> transfers both read 100, both write 90, and one debit vanishes. Execute the
+> compiled update on the transaction's connection; if staying inside the
+> repository API, issue raw SQL there or `SELECT … FOR UPDATE` first so the
+> second transaction blocks. See
 > [Increment & Decrement](./guide-increment-decrement.html).
 
 ## Connection strings

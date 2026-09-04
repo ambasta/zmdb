@@ -1,6 +1,7 @@
-> **ToDo / feature gap.** `BaseRepository.update` takes one id. There is no
-> `updateWhere`, and `set()` cannot reference the current value — so "update many
-> rows, each to a different value" has no typed form.
+> **ToDo / feature gap.** `BaseRepository.update` takes one id and there is no
+> `updateWhere`. The compiler's closed SET expressions operate on the same column;
+> they do not provide a `CASE` expression or a `VALUES` source, so "update many
+> rows, each to a different value" still has no typed form.
 
 ## Two different problems
 
@@ -90,7 +91,9 @@ There is no `deleteWhere` on the repository either — the builder covers it.
 Two independent pieces:
 
 - **`updateWhere(where, values)` / `deleteWhere(where)` on the repository.** Straightforward — the builder already does this, and the DTO `where` already compiles. The reason to be careful is that an accidental empty `where` updates every row, so it should probably require a non-empty predicate.
-- **Per-row values in one statement.** Needs the expression type in `set()` plus a `VALUES` source, which is the same design decision behind [increment](./guide-increment-decrement.html), [toggle](./guide-toggle-boolean.html) and [upsert](./upsert.html).
+- **Per-row values in one statement.** Needs a `VALUES` source plus a `CASE` or source-column expression
+  surface. The current vocabulary deliberately references only the column named by the `set()` key, so this
+  is wider than [increment](./guide-increment-decrement.html) or [toggle](./guide-toggle-boolean.html).
 
 The first is a small, safe addition; the second is the real feature.
 

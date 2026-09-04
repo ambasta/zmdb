@@ -74,14 +74,18 @@ A `Sensitive` column is still selected and still comes back from the driver. Wha
 
 Column iteration order is the order the properties appear on the interface, and DDL emission follows it. Reordering them produces a migration diff even though nothing semantically changed.
 
-## `UpdateBuilder.set()` cannot reference the current value
+## `UpdateBuilder.set()` expressions reference only their own column
 
 ```ts
-// This sets views to the literal 1, not views + 1.
-updateTable('posts').set({ views: 1 });
+import { inc } from '@zmdb/query-compiler';
+
+updateTable('posts').set({ views: inc(1) });
 ```
 
-There is no expression form yet. See [Incrementing and decrementing a value](./guide-increment-decrement.html) for the raw-SQL workaround and the tracked gap.
+The column is the `set()` key. The vocabulary has no cross-column reference, subquery, or caller-supplied SQL
+node, so `SET a = b + 1` remains outside this API. `BaseRepository.update()` does not accept these expressions
+yet; see [Incrementing and decrementing a value](./guide-increment-decrement.html) for the supported compiler
+form and the remaining repository gap.
 
 ## A streamed response body is one-shot
 
