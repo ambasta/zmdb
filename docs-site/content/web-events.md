@@ -1,12 +1,9 @@
-> **ToDo / feature gap.** There is no event emitter — no `EventEmitterModule`, no
-> `@OnEvent`, no `EventEmitter2` wrapper. The only event-shaped thing in the
-> project is [`@Subscribe`](./web-gateways.html), which dispatches WebSocket
-> messages, not domain events.
->
-> The shape it will ship as is frozen in `packages/web/src/events/SPEC.md`, and
-> the emitter below is close to it deliberately.
+Application events ship from `@zmdb/web/events` as an app-owned typed registry.
+There is no module-level singleton and no filesystem scan: construct one
+`Events<M>` per application, register handlers explicitly, and choose in the
+method name whether the caller waits.
 
-## What to use instead, and why it is usually better
+## Pick the delivery guarantee first
 
 The question to ask first is whether the event may be lost. That answer picks the mechanism, and getting it wrong is the actual bug — not the missing module.
 
@@ -14,71 +11,67 @@ The question to ask first is whether the event may be lost. That answer picks th
 shipped answer for anything that triggers work elsewhere.
 
 ```ts
-import { outboxWriter } from '@zmdb/repository/outbox';
 import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { outboxWriter } from '@zmdb/repository/outbox';
+import { createToken } from '@zmdb/web/di';
+import { createEvents, OnEvent, type Events } from '@zmdb/web/events';
+
+type AppEvents = {
+  'post.published': { id: number };
+  'user.registered': { id: number; email: string };
+};
+
+const events = createEvents<AppEvents>({
+  onError: failure => process.stderr.write(`${failure.event}:${failure.handler}:${String(failure.error)}\n`),
+  outbox: outboxWriter,
+});
+const EVENTS = createToken<Events<AppEvents>>('EVENTS');
 
 const db = createTransactionalDb(connection);
 
 await db.transaction(async tx => {
   await postRepo.withTransaction(tx).update(id, { published: true });
-  await outboxWriter(tx).write('post.published', JSON.stringify({ id }));
+  await events.emitInTransaction(tx, 'post.published', { id });
 });
 ```
 
 `repo.withTransaction(tx)` returns a **new repository bound to the transaction's connection**. `outboxWriter`
-takes that same transaction as its only constructor argument, so it cannot accidentally write through the
-pooled driver.
+takes that same transaction as its only constructor argument, and
+`emitInTransaction` serialises the payload and delegates to it. No in-process
+handler runs on this path.
 
 The state change and the event commit together or not at all. An in-memory emitter cannot give you that — the process can die between the commit and the emit, and the event is gone with no trace. This is the failure mode that makes emitter-based side effects unreliable in a way that is invisible in testing.
 
-**If losing it is fine — cache invalidation, a metric, a debug log — a plain array does the job:**
+**If losing it is fine — cache invalidation, a metric, a debug log — emit in
+process:**
 
 ```ts
-type Listener<T> = (payload: T) => void | Promise<void>;
+const off = events.on('post.published', async ({ id }) => {
+  await cache.invalidate(`post:${id}`);
+});
 
-export class Emitter<Events extends Record<string, unknown>> {
-  readonly #listeners = new Map<keyof Events, Listener<never>[]>();
+events.emit('post.published', { id: 7 }); // returns void
 
-  on<K extends keyof Events>(event: K, listener: Listener<Events[K]>): () => void {
-    const list = this.#listeners.get(event) ?? [];
-    list.push(listener as Listener<never>);
-    this.#listeners.set(event, list);
-    return () => {
-      const i = list.indexOf(listener as Listener<never>);
-      if (i >= 0) list.splice(i, 1);
-    };
-  }
+const report = await events.emitAndWait('post.published', { id: 8 });
+console.log(report.delivered, report.failures);
 
-  async emit<K extends keyof Events>(event: K, payload: Events[K]): Promise<void> {
-    for (const listener of this.#listeners.get(event) ?? []) {
-      try {
-        await (listener as Listener<Events[K]>)(payload);
-      } catch (error) {
-        console.error(JSON.stringify({ event: String(event), error: String(error) }));
-      }
-    }
-  }
-}
+off();
 ```
 
-```ts
-export type AppEvents = {
-  'post.published': { id: number };
-  'user.registered': { id: number; email: string };
-};
+A type alias and not an `interface` matters here: only object-literal aliases get
+an implicit index signature, so `interface AppEvents` does not satisfy the
+`M extends EventMap` constraint. A misspelled event name or the wrong payload is
+a compile error.
 
-export const EVENTS = createToken<Emitter<AppEvents>>('EVENTS');
-```
-
-A type alias and not an `interface`, which matters the moment the map becomes a type argument: only object-literal aliases get an implicit index signature, so `interface AppEvents` does not satisfy an `M extends EventMap` constraint and fails with TS2344, "Index signature for type 'string' is missing". Typed either way, `emit('post.publshed', …)` is a compile error and the payload shape is checked. The two casts are contained in the class — the same heterogeneous-map problem as [CQRS](./web-cqrs.html), and the reason a generic bus is not in the framework.
-
-Note the `try/catch` per listener. Without it, one throwing listener stops the rest and rejects the emitter's caller, so a broken metrics listener breaks the request that triggered it.
+Handlers start together. One rejection does not stop its siblings; each failure
+is delivered once to the required `onError` sink and appears in the
+`emitAndWait` report.
 
 ## Register it as a provider
 
 ```ts
 @Module({
-  providers: [{ token: EVENTS, useValue: new Emitter<AppEvents>() }],
+  providers: [{ token: EVENTS, useValue: events }],
   controllers: [PostsController],
 })
 export class AppModule {}
@@ -87,41 +80,54 @@ export class AppModule {}
 ```ts
 @Controller('/posts')
 export class PostsController {
-  @Inject(EVENTS) private readonly events!: Emitter<AppEvents>;
+  @Inject(EVENTS) private readonly events!: Events<AppEvents>;
 
   @Post('/:id/publish')
   async publish(ctx: Ctx<{ id: string }>) {
     const post = await this.repo.update(Number(ctx.params.id), { published: true });
-    await this.events.emit('post.published', { id: post.id });
+    this.events.emit('post.published', { id: post.id });
     return post;
   }
 }
 ```
 
-Subscribe in a controller's `onModuleInit`. The same lifecycle hooks also run on
-constructed providers, so an owned dispatcher can be registered as a provider
-and started/drained by the app. The emitter shown here has no lifecycle of its
-own; the controller hook is where this subscription is declared:
+`EVENTS` is a normal typed token created with
+`createToken<Events<AppEvents>>('EVENTS')`. Subscribe in a controller or provider
+startup hook. The emitter has no lifecycle of its own; the owning application
+decides where registration and disposal happen:
 
 ```ts
-async onModuleInit() {
-  this.events.on('post.published', ({ id }) => this.cache.invalidate(`post:${id}`));
+private disposeEvents = (): void => undefined;
+
+onModuleInit() {
+  this.disposeEvents = this.events.bind(this);
+}
+
+onShutdown() {
+  this.disposeEvents();
+}
+
+@OnEvent('post.published')
+async invalidate({ id }: { id: number }) {
+  await this.cache.invalidate(`post:${id}`);
 }
 ```
 
-## Do not `await` a fire-and-forget listener in the request path
+`@OnEvent` records declarations; it does not discover or instantiate the class.
+`bind(this)` reads those declarations, binds methods to the instance, and returns
+one idempotent disposer.
+
+## Waiting is explicit
 
 ```ts
-await this.events.emit('post.published', { id }); // request waits for every listener
+this.events.emit('post.published', { id }); // caller does not wait
+const report = await this.events.emitAndWait('post.published', { id }); // caller waits
 ```
 
-That is often what you want — errors surface and ordering is defined. But if a listener sends an email, the user waits for SMTP. Either move the slow work to a queue, or emit without awaiting and accept that a failure is only a log line:
-
-```ts
-void this.events.emit('post.published', { id });
-```
-
-Be deliberate. `void` here means "I have decided a failure is acceptable", and it should be a decision rather than an oversight.
+`emit` itself returns `void`, so it cannot produce an unhandled rejection or be
+accidentally awaited. `emitAndWait` resolves only after every handler settles and
+returns `{ delivered, failures }`; handler failures are data, not control flow.
+Neither call gives handlers an ordering guarantee.
 
 ## In-process events do not cross instances
 
@@ -135,16 +141,18 @@ await driver.execute({ text: `NOTIFY post_published, $1`, parameters: [String(id
 
 It is still lossy — a listener that is not connected misses it — so use it for invalidation, not for work that must happen. Work that must happen goes in the outbox or in a job row, both of which survive a listener being disconnected; the consumer half now ships as `createWorker` in `@zmdb/web/queues`, with its delivery contract recorded in `packages/web/src/queues/SPEC.md`.
 
-## What it would take
+## The shipped contract
 
-The typed emitter above is most of it, and `packages/web/src/events/SPEC.md` freezes the rest. Four decisions in it are worth knowing about, because three of them differ from the class on this page:
+Four decisions in `packages/web/src/events/SPEC.md` are worth keeping visible:
 
 - **The map is the API** — event name to payload, the shape `AppEvents` above has, declared as a `type` and not an `interface` so it satisfies `EventMap`'s index signature. No `EventType<T>` token — a generic the caller instantiates is an assertion, not a check.
-- **`emit` returns `void` and `emitAndWait` returns a report.** The `void this.events.emit(…)` idiom above stops being necessary, because a `void`-returning method cannot be awaited by mistake. A `void` _operator_ is indistinguishable from a forgotten `await`, and it is the same keystroke either way.
-- **Failures are collected, not logged and not thrown.** Every handler gets its own `try`/`catch`, the failures land in an `EmitReport`, and the sink is a **required** `onError`. Defaulting it to `console.error` — which the class above does — puts a logger inside a package that has [deliberately never had one](./web-logging.html).
+- **`emit` returns `void` and `emitAndWait` returns a report.** No `void this.events.emit(…)` idiom is necessary, because a `void`-returning method cannot be awaited by mistake. A `void` _operator_ is indistinguishable from a forgotten `await`, and it is the same keystroke either way.
+- **Failures are collected, not logged and not thrown.** Every handler settles independently, the failures land in an `EmitReport`, and the sink is a **required** `onError`. Defaulting it to `console.error` would put a logger inside a package that has [deliberately never had one](./web-logging.html).
 - **Handlers run concurrently**, so no ordering is guaranteed. Awaiting them in sequence makes the emitter's latency the sum of its handlers' and creates an ordering dependency nobody declared.
 
-An earlier version of this section concluded that explicit registration makes `@OnEvent` pointless — "at which point the class above is the feature". That is too strong. What the decorator buys is not discovery: it is that the binding lives on the method rather than inside `onModuleInit`, where a handler whose `.on(…)` line was forgotten is silently never invoked and there is nothing to notice. `bind(this)` is one line that cannot be half-right. It stays a modest win, and `on` stays first-class.
+The decorator buys declaration, not discovery. `bind(this)` registers every
+decorated method in one call; `on` remains first-class when a plain callback is
+clearer.
 
 The outbox dispatcher now ships. Its `publish` callback remains at-least-once, so consumers still need an idempotency rule. For durable in-process jobs, the queue worker supplies a stable key and checks the handler-owned completion marker before invoking work.
 

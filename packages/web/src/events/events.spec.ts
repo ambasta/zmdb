@@ -1,21 +1,5 @@
-// Tests freeze (#593) for the application event bus — packages/web/src/events/SPEC.md §9 items
-// 1, 2, 3, 4 (runtime half), 5, 7, 8, 9, 10 and 11. Items 4 (type half) and 6 are compile-time
-// claims and live in ./events.type-test.ts.
-//
-// THE IDIOM, as in the two outbox files: ./index.ts does not exist, so every frozen export is
-// declared here and initialised from `unimplemented()`, which throws. Tests that drive one are
-// `it.fails` — the body typechecks against the signature the implementation must have, and the
-// throw keeps the assertion in the summary line instead of hiding it behind `.skip`. Each one
-// records what it produces today.
-//
-// ONE REFINEMENT the outbox files did not need. `@OnEvent` is applied at class-definition time, at
-// module scope, so a throwing stub there would take the whole file down at import and every test
-// in it would report as a collection error rather than as an expected failure. `OnEvent` is
-// therefore a deliberate NO-OP stub, and the throwing stubs are the readers — `getEventHandlers`
-// and `bind`. That keeps the failure inside the test that asserts it, which is the property the
-// whole `it.fails` discipline exists for. When ./index.ts lands, `OnEvent` will also need
-// `../polyfill.js` imported for `Symbol.metadata` (see ../gateways/index.ts:6); the stub does not
-// touch metadata, so it does not.
+// Runtime contract for the application event emitter implemented by #595.
+// Compile-time claims remain in ./events.type-test.ts.
 //
 // Nothing here uses a timer. §9 item 5's concurrency assertion is a mutual-flag deadlock — two
 // handlers that each resolve what the other awaits — which is a property of the scheduling and not
@@ -28,75 +12,10 @@ import { createTransactionalDb } from '@zmdb/repository/transactions';
 import type { TransactionContext, TxConnection } from '@zmdb/repository/transactions';
 import { describe, expect, it, vi } from 'vitest';
 
-// ---------------------------------------------------------------------------
-// the frozen surface — SPEC §2, §3, §5, §6, verbatim. Delete when ./index.ts lands and use:
-//
-//   import {
-//     createEvents,
-//     getEventHandlers,
-//     OnEvent,
-//     type EmitReport,
-//     type EventFailure,
-//     type EventMap,
-//     type Events,
-//     type EventsOptions,
-//     type ResolvedEventHandler,
-//   } from './index.js';
-// ---------------------------------------------------------------------------
-function unimplemented(what: string): never {
-  throw new Error(`unimplemented: ${what}`);
-}
-
-interface EventMap {
-  readonly [event: string]: unknown;
-}
-
-interface EventFailure {
-  readonly event: string;
-  readonly handler: string;
-  readonly error: unknown;
-}
-
-interface EmitReport {
-  readonly delivered: number;
-  readonly failures: readonly EventFailure[];
-}
-
-interface Events<M extends EventMap> {
-  emit<K extends keyof M & string>(event: K, payload: M[K]): void;
-  emitAndWait<K extends keyof M & string>(event: K, payload: M[K]): Promise<EmitReport>;
-  on<K extends keyof M & string>(event: K, handler: (payload: M[K]) => void | Promise<void>): () => void;
-  bind(instance: object): () => void;
-  // SPEC §5. It is NOT in §2's interface block — see NOTES.md; §5 says only "available on an
-  // `Events<M>` constructed with an outbox writer" and §2's `EventsOptions` has no such field, so
-  // the `outbox` option below is this freeze's reading of §5 and needs confirming before the
-  // implementation lands.
-  emitInTransaction<K extends keyof M & string>(tx: TransactionContext, event: K, payload: M[K]): Promise<string>;
-}
+import { createEvents, getEventHandlers, OnEvent, type EventFailure, type EventMap } from './index.js';
 
 interface OutboxWriterLike {
   write(topic: string, payload: string): Promise<string>;
-}
-
-interface EventsOptions<M extends EventMap> {
-  readonly onError: (failure: EventFailure) => void;
-  readonly validate?: { readonly [K in keyof M]?: (raw: unknown) => M[K] };
-  readonly outbox?: (tx: TransactionContext) => OutboxWriterLike;
-}
-
-interface ResolvedEventHandler {
-  readonly event: string;
-  readonly handlerName: string;
-}
-
-const createEvents: <M extends EventMap>(opts: EventsOptions<M>) => Events<M> = () => unimplemented('createEvents');
-
-const getEventHandlers: (cls: abstract new (...args: never[]) => unknown) => readonly ResolvedEventHandler[] = () =>
-  unimplemented('getEventHandlers');
-
-// The no-op stub explained in the header. Signature is §6's, exactly.
-function OnEvent(_event: string): (target: Function, context: ClassMethodDecoratorContext) => void {
-  return () => undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,10 +23,8 @@ function OnEvent(_event: string): (target: Function, context: ClassMethodDecorat
 // ---------------------------------------------------------------------------
 // A TYPE ALIAS, not an interface. `interface AppEvents { … }` does not satisfy `EventMap`'s index
 // signature — TS2344 "Index signature for type 'string' is missing in type 'AppEvents'", verified
-// 2026-09-04 — because only object-literal type aliases get an implicit index signature. SPEC §2's
-// own prose and docs-site/content/web-events.md both write `interface AppEvents`, which does not
-// compile against the frozen `EventMap`. See NOTES.md; this is a defect in the spec's example, not
-// in the frozen type.
+// 2026-09-04 — because only object-literal type aliases get an implicit index signature. The spec
+// and docs use the alias form; the type-test below keeps that correction from regressing.
 type AppEvents = {
   readonly 'post.published': { readonly id: number };
   readonly 'user.deleted': { readonly userId: string };
@@ -182,10 +99,9 @@ function outboxDb(): DatabaseSync {
 }
 
 /**
- * A hand-written outbox writer, so this file asserts the `Events<M>` path into the outbox without
- * depending on @zmdb/repository's outbox module — which #593 also freezes and which therefore does
- * not exist yet either. The SQL is deliberately the crudest possible: the real statement is the
- * outbox freeze's assertion (../../../query-compiler/src/outbox/outbox.spec.ts) and duplicating it
+ * A hand-written outbox writer, so this file isolates the `Events<M>` crossing from the repository
+ * writer's own SQL tests. The SQL is deliberately the crudest possible: the real statement is the
+ * outbox suite's assertion (../../../query-compiler/src/outbox/outbox.spec.ts), and duplicating it
  * here would make one change break two suites.
  */
 function handWrittenOutbox(tx: TransactionContext): OutboxWriterLike {
@@ -205,9 +121,7 @@ function handWrittenOutbox(tx: TransactionContext): OutboxWriterLike {
 // §9 items 1, 2 and 3 — a handler's exception is data
 // ===========================================================================
 describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
-  it.fails('a throwing handler does not prevent the others', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('a throwing handler does not prevent the others', async () => {
     // Three handlers, the middle one throws, and the assertion is on the other two — SPEC §3's
     // isolation, which §7 gets for free from `Promise.allSettled` having no short circuit. Note the
     // assertion is on the SET of survivors, not on their order: §7 guarantees no order, so
@@ -231,9 +145,7 @@ describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
     expect(errors).toHaveLength(1);
   });
 
-  it.fails('a throwing handler does not reject emitAndWait', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('a throwing handler does not reject emitAndWait', async () => {
     // SPEC §3 refuses rethrowing the first failure, because with concurrent handlers "first" is a
     // race. So the promise RESOLVES and the failure is in the report. Written as
     // `.resolves`/`.rejects` rather than a try/catch, because a try/catch around an awaited call
@@ -251,8 +163,7 @@ describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
     expect(report.failures[0]?.error).toBeInstanceOf(Error);
   });
 
-  it.fails('a handler that throws a non-Error is reported as thrown, not wrapped', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('a handler that throws a non-Error is reported as thrown, not wrapped', async () => {
     // SPEC §3's justification for `error: unknown`: "a `throw` can be anything. Narrowing it to
     // `Error` in the type would be a claim the runtime cannot keep." So the value arrives verbatim
     // — an implementation that wrapped it in `new Error(String(e))` would destroy it and would
@@ -269,9 +180,7 @@ describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
     expect(errors[0]?.error).toBe('a bare string');
   });
 
-  it.fails('every failure reaches onError exactly once, and names the right handler', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('every failure reaches onError exactly once, and names the right handler', async () => {
     // Two failing handlers, two calls, and `handler` identifies which. "Exactly once" is the
     // load-bearing half: a report AND an onError call for the same failure is correct, but two
     // onError calls for one failure means the sink double-pages, and a sink that cries wolf gets
@@ -294,8 +203,7 @@ describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
     expect(errors.every(f => f.event === 'post.published')).toBe(true);
   });
 
-  it.fails('onError also fires for a handler that failed under plain emit', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('onError also fires for a handler that failed under plain emit', async () => {
     // The reason §3 makes `onError` required rather than defaulting to silence: `emit` returns
     // void, so the report is unreachable and the sink is the ONLY evidence a handler broke. If
     // onError only fired on the emitAndWait path, `emit` would be exactly the invisible-failure
@@ -318,8 +226,7 @@ describe('events: a failing handler (#593, SPEC §3, §9 items 1-3)', () => {
 // §9 item 4 (runtime half) — emit returns void and never rejects
 // ===========================================================================
 describe('events: emit does not wait (#593, SPEC §4, §9 item 4)', () => {
-  it.fails('emit returns void', () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('emit returns void', () => {
     // The runtime half; the type half — that `emit(…)` is not awaitable — is in
     // ./events.type-test.ts, because a runtime test cannot distinguish `void` from an ignored
     // promise once it has been discarded.
@@ -330,9 +237,7 @@ describe('events: emit does not wait (#593, SPEC §4, §9 item 4)', () => {
     expect(events.emit('post.published', { id: 1 })).toBeUndefined();
   });
 
-  it.fails('a throwing handler under emit produces no unhandled rejection', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('a throwing handler under emit produces no unhandled rejection', async () => {
     // SPEC §4: "a method that returns void cannot be awaited by mistake and cannot produce an
     // unhandled rejection". Asserted directly against the process, because this is the failure mode
     // that takes a Node service down (`--unhandled-rejections=throw` is the default) and it cannot
@@ -356,9 +261,7 @@ describe('events: emit does not wait (#593, SPEC §4, §9 item 4)', () => {
     }
   });
 
-  it.fails('emit does not make its caller wait for a slow handler', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('emit does not make its caller wait for a slow handler', async () => {
     // SPEC §4: "the emitter's caller must not pay for the handlers". Asserted without a clock: the
     // handler blocks on a deferred nobody has resolved, and the assertion is that `emit` has
     // already returned and the next statement runs. Under an awaiting implementation this line is
@@ -383,9 +286,7 @@ describe('events: emit does not wait (#593, SPEC §4, §9 item 4)', () => {
 // §9 item 5 — the concurrency assertion that pins §7
 // ===========================================================================
 describe('events: handlers run concurrently (#593, SPEC §7, §9 item 5)', () => {
-  it.fails('handlers run concurrently', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('handlers run concurrently', async () => {
     // SPEC §9 item 5, verbatim: "two handlers each resolving on the other's flag, which
     // deadlocks under any sequential implementation. This is the assertion that pins §7 rather
     // than describing it."
@@ -422,9 +323,7 @@ describe('events: handlers run concurrently (#593, SPEC §7, §9 item 5)', () =>
     expect(report.failures).toEqual([]);
   }, 1_000);
 
-  it.fails('a rejection does not short-circuit a concurrent sibling', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('a rejection does not short-circuit a concurrent sibling', async () => {
     // SPEC §7's closing claim: "`allSettled` rather than `all` is what gives §3 its isolation with
     // no extra machinery: a rejection cannot short-circuit the others". `Promise.all` would reject
     // as soon as the fast failing handler rejects, so the slow handler's push would never be
@@ -456,9 +355,7 @@ describe('events: handlers run concurrently (#593, SPEC §7, §9 item 5)', () =>
 // §9 items 7 and 8 — @OnEvent and bind
 // ===========================================================================
 describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => {
-  it.fails('getEventHandlers reads the class, not an instance', () => {
-    // actual today: Error: unimplemented: getEventHandlers.
-    //
+  it('getEventHandlers reads the class, not an instance', () => {
     // SPEC §6: "Nothing scans." `getEventHandlers(cls)` takes the CLASS, the way
     // `getRoutes` (../routing/index.ts:106) and `getSubscriptions` (../gateways/index.ts:59) do.
     // The order is declaration order, which is what the sibling readers already guarantee, and
@@ -469,8 +366,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
     ]);
   });
 
-  it.fails('getEventHandlers returns [] for an undecorated class', () => {
-    // actual today: Error: unimplemented: getEventHandlers.
+  it('getEventHandlers returns [] for an undecorated class', () => {
     // The empty case, which is where a metadata reader usually throws instead: with no decorator
     // there is no `Symbol.metadata` on the class at all (../gateways/index.ts:60-63 handles both
     // `undefined` and `null`), so this is the assertion that stops a bind() on an ordinary
@@ -478,9 +374,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
     expect(getEventHandlers(Undecorated)).toEqual([]);
   });
 
-  it.fails('bind registers every decorated handler and its disposer unregisters all of them', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('bind registers every decorated handler and its disposer unregisters all of them', async () => {
     // SPEC §6's whole justification for the decorator: "`bind(this)` in `onModuleInit` is one line
     // that cannot be partially wrong: either every decorated handler is registered or none is." So
     // the count is asserted before AND after, on both events, because a disposer that unregisters
@@ -500,8 +394,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
     expect(subscriber.seen).toEqual(['published:7', 'deleted:u1']);
   });
 
-  it.fails('a bound handler receives the emitting instance as its this', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('a bound handler receives the emitting instance as its this', async () => {
     // The mistake `bind` exists to avoid: registering `instance.onPublished` unbound gives a
     // handler whose `this` is undefined under a module in strict mode, so `this.seen.push` throws
     // and the failure surfaces as an EventFailure rather than as a wiring error. Asserted through
@@ -517,8 +410,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
     expect(errors).toEqual([]);
   });
 
-  it.fails('on returns a disposer that unregisters exactly one handler', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('on returns a disposer that unregisters exactly one handler', async () => {
     // §6: "`on` therefore stays public and first-class." Two handlers, one disposed, and the other
     // still fires — the assertion that the registry is keyed per registration and not per event.
     const { onError } = collector();
@@ -534,8 +426,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
     expect(ran).toEqual(['second']);
   });
 
-  it.fails('a disposer is idempotent', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('a disposer is idempotent', async () => {
     // Calling it twice must not remove somebody else's handler, which is what a splice-by-index
     // implementation does on the second call. Cheap assertion, expensive bug.
     const { onError } = collector();
@@ -557,9 +448,7 @@ describe('events: @OnEvent and bind (#593, SPEC §6, §9 items 7 and 8)', () => 
 // §9 items 9 and 10 — crossing into the outbox
 // ===========================================================================
 describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () => {
-  it.fails('emitInTransaction calls no in-process handler', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('emitInTransaction calls no in-process handler', async () => {
     // SPEC §5, the asymmetry "that would otherwise be found in production": an in-process handler
     // registered for the same event name does NOT see a transactionally emitted event. This is the
     // assertion that stops a handler which fires in tests and never in production, so it asserts
@@ -581,9 +470,7 @@ describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () =>
     expect(stored[0]?.['id']).toBe(id);
   });
 
-  it.fails("emitInTransaction's row is gone after a rollback", async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it("emitInTransaction's row is gone after a rollback", async () => {
     // SPEC §5: "not delivered at all if the transaction rolls back". The outbox freeze
     // (../../../query-compiler/src/outbox/SPEC.md §9 item 1) owns the general guarantee; what this
     // asserts is that the `Events<M>` path actually reaches it rather than writing on its own
@@ -604,8 +491,7 @@ describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () =>
     expect(db.prepare('SELECT * FROM zmdb_outbox').all()).toEqual([]);
   });
 
-  it.fails('emitInTransaction serialises the payload as text, not as an object', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('emitInTransaction serialises the payload as text, not as an object', async () => {
     // The outbox `payload` column is `text` (outbox SPEC §2.3), so the crossing from a typed
     // payload to a string happens here, once, and the row holds JSON rather than a driver's
     // stringification of an object. Without this, `[object Object]` reaches the column and is only
@@ -621,16 +507,11 @@ describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () =>
     expect(payload.payload).toBe('{"userId":"u-42"}');
   });
 
-  it.fails('emitInTransaction on an Events built without an outbox is an error, not a silent no-op', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
-    // JUDGEMENT CALL, flagged in NOTES.md. SPEC §5 says the method is "available on an `Events<M>`
-    // constructed with an outbox writer" and says nothing about the other case, and the frozen
-    // `Events<M>` in §2 does not make the method optional, so it is callable on every instance.
-    // Rejecting is the only defensible behaviour: a silent no-op turns "this event is durable" into
-    // "this event vanished", which is the one failure the outbox pattern exists to make impossible.
-    // If the implementation prefers a compile-time split instead — two interfaces, one with the
-    // method — this test should be deleted and replaced by a type-test.
+  it('emitInTransaction on an Events built without an outbox is an error, not a silent no-op', async () => {
+    // The implementation adopts the freeze's judgement call: the method is present on every
+    // `Events<M>`, so calling it without an outbox rejects. A silent no-op would turn "this event is
+    // durable" into "this event vanished", which is the one failure the outbox pattern exists to
+    // make impossible.
     const db = outboxDb();
     const dbx = createTransactionalDb(txConn(db));
     const { onError } = collector();
@@ -646,8 +527,7 @@ describe('events: emitInTransaction (#593, SPEC §5, §9 items 9 and 10)', () =>
 // §9 item 11 — validate
 // ===========================================================================
 describe('events: validate (#593, SPEC §2, §9 item 11)', () => {
-  it.fails('validate is applied when present', async () => {
-    // actual today: Error: unimplemented: createEvents.
+  it('validate is applied when present', async () => {
     // SPEC §2: validate exists for "an event re-emitted from a broker or a webhook, where the
     // payload really did arrive as unknown". So the handler sees the validator's RETURN value, not
     // the raw input — a validator whose result is discarded is a validator that only pretends to
@@ -668,9 +548,7 @@ describe('events: validate (#593, SPEC §2, §9 item 11)', () => {
     expect(seen).toEqual([{ id: 7 }]);
   });
 
-  it.fails('validate is skipped when absent', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('validate is skipped when absent', async () => {
     // SPEC §2: `validate` is optional and PER EVENT, unlike ../subscriptions/SPEC.md's total
     // `TopicValidators<M>`. So an event with no entry passes through untouched — asserted with
     // `toBe`, on identity, because `toEqual` would also pass for a defensive clone and the spec's
@@ -690,9 +568,7 @@ describe('events: validate (#593, SPEC §2, §9 item 11)', () => {
     expect(seen[0]).toBe(payload);
   });
 
-  it.fails('a rejected payload becomes an EventFailure rather than a throw', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('a rejected payload becomes an EventFailure rather than a throw', async () => {
     // SPEC §9 item 11's second clause, verbatim. A validator that throws must not reject
     // `emitAndWait` — §3's rule applies to the whole emit, not only to handlers — and no handler
     // may run on a payload that failed validation. Both halves are asserted, because an
@@ -724,9 +600,7 @@ describe('events: validate (#593, SPEC §2, §9 item 11)', () => {
 // §8 — a provider, not a module-level singleton
 // ===========================================================================
 describe('events: in-process and per-instance (#593, SPEC §8)', () => {
-  it.fails('two Events instances in one process do not share handlers', async () => {
-    // actual today: Error: unimplemented: createEvents.
-    //
+  it('two Events instances in one process do not share handlers', async () => {
     // SPEC §8: "It is a provider on the container, not a module-level singleton, so two apps in one
     // process do not share handlers — … it is what makes #593's assertions independent of test
     // order." The spec names this file's own reliability as the reason, so it is asserted here

@@ -1,6 +1,6 @@
 > **ToDo / feature gap.** There is no CQRS module — no `CommandBus`, `QueryBus`,
-> `EventBus`, no `@CommandHandler` or `@Saga`. There is also no [event
-> emitter](./web-events.html) to build one on.
+> CQRS `EventBus`, `@CommandHandler` or `@Saga`. Typed [application
+> events](./web-events.html) do ship separately; they are not a command bus.
 >
 > `packages/web/src/cqrs/SPEC.md` freezes a **command** bus and refuses the query
 > bus, event sourcing and sagas outright. The reasons are in "What it would take".
@@ -83,8 +83,26 @@ export class CqrsModule {}
 
 ## Events
 
-There is no event bus, and [`web-events`](./web-events.html) is also a gap. For in-process events, an array of
-listeners is enough; for anything that must survive a crash, use the shipped
+[`@zmdb/web/events`](./web-events.html) ships a typed, app-owned in-process
+emitter. It isolates handler failures and makes waiting explicit with `emit`
+versus `emitAndWait`; it deliberately does not turn application events into a
+CQRS command bus:
+
+```ts
+import { createEvents } from '@zmdb/web/events';
+
+type AppEvents = {
+  'post.published': { id: number };
+};
+
+const events = createEvents<AppEvents>({
+  onError: failure => process.stderr.write(`${failure.event}: ${String(failure.error)}\n`),
+});
+
+events.emit('post.published', { id });
+```
+
+For anything that must survive a crash, cross through the shipped
 [transactional outbox](./transactional-outbox.html):
 
 ```ts
@@ -96,7 +114,9 @@ await db.transaction(async tx => {
 });
 ```
 
-The state change and the event commit together or not at all. An in-memory emitter cannot give you that, which is why an outbox beats an `EventBus` for anything that matters.
+The state change and the event commit together or not at all. In-process
+emission cannot give you that, which is why durable work crosses through the
+outbox instead.
 
 ## Read models
 

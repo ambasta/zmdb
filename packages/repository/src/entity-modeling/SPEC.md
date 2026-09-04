@@ -21,6 +21,9 @@ class EventBus {
   from mutating a fetched object.
 - `emit` runs matching subscribers in subscription order; async awaited in order.
 - Frozen: unsubscribe removes exactly that subscriber; unknown events no-op.
+- This bus is deliberately separate from `createEvents` in `@zmdb/web/events`:
+  a lifecycle subscriber may veto a write by throwing, while an application
+  event isolates and reports one handler's failure without stopping the others.
 
 ## 2. Embeddables (#145/#146/#147) — `@zmdb/schema-core`
 

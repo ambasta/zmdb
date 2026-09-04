@@ -1581,7 +1581,7 @@ export const PAGE_META = {
     title: 'Events',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no application event emitter module; EventBus covers entity lifecycle only, and the two-bus split is frozen (#592) and asserted by expected-failing tests (#593)',
+    note: 'the typed application emitter and transactional crossing ship; final application-messaging documentation remains grouped with the command-bus slice (#596/#597)',
   },
   'web-http-client': {
     title: 'HTTP Client',

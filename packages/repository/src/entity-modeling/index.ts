@@ -14,6 +14,13 @@ export interface Subscriber {
   run: (ctx: unknown) => void | Promise<void>;
 }
 
+/**
+ * Sequential entity-lifecycle subscribers for repository write hooks.
+ *
+ * A failure intentionally stops the remaining subscribers and rejects the
+ * write, so this is not the application-event emitter. Use `createEvents` from
+ * `@zmdb/web/events` when handlers must run concurrently with isolated errors.
+ */
 export class EventBus {
   private subs: Subscriber[] = [];
   subscribe(s: Subscriber): () => void {

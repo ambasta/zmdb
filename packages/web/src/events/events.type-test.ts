@@ -1,62 +1,25 @@
 import type { TransactionContext } from '@zmdb/repository/transactions';
-// Tests freeze (#593), the compile-time half of packages/web/src/events/SPEC.md: §9 item 4's type
+import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
+
+import {
+  createEvents,
+  getEventHandlers,
+  type EmitReport,
+  type EventFailure,
+  type Events,
+  type EventsOptions,
+  type OnEvent,
+  type ResolvedEventHandler,
+} from './index.js';
+
+// Compile-time contract for packages/web/src/events/SPEC.md: §9 item 4's type
 // clause ("a type-test that `emit(…)` is not awaitable") and §9 item 6 in full ("binding an event
 // the map does not declare is a compile error — type-test, both on `on` and on the payload").
 //
-// It also records the one place the spec's own example does not compile: §2's prose and
-// docs-site/content/web-events.md both write `interface AppEvents { … }`, and an interface does not
-// satisfy `EventMap`'s index signature. That is asserted here rather than described, because it is
-// the first thing every reader of the docs will hit.
+// It also keeps the corrected map declaration honest: an interface does not satisfy `EventMap`'s
+// index signature, so the spec and docs use an object-literal type alias.
 //
-// No runtime code. Compiled by `node scripts/typecheck.mjs`, not run by vitest. While ./index.ts
-// does not exist the surface below is §2/§3/§6 transcribed; when it lands, delete the transcription
-// and add:
-//
-//   import type { EmitReport, EventFailure, EventMap, Events, EventsOptions, ResolvedEventHandler } from './index.js';
-//   import type { OnEvent } from './index.js';
-//
-// leaving every assertion untouched.
-import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
-
-// ---------------------------------------------------------------------------
-// SPEC §2, §3 and §6 — the surface, transcribed
-// ---------------------------------------------------------------------------
-interface EventMap {
-  readonly [event: string]: unknown;
-}
-
-interface EventFailure {
-  readonly event: string;
-  readonly handler: string;
-  readonly error: unknown;
-}
-
-interface EmitReport {
-  readonly delivered: number;
-  readonly failures: readonly EventFailure[];
-}
-
-interface Events<M extends EventMap> {
-  emit<K extends keyof M & string>(event: K, payload: M[K]): void;
-  emitAndWait<K extends keyof M & string>(event: K, payload: M[K]): Promise<EmitReport>;
-  on<K extends keyof M & string>(event: K, handler: (payload: M[K]) => void | Promise<void>): () => void;
-  bind(instance: object): () => void;
-  emitInTransaction<K extends keyof M & string>(tx: TransactionContext, event: K, payload: M[K]): Promise<string>;
-}
-
-interface EventsOptions<M extends EventMap> {
-  readonly onError: (failure: EventFailure) => void;
-  readonly validate?: { readonly [K in keyof M]?: (raw: unknown) => M[K] };
-}
-
-interface ResolvedEventHandler {
-  readonly event: string;
-  readonly handlerName: string;
-}
-
-declare function createEvents<M extends EventMap>(opts: EventsOptions<M>): Events<M>;
-declare function OnEvent(event: string): (target: Function, context: ClassMethodDecoratorContext) => void;
-declare function getEventHandlers(cls: abstract new (...args: never[]) => unknown): readonly ResolvedEventHandler[];
+// No runtime code. Compiled by `node scripts/typecheck.mjs`, not run by vitest.
 
 // ---------------------------------------------------------------------------
 // the map. A TYPE ALIAS — see the block at the bottom of this file for why.
@@ -201,18 +164,14 @@ type _EmitInTransactionTakesATx = Expect<
 >;
 
 // ===========================================================================
-// the defect: §2's own example does not compile
+// regression guard: the interface form does not compile
 // ===========================================================================
 //
-// SPEC §2 justifies the map by pointing at the docs — "it is what
-// docs-site/content/web-events.md already recommends (`interface AppEvents { 'post.published':
-// { id: number } }`)". That declaration does not satisfy `EventMap`. Verified 2026-09-04: TS2344,
-// "Index signature for type 'string' is missing in type 'AppEvents'". Only object-literal type
-// ALIASES receive an implicit index signature; interface declarations do not, because an interface
-// is open to declaration merging and the compiler therefore cannot know its key set is closed.
-//
-// The fix is one keyword — `type` instead of `interface` — and it belongs in the spec and in the
-// docs page (see DOCS.md), not in a workaround here.
+// Verified 2026-09-04: the interface declaration below fails with TS2344, "Index signature for type
+// 'string' is missing in type 'InterfaceMap'". Only object-literal type aliases receive an implicit
+// index signature; interface declarations stay open to declaration merging, so the compiler cannot
+// know their key set is closed. The spec and docs therefore use `type`, and this assertion protects
+// that choice.
 interface InterfaceMap {
   readonly 'post.published': { readonly id: number };
 }

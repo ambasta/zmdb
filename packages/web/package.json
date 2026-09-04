@@ -43,6 +43,7 @@
     "./openapi": "./src/openapi/index.ts",
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
+    "./events": "./src/events/index.ts",
     "./queues": "./src/queues/index.ts",
     "./queues/backends/memory": "./src/queues/backends/memory.ts",
     "./queues/backends/pg": "./src/queues/backends/pg.ts",

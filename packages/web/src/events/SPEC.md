@@ -70,6 +70,7 @@ export interface Events<M extends EventMap> {
   emitAndWait<K extends keyof M & string>(event: K, payload: M[K]): Promise<EmitReport>;
   on<K extends keyof M & string>(event: K, handler: (payload: M[K]) => void | Promise<void>): () => void;
   bind(instance: object): () => void;
+  emitInTransaction<K extends keyof M & string>(tx: TransactionContext, event: K, payload: M[K]): Promise<string>;
 }
 
 export declare function createEvents<M extends EventMap>(opts: EventsOptions<M>): Events<M>;
@@ -77,6 +78,7 @@ export declare function createEvents<M extends EventMap>(opts: EventsOptions<M>)
 export interface EventsOptions<M extends EventMap> {
   readonly onError: (failure: EventFailure) => void;
   readonly validate?: { readonly [K in keyof M]?: (raw: unknown) => M[K] };
+  readonly outbox?: (tx: TransactionContext) => OutboxWriter;
 }
 ```
 
@@ -84,7 +86,7 @@ export interface EventsOptions<M extends EventMap> {
 whose `T` the caller supplies is an unchecked assertion wearing a generic. `OnEvent<T>(event: EventType<T>)`
 lets a handler declare a payload type the emitter never agreed to, and the two compile independently. The map
 is a single declaration both sides are checked against, it is what
-`docs-site/content/web-events.md` already recommends (`interface AppEvents { 'post.published': { id: number } }`),
+`docs-site/content/web-events.md` recommends (`type AppEvents = { 'post.published': { id: number } }`),
 and it needs no runtime object per event.
 
 `validate` is **optional and per event**, unlike `subscriptions/SPEC.md`'s `TopicValidators<M>`, which is

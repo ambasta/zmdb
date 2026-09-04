@@ -38,6 +38,13 @@ unsub(); // no longer called
 
 `emit` walks subscribers in **registration order** and `await`s each one in turn — not `Promise.all`, so one slow subscriber delays the rest and delays the write.
 
+This is intentionally not the application-event API. A lifecycle subscriber may
+veto a repository write by throwing, so `EventBus.emit` stops and rejects. For
+application facts whose handlers must be isolated, use `createEvents` from
+[`@zmdb/web/events`](./web-events.html): those handlers run concurrently, one
+failure is reported without stopping its siblings, and durable emission crosses
+through the transactional outbox.
+
 ## Nothing emits for you
 
 There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
