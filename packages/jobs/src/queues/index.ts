@@ -255,7 +255,8 @@ function optionalStringField(row: Record<string, unknown>, name: string): string
 }
 
 function numberField(row: Record<string, unknown>, name: string): number {
-  const value = field(row, name);
+  const raw = field(row, name);
+  const value = typeof raw === 'bigint' ? Number(raw) : raw;
   if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
     throw new TypeError(`zmdb_job.${name} must be a safe integer`);
   }
