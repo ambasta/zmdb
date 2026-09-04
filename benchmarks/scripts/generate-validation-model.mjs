@@ -97,8 +97,8 @@ if (/\b(?:is|equals|validate)<Moltar>/.test(result.code)) {
 // bundler does anyway — `@zmdb/aot-validator` is `sideEffects: false` — and it makes the
 // measured module honest about what the AOT path costs: nothing is loaded to run it.
 const aot = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
-  /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
-  /^import type \{[^}]*\} from '[^']*';\n/m,
+  /import \{[^}]*\} from '[^']*utilities\/index\.(?:ts|js)';\n?/m,
+  /import type \{[^}]*\} from '[^']*';\n?/m,
 ])}`;
 
 const shallowResult = transformFile(SHALLOW_SOURCE, readFileSync(SHALLOW_SOURCE, 'utf8'), { session });
@@ -110,7 +110,7 @@ if (/\b(?:is|isShallow)<PopulatedOrderRow/.test(shallowResult.code)) {
   throw new Error('the transform left a populated-row generic call in place');
 }
 const shallow = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
-  /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
+  /import \{[^}]*\} from '[^']*utilities\/index\.(?:ts|js)';\n?/m,
 ])}`;
 
 function strip(code, patterns) {
