@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
+import { evaluate, FixtureProject } from './emit/__testing__/project.js';
 import { escapePattern } from './emit/index.js';
 import { validate, tags, getEnumSet, getRegExp } from './index.js';
 import { transformCode } from './transformer.js';
@@ -11,6 +12,33 @@ import { transformCode } from './transformer.js';
 // regular expression into generated source.
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+const shallowProject = FixtureProject.open({
+  declarations: `
+  function isShallow<T, D extends number = 1>(value: unknown): value is T;
+`,
+});
+afterAll(() => shallowProject.close());
+
+describe('shallow validation behaviour', () => {
+  it.fails('accepts a value whose nesting is malformed below the limit', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], and the source still
+    // contains `isShallow`, so no callable JavaScript check exists yet.
+    const result = shallowProject.transform('const check = (input) => isShallow<{ user: { id: number } }, 1>(input);');
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+    expect(evaluate(result.code)({ user: { id: 'not a number' } })).toBe(true);
+  });
+
+  it.fails('still rejects a malformed top level', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], and the source still
+    // contains `isShallow`, so the top-level object check is absent too.
+    const result = shallowProject.transform('const check = (input) => isShallow<{ user: { id: number } }, 1>(input);');
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+    expect(evaluate(result.code)({ user: 'not an object' })).toBe(false);
+  });
+});
 
 describe('escapePattern helper', () => {
   it('escapes unescaped forward slashes', () => {

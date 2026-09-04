@@ -152,6 +152,20 @@ describe('CALLEES', () => {
       expect(typeof surface[callee], `${callee} is in CALLEES but nothing exports it`).toBe('function');
     }
   });
+
+  it.fails('recognises the shallow callees in the transformer', async () => {
+    // Measured at d34bfbaf: all three `CALLEES.has` checks are false and both
+    // runtime surfaces return `undefined` for every shallow name.
+    const names = ['assertShallow', 'isShallow', 'validateShallow'] as const;
+    expect([...CALLEES]).toEqual(expect.arrayContaining([...names]));
+
+    const utilities = await import('./utilities/index.js');
+    const validator = await import('./index.js');
+    const surface: Record<string, unknown> = { ...utilities, ...validator };
+    for (const name of names) {
+      expect(typeof surface[name], `${name} is in CALLEES but nothing exports it`).toBe('function');
+    }
+  });
 });
 
 describe('Rewriter', () => {

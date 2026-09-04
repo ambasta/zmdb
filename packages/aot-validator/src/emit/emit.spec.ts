@@ -12,15 +12,22 @@ import type { TypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { equals, is, validate } from '../utilities/index.js';
-import { FixtureProject } from './__testing__/project.js';
+import { evaluate, FixtureProject } from './__testing__/project.js';
 import { Emitter } from './index.js';
 
 const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pattern<"^[^@]+@[^@]+$">; nickname?: string }
   interface Point { x: number; y: number }
   interface Tree { value: number; children: Tree[] }
+  interface RecursiveNode { value: number; next: RecursiveNode | null }
   type Shape = { kind: "circle"; r: number } | { kind: "square"; side: number };
   type Colour = "red" | "green" | "blue";
-  type Many = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i";`;
+  type Many = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i";
+
+  function isShallow<T, D extends number = 1>(value: unknown): value is T;
+  function assertShallow<T, D extends number = 1>(value: unknown): T;
+  function validateShallow<T, D extends number = 1>(
+    value: unknown,
+  ): { success: boolean; data?: T; errors?: unknown[] };`;
 
 const project = FixtureProject.open({ declarations: DECLARATIONS });
 afterAll(() => project.close());
@@ -62,6 +69,118 @@ describe('the fast path', () => {
   it('reads a nested property directly rather than binding it', () => {
     const { code } = build('const check = (input) => is<{ a: { b: number } }>(input);');
     expect(code).toContain('input.a.b');
+  });
+});
+
+describe('shallow validation', () => {
+  it.fails('emits no branch for a nested object beyond the depth limit', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], and the source still
+    // contains both `isShallow` and the nested property name `hidden`.
+    const result = project.transform('const check = (input) => isShallow<{ outer: { hidden: number } }, 1>(input);');
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+    expect(result.code).toContain('typeof input.outer === "object"');
+    expect(result.code).not.toContain('hidden');
+    expect(result.code).not.toContain('isShallow');
+  });
+
+  it.fails('emits two levels of checks at depth 2', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], and `three` remains
+    // only because the whole untransformed type argument remains in the source.
+    const result = project.transform(
+      'const check = (input) => isShallow<{ one: { two: { three: number } } }, 2>(input);',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+    expect(result.code).toContain('input.one.two');
+    expect(result.code).not.toContain('three');
+    expect(result.code).not.toContain('isShallow');
+  });
+
+  it.fails('checks a discriminant even at depth 1', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], so neither tag
+    // comparison exists and both nested property names remain in the type text.
+    const result = project.transform(
+      'const check = (input) => isShallow<' +
+        '{ kind: "a"; payload: { secret: number } } | ' +
+        '{ kind: "b"; payload: { label: string } }, 1>(input);',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+    expect(result.code).toContain('input.kind === "a"');
+    expect(result.code).toContain('input.kind === "b"');
+    expect(result.code).not.toContain('secret');
+    expect(result.code).not.toContain('label');
+  });
+
+  it.fails('checks array-ness at depth 1 and elements per the spec decision', () => {
+    // Measured at d34bfbaf: both transforms report changed=false with no
+    // diagnostics, leaving the two `isShallow` calls byte-for-byte unchanged.
+    const depthOne = project.transform('const check = (input) => isShallow<string[], 1>(input);');
+    const depthTwo = project.transform('const check = (input) => isShallow<string[], 2>(input);');
+    expect(depthOne.diagnostics).toEqual([]);
+    expect(depthTwo.diagnostics).toEqual([]);
+    expect(depthOne.changed).toBe(true);
+    expect(depthTwo.changed).toBe(true);
+
+    expect(depthOne.code).toContain('Array.isArray');
+    expect(depthOne.code).not.toContain('for (let');
+    expect(depthOne.code).not.toContain('=== "string"');
+    expect(depthTwo.code).toContain('for (let');
+    expect(depthTwo.code).toContain('=== "string"');
+  });
+
+  it.fails('terminates on a recursive type at the depth limit', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], so the recursive
+    // call is never emitted and the TypeScript source cannot be evaluated.
+    const result = project.transform('const check = (input) => isShallow<RecursiveNode, 2>(input);');
+    expect(result.diagnostics).toEqual([]);
+    expect(result.changed).toBe(true);
+
+    const helper = /function (_zmdbCheckRecursiveNode\d+)\(/.exec(result.code)?.[1];
+    expect(helper).toBeDefined();
+    expect(result.code.match(new RegExp(`${helper as string}\\(`, 'g'))).toHaveLength(2);
+
+    let value: unknown = { value: 'malformed below the limit', next: null };
+    for (let index = 0; index < 10_000; index += 1) value = { value: index, next: value };
+    expect(evaluate(result.code)(value)).toBe(true);
+  });
+
+  it.fails('reports a build diagnostic when depth is not a literal', () => {
+    // Measured at d34bfbaf: changed=false, diagnostics=[], and the non-literal
+    // `number` depth is left in the source without an explanation.
+    const source = 'const check = (input) => isShallow<{ n: number }, number>(input);';
+    const result = project.transform(source);
+    expect(result.changed).toBe(false);
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        callee: 'isShallow',
+        reason: expect.stringMatching(/depth.*literal|literal.*depth/i),
+      }),
+    ]);
+  });
+
+  it('leaves is() and assert() emitting exactly what they emit today', () => {
+    const isCode = build('const check = (input) => is<{ n: number }>(input);').code;
+    const assertCode = build('const check = (input) => assert<{ n: number }>(input);').code;
+
+    expect(isCode).toBe(
+      'const check = (input) => (typeof input === "object" && input !== null && !Array.isArray(input) && ' +
+        '(typeof input.n === "number" && !Number.isNaN(input.n)));',
+    );
+    expect(assertCode).toBe(
+      'import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/errors";\n' +
+        'function _zmdbIssues0(_v, _p, _o) { if (!(typeof _v === "object" && _v !== null && ' +
+        '!Array.isArray(_v))) { _zmdbIssue(_o, _p, "object", _v); } else { if (!(typeof _v.n === ' +
+        '"number" && !Number.isNaN(_v.n))) _zmdbIssue(_o, _p + ".n", "number", _v.n); } }\n' +
+        'function _zmdbIssue(out, path, expected, value) { out.push({ path, expected, value, message: ' +
+        '"expected " + expected }); }\n' +
+        'const check = (input) => ((() => { if ((typeof input === "object" && input !== null && ' +
+        '!Array.isArray(input) && (typeof input.n === "number" && !Number.isNaN(input.n)))) return input; ' +
+        'const _e = []; _zmdbIssues0(input, "input", _e); throw new _zmdbAssertError(_e[0] ? ' +
+        '_e[0].message : "validation failed", _e); })());',
+    );
   });
 });
 
