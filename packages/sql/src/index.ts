@@ -117,6 +117,17 @@ import {
   type UnsafeOperator,
 } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
+import {
+  isAliasedDistanceExpression,
+  isDistanceExpression,
+  isSpatialPredicate,
+  renderAliasedDistanceExpression,
+  renderDistanceExpression,
+  type AliasedDistanceExpression,
+  type DistanceExpression,
+  type DistanceOp,
+  type SpatialPredicate,
+} from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
@@ -218,6 +229,8 @@ interface RuntimeInsertBuilder {
   values(row: Record<string, unknown>): RuntimeInsertBuilder;
   onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
+  compile(): CompiledQuery;
+}
   compile(): CompiledQuery;
 }
 interface RuntimeUpdateBuilder {

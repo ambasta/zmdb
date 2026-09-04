@@ -4,13 +4,13 @@
 
 import { isRecord, type CoreSchema } from '@zmdb/schema';
 import { appTypeOf, type ColumnIR } from '@zmdb/schema/ir';
-import { type Predicate } from '@zmdb/sql';
+import { type DistanceOp, type Operator, type Predicate, type UnsafeOperator } from '@zmdb/sql';
 import { issuesFor, ValidationError } from '@zmdb/validator';
 
 /** One compiler predicate contributed by a named repository filter. */
 export interface FilterPredicate {
   readonly col: string;
-  readonly op: string;
+  readonly op: Operator | UnsafeOperator | DistanceOp;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR';
 }
@@ -65,8 +65,8 @@ export interface ResolveFiltersOptions {
 }
 
 export interface FilterTarget {
-  where(col: string, op: string, value: unknown): this;
-  orWhere?(col: string, op: string, value: unknown): this;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
+  orWhere?(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
   whereGroup?(predicates: readonly FilterPredicate[]): this;
 }
 

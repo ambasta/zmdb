@@ -261,7 +261,7 @@ import { AppModule } from './app.module.js';
 
 describe('generated project', () => {
   it('serves health and opens its sqlite database', async () => {
-    await using app = createTestApp(AppModule);
+    const app = createTestApp(AppModule);
     const response = await app.request({ method: 'GET', path: '/health', headers: {} });
     expect(response.status).toBe(200);
     expect(JSON.parse(await bodyText(response))).toEqual({ ok: true });
@@ -272,6 +272,7 @@ describe('generated project', () => {
       effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
     });
     expect(Reflect.get(rows[0] ?? {}, 'ok')).toBe(1);
+    await app[Symbol.asyncDispose]();
   });
 });
 `,
