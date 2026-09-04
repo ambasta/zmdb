@@ -680,8 +680,7 @@ export const PAGE_META = {
   dataloaders: {
     title: 'DataLoaders',
     group: 'Data Access',
-    status: 'todo',
-    note: 'request-scoped entity and relation loaders ship; the final lifecycle and API reference remains for the docs slice',
+    status: 'supported',
   },
   aggregations: {
     title: 'Aggregations',
@@ -1183,8 +1182,7 @@ export const PAGE_META = {
   caching: {
     title: 'Query Caching',
     group: 'Advanced',
-    status: 'todo',
-    note: 'the opt-in result cache ships; the final API and invalidation walkthrough remains',
+    status: 'supported',
   },
   testing: {
     title: 'Testing',

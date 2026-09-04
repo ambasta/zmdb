@@ -1,112 +1,134 @@
-> **Implemented; documentation follow-up remains.** Repository reads can opt into
-> a TTL result cache per call, backed by a bounded per-repository memory LRU or a
-> caller-supplied `CacheStore`. Writes invalidate their table tag plus explicit
-> caller tags. This page remains **ToDo** until #469 lands the final API walkthrough.
-
-## Why that default is defensible
-
-A cache that is not invalidated correctly serves wrong data, and invalidation is the hard part — an ORM-level cache has to guess which cached results a write affects, and it guesses from the table name, which is too coarse to be right and too fine to be safe. Getting it wrong looks like a bug in your application, not in the cache.
-
-So the position is: caching is a decision about _this_ query's staleness tolerance, and that decision belongs where you can see the query.
-
-## Cache a driver
-
-Because `Driver` is one method over `{ text, parameters }`, a read-through cache is a wrapper:
+Repository result caching is off by default. A read opts in at the call site,
+where its staleness tolerance is visible:
 
 ```ts
-export function cached(inner: Driver, ttlMs: number): Driver {
-  const store = new Map<string, { at: number; rows: readonly Record<string, unknown>[] }>();
+const user = await userRepo.findById(userId, {
+  cache: {
+    ttlMs: 5_000,
+    tags: [`user:${userId}`],
+  },
+});
+```
 
-  return {
-    async execute(query) {
-      const isRead = /^\s*(select|with)/i.test(query.text);
-      if (!isRead) {
-        store.clear();
-        return inner.execute(query);
-      }
+`findById`, `findOne`, `find`, `findAll` and `list` accept the same `cache`
+option. Omitting it performs no key construction and no store call. Passing
+`cache: false` bypasses an existing store in both directions: it neither reads
+nor fills the cache.
 
-      const key = query.text + '�' + JSON.stringify(query.parameters);
-      const hit = store.get(key);
-      if (hit !== undefined && Date.now() - hit.at < ttlMs) return hit.rows;
+## Invalidation is the API
 
-      const rows = await inner.execute(query);
-      store.set(key, { at: Date.now(), rows });
-      return rows;
-    },
-  };
+Every cached read receives an automatic `table:<table>` tag. A successful write
+through that repository invalidates the table tag after the driver operation
+completes:
+
+```ts
+await userRepo.findById(userId, {
+  cache: { ttlMs: 30_000 },
+});
+
+await userRepo.update(userId, { email: nextEmail });
+// The next cached users read misses because table:users was invalidated.
+```
+
+Table invalidation is coarse on purpose: changing one user invalidates every
+cached users query. The repository does not attempt to decide which cached
+`WHERE` clauses the changed row satisfies.
+
+Use caller tags when another table or a narrower application concept also
+depends on the write. Repositories participating in a cross-repository tag must
+be constructed with the same `CacheStore`:
+
+```ts
+const tag = `account-summary:${accountId}`;
+
+const summary = await summaryRepo.findOne({ accountId }, { cache: { ttlMs: 30_000, tags: [tag] } });
+
+await userRepo.update(userId, { email: nextEmail }, { invalidateTags: [tag] });
+```
+
+`create`, `upsert`, `update`, `updateMany`, `increment` and `delete` accept
+`invalidateTags` in their write options. The repository invalidates its table
+tag plus those caller tags. It does not infer cross-table dependencies.
+
+## What invalidation cannot see
+
+The guarantee stops at the repository/store boundary:
+
+- SQL executed directly through a driver, a database console, a trigger or
+  another data-access library does not call `invalidateTags`.
+- The default memory store belongs to one repository instance in one process.
+  Another process has another cache.
+- A shared adapter can make `invalidateTags` global, but the application owns
+  that transport and its delivery guarantees.
+- If invalidation fails, the completed database write still succeeds and TTL is
+  the remaining stale-data bound.
+
+Choose `ttlMs` as the maximum stale interval the caller can tolerate under those
+conditions. Do not cache a result that must always reflect an out-of-band write.
+
+## Default and pluggable stores
+
+The first opted-in read without a configured store lazily creates a
+process-local `memoryStore()` for that repository. It is TTL-aware,
+least-recently-used and bounded to 1,000 entries by default:
+
+```ts
+import { memoryStore } from '@zmdb/repository';
+
+const store = memoryStore({ maxEntries: 5_000 });
+const users = new UserRepository(driver, 'postgres', { cacheStore: store });
+```
+
+A shared backend implements three operations:
+
+```ts
+export interface CacheStore {
+  get(key: string): Promise<unknown | undefined>;
+  set(key: string, value: unknown, ttlMs: number, tags: readonly string[]): Promise<void>;
+  invalidateTags(tags: readonly string[]): Promise<void>;
 }
 ```
 
-Read the two compromises in that code before using it:
+No store is global or ambient. Pass it in the repository constructor or through
+`defineRepository(..., { cacheStore })`.
 
-- **`store.clear()` on any write** is the only invalidation that is definitely correct without knowing which query touches which table. It is also brutal — one insert empties the cache. Anything smarter needs to parse the SQL, which is where correctness goes.
-- **It is per process.** Two instances hold two caches with different contents, so a user's requests will see different data depending on which instance answers. For a read-mostly reference table that is fine; for anything a user just wrote it is not.
+Store failures degrade to the database path. A failed `get` performs the read;
+failed `set` and `invalidateTags` calls do not replace a successful database
+result or write with a cache error. The first failure is reported once per
+repository instance.
 
-## Cache at the call site instead
+## Keys, deploys and revalidation
 
-Usually better, because the staleness decision is visible next to the query:
+Keys are deterministic readable strings containing the dialect, schema IR
+fingerprint, table, compiled SQL and type-tagged parameters. A numeric `1` and a
+string `'1'` are different keys; object keys are sorted; binary view types
+remain distinct.
 
-```ts
-let categories: Entity<Category>[] | undefined;
-let loadedAt = 0;
+The schema fingerprint makes a declaration change miss an older value in a
+shared store. Cache hits are not revalidated against the database: doing that
+round trip would remove the benefit of the cache. TTL, tags and `cache: false`
+are the explicit freshness controls.
 
-export async function getCategories() {
-  if (categories === undefined || Date.now() - loadedAt > 60_000) {
-    categories = [...(await categoryRepo.findAll())];
-    loadedAt = Date.now();
-  }
-  return categories;
-}
-```
+Results are returned as fresh **shallow** row copies. Treat them as immutable:
+reassigning a top-level property does not change a later hit, but nested JSON
+objects are not deep-cloned and must not be mutated.
 
-Ten lines, obvious semantics, and the next reader can tell exactly how stale the data can be.
+## Why this is not an identity map
 
-## Cache the HTTP response
+| Property        | Result cache                            | Identity map                       |
+| --------------- | --------------------------------------- | ---------------------------------- |
+| Entry point     | Explicit `cache` option                 | Every entity read                  |
+| Freshness       | TTL, table tags and caller tags         | Session coherence                  |
+| Object identity | Fresh shallow copy                      | Same object reference              |
+| Writes          | Explicit invalidation, no write-through | Tracks objects for flush/coherence |
+| Default         | Off                                     | Fundamental ORM behavior           |
 
-Often the right layer, because it caches the whole computation rather than one query:
-
-```ts
-@HttpGet('/categories')
-async list() {
-  const rows = await this.repo.findAll();
-  return respond({
-    body: stringify(rows),
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': 'public, max-age=60',
-    },
-  });
-}
-```
-
-A CDN or the browser then serves it and your process is not involved at all. For anything genuinely public and slow-changing this beats every application-level cache.
-
-## Shared cache, when you need one
-
-Redis or Memcached, keyed by something you control — not by SQL text:
-
-```ts
-async function topPosts() {
-  const key = 'posts:top:v2';
-  const hit = await redis.get(key);
-  if (hit !== null) return decode<Entity<Post>[]>(hit);
-
-  const { items } = await postRepo.list({ orderBy: [{ column: 'views', dir: 'desc' }], page: { limit: 10 } });
-  await redis.set(key, stringify(items), { EX: 60 });
-  return items;
-}
-```
-
-Two things worth copying: the `v2` in the key, so a shape change does not have to be invalidated (you just stop reading the old key), and `decode<T>` rather than `JSON.parse` — a cached value from an older deploy has an older shape, and [validating it](./serialization.html) turns that into an error rather than an `undefined` three layers up.
-
-## What the built-in cache solves — and what it does not
-
-The repository now adds a `table:<name>` tag to every cached statement and invalidates that tag after its own writes. A caller can add a finer tag such as `user:42` to the read and pass the same tag with a write. It does not infer which `WHERE` clauses a changed row satisfies.
-
-The default store is process-local, bounded to 1,000 entries, LRU-evicted and TTL-aware. A shared store implements the same three-method `CacheStore` interface. Writes from another process and raw driver traffic remain invisible unless the application propagates invalidation; TTL is still the final stale-data bound.
-
-Cache-store failures fall through to the database and are reported once per repository instance. Cached values are not revalidated on hits: the deterministic key includes the schema IR fingerprint, so a changed declaration misses rather than reading the old shape.
+The cache stores query results, not live entities. It never observes property
+mutation, infers writes or makes ordinary uncached reads consult prior objects.
+The request-scoped [DataLoader](./dataloaders.html) is narrower still: its
+lifetime is one explicit request context.
 
 ---
 
-See also: [Query Performance](./perf-queries.html) · [Writing a Driver](./custom-driver.html) · [DataLoaders](./dataloaders.html)
+See also: [Query Performance](./perf-queries.html) · [Writing a Driver](./custom-driver.html) ·
+[DataLoaders](./dataloaders.html) · [Why fetched rows are inert](./inert-rows.html)

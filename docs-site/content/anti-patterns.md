@@ -14,6 +14,23 @@ shapes, interpolated SQL sinks, ambiguous numeric columns, unbounded reads and
 empty update patches. They do not pretend to detect an identity map, a unit of
 work or another application-level design from an AST node.
 
+## Loaders and caches do not make rows live
+
+The supported [DataLoader](./dataloaders.html) and [result cache](./caching.html)
+retain read values, but neither is the identity map rejected below:
+
+| Property       | Request loader              | Result cache                    | Identity map                       |
+| -------------- | --------------------------- | ------------------------------- | ---------------------------------- |
+| Consulted by   | Explicit `load()`           | A read with `cache`             | Every entity read                  |
+| Lifetime       | One explicit request scope  | Explicit TTL/store              | ORM session/context                |
+| Row identity   | Fresh shallow copy          | Fresh shallow copy              | Shared object reference            |
+| Write behavior | No tracking or invalidation | Invalidates table + caller tags | Tracks objects for flush/coherence |
+
+The distinction is not the word “cache”. It is whether the ORM owns a canonical
+live object graph. zmdb does not: ordinary reads bypass both mechanisms,
+mutating a returned row never schedules SQL, and every write remains an
+explicit repository call.
+
 <!-- generated: coverage/mapping.mjs antiPatterns() -->
 
 ## What is _not_ on this list
