@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VALIDATION = join(HERE, '..', 'harness', 'validation');
 const PROJECT = join(VALIDATION, 'tsconfig.json');
