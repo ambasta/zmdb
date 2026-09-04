@@ -103,7 +103,7 @@ import { lenientParse } from '@zmdb/schema-core/llm';
 lenientParse<User>('```json\n{"email":"a@b.c"}\n```');
 ````
 
-Strips code fences and leading prose before parsing, which is what models actually emit. See [Structured Output](./llm-structured-output.html).
+Strips a leading or trailing code fence before parsing, which is what a model wraps JSON in when you asked for JSON. Prose before the fence is not stripped. See [Structured Output](./llm-structured-output.html).
 
 ## The test harness boots the real app
 

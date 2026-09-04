@@ -11,13 +11,13 @@ const tool = toolFromSchema('save_user', users, {
 });
 ```
 
-That produces the `{ name, description, input_schema }` shape the Anthropic and OpenAI tool APIs expect, with `input_schema` derived from the schema object — `Sensitive` columns omitted, the five validation constraints carried through as JSON Schema keywords.
+That produces `{ name, description, parameters }`, with `parameters` derived from the schema object — `Sensitive` columns omitted, the five validation constraints carried through as JSON Schema keywords. `parameters` is the key OpenAI's function-calling API uses; Anthropic's tool API calls the same field `input_schema`, so rename it at the call site.
 
 ```ts
 const res = await client.messages.create({
   model: 'claude-opus-5',
   max_tokens: 1024,
-  tools: [tool],
+  tools: [{ name: tool.name, description: tool.description, input_schema: tool.parameters }],
   tool_choice: { type: 'tool', name: 'save_user' },
   messages: [{ role: 'user', content: transcript }],
 });
@@ -48,22 +48,32 @@ import { lenientParse } from '@zmdb/schema-core/llm';
 const result = lenientParse<CreateDTO<User>>(res.text);
 ```
 
-It tolerates fenced code blocks, leading prose, trailing commas and single quotes — the specific ways model output deviates from strict JSON. It does not make the _content_ correct, so validate afterwards:
+It strips a leading or trailing markdown code fence and calls `JSON.parse`. That is the whole of it: leading prose, trailing commas and single quotes all come back as `{ success: false, errors: [...] }` carrying the `JSON.parse` message. It does not make the _content_ correct either, so validate afterwards:
 
 ```ts
-const dto = assert<CreateDTO<User>>(lenientParse(res.text));
+const result = lenientParse(res.text);
+if (!result.success) throw new Error(result.errors?.join('; ') ?? 'unparseable model output');
+const dto = assert<CreateDTO<User>>(result.data);
 ```
 
 Prefer tool use over parsing prose when the API offers it. `lenientParse` is for when it does not.
 
 ## The whole extraction path
 
+One adapter, once, converts a `ToolSpec` to Anthropic's field names:
+
+```ts
+import type { ToolSpec } from '@zmdb/schema-core/llm';
+
+const anthropicTool = (t: ToolSpec) => ({ name: t.name, description: t.description, input_schema: t.parameters });
+```
+
 ```ts
 async function extractUser(transcript: string) {
   const res = await client.messages.create({
     model: 'claude-opus-5',
     max_tokens: 1024,
-    tools: [toolFromSchema('save_user', users, { description: 'Save a user' })],
+    tools: [anthropicTool(toolFromSchema('save_user', users, { description: 'Save a user' }))],
     tool_choice: { type: 'tool', name: 'save_user' },
     messages: [{ role: 'user', content: transcript }],
   });
@@ -89,7 +99,8 @@ interface Extraction {
   confidence: number;
 }
 
-const out = assert<Extraction>(lenientParse(res.text));
+const parsed = lenientParse(res.text);
+const out = assert<Extraction>(parsed.success ? parsed.data : undefined);
 ```
 
 `sentiment` being a union means a model that returns `"mixed"` fails validation rather than flowing into your analytics as an unexpected value.

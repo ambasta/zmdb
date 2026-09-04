@@ -65,7 +65,7 @@ export class McpController {
         const { name, arguments: args } = assert<{ name: string; arguments: unknown }>(req.params);
         const tool = TOOLS[name as keyof typeof TOOLS];
         if (tool === undefined) {
-          return { jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `unknown tool ${name}` } };
+          return { jsonrpc: '2.0', id: req.id, error: { code: -32602, message: `unknown tool ${name}` } };
         }
         const result = await tool.run(args);
         return { jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: JSON.stringify(result) }] } };
@@ -80,7 +80,7 @@ export class McpController {
 
 Every tool's input schema comes from the schema object and every invocation validates before touching the database. That is the part worth copying.
 
-Two things it does not do, both of which matter before you expose it. It advertises `capabilities: { tools: {} }` and nothing else, so a client will not ask for resources, prompts, or a `GET` event stream — which is right, because `WebResponse.body` is a `string` and a stream is [the shared blocker](./web-streaming-files.html). And a tool whose arguments fail `assert` should come back as `{ result: { isError: true, content: [...] } }`, not as a JSON-RPC error: an `isError` result reaches the model, which can then correct itself, whereas a JSON-RPC error reaches the client program. Reserve the error channel for unknown methods and unknown tools.
+Two things it does not do, both of which matter before you expose it. It advertises `capabilities: { tools: {} }` and nothing else, so a client will not ask for resources, prompts, or a `GET` event stream — which is right, because `WebResponse.body` is a `string` and a stream is [the shared blocker](./web-streaming-files.html). And a tool whose arguments fail `assert` should come back as `{ result: { isError: true, content: [...] } }`, not as a JSON-RPC error: an `isError` result reaches the model, which can then correct itself, whereas a JSON-RPC error reaches the client program. Reserve the error channel for unknown methods, which are `-32601`, and unknown tools, which are `-32602` — `tools/call` is a method the server has, called with a name it does not.
 
 ## Read this before exposing one
 
