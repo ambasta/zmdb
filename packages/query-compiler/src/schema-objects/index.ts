@@ -1,6 +1,7 @@
 import { UnsupportedFeatureError } from '../errors.js';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.js';
+import { ddlType } from '../migrations/index.js';
 import { quoteIdentifier } from '../quoting.js';
 
 export { UnsupportedFeatureError };
@@ -96,4 +97,168 @@ export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
   if (dialect !== 'postgres') throw new UnsupportedFeatureError('row-level security', dialect);
   const cmd = p.command ?? 'ALL';
   return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
+}
+
+// §8 stored routines
+export type RoutineSqlType =
+  | 'serial'
+  | 'integer'
+  | 'bigint'
+  | 'numeric'
+  | 'text'
+  | 'varchar'
+  | 'boolean'
+  | 'timestamp'
+  | 'json'
+  | 'jsonEnum';
+
+export interface RoutineDef {
+  readonly kind: 'function' | 'procedure';
+  readonly name: string;
+  readonly params: readonly {
+    readonly name: string;
+    readonly type: RoutineSqlType;
+    readonly mode?: 'in' | 'out' | 'inout';
+  }[];
+  readonly returns?: { readonly type: RoutineSqlType | 'void'; readonly setof?: boolean };
+  readonly language?: string;
+  readonly deterministic?: boolean;
+  readonly body: string;
+}
+
+function routineLabel(def: RoutineDef, dialect: Dialect): string {
+  return `${def.kind} ${quoteId(dialect, def.name)}`;
+}
+
+function unsupportedRoutine(feature: string, dialect: Dialect): UnsupportedFeatureError {
+  return new UnsupportedFeatureError(feature, dialect);
+}
+
+function assertRoutineSupported(def: RoutineDef, dialect: Dialect): void {
+  if (dialect === 'sqlite') {
+    throw unsupportedRoutine(
+      `sqlite does not support stored routines (${routineLabel(def, dialect)}); SQLite has no CREATE FUNCTION, ` +
+        'so register the function on the connection instead — `node:sqlite` exposes `DatabaseSync#function` — ' +
+        'and call it like any other',
+      dialect,
+    );
+  }
+
+  for (const param of def.params) {
+    if (param.mode === 'out' || param.mode === 'inout') {
+      throw unsupportedRoutine(
+        `${dialect} routine ${routineLabel(def, dialect)} has unsupported ${param.mode} parameter ${quoteId(dialect, param.name)}`,
+        dialect,
+      );
+    }
+  }
+}
+
+function routineTypeDdl(dialect: Dialect, type: RoutineSqlType | 'void'): string {
+  if (type === 'void') return 'VOID';
+  return ddlType(dialect, type);
+}
+
+function routineParamsDdl(def: RoutineDef, dialect: Dialect): string {
+  return def.params.map(param => `${quoteId(dialect, param.name)} ${routineTypeDdl(dialect, param.type)}`).join(', ');
+}
+
+function routineReturns(def: RoutineDef, dialect: Dialect): string {
+  if (def.kind === 'procedure') {
+    if (def.returns !== undefined) {
+      throw new TypeError(`${routineLabel(def, dialect)} cannot declare a return type`);
+    }
+    return '';
+  }
+  if (def.returns === undefined) {
+    throw new TypeError(`${routineLabel(def, dialect)} must declare a return type`);
+  }
+  if (dialect === 'mysql' && (def.returns.setof === true || def.returns.type === 'void')) {
+    throw unsupportedRoutine(
+      `mysql routine ${routineLabel(def, dialect)} cannot return ${def.returns.setof === true ? 'a set' : 'void'}`,
+      dialect,
+    );
+  }
+  const setof = def.returns.setof === true ? 'SETOF ' : '';
+  return ` RETURNS ${setof}${routineTypeDdl(dialect, def.returns.type)}`;
+}
+
+function dollarQuoteTag(body: string): string {
+  for (let suffix = 0; ; suffix++) {
+    const tag = suffix === 0 ? '$zmdb$' : `$zmdb${suffix}$`;
+    if (!body.includes(tag)) return tag;
+  }
+}
+
+export function createRoutineDdl(def: RoutineDef, dialect: Dialect): string {
+  assertRoutineSupported(def, dialect);
+  const kind = def.kind.toUpperCase();
+  const head = `${kind} ${quoteId(dialect, def.name)}(${routineParamsDdl(def, dialect)})`;
+  const returns = routineReturns(def, dialect);
+
+  if (dialect === 'postgres') {
+    const language = def.language ?? 'plpgsql';
+    const tag = dollarQuoteTag(def.body);
+    return `CREATE OR REPLACE ${head}${returns} LANGUAGE ${language} AS ${tag}\n${def.body}\n${tag}`;
+  }
+
+  if (def.language !== undefined) {
+    throw unsupportedRoutine(
+      `mysql routine ${routineLabel(def, dialect)} cannot declare language ${JSON.stringify(def.language)}`,
+      dialect,
+    );
+  }
+  const deterministic =
+    def.kind === 'function' ? ` ${def.deterministic === true ? 'DETERMINISTIC' : 'NOT DETERMINISTIC'}` : '';
+  return `CREATE ${head}${returns}${deterministic} MODIFIES SQL DATA SQL SECURITY INVOKER\n${def.body}`;
+}
+
+export function dropRoutineDdl(def: RoutineDef, dialect: Dialect): string {
+  assertRoutineSupported(def, dialect);
+  const kind = def.kind.toUpperCase();
+  const name = quoteId(dialect, def.name);
+  if (dialect === 'mysql') return `DROP ${kind} IF EXISTS ${name}`;
+  const signature = def.params.map(param => routineTypeDdl(dialect, param.type)).join(', ');
+  return `DROP ${kind} IF EXISTS ${name}(${signature})`;
+}
+
+function samePostgresSignature(previous: RoutineDef, next: RoutineDef): boolean {
+  if (previous.kind !== next.kind || previous.name !== next.name || previous.params.length !== next.params.length) {
+    return false;
+  }
+  if (previous.params.some((param, index) => param.type !== next.params[index]?.type)) return false;
+  if (previous.kind === 'procedure') return true;
+  return previous.returns?.type === next.returns?.type && previous.returns?.setof === next.returns?.setof;
+}
+
+export function replaceRoutineStatements(
+  previous: RoutineDef | undefined,
+  next: RoutineDef,
+  dialect: Dialect,
+): readonly string[] {
+  const create = createRoutineDdl(next, dialect);
+  if (dialect === 'postgres' && (previous === undefined || samePostgresSignature(previous, next))) {
+    return [create];
+  }
+  return [dropRoutineDdl(previous ?? next, dialect), create];
+}
+
+function normalizedRoutineBody(body: string): string {
+  return body
+    .split('\n')
+    .map(line => line.replace(/\s+$/u, ''))
+    .join('\n')
+    .replace(/\n+$/u, '');
+}
+
+export function routineFingerprint(def: RoutineDef): string {
+  return JSON.stringify([
+    def.kind,
+    def.name,
+    def.params.map(param => [param.name, param.type, param.mode ?? null]),
+    def.returns === undefined ? null : [def.returns.type, def.returns.setof ?? null],
+    def.language ?? null,
+    def.deterministic ?? null,
+    normalizedRoutineBody(def.body),
+  ]);
 }

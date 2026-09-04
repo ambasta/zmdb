@@ -1,34 +1,55 @@
-> **ToDo / feature gap.** There is no DDL emitter for procedures or functions, and
-> no typed call site for invoking one. `CALL` and `SELECT my_fn(...)` work through
-> raw SQL; nothing about them is derived or checked.
+> **ToDo / partial support.** Routine declarations, dialect-aware DDL and
+> body fingerprints ship. Automatic snapshot/diff carriage and the typed call
+> site do not: `CALL` and `SELECT my_fn(...)` still go through raw SQL, with
+> arguments and results owned by the caller.
 
-## Creating one today
+## Declaring and emitting one
 
-A procedure is a statement, so it goes in a hand-written migration:
+`RoutineDef` keeps the signature and body together. The body remains opaque text:
 
 ```ts
-const migrations = [
-  {
-    version: 7,
-    name: 'archive_old_orders',
-    up: `
-      CREATE OR REPLACE FUNCTION archive_old_orders(cutoff TIMESTAMP)
-      RETURNS INTEGER AS $$
-      DECLARE moved INTEGER;
-      BEGIN
-        WITH m AS (DELETE FROM orders WHERE created_at < cutoff RETURNING *)
-        INSERT INTO orders_archive SELECT * FROM m;
-        SELECT COUNT(*) INTO moved FROM orders_archive;
-        RETURN moved;
-      END;
-      $$ LANGUAGE plpgsql
-    `,
-    down: 'DROP FUNCTION IF EXISTS archive_old_orders(TIMESTAMP)',
-  },
-];
+import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/query-compiler/schema-objects';
+import type { MigrationConnection } from '@zmdb/query-compiler/migrations';
+
+const archiveOldOrders = {
+  kind: 'function',
+  name: 'archive_old_orders',
+  params: [{ name: 'cutoff', type: 'timestamp' }],
+  returns: { type: 'integer' },
+  language: 'plpgsql',
+  body: `DECLARE moved INTEGER;
+BEGIN
+  WITH m AS (DELETE FROM orders WHERE created_at < cutoff RETURNING *)
+  INSERT INTO orders_archive SELECT * FROM m;
+  SELECT COUNT(*) INTO moved FROM orders_archive;
+  RETURN moved;
+END;`,
+} as const satisfies RoutineDef;
+
+export async function applyArchiveOldOrders(
+  migrationConnection: MigrationConnection,
+  previous: RoutineDef | undefined,
+): Promise<void> {
+  const changed = previous === undefined || routineFingerprint(previous) !== routineFingerprint(archiveOldOrders);
+  const statements = changed ? replaceRoutineStatements(previous, archiveOldOrders, 'postgres') : [];
+
+  for (const sql of statements) await migrationConnection.exec(sql);
+}
 ```
 
-See [Custom Migrations](./migrations-custom.html). Note that `snapshot()` / `diff()` track tables and columns only, so the routine is entirely your responsibility to version.
+`createRoutineDdl` returns one driver statement. `replaceRoutineStatements`
+returns an ordered array because MySQL replacement is `DROP` followed by
+`CREATE`, and `DELIMITER` is a mysql CLI directive rather than SQL. Execute each
+element separately; joining on semicolons breaks routine bodies.
+
+Postgres uses `CREATE OR REPLACE` while the signature is unchanged. A signature
+change first drops the previous typed signature so it cannot quietly leave an
+old overload behind. MySQL always drops then creates, and those two DDL
+statements are not atomic because MySQL commits DDL implicitly.
+
+See [Custom Migrations](./migrations-custom.html). `snapshot()` / `diff()` still
+track tables and columns only, so storing the previous declaration and deciding
+where these statements run remains the migration author's responsibility.
 
 ## Calling one
 
@@ -60,21 +81,23 @@ const rows = await driver.execute({ text: 'SELECT * FROM active_users($1)', para
 return rows.map(r => assert<Entity<User>>(r));
 ```
 
-## Dialect differences you have to handle yourself
+## Dialect behavior
 
-|           | postgres                               | mysql                               | sqlite |
-| --------- | -------------------------------------- | ----------------------------------- | ------ |
-| Function  | `CREATE FUNCTION ... LANGUAGE plpgsql` | `CREATE FUNCTION ... DETERMINISTIC` | none   |
-| Procedure | `CREATE PROCEDURE`                     | `CREATE PROCEDURE`                  | none   |
-| Call      | `SELECT fn(...)` / `CALL p(...)`       | `SELECT fn(...)` / `CALL p(...)`    | —      |
+|           | postgres                                           | mysql                                               | sqlite  |
+| --------- | -------------------------------------------------- | --------------------------------------------------- | ------- |
+| Function  | `CREATE OR REPLACE`, collision-safe dollar quoting | `DROP` + `CREATE`, explicit determinism and invoker | refuses |
+| Procedure | `CREATE OR REPLACE PROCEDURE`                      | one driver statement, no `DELIMITER`                | refuses |
+| Call      | raw `SELECT fn(...)` / `CALL p(...)`               | raw `SELECT fn(...)` / `CALL p(...)`                | —       |
 
 SQLite has no stored routines at all, which is worth knowing if your tests run on SQLite and production runs on Postgres — a code path that only exists in the procedure is a code path the test suite never executes.
 
-## What it would take
+## What remains
 
-An emitter is easy: `createRoutineDdl({ name, args, returns, body, language }, dialect)` alongside the other [schema-object emitters](./indexes-constraints.html), plus `dropRoutineDdl`.
-
-The typed call site is the real work. To make `call(archiveOldOrders, cutoff)` type-check you need the routine's signature at the type level, which means either declaring it twice (in the DDL body and in a TypeScript signature — the drift problem zmdb exists to avoid) or parsing the SQL body during the build. Neither is obviously right, so the emitter would probably land first and calls would stay explicit.
+The migration snapshot has no accepted routine carriage yet, so routine ordering
+is not inferred alongside tables. The typed call site is also still open: it
+must derive argument and result types from `RoutineDef`, validate arguments
+before dispatch, bind every value, and validate the returned scalar or rows.
+Until that lands, keep raw calls behind one reviewed application function.
 
 ---
 

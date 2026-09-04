@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
 import type { Dialect } from '../index.js';
+import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '../schema-objects/index.js';
 import {
   diff,
   emitUp,
@@ -614,64 +615,11 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
   });
 });
 
-// Routine-body diffing belongs here because this is the migration boundary, but
-// the only accepted public primitives frozen by schema-objects/SPEC.md §8.6 are
-// `routineFingerprint` and `replaceRoutineStatements`. The snapshot/change-op
-// shape for carrying routines was not frozen by #436, so these tests do not
-// invent one: they assert the exact fingerprint-to-replacement decision the
-// accepted text does define.
+// #437 deliberately froze only these accepted public primitives. It did not
+// invent routine fields on SchemaSnapshot or ChangeOp, so this migration-boundary
+// suite measures the exact fingerprint-to-replacement decision and no wider plan.
 
-type RoutineSqlType =
-  | 'serial'
-  | 'integer'
-  | 'bigint'
-  | 'numeric'
-  | 'text'
-  | 'varchar'
-  | 'boolean'
-  | 'timestamp'
-  | 'json'
-  | 'jsonEnum';
-
-interface FrozenRoutineDef {
-  readonly kind: 'function' | 'procedure';
-  readonly name: string;
-  readonly params: readonly {
-    readonly name: string;
-    readonly type: RoutineSqlType;
-    readonly mode?: 'in' | 'out' | 'inout';
-  }[];
-  readonly returns?: { readonly type: RoutineSqlType | 'void'; readonly setof?: boolean };
-  readonly language?: string;
-  readonly deterministic?: boolean;
-  readonly body: string;
-}
-
-interface RoutineDiffModule {
-  routineFingerprint(def: FrozenRoutineDef): string;
-  replaceRoutineStatements(
-    previous: FrozenRoutineDef | undefined,
-    next: FrozenRoutineDef,
-    dialect: 'postgres' | 'mysql' | 'sqlite',
-  ): readonly string[];
-}
-
-function isRoutineDiffModule(loaded: object): loaded is RoutineDiffModule {
-  return (
-    typeof Reflect.get(loaded, 'routineFingerprint') === 'function' &&
-    typeof Reflect.get(loaded, 'replaceRoutineStatements') === 'function'
-  );
-}
-
-async function routineDiffModule(): Promise<RoutineDiffModule> {
-  const loaded: unknown = await import('../schema-objects/index.js');
-  if (typeof loaded !== 'object' || loaded === null || !isRoutineDiffModule(loaded)) {
-    throw new Error('@zmdb/query-compiler/schema-objects exports no routineFingerprint, replaceRoutineStatements');
-  }
-  return loaded;
-}
-
-const routineV1: FrozenRoutineDef = {
+const routineV1: RoutineDef = {
   kind: 'function',
   name: 'invoice_total',
   params: [{ name: 'invoice_id', type: 'bigint' }],
@@ -680,19 +628,15 @@ const routineV1: FrozenRoutineDef = {
   body: 'SELECT total FROM invoices WHERE id = invoice_id;',
 };
 
-async function replacementFor(previous: FrozenRoutineDef, next: FrozenRoutineDef): Promise<readonly string[]> {
-  const routines = await routineDiffModule();
-  return routines.routineFingerprint(previous) === routines.routineFingerprint(next)
+function replacementFor(previous: RoutineDef, next: RoutineDef): readonly string[] {
+  return routineFingerprint(previous) === routineFingerprint(next)
     ? []
-    : routines.replaceRoutineStatements(previous, next, 'postgres');
+    : replaceRoutineStatements(previous, next, 'postgres');
 }
 
 describe('routine body diff (frozen: schema-objects/SPEC.md 8.6)', () => {
-  // Actual at e4a6b064: the module has neither routine export, and the boundary
-  // above reports both names. Once present, a one-character body change must
-  // reach replace semantics rather than being normalized away.
-  it.fails('re-emits a routine when its body changes', async () => {
-    const statements = await replacementFor(routineV1, {
+  it('re-emits a routine when its body changes', () => {
+    const statements = replacementFor(routineV1, {
       ...routineV1,
       body: 'SELECT total + tax FROM invoices WHERE id = invoice_id;',
     });
@@ -700,28 +644,27 @@ describe('routine body diff (frozen: schema-objects/SPEC.md 8.6)', () => {
     expect(statements[0]).toContain('total + tax');
   });
 
-  it.fails('does not re-emit when only trailing whitespace differs', async () => {
-    const withTrailingWhitespace: FrozenRoutineDef = {
+  it('does not re-emit when only trailing whitespace differs', () => {
+    const withTrailingWhitespace: RoutineDef = {
       ...routineV1,
       body: 'SELECT total FROM invoices WHERE id = invoice_id;   \n\n',
     };
-    expect(await replacementFor(routineV1, withTrailingWhitespace)).toEqual([]);
+    expect(replacementFor(routineV1, withTrailingWhitespace)).toEqual([]);
   });
 
-  it.fails('re-emits when indentation or comments change', async () => {
-    const reindented: FrozenRoutineDef = {
+  it('re-emits when indentation or comments change', () => {
+    const reindented: RoutineDef = {
       ...routineV1,
       body: '  SELECT total FROM invoices WHERE id = invoice_id; -- deliberate',
     };
-    expect(await replacementFor(routineV1, reindented)).not.toEqual([]);
+    expect(replacementFor(routineV1, reindented)).not.toEqual([]);
   });
 
-  it.fails('treats a parameter rename as a routine change', async () => {
-    const routines = await routineDiffModule();
-    const renamed: FrozenRoutineDef = {
+  it('treats a parameter rename as a routine change', () => {
+    const renamed: RoutineDef = {
       ...routineV1,
       params: [{ name: 'id', type: 'bigint' }],
     };
-    expect(routines.routineFingerprint(renamed)).not.toBe(routines.routineFingerprint(routineV1));
+    expect(routineFingerprint(renamed)).not.toBe(routineFingerprint(routineV1));
   });
 });

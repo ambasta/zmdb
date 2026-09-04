@@ -188,22 +188,35 @@ const DDL_TYPES: Readonly<Record<Dialect, Readonly<Record<string, string>>>> = {
   },
 };
 
+function ddlScalarType(dialect: Dialect, type: string): string {
+  return DDL_TYPES[dialect][type] ?? type;
+}
+
 /**
- * The dialect's spelling of one column's type, length and auto-increment included.
+ * The dialect's spelling of an abstract type or one column's complete type.
+ *
+ * A bare type is for a routine signature. `serial` then means its underlying
+ * integer type, because auto-generation is a column property. A column snapshot
+ * additionally carries length, key and auto-increment semantics.
  *
  * Exported because a migration written by hand is still a migration, and the answer to
  * "what does this dialect call a `timestamp`" should have exactly one implementation.
  */
-export function ddlType(dialect: Dialect, col: ColumnSnapshot): string {
-  const mapped = DDL_TYPES[dialect][col.type] ?? col.type;
+export function ddlType(dialect: Dialect, type: string): string;
+export function ddlType(dialect: Dialect, column: ColumnSnapshot): string;
+export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot): string {
+  const isColumn = typeof typeOrColumn !== 'string';
+  const column = isColumn ? typeOrColumn : undefined;
+  const type = isColumn ? typeOrColumn.type : typeOrColumn === 'serial' ? 'integer' : typeOrColumn;
+  const mapped = ddlScalarType(dialect, type);
 
   // A length belongs to the type, not to the column: `VARCHAR(255)`, not `VARCHAR 255`.
   // Only where the dialect has a parameterised type to put it in — SQLite maps `varchar`
   // to `TEXT`, which takes none. A Postgres `VARCHAR` with no length is unlimited and
   // legal; a MySQL one is a syntax error, so it degrades to `TEXT` rather than emitting
   // DDL that cannot run.
-  if (col.type === 'varchar') {
-    if (col.length !== undefined && mapped === 'VARCHAR') return `VARCHAR(${col.length})`;
+  if (type === 'varchar') {
+    if (column?.length !== undefined && mapped === 'VARCHAR') return `VARCHAR(${column.length})`;
     if (dialect === 'mysql') return 'TEXT';
     return mapped;
   }
@@ -212,8 +225,8 @@ export function ddlType(dialect: Dialect, col: ColumnSnapshot): string {
   // MySQL requires such a column to be keyed. It is the primary key in every schema the
   // DSL can build but one — a non-primary `serial()` is legal — so the unique key is
   // spelled out in that case instead of quietly dropping the auto-increment.
-  if (col.type === 'serial' && dialect === 'mysql') {
-    return col.primaryKey ? 'INT AUTO_INCREMENT' : 'INT AUTO_INCREMENT UNIQUE';
+  if (column?.type === 'serial' && dialect === 'mysql') {
+    return column.primaryKey ? 'INT AUTO_INCREMENT' : 'INT AUTO_INCREMENT UNIQUE';
   }
 
   return mapped;

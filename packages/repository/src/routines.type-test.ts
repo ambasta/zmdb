@@ -1,10 +1,8 @@
 import type { CompiledQuery, QueryCompiler } from '@zmdb/query-compiler';
-// @ts-expect-error frozen (schema-objects/SPEC.md 8): RoutineDef is not exported yet.
 import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
-// Compile-time tests freeze for #437. `@ts-expect-error` is the type-level
-// equivalent of `it.fails`: each directive absorbs one current missing-surface
-// error and becomes TS2578 when the implementation lands without retiring it.
-// The local frozen forms separately prove wrong arity and wrong argument type
+// Compile-time tests froze in #437. #438 supplies the declaration; the remaining
+// `@ts-expect-error` directives continue to hold the #439 compiler/repository call
+// surface. The local forms separately prove wrong arity and wrong argument type
 // without using a `declare const` test vehicle.
 import type { Equal, Expect, SqlType } from '@zmdb/schema-core';
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
@@ -122,10 +120,7 @@ type _FrozenScalarResult = Expect<Equal<FrozenResultOf<typeof archive>, number>>
 type _FrozenSetResult = Expect<Equal<FrozenResultOf<typeof activeIds>, readonly bigint[]>>;
 type _FrozenProcedureResult = Expect<Equal<FrozenResultOf<typeof rebuild>, void>>;
 
-// The imported types are error types today, so these comparisons are false and
-// each directive is live. They retire only when the exported implementation
-// matches the frozen declaration-derived shapes.
-// @ts-expect-error frozen: the exported RoutineDef does not exist yet.
+// The declaration now has the exact frozen shape; call-derived types remain #439.
 export type _RoutineDefShape = Expect<Equal<RoutineDef, FrozenRoutineDef>>;
 
 // @ts-expect-error frozen: ArgsOf does not exist yet.

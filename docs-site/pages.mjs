@@ -595,7 +595,7 @@ export const PAGE_META = {
     title: 'Stored Procedures & Functions',
     group: 'Schema',
     status: 'todo',
-    note: 'no procedure/function DDL emitter and no typed call site',
+    note: 'routine DDL and body fingerprints ship; no snapshot carriage or typed call site',
   },
   'schema-first': {
     title: 'Schema-First (existing database)',
