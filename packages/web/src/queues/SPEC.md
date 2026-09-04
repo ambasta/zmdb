@@ -712,7 +712,7 @@ rather than changing it, so no edit is due when #588 lands either.
 
 The docs pages that change are `web-queues` and `web-task-scheduling`, whose `pages.mjs`
 notes (`docs-site/pages.mjs`) become freeze citations in the shape
-`web-versioning`'s already has, and they stay `status: 'todo'` until the epic closes. Two
+`web-versioning` had before its implementation landed, and they stay `status: 'todo'` until the epic closes. Two
 neighbouring pages need corrections that this freeze creates: `transactional-outbox` and
 `web-queues` both hand-roll the loop this file specifies.
 

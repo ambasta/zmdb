@@ -375,8 +375,8 @@ runs at generation, which is boot or build time, so it is not a per-request cost
 
 ### S6. No document-level `security`
 
-`toOpenApi` never emits a top-level `security`, and there is no option to supply one, although
-`web-openapi-security.md`'s workaround uses exactly that and it is the conventional arrangement.
+`toOpenApi` never emits a top-level `security`, and there is no option to supply one. The
+pre-#575 workaround on `web-openapi-security.md` used exactly that conventional arrangement.
 
 The reason is that a document-level default plus per-operation overrides makes "this route inherits the
 default" and "nobody wrote anything for this route" the same document text — an absent key. Every audit
@@ -385,8 +385,9 @@ the requirement is derived rather than written, there is no cost to writing it o
 document whose every operation states its own security can be read a line at a time. The `security: []`
 that `@Public()` produces is then a positive statement rather than an override of something offscreen.
 
-The workaround section of that page stays valid for a hand-post-processed document and is now labelled as
-the pre-#575 arrangement rather than the recommendation.
+That workaround no longer appears on the current page. A caller can still
+post-process the plain document object, but the supported generated shape is
+the per-operation form above.
 
 ### S7. Versions in the document
 

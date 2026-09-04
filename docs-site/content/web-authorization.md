@@ -30,8 +30,10 @@ export class AdminController {
 }
 ```
 
-`Forbidden` maps to 403 in your adapter — the router itself only produces 200,
-400, 404 and 500. See [Exception Filters](./web-exception-filters.html).
+A `Forbidden` thrown by a handler remains an ordinary error and becomes a 500
+unless an adapter maps it. A guard returning `false` produces the router's 403,
+and a handler can return `json(value, { status: 403 })` directly. See
+[Exception Filters](./web-exception-filters.html).
 
 Roles as a `readonly string[]` is fine at this scale. A union type is better:
 

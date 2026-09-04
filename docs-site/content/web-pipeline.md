@@ -1,8 +1,10 @@
 The router ties everything together. Register a controller instance and the
 router reads its [routes](./web-controllers.html) **once**, then dispatches each
-request through: **match → build [Ctx](./web-context.html) → guards → validate
-body → invoke handler → serialize**. Thin adapters connect it to `node:http` or any
-Fetch runtime (Hono, edge) with **no hard dependency** on either.
+request through: **select version → match → build
+[Ctx](./web-context.html) → guards → validate body → invoke handler →
+serialize**. With no version strategy, version selection is absent. Thin
+adapters connect it to `node:http` or any Fetch runtime (Hono, edge) with **no
+hard dependency** on either.
 
 ## Creating a router
 
@@ -38,13 +40,13 @@ router.register(new UsersController(), {
 `router.handle(req)` returns `{ status, body, headers }`, where `body` is tagged
 as `text`, `bytes` or `stream`:
 
-| step          | behavior                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **match**     | method + segment count select a bucket of the cached table, then `matchCompiled`; no match → **404**                                             |
-| **guards**    | app → controller → route; first `false` → **403**. `@Public()` bypasses inherited guards                                                         |
-| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                 |
-| **invoke**    | call the handler with the typed `Ctx`                                                                                                            |
-| **serialize** | JSON-encode the result → **200**; a thrown handler → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim |
+| step          | behavior                                                                                                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **match**     | path versions are ordinary expanded paths; header/media strategies select method + version + segment count, then `matchCompiled`; unsupported matched versions → **400**/**406**, unknown path → **404** |
+| **guards**    | app → controller → route; first `false` → **403**. `@Public()` bypasses inherited guards                                                                                                                 |
+| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                                                                         |
+| **invoke**    | call the handler with the typed `Ctx`                                                                                                                                                                    |
+| **serialize** | JSON-encode the result → **200**; a handler throw carrying `issues` → **400**, any other throw → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim             |
 
 ```ts
 await router.handle({ method: 'GET', path: '/users/42', headers: {} });

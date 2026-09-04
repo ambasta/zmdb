@@ -44,9 +44,10 @@ Two keys, deliberately: per-account so one address cannot be spammed, per-IP so
 one client cannot walk a list of addresses. A single key on either axis is
 bypassable by moving along the other.
 
-`TooManyRequests` becomes a 429 in your adapter — the router produces only 200,
-400, 404 and 500. Send `retry-after` with it; a client that does not know when to
-retry retries immediately.
+A thrown `TooManyRequests` remains an ordinary error and becomes a 500 unless an
+adapter maps it. A handler can instead return `json(value, { status: 429,
+headers: { 'retry-after': seconds } })`. Send `retry-after`; a client that does
+not know when to retry retries immediately.
 
 ## As a Guard
 

@@ -25,10 +25,10 @@ feature-gap list.
   so the [Node and Fetch adapters](./web-pipeline.html) share one handler.
 - **Target ES2026+/ESNext** — no downlevel of decorators in source.
 
-## Honest feature gaps (ToDos)
+## Honest feature gaps
 
-- [File upload](./web-file-upload.html) (multipart) · [API versioning](./web-versioning.html)
-  (header/media-type) · [GraphQL](./web-graphql.html) · [Microservices](./web-microservices.html)
+- [File upload](./web-file-upload.html) (multipart) · [GraphQL](./web-graphql.html) ·
+  [Microservices](./web-microservices.html)
 
 Everything else (config, auth, authz, CORS, cookies/sessions, rate limiting,
 security headers, caching, logging) is a **pattern on the existing primitives**,

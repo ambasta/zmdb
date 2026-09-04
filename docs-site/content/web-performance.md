@@ -3,7 +3,10 @@ The framework does very little per request, and knowing exactly what it does is 
 ## What happens on a request
 
 1. The adapter builds a `WebRequest` — the path read off the URL by index, headers flattened, body `JSON.parse`d. A request whose framing headers say it has no body skips the stream listeners entirely and dispatches straight away.
-2. `Router.handle` counts the path's segments and looks up the routes registered under that method **and** that segment count. Routes that cannot match are never examined.
+2. `Router.handle` counts the path's segments. An unversioned or path-versioned
+   router looks up method + segment count; header and media-type routers first
+   select the requested version, then look up method + version + segment count.
+   Routes that cannot match are never examined.
 3. Each candidate's pattern — already resolved into segments and `:param` slots at registration — is matched against the path by character index. A route with no params allocates nothing; one with params allocates the params object and one string per param.
 4. Optional body validation (`validateBody`), which is AOT-compiled code, not reflection.
 5. The handler runs.
@@ -14,7 +17,8 @@ resolution on the request path, and the
 [chain is not wired in](./web-request-lifecycle.html). The first request to a
 lazy route waits for that subtree's one-time construction and lifecycle hooks;
 later requests use the same cached handler path. Steady-state framework
-overhead is a bucketed match and two JSON operations.
+overhead is version selection when configured, a bucketed match and two JSON
+operations.
 
 `countMetadataReads` from `@zmdb/web/bench` is the test that keeps this true: decorator metadata is read at registration, not per request, and a regression there shows up as a rising count.
 
@@ -27,9 +31,19 @@ router.register(AdminController); // /posts/admin
 
 `GET /posts/admin` matches `/posts/:id` with `id = 'admin'`, because matching is first-match in registration order with no specificity ranking. Register static paths before parameterised ones on the same prefix.
 
-A route can only match a path that agrees on both HTTP method and segment count, and both are known before any comparison happens — so routes are indexed by that pair and a request only ever looks at the handful of routes sharing its shape. Registration order is preserved _within_ a bucket, which is what keeps first-match behaving as above.
+A route can only match a path that agrees on HTTP method and segment count, and
+a header/media route must also agree on the selected version. Those values are
+known before any path comparison, so a request only looks at the handful of
+routes sharing its bucket. Registration order is preserved _within_ a bucket,
+which is what keeps first-match behaving as above.
 
-The remaining scan is O(routes sharing your method and segment count), not O(all routes). For a table where most routes have two or three segments that is still a small linear scan; at several thousand routes a trie would beat it, and if you are there, group routes across [several apps](./web-multiple-servers.html) rather than one router with thousands of entries.
+The remaining scan is O(routes sharing your method and segment count), or
+method, version and segment count for header/media strategies — never
+O(all routes). For a table where most routes have two or three segments that is
+still a small linear scan; at several thousand routes a trie would beat it, and
+if you are there, group routes across
+[several apps](./web-multiple-servers.html) rather than one router with
+thousands of entries.
 
 Route patterns are constants, so their segments and `:param` positions are resolved once by `compilePattern` at registration rather than re-derived per request. If you are writing your own dispatcher on top of `getRoutes`, do the same — `compilePattern` at boot, `matchCompiled` per request. `extractParams(pattern, path)` compiles on every call, which is right for a one-off match and wrong in a hot loop.
 

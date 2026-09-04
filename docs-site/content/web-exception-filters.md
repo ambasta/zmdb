@@ -42,14 +42,17 @@ const result = await runChain({ guards: [], pipes: [], interceptors: [], filters
 > number 409. Measured both ways. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
-A **thrown** error has four outcomes, and the status it carries is not one of the inputs:
+A router dispatch has these built-in outcomes; a status carried by a thrown
+error is not one of the inputs:
 
-| Status | Cause                                                 |
-| ------ | ----------------------------------------------------- |
-| 200    | the handler returned                                  |
-| 400    | the handler threw something with an `issues` property |
-| 404    | no route matched                                      |
-| 500    | the handler threw anything else                       |
+| Status | Cause                                                                           |
+| ------ | ------------------------------------------------------------------------------- |
+| 200    | the handler returned an untagged value                                          |
+| 400    | validation failed, a handler threw `issues`, or a header version is unsupported |
+| 403    | a registered route guard returned `false`                                       |
+| 404    | no route or path version matched                                                |
+| 406    | no acceptable media-type version matched                                        |
+| 500    | a guard or handler threw anything else                                          |
 
 A handler that _returns_ `json(value, { status })`, `text(...)` or `respond(...)` picks its own status and headers — so catching an error and returning a response is the way to get a 403 or 409 today. What is still missing is the cross-cutting part: a filter that applies to every route without each handler repeating the `catch`.
 

@@ -1,18 +1,76 @@
-`toOpenApi` declares OpenAPI 3.1 security schemes and derives each operation's
-`security` requirement from the same guard objects the router runs. A route is
-therefore never protected by one declaration and documented by another.
+The security requirement on every generated operation comes from the **same
+guard instances the router executes**. There is no second hand-written OpenAPI
+declaration to keep in step: app, controller and route guards are resolved into
+one effective chain, and `toOpenApi` derives its schemes and scopes from the
+same guard objects.
 
-## Declare schemes and guards
+The explicit `RouteOptions.security` escape hatch is reserved for a legacy guard
+that cannot declare itself or protection outside the process, such as mutual TLS
+terminated by a service mesh. It is checked against every declaration the
+framework can see and may only add protection, never remove it.
+
+## Declare every OpenAPI 3.1 scheme
 
 ```ts
 import { toOpenApi, type SecurityAwareGuard, type SecurityScheme } from '@zmdb/web/openapi';
 import { createRouter, type GuardRegistry, type RouteOptions } from '@zmdb/web/pipeline';
+import { Controller, Get, Post, Public } from '@zmdb/web/routing';
 
 const SCHEMES = {
+  basicAuth: { type: 'http', scheme: 'basic' },
   bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-  apiKey: { type: 'apiKey', in: 'header', name: 'x-api-key' },
-} as const satisfies Record<string, SecurityScheme>;
 
+  headerKey: { type: 'apiKey', in: 'header', name: 'x-api-key' },
+  queryKey: { type: 'apiKey', in: 'query', name: 'api_key' },
+  cookieKey: { type: 'apiKey', in: 'cookie', name: 'session' },
+
+  mesh: { type: 'mutualTLS' },
+
+  oauth2: {
+    type: 'oauth2',
+    flows: {
+      authorizationCode: {
+        authorizationUrl: 'https://id.example.com/oauth/authorize',
+        tokenUrl: 'https://id.example.com/oauth/token',
+        refreshUrl: 'https://id.example.com/oauth/refresh',
+        scopes: {
+          'users:read': 'Read users',
+          'users:write': 'Create and change users',
+        },
+      },
+    },
+  },
+
+  oidc: {
+    type: 'openIdConnect',
+    openIdConnectUrl: 'https://id.example.com/.well-known/openid-configuration',
+  },
+} as const satisfies Record<string, SecurityScheme>;
+```
+
+`SecurityScheme` covers all five OpenAPI 3.1 scheme types. The `http` type is
+split into basic and bearer so `bearerFormat` cannot be attached to basic
+authentication. API keys may travel in a header, query parameter or cookie.
+
+OAuth2 requires at least one flow and every flow has a `scopes` object:
+
+| Flow                | Required URL fields               |
+| ------------------- | --------------------------------- |
+| `implicit`          | `authorizationUrl`                |
+| `password`          | `tokenUrl`                        |
+| `clientCredentials` | `tokenUrl`                        |
+| `authorizationCode` | `authorizationUrl` and `tokenUrl` |
+
+`refreshUrl` is optional on every flow. The framework emits these declarations
+unchanged under `components.securitySchemes`; it does not fetch the OpenID
+configuration or run an OAuth exchange.
+
+Never put a real key, token or client secret in this record. It describes where
+credentials travel and how clients obtain them; it does not contain credentials.
+
+## Declare guards once
+
+```ts
 const authenticated: SecurityAwareGuard = {
   canActivate: ctx => ctx.headers.authorization !== undefined,
   enforces: { scheme: 'bearerAuth', scopes: [] },
@@ -20,13 +78,27 @@ const authenticated: SecurityAwareGuard = {
 
 const requiresApiKey: SecurityAwareGuard = {
   canActivate: ctx => ctx.headers['x-api-key'] !== undefined,
-  enforces: { scheme: 'apiKey', scopes: [] },
+  enforces: { scheme: 'headerKey', scopes: [] },
 };
 
 const requiresWrite: SecurityAwareGuard = {
   canActivate: ctx => ctx.headers.authorization?.includes('users:write') === true,
   enforces: { scheme: 'bearerAuth', scopes: ['users:write'] },
 };
+
+@Controller('/users')
+class UsersController {
+  @Post('/')
+  create() {
+    return {};
+  }
+
+  @Public()
+  @Get('/status')
+  status() {
+    return { ok: true };
+  }
+}
 
 const GUARD_REGISTRY = {
   app: [authenticated],
@@ -40,8 +112,7 @@ const ROUTES = {
 } as const satisfies Record<string, Record<string, RouteOptions>>;
 ```
 
-Pass the same registry and per-handler records to the router and document
-generator:
+Pass those exact objects to runtime routing and document generation:
 
 ```ts
 const router = createRouter({ guardRegistry: GUARD_REGISTRY });
@@ -55,71 +126,151 @@ const document = toOpenApi([UsersController], {
 });
 ```
 
-`register` takes a controller **instance**. `toOpenApi` accepts classes or
-instances, but the `routes` map is always keyed by class name and then handler
-name. `guardRegistry.controllers` uses the same class-name key. Effective guards
-run in app → controller → route order, and OpenAPI derives from that whole chain.
+The declarations round-trip unchanged into the generated document:
 
-## Mark intentionally public routes
-
-Strict generation is on by default once `routes` or `guardRegistry` is supplied.
-Every route must have effective guards or an explicit public marker:
-
-```ts
-import { Controller, Post, Public } from '@zmdb/web/routing';
-
-@Controller('/auth')
-class AuthController {
-  @Public()
-  @Post('/login')
-  login() {
-    // ...
+```json
+{
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "headerKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "queryKey": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "api_key"
+      },
+      "cookieKey": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "session"
+      },
+      "mesh": {
+        "type": "mutualTLS"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://id.example.com/oauth/authorize",
+            "tokenUrl": "https://id.example.com/oauth/token",
+            "refreshUrl": "https://id.example.com/oauth/refresh",
+            "scopes": {
+              "users:read": "Read users",
+              "users:write": "Create and change users"
+            }
+          }
+        }
+      },
+      "oidc": {
+        "type": "openIdConnect",
+        "openIdConnectUrl": "https://id.example.com/.well-known/openid-configuration"
+      }
+    }
   }
 }
 ```
 
-`@Public()` emits `security: []`. That is a positive statement that the operation
-needs no authentication, not an omitted field. At runtime it bypasses inherited
-app/controller guards; declaring a route guard or non-empty explicit security
-requirement on the same handler is an error.
-It is also directly auditable:
+`register` takes a controller **instance**. `toOpenApi` accepts classes or
+instances, while `routes` and `guardRegistry.controllers` are keyed by class name
+and then handler name.
 
-```bash
-rg '@Public\\(' packages
+The guarded operation is derived from all three guard levels. Two guards naming
+`bearerAuth` merge into one entry and their scopes are deduplicated and sorted:
+
+```json
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "security": [
+          {
+            "bearerAuth": ["users:write"],
+            "headerKey": []
+          }
+        ]
+      }
+    },
+    "/users/status": {
+      "get": {
+        "security": []
+      }
+    }
+  }
+}
 ```
 
-`isPublic(ControllerClass, handlerName)` reads the same Stage-3 metadata when an
-application needs a programmatic audit.
+Several schemes in one requirement object mean **all are required** in OpenAPI.
+That matches runtime: app → controller → route guards all have to pass. The
+framework never emits one requirement object per guard, because that spelling
+would mean any one scheme is enough.
 
-## Build-time failures
+`enforces.scopes` documents what `canActivate` checks. The framework does not
+parse a token or enforce those scopes independently; a guard whose implementation
+disagrees with its declaration is still a bug in that guard.
 
-`toOpenApi` locates the controller and handler and refuses to generate when:
+## `@Public()` is an auditable opt-out
+
+`@Public()` is a positive, greppable declaration that a handler needs no
+authentication. It emits `security: []` rather than omitting the key, and at
+runtime it bypasses inherited app and controller guards.
+
+From an application root, list every public endpoint:
+
+```bash
+rg -n '^\s*@Public\(\)' src --glob '*.ts'
+```
+
+The generated-document audit is the same list in machine-readable form: every
+such operation has `security: []`. `isPublic(ControllerClass, handlerName)` reads
+the same Stage-3 metadata for a programmatic source audit.
+
+An `@Public()` handler cannot also declare a route guard or a non-empty explicit
+security requirement. That is rejected instead of creating an ambiguous
+override.
+
+## Strict generation fails closed
+
+Strict generation activates by default when `routes` or `guardRegistry` is
+supplied. `toOpenApi` names the controller and handler and refuses to generate
+when:
 
 - a route has no effective guards and no `@Public()`;
 - an `@Public()` route also declares route guards or a non-empty override;
 - a guard lacks `enforces` and there is no explicit security override;
-- a guard or override names an undeclared scheme;
-- an override omits a scheme or scope derived from a guard.
+- a guard or override names a scheme absent from `securitySchemes`;
+- an override omits a scheme or scope derived from an effective guard.
 
-The diagnostic tells the caller to add a guard, declare `enforces` (or provide
-`RouteOptions.security` for a legacy guard), declare referenced schemes, or mark
-the handler `@Public()`.
+The error tells the caller to add a guard, declare `enforces`, provide a legacy
+override, declare the referenced scheme, or mark the route `@Public()`.
 
-An existing application can migrate with `strictSecurity: false`. An undeclared
-route then has no `security` key; it is silent, not explicitly public. Do not
-leave this disabled after every route has been classified.
+An existing application can migrate with `strictSecurity: false`. An
+unclassified operation then has no `security` key at all: it is silent, not
+explicitly public. Leave this disabled only while classifying an existing route
+set.
 
-Strictness applies when a `routes` record or `guardRegistry` is supplied.
-Existing calls that pass only `info` and `schemas` retain their previous document
-byte-for-byte.
+Calls that supply only `info` and `schemas` retain the pre-security document
+shape; strictness is not activated until the guard/route configuration is
+present.
 
 ## Legacy guards and infrastructure enforcement
 
-A third-party guard may have no `enforces` property. State the requirement
-explicitly on that handler:
+A third-party guard may implement `canActivate` but have no `enforces` property.
+State its requirement on that handler:
 
 ```ts
-const ROUTES = {
+const LEGACY_ROUTES = {
   AdminController: {
     list: {
       guards: [legacyGuard],
@@ -129,57 +280,21 @@ const ROUTES = {
 } satisfies Record<string, Record<string, RouteOptions>>;
 ```
 
-An explicit requirement may add protection the framework cannot see, such as
-mutual TLS terminated by a service mesh. It may not remove anything declared by
-the route's effective app, controller or route guards.
-
-## How several guards map to OpenAPI
-
-The router requires every effective guard to pass. OpenAPI represents that AND
-by putting every scheme in one requirement object:
-
-```ts
-const guardRegistry = {
-  app: [authenticated],
-  controllers: { UsersController: [requiresApiKey] },
-};
-const routes = { UsersController: { create: { guards: [requiresWrite] } } };
-// security: [{ bearerAuth: ['users:write'], apiKey: [] }]
-```
-
-Two guards naming the same scheme produce one entry. Their scopes are merged,
-deduplicated and sorted:
-
-```ts
-// security: [{ oauth2: ['posts:read', 'posts:write'] }]
-```
-
-Scopes describe what `canActivate` enforces; the framework does not independently
-interpret a token's scopes.
-
-## Supported scheme types
-
-The exported `SecurityScheme` union covers OpenAPI 3.1 HTTP basic and bearer,
-API keys in headers/query/cookies, mutual TLS, OpenID Connect, and OAuth2
-implicit, password, client-credentials and authorization-code flows.
-
-OAuth2 requires at least one flow and each flow requires a `scopes` object.
-`bearerFormat` exists only on the bearer arm, so meaningless combinations such as
-basic authentication with `bearerFormat: 'JWT'` do not compile.
-
-Never place a real key, token or client secret in `securitySchemes`. The document
-describes where credentials travel; it does not contain credentials.
+Both `bearerAuth` and `mesh` are declared in `SCHEMES` above. The explicit
+requirement may add protection the process cannot inspect, such as the mesh's
+client certificate, but it must remain a superset of everything the declaring
+guards enforce.
 
 ## Document shape
 
-Declared schemes appear under `components.securitySchemes`. Every classified
-operation carries its own `security`; no document-level default is emitted.
-That keeps "forgotten" distinguishable from "inherits a default" during review.
+Schemes live under `components.securitySchemes`. Every classified operation
+carries its own `security`; `toOpenApi` emits no document-level default. That
+keeps "forgotten" distinguishable from "inherits a default" during review.
 
 `packages/web/src/openapi/security.spec.ts` validates representative generated
-documents against the OpenAPI 3.1 schema in addition to checking the exact
-derived requirements.
+documents against the OpenAPI 3.1 schema as well as checking exact derived
+requirements.
 
 ---
 
-See also: [Guards](./web-middleware.html) · [OpenAPI Operations](./web-openapi-operations.html) · [Authentication](./web-authentication.html)
+See also: [Guards](./web-middleware.html) · [OpenAPI Generation](./web-openapi.html) · [OpenAPI Operations](./web-openapi-operations.html) · [Authentication](./web-authentication.html)

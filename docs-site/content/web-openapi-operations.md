@@ -48,7 +48,7 @@ const doc = toOpenApi([PostsController], {
       body: toJsonSchema(posts, 'create'),
       response: toJsonSchema(posts, 'entity'),
     },
-    '/posts/{id}': { response: toJsonSchema(posts, 'get') },
+    '/posts/:id': { response: toJsonSchema(posts, 'get') },
   },
 });
 ```
@@ -79,17 +79,18 @@ The document is a plain object, so editing it is legitimate and is the escape ha
 
 ## Generated and omitted operation fields
 
-| field                    | behaviour                                            |
-| ------------------------ | ---------------------------------------------------- |
-| `summary`, `description` | not generated                                        |
-| `operationId`            | generated deterministically from method + route path |
-| `tags`                   | not generated                                        |
-| Non-200 responses        | only `200: OK`                                       |
-| Query parameters         | not generated                                        |
-| Header parameters        | not generated                                        |
-| `components` / `$ref`    | schemas are inlined                                  |
-| `deprecated`             | not generated                                        |
-| Security                 | see [OpenAPI Security](./web-openapi-security.html)  |
+| field                    | behaviour                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `summary`, `description` | not generated                                                                              |
+| `operationId`            | generated deterministically from method + public route path                                |
+| `tags`                   | not generated                                                                              |
+| Non-200 responses        | not generated; only `200: OK`                                                              |
+| Query parameters         | not generated                                                                              |
+| Header parameters        | the configured version header is generated; arbitrary headers are not                      |
+| `components` / `$ref`    | declared security schemes use `components.securitySchemes`; schemas stay inline, no `$ref` |
+| `deprecated`             | emitted when that handler's `RouteOptions.deprecated` is `true`                            |
+| Security                 | derived from guards; see [OpenAPI Security](./web-openapi-security.html)                   |
+| API versions             | strategy-specific; see [API Versioning](./web-versioning.html)                             |
 
 `operationId` and `tags` are the two that matter most in practice, because client generators use them for method and class names. zmdb emits the operation identifier from the lowercased method and public route path — `POST /users/:id/roles` becomes `post_users_id_roles` — and refuses a collision rather than silently overwriting one route.
 
@@ -112,11 +113,17 @@ for (const C of CONTROLLERS) {
 
 Derived from the same source of truth as the routes, it survives a rename. This is what the tag half of the decorators on [OpenAPI Decorators](./web-openapi-decorators.html) would automate.
 
-## The `200`-only responses reflect reality
+## Why generated responses still contain only `200`
 
-The [request lifecycle](./web-request-lifecycle.html) can only produce 200 (handler returned), 400 (threw something with `issues`), 404 (no route matched) and 500 (threw anything else) — and a handler cannot choose. So a document declaring `201` or `404` per operation would be documenting behaviour the framework does not have.
+Runtime is broader than the generated response map. A handler can return any
+status through `json`, `text`, `bytes`, `stream`, `file` or `respond`; guard
+refusal produces `403`; version negotiation can produce `400` or `406`; and the
+router also owns `404` and `500`.
 
-If you add the status-mapping wrapper described in [Request Lifecycle](./web-request-lifecycle.html), add the matching responses in the same post-processing pass.
+`toOpenApi` still emits only `200: OK` because `RouteSchemas` has no per-status
+response map. Declaring `201`, `400` or `404` without an input describing that
+operation's actual response would be another hand-written contract. Add those
+responses in a post-processing pass when your handler or adapter owns them.
 
 ## Serving it
 
@@ -144,4 +151,4 @@ Build the document once at startup, not per request. And consider committing it 
 
 ---
 
-See also: [OpenAPI Generation](./openapi.html) · [OpenAPI Schemas](./openapi.html) · [OpenAPI Decorators](./web-openapi-decorators.html)
+See also: [OpenAPI Generation](./web-openapi.html) · [OpenAPI Schemas](./openapi.html) · [OpenAPI Security](./web-openapi-security.html) · [API Versioning](./web-versioning.html) · [OpenAPI Decorators](./web-openapi-decorators.html)
