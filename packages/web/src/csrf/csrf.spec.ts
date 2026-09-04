@@ -22,6 +22,47 @@ import { type Ctx, type Guard, type QueryValues } from '../index.js';
 // being papered over.
 type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 
+if (typeof (Uint8Array.prototype as unknown as { toBase64?: unknown }).toBase64 !== 'function') {
+  const b64 = (buf: Uint8Array) => {
+    let bin = '';
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!);
+    return globalThis.btoa(bin);
+  };
+  /* oxlint-disable no-extend-native */
+  Object.defineProperty(Uint8Array.prototype, 'toBase64', {
+    value: function (options?: { alphabet?: string; omitPadding?: boolean }) {
+      let str = b64(this);
+      if (options?.alphabet === 'base64url') {
+        str = str.replace(/\+/g, '-').replace(/\//g, '_');
+      }
+      if (options?.omitPadding) {
+        str = str.replace(/=+$/, '');
+      }
+      return str;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+if (typeof (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 !== 'function') {
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (string: string, options?: { alphabet?: string }) {
+      let str = string;
+      if (options?.alphabet === 'base64url') {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      const pad = str.length % 4 === 0 ? '' : '='.repeat(4 - (str.length % 4));
+      const bin = globalThis.atob(str + pad);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)!;
+      return buf;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
 /** §3's options. `sessionOf` and `allowedOrigins` are required, which is §7's whole technique. */
 interface FrozenCsrfOptions {
   readonly secret: Uint8Array<ArrayBuffer>;
