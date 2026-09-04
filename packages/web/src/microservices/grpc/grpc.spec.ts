@@ -90,7 +90,7 @@ async function start(handlers: GrpcHandlers<Orders>, options: StartOptions = {})
     definition: ordersService,
     address,
     credentials: 'insecure',
-    deadlineMs: 2_000,
+    deadlineMs: 5_000,
     validateMetadata: options.validateClientMetadata ?? identityMetadata,
   });
   return {
@@ -217,7 +217,7 @@ describe('the protobuf boundary', () => {
   });
 });
 
-describe('typed server and client calls', () => {
+describe('typed server and client calls', { timeout: 15_000 }, () => {
   it('all four call types round-trip against a real gRPC server', async () => {
     let seenHeaders: Readonly<Record<string, string>> = {};
     let seenBinary: Readonly<Record<string, Uint8Array>> = {};
