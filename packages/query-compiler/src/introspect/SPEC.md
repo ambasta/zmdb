@@ -25,10 +25,16 @@ verbatim. Otherwise `check` reports a phantom drift, on every run, for a column 
 a drift check that is never clean is a drift check nobody reads.
 
 ```ts
+export interface IntrospectionDriver {
+  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+}
+
 export interface Introspector {
   readonly dialect: Dialect;
-  snapshot(driver: Driver, opts?: IntrospectOptions): Promise<SchemaSnapshot>;
+  snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<SchemaSnapshot>;
 }
+
+export declare function createIntrospector(dialect: Dialect): Introspector;
 
 export interface IntrospectOptions {
   readonly schemas?: readonly string[]; // default: the dialect's default schema
@@ -44,13 +50,20 @@ export interface EmitDeclarationsResult {
     readonly reason: string;
   }[];
 }
-export declare function emitDeclarations(snapshot: SchemaSnapshot, opts?: EmitOptions): EmitDeclarationsResult;
+export interface EmitOptions {
+  /** Required because SchemaSnapshot is deliberately dialect-neutral. */
+  readonly dialect: Dialect;
+}
+export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): EmitDeclarationsResult;
 ```
 
-`Driver` is the one the repository already injects — `execute(query: CompiledQuery)` — so introspection
-needs no second connection abstraction. Catalog queries are ordinary `CompiledQuery` values with
-parameters, never concatenated strings: the schema list and the globs are caller input, and this is a
-module whose entire job is to send SQL naming things the caller chose.
+`IntrospectionDriver` is the structural slice of the driver the repository already injects:
+`execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
+`@zmdb/repository` and cannot import its `Driver` without reversing the package graph.
+`createIntrospector` is the one dialect dispatch; there is no second per-reader construction API.
+Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings:
+the schema list and the globs are caller input, and this is a module whose entire job is to send SQL
+naming things the caller chose.
 
 ## 2. Catalog sources, per dialect
 
@@ -95,6 +108,10 @@ specifics matter:
 `sqlite_master.sql` is the last resort for anything the pragmas do not expose — a partial index's `WHERE`,
 a generated column's expression, a `WITHOUT ROWID` marker. Parsing it is a fallback and every use of it is
 a warning, because it is the original text and may be formatted any way at all.
+
+`PRAGMA foreign_key_list` does not expose a constraint name. The normalized snapshot therefore uses the
+same deterministic `<table>_<column>_…_fkey` name as the declaration path. This is the one snapshot name
+that is reconstructed rather than read; without it, the same SQLite constraint would diff against itself.
 
 `_zmdb_migrations` is excluded by default on every dialect. It is zmdb's own bookkeeping, it is not in
 anybody's declarations, and a default that includes it makes the first `check` on every project report
@@ -186,10 +203,20 @@ generated file can see what was widened without re-reading the database.
 
 ```ts
 interface ColumnSnapshot {
+  /**
+   * The catalog spelling exactly as returned (`character varying`, `tinyint(1)`, `TEXT`).
+   * Present on an introspected snapshot; `type` remains the normalized abstract type used by diff.
+   */
+  readonly catalogType?: string;
   /** The catalog's default expression, exactly as reported. Never evaluated. */
   readonly default?: string;
 }
 ```
+
+`diff` compares `type`, not `catalogType`. The latter is evidence for warnings and generated comments:
+aliases can normalize to one abstract type without erasing what the server actually said. If no abstract
+type can represent the column, `type` retains the catalog spelling too; such a column cannot clean-diff
+against a declaration because no declaration can express it, which is the honest outcome.
 
 A default in a catalog is a SQL expression string — `now()`, `CURRENT_TIMESTAMP`, `'user'::text`,
 `uuid_generate_v4()`, `nextval('users_id_seq')` — and none of those is a value. Evaluating one means
@@ -274,6 +301,9 @@ No timestamp, no server version, no absolute path, and no hand-edit preservation
 regeneration a diff, which turns "no drift" into a commit and trains everyone to ignore the file. Claiming
 to preserve hand edits would mean a merge, and a generator that merges is a generator that is sometimes
 wrong about which side won.
+
+The source dialect comes from the required `EmitOptions.dialect`; a `SchemaSnapshot` is deliberately
+dialect-neutral and cannot supply it without contaminating every declared snapshot with connection metadata.
 
 ## 7. Determinism
 

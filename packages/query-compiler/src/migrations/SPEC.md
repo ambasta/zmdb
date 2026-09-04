@@ -13,6 +13,8 @@ interface ColumnSnapshot {
   readonly name: string;
   /** Abstract — `'timestamp'`, never `'TIMESTAMPTZ'`. See §3, and §1.5 for the object form. */
   readonly type: string | ExtensionType;
+  /** Exact server spelling on an introspected snapshot; ignored by diff. */
+  readonly catalogType?: string;
   readonly nullable: boolean;
   readonly primaryKey: boolean;
   /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
@@ -21,11 +23,27 @@ interface ColumnSnapshot {
   readonly default?: string;
 }
 
+type IndexColumnSnapshot =
+  | string
+  | { readonly column: string; readonly opclass?: string }
+  | { readonly expr: string; readonly opclass?: string };
+
+interface IndexSnapshot {
+  readonly name: string;
+  readonly columns: readonly IndexColumnSnapshot[];
+  readonly unique: boolean;
+  readonly where?: string;
+  readonly method?: 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
+  readonly with?: Readonly<Record<string, number>>;
+}
+
 interface TableSnapshot {
   readonly name: string;
   readonly columns: readonly ColumnSnapshot[]; // sorted by name
   /** The ordered key. See §1.1. */
   readonly primaryKey: readonly string[];
+  /** Non-primary indexes, sorted by name. See §1.7. */
+  readonly indexes: readonly IndexSnapshot[];
 }
 
 interface SchemaSnapshot {
@@ -383,6 +401,22 @@ The statement order in §1.5 gains two positions, both forced by dependency:
 5. **`add_foreign_key`** — after every table and column it names exists.
 6. Index creation last. On MySQL the supporting index of a foreign key is the exception and is emitted with
    its constraint, since the constraint cannot be created without it.
+
+### 1.7 Indexes in the snapshot (frozen — epic "Introspection")
+
+`TableSnapshot.indexes` is required and sorted by name. The primary-key index is not repeated here:
+`primaryKey` already carries it, and recording both would make one physical object look like two declared
+objects. Named unique and ordinary indexes are included.
+
+The column shape is the same closed union the schema-object emitter consumes. A column name remains a
+string; an expression remains `{ expr }` and is compared byte-for-byte. SQLite reports an expression index
+as `cid = -2` / `name = NULL`, so `sqlite_master.sql` is the measured fallback for that expression. Postgres
+reads expressions and methods through `pg_index`/`pg_get_indexdef`; MySQL reads names and uniqueness through
+`information_schema.STATISTICS`.
+
+`catalogType`, default expressions and server-created supporting indexes are handled by the explicit
+normalization rules in `../introspect/SPEC.md` and its drift tests. They are not reasons to omit an index
+the catalog actually contains.
 
 ## 2. Diff engine
 

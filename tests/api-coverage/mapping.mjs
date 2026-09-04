@@ -63,12 +63,6 @@ const NO_CANCELLATION =
   'an interface with query() and the pooling, cancellation and disposal semantics belong to the ' +
   'library that actually holds the socket. See the driver contract for what we do require.';
 
-const NO_INTROSPECTION =
-  'Reading tables and columns back out of a live database is the inverse of what zmdb does. The ' +
-  'declaration is the TypeScript type, so introspection would produce a second source of truth ' +
-  'that can disagree with it. Schema drift is caught by diffing a committed snapshot against the ' +
-  'types instead, which fails in CI rather than at runtime.';
-
 const NO_EXPLAIN =
   'EXPLAIN and query-plan assertions test the database planner, not the query builder. zmdb ' +
   'compiles to plain SQL you can EXPLAIN yourself with the driver you already have, and a test ' +
@@ -404,7 +398,12 @@ export const kysely = {
   cancellation: oos(NO_CANCELLATION, 'query-cancellation'),
   'cancellation > *': oos(NO_CANCELLATION, 'query-cancellation'),
   'async-dispose > *': oos(NO_CANCELLATION, 'query-cancellation'),
-  'introspect > *': oos(NO_INTROSPECTION, 'schema-first'),
+  'introspect > getSchemas': 'reads tables, columns, nullability and primary keys from a real sqlite database',
+  'introspect > getTables': [
+    'reads tables, columns, nullability and primary keys from a real sqlite database',
+    'reads indexes including a unique one and an expression one',
+  ],
+  'introspect > getTables > implicit autoincrement': 'recognises a serial column per dialect',
 };
 
 // ---------------------------------------------------------------------------
