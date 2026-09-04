@@ -86,7 +86,7 @@ describe('custom types & codecs (#133)', () => {
       },
       primaryKey: ['id'],
       references: [],
-      ir: { table: 'orders', columns: [], primaryKey: ['id'], relations: [] },
+      ir: { table: 'orders', physicalTable: 'orders', columns: [], primaryKey: ['id'], relations: [], foreignKeys: [] },
     };
     expect(schema.columns['price']?.customType?.sqlType).toBe('varchar(50)');
     expect(schema.columns['price']?.customType?.toDb).toBe(MoneyType.toDb);
