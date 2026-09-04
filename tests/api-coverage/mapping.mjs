@@ -1065,7 +1065,7 @@ export const typia = {
     'throws the real AssertError, imported rather than redeclared',
   ],
   validate: ['reports every failure with an exact nested path', 'each issue carries expected/value/message'],
-  assertEquals: 'strict rejects excess keys with a structured issue',
+  assertEquals: 'strict rejects excess keys with a structured issue and returns data payload',
   validateEquals: 'agrees about excess properties',
   equals: 'strict rejects excess keys',
   'compare.equals': 'strict rejects excess keys',
