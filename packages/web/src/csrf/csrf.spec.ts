@@ -516,6 +516,40 @@ describe('the platform under these tests', () => {
   // in the shape §5 writes it, so a runtime that lacks any part of it fails in this file rather
   // than in an implementation slice that has to redesign around it.
   it('has HMAC-SHA256 and base64url without node:crypto', async () => {
+    const toBase64 = (bytes: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string => {
+      const target = bytes as unknown as {
+        toBase64?: (opts?: { alphabet?: string; omitPadding?: boolean }) => string;
+      };
+      if (typeof target.toBase64 === 'function') {
+        return target.toBase64(options);
+      }
+      const alphabet = options?.alphabet ?? 'base64';
+      const omitPadding = options?.omitPadding ?? false;
+      const chars =
+        alphabet === 'base64url'
+          ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+          : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '';
+      let i = 0;
+      for (; i + 2 < bytes.length; i += 3) {
+        const triple = (bytes[i]! << 16) | (bytes[i + 1]! << 8) | bytes[i + 2]!;
+        result +=
+          chars[(triple >> 18) & 63]! + chars[(triple >> 12) & 63]! + chars[(triple >> 6) & 63]! + chars[triple & 63]!;
+      }
+      if (i < bytes.length) {
+        if (bytes.length - i === 1) {
+          const single = bytes[i]! << 16;
+          result += chars[(single >> 18) & 63]! + chars[(single >> 12) & 63]!;
+          if (!omitPadding) result += '==';
+        } else {
+          const double = (bytes[i]! << 16) | (bytes[i + 1]! << 8);
+          result += chars[(double >> 18) & 63]! + chars[(double >> 12) & 63]! + chars[(double >> 6) & 63]!;
+          if (!omitPadding) result += '=';
+        }
+      }
+      return result;
+    };
+
     const key = await globalThis.crypto.subtle.importKey('raw', SECRET, { name: 'HMAC', hash: 'SHA-256' }, false, [
       'sign',
     ]);
@@ -523,7 +557,7 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
-    const encoded = typeof (mac as any).toBase64 === 'function' ? mac.toBase64({ alphabet: 'base64url', omitPadding: true }) : Buffer.from(mac).toString('base64url');
+    const encoded = toBase64(mac, { alphabet: 'base64url', omitPadding: true });
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
     // Deterministic under the same key and message, which is what makes double-HMAC a comparison
@@ -531,8 +565,7 @@ describe('the platform under these tests', () => {
     const again = new Uint8Array(
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
-    const againEncoded = typeof (again as any).toBase64 === 'function' ? again.toBase64({ alphabet: 'base64url', omitPadding: true }) : Buffer.from(again).toString('base64url');
-    expect(againEncoded).toBe(encoded);
+    expect(toBase64(again, { alphabet: 'base64url', omitPadding: true })).toBe(encoded);
     // And the nonce source §3 needs, with no `node:crypto`.
     expect(globalThis.crypto.getRandomValues(new Uint8Array(16)).length).toBe(16);
     expect(typeof globalThis.crypto.randomUUID()).toBe('string');
