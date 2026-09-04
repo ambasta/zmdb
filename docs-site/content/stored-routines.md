@@ -1,7 +1,7 @@
-> **ToDo / partial support.** Routine declarations, dialect-aware DDL and
-> body fingerprints ship. Automatic snapshot/diff carriage and the typed call
-> site do not: `CALL` and `SELECT my_fn(...)` still go through raw SQL, with
-> arguments and results owned by the caller.
+> **ToDo / partial support.** Routine declarations, dialect-aware DDL, body
+> fingerprints, and typed validated calls ship. Automatic snapshot/diff
+> carriage does not, so migration authors still decide where routine statements
+> run.
 
 ## Declaring and emitting one
 
@@ -53,51 +53,64 @@ where these statements run remains the migration author's responsibility.
 
 ## Calling one
 
-Wrap it in a function that owns the SQL and validates what comes back. That gives you one place to change if the signature moves, and a real type on the way out:
+Expose the protected repository call through an application-named method:
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
+import { BaseRepository, type ArgsOf, type ResultOf } from '@zmdb/repository';
 
-export async function archiveOldOrders(driver: Driver, cutoff: Date): Promise<number> {
-  const rows = await driver.execute({
-    text: 'SELECT archive_old_orders($1) AS moved',
-    parameters: [cutoff],
-  });
-  const [row] = rows;
-  return assert<{ moved: number }>(row).moved;
+class OrdersRepository extends BaseRepository<Order> {
+  static readonly schema = OrderSchema;
+
+  archive(args: ArgsOf<typeof archiveOldOrders>): Promise<ResultOf<typeof archiveOldOrders>> {
+    return this.call(archiveOldOrders, args);
+  }
 }
 ```
 
-For a procedure with no result:
+`ArgsOf` derives `readonly [Date]` from the parameter declaration.
+`ResultOf` derives `number`; a procedure derives `void`, and a scalar `setof`
+function derives a readonly array. Arguments are checked before SQL is compiled,
+every value is bound, and returned values are decoded and validated against the
+same declaration.
+
+The lower SQL layer is available when validation is deliberately owned
+elsewhere:
 
 ```ts
-await driver.execute({ text: 'CALL rebuild_search_index()', parameters: [] });
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+const calls = createQueryCompiler('postgres');
+await driver.execute(calls.callFunction('archive_old_orders', [cutoff]));
+await driver.execute(calls.callProcedure('rebuild_search_index', []));
 ```
 
-For a set-returning function, treat it as a relation — give it a [schema object](./virtual-entities.html) and validate the rows:
+That layer accepts a string name and `unknown[]`, so do not feed it a
+request-selected routine. Request-derived values belong through the declared
+repository call.
 
-```ts
-const rows = await driver.execute({ text: 'SELECT * FROM active_users($1)', parameters: [orgId] });
-return rows.map(r => assert<Entity<User>>(r));
-```
+Calls made through a repository returned by `withTransaction(tx)` use the
+transaction connection. zmdb cannot inspect an opaque routine body to discover
+an internal `COMMIT` or `ROLLBACK`; keep transaction-controlling procedures
+outside an outer transaction.
 
 ## Dialect behavior
 
-|           | postgres                                           | mysql                                               | sqlite  |
-| --------- | -------------------------------------------------- | --------------------------------------------------- | ------- |
-| Function  | `CREATE OR REPLACE`, collision-safe dollar quoting | `DROP` + `CREATE`, explicit determinism and invoker | refuses |
-| Procedure | `CREATE OR REPLACE PROCEDURE`                      | one driver statement, no `DELIMITER`                | refuses |
-| Call      | raw `SELECT fn(...)` / `CALL p(...)`               | raw `SELECT fn(...)` / `CALL p(...)`                | —       |
+|                    | postgres                                           | mysql                                               | sqlite  |
+| ------------------ | -------------------------------------------------- | --------------------------------------------------- | ------- |
+| Function DDL       | `CREATE OR REPLACE`, collision-safe dollar quoting | `DROP` + `CREATE`, explicit determinism and invoker | refuses |
+| Procedure DDL      | `CREATE OR REPLACE PROCEDURE`                      | one driver statement, no `DELIMITER`                | refuses |
+| Scalar / procedure | typed, validated, bound                            | typed, validated, bound                             | refuses |
+| Scalar `setof`     | typed as a readonly array                          | refuses                                             | refuses |
 
 SQLite has no stored routines at all, which is worth knowing if your tests run on SQLite and production runs on Postgres — a code path that only exists in the procedure is a code path the test suite never executes.
 
 ## What remains
 
 The migration snapshot has no accepted routine carriage yet, so routine ordering
-is not inferred alongside tables. The typed call site is also still open: it
-must derive argument and result types from `RoutineDef`, validate arguments
-before dispatch, bind every value, and validate the returned scalar or rows.
-Until that lands, keep raw calls behind one reviewed application function.
+is not inferred alongside tables. Store the previous declaration with the
+migration state you own and execute the ordered statements returned by
+`replaceRoutineStatements`.
 
 ---
 

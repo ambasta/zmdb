@@ -841,6 +841,12 @@ The return value is decoded the same way a row is (§3a): a `Date` for a `timest
 `bigint`, whatever form the driver handed back. A routine result that skipped that walk would be the one
 value in the package whose type depends on which driver is installed.
 
+`call` uses the repository's current driver. A repository returned by `withTransaction(tx)` therefore
+calls the routine on `tx`, not on the parent connection. The body remains opaque, so zmdb cannot tell
+whether a procedure contains `COMMIT` or `ROLLBACK` and does not pretend to warn selectively. Keep a
+transaction-controlling procedure outside an outer transaction; a procedure that participates in the
+caller's transaction can be invoked through the transaction-bound repository like any other statement.
+
 ### Argument validation is mandatory, and this is why
 
 `call` validates the argument tuple against the parameter types **before** compiling anything, through the

@@ -1,4 +1,6 @@
 // @zmdb/query-compiler — implementation.
+import { UnsupportedFeatureError } from './errors.js';
+
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
@@ -207,6 +209,33 @@ export interface QueryCompiler {
   insertInto(table: string): InsertBuilder;
   updateTable(table: string): UpdateBuilder;
   deleteFrom(table: string): DeleteBuilder;
+  callFunction(name: string, args: readonly unknown[]): CompiledQuery;
+  callTableFunction(name: string, args: readonly unknown[]): CompiledQuery;
+  callProcedure(name: string, args: readonly unknown[]): CompiledQuery;
+}
+
+function routineCall(
+  dialect: Dialect,
+  name: string,
+  args: readonly unknown[],
+  kind: 'function' | 'table-function' | 'procedure',
+): CompiledQuery {
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(`stored routine "${name}"`, dialect);
+  }
+  if (kind === 'table-function' && dialect !== 'postgres') {
+    throw new UnsupportedFeatureError(`set-returning function "${name}"`, dialect);
+  }
+
+  const placeholders = args.map((_, index) => formatPlaceholder(dialect, index + 1)).join(', ');
+  const routine = quoteIdentifier(dialect, name);
+  const text =
+    kind === 'procedure'
+      ? `CALL ${routine}(${placeholders})`
+      : kind === 'table-function'
+        ? `SELECT * FROM ${routine}(${placeholders})`
+        : `SELECT ${routine}(${placeholders}) AS ${quoteIdentifier(dialect, 'result')}`;
+  return frozenQuery(text, args);
 }
 
 function returningClause(d: Dialect, cols?: readonly string[]): string {
@@ -384,5 +413,8 @@ export function createQueryCompiler(dialect: Dialect = 'postgres', options?: Que
     insertInto: table => makeInsert(dialect, table, undefined, undefined, undefined, telemetry),
     updateTable: table => makeUpdate(dialect, table, undefined, [], undefined, telemetry),
     deleteFrom: table => makeDelete(dialect, table, [], undefined, telemetry),
+    callFunction: (name, args) => routineCall(dialect, name, args, 'function'),
+    callTableFunction: (name, args) => routineCall(dialect, name, args, 'table-function'),
+    callProcedure: (name, args) => routineCall(dialect, name, args, 'procedure'),
   };
 }

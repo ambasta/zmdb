@@ -9,6 +9,7 @@ import { createQueryCompiler, DIALECT_PARAM_LIMITS, sanitizeKeys, chunkArray } f
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
 import {
   isRecord,
   resolveRelation,
@@ -39,13 +40,16 @@ import {
   type AggregateSpec,
 } from '@zmdb/schema-core/dto';
 import {
+  appTypeOf,
   dbDecodedColumns,
   decodeDbValue,
   objectTypeFromShape,
+  SQL_TYPES,
   shapeOfVariant,
   type ColumnIR,
   type ObjectIR,
   type ShapeIR,
+  type TypeIR,
 } from '@zmdb/schema-core/ir';
 
 export interface Driver {
@@ -71,6 +75,103 @@ export { ValidationError, type ValidationIssue };
 export interface UpsertOptions {
   readonly target?: string | readonly string[] | undefined;
   readonly updateFields?: readonly string[] | Record<string, unknown> | undefined;
+}
+
+type RoutineType = RoutineDef['params'][number]['type'];
+
+type RoutineAppType<T extends RoutineType | 'void'> = T extends 'serial' | 'integer' | 'numeric'
+  ? number
+  : T extends 'bigint'
+    ? bigint
+    : T extends 'boolean'
+      ? boolean
+      : T extends 'timestamp'
+        ? Date
+        : T extends 'text' | 'varchar' | 'jsonEnum'
+          ? string
+          : T extends 'json'
+            ? unknown
+            : void;
+
+type RoutineAppTypeOfParam<P> = P extends { readonly type: infer T extends RoutineType } ? RoutineAppType<T> : never;
+
+type ArgsFromRoutineParams<P extends readonly RoutineDef['params'][number][]> = P extends readonly []
+  ? readonly []
+  : P extends readonly [infer Head, ...infer Tail extends readonly RoutineDef['params'][number][]]
+    ? readonly [RoutineAppTypeOfParam<Head>, ...ArgsFromRoutineParams<Tail>]
+    : readonly RoutineAppTypeOfParam<P[number]>[];
+
+/** The app-layer argument tuple derived from a routine declaration. */
+export type ArgsOf<D extends RoutineDef> = ArgsFromRoutineParams<D['params']>;
+
+/** The app-layer result derived from a routine declaration. */
+export type ResultOf<D extends RoutineDef> = D['kind'] extends 'procedure'
+  ? void
+  : D['returns'] extends {
+        readonly type: infer T extends RoutineType | 'void';
+        readonly setof: true;
+      }
+    ? readonly RoutineAppType<T>[]
+    : D['returns'] extends { readonly type: infer T extends RoutineType | 'void' }
+      ? RoutineAppType<T>
+      : void;
+
+const ROUTINE_SQL_TYPES = new Set<string>(SQL_TYPES);
+
+function isRoutineDefinition(value: unknown): value is RoutineDef {
+  if (!isRecord(value)) return false;
+  if (value.kind !== 'function' && value.kind !== 'procedure') return false;
+  if (typeof value.name !== 'string' || value.name.trim().length === 0) return false;
+  if (typeof value.body !== 'string' || !Array.isArray(value.params)) return false;
+  if (value.language !== undefined && typeof value.language !== 'string') return false;
+  if (value.deterministic !== undefined && typeof value.deterministic !== 'boolean') return false;
+
+  for (const param of value.params) {
+    if (!isRecord(param)) return false;
+    if (typeof param.name !== 'string' || param.name.trim().length === 0) return false;
+    if (typeof param.type !== 'string' || !ROUTINE_SQL_TYPES.has(param.type)) return false;
+    if (param.mode !== undefined && param.mode !== 'in' && param.mode !== 'out' && param.mode !== 'inout') {
+      return false;
+    }
+  }
+
+  if (value.returns !== undefined) {
+    if (!isRecord(value.returns)) return false;
+    if (
+      typeof value.returns.type !== 'string' ||
+      (value.returns.type !== 'void' && !ROUTINE_SQL_TYPES.has(value.returns.type))
+    ) {
+      return false;
+    }
+    if (value.returns.setof !== undefined && typeof value.returns.setof !== 'boolean') return false;
+  }
+  return true;
+}
+
+function routineColumn(name: string, sql: RoutineType): ColumnIR {
+  return {
+    name,
+    sql,
+    nullable: false,
+    primaryKey: false,
+    serial: false,
+    unique: false,
+    hasDefault: false,
+    sensitive: false,
+    constraints: {},
+    rules: [],
+    // A routine declaration carries only the SQL type, so bare JSON has no
+    // narrower payload witness and is correctly validated as unknown.
+    ...(sql === 'json' ? { payload: { kind: 'unknown' } as const } : {}),
+  };
+}
+
+function validatedRoutineValue(value: unknown, type: TypeIR): unknown {
+  const issues = issuesFor(value, type, 'result');
+  if (issues.length > 0) {
+    throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
+  }
+  return value;
 }
 
 /**
@@ -173,6 +274,97 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : { execute: q => tx.execute(q) };
     const ctor = this.constructor as new (driver: Driver, dialect?: Dialect) => this;
     return new ctor(txDriver, this.dialect);
+  }
+
+  /**
+   * Call one declared stored function or procedure.
+   *
+   * A repository rebound with `withTransaction` uses that transaction's driver
+   * here too. The routine body is opaque, so zmdb cannot detect transaction
+   * control inside it; callers must not put an internally committing procedure
+   * inside an outer transaction.
+   */
+  protected call<D extends RoutineDef>(definition: D, args: ArgsOf<D>): Promise<ResultOf<D>>;
+  protected async call(definition: RoutineDef, args: readonly unknown[]): Promise<unknown> {
+    if (!isRoutineDefinition(definition)) {
+      throw new ValidationError('routine calls require a declared RoutineDef', [
+        {
+          path: 'routine',
+          message: 'expected a declared routine definition, not a caller-supplied name',
+          expected: 'RoutineDef',
+          value: definition,
+        },
+      ]);
+    }
+    if (!Array.isArray(args)) {
+      throw new ValidationError(`routine "${definition.name}" arguments must be a tuple`, [
+        { path: 'input', message: 'expected array', expected: 'array', value: args },
+      ]);
+    }
+
+    const unsupported = definition.params.find(param => param.mode === 'out' || param.mode === 'inout');
+    if (unsupported) {
+      throw new ValidationError(
+        `routine "${definition.name}" parameter "${unsupported.name}" uses unsupported mode "${unsupported.mode}"`,
+      );
+    }
+    if (args.length !== definition.params.length) {
+      throw new ValidationError(
+        `routine "${definition.name}" expects ${definition.params.length} argument(s), received ${args.length}`,
+        [
+          {
+            path: 'input',
+            message: `expected ${definition.params.length} argument(s), received ${args.length}`,
+            expected: `tuple of length ${definition.params.length}`,
+            value: args,
+          },
+        ],
+      );
+    }
+
+    const seenNames = new Set<string>();
+    const input: Record<string, unknown> = {};
+    const shape: ShapeIR = definition.params.map((param, index) => {
+      if (seenNames.has(param.name)) {
+        throw new ValidationError(`routine "${definition.name}" declares parameter "${param.name}" more than once`);
+      }
+      seenNames.add(param.name);
+      input[param.name] = args[index];
+      return { column: routineColumn(param.name, param.type), optional: false };
+    });
+
+    // Binding protects the outer SQL call, but not dynamic SQL inside an opaque
+    // routine body. A routine may also run with definer rights, so every
+    // argument is validated before even compiling the privileged call.
+    const argumentIssues = issuesFor(input, objectTypeFromShape(shape));
+    if (argumentIssues.length > 0) {
+      throw new ValidationError(
+        `validation failed: ${argumentIssues.map(issue => issue.path).join(', ')}`,
+        argumentIssues,
+      );
+    }
+
+    const query =
+      definition.kind === 'procedure'
+        ? this.qb.callProcedure(definition.name, args)
+        : definition.returns?.setof === true
+          ? this.qb.callTableFunction(definition.name, args)
+          : this.qb.callFunction(definition.name, args);
+    const rows = await this.driver.execute(query);
+
+    if (definition.kind === 'procedure' || definition.returns === undefined || definition.returns.type === 'void') {
+      return validatedRoutineValue(undefined, { kind: 'undefined' });
+    }
+
+    const column = routineColumn(definition.name, definition.returns.type);
+    const resultType = appTypeOf(column);
+    if (definition.returns.setof === true) {
+      const values = rows.map(row => decodeDbValue(column, row[definition.name]));
+      return validatedRoutineValue(values, { kind: 'array', element: resultType });
+    }
+
+    const value = decodeDbValue(column, rows[0]?.result);
+    return validatedRoutineValue(value, resultType);
   }
 
   private get schema(): CoreSchema<string> {

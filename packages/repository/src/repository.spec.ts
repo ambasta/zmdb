@@ -372,9 +372,9 @@ describe('BaseRepository delete', () => {
   });
 });
 
-// Stored-routine call tests freeze for #437. The SQL layer is absent from
-// @zmdb/query-compiler and the typed layer is absent from BaseRepository, so the
-// boundaries below name those missing surfaces instead of using declared stubs.
+// Stored-routine call contract frozen by #437 and implemented by #439. The
+// reflection helpers keep exercising the public package boundary rather than a
+// test-only compiler or repository stand-in.
 
 type RoutineSqlType =
   | 'serial'
@@ -465,9 +465,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     expect(driver.calls).toEqual([{ text: 'SELECT "archive_old_orders"($1) AS "result"', parameters: [cutoff] }]);
   });
 
-  // Actual at e4a6b064: the real compiler has no three call methods. The full
-  // SQL and parameter arrays make interpolation unable to pass.
-  it.fails('compiles a function call to SELECT with bound arguments', async () => {
+  it('compiles a function call to SELECT with bound arguments', async () => {
     const postgres = await routineCompiler('postgres');
     const mysql = await routineCompiler('mysql');
     const cutoff = new Date('2026-01-01T00:00:00.000Z');
@@ -479,9 +477,13 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       text: 'SELECT `archive_old_orders`(?) AS `result`',
       parameters: [cutoff],
     });
+    expect(postgres.callFunction('odd"name', [cutoff])).toEqual({
+      text: 'SELECT "odd""name"($1) AS "result"',
+      parameters: [cutoff],
+    });
   });
 
-  it.fails('compiles a procedure call to CALL with bound arguments', async () => {
+  it('compiles a procedure call to CALL with bound arguments', async () => {
     const postgres = await routineCompiler('postgres');
     const mysql = await routineCompiler('mysql');
     expect(postgres.callProcedure('rebuild_search_index', ['tenant-a', 25])).toEqual({
@@ -494,7 +496,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     });
   });
 
-  it.fails('compiles a set-returning function call as rows', async () => {
+  it('compiles a set-returning function call as rows', async () => {
     const routines = await routineCompiler('postgres');
     expect(routines.callTableFunction('active_user_ids', [7n])).toEqual({
       text: 'SELECT * FROM "active_user_ids"($1)',
@@ -502,7 +504,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     });
   });
 
-  it.fails('refuses routine calls on sqlite, naming the routine', async () => {
+  it('refuses routine calls on sqlite, naming the routine', async () => {
     const compiler = await routineCompiler('sqlite');
     expect(() => compiler.callFunction(archiveRoutine.name, [new Date()])).toThrow(
       /sqlite.*archive_old_orders|archive_old_orders.*sqlite/i,
@@ -518,23 +520,33 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
 });
 
 describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
-  it.fails('validates arguments against the declared parameter types before calling', async () => {
+  it('refuses a routine name that is not declared', async () => {
+    const driver = fakeDriver();
+    const repo = new UserRepository(driver);
+    await expect(
+      callRoutine(repo, 'archive_old_orders' as unknown as FrozenRoutineDef, [new Date()]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(driver.calls).toEqual([]);
+  });
+
+  it('validates arguments against the declared parameter types before calling', async () => {
     const driver = fakeDriver([{ result: 1 }]);
     const repo = new UserRepository(driver);
     await expect(callRoutine(repo, archiveRoutine, ['2026-01-01T00:00:00.000Z'])).rejects.toBeInstanceOf(
       ValidationError,
     );
+    await expect(callRoutine(repo, archiveRoutine, [])).rejects.toBeInstanceOf(ValidationError);
     expect(driver.calls).toEqual([]);
   });
 
-  it.fails('validates a scalar result against the declared return type', async () => {
+  it('validates a scalar result against the declared return type', async () => {
     const driver = fakeDriver([{ result: 'not an integer' }]);
     const repo = new UserRepository(driver);
     await expect(callRoutine(repo, archiveRoutine, [new Date()])).rejects.toBeInstanceOf(ValidationError);
     expect(driver.calls).toHaveLength(1);
   });
 
-  it.fails('types a set-returning function as rows', async () => {
+  it('types a set-returning function as rows', async () => {
     const driver = fakeDriver([{ active_user_ids: '7' }, { active_user_ids: '9' }]);
     const repo = new UserRepository(driver);
     const rows = await callRoutine(
@@ -550,6 +562,44 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
       [3n],
     );
     expect(rows).toEqual([7n, 9n]);
+  });
+
+  it('returns nothing from a declared procedure', async () => {
+    const driver = fakeDriver([{ ignored: true }]);
+    const repo = new UserRepository(driver);
+    await expect(
+      callRoutine(
+        repo,
+        {
+          kind: 'procedure',
+          name: 'rebuild_search_index',
+          params: [{ name: 'tenant_id', type: 'text' }],
+          body: 'BEGIN END;',
+        },
+        ['tenant-a'],
+      ),
+    ).resolves.toBeUndefined();
+    expect(driver.calls).toEqual([{ text: 'CALL "rebuild_search_index"($1)', parameters: ['tenant-a'] }]);
+  });
+
+  it('routes routine calls through a transaction-bound repository', async () => {
+    const parent = fakeDriver();
+    const transactionCalls: CompiledQuery[] = [];
+    const repo = new UserRepository(parent).withTransaction({
+      execute: query => {
+        transactionCalls.push(query);
+        return Promise.resolve([{ result: 1 }]);
+      },
+    });
+
+    await expect(callRoutine(repo, archiveRoutine, [new Date('2026-01-01T00:00:00.000Z')])).resolves.toBe(1);
+    expect(parent.calls).toEqual([]);
+    expect(transactionCalls).toEqual([
+      {
+        text: 'SELECT "archive_old_orders"($1) AS "result"',
+        parameters: [new Date('2026-01-01T00:00:00.000Z')],
+      },
+    ]);
   });
 });
 
@@ -570,10 +620,10 @@ describe('stored routine integration (real Postgres, loudly gated)', () => {
     expect(result.rows).toEqual([{ result: 42 }]);
   });
 
-  it.fails('calls a real function', async () => {
+  it('calls a real function', async () => {
     if (!routinePg.reachable()) {
       console.warn('[skip] calls a real function: Postgres not reachable');
-      throw new Error('[skip] Postgres not reachable for the expected-failing routine call');
+      return;
     }
     try {
       const raw = await routinePg.pool().query('SELECT zmdb_test_add_one($1) AS result', [41]);
