@@ -305,8 +305,8 @@ the foreign key, with `attachRelations` copying rows rather than mutating them. 
 `find({ fk: { $in: [...] } })`. No aggregation pipeline, no `$lookup`, none of `$lookup`'s
 limitations, and no 16MB pipeline concern.
 
-One thing does change: `DIALECT_PARAM_LIMITS[dialect] ?? 1000` is the chunk size, and it exists
-because SQL placeholders are finite. Mongo has no placeholder limit; its limit is the 16MB BSON
+One thing does change: `DIALECT_PARAM_LIMITS[dialect]` is the total SQL-dialect chunk-size table, and it
+exists because SQL placeholders are finite. Mongo has no placeholder limit; its limit is the 16MB BSON
 command size, so a Mongo target would set a chunk size for a different reason and by a different
 calculation. That belongs in a target trait, not in `DIALECT_PARAM_LIMITS`.
 

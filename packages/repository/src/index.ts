@@ -628,7 +628,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
     const columns = this.schema.primaryKey;
     if (columns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
-    const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
+    const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect];
     const chunkSize = Math.max(1, Math.floor(parameterLimit / columns.length));
     const found = new Map<string, Entity<T>>();
 
@@ -698,7 +698,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const ids = sanitizeKeys(parentIds);
     if (ids.length === 0) return new Map();
     // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
-    const limit = DIALECT_PARAM_LIMITS[this.dialect] ?? 1000;
+    const limit = DIALECT_PARAM_LIMITS[this.dialect];
     const chunks = chunkArray(ids, limit);
     const children: Record<string, unknown>[] = [];
     for (const chunk of chunks) {

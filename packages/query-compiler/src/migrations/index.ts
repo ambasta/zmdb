@@ -2,8 +2,8 @@
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.
 export * from './runner.js';
+import { TRAITS, type Dialect, type DialectSqlType, type DialectTypeMap } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { Dialect } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
 import { createExtensionDdl } from '../schema-objects/extensions.js';
 
@@ -452,63 +452,23 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
 // *identifiers* were ever dialect-aware. One column, three wrong answers.
 //
 // So each dialect renders the type it owns, and the abstract name stays abstract
-// everywhere above this function. The keys are the `SqlType` vocabulary of
-// `@zmdb/schema-core`, spelled as strings because this package sits *below* it in the
-// dependency DAG and must not import it. A type not named here — a hand-written
-// snapshot, a column type a future schema adds — is passed through unchanged, which is
-// the only option that does not turn an unknown into a wrong guess.
+// everywhere above this function. The root maps are checked against the dependency-free
+// `DialectSqlType` vocabulary; repository's type-test proves that union stays equal to
+// `@zmdb/schema-core`'s `SqlType`. A type not named there — a hand-written snapshot — is
+// passed through unchanged, which is the only option that does not turn an unknown into
+// a wrong guess.
 
-/** What each dialect calls each abstract type, where the answer is a constant. */
-export const DDL_TYPES = {
-  postgres: {
-    serial: 'SERIAL',
-    integer: 'INTEGER',
-    bigint: 'BIGINT',
-    numeric: 'NUMERIC',
-    text: 'TEXT',
-    varchar: 'VARCHAR',
-    boolean: 'BOOLEAN',
-    // The whole reason this map exists. `TIMESTAMP` in Postgres means "without time
-    // zone", which stores the wall clock and forgets the offset.
-    timestamp: 'TIMESTAMPTZ',
-    json: 'JSONB',
-    jsonEnum: 'TEXT',
-  },
-  mysql: {
-    serial: 'INT',
-    integer: 'INT',
-    bigint: 'BIGINT',
-    numeric: 'DECIMAL',
-    text: 'TEXT',
-    varchar: 'VARCHAR',
-    boolean: 'TINYINT(1)',
-    // MySQL has no zone-aware type with a usable range: `TIMESTAMP` converts to the
-    // session zone and stops in 2038. `DATETIME(3)` keeps the milliseconds a `Date` has,
-    // and the application owns the zone — which is UTC, per the driver.
-    timestamp: 'DATETIME(3)',
-    json: 'JSON',
-    jsonEnum: 'TEXT',
-  },
-  sqlite: {
-    // SQLite has five affinities and no separate integer widths. `INTEGER PRIMARY KEY`
-    // is the rowid alias, which is what makes a `serial` auto-increment here.
-    serial: 'INTEGER',
-    integer: 'INTEGER',
-    bigint: 'INTEGER',
-    numeric: 'NUMERIC',
-    text: 'TEXT',
-    varchar: 'TEXT',
-    boolean: 'INTEGER',
-    timestamp: 'TEXT',
-    json: 'TEXT',
-    jsonEnum: 'TEXT',
-  },
-} as const satisfies Readonly<Record<Dialect, Readonly<Record<string, string>>>>;
+/** Backward-compatible view of the type maps now owned by the resolved traits registry. */
+export const DDL_TYPES: Readonly<Record<Dialect, DialectTypeMap>> = Object.freeze({
+  postgres: TRAITS.postgres.types,
+  mysql: TRAITS.mysql.types,
+  sqlite: TRAITS.sqlite.types,
+});
 
-export type DdlSqlType = keyof (typeof DDL_TYPES)['postgres'];
+export type DdlSqlType = DialectSqlType;
 
 function ddlScalarType(dialect: Dialect, type: string): string {
-  const types: Readonly<Record<string, string>> = DDL_TYPES[dialect];
+  const types: Readonly<Record<string, string>> = TRAITS[dialect].types;
   return types[type] ?? type;
 }
 
@@ -578,12 +538,10 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
     return mapped;
   }
 
-  // `AUTO_INCREMENT` is part of the column definition in MySQL rather than a type, and
-  // MySQL requires such a column to be keyed. It is the primary key in every schema the
-  // DSL can build but one — a non-primary `serial()` is legal — so the unique key is
-  // spelled out in that case instead of quietly dropping the auto-increment.
-  if (column?.type === 'serial' && dialect === 'mysql') {
-    return column.primaryKey ? 'INT AUTO_INCREMENT' : 'INT AUTO_INCREMENT UNIQUE';
+  // A dialect can put auto-generation directly in its serial mapping. MySQL requires
+  // AUTO_INCREMENT columns to be keyed, so the one non-primary shape stays unique.
+  if (column?.type === 'serial') {
+    return !column.primaryKey && mapped.endsWith('AUTO_INCREMENT') ? `${mapped} UNIQUE` : mapped;
   }
 
   return mapped;

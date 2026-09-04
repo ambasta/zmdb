@@ -385,20 +385,17 @@ The per-dialect divergences, construct by construct with the SQL written out, ar
 What belongs here is the mechanism, because it changes how every section above is implemented.
 
 **A traits record per dialect, with an optional `parent`, merged once at module load.** Not a flat union with
-more comparisons. The measurement that decided it, from the inventory in `src/dialects/SPEC.md` §1: this
-package contains **no `switch (dialect)` at all** — fourteen inline comparisons across seven files, two
-`Record<Dialect, …>` tables, and eight emitters that produce one dialect's grammar with no branch
-whatsoever. Add three members to the union today and exactly three files stop compiling; the other
-twenty-one sites keep compiling and quietly emit Postgres SQL for SQL Server. That ratio, three of
-twenty-four, is the argument. A traits record moves the twenty-one into tables where a missing entry is a
-compile error.
+more comparisons. The pre-mechanism measurement that decided it, preserved in
+`src/dialects/SPEC.md` §1, found no `switch (dialect)`: fourteen inline comparisons across seven files, two
+`Record<Dialect, …>` tables, and eight emitters that produced one dialect's grammar with no branch. Adding
+three members then stopped exactly three files; the other twenty-one sites kept compiling and quietly
+emitted Postgres SQL for SQL Server. That ratio, three of twenty-four, is the argument for the traits table.
 
-The cost is not hidden: `quoting.ts` is rewritten around a quote-character pair, `renumberPlaceholders`
-gains a dialect (its regex is `$n`-only today, so a `UNION` on a named-placeholder dialect would repeat
-`@p1`), `tailClause` loses its two unconditional `text +=` lines, and the insert/update/delete builders
-assemble text in named parts instead of by concatenation — because SQL Server's `OUTPUT` sits in the middle
-of the statement where `RETURNING` is appended. That last one is the invasive change in the epic and the one
-that decides whether the builder shape can host SQL Server at all.
+The cost is not hidden: `quoting.ts` is built around a quote-character pair,
+`renumberPlaceholders` takes a dialect so named placeholders can be continued across a `UNION`, and
+`tailClause` delegates to the resolved pagination trait. The SQL Server slice still owns the invasive
+named-part assembly for `OUTPUT` and `MERGE`; #507 keeps every shipped SQL string byte-identical while
+putting the dispatch seam in place.
 
 Three things this mechanism does **not** change:
 

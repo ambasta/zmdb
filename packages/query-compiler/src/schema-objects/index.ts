@@ -1,3 +1,4 @@
+import { requireDialectFeature } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.js';
@@ -136,6 +137,9 @@ function renderIndexColumn(column: IndexColumn, def: IndexDef, dialect: Dialect)
 }
 
 export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
+  if (def.where !== undefined) {
+    requireDialectFeature(dialect, 'partialIndex', 'partial indexes');
+  }
   const method = indexMethod(def.method, def);
   assertIndexMethodSupported(method, def, dialect);
   const cols = def.columns.map(column => renderIndexColumn(column, def, dialect)).join(', ');
@@ -160,16 +164,12 @@ export interface ViewDef {
   materialized?: boolean;
 }
 export function createViewDdl(def: ViewDef, dialect: Dialect): string {
-  if (def.materialized && dialect !== 'postgres') {
-    throw new UnsupportedFeatureError('materialized views', dialect);
-  }
+  if (def.materialized) requireDialectFeature(dialect, 'materializedView', 'materialized views');
   const mat = def.materialized ? 'MATERIALIZED ' : '';
   return `CREATE ${mat}VIEW ${quoteId(dialect, def.name)} AS ${def.select}`;
 }
 export function dropViewDdl(name: string, dialect: Dialect, materialized?: boolean): string {
-  if (materialized && dialect !== 'postgres') {
-    throw new UnsupportedFeatureError('materialized views', dialect);
-  }
+  if (materialized) requireDialectFeature(dialect, 'materializedView', 'materialized views');
   const mat = materialized ? 'MATERIALIZED ' : '';
   return `DROP ${mat}VIEW IF EXISTS ${quoteId(dialect, name)}`;
 }
@@ -181,6 +181,7 @@ export interface SequenceDef {
   increment?: number;
 }
 export function createSequenceDdl(def: SequenceDef, dialect: Dialect): string {
+  requireDialectFeature(dialect, 'sequences', 'sequences');
   let ddl = `CREATE SEQUENCE ${quoteId(dialect, def.name)}`;
   if (def.start !== undefined) ddl += ` START ${def.start}`;
   if (def.increment !== undefined) ddl += ` INCREMENT ${def.increment}`;
@@ -195,12 +196,14 @@ export interface GeneratedColumn {
   stored?: boolean;
 }
 export function generatedColumnDdl(col: GeneratedColumn, dialect: Dialect): string {
+  requireDialectFeature(dialect, 'generatedColumns', 'generated columns');
   const stored = col.stored ? ' STORED' : '';
   return `${quoteId(dialect, col.name)} ${col.type} GENERATED ALWAYS AS (${col.expression})${stored}`;
 }
 
 // §5 schemas / namespaces
 export function createSchemaDdl(name: string, dialect: Dialect): string {
+  requireDialectFeature(dialect, 'schemas', 'schemas');
   return `CREATE SCHEMA ${quoteId(dialect, name)}`;
 }
 export function qualify(schema: string, object: string, dialect: Dialect): string {
@@ -215,11 +218,11 @@ export interface RlsPolicy {
   command?: 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
 }
 export function enableRlsDdl(table: string, dialect: Dialect): string {
-  if (dialect !== 'postgres') throw new UnsupportedFeatureError('row-level security', dialect);
+  requireDialectFeature(dialect, 'rowLevelSecurity', 'row-level security');
   return `ALTER TABLE ${quoteId(dialect, table)} ENABLE ROW LEVEL SECURITY`;
 }
 export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
-  if (dialect !== 'postgres') throw new UnsupportedFeatureError('row-level security', dialect);
+  requireDialectFeature(dialect, 'rowLevelSecurity', 'row-level security');
   const cmd = p.command ?? 'ALL';
   return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
 }

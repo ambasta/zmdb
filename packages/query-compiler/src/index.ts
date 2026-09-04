@@ -1,7 +1,19 @@
 // @zmdb/query-compiler — implementation.
-import { UnsupportedFeatureError } from './errors.js';
+import { TRAITS, type Dialect } from './dialects/index.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
+export { DIALECTS, TRAITS } from './dialects/index.js';
+export type {
+  Dialect,
+  DialectFeature,
+  DialectSqlType,
+  DialectTraits,
+  DialectTypeMap,
+  PaginationTail,
+  PlaceholderStyle,
+  ResolvedTraits,
+} from './dialects/index.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
@@ -29,7 +41,6 @@ import {
 } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
-export type Dialect = 'postgres' | 'mysql' | 'sqlite';
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
 export type { ColumnExpr, SetValue } from './expressions/index.js';
 export { DISTANCE_OPERATORS, distance, stContains, stDWithin } from './extensions/index.js';
@@ -71,11 +82,11 @@ export type Direction = 'asc' | 'desc';
  * list-length heuristics, leaving headroom below maximum driver parameter limits
  * (32,766 for SQLite, 65,535 for Postgres/MySQL) for any additional query parameters.
  */
-export const DIALECT_PARAM_LIMITS: Record<Dialect, number> = {
-  sqlite: 30000,
-  postgres: 60000,
-  mysql: 60000,
-};
+export const DIALECT_PARAM_LIMITS: Readonly<Record<Dialect, number>> = Object.freeze({
+  postgres: TRAITS.postgres.paramLimit,
+  mysql: TRAITS.mysql.paramLimit,
+  sqlite: TRAITS.sqlite.paramLimit,
+});
 
 /**
  * Collection utility that deduplicates keys while preserving insertion order AND
@@ -316,6 +327,11 @@ function routineCall(
 
 function returningClause(d: Dialect, cols?: readonly string[]): string {
   if (!cols || cols.length === 0) return '';
+  const returning = TRAITS[d].returning;
+  if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
+  if (returning === 'output') {
+    throw new QueryCompilerError(`Dialect "${d}" requires OUTPUT placement, which this statement does not implement`);
+  }
   return ` RETURNING ${cols.map(c => (c === '*' ? '*' : quoteColumn(d, c))).join(', ')}`;
 }
 
@@ -343,9 +359,9 @@ function conflictTarget(d: Dialect, target?: readonly string[]): string {
  * deprecated in MySQL 8.0.20+ in favour of a row alias (`AS new`), but keeping
  * it means servers older than that still work.
  */
-function upsertSetSql(d: Dialect, cols: readonly string[]): string {
+function upsertSetSql(d: Dialect, cols: readonly string[], upsert: 'onConflict' | 'onDuplicateKey'): string {
   const value = (c: string) =>
-    d === 'mysql' ? `VALUES(${quoteIdentifier(d, c)})` : `EXCLUDED.${quoteIdentifier(d, c)}`;
+    upsert === 'onDuplicateKey' ? `VALUES(${quoteIdentifier(d, c)})` : `EXCLUDED.${quoteIdentifier(d, c)}`;
   return cols.map(c => `${quoteIdentifier(d, c)} = ${value(c)}`).join(', ');
 }
 
@@ -410,33 +426,41 @@ function makeInsert(
 
       if (!conflict) {
         text = insert;
-      } else if (conflict.action === 'ignore') {
-        text =
-          d === 'mysql'
-            ? `INSERT IGNORE INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`
-            : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO NOTHING`;
       } else {
-        let setSql: string;
-
-        if (Array.isArray(conflict.updateFields)) {
-          setSql = upsertSetSql(d, conflict.updateFields);
-        } else if (conflict.updateFields) {
-          setSql = Object.entries(conflict.updateFields)
-            .map(([k, val]) => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, val, params, 'upsert')}`)
-            .join(', ');
-        } else {
-          const targetSet = new Set(conflict.target ?? []);
-          const nonTarget = keys.filter(k => !targetSet.has(k));
-          // If every inserted column is a conflict target, nonTarget is empty and
-          // the SET list would be empty SQL. Setting them all back to what the
-          // INSERT carried is a valid no-op.
-          setSql = upsertSetSql(d, nonTarget.length > 0 ? nonTarget : keys);
+        const upsert = TRAITS[d].upsert;
+        if (upsert === 'none') throw new UnsupportedFeatureError('upsert', d);
+        if (upsert === 'merge') {
+          throw new QueryCompilerError(`Dialect "${d}" requires MERGE upsert assembly, which is not implemented`);
         }
 
-        text =
-          d === 'mysql'
-            ? `${insert} ON DUPLICATE KEY UPDATE ${setSql}`
-            : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO UPDATE SET ${setSql}`;
+        if (conflict.action === 'ignore') {
+          text =
+            upsert === 'onDuplicateKey'
+              ? `INSERT IGNORE INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`
+              : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO NOTHING`;
+        } else {
+          let setSql: string;
+
+          if (Array.isArray(conflict.updateFields)) {
+            setSql = upsertSetSql(d, conflict.updateFields, upsert);
+          } else if (conflict.updateFields) {
+            setSql = Object.entries(conflict.updateFields)
+              .map(([k, val]) => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, val, params, 'upsert')}`)
+              .join(', ');
+          } else {
+            const targetSet = new Set(conflict.target ?? []);
+            const nonTarget = keys.filter(k => !targetSet.has(k));
+            // If every inserted column is a conflict target, nonTarget is empty and
+            // the SET list would be empty SQL. Setting them all back to what the
+            // INSERT carried is a valid no-op.
+            setSql = upsertSetSql(d, nonTarget.length > 0 ? nonTarget : keys, upsert);
+          }
+
+          text =
+            upsert === 'onDuplicateKey'
+              ? `${insert} ON DUPLICATE KEY UPDATE ${setSql}`
+              : `${insert} ON CONFLICT${conflictTarget(d, conflict.target)} DO UPDATE SET ${setSql}`;
+        }
       }
 
       text += returningClause(d, ret);

@@ -124,7 +124,9 @@ describe('Centralized Identifier Quoting Engine', () => {
   describe('renumberPlaceholders', () => {
     it('renumbers $n placeholders by applying offset', () => {
       const sql = 'SELECT * FROM "users" WHERE "id" = $1 AND "tenant_id" = $2';
-      expect(renumberPlaceholders(sql, 2)).toBe('SELECT * FROM "users" WHERE "id" = $3 AND "tenant_id" = $4');
+      expect(renumberPlaceholders(sql, 2, 'postgres')).toBe(
+        'SELECT * FROM "users" WHERE "id" = $3 AND "tenant_id" = $4',
+      );
     });
   });
 

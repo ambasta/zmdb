@@ -1,4 +1,5 @@
 import { frozenQuery, queryTelemetry, renderPredicate, tailClause } from '../clauses.js';
+import { TRAITS } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
@@ -66,8 +67,9 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
     compile: () => {
       const params: unknown[] = [];
       let text = '';
+      const fts = TRAITS[d].fts;
 
-      if (d === 'sqlite') {
+      if (fts === 'companionTable') {
         const { baseName, alias } = parseTableSpec(s.table);
         const quotedBaseTable = quoteTable(d, s.table);
         const baseRef = alias ? quoteIdentifier(d, alias) : quoteColumn(d, baseName);
@@ -112,11 +114,13 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
               return renderPredicate(d, { col: p.col, op: p.op ?? '=', value: p.value }, params);
             }
             params.push(p.value);
-            if (d === 'postgres') {
+            if (fts === 'tsvector') {
               return `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
             }
-            // mysql
-            return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
+            if (fts === 'match') {
+              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
+            }
+            throw new UnsupportedFeatureError('full-text search', d);
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }

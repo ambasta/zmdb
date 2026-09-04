@@ -1,4 +1,4 @@
-import type { Dialect } from '../index.js';
+import { TRAITS, type Dialect } from '../dialects/index.js';
 import { formatPlaceholder, quoteIdentifier } from '../quoting.js';
 
 /** Runtime brand for compiler-owned column expressions. */
@@ -82,6 +82,7 @@ interface EmitColumnExprOptions {
 /** Emit one expression and only the parameters contributed by that expression. */
 export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitColumnExprOptions): EmittedExpr {
   const { dialect, table, column, parameterIndex, scope } = options;
+  const traits = TRAITS[dialect];
   const quotedColumn = quoteIdentifier(dialect, column);
   const placeholder = formatPlaceholder(dialect, parameterIndex);
 
@@ -93,10 +94,16 @@ export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitCol
     case 'mul':
       return { sql: `${quotedColumn} * ${placeholder}`, params: [expression.by] };
     case 'not':
-      return { sql: `NOT ${quotedColumn}`, params: [] };
+      return {
+        sql: traits.booleanNot === 'not' ? `NOT ${quotedColumn}` : `~${quotedColumn}`,
+        params: [],
+      };
     case 'concat':
       return {
-        sql: dialect === 'mysql' ? `CONCAT(${quotedColumn}, ${placeholder})` : `${quotedColumn} || ${placeholder}`,
+        sql:
+          traits.concat === 'function'
+            ? `CONCAT(${quotedColumn}, ${placeholder})`
+            : `${quotedColumn} || ${placeholder}`,
         params: [expression.with],
       };
     case 'coalesce':
@@ -109,7 +116,7 @@ export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitCol
         );
       }
       return {
-        sql: dialect === 'mysql' ? `VALUES(${quotedColumn})` : `EXCLUDED.${quotedColumn}`,
+        sql: traits.upsert === 'onDuplicateKey' ? `VALUES(${quotedColumn})` : `EXCLUDED.${quotedColumn}`,
         params: [],
       };
   }

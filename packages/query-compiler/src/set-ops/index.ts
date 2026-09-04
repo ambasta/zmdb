@@ -12,9 +12,9 @@ export const SET_KEYWORD: Record<SetOp, string> = {
 };
 
 /**
- * Combine compiled queries with a set operator. Positional placeholders ($n)
- * are renumbered across the combined parameter list for postgres; kept as `?`
- * for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
+ * Combine compiled queries with a set operator. Numbered and named placeholders
+ * continue across fragments; positional `?` placeholders keep parameter-array order.
+ * Single query ⇒ passthrough; empty ⇒ throw.
  */
 export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: Dialect): CompiledQuery {
   const [first] = queries;
@@ -22,12 +22,8 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
   if (queries.length === 1) return first;
   const params: unknown[] = [];
   const fragments = queries.map(q => {
-    let text = q.text;
-    if (dialect === 'postgres') {
-      // renumber each $n in this fragment to continue the combined sequence
-      const offset = params.length;
-      text = renumberPlaceholders(text, offset);
-    }
+    const offset = params.length;
+    const text = renumberPlaceholders(q.text, offset, dialect);
     for (const p of q.parameters) params.push(p);
     return text;
   });

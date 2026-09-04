@@ -1,20 +1,20 @@
 # Dialects — Spec (epic "The SQL dialect matrix — SQL Server, CockroachDB and SingleStore")
 
-> `Dialect` grows from three members to six. This directory holds the per-dialect traits records; the
-> mechanism decision and what it costs are in `../../SPEC.md` §5e. Spec only — no runtime code lands with
-> this document.
+> `Dialect` grows from three members to six over the epic. The #507 mechanism for the three shipped
+> dialects now lives in `index.ts`; SQL Server, CockroachDB and SingleStore remain the later implementation
+> slices. The mechanism decision and what it costs are in `../../SPEC.md` §5e.
 
 ## 1. The inventory, and the number it produced
 
-Step 1 of the freeze asks for a count of every `switch (dialect)` in the compiler. The answer is **zero**.
-There is not one. Every dialect decision in this package is an inline comparison against a string literal,
-and that changes the mechanism decision, because a comparison and a `switch` fail differently when the union
-grows: a `switch` with an exhaustive `default` stops compiling, and `dialect === 'mysql'` silently takes the
-other branch.
+This is the pre-mechanism inventory measured by the spec freeze. At that point the count of every
+`switch (dialect)` in the compiler was **zero**: each listed decision was an inline comparison against a
+string literal. That changed the mechanism decision, because a comparison and an exhaustive switch fail
+differently when the union grows: the switch stops compiling, while `dialect === 'mysql'` silently takes
+the other branch.
 
 Fourteen comparisons, in seven files:
 
-| Site                            | Decision today                                                  | Trait it becomes |
+| Site                            | Decision at the freeze                                          | Trait it becomes |
 | ------------------------------- | --------------------------------------------------------------- | ---------------- |
 | `../quoting.ts:11`              | `mysql` gets backticks, everyone else double quotes             | `quote`          |
 | `../quoting.ts:73`              | `postgres` gets `$n`, everyone else `?`                         | `placeholder`    |
@@ -55,9 +55,9 @@ suggests rather than more.
 
 ### 1.1 The number that actually decides the mechanism
 
-Add three members to `Dialect` today and exactly **three** files stop compiling: `DDL_TYPES`,
+At the freeze, adding three members to `Dialect` made exactly **three** files stop compiling: `DDL_TYPES`,
 `DIALECT_PARAM_LIMITS`, and `../../../zmdb/src/three-types.spec.ts:67`, whose expectation table is a
-`Readonly<Record<Dialect, string>>`. Every one of the other twenty-one sites keeps compiling and quietly
+`Readonly<Record<Dialect, string>>`. Every one of the other twenty-one sites kept compiling and quietly
 produces Postgres SQL for SQL Server.
 
 That is the failure the epic names in its architecture constraints — "a partially implemented dialect is
@@ -118,6 +118,11 @@ export type ResolvedTraits = Omit<Required<DialectTraits>, 'parent'> & {
 export const TRAITS: Readonly<Record<Dialect, ResolvedTraits>>;
 ```
 
+The implementation strengthens the sketch at the type boundary: an entry with no `parent` must provide
+every scalar trait, every feature and a complete `DialectTypeMap`; only an entry with an explicit parent may
+provide partial overrides. That is what makes a missing root type mapping a compile error while still
+allowing CockroachDB and SingleStore to inherit most of their maps.
+
 Five deliberate differences from the sketch in the sub-issue, each because the sketch does not survive
 contact with the code:
 
@@ -141,14 +146,14 @@ The style drives both — the pattern to match and the text to emit — so `renu
 `(limit?, offset?) => string` cannot express SQL Server's grammar, which is the divergence most likely to
 be discovered in production (§3.3).
 
-**`types` is `Record<string, string>`, and it cannot be `Record<SqlType, string>`.** `SqlType` lives in
-`@zmdb/schema-core` and this package has **no dependencies at all** — deliberately, and the comment above
-`DDL_TYPES` at `../migrations/index.ts:140` says so: it "must not import it". So the epic's constraint that
-"a new dialect must fail to compile until it maps every `SqlType`" is not achievable through the type
-system from here. It is achievable, and §7 specifies how: one test holds the ten type names as a local
-literal list and asserts every dialect's resolved `types` covers it. That test is the exhaustiveness check,
-it is the reason a dialect cannot half-ship, and calling it a type-level guarantee when it is a test would
-be the kind of claim this repository keeps finding in its own docs.
+**`types` is a local `DialectTypeMap`, not an imported `SqlType` map.** `SqlType` lives in
+`@zmdb/schema-core` and this package deliberately has no dependencies, so the runtime module does not import
+it. The implementation closes the type-level gap without crossing that boundary: each root mapping satisfies
+the local `DialectTypeMap`, and `../../../repository/src/dialect-types.type-test.ts` — in a package that
+already depends on both sides — proves `DialectSqlType` and `SqlType` are exactly equal. A missing mapping or
+a new schema type therefore breaks typecheck, while §7's runtime matrix independently checks the resolved
+maps. The migration emitter widens that complete map only at the lookup of a hand-written unknown type, where
+the existing passthrough remains intentional.
 
 **`features` is `Partial` on the way in and total on the way out.** An entry declares only what it differs
 from its parent on; resolution fills the rest. A total `Record<DialectFeature, boolean>` in every entry
@@ -159,8 +164,8 @@ would mean six copies of nine booleans, and the fifth one to be added would be w
 `createQueryCompiler(dialect)` is not the only door. `quoteIdentifier`, `ddlType`, `emitUp`, `emitDown`,
 `setOperation`, `createIndexDdl`, `createViewDdl`, `enableRlsDdl`, `ftsSelectFrom`, `joinableSelectFrom` and
 `aggregateSelectFrom` are all exported and all take a `Dialect` string rather than a compiler instance, and
-`@zmdb/repository` calls several of them that way — `DIALECT_PARAM_LIMITS[this.dialect]` at
-`../../../repository/src/index.ts:282` reaches straight into a table.
+`@zmdb/repository` calls several of them that way — its IN-list chunkers index
+`DIALECT_PARAM_LIMITS[this.dialect]` directly.
 
 So "merge the parent chain once at construction" is only true of the builders, and the other half of the
 package would merge per call. Instead `TRAITS` is built once when the module is first evaluated and frozen,
@@ -169,35 +174,33 @@ walk — without changing a single exported signature except `renumberPlaceholde
 
 Two consequences worth stating because they are easy to lose:
 
-- **A cycle in `parent` is a load-time throw, not a stack overflow.** Six entries, resolved eagerly.
-- **A missing entry cannot be filled in later.** `ddlType`'s `?? col.type` fallback at
-  `../migrations/index.ts:198` and `DIALECT_PARAM_LIMITS[…] ?? 1000` at `../../../repository/src/index.ts:282`
-  are both defences against a partial table. With resolution eager and total, the first stays (an unknown
-  _column type_ is still passed through unchanged, which is the existing and correct behaviour for a
-  hand-written snapshot) and the second becomes dead code that should be deleted rather than left to imply
-  the table might not have the key.
+- **A cycle in `parent` is a load-time throw, not a stack overflow.** Every entry is resolved eagerly:
+  three in #507, six when the epic is complete.
+- **A missing entry cannot be filled in later.** `ddlType` keeps its unknown-type passthrough for a
+  hand-written snapshot, but the repository's old `DIALECT_PARAM_LIMITS[…] ?? 1000` defences are gone:
+  `TRAITS` is eager and total, so every `Dialect` has a real limit before any repository is constructed.
 
-### 2.2 What the refactor costs, stated honestly
+### 2.2 What the full epic costs, stated honestly
 
-Twenty-one call sites move from a comparison or an unconditional string to a table lookup. That is:
+The #507 mechanism moves the inventoried behavior behind the table without changing a shipped SQL string.
+The later dialect slices supply the new values and the SQL corrections described below:
 
-- `../quoting.ts` rewritten around the pair, and `renumberPlaceholders` given a dialect — every caller of
+- `../quoting.ts` is rewritten around the pair, and `renumberPlaceholders` takes a dialect — every caller of
   which is in this package.
-- `../clauses.ts`'s `tailClause` losing its two `text +=` lines to `TRAITS[d].paginate`, which changes
-  emitted SQL for `mysql` and `sqlite` (§3.3) and is therefore a golden-test change, not a refactor.
-- `../index.ts`'s insert/update/delete builders assembling text in named parts instead of by concatenation,
-  because `OUTPUT` is not a suffix (§3.4). This is the single most invasive change in the epic and the one
-  that decides whether the builder shape accommodates SQL Server at all — which is exactly what
-  `docs-site/content/dialect-mssql.md:51` predicted.
-- `../migrations/index.ts` and `../schema-objects/index.ts` gaining feature gates where they have none, which
-  turns three currently-silent bugs into refusals for `mysql` and `sqlite` (sequences, partial indexes, and
-  the `ALTER COLUMN … TYPE` spelling).
+- `../clauses.ts` delegates its tail to `TRAITS[d].paginate`; the shipped entries deliberately reproduce
+  the old `LIMIT`/`OFFSET` strings byte for byte. The MySQL/SQLite offset correction is the golden change
+  described in §3.3, not part of the mechanism-only slice.
+- `../index.ts` dispatches returning and upsert through traits. SQL Server's later slice owns the named-part
+  assembly required for middle-position `OUTPUT` and `MERGE` (§3.4–§3.5).
+- `../migrations/index.ts` reads the resolved type map, and `../schema-objects/index.ts` reads total feature
+  flags. The shipped flags preserve current behavior; dialect-specific corrections land with the dialects
+  whose matrix rows require them.
 - The `Record<Dialect, …>` shape kept everywhere and never widened to `Partial`, since it is the only
   compile-time lever in the package (§1.1).
 
 The alternative — three more members and twenty-one more comparisons — costs less this week and produces a
 compiler where adding the seventh dialect means auditing twenty-four sites by hand for the second time. The
-traits record is chosen. The comparisons do not survive it.
+traits record is chosen; the inventoried dispatch sites move behind it.
 
 ## 3. SQL Server (`mssql`)
 

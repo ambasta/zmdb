@@ -1,4 +1,4 @@
-import type { Dialect } from './index.js';
+import { TRAITS, type Dialect } from './dialects/index.js';
 
 /**
  * Safely quote a single SQL identifier (table name, column name, alias, etc.)
@@ -8,12 +8,9 @@ import type { Dialect } from './index.js';
  * MySQL: backticks (`` ` ``), escaping internal backticks as ``` `` ```.
  */
 export function quoteIdentifier(dialect: Dialect, identifier: string): string {
-  if (dialect === 'mysql') {
-    const escaped = identifier.replaceAll('`', '``');
-    return `\`${escaped}\``;
-  }
-  const escaped = identifier.replaceAll('"', '""');
-  return `"${escaped}"`;
+  const [open, close] = TRAITS[dialect].quote;
+  const escaped = identifier.replaceAll(close, close + close);
+  return `${open}${escaped}${close}`;
 }
 
 /**
@@ -84,17 +81,31 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
  * - MySQL and SQLite use positional tokens (`?`)
  */
 export function formatPlaceholder(dialect: Dialect, index: number): string {
-  return dialect === 'postgres' ? `$${index}` : '?';
+  switch (TRAITS[dialect].placeholder) {
+    case 'numbered':
+      return `$${index}`;
+    case 'positional':
+      return '?';
+    case 'named':
+      return `@p${index}`;
+  }
 }
 
 /**
- * Renumbers positional parameter placeholders ($n) in SQL text by adding an offset.
- * Used when combining parameter sets (e.g. set operations like UNION).
+ * Renumbers numbered (`$n`) or named (`@pN`) placeholders by adding an offset.
+ * Positional `?` placeholders are already ordered by the parameter array and are unchanged.
  *
  * Note: Designed for compiler-generated SQL where literal values are always
- * parameterized into positional placeholders ($N). Does not parse raw SQL string
- * literals or comments where `$N` patterns might appear as literal text.
+ * parameterized into placeholders. Does not parse raw SQL string literals or comments
+ * where a generated placeholder pattern might appear as literal text.
  */
-export function renumberPlaceholders(text: string, offset: number): string {
-  return text.replace(/\$(\d+)/g, (_match, n: string) => `$${offset + Number(n)}`);
+export function renumberPlaceholders(text: string, offset: number, dialect: Dialect): string {
+  switch (TRAITS[dialect].placeholder) {
+    case 'numbered':
+      return text.replace(/\$(\d+)/g, (_match, n: string) => `$${offset + Number(n)}`);
+    case 'named':
+      return text.replace(/@p(\d+)/g, (_match, n: string) => `@p${offset + Number(n)}`);
+    case 'positional':
+      return text;
+  }
 }

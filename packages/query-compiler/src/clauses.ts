@@ -1,11 +1,3 @@
-import { UnsupportedFeatureError } from './errors.js';
-import {
-  DISTANCE_OPERATORS,
-  encodePgVector,
-  isDistanceOp,
-  renderSpatialPredicate,
-  type SpatialPredicateNode,
-} from './extensions/index.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -18,6 +10,15 @@ import {
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
+import { TRAITS } from './dialects/index.js';
+import { UnsupportedFeatureError } from './errors.js';
+import {
+  DISTANCE_OPERATORS,
+  encodePgVector,
+  isDistanceOp,
+  renderSpatialPredicate,
+  type SpatialPredicateNode,
+} from './extensions/index.js';
 import type { CompiledQuery, Dialect, QueryTelemetry } from './index.js';
 import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unaliasedTable } from './quoting.js';
 
@@ -122,10 +123,9 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
 
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
-    // Continue the outer statement's numbering. For mysql/sqlite the
-    // placeholder is positional, so this is a no-op and the order of the
-    // pushes below is what matters.
-    const text = renumberPlaceholders(sub.text, params.length);
+    // Continue the outer statement's numbering. Positional placeholders are a
+    // no-op here, so the order of the pushes below is what matters.
+    const text = renumberPlaceholders(sub.text, params.length, dialect);
     params.push(...sub.parameters);
 
     if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
@@ -194,12 +194,16 @@ export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[]): strin
  */
 export function tailClause(dialect: Dialect, tail: Tail): string {
   let text = '';
-  if (tail.orderBys && tail.orderBys.length > 0) {
+  const ordered = tail.orderBys !== undefined && tail.orderBys.length > 0;
+  if (ordered) {
     const ob = tail.orderBys.map(o => `${quoteColumn(dialect, o.col)} ${o.dir.toUpperCase()}`).join(', ');
     text += ` ORDER BY ${ob}`;
   }
-  if (tail.limitN !== undefined) text += ` LIMIT ${tail.limitN}`;
-  if (tail.offsetN !== undefined) text += ` OFFSET ${tail.offsetN}`;
+  text += TRAITS[dialect].paginate({
+    ...(tail.limitN === undefined ? {} : { limit: tail.limitN }),
+    ...(tail.offsetN === undefined ? {} : { offset: tail.offsetN }),
+    ordered,
+  });
   return text;
 }
 
