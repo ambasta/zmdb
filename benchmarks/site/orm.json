@@ -1,7 +1,7 @@
 {
   "suite": "orm (drizzle-team/drizzle-benchmarks)",
   "upstreamCommit": "2ae27415a69f00b4f0f734ebb0a98e7799008819",
-  "generatedAt": "2026-08-31T10:50:11.163Z",
+  "generatedAt": "2026-09-03T12:27:34.543Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/drizzle-team/drizzle-benchmarks",
