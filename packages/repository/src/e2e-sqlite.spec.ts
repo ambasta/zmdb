@@ -8,6 +8,26 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { sqliteDriver } from './drivers/sqlite.js';
 import { BaseRepository, ValidationError } from './index.js';
 
+interface FrozenStreamOptions {
+  readonly signal?: AbortSignal;
+  readonly batchSize?: number;
+  readonly requireCursor?: boolean;
+}
+
+type FrozenStream<Row> = AsyncIterable<Row> & AsyncDisposable;
+
+function repositoryStream<Row>(
+  repository: object,
+  where?: Readonly<Record<string, unknown>>,
+  options?: FrozenStreamOptions,
+): FrozenStream<Row> {
+  const method: unknown = Reflect.get(repository, 'stream');
+  if (typeof method !== 'function') {
+    throw new TypeError('BaseRepository.stream is not a function');
+  }
+  return Reflect.apply(method, repository, [where, options]) as FrozenStream<Row>;
+}
+
 // #29: end-to-end integration — a <10-line repository performing real CRUD
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).
 
@@ -113,6 +133,59 @@ describe('repository E2E (real SQLite)', () => {
     const proto = Object.getPrototypeOf(all[0]);
     expect(proto === null || proto === Object.prototype).toBe(true);
     expect(all[0]).toMatchObject({ email: 'x@y.com', role: 'user' });
+  });
+
+  // Tests freeze for #460. Actual at c972d74b: BaseRepository has no stream
+  // method and sqliteDriver exposes execute only.
+  //
+  // The wrapper counts the native statement path, not merely the returned rows:
+  // execute-and-yield would call `all`, while real node:sqlite stepping calls
+  // `iterate`. The 257 rows exceed the requested batch and their ids assert the
+  // order in which the real iterator steps them.
+  it.fails('streams real rows from node:sqlite', async () => {
+    db.exec(`
+      WITH RECURSIVE n(x) AS (
+        SELECT 1
+        UNION ALL
+        SELECT x + 1 FROM n WHERE x < 257
+      )
+      INSERT INTO users (email, role)
+      SELECT 'user-' || x || '@example.com', 'user' FROM n
+    `);
+
+    let allCalls = 0;
+    let iterateCalls = 0;
+    const measuredDb = {
+      prepare(sql: string) {
+        const statement = db.prepare(sql);
+        return {
+          all(...params: unknown[]): unknown[] {
+            allCalls++;
+            return Reflect.apply(statement.all, statement, params) as unknown[];
+          },
+          run(...params: unknown[]): unknown {
+            return Reflect.apply(statement.run, statement, params);
+          },
+          iterate(...params: unknown[]): Iterable<Record<string, unknown>> {
+            iterateCalls++;
+            return Reflect.apply(statement.iterate, statement, params) as Iterable<Record<string, unknown>>;
+          },
+        };
+      },
+    };
+    const measuredUsers = new UserRepository(sqliteDriver(measuredDb), 'sqlite');
+    const streamed: User[] = [];
+
+    for await (const user of repositoryStream<User>(measuredUsers, undefined, {
+      batchSize: 32,
+    })) {
+      streamed.push(user);
+    }
+
+    expect(streamed).toHaveLength(257);
+    expect(streamed.map(user => user.id)).toEqual(Array.from({ length: 257 }, (_, index) => index + 1));
+    expect(iterateCalls).toBe(1);
+    expect(allCalls).toBe(0);
   });
 
   it('preserves sensitive column unmasked data on reads and enforces payload validation', async () => {

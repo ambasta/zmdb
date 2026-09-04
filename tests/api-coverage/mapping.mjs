@@ -57,12 +57,6 @@ const NO_QUERY_LOG =
   'driver or to whatever wraps it — adding a second one inside the compiler would only report on ' +
   'the half of the round trip that never fails.';
 
-const NO_CANCELLATION =
-  'Cancelling an in-flight query, releasing a connection on premature iterator exit and async ' +
-  'disposal are all connection-lifetime concerns. zmdb does not own the connection: a driver is ' +
-  'an interface with query() and the pooling, cancellation and disposal semantics belong to the ' +
-  'library that actually holds the socket. See the driver contract for what we do require.';
-
 const NO_EXPLAIN =
   'EXPLAIN and query-plan assertions test the database planner, not the query builder. zmdb ' +
   'compiles to plain SQL you can EXPLAIN yourself with the driver you already have, and a test ' +
@@ -91,12 +85,6 @@ const NO_EXOTIC_JOIN =
   'the type as relations, which is what lets populate and the aggregate helpers resolve their ON ' +
   'clauses for you; a join with no relation behind it has nothing to resolve, so it belongs in ' +
   'hand-written SQL where the reader can see exactly what it does.';
-
-const NO_STREAMING_CURSOR =
-  'Streaming a result set needs a server-side cursor, which is a driver capability rather than a ' +
-  'compiler one, and the dialects disagree about it. zmdb pages with keyset cursors instead: they ' +
-  'work on every dialect, hold no server state between requests and survive a client that goes ' +
-  'away halfway through.';
 
 const NO_DIALECT_ONLY_SYNTAX =
   'This is syntax one engine has and the others do not — REPLACE INTO, SELECT ... FOR UPDATE OF, ' +
@@ -394,9 +382,15 @@ export const kysely = {
   clear: oos(NO_BUILDER_SURGERY, 'dynamic-queries'),
   explain: oos(NO_EXPLAIN, 'perf-queries'),
   'logging > *': oos(NO_QUERY_LOG, 'logging'),
-  cancellation: oos(NO_CANCELLATION, 'query-cancellation'),
-  'cancellation > *': oos(NO_CANCELLATION, 'query-cancellation'),
-  'async-dispose > *': oos(NO_CANCELLATION, 'query-cancellation'),
+  cancellation: [
+    'rejects a pending read when its signal aborts',
+    'asks the driver to cancel the server-side query on abort',
+  ],
+  'cancellation > *': [
+    'rejects a pending read when its signal aborts',
+    'asks the driver to cancel the server-side query on abort',
+  ],
+  'async-dispose > *': 'closes the cursor when the consumer breaks early',
   'introspect > getSchemas': 'reads tables, columns, nullability and primary keys from a real sqlite database',
   'introspect > getTables': [
     'reads tables, columns, nullability and primary keys from a real sqlite database',
@@ -843,10 +837,26 @@ export const mikroOrm = {
   'kysely-convert-values-where-clause': oos(NO_MIKRO_KYSELY, 'raw-sql'),
   'reusing-kysely-client': oos(NO_MIKRO_KYSELY, 'raw-sql'),
   'native-query-builder': oos(NO_MIKRO_KYSELY, 'raw-sql'),
-  streaming: oos(NO_STREAMING_CURSOR, 'streaming'),
-  cancellation: oos(NO_CANCELLATION, 'query-cancellation'),
-  'on-reserve-connection': oos(NO_CANCELLATION, 'query-cancellation'),
-  'terminated-connection': oos(NO_CANCELLATION, 'query-cancellation'),
+  streaming: [
+    'streams in batches rather than one round trip',
+    'holds bounded memory over a result set larger than the batch size',
+    'closes the cursor when the consumer breaks early',
+    'validates every streamed row with the same validator as find',
+    'buffers with a warning when the driver has no stream method',
+    'streams real rows from node:sqlite',
+  ],
+  cancellation: [
+    'rejects a pending read when its signal aborts',
+    'asks the driver to cancel the server-side query on abort',
+  ],
+  'on-reserve-connection': [
+    'closes the cursor when the consumer breaks early',
+    'refuses to stream outside the transaction that owns the connection',
+  ],
+  'terminated-connection': [
+    'asks the driver to cancel the server-side query on abort',
+    'closes the cursor when the consumer breaks early',
+  ],
   logging: oos(NO_QUERY_LOG, 'logging'),
   cli: 'emits machine-readable output under --json for every command',
 };
