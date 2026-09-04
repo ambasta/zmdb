@@ -12,7 +12,9 @@
 - **`SecurityAwareGuard`** — a `Guard` with
   `enforces: { scheme; scopes }`, used by OpenAPI generation.
 - **`Pipe<In, Out>`** — `{ transform(value: In, ctx): Out | Promise<Out> }`.
-  Transforms/validates the ctx body; a throw → `400`.
+  Transforms/validates the ctx body; an ordinary throw → `400`. A built-in
+  boundary pipe may preserve a more specific framework status (multipart uses
+  `400` for malformed framing and `413` for its limits).
 - **`Interceptor`** — `{ intercept(ctx, next): Promise<unknown> }` where
   `next()` invokes the rest of the chain (the handler). Wraps pre/post.
 - **`ExceptionFilter`** — `{ catch(error, ctx): WebResponse }`. Maps a thrown
@@ -44,7 +46,8 @@ pipeline to serialize). The router also runs the guard-only subset resolved from
 
 - Guards run first and short-circuit (403) before pipes/handler; deterministic
   order (guard → pipe → interceptor-before → handler → interceptor-after).
-- A pipe transforms the value seen by the handler; a throwing pipe → 400.
+- A pipe transforms the value seen by the handler; an ordinary throwing pipe →
+  400, while multipart boundary/limit refusals preserve 400/413.
 - An interceptor observes before + after and can alter the result.
 - A thrown handler is mapped by a matching exception filter; unmatched → rethrow.
 - No consumer-surface `as`; suite + typecheck green.

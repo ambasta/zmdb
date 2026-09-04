@@ -1576,13 +1576,13 @@ export const PAGE_META = {
     title: 'File Upload',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'bounded exact request bytes ship; multipart/form-data parsing and its per-part limits remain frozen, not shipped (#569).',
+    note: 'bounded multipart parsing and its explicit Pipe ship; final six-page docs reconciliation remains (#571).',
   },
   'web-streaming-files': {
     title: 'Streaming Files',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'streaming, static serving and compression ship; the epic still tracks uploads, CSRF and final docs reconciliation (#569–#571).',
+    note: 'streaming, static serving, compression and bounded uploads ship; the epic still tracks CSRF and final docs reconciliation (#570–#571).',
   },
   'web-compression': {
     title: 'Compression',

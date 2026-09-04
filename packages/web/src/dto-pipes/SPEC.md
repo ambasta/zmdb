@@ -22,6 +22,13 @@ has become a `Date`. Decoding after validation would validate the wrong layer, a
 both in one function is how a validator ends up accepting `Date | string` and checking
 neither.
 
+### `multipartPipe(limits?)`
+
+A `Pipe<unknown, Multipart>` that parses the adapter's exact request bytes with
+the mandatory defaults from `../upload/SPEC.md`. Missing or malformed multipart
+framing is `400`; parser limits are `413`; neither reaches the inner handler.
+Place the ordinary `validationPipe` after it to validate form fields.
+
 ### `serializationInterceptor(serialize?)`
 
 An `Interceptor` that serializes the handler's result via a provided serializer
@@ -49,6 +56,8 @@ body from `Entity<S>`. The NestJS `ClassSerializerInterceptor` analogue.
 - `decodePipe` converts and asserts nothing; `dtoChain({ decode, validate })` hands the
   handler a `Date` for an ISO string in the body, and a 400 for a value the decode could
   not convert.
+- `multipartPipe` preserves file bytes, enforces the upload limits and feeds its
+  parsed fields through the ordinary validation pipe.
 - `dtoChain` composes both.
 - No consumer-surface `as`; suite + typecheck green.
 

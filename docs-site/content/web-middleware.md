@@ -45,8 +45,9 @@ const result = await runChain(chain, ctx, c => c.body);
 
 - A **guard** returning `false` short-circuits with `ChainError(403)` — the
   handler never runs.
-- A **pipe** that throws yields `ChainError(400)`; pipes **fold** the body
-  left-to-right, and the handler sees the piped value.
+- An ordinary **pipe** throw yields `ChainError(400)`; built-in boundary pipes
+  can preserve a framework status (`multipartPipe` uses 400/413). Pipes
+  **fold** the body left-to-right, and the handler sees the piped value.
 - **Interceptors** nest (first listed = outermost), observing before **and** after.
 - A thrown handler is offered to each **exception filter**; the first to return a
   response wins, otherwise the error rethrows for the [pipeline](./web-pipeline.html)
@@ -66,6 +67,10 @@ calls. `createApp` constructs its router without a registry or per-route options
 > of a 200**; responses built with `json`, `text`, `bytes`, `stream` or `respond`
 > keep their own status and headers. See
 > [Request Lifecycle](./web-request-lifecycle.html).
+
+The multipart boundary error is narrower than a user-created `ChainError`: the
+router recognises that internal error so malformed framing remains 400 and a
+limit remains 413.
 
 ## Applying a chain in practice
 

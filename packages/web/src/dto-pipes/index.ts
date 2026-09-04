@@ -4,6 +4,7 @@
 // supplies the AOT assert); no `as` on the consumer surface.
 
 import type { Chain, Pipe, Interceptor } from '../middleware/index.js';
+import { parseMultipart, type Multipart, type UploadLimits } from '../upload/index.js';
 
 /**
  * A validation pipe: runs `validator` (e.g. `assert<CreateDTO<S>>`) on the body,
@@ -31,6 +32,21 @@ export function decodePipe<In = unknown, Out = unknown>(decode: (value: In) => O
   return {
     transform(value: In): Out {
       return decode(value);
+    },
+  };
+}
+
+/**
+ * Parse the exact request bytes as multipart at the ordinary pipe boundary.
+ *
+ * The returned `Multipart` remains available to later validation pipes, so form
+ * fields use the same validation path as JSON bodies.
+ */
+export function multipartPipe(limits: Partial<UploadLimits> = {}): Pipe<unknown, Multipart> {
+  const configured = { ...limits };
+  return {
+    transform(value, ctx): Multipart {
+      return parseMultipart(value, ctx.headers['content-type'] ?? '', configured);
     },
   };
 }

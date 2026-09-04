@@ -56,9 +56,10 @@ export interface RouterOptions {
   4. **Validate** — if the route has `validateBody`, run it on `rawBody`; on throw
      → `400` with the error message (handler never runs).
   5. **Invoke** the handler with the ctx.
-  6. **Serialize** the result to JSON (`200`); a thrown handler → `500`. A handler
-     that returns a response built by one of the factories below is returned
-     verbatim instead, status and headers included.
+  6. **Serialize** the result to JSON (`200`); a thrown handler → `500`, except a
+     framework boundary error whose status is already decided (the multipart
+     pipe's `400`/`413`). A handler that returns a response built by one of the
+     factories below is returned verbatim instead, status and headers included.
 - No per-request reflection; one `Ctx` + one result object allocated per request.
 
 ### Handler-controlled responses
@@ -108,7 +109,8 @@ plain `{ status, body, headers }` record every existing consumer reads.
 - A registered controller's route dispatches: correct handler, params extracted,
   app/controller/route guards run in order before body validation (first false →
   403), body validated before the handler (invalid → 400, handler not called),
-  serialized 200 result; unknown path → 404; throwing handler → 500.
+  serialized 200 result; unknown path → 404; throwing handler → 500, except the
+  multipart boundary status propagated by an explicit chain.
 - The node + fetch adapters round-trip a request to a response (in-process test).
 - `text('0')` answers with the single byte `0` and no quotes; `respond({status:302,
 headers:{location}})` sends neither a body nor a `content-type`; a returned

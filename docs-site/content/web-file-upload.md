@@ -1,14 +1,14 @@
-> **ToDo / feature gap.** There is no multipart (`multipart/form-data`) parser and
-> no `FileInterceptor` analogue. The bundled adapters now preserve a multipart
-> request as bounded bytes, but they do not parse its parts.
+> **ToDo / final docs reconciliation.** The bounded multipart parser and
+> `multipartPipe` ship. There is deliberately no `FileInterceptor` analogue;
+> complete middleware chains remain explicit `runChain` calls. The page stays in
+> the epic's ToDo set until #571 reconciles all six related guides.
 >
-> The limits, the filename rule and the buffer-versus-stream decision are frozen in
-> `packages/web/src/upload/SPEC.md`; the byte-preserving adapter prerequisite
-> shipped from `packages/web/src/pipeline/SPEC.md`.
+> The limits, filename rule and buffer-versus-stream decision are in
+> `packages/web/src/upload/SPEC.md`; the byte-preserving adapter prerequisite is
+> in `packages/web/src/pipeline/SPEC.md`.
 
-So this is not "write a parser and plug it in". Small, bounded uploads can reach a
-handler as bytes, but parsing and per-part limits are still application work.
-Large or streaming uploads should still bypass the router.
+Small, bounded uploads can use the built-in parser. Large or streaming uploads
+should still bypass the router.
 
 ## What arrives today
 
@@ -19,7 +19,8 @@ skips bodies for `GET` and `HEAD`. Both reject more than 1 MiB by default.
 Content type selects the representation. JSON and `text/*` use the decoded path;
 another explicit content type, including `multipart/form-data`, reaches
 `ctx.body` as an exact `Uint8Array<ArrayBuffer>`. The complete request is still
-buffered before dispatch, and no multipart boundaries or headers are parsed.
+buffered before dispatch. An explicit chain can then apply `multipartPipe`, which
+parses boundaries and headers under mandatory per-part limits.
 
 ## Workaround 1: presigned uploads (recommended)
 
@@ -105,14 +106,14 @@ enforce the smaller decoded-file limit shown above. Cap at the proxy as well.
 
 ## Validating an upload, wherever you parse it
 
-| Check                                           | Why                                                                 |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| Size, enforced while streaming                  | a limit checked after buffering has already cost you the memory     |
-| Content type from the **bytes**, not the header | `content-type` is client-supplied; sniff the magic number           |
-| A generated storage key                         | a client filename means `../../etc/passwd` and overwrites           |
-| An explicit extension allow-list                | not a deny-list; `.php5`, `.phtml`, `.svg` are what deny-lists miss |
-| Serve from a different origin                   | an `.svg` or `.html` on your API origin executes with your cookies  |
-| Strip metadata from images                      | EXIF carries GPS coordinates                                        |
+| Check                                                         | Why                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Adapter size while reading; parser part limits while scanning | each layer stops at the first bound it can enforce                  |
+| Content type from the **bytes**, not the header               | `content-type` is client-supplied; sniff the magic number           |
+| A generated storage key                                       | a client filename means `../../etc/passwd` and overwrites           |
+| An explicit extension allow-list                              | not a deny-list; `.php5`, `.phtml`, `.svg` are what deny-lists miss |
+| Serve from a different origin                                 | an `.svg` or `.html` on your API origin executes with your cookies  |
+| Strip metadata from images                                    | EXIF carries GPS coordinates                                        |
 
 > [!WARNING]
 > Never write an uploaded file to a path built from a client-controlled name, and
@@ -142,28 +143,27 @@ and `numeric` are both spelled `number`.
 Store the key, never the bytes. Filter by `owner_id` in the `where` on every read
 — see [Authorization](./web-authorization.html).
 
-## What it would take
+## What ships
 
-Three things, in order, and the middle one is not what this page previously assumed:
+Three pieces, in order:
 
 1. **Bytes through the adapter — shipped.** A non-JSON, non-text request reaches
    `WebRequest.rawBody` as a `Uint8Array`, and both adapters enforce
    `maxBodyBytes` with a 1 MiB default before dispatch.
-2. **A buffering multipart parser**, not a streaming one. The freeze picked
-   buffering, and the reason is worth knowing before you plan around it: a streaming
+2. **A buffering multipart parser — shipped.** The design picked buffering, and
+   the reason is worth knowing before you plan around it: a streaming
    parser needs `WebRequest` to carry a `ReadableStream`, which means routing,
    validation and `Ctx` construction all have to cope with a body that does not exist
    yet at match time — a redesign of the request half of the pipeline. A bounded
    buffer's safety is one comparison; a streaming parser's is every consumer
    honouring backpressure. And the case buffering cannot serve is the 200 MB upload,
    which workaround 1 says should not be going through the application anyway.
-3. **A `Pipe`** exposing it: `Pipe<unknown, Multipart>` fits the existing
-   `transform(value, ctx)` signature exactly, so the type needs no change. It does
-   need the chain wiring, which is a second dependency this page used to omit: pipes
-   are folded inside `runChain`, and the pipeline never calls `runChain`, so no `Pipe`
-   runs on any request today — there is no plug to plug into yet. No decorator —
-   `@UploadedFile()` would be a second way to reach `ctx.body`, and this package's
-   handlers take one `Ctx`, which is what keeps them ordinary functions.
+3. **`multipartPipe` — shipped.** `Pipe<unknown, Multipart>` fits the existing
+   `transform(value, ctx)` signature. The router does not auto-run complete chains,
+   so handlers invoke `runChain` explicitly and place their ordinary
+   `validationPipe` after `multipartPipe`. No decorator: `@UploadedFile()` would be
+   a second way to reach `ctx.body`, and this package's handlers take one `Ctx`,
+   which is what keeps them ordinary functions.
 
 The limits, with defaults: 16 parts, 1 MiB per part, 8 MiB total, 100-byte field
 names, 255-byte filenames, 1 KiB of headers per part. Two of those are not obvious
@@ -174,20 +174,19 @@ Every limit has a default and none can be removed: `0`, `Infinity`, `-1` and a
 non-integer are all construction errors rather than clever ways to switch a check
 off. Raising a limit is the supported operation.
 
-**An over-limit body is destroyed, not drained.** Draining means reading a hostile
-request to completion in order to answer it politely, which is the resource
-consumption the limit just refused. The cost is real and stated rather than hidden:
-a client still writing its body may see a connection reset instead of the `413`. The
-mitigation belongs to the client — check the size before uploading, or send
-`Expect: 100-continue`, which lets the server refuse on the headers alone.
+**A body over the adapter's `maxBodyBytes` is destroyed, not drained.** Per-part
+limits run after that bounded body is materialised; the parser stops scanning and
+the handler never runs. A client still writing past the adapter limit may see a
+connection reset instead of the `413`.
 
 **The client filename is a label and nothing else.** A filename containing a `\0` or
 a path separator makes the part a `400` rather than being stripped, because the
 sanitised version of `../../etc/passwd` is a filename somebody will concatenate. The
-storage key is generated. The declared content type is recorded verbatim and nothing
-in the parser branches on it — the framework does not sniff, because a magic-number
-table goes stale, disagrees with whatever library will process the bytes, and has
-nothing to say about `image/svg+xml`, which is the type that actually matters.
+caller generates the storage key; the parser performs no I/O. The declared content
+type is recorded verbatim and nothing in the parser branches on it — the framework
+does not sniff, because a magic-number table goes stale, disagrees with whatever
+library will process the bytes, and has nothing to say about `image/svg+xml`, which
+is the type that actually matters.
 
 Even with all of it, presigned uploads remain the better production answer for
 anything large.

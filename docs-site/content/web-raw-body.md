@@ -1,6 +1,7 @@
 The adapters preserve binary request bodies as bytes and keep JSON/text on the
-decoded path. There is still no multipart parser, configurable body-parser stack
-or inbound request stream exposed to handlers.
+decoded path. A bounded multipart parser is available as an explicit Pipe; there
+is still no configurable body-parser stack or inbound request stream exposed to
+handlers.
 
 ## What the adapters do
 
@@ -84,14 +85,25 @@ request can be replayed indefinitely.
 ## Multipart and file uploads
 
 `multipart/form-data` now arrives as bounded bytes instead of lossy UTF-8 text,
-but multipart parsing is not shipped. The complete body is still buffered before
-dispatch, so this is suitable only within the configured `maxBodyBytes`.
+and `multipartPipe` parses it under mandatory part/header/field limits. The
+complete body is still buffered before dispatch, so this is suitable only within
+the configured `maxBodyBytes`.
+
+Use it in an explicit middleware chain, followed by the same validation pipe used
+for any other body:
+
+```ts
+const upload = {
+  guards: [],
+  pipes: [multipartPipe(), validationPipe(validateUpload)],
+  interceptors: [],
+  filters: [],
+} satisfies Chain;
+```
 
 For large uploads, a presigned object-storage URL remains the better design: the
-client uploads directly and posts the resulting key. If the application must
-parse multipart itself, raise the adapter limit deliberately, parse the
-`Uint8Array` with a bounded parser, and enforce the part limits in the frozen
-upload spec.
+client uploads directly and posts the resulting key. For a larger bounded form,
+raise both the adapter and parser limits deliberately.
 
 ## Form-encoded bodies
 

@@ -4,6 +4,9 @@
 
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { WebResponse } from '../pipeline/index.js';
+import { BoundaryStatusError, ChainError } from './errors.js';
+
+export { ChainError } from './errors.js';
 
 export type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 
@@ -17,7 +20,7 @@ export interface SecurityAwareGuard extends Guard {
   readonly enforces: { readonly scheme: string; readonly scopes: readonly string[] };
 }
 
-/** Transform/validate a value (typically the body); a throw yields 400. */
+/** Transform/validate a value; ordinary throws yield 400. */
 export interface Pipe<In = unknown, Out = unknown> {
   transform(value: In, ctx: AnyCtx): Out | Promise<Out>;
 }
@@ -40,25 +43,16 @@ export interface Chain {
   readonly filters: readonly ExceptionFilter[];
 }
 
-/** An error carrying an HTTP status, thrown when the chain short-circuits. */
-export class ChainError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = 'ChainError';
-    this.status = status;
-  }
-}
-
 /** A handler invoked with the (piped) ctx. */
 export type ChainHandler = (ctx: AnyCtx) => unknown;
 
 /**
  * Run a middleware chain around `handler` for `ctx`. Order: guards → pipes (fold
  * the body) → interceptors (nested) → handler. A guard returning false throws
- * ChainError(403); a throwing pipe throws ChainError(400); a thrown handler is
- * offered to the exception filters — a matching filter's response is returned,
- * otherwise the error rethrows for the pipeline to serialize.
+ * ChainError(403); an ordinary throwing pipe throws ChainError(400), while a
+ * built-in boundary pipe can preserve its framework-selected status; a thrown
+ * handler is offered to the exception filters — a matching filter's response is
+ * returned, otherwise the error rethrows for the pipeline to serialize.
  */
 export async function runChain(chain: Chain, ctx: AnyCtx, handler: ChainHandler): Promise<unknown> {
   // 1) guards
@@ -75,6 +69,9 @@ export async function runChain(chain: Chain, ctx: AnyCtx, handler: ChainHandler)
     try {
       body = await pipe.transform(body, ctx);
     } catch (error) {
+      if (error instanceof BoundaryStatusError) {
+        throw error;
+      }
       throw new ChainError(400, messageOf(error));
     }
   }

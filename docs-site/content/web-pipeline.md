@@ -40,13 +40,13 @@ router.register(new UsersController(), {
 `router.handle(req)` returns `{ status, body, headers }`, where `body` is tagged
 as `text`, `bytes` or `stream`:
 
-| step          | behavior                                                                                                                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **match**     | path versions are ordinary expanded paths; header/media strategies select method + version + segment count, then `matchCompiled`; unsupported matched versions → **400**/**406**, unknown path → **404** |
-| **guards**    | app → controller → route; first `false` → **403**. `@Public()` bypasses inherited guards                                                                                                                 |
-| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                                                                         |
-| **invoke**    | call the handler with the typed `Ctx`                                                                                                                                                                    |
-| **serialize** | JSON-encode the result → **200**; a handler throw carrying `issues` → **400**, any other throw → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim             |
+| step          | behavior                                                                                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **match**     | path versions are ordinary expanded paths; header/media strategies select method + version + segment count, then `matchCompiled`; unsupported matched versions → **400**/**406**, unknown path → **404**                                                |
+| **guards**    | app → controller → route; first `false` → **403**. `@Public()` bypasses inherited guards                                                                                                                                                                |
+| **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                                                                                                                        |
+| **invoke**    | call the handler with the typed `Ctx`                                                                                                                                                                                                                   |
+| **serialize** | JSON-encode the result → **200**; a handler throw carrying `issues` → **400**, a built-in multipart boundary error keeps **400**/**413**, any other throw → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim |
 
 ```ts
 await router.handle({ method: 'GET', path: '/users/42', headers: {} });

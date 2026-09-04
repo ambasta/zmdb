@@ -64,6 +64,8 @@ export {
   matchCompiled,
   metadataOf,
   moduleDefOf,
+  multipartPipe,
+  parseMultipart,
   repositoryToken,
   respond,
   runChain,
@@ -84,6 +86,7 @@ export {
   validationPipe,
   versionsOf,
   SpanKind,
+  UPLOAD_DEFAULTS,
 } from '@zmdb/web';
 export type {
   Attributes,
@@ -208,4 +211,7 @@ export type {
   Worker,
   WorkerOptions,
   WithHeaders,
+  Multipart,
+  UploadLimits,
+  UploadPart,
 } from '@zmdb/web';

@@ -221,7 +221,16 @@ export {
 export { createApp, type App, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './app/index.js';
 
 // DTO validation & serialization pipes. See ./dto-pipes.
-export { validationPipe, serializationInterceptor, dtoChain, type DtoChainOptions } from './dto-pipes/index.js';
+export {
+  validationPipe,
+  multipartPipe,
+  serializationInterceptor,
+  dtoChain,
+  type DtoChainOptions,
+} from './dto-pipes/index.js';
+
+// Bounded multipart/form-data parsing. See ./upload.
+export { parseMultipart, UPLOAD_DEFAULTS, type Multipart, type UploadLimits, type UploadPart } from './upload/index.js';
 
 // OpenAPI 3.1 generation from routes + schemas. See ./openapi.
 export {

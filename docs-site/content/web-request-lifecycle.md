@@ -134,7 +134,12 @@ list(ctx: Ctx) {
 }
 ```
 
-A guard returning `false` throws `ChainError(403)`, and a throwing pipe throws `ChainError(400)` — but `ChainError` reaches the router as an ordinary error, so it serialises as a **500** unless you also map it. See [Guards](./web-middleware.html) and [Interceptors](./web-middleware.html).
+A guard returning `false` throws `ChainError(403)`, and an ordinary throwing pipe
+throws `ChainError(400)` — but that `ChainError` reaches the router as an ordinary
+error, so it serialises as a **500** unless you also map it. The built-in
+multipart boundary error is the narrow exception: its 400/413 survives the
+explicit chain. See [Guards](./web-middleware.html) and
+[Interceptors](./web-middleware.html).
 
 ## The request body is JSON, text or exact bytes
 
@@ -148,7 +153,9 @@ optional:
 const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
-There is no content-type negotiation, no form parsing and no multipart. See [Raw Body](./web-raw-body.html).
+There is no automatic content-type negotiation or form parsing.
+`multipart/form-data` is available through an explicit `multipartPipe` chain; see
+[Raw Body](./web-raw-body.html).
 
 ## Building the `WebRequest` yourself
 

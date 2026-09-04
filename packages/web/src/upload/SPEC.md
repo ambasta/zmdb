@@ -1,11 +1,11 @@
 # `@zmdb/web` — multipart uploads SPEC
 
 > Parsing `multipart/form-data` under limits that cannot be removed (epic #564,
-> sub-issue #565). Frozen before code.
+> frozen by #565/#566 and implemented by #569.
 
 The `../pipeline/SPEC.md` §A7 prerequisite shipped in #567: multipart bodies now
-reach `rawBody` as exact bytes under a mandatory adapter limit. What remains in
-this spec is the bounded parser and its pipeline integration.
+reach `rawBody` as exact bytes under a mandatory adapter limit. The bounded parser
+and its explicit `Pipe` integration now ship.
 
 ## 1. The recommendation this feature does not replace
 
@@ -94,30 +94,29 @@ check. Raising a limit is the supported operation; removing one is not an operat
 
 ### On exceeding one
 
-| limit                                                                       | answer                                       |
-| --------------------------------------------------------------------------- | -------------------------------------------- |
-| `maxTotalBytes`                                                             | `413`, then the connection is destroyed      |
-| `maxBodyBytes`                                                              | `413` at the adapter, before the parser runs |
-| `maxPartBytes`                                                              | `413`                                        |
-| `maxParts`                                                                  | `413`                                        |
-| `maxFieldNameBytes`                                                         | `413`                                        |
-| `maxFilenameBytes`                                                          | `413`                                        |
-| `maxPartHeaderBytes`                                                        | `413`                                        |
-| missing/invalid boundary, no terminator, part with no `content-disposition` | `400`                                        |
+| limit                                                                       | answer                                     |
+| --------------------------------------------------------------------------- | ------------------------------------------ |
+| `maxTotalBytes`                                                             | `413`                                      |
+| `maxBodyBytes`                                                              | `413` at the adapter; connection destroyed |
+| `maxPartBytes`                                                              | `413`                                      |
+| `maxParts`                                                                  | `413`                                      |
+| `maxFieldNameBytes`                                                         | `413`                                      |
+| `maxFilenameBytes`                                                          | truncate the opaque label and accept       |
+| `maxPartHeaderBytes`                                                        | `413`                                      |
+| missing/invalid boundary, no terminator, part with no `content-disposition` | `400`                                      |
 
-Size limits are `413` and malformed input is `400`, uniformly, because the two mean
-different things to a client: one says "send less", the other says "send it
-correctly", and collapsing them makes both unactionable.
+Size limits are `413` and malformed input is `400`, because the two mean different
+things to a client: one says "send less", the other says "send it correctly", and
+collapsing them makes both unactionable. `maxFilenameBytes` is the deliberate
+exception: the filename is an untrusted label, so it is truncated rather than used
+to reject otherwise valid file bytes.
 
-**An over-limit body is destroyed, not drained.** Draining means reading a hostile
-request to completion in order to answer it politely, which is the resource
-consumption the limit just refused — an attacker who wants to occupy the process
-would ask for exactly that. The cost is real and is stated rather than hidden: an
-HTTP/1.1 client still writing its body may see a connection reset instead of the
-`413`, because the response races the remaining upload. That is the correct trade.
-The mitigation belongs to the client and is worth documenting: check the size before
-uploading, or send `Expect: 100-continue`, which lets the server refuse on the
-headers alone.
+**A body over the adapter's `maxBodyBytes` is destroyed, not drained.** Draining
+means reading a hostile request to completion in order to answer it politely, which
+is the resource consumption the limit just refused. Per-part limits run after the
+adapter has materialised that bounded body; the parser stops scanning as soon as a
+part/header limit is crossed and the handler never runs. An HTTP/1.1 client still
+writing past `maxBodyBytes` may see a connection reset instead of the `413`.
 
 ## 4. Filenames and content types are untrusted
 
@@ -139,8 +138,9 @@ the contract.** The parser stores it as an opaque label, truncated to
 `maxFilenameBytes`, with a `\0` or a path separator making the part a `400` rather
 than being stripped — stripping produces a _different_ name that looks sanitised,
 and the sanitised version of `../../etc/passwd` is a filename somebody will
-concatenate. A storage key is generated (`globalThis.crypto.randomUUID()`), which
-also removes the collision and the overwrite.
+concatenate. The caller generates a storage key (for example with
+`globalThis.crypto.randomUUID()`); the parser performs no I/O and never turns the
+client label into a path.
 
 The parser does not derive an extension from the filename either. An extension
 allow-list is the application's, applied to the _declared_ extension it chose to
@@ -164,32 +164,32 @@ repeated headers today.
 
 ## 5. Wiring it in
 
-A `Pipe`, which needs no new pipeline concept:
+A `Pipe`, using the shipped helper:
 
 ```ts
-const multipart: Pipe<unknown, Multipart> = {
-  transform: (value, ctx) => parseMultipart(value, ctx.headers['content-type'] ?? '', { maxTotalBytes: 4 << 20 }),
-};
+const multipart = multipartPipe({ maxTotalBytes: 4 << 20 });
 ```
 
 `Pipe<unknown, Multipart>` fits the existing `transform(value, ctx)` signature
-exactly, so uploads add a function and no framework surface. A handler then
-validates the fields with `assert` as it would any other body — the parse produces
-`unknown`-shaped data, and `../../../../ARCHITECTURE.md` §2.3 puts the validation at
-the boundary, not in the parser.
+exactly. Complete chains remain explicit in this package: a handler invokes
+`runChain` with `multipartPipe(...)` followed by its ordinary `validationPipe`.
+The multipart error keeps the parser's `400`/`413` through that explicit chain and
+the router, and the inner handler is not invoked on refusal.
 
 No decorator. `@UploadedFile()` and a `FileInterceptor` analogue would each be a
 second way to reach `ctx.body`, and the parameter-decorator form is unavailable
 anyway — this package's handlers take one `Ctx`, which is what makes them ordinary
 functions.
 
-## 6. What #566 has to assert
+## 6. Frozen acceptance evidence
 
 1. A multipart body with a file part whose bytes are **not valid UTF-8** round-trips
    byte for byte, including a `0xFF 0xFE` sequence and a byte pattern that straddles
    two chunks of the incoming request. This is the assertion that would have caught
    the `String(chunk)` defect, and it fails before `../pipeline/SPEC.md` §A7 lands.
-2. Each limit in §3's table, one assertion each, with the documented status.
+2. Each refusal limit in §3's table, one assertion each, with the documented
+   status and proof that the handler did not run; the filename label has its
+   separate truncation assertion.
 3. A limit set to `0`, `Infinity`, `-1` and a non-integer is a construction error —
    the "cannot be removed, only raised" property, asserted rather than asserted-in-prose.
 4. `maxTotalBytes` is enforced against the transfer, so a body of many small parts
@@ -206,6 +206,8 @@ functions.
    `content-disposition` are each `400`.
 10. The parser never touches the filesystem — asserted by there being no `node:fs`
     import in the module, which is a lint-visible property rather than a runtime one.
+11. `multipartPipe` followed by the ordinary validation pipe validates form fields
+    through the same boundary as any other body.
 
 ## Non-goals (rejected)
 

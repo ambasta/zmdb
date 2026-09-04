@@ -17,6 +17,7 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { Constructor } from '../di/index.js';
+import { BoundaryStatusError } from '../middleware/errors.js';
 import type { Guard } from '../middleware/index.js';
 import { fromTraceContext } from '../observability/propagation.js';
 import type { Observability, Span, Tracer } from '../observability/types.js';
@@ -1081,6 +1082,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           failed = true;
           failure = error;
           recordFailure(handlerSpan, error);
+          if (error instanceof BoundaryStatusError) {
+            response = jsonResponse(error.status, { error: error.message });
+            return response;
+          }
           if (error instanceof ValidationError || claimsValidationIssues(error)) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
@@ -1227,9 +1232,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             bound.versionJsonHeaders,
           );
         } catch (error) {
-          // A validation error out of the *handler* is the request's fault, not the
-          // server's — a write that failed its own schema check on the way to the driver —
-          // so it is a 400. Anything else is a 500 with its message and nothing invented.
+          // A framework boundary refusal keeps its selected status. A validation
+          // error out of the handler is the request's fault and becomes 400;
+          // anything else is 500 with its message and nothing invented.
+          if (error instanceof BoundaryStatusError) {
+            return jsonResponse(error.status, { error: error.message });
+          }
           if (error instanceof ValidationError || claimsValidationIssues(error)) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
