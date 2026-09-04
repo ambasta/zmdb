@@ -2663,31 +2663,104 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const obj = this.sanitizePayload(payload);
     const values: Record<string, unknown> = {};
     const expressionIssues: ValidationIssue[] = [];
+    const customIssues: ValidationIssue[] = [];
     const { shape, type, columns } = this.payloadShape('update');
 
     for (const key of Object.keys(obj)) {
       const value = obj[key];
-      if (!isColumnExpression(value)) {
-        values[key] = value;
-        continue;
-      }
-
-      const column = columns.get(key);
-      if (column === undefined) continue;
-      const operand = expressionOperand(value);
-      if (operand !== NO_EXPRESSION_OPERAND) {
-        expressionIssues.push(...issuesFor(operand, appTypeOf(column), `input.${key}`));
+      if (isColumnExpression(value)) {
+        const column = columns.get(key);
+        if (column === undefined) continue;
+        const operand = expressionOperand(value);
+        if (operand !== NO_EXPRESSION_OPERAND) {
+          expressionIssues.push(...issuesFor(operand, appTypeOf(column), `input.${key}`));
+        }
+      } else {
+        const col = this.schema.columns[key];
+        if (col?.customType) {
+          const ct = col.customType;
+          if (value === null) {
+            if (!col.flags.nullable) {
+              customIssues.push({
+                path: `input.${key}`,
+                message: `column "${key}" is not nullable`,
+                expected: ct.sqlType ?? col.type,
+                value,
+              });
+            }
+          } else {
+            let customValid = true;
+            if (typeof ct.validate === 'function') {
+              try {
+                const res = ct.validate(value);
+                if (res === false) {
+                  customValid = false;
+                  customIssues.push({
+                    path: `input.${key}`,
+                    message: `invalid custom type value for "${key}"`,
+                    expected: ct.sqlType ?? col.type,
+                    value,
+                  });
+                } else if (typeof res === 'string') {
+                  customValid = false;
+                  customIssues.push({
+                    path: `input.${key}`,
+                    message: res.length > 0 ? res : `invalid custom type value for "${key}"`,
+                    expected: ct.sqlType ?? col.type,
+                    value,
+                  });
+                }
+              } catch (err) {
+                customValid = false;
+                customIssues.push({
+                  path: `input.${key}`,
+                  message: `custom validation error for "${key}": ${err instanceof Error ? err.message : String(err)}`,
+                  expected: ct.sqlType ?? col.type,
+                  value,
+                });
+              }
+            }
+            if (customValid) {
+              try {
+                ct.toDb(value);
+              } catch (err) {
+                customIssues.push({
+                  path: `input.${key}`,
+                  message: `serialization failed for "${key}": ${err instanceof Error ? err.message : String(err)}`,
+                  expected: ct.sqlType ?? col.type,
+                  value,
+                });
+              }
+            }
+          }
+        } else {
+          values[key] = value;
+        }
       }
     }
 
-    const issues = [...issuesFor(values, type), ...expressionIssues, ...this.excessIssues(obj, 'update')];
+    const issues = [
+      ...issuesFor(values, type),
+      ...expressionIssues,
+      ...customIssues,
+      ...this.excessIssues(obj, 'update'),
+    ];
     if (issues.length > 0) {
-      throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
+      const details = issues.map(i => `${i.path} (${i.message})`).join(', ');
+      throw new ValidationError(`validation failed: ${details}`, issues);
     }
 
     const out: Record<string, unknown> = {};
     for (const { column } of shape) {
-      if (column.name in obj) out[column.name] = obj[column.name];
+      if (column.name in obj) {
+        const value = obj[column.name];
+        const col = this.schema.columns[column.name];
+        if (!isColumnExpression(value) && col?.customType && value !== null) {
+          out[column.name] = col.customType.toDb(value);
+        } else {
+          out[column.name] = value;
+        }
+      }
     }
     return out;
   }
