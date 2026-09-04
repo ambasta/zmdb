@@ -298,13 +298,8 @@ function parseTableSpec(spec: string): { baseName: string; alias?: string } {
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
 
-  const addWhere = (
-    connector: 'AND' | 'OR',
-    col: string,
-    op: Operator | string,
-    value: unknown,
-    isMatch = false,
-  ) => next({ wheres: [...state.wheres, { col, op, value, connector, isMatch }] });
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown, isMatch = false) =>
+    next({ wheres: [...state.wheres, { col, op, value, connector, isMatch }] });
 
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
@@ -422,13 +417,45 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
               }
               return quoteColumn(d, colStr);
             }
-            if (it.kind === 'agg') return `${it.fn}(${quoteColumn(d, it.col as string)}) AS ${quoteIdentifier(d, it.alias!)}`;
+            if (it.kind === 'agg')
+              return `${it.fn}(${quoteColumn(d, it.col as string)}) AS ${quoteIdentifier(d, it.alias!)}`;
             return `${it.raw} AS ${quoteIdentifier(d, it.alias!)}`;
           })
           .join(', ');
       }
 
-      // 2. FROM & FTS / JOIN clauses
+      // 2. WHERE clause
+      let whereSql = '';
+      if (state.wheres.length > 0) {
+        const parts = state.wheres.map((p, i) => {
+          let cond: string;
+          if ('isMatch' in p && p.isMatch) {
+            if (d === 'sqlite') {
+              const { baseName, alias } = parseTableSpec(state.table);
+              const ftsTableName = typeof state.ftsTable === 'string' ? state.ftsTable : `${baseName}_fts`;
+              const ftsAlias = alias ? `${alias}_fts` : undefined;
+              const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
+              const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
+              params.push(escapeFts5Term(String(p.value)));
+              cond = `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
+            } else if (d === 'postgres') {
+              params.push(p.value);
+              cond = `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
+            } else {
+              // mysql
+              params.push(p.value);
+              cond = `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
+            }
+          } else {
+            cond = renderPredicate(d, p as Predicate, params);
+          }
+          const connector = p.connector ?? 'AND';
+          return i === 0 ? cond : `${connector} ${cond}`;
+        });
+        whereSql = ` WHERE ${parts.join(' ')}`;
+      }
+
+      // 3. FROM & FTS / JOIN clauses
       let fromSql = '';
       const hasMatch = state.wheres.some(w => 'isMatch' in w && w.isMatch);
 
@@ -455,44 +482,12 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
 
       fromSql += joinClauses(d, state.joins, params);
 
-      // 3. WHERE clause
-      let whereSql = '';
-      if (state.wheres.length > 0) {
-        const { baseName, alias } = parseTableSpec(state.table);
-        const ftsTableName = typeof state.ftsTable === 'string' ? state.ftsTable : `${baseName}_fts`;
-        const ftsAlias = alias ? `${alias}_fts` : undefined;
-        const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
-
-        const parts = state.wheres.map((p, i) => {
-          let cond: string;
-          if ('isMatch' in p && p.isMatch) {
-            if (d === 'sqlite') {
-              const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
-              params.push(escapeFts5Term(String(p.value)));
-              cond = `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
-            } else if (d === 'postgres') {
-              params.push(p.value);
-              cond = `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
-            } else {
-              // mysql
-              params.push(p.value);
-              cond = `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
-            }
-          } else {
-            cond = renderPredicate(d, p as any, params);
-          }
-          const connector = p.connector ?? 'AND';
-          return i === 0 ? cond : `${connector} ${cond}`;
-        });
-        whereSql = ` WHERE ${parts.join(' ')}`;
-      }
-
       // 4. GROUP BY clause
       const groupBySql =
         state.groups.length > 0 ? ` GROUP BY ${state.groups.map(c => quoteColumn(d, c)).join(', ')}` : '';
 
       // 5. HAVING clause
-      const havingSql = havingClause(d, state.havings as any, params);
+      const havingSql = havingClause(d, state.havings as readonly ComparisonPredicate[], params);
 
       // 6. ORDER BY / LIMIT / OFFSET
       let orderBySql = '';
