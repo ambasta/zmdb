@@ -60,92 +60,92 @@ try {
     }
   }
 
-const sourceFile = session.sourceFile(SOURCE);
-if (!sourceFile) throw new Error(`${SOURCE} is not in ${PROJECT}`);
+  const sourceFile = session.sourceFile(SOURCE);
+  if (!sourceFile) throw new Error(`${SOURCE} is not in ${PROJECT}`);
 
-// The IR comes off the same `is<Moltar>(...)` call site the transform reads, rather than
-// from a second lookup of the interface by name: one type, one reflection, and the two
-// generated modules cannot describe different shapes.
-const [site] = findCallSites(sourceFile, new Set(['is']));
-if (!site) throw new Error(`no is<T>() call site in ${SOURCE}`);
-const type = session.checker.getTypeFromTypeNode(site.typeArgument);
-if (!type) throw new Error('the checker gave no type for the is<T>() type argument');
+  // The IR comes off the same `is<Moltar>(...)` call site the transform reads, rather than
+  // from a second lookup of the interface by name: one type, one reflection, and the two
+  // generated modules cannot describe different shapes.
+  const [site] = findCallSites(sourceFile, new Set(['is']));
+  if (!site) throw new Error(`no is<T>() call site in ${SOURCE}`);
+  const type = session.checker.getTypeFromTypeNode(site.typeArgument);
+  if (!type) throw new Error('the checker gave no type for the is<T>() type argument');
 
-const reflector = new Reflector(session.checker, sourceFile, {});
-const ir = reflector.typeIR(type);
-if (reflector.diagnostics.length > 0) {
-  throw new Error(`the reflection refused: ${JSON.stringify(reflector.diagnostics)}`);
-}
+  const reflector = new Reflector(session.checker, sourceFile, {});
+  const ir = reflector.typeIR(type);
+  if (reflector.diagnostics.length > 0) {
+    throw new Error(`the reflection refused: ${JSON.stringify(reflector.diagnostics)}`);
+  }
 
-const model = `${BANNER('harness/validation/model.ts')}
+  const model = `${BANNER('harness/validation/model.ts')}
 import type { TypeIR } from '../../../packages/schema-core/src/ir/index.js';
 
 /** The runtime witness for \`Moltar\`: what the descriptor-walking path reads per call. */
 export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};
 `;
 
-const result = transformFile(SOURCE, readFileSync(SOURCE, 'utf8'), { session });
-if (result.diagnostics.length > 0) {
-  throw new Error(`the transform refused a site: ${JSON.stringify(result.diagnostics)}`);
-}
-if (!result.changed) throw new Error(`the transform left ${SOURCE} unchanged`);
-if (/\b(?:is|equals|validate)<Moltar>/.test(result.code)) {
-  throw new Error('the transform left a generic call in place, so the AOT row would measure an unresolved call');
-}
-
-// Every call is inlined, so both imports are now unreferenced. Dropping them is what a
-// bundler does anyway — `@zmdb/aot-validator` is `sideEffects: false` — and it makes the
-// measured module honest about what the AOT path costs: nothing is loaded to run it.
-const aot = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
-  /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
-  /^import type \{[^}]*\} from '[^']*';\n/m,
-])}`;
-
-const shallowResult = transformFile(SHALLOW_SOURCE, readFileSync(SHALLOW_SOURCE, 'utf8'), { session });
-if (shallowResult.diagnostics.length > 0) {
-  throw new Error(`the shallow transform refused a site: ${JSON.stringify(shallowResult.diagnostics)}`);
-}
-if (!shallowResult.changed) throw new Error(`the transform left ${SHALLOW_SOURCE} unchanged`);
-if (/\b(?:is|isShallow)<PopulatedOrderRow/.test(shallowResult.code)) {
-  throw new Error('the transform left a populated-row generic call in place');
-}
-const shallow = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
-  /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
-])}`;
-
-function strip(code, patterns) {
-  let out = code;
-  for (const pattern of patterns) {
-    if (!pattern.test(out)) throw new Error(`the transform output has no import matching ${String(pattern)}`);
-    out = out.replace(pattern, '');
+  const result = transformFile(SOURCE, readFileSync(SOURCE, 'utf8'), { session });
+  if (result.diagnostics.length > 0) {
+    throw new Error(`the transform refused a site: ${JSON.stringify(result.diagnostics)}`);
   }
-  return out.replace(/\n{3,}/g, '\n\n');
-}
+  if (!result.changed) throw new Error(`the transform left ${SOURCE} unchanged`);
+  if (/\b(?:is|equals|validate)<Moltar>/.test(result.code)) {
+    throw new Error('the transform left a generic call in place, so the AOT row would measure an unresolved call');
+  }
 
-let drifted = false;
-for (const [path, content] of [
-  [MODEL_OUT, model],
-  [AOT_OUT, aot],
-  [SHALLOW_OUT, shallow],
-]) {
-  if (check) {
-    const onDisk = readFileSync(path, 'utf8');
-    if (onDisk !== content) {
-      drifted = true;
-      process.stdout.write(`drift: ${path} is not what the generator produces\n`);
+  // Every call is inlined, so both imports are now unreferenced. Dropping them is what a
+  // bundler does anyway — `@zmdb/aot-validator` is `sideEffects: false` — and it makes the
+  // measured module honest about what the AOT path costs: nothing is loaded to run it.
+  const aot = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
+    /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
+    /^import type \{[^}]*\} from '[^']*';\n/m,
+  ])}`;
+
+  const shallowResult = transformFile(SHALLOW_SOURCE, readFileSync(SHALLOW_SOURCE, 'utf8'), { session });
+  if (shallowResult.diagnostics.length > 0) {
+    throw new Error(`the shallow transform refused a site: ${JSON.stringify(shallowResult.diagnostics)}`);
+  }
+  if (!shallowResult.changed) throw new Error(`the transform left ${SHALLOW_SOURCE} unchanged`);
+  if (/\b(?:is|isShallow)<PopulatedOrderRow/.test(shallowResult.code)) {
+    throw new Error('the transform left a populated-row generic call in place');
+  }
+  const shallow = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
+    /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
+  ])}`;
+
+  function strip(code, patterns) {
+    let out = code;
+    for (const pattern of patterns) {
+      if (!pattern.test(out)) throw new Error(`the transform output has no import matching ${String(pattern)}`);
+      out = out.replace(pattern, '');
     }
-    continue;
+    return out.replace(/\n{3,}/g, '\n\n');
   }
-  writeFileSync(path, content);
-  process.stdout.write(`wrote ${path}\n`);
-}
 
-if (drifted) {
-  process.stdout.write('run `yarn bench:validation:generate` and commit the result\n');
-  process.exitCode = 1;
-} else if (check) {
-  process.stdout.write('the generated validation model is up to date\n');
-}
+  let drifted = false;
+  for (const [path, content] of [
+    [MODEL_OUT, model],
+    [AOT_OUT, aot],
+    [SHALLOW_OUT, shallow],
+  ]) {
+    if (check) {
+      const onDisk = readFileSync(path, 'utf8');
+      if (onDisk !== content) {
+        drifted = true;
+        process.stdout.write(`drift: ${path} is not what the generator produces\n`);
+      }
+      continue;
+    }
+    writeFileSync(path, content);
+    process.stdout.write(`wrote ${path}\n`);
+  }
+
+  if (drifted) {
+    process.stdout.write('run `yarn bench:validation:generate` and commit the result\n');
+    process.exitCode = 1;
+  } else if (check) {
+    process.stdout.write('the generated validation model is up to date\n');
+  }
 } finally {
   session.close();
 }
