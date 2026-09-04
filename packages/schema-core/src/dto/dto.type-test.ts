@@ -14,8 +14,17 @@
 // key sets, identical optionality, and mutual assignability with the bare shape — because
 // `Equal` is the only thing a phantom slot is visible to. Where the tag is part of the
 // claim the assertion still spells it out.
-import type { Entity, Equal, Expect, Extends, Mutual } from '../index.js';
-import type { Sql } from '../tags/index.js';
+import {
+  distance,
+  stContains,
+  stDWithin,
+  type GeoJsonGeometry,
+  type GeometryColumnOf,
+  type VectorColumnOf,
+} from '@zmdb/query-compiler';
+
+import type { Entity, Equal, Expect, ExpectNot, Extends, Mutual } from '../index.js';
+import type { Ext, Sql, Table } from '../tags/index.js';
 import type { Order, User } from './fixtures.js';
 import type {
   AggregateResult,
@@ -50,6 +59,33 @@ export type _Where5 = Expect<
 export type _Where6 = Expect<
   Equal<WhereDTO<User>['notExists'], SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[] | undefined>
 >;
+
+interface ExtensionPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
+}
+
+interface ExtensionFilterRow extends Table<'extension_filter_rows'> {
+  readonly embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
+  readonly location: ExtensionPoint & Ext<'postgis', 'geometry', ['Point', 4326]>;
+  readonly title: string & Sql<'text'>;
+}
+
+export type _Where7 = Expect<
+  Equal<FieldOps<Entity<ExtensionFilterRow>['embedding']>['cosine'], readonly number[] | undefined>
+>;
+export type _Where8 = Expect<Equal<FieldOps<Entity<ExtensionFilterRow>['title']>['cosine'], undefined>>;
+export type _Where9 = Expect<Equal<VectorColumnOf<ExtensionFilterRow>, 'embedding'>>;
+export type _Where10 = Expect<Equal<GeometryColumnOf<ExtensionFilterRow>, 'location'>>;
+export type _Where11 = Expect<
+  Equal<Parameters<typeof stContains<ExtensionFilterRow>>[1], Entity<ExtensionFilterRow>['location']>
+>;
+export type _Where12 = ExpectNot<Extends<GeoJsonGeometry, Parameters<typeof stContains<ExtensionFilterRow>>[1]>>;
+
+const extensionPoint = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
+export const _distanceExpression = distance<ExtensionFilterRow>('embedding', 'cosine', [0.1, 0.2, 0.3]);
+export const _containsPredicate = stContains<ExtensionFilterRow>('location', extensionPoint);
+export const _withinPredicate = stDWithin<ExtensionFilterRow>('location', extensionPoint, 500);
 
 // --- OrderByDTO (#182) -----------------------------------------------------
 export type _Order1 = Expect<Equal<OrderByDTO<User>[number]['column'], 'id' | 'email' | 'age' | 'role'>>;

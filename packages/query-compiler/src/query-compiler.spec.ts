@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler, sanitizeKeys, chunkArray, OP_MAP, type CompiledQuery } from './index.js';
+import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from './index.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -483,117 +483,100 @@ describe('Operator normalization & raw operator fall-through', () => {
   });
 });
 
-const extensionCompilerApi: object = await import('./index.js');
-
 type FrozenDistanceOp = 'l2' | 'cosine' | 'ip';
 
-function exportedExpression(name: string, args: readonly unknown[], fallback: object): unknown {
-  const exported: unknown = Reflect.get(extensionCompilerApi, name);
-  return typeof exported === 'function' ? Reflect.apply(exported, undefined, args) : Object.freeze(fallback);
+type VectorTag = {
+  readonly __zmdbExt?: readonly [extension: 'vector', name: 'vector', args: readonly [3]];
+};
+
+type GeometryTag = {
+  readonly __zmdbExt?: readonly [extension: 'postgis', name: 'geometry', args: readonly ['Point', 4326]];
+};
+
+interface Item {
+  readonly id: number;
+  readonly embedding: readonly number[] & VectorTag;
 }
 
-function distance(column: string, operator: string, query: readonly number[]): unknown {
-  return exportedExpression('distance', [column, operator, query], {
-    kind: 'distance',
-    column,
-    operator,
-    query,
-  });
+interface GeoJsonPoint {
+  readonly type: 'Point';
+  readonly coordinates: readonly [number, number];
 }
 
-function aliased(expression: unknown, alias: string): unknown {
-  if (expression !== null && typeof expression === 'object') {
-    const asMethod: unknown = Reflect.get(expression, 'as');
-    if (typeof asMethod === 'function') return Reflect.apply(asMethod, expression, [alias]);
-  }
-  return Object.freeze({ kind: 'aliased', expression, alias });
-}
-
-function stDWithin(column: string, geometry: unknown, metres: number): unknown {
-  return exportedExpression('stDWithin', [column, geometry, metres], {
-    kind: 'spatial',
-    fn: 'st_dwithin',
-    col: column,
-    value: geometry,
-    distance: metres,
-  });
-}
-
-interface FrozenExtensionSelect {
-  select(columns?: readonly unknown[]): FrozenExtensionSelect;
-  where(predicate: unknown): FrozenExtensionSelect;
-  orderBy(expression: unknown, direction: 'asc' | 'desc'): FrozenExtensionSelect;
-  limit(value: number): FrozenExtensionSelect;
-  compile(): CompiledQuery;
-}
-
-function extensionSelect(table: string): FrozenExtensionSelect {
-  return createQueryCompiler('postgres').selectFrom(table) as unknown as FrozenExtensionSelect;
-}
-
-type QueryOutcome = CompiledQuery | { readonly error: string };
-
-function queryOutcome(run: () => CompiledQuery): QueryOutcome {
-  try {
-    return run();
-  } catch (error) {
-    return { error: error instanceof Error ? `${error.name}: ${error.message}` : String(error) };
-  }
+interface Venue {
+  readonly location: GeoJsonPoint & GeometryTag;
 }
 
 describe('distance expressions and spatial predicates (frozen: query-compiler/SPEC.md 5a)', () => {
   const queryVector = [0.1, 0.2, 0.3] as const;
 
-  it.fails('orders by a cosine distance with the query vector parameterised', () => {
+  it('orders by a cosine distance with the query vector parameterised', () => {
     expect(
-      queryOutcome(() =>
-        extensionSelect('items')
-          .orderBy(distance('embedding', 'cosine', queryVector), 'asc')
-          .limit(10)
-          .compile(),
-      ),
+      createQueryCompiler('postgres')
+        .selectFrom('items')
+        .orderBy(distance<Item>('embedding', 'cosine', queryVector), 'asc')
+        .limit(10)
+        .compile(),
     ).toEqual({
       text: 'SELECT * FROM "items" ORDER BY "embedding" <=> $1 ASC LIMIT 10',
-      parameters: [queryVector],
+      parameters: ['[0.1,0.2,0.3]'],
     });
   });
 
-  it.fails('projects a distance as a selected column with an alias', () => {
+  it('projects a distance as a selected column with an alias', () => {
     expect(
-      queryOutcome(() =>
-        extensionSelect('items')
-          .select(['id', aliased(distance('embedding', 'cosine', queryVector), 'distance')])
-          .compile(),
-      ),
+      createQueryCompiler('postgres')
+        .selectFrom('items')
+        .select(['id', distance<Item>('embedding', 'cosine', queryVector).as('distance')])
+        .compile(),
     ).toEqual({
       text: 'SELECT "id", "embedding" <=> $1 AS "distance" FROM "items"',
-      parameters: [queryVector],
+      parameters: ['[0.1,0.2,0.3]'],
     });
   });
 
-  it.fails('emits ST_DWithin as a predicate with typed arguments', () => {
+  it('emits ST_DWithin as a predicate with typed arguments', () => {
     const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
     expect(
-      queryOutcome(() =>
-        extensionSelect('venues')
-          .where(stDWithin('location', point, 500))
-          .compile(),
-      ),
+      createQueryCompiler('postgres')
+        .selectFrom('venues')
+        .where(stDWithin<Venue>('location', point, 500))
+        .compile(),
     ).toEqual({
       text: 'SELECT * FROM "venues" WHERE ST_DWithin("location", ST_GeomFromGeoJSON($1), $2)',
       parameters: [point, 500],
     });
   });
 
-  it.fails('refuses a caller-supplied distance operator string', () => {
+  it('emits ST_Contains as the second closed spatial predicate', () => {
+    const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
+    expect(
+      createQueryCompiler('postgres').selectFrom('venues').where(stContains<Venue>('location', point)).compile(),
+    ).toEqual({
+      text: 'SELECT * FROM "venues" WHERE ST_Contains("location", ST_GeomFromGeoJSON($1))',
+      parameters: [point],
+    });
+  });
+
+  it('refuses a caller-supplied distance operator string', async () => {
     const inheritedInput: object = Object.create({ operator: 'toString' });
     const operator: unknown = Reflect.get(inheritedInput, 'operator');
     if (typeof operator !== 'string') throw new TypeError('test input carried no operator string');
 
-    const run = () => distance('embedding', operator, queryVector);
+    const compilerApi: object = await import('./index.js');
+    const unsafeDistance: unknown = Reflect.get(compilerApi, 'distance');
+    if (typeof unsafeDistance !== 'function') throw new TypeError('distance was not exported');
+    const run = () => Reflect.apply(unsafeDistance, undefined, ['embedding', operator, queryVector]);
     expect(run).toThrow(/unknown distance operator "toString"/i);
     expect(run).toThrow(
       new RegExp(`expected ${(['l2', 'cosine', 'ip'] satisfies readonly FrozenDistanceOp[]).join(' \\| ')}`),
     );
+
+    expect(() =>
+      createQueryCompiler('postgres')
+        .selectFrom('items')
+        .where('embedding', 'cosine', [0.1, Number.NaN, 0.3])
+        .compile(),
+    ).toThrow(/pgvector query may contain only finite numbers/);
   });
 });

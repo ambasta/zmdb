@@ -35,6 +35,13 @@ export type SubqueryTarget<V = unknown> =
       readonly _type?: V;
     };
 
+type VectorOperand<V> =
+  NonNullable<V> extends {
+    readonly __zmdbExt?: readonly [extension: string, name: 'vector', args: readonly (string | number)[]];
+  }
+    ? readonly number[]
+    : never;
+
 export interface FieldOps<V> {
   eq?: V | SubqueryTarget<V>;
   ne?: V | SubqueryTarget<V>;
@@ -46,6 +53,9 @@ export interface FieldOps<V> {
   nin?: readonly V[] | SubqueryTarget<V>;
   like?: V extends string ? string | SubqueryTarget<string> : never;
   ilike?: V extends string ? string | SubqueryTarget<string> : never;
+  l2?: VectorOperand<V>;
+  cosine?: VectorOperand<V>;
+  ip?: VectorOperand<V>;
   isNull?: boolean;
   notNull?: boolean;
 }
@@ -103,6 +113,9 @@ const OP_SQL: Record<string, string> = {
   nin: 'not in',
   like: 'like',
   ilike: 'ilike',
+  l2: 'l2',
+  cosine: 'cosine',
+  ip: 'ip',
 };
 
 // Every operator `applyField` accepts, for the error an unrecognised one raises.

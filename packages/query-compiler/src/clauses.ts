@@ -1,3 +1,11 @@
+import { UnsupportedFeatureError } from './errors.js';
+import {
+  DISTANCE_OPERATORS,
+  encodePgVector,
+  isDistanceOp,
+  renderSpatialPredicate,
+  type SpatialPredicateNode,
+} from './extensions/index.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -27,15 +35,18 @@ export interface JoinSpec {
  * the predicate before it and is ignored on the first one; builders that only
  * ever conjoin can leave it out.
  */
-export interface Predicate {
+export interface ComparisonPredicate {
+  readonly kind?: 'comparison';
   readonly col: string;
   readonly op: string;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR' | undefined;
 }
 
-export interface Tail {
-  readonly orderBys?: readonly { readonly col: string; readonly dir: 'asc' | 'desc' }[] | undefined;
+export type Predicate = ComparisonPredicate | SpatialPredicateNode;
+
+export interface Tail<C = string> {
+  readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[] | undefined;
   readonly limitN?: number | undefined;
   readonly offsetN?: number | undefined;
 }
@@ -62,6 +73,7 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
     nin: 'NOT IN',
     exists: 'EXISTS',
     'not exists': 'NOT EXISTS',
+    ...DISTANCE_OPERATORS,
   }),
 );
 
@@ -85,17 +97,28 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 /**
  * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
  */
-export function sqlOperator(op: string): string {
+export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
+  const normalized = op.toLowerCase().trim();
+  if (isDistanceOp(normalized) && dialect !== 'postgres') {
+    throw new UnsupportedFeatureError(normalized, dialect);
+  }
   // A plain index read, and no own-property guard: `OP_MAP` has a null prototype, so
   // `OP_MAP['constructor']` is already `undefined` rather than a function off
   // `Object.prototype`. That is what makes `??` safe here, and it is why the map is built
   // the way it is.
-  return OP_MAP[op.toLowerCase().trim()] ?? op;
+  return OP_MAP[normalized] ?? op;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
-  const sqlOp = sqlOperator(p.op);
+  if (p.kind === 'spatial') return renderSpatialPredicate(dialect, p, params);
+  const normalized = p.op.toLowerCase().trim();
+  const sqlOp = sqlOperator(p.op, dialect);
+
+  if (isDistanceOp(normalized)) {
+    params.push(encodePgVector(p.value));
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
+  }
 
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
@@ -224,16 +247,16 @@ export function queryTelemetry(
  * also admits `undefined` is not assignable to one that doesn't, and no
  * builder's state wants an explicit `undefined` written over its array.
  */
-export interface TailPatch {
-  readonly orderBys?: readonly { readonly col: string; readonly dir: 'asc' | 'desc' }[];
+export interface TailPatch<C = string> {
+  readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[];
   readonly limitN?: number;
   readonly offsetN?: number;
 }
 
 /** `orderBy` / `limit` / `offset`, for any state carrying a {@link Tail}. */
-export function tailMethods<B>(tail: Tail, next: (patch: TailPatch) => B) {
+export function tailMethods<C, B>(tail: Tail<C>, next: (patch: TailPatch<C>) => B) {
   return {
-    orderBy: (col: string, dir: 'asc' | 'desc'): B => next({ orderBys: [...(tail.orderBys ?? []), { col, dir }] }),
+    orderBy: (col: C, dir: 'asc' | 'desc'): B => next({ orderBys: [...(tail.orderBys ?? []), { col, dir }] }),
     limit: (n: number): B => next({ limitN: n }),
     offset: (n: number): B => next({ offsetN: n }),
   };

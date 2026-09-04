@@ -1,7 +1,7 @@
 > **ToDo / partial feature gap.** A `vector(n)` column, ordered extension
-> installation, and HNSW/IVFFlat index DDL are supported. Typed distance
-> projection and ordering are not yet available, so similarity queries still use
-> raw SQL.
+> installation, HNSW/IVFFlat index DDL, and closed typed distance projection and
+> ordering are supported. The complete runnable insert/query recipe and
+> validation-cost guidance remain.
 
 ## Declare the column
 
@@ -70,7 +70,11 @@ await driver.execute({
 
 `pgvector` accepts the `[0.1,0.2,...]` form that `JSON.stringify(number[])` produces.
 
-The typed query builder does not yet project or order by a distance expression, so search remains raw SQL:
+The typed query builder now exposes `distance<Embedding>('embedding', 'cosine',
+queryVector)` for projection with `.as(alias)` and for ascending `orderBy`; the
+query vector is encoded to pgvector's `[0.1,0.2,...]` text form and bound rather
+than interpolated. The raw form below remains useful when a query also needs
+arithmetic projection (`1 - distance`) and `ANY`:
 
 ```ts
 const rows = await driver.execute({
@@ -85,7 +89,7 @@ const rows = await driver.execute({
 
 Two details are easy to get wrong:
 
-- **Order by the raw distance expression.** Ordering by the projected `similarity` alias prevents the approximate index from serving the order.
+- **Order by the distance expression.** Ordering by the projected `similarity` alias prevents the approximate index from serving the order.
 - **`<=>` is cosine distance.** Smaller is closer; `1 - distance` is similarity. Sort the distance ascending.
 
 ## Filtering and recall

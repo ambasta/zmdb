@@ -2,6 +2,7 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
 import { ValidationError } from '../index.js';
+import type { Ext, Sql, Table } from '../tags/index.js';
 import type { User } from './fixtures.js';
 import { compileWhere, type WhereDTO, type WhereTarget } from './index.js';
 
@@ -28,6 +29,11 @@ function recorder() {
   });
   const b = mk();
   return { b, calls };
+}
+
+interface VectorItem extends Table<'vector_items'> {
+  readonly embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
+  readonly title: string & Sql<'text'>;
 }
 
 describe('WhereDTO + operator set (#179)', () => {
@@ -64,6 +70,27 @@ describe('WhereDTO + operator set (#179)', () => {
       ['and', 'email', 'like', '%@x.com'],
       ['and', 'email', 'ilike', '%@Y.com'],
     ]);
+  });
+
+  it('maps vector distance operators only from a vector-typed WhereDTO field', () => {
+    const { b, calls } = recorder();
+    const queryVector = [0.1, 0.2, 0.3] as const;
+    const where: WhereDTO<VectorItem> = {
+      embedding: { l2: queryVector, cosine: queryVector, ip: queryVector },
+    };
+    compileWhere(b, where);
+    expect(calls).toEqual([
+      ['and', 'embedding', 'l2', queryVector],
+      ['and', 'embedding', 'cosine', queryVector],
+      ['and', 'embedding', 'ip', queryVector],
+    ]);
+
+    const vectorBuilder = createQueryCompiler('postgres').selectFrom('vector_items');
+    const cosineWhere: WhereDTO<VectorItem> = { embedding: { cosine: queryVector } };
+    expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toEqual({
+      text: 'SELECT * FROM "vector_items" WHERE "embedding" <=> $1',
+      parameters: ['[0.1,0.2,0.3]'],
+    });
   });
 
   it('isNull / notNull', () => {
@@ -202,7 +229,7 @@ describe('compileWhere: the operator allowlist fails closed (#364)', () => {
       {
         path: 'age',
         message: 'unknown operator "greaterThan"',
-        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | isNull | notNull',
+        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | l2 | cosine | ip | isNull | notNull',
         value: 42,
       },
     ]);
@@ -265,7 +292,7 @@ describe('compileWhere: an empty operator map is not a filter (#608)', () => {
       {
         path: 'email',
         message: 'empty operator map',
-        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | isNull | notNull',
+        expected: 'eq | ne | lt | lte | gt | gte | in | nin | like | ilike | l2 | cosine | ip | isNull | notNull',
       },
     ]);
   });

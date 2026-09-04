@@ -1,8 +1,9 @@
 > **ToDo / partial feature gap.** Declared PostGIS-backed columns, ordered
 > extension installation and `USING gist` index DDL are supported. Catalog pull
 > cannot infer a PostGIS column's application shape and omits that property from
-> emitted declarations. Typed spatial projections and predicates are also not yet
-> available, so writes and radius queries still use raw SQL.
+> emitted declarations. Typed `ST_Contains` and `ST_DWithin` predicates now ship
+> for declared `geometry` columns; typed spatial projections, GeoJSON writes and
+> the geography-specific radius recipe below still use raw SQL.
 
 ## Declare the column
 
@@ -81,6 +82,10 @@ await driver.execute({
 `ST_MakePoint(x, y)` is longitude first. Swapped latitude/longitude remains a valid point, so the database cannot diagnose it.
 
 ## Radius search
+
+For a declared `geometry` column, `stDWithin<T>(column, point, distance)` supplies
+the closed typed predicate and binds both values. This example uses `geography`
+for metre-based distance and also projects `ST_Distance`, so it remains raw SQL:
 
 ```ts
 const rows = await driver.execute({

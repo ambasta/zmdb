@@ -461,7 +461,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'vector operator: l2',
     build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'l2', [0.1, 0.2]).compile(),
     expected: {
-      postgres: query('SELECT * FROM "items" WHERE "embedding" <-> $1', [[0.1, 0.2]]),
+      postgres: query('SELECT * FROM "items" WHERE "embedding" <-> $1', ['[0.1,0.2]']),
       mysql: refused('l2', 'mysql'),
       sqlite: refused('l2', 'sqlite'),
       mssql: refused('l2', 'mssql'),
@@ -473,7 +473,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'vector operator: cosine',
     build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'cosine', [0.1, 0.2]).compile(),
     expected: {
-      postgres: query('SELECT * FROM "items" WHERE "embedding" <=> $1', [[0.1, 0.2]]),
+      postgres: query('SELECT * FROM "items" WHERE "embedding" <=> $1', ['[0.1,0.2]']),
       mysql: refused('cosine', 'mysql'),
       sqlite: refused('cosine', 'sqlite'),
       mssql: refused('cosine', 'mssql'),
@@ -485,7 +485,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'vector operator: inner product',
     build: dialect => compiler(dialect).selectFrom('items').where('embedding', 'ip', [0.1, 0.2]).compile(),
     expected: {
-      postgres: query('SELECT * FROM "items" WHERE "embedding" <#> $1', [[0.1, 0.2]]),
+      postgres: query('SELECT * FROM "items" WHERE "embedding" <#> $1', ['[0.1,0.2]']),
       mysql: refused('ip', 'mysql'),
       sqlite: refused('ip', 'sqlite'),
       mssql: refused('ip', 'mssql'),
@@ -1020,7 +1020,23 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
     }
   });
 
-  for (const entry of MATRIX) {
+  const implementedExtensionConstructs = new Set([
+    'vector operator: l2',
+    'vector operator: cosine',
+    'vector operator: inner product',
+    'spatial predicate: contains',
+    'spatial predicate: within',
+    'spatial predicate: intersects',
+    'spatial predicate: within distance',
+  ]);
+
+  for (const entry of MATRIX.filter(candidate => implementedExtensionConstructs.has(candidate.name))) {
+    it(`matches ${entry.name} across all six dialects`, () => {
+      expect(observedFor(entry)).toEqual(entry.expected);
+    });
+  }
+
+  for (const entry of MATRIX.filter(candidate => !implementedExtensionConstructs.has(candidate.name))) {
     it.fails(`matches ${entry.name} across all six dialects`, () => {
       expect(observedFor(entry)).toEqual(entry.expected);
     });

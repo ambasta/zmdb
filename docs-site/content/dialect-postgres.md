@@ -54,8 +54,8 @@ Postgres has a lot the builder does not model. All of them work through [raw SQL
   [Transactional Outbox](./transactional-outbox.html) deliberately uses a
   portable conditional lease update instead
 - arrays and ranges
-- extension operators and spatial functions — extension-backed columns and
-  indexes are declared, while their typed query expressions remain a gap; see
+- extension SQL beyond the closed pgvector distance and
+  `ST_Contains`/`ST_DWithin` surfaces — see
   [Database Extensions](./db-extensions.html)
 
 ## Operational settings worth having

@@ -110,13 +110,15 @@ dialect where it is valid but wrong.
 ```
 selectFrom('items').where('embedding', 'cosine', [0.1, 0.2])
 => text: SELECT * FROM "items" WHERE "embedding" <=> $1
-   parameters: [[0.1, 0.2]]
+   parameters: ['[0.1,0.2]']
 ```
 
 All three are Postgres-only and refused elsewhere at compile time, naming the operator and the dialect.
-The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is an
-ordering over an expression, which `orderBy(col, dir)` cannot express and this epic's implementation
-slices own.
+The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is
+represented by the closed `distance<T>(column, op, query)` expression. The same expression can be
+projected with `.as(alias)` or passed to `orderBy`. Every query vector is encoded as pgvector text
+before it becomes a bound parameter; passing the raw JavaScript array would make node-postgres encode a
+PostgreSQL array (`{"0.1","0.2"}`), which pgvector does not accept as vector input.
 
 **PostGIS predicates are functions, not operators**, so they do not go in `OP_MAP` at all. They are a
 predicate kind of their own with a closed function set:
@@ -138,6 +140,8 @@ type Predicate = … | { kind: 'spatial'; fn: SpatialFn; col: string; value: unk
 with a third argument, it is a number rather than a geometry, and it is a parameter rather than
 interpolated text. A closed enum, again, because the function name is emitted unquoted and the whole
 point of a spatial predicate is that a caller supplies the geometry — the value — and never the SQL.
+The public surface exposes the two predicates required by the extension guide, `stContains` and
+`stDWithin`; the lower-level closed renderer retains all four frozen matrix members.
 
 ## 5b. Write expressions (frozen — epic "Expression-valued writes")
 

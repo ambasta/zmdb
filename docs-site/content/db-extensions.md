@@ -1,7 +1,7 @@
 > **ToDo / partial feature gap.** Extension installation, parameterised
-> extension-backed columns and PostgreSQL index methods are supported. Typed vector
-> distance expressions and PostGIS predicates are not yet available, so those queries
-> still use raw SQL.
+> extension-backed columns, PostgreSQL index methods, closed vector distance
+> expressions and the `ST_Contains`/`ST_DWithin` predicates are supported. Typed
+> extension writes and spatial projections, plus the complete runnable guides, remain.
 
 ## Declaring an extension-backed column
 
@@ -70,21 +70,20 @@ CREATE INDEX "documents_embedding_hnsw" ON "documents"
 
 Methods and option keys are closed sets. Operator classes are extension-defined identifiers and are refused unless they match `/^[A-Za-z_][A-Za-z0-9_]*$/`.
 
-## Querying remains the gap
+## Closed query expressions
 
-Use raw SQL for vector distance ordering/projection and PostGIS predicates. The low-level query compiler accepts raw operator strings, but there is not yet a typed expression carrying a bound vector into `ORDER BY` or a typed `ST_DWithin` predicate:
+The query compiler exposes `distance<T>(column, op, query)` for projection and
+ordering, with `l2`, `cosine` and `ip` as the complete operator set. It also
+exposes `stContains<T>` and `stDWithin<T>` for declared `geometry` columns. Query
+vectors, GeoJSON values and radii are bound parameters, and every one of these
+constructs is refused outside PostgreSQL.
 
-```ts
-const rows = await driver.execute({
-  text: `SELECT id, embedding <-> $1 AS distance
-         FROM documents
-         ORDER BY embedding <-> $1
-         LIMIT 10`,
-  parameters: [JSON.stringify(queryEmbedding)],
-});
-```
-
-That remaining surface is deliberately closed rather than a free-form function/operator builder: vector operators and geometry functions place schema-authored identifiers beside request values, so each operator must be selected from a known set and every value must remain parameterised.
+That surface is deliberately closed rather than a free-form function/operator
+builder: vector operators and geometry functions place schema-authored
+identifiers beside request values, so each operator is selected from a known set
+and every value remains parameterised. Raw SQL is still needed for extension
+writes, geography-specific expressions and spatial projections beyond those two
+predicates; the end-to-end guide remains a follow-up.
 
 ---
 

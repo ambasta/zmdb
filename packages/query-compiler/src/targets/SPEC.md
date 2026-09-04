@@ -93,17 +93,20 @@ to the SQL path — `WhereDTO`'s `and`/`or` arms would finally round-trip faithf
 improvement. It is also strictly larger than the target work and belongs to whichever epic owns
 predicate grouping, not to this one.
 
-**(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has exactly
-twelve operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`,
-`notNull`) plus `and`/`or`/`exists`/`notExists` on `WhereDTO` itself. That set is closed, checkable,
-and maps almost one-to-one onto Mongo (§4.1). But the slot it lands in is not closed: `Operator` in
-the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`, `findJoined` takes
-`{ col, op: string, value }`, and §5a's extension operators put real SQL — `@>`, `&&`, `ILIKE` — into
-the same slot on purpose.
+**(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has twelve
+universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`,
+`notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and
+`and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable;
+the twelve universal members map almost one-to-one onto Mongo (§4.1), while the three extension
+members are PostgreSQL-only and type-constrained to vector columns. But the slot it lands in is not
+closed: `Operator` in the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`,
+`findJoined` takes `{ col, op: string, value }`, and §5a's extension operators put real SQL — `@>`,
+`&&`, `ILIKE` — into the same slot on purpose.
 
-So one plan field carries two different things: a twelve-member enum a target can exhaustively
-translate, and arbitrary SQL text a target can only refuse. A target cannot tell them apart from the
-plan alone, which means the refusal has to happen at the call site or not at all.
+So one plan field carries two different things: a closed DTO vocabulary a target can exhaustively
+translate or explicitly refuse, and arbitrary builder SQL text a target can only refuse. A target
+cannot tell them apart from the plan alone, which means the refusal has to happen at the call site or
+not at all.
 
 **(c) A subquery in the plan is already compiled SQL.** `whereExists(subquery)` accepts
 `SelectBuilder | { compile(): CompiledQuery }` and stores it as the predicate's `value`;
@@ -256,7 +259,9 @@ outcome as much as the methods do:
 
 ### 4.1 The filter half is genuinely close
 
-Every one of the twelve `FieldOps` operators has a Mongo spelling, and eight are direct:
+Every one of the twelve universal `FieldOps` operators has a Mongo spelling, and eight are direct.
+The three vector-only operators are PostgreSQL extension operations and a Mongo target must refuse
+them:
 
 | `FieldOps` | Mongo                          | Direct? |
 | ---------- | ------------------------------ | ------- |

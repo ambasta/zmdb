@@ -7,13 +7,43 @@ export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { frozenQuery, queryTelemetry, tailClause, tailMethods, whereClause } from './clauses.js';
+import {
+  frozenQuery,
+  queryTelemetry,
+  tailClause,
+  tailMethods,
+  whereClause,
+  type ComparisonPredicate,
+  type Predicate,
+} from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
+import {
+  isAliasedDistanceExpression,
+  isDistanceExpression,
+  isSpatialPredicate,
+  renderAliasedDistanceExpression,
+  renderDistanceExpression,
+  type AliasedDistanceExpression,
+  type DistanceExpression,
+  type SpatialPredicate,
+} from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
 export type { ColumnExpr, SetValue } from './expressions/index.js';
+export { DISTANCE_OPERATORS, distance, stContains, stDWithin } from './extensions/index.js';
+export type {
+  AliasedDistanceExpression,
+  DistanceExpression,
+  DistanceOp,
+  ExtensionColumnOf,
+  GeoJsonGeometry,
+  GeometryColumnOf,
+  GeometryValueOf,
+  SpatialPredicate,
+  VectorColumnOf,
+} from './extensions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
 export type Operator =
   | '='
@@ -100,26 +130,22 @@ export interface QueryCompilerOptions {
   readonly telemetry?: true;
 }
 
-interface WhereClause {
-  readonly col: string;
-  readonly op: Operator;
-  readonly value: unknown;
-  readonly connector: 'AND' | 'OR';
-}
-
 interface SelectState {
   readonly table: string;
-  readonly columns?: readonly string[];
-  readonly wheres: readonly WhereClause[];
-  readonly orderBys: readonly { col: string; dir: Direction }[];
+  readonly columns?: readonly (string | AliasedDistanceExpression)[];
+  readonly wheres: readonly Predicate[];
+  readonly orderBys: readonly { col: string | DistanceExpression; dir: Direction }[];
   readonly limitN?: number;
   readonly offsetN?: number;
 }
 
 export interface SelectBuilder<T = unknown> {
-  select(columns?: readonly string[]): SelectBuilder<T>;
+  select(columns?: readonly (string | AliasedDistanceExpression)[]): SelectBuilder<T>;
+  where(predicate: SpatialPredicate): SelectBuilder<T>;
   where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
   andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
   orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -133,7 +159,7 @@ export interface SelectBuilder<T = unknown> {
   whereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   andWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   orWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
-  orderBy(col: string, dir: Direction): SelectBuilder<T>;
+  orderBy(col: string | DistanceExpression, dir: Direction): SelectBuilder<T>;
   limit(n: number): SelectBuilder<T>;
   offset(n: number): SelectBuilder<T>;
   compile(): CompiledQuery;
@@ -145,14 +171,40 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
   const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
+  const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
+    next({ wheres: [...state.wheres, { ...predicate, connector }] });
+
+  function where(predicate: SpatialPredicate): SelectBuilder<T>;
+  function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  function where(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+    if (isSpatialPredicate(first)) return addSpatial('AND', first);
+    if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
+    return addWhere('AND', first, op, value);
+  }
+
+  function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
+  function andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  function andWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+    if (isSpatialPredicate(first)) return addSpatial('AND', first);
+    if (op === undefined) throw new TypeError('andWhere(column, operator, value) requires an operator');
+    return addWhere('AND', first, op, value);
+  }
+
+  function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
+  function orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  function orWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+    if (isSpatialPredicate(first)) return addSpatial('OR', first);
+    if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
+    return addWhere('OR', first, op, value);
+  }
 
   return {
     ...tailMethods(state, next),
     dialect: d,
     select: columns => (columns === undefined ? next({}) : next({ columns })),
-    where: (col, op, value) => addWhere('AND', col, op, value),
-    andWhere: (col, op, value) => addWhere('AND', col, op, value),
-    orWhere: (col, op, value) => addWhere('OR', col, op, value),
+    where,
+    andWhere,
+    orWhere,
     whereIn: (col, values) => addWhere('AND', col, 'in', values),
     andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
     orWhereIn: (col, values) => addWhere('OR', col, 'in', values),
@@ -168,11 +220,32 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
     compile: () => {
       const params: unknown[] = [];
       const cols =
-        state.columns && state.columns.length > 0 ? state.columns.map(c => quoteColumn(d, c)).join(', ') : '*';
+        state.columns && state.columns.length > 0
+          ? state.columns
+              .map(column =>
+                isAliasedDistanceExpression(column)
+                  ? renderAliasedDistanceExpression(d, column, params)
+                  : quoteColumn(d, column),
+              )
+              .join(', ')
+          : '*';
+      const predicates = whereClause(d, state.wheres, params);
+      const orderBy =
+        state.orderBys.length === 0
+          ? ''
+          : ` ORDER BY ${state.orderBys
+              .map(order => {
+                const expression = isDistanceExpression(order.col)
+                  ? renderDistanceExpression(d, order.col, params)
+                  : quoteColumn(d, order.col);
+                return `${expression} ${order.dir.toUpperCase()}`;
+              })
+              .join(', ')}`;
       const text =
         `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
-        whereClause(d, state.wheres, params) +
-        tailClause(d, state);
+        predicates +
+        orderBy +
+        tailClause(d, { limitN: state.limitN, offsetN: state.offsetN });
       return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
     },
   };
@@ -376,7 +449,7 @@ function makeUpdate(
   d: Dialect,
   table: string,
   row?: Record<string, unknown>,
-  wheres: readonly WhereClause[] = [],
+  wheres: readonly ComparisonPredicate[] = [],
   ret?: readonly string[],
   telemetry = false,
 ): UpdateBuilder {
@@ -407,7 +480,7 @@ function makeUpdate(
 function makeDelete(
   d: Dialect,
   table: string,
-  wheres: readonly WhereClause[] = [],
+  wheres: readonly ComparisonPredicate[] = [],
   ret?: readonly string[],
   telemetry = false,
 ): DeleteBuilder {

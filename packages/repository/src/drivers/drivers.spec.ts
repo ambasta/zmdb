@@ -1,7 +1,9 @@
+import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { createQueryCompiler, distance } from '@zmdb/query-compiler';
+import type { Ext, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository } from '../index.js';
@@ -12,6 +14,19 @@ export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   age: number & Sql<'integer'>;
+}
+
+interface PgVectorItem extends Table<'pgvector_items'> {
+  readonly embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
+}
+
+const requireFromHere = createRequire(import.meta.url);
+const pgUtils: object = requireFromHere('pg/lib/utils');
+
+function preparePgValue(value: unknown): unknown {
+  const prepareValue: unknown = Reflect.get(pgUtils, 'prepareValue');
+  if (typeof prepareValue !== 'function') throw new TypeError('node-postgres did not expose prepareValue');
+  return Reflect.apply(prepareValue, pgUtils, [value]);
 }
 
 const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
@@ -95,6 +110,18 @@ describe('sqliteDriver (#211)', () => {
 });
 
 describe('pgDriver (#211)', () => {
+  it('serializes a compiler-bound pgvector parameter through the real node-postgres path', () => {
+    const vector = [0.1, 0.2, 0.3] as const;
+    const query = createQueryCompiler('postgres')
+      .selectFrom('pgvector_items')
+      .orderBy(distance<PgVectorItem>('embedding', 'cosine', vector), 'asc')
+      .compile();
+
+    expect(preparePgValue(vector)).toBe('{"0.1","0.2","0.3"}');
+    expect(query.parameters).toEqual(['[0.1,0.2,0.3]']);
+    expect(preparePgValue(query.parameters[0])).toBe('[0.1,0.2,0.3]');
+  });
+
   it('calls query(text, params) and returns rows by default (prepared: false)', async () => {
     const query = vi.fn(async (_text: string, _params?: readonly unknown[]) => ({ rows: [{ id: 1 }] }));
     const d = pgDriver({ query } as unknown as PgQueryable);
