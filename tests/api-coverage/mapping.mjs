@@ -188,11 +188,11 @@ const NO_HTTP_DECODERS =
   'DTO pipes, and path and query parameters arrive on the context. The behaviour is covered there ' +
   'rather than by a standalone string-to-type parser.';
 
-const NO_STORED_ROUTINES =
-  'Stored procedures, functions, triggers and database-side routines put behaviour in the ' +
-  'database, where the TypeScript type that is supposed to be the single declaration cannot see ' +
-  'it. zmdb generates DDL for tables, indexes, constraints, views and sequences, and leaves ' +
-  'executable database objects to a migration you write and review by hand.';
+const NO_DATABASE_TRIGGERS =
+  'A database trigger runs because another statement touched a table, so the behavior is absent ' +
+  'from the call site and can also fire for writes made outside the application. Stored routines ' +
+  'are explicit declarations and explicit calls; triggers have separate timing, event, transition ' +
+  'row and recursion semantics and remain a separate capability that zmdb does not claim.';
 
 const NO_INHERITANCE_MAPPING =
   'Single-table, joined and table-per-type inheritance, polymorphic relations and loadable mixins ' +
@@ -782,8 +782,20 @@ export const mikroOrm = {
   'special-object-keys': oos(NO_ENTITY_METADATA, 'pure-typescript'),
   'result-cache': oos(NO_CACHE_LAYER, 'caching'),
   'cache-adapters': oos(NO_CACHE_LAYER, 'caching'),
-  'stored-routines': oos(NO_STORED_ROUTINES, 'stored-routines'),
-  trigger: oos(NO_STORED_ROUTINES, 'stored-routines'),
+  'stored-routines': [
+    'emits CREATE OR REPLACE FUNCTION with a dollar-quoted body',
+    'chooses a safe dollar-quote tag when the body contains $$',
+    'emits a MySQL function as a drop-then-create pair',
+    'refuses a routine on sqlite, naming the routine',
+    're-emits a routine when its body changes',
+    'does not re-emit when only trailing whitespace differs',
+    'compiles a function call to SELECT with bound arguments',
+    'compiles a procedure call to CALL with bound arguments',
+    'types a set-returning function as rows',
+    'validates arguments against the declared parameter types before calling',
+    'calls a real function',
+  ],
+  trigger: oos(NO_DATABASE_TRIGGERS, 'stored-routines'),
   'native-enums': oos(NO_DIALECT_ONLY_SYNTAX, 'dialect-postgres'),
   'deferrable-constraints': oos(NO_DIALECT_ONLY_SYNTAX, 'dialect-postgres'),
   'get-kysely': oos(NO_MIKRO_KYSELY, 'raw-sql'),

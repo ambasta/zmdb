@@ -757,23 +757,34 @@ escalation.
 ### The SQL layer (`@zmdb/query-compiler`)
 
 ```ts
-function callFunction(name: string, args: readonly unknown[]): CompiledQuery;
-function callTableFunction(name: string, args: readonly unknown[]): CompiledQuery;
-function callProcedure(name: string, args: readonly unknown[]): CompiledQuery;
+interface QueryCompiler {
+  callFunction(name: string, args: readonly unknown[]): CompiledQuery;
+  callTableFunction(name: string, args: readonly unknown[]): CompiledQuery;
+  callProcedure(name: string, args: readonly unknown[]): CompiledQuery;
+}
 ```
 
 ```
-callFunction('archive_old_orders', [cutoff])
+createQueryCompiler('postgres').callFunction('archive_old_orders', [cutoff])
 postgres  SELECT "archive_old_orders"($1) AS "result"     parameters: [cutoff]
+createQueryCompiler('mysql').callFunction('archive_old_orders', [cutoff])
 mysql     SELECT `archive_old_orders`(?) AS `result`       parameters: [cutoff]
 
-callTableFunction('active_users', [orgId])
+createQueryCompiler('postgres').callTableFunction('active_users', [orgId])
 postgres  SELECT * FROM "active_users"($1)                 parameters: [orgId]
 
-callProcedure('rebuild_search_index', [])
+createQueryCompiler('postgres').callProcedure('rebuild_search_index', [])
 postgres  CALL "rebuild_search_index"()                    parameters: []
+createQueryCompiler('mysql').callProcedure('rebuild_search_index', [])
 mysql     CALL `rebuild_search_index`()                    parameters: []
 ```
+
+The calls are methods on the existing dialect-bound `QueryCompiler`. The
+original frozen sketch wrote them as top-level functions even though the same
+two-argument call was followed by different Postgres and MySQL goldens; with no
+dialect input, both outputs cannot be true. Keeping the dialect on
+`createQueryCompiler` also makes the repository use the same compiler instance
+as its ordinary queries instead of introducing a second dialect switch.
 
 The fixed alias `AS "result"` is load-bearing. Postgres names an unaliased function-call column after the
 function; MySQL names it after the whole expression text, so the key is
