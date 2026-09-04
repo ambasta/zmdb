@@ -38,7 +38,7 @@ import { upgradeSnapshot, type UpgradeResult } from './commands/upgrade.js';
 import { loadConfig, resolveConfig, type ResolvedConfig, type ZmdbConfig } from './config.js';
 import { CliInvocationError } from './errors.js';
 import { CliOutput, type CliResult } from './output.js';
-import { createReplSession, replHistoryPath } from './repl.js';
+import { createReplSession, replHistoryPath, type ReplSession } from './repl.js';
 
 export { embedMigrations, exportSchema, generateMigration, pullDeclarations };
 export type {
@@ -621,8 +621,9 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     return output.failure(errorMessage(error), 2);
   }
 
+  let session: ReplSession | undefined;
   try {
-    await using session = await createReplSession(root, {
+    session = await createReplSession(root, {
       configPath: parsed.config,
       moduleSpec: options.moduleSpec,
       cwd: io.cwd,
@@ -635,7 +636,12 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     await session.closed;
     return 0;
   } catch (error) {
-    return output.failure(errorMessage(error), 1);
+    io.stderr(`zmdb repl: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  } finally {
+    if (session) {
+      await session[Symbol.asyncDispose]();
+    }
   }
 }
 
