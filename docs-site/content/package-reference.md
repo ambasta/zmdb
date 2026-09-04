@@ -41,6 +41,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/repository         | 1.0.0-alpha.4 | orm             | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository                   |
 | @zmdb/schema-core        | 1.0.0-alpha.4 | schema          | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration           |
 | @zmdb/sqlite             | 1.0.0-alpha.4 | sqlite          | integration: SQLite                            | `npm add @zmdb/sqlite@1.0.0-alpha.4`             | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                                                           | dialect-sqlite               |
+| @zmdb/svelte             | 1.0.0-alpha.4 | svelte          | integration: Svelte 5                          | `npm add @zmdb/svelte@1.0.0-alpha.4`             | Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.                                                                                                        | framework-integrations       |
 | @zmdb/transport-grpc     | 1.0.0-alpha.4 | grpc            | integration: gRPC                              | `npm add @zmdb/transport-grpc@1.0.0-alpha.4`     | Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.                                                                                                    | web-microservices-grpc       |
 | @zmdb/transport-nats     | 1.0.0-alpha.4 | transport-nats  | integration: core NATS messaging               | `npm add @zmdb/transport-nats@1.0.0-alpha.4`     | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                                                                    | web-microservices-transports |
 | @zmdb/transport-rabbitmq | 1.0.0-alpha.4 | rabbitmq        | integration: RabbitMQ                          | `npm add @zmdb/transport-rabbitmq@1.0.0-alpha.4` | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                                                         | web-microservices-transports |
@@ -523,6 +524,24 @@ Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embed
 - **Facade exposure:**
   - `zmdb/drivers/sqlite`
 - **External proof:** fixtures/database-sqlite
+
+### `@zmdb/svelte`
+
+Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `svelte` → `>=5.0.0 <6.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters
 
 ### `@zmdb/transport-grpc`
 

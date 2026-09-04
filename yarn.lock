@@ -2382,6 +2382,7 @@ __metadata:
     "@zmdb/angular": "workspace:^"
     "@zmdb/client": "workspace:^"
     "@zmdb/react": "workspace:^"
+    "@zmdb/svelte": "workspace:^"
     "@zmdb/vue": "workspace:^"
     react: "npm:19.2.8"
     react-dom: "npm:19.2.8"
@@ -2671,6 +2672,18 @@ __metadata:
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/svelte@workspace:^, @zmdb/svelte@workspace:packages/svelte":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/svelte@workspace:packages/svelte"
+  dependencies:
+    "@zmdb/client": "workspace:^"
+    svelte: "npm:5.57.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    svelte: ">=5.0.0 <6.0.0"
   languageName: unknown
   linkType: soft
 

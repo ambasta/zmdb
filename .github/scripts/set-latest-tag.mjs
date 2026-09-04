@@ -14,6 +14,7 @@ const PACKAGES = [
   '@zmdb/react',
   '@zmdb/angular',
   '@zmdb/vue',
+  '@zmdb/svelte',
   '@zmdb/query-compiler',
   '@zmdb/schema-core',
   '@zmdb/ai',

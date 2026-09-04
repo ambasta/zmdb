@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// React, Angular, and Vue now use their real public types. The remaining namespace imports are
+// React, Angular, Vue, and Svelte now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -31,9 +31,7 @@ import type * as MissingReactNativeAdapter from '@zmdb/react-native';
 // @ts-expect-error #695 supplies the Solid adapter package
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #695
 import type * as MissingSolidAdapter from '@zmdb/solid';
-// @ts-expect-error #694 supplies the Svelte adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #694
-import type * as MissingSvelteAdapter from '@zmdb/svelte';
+import { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/svelte';
 // @ts-expect-error #699 supplies the SvelteKit client entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #699
 import type * as MissingSvelteKitClientAdapter from '@zmdb/sveltekit/client';
@@ -155,22 +153,34 @@ function vueInference(bindings: VueBindings<ApiClient>): void {
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
 }
 
-function svelteInference(bindings: SvelteBindings<ApiClient>): void {
-  const query = bindings.query({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
+function svelteInference(client: ApiClient): void {
+  const bindings = createZmdbSvelte<ApiClient>();
+  const query = bindings.query({ id: 'one' }, (api, input, signal) => api.getWidget(input, { signal }));
   query.subscribe(snapshot => {
     snapshot.data satisfies Widget | undefined;
     snapshot.error satisfies unknown;
     snapshot.loading satisfies boolean;
   });
 
-  const mutation = bindings.mutation((client, input: RenameWidgetInput, signal) =>
-    client.renameWidget(input, { signal }),
-  );
+  const mutation = bindings.mutation((api, input: RenameWidgetInput, signal) => api.renameWidget(input, { signal }));
   mutation.subscribe(snapshot => {
     snapshot.error satisfies unknown;
     snapshot.pending satisfies boolean;
   });
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
+
+  bindings.setClient satisfies (client: ApiClient) => ApiClient;
+  bindings.getClient satisfies () => ApiClient;
+
+  const directQuery = createQueryStore(client, { id: 'one' }, (api, input, signal) => api.getWidget(input, { signal }));
+  directQuery satisfies SvelteQuery<Widget>;
+
+  const directMutation = createMutationStore(client, (api, input: RenameWidgetInput, signal) =>
+    api.renameWidget(input, { signal }),
+  );
+  directMutation satisfies SvelteMutation<RenameWidgetInput, Widget>;
+  // @ts-expect-error generated mutation input still requires a name
+  void directMutation.mutate({ id: 'one' });
 }
 
 function solidInference(bindings: SolidBindings<ApiClient>): void {
@@ -248,7 +258,6 @@ export type _MissingPackageRetirementTriggers = [
   keyof typeof MissingNuxtServerAdapter,
   keyof typeof MissingReactNativeAdapter,
   keyof typeof MissingSolidAdapter,
-  keyof typeof MissingSvelteAdapter,
   keyof typeof MissingSvelteKitClientAdapter,
   keyof typeof MissingSvelteKitServerAdapter,
 ];

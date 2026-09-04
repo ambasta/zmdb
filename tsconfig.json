@@ -44,6 +44,7 @@
       "@zmdb/mcp": ["./packages/mcp/src/index.ts"],
       "@zmdb/schema-core": ["./packages/schema-core/src/index.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/src/*/index.ts"],
+      "@zmdb/svelte": ["./packages/svelte/src/index.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/src/index.ts"],
       "@zmdb/query-compiler/*": ["./packages/query-compiler/src/*/index.ts"],
       "@zmdb/aot-validator": ["./packages/aot-validator/src/index.ts"],

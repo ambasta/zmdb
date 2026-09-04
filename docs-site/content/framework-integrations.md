@@ -13,7 +13,7 @@ release has no official framework adapter; use the generated HTTP client through
 | React        | optional    | @zmdb/react         | react                 | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                        |
 | React Native | documented  | @zmdb/aot-validator | —                     | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                          |
 | Solid        | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Svelte       | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
+| Svelte       | optional    | @zmdb/svelte        | svelte                | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`           |
 | SvelteKit    | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
 | Vue          | optional    | @zmdb/vue           | vue                   | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`             |
 
@@ -66,7 +66,7 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-Svelte, Solid, Nuxt, and SvelteKit remain pending. React Native and Next.js stay documented because their current recipes use shipped package boundaries without claiming those future adapters.
+Solid, Nuxt, and SvelteKit remain pending. React Native and Next.js stay documented because their current recipes use shipped package boundaries without claiming those future adapters.
 
 ## Vue
 
@@ -113,3 +113,25 @@ and generation guards suppress stale completion. Vue `onScopeDispose` aborts act
 
 Creating bindings or installing the plugin performs no request. For SSR, create one generated client and one `createSSRApp` per request and install that request's client on its application. The
 binding namespace retains only an injection key, so concurrent applications do not share clients, credentials, query state, or mutation state.
+
+## Svelte 5
+
+Install the native adapter beside its required framework peer:
+
+```bash
+npm add @zmdb/svelte@alpha svelte@^5.57.0
+```
+
+Create one typed context namespace for the generated client:
+
+```ts
+import { createZmdbSvelte } from '@zmdb/svelte';
+
+import type { ApiClient } from './generated/api.js';
+
+export const zmdb = createZmdbSvelte<ApiClient>();
+```
+
+Set a tree- or request-local client during provider component initialisation. Descendants call `zmdb.query(input, load)` and `zmdb.mutation(run)`. Query stores make no request until their first
+subscription, abort after their final unsubscribe, restart for a later subscriber, and suppress stale completions after an input-store change. Context-owned stores also register component destruction
+cleanup. Direct `createQueryStore(...)` and `createMutationStore(...)` exports support owners outside component context and the later SvelteKit integration.

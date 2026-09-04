@@ -140,7 +140,7 @@ jobs:
           # it under --tag latest (the only way to move `latest` under OIDC, since
           # `npm dist-tag` is not OIDC-authorized). Otherwise we publish under its
           # channel tag (alpha/beta/rc).
-          for pkg in client react angular vue query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel mcp protobuf aot-validator repository sqlite app jobs jobs-postgres otel transport-grpc transport-nats transport-rabbitmq transport-redis web zmdb; do
+          for pkg in client react angular vue svelte query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel mcp protobuf aot-validator repository sqlite app jobs jobs-postgres otel transport-grpc transport-nats transport-rabbitmq transport-redis web zmdb; do
             echo "=== packages/$pkg ==="
             eval "$(node .github/scripts/decide-dist-tag.mjs "@zmdb/$pkg" "$VER")"
             if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi

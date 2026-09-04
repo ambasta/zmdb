@@ -5,6 +5,7 @@
   "dependencies": {
     "@zmdb/client": "workspace:^",
     "@zmdb/react": "workspace:^",
+    "@zmdb/svelte": "workspace:^",
     "@zmdb/vue": "workspace:^"
   },
   "devDependencies": {

@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691 and #693 now ship `@zmdb/react` and `@zmdb/vue`; the other seven remain implementation targets. Each implementation
-issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client error classes belong to #679
-and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#694 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte`; the other five remain implementation
+targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client
+error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -32,17 +32,15 @@ Measured on 2026-09-05 at `cd75aed4`:
 
 The framework release lines in §4 were measured with `yarn npm info`, not inferred from old documentation.
 
-### 0.1 Current Vue implementation amendment
+## 0.1 Current implementation status
 
-Issue #693 adds the independently installable `@zmdb/vue` base adapter:
+`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` implement four base-adapter rows in this contract. The Svelte package provides typed context, lazy query stores, mutation stores,
+final-subscriber and `onDestroy` cancellation, stale-result guards, and request-isolated server rendering. Its public API and qualification evidence are normative in
+[`packages/svelte/SPEC.md`](../../../svelte/SPEC.md).
 
-- one ESM root over `@zmdb/client`, with Vue `>=3.5.0 <4.0.0` as a required peer;
-- generated-client inference through the plugin, query composable, and mutation composable;
-- real `createSSRApp`, `effectScope`, ref, watcher, and `onScopeDispose` conformance;
-- normal execution of the shared runtime/package cases instead of the Vue missing-package `it.fails`; and
-- a packed fixture that installs tarballs, typechecks, bundles a browser entry, proves per-application SSR isolation, and runs the portable conformance cases.
-
-This changes the Vue row's implementation status only. The common ownership, lifecycle, peer, and rejection rules below remain normative.
+The shared generated-client conformance suite now executes all four landed rows as ordinary passing tests. The remaining five adapter rows retain executable missing-package expected failures until
+their own implementation issues land. The Svelte packed fixture installs real client and adapter tarballs, compiles browser and server component graphs, checks public inference, and renders isolated
+server trees.
 
 ## 1. Ownership boundary
 
@@ -149,8 +147,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react` and `@zmdb/vue` have earned their rows through native and packed qualification fixtures in #691 and #693; each
-remaining row stays conditional on its implementation and packed qualification evidence.
+This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` have earned their rows through native and packed qualification
+fixtures in #691–#694; each remaining row stays conditional on its implementation and packed qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -365,7 +363,8 @@ does not activate a query. Issue #693 implements this contract in `@zmdb/vue`.
 ### 6.4 Svelte
 
 The binding factory owns a typed context key. A query store starts on first subscription and aborts when its final subscriber leaves. A later subscription starts a new request. Input-store changes
-abort and generation-guard the previous request.
+abort and generation-guard the previous request. Context-created query and mutation stores register `onDestroy`; direct store constructors remain available to non-component owners and the later
+SvelteKit package. This row is implemented by `@zmdb/svelte`.
 
 ### 6.5 Solid
 
@@ -411,7 +410,7 @@ The tests freeze in #689 must name and execute at least:
 - `every proposed package names framework behaviour unavailable from @zmdb/client alone`;
 - `the dependency graph from meta-framework to base adapter is acyclic`.
 
-#700 must additionally prove the complete retained adapter matrix from packed applications; individual package issues may establish their own row earlier:
+#700 must additionally prove the complete retained cross-framework matrix from packed applications; individual package fixtures, including Svelte's, supply reusable package-local evidence:
 
 - each retained package exercises the qualifying native behaviour in §2.3;
 - every public export imports in its intended environment;

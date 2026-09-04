@@ -292,6 +292,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/database-sqlite' },
   }),
   productPackage({
+    id: 'svelte',
+    directory: 'packages/svelte',
+    npmName: '@zmdb/svelte',
+    role: 'svelte',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Svelte 5' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
     id: 'transport-grpc',
     directory: 'packages/transport-grpc',
     npmName: '@zmdb/transport-grpc',

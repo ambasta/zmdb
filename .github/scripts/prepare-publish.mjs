@@ -24,6 +24,11 @@ const META = {
     description: 'Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.',
     keywords: ['client', 'composables', 'typescript', 'vue', 'zmdb'],
   },
+  svelte: {
+    description:
+      'Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.',
+    keywords: ['client', 'stores', 'svelte', 'typescript', 'zmdb'],
+  },
   'schema-core': {
     description:
       'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, and custom types — the single source of truth for a zmdb data layer.',

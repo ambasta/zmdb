@@ -43,9 +43,9 @@ The generated-client documentation page is itself executable fixture source: eve
 `consumer-http-client/docs/` project outside the repository and compiles them against declarations from all packed packages, with no `paths` map or skipped library checks.
 
 `client-adapters/` is the private conformance workspace for #689 and #690. One generated client and a settlement-ledger transport drive reusable lifecycle, cancellation, stale-completion, error, retry
-and SSR-isolation assertions for every proposed adapter. `@zmdb/react` and `@zmdb/vue` now run those cases through their real framework lifecycles and externally installed tarball projects; the other
-missing adapter packages remain intentional `it.fails` retirement triggers. Reusable manifest/import rules and packed-project orchestration live beside them. #700 still owns cross-adapter installed
-framework and bundle checks beyond the package-owned slices.
+and SSR-isolation assertions for every proposed adapter. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` now run those cases through their native bindings and externally installed
+tarball projects; the other missing adapter packages remain intentional `it.fails` retirement triggers. Reusable manifest/import rules and packed-project orchestration live beside them. #700 still
+owns cross-adapter installed framework and bundle checks beyond the package-local slices.
 
 ## Working on them
 

@@ -27,6 +27,8 @@ Angular is opt-in too: install `@zmdb/angular` with Angular core and RxJS when a
 
 Vue is opt-in too: install `@zmdb/vue` with Vue 3 when a generated client needs application injection, reactive query/mutation state, scope cancellation, and per-application SSR isolation.
 
+Svelte is opt-in too: install `@zmdb/svelte` only when a generated client needs typed Svelte context, subscription-aware stores, and component-lifecycle cancellation.
+
 Typed gRPC is opt-in: install `@zmdb/transport-grpc` with grpc-js when an application needs generated protobuf services, streaming clients and a bounded server extension.
 
 RabbitMQ is opt-in too: install `@zmdb/transport-rabbitmq` with `amqplib` only when an application selects its confirmed retry and dead-letter transport.
@@ -35,7 +37,7 @@ Redis Pub/Sub is opt-in: install `@zmdb/transport-redis` with `redis`; neither t
 
 PostgreSQL job storage is opt-in: install `@zmdb/jobs-postgres` with `pg` when workers use a caller-owned PostgreSQL pool or client.
 
-> The workspace publishes **25 packages** across **128 export-map entry points**. The current suite has **3,052 passing tests** across 277 files, plus **129 expected failures** that describe work
+> The workspace publishes **26 packages** across **129 export-map entry points**. The current suite has **3,075 passing tests** across 279 files, plus **116 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 

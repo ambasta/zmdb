@@ -107,6 +107,7 @@ const PACKAGES = [
   'react',
   'angular',
   'vue',
+  'svelte',
   'schema-core',
   'ai',
   'ai-anthropic',

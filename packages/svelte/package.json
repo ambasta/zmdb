@@ -1,0 +1,54 @@
+{
+  "name": "@zmdb/svelte",
+  "version": "1.0.0-alpha.4",
+  "description": "Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.",
+  "keywords": [
+    "client",
+    "stores",
+    "svelte",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/svelte"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/client": "workspace:^"
+  },
+  "devDependencies": {
+    "svelte": "5.57.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "svelte": ">=5.0.0 <6.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

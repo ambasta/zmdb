@@ -63,10 +63,15 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'Svelte',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/svelte',
+    status: 'optional',
+    peers: ['svelte'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: [
+      'packages/svelte/SPEC.md',
+      'packages/svelte/src/svelte.spec.ts',
+      'fixtures/client-adapters/svelte-packed',
+    ],
   }),
   integration({
     capability: 'SvelteKit',

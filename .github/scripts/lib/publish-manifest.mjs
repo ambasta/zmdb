@@ -18,6 +18,7 @@ export const PACKAGES = [
   'react',
   'angular',
   'vue',
+  'svelte',
   'query-compiler',
   'schema-core',
   'ai',
