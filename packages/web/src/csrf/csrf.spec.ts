@@ -1,3 +1,4 @@
+import '../polyfill.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
