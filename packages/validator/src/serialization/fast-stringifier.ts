@@ -1,5 +1,5 @@
 // Fast schema-aware stringifier compiler for @zmdb/aot-validator.
-import { stringify } from './index.ts';
+import { stringify } from './index.js';
 
 /** True for a non-null object/record value. */
 function isRecord(val: unknown): val is Record<string, unknown> {

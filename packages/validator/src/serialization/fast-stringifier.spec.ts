@@ -2,7 +2,7 @@ import { schemasFrom } from '@zmdb/compiler/testing';
 import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema/tags';
 import { describe, it, expect } from 'vitest';
 
-import { compileFastStringifier, stringify } from './index.ts';
+import { compileFastStringifier, stringify } from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
