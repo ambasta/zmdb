@@ -30,10 +30,9 @@ import {
 // `lazy()` whose providers are constructed on the first request that reaches one of its routes —
 // and the four startup refusals §L3 says a two-pass compile makes possible.
 //
-// `it.fails` for every frozen claim with the output it produces today recorded above it, and a
-// green `it` only where the claim already holds and the implementation slice could plausibly break
-// it while making a red one pass. See `../../query-compiler/src/schema-objects/expression-indexes.spec.ts`
-// for why `it.fails` and not `.skip` or a stub.
+// These assertions were frozen with `it.fails` in #600 and became ordinary regression tests when
+// #601 implemented the surface. The pre-implementation observations remain beside the assertions
+// so future changes retain the reason each behavior is load-bearing.
 //
 // Every recorded actual below came from running the code, in
 // `packages/web/src/probe600/{p3,p4}.spec.ts` — a throwaway spec that collected each value into a
@@ -152,12 +151,12 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // once at import time, so anything stateful in the value `lazy()` returns is shared by both apps
   // and by every other test file in this suite.
   //
-  // actual today: both calls report `App has no lazy property`, and the load reports
+  // Before #601 both calls reported `App has no lazy property`, and the load reported
   //   `no handle named AdminModule; App.lazy is undefined`
   // — `createApp` returns the object literal at `../app/index.ts:33-39`, which has four members and
   // no `lazy`. So the cross-app bug is not present today for the reason that there is no state at
   // all yet; this test is what stops the fix reintroducing it.
-  it.fails('gives each app from one root module its own unloaded handle', async () => {
+  it('gives each app from one root module its own unloaded handle', async () => {
     const first = createApp(AppModule);
     const second = createApp(AppModule);
     expect(lazyReport(first), 'first app before any load').toEqual(['AdminModule:unloaded']);
@@ -172,9 +171,9 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // are different: a `zmdb modules` printout iterating `app.lazy` has to work for every app, and
   // `undefined` there is a crash in the inspector rather than an application with no lazy modules.
   //
-  // actual today: `undefined` for both roots — the field does not exist, so the distinction the
+  // Before #601 this was `undefined` for both roots — the field did not exist, so the distinction the
   // spec draws cannot be drawn.
-  it.fails('reports an empty handle list for a graph with no lazy imports', () => {
+  it('reports an empty handle list for a graph with no lazy imports', () => {
     expect(lazyHandlesOf(compileModule(EagerOnlyAppModule)), 'no lazy() anywhere').toEqual([]);
     expect(lazyHandlesOf(compileModule(AppModule)), 'one lazy() import').toHaveLength(1);
   });
@@ -183,13 +182,13 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // by `createApp`, and it is opened by the first request that needs it. `factoryCalls` is the
   // fixture's spy; `ADMIN_POOL`'s factory is reached only by building `AdminController`.
   //
-  // actual today: zero calls after `init()` — which is *right*, and for the wrong reason — and
+  // Before #601 there were zero calls after `init()` for the wrong reason, and
   // still zero after the request, because `GET /admin` is a 404. `compileModule`'s `visit`
   // (`./index.ts:76-100`) calls `readModuleDef` on the `{ kind: 'lazy', module }` object, gets
   // `undefined` from `Symbol.metadata`, and falls straight through the `if (def !== undefined)` at
   // :85. So a `lazy()` marker today is not an error and not a deferral: it silently deletes the
   // subtree. That is the single most important recorded actual in this file.
-  it.fails('constructs a lazy module provider on the first request to its route, not at startup', async () => {
+  it('constructs a lazy module provider on the first request to its route, not at startup', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -209,9 +208,9 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // nothing would ever trigger the load. So the route is registered at startup from the controller
   // *class*, and the handler is a trampoline that awaits the load.
   //
-  // actual today: 404 `{"error":"no route for GET /admin"}` — the exact deadlock §L4 describes,
+  // Before #601 this was 404 `{"error":"no route for GET /admin"}` — the exact deadlock §L4 describes,
   // reached because the subtree was dropped rather than deferred.
-  it.fails('answers a lazy module route rather than 404', async () => {
+  it('answers a lazy module route rather than 404', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -226,11 +225,11 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // which is a weaker claim than the spec's and is the honest one to freeze. §L4's "no route is
   // added or removed after startup" is exactly this set being stable.
   //
-  // actual today: identical before and after, at
+  // Before #601 the route set was identical before and after, at
   //   ["GET /health","GET /users/me","GET /users/1","POST /users","GET /invoices/1","GET /search"]
   // — stable, and missing both of `AdminModule`'s routes. The stability half passes today and the
   // membership half is what fails, which is why both are asserted here and not in two tests.
-  it.fails('registers a lazy module route table that does not change across a load', async () => {
+  it('registers a lazy module route table that does not change across a load', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -248,10 +247,10 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // built, and `CLOCK`'s factory runs. Two-pass compile makes the declaration check possible
   // before any `build`, which is the difference between a refusal and a half-built graph.
   //
-  // actual today: the throw is right —
+  // Before #601 the throw was right —
   //   UnresolvedTokenError: @zmdb/web: no provider registered for token "NEVER_REGISTERED"
   // — and `factoryCalls` is `["CLOCK"]`, so one provider was constructed before the refusal.
-  it.fails('refuses an unresolvable token before constructing any provider', () => {
+  it('refuses an unresolvable token before constructing any provider', () => {
     resetFactoryCalls();
     expect(bootstrap(UnresolvedAfterWarmAppModule)).toMatch(/no provider registered for token "NEVER_REGISTERED"/);
     expect(factoryCalls, 'providers constructed before the refusal').toEqual([]);
@@ -266,11 +265,11 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // The `->` in the frozen text is matched as ASCII, and the assertion is on the whole sentence
   // rather than a fragment because the ordering *is* the claim.
   //
-  // actual today: `@zmdb/web: import cycle detected in the module graph` — no path, no module
+  // Before #601 this was `@zmdb/web: import cycle detected in the module graph` — no path, no module
   // names, and the same string for every cycle in every application. This is the one assertion in
   // this file that is diagnostic against code that fully exists: it fails on a comparison of two
   // real messages, so the day the path lands it says whether the order is right.
-  it.fails('names the cycle path in the import cycle message', () => {
+  it('names the cycle path in the import cycle message', () => {
     expect(bootstrap(CycleAppModule)).toBe(
       'Error: @zmdb/web: import cycle in the module graph: ' +
         'CycleAppModule -> CycleBillingModule -> CycleUsersModule -> CycleAppModule',
@@ -282,11 +281,11 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // deliberate testing override, because `createTestApp` registers its overrides through the same
   // `Map.set` (`./index.ts:72-74`).
   //
-  // actual today: `createApp` returns an `App`. The later registration silently wins at
+  // Before #601 `createApp` returned an `App`. The later registration silently won at
   // `../di/index.ts:108-111`, so `CONFIG` resolves to `{ url: 'second' }` and the application that
   // meant `first` starts and is wrong. No message exists to assert a fragment of, so the assertion
   // is that a refusal happens at all plus the two module names it has to carry.
-  it.fails('refuses two modules registering the same token, naming both', () => {
+  it('refuses two modules registering the same token, naming both', () => {
     const result = bootstrap(DuplicateProviderAppModule);
     expect(typeof result, 'a refusal is a string here, an App is not').toBe('string');
     expect(result).toMatch(/CONFIG/);
@@ -298,12 +297,12 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // the first request to an eager controller dies in a field initializer naming a token but not
   // the reason, and the reason is a `lazy()` wrapper in a module the reader is not looking at.
   //
-  // actual today:
+  // Before #601:
   //   UnresolvedTokenError: @zmdb/web: no provider registered for token "ADMIN_POOL"
   // — thrown from `createApp`, so the timing is already right, and naming neither
   // `EagerNeedsAdminController` nor `AdminModule`. The refusal is indistinguishable from a token
   // nobody registered anywhere, which is the failure §L3 predicts almost word for word.
-  it.fails('refuses an eager class injecting a lazy-only token, naming both classes and the token', () => {
+  it('refuses an eager class injecting a lazy-only token, naming both classes and the token', () => {
     const result = bootstrap(EagerDependsOnLazyAppModule);
     expect(result).toMatch(/ADMIN_POOL/);
     expect(result).toMatch(/EagerNeedsAdminController/);
@@ -316,9 +315,9 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // two-pass compile exists for — that this does not depend on `imports` array order — so both
   // orders are asserted, and the handle list has to be empty in both because nothing is lazy.
   //
-  // actual today: `undefined` for both, because there is no field. The order-independence half is
+  // Before #601 this was `undefined` for both because there was no field. The order-independence half is
   // pinned separately, green, below.
-  it.fails('gives no handle to a module that any eager path reaches, in either import order', () => {
+  it('gives no handle to a module that any eager path reaches, in either import order', () => {
     expect(lazyHandlesOf(compileModule(LazyThenEagerAppModule)), 'lazy edge first').toEqual([]);
     expect(lazyHandlesOf(compileModule(EagerThenLazyAppModule)), 'eager edge first').toEqual([]);
   });
@@ -329,11 +328,11 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // pass with only `onModuleInit` running if the bootstrap entry were absent, so the entry is
   // asserted present and then ordered.
   //
-  // actual today: `hookLog` is
+  // Before #601 `hookLog` was
   //   ["HealthController.onModuleInit","HealthController.onApplicationBootstrap"]
   // both after `init()` and after the request — no `AdminController` entries at all, because the
   // controller is never constructed and `GET /admin` is a 404.
-  it.fails('runs both lifecycle hooks on a loaded module before the triggering response', async () => {
+  it('runs both lifecycle hooks on a loaded module before the triggering response', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -358,11 +357,11 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // opposite; §L7 says so explicitly and asks for the retitle. This test carries the frozen
   // behaviour, not the title's.
   //
-  // actual today: both requests are 404 `{"error":"no route for GET /broken"}`, `BROKEN_POOL` has
+  // Before #601 both requests were 404 `{"error":"no route for GET /broken"}`, `BROKEN_POOL` had
   // zero calls, and `lazyReport` is `App has no lazy property`. For contrast, the same module
   // compiled eagerly — `compileModule(BrokenModule)` — throws `fixture: the pool could not be
   // opened` from `createApp`, which is what makes the deferral observable at all.
-  it.fails('delivers the same error to every request after a failed load, running the factory once', async () => {
+  it('delivers the same error to every request after a failed load, running the factory once', async () => {
     resetFactoryCalls();
     const app = createApp(BrokenLazyAppModule);
     await app.init();
@@ -383,8 +382,8 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // on the transition to `loading` and every later caller awaits that same one; Node's event loop
   // makes the check-and-set safe with no lock precisely because §L5's region does not yield.
   //
-  // actual today: ten 404s and zero factory calls.
-  it.fails('triggers one load for ten concurrent requests to a lazy module', async () => {
+  // Before #601 this produced ten 404s and zero factory calls.
+  it('triggers one load for ten concurrent requests to a lazy module', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -404,10 +403,10 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // rather than an implementation detail — nine of these ten waiters observe the handle while it
   // is neither `unloaded` nor settled.
   //
-  // actual today: ten identical 404s and zero factory calls. "Ten identical responses" therefore
+  // Before #601 this produced ten identical 404s and zero factory calls. "Ten identical responses" therefore
   // passes today for the wrong reason, which is why the factory count and the status are asserted
   // in the same test.
-  it.fails('gives ten concurrent waiters one error from one failed load', async () => {
+  it('gives ten concurrent waiters one error from one failed load', async () => {
     resetFactoryCalls();
     const app = createApp(BrokenLazyAppModule);
     await app.init();
@@ -431,10 +430,10 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // the ordering over controllers is the strongest form of this claim the current lifecycle
   // supports, and it is the form that catches a load appending to the wrong end of the list.
   //
-  // actual today: `hookLog` after dispose is
+  // Before #601 `hookLog` after dispose was
   //   ["HealthController.onModuleInit","HealthController.onApplicationBootstrap","HealthController.onShutdown"]
   // — no `AdminController.onShutdown`, because nothing was ever loaded.
-  it.fails('tears a loaded module down before the eager instances it was loaded after', async () => {
+  it('tears a loaded module down before the eager instances it was loaded after', async () => {
     resetFactoryCalls();
     const app = createApp(AppModule);
     await app.init();
@@ -455,10 +454,10 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   //
   // The gate is in `SlowController.onModuleInit`, the only place §L5 permits a load to suspend.
   //
-  // actual today: `GET /slow` returns 404 immediately, `hookLog` never gains a `SlowController`
+  // Before #601 `GET /slow` returned 404 immediately and `hookLog` never gained a `SlowController`
   // entry, and dispose has nothing to wait for — so all three assertions below are unreachable
   // for want of the trampoline that would put a load in flight.
-  it.fails('awaits an in-flight load on dispose and refuses a new one', async () => {
+  it('awaits an in-flight load on dispose and refuses a new one', async () => {
     resetFactoryCalls();
     const app = createApp(SlowLazyAppModule);
     await app.init();
@@ -513,7 +512,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // §L12.11's first clause: a module that never loaded has no instances, so its `onShutdown` never
   // runs. Constructing one in order to shut it down would open the pool it is about to close.
   //
-  // Green today and vacuously so — nothing is ever loaded — and it is the assertion that catches
+  // This was green vacuously before #601; it now guards the implemented lifecycle and catches
   // the obvious wrong fix for the red test above it: making shutdown walk the handle list and
   // build each module's controllers so that it has something to call `onShutdown` on.
   it('does not run onShutdown for a module that never loaded', async () => {
@@ -555,10 +554,10 @@ describe('the graph readers a description is built from (frozen: modules/SPEC.md
   // also the most diagnostic of the three, because the failure message prints the export list that
   // does exist next to the name that does not.
   //
-  // actual today: both are `undefined`. `readModuleDef` exists at `./index.ts:50` and is not
+  // Before #601 both were `undefined`. `readModuleDef` existed at `./index.ts:50` and was not
   // exported; `../di/index.ts` has no reader for the `INJECTIONS` slot at all — §L10 notes that
   // nothing in the repository reads it.
-  it.fails('exports moduleDefOf from the modules entry and injectionsOf from the di entry', async () => {
+  it('exports moduleDefOf from the modules entry and injectionsOf from the di entry', async () => {
     expect(Object.keys(await import('./index.js')), 'modules/index.ts').toContain('moduleDefOf');
     expect(Object.keys(await import('../di/index.js')), 'di/index.ts').toContain('injectionsOf');
   });

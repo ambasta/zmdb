@@ -13,24 +13,27 @@ A Stage-3 **class** decorator recording a module definition in `context.metadata
   value) or `{ token, useFactory }` (a factory `(c: Container) => T`), optionally
   `{ scope: 'singleton' | 'transient' }` (default `singleton`).
 - **`controllers`**: `readonly Constructor[]` built through the container.
-- **`imports`**: other `@Module` classes whose **exports** are visible here.
-- **`exports`**: subset of this module's tokens visible to importers.
+- **`imports`**: other `@Module` classes, or `lazy(ModuleClass)` declarations.
+- **`exports`**: the declared subset intended for importers. Visibility remains
+  aspirational; the current shared container does not enforce it (see §L10).
 
 ### `compileModule(RootModuleClass): CompiledModule`
 
 Walk the module graph (acyclic) and:
 
-- create a `Container`, register every module's providers (respecting `imports`/
-  `exports` visibility), resolving `useFactory` lazily,
-- build each module's controllers through the container,
-- expose `{ container, controllers }`.
+- validate the complete graph before constructing anything, including lazy
+  edges, unresolved injections, cycles and duplicate provider tokens,
+- create one `Container`, register eager providers and build eager controllers,
+- retain per-app handles that instantiate lazy subtrees on first use,
+- expose `{ container, controllers, lazy }`.
 - **Singleton** providers resolve once and cache; **transient** re-run the factory
   on each `resolve`. Detect and throw on an **import cycle**.
 
 ## Invariants
 
-- Static wiring at compile time (module-graph walk), cached — **no per-request
-  graph walk, no reflection.**
+- Static declarations are validated and cached at compile time. A lazy load
+  consumes its cached subtree order; there is **no per-request graph walk or
+  reflection**.
 - **No `as`/`any`/`!` on the consumer surface.** Provider token typing carries T.
 - Builds on `@zmdb/web/di` — the Container remains the single registry.
 
@@ -99,11 +102,11 @@ forbids this feature. It is amended to three claims, which are what it was prote
 
 1. **No reflection, ever.** Unchanged and absolute. A lazy module's wiring is read from the same
    decorator metadata, written at class-definition time.
-2. **No graph walk on any request except the one that triggers a load**, and none at all in an
-   application with no lazy imports — where `compileModule` executes byte-identically to today,
-   `registerDeferred` is never called, and there is no `await` anywhere that was not there
-   before. This is the cost model the epic asks for, and it is a property of the code path rather
-   than a benchmark result.
+2. **No graph walk on any request.** The complete declarations and each lazy subtree's
+   construction order are cached at startup. In an application with no lazy imports,
+   `registerDeferred` is never called and the eager instantiation path has no added `await`.
+   This is the cost model the epic asks for, and it is a property of the code path rather than a
+   benchmark result.
 3. **The route table is still fixed after startup** — §L4 is the reason this survives, and it is
    the constraint that determines the design rather than following from it.
 

@@ -35,6 +35,20 @@ import { benchmarkRouter } from '@zmdb/web/bench';
 const { iters, totalMs, opsPerSec } = await benchmarkRouter({ routes: 20, iters: 100_000 });
 ```
 
+`benchmarkAppStartup` measures repeated eager `createApp` calls with the same raw
+result shape:
+
+```ts
+import { benchmarkAppStartup } from '@zmdb/web/bench';
+
+const result = benchmarkAppStartup(AppModule, 10_000);
+```
+
+It deliberately has no built-in pass/fail threshold. Startup timing depends on
+the module graph and the machine running it; the suite checks the benchmark
+itself and eager behavior, while callers record comparable runs in their own
+environment.
+
 ## End-to-end HTTP — the-benchmarker/web-frameworks
 
 Beyond the in-process microbench, `@zmdb/web` participates in

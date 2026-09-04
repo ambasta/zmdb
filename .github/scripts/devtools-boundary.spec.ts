@@ -359,14 +359,9 @@ describe('the devtools boundary', () => {
     expect(named).toEqual([]);
   });
 
-  // §9.1's first half. Red: none of the three exists yet in `@zmdb/web`, so none of them is
-  // re-exported here. The two readers are §4's `moduleDefOf` and `injectionsOf` — the ones a
-  // description is built from, which are library surface and belong in the umbrella — and `lazy` is
-  // §L2's marker. Asserted as one list so the failure names which of the three is missing rather
-  // than stopping at the first.
-  it.fails('re-exports lazy and the two metadata readers from the zmdb umbrella package', () => {
-    // Today: []. `packages/zmdb/src/web.ts` enumerates 62 value exports (`compileModule`,
-    // `metadataOf`, `countMetadataReads` among them) and none of these three.
+  // §9.1's first half. The metadata readers are library surface used by the later inspector slice,
+  // and `lazy` is the declaration marker. Keep all three reachable through the umbrella.
+  it('re-exports lazy and the two metadata readers from the zmdb umbrella package', () => {
     const source = readFileSync(join(PACKAGES_DIR, 'zmdb', 'src', 'web.ts'), 'utf8');
     const named = ['lazy', 'moduleDefOf', 'injectionsOf'].filter(name =>
       new RegExp(`^\\s*${name},$`, 'm').test(source),

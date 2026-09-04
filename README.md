@@ -28,9 +28,9 @@
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
 > **framework integrations**, and an **LLM function-calling, bounded chat, and MCP**
-> harness. **1,265 tests green** across 172 files, including real `node:sqlite` E2E, a Kysely
+> harness. **1,285 tests green** across 172 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **450 expected-failing tests** hold the frozen specs of features
+> Alongside them, **432 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.
@@ -38,7 +38,7 @@
 > MikroORM, NestJS and Typia run between them: 453 are answered by a named zmdb
 > test, 289 are argued against in writing, and `yarn verify:api-coverage` fails
 > on a suite that is neither.
-> Of the 276 docs-site pages, 193 document a capability that exists, 71 are marked
+> Of the 276 docs-site pages, 194 document a capability that exists, 70 are marked
 > `todo` — a page that argues for a feature gap rather than describing one — and 12
 > are marked not planned, where the answer is no and the page says what to reach for
 > instead. All three are counted by `yarn verify:docs-coverage`.

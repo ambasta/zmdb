@@ -82,6 +82,7 @@ export {
   Container,
   createToken,
   Inject,
+  injectionsOf,
   UnresolvedTokenError,
   type Token,
   type Constructor,
@@ -113,10 +114,15 @@ export { repositoryToken, validateWith } from './data/index.js';
 export {
   Module,
   compileModule,
+  lazy,
+  moduleDefOf,
   type ModuleDef,
   type ModuleClass,
   type ProviderDef,
   type CompiledModule,
+  type LazyImport,
+  type LazyModuleHandle,
+  type LazyStatus,
 } from './modules/index.js';
 
 // Guards, pipes, interceptors & exception filters. See ./middleware.
@@ -165,6 +171,7 @@ export { createTestApp, type TestApp, type TestAppOptions } from './testing/inde
 
 // Router benchmark & perf verification. See ./bench.
 export {
+  benchmarkAppStartup,
   benchmarkRouter,
   countMetadataReads,
   type BenchmarkOptions,

@@ -18,6 +18,10 @@ await app.handle({ method: 'GET', path: '/ping', headers: {} }); // framework-ne
 await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 ```
 
+`app.lazy` contains the per-app handles for
+[lazy module imports](./web-lazy-modules.html). It is empty for an all-eager
+graph.
+
 ## Lifecycle hooks
 
 Implement any of these on a controller (or provider) and they run at the right
@@ -36,10 +40,11 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase    | order                                                 |
-| -------- | ----------------------------------------------------- |
-| `init()` | `onModuleInit` (all) → `onApplicationBootstrap` (all) |
-| shutdown | `onShutdown` in **reverse** registration order        |
+| phase     | order                                                       |
+| --------- | ----------------------------------------------------------- |
+| `init()`  | eager `onModuleInit` (all) → `onApplicationBootstrap` (all) |
+| lazy load | that module's `onModuleInit` → `onApplicationBootstrap`     |
+| shutdown  | `onShutdown` in **reverse** construction order              |
 
 ## Graceful shutdown with `await using`
 
@@ -55,9 +60,9 @@ await app.init();
 
 ## Design notes
 
-- **Bootstrap-time wiring** — DI graph + routes are resolved once; the
-  per-request path is the unchanged [dispatcher](./web-pipeline.html) (no
-  reflection per request).
+- **Bootstrap-time declarations** — the full graph is validated and every route
+  is registered once. Lazy instances alone are deferred; the dispatcher reads
+  no metadata per request.
 - **No `as`** — hook detection uses structural `in`-narrowing, not casts.
 - Granular import: `import { createApp } from '@zmdb/web/app'`.
 

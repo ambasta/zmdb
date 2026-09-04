@@ -19,7 +19,11 @@ const reports = app.container.resolve(REPORTS);
 console.log(JSON.stringify(await reports.monthly(), undefined, 2));
 ```
 
-`createApp` runs `onModuleInit` and `onApplicationBootstrap`, builds every controller and gives you the container. No socket is opened — `App` has [no `listen()`](./web-standalone.html), so nothing starts listening unless you call an adapter.
+`createApp` builds eager controllers, registers lazy-controller routes, and
+gives you the container. `app.init()` runs the eager `onModuleInit` and
+`onApplicationBootstrap` hooks; a lazy module runs its hooks when loaded. No
+socket is opened — `App` has [no `listen()`](./web-standalone.html), so nothing
+starts listening unless you call an adapter.
 
 `await using` matters. `App` is `AsyncDisposable`, and without disposal the connection pool keeps the process alive after your work finishes — the script hangs rather than exiting, which is the first thing people hit here.
 

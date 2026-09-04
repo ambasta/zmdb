@@ -55,11 +55,12 @@ A factory receives the `Container`, so it resolves its own options — there is 
 > convention, and keep internal tokens un-exported so the intent is at least
 > readable.
 
-Because the container is flat, importing the same dynamic module twice registers
-the same tokens twice and the **last registration wins**:
+Importing the same dynamic module twice with the same tokens is refused at
+startup:
 
 ```ts
-imports: [mailerModule(transactional), mailerModule(marketing)]; // marketing wins for both
+imports: [mailerModule(transactional), mailerModule(marketing)];
+// Error: duplicate provider token "MAILER_OPTIONS"
 ```
 
 If you need two configurations of one thing, give them distinct tokens:
@@ -93,14 +94,14 @@ export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema
 export class AppModule {}
 ```
 
-Distinct tokens, so the flat container is not a problem. `repositoryToken<S>(name)`
+Distinct tokens avoid that declaration conflict. `repositoryToken<S>(name)`
 from `@zmdb/web/data` gives you a typed token in one call — see
 [Repository Providers](./web-data-integration.html).
 
 ## Ordering
 
-`compileModule` visits `imports` depth-first, then registers the module's own
-providers, then builds its controllers. So:
+For eager imports, `compileModule` visits `imports` depth-first, then registers
+the module's own providers and builds its controllers. So:
 
 - A module's controllers see everything its imports registered. Good.
 - An **imported** module's controllers do **not** see the importing module's

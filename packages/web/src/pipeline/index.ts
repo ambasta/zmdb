@@ -14,6 +14,7 @@ import {
   type Ctx,
   type QueryValues,
 } from '../context/index.js';
+import type { Constructor } from '../di/index.js';
 import { getRoutes, type ResolvedRoute } from '../routing/index.js';
 
 export type { Ctx } from '../context/index.js';
@@ -164,6 +165,7 @@ export function respond(init: {
 
 export interface Router {
   register(controller: object, options?: Readonly<Record<string, RouteOptions>>): void;
+  registerDeferred(controller: Constructor<object>, instance: () => Promise<object>): void;
   handle(req: WebRequest): Promise<WebResponse>;
 }
 
@@ -191,6 +193,24 @@ export function createRouter(): Router {
             ? { route, pattern, handler }
             : { route, pattern, handler, validateBody: opts.validateBody },
         );
+      }
+    },
+
+    registerDeferred(controller: Constructor<object>, instance: () => Promise<object>): void {
+      for (const route of getRoutes(controller)) {
+        let resolved: Handler | undefined;
+        const handler: Handler = async ctx => {
+          if (resolved === undefined) {
+            const built = await instance();
+            resolved = readHandler(built, route.handlerName);
+            if (resolved === undefined) {
+              throw new Error(`@zmdb/web: controller has no handler named "${route.handlerName}"`);
+            }
+          }
+          return resolved(ctx);
+        };
+        const pattern = compilePattern(route.path);
+        bucketFor(buckets, route.method, pattern.segmentCount).push({ route, pattern, handler });
       }
     },
 

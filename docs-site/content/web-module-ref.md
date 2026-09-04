@@ -1,4 +1,6 @@
-There is no `ModuleRef`. There is `app.container`, which is a `Container` with five methods, and that covers what `ModuleRef` is normally used for.
+There is no `ModuleRef`. There are two explicit surfaces instead:
+`app.container`, for typed provider lookup, and `app.lazy`, for loading a module
+that was declared lazy.
 
 ## Getting a provider
 
@@ -39,7 +41,9 @@ export class PostsController {
 
 `@Inject` is a **field** decorator. The `!` is required — the decorator supplies the initializer, so TypeScript needs the definite-assignment assertion. Constructor-parameter injection does not work: `Container.build` calls `new Ctor()` with no arguments, and `Constructor<T>` is `new () => T`.
 
-Resolution happens once, during construction. There is no per-request resolution and no proxy, which is why there is nothing to make lazy.
+An injected field resolves once, during its controller's construction. Eager
+controllers are constructed at startup; a lazily imported controller is
+constructed on its first load. Neither path adds a per-request provider proxy.
 
 ## When you genuinely need the container
 
@@ -85,6 +89,18 @@ export class DataModule {}
 
 Order does not matter: factories run lazily on first `resolve`, and a singleton caches its result back into the bindings.
 
+## Loading a declared lazy module
+
+```ts
+const admin = app.lazy.find(handle => handle.name === 'AdminModule');
+await admin?.load();
+```
+
+The handle belongs to this app, reports
+`'unloaded' | 'loading' | 'loaded' | 'failed'`, and loads only a module already
+declared with `lazy(AdminModule)` in the graph. It is not an API for attaching an
+arbitrary class at runtime.
+
 ## Transient providers
 
 ```ts
@@ -97,14 +113,15 @@ Order does not matter: factories run lazily on first `resolve`, and a singleton 
 
 - **`resolve()` with a fresh dependency subtree.** No equivalent; scopes are singleton or transient only.
 - **Module-scoped lookup.** `compileModule` builds **one flat container** for the whole graph, so there is no per-module registry to look in. Which brings us to the honest caveat below.
-- **Lazy module instantiation.** See [Lazy Modules](./web-lazy-modules.html).
+- **Arbitrary runtime module attachment.** Lazy subtrees must be declared and
+  validated at startup. See [Lazy Modules](./web-lazy-modules.html).
 
 > [!WARNING]
 > `ModuleDef.exports` is accepted and **not enforced**. Every provider from every
 > module in the graph lands in one container, so a controller can inject a token
-> from a module it did not import, and a token collision between two modules
-> silently resolves to whichever registered last. Keep tokens unique — export them
-> from one module each — and treat `exports` as documentation for now.
+> from a module it did not import. A token collision between two modules is
+> refused at startup. Keep tokens unique, export them from one owner module, and
+> treat `exports` as documentation for now.
 
 ---
 

@@ -296,7 +296,7 @@ that.
 | `cycle`                       | error    | An import cycle, with `path` — §6.                                                |
 | `unresolved-token`            | error    | An `@Inject` field whose token no module in the graph registers.                  |
 | `eager-depends-on-lazy`       | error    | An eager class injects a token only a lazy module provides — amendment §L3.       |
-| `duplicate-provider`          | error    | Two modules register the same token; the later silently wins at `#bindings.set`.  |
+| `duplicate-provider`          | error    | Two modules register the same token; `compileModule` refuses the graph.           |
 | `shadowed-route`              | error    | Two controllers register the same method and path; the first wins.                |
 | `duplicate-token-description` | warning  | Two distinct tokens share a description, so every output naming one is ambiguous. |
 | `anonymous-class`             | warning  | A module, controller or provider whose `name` is empty or mangled.                |
@@ -313,10 +313,7 @@ thing that file's §7 already rejects.
 
 ## 6. A cycle without its path is a puzzle
 
-The message today is `'@zmdb/web: import cycle detected in the module graph'`
-(`../modules/index.ts:81`) and names nothing, which `web-devtools.md` calls "the main rough
-edge" and answers with "bisect by commenting out `imports` entries". The frozen message names
-the path:
+`compileModule` now names the cycle path:
 
 ```
 @zmdb/web: import cycle in the module graph: AppModule -> BillingModule -> UsersModule -> BillingModule
@@ -331,7 +328,7 @@ first element repeated last, so the closing edge is visible rather than inferred
 onward, plus the repeated module again. An implementation that adds a parallel array is adding
 a second copy of the truth to the one function whose correctness this depends on.
 
-The same path is what makes the cycle a `warning`-free `error` finding rather than a throw in
+The same path makes the cycle a `warning`-free `error` finding rather than a throw in
 `describeGraph`: the walk that finds it is the walk that describes everything else, so a
 described graph with a cycle is a complete description plus one finding, not a partial one.
 

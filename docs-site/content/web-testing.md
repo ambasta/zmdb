@@ -31,6 +31,10 @@ await app.request({ method: 'GET', path: '/hello', headers: {} });
 app.get(GreeterToken) === stub; // resolve any provider to assert on a spy
 ```
 
+The same override applies inside a
+[lazy module](./web-lazy-modules.html). Its route is available immediately, and
+the first test request constructs the deferred controller with the stub.
+
 ## Lifecycle in tests
 
 `createTestApp` is an `AsyncDisposable`, so `await using` cleans up:

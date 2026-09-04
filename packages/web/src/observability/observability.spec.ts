@@ -366,7 +366,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     // `Observability`, at which point `length` becomes 0 still (the parameter is optional) —
     // so the assertion that actually moves is `createTracedRouter` stopping to throw.
     expect(createRouter.length).toBe(0);
-    expect(Object.keys(createRouter())).toEqual(['register', 'handle']);
+    expect(Object.keys(createRouter())).toEqual(['register', 'registerDeferred', 'handle']);
   });
 
   // GREEN. ./SPEC.md §5's central argument for attaching `telemetry` to the compiled query is

@@ -11,6 +11,9 @@
 - **`router.register(controllerInstance)`** — read the controller's routes via
   `getRoutes(controllerInstance.constructor)` (built once at register time) and
   bind each to the instance's handler method. The resolved table is cached.
+- **`router.registerDeferred(controllerClass, instance)`** — read routes from
+  the class at registration time, then await `instance()` only after one of
+  those routes matches. No route is added or removed during the load.
 - Each route may carry an optional **`validateBody`** hook
   (`(raw: unknown) => Body`) that runs before the handler; if it throws, the
   handler is **not** called and the pipeline yields a 400.

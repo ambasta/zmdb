@@ -78,7 +78,9 @@ await app.init();
 
 True hot module replacement — swapping a controller's implementation in a running process while keeping state — is not possible with this design, and would not be desirable:
 
-- Controllers are constructed once at `compileModule`. Replacing a class means rebuilding the container, which means rebuilding the routers, which is a restart in all but name.
+- Controllers are constructed once per app — eagerly at compile or on a declared
+  lazy module's first load. Replacing a class still means rebuilding the
+  container and router, which is a restart in all but name.
 - Decorator metadata is read at registration. New metadata needs a new registration.
 - Any state on a provider survives or does not, unpredictably. That is how HMR produces bugs that do not exist after a restart, and debugging those costs more than the restart saved.
 

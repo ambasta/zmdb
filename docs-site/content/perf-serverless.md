@@ -4,15 +4,15 @@ Serverless changes which costs matter. A long-running server pays startup once; 
 
 Almost nothing, and for structural reasons rather than tuning:
 
-|                             | zmdb                                                     |
-| --------------------------- | -------------------------------------------------------- |
-| Runtime dependencies        | zero                                                     |
-| Native binaries             | none                                                     |
-| Query engine                | none — the compiler is string manipulation               |
-| Schema construction at load | a plain object per `schemaOf<T>()`, emitted as a literal |
-| Validator construction      | none — descriptors are literals, built at compile time   |
-| Metadata reflection         | none — no `reflect-metadata`                             |
-| Module graph walk           | `createApp` walks your modules once                      |
+|                             | zmdb                                                       |
+| --------------------------- | ---------------------------------------------------------- |
+| Runtime dependencies        | zero                                                       |
+| Native binaries             | none                                                       |
+| Query engine                | none — the compiler is string manipulation                 |
+| Schema construction at load | a plain object per `schemaOf<T>()`, emitted as a literal   |
+| Validator construction      | none — descriptors are literals, built at compile time     |
+| Metadata reflection         | none — no `reflect-metadata`                               |
+| Module graph validation     | `createApp` checks declarations once; lazy instances defer |
 
 Compare that to a data layer shipping a native engine binary (unpack, load, initialise) or a validator that builds its schema graph at module load. Those costs are paid per cold start and are typically larger than the work the function does.
 

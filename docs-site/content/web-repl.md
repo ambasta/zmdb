@@ -4,7 +4,10 @@
 
 ## What replaces it, and why it is nearly as good
 
-Node's REPL plus a module graph that works standalone. `compileModule` gives you `{ container, controllers }` with no lifecycle at all, and `createApp` wraps it in an `App` whose only startup step is `init()` — no server, no listener, no adapter. Six lines get you every service:
+Node's REPL plus a module graph that works standalone. `compileModule` gives you
+`{ container, controllers, lazy }` with no lifecycle owner, and `createApp`
+wraps it in an `App` whose startup step is `init()` — no server, no listener,
+no adapter. Six lines get you every eager service:
 
 ```bash
 node --experimental-strip-types
@@ -20,6 +23,13 @@ node --experimental-strip-types
 ```
 
 `app.container` is public and `resolve` takes a token, so anything your modules register is reachable. That is the substance of what a REPL command provides.
+
+For a declared lazy subtree, load its per-app handle before resolving one of its
+tokens:
+
+```ts
+> await app.lazy.find(handle => handle.name === 'AdminModule')?.load()
+```
 
 ## A small script that does the setup
 

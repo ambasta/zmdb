@@ -16,57 +16,7 @@
 
 import { Inject, createToken, type Container, type Token } from '../../di/index.js';
 import { Controller, Delete, Get, Post } from '../../routing/index.js';
-import { Module, type ModuleClass, type ModuleDef, type ProviderDef } from '../index.js';
-
-// ---------------------------------------------------------------------------
-// The frozen surface, declared locally
-// ---------------------------------------------------------------------------
-//
-// `../SPEC.md` §L2 widens `ModuleDef.imports` from `readonly ModuleClass[]` to
-// `readonly (ModuleClass | LazyImport)[]`. Neither `LazyImport` nor the widened `ModuleDef` exists
-// in `../index.ts`, so the widening — and only the widening — is declared here, intersected with
-// the real `ModuleDef` through `Omit`. Rename a field of the real `ModuleDef` and this file stops
-// compiling instead of quietly testing a shape nobody has. All of it goes away in the slice that
-// widens `imports` for real.
-
-/** §L2 verbatim: an `imports` entry that defers construction. Discriminated by `kind`, not branded. */
-export interface LazyImport {
-  readonly kind: 'lazy';
-  readonly module: ModuleClass;
-}
-
-/** §L2's `ModuleDef`, as the widening over the one that exists. */
-export type FrozenModuleDef = Omit<ModuleDef, 'imports'> & {
-  readonly imports?: readonly (ModuleClass | LazyImport)[];
-};
-
-/**
- * §L2's `lazy(module)`, as a fixture helper rather than a declaration of the real export.
- *
- * The convention this freeze follows does not `declare` a function that does not exist, because a
- * declared stub throws `ReferenceError` and fails identically whether the feature is missing,
- * misnamed or wrong. Nothing has to be declared here: §L2 freezes `lazy()` as returning an inert
- * value with no state at all, so the value is writable directly and the real function under test
- * is `compileModule`, which is handed a graph carrying the marker. The slice that exports `lazy`
- * replaces this with an import.
- */
-export function lazyRef(module: ModuleClass): LazyImport {
-  return { kind: 'lazy', module };
-}
-
-/**
- * `@Module` over the widened definition.
- *
- * boundary: `def` is the shape §L2 freezes and today's `ModuleDef` does not admit a `LazyImport` in
- * `imports`; `ModuleDef` is assignable to `FrozenModuleDef`, so the narrowing assertion is what
- * lets this file compile against a surface that is one slice away. It is the only assertion in the
- * fixture and the tests, and it disappears with the widening. `@Module` itself is the real
- * decorator, so the marker really does reach `context.metadata` — which is the whole point, since
- * `moduleDefOf` is what a description reads it back through.
- */
-export function FrozenModule(def: FrozenModuleDef) {
-  return Module(def as ModuleDef);
-}
+import { lazy, Module, type ModuleClass, type ProviderDef } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Tokens
@@ -311,8 +261,8 @@ export class HealthController {
 }
 
 /** The fixture root: three eager subtrees, one lazy one, and a controller of its own. */
-@FrozenModule({
-  imports: [UsersModule, BillingModule, SearchModule, lazyRef(AdminModule)],
+@Module({
+  imports: [UsersModule, BillingModule, SearchModule, lazy(AdminModule)],
   controllers: [HealthController],
 })
 export class AppModule {}
@@ -371,7 +321,7 @@ export class ArchivedReportsController {
 @Module({ controllers: [ReportsController, ArchivedReportsController] })
 export class ShadowedRouteAppModule {}
 
-/** Two modules registering `CONFIG`. The later silently wins at `#bindings.set`; §5's `duplicate-provider`. */
+/** Two modules registering `CONFIG`; §5's `duplicate-provider` finding and startup refusal. */
 @Module({ providers: [{ token: CONFIG, useValue: { url: 'first' } }] })
 export class FirstConfigModule {}
 
@@ -435,8 +385,8 @@ export class EagerNeedsAdminController {
   }
 }
 
-@FrozenModule({
-  imports: [lazyRef(AdminModule)],
+@Module({
+  imports: [lazy(AdminModule)],
   controllers: [EagerNeedsAdminController],
 })
 export class EagerDependsOnLazyAppModule {}
@@ -457,7 +407,7 @@ export const SHARED = createToken<{ readonly n: number }>('SHARED');
 })
 export class SharedModule {}
 
-@FrozenModule({ imports: [lazyRef(SharedModule)] })
+@Module({ imports: [lazy(SharedModule)] })
 export class LazyImporterModule {}
 
 @Module({ imports: [SharedModule] })
@@ -503,7 +453,7 @@ export class BrokenController {
 })
 export class BrokenModule {}
 
-@FrozenModule({ imports: [CoreModule, lazyRef(BrokenModule)], controllers: [HealthController] })
+@Module({ imports: [CoreModule, lazy(BrokenModule)], controllers: [HealthController] })
 export class BrokenLazyAppModule {}
 
 /**
@@ -533,7 +483,7 @@ export class SlowController {
 @Module({ controllers: [SlowController] })
 export class SlowModule {}
 
-@FrozenModule({ imports: [CoreModule, lazyRef(SlowModule)], controllers: [HealthController] })
+@Module({ imports: [CoreModule, lazy(SlowModule)], controllers: [HealthController] })
 export class SlowLazyAppModule {}
 
 /** A root with no `lazy()` anywhere, for the "costs nothing when unused" half of §L12.5. */

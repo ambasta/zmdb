@@ -1,101 +1,120 @@
-> **ToDo / feature gap.** `compileModule` walks the whole import graph eagerly and
-> builds every controller before `createApp` returns. There is no
-> `LazyModuleLoader`, no deferred registration, and no way to add a module after
-> startup.
+Lazy modules defer construction without deferring validation. The complete
+module graph is checked when `createApp` runs; a lazy subtree's providers,
+controllers and lifecycle hooks are instantiated only when one of its routes or
+its handle first loads it.
 
-## What happens today
-
-```ts
-export function createApp(rootModule: ModuleClass): App {
-  const { container, controllers } = compileModule(rootModule);
-  const router = createRouter();
-  for (const controller of controllers) router.register(controller);
-  // …
-}
-```
-
-Every imported module is visited, every provider registered, every controller constructed with `new Ctor()`. If a module imports a heavy dependency at module scope, you pay for it at startup whether or not any request touches it.
-
-## Why it matters less than it looks
-
-Eager construction is cheap here, for structural reasons:
-
-- **Providers are lazy already.** `useFactory` does not run until the first `resolve`, and a singleton caches. So a provider wrapping an expensive client costs nothing until used.
-- **Controllers are `new Ctor()`.** No metadata reflection, no proxies, no dependency graph traversal per instance — field injection resolves tokens, and unresolved factories stay unresolved.
-- **Repositories are objects over a driver.** `defineRepository(schema, driver, opts)` allocates an object; there is no engine to spin up.
-
-So the eager pass is a walk of your module graph and one allocation per controller. On a large application that is milliseconds, not hundreds of them.
-
-## What does cost you
-
-The `import` statements, not the framework. This is a module-loading problem:
+## Declare a lazy import
 
 ```ts
-import { HeavyReportModule } from './reports/module.js'; // pulls in a PDF library at startup
+import { lazy, Module } from '@zmdb/web';
+
+@Module({
+  imports: [CoreModule, lazy(AdminModule)],
+})
+class AppModule {}
 ```
 
-Fix it where the cost is — with a dynamic import inside the provider:
+`lazy()` takes the module class itself. It is an inert declaration: load state
+belongs to the compiled application, so two apps created from `AppModule` do
+not share a promise, instances or status.
+
+Eager imports remain the default:
 
 ```ts
-{
-  token: PDF,
-  useFactory: async () => (await import('pdf-lib')).PDFDocument,
-}
+@Module({ imports: [CoreModule, AdminModule] })
+class AppModule {}
 ```
 
-That defers the heavy module until the first `resolve`, which is the actual win people want from lazy modules. Note the factory returns a promise, so the token's type is `Promise<T>` and consumers await it — the container has no async resolution.
+Use the eager form when the module is required on most requests or when its
+initialization must be proven during startup.
 
-## Workaround — a second app, built on demand
+## What is still eager
 
-If a whole subsystem should not exist until needed, build a second application lazily:
+The module's JavaScript file has already been imported, so `lazy(AdminModule)`
+does not defer bundle bytes or module-scope work. It defers:
+
+- provider registration and factory execution;
+- controller construction and `@Inject` field resolution;
+- `onModuleInit` and `onApplicationBootstrap`.
+
+For a large optional library, put a dynamic `import()` inside a provider
+factory. The DI container remains synchronous, so such a token is a
+`Promise<T>` that its consumer explicitly awaits.
+
+## Validation happens at startup
+
+`compileModule` validates both eager and lazy declarations before constructing
+any controller. Startup refuses:
+
+- an injected token no module provides;
+- an import cycle, including lazy edges, with the cycle path in the message;
+- the same token registered by two modules;
+- an eager controller that injects a token available only from a lazy subtree.
+
+A factory, constructor or lifecycle hook can still throw only when the lazy
+module runs. Validation proves the wiring, not arbitrary application code.
+
+If a module is reachable through any eager import, it is eager everywhere. Its
+behavior does not depend on which `imports` entry happened to be visited first.
+
+## Routes are fixed at startup
+
+Routes belonging to lazy controllers are read from their classes and registered
+when the app is created. The first matching request waits while the controller
+subtree is constructed and initialized, then invokes the handler normally.
+
+No route is added after startup, and no decorator metadata is read per request.
+Route ordering and shadowing therefore remain the same before and after a load.
+
+## Observe or trigger a load
 
 ```ts
-let reports: App | undefined;
+const app = createApp(AppModule);
+await app.init();
 
-async function reportsApp(): Promise<App> {
-  if (reports === undefined) {
-    const { ReportsModule } = await import('./reports/module.js');
-    reports = createApp(ReportsModule);
-    await reports.init();
-  }
-  return reports;
-}
+const admin = app.lazy.find(handle => handle.name === 'AdminModule');
+console.log(admin?.status); // "unloaded"
 
-// in the adapter
-if (req.path.startsWith('/reports')) return (await reportsApp()).handle(req);
-return app.handle(req);
+await admin?.load();
+console.log(admin?.status); // "loaded"
 ```
 
-Nothing is global, so two apps coexist happily — see [Multiple Servers](./web-multiple-servers.html). The costs are real: two containers means shared providers are constructed twice, so put anything genuinely shared (the pool, the driver) in a module-scope value both import rather than in a provider each registers.
+A handle's status is `'unloaded'`, `'loading'`, `'loaded'` or `'failed'`.
+Concurrent callers share one in-flight load, so ten requests construct the
+module once.
 
-Guard the initialisation against concurrency by caching the _promise_, not the app, if two requests can race:
+## Lifecycle and failure
+
+A successful load runs `onModuleInit` for the new instances, then
+`onApplicationBootstrap`, before the triggering request reaches its handler.
+A module that never loads has no instances and receives no `onShutdown`.
+Loaded lazy instances shut down before the eager instances they were created
+after.
+
+A construction or hook failure is terminal for that module in the app. The
+handle stores the error value, reports `'failed'`, and every later caller
+receives the same error without rerunning factories. Retrying over a shared
+container could duplicate a pool or retain half-built objects because container
+registration is not transactional.
+
+Disposal waits for an in-flight load before shutdown and refuses a new lazy
+load with `@zmdb/web: application is shutting down`.
+
+## Cost model
+
+An app with no lazy imports uses the eager fast path. The benchmark helper
+measures repeated eager startup with raw timings:
 
 ```ts
-let pending: Promise<App> | undefined;
-const reportsApp = () => (pending ??= buildReports());
+import { benchmarkAppStartup } from '@zmdb/web/bench';
+
+const result = benchmarkAppStartup(AppModule, 10_000);
 ```
 
-## Workaround — a feature flag on the controller
-
-The lightest option when the point is "this endpoint should not be available", not "this code should not be loaded":
-
-```ts
-@Get('/reports/:id')
-async report(ctx: Ctx<{ id: string }>) {
-  if (!features.reports) throw new ValidationError('not available', []);
-  return this.service.build(ctx.params.id);
-}
-```
-
-## What it would take
-
-Two independent pieces:
-
-- **A lazy loader.** `loadModule(ModuleClass)` returning a container for a subgraph, registered into the parent. The design question is what happens to a token the lazy module needs from its parent — which needs the parent container passed in, and then a resolution order between them. Not hard; it is a real API decision.
-- **Adding routes after startup.** `Router` builds its route list at `register` time and `createApp` registers once. Exposing `app.register(controller)` would cover it, at the cost of the route table no longer being fixed after `init()` — which is currently a property worth something (it is why there is no per-request reflection).
-
-Neither is blocked on anything deep. The reason it is not built is that the eager pass is cheap enough that the dynamic-import-in-a-factory workaround above covers most of the motivation.
+Timing depends on the graph and machine, so the helper reports
+`{ iters, totalMs, opsPerSec }` rather than imposing a universal threshold.
 
 ---
 
-See also: [Modules](./web-modules.html) · [Multiple Servers](./web-multiple-servers.html) · [Serverless Performance](./perf-serverless.html)
+See also: [Modules](./web-modules.html) · [Application Lifecycle](./web-app.html)
+· [Serverless](./web-serverless.html) · [Benchmarks](./web-benchmarks.html)

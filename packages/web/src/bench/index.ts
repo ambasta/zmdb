@@ -3,6 +3,8 @@
 // does not re-read metadata per request. No `as` on the consumer surface.
 
 import '../polyfill.js';
+import { createApp } from '../app/index.js';
+import type { ModuleClass } from '../modules/index.js';
 import { createRouter } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 
@@ -52,6 +54,17 @@ export interface BenchmarkResult {
   readonly iters: number;
   readonly totalMs: number;
   readonly opsPerSec: number;
+}
+
+/** Measure repeated eager application creation with raw timings. */
+export function benchmarkAppStartup(rootModule: ModuleClass, iters: number): BenchmarkResult {
+  const start = performance.now();
+  for (let index = 0; index < iters; index += 1) {
+    createApp(rootModule);
+  }
+  const totalMs = performance.now() - start;
+  const opsPerSec = totalMs > 0 ? (iters / totalMs) * 1000 : iters;
+  return { iters, totalMs, opsPerSec };
 }
 
 /**

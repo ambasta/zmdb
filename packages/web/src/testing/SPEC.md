@@ -11,6 +11,9 @@
   first**: `overrides` is a list of `{ token, useValue }` (or `{ token,
 useFactory }`) that replace a provider before controllers are built — so a
   controller under test injects the stub.
+- Lazy-controller routes use the same deferred loader as `createApp`; overrides
+  are checked again when that subtree registers its providers, so the stub still
+  wins on first request.
 - Returns a `TestApp`:
   - **`request(req: WebRequest): Promise<WebResponse>`** — drive a route
     in-process (no socket), same pipeline as production.

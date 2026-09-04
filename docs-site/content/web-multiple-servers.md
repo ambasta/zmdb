@@ -69,6 +69,10 @@ createServer(toNodeHandler(router)).listen(3000);
 That is exactly what `createApp` does, minus the lifecycle hooks — which you then
 call yourself if any controller implements them.
 
+That manual loop is for an all-eager graph. `createApp` also registers route
+trampolines for declared lazy controllers; `compileModule().controllers` only
+contains instances that have already been constructed.
+
 Get this right or you will double your connection count — with `max: 10` in two apps you hold 20 connections and your pool sizing calculations are silently wrong. See [Connection Pooling](./connect-postgres.html).
 
 ## One process, or several?

@@ -5,7 +5,8 @@
 
 import type { Container } from '../di/index.js';
 import { runInit, runShutdown } from '../lifecycle.js';
-import { compileModule, type ModuleClass } from '../modules/index.js';
+import { compileModule, type LazyModuleHandle, type ModuleClass } from '../modules/index.js';
+import { runtimeOf } from '../modules/runtime.js';
 import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
 
 export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.js';
@@ -13,6 +14,7 @@ export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecy
 /** A bootstrapped application. */
 export interface App extends AsyncDisposable {
   readonly container: Container;
+  readonly lazy: readonly LazyModuleHandle[];
   handle(req: WebRequest): Promise<WebResponse>;
   fetch(request: Request): Promise<Response>;
   init(): Promise<void>;
@@ -24,18 +26,36 @@ export interface App extends AsyncDisposable {
  * per-request path is the dispatcher from `createRouter`.
  */
 export function createApp(rootModule: ModuleClass): App {
-  const { container, controllers } = compileModule(rootModule);
+  const compiled = compileModule(rootModule);
+  const { container, controllers, lazy } = compiled;
+  const eagerControllers = [...controllers];
+  const runtime = runtimeOf(compiled);
   const router: Router = createRouter();
-  for (const controller of controllers) {
-    router.register(controller);
+  if (runtime === undefined) {
+    for (const controller of controllers) {
+      router.register(controller);
+    }
+  } else {
+    for (const route of runtime.routes) {
+      if (route.kind === 'eager') {
+        router.register(route.controller);
+      } else {
+        router.registerDeferred(route.controller, route.instance);
+      }
+    }
   }
   const fetchHandler = toFetchHandler(router);
 
   return {
     container,
+    lazy,
     handle: req => router.handle(req),
     fetch: request => fetchHandler(request),
-    init: () => runInit(controllers),
-    [Symbol.asyncDispose]: () => runShutdown(controllers),
+    init: () => runInit(eagerControllers),
+    [Symbol.asyncDispose]: async () => {
+      runtime?.beginShutdown();
+      await runtime?.waitForLoads();
+      await runShutdown(controllers);
+    },
   };
 }

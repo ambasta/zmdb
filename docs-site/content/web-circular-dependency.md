@@ -14,15 +14,11 @@ class AModule {}
 class BModule {}
 
 createApp(AModule);
-// Error: @zmdb/web: import cycle detected in the module graph
+// Error: @zmdb/web: import cycle in the module graph: AModule -> BModule -> AModule
 ```
 
-Deterministic, and at startup rather than on a request.
-
-> [!NOTE]
-> The message does **not** name the modules in the cycle. With a large graph you
-> are bisecting by hand — comment out one `imports` entry at a time. Naming the
-> path is a small, self-contained improvement; see _What it would take_ below.
+Deterministic, names the cycle path, and runs at startup rather than on a
+request. Lazy import edges are included in the same validation.
 
 ## Provider cycles: not detected
 
@@ -99,16 +95,10 @@ Mutating a half-constructed instance to escape the cycle leaves a window where
 `a.b` is `undefined`, and the crash lands somewhere unrelated. A cycle you cannot
 restructure is a design problem the container should not hide.
 
-## What it would take
+## What remains
 
-Two independent, framework-internal improvements:
-
-1. **Name the cycle.** `compileModule` already has the `inProgress` set; carrying
-   it into the error message costs nothing and turns a bisect into a read.
-2. **Detect provider cycles.** A resolution stack in `Container.resolve` that
-   throws `A → B → A` on re-entry, instead of recursing to the stack limit.
-
-Neither is blocked on anything else.
+Provider-cycle detection still needs a resolution stack in `Container.resolve`
+that throws `A → B → A` on re-entry instead of recursing to the stack limit.
 
 ---
 

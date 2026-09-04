@@ -45,6 +45,17 @@ function diView(metadata: DecoratorMetadata): DiMetadata {
   return metadata;
 }
 
+/** Read the field-injection declarations recorded on a class. */
+export function injectionsOf(
+  ctor: abstract new (...args: never[]) => unknown,
+): readonly { readonly field: string | symbol; readonly token: Token<unknown> }[] {
+  const metadata = ctor[Symbol.metadata];
+  if (metadata === undefined || metadata === null) {
+    return [];
+  }
+  return diView(metadata)[INJECTIONS] ?? [];
+}
+
 // The container whose `build` is currently running. Field initializers read it
 // to resolve their token. Set for the duration of `build` and cleared in a
 // `finally`, so there is no persistent global request-time state.

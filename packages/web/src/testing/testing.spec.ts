@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
 import { createToken, Inject } from '../di/index.js';
-import { Module } from '../modules/index.js';
+import { lazy, Module } from '../modules/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { createTestApp } from './index.js';
 
@@ -33,6 +33,12 @@ class HelloController {
 @Module({ controllers: [HelloController], providers: [{ token: GreeterToken, useValue: new RealGreeter() }] })
 class AppModule {}
 
+@Module({ controllers: [HelloController], providers: [{ token: GreeterToken, useValue: new RealGreeter() }] })
+class LazyGreeterModule {}
+
+@Module({ imports: [lazy(LazyGreeterModule)] })
+class LazyAppModule {}
+
 describe('@zmdb/web testing: createTestApp', () => {
   it('drives a request in-process', async () => {
     const app = createTestApp(AppModule);
@@ -46,6 +52,14 @@ describe('@zmdb/web testing: createTestApp', () => {
     const app = createTestApp(AppModule, { overrides: [{ token: GreeterToken, useValue: stub }] });
     const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
     expect(JSON.parse(res.body)).toEqual({ msg: 'stubbed' });
+    expect(app.get(GreeterToken)).toBe(stub);
+  });
+
+  it('applies an override when a lazy controller is first loaded', async () => {
+    const stub: Greeter = { greet: () => 'lazy-stubbed' };
+    const app = createTestApp(LazyAppModule, { overrides: [{ token: GreeterToken, useValue: stub }] });
+    const res = await app.request({ method: 'GET', path: '/hello', headers: {} });
+    expect(JSON.parse(res.body)).toEqual({ msg: 'lazy-stubbed' });
     expect(app.get(GreeterToken)).toBe(stub);
   });
 

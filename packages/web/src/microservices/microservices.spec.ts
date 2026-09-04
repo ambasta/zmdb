@@ -328,12 +328,13 @@ describe('the hybrid lifecycle (frozen: microservices/SPEC.md 10)', () => {
   // second entry point would let an application forget it". The tempting way to make the four red
   // tests above pass is to add a start method and call it from the test — this is what refuses that,
   // and it is asserted as the whole key set rather than as two `not.toHaveProperty` calls so any
-  // third method is caught too. `Symbol.asyncDispose` is a symbol key and so is not in `Object.keys`.
+  // added method is caught too. `lazy` is #601's data property; `Symbol.asyncDispose` is a symbol
+  // key and so is not in `Object.keys`.
   it('App gains no connectMicroservice and no startAllMicroservices', () => {
     @Module({ controllers: [] })
     class Root {}
     const app = createAppWithTransports(Root, { transports: [], dispatcher: sinks([]) });
-    expect(Object.keys(app).toSorted()).toEqual(['container', 'fetch', 'handle', 'init']);
+    expect(Object.keys(app).toSorted()).toEqual(['container', 'fetch', 'handle', 'init', 'lazy']);
     expect(typeof app[Symbol.asyncDispose]).toBe('function');
   });
 

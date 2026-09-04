@@ -91,9 +91,13 @@ There is no expression form yet. See [Incrementing and decrementing a value](./g
 
 Providers are declared in `@Module({ providers: [...] })` and resolved by token. A class that is not in a module's `providers` is not in the container, and you get `UnresolvedTokenError` at resolve time rather than a silent `undefined`.
 
-## Modules compile eagerly
+## Eager modules are still the default
 
-`createApp(RootModule)` walks the whole module graph and instantiates singletons. There is no lazy module loading, so a provider whose constructor does I/O will do it at boot. See [Lazy-Loading Modules](./web-lazy-modules.html).
+`createApp(RootModule)` constructs ordinary imports at startup. Wrap an optional
+subtree with `lazy(ModuleClass)` to validate its wiring at startup but defer its
+providers, controllers and hooks until first use. This does not defer the
+module's imported bytes or module-scope work. See
+[Lazy-Loading Modules](./web-lazy-modules.html).
 
 ---
 

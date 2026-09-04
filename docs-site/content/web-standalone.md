@@ -5,6 +5,7 @@
 ```ts
 export interface App extends AsyncDisposable {
   readonly container: Container;
+  readonly lazy: readonly LazyModuleHandle[];
   handle(req: WebRequest): Promise<WebResponse>;
   fetch(request: Request): Promise<Response>;
   init(): Promise<void>;
@@ -94,7 +95,10 @@ export class PostsController implements OnModuleInit, OnShutdown {
 }
 ```
 
-`init()` runs every controller's `onModuleInit`, then every `onApplicationBootstrap`. Disposal runs `onShutdown` in **reverse** construction order.
+`init()` runs every eager controller's `onModuleInit`, then every eager
+`onApplicationBootstrap`. A lazily imported module runs both passes when it
+loads. Disposal runs `onShutdown` for constructed instances in **reverse**
+construction order; a lazy module that never loaded has nothing to shut down.
 
 > [!WARNING]
 > Lifecycle hooks are detected on **controllers only**. A provider with an
@@ -109,7 +113,7 @@ export class PostsController implements OnModuleInit, OnShutdown {
 ```ts
 await using app = createApp(AppModule);
 await app.init();
-// on scope exit: every controller's onShutdown, in reverse order
+// on scope exit: every constructed controller's onShutdown, in reverse order
 ```
 
 With a long-lived server you want the signal handlers too, since the scope never exits:

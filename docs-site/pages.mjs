@@ -1516,8 +1516,7 @@ export const PAGE_META = {
   'web-lazy-modules': {
     title: 'Lazy-Loading Modules',
     group: 'Web Framework — DI & Modules',
-    status: 'todo',
-    note: 'compileModule resolves the whole graph at createApp; there is no lazy module loader',
+    status: 'supported',
   },
   'web-router-module': {
     title: 'Route Composition',

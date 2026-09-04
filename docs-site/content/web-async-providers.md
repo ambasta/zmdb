@@ -64,7 +64,10 @@ class SearchController {
 ```
 
 The type tells the truth — consumers see `Promise<Index>` and must await it —
-and the factory is lazy, so nothing is built until the first request needs it.
+and the factory waits until the token is first resolved. If an eager controller
+injects `WARM`, that resolution happens during `createApp`; put
+`lazy(SearchModule)` in its importer when construction should wait for the
+first matching route.
 
 > [!WARNING]
 > A rejected promise is cached like any other value. If `buildIndex()` fails, every
@@ -73,8 +76,9 @@ and the factory is lazy, so nothing is built until the first request needs it.
 
 ## 3. `onModuleInit` on a controller
 
-`app.init()` awaits `onModuleInit`, then `onApplicationBootstrap`, on each
-controller in registration order:
+`app.init()` awaits `onModuleInit`, then `onApplicationBootstrap`, on each eager
+controller in registration order. A lazy module runs the same two passes when
+it loads:
 
 ```ts
 @Controller('/users')
@@ -97,7 +101,7 @@ class UsersController {
 > the container's bindings. If a provider needs shutdown, expose it through a
 > controller's `onShutdown`, or dispose it yourself after `await using` ends.
 
-Shutdown runs `onShutdown` in **reverse** registration order, so a controller
+Shutdown runs `onShutdown` in **reverse** construction order, so a controller
 declared after the one holding the pool gets to flush before the pool closes.
 
 ## Which shape to pick
@@ -110,8 +114,10 @@ declared after the one holding the pool gets to flush before the pool closes.
 
 ## Ordering inside the module graph
 
-`compileModule` walks depth-first: it visits `imports`, then registers the
-module's own `providers`, then **builds that module's controllers**. Because
+For eager modules, `compileModule` walks depth-first: it visits `imports`, then
+registers the module's own `providers`, then **builds that module's
+controllers**. Lazy declarations are validated in the same startup pass but
+constructed later. Because
 `@Inject` resolves eagerly at build time, an imported module's controller cannot
 inject a token that the importing module provides — you get
 `UnresolvedTokenError` at boot, not at request time. Provide a token in the same
@@ -119,8 +125,8 @@ module as the controllers that need it, or in a module they import.
 
 ## Design notes
 
-- All the `await` is yours and all of it is at boot; the request path stays
-  synchronous up to the handler.
+- All provider factories remain synchronous. A first request to a lazy module
+  may await that module's lifecycle hooks before the handler.
 - No async container, no `forRootAsync`, no reflection.
 - Granular imports: `@zmdb/web/di`, `@zmdb/web/modules`, `@zmdb/web/app`.
 

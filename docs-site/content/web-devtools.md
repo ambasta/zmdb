@@ -12,7 +12,8 @@ const compiled = compileModule(AppModule);
 console.log(compiled.controllers.map(c => c.constructor.name));
 ```
 
-`CompiledModule` is `{ container, controllers }`. One flat container, no hierarchy to explore — which is why a graph visualiser has less to show here than in a framework with nested injectors.
+`CompiledModule` is `{ container, controllers, lazy }`. `lazy` contains per-app
+load handles; the container remains flat, with no injector hierarchy.
 
 **Every route, from metadata:**
 
@@ -59,10 +60,10 @@ it('no two routes share a method and path', () => {
 Cycles throw with a clear message:
 
 ```
-@zmdb/web: import cycle detected in the module graph
+@zmdb/web: import cycle in the module graph: AppModule -> BillingModule -> AppModule
 ```
 
-The message does not name the modules involved, which is the main rough edge. Bisect by commenting out `imports` entries, or wrap `compileModule` in your own traversal that logs each module as it is entered.
+The path includes lazy edges and is produced during startup validation.
 
 Unresolved tokens throw `UnresolvedTokenError` naming the token's description — which is why `createToken<T>('POSTS_REPOSITORY')` with a meaningful description pays for itself the first time something is missing. A token described as `'token'` produces a useless error.
 

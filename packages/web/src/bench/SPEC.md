@@ -19,6 +19,13 @@ request. This is the concrete, testable form of "no per-request reflection".
   a **bounded** number of times during setup and **zero** additional times across
   many `handle` calls — the regression guard for init-time resolution.
 
+### `benchmarkAppStartup(rootModule, iters)`
+
+- Repeatedly creates an eager application from one root module and returns the
+  same raw `{ iters, totalMs, opsPerSec }` shape.
+- It is a measurement tool, not a fixed performance threshold: CI contention
+  makes a universal timing assertion dishonest.
+
 ## Invariants
 
 - The benchmark is honest: real timings, no fabricated numbers; the dashboard
@@ -31,6 +38,7 @@ request. This is the concrete, testable form of "no per-request reflection".
   **no additional** `getRoutes`/metadata reads (resolution is init-time).
 - `benchmarkRouter` returns a plausible positive `opsPerSec` for a small route
   set (smoke).
+- `benchmarkAppStartup` returns raw positive timings for an eager module graph.
 - No consumer-surface `as`; suite + typecheck green.
 - Dashboard/docs note added honestly (docs sub-issue).
 

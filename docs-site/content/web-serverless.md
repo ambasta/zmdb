@@ -29,13 +29,21 @@ export default {
 };
 ```
 
-The second form re-runs `compileModule`, reconstructs every controller and re-runs every lifecycle hook per request. It also creates a new connection pool per request, which exhausts the database's connection limit faster than anything else you can do.
+The second form re-runs `compileModule`, reconstructs every eager controller and
+re-runs every eager lifecycle hook per request. Any lazy module reached by that
+request is then reconstructed too. It also creates a new connection pool per
+request, which exhausts the database's connection limit faster than anything
+else you can do.
 
 Module scope persists across invocations on a warm instance on every platform. Use it.
 
 ## Cold starts
 
-The framework does nothing expensive at startup — no reflection pass, no filesystem scan, no dynamic imports — so a cold start is dominated by your bundle size and your own initialisation.
+The framework performs a bounded declaration-validation pass at startup, with
+no filesystem scan or dynamic imports. A lazy import can defer provider and
+controller construction, but not the bytes of the module that declared them,
+so cold starts are still dominated by bundle size and application
+initialisation.
 
 - **Do not connect at module scope.** `await pool.connect()` at import time adds network latency to every cold start. Use a factory provider so the first query opens the connection.
 - **Keep the bundle small.** `tsup` with `treeshake` and no unnecessary imports. A 5MB bundle costs real cold-start time.

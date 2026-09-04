@@ -11,7 +11,10 @@ There is no discovery API. Nothing scans the filesystem, nothing reads decorator
 export class AppModule {}
 ```
 
-The module graph is the manifest. `compileModule` visits imports depth-first, registers each module's providers, builds each module's controllers, and throws on an import cycle. That is the entire wiring step, and it happens once at startup.
+The module graph is the manifest. `compileModule` validates eager and lazy
+imports, registers eager providers, builds eager controllers, and throws on an
+import cycle with its path. Lazy-controller routes are still known and
+registered at startup; only their instances are deferred.
 
 There is no glob, no `autoLoadEntities`, no `require.context`, no `reflect-metadata` scan. The cost is that adding a controller means adding a line; the benefit is that a missing registration is a compile error at the module, not a route that silently does not exist.
 

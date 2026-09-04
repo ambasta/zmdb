@@ -13,6 +13,8 @@
   - **`handle(req: WebRequest): Promise<WebResponse>`** — delegate to the router.
   - **`fetch(request: Request): Promise<Response>`** — the Fetch adapter.
   - **`container: Container`** — the resolved DI container.
+  - **`lazy: readonly LazyModuleHandle[]`** — per-app handles for lazily
+    imported modules; empty when the graph has none.
   - **`init(): Promise<void>`** — invoke lifecycle `onModuleInit` /
     `onApplicationBootstrap` hooks (in module-graph order) on any provider/
     controller that implements them.
@@ -32,8 +34,9 @@
 
 ## Invariants
 
-- Everything (DI graph, routes) wired **at bootstrap**; the per-request path is
-  the W6 dispatcher unchanged — **no reflection per request.**
+- Routes and every module declaration are wired/validated **at bootstrap**.
+  Eager instances are constructed there; lazy subtrees are constructed on
+  first use. The per-request path performs **no reflection.**
 - **No `as`/`any`/`!` on the consumer surface.** Hook detection uses typed
   `in`-narrowing (structural), not casts.
 - Uses Stage-3 `Symbol.asyncDispose` for `await using` graceful shutdown.

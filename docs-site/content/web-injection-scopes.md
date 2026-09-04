@@ -41,7 +41,11 @@ A factory receives the `Container`, so a provider can depend on another:
 
 ## Why there is no request scope
 
-A request-scoped provider means the container rebuilds a sub-graph on every request. That is per-request allocation and per-request resolution work, which is precisely what building the graph once at `compileModule` avoids — see [Performance](./web-performance.html) for what the framework does and does not do per request.
+A request-scoped provider means the container rebuilds a sub-graph on every
+request. That is per-request allocation and resolution work, which is precisely
+what constructing each controller once per app avoids. A lazy controller moves
+that one construction to its first load; it does not become request-scoped. See
+[Performance](./web-performance.html).
 
 The consequence is that request-specific values are **passed**, not injected. There is [no ambient request context](./web-request-context.html) either — no `AsyncLocalStorage`, no `ctx.state` bag.
 
@@ -73,7 +77,7 @@ That covers tenant scoping, row-level security, per-request query budgets and pe
 
 > [!WARNING]
 > Never store request state on a controller or provider field. Both are
-> **singletons** — `compileModule` constructs each once — so `this.currentUser = …`
+> **singletons** — each instance is constructed once per app — so `this.currentUser = …`
 > in a handler is a race that serves one user's data to another, and it looks
 > correct in every single-request test.
 

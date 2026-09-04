@@ -30,9 +30,10 @@ The container has no registration for that token. Three usual causes:
 
 The error names the token's description, which is why a meaningful description pays off — `createToken<Repo>('token')` produces an unhelpful message.
 
-## `@zmdb/web: import cycle detected in the module graph`
+## `@zmdb/web: import cycle in the module graph: AModule -> BModule -> AModule`
 
-Two modules import each other. The message does not name them, which is the rough edge; bisect by commenting out `imports` entries.
+Two modules import each other. The message names the full cycle path, including
+an edge declared with `lazy()`.
 
 Usually the fix is to extract the shared providers into a third module both import, rather than to break the cycle by moving a controller.
 
@@ -111,7 +112,10 @@ See [Dependency Injection](./web-di.html).
 
 ## Request state from another user appears
 
-Controllers and providers are **singletons** — `compileModule` builds each once. `this.currentUser = …` in a handler is a race that serves one user's data to another, and it looks correct in every single-request test.
+Controllers and providers are **singletons** — each instance is built once per
+app, either eagerly or on its lazy module's first load. `this.currentUser = …`
+in a handler is a race that serves one user's data to another, and it looks
+correct in every single-request test.
 
 Keep request state in local variables or a [per-request object](./web-request-context.html), never on an instance field.
 

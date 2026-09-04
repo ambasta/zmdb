@@ -9,7 +9,12 @@ The framework does very little per request, and knowing exactly what it does is 
 5. The handler runs.
 6. `jsonResponse(200, result)` stringifies.
 
-No reflection, no metadata reads, no DI resolution, no middleware chain — controllers are constructed once at `compileModule` and the [chain is not wired in](./web-request-lifecycle.html). The framework overhead is a bucketed match and two JSON operations.
+For eager or already-loaded routes there is no reflection, metadata read or DI
+resolution on the request path, and the
+[chain is not wired in](./web-request-lifecycle.html). The first request to a
+lazy route waits for that subtree's one-time construction and lifecycle hooks;
+later requests use the same cached handler path. Steady-state framework
+overhead is a bucketed match and two JSON operations.
 
 `countMetadataReads` from `@zmdb/web/bench` is the test that keeps this true: decorator metadata is read at registration, not per request, and a regression there shows up as a rising count.
 

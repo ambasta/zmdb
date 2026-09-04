@@ -128,6 +128,7 @@ async function frozenExport<T>(name: string): Promise<T> {
 function routerAnswering(response: FrozenResponse): Router {
   return {
     register: () => undefined,
+    registerDeferred: () => undefined,
     handle: () => Promise.resolve(response as unknown as WebResponse),
   };
 }
@@ -307,6 +308,7 @@ function bodySpyRouter(): { router: Router; seen: { raw: unknown } } {
     seen,
     router: {
       register: (controller, options) => inner.register(controller, options),
+      registerDeferred: (controller, instance) => inner.registerDeferred(controller, instance),
       handle: (request: WebRequest) => {
         seen.raw = request.rawBody;
         return inner.handle(request);
