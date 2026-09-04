@@ -35,7 +35,7 @@ declare const value: unknown;
 export const _narrowed: Brand<Order, 'Draft'> | undefined = Draft.is(value) ? value : undefined;
 
 // --- options: discriminant and predicate -----------------------------------
-import { defineState } from './index.ts';
+import { defineState } from './index.js';
 
 interface DiscrItem {
   type: 'A' | 'B';
