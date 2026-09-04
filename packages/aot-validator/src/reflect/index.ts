@@ -58,7 +58,10 @@ import type { Node } from 'typescript/unstable/ast';
 import { SignatureKind, SymbolFlags } from 'typescript/unstable/sync';
 import type { Checker, IntersectionType, Symbol as TsSymbol, Type, TypeReference } from 'typescript/unstable/sync';
 
+import type { GrpcMethodIR, GrpcServiceIR } from '../protobuf/grpc-ir.js';
+
 export { projectSourceFileNames } from './session.js';
+export type { GrpcMethodIR, GrpcServiceIR } from '../protobuf/grpc-ir.js';
 
 // ---------------------------------------------------------------------------
 // Diagnostics and limits
@@ -289,6 +292,51 @@ export class Reflector {
     const node = this.#type(type, name, 0);
     this.#validateProtoNumbers(node, name, new Set<ObjectIR>());
     return node;
+  }
+
+  /**
+   * Reflect a gRPC service while keeping every message on the protobuf path.
+   *
+   * The service shell is not a protobuf message: its properties are methods,
+   * and each method owns two message roots. Reflecting those roots here keeps
+   * field-number validation and every downstream codec on the one TypeIR walk.
+   */
+  grpcServiceIR(type: Type): GrpcServiceIR {
+    const methods: GrpcMethodIR[] = [];
+    for (const methodSymbol of this.#checker.getPropertiesOfType(type)) {
+      if (isTagProperty(methodSymbol)) continue;
+      const method = methodSymbol.name;
+      const methodType = this.#typeOf(methodSymbol);
+      if (methodType === undefined) {
+        this.#refuse(method, 'the checker did not resolve a type for this gRPC method');
+        continue;
+      }
+
+      const requestType = this.#grpcMember(methodType, method, 'request');
+      const responseType = this.#grpcMember(methodType, method, 'response');
+      if (requestType === undefined || responseType === undefined) continue;
+
+      const requestName = typeName(requestType) ?? `${pascalIdentifier(method)}Request`;
+      const responseName = typeName(responseType) ?? `${pascalIdentifier(method)}Response`;
+      const request = this.#type(requestType, requestName, 0);
+      const response = this.#type(responseType, responseName, 0);
+      this.#validateProtoNumbers(request, requestName, new Set<ObjectIR>());
+      this.#validateProtoNumbers(response, responseName, new Set<ObjectIR>());
+
+      methods.push({
+        name: method,
+        request,
+        requestName,
+        response,
+        responseName,
+        requestStream: this.#grpcStreamFlag(methodType, method, 'requestStream'),
+        responseStream: this.#grpcStreamFlag(methodType, method, 'responseStream'),
+      });
+    }
+    if (methods.length === 0) {
+      this.#refuse(typeName(type) ?? 'service', 'a gRPC service must declare at least one method');
+    }
+    return { methods };
   }
 
   /**
@@ -1405,6 +1453,29 @@ export class Reflector {
     return this.#checker.getTypeOfSymbolAtLocation(symbol, this.#location);
   }
 
+  #grpcMember(type: Type, method: string, member: 'request' | 'response'): Type | undefined {
+    const symbol = this.#checker.getPropertyOfType(type, member);
+    if (symbol === undefined) {
+      this.#refuse(`${method}.${member}`, `a gRPC method must declare its ${member} type`);
+      return undefined;
+    }
+    const value = this.#typeOf(symbol);
+    if (value === undefined) {
+      this.#refuse(`${method}.${member}`, `the checker did not resolve this gRPC ${member} type`);
+    }
+    return value;
+  }
+
+  #grpcStreamFlag(type: Type, method: string, member: 'requestStream' | 'responseStream'): boolean {
+    const symbol = this.#checker.getPropertyOfType(type, member);
+    if (symbol === undefined) return false;
+    const value = this.#typeOf(symbol);
+    if (value === undefined || literalOf(this.#nonNullable(value)) !== true) {
+      this.#refuse(`${method}.${member}`, `a gRPC stream flag must be the literal type \`true\` when present`);
+    }
+    return true;
+  }
+
   /**
    * The type arguments of an array, tuple or other generic reference.
    *
@@ -1544,6 +1615,12 @@ function literalUnion(members: readonly Type[]): readonly string[] | undefined {
 
 function escapeRegExp(text: string): string {
   return text.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+}
+
+function pascalIdentifier(text: string): string {
+  const words = text.split(/[^A-Za-z0-9]+/).filter(word => word.length > 0);
+  if (words.length === 0) return 'Method';
+  return words.map(word => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`).join('');
 }
 
 /**

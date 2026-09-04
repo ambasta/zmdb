@@ -2,8 +2,8 @@
 
 `@zmdb/aot-validator` generates validation and serialization code during the
 build. It supports full and shallow checks, assertions, structured validation
-errors, equality, random values, JSON, transforms, and protobuf without shipping
-a runtime schema parser.
+errors, equality, random values, JSON, transforms, protobuf, and typed gRPC
+service artifacts without shipping a runtime schema parser.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript
 schema drives validation, serialization, SQL, OpenAPI, and CRUD.

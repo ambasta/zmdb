@@ -94,10 +94,10 @@ const malformed = decode('not json', ir);
 ```
 
 > [!IMPORTANT]
-> `decode` is **not** one of the calls the transformer rewrites — the fifteen it currently does are
+> `decode` is **not** one of the calls the transformer rewrites — the seventeen it currently does are
 > `is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
 > `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`
-> and `protoEncode`. So
+> `protoEncode`, `grpcDescriptor` and `loadGrpcService`. So
 > `decode<Signup>(text)` with no second argument does not get an inlined schema; it throws
 > `runtime type witness required in test/fallback mode`. `decode` only converts an
 > `AssertError` into a failed result, so that plain `Error` escapes the result object

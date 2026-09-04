@@ -18,15 +18,15 @@
   - **`init(): Promise<void>`** — invoke lifecycle `onModuleInit` /
     `onApplicationBootstrap` hooks (in construction order) on every constructed
     provider/controller/command that implements them, then build the message
-    dispatcher and open configured transports. Repeated calls share one
-    initialization.
+    dispatcher, open configured broker transports and bind the optional gRPC
+    server. Repeated calls share one initialization.
   - **`[Symbol.asyncDispose](): Promise<void>`** — invoke `onShutdown` hooks in
-    reverse construction order; configured transports close first, in reverse
-    declaration order, under the application grace bound.
+    reverse construction order; the gRPC server and configured transports
+    close first under the application grace bound.
 
 `AppOptions` is declared by `../microservices/SPEC.md`: transports, the
-dispatcher sinks/policy, and an optional positive `graceMs` whose default is
-5,000 milliseconds.
+dispatcher sinks/policy, observability, optional gRPC server options, and an
+optional positive `graceMs` whose default is 5,000 milliseconds.
 
 ### Lifecycle hook interfaces
 
@@ -41,16 +41,16 @@ dispatcher sinks/policy, and an optional positive `graceMs` whose default is
   controller or command enters after construction. Object identity is recorded
   once.
 - `init()`: `onModuleInit` (all constructed instances, deps-first), then
-  `onApplicationBootstrap` (all), then dispatcher construction, then
-  `transport.listen` in declaration order.
-- A rejected `listen` rejects initialization and closes transports that opened
-  earlier. No HTTP-only degraded mode is invented.
+  `onApplicationBootstrap` (all), dispatcher construction,
+  `transport.listen` in declaration order, then the optional gRPC bind.
+- A rejected `listen` or gRPC bind rejects initialization and closes broker
+  transports that opened earlier. No HTTP-only degraded mode is invented.
 - A factory first resolved after `init()` does not receive retroactive init
   hooks, but it does enter the ledger and receives shutdown. An unresolved
   factory is never constructed merely to run a hook.
-- shutdown: stop new lazy loads, await in-flight loads, close transports in
-  reverse declaration order, then run `onShutdown` in **reverse construction
-  order**, so no message handler outlives a dependency it resolved.
+- shutdown: stop new lazy loads, await in-flight loads, close gRPC, close broker
+  transports in reverse declaration order, then run `onShutdown` in **reverse
+  construction order**, so no handler outlives a dependency it resolved.
 - Once shutdown begins, a later `init()` rejects instead of opening resources
   after the memoized disposal has finished.
 
@@ -80,5 +80,5 @@ dispatcher sinks/policy, and an optional positive `graceMs` whose default is
 
 ## Out of scope
 
-WS/SSE gateways (epic #307), testing harness (#312), concrete broker and gRPC
-adapters (#560–#561).
+The host HTTP listening socket, process signal handling and unrelated protocol
+adapters remain outside this lifecycle contract.

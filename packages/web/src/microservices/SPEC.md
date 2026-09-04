@@ -1,8 +1,9 @@
 # `@zmdb/web/microservices` — transport strategy and message dispatch SPEC
 
-This is the transport-neutral layer of epic #556, implemented by #559. Redis,
-core NATS and RabbitMQ adapters are implemented by #560; gRPC remains a
-separate contract under `./grpc/SPEC.md`.
+This is the transport-neutral broker layer of epic #556, implemented by #559.
+Redis, core NATS and RabbitMQ adapters are implemented by #560. The shipped
+gRPC surface remains a separate typed contract under `./grpc/SPEC.md`; it is not
+a `TransportStrategy`.
 The layer here owns validation, exact-pattern dispatch, typed request clients,
 correlation, deadlines and application lifecycle. A strategy owns broker
 framing, subscriptions, replies and applying settlements.
@@ -413,4 +414,6 @@ The implementation tests prove:
 - no GraphQL integration;
 - no broker client reachable from the package root or transport-neutral
   microservices entry point;
-- no gRPC dependency in this slice.
+- no grpc-js import from the package root or transport-neutral microservices
+  entry point; the optional peer is reached only through `./microservices/grpc`
+  or an application configured with gRPC.

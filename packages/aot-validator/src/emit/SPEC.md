@@ -251,13 +251,21 @@ rather than three paraphrases that drift:
 
 ## 7b. Protobuf codecs (frozen — epic "Protobuf")
 
-Three entry points, emitted from the same `TypeIR` every other target reads:
+Three message entry points and two gRPC service entry points are emitted from
+the same `TypeIR` every other target reads:
 
 ```ts
 protoEncode<T>(value: T): Uint8Array
 protoDecode<T>(bytes: Uint8Array): T
 protoDescriptor<T>(): string // the .proto text, for the other language
+grpcDescriptor<S extends GrpcServiceDef>(service: string, pkg: string): string
+loadGrpcService<S extends GrpcServiceDef>(service: string, pkg: string): GrpcLoadedService<S>
 ```
+
+`grpcDescriptor` emits the package, service and all referenced message blocks.
+`loadGrpcService` emits that descriptor plus the request/response validators and
+wire codecs grpc-js needs. The two string arguments must be literals, so the
+generated method paths and artifact identity are fixed at build time.
 
 `Uint8Array` and not `Buffer`: `.oxlintrc.json` bans `Buffer` and `node:buffer` with "Use Uint8Array and
 ArrayBuffer for binary data", and this is the one target where that rule earns its keep.
@@ -393,9 +401,11 @@ unknown fields should forward the bytes.
 
 ### What this target adds to existing gates
 
-- `CALLEES` in `../transformer.ts` includes all three names. With `toolFor`'s provider-document target that is fifteen, and
-  `it('names every transformed call, and every one of them is a function somebody can call', …)` asserts
-  the list literally without putting its moving count in the title.
+- `CALLEES` in `../transformer.ts` includes all three message names and the two
+  gRPC artifact names. With `toolFor`'s provider-document target, the complete
+  list now has seventeen entries, and
+  `it('names every transformed call, and every one of them is a function somebody can call', …)`
+  asserts it literally without putting its moving count in the title.
 - The fourteen upstream `protobuf.*` suites in `tests/api-coverage/inventory.mjs` are mapped to real
   test titles; there is no protobuf out-of-scope blanket.
 - The descriptor emitter walks a `TypeIR` outside `schema-core/src/ir/`, so it needs a `MAY_NAME`

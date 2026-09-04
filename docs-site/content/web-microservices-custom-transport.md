@@ -1,6 +1,7 @@
 > **ToDo / partial support.** The public custom-transport contract ships and is
-> usable today, and Redis, NATS and RabbitMQ demonstrate that contract. gRPC and
-> the final supported-page pass remain pending.
+> usable today, and Redis, NATS and RabbitMQ demonstrate that contract. gRPC
+> ships through a separate typed binding rather than `TransportStrategy`; the
+> final supported-page pass remains pending.
 
 ## Implementing the public contract
 

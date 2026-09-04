@@ -308,6 +308,37 @@ export const decodeMessage = (bytes: Uint8Array): Message => protoDecode<Message
   });
 });
 
+describe('a gRPC service loader call', () => {
+  it('captures the service and package literals in a zero-argument generated wrapper', () => {
+    const run = generate(`import { loadGrpcService } from '@zmdb/aot-validator';
+import type { ProtoField } from '@zmdb/schema-core/tags';
+
+export interface Ping {
+  value: string & ProtoField<1>;
+}
+
+export type Echo = {
+  readonly ping: { readonly request: Ping; readonly response: Ping };
+};
+
+export const echo = loadGrpcService<Echo>('Echo', 'demo');
+`);
+    ok(run.result);
+    expect(run.app).toContain('zmdbLoadGrpcServiceEchoEchoDemo()');
+    expect(run.app).not.toContain('loadGrpcService<Echo>');
+
+    const witness = readFileSync(join(run.src, 'app.zmdb.witness.ts'), 'utf8');
+    const generated = readFileSync(join(run.src, 'app.zmdb.generated.js'), 'utf8');
+    const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
+    expect(witness).toContain("return loadGrpcService<Echo>('Echo', 'demo');");
+    expect(generated).toContain('service Echo');
+    expect(generated).toContain('/demo.Echo/ping');
+    expect(declaration).toContain(
+      'export declare function zmdbLoadGrpcServiceEchoEchoDemo(): GrpcLoadedService<Echo>;',
+    );
+  });
+});
+
 describe('shallow validator calls', () => {
   it('keeps distinct depths distinct and generates every public shallow form', () => {
     const run = generate(`import {

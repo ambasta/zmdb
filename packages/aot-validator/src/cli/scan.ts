@@ -64,6 +64,8 @@ export interface Entry {
   readonly typeText: string;
   /** The non-default shallow depth, when this call carries one. */
   readonly depthText?: string;
+  /** Literal value arguments captured into a zero-argument generated artifact. */
+  readonly argumentsText?: readonly string[];
   /** The export name in the generated module. Derived, so it is stable across runs. */
   readonly name: string;
 }
@@ -245,6 +247,8 @@ const PREFIXES: Readonly<Record<string, string>> = {
   toJsonSchema: 'JsonSchema',
   schemaOf: 'Schema',
   toolFor: 'Tool',
+  grpcDescriptor: 'GrpcDescriptor',
+  loadGrpcService: 'LoadGrpcService',
   protoDescriptor: 'ProtoDescriptor',
   protoDecode: 'ProtoDecode',
   protoEncode: 'ProtoEncode',
@@ -260,8 +264,14 @@ const MAX_SLUG = 48;
  * it has to come out the same on every run or the codegen produces a diff per invocation.
  * It is derived only from the callee and the type text, both of which are in the source.
  */
-export function exportName(callee: string, typeText: string, taken: ReadonlySet<string>, depthText?: string): string {
-  const slug = typeText
+export function exportName(
+  callee: string,
+  typeText: string,
+  taken: ReadonlySet<string>,
+  depthText?: string,
+  identityText?: string,
+): string {
+  const slug = `${typeText} ${identityText ?? ''}`
     .replaceAll(/[^A-Za-z0-9]+/g, ' ')
     .trim()
     .split(/\s+/)
@@ -314,6 +324,8 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
   toolFor: '@zmdb/schema-core/llm',
+  grpcDescriptor: '@zmdb/aot-validator',
+  loadGrpcService: '@zmdb/aot-validator',
   protoDescriptor: '@zmdb/aot-validator',
   protoDecode: '@zmdb/aot-validator',
   protoEncode: '@zmdb/aot-validator',
@@ -401,7 +413,7 @@ export function scan(input: ScanInput): ScanResult {
   const refusals: ScanRefusal[] = [];
   const calleeSources = new Map<string, string>();
   const taken = new Set<string>();
-  /** `callee\u0000typeText\u0000depthText` → the entry, so equivalent call sites share an export. */
+  /** Callee, type, depth and captured literals → one shared generated export. */
   const byKey = new Map<string, Entry>();
   /** Heads still to resolve, and the file each was written in. */
   const pending: { readonly names: ReadonlySet<string>; readonly file: SourceFile; readonly typeText: string }[] = [];
@@ -413,14 +425,19 @@ export function scan(input: ScanInput): ScanResult {
     node: Node,
     depthText?: string,
     depthNode?: Node,
+    argumentsText?: readonly string[],
   ): Entry => {
-    const key = `${callee}\u0000${typeText}\u0000${depthText ?? ''}`;
+    const identity = argumentsText?.join('\u0000') ?? '';
+    const key = `${callee}\u0000${typeText}\u0000${depthText ?? ''}\u0000${identity}`;
     const existing = byKey.get(key);
     if (existing) return existing;
-    const entry: Entry =
-      depthText === undefined
-        ? { callee, typeText, name: exportName(callee, typeText, taken) }
-        : { callee, typeText, depthText, name: exportName(callee, typeText, taken, depthText) };
+    const entry: Entry = {
+      callee,
+      typeText,
+      ...(depthText === undefined ? {} : { depthText }),
+      ...(argumentsText === undefined ? {} : { argumentsText }),
+      name: exportName(callee, typeText, taken, depthText, identity),
+    };
     taken.add(entry.name);
     byKey.set(key, entry);
     entries.push(entry);
@@ -438,6 +455,19 @@ export function scan(input: ScanInput): ScanResult {
     if (node === undefined) return {};
     const text = file.text.slice(node.getStart(), node.end).trim();
     return text === '1' ? {} : { text, node };
+  };
+
+  const capturedArguments = (site: CallSite, file: SourceFile): readonly string[] | undefined => {
+    if (site.callee !== 'grpcDescriptor' && site.callee !== 'loadGrpcService') return undefined;
+    const args = site.node.arguments;
+    if (args.length !== 2 || !args.every(argument => isStringLiteral(argument))) {
+      refusals.push({
+        typeText: file.text.slice(site.typeArgument.getStart(), site.typeArgument.end),
+        reason: `\`${site.callee}<S>()\` needs exactly two string literals: service and package`,
+      });
+      return [];
+    }
+    return args.map(argument => file.text.slice(argument.getStart(), argument.end));
   };
 
   // The witness is written next to the source, so the source's own relative specifiers
@@ -459,11 +489,12 @@ export function scan(input: ScanInput): ScanResult {
     for (const site of findCallSites(witnessFile, CALLEES)) {
       const typeText = witnessFile.text.slice(site.typeArgument.getStart(), site.typeArgument.end);
       const depth = depthOf(site, witnessFile);
-      const name = exportName(site.callee, typeText, new Set(), depth.text);
+      const argumentsText = capturedArguments(site, witnessFile);
+      const name = exportName(site.callee, typeText, new Set(), depth.text, argumentsText?.join('\u0000'));
       // Referenced by identifier, not by import: the source may have been edited by hand
       // since, and what matters is whether the name is still used anywhere in it.
       if (!referencesName(sourceText, name)) continue;
-      add(site.callee, typeText, witnessFile, site.typeArgument, depth.text, depth.node);
+      add(site.callee, typeText, witnessFile, site.typeArgument, depth.text, depth.node, argumentsText);
       calleeSources.set(site.callee, calleeSpecifier(facts(witnessFile), site));
     }
   }
@@ -471,9 +502,10 @@ export function scan(input: ScanInput): ScanResult {
   for (const site of findCallSites(sourceFile, CALLEES)) {
     const typeText = sourceText.slice(site.typeArgument.getStart(), site.typeArgument.end);
     const depth = depthOf(site, sourceFile);
+    const argumentsText = capturedArguments(site, sourceFile);
     sites.push({
       site,
-      entry: add(site.callee, typeText, sourceFile, site.typeArgument, depth.text, depth.node),
+      entry: add(site.callee, typeText, sourceFile, site.typeArgument, depth.text, depth.node, argumentsText),
     });
     // The source's answer overrides the witness's: the witness only ever says what a
     // previous run wrote, and the user may since have changed where they import from.

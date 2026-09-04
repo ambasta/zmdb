@@ -4,6 +4,7 @@ import type { createApp } from '../app/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
 import type { Observability, Span, TraceCarrier } from '../observability/index.js';
+import type { GrpcServerOptions } from './grpc/index.js';
 import {
   EventPattern,
   MessagePattern,
@@ -278,6 +279,7 @@ interface FrozenAppOptions {
   readonly dispatcher?: DispatcherOptions;
   readonly graceMs?: number;
   readonly observability?: Observability;
+  readonly grpc?: GrpcServerOptions;
 }
 
 export type AppOptionsShape = Expect<Equal<AppOptions, FrozenAppOptions>>;

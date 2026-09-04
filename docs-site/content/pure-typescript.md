@@ -10,12 +10,13 @@ is<User>(payload); // needs the transformer
 
 `is<T>`, `isShallow<T, D>`, `assert<T>`, `assertShallow<T, D>`, `validate<T>`,
 `validateShallow<T, D>`, `equals<T>`, `assertEquals<T>`, `random<T>`,
-`toJsonSchema<T>`, `schemaOf<T>`, `toolFor<T>`, `protoDescriptor<T>`, `protoDecode<T>` and
-`protoEncode<T>` are the fifteen calls the transformer currently rewrites. It replaces
-each with emitted code built from `T`'s reflected IR. Where it did not run over a file,
-the type argument is gone and the call **throws** — the validation utilities ask for a
-runtime witness, while the schema and protobuf calls name the build transform that should
-have replaced them.
+`toJsonSchema<T>`, `schemaOf<T>`, `toolFor<T>`, `protoDescriptor<T>`,
+`protoDecode<T>`, `protoEncode<T>`, `grpcDescriptor<S>` and
+`loadGrpcService<S>` are the seventeen calls the transformer currently rewrites. It replaces each with emitted
+code built from the reflected IR. Where it did not run over a file, the type
+argument is gone and the call **throws** — the validation utilities ask for a
+runtime witness, while the schema, protobuf and gRPC artifact calls name the
+build transform that should have replaced them.
 
 > [!IMPORTANT]
 > There is no fallback that inspects `T` at runtime, because there is nothing to inspect.

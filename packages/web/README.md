@@ -24,7 +24,7 @@ The package root contains the common framework APIs. Feature-specific entry
 points include `/routing`, `/versioning`, `/context`, `/di`, `/state`,
 `/pipeline`, `/middleware`, `/app`, `/modules`, `/openapi`, `/health`, `/upload`,
 `/static`, `/compression`, `/events`, `/cqrs`, `/queues`, `/schedule`,
-`/observability`, `/testing`, and `/devtools`.
+`/observability`, `/microservices/grpc`, `/testing`, and `/devtools`.
 
 Transport adapters live under `/microservices`, with dedicated Redis, NATS, and
 RabbitMQ entry points. Queue backends are published under `/queues/backends`.
@@ -36,8 +36,9 @@ does not bundle an SDK, exporter, backend, or metrics endpoint.
 `@zmdb/web/versioning` provides version decorators and the path, header, and
 media-type strategies used by the router and OpenAPI generator.
 
-Redis, NATS, and RabbitMQ clients are optional peers. Install only the client
-used by the adapter you import.
+grpc-js, Redis, NATS, and RabbitMQ clients are optional peers reached only
+through their named microservices subpaths. Install only the client used by the
+adapter you import.
 
 ## Documentation
 

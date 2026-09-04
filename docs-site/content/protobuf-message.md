@@ -140,8 +140,8 @@ shape.
 the other language's ordinary protobuf generator. OpenAPI and JSON Schema remain
 the alternatives for JSON APIs.
 
-**gRPC.** The message codec is available, but transport integration remains
-separate — see [gRPC](./web-microservices-grpc.html).
+**gRPC.** Typed service descriptors, server binding and clients use these same
+message codecs — see [gRPC](./web-microservices-grpc.html).
 
 **Another protobuf library.** Generate the `.proto` from the TypeScript
 declaration, then let that library compile or load the artifact:
@@ -152,12 +152,12 @@ import { writeFile } from 'node:fs/promises';
 await writeFile('user.proto', protoDescriptor<UserMessage>());
 ```
 
-The supported surface is proto3 message descriptors and AOT message codecs.
-Proto2 semantics, gRPC service definitions and transport binding, and runtime
-`.proto` parsing are non-goals. The current mapping also refuses maps because
-index signatures do not reach the reflector, `oneof` because union arms have no
-field-number tag slot, `bytes` because typed-array reflection is absent, nested
-arrays, optional-nullable fields, and required singular-message cycles.
+The supported surface is proto3 message/service descriptors, AOT message
+codecs, and typed gRPC binding from the same declaration. Proto2 semantics and
+runtime `.proto` parsing remain non-goals. The current mapping also refuses maps
+because index signatures do not reach the reflector, `oneof` because union arms
+have no field-number tag slot, `bytes` because typed-array reflection is absent,
+nested arrays, optional-nullable fields, and required singular-message cycles.
 
 ---
 

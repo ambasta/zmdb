@@ -1,6 +1,6 @@
 > **ToDo / partial support.** The transport-neutral layer plus Redis Pub/Sub,
-> core NATS and RabbitMQ strategies ship. gRPC and the epic-wide final docs pass
-> remain pending, so this page stays marked `todo`.
+> core NATS, RabbitMQ and the separate typed gRPC surface ship. The epic-wide
+> final docs pass remains pending, so this page stays marked `todo`.
 
 ## The public seam
 

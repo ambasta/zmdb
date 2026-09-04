@@ -1,6 +1,6 @@
 > **ToDo / partial support.** One application can now own HTTP routing and any
-> custom or packaged Redis, NATS and RabbitMQ `TransportStrategy`. gRPC remains
-> pending. `createApp` still does not open an HTTP listening socket.
+> custom or packaged Redis, NATS and RabbitMQ `TransportStrategy`, plus typed
+> gRPC bindings. `createApp` still does not open an HTTP listening socket.
 
 ## One application, two transport surfaces
 
@@ -21,6 +21,22 @@ await using app = createApp(AppModule, {
 await app.init();
 ```
 
+Add gRPC through its separate binding contract rather than the broker strategy
+array:
+
+```ts
+await using app = createApp(AppModule, {
+  transports: [ordersTransport],
+  dispatcher,
+  grpc: {
+    address: '0.0.0.0:50051',
+    bindings: [ordersGrpcBinding],
+    credentials: 'insecure',
+  },
+  graceMs: 5_000,
+});
+```
+
 The same module graph and controller instances serve the HTTP and message
 surfaces. A controller can therefore inject one repository and expose both a
 route and a message handler without opening a second pool or constructing a
@@ -37,16 +53,18 @@ Initialization is ordered:
 1. run `onModuleInit` for constructed providers/controllers;
 2. run `onApplicationBootstrap`;
 3. build the exact message-pattern map once;
-4. call `transport.listen` in declaration order.
+4. call `transport.listen` in declaration order;
+5. bind the optional gRPC server.
 
-A rejecting `listen` closes transports opened earlier and rejects `init()`.
-Start the external HTTP server only after `init()` resolves.
+A rejecting `listen` or gRPC bind closes transports opened earlier and rejects
+`init()`. Start the external HTTP server only after `init()` resolves.
 
 Disposal mirrors the dependency direction:
 
 1. stop lazy module loading and await in-flight loads;
-2. close transports in reverse declaration order under `graceMs`;
-3. run `onShutdown` in reverse construction order.
+2. close gRPC under `graceMs`;
+3. close transports in reverse declaration order;
+4. run `onShutdown` in reverse construction order.
 
 Intake stops before repositories and other handler dependencies are disposed.
 Every configured transport is asked to close even when an earlier close

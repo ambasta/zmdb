@@ -98,7 +98,7 @@ describe('the fixtures are the same program', () => {
 function calls(text: string): string[] {
   const found = [
     ...text.matchAll(
-      /\b(is|isShallow|equals|assert|assertShallow|assertEquals|validate|validateShallow|random|toJsonSchema|schemaOf|toolFor|protoDescriptor|protoDecode|protoEncode)<([^;]*)>\(/g,
+      /\b(is|isShallow|equals|assert|assertShallow|assertEquals|validate|validateShallow|random|toJsonSchema|schemaOf|toolFor|protoDescriptor|protoDecode|protoEncode|grpcDescriptor|loadGrpcService)<([^;]*)>\(/g,
     ),
   ];
   return found.map(match => `${match[1] ?? ''}<${(match[2] ?? '').replaceAll(/\s+/g, ' ')}>`).toSorted();

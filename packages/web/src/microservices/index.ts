@@ -5,6 +5,7 @@
 import '../polyfill.js';
 import { consumerSpan, toTraceHeaders } from '../observability/index.js';
 import type { Observability, Span, TraceCarrier } from '../observability/index.js';
+import type { GrpcServerOptions } from './grpc/types.js';
 
 /** A parsed delivery constructed by a transport strategy. */
 export interface RawMessage extends TraceCarrier {
@@ -106,6 +107,7 @@ export interface AppOptions {
   readonly dispatcher?: DispatcherOptions;
   readonly graceMs?: number;
   readonly observability?: Observability;
+  readonly grpc?: GrpcServerOptions;
 }
 
 /** Pattern map for a request/response client. Declare concrete maps as type aliases. */

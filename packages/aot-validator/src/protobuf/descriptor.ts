@@ -6,6 +6,8 @@
 
 import type { ObjectIR, PropertyIR, ProtoScalar, ScalarIR, TypeIR } from '@zmdb/schema-core/ir';
 
+import type { GrpcServiceIR } from './grpc-ir.js';
+
 export interface ProtoDescriptorDiagnostic {
   readonly path: string;
   readonly reason: string;
@@ -24,6 +26,7 @@ interface FieldType {
 }
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PACKAGE = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 const THIRTY_TWO_BIT = new Set<ProtoScalar>(['int32', 'uint32', 'sint32', 'fixed32', 'sfixed32']);
 const SIXTY_FOUR_BIT = new Set<ProtoScalar>(['int64', 'uint64', 'sint64', 'fixed64', 'sfixed64']);
 const FLOATING = new Set<ProtoScalar>(['float', 'double']);
@@ -31,6 +34,11 @@ const FLOATING = new Set<ProtoScalar>(['float', 'double']);
 /** Emit a complete proto3 file, or named diagnostics when the IR has no honest spelling. */
 export function emitProtoDescriptor(root: TypeIR, preferredName?: string): ProtoDescriptorResult {
   return new DescriptorEmitter().emit(root, preferredName);
+}
+
+/** Emit one proto3 service and every request/response message it references. */
+export function emitGrpcDescriptor(root: GrpcServiceIR, service: string, pkg: string): ProtoDescriptorResult {
+  return new DescriptorEmitter().emitGrpc(root, service, pkg);
 }
 
 class DescriptorEmitter {
@@ -60,11 +68,55 @@ class DescriptorEmitter {
     this.#renderMessage(root, rootMessage);
     if (this.#diagnostics.length > 0) return { diagnostics: this.#diagnostics };
 
+    return { source: this.#document(), diagnostics: [] };
+  }
+
+  emitGrpc(root: GrpcServiceIR, service: string, pkg: string): ProtoDescriptorResult {
+    if (!IDENTIFIER.test(service)) {
+      this.#refuse('service', `\`${service}\` is not a valid protobuf service identifier`);
+    }
+    if (!PACKAGE.test(pkg)) {
+      this.#refuse('package', `\`${pkg}\` is not a valid protobuf package name`);
+    }
+    for (const method of root.methods) {
+      if (!IDENTIFIER.test(method.name)) {
+        this.#refuse(method.name, `\`${method.name}\` is not a valid protobuf method identifier`);
+      }
+      if (method.request.kind !== 'object') {
+        this.#refuse(`${method.name}.request`, 'a gRPC request must be an object message');
+        continue;
+      }
+      if (method.response.kind !== 'object') {
+        this.#refuse(`${method.name}.response`, 'a gRPC response must be an object message');
+        continue;
+      }
+      this.#collectObjectNames(method.request, method.requestName);
+      this.#collectObjectNames(method.response, method.responseName);
+    }
+
+    const rpc: string[] = [];
+    for (const method of root.methods) {
+      if (method.request.kind !== 'object' || method.response.kind !== 'object') continue;
+      const request = this.#renderMessage(method.request, `${method.name}.request`);
+      const response = this.#renderMessage(method.response, `${method.name}.response`);
+      if (request === undefined || response === undefined) continue;
+      const requestType = method.requestStream ? `stream ${request}` : request;
+      const responseType = method.responseStream ? `stream ${response}` : response;
+      rpc.push(`  rpc ${method.name} (${requestType}) returns (${responseType});`);
+    }
+    if (this.#diagnostics.length > 0) return { diagnostics: this.#diagnostics };
+
+    this.#definitions.push(`service ${service} {\n${rpc.join('\n')}\n}`);
+    return { source: this.#document(pkg), diagnostics: [] };
+  }
+
+  #document(pkg?: string): string {
     const lines = ['syntax = "proto3";'];
+    if (pkg !== undefined) lines.push('', `package ${pkg};`);
     if (this.#needsTimestamp) lines.push('', 'import "google/protobuf/timestamp.proto";');
     if (this.#definitions.length > 0) lines.push('', this.#definitions.join('\n\n'));
     lines.push('');
-    return { source: lines.join('\n'), diagnostics: [] };
+    return lines.join('\n');
   }
 
   #collectObjectNames(node: TypeIR, suggested: string): void {

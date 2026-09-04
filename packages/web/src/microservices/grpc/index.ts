@@ -1,0 +1,30 @@
+export {
+  grpcDescriptor,
+  loadGrpcService,
+  type GrpcLoadedMethod,
+  type GrpcLoadedService,
+  type GrpcMethodDef,
+  type GrpcServiceDef,
+} from './loader.js';
+export { bindGrpcService, createGrpcClient } from './runtime.js';
+export {
+  GrpcError,
+  type GrpcBinding,
+  type GrpcCall,
+  type GrpcCaller,
+  type GrpcClient,
+  type GrpcClientCallOptions,
+  type GrpcClientOptions,
+  type GrpcClientTlsOptions,
+  type GrpcFailure,
+  type GrpcHandler,
+  type GrpcHandlers,
+  type GrpcKeyCertPair,
+  type GrpcMetadata,
+  type GrpcMetadataValidator,
+  type GrpcServerOptions,
+  type GrpcServerTlsOptions,
+  type GrpcServiceSpec,
+  type GrpcStatus,
+  type GrpcTlsOptions,
+} from './types.js';

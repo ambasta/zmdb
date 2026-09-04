@@ -68,25 +68,27 @@ by catching declaration mistakes that are precise from syntax alone.
 
 ## Intercepted Functions
 
-The transformer recognizes these fifteen generic entry points:
+The transformer recognizes these seventeen generic entry points:
 
-| Function                   | Emits                                       |
-| -------------------------- | ------------------------------------------- |
-| `is<T>(x)`                 | Inline full-depth boolean check             |
-| `isShallow<T, D>(x)`       | Inline boolean check through depth `D`      |
-| `assert<T>(x)`             | Full-depth check + throw on failure         |
-| `assertShallow<T, D>(x)`   | Depth-limited check + throw on failure      |
-| `equals<T>(x)`             | Exact-shape check with excess-key rejection |
-| `assertEquals<T>(x)`       | Exact-shape check + throw on mismatch       |
-| `validate<T>(x)`           | Structured full-depth success or issues     |
-| `validateShallow<T, D>(x)` | Structured depth-limited success or issues  |
-| `random<T>()`              | Type-directed value generator               |
-| `toJsonSchema<T>()`        | JSON Schema object                          |
-| `schemaOf<T>()`            | Frozen tagged table schema and IR           |
-| `toolFor<T>(provider, …)`  | Frozen provider-specific tool document      |
-| `protoDescriptor<T>()`     | Protobuf message descriptor                 |
-| `protoDecode<T>(bytes)`    | Generated protobuf decoder                  |
-| `protoEncode<T>(value)`    | Generated protobuf encoder                  |
+| Function                            | Emits                                       |
+| ----------------------------------- | ------------------------------------------- |
+| `is<T>(x)`                          | Inline full-depth boolean check             |
+| `isShallow<T, D>(x)`                | Inline boolean check through depth `D`      |
+| `assert<T>(x)`                      | Full-depth check + throw on failure         |
+| `assertShallow<T, D>(x)`            | Depth-limited check + throw on failure      |
+| `equals<T>(x)`                      | Exact-shape check with excess-key rejection |
+| `assertEquals<T>(x)`                | Exact-shape check + throw on mismatch       |
+| `validate<T>(x)`                    | Structured full-depth success or issues     |
+| `validateShallow<T, D>(x)`          | Structured depth-limited success or issues  |
+| `random<T>()`                       | Type-directed value generator               |
+| `toJsonSchema<T>()`                 | JSON Schema object                          |
+| `schemaOf<T>()`                     | Frozen tagged table schema and IR           |
+| `toolFor<T>(provider, …)`           | Frozen provider-specific tool document      |
+| `protoDescriptor<T>()`              | Protobuf message descriptor                 |
+| `protoDecode<T>(bytes)`             | Generated protobuf decoder                  |
+| `protoEncode<T>(value)`             | Generated protobuf encoder                  |
+| `grpcDescriptor<S>(name, package)`  | Protobuf service descriptor                 |
+| `loadGrpcService<S>(name, package)` | Typed gRPC descriptor/codecs                |
 
 ## Golden Transformations
 

@@ -11,20 +11,20 @@
 
 ## Packages
 
-| Package                                             | Status | What it provides                                                        |
-| --------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | Schema tags, the shared IR, derived DTOs, relations, OpenAPI, and tools |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SQL compilation, dialect support, introspection, DDL, and migrations    |
-| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, random data, and protobuf codecs  |
-| [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming    |
-| [`@zmdb/web`](./packages/web)                       | ✅     | Controllers, DI, middleware, OpenAPI, transports, jobs, and scheduling  |
+| Package                                             | Status | What it provides                                                                   |
+| --------------------------------------------------- | ------ | ---------------------------------------------------------------------------------- |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | Schema tags, the shared IR, derived DTOs, relations, OpenAPI, and tools            |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SQL compilation, dialect support, introspection, DDL, and migrations               |
+| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, protobuf codecs, and typed gRPC artifacts    |
+| [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming               |
+| [`@zmdb/web`](./packages/web)                       | ✅     | Controllers, DI, middleware, OpenAPI, transports, typed gRPC, jobs, and scheduling |
 
 > Status legend:
 > ✅ complete.
 > 🚧 in progress.
 > 🔜 planned.
 >
-> The current suite has **2,315 passing tests** across 213 files, plus **116
+> The current suite has **2,330 passing tests** across 214 files, plus **114
 > expected failures** that describe work still to be done. The compatibility
 > inventory covers 503 of 742 upstream API suites and explains why the other 239
 > are out of scope. The documentation site contains 228 supported pages, 35 TODO

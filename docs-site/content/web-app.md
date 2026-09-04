@@ -2,7 +2,8 @@
 it compiles the DI graph, builds the [router](./web-pipeline.html), and registers
 every controller's routes — **once**. It exposes lifecycle hooks and `await using`
 graceful shutdown. Its optional second argument attaches
-[message transports](./web-microservices.html) to the same lifecycle.
+[message transports](./web-microservices.html) and typed
+[gRPC bindings](./web-microservices-grpc.html) to the same lifecycle.
 
 ## Bootstrapping
 
@@ -41,11 +42,11 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase     | order                                                                                                    |
-| --------- | -------------------------------------------------------------------------------------------------------- |
-| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → message map → transport `listen`            |
-| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                             |
-| shutdown  | transports close in reverse declaration order → instances `onShutdown` in **reverse construction order** |
+| phase     | order                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → message map → transport `listen` → gRPC bind              |
+| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                                           |
+| shutdown  | gRPC closes → transports close in reverse declaration order → instances `onShutdown` in **reverse construction order** |
 
 “All” means every constructed object provider and controller. Value providers
 enter the ledger when registered; factory providers enter only when resolved.

@@ -4,7 +4,9 @@ Part of `@zmdb/web`, a new `./microservices/grpc` subpath. `../SPEC.md` owns bro
 §1 is why those are two files rather than two sections.
 
 `@grpc/grpc-js` is an **optional peer dependency**, per `#556`'s constraint that installing `@zmdb/web` must not
-pull in five brokers. `@grpc/proto-loader` is not a dependency at all, and §3 is why.
+pull in five brokers. The adapter neither imports nor directly declares
+`@grpc/proto-loader`; grpc-js carries it transitively for its own optional
+facilities, and §3 explains why this surface never invokes it.
 
 ## 1. gRPC is not a broker, so almost nothing in `../SPEC.md` applies
 
@@ -20,7 +22,7 @@ a retry delay is, where a poisoned message goes. gRPC has none of those problems
 | `retry.afterMs`                        | not applicable; the client owns backoff                               |
 | correlation ids (§8 there)             | not needed; the HTTP/2 stream _is_ the correlation                    |
 | required request timeout (§7 there)    | the caller's deadline, propagated in metadata (§6)                    |
-| `TransportStrategy`                    | **not implemented.** gRPC is not a `TransportStrategy`                |
+| `TransportStrategy`                    | not used; gRPC has its own typed binding                              |
 
 That last row is the decision to defend. It is tempting to make gRPC one more strategy, so `AppOptions.transports` covers it and there is a single startup path. It is refused because `TransportStrategy.listen(dispatch)` maps a pattern string to a handler and gRPC does not have patterns — it has a service with a fixed method set, a declared type per direction per method, and a streaming flag on each side.
 
@@ -41,8 +43,10 @@ protoDecode<T>(bytes: Uint8Array): T;
 protoDescriptor<T>(): string; // the .proto text, for the other language
 ```
 
-Those three message entry points now ship. The `grpcDescriptor` service-block
-emitter below does not; it remains owned by the gRPC work.
+Those three message entry points now ship alongside `grpcDescriptor` and
+`loadGrpcService`. The latter is the generated grpc-js artifact: descriptor,
+method paths, streaming flags, validators and codecs from the same reflected
+service type.
 
 `.proto` is **output**. The declared TypeScript type carrying `ProtoField<N>` and `Proto<K>` tags
 (`../../../../schema-core/src/ir/SPEC.md` §4.5) is the input. That is the same decision the whole project rests
@@ -58,19 +62,26 @@ Consuming somebody else's `.proto` is a real need and it is **out of scope**: it
 `.d.ts`, which is the same one-source-of-truth answer run in the other direction and can be built later without
 touching a line of runtime. What is refused is a runtime parser, not interoperability.
 
-## 3. Nothing parses a `.proto`, at build time or any other time
+## 3. This adapter never parses a `.proto`
 
 `#557` step 8 asks for build-time proto loading and says to explain why not runtime. The answer here is stronger
 than build-time: **there is no `.proto` on the read path at all.**
 
-`@grpc/proto-loader` parses a `.proto` file at process start and produces an object whose types are `any` or hand-declared. That is three defects in one dependency. It is I/O during startup, so a mis-packaged container fails at boot rather than at build.
+Calling `@grpc/proto-loader` would parse a `.proto` file at process start and
+produce an object whose types are `any` or hand-declared. That would add startup
+I/O, a second implementation of the protobuf grammar, and an untyped boundary.
+The package is present transitively under grpc-js, but importing grpc-js alone
+does not load it and this adapter has no call site for it.
 
-It is a parser — a second implementation of the protobuf grammar, whose disagreements with the emitter are wire bugs. And the object it returns is untyped, so every message crossing it needs a cast, which is the thing this project does not do.
-
-Instead, a service descriptor is produced from the declared types:
+Instead, the descriptor and executable service artifact are produced from the
+declared types:
 
 ```ts
 grpcDescriptor<S extends GrpcServiceDef>(service: string, pkg: string): string;
+loadGrpcService<S extends GrpcServiceDef>(
+  service: string,
+  pkg: string,
+): GrpcLoadedService<S>;
 ```
 
 It emits the `service` block and every message block it references, so the artifact a Go or Python team consumes
@@ -82,9 +93,11 @@ contract-change review that `.proto` files are prized for is a pull request — 
 **not here**. `@zmdb/web` does not gain a `TypeIR` walker; the walker exists once and this epic calls it. §8 is
 the rest of that boundary.
 
-The `ServiceDefinition` object `@grpc/grpc-js`'s `Server.addService` wants is built from the same descriptor, with
-`protoEncode`/`protoDecode` as its `serialize`/`deserialize`. That is the entire reason `@grpc/proto-loader` is
-unnecessary: everything it would have produced, we already have in a typed form.
+The `ServiceDefinition` object `@grpc/grpc-js`'s `Server.addService` wants is
+built from `loadGrpcService`'s generated method table. Each entry carries the
+same validators and protobuf codecs the standalone message calls emit. That is
+the entire reason `@grpc/proto-loader` is unnecessary: everything it would
+have produced is already available in a typed build artifact.
 
 ## 4. The service declaration and the binding
 
@@ -106,9 +119,10 @@ export declare function bindGrpcService<S extends GrpcServiceDef>(
 ): GrpcBinding;
 
 export interface GrpcServiceSpec<S extends GrpcServiceDef> {
-  readonly name: string; // 'orders.Orders'
-  readonly descriptor: string; // grpcDescriptor<S>(…) output, imported as a build artifact
+  readonly definition: GrpcLoadedService<S>;
+  readonly validateMetadata: (metadata: GrpcMetadata) => GrpcMetadata;
   readonly onError: (failure: GrpcFailure) => void;
+  readonly maxDurationMs?: number;
 }
 ```
 
@@ -116,8 +130,9 @@ export interface GrpcServiceSpec<S extends GrpcServiceDef> {
 
 A decorated class missing a method is a class, and the omission surfaces as `UNIMPLEMENTED` at the caller.
 
-`GrpcHandlers<S>` has it: omitting `watch` from a four-method service is `TS2739` naming the three missing
-methods, verified against the compiler rather than assumed. Brokers keep decorators for the mirror-image reason
+`GrpcHandlers<S>` has it: omitting one method from a four-method service is
+`TS2741` naming that missing property; omitting two or more is `TS2739`.
+Brokers keep decorators for the mirror-image reason
 (`../SPEC.md` §4): a pattern set is open-ended, so there is nothing to be exhaustive against.
 
 **`requestStream` and `responseStream` are `?: true`, never `boolean`.** Under
@@ -176,17 +191,19 @@ Here the descriptor is generated from the declaration, so the streaming flags ar
 
 A unary function where a server stream is declared is `TS2741` — "Property '[Symbol.asyncIterator]' is missing in type 'Promise<Order>'" — which is a compile error at the handler rather than a protocol error at the caller.
 
-A streaming handler is an `AsyncIterable`, which in practice is an `async function*`. That is the same shape
-`../../graphql/subscriptions/SPEC.md` uses for a subscription, and it means cancellation is
-`AbortSignal`-driven with no `unsubscribe` — §1 of that file makes the argument and it holds identically here:
-when the caller's stream closes, `call.signal` aborts, the `for await` in the handler's generator throws at the
-next suspension point, and `finally` runs. There is no other cancellation path and no way to leak the iterator.
+A streaming handler is an `AsyncIterable`, which in practice is an
+`async function*`. Cancellation is `AbortSignal`-driven with no framework
+`unsubscribe`. The adapter also owns both iterator cleanup paths: it calls
+`return()` when a response consumer stops reading, and its request iterable
+races each pending `next()` against `call.signal`. An `AbortSignal` does not
+interrupt an arbitrary iterable by itself; the adapter must make that
+relationship explicit so a suspended `for await` exits and `finally` runs.
 
 **`web-microservices-grpc.md` claimed streaming RPC was "blocked by the string response body". That is
 wrong and is corrected on the page.** `WebResponse` (`../../pipeline/SPEC.md` §22) is the HTTP pipeline's type; a
 gRPC stream never touches it, and `toNodeHandler`'s tagged response-body handling is not on this path at all.
-The message-codec dependency is now satisfied; streaming remains unavailable because the gRPC service
-descriptor and binding are not implemented.
+The gRPC service descriptor, binding and all four streaming combinations now
+ship on `@zmdb/web/microservices/grpc`.
 
 ## 6. Deadlines, and propagating what is left of one
 
@@ -221,8 +238,11 @@ data a caller sent deliberately. A second map costs one member and cannot be mis
 
 `Uint8Array` rather than `Buffer` — `.oxlintrc.json:60` bans `Buffer` with "Use Uint8Array and ArrayBuffer for
 binary data", and it is the same type `protoEncode` returns, so the two halves of the binary story agree.
-`@grpc/grpc-js` hands the adapter a `Buffer`; a `Buffer` **is** a `Uint8Array`, so the adapter narrows rather than
-converting, and no banned construction appears.
+`@grpc/grpc-js` hands incoming bytes to the adapter as a `Buffer`, which is
+already a `Uint8Array`. Its outgoing serializer contract is stricter and
+internally calls `Buffer.copy`, so the adapter converts the generated
+`Uint8Array` at that private grpc-js boundary. No `Buffer` appears in the
+public surface.
 
 `setTrailer` exists because trailers are the only place a streaming handler can report a per-call fact after it
 has started emitting — a row count, a cursor. There is no `setHeader`: response metadata is sent when the first
@@ -289,7 +309,7 @@ export interface GrpcBinding {
 export interface GrpcServerOptions {
   readonly address: string;
   readonly bindings: readonly GrpcBinding[];
-  readonly credentials: 'insecure' | GrpcTlsOptions;
+  readonly credentials: 'insecure' | GrpcServerTlsOptions;
 }
 ```
 
@@ -313,16 +333,19 @@ otherwise — so the bound is not a nicety, it is the difference between a rolli
 ```ts
 export type GrpcClient<S extends GrpcServiceDef> = {
   readonly [M in keyof S]: GrpcCaller<S[M]>;
+} & {
+  close(): void;
+  [Symbol.dispose](): void;
 };
 
 export declare function createGrpcClient<S extends GrpcServiceDef>(opts: GrpcClientOptions<S>): GrpcClient<S>;
 
 export interface GrpcClientOptions<S extends GrpcServiceDef> {
-  readonly name: string;
-  readonly descriptor: string;
+  readonly definition: GrpcLoadedService<S>;
   readonly address: string;
-  readonly credentials: 'insecure' | GrpcTlsOptions;
+  readonly credentials: 'insecure' | GrpcClientTlsOptions;
   readonly deadlineMs: number;
+  readonly validateMetadata: (metadata: GrpcMetadata) => GrpcMetadata;
 }
 ```
 
@@ -345,24 +368,25 @@ part of the service contract.
 
 `#557` step 9 asks for this boundary. It runs exactly here:
 
-| Owned by the protobuf work (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Owned by this gRPC epic                                |
-| ----------------------------------------------------------------------- | ------------------------------------------------------ |
-| `ProtoField<N>`, `Proto<K>` and their IR carriage                       | `GrpcServiceDef`, `GrpcMethodDef`                      |
-| `protoEncode`, `protoDecode`, `protoDescriptor`                         | `grpcDescriptor` — the `service` block emitter         |
-| field-number and wire-type diagnostics                                  | `bindGrpcService`, `GrpcHandlers`, calls and lifecycle |
+| Build-time type/codec layer (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Runtime web layer (`@zmdb/web/microservices/grpc`)   |
+| ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `ProtoField<N>`, `Proto<K>` and their IR carriage                        | `GrpcServiceDef`, `GrpcMethodDef` public types       |
+| `protoEncode`, `protoDecode`, `protoDescriptor`                          | `bindGrpcService`, `GrpcHandlers`                    |
+| `grpcDescriptor`, `loadGrpcService`                                      | server/client adapters and application lifecycle     |
+| field-number, wire-type and method-shape diagnostics                     | deadlines, cancellation, metadata and status mapping |
 
 There is **one** `TypeIR` walker and it is not in `@zmdb/web`. The gRPC-owned `grpcDescriptor` implementation is
 on the emitter side despite being a gRPC concept, because putting it here would mean a second walker over the
 same IR, and two walkers that disagree about a field number is a wire break neither codebase's tests can see.
 
-The message-codec dependency this section originally recorded is now satisfied. The gRPC implementation still
-needs its own `grpcDescriptor` and binding before it can construct a `ServiceDefinition`; those are not part of
-the protobuf message epic.
+The complete path now ships: one reflection walk emits the descriptor,
+validators and codecs, and the web adapter turns that artifact into grpc-js
+service definitions and typed client calls without parsing the descriptor.
 
 Everything else in this epic — `TransportStrategy`, the dispatcher, the broker strategies, the hybrid lifecycle —
 is genuinely independent, so the epic's claim holds for six of its seven sub-issues.
 
-## 12. What #558 has to assert
+## 12. Acceptance evidence
 
 1. `a service with an unimplemented method does not compile` — type-test on `GrpcHandlers`, the property the
    decorator was refused for (§4).
@@ -392,13 +416,14 @@ is genuinely independent, so the epic's claim holds for six of its seven sub-iss
 
 ## Non-goals (rejected)
 
-- **No runtime `.proto` parsing and no `@grpc/proto-loader`.** §3 — startup I/O, a second grammar
-  implementation, and an untyped result that would need a cast per message.
+- **No runtime `.proto` parsing and no adapter import of
+  `@grpc/proto-loader`.** §3 — startup I/O, a second grammar implementation, and
+  an untyped result that would need a cast per message.
 - **No `.proto` as an input at all.** §2 — `protoDescriptor` is frozen as output; two schema sources is the
   problem the project's design exists to avoid.
 - **No `.proto`-to-`.d.ts` generator in this epic.** §2 — a real need, a separate tool, and no runtime surface.
 - **No `@GrpcMethod` or `@GrpcStreamMethod` decorator.** §4 — a decorated class with a missing method compiles,
-  and `UNIMPLEMENTED` at the caller is a worse error than `TS2739` at the handler.
+  and `UNIMPLEMENTED` at the caller is worse than a missing-property type error at the handler.
 - **No `requestStream: boolean`.** §4 — under `exactOptionalPropertyTypes`, `false` and absent mean the same
   thing, so the option is two spellings of one fact.
 - **No gRPC as a `TransportStrategy`.** §1 — `RawMessage` would erase the method, the per-direction types and the
@@ -412,8 +437,9 @@ is genuinely independent, so the epic's claim holds for six of its seven sub-iss
 - **No unbounded `tryShutdown`.** §9 — a bidirectional stream is open until the client says otherwise.
 - **No `setHeader` on `GrpcCall`.** §7 — response metadata is already gone by the second message, so the API
   would document a mistake it could instead make unwritable.
-- **No `Buffer` anywhere on this surface.** §7 — `.oxlintrc.json:60`, and `protoEncode` already returns
-  `Uint8Array`.
+- **No `Buffer` on the public surface.** §7 — public binary data and generated
+  codecs use `Uint8Array`; only the private grpc-js serializer boundary performs
+  the required Node conversion.
 - **No gRPC-Web or grpc-gateway transcoding.** Both are HTTP/1 shims over this surface, and the project already
   has a first-class HTTP surface with an OpenAPI document — which is the better answer to "a browser needs to
   call this" than a translation layer that supports a subset of the call types.

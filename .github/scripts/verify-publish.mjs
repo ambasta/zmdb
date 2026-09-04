@@ -42,6 +42,7 @@ const PEERS = [
   '@types/node',
   '@types/pg',
   '@anthropic-ai/sdk',
+  '@grpc/grpc-js',
   '@opentelemetry/api',
   '@nats-io/transport-node',
   'amqplib',

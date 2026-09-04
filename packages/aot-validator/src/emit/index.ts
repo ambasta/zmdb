@@ -51,8 +51,9 @@ import {
 import { toolSchemaForProvider, ToolSpecRefusalError, type ToolProvider } from '@zmdb/schema-core/llm';
 
 import { emitProtoDecoder } from '../protobuf/decode.js';
-import { emitProtoDescriptor } from '../protobuf/descriptor.js';
+import { emitGrpcDescriptor, emitProtoDescriptor } from '../protobuf/descriptor.js';
 import { emitProtoEncoder } from '../protobuf/encode.js';
+import type { GrpcServiceIR } from '../protobuf/grpc-ir.js';
 import { validatePatternComplexity } from '../regex-complexity.js';
 import {
   discriminantOf,
@@ -181,6 +182,12 @@ export class Emitter {
 
   get diagnostics(): readonly EmitDiagnostic[] {
     return this.#diagnostics;
+  }
+
+  /** Record a build-time refusal discovered at the call-site boundary. */
+  refuse(path: string, reason: string): undefined {
+    this.#diagnostics.push({ path, reason });
+    return undefined;
   }
 
   /** True once anything has been hoisted, so a caller knows a prelude is needed. */
@@ -331,6 +338,57 @@ export class Emitter {
     const result = emitProtoDescriptor(node, name);
     for (const diagnostic of result.diagnostics) this.#diagnostics.push(diagnostic);
     return result.source === undefined ? undefined : JSON.stringify(result.source);
+  }
+
+  /** `grpcDescriptor<S>(service, package)` -> one complete proto3 file. */
+  emitGrpcDescriptor(node: GrpcServiceIR, service: string, pkg: string): string | undefined {
+    const result = emitGrpcDescriptor(node, service, pkg);
+    for (const diagnostic of result.diagnostics) this.#diagnostics.push(diagnostic);
+    return result.source === undefined ? undefined : JSON.stringify(result.source);
+  }
+
+  /**
+   * `loadGrpcService<S>(service, package)` -> a frozen descriptor plus generated
+   * request/response validators and codecs for every method.
+   */
+  emitGrpcService(node: GrpcServiceIR, service: string, pkg: string): string | undefined {
+    const descriptor = this.emitGrpcDescriptor(node, service, pkg);
+    if (descriptor === undefined) return undefined;
+
+    const methods: string[] = [];
+    for (const method of node.methods) {
+      const validateRequest = this.emitAssert(method.request, 'value', false);
+      const serializeRequest = this.emitProtoEncode(method.request, method.requestName, 'value');
+      const deserializeRequest = this.emitProtoDecode(method.request, method.requestName, 'bytes');
+      const validateResponse = this.emitAssert(method.response, 'value', false);
+      const serializeResponse = this.emitProtoEncode(method.response, method.responseName, 'value');
+      const deserializeResponse = this.emitProtoDecode(method.response, method.responseName, 'bytes');
+      if (
+        validateRequest === undefined ||
+        serializeRequest === undefined ||
+        deserializeRequest === undefined ||
+        validateResponse === undefined ||
+        serializeResponse === undefined ||
+        deserializeResponse === undefined
+      ) {
+        return undefined;
+      }
+
+      methods.push(
+        `${JSON.stringify(method.name)}: { ` +
+          `path: ${JSON.stringify(`/${pkg}.${service}/${method.name}`)}, ` +
+          `requestStream: ${String(method.requestStream)}, ` +
+          `responseStream: ${String(method.responseStream)}, ` +
+          `validateRequest: (value) => ${validateRequest}, ` +
+          `serializeRequest: (value) => ${serializeRequest}, ` +
+          `deserializeRequest: (bytes) => ${deserializeRequest}, ` +
+          `validateResponse: (value) => ${validateResponse}, ` +
+          `serializeResponse: (value) => ${serializeResponse}, ` +
+          `deserializeResponse: (bytes) => ${deserializeResponse} }`,
+      );
+    }
+
+    return `${this.#freeze()}({ name: ${JSON.stringify(`${pkg}.${service}`)}, descriptor: ${descriptor}, methods: { ${methods.join(', ')} } })`;
   }
 
   /** `protoEncode<T>(expr)` -> a call to a compile-time-produced straight-line encoder. */

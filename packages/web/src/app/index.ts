@@ -5,6 +5,7 @@
 
 import type { Container } from '../di/index.js';
 import { runInit, runShutdown } from '../lifecycle.js';
+import type { OpenedGrpcServer } from '../microservices/grpc/runtime.js';
 import {
   createMessageDispatcher,
   getMessagePatterns,
@@ -60,40 +61,49 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
   }
   const fetchHandler = toFetchHandler(router);
   let opened: TransportStrategy[] = [];
+  let openedGrpc: OpenedGrpcServer | undefined;
   let initPromise: Promise<void> | undefined;
   let disposePromise: Promise<void> | undefined;
 
   const start = async (): Promise<void> => {
     await runInit(instances);
-    if (transports.length === 0) {
+    if (transports.length === 0 && options.grpc === undefined) {
       return;
     }
 
     const dispatcherOptions = options.dispatcher;
-    if (dispatcherOptions === undefined) {
+    if (transports.length > 0 && dispatcherOptions === undefined) {
       throw new Error('@zmdb/web: transports require dispatcher observation sinks');
     }
-    validateTransportNames(transports);
-    validateLazyConsumers(runtime?.routes ?? []);
-    for (const transport of transports) {
-      validateUndeliverableSink(transport, dispatcherOptions);
+    if (dispatcherOptions !== undefined) {
+      validateTransportNames(transports);
+      validateLazyConsumers(runtime?.routes ?? []);
+      for (const transport of transports) {
+        validateUndeliverableSink(transport, dispatcherOptions);
+      }
     }
 
-    const dispatcher = createMessageDispatcher(
-      controllers,
-      options.observability === undefined
-        ? dispatcherOptions
-        : { ...dispatcherOptions, observability: options.observability },
-    );
     const started: TransportStrategy[] = [];
     try {
-      for (const transport of transports) {
-        await transport.listen(async message => {
-          const outcome = await dispatcher.dispatch(message, transport.name);
-          reportUndeliverable(transport, dispatcherOptions, message, outcome.settlement);
-          return outcome;
-        });
-        started.push(transport);
+      if (dispatcherOptions !== undefined) {
+        const dispatcher = createMessageDispatcher(
+          controllers,
+          options.observability === undefined
+            ? dispatcherOptions
+            : { ...dispatcherOptions, observability: options.observability },
+        );
+        for (const transport of transports) {
+          await transport.listen(async message => {
+            const outcome = await dispatcher.dispatch(message, transport.name);
+            reportUndeliverable(transport, dispatcherOptions, message, outcome.settlement);
+            return outcome;
+          });
+          started.push(transport);
+        }
+      }
+      if (options.grpc !== undefined) {
+        const { openGrpcServer } = await import('../microservices/grpc/runtime.js');
+        openedGrpc = await openGrpcServer(options.grpc);
       }
     } catch (error) {
       await closeIgnoringFailures(started, graceMs);
@@ -116,10 +126,20 @@ export function createApp(rootModule: ModuleClass, options: AppOptions = {}): Ap
     let closeFailed = false;
     let closeError: unknown;
     try {
-      await closeAll(opened, graceMs);
+      await openedGrpc?.close(graceMs);
     } catch (error) {
       closeFailed = true;
       closeError = error;
+    } finally {
+      openedGrpc = undefined;
+    }
+    try {
+      await closeAll(opened, graceMs);
+    } catch (error) {
+      if (!closeFailed) {
+        closeFailed = true;
+        closeError = error;
+      }
     } finally {
       opened = [];
     }

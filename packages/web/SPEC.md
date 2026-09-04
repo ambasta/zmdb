@@ -10,7 +10,7 @@
 (ARCHITECTURE.md §3). It depends on `@zmdb/schema-core`, `@zmdb/aot-validator`,
 `@zmdb/query-compiler` and `@zmdb/repository`; it has **zero required
 third-party runtime dependencies**. Integrations such as `pg` and
-`@opentelemetry/api` are optional peers.
+`@opentelemetry/api`, broker clients and `@grpc/grpc-js` are optional peers.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -37,8 +37,8 @@ third-party runtime dependencies**. Integrations such as `pg` and
   packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
 - `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`,
   `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). No required
-  third-party runtime deps; `pg` and `@opentelemetry/api` are optional peers for
-  their respective integration subpaths.
+  third-party runtime deps; `pg`, `@opentelemetry/api`, broker clients and
+  `@grpc/grpc-js` are optional peers for their respective integration subpaths.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish,
   exactly like the sibling packages).
 

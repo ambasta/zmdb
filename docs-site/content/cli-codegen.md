@@ -10,7 +10,15 @@ The [unplugin](./aot-setup.html) gets type information for free: a bundler hands
 
 ## What it does
 
-For each source file that calls one of the fifteen generic entry points with a type argument — `is`, `isShallow`, `equals`, `assert`, `assertShallow`, `assertEquals`, `validate`, `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode` — it writes three files beside it and edits the call. A non-default shallow depth is part of the generated export name, so two checks over the same type at different depths remain different functions:
+For each source file that calls one of the seventeen generic entry points with a
+type argument — `is`, `isShallow`, `equals`, `assert`, `assertShallow`,
+`assertEquals`, `validate`, `validateShallow`, `random`, `toJsonSchema`,
+`schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`,
+`grpcDescriptor`, `loadGrpcService` — it writes three files beside it and edits the call. A
+non-default shallow depth is part of the generated export name, so two checks
+over the same type at different depths remain different functions. The two
+gRPC forms additionally capture their service and package string literals in a
+zero-argument generated wrapper:
 
 ```
 src/handlers.ts                      your source; the call is rewritten
@@ -86,7 +94,9 @@ One compiler session for the whole watch, so a save costs an incremental check r
 
 Every witness is written **before** any of them is transformed. Telling the compiler about a new file is a snapshot update, and a snapshot update per file would make a hundred-file project a hundred re-checks. Two updates for the whole run is the difference between this being usable and being a thing people turn off.
 
-There is also a cheap pre-filter: a file that does not even mention one of the fifteen callees with a `<` after it is skipped before the compiler is asked for its AST. In a real project almost every file answers no.
+There is also a cheap pre-filter: a file that does not even mention one of the
+seventeen callees with a `<` after it is skipped before the compiler is asked for
+its AST. In a real project almost every file answers no.
 
 A previous run's output is never scanned, so `--watch` does not chase its own tail.
 

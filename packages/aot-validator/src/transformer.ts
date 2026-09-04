@@ -32,6 +32,7 @@ import {
 import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
+import type { GrpcServiceIR } from './protobuf/grpc-ir.js';
 import { findCallSites, type CallSite } from './reflect/callsites.js';
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
@@ -58,6 +59,8 @@ export const CALLEES: ReadonlySet<string> = new Set([
   'toJsonSchema',
   'schemaOf',
   'toolFor',
+  'grpcDescriptor',
+  'loadGrpcService',
   'protoDescriptor',
   'protoDecode',
   'protoEncode',
@@ -80,6 +83,7 @@ type Reflected =
   | { readonly kind: 'type'; readonly node: TypeIR }
   | { readonly kind: 'shape'; readonly shape: ShapeIR }
   | { readonly kind: 'schema'; readonly ir: SchemaIR }
+  | { readonly kind: 'grpc'; readonly service: GrpcServiceIR }
   | { readonly kind: 'protobuf'; readonly node: TypeIR; readonly name: string };
 
 type EmissionDepth =
@@ -300,6 +304,9 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
     case 'schemaOf':
     case 'toolFor':
       return { kind: 'schema', ir: reflector.schemaIR(type) };
+    case 'grpcDescriptor':
+    case 'loadGrpcService':
+      return { kind: 'grpc', service: reflector.grpcServiceIR(type) };
     case 'protoDescriptor':
     case 'protoDecode':
     case 'protoEncode':
@@ -346,6 +353,13 @@ function emitFor(
   // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
   if (reflected.kind === 'schema') return emitter.emitSchemaValue(reflected.ir);
+  if (reflected.kind === 'grpc') {
+    const names = grpcNames(site, emitter);
+    if (names === undefined) return undefined;
+    return site.callee === 'grpcDescriptor'
+      ? emitter.emitGrpcDescriptor(reflected.service, names.service, names.pkg)
+      : emitter.emitGrpcService(reflected.service, names.service, names.pkg);
+  }
   if (reflected.kind === 'protobuf' && site.callee === 'protoDescriptor') {
     return emitter.emitProtoDescriptor(reflected.node, reflected.name);
   }
@@ -442,6 +456,21 @@ function toolFrameDynamic(
   return options === undefined
     ? `((_p, _n) => { ${body} })(${provider}, ${name})`
     : `((_p, _n, _o) => { ${body} })(${provider}, ${name}, ${options})`;
+}
+
+function grpcNames(site: CallSite, emitter: Emitter): { readonly service: string; readonly pkg: string } | undefined {
+  const service = site.node.arguments[0];
+  const pkg = site.node.arguments[1];
+  if (service === undefined || pkg === undefined || site.node.arguments.length !== 2) {
+    return emitter.refuse('', `\`${site.callee}<S>()\` needs exactly two string literals: service and package`);
+  }
+  if (!isStringLiteral(service)) {
+    return emitter.refuse('service', 'the gRPC service name must be a string literal so the build artifact is stable');
+  }
+  if (!isStringLiteral(pkg)) {
+    return emitter.refuse('package', 'the gRPC package name must be a string literal so the build artifact is stable');
+  }
+  return { service: service.text, pkg: pkg.text };
 }
 
 function protobufName(type: Type): string {

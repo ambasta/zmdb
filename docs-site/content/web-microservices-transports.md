@@ -1,6 +1,7 @@
 > **ToDo / partial support.** Redis Pub/Sub, core NATS and RabbitMQ strategies
-> ship behind optional subpaths. This page remains `todo` until the microservices
-> epic completes its gRPC and final documentation slices.
+> ship behind optional subpaths, alongside the separate typed gRPC subpath.
+> This page remains `todo` until the microservices epic completes its final
+> documentation slice.
 
 ## The strategy boundary
 

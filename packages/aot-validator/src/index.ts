@@ -10,6 +10,14 @@
 import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
+export {
+  grpcDescriptor,
+  loadGrpcService,
+  type GrpcLoadedMethod,
+  type GrpcLoadedService,
+  type GrpcMethodDef,
+  type GrpcServiceDef,
+} from './grpc.js';
 export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
 /**

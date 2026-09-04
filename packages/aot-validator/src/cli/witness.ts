@@ -65,6 +65,7 @@ const SUPPORT_TYPES: Readonly<Record<string, readonly string[]>> = {
   toJsonSchema: ['JsonSchemaObject'],
   schemaOf: ['TaggedSchema'],
   toolFor: ['ToolOptions', 'ToolProvider', 'ToolSpecFor'],
+  loadGrpcService: ['GrpcLoadedService'],
 };
 
 // -----------------------------------------------------------------------------
@@ -158,6 +159,7 @@ interface Signature {
 function signature(entry: Entry): Signature {
   const type = entry.typeText;
   const typeArguments = entry.depthText === undefined ? type : `${type}, ${entry.depthText}`;
+  const captured = entry.argumentsText?.join(', ');
   switch (entry.callee) {
     case 'is':
     case 'equals':
@@ -211,6 +213,20 @@ function signature(entry: Entry): Signature {
         returns: 'ToolSpecFor[P]',
         plain: 'provider, name, opts',
         call: `toolFor<${type}, P>(provider, name, opts)`,
+      };
+    case 'grpcDescriptor':
+      return {
+        parameters: '',
+        returns: 'string',
+        plain: '',
+        call: `grpcDescriptor<${type}>(${captured ?? ''})`,
+      };
+    case 'loadGrpcService':
+      return {
+        parameters: '',
+        returns: `GrpcLoadedService<${type}>`,
+        plain: '',
+        call: `loadGrpcService<${type}>(${captured ?? ''})`,
       };
     case 'protoDescriptor':
       return { parameters: '', returns: 'string', plain: '', call: `protoDescriptor<${type}>()` };
@@ -524,7 +540,7 @@ export function rewriteSource(input: RewriteInput): string {
     const args = site.node.arguments;
     const first = args[0];
     const last = args[args.length - 1];
-    const inner = first && last ? rewriter.slice(first.getStart(), last.end) : '';
+    const inner = entry.argumentsText === undefined && first && last ? rewriter.slice(first.getStart(), last.end) : '';
     rewriter.replace(site.node.getStart(), site.node.end, `${entry.name}(${inner})`);
   }
 
