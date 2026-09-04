@@ -9,18 +9,12 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { join, relative } from 'node:path';
+import { delimiter, join, relative } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { runCli } from 'zmdb/cli';
 
-// Tests freeze for zmdb CLI SPEC §13 (#499, epic #497).
-//
-// RED ON PURPOSE. At HEAD 83cb5c25 every `zmdb new …` call below returns:
-//
-//   code 2
-//   stderr: zmdb: unknown command "new"
-//
+// Regression coverage for the scaffold contract frozen in #499 and implemented in #500.
 // Each assertion uses the real exported `runCli`; there is no scaffold stub. Temporary projects
 // live below the isolated checkout and are removed after every test. That location lets generated
 // source resolve the checkout's already-installed dependencies by normal ancestor lookup. The gate
@@ -145,8 +139,30 @@ function runGate(command: 'tsc' | 'oxlint' | 'oxfmt', args: readonly string[], c
   });
 }
 
+function runProjectScript(project: string, name: string): void {
+  const manifest: unknown = JSON.parse(readFileSync(join(project, 'package.json'), 'utf8'));
+  const scripts = typeof manifest === 'object' && manifest !== null ? Reflect.get(manifest, 'scripts') : undefined;
+  const command = typeof scripts === 'object' && scripts !== null ? Reflect.get(scripts, name) : undefined;
+  if (typeof command !== 'string') {
+    throw new TypeError(`generated project has no ${name} script`);
+  }
+  execFileSync(process.env.SHELL ?? '/bin/sh', ['-c', command], {
+    cwd: project,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`]
+        .filter(value => value !== undefined && value.length > 0)
+        .join(' '),
+      PATH: `${join(ROOT, 'node_modules', '.bin')}${delimiter}${process.env.PATH ?? ''}`,
+    },
+    stdio: 'pipe',
+    timeout: 60_000,
+  });
+}
+
 describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
-  it.fails('generates a project that typechecks, lints and formats clean', async () => {
+  it('generates a project that typechecks, lints and formats clean', async () => {
     const { project, run } = await generatedProject();
     expect(run).toMatchObject({ code: 0, stderr: '' });
 
@@ -155,24 +171,26 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     runGate('oxfmt', ['--check', '.'], project);
   });
 
-  it.fails('generates the complete project file set and nothing else', async () => {
+  it('generates the complete project file set and nothing else', async () => {
     const { project, run } = await generatedProject();
     expect(run.code).toBe(0);
     expect(filesUnder(project)).toEqual(
       [
         '.gitignore',
         'package.json',
+        'scripts/build.mjs',
         'src/app.module.ts',
         'src/health.controller.spec.ts',
         'src/health.controller.ts',
         'src/main.ts',
         'tsconfig.json',
+        'vitest.config.ts',
         'zmdb.config.ts',
       ].toSorted(),
     );
   });
 
-  it.fails('generates a schema and its behavioural spec', async () => {
+  it('generates a schema and its behavioural spec', async () => {
     const root = packageFixture('schema');
     const run = await cli(root, 'new', 'schema', 'account');
     expect(run.code).toBe(0);
@@ -181,7 +199,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     );
   });
 
-  it.fails('generates a controller with a test file', async () => {
+  it('generates a controller with a test file', async () => {
     const root = packageFixture('controller');
     const run = await cli(root, 'new', 'controller', 'posts');
     expect(run.code).toBe(0);
@@ -190,7 +208,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     );
   });
 
-  it.fails('generates a module and its behavioural spec', async () => {
+  it('generates a module and its behavioural spec', async () => {
     const root = packageFixture('module');
     const run = await cli(root, 'new', 'module', 'billing');
     expect(run.code).toBe(0);
@@ -199,7 +217,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     );
   });
 
-  it.fails('generates a repository provider and its behavioural spec', async () => {
+  it('generates a repository provider and its behavioural spec', async () => {
     const root = packageFixture('repository');
     const run = await cli(root, 'new', 'repository', 'users');
     expect(run.code).toBe(0);
@@ -208,7 +226,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     );
   });
 
-  it.fails('generates a command and its behavioural spec', async () => {
+  it('generates a command and its behavioural spec', async () => {
     const root = packageFixture('command');
     const run = await cli(root, 'new', 'command', 'import-users');
     expect(run.code).toBe(0);
@@ -217,7 +235,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     );
   });
 
-  it.fails('writes behavioural generated specs rather than existence assertions', async () => {
+  it('writes behavioural generated specs rather than existence assertions', async () => {
     const cases = [
       ['schema', 'account', 'src/account.spec.ts'],
       ['controller', 'posts', 'src/posts.controller.spec.ts'],
@@ -236,7 +254,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     }
   });
 
-  it.fails('puts a transformer canary in the generated schema spec', async () => {
+  it('puts a transformer canary in the generated schema spec', async () => {
     const root = packageFixture('canary');
     expect((await cli(root, 'new', 'schema', 'account')).code).toBe(0);
     const source = readFileSync(join(root, 'src', 'account.spec.ts'), 'utf8');
@@ -245,7 +263,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(source).toContain('toBe(false)');
   });
 
-  it.fails('never writes or appends to a barrel file', async () => {
+  it('never writes or appends to a barrel file', async () => {
     const root = packageFixture('barrel');
     const barrel = join(root, 'src', 'index.ts');
     writeFileSync(barrel, "export const untouched = 'sentinel';\n");
@@ -259,7 +277,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     ]);
   });
 
-  it.fails('prints module wiring without editing the existing app module', async () => {
+  it('prints module wiring without editing the existing app module', async () => {
     const root = packageFixture('wiring');
     const modulePath = join(root, 'src', 'app.module.ts');
     const before = readFileSync(modulePath, 'utf8');
@@ -272,7 +290,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(readFileSync(modulePath, 'utf8')).toBe(before);
   });
 
-  it.fails('refuses to guess when the package is ambiguous', async () => {
+  it('refuses to guess when the package is ambiguous', async () => {
     const root = workspaceFixture();
     const run = await cli(root, 'new', 'controller', 'posts');
     expect(run.code).toBe(2);
@@ -282,7 +300,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(existsSync(join(root, 'src', 'posts.controller.ts'))).toBe(false);
   });
 
-  it.fails('writes into the package named by --package in a monorepo', async () => {
+  it('writes into the package named by --package in a monorepo', async () => {
     const root = workspaceFixture();
     const run = await cli(root, 'new', 'controller', 'posts', '--package', '@fixture/api');
     expect(run.code).toBe(0);
@@ -290,7 +308,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(existsSync(join(root, 'apps', 'worker', 'src', 'posts.controller.ts'))).toBe(false);
   });
 
-  it.fails('infers the one enclosing package when invoked inside it', async () => {
+  it('infers the one enclosing package when invoked inside it', async () => {
     const root = workspaceFixture();
     const cwd = join(root, 'apps', 'worker', 'src');
     const run = await cli(cwd, 'new', 'module', 'jobs');
@@ -299,7 +317,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(existsSync(join(root, 'apps', 'api', 'src', 'jobs.module.ts'))).toBe(false);
   });
 
-  it.fails('detects packages declared by pnpm-workspace.yaml', async () => {
+  it('detects packages declared by pnpm-workspace.yaml', async () => {
     const root = workspaceFixture('pnpm');
     const run = await cli(root, 'new', 'module', 'jobs');
     expect(run.code).toBe(2);
@@ -308,7 +326,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(run.stderr).toContain('@fixture/worker');
   });
 
-  it.fails('refuses to overwrite an existing file even with --force', async () => {
+  it('refuses to overwrite an existing file even with --force', async () => {
     const root = packageFixture('overwrite');
     const target = join(root, 'src', 'posts.controller.ts');
     writeFileSync(target, "export const sentinel = 'keep me';\n");
@@ -320,7 +338,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(readFileSync(target, 'utf8')).toBe("export const sentinel = 'keep me';\n");
   });
 
-  it.fails('refuses a name that cannot become a TypeScript identifier', async () => {
+  it('refuses a name that cannot become a TypeScript identifier', async () => {
     const root = packageFixture('identifier');
     const run = await cli(root, 'new', 'controller', '123-???');
     expect(run.code).toBe(2);
@@ -328,7 +346,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(filesUnder(root).filter(path => path.includes('123'))).toEqual([]);
   });
 
-  it.fails('prints every file and its complete contents under --dry-run without writing', async () => {
+  it('prints every file and its complete contents under --dry-run without writing', async () => {
     const root = packageFixture('dry-run');
     const before = filesUnder(root);
     const run = await cli(root, 'new', 'controller', 'posts', '--dry-run');
@@ -341,4 +359,22 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(existsSync(join(root, 'src', 'posts.controller.ts'))).toBe(false);
     expect(lstatSync(root).isDirectory()).toBe(true);
   });
+
+  it('generates a project that runs its own tests successfully', async () => {
+    const { project, run } = await generatedProject();
+    expect(run).toMatchObject({ code: 0, stderr: '' });
+
+    for (const [kind, name] of [
+      ['schema', 'users'],
+      ['controller', 'posts'],
+      ['module', 'billing'],
+      ['repository', 'users'],
+      ['command', 'import-users'],
+    ] as const) {
+      expect((await cli(project, 'new', kind, name)).code).toBe(0);
+    }
+
+    runProjectScript(project, 'check');
+    runProjectScript(project, 'build');
+  }, 60_000);
 });

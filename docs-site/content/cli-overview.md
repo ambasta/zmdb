@@ -1,7 +1,7 @@
 > **ToDo / documentation gap.** The published `zmdb` executable exposes
-> `generate`, `export`, `modules`, and `repl`. The remaining database commands
-> and `studio` are still implementation gaps; the final full CLI reference and
-> command transcript remain for the documentation slice.
+> `generate`, `export`, `modules`, `repl`, and `new` scaffolding. The remaining
+> database commands and `studio` are still implementation gaps; the final full
+> CLI reference and command transcript remain for the documentation slice.
 
 `generate` and `export` are thin packaged wrappers over the public reflection,
 snapshot, diff, and DDL APIs. The same library entry points remain available for
@@ -23,6 +23,7 @@ the commands whose executable dispatch has not landed.
 
 | drizzle-kit / mikro-orm      | zmdb today                                         | Page                                                |
 | ---------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| `new`                        | project and application-component scaffolds        | [scaffolding](./web-cli.html)                       |
 | `generate`                   | `zmdb generate`                                    | [generate](./cli-generate.html)                     |
 | `migrate` / `up`             | `migrate` is pending; `up` is deliberately refused | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
 | `push`                       | recognized, not implemented                        | [push](./cli-push.html)                             |
@@ -31,10 +32,11 @@ the commands whose executable dispatch has not landed.
 | `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending     | [pull](./cli-pull.html)                             |
 | `studio`                     | **not possible** — no server, no UI                | [studio](./cli-studio.html)                         |
 
-Two offline commands are packaged. The remaining database verbs are recognized
-so their help, config errors, JSON envelope, and exit codes stay uniform while
-their scoped implementations land. `pull` has its catalog reader and
-declaration emitter as library APIs but still needs executable dispatch.
+Two offline schema commands and the config-independent scaffold command are
+packaged. The remaining database verbs are recognized so their help, config
+errors, JSON envelope, and exit codes stay uniform while their scoped
+implementations land. `pull` has its catalog reader and declaration emitter as
+library APIs but still needs executable dispatch.
 
 ## A single entry point
 
@@ -44,12 +46,15 @@ separation, and exit codes:
 ```bash
 npx zmdb generate --name add_slug
 npx zmdb export > schema.sql
+npx zmdb new controller posts
 ```
 
-Both commands accept `--config <path>` and `--project <tsconfig>`. Add `--json`
-when a script needs the stable `CliResult` envelope instead of human output.
-Until the remaining dispatch lands, use the linked library APIs for migration
-application and checks rather than creating a second argument parser.
+The schema commands accept `--config <path>` and `--project <tsconfig>`.
+Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does
+not load database config. Add `--json` when a script needs the stable
+`CliResult` envelope instead of human output. Until the remaining dispatch
+lands, use the linked library APIs for migration application and checks rather
+than creating a second argument parser.
 
 ## What the schema CLI still needs
 

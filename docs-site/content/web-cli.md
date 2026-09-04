@@ -1,10 +1,39 @@
-> **ToDo / feature gap.** The `zmdb` executable exists and currently ships the
-> application-graph `modules` command and the local-terminal `repl`. It does not
-> yet ship `zmdb new`, scaffolding or project templates.
+> **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
+> `export`, `modules`, `repl`, and formatter-backed `new` scaffolding for
+> projects, schemas, controllers, modules, repositories, and commands. The
+> remaining database commands and `studio` still need their final implementation
+> and documentation passes.
 
-## What exists instead
+## Scaffolding that ships
 
-Two things that cover most of what a CLI is used for.
+Create a SQLite-backed project:
+
+```bash
+npx zmdb new project blog
+```
+
+The generated project includes strict TypeScript configuration, formatter and
+linter scripts, an AOT build adapter, a health controller with a behavioural
+test, and a file-backed SQLite config. Its `check`, `test`, `build`, and `start`
+scripts are self-contained once dependencies are installed.
+
+Inside an existing package, generate an application component and its
+behavioural spec:
+
+```bash
+npx zmdb new schema post
+npx zmdb new controller posts
+npx zmdb new module billing
+npx zmdb new repository post
+npx zmdb new command import-posts
+```
+
+Generation formats every supported source file before writing it, refuses to
+replace an existing path, and prints the module wiring instead of editing a
+barrel or application module. Use `--dry-run` to inspect the complete formatted
+output without writing files.
+
+## Operational commands still available as library APIs
 
 **A migration runner you invoke from your own script.** This is real and supported:
 
@@ -46,9 +75,9 @@ for (const row of (await posts.list({ page: { limit: 1000 } })).items) {
 
 `await using` disposes the app, closing the pool so the process exits. See [Standalone Applications](./web-standalone.html).
 
-## Why scaffolding is less useful here
+## Why scaffolding stays deliberately small
 
-A generator earns its keep when creating a component means several files with boilerplate wiring. Here a controller is:
+A generated controller remains ordinary framework code:
 
 ```ts
 @Controller('/posts')
@@ -62,7 +91,9 @@ export class PostsController {
 }
 ```
 
-and registering it is one array entry. There is no `.module.ts` triple, no `.spec.ts` stub with mocked reflection, no provider metadata to generate — so `zmdb new controller posts` would produce roughly what you just read.
+The scaffold pairs it with a real route-behaviour test and prints the one module
+registration step. It does not generate barrel edits, mocked-reflection
+boilerplate, or hidden provider metadata.
 
 A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job — and the reason the one build step that does exist, [`zmdb-codegen`](./cli-codegen.html), writes nothing into your repository.
 
@@ -78,8 +109,6 @@ The remaining gap is executable config/driver/output wiring; see
 can compare declarations with an introspected snapshot, but generation still
 uses the committed snapshot workflow and there is no reviewed command that
 applies live findings. See [Migrations](./migrations.html).
-
-**A project starter.** `create-zmdb-app` does not exist. Copy the [Quick Start](./quick-start.html) or the [blog tutorial](./tutorial-blog-api.html).
 
 ## Rolling your own commands
 
@@ -110,13 +139,14 @@ A `--dry-run` that logs instead of writing is worth building into anything that 
 
 ## What it would take
 
-The `bin` entry and argument dispatch already exist. Scaffolding still needs the
-`new` dispatch, templates, workspace targeting and generated-code gates. The migration commands already exist as library calls, so wrapping them is small.
+The `new` dispatch, templates, workspace targeting, formatter integration, and
+generated-code gates have landed. The migration commands already exist as
+library calls, so their remaining work is executable config, driver, policy,
+and output wiring.
 
 The commands worth building are the ones that still own operational policy:
 `db pull` around the shipped reader/emitter, a complete diff against a live
-database, and a repeatable seed runner. Scaffolding is the least valuable,
-because the thing it would scaffold is already about eight lines.
+database, and a repeatable seed runner.
 
 ---
 

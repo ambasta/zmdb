@@ -127,6 +127,22 @@ const DATABASE_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
 };
 
 const APPLICATION_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
+  new: {
+    usage: 'zmdb new <project|schema|controller|module|repository|command> <name> [--package <pkg>]',
+    summary: 'Create a formatter-clean project or application component.',
+    options: {
+      package: {
+        type: 'string',
+        valueName: 'pkg',
+        description: 'Target this named package when invoked from a workspace.',
+      },
+      'dry-run': {
+        type: 'boolean',
+        description: 'Print every generated file and write nothing.',
+      },
+    },
+    maximumPositionals: 2,
+  },
   modules: {
     usage:
       'zmdb modules [path#export] [--format tree|dot] [--providers]\n' +

@@ -1711,19 +1711,19 @@ export const PAGE_META = {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'the zmdb executable exists, but project/controller/module scaffolding is not built',
+    note: 'scaffolding ships; the final CLI docs pass waits on remaining database commands and studio',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'no monorepo-aware scaffolding or explicit --package targeting',
+    note: 'explicit --package targeting ships; the final CLI docs pass waits on remaining CLI work',
   },
   'web-cli-apps': {
     title: 'Building CLI Applications',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'command applications ship; the final CLI docs pass waits on scaffolding and studio',
+    note: 'command applications and scaffolding ship; the final CLI docs pass waits on studio',
   },
   'web-microservices': {
     title: 'Microservices',

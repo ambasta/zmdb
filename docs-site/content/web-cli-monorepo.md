@@ -1,8 +1,9 @@
-> **ToDo / feature gap.** The `zmdb` executable exists, but it has no
-> monorepo-aware scaffolding: no `new --package`, no project generator and no
-> framework build orchestration.
+> **ToDo / documentation gap.** `zmdb new` provides explicit `--package`
+> targeting and package-local inference for monorepo scaffolding. Workspace
+> build orchestration deliberately remains the package manager's job; the final
+> CLI documentation pass still depends on the remaining CLI work.
 
-## What to use instead
+## Build orchestration
 
 Yarn workspaces, which is how the zmdb monorepo itself is built. Nothing framework-specific is required, and the tooling is the ecosystem's rather than a framework's.
 
@@ -154,9 +155,19 @@ Vitest discovers tests across workspaces from the root, so one command covers ev
 
 ## What it would take
 
-Very little, and that is the point: the existing CLI still has no
-monorepo-aware scaffolding. The monorepo-specific parts worth having are a
-schema registry check across workspaces and a migration command that knows which app owns which tables — not framework build orchestration.
+At a workspace root, `zmdb new` refuses to guess and lists the discovered
+packages. Pass a package name or workspace-relative path explicitly:
+
+```bash
+npx zmdb new controller posts --package @acme/api
+```
+
+When invoked inside exactly one workspace package, the CLI infers that package.
+It supports `package.json` workspace patterns and `pnpm-workspace.yaml`, and it
+still refuses to overwrite any generated path. The remaining monorepo-specific
+work worth having is a schema registry check across workspaces and a migration
+command that knows which app owns which tables — not framework build
+orchestration.
 
 ---
 

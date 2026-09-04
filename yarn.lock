@@ -2685,6 +2685,7 @@ __metadata:
     "@zmdb/schema-core": "workspace:^"
     "@zmdb/web": "workspace:^"
     esbuild: "npm:^0.28.2"
+    oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   bin:
     zmdb: ./src/cli/bin.ts

@@ -58,7 +58,8 @@
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "@zmdb/web": "workspace:^",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "oxfmt": "0.66.0"
   },
   "devDependencies": {
     "typescript": "7.0.2"

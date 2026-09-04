@@ -306,14 +306,14 @@ print the wiring rather than performing it (§13.3).
 
 ### 13.1 What each template writes, file by file
 
-| `zmdb new …`        | Writes                                                                                                                                                           |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project <name>`    | `package.json`, `tsconfig.json`, `zmdb.config.ts`, `src/app.module.ts`, `src/main.ts`, `src/health.controller.ts`, `src/health.controller.spec.ts`, `.gitignore` |
-| `schema <name>`     | `src/<name>.ts` (the `Table<'…'>` interface), `src/<name>.spec.ts`                                                                                               |
-| `controller <name>` | `src/<name>.controller.ts`, `src/<name>.controller.spec.ts`                                                                                                      |
-| `module <name>`     | `src/<name>.module.ts`, `src/<name>.module.spec.ts`                                                                                                              |
-| `repository <name>` | `src/<name>.repository.ts` (the token and the provider factory), `src/<name>.repository.spec.ts`                                                                 |
-| `command <name>`    | `src/<name>.command.ts`, `src/<name>.command.spec.ts` (see `@zmdb/web`'s `src/cli/SPEC.md`)                                                                      |
+| `zmdb new …`        | Writes                                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project <name>`    | `package.json`, `tsconfig.json`, `vitest.config.ts`, `scripts/build.mjs`, `zmdb.config.ts`, `src/app.module.ts`, `src/main.ts`, `src/health.controller.ts`, `src/health.controller.spec.ts`, `.gitignore` |
+| `schema <name>`     | `src/<name>.ts` (the `Table<'…'>` interface), `src/<name>.spec.ts`                                                                                                                                        |
+| `controller <name>` | `src/<name>.controller.ts`, `src/<name>.controller.spec.ts`                                                                                                                                               |
+| `module <name>`     | `src/<name>.module.ts`, `src/<name>.module.spec.ts`                                                                                                                                                       |
+| `repository <name>` | `src/<name>.repository.ts` (the token and the provider factory), `src/<name>.repository.spec.ts`                                                                                                          |
+| `command <name>`    | `src/<name>.command.ts`, `src/<name>.command.spec.ts` (see `@zmdb/web`'s `src/cli/SPEC.md`)                                                                                                               |
 
 No template writes a barrel file, and no template appends to one. A generated `index.ts` re-export is the
 first thing a scaffold does that the developer has to undo.

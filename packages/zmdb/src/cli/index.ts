@@ -104,6 +104,10 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
       2,
     );
   }
+  if (command === 'new') {
+    const { createNewScaffold } = await import('./commands/new.js');
+    return createNewScaffold(parsed, output, io.cwd);
+  }
   if (command === 'modules') return runModules(parsed, io);
   if (command === 'repl') return runRepl(parsed, io);
   return runDatabaseCommand(parsed, io);
