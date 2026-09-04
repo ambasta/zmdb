@@ -1,8 +1,8 @@
 import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { schemasFrom } from '../testing/index.ts';
-import { compileFastStringifier, stringify } from './index.ts';
+import { schemasFrom } from '../testing/index.js';
+import { compileFastStringifier, stringify } from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
