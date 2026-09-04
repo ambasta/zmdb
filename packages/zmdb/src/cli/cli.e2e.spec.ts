@@ -138,8 +138,15 @@ function run(project: Project, ...argv: readonly string[]): Run {
 function withoutCompilerShutdownNoise(stderr: string): string {
   return stderr
     .split(/\r?\n/)
-    .filter(line => line !== 'context canceled')
-    .join('\n');
+    .filter(
+      line =>
+        line !== 'context canceled' &&
+        !line.includes('ExperimentalWarning: SQLite is an experimental feature') &&
+        !line.includes('(Use `node --trace-warnings'),
+    )
+    .join('\n')
+    .replace(/^\n+/, '')
+    .replace(/\n+$/, '');
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
