@@ -221,7 +221,6 @@ export function schemaIrsFrom<const Names extends readonly string[]>(
       );
     }
 
-
     // Before anything is read off the type: a file that does not compile has error types in it,
     // and an error type reflects as a refusal per column rather than as the one problem it is.
     const broken = session.diagnostics(file);
