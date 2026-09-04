@@ -30,6 +30,9 @@ jobs:
       - name: Add PostgreSQL tools for temporary test databases
         run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
 
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
       - name: Install
         run: yarn install --immutable
 
@@ -272,6 +275,9 @@ jobs:
           node-version: '26'
           cache: 'yarn'
 
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
       - name: Install
         run: yarn install --immutable
 
@@ -299,13 +305,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable Corepack (Yarn 4)
-        run: corepack enable
-
       - name: Use Node 26
         uses: actions/setup-node@v4
         with:
           node-version: '26'
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
 
       - name: Audit dependencies
         run: >
@@ -335,6 +341,9 @@ jobs:
         with:
           node-version: '26'
           cache: 'yarn'
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
 
       - name: Install dependencies
         run: yarn install --immutable
