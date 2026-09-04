@@ -6,22 +6,25 @@ await publicApp.init();
 const adminApp = createApp(AdminModule);
 await adminApp.init();
 
-createServer(toNodeHandler(publicApp)).listen(3000);
-createServer(toNodeHandler(adminApp)).listen(3001);
+const handlePublic = (request: Request) => publicApp.fetch(request);
+const handleAdmin = (request: Request) => adminApp.fetch(request);
 ```
 
-Two ports, two route tables, two containers. There is no shared registry to collide over and no ordering dependency between them.
+Bind those two Fetch handlers to separate listeners with the host runtime. Two
+ports then have two route tables and two containers, with no shared registry or
+ordering dependency. The current Node `toNodeHandler` accepts a `Router`, not an
+`App`; use the explicit-router path below when Node owns the sockets.
 
 ## Why you would
 
-**Separating public from internal.** The strongest reason, because it is a security boundary you get from network configuration rather than from code:
-
-```ts
-createServer(toNodeHandler(publicApp)).listen(3000, '0.0.0.0');
-createServer(toNodeHandler(internalApp)).listen(9000, '127.0.0.1');
-```
-
-The internal port binds to loopback, so [`/metrics`](./web-observability.html), health detail and admin routes are unreachable from outside the host regardless of what your proxy does. A guard protecting those routes is one mistake away from being bypassed; a socket that does not accept external connections is not.
+**Separating public from internal.** The strongest reason, because it is a
+security boundary you get from network configuration rather than from code.
+Bind the public listener to `0.0.0.0` and the internal listener to
+`127.0.0.1`. The loopback-only port keeps
+[`/metrics`](./web-observability.html), health detail and admin routes
+unreachable from outside the host regardless of proxy configuration. A guard
+is one mistake away from being bypassed; a socket that does not accept external
+connections is not.
 
 **Different middleware or body limits per surface.** A webhook endpoint that needs [raw bytes](./web-raw-body.html) and a large limit can have its own adapter without affecting the JSON API.
 
@@ -47,10 +50,12 @@ export class PublicModule {}
 export class AdminModule {}
 ```
 
-A module both apps import is the mechanism. `createApp(rootModule)` takes **no
-second argument** — provider overrides are a `createTestApp` feature — so a shared
-instance comes from a shared module whose `useValue` is evaluated once, at import
-time, no matter how many graphs reference it.
+A module both apps import is the mechanism. `createApp(rootModule, options?)`
+accepts only application-owned message transports, dispatcher policy and a
+shutdown grace bound; it does **not** accept provider overrides. Those remain a
+`createTestApp` feature, so a shared instance comes from a shared module whose
+`useValue` is evaluated once, at import time, no matter how many graphs
+reference it.
 
 If you need overrides outside a test, drop one level down and wire the router
 yourself:
@@ -110,7 +115,7 @@ createServer(async (req, res) => {
 ```
 
 Note that `adminApp`'s controllers must then declare the `/admin` prefix themselves — the dispatcher does not strip it, and a mismatch produces a 404 that looks like a routing bug. `webRequest(req)` is the `WebRequest` the dispatcher builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
-This prefix dispatcher buffers a streamed response; separate
+This prefix dispatcher buffers a streamed response; separate Router-based
 `toNodeHandler(...)` servers preserve streaming.
 
 Prefix dispatch on a single port is **not** a security boundary. Anything reachable on the port is reachable; use separate ports and a loopback bind for that.
@@ -123,19 +128,20 @@ The adapters are transport-agnostic — they produce a Node request handler, so 
 import { createSecureServer } from 'node:http2';
 import { createServer as createHttps } from 'node:https';
 
-createHttps({ key, cert }, toNodeHandler(app)).listen(443);
-createSecureServer({ key, cert, allowHTTP1: true }, toNodeHandler(app)).listen(8443);
+createHttps({ key, cert }, toNodeHandler(publicRouter)).listen(443);
+createSecureServer({ key, cert, allowHTTP1: true }, toNodeHandler(adminRouter)).listen(8443);
 ```
 
 In practice terminate TLS at a proxy or load balancer, which also handles certificate rotation, OCSP and HTTP/2 negotiation. Terminating in Node means you own certificate renewal, and a lapsed certificate is a full outage.
 
 ## Fetch-based runtimes
 
-`toFetchHandler` gives you a `(Request) => Promise<Response>` for Workers, Deno and Bun. Multiple apps compose the same way:
+`App.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and
+Bun. Multiple apps compose directly:
 
 ```ts
-const handlePublic = toFetchHandler(publicApp);
-const handleAdmin = toFetchHandler(adminApp);
+const handlePublic = (request: Request) => publicApp.fetch(request);
+const handleAdmin = (request: Request) => adminApp.fetch(request);
 
 export default {
   fetch(request: Request) {

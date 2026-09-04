@@ -127,11 +127,11 @@ const NO_MIKRO_KYSELY =
   'That is an integration between two upstream projects and not a behaviour of either public API; ' +
   'zmdb ships its own compiler, and its escape hatch is that a driver takes raw SQL.';
 
-const NO_MICROSERVICES =
-  'NestJS ships a microservice transport layer: TCP, Redis, NATS, MQTT, Kafka, gRPC and RabbitMQ ' +
-  'clients with request/response and event semantics over each. zmdb is an HTTP application ' +
-  'framework and a data layer. A message bus is a different product, and pretending otherwise ' +
-  'with a thin wrapper would be a worse answer than not having one.';
+const NO_MICROSERVICE_TCP =
+  'zmdb message clients and dispatchers are transport strategies over brokers; they do not invent ' +
+  'a bespoke length-prefixed JSON socket protocol. TCP framing, reconnect, TLS identity and flow ' +
+  'control are a transport product of their own, and a thin in-framework socket would be a worse ' +
+  'answer than using a broker or ordinary HTTP.';
 
 const NO_GRAPHQL =
   'Code-first and schema-first GraphQL are a second API surface with their own resolver, guard ' +
@@ -900,7 +900,14 @@ export const nestjs = {
     'releases connections on exit',
   ],
   'websockets/e2e/*': oos(NO_WEBSOCKETS, 'web-gateways'),
-  'microservices/e2e/*': oos(NO_MICROSERVICES, 'web-microservices'),
+  'microservices/e2e/disconnected-client': 'a transport send failure reaches the caller',
+  'microservices/e2e/sum-rpc': [
+    'request handlers return a correlated result reply',
+    'two concurrent calls resolve their own replies when responses arrive out of order',
+  ],
+  'microservices/e2e/sum-rpc-async': 'request handlers return a correlated result reply',
+  'microservices/e2e/sum-rpc-tls': oos(NO_MICROSERVICE_TCP, 'web-microservices'),
+  'microservices/e2e/tcp-json-socket-pipeline': oos(NO_MICROSERVICE_TCP, 'web-microservices'),
   'graphql-code-first/e2e/*': oos(NO_GRAPHQL, 'web-graphql'),
   'graphql-schema-first/e2e/*': oos(NO_GRAPHQL, 'web-graphql'),
   'typeorm/e2e/*': oos(

@@ -1,90 +1,83 @@
-> **ToDo / feature gap.** There are no microservice transports yet — no
-> `@MessagePattern`, no dispatcher, and no Redis, NATS or RabbitMQ strategies.
-> `@zmdb/web` is an HTTP request handler.
->
-> The shape they will ship as is frozen in
-> `packages/web/src/microservices/SPEC.md`, and the interfaces on this page have
-> been aligned to it. Kafka, MQTT and TCP are deferred, each with a reason — see
-> [Microservices](./web-microservices.html).
+> **ToDo / partial support.** The public transport strategy, dispatcher,
+> decorators and typed clients ship. Packaged Redis, NATS and RabbitMQ
+> strategies do not yet ship.
 
-## What to build with instead
+## The strategy boundary
 
-**HTTP between services.** Unglamorous and usually correct. Every zmdb service is already an HTTP server, `toFetchHandler`/`toNodeHandler` are the transport, and [OpenAPI generation](./web-openapi-operations.html) gives you a contract other teams can consume. Call it with the [typed HTTP client](./web-http-client.html):
+A strategy handles broker framing, subscriptions, replies and settlement. It
+does not discover controllers, validate handler payloads or invoke handlers
+itself:
 
 ```ts
-const user = await client.get(`/users/${id}`, raw => assert<User>(raw));
-```
+import type {
+  DispatchOutcome,
+  MessageReply,
+  RawMessage,
+  TransportCapabilities,
+  TransportRequest,
+} from '@zmdb/web/microservices';
 
-The `assert` at the boundary is the part a message-pattern framework tends to skip. A response from another service is untrusted input in the same way a request body is.
-
-**The [transactional outbox](./transactional-outbox.html) for asynchronous work.** This is where a message broker is genuinely better than HTTP, and the outbox is the half that matters:
-
-```ts
-import { outboxWriter } from '@zmdb/repository/outbox';
-
-await db.transaction(async tx => {
-  const order = await repo.withTransaction(tx).create(dto);
-  await outboxWriter(tx).write('order.placed', JSON.stringify({ id: order.id }));
-});
-```
-
-Publishing to a broker inside a database transaction is the classic dual-write bug: the transaction rolls back and the message is already gone, or the process dies after commit and the message never exists. The outbox makes both impossible; a consumer then relays rows to your broker of choice. See [Queues](./web-queues.html).
-
-**Postgres `LISTEN/NOTIFY`** when you already have the database and the message may be lost — cache invalidation, a nudge to re-poll:
-
-```ts
-await driver.execute({ text: 'SELECT pg_notify($1, $2)', parameters: ['order_placed', String(id)] });
-```
-
-Lossy by design: a listener that is disconnected misses it. Never use it for work that must happen.
-
-## Request/response over a broker
-
-The shape is a dispatcher over a name-to-handler map — which is what `@MessagePattern` compiles to anyway:
-
-```ts
-type Handler = (payload: unknown) => Promise<unknown>;
-
-export function createDispatcher(handlers: Readonly<Record<string, Handler>>) {
-  return async (pattern: string, raw: unknown): Promise<unknown> => {
-    const handler = handlers[pattern];
-    if (handler === undefined) throw new Error(`no handler for ${pattern}`);
-    return handler(raw);
-  };
+export interface TransportStrategy {
+  readonly name: string;
+  readonly capabilities: TransportCapabilities;
+  listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
+  send(request: TransportRequest): Promise<MessageReply>;
+  emit(pattern: string, payload: unknown): Promise<void>;
+  close(graceMs: number): Promise<void>;
 }
 ```
 
+`listen` supplies the application dispatcher with a parsed `RawMessage`. If
+framing failed, it sets `parseError` and keeps inspectable raw input in
+`payload`. After dispatch, the strategy applies `outcome.settlement` and, when
+present, publishes `outcome.reply` to the delivery's reply destination.
+
+`send` receives the framework-generated correlation id, required deadline and
+an `AbortSignal`. It returns a `MessageReply` carrying that same correlation
+id. `createMessageClient` performs the deadline race, correlation check, remote
+error mapping and response validation.
+
+## Binding a strategy
+
+`createApp` owns inbound transport lifecycle:
+
 ```ts
-const dispatch = createDispatcher({
-  'order.get': async raw => orders.findById(assert<{ id: number }>(raw).id),
-  'order.place': async raw => orders.create(assert<CreateDTO<Order>>(raw)),
+await using app = createApp(AppModule, {
+  transports: [ordersTransport],
+  dispatcher: {
+    onUnhandled,
+    onInvalidPayload,
+    onHandlerError,
+    onUndeliverable,
+  },
+  graceMs: 5_000,
 });
+
+await app.init();
 ```
 
-Resolve the services from `app.container`, and validate every payload with `assert` — a message off a broker has been serialised, possibly by an older version of your code, and its shape is a runtime question.
+Strategies open after application bootstrap hooks. They close in reverse order
+before shutdown hooks. A failed `listen` closes strategies opened earlier and
+rejects initialization; the application does not silently serve HTTP while
+dropping broker work.
 
-Then bind it to whatever transport you have:
+The capability declaration is checked at this boundary. If redelivery or
+dead-lettering is unavailable, `onUndeliverable` is required so a
+`retry`/`dead` decision cannot disappear silently.
 
-```ts
-subscriber.on('message', async (channel, raw) => {
-  const envelope = assert<{ pattern: string; payload: unknown; replyTo?: string }>(JSON.parse(raw));
-  const result = await dispatch(envelope.pattern, envelope.payload);
-  if (envelope.replyTo !== undefined) await publisher.publish(envelope.replyTo, JSON.stringify(result));
-});
-```
+## Request/reply and events
 
-Two things the frozen dispatcher does that this hand-written one does not, and both are the reason to prefer it once it lands.
-
-**A pattern with no handler is acknowledged, not thrown.** Throwing here is a rejection inside the subscriber callback, which on a broker with redelivery means the same unwanted message arrives forever. `createMessageDispatcher` reports it to a required `onUnhandled` sink and acks.
-
-**The reply is validated too.** `assert` on the way in is only half the boundary; a reply arrived over the same network from the same code you do not control. The frozen typed client takes a total map of response validators, so a pattern added without one is a compile error:
+Use `createMessageClient` for typed request/reply:
 
 ```ts
-type OrderCalls = {
-  readonly 'order.get': { request: { id: number }; response: Order };
+type Calls = {
+  readonly 'order.get': {
+    readonly request: { readonly id: number };
+    readonly response: Order;
+  };
 };
 
-const client = createMessageClient<OrderCalls>(transport, {
+const client = createMessageClient<Calls>(ordersTransport, {
   timeoutMs: 5_000,
   validate: { 'order.get': raw => assert<Order>(raw) },
 });
@@ -92,31 +85,60 @@ const client = createMessageClient<OrderCalls>(transport, {
 const order = await client['order.get']({ id: 7 });
 ```
 
-Declare that map as a `type`, not an `interface`. An `interface` has no implicit index signature, so it fails the constraint with an error naming a type you did not write — a real TypeScript wrinkle, documented in the spec rather than left to be discovered.
+Use `createEventPublisher` for one-way publishing:
 
-This is the same arrangement `@Gateway`/`@Subscribe` uses for WebSockets — see [Gateways](./web-gateways.html) — and `createGatewayDispatcher` is a working reference implementation to copy. Note it takes **one** gateway instance, not an array.
+```ts
+type Events = {
+  readonly 'order.placed': { readonly id: number };
+};
 
-## The security details
+const events = createEventPublisher<Events>(ordersTransport);
+await events['order.placed']({ id: 7 });
+```
 
-- **Authenticate the transport.** A broker reachable without credentials is a remote code path into every service subscribed to it. TLS and credentials on Redis, NATS and RabbitMQ are not optional in any environment that is not your laptop.
-- **Never trust a payload's identity claims.** `payload.userId` came from whoever published the message. Authorise from the transport's authenticated identity, not from the body.
-- **Do not put secrets in messages.** Broker messages get retained, replayed and logged. Pass an id.
-- **Assume at-least-once delivery.** Every broker replays. Make handlers idempotent — a unique key on the effect is more reliable than deduplicating in memory.
+Declare maps as type aliases rather than interfaces: the public constraint is a
+string-keyed map, and TypeScript does not give an interface an implicit index
+signature.
 
-## Before you split
+## What to use before broker adapters land
 
-The strongest recommendation on this page: most applications that adopt microservice transports would be better as one deployable. A service boundary buys independent scaling and independent failure, and costs you transactions, joins, atomic reads and a debugging story. zmdb gives you `withTransaction` and typed joins across your whole schema in one process — that is worth more than a message bus for most teams.
+**HTTP between services.** Every zmdb application already exposes Fetch and
+framework-neutral handlers, and OpenAPI can describe the boundary. Validate
+responses just as strictly as requests.
 
-If you split, split along a boundary where you genuinely never need a transaction across the seam.
+**The [transactional outbox](./transactional-outbox.html) for durable
+publication.** Publishing inside a database transaction creates a dual-write
+race. Write the event row in the transaction, then let a relay publish it:
 
-## What it would take
+```ts
+await db.transaction(async tx => {
+  const order = await repo.withTransaction(tx).create(dto);
+  await outboxWriter(tx).write('order.placed', JSON.stringify({ id: order.id }));
+});
+```
 
-Less than this page used to claim, because the interfaces are now settled: `TransportStrategy`, `createMessageDispatcher`, `@MessagePattern`/`@EventPattern`, `createMessageClient`, and one strategy per broker as an optional peer dependency — the same arrangement the database drivers use.
+**Postgres `LISTEN/NOTIFY` for deliberately lossy notifications.** A
+disconnected listener misses messages, so it is suitable for cache
+invalidation or a prompt to re-poll, not durable work.
 
-Two corrections to what was here before. The decorator writes to `Symbol.metadata` and a reader called `getMessagePatterns(cls)` reads it, but **nothing scans** to find the classes: they are passed to the dispatcher explicitly, exactly as controllers are passed to a router. And the return-value rule is a type-level distinction rather than a convention — `@EventPattern` on a method that returns a value does not compile, in both the `async` and the synchronous form, so "an event handler's return value is ignored" is a sentence nobody has to remember.
+## Adapter requirements
 
-The framework-side piece worth building first is still the dispatcher, since it is transport-agnostic and is what makes the strategies thin.
+A broker adapter must:
+
+- authenticate and encrypt its connection;
+- validate its envelope before constructing `RawMessage`;
+- preserve generated correlation ids on replies;
+- honour cancellation and release pending waiters;
+- translate all three settlements without inventing immediate requeue;
+- stop intake, drain bounded in-flight work and close under `graceMs`;
+- report its capabilities truthfully.
+
+Assume at-least-once delivery and make effects idempotent. Do not trust identity
+claims from the payload, and do not put secrets in retained messages.
+
+Redis, NATS and RabbitMQ adapters remain pending. Kafka, MQTT and bespoke TCP
+are deferred for the reasons on [Microservices](./web-microservices.html).
 
 ---
 
-See also: [Transactional Outbox](./transactional-outbox.html) · [Queues](./web-queues.html) · [HTTP Client](./web-http-client.html)
+See also: [Custom Transports](./web-microservices-custom-transport.html) · [Hybrid Applications](./web-hybrid-application.html) · [Queues](./web-queues.html)

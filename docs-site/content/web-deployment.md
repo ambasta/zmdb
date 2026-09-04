@@ -63,7 +63,10 @@ Never bake secrets into the image or commit a `.env`. Use the platform's secret 
 ## Graceful shutdown
 
 ```ts
-const server = createServer(toNodeHandler(app));
+const server = createServer(async (req, res) => {
+  const out = await app.handle(await webRequest(req));
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
+});
 server.listen(Number(env.PORT));
 
 let ready = true;
@@ -75,6 +78,11 @@ process.once('SIGTERM', async () => {
   await pool.end();
 });
 ```
+
+`webRequest(req)` is the Node conversion from
+[Request Lifecycle](./web-request-lifecycle.html). This compact adapter buffers
+streamed responses; for streaming, register an explicit `Router` and pass that
+router to `toNodeHandler`.
 
 The order matters and the sleep is the part people omit. Closing the server first drops requests the load balancer has already sent, which shows up as a burst of 502s on every deploy. See [Health Checks](./web-health-checks.html).
 

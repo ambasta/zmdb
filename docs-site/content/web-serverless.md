@@ -1,11 +1,13 @@
-`toFetchHandler` returns a `(Request) => Promise<Response>`, which is the interface every serverless and edge platform accepts. There is no adapter package to install and no platform-specific build.
+`App.fetch` is a `(Request) => Promise<Response>`, which is the interface every
+serverless and edge platform accepts. There is no adapter package to install
+and no platform-specific build.
 
 ```ts
-import { createApp, toFetchHandler } from '@zmdb/web';
+import { createApp } from '@zmdb/web';
 
 const app = createApp(AppModule);
 await app.init();
-export default { fetch: toFetchHandler(app) };
+export default { fetch: (request: Request) => app.fetch(request) };
 ```
 
 ## Build the app once, outside the handler
@@ -14,7 +16,7 @@ export default { fetch: toFetchHandler(app) };
 // right — module scope, reused across invocations
 const app = createApp(AppModule);
 await app.init();
-const handler = toFetchHandler(app);
+const handler = (request: Request) => app.fetch(request);
 export default { fetch: handler };
 ```
 
@@ -24,7 +26,7 @@ export default {
   async fetch(request: Request) {
     const app = createApp(AppModule);
     await app.init();
-    return toFetchHandler(app)(request);
+    return app.fetch(request);
   },
 };
 ```

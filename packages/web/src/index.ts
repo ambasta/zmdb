@@ -150,6 +150,38 @@ export {
   type ChainHandler,
 } from './middleware/index.js';
 
+// Transport-neutral message dispatch and typed clients. See ./microservices.
+export {
+  EventPattern,
+  MessagePattern,
+  MessageCorrelationError,
+  MessageRemoteError,
+  MessageTimeoutError,
+  TransportUnsupportedError,
+  createEventPublisher,
+  createMessageClient,
+  createMessageDispatcher,
+  getMessagePatterns,
+  type AppOptions,
+  type ClientPatterns,
+  type DispatchOutcome,
+  type DispatcherOptions,
+  type EventPatterns,
+  type EventPublisher,
+  type MessageClient,
+  type MessageClientOptions,
+  type MessageContext,
+  type MessageDispatcher,
+  type MessageReply,
+  type RawMessage,
+  type ResolvedMessagePattern,
+  type Settlement,
+  type TransportCapabilities,
+  type TransportRequest,
+  type TransportStrategy,
+  type WithHeaders,
+} from './microservices/index.js';
+
 // Application bootstrap & lifecycle. See ./app.
 export { createApp, type App, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './app/index.js';
 

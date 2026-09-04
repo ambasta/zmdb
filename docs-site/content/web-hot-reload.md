@@ -53,7 +53,10 @@ A restart that leaves a listening socket or an open pool produces `EADDRINUSE` o
 ```ts
 const app = createApp(AppModule);
 await app.init();
-const server = createServer(toNodeHandler(app));
+const server = createServer(async (req, res) => {
+  const out = await app.handle(await webRequest(req));
+  res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));
+});
 server.listen(3000);
 
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGUSR2'] as const) {
@@ -64,6 +67,11 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGUSR2'] as const) {
   });
 }
 ```
+
+`webRequest(req)` is the small Node-to-`WebRequest` conversion written out in
+[Request Lifecycle](./web-request-lifecycle.html). This compact adapter buffers
+streamed responses; use an explicitly registered `Router` with `toNodeHandler`
+when streaming and disconnect cancellation matter.
 
 `SIGUSR2` is what some watchers send. `process.once`, not `on` — a second signal during shutdown should terminate immediately rather than re-enter the handler.
 

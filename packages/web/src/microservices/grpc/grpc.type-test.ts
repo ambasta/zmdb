@@ -3,11 +3,11 @@ import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 // §4, §5, §7, §8, §9 and §10; its own list of what to assert is §12, whose items 1, 2, 3, 4 and 15
 // are named there as type-tests. Compiled by `node scripts/typecheck.mjs`; never executed.
 //
-// `../microservices.type-test.ts` explains the two mechanics this file also uses: the directive
-// inside the import braces (TS2307 is reported at the module specifier, which for a wrapped import is
-// the last line), and `typeof` on a name from an unresolved module being the compiler's *error type*
-// rather than `any` — identical to everything, so a `typeof`-based `Equal` is vacuously true today
-// and is written green, with no directive, arming itself when the module lands.
+// The parent microservices module now ships. The gRPC subpath remains unresolved:
+// TS2307 is reported at the wrapped import's module specifier, and `typeof` on a
+// name from that unresolved module is the compiler's *error type* rather than
+// `any` — identical to everything, so a `typeof`-based `Equal` is vacuously true
+// today and is written green, with no directive, arming itself when gRPC lands.
 //
 // This file does one thing that one does not. Four of §12's five type-test items are claims about how
 // TypeScript behaves — that an unimplemented method, a mismatched stream flag, a wrong request type
@@ -18,13 +18,7 @@ import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 // against the export, which freezes that the shipped type has the property. The green half is where
 // the value is — it is what caught §4's error code being wrong (see the tests-freeze notes).
 
-import type {
-  AppOptions,
-  DispatcherOptions,
-  TransportStrategy,
-  WithHeaders,
-  // @ts-expect-error TS2307: the ./microservices module does not exist yet.
-} from '../index.js';
+import type { AppOptions, DispatcherOptions, TransportStrategy, WithHeaders } from '../index.js';
 import type {
   GrpcBinding,
   GrpcCall,
@@ -396,10 +390,10 @@ export type CreateClientTakesOptionsOnly = Expect<Equal<Parameters<typeof create
 // §9: the member `AppOptions` gains, and the complete shape
 // ---------------------------------------------------------------------------
 
-// Green, and for the same collapse `../microservices.type-test.ts` records for `AppOptions['dispatcher']`:
-// `AppOptions['grpc']` is `any` and `GrpcServerOptions | undefined` is `any | undefined`, which *is*
-// `any`, so `Equal` is vacuously true. Measured: a directive here was TS2578.
-export type AppOptionsGainsGrpc = Expect<Equal<AppOptions['grpc'], GrpcServerOptions | undefined>>;
+// #559 makes AppOptions real before #561 adds the gRPC server. Keep this red
+// against the key set without pretending the absent property can be indexed.
+// @ts-expect-error TS2344: `grpc` remains absent until the gRPC implementation lands.
+export type AppOptionsGainsGrpc = Expect<Equal<Extract<keyof AppOptions, 'grpc'>, 'grpc'>>;
 
 // The whole-shape assertion, here rather than in `../microservices.type-test.ts`, because this is the
 // only file with both halves in scope: `../SPEC.md` §10 declares three members and §9 of this file

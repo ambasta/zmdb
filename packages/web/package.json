@@ -45,6 +45,7 @@
     "./gateways": "./src/gateways/index.ts",
     "./events": "./src/events/index.ts",
     "./cqrs": "./src/cqrs/index.ts",
+    "./microservices": "./src/microservices/index.ts",
     "./queues": "./src/queues/index.ts",
     "./queues/backends/memory": "./src/queues/backends/memory.ts",
     "./queues/backends/pg": "./src/queues/backends/pg.ts",

@@ -1,7 +1,8 @@
 `createApp` bootstraps an application from a root [module](./web-modules.html):
 it compiles the DI graph, builds the [router](./web-pipeline.html), and registers
 every controller's routes — **once**. It exposes lifecycle hooks and `await using`
-graceful shutdown.
+graceful shutdown. Its optional second argument attaches
+[message transports](./web-microservices.html) to the same lifecycle.
 
 ## Bootstrapping
 
@@ -40,11 +41,11 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase     | order                                                                                 |
-| --------- | ------------------------------------------------------------------------------------- |
-| `init()`  | eager providers/controllers: `onModuleInit` (all) → `onApplicationBootstrap` (all)    |
-| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass          |
-| shutdown  | every constructed provider/controller: `onShutdown` in **reverse construction order** |
+| phase     | order                                                                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------- |
+| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → message map → transport `listen`            |
+| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                             |
+| shutdown  | transports close in reverse declaration order → instances `onShutdown` in **reverse construction order** |
 
 “All” means every constructed object provider and controller. Value providers
 enter the ledger when registered; factory providers enter only when resolved.
@@ -60,7 +61,7 @@ cleans up automatically:
 await using app = createApp(AppModule);
 await app.init();
 // ... serve ...
-// at scope exit: onShutdown hooks run (reverse order) via Symbol.asyncDispose
+// at scope exit: transports close, then onShutdown hooks run via Symbol.asyncDispose
 ```
 
 ## Design notes
@@ -68,6 +69,8 @@ await app.init();
 - **Bootstrap-time declarations** — the full graph is validated and every route
   is registered once. Lazy instances alone are deferred; the dispatcher reads
   no metadata per request.
+- **Eager message consumers** — a lazy controller with message-pattern metadata
+  is rejected because the closed dispatch map is built at startup.
 - **No `as`** — hook detection uses structural `in`-narrowing, not casts.
 - Granular import: `import { createApp } from '@zmdb/web/app'`.
 

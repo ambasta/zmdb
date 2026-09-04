@@ -1678,7 +1678,7 @@ export const PAGE_META = {
     title: 'Hybrid Applications',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'transports and the hybrid lifecycle are frozen (microservices/SPEC.md §10) but not built',
+    note: 'custom transport lifecycle ships; packaged broker and gRPC adapters remain pending',
   },
   'web-serverless': {
     title: 'Serverless',
@@ -1753,13 +1753,13 @@ export const PAGE_META = {
     title: 'Microservices',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'transport strategy frozen in microservices/SPEC.md; nothing shipped yet.',
+    note: 'strategy, decorators, dispatcher, typed clients and app lifecycle ship; adapters remain',
   },
   'web-microservices-transports': {
     title: 'Broker Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'Redis / NATS / RabbitMQ frozen and unbuilt; Kafka, MQTT and TCP deferred with reasons',
+    note: 'public strategy seam ships; Redis / NATS / RabbitMQ adapters remain pending',
   },
   'web-microservices-grpc': {
     title: 'gRPC',
@@ -1771,7 +1771,7 @@ export const PAGE_META = {
     title: 'Custom Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'the public strategy contract and its stability promise are frozen; nothing shipped yet',
+    note: 'public custom-strategy seam ships; epic status completion waits on broker and gRPC adapters',
   },
   'web-graphql': {
     title: 'GraphQL',

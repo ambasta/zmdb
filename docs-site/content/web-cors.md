@@ -60,7 +60,7 @@ matter.
 ## For a fetch adapter
 
 ```ts
-const handle = toFetchHandler(app);
+const handle = (request: Request) => app.fetch(request);
 
 export default {
   async fetch(request: Request) {
