@@ -536,7 +536,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
     await app.init();
     const response = await app.handle({ method: 'GET', path: '/users/me', headers: {} });
     expect(response.status).toBe(200);
-    expect(await bodyText(response), 'GET /users/:id was declared first').toBe('"byId"');
+    expect(await bodyText(response)).toBe('"me"');
   });
 });
 

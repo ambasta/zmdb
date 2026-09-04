@@ -514,11 +514,11 @@ describe('@zmdb/web pipeline: method-scoped segment trie & wildcards', () => {
 
     const getRes = await router.handle({ method: 'GET', path: '/items', headers: {} });
     expect(getRes.status).toBe(200);
-    expect(JSON.parse(getRes.body)).toEqual({ action: 'list' });
+    expect(JSON.parse(await bodyText(getRes))).toEqual({ action: 'list' });
 
     const postRes = await router.handle({ method: 'POST', path: '/items', headers: {} });
     expect(postRes.status).toBe(200);
-    expect(JSON.parse(postRes.body)).toEqual({ action: 'create' });
+    expect(JSON.parse(await bodyText(postRes))).toEqual({ action: 'create' });
 
     const deleteRes = await router.handle({ method: 'DELETE', path: '/items', headers: {} });
     expect(deleteRes.status).toBe(404);
@@ -549,17 +549,17 @@ describe('@zmdb/web pipeline: method-scoped segment trie & wildcards', () => {
     // 1. Static route precedence over param and wildcard
     const staticRes = await router.handle({ method: 'GET', path: '/files/active', headers: {} });
     expect(staticRes.status).toBe(200);
-    expect(JSON.parse(staticRes.body)).toEqual({ type: 'static' });
+    expect(JSON.parse(await bodyText(staticRes))).toEqual({ type: 'static' });
 
     // 2. Named param route precedence over wildcard
     const paramRes = await router.handle({ method: 'GET', path: '/files/42', headers: {} });
     expect(paramRes.status).toBe(200);
-    expect(JSON.parse(paramRes.body)).toEqual({ type: 'param', id: '42' });
+    expect(JSON.parse(await bodyText(paramRes))).toEqual({ type: 'param', id: '42' });
 
     // 3. Multi-segment fallback to wildcard
     const wildcardRes = await router.handle({ method: 'GET', path: '/files/docs/2026/report.pdf', headers: {} });
     expect(wildcardRes.status).toBe(200);
-    expect(JSON.parse(wildcardRes.body)).toEqual({ type: 'wildcard', path: 'docs/2026/report.pdf' });
+    expect(JSON.parse(await bodyText(wildcardRes))).toEqual({ type: 'wildcard', path: 'docs/2026/report.pdf' });
   });
 
   it('maintains request dispatch latency under 5 microseconds at 100 registered routes', async () => {
