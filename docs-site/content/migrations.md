@@ -11,10 +11,10 @@ import { UserSchema, OrderSchema } from './schemas';
 const currentState: SchemaSnapshot = snapshot([UserSchema, OrderSchema]);
 
 // currentState.version => 1
-// currentState.tables => [{ name: 'users', columns: [...] }, ...]
+// currentState.tables => [{ name: 'users', columns: [...], primaryKey: ['id'] }, ...]
 ```
 
-The snapshot captures table names, column types, nullability, and primary key status.
+The snapshot captures table names, column types, nullability, and each table's ordered primary key.
 
 ## Computing the Diff
 
@@ -29,18 +29,20 @@ const newState = snapshot([UserSchema, OrderSchema, ProductSchema]);
 const changes: readonly ChangeOp[] = diff(currentState, newState);
 
 // changes => [
-//   { kind: 'create_table', table: 'products', columns: [...] },
+//   { kind: 'create_table', table: 'products', columns: [...], primaryKey: ['id'] },
 //   { kind: 'add_column', table: 'users', column: {...} }
 // ]
 ```
 
 Change operations include:
 
-- `create_table` — new table with all columns
+- `create_extension` — extension required by a declared column type
+- `create_table` — new table with all columns and its ordered primary key
 - `drop_table` — removed table
 - `add_column` — new column in existing table
 - `drop_column` — removed column
 - `alter_column_type` — type change
+- `alter_primary_key` — ordered primary-key change; explicitly refused on SQLite
 
 ## Generating DDL
 

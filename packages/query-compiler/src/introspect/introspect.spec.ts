@@ -521,7 +521,15 @@ it('produces a snapshot that diffs cleanly against the declared snapshot for the
   const database = new DatabaseSync(':memory:');
   try {
     database.exec(
-      emitUp({ kind: 'create_table', table: declaredTable.name, columns: declaredTable.columns }, 'sqlite'),
+      emitUp(
+        {
+          kind: 'create_table',
+          table: declaredTable.name,
+          columns: declaredTable.columns,
+          primaryKey: declaredTable.primaryKey,
+        },
+        'sqlite',
+      ),
     );
     const live = await createIntrospector('sqlite').snapshot(sqliteDriver(database));
 
@@ -632,6 +640,7 @@ describe('the round trip and drift report', () => {
       kind: 'create_table',
       table: declaredTable.name,
       columns: declaredTable.columns,
+      primaryKey: declaredTable.primaryKey,
     };
     const database = new DatabaseSync(':memory:');
     const scratch = await mkdtemp(join(tmpdir(), 'zmdb-introspect-430-'));

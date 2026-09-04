@@ -36,6 +36,7 @@ const usersV1 = snap([
       { name: 'id', type: 'serial', nullable: false, primaryKey: true },
       { name: 'email', type: 'text', nullable: false, primaryKey: false },
     ],
+    primaryKey: ['id'],
   },
 ]);
 
@@ -47,6 +48,7 @@ const usersV2 = snap([
       { name: 'email', type: 'text', nullable: false, primaryKey: false },
       { name: 'age', type: 'integer', nullable: false, primaryKey: false },
     ],
+    primaryKey: ['id'],
   },
 ]);
 
@@ -144,9 +146,12 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     expect(Object.keys(entity).toSorted()).toEqual(['createdAt', 'id']);
 
     const table = namingTable();
-    expect(emitUp({ kind: 'create_table', table: table.name, columns: table.columns }, 'postgres')).toBe(
-      'CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)',
-    );
+    expect(
+      emitUp(
+        { kind: 'create_table', table: table.name, columns: table.columns, primaryKey: table.primaryKey },
+        'postgres',
+      ),
+    ).toBe('CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)');
   });
 
   // actual today:
@@ -175,6 +180,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
             { name: 'created_at', type: 'timestamp', nullable: false, primaryKey: false },
             { name: 'id', type: 'integer', nullable: false, primaryKey: true },
           ],
+          primaryKey: ['id'],
         },
       ],
     });
@@ -327,6 +333,7 @@ function createPosts(fk: FrozenForeignKeySnapshot, nullable = false): FrozenCrea
       { name: 'id', type: 'integer', nullable: false, primaryKey: true },
       { name: 'user_id', type: 'integer', nullable, primaryKey: false },
     ],
+    primaryKey: ['id'],
     foreignKeys: [fk],
   };
 }
@@ -482,6 +489,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
         { name: 'tenant_id', type: 'integer', nullable: false, primaryKey: false },
         { name: 'user_id', type: 'integer', nullable: false, primaryKey: false },
       ],
+      primaryKey: ['id'],
       foreignKeys: [fk],
     };
     const postgres =
@@ -539,6 +547,7 @@ function snapshotInput(
 ): FrozenSnapshotInput {
   return {
     table,
+    primaryKey: ['id'],
     columns: {
       id: { type: 'integer', flags: { nullable: false, primaryKey: true } },
       [column]: {
@@ -592,6 +601,7 @@ describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => 
   it.fails('keeps two References to one table as two foreign keys', () => {
     const input: FrozenSnapshotInput = {
       table: 'audit_entries',
+      primaryKey: ['id'],
       columns: {
         id: { type: 'integer', flags: { nullable: false, primaryKey: true } },
         created_by: {
@@ -658,18 +668,21 @@ const postsColumns: TableSnapshot['columns'] = [
 const noActionPosts: FrozenTableSnapshot = {
   name: 'posts',
   columns: postsColumns,
+  primaryKey: ['id'],
   foreignKeys: [{ ...postsUserId, onDelete: 'no action' }],
 };
 
 const cascadePosts: FrozenTableSnapshot = {
   name: 'posts',
   columns: postsColumns,
+  primaryKey: ['id'],
   foreignKeys: [postsUserId],
 };
 
 const postsWithoutForeignKeys: FrozenTableSnapshot = {
   name: 'posts',
   columns: postsColumns,
+  primaryKey: ['id'],
   foreignKeys: [],
 };
 
@@ -734,6 +747,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
         { name: 'id', type: 'integer', nullable: false, primaryKey: true },
         { name: 'primary_org_id', type: 'integer', nullable: false, primaryKey: false },
       ],
+      primaryKey: ['id'],
       foreignKeys: [
         {
           name: 'users_primary_org_id_fkey',
@@ -751,6 +765,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
         { name: 'id', type: 'integer', nullable: false, primaryKey: true },
         { name: 'owner_id', type: 'integer', nullable: false, primaryKey: false },
       ],
+      primaryKey: ['id'],
       foreignKeys: [
         {
           name: 'organizations_owner_id_fkey',
@@ -855,7 +870,7 @@ const noExtensions: SchemaSnapshot = {
 const vectorItems: SchemaSnapshot = {
   version: 1,
   extensions: [{ name: 'vector' }],
-  tables: [{ name: 'items', columns: itemColumns }],
+  tables: [{ name: 'items', columns: itemColumns, primaryKey: ['id'] }],
 };
 
 const vector3072: ExtensionType = {
@@ -874,6 +889,7 @@ const vectorItems3072: SchemaSnapshot = {
         { name: 'id', type: 'integer', nullable: false, primaryKey: true },
         { name: 'embedding', type: vector3072, nullable: false, primaryKey: false },
       ],
+      primaryKey: ['id'],
     },
   ],
 };
@@ -914,14 +930,16 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
   });
 
   it('refuses an extension type on mysql, naming the dialect and the type', () => {
-    const run = () => extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns }, 'mysql');
+    const run = () =>
+      extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] }, 'mysql');
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/mysql/i);
     expect(run).toThrow(/vector\(1536\)/i);
   });
 
   it('refuses an extension type on sqlite, naming the dialect and the type', () => {
-    const run = () => extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns }, 'sqlite');
+    const run = () =>
+      extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] }, 'sqlite');
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/sqlite/i);
     expect(run).toThrow(/vector\(1536\)/i);
@@ -930,7 +948,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
   it('does not drop an extension on diff', () => {
     expect(extensionDiff(noExtensions, vectorItems)).toEqual([
       { kind: 'create_extension', name: 'vector' },
-      { kind: 'create_table', table: 'items', columns: itemColumns },
+      { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] },
     ]);
     expect(extensionDiff(vectorItems, noExtensions)).toEqual([{ kind: 'drop_table', table: 'items' }]);
   });

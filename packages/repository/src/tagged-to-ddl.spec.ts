@@ -10,8 +10,8 @@
 // The corpus is worth keeping on its own, and so is asking it a question a differential cannot
 // ask. Between these three tables: every `SqlType`, a composite primary key, a non-serial
 // primary key, foreign keys, nullable and defaulted columns, a sensitive column, a json column
-// with a payload shape, and an FTS table. Two of those turn out to be dropped on the way to the
-// DDL and one of them produces SQL no dialect will accept — see below. The old version could
+// with a payload shape, and an FTS table. Two of those are still dropped on the way to the
+// DDL; the composite key is preserved as one ordered table constraint. The old version could
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
@@ -228,20 +228,20 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     }
   });
 
-  it('emits a composite primary key as two column constraints, which no dialect accepts', () => {
+  it('emits a composite primary key as one ordered table constraint', () => {
     expect(Memberships.primaryKey).toEqual(['userId', 'groupId']);
-    // The same limitation, one step worse. `ddlType` writes ` PRIMARY KEY` per column that
-    // carries the flag, so a two-column key comes out as two of them — and postgres, mysql and
-    // sqlite all reject that outright rather than picking one. A composite key has to be a
-    // table-level `PRIMARY KEY (a, b)` clause, which needs the whole column list at once.
-    //
-    // Held here, deliberately failing to be right, because it is real: nobody can migrate this
-    // table today. Fixing it means `create_table` learning about keys, which is the same change
-    // to the migration format as the constraint gap above.
-    for (const dialect of DIALECTS) {
-      const create = ddl(Memberships, dialect)[0] ?? '';
-      expect(create.match(/PRIMARY KEY/g), dialect).toHaveLength(2);
-    }
+    expect(ddl(Memberships, 'postgres')).toEqual([
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+        'PRIMARY KEY ("userId", "groupId"))',
+    ]);
+    expect(ddl(Memberships, 'mysql')).toEqual([
+      'CREATE TABLE `memberships` (`groupId` INT NOT NULL, `note` TEXT, `userId` INT NOT NULL, ' +
+        'PRIMARY KEY (`userId`, `groupId`))',
+    ]);
+    expect(ddl(Memberships, 'sqlite')).toEqual([
+      'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
+        'PRIMARY KEY ("userId", "groupId"))',
+    ]);
   });
 
   it('does not ask the migration for the FTS table the declaration wanted', () => {

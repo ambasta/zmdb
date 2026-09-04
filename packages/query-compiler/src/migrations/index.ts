@@ -32,6 +32,8 @@ export interface ColumnSnapshot {
 export interface TableSnapshot {
   readonly name: string;
   readonly columns: readonly ColumnSnapshot[];
+  /** Ordered by declaration, independently of the deterministically sorted columns. */
+  readonly primaryKey: readonly string[];
 }
 
 export interface SchemaSnapshot {
@@ -47,7 +49,12 @@ export interface ExtensionSnapshot {
 
 export type ChangeOp =
   | { readonly kind: 'create_extension'; readonly name: string; readonly schema?: string }
-  | { readonly kind: 'create_table'; readonly table: string; readonly columns: readonly ColumnSnapshot[] }
+  | {
+      readonly kind: 'create_table';
+      readonly table: string;
+      readonly columns: readonly ColumnSnapshot[];
+      readonly primaryKey: readonly string[];
+    }
   | { readonly kind: 'drop_table'; readonly table: string }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
   | { readonly kind: 'drop_column'; readonly table: string; readonly column: string }
@@ -57,6 +64,12 @@ export type ChangeOp =
       readonly column: string;
       readonly from: string | ExtensionType;
       readonly to: string | ExtensionType;
+    }
+  | {
+      readonly kind: 'alter_primary_key';
+      readonly table: string;
+      readonly from: readonly string[];
+      readonly to: readonly string[];
     };
 
 /**
@@ -70,6 +83,7 @@ export type ChangeOp =
  */
 export interface SnapshotableSchema {
   readonly table: string;
+  readonly primaryKey: readonly string[];
   readonly columns: Readonly<
     Record<
       string,
@@ -105,7 +119,7 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
-      return { name: schema.table, columns };
+      return { name: schema.table, columns, primaryKey: schema.primaryKey };
     })
     .toSorted((a, b) => a.name.localeCompare(b.name));
 
@@ -128,7 +142,7 @@ export const CHANGE_PHASES = [
   ['create_extension'],
   ['drop_table', 'drop_column'],
   ['create_table', 'add_column'],
-  ['alter_column_type'],
+  ['alter_column_type', 'alter_primary_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
 
 const CHANGE_PHASE = new Map<ChangeOp['kind'], number>(
@@ -142,6 +156,10 @@ function orderChanges(ops: readonly ChangeOp[]): readonly ChangeOp[] {
     return phase;
   };
   return ops.toSorted((left, right) => phaseOf(left.kind) - phaseOf(right.kind));
+}
+
+function sameSequence(previous: readonly string[], next: readonly string[]): boolean {
+  return previous.length === next.length && previous.every((value, index) => value === next[index]);
 }
 
 export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly ChangeOp[] {
@@ -168,7 +186,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
   for (const t of next.tables) {
     const before = prevTables.get(t.name);
     if (!before) {
-      ops.push({ kind: 'create_table', table: t.name, columns: t.columns });
+      ops.push({ kind: 'create_table', table: t.name, columns: t.columns, primaryKey: t.primaryKey });
       continue;
     }
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
@@ -183,6 +201,9 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
       } else if (!sameType(bc.type, c.type)) {
         ops.push({ kind: 'alter_column_type', table: t.name, column: c.name, from: bc.type, to: c.type });
       }
+    }
+    if (!sameSequence(before.primaryKey, t.primaryKey)) {
+      ops.push({ kind: 'alter_primary_key', table: t.name, from: before.primaryKey, to: t.primaryKey });
     }
   }
   return orderChanges(ops);
@@ -336,10 +357,18 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
   return mapped;
 }
 
-function columnDdl(d: Dialect, col: ColumnSnapshot, table: string): string {
+function columnDdl(
+  d: Dialect,
+  col: ColumnSnapshot,
+  table: string,
+  key: { readonly inline: boolean; readonly tableLevel: boolean } = {
+    inline: col.primaryKey,
+    tableLevel: false,
+  },
+): string {
   // PRIMARY KEY implies NOT NULL, so we don't emit both.
-  const pk = col.primaryKey ? ' PRIMARY KEY' : '';
-  const nn = !col.primaryKey && !col.nullable ? ' NOT NULL' : '';
+  const pk = key.inline ? ' PRIMARY KEY' : '';
+  const nn = !key.inline && (!col.nullable || key.tableLevel) ? ' NOT NULL' : '';
   const type =
     typeof col.type === 'string'
       ? ddlType(d, col)
@@ -349,6 +378,49 @@ function columnDdl(d: Dialect, col: ColumnSnapshot, table: string): string {
             throw unsupportedExtensionType(d, col.type, col.name, table);
           })();
   return `${quoteIdentifier(d, col.name)} ${type}${pk}${nn}`;
+}
+
+function primaryKeyDdl(dialect: Dialect, columns: readonly string[]): string {
+  return `PRIMARY KEY (${columns.map(column => quoteIdentifier(dialect, column)).join(', ')})`;
+}
+
+function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect: Dialect): string {
+  const inline = op.primaryKey.length === 1 ? op.primaryKey[0] : undefined;
+  const tableLevel = op.primaryKey.length > 1 ? new Set(op.primaryKey) : undefined;
+  const definitions = op.columns.map(column =>
+    columnDdl(dialect, column, op.table, {
+      inline: column.name === inline,
+      tableLevel: tableLevel?.has(column.name) === true,
+    }),
+  );
+  if (op.primaryKey.length > 1) definitions.push(primaryKeyDdl(dialect, op.primaryKey));
+  return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${definitions.join(', ')})`;
+}
+
+function keyList(columns: readonly string[]): string {
+  return `(${columns.join(', ')})`;
+}
+
+function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly string[], dialect: Dialect): string {
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(
+      `altering the primary key of "${table}"`,
+      dialect,
+      `sqlite cannot alter the primary key of "${table}" (${keyList(from)} → ${keyList(to)}); ` +
+        'SQLite has no ALTER TABLE form for a key, so this needs a hand-written table rebuild — ' +
+        'see the migration guide',
+    );
+  }
+
+  const clauses: string[] = [];
+  if (from.length > 0) {
+    clauses.push(
+      dialect === 'postgres' ? `DROP CONSTRAINT ${quoteIdentifier(dialect, `${table}_pkey`)}` : 'DROP PRIMARY KEY',
+    );
+  }
+  if (to.length > 0) clauses.push(`ADD ${primaryKeyDdl(dialect, to)}`);
+  if (clauses.length === 0) throw new Error(`primary key change for "${table}" has no before or after columns`);
+  return `ALTER TABLE ${quoteIdentifier(dialect, table)} ${clauses.join(', ')}`;
 }
 
 /**
@@ -372,7 +444,7 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
     case 'create_extension':
       return createExtensionDdl(op, dialect);
     case 'create_table':
-      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c, op.table)).join(', ')})`;
+      return createTableDdl(op, dialect);
     case 'drop_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'add_column':
@@ -381,6 +453,8 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.to)}`;
+    case 'alter_primary_key':
+      return alterPrimaryKeyDdl(op.table, op.from, op.to, dialect);
   }
 }
 
@@ -400,5 +474,7 @@ export function emitDown(op: ChangeOp, dialect: Dialect): string {
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.from)}`;
+    case 'alter_primary_key':
+      return alterPrimaryKeyDdl(op.table, op.to, op.from, dialect);
   }
 }

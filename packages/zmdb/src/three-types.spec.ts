@@ -54,7 +54,12 @@ const ISO_PATTERN = '^\\d{4}-\\d{2}-\\d{2}[Tt ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(
 function ddl(dialect: Dialect): string {
   const table = snapshot([events]).tables[0];
   if (!table) throw new Error('no table in the snapshot');
-  const create: ChangeOp = { kind: 'create_table', table: table.name, columns: table.columns };
+  const create: ChangeOp = {
+    kind: 'create_table',
+    table: table.name,
+    columns: table.columns,
+    primaryKey: table.primaryKey,
+  };
   return emitUp(create, dialect);
 }
 

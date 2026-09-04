@@ -36,7 +36,6 @@ type DriftColumnSnapshot = ColumnSnapshot & {
 
 interface DriftTableSnapshot extends TableSnapshot {
   readonly columns: readonly DriftColumnSnapshot[];
-  readonly primaryKey?: readonly string[];
   readonly foreignKeys?: readonly CatalogForeignKeySnapshot[];
   readonly indexes?: readonly CatalogIndexSnapshot[];
 }
@@ -46,7 +45,6 @@ interface DriftComparableSnapshot extends Omit<SchemaSnapshot, 'tables'> {
 }
 
 interface NormalizedDriftTableSnapshot extends TableSnapshot {
-  readonly primaryKey?: readonly string[];
   readonly foreignKeys?: readonly CatalogForeignKeySnapshot[];
   readonly indexes?: readonly CatalogIndexSnapshot[];
 }
@@ -121,7 +119,7 @@ export function normalizeDriftSnapshot(
         // Catalog spellings and default expressions are evidence, not drift:
         // aliases have already collapsed into `type`, and servers rewrite defaults.
         columns: table.columns.map(normalizeColumn),
-        ...(table.primaryKey === undefined ? {} : { primaryKey: table.primaryKey }),
+        primaryKey: table.primaryKey,
         ...(table.foreignKeys === undefined ? {} : { foreignKeys: table.foreignKeys }),
         ...(indexes === undefined ? {} : { indexes }),
       };

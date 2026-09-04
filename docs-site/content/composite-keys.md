@@ -1,10 +1,9 @@
-> **ToDo / feature gap.** `PrimaryKey` is a per-column tag, and the reflector does turn two of
-> them into one ordered key — `findById`, `update` and `delete` compile a full multi-column
-> `WHERE` from it. Two things do not: the DDL emitter writes `PRIMARY KEY` on each keyed column
-> instead of one table constraint, so the generated `CREATE TABLE` does not run anywhere, and
-> keyset pagination orders and cursors by the key's first column only, so a page boundary can
-> skip rows. The hole in the _single_-column path that used to be the first thing to read here is
-> fixed: the record form is now refused rather than silently dropping the `WHERE`.
+> **ToDo / remaining gaps.** `PrimaryKey` is a per-column tag, and the reflector turns two of
+> them into one ordered key. Snapshots, migration diffs and `CREATE TABLE` now preserve that
+> whole key, and `findById`, `update` and `delete` compile a full multi-column `WHERE` from it.
+> This page remains a gap because the keyed-method diagnostics, composite-parent relations and
+> keyset pagination still have unfinished cases. Keyset pagination currently orders and cursors
+> by the key's first column only, so a page boundary can skip rows.
 
 ## What the declaration says
 
@@ -24,33 +23,31 @@ in step with the columns, which removes one way to get this wrong.
 
 ## What the DDL emitter does with it
 
-Not that. `columnDdl` puts `PRIMARY KEY` on each keyed column, so a generated migration says:
+The snapshot stores the ordered key separately from its alphabetically sorted columns. A generated
+migration therefore emits one table constraint in declaration order:
 
 ```sql
 CREATE TABLE "memberships" (
-  "org_id" INTEGER PRIMARY KEY,
-  "user_id" INTEGER PRIMARY KEY,   -- no dialect accepts a second one
-  "role" TEXT NOT NULL
+  "orgId" INTEGER NOT NULL,
+  "role" TEXT NOT NULL,
+  "userId" INTEGER NOT NULL,
+  PRIMARY KEY ("orgId", "userId")
 )
 ```
 
-> [!WARNING]
-> That statement does not run anywhere. Postgres rejects it with "multiple primary keys for
-> table ... are not allowed", and MySQL and SQLite have their own versions of the same error.
-> Write the table in a [custom migration](./migrations-custom.html) until the emitter learns
-> the table-constraint form:
->
-> ```sql
-> CREATE TABLE "memberships" (
->   "org_id" INTEGER NOT NULL REFERENCES "orgs"("id"),
->   "user_id" INTEGER NOT NULL REFERENCES "users"("id"),
->   "role" TEXT NOT NULL,
->   PRIMARY KEY ("org_id", "user_id")
-> );
-> ```
->
-> The `REFERENCES` clauses are hand-written for the same reason: the snapshot format has no
-> place for a foreign key either. See [Migrations](./migrations.html).
+Postgres, MySQL and SQLite use that same table-level shape with their own identifier quoting and
+integer spelling. A one-column key keeps the existing inline form, including SQLite's
+`INTEGER PRIMARY KEY` rowid alias.
+
+Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit
+one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter
+form, so generation throws an `UnsupportedFeatureError` naming the table and requiring a
+hand-written table rebuild; it never silently omits the change.
+
+> [!NOTE]
+> Foreign-key `REFERENCES` clauses remain a separate migration gap. The composite primary key
+> itself is generated; the two references in the declaration above are not yet emitted. See
+> [Migrations](./migrations.html).
 
 ## What does work today
 
@@ -120,13 +117,13 @@ accepted both forms is how code that will break the day the key gains a column g
 
 ## What has to change
 
-Two pieces:
+The snapshot/diff/DDL piece is complete. The remaining composite-key work is:
 
-1. **`columnDdl`.** The `CREATE TABLE` op needs to collect the keyed columns and emit one
-   `PRIMARY KEY (…)` table constraint, and `TableSnapshot` needs to carry the ordered key so that
-   `diff` can see a key change at all — today it compares only column names and types, so
-   changing a key produces no migration op whatsoever.
-2. **Keyset pagination.** `applyOrderBy(builder, order, pkColumn)` takes one tie-break column and
+1. **Keyed-method diagnostics.** Partial composite keys are refused before SQL, but the message
+   still reports one missing column at a time and does not name the method in the frozen form.
+2. **Composite-parent relations.** A relation must join on every parent-key column or refuse the
+   declaration; it must never reduce the key to its first column.
+3. **Keyset pagination.** `applyOrderBy(builder, order, pkColumn)` takes one tie-break column and
    `list` passes `primaryKey[0]`, so a two-column key orders by its first column only. The cursor
    is encoded from the same list, so the next page asks `WHERE "orgId" > $1` and skips every
    remaining row of that org. It needs the full key, in key order, for the ordering and for the
@@ -135,11 +132,12 @@ Two pieces:
 Done since this page was written: `PrimaryKeyOf<T>` is already a record for a key of two or more
 columns, `buildKeyWhere` already assembles the multi-column filter from the whole
 `schema.primaryKey`, and the one-column record form — which built `{ id: { id: 42 } }` and lost
-the predicate — is refused.
+the predicate — is refused. `TableSnapshot.primaryKey`, composite `CREATE TABLE`, key-change
+diffing and the explicit SQLite refusal are also implemented.
 
-Nothing about this is blocked by design. The typed-signature change is already done; what is left
-is the DDL fix, the migration diff that has to see a key change, and two places that still read
-`primaryKey[0]`.
+Nothing about the remaining work is blocked by design. The typed signature and migration boundary
+are done; the remaining slices remove the runtime `primaryKey[0]` assumptions and finish the
+diagnostic contract.
 
 ## Related
 

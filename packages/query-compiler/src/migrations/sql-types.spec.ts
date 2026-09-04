@@ -90,6 +90,7 @@ describe('emitUp uses the map', () => {
       col('varchar', { name: 'name', length: 60 }),
       col('timestamp', { name: 'at', nullable: true }),
     ],
+    primaryKey: ['id'],
   };
 
   it('postgres', () => {
@@ -123,6 +124,7 @@ describe('the snapshot stays abstract', () => {
     const taken = snapshot([
       {
         table: 'users',
+        primaryKey: ['id'],
         columns: {
           id: { type: 'serial', flags: { nullable: false, primaryKey: true } },
           email: { type: 'varchar', flags: { nullable: false, length: 255 } },
@@ -141,9 +143,11 @@ describe('the snapshot stays abstract', () => {
   it('omits length entirely when there is none', () => {
     // The required extension list belongs to the snapshot as a whole; the column still
     // carries no meaningless `length` field.
-    const taken = snapshot([{ table: 't', columns: { id: { type: 'integer', flags: { nullable: false } } } }]);
+    const taken = snapshot([
+      { table: 't', primaryKey: [], columns: { id: { type: 'integer', flags: { nullable: false } } } },
+    ]);
     expect(JSON.stringify(taken)).toBe(
-      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}]}],"extensions":[]}',
+      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}],"primaryKey":[]}],"extensions":[]}',
     );
   });
 });

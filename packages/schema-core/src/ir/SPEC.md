@@ -126,8 +126,8 @@ same set and different indexes.
 column's name appears in `SchemaIR.primaryKey`. The direction is fixed and one-way. Nothing
 may reconstruct the list by filtering columns on the flag, because the flag has lost the one
 fact the list carries — `['a','b']` and `['b','a']` project to identical flags. The flag
-exists only so a per-column consumer (`columnDdl`, `CreateDTO`'s serial drop) does not have
-to carry the table around; a consumer that needs to know _the key_ reads the list.
+exists for per-column consumers such as `CreateDTO`'s serial drop and migration column
+metadata; a consumer that needs to know _the key_, including `CREATE TABLE`, reads the list.
 
 A table may declare no key at all, and `primaryKey` is then `[]`. That is a legal IR, not a
 defect to normalise: a join table written as two `References` columns with no `PrimaryKey`
@@ -138,9 +138,10 @@ derivation rather than letting the DDL emit a clause over a phantom column.
 
 Four back-ends read the key, and before this section they each read something different —
 `PrimaryKeyOf` an object-or-scalar, the repository `primaryKey[0]` for `pkColumn`, the DDL
-emitter the per-column flag, `resolveRelation` `primaryKey[0]`. Three of those are the
-single-column case written as if it were the general one. The list above is what they must
-all agree on; each of the four specs below says what that boundary does with it.
+emitter once read the per-column flag, and `resolveRelation` reads `primaryKey[0]`. The DDL
+boundary now consumes the ordered list; the remaining `primaryKey[0]` readers are still the
+single-column case written as if it were the general one. The list above is what all four
+boundaries must agree on; each of the four specs below says what that boundary does with it.
 
 A composite key may not contain a `serial` column. Auto-increment inside a multi-column key
 is a MySQL-specific shape (the auto-increment column must _lead_ the key), and expressing

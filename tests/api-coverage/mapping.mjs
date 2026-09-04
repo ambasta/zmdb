@@ -311,8 +311,7 @@ export const kysely = {
     'emits every supported referential action',
     'creates the supporting index MySQL requires',
   ],
-  'schema > alter table > add primary key constraint':
-    'emits a composite primary key as two column constraints, which no dialect accepts',
+  'schema > alter table > add primary key constraint': 'emits a composite primary key as one ordered table constraint',
   'schema > alter table > drop constraint': 'diffs a changed action into a drop and an add',
   'schema > alter table > rename constraint': oos(
     'Renaming a constraint has the same problem as dropping one by name, plus Postgres and MySQL ' +

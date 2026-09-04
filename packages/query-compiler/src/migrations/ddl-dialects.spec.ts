@@ -37,6 +37,7 @@ describe('DDL emitter — down reverses up per dialect', () => {
       kind: 'create_table',
       table: 'users',
       columns: [{ name: 'id', type: 'serial', nullable: false, primaryKey: true }],
+      primaryKey: ['id'],
     };
     expect(emitUp(createUsers, 'postgres')).toBe('CREATE TABLE "users" ("id" SERIAL PRIMARY KEY)');
     expect(emitDown(createUsers, 'postgres')).toBe('DROP TABLE "users"');

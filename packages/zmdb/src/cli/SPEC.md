@@ -241,14 +241,16 @@ ledger, nothing written to disk, so it composes: `zmdb export | psql`.
 
 ## 10. Destructive operations, defined once
 
-`ChangeOp` has five kinds today, and the classification covers all five rather than a subset, so a sixth
-kind added later fails a test instead of defaulting to permitted:
+The classification covers every current `ChangeOp` kind rather than a subset, so a new kind fails a test
+instead of defaulting to permitted:
 
-| `ChangeOp`                   | Destructive | Why                                        |
-| ---------------------------- | ----------- | ------------------------------------------ |
-| `create_table`, `add_column` | no          | An added nullable column loses nothing.    |
-| `drop_table`, `drop_column`  | yes         | Deletes rows or a column's values.         |
-| `alter_column_type`          | sometimes   | Destructive when the new type is narrower. |
+| `ChangeOp`                         | Destructive | Why                                                                     |
+| ---------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `create_extension`, `create_table` | no          | Adds a capability or a new empty table.                                 |
+| `add_column`                       | no          | An added nullable column loses nothing.                                 |
+| `drop_table`, `drop_column`        | yes         | Deletes rows or a column's values.                                      |
+| `alter_column_type`                | sometimes   | Destructive when the new type is narrower.                              |
+| `alter_primary_key`                | no          | Reindexes existing rows; duplicates can fail it, but no row is deleted. |
 
 Narrowing is read off the `from`/`to` pair the op already carries — both are abstract types, so this is a
 table lookup and not a guess: `varchar(n)` → `varchar(m)` with `m < n`, `text` → `varchar`,

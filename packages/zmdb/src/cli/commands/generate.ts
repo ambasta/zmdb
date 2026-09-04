@@ -102,6 +102,8 @@ function derivedName(ops: readonly ChangeOp[]): string {
       return `drop_${operation.table}_${operation.column}`;
     case 'alter_column_type':
       return `alter_${operation.table}_${operation.column}`;
+    case 'alter_primary_key':
+      return `alter_${operation.table}_primary_key`;
   }
 }
 

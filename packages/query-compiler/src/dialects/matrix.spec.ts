@@ -105,6 +105,7 @@ interface FrozenCreateTable {
   readonly kind: 'create_table';
   readonly table: string;
   readonly columns: readonly FrozenColumn[];
+  readonly primaryKey: readonly string[];
   readonly tableOptions?: FrozenTableOptions;
 }
 
@@ -305,6 +306,7 @@ const createEvents: FrozenCreateTable = {
   kind: 'create_table',
   table: 'events',
   columns: [{ name: 'id', type: 'serial', nullable: false, primaryKey: true }],
+  primaryKey: ['id'],
   tableOptions: { shardKey: ['id'], sortKey: ['id'] },
 };
 
@@ -1100,6 +1102,7 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
       kind: 'create_table',
       table: 'sessions',
       columns: [{ name: 'id', type: 'bigint', nullable: false, primaryKey: true }],
+      primaryKey: ['id'],
       tableOptions: { rowstore: true },
     };
     expect(capture(() => emitUp(rowstore, 'singlestore'))).toEqual(

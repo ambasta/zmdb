@@ -321,7 +321,13 @@ That makes the constraint part of the `create_table` op on every dialect, even t
 emit it later:
 
 ```ts
-{ kind: 'create_table'; table: string; columns: ColumnSnapshot[]; foreignKeys: ForeignKeySnapshot[] }
+{
+  kind: 'create_table';
+  table: string;
+  columns: ColumnSnapshot[];
+  primaryKey: readonly string[];
+  foreignKeys: ForeignKeySnapshot[];
+}
 ```
 
 Without that field the SQLite statement above is not representable: `emitUp` receives one op, not the
@@ -426,7 +432,13 @@ the sections above add:
 
 ```ts
 type ChangeOp =
-  | { kind: 'create_table'; table: string; columns: ColumnSnapshot[]; foreignKeys: ForeignKeySnapshot[] } // §1.6
+  | {
+      kind: 'create_table';
+      table: string;
+      columns: ColumnSnapshot[];
+      primaryKey: readonly string[]; // §1.3
+      foreignKeys: ForeignKeySnapshot[]; // §1.6
+    }
   | { kind: 'drop_table'; table: string }
   | { kind: 'add_column'; table: string; column: ColumnSnapshot }
   | { kind: 'drop_column'; table: string; column: string }
