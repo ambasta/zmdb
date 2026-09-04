@@ -107,13 +107,7 @@ jobs:
           exit 1
 
       - name: Pre-publish Dependency Vulnerability Audit
-        # Metro 0.87.0 is a dev-only fixture dependency. Its image-size range
-        # has no non-vulnerable published target yet: even current 2.0.2 is
-        # covered by advisories 1138808 and 1138809. Ignore only those IDs;
-        # every other high advisory still blocks publication.
-        run: >
-          yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
+        run: node .github/scripts/verify-audit.mjs
 
       - name: Resolve the selected release target
         env:

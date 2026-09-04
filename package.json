@@ -36,6 +36,7 @@
     "verify:angular-adapter": "node --import ./scripts/ts-specifier-hook.mjs fixtures/client-adapters/angular/verify-packed.mjs",
     "verify:api-coverage": "node .github/scripts/verify-api-coverage.mjs",
     "verify:architecture-zones": "node .github/scripts/verify-architecture-zones.mjs",
+    "verify:audit": "node .github/scripts/verify-audit.mjs",
     "verify:bench": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs",
     "verify:bench:epic": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs --strict-deferred",
     "verify:build-budget": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-build-budget.mjs",
