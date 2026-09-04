@@ -116,6 +116,11 @@ export { validateWith } from './data/index.js';
 export {
   runChain,
   ChainError,
+  UseGuards,
+  UsePipes,
+  UseInterceptors,
+  UseFilters,
+  getChain,
   type AnyCtx,
   type Guard,
   type SecurityAwareGuard,
