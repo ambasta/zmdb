@@ -220,9 +220,10 @@ function sameType(previous: string | ExtensionType, next: string | ExtensionType
 export const CHANGE_PHASES = [
   ['create_extension'],
   ['drop_foreign_key'],
-  ['drop_table', 'drop_column'],
+  ['drop_table'],
   ['create_table', 'add_column'],
   ['alter_column_type', 'alter_primary_key'],
+  ['drop_column'],
   ['add_foreign_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
 

@@ -234,6 +234,62 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
     expect(emitDown(alterKey, 'mysql')).toBe('ALTER TABLE `memberships` DROP PRIMARY KEY, ADD PRIMARY KEY (`user_id`)');
   });
 
+  it('adds and drops a primary key without emitting an empty ALTER clause', () => {
+    const addKey: Extract<ChangeOp, { kind: 'alter_primary_key' }> = {
+      kind: 'alter_primary_key',
+      table: 'memberships',
+      from: [],
+      to: ['user_id'],
+    };
+    expect(emitUp(addKey, 'postgres')).toBe('ALTER TABLE "memberships" ADD PRIMARY KEY ("user_id")');
+    expect(emitDown(addKey, 'postgres')).toBe('ALTER TABLE "memberships" DROP CONSTRAINT "memberships_pkey"');
+    expect(emitUp(addKey, 'mysql')).toBe('ALTER TABLE `memberships` ADD PRIMARY KEY (`user_id`)');
+    expect(emitDown(addKey, 'mysql')).toBe('ALTER TABLE `memberships` DROP PRIMARY KEY');
+  });
+
+  it('orders a replacement key after its added column and before its dropped column', () => {
+    const before: SchemaSnapshot = {
+      version: 1,
+      extensions: [],
+      tables: [
+        {
+          name: 'memberships',
+          columns: [
+            { name: 'old_id', type: 'integer', nullable: false, primaryKey: true },
+            { name: 'role', type: 'text', nullable: false, primaryKey: false },
+          ],
+          primaryKey: ['old_id'],
+          foreignKeys: [],
+        },
+      ],
+    };
+    const after: SchemaSnapshot = {
+      version: 1,
+      extensions: [],
+      tables: [
+        {
+          name: 'memberships',
+          columns: [
+            { name: 'new_id', type: 'integer', nullable: false, primaryKey: true },
+            { name: 'role', type: 'text', nullable: false, primaryKey: false },
+          ],
+          primaryKey: ['new_id'],
+          foreignKeys: [],
+        },
+      ],
+    };
+
+    expect(diff(before, after)).toEqual([
+      {
+        kind: 'add_column',
+        table: 'memberships',
+        column: { name: 'new_id', type: 'integer', nullable: false, primaryKey: true },
+      },
+      { kind: 'alter_primary_key', table: 'memberships', from: ['old_id'], to: ['new_id'] },
+      { kind: 'drop_column', table: 'memberships', column: 'old_id' },
+    ]);
+  });
+
   // SQLite has no `ALTER TABLE` form that touches a primary key. The emitter refuses rather
   // than skipping the op, because a skipped op is a schema that diverges from its snapshot
   // with nothing reporting it.

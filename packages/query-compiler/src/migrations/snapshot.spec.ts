@@ -30,6 +30,7 @@ describe('snapshot serializer', () => {
   it('captures type/nullable/primaryKey per column', () => {
     const snap = snapshot([UserSchema]);
     const cols = snap.tables[0]?.columns ?? [];
+    expect(snap.tables[0]?.primaryKey).toEqual(['id']);
     expect(cols).toContainEqual({ name: 'id', type: 'serial', nullable: false, primaryKey: true });
     expect(cols).toContainEqual({ name: 'email', type: 'text', nullable: false, primaryKey: false });
   });

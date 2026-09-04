@@ -97,15 +97,10 @@ describe('a Serial column in a composite key (frozen: ir/SPEC.md 4.1)', () => {
   // auto-increment column must *lead* the key — and expressing that constraint would let the
   // declaration order of an interface silently decide whether the schema is portable.
   //
-  // actual today: accepted in silence. The reflection produces
-  //   primaryKey ["id","tenantId"], flags [["id",true],["tenantId",true]]
-  // and raises no diagnostic at all, so the schema reaches the DDL emitter and is refused, if at
-  // all, by whichever dialect the migration happens to run against.
-  //
   // The message fragments are matched rather than the whole string: the frozen text spans two
   // lines and contains backticks around `Serial`, and the three load-bearing facts are the column,
   // the key in order, and the two ways out.
-  it.fails('is refused, naming the column, the key and the two ways out', () => {
+  it('is refused, naming the column, the key and the two ways out', () => {
     const reasons = forTable('serial_composite');
     expect(reasons.join('\n')).toContain('a `Serial` column cannot be part of a composite primary key');
     expect(reasons.join('\n')).toContain('(key is (id, tenantId))');

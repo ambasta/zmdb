@@ -16,9 +16,8 @@ import { schemaFromIR, type ColumnIR, type SchemaIR } from './index.js';
 // `@zmdb/aot-validator`'s `src/reflect/keys.spec.ts`, because that is where a key is derived from a
 // declaration.
 //
-// `it.fails` for the frozen claims, with the current output recorded above each one. See
-// `@zmdb/query-compiler`'s `src/migrations/composite-keys.spec.ts` for why `it.fails` rather than
-// `.skip` or a stub.
+// The invariant tests began as `it.fails` and were converted when #410 made the ordered list
+// authoritative at the `schemaFromIR` boundary.
 
 const column = (name: string, extra: Partial<ColumnIR> = {}): ColumnIR => ({
   name,
@@ -95,10 +94,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
   // the check has to be here or it is nowhere. Recorded in the tests-freeze notes as a spec
   // correction rather than silently reassigned.
   //
-  // actual today: accepted in silence. `schemaFromIR` returns
-  //   primaryKey ["userId","orgId"], columns ["userId"]
-  // — the phantom column is in the key and nowhere else.
-  it.fails('refuses a key naming a column the table does not have', () => {
+  it('refuses a key naming a column the table does not have', () => {
     const ir: SchemaIR = {
       table: 'memberships',
       physicalTable: 'memberships',
@@ -122,11 +118,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
   // and asserting one of those would freeze a decision the spec left open. Either implementation
   // satisfies this test; a pass-through does not.
   //
-  // actual today, flag set on a column the list omits:
-  //   primaryKey ["a"], flags [["a",true],["b",true]]
-  // — `b` claims to be a key column and the key does not contain it. `columnDdl` reads the flag,
-  // so the DDL emits `PRIMARY KEY` on `b` while the repository's `WHERE` uses only `a`.
-  it.fails('never carries a flag the list does not agree with', () => {
+  it('never carries a flag the list does not agree with', () => {
     const ir: SchemaIR = {
       table: 't',
       physicalTable: 't',
@@ -141,11 +133,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
 
   // And the other direction, which is the one that loses a key column rather than inventing one.
   //
-  // actual today:
-  //   primaryKey ["a"], flags [["a",false]]
-  // — the key is `(a)` and the DDL, which reads the flag, emits no `PRIMARY KEY` clause at all.
-  // The table ships keyless and `findById` still compiles a `WHERE "a" = $1` against it.
-  it.fails('never omits a flag for a column the list names', () => {
+  it('never omits a flag for a column the list names', () => {
     const ir: SchemaIR = {
       table: 't',
       physicalTable: 't',

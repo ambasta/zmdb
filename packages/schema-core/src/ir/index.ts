@@ -410,18 +410,36 @@ function columnMetaFromIR(col: ColumnIR): ColumnMeta {
  * schema — which type-first code, by construction, has not.
  */
 export function schemaFromIR(ir: SchemaIR): CoreSchema<string> {
+  const key = new Set(ir.primaryKey);
+  const columnNames = new Set(ir.columns.map(column => column.name));
+  const missing = ir.primaryKey.filter(column => !columnNames.has(column));
+  if (missing.length > 0) {
+    throw new Error(
+      `${ir.table}: primary key names ${missing.map(column => `"${column}"`).join(', ')}, ` +
+        `${missing.length === 1 ? 'a column' : 'columns'} the table does not have`,
+    );
+  }
+
+  const normalizedColumns = ir.columns.map(column => {
+    const primaryKey = key.has(column.name);
+    return column.primaryKey === primaryKey ? column : { ...column, primaryKey };
+  });
+  const normalizedIr = normalizedColumns.every((column, index) => column === ir.columns[index])
+    ? ir
+    : { ...ir, columns: normalizedColumns };
+
   const columns: Record<string, ColumnMeta> = {};
-  for (const col of ir.columns) columns[col.name] = columnMetaFromIR(col);
+  for (const col of normalizedIr.columns) columns[col.name] = columnMetaFromIR(col);
 
   return {
-    table: ir.table,
+    table: normalizedIr.table,
     columns,
-    primaryKey: ir.primaryKey,
-    references: ir.columns.flatMap(col =>
+    primaryKey: normalizedIr.primaryKey,
+    references: normalizedIr.columns.flatMap(col =>
       col.references === undefined ? [] : [{ column: col.name, target: col.references }],
     ),
-    ...(ir.ftsTable === undefined ? {} : { ftsTable: ir.ftsTable }),
-    ir,
+    ...(normalizedIr.ftsTable === undefined ? {} : { ftsTable: normalizedIr.ftsTable }),
+    ir: normalizedIr,
   };
 }
 

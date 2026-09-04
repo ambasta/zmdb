@@ -343,6 +343,16 @@ export class Reflector {
 
     const fts = literalOf(this.#nonNullable(tags.get('ftsTable')));
     const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
+    if (primaryKey.length > 1) {
+      const serialKey = columns.find(column => column.primaryKey && column.serial);
+      if (serialKey) {
+        this.#refuse(
+          tableName,
+          `${tableName}.${serialKey.name}: a \`Serial\` column cannot be part of a composite primary key ` +
+            `(key is (${primaryKey.join(', ')})); give the table a single-column surrogate key or drop \`Serial\``,
+        );
+      }
+    }
     const foreignKeys = this.#foreignKeysOf(tableName, tags, columns);
     const physicalColumns = new Map<string, string>();
     for (const column of columns) {

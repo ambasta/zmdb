@@ -14,7 +14,7 @@ import { ProductsRepo, recorder, TenantUsersRepo } from './fixtures.js';
 //
 // The three checks that stop it are asserted here in the order a bad call meets them:
 //
-//   1. `buildKeyWhere` refuses a non-scalar single-column key (`key-arguments.spec.ts` owns
+//   1. `keyWhere` refuses a non-scalar single-column key (`key-arguments.spec.ts` owns
 //      the wording, which `repository/SPEC.md` §2.1 freezes).
 //   2. `compileWhere` refuses an empty operator map (`schema-core`'s `dto/where.spec.ts`).
 //   3. `assertKeyed` refuses the compiled statement itself. This one is the backstop and the
