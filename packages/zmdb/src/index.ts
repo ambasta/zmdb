@@ -90,6 +90,7 @@ export type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
 export {
   BaseRepository,
   defineRepository,
+  IncompleteKeyError,
   ValidationError,
   createTransactionalDb,
   batch,

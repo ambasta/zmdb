@@ -33,6 +33,7 @@ import {
 import {
   BaseRepository as SrcBaseRepository,
   defineRepository as srcDefineRepository,
+  IncompleteKeyError as SrcIncompleteKeyError,
   markTransactionClosed as srcMarkTransactionClosed,
 } from '@zmdb/repository';
 import {
@@ -52,6 +53,7 @@ import {
   createQueryCompiler,
   dec,
   defineRepository,
+  IncompleteKeyError,
   inc,
   is,
   isShallow,
@@ -114,9 +116,10 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(protoEncode).toBe(srcProtoEncode);
   });
 
-  it('re-exports the repository surface (BaseRepository, defineRepository, markTransactionClosed)', () => {
+  it('re-exports the repository surface, including IncompleteKeyError', () => {
     expect(BaseRepository).toBe(SrcBaseRepository);
     expect(defineRepository).toBe(srcDefineRepository);
+    expect(IncompleteKeyError).toBe(SrcIncompleteKeyError);
     expect(markTransactionClosed).toBe(srcMarkTransactionClosed);
   });
 

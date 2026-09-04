@@ -1,9 +1,8 @@
-> **ToDo / remaining gaps.** `PrimaryKey` is a per-column tag, and the reflector turns two of
-> them into one ordered key. Snapshots, migration diffs and `CREATE TABLE` now preserve that
-> whole key, and `findById`, `update` and `delete` compile a full multi-column `WHERE` from it.
-> This page remains a gap because the keyed-method diagnostics, composite-parent relations and
-> keyset pagination still have unfinished cases. Keyset pagination currently orders and cursors
-> by the key's first column only, so a page boundary can skip rows.
+> **Partial support.** `PrimaryKey` is a per-column tag, and the reflector turns two of them
+> into one ordered key. Snapshots, migration diffs, generated DDL and repository keyed methods
+> preserve that whole key. Keyset pagination orders and cursors by the whole key too. A relation
+> pointing at a composite parent still resolves one key column, so that relation case remains a
+> documented gap.
 
 ## What the declaration says
 
@@ -76,15 +75,26 @@ await repo.delete(key);
 // DELETE FROM "memberships" WHERE "orgId" = $1 AND "userId" = $2 RETURNING "orgId", "userId"
 ```
 
-A key that is missing a column is refused before any SQL is compiled. The wording is being
-sharpened — it does not yet name the method or list more than one missing column — but the
-refusal itself is there and it is a `ValidationError`, not a query on half a key.
+A key that is missing a column is refused before any SQL is compiled. `IncompleteKeyError`
+extends `ValidationError`, names the table, method and every missing column in key order, and
+exposes the table and missing columns as fields:
+
+```text
+memberships.findById requires every key column; missing: orgId, userId
+```
+
+Only own properties count. A `userId` inherited from the key object's prototype is still
+reported missing, so a prototype cannot silently complete a partial key.
 
 Extra keys are ignored, so you can pass a whole row you already have:
 
 ```ts
 await repo.delete(row); // row is a Membership; only orgId and userId are read
 ```
+
+The same ordered key is the default conflict target for `upsert` and the deterministic
+tie-breaker for `list`. A composite-key cursor therefore carries every key column, rather than
+skipping rows that tie on the first one.
 
 ## One-column keys take the value, not a record
 
@@ -117,29 +127,20 @@ an object are all refused, and nothing is compiled or executed first.
 The asymmetry is deliberate rather than an oversight to smooth over: a one-column key that
 accepted both forms is how code that will break the day the key gains a column gets written.
 
-## What has to change
+## What remains
 
-The snapshot/diff/DDL piece is complete. The remaining composite-key work is:
-
-1. **Keyed-method diagnostics.** Partial composite keys are refused before SQL, but the message
-   still reports one missing column at a time and does not name the method in the frozen form.
-2. **Composite-parent relations.** A relation must join on every parent-key column or refuse the
-   declaration; it must never reduce the key to its first column.
-3. **Keyset pagination.** `applyOrderBy(builder, order, pkColumn)` takes one tie-break column and
-   `list` passes `primaryKey[0]`, so a two-column key orders by its first column only. The cursor
-   is encoded from the same list, so the next page asks `WHERE "orgId" > $1` and skips every
-   remaining row of that org. It needs the full key, in key order, for the ordering and for the
-   cursor.
+**Relations to a composite parent.** Relation derivation still reads the parent's first key
+column. It must pair every parent-key column with an equally sized `via` list or refuse the
+declaration, never silently join on half a key.
 
 Done since this page was written: `PrimaryKeyOf<T>` is already a record for a key of two or more
-columns, `buildKeyWhere` already assembles the multi-column filter from the whole
-`schema.primaryKey`, and the one-column record form — which built `{ id: { id: 42 } }` and lost
-the predicate — is refused. `TableSnapshot.primaryKey`, composite `CREATE TABLE`, key-change
-diffing and the explicit SQLite refusal are also implemented.
+columns, `keyWhere` assembles the multi-column filter from the whole ordered key, partial keys
+name every missing own property, the one-column record form — which built `{ id: { id: 42 } }`
+and lost the predicate — is refused, keyset pagination uses the whole key, and the ordered key
+survives snapshot → diff → DDL.
 
-Nothing about the remaining work is blocked by design. The typed signature and migration boundary
-are done; the remaining slices remove the runtime `primaryKey[0]` assumptions and finish the
-diagnostic contract.
+Nothing about the remaining work is blocked by design. The relation reader must stop treating
+the first primary-key column as the whole key.
 
 ## Related
 

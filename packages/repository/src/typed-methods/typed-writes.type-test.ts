@@ -1,6 +1,6 @@
-import type { CreateDTO, Entity, Equal, Expect } from '@zmdb/schema-core';
+import type { CreateDTO, Entity, Equal, Expect, UpdateDTO } from '@zmdb/schema-core';
 
-import type { User, Users } from './fixtures.js';
+import type { TenantUser, User, Users } from './fixtures.js';
 
 declare const repo: Users;
 
@@ -9,3 +9,6 @@ type _TestUpsertParam = Expect<Equal<Parameters<typeof repo.upsert>[0], CreateDT
 
 // Verify repo.upsert return type resolves to Entity<User> | undefined
 type _TestUpsertReturn = Expect<Equal<Awaited<ReturnType<typeof repo.upsert>>, Entity<User> | undefined>>;
+
+// Every primary-key column is identity, so none of a composite key is patchable.
+type _TestCompositeUpdateKeys = Expect<Equal<keyof UpdateDTO<TenantUser>, 'role'>>;

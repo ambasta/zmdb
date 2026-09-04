@@ -38,6 +38,7 @@ import {
   type ListResult,
   type OrderBySpec,
   type AggregateSpec,
+  type WhereTarget,
 } from '@zmdb/schema-core/dto';
 import {
   appTypeOf,
@@ -90,6 +91,20 @@ export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateS
 }
 
 export { ValidationError, type ValidationIssue };
+
+/** A composite key omitted one or more required own properties. */
+export class IncompleteKeyError extends ValidationError {
+  readonly table: string;
+  readonly missing: readonly string[];
+
+  constructor(table: string, method: 'findById' | 'update' | 'delete', missing: readonly string[]) {
+    const orderedMissing = Object.freeze([...missing]);
+    super(`${table}.${method} requires every key column; missing: ${orderedMissing.join(', ')}`);
+    this.name = 'IncompleteKeyError';
+    this.table = table;
+    this.missing = orderedMissing;
+  }
+}
 
 /** A literal value or a compiler-owned expression, per updatable column. */
 export type UpdatePatch<T extends DeclaredTable> = {
@@ -226,7 +241,7 @@ function validatedRoutineValue(value: unknown, type: TypeIR): unknown {
 /**
  * Whether a value can be a single-column primary key.
  *
- * The composite branch of `buildKeyWhere` has always refused a key that is missing a
+ * The composite branch of `keyWhere` has always refused a key that is missing a
  * column; the single-column branch accepted anything and wrapped it, so an object
  * arriving from untyped input became `{ id: { … } }` — a where-spec that compiles to
  * no predicate at all and therefore an `UPDATE` or `DELETE` over the whole table
@@ -250,6 +265,7 @@ function isScalarKey(value: unknown): boolean {
 function describeKey(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
+  if (value instanceof Date) return 'a Date';
   if (Array.isArray(value)) return 'an array';
   if (typeof value === 'object') return 'an object';
   return typeof value === 'function' ? 'a function' : `a ${typeof value}`;
@@ -339,6 +355,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: Dialect;
+  /** Ordered primary-key columns, resolved once because a repository's schema cannot change. */
+  private readonly keyColumns: readonly string[];
   /** variant → its columns and their object type. See `payloadShape`. */
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
   /** The columns a driver may hand back in their storage form. See `decodeRows`. */
@@ -351,6 +369,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.driver = driver;
     this.dialect = dialect;
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
+    this.keyColumns = Object.freeze([...this.schema.primaryKey]);
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -515,10 +534,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.schema.table;
   }
 
-  private get pkColumn(): string {
-    const pk = this.schema.primaryKey[0];
-    if (!pk) throw new Error(`schema ${this.tableName} has no primary key`);
-    return pk;
+  private requiredKeyColumns(): readonly string[] {
+    if (this.keyColumns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
+    return this.keyColumns;
   }
 
   /**
@@ -565,52 +583,53 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.#decoded;
   }
 
-  private buildKeyWhere(id: PrimaryKeyOf<T>, method: 'findById' | 'update' | 'delete'): WhereDTO<T> {
-    const pkCols = this.schema.primaryKey;
-    if (!pkCols || pkCols.length === 0) {
-      throw new Error(`schema ${this.tableName} has no primary key`);
-    }
+  private keyValues(id: PrimaryKeyOf<T>, method: 'findById' | 'update' | 'delete'): readonly unknown[] {
+    const keyColumns = this.requiredKeyColumns();
 
-    if (pkCols.length === 1) {
-      const [pkCol] = pkCols;
-      if (!pkCol) {
+    if (keyColumns.length === 1) {
+      const [keyColumn] = keyColumns;
+      if (!keyColumn) {
         throw new Error(`schema ${this.tableName} has empty primary key column`);
       }
       if (!isScalarKey(id)) {
         throw new ValidationError(
-          `${this.tableName}.${method} requires the value of "${pkCol}", not ${describeKey(id)}`,
+          `${this.tableName}.${method} requires the value of "${keyColumn}", not ${describeKey(id)}`,
         );
       }
-      // boundary: `pkCol` is dynamically read from `schema.primaryKey`; asserting to `WhereDTO<T>`
-      // preserves the repository's concrete schema type `T`.
-      return { [pkCol]: id } as WhereDTO<T>;
+      return [id];
     }
 
     if (!isRecord(id) || id instanceof Date) {
-      throw new ValidationError(`composite primary key for schema ${this.tableName} requires an object map`);
+      throw new ValidationError(
+        `${this.tableName}.${method} requires every key column; got ${describeKey(id)}, expected an object with (${keyColumns.join(', ')})`,
+      );
     }
 
-    const where: Record<string, unknown> = {};
-    for (const col of pkCols) {
-      if (!(col in id) || id[col] === undefined) {
-        throw new ValidationError(`missing composite primary key column "${col}" for schema ${this.tableName}`);
-      }
-      where[col] = id[col];
+    const missing: string[] = [];
+    for (const column of keyColumns) {
+      if (!Object.hasOwn(id, column) || id[column] === undefined) missing.push(column);
     }
-    // boundary: `where` map is assembled at runtime from composite PK fields; asserting to `WhereDTO<T>`
-    // preserves the repository's concrete schema type `T`.
-    return where as WhereDTO<T>;
+    if (missing.length > 0) throw new IncompleteKeyError(this.tableName, method, missing);
+    return keyColumns.map(column => id[column]);
+  }
+
+  private keyWhere<B extends WhereTarget>(
+    builder: B,
+    id: PrimaryKeyOf<T>,
+    method: 'findById' | 'update' | 'delete',
+  ): B {
+    const values = this.keyValues(id, method);
+    let keyed = builder;
+    for (let index = 0; index < this.keyColumns.length; index++) {
+      const column = this.keyColumns[index];
+      if (column !== undefined) keyed = keyed.where(column, '=', values[index]);
+    }
+    return keyed;
   }
 
   /** Validate a typed key and return its values in schema declaration order. */
   private loaderKeyValues(id: PrimaryKeyOf<T>): readonly unknown[] {
-    this.buildKeyWhere(id, 'findById');
-    const columns = this.schema.primaryKey;
-    if (columns.length === 1) return [id];
-    if (!isRecord(id)) {
-      throw new ValidationError(`composite primary key for schema ${this.tableName} requires an object map`);
-    }
-    return columns.map(column => id[column]);
+    return this.keyValues(id, 'findById');
   }
 
   [LOADER_ENTITY_KEY](id: PrimaryKeyOf<T>): string {
@@ -626,8 +645,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const unique = sanitizeKeys(ids);
     if (unique.length === 0) return [];
 
-    const columns = this.schema.primaryKey;
-    if (columns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
+    const columns = this.requiredKeyColumns();
     const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect];
     const chunkSize = Math.max(1, Math.floor(parameterLimit / columns.length));
     const found = new Map<string, Entity<T>>();
@@ -673,13 +691,18 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     opts: { populate: readonly K[] },
   ): Promise<Populated<T, K> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
-    return this.firstMatching(this.buildKeyWhere(id, 'findById'), opts?.populate);
+    const query = this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById').limit(1).compile();
+    return this.firstResult(query, opts?.populate);
   }
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
   private async firstMatching(where: WhereDTO<T>, populate?: readonly string[]): Promise<Entity<T> | undefined> {
-    const q = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
-    const rows = await this.rows<EntityRow<T>>(q);
+    const query = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
+    return this.firstResult(query, populate);
+  }
+
+  private async firstResult(query: CompiledQuery, populate?: readonly string[]): Promise<Entity<T> | undefined> {
+    const rows = await this.rows<EntityRow<T>>(query);
     const row = rows[0];
     if (!row || !populate?.length) return row;
     const [populated] = await this.attachRelations([row], populate);
@@ -803,14 +826,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
   async list(query?: ListDTO<T>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<T>>> {
     let b = this.qb.selectFrom(this.tableName);
-    const pkColumn = this.pkColumn;
+    const keyColumns = this.requiredKeyColumns();
 
     const userOrderBy = query?.orderBy;
-    const effectiveOrderBy: OrderBySpec = userOrderBy
-      ? userOrderBy.some(item => String(item.column) === pkColumn)
-        ? userOrderBy
-        : [...userOrderBy, { column: pkColumn, dir: 'asc' }]
-      : [{ column: pkColumn, dir: 'asc' }];
+    const effectiveOrderBy: Array<OrderBySpec[number]> = userOrderBy ? [...userOrderBy] : [];
+    for (const column of keyColumns) {
+      if (!effectiveOrderBy.some(item => String(item.column) === column)) {
+        effectiveOrderBy.push({ column, dir: 'asc' });
+      }
+    }
 
     b = applyOrderBy(b, effectiveOrderBy);
 
@@ -850,7 +874,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
       orderBy: effectiveOrderBy,
-      pkColumn,
     };
     const res = buildListResult(rows, listOpts);
     if (opts?.populate?.length) {
@@ -1172,7 +1195,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async upsert(dto: CreateDTO<T>, opts?: UpsertOptions<T>): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
-    const target = opts?.target ?? this.schema.primaryKey;
+    const target = opts?.target ?? this.requiredKeyColumns();
     const requestedUpdateFields = opts?.updateFields;
     const updateFields =
       requestedUpdateFields !== undefined && !Array.isArray(requestedUpdateFields)
@@ -1245,11 +1268,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     // Built before the empty-patch shortcut so that a bad key is reported as `update` rather
     // than as the `findById` it would otherwise delegate to (§2.1: "the method in the message
     // is the method the caller actually called").
-    const where = this.buildKeyWhere(id, 'update');
     if (Object.keys(clean).length === 0) {
-      return this.firstMatching(where);
+      const query = this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update').limit(1).compile();
+      return this.firstResult(query);
     }
-    const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
+    const builder = this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
     if (this.dialect === 'mysql' && this.hasColumnExpression(clean)) {
       await this.driver.execute(this.assertKeyed(builder.compile(), 'update'));
       return undefined;
@@ -1279,10 +1302,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #28 — delete + lifecycle hooks.
   async delete(id: PrimaryKeyOf<T>): Promise<boolean> {
     this.preDelete(id);
-    const where = this.buildKeyWhere(id, 'delete');
     const rows = await this.driver.execute(
       this.assertKeyed(
-        compileWhere(this.qb.deleteFrom(this.tableName), where).returning(this.schema.primaryKey).compile(),
+        this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete').returning(this.keyColumns).compile(),
         'delete',
       ),
     );

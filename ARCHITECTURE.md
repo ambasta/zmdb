@@ -145,13 +145,13 @@ shape." The policy:
 > hold framework internals to a documented, shrinking exception list — rather
 > than claim an absolute we'd have to fake with hidden `any`.
 >
-> **Where that stands (2026-09-04):** 57 assertions across 169 shipped files in
-> `packages/*/src`, all documented under 57 `// boundary:` comments; 0 `any`, 0
+> **Where that stands (2026-09-04):** 55 assertions across 172 shipped files in
+> `packages/*/src`, all documented under 55 `// boundary:` comments; 0 `any`, 0
 > non-null `!`, 1 lint suppression, 0 `as unknown as`, 0 consumer-facing `as` in
 > the docs.
 >
 > That is up from 28, and the increase came with the type-first work.
-> `aot-validator` holds 26 of the 57, clustered where the type system stops being
+> `aot-validator` holds 26 of the 55, clustered where the type system stops being
 > able to help: checker values, parsed JSON and the certified validation return.
 > Every assertion carries a
 > `// boundary:` comment stating the runtime guarantee that makes it sound —

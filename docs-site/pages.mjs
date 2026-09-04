@@ -527,7 +527,7 @@ export const PAGE_META = {
     title: 'Composite Primary Keys',
     group: 'Schema',
     status: 'todo',
-    note: 'the key derives and queries correctly; the DDL emitter writes one PRIMARY KEY per column and keyset pagination reads only the first',
+    note: 'snapshots, DDL, repository methods and pagination preserve the whole key; composite-parent relations remain',
   },
   'bigint-keys': {
     title: 'bigint Primary Keys',

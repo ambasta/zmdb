@@ -261,8 +261,9 @@ The rules, in the order they are checked:
   column present and not `undefined`. Extra keys are ignored, because the caller may
   reasonably pass a whole entity.
 
-A missing column throws `ValidationError` before any SQL is compiled, and the message names
-the columns that were missing rather than saying the shape was wrong:
+A missing column throws `IncompleteKeyError`, a public `ValidationError` subclass, before any
+SQL is compiled. Its `table` and ordered `missing` fields are available to callers, and its
+message names the columns that were missing rather than saying only that the shape was wrong:
 
 ```
 memberships.findById requires every key column; missing: user_id
@@ -280,6 +281,10 @@ memberships.findById requires every key column; got a number, expected an object
 The method name in the message is the method the caller actually called — `findById`,
 `update`, `delete` — not the private helper, because the helper is not in the caller's
 vocabulary.
+
+The ordered key list is copied once when the repository is constructed. `findById`, `update`
+and `delete` share one `keyWhere` compiler path; the same list is the default `upsert` conflict
+target and the deterministic tie-breaker for `list` pagination.
 
 ### An unkeyed write is refused by the statement, not only by the key
 

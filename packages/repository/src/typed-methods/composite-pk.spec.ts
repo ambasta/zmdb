@@ -1,7 +1,7 @@
 import type { PrimaryKeyOf } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
-import { ValidationError } from '../index.js';
+import { IncompleteKeyError, ValidationError } from '../index.js';
 import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './fixtures.js';
 
 describe('Composite Primary Key Repository Operations', () => {
@@ -43,12 +43,23 @@ describe('Composite Primary Key Repository Operations', () => {
     expect(deleted).toBe(true);
   });
 
+  it('uses every composite key column as the default upsert conflict target', async () => {
+    const { driver, calls } = recorder([{ tenantId: 't1', userId: 10, role: 'admin' }]);
+    const repo = new TenantUsersRepo(driver);
+
+    await repo.upsert({ tenantId: 't1', userId: 10, role: 'admin' });
+
+    const [call] = calls;
+    expect(call?.text).toContain('ON CONFLICT ("tenantId", "userId") DO UPDATE SET');
+    expect(call?.parameters).toEqual(['t1', 10, 'admin']);
+  });
+
   it('throws ValidationError at runtime when composite key is missing fields or non-object', async () => {
     const { driver } = recorder();
     const repo = new TenantUsersRepo(driver);
 
     // @ts-expect-error missing userId field
-    await expect(repo.findById({ tenantId: 't1' })).rejects.toBeInstanceOf(ValidationError);
+    await expect(repo.findById({ tenantId: 't1' })).rejects.toBeInstanceOf(IncompleteKeyError);
 
     // @ts-expect-error non-object key
     await expect(repo.delete('t1')).rejects.toBeInstanceOf(ValidationError);
