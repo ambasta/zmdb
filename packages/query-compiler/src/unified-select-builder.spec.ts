@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createQueryCompiler } from './index.ts';
+import { createQueryCompiler } from './index.js';
 
 describe('Unified SelectBuilder & Facade Integration', () => {
   it('combines joins, aggregations, and full-text search in a single method chain', () => {
