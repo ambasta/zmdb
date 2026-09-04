@@ -240,6 +240,7 @@ const PREFIXES: Readonly<Record<string, string>> = {
   toJsonSchema: 'JsonSchema',
   schemaOf: 'Schema',
   protoDescriptor: 'ProtoDescriptor',
+  protoDecode: 'ProtoDecode',
   protoEncode: 'ProtoEncode',
 };
 
@@ -295,6 +296,7 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
   protoDescriptor: '@zmdb/aot-validator',
+  protoDecode: '@zmdb/aot-validator',
   protoEncode: '@zmdb/aot-validator',
 };
 

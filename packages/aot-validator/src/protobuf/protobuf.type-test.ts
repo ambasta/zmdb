@@ -1,15 +1,8 @@
 // Compile-only public-surface freeze for `emit/SPEC.md` §7b.
 //
-// Missing entry points use the repository's paired TS2305/exact-signature pattern.
-// `protoEncode` now has its real export and exact signature; `protoDecode` keeps the
-// frozen directives until #481 lands.
+// The three entry points have their real exports and exact signatures.
 
-import type {
-  // @ts-expect-error TS2305 — frozen by `emit/SPEC.md` §7b; not exported yet.
-  protoDecode,
-  protoDescriptor,
-  protoEncode,
-} from '@zmdb/aot-validator';
+import type { protoDecode, protoDescriptor, protoEncode } from '@zmdb/aot-validator';
 import type { Equal, Expect } from '@zmdb/schema-core';
 
 type FrozenProtoEncode = <T>(value: T) => Uint8Array;
@@ -18,8 +11,6 @@ type FrozenProtoDescriptor = <_T>() => string;
 type ExportedFunction<T> = [keyof T] extends [never] ? T : never;
 
 export type _proto_encode_signature = Expect<Equal<ExportedFunction<typeof protoEncode>, FrozenProtoEncode>>;
-
-// @ts-expect-error TS2344 — `protoDecode` is an error type until the export lands.
 export type _proto_decode_signature = Expect<Equal<ExportedFunction<typeof protoDecode>, FrozenProtoDecode>>;
 
 type ProtoDescriptorMatches = Equal<ExportedFunction<typeof protoDescriptor>, FrozenProtoDescriptor>;

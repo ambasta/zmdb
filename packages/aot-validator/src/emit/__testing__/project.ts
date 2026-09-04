@@ -24,7 +24,7 @@ import type { TypeIR } from '@zmdb/schema-core/ir';
 import type { Diagnostic } from 'typescript/unstable/sync';
 
 import { AssertError } from '../../errors.js';
-import { ProtoWriter } from '../../protobuf/wire.js';
+import { ProtoReader, ProtoWriter } from '../../protobuf/wire.js';
 import { findCallSites } from '../../reflect/callsites.js';
 import { Reflector } from '../../reflect/index.js';
 import { ReflectSession } from '../../reflect/session.js';
@@ -227,6 +227,7 @@ export class FixtureProject implements Disposable {
 }
 
 const ASSERT_ERROR_IMPORT = /^import \{ AssertError as (\w+) \} from "[^"]*";\n/m;
+const PROTO_READER_IMPORT = /^import \{ ProtoReader as (\w+) \} from "[^"]*";\n/m;
 const PROTO_WRITER_IMPORT = /^import \{ ProtoWriter as (\w+) \} from "[^"]*";\n/m;
 
 /** Evaluate emitted code and hand back its `check`. */
@@ -240,6 +241,13 @@ export function evaluate(code: string): (input: unknown) => unknown {
     parameters.push(assertion[1] as string);
     values.push(AssertError);
     executable = executable.replace(ASSERT_ERROR_IMPORT, '');
+  }
+
+  const protobufReader = PROTO_READER_IMPORT.exec(executable);
+  if (protobufReader) {
+    parameters.push(protobufReader[1] as string);
+    values.push(ProtoReader);
+    executable = executable.replace(PROTO_READER_IMPORT, '');
   }
 
   const protobuf = PROTO_WRITER_IMPORT.exec(executable);

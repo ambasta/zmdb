@@ -27,7 +27,7 @@ rather than resolved — they ask for opposite things.
 
 `src/cli/scan.ts` finds calls to the ten callees the transformer currently knows — `is`,
 `assert`, `equals`, `assertEquals`, `validate`, `random`, `toJsonSchema`, `schemaOf`,
-`protoDescriptor`, `protoEncode` — with a type argument. The scan is textual and
+`protoDescriptor`, `protoDecode`, `protoEncode` — with a type argument. The scan is textual and
 deliberately cheap, because most files have none; the compiler is only asked about the
 files that do.
 

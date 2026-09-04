@@ -180,6 +180,13 @@ function signature(entry: Entry): Signature {
       return { parameters: '', returns: `TaggedSchema<${type}>`, plain: '', call: `schemaOf<${type}>()` };
     case 'protoDescriptor':
       return { parameters: '', returns: 'string', plain: '', call: `protoDescriptor<${type}>()` };
+    case 'protoDecode':
+      return {
+        parameters: 'bytes: Uint8Array',
+        returns: type,
+        plain: 'bytes',
+        call: `protoDecode<${type}>(bytes)`,
+      };
     case 'protoEncode':
       return {
         parameters: `value: ${type}`,

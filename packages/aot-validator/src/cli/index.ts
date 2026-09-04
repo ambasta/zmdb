@@ -78,7 +78,7 @@ export interface CodegenResult {
  * compiler for its AST, and in a real project almost every file answers no.
  */
 const MENTIONS_CALLEE =
-  /\b(?:is|equals|assert|assertEquals|validate|random|toJsonSchema|schemaOf|protoDescriptor|protoEncode)\s*</;
+  /\b(?:is|equals|assert|assertEquals|validate|random|toJsonSchema|schemaOf|protoDescriptor|protoDecode|protoEncode)\s*</;
 
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);

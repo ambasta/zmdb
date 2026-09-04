@@ -1,7 +1,7 @@
-> **Partial support.** `ProtoField<N>` and `Proto<K>` are carried through the
+> **Codec support.** `ProtoField<N>` and `Proto<K>` are carried through the
 > shared TypeIR, and `protoDescriptor<T>()` emits a parser-valid proto3 descriptor
-> at build time. The AOT wire-format [encoder](./protobuf-encode.html) also
-> ships; the [decoder](./protobuf-decode.html) does not yet.
+> at build time. AOT [encode](./protobuf-encode.html) and
+> [decode](./protobuf-decode.html) are emitted from that same checked IR.
 
 ## Declare the wire contract once
 
@@ -34,16 +34,16 @@ numbers are build diagnostics naming the message and property.
 
 **Compact outbound wire format for internal service calls.** Use
 `protoEncode<T>(value)` for bytes compiled from the same declaration as the
-descriptor. Inbound bytes still need an ordinary protobuf decoder and an adapter
-to the TypeScript shape until `protoDecode<T>()` lands.
+descriptor, and `protoDecode<T>(bytes)` for the matching inbound TypeScript
+shape.
 
 **A schema contract between services in different languages.** Emit
 `protoDescriptor<T>()` during the build and feed the resulting `.proto` text to
 the other language's ordinary protobuf generator. OpenAPI and JSON Schema remain
 the alternatives for JSON APIs.
 
-**gRPC.** Not available — see [gRPC](./web-microservices-grpc.html), which still
-needs the decoder and transport integration.
+**gRPC.** The message codec is available, but transport integration remains
+separate — see [gRPC](./web-microservices-grpc.html).
 
 ## Using a protobuf library alongside zmdb
 
@@ -54,9 +54,9 @@ then let the protobuf library compile or load that descriptor:
 await writeFile('user.proto', protoDescriptor<UserMessage>());
 ```
 
-The descriptor removes the second hand-written schema. zmdb can own the encode
-direction; a library still owns decode, so validate its plain result at that
-boundary:
+The descriptor removes the second hand-written schema. Another protobuf library
+can still own either wire direction when an application needs features outside
+the supported mapping; validate its plain result at that boundary:
 
 ```ts
 import { is } from '@zmdb/aot-validator/utilities';
@@ -71,16 +71,12 @@ The generated validator is still doing real work here: protobuf libraries differ
 in how they represent 64-bit integers and timestamps, and the application adapter
 has to return the TypeScript shape it declared.
 
-## What remains
-
-1. **A decoder** over the same mapping, including bounded malformed-input
-   handling and the declared unknown-field policy.
-
 Some source shapes are deliberately refused rather than left undecided:
 `Record<string, V>` is invisible to the current reflector, nested arrays have no
 direct proto3 spelling, optional-nullable fields have three source states but two
 wire states, and discriminated unions cannot become `oneof` until union arms have
-a field-number tag slot. Unknown fields are discarded, so decode/re-encode is not
+a field-number tag slot. Required singular-message cycles have no finite absent
+value and are refused. Unknown fields are discarded, so decode/re-encode is not
 safe for a proxy.
 
 ---

@@ -134,6 +134,7 @@ describe('CALLEES', () => {
       'assertEquals',
       'equals',
       'is',
+      'protoDecode',
       'protoDescriptor',
       'protoEncode',
       'random',

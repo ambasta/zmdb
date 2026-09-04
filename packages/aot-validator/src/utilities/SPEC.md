@@ -67,10 +67,10 @@ because the call is gone, and passed explicitly by tests exactly as the witness 
 
 ### These are three new callees, and that has a visible cost
 
-`CALLEES` in `../transformer.ts` currently has ten names after the protobuf descriptor and encoder
+`CALLEES` in `../transformer.ts` currently has eleven names after the protobuf descriptor, decoder and encoder
 slices, and `it('names every transformed call, and every one of them is a function somebody can call',
-…)` in `../transform-code.spec.ts` asserts that list literally. The protobuf decoder will make eleven;
-these three shallow calls would therefore make fourteen if they land after it. The implementation slice
+…)` in `../transform-code.spec.ts` asserts that list literally. These three shallow calls would therefore
+make fourteen. The implementation slice
 updates the literal assertion and every current count in code and docs rather than relying on the
 eight-to-eleven arithmetic this section originally froze.
 

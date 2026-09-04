@@ -1100,19 +1100,19 @@ export const PAGE_META = {
     title: 'Protobuf Messages',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'proto3 descriptors and the AOT encoder ship; the decoder and final codec docs remain open',
+    note: 'proto3 descriptors and both AOT codec directions ship; final cross-page documentation remains open',
   },
   'protobuf-encode': {
     title: 'protobuf encode',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'AOT encoder ships; final protobuf documentation remains in the open codec epic',
+    note: 'AOT encoder and decoder ship; final protobuf documentation remains in the open codec epic',
   },
   'protobuf-decode': {
     title: 'protobuf decode',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'no protobuf wire decoder',
+    note: 'AOT decoder ships; final protobuf documentation remains in the open codec epic',
   },
   'llm-function-calling': {
     title: 'LLM Function Calling',

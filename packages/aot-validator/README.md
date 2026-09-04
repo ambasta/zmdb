@@ -1,6 +1,6 @@
 # @zmdb/aot-validator
 
-Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.
+Ahead-of-time compiled validation, JSON Ser/De and protobuf codecs: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.
 
 Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
 define your schema once and entities, DTOs, validation, serialization, OpenAPI

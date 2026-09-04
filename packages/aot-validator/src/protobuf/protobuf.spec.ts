@@ -4,8 +4,8 @@ import { buildValue, decode, descriptor, encode, openProtoProject } from './__te
 
 // Tests freeze for #478. The normative mapping is `../emit/SPEC.md` §7b and
 // `@zmdb/schema-core/ir`'s SPEC §4.5. Descriptor/reflection assertions owned by
-// #479 are green. #480's encoder-only assertions are green; decoder-only and
-// mixed round-trip assertions remain `it.fails` until #481 replaces that call.
+// #479, #480 and #481 are green. The fixed vectors remain independent of the
+// generated implementation, so codec agreement cannot make a wrong wire format pass.
 //
 // Byte vectors marked "protoc 34.2" were generated from
 // `./__fixtures__/reference.proto`; the canonical 150 vector is also the example
@@ -82,12 +82,12 @@ describe('protobuf specification vectors', () => {
     expect(value).toEqual(new Uint8Array());
   });
 
-  it.fails('decodes an absent required field to its zero value', () => {
+  it('decodes an absent required field to its zero value', () => {
     const { value } = decode<{ value: number }>(project, 'RequiredInt32', []);
     expect(value).toEqual({ value: 0 });
   });
 
-  it.fails('distinguishes an explicit optional zero from an absent optional', () => {
+  it('distinguishes an explicit optional zero from an absent optional', () => {
     const absentBytes = encode(project, 'OptionalInt32', '{}').value;
     const presentBytes = encode(project, 'OptionalInt32', '{ value: 0 }').value;
     expect(absentBytes).toEqual(new Uint8Array());
@@ -100,7 +100,7 @@ describe('protobuf specification vectors', () => {
     expect(present).toEqual({ value: 0 });
   });
 
-  it.fails('maps an absent required nullable field to null', () => {
+  it('maps an absent required nullable field to null', () => {
     const absentBytes = encode(project, 'NullableInt32', '{ value: null }').value;
     const zeroBytes = encode(project, 'NullableInt32', '{ value: 0 }').value;
     expect(absentBytes).toEqual(new Uint8Array());
@@ -109,7 +109,7 @@ describe('protobuf specification vectors', () => {
     expect(decode(project, 'NullableInt32', zeroBytes).value).toEqual({ value: 0 });
   });
 
-  it.fails('round-trips every emitted scalar without losing 64-bit precision', () => {
+  it('round-trips every emitted scalar without losing 64-bit precision', () => {
     const bytes = encode(project, 'AllScalars', ALL_SCALARS_SOURCE).value;
     // protoc 34.2 over `AllScalarsReference`: this makes the scalar matrix an
     // interoperability test rather than a self-consistent round trip.
@@ -150,7 +150,7 @@ describe('protobuf specification vectors', () => {
     });
   });
 
-  it.fails('fills every absent scalar field with its protobuf zero value', () => {
+  it('fills every absent scalar field with its protobuf zero value', () => {
     expect(decode(project, 'AllScalars', []).value).toEqual({
       defaultDouble: 0,
       int32: 0,
@@ -170,7 +170,7 @@ describe('protobuf specification vectors', () => {
     });
   });
 
-  it.fails('decodes every 64-bit field to bigint even when the value is small', () => {
+  it('decodes every 64-bit field to bigint even when the value is small', () => {
     const { value } = decode<{ value: bigint }>(project, 'SmallInt64', [0x08, 0x01]);
     expect(value).toEqual({ value: 1n });
     expect(typeof value.value).toBe('bigint');
@@ -182,7 +182,7 @@ describe('protobuf specification vectors', () => {
     expect(value).toEqual(Uint8Array.from([0x0a, 0x04, 0x01, 0x02, 0x96, 0x01]));
   });
 
-  it.fails('packs repeated bool and enum fields', () => {
+  it('packs repeated bool and enum fields', () => {
     expect(encode(project, 'PackedBool', '{ values: [true, false, true] }').value).toEqual(
       Uint8Array.from([0x0a, 0x03, 0x01, 0x00, 0x01]),
     );
@@ -197,14 +197,18 @@ describe('protobuf specification vectors', () => {
     expect(value).toEqual(Uint8Array.from([0x0a, 0x01, 0x61, 0x0a, 0x02, 0x62, 0x63]));
   });
 
-  it.fails('round-trips a nested message using the reference bytes', () => {
+  it('round-trips a nested message using the reference bytes', () => {
     const bytes = encode(project, 'NestedEnvelope', '{ value: { value: 150 } }').value;
     // protoc 34.2 and the protobuf encoding guide's embedded-message rule.
     expect(bytes).toEqual(Uint8Array.from([0x1a, 0x03, 0x08, 0x96, 0x01]));
     expect(decode(project, 'NestedEnvelope', bytes).value).toEqual({ value: { value: 150 } });
   });
 
-  it.fails('leaves repeated messages unpacked and preserves their order', () => {
+  it('constructs the recursive zero shape for an absent required nested message', () => {
+    expect(decode(project, 'NestedEnvelope', []).value).toEqual({ value: { value: 0 } });
+  });
+
+  it('leaves repeated messages unpacked and preserves their order', () => {
     const bytes = encode(project, 'RepeatedNested', '{ values: [{ value: 1 }, { value: 2 }] }').value;
     expect(bytes).toEqual(Uint8Array.from([0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02, 0x08, 0x02]));
     expect(decode(project, 'RepeatedNested', bytes).value).toEqual({
@@ -212,13 +216,13 @@ describe('protobuf specification vectors', () => {
     });
   });
 
-  it.fails('decodes an absent repeated field to an empty array', () => {
+  it('decodes an absent repeated field to an empty array', () => {
     expect(decode(project, 'PackedInt32', []).value).toEqual({ values: [] });
     expect(decode(project, 'RepeatedStrings', []).value).toEqual({ values: [] });
     expect(decode(project, 'RepeatedNested', []).value).toEqual({ values: [] });
   });
 
-  it.fails('maps Date through google.protobuf.Timestamp', () => {
+  it('maps Date through google.protobuf.Timestamp', () => {
     const instant = '2020-01-02T03:04:05.006Z';
     const bytes = encode(project, 'TimestampMessage', `{ at: new Date("${instant}") }`).value;
     // protoc 34.2: seconds=1577934245, nanos=6000000.
@@ -291,27 +295,33 @@ describe('encoder boundaries from #480', () => {
 });
 
 describe('decoder boundaries from #481', () => {
-  it.fails('decodes fields presented out of order', () => {
+  it('emits a field-number switch without a runtime descriptor walk', () => {
+    const { code } = decode(project, 'TwoFields', [0x08, 0x07, 0x12, 0x01, 0x78]);
+    expect(code).toMatch(/switch \(_field\)/);
+    expect(code).not.toMatch(/descriptor|Object\.entries|Reflect\./);
+  });
+
+  it('decodes fields presented out of order', () => {
     const { value } = decode(project, 'TwoFields', [0x12, 0x01, 0x78, 0x08, 0x07]);
     expect(value).toEqual({ first: 7, second: 'x' });
   });
 
-  it.fails('decodes an unpacked repeated field that our encoder would pack', () => {
+  it('decodes an unpacked repeated field that our encoder would pack', () => {
     const { value } = decode(project, 'PackedInt32', [0x08, 0x01, 0x08, 0x02, 0x08, 0x96, 0x01]);
     expect(value).toEqual({ values: [1, 2, 150] });
   });
 
-  it.fails('concatenates repeated values across packed occurrences', () => {
+  it('concatenates repeated values across packed occurrences', () => {
     const { value } = decode(project, 'PackedInt32', [0x0a, 0x02, 0x01, 0x02, 0x0a, 0x03, 0x03, 0x96, 0x01]);
     expect(value).toEqual({ values: [1, 2, 3, 150] });
   });
 
-  it.fails('takes the last value when a scalar field repeats', () => {
+  it('takes the last value when a scalar field repeats', () => {
     const { value } = decode(project, 'RequiredInt32', [0x08, 0x01, 0x08, 0x02]);
     expect(value).toEqual({ value: 2 });
   });
 
-  it.fails('skips an unknown field of every non-group wire type', () => {
+  it('skips an unknown field of every non-group wire type', () => {
     const unknowns = [
       [0x10, 0x96, 0x01],
       [0x11, 1, 2, 3, 4, 5, 6, 7, 8],
@@ -323,7 +333,18 @@ describe('decoder boundaries from #481', () => {
     }
   });
 
-  it.fails('discards unknown fields across a decode and re-encode', () => {
+  it('skips incompatible wire forms for a known scalar field', () => {
+    const incompatible = [
+      [0x09, 1, 2, 3, 4, 5, 6, 7, 8],
+      [0x0a, 0x01, 0x07],
+      [0x0d, 1, 2, 3, 4],
+    ];
+    for (const occurrence of incompatible) {
+      expect(decode(project, 'RequiredInt32', [...occurrence, 0x08, 0x02]).value).toEqual({ value: 2 });
+    }
+  });
+
+  it('discards unknown fields across a decode and re-encode', () => {
     const { value } = buildValue<Uint8Array>(
       project,
       'protoEncode<RequiredInt32>(protoDecode<RequiredInt32>(new Uint8Array([0x08, 0x07, 0x10, 0x96, 0x01])))',
@@ -331,14 +352,14 @@ describe('decoder boundaries from #481', () => {
     expect(value).toEqual(Uint8Array.from([0x08, 0x07]));
   });
 
-  it.fails('rejects a length prefix larger than the remaining input without allocating', () => {
+  it('rejects a length prefix larger than the remaining input without allocating', () => {
     const { check } = project.build('const check = (input) => protoDecode<TextMessage>(input);\n');
     expect(() => check(Uint8Array.from([0x0a, 0xff, 0xff, 0xff, 0xff, 0x07]))).toThrow(
       /length|remaining|offset|truncat/i,
     );
   });
 
-  it.fails('rejects every mid-field truncation of a valid length-delimited message', () => {
+  it('rejects every mid-field truncation of a valid length-delimited message', () => {
     const { check } = project.build('const check = (input) => protoDecode<TextMessage>(input);\n');
     const valid = Uint8Array.from([0x0a, 0x03, 0x61, 0x62, 0x63]);
     // Prefix 0 is deliberately excluded: the frozen presence rule makes an empty
@@ -350,13 +371,20 @@ describe('decoder boundaries from #481', () => {
     }
   });
 
-  it.fails('refuses a deprecated group field with a clear error', () => {
+  it('rejects truncated varint and fixed-width fields with their offsets', () => {
+    const { check } = project.build('const check = (input) => protoDecode<RequiredInt32>(input);\n');
+    expect(() => check(Uint8Array.from([0x08, 0x80]))).toThrow(/varint.*offset 1|offset 1.*varint/i);
+    expect(() => check(Uint8Array.from([0x11, 1, 2, 3]))).toThrow(/fixed64|8 byte|offset 1/i);
+    expect(() => check(Uint8Array.from([0x15, 1, 2]))).toThrow(/fixed32|4 byte|offset 1/i);
+  });
+
+  it('refuses a deprecated group field with a clear error', () => {
     const { check } = project.build('const check = (input) => protoDecode<RequiredInt32>(input);\n');
     // Unknown field 2, start-group/end-group wire types.
     expect(() => check(Uint8Array.from([0x13, 0x14, 0x08, 0x07]))).toThrow(/group|wire type 3/i);
   });
 
-  it.fails('rejects zero and unknown enum numbers naming the field and enum', () => {
+  it('rejects zero and unknown enum numbers naming the field and enum', () => {
     const { check } = project.build('const check = (input) => protoDecode<InteropMessage>(input);\n');
     for (const number of [0, 99]) {
       let message = '';
@@ -514,6 +542,15 @@ describe('descriptor and reflection refusals', () => {
 
   it('refuses a discriminated union because oneof arms have no field-number tags', () => {
     refusal('const check = () => protoDescriptor<Payment>();', [/Payment/, /oneof|union/i, /field number|tag/i]);
+  });
+
+  it('refuses a required recursive message whose absent value cannot be finite', () => {
+    refusal('const check = (input) => protoDecode<RequiredRecursive>(input);', [
+      /RequiredRecursive/,
+      /next/,
+      /required/i,
+      /finite|optional|nullable|repeated/i,
+    ]);
   });
 
   it('accepts the same field number in independently numbered nested messages', () => {

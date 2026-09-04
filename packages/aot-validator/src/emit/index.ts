@@ -48,6 +48,7 @@ import {
   type UnionIR,
 } from '@zmdb/schema-core/ir';
 
+import { emitProtoDecoder } from '../protobuf/decode.js';
 import { emitProtoDescriptor } from '../protobuf/descriptor.js';
 import { emitProtoEncoder } from '../protobuf/encode.js';
 import { validatePatternComplexity } from '../regex-complexity.js';
@@ -79,7 +80,7 @@ export interface EmitOptions {
   readonly maxHelpers?: number;
   /** Module specifier the emitted prelude imports `AssertError` from. */
   readonly errorModule?: string;
-  /** Module specifier the emitted prelude imports `ProtoWriter` from. */
+  /** Module specifier the emitted prelude imports `ProtoReader`/`ProtoWriter` from. */
   readonly protobufModule?: string;
 }
 
@@ -149,6 +150,7 @@ export class Emitter {
   readonly #shared = new Map<string, string>();
   #counter = 0;
   #needsAssertError = false;
+  #needsProtoReader = false;
   #needsProtoWriter = false;
   #hasIssueHelper = false;
   #hasFreeze = false;
@@ -168,7 +170,7 @@ export class Emitter {
 
   /** True once anything has been hoisted, so a caller knows a prelude is needed. */
   get hasPrelude(): boolean {
-    return this.#needsAssertError || this.#needsProtoWriter || this.#helpers.length > 0;
+    return this.#needsAssertError || this.#needsProtoReader || this.#needsProtoWriter || this.#helpers.length > 0;
   }
 
   /**
@@ -179,6 +181,9 @@ export class Emitter {
     const lines: string[] = [];
     if (this.#needsAssertError) {
       lines.push(`import { AssertError as ${this.#prefix}AssertError } from ${JSON.stringify(this.#errorModule)};`);
+    }
+    if (this.#needsProtoReader) {
+      lines.push(`import { ProtoReader as ${this.#prefix}ProtoReader } from ${JSON.stringify(this.#protobufModule)};`);
     }
     if (this.#needsProtoWriter) {
       lines.push(`import { ProtoWriter as ${this.#prefix}ProtoWriter } from ${JSON.stringify(this.#protobufModule)};`);
@@ -305,6 +310,25 @@ export class Emitter {
     this.#needsProtoWriter = true;
     this.#shared.set(fingerprint, result.entry);
     return `${result.entry}(${expr.trim()})`;
+  }
+
+  /** `protoDecode<T>(expr)` -> a field-number-dispatched decoder over a bounded reader. */
+  emitProtoDecode(node: TypeIR, name: string, expr: string): string | undefined {
+    const fingerprint = `protoDecode:${name}:${JSON.stringify(node)}`;
+    const cached = this.#shared.get(fingerprint);
+    if (cached !== undefined) return `${cached}(new ${this.#prefix}ProtoReader(${expr.trim()}))`;
+
+    const result = emitProtoDecoder(node, name, {
+      namespace: this.#name('Proto'),
+      reader: `${this.#prefix}ProtoReader`,
+    });
+    for (const diagnostic of result.diagnostics) this.#diagnostics.push(diagnostic);
+    if (result.entry === undefined) return undefined;
+    if (!this.#append(result.helpers)) return undefined;
+
+    this.#needsProtoReader = true;
+    this.#shared.set(fingerprint, result.entry);
+    return `${result.entry}(new ${this.#prefix}ProtoReader(${expr.trim()}))`;
   }
 
   /**

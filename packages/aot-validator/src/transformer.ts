@@ -48,6 +48,7 @@ export const CALLEES: ReadonlySet<string> = new Set([
   'toJsonSchema',
   'schemaOf',
   'protoDescriptor',
+  'protoDecode',
   'protoEncode',
 ]);
 
@@ -208,6 +209,7 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
     case 'schemaOf':
       return { kind: 'schema', ir: reflector.schemaIR(type) };
     case 'protoDescriptor':
+    case 'protoDecode':
     case 'protoEncode':
       return { kind: 'protobuf', node: reflector.protobufIR(type), name: protobufName(type) };
     default:
@@ -235,6 +237,8 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
   const expression = rewriter.slice(argument.getStart(), argument.end);
 
   switch (site.callee) {
+    case 'protoDecode':
+      return emitter.emitProtoDecode(node, reflected.kind === 'protobuf' ? reflected.name : 'Message', expression);
     case 'protoEncode':
       return emitter.emitProtoEncode(node, reflected.kind === 'protobuf' ? reflected.name : 'Message', expression);
     case 'is':

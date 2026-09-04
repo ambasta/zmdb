@@ -52,7 +52,7 @@ export type { CommentKey, CommentKeys, CommentPairs, Dialect, CompiledQuery } fr
 // declaration rather than declaring a second one, and it is already above.
 export { equals, is, assert, assertEquals, random, validate, AssertError } from '@zmdb/aot-validator/utilities';
 export type { ValidateResult } from '@zmdb/aot-validator/utilities';
-export { protoDescriptor, protoEncode, tags } from '@zmdb/aot-validator';
+export { protoDecode, protoDescriptor, protoEncode, tags } from '@zmdb/aot-validator';
 
 // The type-first pair, from the OpenAPI subpath because that is where the JSON Schema
 // vocabulary lives. `toJsonSchema<T>()` and `toJsonSchema(schema)` are one overloaded

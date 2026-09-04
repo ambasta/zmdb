@@ -121,6 +121,10 @@ export const PROTO_DECLARATIONS = String.raw`
     values: NestedValue[] & ProtoField<1>;
   }
 
+  interface RequiredRecursive {
+    next: RequiredRecursive & ProtoField<1>;
+  }
+
   interface LongNestedValue {
     text: string & ProtoField<1>;
   }

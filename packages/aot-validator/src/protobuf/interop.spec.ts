@@ -117,9 +117,9 @@ describe('descriptor interop', () => {
 });
 
 describe('wire interop', () => {
-  it.fails('decodes bytes produced by a reference implementation', () => {
+  it('decodes bytes produced by a reference implementation', () => {
     // protoc 34.2 produced the same bytes from `reference.proto`.
-    expect(referenceBytes).toEqual(
+    expect(Uint8Array.from(referenceBytes)).toEqual(
       Uint8Array.from([
         0x08, 0x96, 0x01, 0x12, 0x03, 0x41, 0x64, 0x61, 0x1a, 0x03, 0x01, 0x00, 0x02, 0x20, 0x01, 0x28, 0x00,
       ]),

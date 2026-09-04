@@ -1,4 +1,5 @@
 import {
+  protoDecode as srcProtoDecode,
   protoDescriptor as srcProtoDescriptor,
   protoEncode as srcProtoEncode,
   tags as srcTags,
@@ -32,6 +33,7 @@ import {
   defineRepository,
   is,
   migrations,
+  protoDecode,
   protoDescriptor,
   protoEncode,
   schemaOf,
@@ -62,11 +64,12 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(UnsupportedFeatureError).toBe(srcUFE);
   });
 
-  it('re-exports validators is/assert/validate/tags and protobuf encode/descriptor calls', () => {
+  it('re-exports validators is/assert/validate/tags and protobuf codec/descriptor calls', () => {
     expect(is).toBe(srcIs);
     expect(assert).toBe(srcAssert);
     expect(validate).toBe(srcValidate);
     expect(tags).toBe(srcTags);
+    expect(protoDecode).toBe(srcProtoDecode);
     expect(protoDescriptor).toBe(srcProtoDescriptor);
     expect(protoEncode).toBe(srcProtoEncode);
   });

@@ -1,6 +1,7 @@
 > **AOT encoder available.** `protoEncode<T>(value)` is replaced at build time
-> with a straight-line protobuf encoder. The matching decoder remains open; see
-> [Protobuf Decode](./protobuf-decode.html) for the inbound workaround.
+> with a straight-line protobuf encoder. The matching
+> [`protoDecode<T>()`](./protobuf-decode.html) is emitted from the same checked
+> TypeIR.
 
 ## Encode a tagged message
 
@@ -66,10 +67,10 @@ remain blocked because the reflector cannot model index signatures.
 `Proto<'bytes'>` is also refused until typed-array reflection can carry
 `Uint8Array`.
 
-There is not yet a zmdb `protoDecode<T>()`. For a round trip today, decode with
-your protobuf implementation and adapt its result to the declared TypeScript
-shape. Unknown-field handling and malformed-input bounds belong to the decoder
-slice, not this outbound encoder.
+`protoDecode<T>()` supplies the matching inbound path. It accepts alternate
+valid field orders and packed/unpacked repeated forms, bounds malformed lengths,
+and discards unknown fields. Decode-then-re-encode is therefore not suitable for
+a proxy or relay.
 
 ---
 

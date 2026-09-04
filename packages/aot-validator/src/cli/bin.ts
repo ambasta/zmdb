@@ -15,7 +15,7 @@ const USAGE = `zmdb-codegen — compile zmdb's validators ahead of time, without
   --watch           regenerate on every save, on one compiler session
 
 For each source file that calls is/equals/assert/assertEquals/validate/random/toJsonSchema/
-schemaOf/protoDescriptor/protoEncode with a type argument, this writes three files beside
+schemaOf/protoDescriptor/protoDecode/protoEncode with a type argument, this writes three files beside
 it — a witness the compiler checks, the compiled JavaScript, and its declarations — and
 rewrites the call to use them.
 Commit all four: the point is that a fresh clone builds the fast path with no tool involved.

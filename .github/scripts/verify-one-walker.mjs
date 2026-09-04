@@ -110,6 +110,11 @@ const MAY_READ = new Map([
       'which SQL type a declaration means is the opposite of reading one back.',
   ],
   [
+    'packages/aot-validator/src/protobuf/decode.ts',
+    "the matched `case 'timestamp'` is the decoder's private `TimestampPlan` discriminant. " +
+      'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',
+  ],
+  [
     'packages/aot-validator/src/protobuf/encode.ts',
     "the matched `case 'timestamp'` is the encoder's private `TimestampPlan` discriminant. " +
       'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',

@@ -354,6 +354,11 @@ limitation.
 
 A nested object type is a nested message, numbered in its own space (§4.5).
 
+A cycle made entirely of required singular message properties is refused by the
+decoder. Proto3 permits every singular message field to be absent, but such a
+TypeScript cycle has no finite all-absent value of type `T`; one edge must be
+optional, nullable or repeated.
+
 ### A string union is an enum, and the zero value is always synthesised
 
 A union of string literals emits an `enum` whose members are the literals, plus a synthesised
@@ -397,11 +402,11 @@ unknown fields should forward the bytes.
 
 ### What this target adds to existing gates
 
-- `CALLEES` in `../transformer.ts` gains three names. Together with §1a's three that is fourteen, and
+- `CALLEES` in `../transformer.ts` includes all three names. Together with §1a's three that is fourteen, and
   `it('names every transformed call, and every one of them is a function somebody can call', …)` asserts
   the list literally without putting its moving count in the title.
-- `NO_PROTOBUF` in `tests/api-coverage/mapping.mjs` declares this target out of scope and must be
-  removed, with the fourteen upstream `protobuf.*` suites in `inventory.mjs` mapped to real test titles.
+- The fourteen upstream `protobuf.*` suites in `tests/api-coverage/inventory.mjs` are mapped to real
+  test titles; there is no protobuf out-of-scope blanket.
 - The descriptor emitter walks a `TypeIR` outside `schema-core/src/ir/`, so it needs a `MAY_NAME`
   exemption in `.github/scripts/verify-one-walker.mjs` with a reason. That gate fails on stale exemptions
   too, so the entry is a commitment in both directions.

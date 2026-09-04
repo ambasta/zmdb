@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 
 import { CALLEES } from '../transformer.js';
 
-it.fails('recognises the protobuf callees in the transformer', async () => {
+it('recognises the protobuf callees in the transformer', async () => {
   const names = ['protoDecode', 'protoDescriptor', 'protoEncode'] as const;
   expect([...CALLEES]).toEqual(expect.arrayContaining([...names]));
 
