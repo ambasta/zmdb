@@ -56,7 +56,7 @@ If you delete `email` from the interface, every one of those changes in the same
 **3. Zero required runtime dependencies.** `@zmdb/*` packages depend on nothing at runtime. The driver you write is yours; the ~15-line `Driver` interface is the whole contract.
 
 > [!NOTE]
-> Those rules cost you things. There is no `ON CONFLICT` yet, no query result cache, and no GraphQL layer — the first two are not built, the third [will not be](./web-graphql.html). The [anti-patterns page](./anti-patterns.html) lists what is excluded on principle and the [coverage gate](https://github.com/ambasta/zmdb/blob/main/.github/scripts/verify-docs-coverage.mjs) lists the rest — every page in this manual marked **ToDo** names a gap that is meant to close, and every page marked **Not planned** names one that is not.
+> Those rules cost you things. There is no `ON CONFLICT` yet and no GraphQL layer — the first is not built, the second [will not be](./web-graphql.html). The explicit result cache remains deliberately separate from an identity map. The [anti-patterns page](./anti-patterns.html) lists what is excluded on principle and the [coverage gate](https://github.com/ambasta/zmdb/blob/main/.github/scripts/verify-docs-coverage.mjs) lists the rest — every page in this manual marked **ToDo** names documentation or capability work that remains, and every page marked **Not planned** names one that is not.
 
 ## When not to use zmdb
 

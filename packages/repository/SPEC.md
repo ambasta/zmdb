@@ -607,6 +607,8 @@ export interface CacheStore {
   invalidateTags(tags: readonly string[]): Promise<void>;
 }
 
+export function memoryStore(options?: { readonly maxEntries?: number }): CacheStore;
+
 export interface LoaderScope {
   loaderFor<T extends DeclaredTable>(
     repo: BaseRepository<T>,
@@ -617,8 +619,21 @@ export interface LoaderScope {
   ): { load(parent: Entity<T>): Promise<Populated<T, K>[K]> };
 }
 
-interface ReadOptions {
-  readonly cache?: { readonly ttlMs: number; readonly tags?: readonly string[] } | false;
+export interface CacheOptions {
+  readonly ttlMs: number;
+  readonly tags?: readonly string[];
+}
+
+export interface ReadOptions {
+  readonly cache?: CacheOptions | false;
+}
+
+export interface CacheInvalidationOptions {
+  readonly invalidateTags?: readonly string[];
+}
+
+export interface RepositoryOptions {
+  readonly cacheStore?: CacheStore;
 }
 ```
 
@@ -745,9 +760,9 @@ keying on `undefined`.
 ### Invalidation is explicit, and the automatic part is a floor
 
 A cached read carries the tags its caller named. Automatically, it also carries `table:<name>` for **every
-table the compiled statement touched** — which the repository knows because it resolved the relations and
-built the statement, not by parsing SQL back out. A write through a repository method invalidates
-`table:<its own table>`.
+table the cached statement touched** — which the repository knows because it built the statement, not by
+parsing SQL back out. A write through a repository method invalidates `table:<its own table>` and any
+`invalidateTags` the caller supplied with that write.
 
 `docs-site/content/caching.md` argues that table-name granularity "is too coarse to be right and too fine
 to be safe", and that is a correct criticism of table names as an _inference_. The distinction here is that
@@ -756,7 +771,7 @@ the "too fine to be safe" half: a cached join over `users` and `posts` is invali
 
 The "too coarse to be right" half is **accepted and priced**: one row changing invalidates every cached
 read of its table, so this is a cache for read-mostly tables. A caller who needs better names their own
-tags — `user:42` — and invalidates them explicitly, which they can do because they know which reads
+tags — `user:42` — and passes the same name in a write's `invalidateTags`, because they know which reads
 depend on that row and the framework does not.
 
 Anything finer, automatically, requires deciding which cached `WHERE` clauses a new row satisfies. That is
@@ -771,6 +786,22 @@ The driver wrapper on `caching.md` stays as the documented blunt instrument — 
 scope and no tags, and it clears everything on any write, which is table granularity taken to its limit.
 The two coexist deliberately: that wrapper is a decision about a whole connection, `ReadOptions.cache` is
 a decision about one call.
+
+### Store lifetime, bounds and failure
+
+No store is global or ambient. Supplying `RepositoryOptions.cacheStore` opts that repository into a
+caller-owned store; otherwise the first read with a `cache` option lazily creates a store owned by that
+repository instance. An uncached repository never allocates one.
+
+`memoryStore()` is TTL-aware LRU with a default bound of **1,000 entries**. `maxEntries` is a positive safe
+integer, and `ttlMs` is a positive finite duration. Reads refresh recency; insertion past the bound evicts
+the least-recently-read entry. The bound is not derived from TTL: an unbounded map is still a leak while
+the entries are live.
+
+A store error is an availability event, not a database error. A failed `get` falls through to the driver;
+failed `set` or `invalidateTags` calls are swallowed after the database operation succeeds. The repository
+reports the first store failure once and stays quiet on subsequent failures from that instance. TTL remains
+the only stale-data bound when invalidation itself is unavailable.
 
 ### Re-validation: no, on both stores
 

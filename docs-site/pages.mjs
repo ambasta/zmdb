@@ -1184,7 +1184,7 @@ export const PAGE_META = {
     title: 'Query Caching',
     group: 'Advanced',
     status: 'todo',
-    note: 'no result cache: every read reaches the driver',
+    note: 'the opt-in result cache ships; the final API and invalidation walkthrough remains',
   },
   testing: {
     title: 'Testing',

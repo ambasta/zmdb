@@ -55,6 +55,15 @@ import {
 import type { Sql } from '@zmdb/schema-core/tags';
 
 import {
+  cacheTags,
+  copyCachedRows,
+  memoryStore,
+  resultCacheKey,
+  type CacheInvalidationOptions,
+  type CacheOptions,
+  type CacheStore,
+} from './cache/index.js';
+import {
   createEntityLoader,
   createRelationLoader,
   LOADER_ENTITY_BATCH,
@@ -74,6 +83,22 @@ export interface Driver {
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
+
+export interface RepositoryOptions {
+  readonly cacheStore?: CacheStore;
+}
+
+export interface ReadOptions {
+  readonly cache?: CacheOptions | false;
+}
+
+type PopulateReadOptions<K extends string> = ReadOptions & {
+  readonly populate: readonly K[];
+};
+
+type InternalReadOptions = ReadOptions & {
+  readonly populate?: readonly string[];
+};
 
 /**
  * A fetched row: the derived entity plus the string-keyed view that populate
@@ -135,7 +160,7 @@ type UpsertUpdateFields<T extends DeclaredTable> = [T] extends [never]
   ? readonly string[] | Record<string, unknown>
   : readonly (keyof UpdateDTO<T> & string)[] | UpdatePatch<T>;
 
-export interface UpsertOptions<T extends DeclaredTable = never> {
+export interface UpsertOptions<T extends DeclaredTable = never> extends CacheInvalidationOptions {
   readonly target?: string | readonly string[] | undefined;
   readonly updateFields?: UpsertUpdateFields<T> | undefined;
 }
@@ -361,13 +386,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
   /** The columns a driver may hand back in their storage form. See `decodeRows`. */
   #decoded: readonly ColumnIR[] | undefined;
+  /** Undefined until a custom store is supplied or an opted-in read needs the bounded default. */
+  #cacheStore: CacheStore | undefined;
+  #cacheFailureReported = false;
   /** Loader state is keyed by the explicit request-scope token, never globally. */
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
 
-  constructor(driver: Driver, dialect: Dialect = 'postgres') {
+  constructor(driver: Driver, dialect: Dialect = 'postgres', options?: RepositoryOptions) {
     this.driver = driver;
     this.dialect = dialect;
+    this.#cacheStore = options?.cacheStore;
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
     this.keyColumns = Object.freeze([...this.schema.primaryKey]);
   }
@@ -415,8 +444,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       this.driver.queryTelemetry === true
         ? { queryTelemetry: true, execute: q => tx.execute(q) }
         : { execute: q => tx.execute(q) };
-    const ctor = this.constructor as new (driver: Driver, dialect?: Dialect) => this;
-    return new ctor(txDriver, this.dialect);
+    const ctor = this.constructor as new (driver: Driver, dialect?: Dialect, options?: RepositoryOptions) => this;
+    return new ctor(
+      txDriver,
+      this.dialect,
+      this.#cacheStore === undefined ? undefined : { cacheStore: this.#cacheStore },
+    );
   }
 
   /**
@@ -542,15 +575,69 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   /**
    * The one row-shape trust boundary in this package (ARCHITECTURE §2.1).
    *
-   * A driver hands back untyped `Record<string, unknown>` rows; the compiled
-   * query decides their shape, so exactly one assertion re-types them for the
-   * caller. Every read method funnels through here instead of asserting at its
-   * own return statement (which is how this file accumulated eight of them).
+   * A driver or configured cache store hands back structurally opaque values;
+   * the compiled query and schema fingerprint decide their shape, so exactly one
+   * assertion re-types them for the caller. Every read method funnels through
+   * here instead of asserting at its own return statement.
    */
-  private async rows<Row>(query: CompiledQuery): Promise<readonly Row[]> {
-    // boundary: driver rows are structurally opaque; the query that produced
-    // them is what proves `Row`.
-    return this.decodeRows(await this.driver.execute(query)) as readonly Row[];
+  private async rows<Row>(query: CompiledQuery, cache?: CacheOptions | false): Promise<readonly Row[]> {
+    let value: unknown;
+    if (cache === undefined || cache === false) {
+      value = this.decodeRows(await this.driver.execute(query));
+    } else {
+      value = await this.cachedRows(query, cache);
+    }
+
+    // boundary: driver rows are proved by the compiled query; cache entries are stored
+    // only under the same query plus dialect and schema fingerprint. Both establish
+    // `Row` at this one boundary, without re-validating cache hits (§3d).
+    return value as readonly Row[];
+  }
+
+  private async cachedRows(query: CompiledQuery, cache: CacheOptions): Promise<unknown> {
+    if (!Number.isFinite(cache.ttlMs) || cache.ttlMs <= 0) {
+      throw new RangeError('cache ttlMs must be a positive finite number');
+    }
+
+    const store = (this.#cacheStore ??= memoryStore());
+    const key = resultCacheKey({
+      dialect: this.dialect,
+      schema: this.schema.ir,
+      table: this.tableName,
+      query,
+    });
+
+    try {
+      const cached = await store.get(key);
+      if (cached !== undefined) return copyCachedRows(cached);
+    } catch (error) {
+      this.reportCacheFailure(error);
+      return this.decodeRows(await this.driver.execute(query));
+    }
+
+    const rows = this.decodeRows(await this.driver.execute(query));
+    try {
+      await store.set(key, copyCachedRows(rows), cache.ttlMs, cacheTags(this.tableName, cache.tags));
+    } catch (error) {
+      this.reportCacheFailure(error);
+    }
+    return rows;
+  }
+
+  private async invalidateCache(options?: CacheInvalidationOptions): Promise<void> {
+    const store = this.#cacheStore;
+    if (store === undefined) return;
+    try {
+      await store.invalidateTags(cacheTags(this.tableName, options?.invalidateTags));
+    } catch (error) {
+      this.reportCacheFailure(error);
+    }
+  }
+
+  private reportCacheFailure(error: unknown): void {
+    if (this.#cacheFailureReported) return;
+    this.#cacheFailureReported = true;
+    console.warn('@zmdb/repository cache store failed; continuing on the database path', error);
   }
 
   /**
@@ -688,21 +775,30 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
   async findById<K extends RelationKeys<T> & string>(
     id: PrimaryKeyOf<T>,
-    opts: { populate: readonly K[] },
+    opts: PopulateReadOptions<K>,
   ): Promise<Populated<T, K> | undefined>;
-  async findById(id: PrimaryKeyOf<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
+  async findById(id: PrimaryKeyOf<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
+  async findById(id: PrimaryKeyOf<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
     const query = this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById').limit(1).compile();
-    return this.firstResult(query, opts?.populate);
+    return this.firstResult(query, opts?.populate, opts?.cache);
   }
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
-  private async firstMatching(where: WhereDTO<T>, populate?: readonly string[]): Promise<Entity<T> | undefined> {
+  private async firstMatching(
+    where: WhereDTO<T>,
+    populate?: readonly string[],
+    cache?: CacheOptions | false,
+  ): Promise<Entity<T> | undefined> {
     const query = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
-    return this.firstResult(query, populate);
+    return this.firstResult(query, populate, cache);
   }
 
-  private async firstResult(query: CompiledQuery, populate?: readonly string[]): Promise<Entity<T> | undefined> {
-    const rows = await this.rows<EntityRow<T>>(query);
+  private async firstResult(
+    query: CompiledQuery,
+    populate?: readonly string[],
+    cache?: CacheOptions | false,
+  ): Promise<Entity<T> | undefined> {
+    const rows = await this.rows<EntityRow<T>>(query, cache);
     const row = rows[0];
     if (!row || !populate?.length) return row;
     const [populated] = await this.attachRelations([row], populate);
@@ -790,41 +886,43 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   async findOne<K extends RelationKeys<T> & string>(
     where: WhereDTO<T>,
-    opts: { populate: readonly K[] },
+    opts: PopulateReadOptions<K>,
   ): Promise<Populated<T, K> | undefined>;
   async findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
-  async findOne(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<Entity<T> | undefined> {
-    return this.firstMatching(where, opts?.populate);
+  async findOne(where: WhereDTO<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
+  async findOne(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
+    return this.firstMatching(where, opts?.populate, opts?.cache);
   }
 
   async find(where: WhereDTO<T>): Promise<readonly Entity<T>[]>;
   async find<K extends RelationKeys<T> & string>(
     where: WhereDTO<T>,
-    opts: { populate: readonly K[] },
+    opts: PopulateReadOptions<K>,
   ): Promise<readonly Populated<T, K>[]>;
-  async find(where: WhereDTO<T>, opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
+  async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
+  async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const b = compileWhere(this.qb.selectFrom(this.tableName), where);
-    const rows = await this.rows<EntityRow<T>>(b.compile());
+    const rows = await this.rows<EntityRow<T>>(b.compile(), opts?.cache);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate);
   }
 
-  async findAll<K extends RelationKeys<T> & string>(opts: {
-    populate: readonly K[];
-  }): Promise<readonly Populated<T, K>[]>;
+  async findAll<K extends RelationKeys<T> & string>(opts: PopulateReadOptions<K>): Promise<readonly Populated<T, K>[]>;
   async findAll(): Promise<readonly Entity<T>[]>;
-  async findAll(opts?: { populate?: readonly string[] }): Promise<readonly Entity<T>[]> {
-    const rows = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile());
+  async findAll(opts: ReadOptions): Promise<readonly Entity<T>[]>;
+  async findAll(opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
+    const rows = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile(), opts?.cache);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate);
   }
 
   async list<K extends RelationKeys<T> & string>(
     query: ListDTO<T> | undefined,
-    opts: { populate: readonly K[] },
+    opts: PopulateReadOptions<K>,
   ): Promise<ListResult<Populated<T, K>>>;
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
-  async list(query?: ListDTO<T>, opts?: { populate?: readonly string[] }): Promise<ListResult<Entity<T>>> {
+  async list(query: ListDTO<T> | undefined, opts: ReadOptions): Promise<ListResult<Entity<T>>>;
+  async list(query?: ListDTO<T>, opts?: InternalReadOptions): Promise<ListResult<Entity<T>>> {
     let b = this.qb.selectFrom(this.tableName);
     const keyColumns = this.requiredKeyColumns();
 
@@ -869,7 +967,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
     }
 
-    const rows = await this.rows<EntityRow<T>>(b.compile());
+    const rows = await this.rows<EntityRow<T>>(b.compile(), opts?.cache);
     const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
@@ -1180,12 +1278,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #207 — typed writes. Create keeps the derived CreateDTO; update accepts the
   // expression-aware UpdatePatch and validates its plain values and operands
   // separately before SQL.
-  async create(dto: CreateDTO<T>): Promise<Entity<T>> {
+  async create(dto: CreateDTO<T>, options?: CacheInvalidationOptions): Promise<Entity<T>> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
     const rows = await this.rows<EntityRow<T>>(
       this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile(),
     );
+    await this.invalidateCache(options);
     const row = rows[0];
     if (!row) throw new Error(`insert into ${this.tableName} returned no row`);
     this.postInsert(row);
@@ -1209,9 +1308,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       this.hasColumnExpression(updateFields)
     ) {
       await this.driver.execute(ib.compile());
+      await this.invalidateCache(opts);
       return undefined;
     }
     const rows = await this.rows<EntityRow<T>>(ib.returning(['*']).compile());
+    await this.invalidateCache(opts);
     const row = rows[0];
     if (!row) {
       return undefined;
@@ -1220,29 +1321,46 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return row;
   }
 
-  async update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>): Promise<Entity<T> | undefined> {
-    return this.updateOne(id, patch);
+  async update(
+    id: PrimaryKeyOf<T>,
+    patch: UpdatePatch<T>,
+    options?: CacheInvalidationOptions,
+  ): Promise<Entity<T> | undefined> {
+    return this.updateOne(id, patch, options);
   }
 
-  async updateMany(where: WhereDTO<T>, patch: UpdatePatch<T>): Promise<number | undefined> {
+  async updateMany(
+    where: WhereDTO<T>,
+    patch: UpdatePatch<T>,
+    options?: CacheInvalidationOptions,
+  ): Promise<number | undefined> {
     const clean = this.validateUpdatePatch(patch);
     this.preUpdate(clean);
     if (Object.keys(clean).length === 0) return 0;
     const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
     if (this.dialect === 'mysql') {
       await this.driver.execute(builder.compile());
+      await this.invalidateCache(options);
       return undefined;
     }
     const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
-    return (await this.driver.execute(builder.returning(returning).compile())).length;
+    const updated = (await this.driver.execute(builder.returning(returning).compile())).length;
+    await this.invalidateCache(options);
+    return updated;
   }
 
   async increment<K extends NumericColumnOf<T>>(
     id: PrimaryKeyOf<T>,
     column: K,
     by?: NumericOperandOf<T, K>,
+    options?: CacheInvalidationOptions,
   ): Promise<Entity<T> | undefined>;
-  async increment(id: PrimaryKeyOf<T>, column: string, by?: number | bigint): Promise<Entity<T> | undefined> {
+  async increment(
+    id: PrimaryKeyOf<T>,
+    column: string,
+    by?: number | bigint,
+    options?: CacheInvalidationOptions,
+  ): Promise<Entity<T> | undefined> {
     const irColumn = this.payloadShape('update').columns.get(column);
     if (
       irColumn === undefined ||
@@ -1259,10 +1377,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       ]);
     }
     const operand = by ?? (irColumn.sql === 'bigint' ? 1n : 1);
-    return this.updateOne(id, { [column]: inc(operand) });
+    return this.updateOne(id, { [column]: inc(operand) }, options);
   }
 
-  private async updateOne(id: PrimaryKeyOf<T>, patch: unknown): Promise<Entity<T> | undefined> {
+  private async updateOne(
+    id: PrimaryKeyOf<T>,
+    patch: unknown,
+    options?: CacheInvalidationOptions,
+  ): Promise<Entity<T> | undefined> {
     const clean = this.validateUpdatePatch(patch);
     this.preUpdate(clean);
     // Built before the empty-patch shortcut so that a bad key is reported as `update` rather
@@ -1275,9 +1397,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const builder = this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
     if (this.dialect === 'mysql' && this.hasColumnExpression(clean)) {
       await this.driver.execute(this.assertKeyed(builder.compile(), 'update'));
+      await this.invalidateCache(options);
       return undefined;
     }
     const rows = await this.rows<EntityRow<T>>(this.assertKeyed(builder.returning(['*']).compile(), 'update'));
+    await this.invalidateCache(options);
     return rows[0];
   }
 
@@ -1300,7 +1424,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   // #28 — delete + lifecycle hooks.
-  async delete(id: PrimaryKeyOf<T>): Promise<boolean> {
+  async delete(id: PrimaryKeyOf<T>, options?: CacheInvalidationOptions): Promise<boolean> {
     this.preDelete(id);
     const rows = await this.driver.execute(
       this.assertKeyed(
@@ -1308,6 +1432,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         'delete',
       ),
     );
+    await this.invalidateCache(options);
     return rows.length > 0;
   }
 
@@ -1478,7 +1603,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 // instance without writing a subclass. There used to be a `relations` option here; the
 // relations are on `T`, which `schema` carries, so passing them again was the second
 // spelling this design exists to remove.
-export interface DefineRepositoryOptions {
+export interface DefineRepositoryOptions extends RepositoryOptions {
   dialect?: Dialect;
 }
 export function defineRepository<T extends DeclaredTable>(
@@ -1491,9 +1616,10 @@ export function defineRepository<T extends DeclaredTable>(
   class Repo extends BaseRepository<T> {
     static override readonly schema = schema;
   }
-  return new Repo(driver, opts?.dialect ?? 'postgres');
+  return new Repo(driver, opts?.dialect ?? 'postgres', opts);
 }
 
+export { memoryStore, type CacheInvalidationOptions, type CacheOptions, type CacheStore } from './cache/index.js';
 export {
   createLoaderScope,
   type EntityLoader,

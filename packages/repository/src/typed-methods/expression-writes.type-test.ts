@@ -13,7 +13,13 @@ import {
 import type { CreateDTO, Entity, Equal, Expect, PrimaryKeyOf, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import type { BaseRepository, NumericColumnOf, UpdatePatch, UpsertOptions } from '../index.js';
+import type {
+  BaseRepository,
+  CacheInvalidationOptions,
+  NumericColumnOf,
+  UpdatePatch,
+  UpsertOptions,
+} from '../index.js';
 
 export type _public_expression_surface = [
   typeof EXPR,
@@ -109,6 +115,7 @@ type FrozenIncrement = <K extends NumericColumnOf<Post>>(
   id: PrimaryKeyOf<Post>,
   column: K,
   by?: Exclude<UpdateDTO<Post>[K], null | undefined>,
+  options?: CacheInvalidationOptions,
 ) => Promise<Entity<Post> | undefined>;
 export type _increment_signature_is_column_and_operand_specific = Expect<
   Equal<BaseRepository<Post>['increment'], FrozenIncrement>
@@ -124,6 +131,7 @@ function exerciseRepositorySurface(repo: BaseRepository<Post>): void {
   repo.increment(1, 'views');
   repo.increment(1, 'views', 2);
   repo.increment(1, 'total', 2n);
+  repo.increment(1, 'views', 2, { invalidateTags: ['post:1'] });
 }
 
 void exerciseRepositorySurface;

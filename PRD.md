@@ -159,7 +159,7 @@ types). An invalid route, payload, injection, or state transition **must fail `t
 > surface, enumerated internal boundaries, count tracked toward zero.**
 >
 > ✅ **P4 as written is met, and `yarn verify:escape-hatches` is what keeps it met** (§9.4).
-> The 2026-09-04 recount over 169 shipped files: **57 framework assertions under 57
+> The 2026-09-04 recount over 172 shipped files: **57 framework assertions under 57
 > `// boundary:` comments**, **0 double casts**, **0 `any`**, **0 non-null `!`**, **0
 > `@ts-expect-error` in src**, **1 lint suppression** (argued in §9.4), and **0
 > consumer-facing `as`** in the docs. The
@@ -820,7 +820,7 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 on any assertion whose enclosing function has no `// boundary:` comment. RISK-7 — "P4 holds
 today but nothing keeps it holding" — is closed by that script, not by this section.
 
-Counted off a real parse tree, per package, over the **169 shipped source files** in
+Counted off a real parse tree, per package, over the **172 shipped source files** in
 `packages/*/src`. Tests are excluded and the script says why: `*.spec.ts`, `*.type-test.ts`,
 `__testing__/` and `__fixtures__/`. A file whose job is to prove a type _rejects_ something
 is nothing but `@ts-expect-error`, and 45 of those are not 45 escape hatches.

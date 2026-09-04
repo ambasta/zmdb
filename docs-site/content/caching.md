@@ -1,6 +1,7 @@
-> **ToDo / feature gap.** There is no query cache, no result cache and no
-> invalidation. Every repository call reaches the driver, and every driver call
-> reaches the database.
+> **Implemented; documentation follow-up remains.** Repository reads can opt into
+> a TTL result cache per call, backed by a bounded per-repository memory LRU or a
+> caller-supplied `CacheStore`. Writes invalidate their table tag plus explicit
+> caller tags. This page remains **ToDo** until #469 lands the final API walkthrough.
 
 ## Why that default is defensible
 
@@ -98,9 +99,13 @@ async function topPosts() {
 
 Two things worth copying: the `v2` in the key, so a shape change does not have to be invalidated (you just stop reading the old key), and `decode<T>` rather than `JSON.parse` — a cached value from an older deploy has an older shape, and [validating it](./serialization.html) turns that into an error rather than an `undefined` three layers up.
 
-## What a built-in cache would have to solve
+## What the built-in cache solves — and what it does not
 
-Invalidation, keyed on something finer than the table. Realistically that means the repository declaring which tables a query reads — which it knows — and writes invalidating by table. That is coarse but correct, and it is probably what would ship. Cross-process invalidation would remain the user's problem, because it needs a transport zmdb does not have.
+The repository now adds a `table:<name>` tag to every cached statement and invalidates that tag after its own writes. A caller can add a finer tag such as `user:42` to the read and pass the same tag with a write. It does not infer which `WHERE` clauses a changed row satisfies.
+
+The default store is process-local, bounded to 1,000 entries, LRU-evicted and TTL-aware. A shared store implements the same three-method `CacheStore` interface. Writes from another process and raw driver traffic remain invisible unless the application propagates invalidation; TTL is still the final stale-data bound.
+
+Cache-store failures fall through to the database and are reported once per repository instance. Cached values are not revalidated on hits: the deterministic key includes the schema IR fingerprint, so a changed declaration misses rather than reading the old shape.
 
 ---
 
