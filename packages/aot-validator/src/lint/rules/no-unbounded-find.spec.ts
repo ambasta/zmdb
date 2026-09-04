@@ -6,32 +6,32 @@ const rule = 'no-unbounded-find';
 const realistic = fixture('valid-near-misses.ts');
 const message = 'find() and find({}) are unbounded; use list() with a page.';
 
-it.fails('does not report the realistic fixture for bounded reads', async () => {
+it('does not report the realistic fixture for bounded reads', async () => {
   await runRuleCase(rule, { valid: [{ code: realistic }], invalid: [] });
 });
 
-it.fails('does not report find with a non-empty literal filter', async () => {
+it('does not report find with a non-empty literal filter', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'repo.find({ id: 1 });\n' }],
     invalid: [],
   });
 });
 
-it.fails('does not report find with a variable filter', async () => {
+it('does not report find with a variable filter', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'repo.find(filter);\n' }],
     invalid: [],
   });
 });
 
-it.fails('does not report Array.prototype.find with a callback', async () => {
+it('does not report Array.prototype.find with a callback', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'items.find(item => item.id === id);\n' }],
     invalid: [],
   });
 });
 
-it.fails('reports find with no argument at the call', async () => {
+it('reports find with no argument at the call', async () => {
   await runRuleCase(rule, {
     valid: [],
     invalid: [
@@ -44,7 +44,7 @@ it.fails('reports find with no argument at the call', async () => {
   });
 });
 
-it.fails('reports find with an empty literal filter at the call', async () => {
+it('reports find with an empty literal filter at the call', async () => {
   await runRuleCase(rule, {
     valid: [],
     invalid: [

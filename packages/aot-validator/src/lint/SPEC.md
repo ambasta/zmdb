@@ -105,20 +105,24 @@ The fix is safe, and the reason is worth writing down rather than assuming: ever
 an object type with one optional symbol slot, so `null & Tag` is `never`. The arm the fix stops tagging is
 uninhabitable before the fix, so no code can depend on it. That reasoning is also the fix's precondition —
 it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member
-is a local binding imported from `@zmdb/schema-core/tags` or `zmdb/tags`. Those are the two public
-subpaths that actually export the declaration tags. Import tracking, not type resolution; `(A | B) & C`
-for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
+is a local binding for a known declaration-tag export from `@zmdb/schema-core/tags` or `zmdb/tags`.
+Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and
+`RelationKind`; importing one of those does not satisfy the precondition. Import tracking, not type
+resolution; `(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it
+alone.
 
 **`no-unknown-json-column`.** An intersection with a `TSUnknownKeyword` member. Reported with a
 _suggestion_ rather than a fix, because `object` and `Record<string, …>` are both plausible replacements
 and they are not equivalent — the rule offers `object` and does not apply it.
 
 **`no-interpolated-sql`.** A `TemplateLiteral` with at least one expression, in a sink the rule can see
-without types: the `text` property of an object literal, and an argument to a call whose callee property
-is `execute`. A template literal with no substitutions, and a plain string literal, are both fine — which
-is precisely what keeps the SQL-string features out of the rule. The expression-index tag this epic's
-sibling will add takes its SQL as a _type_ argument, and a type-level string literal cannot contain a
-substitution, so it can never trip this rule; a filter fragment written as a plain literal cannot either.
+without types: the `text` property of an object literal that also has a `parameters` property, and an
+argument to a call whose callee property is `execute`. The sibling property is the syntactic marker that
+separates a `CompiledQuery` from generic `{ start, end, text }` edit objects. A template literal with no
+substitutions, and a plain string literal, are both fine — which is precisely what keeps the SQL-string
+features out of the rule. The expression-index tag this epic's sibling will add takes its SQL as a _type_
+argument, and a type-level string literal cannot contain a substitution, so it can never trip this rule;
+a filter fragment written as a plain literal cannot either.
 
 A `BinaryExpression` using `+` is outside this frozen detector, as is an interpolation assigned to a
 variable before that variable reaches a sink. An interpolated filter fragment is reported only when it is
@@ -127,11 +131,10 @@ literally one of the two named sink shapes. The tests do not widen the rule beyo
 No fix: the correct rewrite invents a placeholder and moves the value into `params`, and the placeholder
 spelling is dialect-dependent.
 
-Its failure mode, stated because it will be observed: the sink is matched by _name_, so an object literal
-with a substituting template in its `text` property is flagged wherever it goes — a true positive by
-intent, even if the object never reaches a driver — and a template assigned to `text` through a variable
-two statements earlier is missed. Under-reporting is the correct direction for a rule with no type
-information.
+Its failure mode, stated because it will be observed: the sink is matched by _shape_, so an object literal
+with both `text` and `parameters` is flagged wherever it goes — a true positive by intent, even if the
+object never reaches a driver — and a template assigned to `text` through a variable two statements
+earlier is missed. Under-reporting is the correct direction for a rule with no type information.
 
 ### The three that ship as warnings
 
@@ -222,21 +225,25 @@ to an ignore list, and an ignore list is per-plugin, not per-rule. So the cost o
 one wrong report — it is the other five rules, silently. That is also why no rule ships off by default as a
 compromise: a rule nobody enables has the same value as a rule nobody wrote, at a higher maintenance cost.
 
-Measured at the spec freeze: the three error rules found no genuine source finding under `packages/`,
-`fixtures/`, `examples/` or `benchmarks/`. The tests freeze adds deliberately invalid `.input.ts` samples
-under `src/lint/__fixtures__`; the dogfood check excludes only those samples and scans the rest of the same
-four trees. Rules 1–3 clear the bar. The implementation slice turns that measurement into a test rather
-than leaving it as this paragraph's claim.
+The implementation dogfood run reports nothing under `packages/`, `fixtures/`, `examples` or
+`benchmarks/`. It excludes the deliberately invalid `.input.ts` samples. One exact file override disables
+only `no-unknown-json-column` for `schema-core/src/json.type-test.ts`, whose compile-only assertion proves
+that `unknown & Sql<'json'>` collapses to the tag; the other enabled rules still scan that file. Everything
+else in those four trees is scanned. Rules 1–3 clear the bar.
+
+Forcing all six rules to error over the same trees reports five deliberate test-only warning matches:
+four repository specs that exercise `update(id, {})` and one populate spec that exercises unbounded
+`find()`. It reports no additional shipped-source finding. Those exact matches are why the three
+method-name/literal detectors remain warnings in `recommended` rather than pretending their signal is
+error-grade.
 
 The rules are tested with oxlint's own `RuleTester`, whose test cases are ESLint-shaped — deliberately, so
 they port — and which exposes settable `describe` and `it` statics. Assigning vitest's to them puts the
 rule tests in the ordinary suite with no second runner and no second reporter.
 
-The tests freeze has one temporary wrinkle: the lint entry does not exist yet, so each outer `it.fails`
-loads it through a computed dynamic import and invokes RuleTester's registration callbacks immediately
-inside that test. The parser, traversal, diagnostics, fix passes and suggestions are still RuleTester's;
-there is no second lint harness. #486 replaces the computed load with ordinary imports and retires the
-expected failures.
+The rule tests import the lint entry normally and invoke RuleTester's registration callbacks immediately
+inside each outer Vitest test. The parser, traversal, diagnostics, fix passes and suggestions are still
+RuleTester's; there is no second lint harness.
 
 No rule is autofixable unless its fix is behaviour-preserving on code that already type-checks. One rule
 qualifies, one offers a suggestion, and the rest report. That ratio is the expected one for a plugin whose
@@ -252,9 +259,11 @@ entry must not be reachable from an application bundle, or a consumer ships a co
 lint plugin is loaded by a linter and never by an application, so `./lint` joins that set and the
 isolation the separate package would buy is enforced by CI instead of by a `package.json`.
 
-`package.json` gains `"./lint": "./src/lint/index.ts"`, which
+`package.json` exports `"./lint": "./src/lint/index.ts"`, which
 `it('declares every export as a source path the build mirrors', …)` in `../plugin/packaging.spec.ts`
-covers with no new assertion.
+covers; the build-time export assertion names the subpath explicitly, and the import-graph gate rejects
+any path from that entry to `typescript`, which keeps the rules independent of the transformer/compiler
+runtime.
 
 Against the new package: one more artifact to version, publish and changelog, for rules that are a few
 hundred lines and share this package's vocabulary.
@@ -265,8 +274,9 @@ promise, it is the gate above.
 
 ## 8. What the docs page has to change
 
-`docs-site/content/lint-rules.md` is `status: 'todo'` and owned by its own `[Docs]` sub-issue, so it is
-not edited here. Three things it currently says are decided against, and that sub-issue carries them:
+`docs-site/content/lint-rules.md` remains `status: 'todo'` and is owned by its own `[Docs]` sub-issue.
+The implementation slice corrects only present-tense claims made false by the shipped subpath; that
+sub-issue still owns the complete setup and rule reference, including these decisions:
 
 - "An `@zmdb/eslint-plugin` package" — §7 is a `./lint` subpath, and §1 makes oxlint the first host rather
   than the fallback.

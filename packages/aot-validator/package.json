@@ -37,6 +37,7 @@
     "./advanced": "./src/advanced/index.ts",
     "./emit": "./src/emit/index.ts",
     "./errors": "./src/errors.ts",
+    "./lint": "./src/lint/index.ts",
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
     "./plugin": "./src/plugin/index.ts",
@@ -59,13 +60,18 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "oxlint": "1.81.0",
     "protobufjs": "8.8.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "oxlint": ">=1.81.0 <1.82.0",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
+    "oxlint": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     }

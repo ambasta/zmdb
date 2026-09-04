@@ -22,12 +22,12 @@ three modes share.
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       355.39 |      2813802 |        baseline |                 0 |         1.044x |
-| request  | API no-op          |      1283.65 |       779030 |         +261.2% |                 0 |         1.033x |
-| request  | recording exporter |      6846.79 |       146054 |        +1826.6% |                 3 |         1.013x |
-| query    | off                |        76.95 |     12995159 |        baseline |                 0 |         1.037x |
-| query    | API no-op          |       305.99 |      3268068 |         +297.6% |                 0 |         1.174x |
-| query    | recording exporter |      2524.94 |       396048 |        +3181.2% |                 1 |         1.017x |
+| request  | off                |       315.04 |      3174201 |        baseline |                 0 |         1.028x |
+| request  | API no-op          |      1163.50 |       859478 |         +269.3% |                 0 |         1.025x |
+| request  | recording exporter |      6188.62 |       161587 |        +1864.4% |                 3 |         1.023x |
+| query    | off                |        68.71 |     14553240 |        baseline |                 0 |         1.045x |
+| query    | API no-op          |       275.02 |      3636162 |         +300.2% |                 0 |         1.035x |
+| query    | recording exporter |      2285.35 |       437569 |        +3225.9% |                 1 |         1.013x |
 
 The request workload consumes one matched `GET` response and exports the
 server, route and handler spans. The query workload consumes one compiled

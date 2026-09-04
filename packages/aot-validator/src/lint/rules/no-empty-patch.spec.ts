@@ -5,32 +5,32 @@ import { fixture, runRuleCase } from '../__fixtures__/rule-tester.js';
 const rule = 'no-empty-patch';
 const realistic = fixture('valid-near-misses.ts');
 
-it.fails('does not report the realistic fixture for non-empty updates', async () => {
+it('does not report the realistic fixture for non-empty updates', async () => {
   await runRuleCase(rule, { valid: [{ code: realistic }], invalid: [] });
 });
 
-it.fails('does not report a patch supplied through a variable', async () => {
+it('does not report a patch supplied through a variable', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'repo.update(id, patch);\n' }],
     invalid: [],
   });
 });
 
-it.fails('does not report a literal patch with one property', async () => {
+it('does not report a literal patch with one property', async () => {
   await runRuleCase(rule, {
     valid: [{ code: "repo.update(id, { email: 'reader@example.test' });\n" }],
     invalid: [],
   });
 });
 
-it.fails('does not report a patch containing a spread', async () => {
+it('does not report a patch containing a spread', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'repo.update(id, { ...patch });\n' }],
     invalid: [],
   });
 });
 
-it.fails('reports an empty literal patch at the object', async () => {
+it('reports an empty literal patch at the object', async () => {
   await runRuleCase(rule, {
     valid: [],
     invalid: [

@@ -119,6 +119,11 @@ const MAY_READ = new Map([
     "the matched `case 'timestamp'` is the encoder's private `TimestampPlan` discriminant. " +
       'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',
   ],
+  [
+    'packages/aot-validator/src/lint/rules/no-interpolated-sql.ts',
+    "the matched `=== 'text'` is an ESTree object-property name. The lint rule reads source " +
+      'syntax only; it imports no schema metadata and never reads a column or TypeIR.',
+  ],
 ]);
 
 const problems = [];

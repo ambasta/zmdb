@@ -7,11 +7,11 @@ const realistic = fixture('valid-near-misses.ts');
 const nullableInput = fixture('nullable-tags.input.ts');
 const nullableFixed = fixture('nullable-tags.fixed.ts');
 
-it.fails('does not report the realistic fixture for distributed nullable tags', async () => {
+it('does not report the realistic fixture for distributed nullable tags', async () => {
   await runRuleCase(rule, { valid: [{ code: realistic }], invalid: [] });
 });
 
-it.fails('does not report a nullable tag written on the non-null arm', async () => {
+it('does not report a nullable tag written on the non-null arm', async () => {
   await runRuleCase(rule, {
     valid: [
       {
@@ -24,14 +24,14 @@ it.fails('does not report a nullable tag written on the non-null arm', async () 
   });
 });
 
-it.fails('does not report a nullable property outside a Table declaration', async () => {
+it('does not report a nullable property outside a Table declaration', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'interface FormValue { email: (string | null) & Unique; }\n' }],
     invalid: [],
   });
 });
 
-it.fails('does not report an arbitrary local intersection', async () => {
+it('does not report an arbitrary local intersection', async () => {
   await runRuleCase(rule, {
     valid: [
       {
@@ -45,7 +45,20 @@ it.fails('does not report an arbitrary local intersection', async () => {
   });
 });
 
-it.fails('does not report a union with no nullish arm', async () => {
+it('does not treat a non-tag export from the tags module as an autofixable tag', async () => {
+  await runRuleCase(rule, {
+    valid: [
+      {
+        code:
+          "import type { NonNull, Table } from '@zmdb/schema-core/tags';\n" +
+          "interface Account extends Table<'accounts'> { email: (string | null) & NonNull<string>; }\n",
+      },
+    ],
+    invalid: [],
+  });
+});
+
+it('does not report a union with no nullish arm', async () => {
   await runRuleCase(rule, {
     valid: [
       {
@@ -58,7 +71,7 @@ it.fails('does not report a union with no nullish arm', async () => {
   });
 });
 
-it.fails('applies the autofix without changing behaviour', async () => {
+it('applies the autofix without changing behaviour', async () => {
   await runRuleCase(rule, {
     valid: [],
     invalid: [
@@ -79,7 +92,7 @@ it.fails('applies the autofix without changing behaviour', async () => {
   });
 });
 
-it.fails('reports a tag distributed across undefined', async () => {
+it('reports a tag distributed across undefined', async () => {
   const code =
     "import type { Table, Unique } from '@zmdb/schema-core/tags';\n\n" +
     "interface Account extends Table<'accounts'> {\n" +

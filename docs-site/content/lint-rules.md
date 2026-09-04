@@ -1,8 +1,8 @@
-> **ToDo / feature gap.** There is no ESLint plugin and no lint rules shipped with
-> zmdb. The project lints itself with oxlint, and none of its rules are published
-> for consumers.
+> **ToDo / integration and reference gap.** The `@zmdb/aot-validator/lint` subpath ships six syntactic
+> rules and ESLint flat configs. The plugin is not yet wired into `yarn lint` or a dedicated CI step, and
+> this page is still rationale rather than a complete setup and rule reference.
 
-## What rules would be worth having
+## What the shipped rules catch
 
 Each of these corresponds to a mistake documented elsewhere in these docs, which is the argument for automating it.
 
@@ -25,11 +25,18 @@ prefs: object & Sql<'json'>; // want, for an unshaped payload
 prefs: Record<string, boolean> & Sql<'json'>; // better, where the shape is known
 ```
 
-**`require-sql-on-number`.** `Sql<T>` is needed only where TypeScript is ambiguous, and `number` is the one case refused outright: it spells both `integer` and `numeric`. `string` defaults to `text`, `boolean`, `bigint` and `Date` are unambiguous. Today the refusal arrives from `schemaOf<T>()` at build time; a lint rule would put it under the cursor instead of in the build log.
+**`require-sql-on-number`.** `Sql<T>` is needed only where TypeScript is ambiguous, and `number` is the one case refused outright: it spells both `integer` and `numeric`. `string` defaults to `text`, `boolean`, `bigint` and `Date` are unambiguous. The reflector still refuses this at build time; the shipped warning puts it under the cursor first.
 
 **`no-unbounded-find`.** `find({})` compiles to an unfiltered `SELECT` with no limit. Suggest `list()` with a `page`.
 
-**`no-interpolated-sql`.** A template literal containing a value inside `driver.execute({ text })` is an injection vector. Placeholders interpolated from generated positions are fine; values are not. See [Raw SQL](./raw-sql.html).
+**`no-empty-patch`.** `update(id, {})` performs no write: the repository validates the empty patch, runs
+`preUpdate`, and reads the matching row back. The warning catches that literal spelling; it cannot see a
+patch assembled conditionally that happens to be empty at runtime.
+
+**`no-interpolated-sql`.** A template literal with any substitution in a `{ text, parameters }` query
+object, or passed directly to `.execute`, is reported as an injection risk. The syntactic rule cannot
+distinguish a value from a generated placeholder position, so direct sinks must use a literal query string
+and bound parameters. See [Raw SQL](./raw-sql.html).
 
 ## What you can enforce today
 
@@ -66,9 +73,9 @@ And in `tsconfig.json`:
 
 The repository's own rules are stricter than a consumer's would need to be: no `any`, no `as T`, no non-null `!`, no lint suppressions, and no `new Function`/`eval` in package sources — the last verified by a grep in CI, because it is what lets the validators run under a strict CSP and in edge runtimes. That is a discipline for library code, not a recommendation for yours.
 
-## What it would take
+## Host and package boundary
 
-A `./lint` subpath of `@zmdb/aot-validator`, loaded as an oxlint JavaScript plugin or as an
+The shipped `./lint` subpath of `@zmdb/aot-validator` loads as an oxlint JavaScript plugin or as an
 ESLint-shaped plugin. Oxlint gives JavaScript plugins no parser services, so this surface is deliberately
 syntactic: type-aware proposals such as `no-select-star-with-sensitive` do not ship, and
 `@typescript-eslint/strict-boolean-expressions` remains the answer to the truthiness bug.

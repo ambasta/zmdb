@@ -108,6 +108,7 @@ if (existsSync(UMBRELLA_SRC)) {
 // bundle contains, which is why it is spelled out rather than inferred.
 const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./codegen',
+  '@zmdb/aot-validator#./lint',
   '@zmdb/aot-validator#./plugin',
   '@zmdb/aot-validator#./reflect',
   // The compiler-backed schema bridge: tests name interfaces with `schemasFrom`, while the
@@ -128,6 +129,17 @@ const importGraph = createImportGraph(ROOT);
 function pathToTypescript(entry) {
   const path = importGraph.findImportPath(entry, ({ specifier }) => /^typescript(\/|$)/.test(specifier));
   return path === null ? null : path.slice(0, -1);
+}
+
+const lintEntry = join(PACKAGES_DIR, 'aot-validator', 'src', 'lint', 'index.ts');
+const lintCompilerChain = pathToTypescript(lintEntry);
+if (lintCompilerChain) {
+  const trail = lintCompilerChain.map(file => file.slice(ROOT.length + 1)).join(' -> ');
+  console.error(
+    `[ERROR] @zmdb/aot-validator/lint reaches typescript through ${trail}; ` +
+      'lint rules must stay independent of the transformer/compiler runtime',
+  );
+  errorsCount++;
 }
 
 for (const pkgDirName of packageDirs) {

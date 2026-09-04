@@ -1159,11 +1159,15 @@ __metadata:
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
     "@zmdb/schema-core": "workspace:^"
+    oxlint: "npm:1.81.0"
     protobufjs: "npm:8.8.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    oxlint: ">=1.81.0 <1.82.0"
     typescript: ">=7.0.0"
   peerDependenciesMeta:
+    oxlint:
+      optional: true
     typescript:
       optional: true
   bin:
@@ -1927,7 +1931,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oxlint@npm:^1.81.0":
+"oxlint@npm:1.81.0, oxlint@npm:^1.81.0":
   version: 1.81.0
   resolution: "oxlint@npm:1.81.0"
   dependencies:

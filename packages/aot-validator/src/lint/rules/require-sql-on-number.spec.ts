@@ -5,11 +5,11 @@ import { fixture, runRuleCase } from '../__fixtures__/rule-tester.js';
 const rule = 'require-sql-on-number';
 const realistic = fixture('valid-near-misses.ts');
 
-it.fails('does not report the realistic fixture for numeric SQL tags', async () => {
+it('does not report the realistic fixture for numeric SQL tags', async () => {
   await runRuleCase(rule, { valid: [{ code: realistic }], invalid: [] });
 });
 
-it.fails('does not report a number with an integer SQL tag', async () => {
+it('does not report a number with an integer SQL tag', async () => {
   await runRuleCase(rule, {
     valid: [
       {
@@ -22,7 +22,7 @@ it.fails('does not report a number with an integer SQL tag', async () => {
   });
 });
 
-it.fails('does not report a tagged number hidden behind a type alias', async () => {
+it('does not report a tagged number hidden behind a type alias', async () => {
   await runRuleCase(rule, {
     valid: [
       {
@@ -36,14 +36,14 @@ it.fails('does not report a tagged number hidden behind a type alias', async () 
   });
 });
 
-it.fails('does not report a bare number outside a Table declaration', async () => {
+it('does not report a bare number outside a Table declaration', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'interface Point { x: number; y: number; }\n' }],
     invalid: [],
   });
 });
 
-it.fails('reports a bare number on a Table property', async () => {
+it('reports a bare number on a Table property', async () => {
   const code =
     "import type { Table } from '@zmdb/schema-core/tags';\n\n" +
     "interface Score extends Table<'scores'> {\n" +

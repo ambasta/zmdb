@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { RuleTester } from 'oxlint/plugins-dev';
 
+import lintPlugin, { configs } from '../index.js';
+
 export type HostRule = Parameters<RuleTester['run']>[1];
 
 export interface LintPlugin {
@@ -35,31 +37,18 @@ function isLintModule(value: unknown): value is LintModule {
   return isRecord(value.configs) && 'recommended' in value.configs && 'strict' in value.configs;
 }
 
-/**
- * Load the real future lint entry inside an `it.fails` body.
- *
- * A static import would fail while Vitest collects this tests-freeze and would
- * never become an expected failure. The computed specifier keeps the missing
- * module failure inside the test. #486 can make this a static import when it
- * retires the expected failures.
- */
+const lintModule: unknown = { default: lintPlugin, configs };
+
 export async function loadLintModule(): Promise<LintModule> {
-  const specifier = ['..', 'index.js'].join('/');
-  const loaded: unknown = await import(specifier);
-  if (!isLintModule(loaded)) {
-    throw new Error('@zmdb/aot-validator/lint must default-export { meta, rules } and export configs');
-  }
-  return loaded;
+  if (!isLintModule(lintModule)) throw new Error('@zmdb/aot-validator/lint has an invalid plugin shape');
+  return lintModule;
 }
 
 /**
- * Run exactly one outer Vitest case through oxlint's own RuleTester.
- *
- * RuleTester normally registers its own tests at module evaluation time. That
- * cannot load a module which intentionally does not exist yet, so the two host
- * callbacks are made immediate only for the duration of this `it.fails` body.
- * The parser, traversal, diagnostics, fix passes and suggestion assertions are
- * still RuleTester's.
+ * Run exactly one outer Vitest case through oxlint's own RuleTester. The two
+ * host callbacks are made immediate only for the duration of the outer test;
+ * parsing, traversal, diagnostics, fix passes and suggestions remain
+ * RuleTester's.
  */
 export async function runRuleCase(ruleName: string, tests: RuleTester.TestCases): Promise<void> {
   const module = await loadLintModule();

@@ -6,39 +6,46 @@ const rule = 'no-interpolated-sql';
 const realistic = fixture('valid-near-misses.ts');
 const message = 'Do not interpolate values into SQL text; use driver parameters.';
 
-it.fails('does not report the realistic fixture for SQL sinks', async () => {
+it('does not report the realistic fixture for SQL sinks', async () => {
   await runRuleCase(rule, { valid: [{ code: realistic }], invalid: [] });
 });
 
-it.fails('does not report a static template literal in text', async () => {
+it('does not report a static template literal in text', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'const query = { text: `SELECT 1`, parameters: [] };\n' }],
     invalid: [],
   });
 });
 
-it.fails('does not report a parameterised where clause', async () => {
+it('does not report a parameterised where clause', async () => {
   await runRuleCase(rule, {
     valid: [{ code: "const query = { text: 'SELECT * FROM users WHERE id = $1', parameters: [id] };\n" }],
     invalid: [],
   });
 });
 
-it.fails('does not report a constant IndexDef expression', async () => {
+it('does not report a constant IndexDef expression', async () => {
   await runRuleCase(rule, {
     valid: [{ code: "const index = { name: 'users_email_ci', columns: [{ expr: 'lower(email)' }] };\n" }],
     invalid: [],
   });
 });
 
-it.fails('does not report interpolation outside a SQL sink', async () => {
+it('does not report interpolation outside a SQL sink', async () => {
   await runRuleCase(rule, {
     valid: [{ code: 'const greeting = `hello ${name}`;\n' }],
     invalid: [],
   });
 });
 
-it.fails('reports an interpolated text property at the template', async () => {
+it('does not report an interpolated text edit without query parameters', async () => {
+  await runRuleCase(rule, {
+    valid: [{ code: 'edits.push({ start, end, text: `${statement}\\n` });\n' }],
+    invalid: [],
+  });
+});
+
+it('reports an interpolated text property at the template', async () => {
   const code = 'const id = 7;\nconst query = { text: `SELECT * FROM users WHERE id = ${id}`, parameters: [] };\n';
   await runRuleCase(rule, {
     valid: [],
@@ -52,7 +59,7 @@ it.fails('reports an interpolated text property at the template', async () => {
   });
 });
 
-it.fails('reports an interpolated direct execute argument at the template', async () => {
+it('reports an interpolated direct execute argument at the template', async () => {
   const code = 'driver.execute(`DELETE FROM users WHERE id = ${id}`);\n';
   await runRuleCase(rule, {
     valid: [],

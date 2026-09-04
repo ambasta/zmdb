@@ -34,12 +34,12 @@ function byRuleName(config: unknown): Record<string, unknown> {
   return normalized;
 }
 
-it.fails('exports exactly the six frozen rules from the lint subpath', async () => {
+it('exports exactly the six frozen rules from the lint subpath', async () => {
   const module = await loadLintModule();
   expect(Object.keys(module.default.rules).toSorted()).toEqual(ruleNames);
 });
 
-it.fails('sets the frozen recommended and strict severities', async () => {
+it('sets the frozen recommended and strict severities', async () => {
   const module = await loadLintModule();
   expect(byRuleName(module.configs.recommended)).toEqual({
     'no-distributed-nullable-tags': 'error',

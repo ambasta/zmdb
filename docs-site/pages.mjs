@@ -1217,7 +1217,7 @@ export const PAGE_META = {
     title: 'Lint Rules',
     group: 'Advanced',
     status: 'todo',
-    note: 'no shipped oxlint/ESLint plugin for schema and query mistakes',
+    note: 'six syntactic rules ship; repository CI integration and the complete setup/reference page remain',
   },
   'interop-zod': {
     title: 'Zod',
