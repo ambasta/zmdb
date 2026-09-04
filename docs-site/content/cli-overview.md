@@ -6,13 +6,13 @@ The schema and migration engine these commands need is public API, so each comma
 
 ## The pieces
 
-| Function                        | Module                                  | Does                                     |
-| ------------------------------- | --------------------------------------- | ---------------------------------------- |
-| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`       | schema objects → a plain snapshot object |
-| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`       | two snapshots → operations               |
-| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`       | one operation → SQL                      |
-| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`       | the reverse                              |
-| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migration-runner` | applies / reverts, records versions      |
+| Function                        | Module                                   | Does                                     |
+| ------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`        | schema objects → a plain snapshot object |
+| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`        | two snapshots → operations               |
+| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`        | one operation → SQL                      |
+| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`        | the reverse                              |
+| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner` | applies / reverts, records versions      |
 
 ## The commands, and where each stands
 
@@ -35,7 +35,7 @@ Rather than seven scripts, one dispatcher covers the lot:
 ```ts
 // scripts/db.ts — run with `node --experimental-strip-types scripts/db.ts <cmd>`
 import { snapshot, diff, emitUp, emitDown } from '@zmdb/query-compiler/migrations';
-import { runCli } from '@zmdb/query-compiler/migration-runner';
+import { runCli } from '@zmdb/query-compiler/migrations/runner';
 import { readFileSync, writeFileSync } from 'node:fs';
 import * as schemas from '../src/schema.js';
 import { conn, migrations } from './db-config.js';
@@ -75,7 +75,7 @@ switch (cmd) {
     await runCli(cmd, conn, migrations);
     break;
   case 'export': {
-    for (const op of diff({ tables: {} }, snapshot(all))) console.log(emitUp(op, DIALECT) + ';');
+    for (const op of diff({ version: 1, tables: [] }, snapshot(all))) console.log(emitUp(op, DIALECT) + ';');
     break;
   }
   default:
@@ -101,7 +101,7 @@ Not capability — ergonomics and a few things a script cannot easily do well:
 - **A confirmation prompt** before a destructive operation. `diff()` happily emits `DROP COLUMN`; a CLI should make you type the table name.
 - **Multi-dialect output** in one invocation.
 
-The config file is the prerequisite for all of it, which is why it is the [next page](./config-file.html) and the first thing that would land.
+The config file is the prerequisite for the database command set, which is why it is the [next page](./config-file.html) and the first part of that set that would land.
 
 ---
 

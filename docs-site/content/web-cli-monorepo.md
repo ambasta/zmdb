@@ -69,7 +69,7 @@ list of tables a migration snapshot covers is the **array you pass**:
 ```ts
 // packages/domain/src/tables.ts — the one list
 import { schemaOf } from '@zmdb/schema-core';
-import type { Comment, Post, User } from './index.ts';
+import type { Comment, Post, User } from './index.js';
 
 export const ALL_TABLES = [schemaOf<User>(), schemaOf<Post>(), schemaOf<Comment>()];
 ```

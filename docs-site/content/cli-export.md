@@ -11,7 +11,7 @@ import * as schemas from '../src/schema.js';
 const dialect = (process.argv[2] ?? 'postgres') as 'postgres' | 'mysql' | 'sqlite';
 const all = Object.values(schemas).filter(s => typeof s === 'object' && s !== null && 'table' in s);
 
-for (const op of diff({ tables: {} }, snapshot(all))) {
+for (const op of diff({ version: 1, tables: [] }, snapshot(all))) {
   console.log(emitUp(op, dialect) + ';');
 }
 ```
@@ -44,9 +44,10 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 
 ## What it does not include
 
-The export covers what `snapshot()` covers — tables, columns, types, nullability, defaults, primary keys, unique constraints and foreign keys. It does **not** include:
+The export covers what `snapshot()` implements today — tables, columns, abstract types, nullability, primary keys and `varchar` lengths. It does **not** include:
 
-- indexes beyond `UNIQUE` — those come from `createIndexDdl`, see [Indexes & Constraints](./indexes-constraints.html)
+- defaults, unique constraints or foreign keys
+- indexes — those come from `createIndexDdl`, see [Indexes & Constraints](./indexes-constraints.html)
 - views, materialized views, sequences, generated columns
 - triggers, functions, extensions
 - anything from a [hand-written migration](./migrations-custom.html)

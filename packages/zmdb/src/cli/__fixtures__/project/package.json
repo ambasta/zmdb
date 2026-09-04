@@ -1,0 +1,5 @@
+{
+  "name": "zmdb-cli-e2e-fixture",
+  "private": true,
+  "type": "module"
+}

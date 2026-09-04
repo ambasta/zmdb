@@ -12,7 +12,7 @@
 | relations       | `defineRepository(s, d, { relations })`                                  |
 | migrations      | an array you build and pass to `runCli`                                  |
 
-There is no discovery step and no ambient configuration, which has a real upside: a repository cannot be constructed against the wrong database because a config file was resolved from the wrong directory. It also means there is nothing for a CLI to read — which is why this page blocks [the CLI](./cli-overview.html).
+There is no discovery step and no ambient configuration, which has a real upside: a repository cannot be constructed against the wrong database because a config file was resolved from the wrong directory. It also means there is nothing for the database commands to read — the config loader is their prerequisite, not a prerequisite for the existing `modules` and `repl` commands.
 
 ## Doing it yourself, in TypeScript
 

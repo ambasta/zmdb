@@ -48,7 +48,7 @@ Against SQLite in memory this is fast enough to run on every push. Against Postg
 The strongest of the three, and the one that catches a hand-edited snapshot: apply every migration to an empty database, then compare the result to the committed snapshot. This needs introspection, which [does not exist](./cli-pull.html). The available approximation compares the _generated_ DDL against the migration files:
 
 ```ts
-const fromSchema = diff({ tables: {} }, snapshot(all)).map(o => emitUp(o, 'postgres'));
+const fromSchema = diff({ version: 1, tables: [] }, snapshot(all)).map(o => emitUp(o, 'postgres'));
 const fromMigrations = migrations.map(m => m.up);
 
 // not a string comparison — the operation order differs. Compare statement sets.

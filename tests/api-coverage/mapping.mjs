@@ -808,13 +808,7 @@ export const mikroOrm = {
   'on-reserve-connection': oos(NO_CANCELLATION, 'query-cancellation'),
   'terminated-connection': oos(NO_CANCELLATION, 'query-cancellation'),
   logging: oos(NO_QUERY_LOG, 'logging'),
-  cli: oos(
-    'MikroORM ships a CLI that reads a config file to run schema and migration commands. zmdb ' +
-      'exposes the same operations as functions and lets the application own its entry point, ' +
-      'because a config file discovered by convention is a second declaration and the type is ' +
-      'supposed to be the only one. The migration runner is tested through its dispatch directly.',
-    'migrations',
-  ),
+  cli: 'emits machine-readable output under --json for every command',
 };
 
 // ---------------------------------------------------------------------------

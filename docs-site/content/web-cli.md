@@ -10,8 +10,8 @@ Two things that cover most of what a CLI is used for.
 
 ```ts
 // scripts/migrate.ts
-import { runCli } from '@zmdb/query-compiler/migration-runner';
-import { migrations } from '../src/migrations/index.ts';
+import { runCli } from '@zmdb/query-compiler/migrations/runner';
+import { migrations } from '../src/migrations/index.js';
 
 await runCli(process.argv[2] ?? 'status', connection, migrations);
 ```

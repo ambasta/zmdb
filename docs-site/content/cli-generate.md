@@ -74,7 +74,7 @@ The SQL is in your pull request, which is the point. Look for:
 With no snapshot yet, diff against empty:
 
 ```ts
-const prev = existsSync(SNAP) ? JSON.parse(readFileSync(SNAP, 'utf8')) : { tables: {} };
+const prev = existsSync(SNAP) ? JSON.parse(readFileSync(SNAP, 'utf8')) : { version: 1, tables: [] };
 ```
 
 For an existing database you are adopting, do the opposite: write the snapshot with no migration, so the baseline is "this already exists". See [Schema-first](./schema-first.html).

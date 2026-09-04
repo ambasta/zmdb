@@ -37,7 +37,7 @@ export interface ZmdbConfigData {
   readonly introspect?: IntrospectOptions;
 }
 
-/** What `defineConfig` takes and the loader returns. */
+/** What `defineConfig` takes. */
 export interface ZmdbConfig extends ZmdbConfigData {
   /** Checked with `typeof === 'function'`, not validated. */
   readonly driver?: () => Driver | Promise<Driver>;
@@ -45,7 +45,23 @@ export interface ZmdbConfig extends ZmdbConfigData {
   readonly namingStrategy?: NamingStrategy;
 }
 
+/** The concrete paths every command receives after discovery and validation. */
+export interface ResolvedConfig extends ZmdbConfig {
+  /** Absolute path of the selected config file. */
+  readonly configPath: string;
+  /** Absolute schema files selected by `schema`, all members of `project`. */
+  readonly schemaFiles: readonly string[];
+  /** Absolute output directory, resolved against the config file. */
+  readonly outDir: string;
+}
+
 export declare function defineConfig(config: ZmdbConfig): ZmdbConfig;
+export declare function loadConfig(opts?: {
+  /** Directory discovery starts from. Defaults to `process.cwd()`. */
+  readonly cwd?: string;
+  /** Explicit config path, resolved against `cwd`; equivalent to `--config`. */
+  readonly path?: string;
+}): Promise<ResolvedConfig>;
 ```
 
 `naming` takes the two named strategies and nothing else; a custom one gets its own key. That is not
@@ -67,6 +83,11 @@ each callable with `typeof`. Two consequences worth stating rather than discover
 does **not** validate: a throw at the consumer's module scope would fire in their editor and their build
 for a file only the CLI reads, and the CLI has to handle a config that never called `defineConfig` anyway.
 Validation belongs at the boundary that consumes the value, which is one place, not two.
+
+`loadConfig` is that one discovery, execution, validation and path-resolution boundary. Its `path`
+option is the programmatic form of `--config`: it resolves against `cwd`, while every path inside the
+selected module resolves against `configPath`'s directory. The returned `schemaFiles`, `outDir` and
+`configPath` are absolute, so commands do not repeat or disagree about resolution.
 
 ## 2. Discovery walks up, and every command says where it stopped
 

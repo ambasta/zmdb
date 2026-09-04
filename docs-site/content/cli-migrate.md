@@ -6,7 +6,7 @@
 
 ```ts
 // scripts/migrate.ts
-import { runCli } from '@zmdb/query-compiler/migration-runner';
+import { runCli } from '@zmdb/query-compiler/migrations/runner';
 import { conn, migrations } from './db-config.js';
 
 await runCli(process.argv[2] ?? 'up', conn, migrations);
