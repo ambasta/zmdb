@@ -1003,7 +1003,7 @@ export const nestjs = {
   'testing-module-override/e2e/modules-override': 'applies a provider override (stub is injected)',
   'auto-mock/test/bar.service': 'applies a provider override (stub is injected)',
   'discovery/e2e/discover-by-meta': 'reads back metadata a Stage-3 decorator wrote — no reflect-metadata, no as',
-  'route-conflict/e2e/conflict-policy': 'lets the first-declared route win when two match',
+  'route-conflict/e2e/conflict-policy': 'lets exact static routes take precedence over param routes in the trie',
   'route-conflict/e2e/resolution-strategy': [
     'keeps identically-shaped routes of different methods apart',
     '404s a path whose segment count matches no route',

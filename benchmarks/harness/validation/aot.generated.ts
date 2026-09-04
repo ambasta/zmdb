@@ -12,6 +12,7 @@ function _zmdbIssue(out, path, expected, value) { out.push({ path, expected, val
 // writes the result to `aot.generated.ts`, which is what the benchmark measures. Running
 // it untransformed would throw: `is<T>(data)` with no second argument has no runtime
 // witness, which is the whole point of the transform.
+import { equals, is, validate } from '../../../packages/aot-validator/src/utilities/index.js';
 
 export function aotIs(data: unknown): boolean {
   return (_zmdbCheckMoltar0(data));
