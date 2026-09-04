@@ -21,15 +21,7 @@ Use the library sections below when an application owns snapshots or migration a
 
 Capture the current state of your schemas:
 
-```ts
-import { snapshot, type SchemaSnapshot } from 'zmdb/migrations';
-import { UserSchema, OrderSchema } from './schemas';
-
-const currentState: SchemaSnapshot = snapshot([UserSchema, OrderSchema]);
-
-// currentState.version => 1
-// currentState.tables => [{ name: 'users', columns: [...], primaryKey: ['id'] }, ...]
-```
+<!-- snippet: migrations.ts#snippet-1 -->
 
 The snapshot captures table names, column types, nullability, and each table's ordered primary key.
 
@@ -37,19 +29,7 @@ The snapshot captures table names, column types, nullability, and each table's o
 
 Compare two snapshots to generate change operations:
 
-```ts
-import { diff, type ChangeOp } from 'zmdb/migrations';
-
-// After adding a new column
-const newState = snapshot([UserSchema, OrderSchema, ProductSchema]);
-
-const changes: readonly ChangeOp[] = diff(currentState, newState);
-
-// changes => [
-//   { kind: 'create_table', table: 'products', columns: [...], primaryKey: ['id'] },
-//   { kind: 'add_column', table: 'users', column: {...} }
-// ]
-```
+<!-- snippet: migrations.ts#snippet-2 -->
 
 Change operations include:
 
@@ -65,21 +45,7 @@ Change operations include:
 
 Convert change operations to SQL for your dialect:
 
-```ts
-import { emitDown, emitUp } from 'zmdb/migrations';
-
-for (const op of changes) {
-  const upSql = emitUp(op, 'postgres');
-  const downSql = emitDown(op, 'postgres');
-
-  console.log('UP:', upSql);
-  console.log('DOWN:', downSql);
-}
-
-// Output:
-// UP: ALTER TABLE "users" ADD COLUMN "new_col" TEXT NOT NULL
-// DOWN: ALTER TABLE "users" DROP COLUMN "new_col"
-```
+<!-- snippet: migrations.ts#snippet-3 -->
 
 > [!NOTE] Column renames are not detected — they're treated as drop + add. Track renames manually or use a naming convention.
 

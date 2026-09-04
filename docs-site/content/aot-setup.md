@@ -5,13 +5,7 @@ direct JavaScript checks — no Zod-style runtime parsers, no reflection.
 
 Runtime-schema validators carry schema machinery into the application and execute it on every call. AOT inlining compiles checks from the TypeScript type once, at build time:
 
-```ts
-// Authored code
-const ok = is<{ email: string }>(input);
-
-// Compiled output (no runtime parser)
-const ok = typeof input === 'object' && input !== null && typeof input.email === 'string';
-```
+<!-- snippet: aot-setup.ts#snippet-1 -->
 
 > [!IMPORTANT] AOT validation achieves 5-24× speedup over runtime validators on assert operations. See [benchmarks](./benchmarks.html) for real numbers.
 
@@ -19,15 +13,7 @@ const ok = typeof input === 'object' && input !== null && typeof input.email ===
 
 The AOT transformer is available as an unplugin for Vite, esbuild, Webpack, and Rollup:
 
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { zmdbAot } from 'zmdb/compiler';
-
-export default defineConfig({
-  plugins: [await zmdbAot()],
-});
-```
+<!-- snippet: aot-setup.ts#snippet-2 -->
 
 The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level `@zmdb/compiler/unplugin`
 entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling remains a compatibility alias.
@@ -111,41 +97,23 @@ re-export either package.
 
 **Before:**
 
-```ts
-const ok = is<{ n: number; s: string }>(input);
-```
+<!-- snippet: aot-setup.ts#snippet-3 -->
 
 **After:**
 
-```ts
-const ok = typeof input === 'object' && input !== null && typeof input.n === 'number' && typeof input.s === 'string';
-```
+<!-- snippet: aot-setup.ts#snippet-4 -->
 
 **assert with throw:**
 
-```ts
-const v = assert<{ s: string }>(input);
-```
+<!-- snippet: aot-setup.ts#snippet-5 -->
 
-```ts
-const v = ((() => {
-  if (!(typeof input === "object" && input !== null && typeof input.s === "string"))
-    throw new AssertError("assertion failed", ...);
-  return input;
-})());
-```
+<!-- snippet: aot-setup.ts#snippet-6 -->
 
 ## Nested Objects
 
 The transformer recursively inlines nested object checks:
 
-```ts
-// Input
-const ok = is<{ user: { email: string } }>(input);
-
-// Output
-const ok = typeof input === 'object' && input !== null && typeof input.user === 'object' && input.user !== null && typeof input.user.email === 'string';
-```
+<!-- snippet: aot-setup.ts#snippet-7 -->
 
 > [!TIP] Deeply nested objects emit longer inline expressions. For extreme depth (10+ levels), consider flattening your types.
 
@@ -157,6 +125,8 @@ The plugin skips:
 - Declaration files (`.d.ts`)
 - Non-TypeScript files
 
+<!-- snippet: aot-setup.ts#snippet-8 -->
+
 ## Runtime witness fallback
 
 An untransformed generic call has no runtime access to its type argument. `is<User>(payload)`, `assert<User>(payload)`, `validate<User>(payload)` and their shallow variants therefore throw
@@ -164,11 +134,7 @@ An untransformed generic call has no runtime access to its type argument. `is<Us
 
 The utilities accept an explicit `TypeIR` witness for tests and generated fallback modules:
 
-```ts
-import { is } from '@zmdb/aot-validator/utilities';
-
-const ok = is(payload, userTypeIr);
-```
+<!-- snippet: aot-setup.ts#snippet-9 -->
 
 The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available when the caller already has a runtime schema. Use
 the build plugin or [project compiler](./cli-codegen.html) for the generic forms.

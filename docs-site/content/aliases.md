@@ -8,11 +8,7 @@ Table aliases let you give a table a short name in a query — essential for **s
 
 Pass `'table as alias'` to the join builder; both the base table and joined tables can be aliased, and columns are referenced through the alias.
 
-```ts
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
-
-joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
-```
+<!-- snippet: aliases.ts#snippet-1 -->
 
 ```sql
 SELECT * FROM "employees" AS "e"
@@ -25,9 +21,7 @@ WHERE "e"."id" = $1
 
 The same table joined to itself is the canonical case for aliases — without them the two references would be ambiguous.
 
-```ts
-joinableSelectFrom('categories as c', 'postgres').leftJoin('categories as parent', 'parent.id', 'c.parent_id').compile();
-```
+<!-- snippet: aliases.ts#snippet-2 -->
 
 ```sql
 SELECT * FROM "categories" AS "c"
@@ -39,21 +33,13 @@ LEFT JOIN "categories" AS "parent" ON "parent"."id" = "c"."parent_id"
 When a join produces columns you want under cleaner keys (e.g. mapping `r_id`/`r_name` to `recipientId`/`recipientName`), use `aliasRow` on the rows — this is the typed, runtime equivalent of a
 `SELECT ... AS` rename.
 
-```ts
-import { aliasRow, type JoinRow } from '@zmdb/schema-core';
-
-type Row = JoinRow<Employee, Recipient, 'left'>; // Employee & Partial<Recipient>
-const clean = aliasRow(row, { r_id: 'recipientId', r_name: 'recipientName' });
-```
+<!-- snippet: aliases.ts#snippet-3 -->
 
 ## Dialect quoting
 
 Aliases are quoted with the dialect's identifier quoting — `"…"` on PostgreSQL/SQLite, backticks on MySQL and brackets on SQL Server.
 
-```ts
-joinableSelectFrom('users as u', 'mysql').compile();
-// SELECT * FROM `users` AS `u`
-```
+<!-- snippet: aliases.ts#snippet-4 -->
 
 > [!TIP] Prefer table aliases whenever a query touches a table more than once. For single-table reads you rarely need them — see [Select](./select.html).
 

@@ -3,9 +3,7 @@ Update rows with the query builder, or through a repository's `update(id, patch)
 
 ## Basic update
 
-```ts
-qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
-```
+<!-- snippet: update.ts#snippet-1 -->
 
 ```sql
 UPDATE "users" SET "role" = $1 WHERE "id" = $2
@@ -14,9 +12,7 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2
 
 ## Returning the updated row
 
-```ts
-qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
-```
+<!-- snippet: update.ts#snippet-2 -->
 
 ```sql
 UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id", "role"
@@ -30,14 +26,7 @@ UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id], INSERTED.[role] WHERE [id]
 
 ## Through the repository (validated)
 
-```ts
-import { inc, not } from 'zmdb/sql';
-
-const updated = await users.update(1, { role: 'admin' });
-const counted = await posts.increment(1, 'views', 2);
-await users.update(1, { active: not() });
-const affected = await posts.updateMany({ authorId: 7 }, { views: inc(1) });
-```
+<!-- snippet: update.ts#snippet-3 -->
 
 `increment` accepts only updatable numeric columns and preserves number versus bigint operands. `preUpdate` receives the validated, `undefined`-stripped patch in schema order, including the same
 branded expression objects supplied by the caller.

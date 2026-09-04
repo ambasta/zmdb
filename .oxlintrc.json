@@ -38,6 +38,7 @@
     "benchmarks/harness/framework/.bin/**",
     "benchmarks/upstream/**",
     "**/*.generated.ts",
+    "docs-site/snippets/**",
     "**/*.zmdb.*",
     "benchmarks/harness/framework/peers/**",
     "**/.results/**",

@@ -2,11 +2,7 @@ Grouped aggregates — `count`, `sum`, `avg`, `min`, `max` with `GROUP BY` and `
 
 ## Count
 
-```ts
-import { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
-
-aggregateSelectFrom('orders', 'postgres').count('id', 'orderCount').compile();
-```
+<!-- snippet: aggregations.ts#snippet-1 -->
 
 ```sql
 SELECT COUNT("id") AS "orderCount" FROM "orders"
@@ -14,9 +10,7 @@ SELECT COUNT("id") AS "orderCount" FROM "orders"
 
 ## Group by + multiple aggregates
 
-```ts
-aggregateSelectFrom('orders', 'postgres').select(['userId']).count('id', 'orderCount').sum('total', 'revenue').groupBy(['userId']).compile();
-```
+<!-- snippet: aggregations.ts#snippet-2 -->
 
 ```sql
 SELECT "userId", COUNT("id") AS "orderCount", SUM("total") AS "revenue"
@@ -27,9 +21,7 @@ FROM "orders" GROUP BY "userId"
 
 Filter on an aggregate with `having`:
 
-```ts
-aggregateSelectFrom('orders', 'postgres').select(['userId']).count('id', 'orderCount').groupBy(['userId']).having('orderCount', '>', 5).compile();
-```
+<!-- snippet: aggregations.ts#snippet-3 -->
 
 ```sql
 SELECT "userId", COUNT("id") AS "orderCount" FROM "orders"
