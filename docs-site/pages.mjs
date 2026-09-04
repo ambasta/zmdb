@@ -1145,8 +1145,7 @@ export const PAGE_META = {
   'llm-http': {
     title: 'HTTP Tools from Controllers',
     group: 'LLM',
-    status: 'todo',
-    note: 'generation and the allowlisted caller ship; the final end-to-end generated-output guide is still pending',
+    status: 'supported',
   },
   'llm-mcp': {
     title: 'Model Context Protocol',

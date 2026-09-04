@@ -27,8 +27,9 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling, bounded chat, and MCP**
-> harness. **1,305 tests green** across 172 files, including real `node:sqlite` E2E, a Kysely
+> **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
+> and OpenAPI-derived tools** harness. **1,305 tests green** across 172 files,
+> including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
 > Alongside them, **414 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output

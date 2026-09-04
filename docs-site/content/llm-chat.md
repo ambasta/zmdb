@@ -3,6 +3,24 @@
 > with effect approval, and an optional Anthropic SDK driver. It does not persist
 > conversations or stream tokens; those remain application concerns below.
 
+## Safety model
+
+The loop makes the unsafe choices explicit before it calls a model or a tool:
+
+- `maxTurns` is required, and `maxToolCallsPerTurn` defaults to 8. The total
+  budget is their product and is returned as `result.budget`.
+- A tool is effectful unless it says `effectful: false`. If any tool is
+  effectful, `approve` is required by the type and checked again at runtime
+  before the first driver call.
+- Model-written arguments remain `unknown` until the registry entry's validator
+  accepts them. A handler never receives the raw value.
+- Unknown tools, declined calls, and invalid arguments become bounded error tool
+  messages. Handler internals stay in `result.errors` and are not exposed to the
+  model.
+
+Those are construction rules, not recommendations around an otherwise
+unbounded agent loop.
+
 ## Running a bounded tool loop
 
 ```ts

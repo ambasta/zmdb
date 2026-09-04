@@ -3,6 +3,19 @@ the [bounded chat loop](./llm-chat.html) into a pure MCP server, and provides a
 bounded client for remote MCP tools. The package owns protocol messages; your
 application owns stdio or HTTP framing.
 
+## Trust boundary first
+
+Authentication is mandatory on the server core: `identify` has no default and
+runs before parsing, tool lookup, validation, or dispatch. A local stdio adapter
+may resolve a fixed process identity. An HTTP adapter must authenticate the
+transport, validate `Origin`, and verify the mirrored protocol/method/name
+headers before calling `handle`; exposing the core over unauthenticated HTTP is
+not a supported configuration.
+
+The boundary points in both directions. Local tool arguments are untrusted until
+their registry validator accepts them. A remote tool's `inputSchema` and result
+text are network data, not types your application may trust.
+
 ## Declare once
 
 ```ts
