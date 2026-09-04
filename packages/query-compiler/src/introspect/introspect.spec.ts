@@ -123,7 +123,7 @@ type FrozenDetectDrift = (
 ) => FrozenDriftReport;
 
 async function frozenExport<T>(name: string): Promise<T> {
-  const module: unknown = await import('../index.js');
+  const module: unknown = await import('./index.js');
   const value: unknown = Reflect.get(Object(module), name);
   if (typeof value !== 'function') {
     throw new Error(`@zmdb/query-compiler exports no "${name}" (frozen: introspect/SPEC.md 1)`);
@@ -619,7 +619,7 @@ describe('catalog input boundary', () => {
 });
 
 describe('the round trip and drift report', () => {
-  it.fails('round-trips a declaration through DDL, a real database and back', async () => {
+  it('round-trips a declaration through DDL, a real database and back', async () => {
     const declared = snapshot([RoundTripUserSchema]);
     const declaredTable = declared.tables[0];
     if (!declaredTable) throw new Error('the RoundTripUser declaration produced no table');

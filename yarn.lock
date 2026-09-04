@@ -1190,6 +1190,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/query-compiler@workspace:packages/query-compiler"
   dependencies:
+    oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft

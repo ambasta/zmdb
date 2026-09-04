@@ -91,7 +91,10 @@ const ops = diff(
 );
 ```
 
-That means generation works offline and in CI, and it means the snapshot is a reviewable artefact in the diff. It also means zmdb cannot detect drift a human made by hand — see [pull](./cli-pull.html).
+That means generation works offline and in CI, and the snapshot is a reviewable
+artefact in the diff. A separate library workflow can now read the live catalog
+and emit declarations, but the complete drift reporter and `check` command have
+not landed; see [pull](./cli-pull.html).
 
 ## `synchronize: true` has no equivalent
 

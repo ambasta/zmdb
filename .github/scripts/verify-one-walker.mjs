@@ -109,6 +109,16 @@ const MAY_READ = new Map([
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
   ],
   [
+    'packages/query-compiler/src/introspect/emit.ts',
+    'the reverse declaration boundary. It reads a normalized catalog snapshot before any ' +
+      'declaration or TypeIR exists and turns those facts into inputs for the one tagged-property printer.',
+  ],
+  [
+    'packages/query-compiler/src/introspect/tagged-property.ts',
+    'the one normalized-facts-to-tagged-property printer, shared by catalog emission and the ' +
+      'legacy builder codemod. It creates declaration source before reflection can produce a TypeIR.',
+  ],
+  [
     'packages/repository/src/index.ts',
     'one flag, `autoIncrement`, for the refusal when a payload supplies a column the database ' +
       'generates. That is a fact about who writes the column, not about what values it admits.',

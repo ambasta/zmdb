@@ -68,7 +68,11 @@ A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and vali
 
 ## What is genuinely missing
 
-**Introspection.** There is no `db pull` — nothing reads an existing database and emits declarations. Adopting zmdb against a legacy schema means writing the schemas by hand. This is the real gap, and it blocks [`cli-pull`](./cli-pull.html), [`cli-studio`](./cli-studio.html) and schema-first workflows.
+**Introspection command wiring.** There is no `db pull` command, but the library
+now reads PostgreSQL, MySQL, and SQLite catalogs and emits reviewed TypeScript
+declarations. The remaining gap is executable config/driver/output wiring and
+complete drift reporting; see [`cli-pull`](./cli-pull.html). `cli-studio` still
+needs its own server and UI.
 
 **Migration generation from a diff against the live database.** `snapshot`/`diff`/`emitUp` compare two _schema snapshots_, so you can diff code against a committed snapshot — but not against what the database actually has. See [Migrations](./migrations.html).
 
@@ -106,7 +110,10 @@ A `--dry-run` that logs instead of writing is worth building into anything that 
 The `bin` entry and argument dispatch already exist. Scaffolding still needs the
 `new` dispatch, templates, workspace targeting and generated-code gates. The migration commands already exist as library calls, so wrapping them is small.
 
-The commands worth building are the ones that are not one-liners today: introspection (`db pull`), a diff against a live database, and a repeatable seed runner. Scaffolding is the least valuable, because the thing it would scaffold is already about eight lines.
+The commands worth building are the ones that still own operational policy:
+`db pull` around the shipped reader/emitter, a complete diff against a live
+database, and a repeatable seed runner. Scaffolding is the least valuable,
+because the thing it would scaffold is already about eight lines.
 
 ---
 

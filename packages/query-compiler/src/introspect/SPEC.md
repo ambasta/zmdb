@@ -1,8 +1,8 @@
 # Introspection: catalog → snapshot → declaration — Spec (frozen)
 
 > Part of `@zmdb/query-compiler` (module `src/introspect/`). Epic "Introspection — the DDL-to-declaration
-> direction". Frozen for TDD. The catalog-reader slice is implemented; declaration emission and drift
-> reporting remain frozen for their own implementation slices.
+> direction". Frozen for TDD. The catalog-reader and declaration-emission slices are implemented; drift
+> reporting remains frozen for its own implementation slice.
 
 ## 1. Why the reverse direction is not the forward one inverted
 
@@ -55,7 +55,7 @@ export interface EmitOptions {
   /** Required because SchemaSnapshot is deliberately dialect-neutral. */
   readonly dialect: Dialect;
 }
-export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): EmitDeclarationsResult;
+export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): Promise<EmitDeclarationsResult>;
 ```
 
 `CatalogSchemaSnapshot` is structurally a `SchemaSnapshot` and adds the catalog-only evidence plus the
@@ -71,10 +71,12 @@ Catalog queries are ordinary `CompiledQuery` values with parameters, never conca
 the schema list and the globs are caller input, and this is a module whose entire job is to send SQL
 naming things the caller chose.
 
-The package DAG makes `@zmdb/query-compiler` and `@zmdb/aot-validator` dependency-free siblings. Catalog
-rows are therefore validated here by explicit zero-dependency field validators rather than asserted or
-imported through a forbidden sibling edge. A wrong-shaped row throws `CatalogRowError` naming the catalog,
-row and field before any value is used.
+The package DAG keeps `@zmdb/query-compiler` below `@zmdb/schema-core` and alongside
+`@zmdb/aot-validator`. Catalog rows are therefore validated here by explicit field validators rather than
+asserted or imported through a forbidden upward or sibling edge. Declaration formatting is the one runtime
+dependency in this package: `oxfmt`, invoked on generated source so checked-in output follows the repository
+formatter. A wrong-shaped row throws `CatalogRowError` naming the catalog, row and field before any value is
+used.
 
 ## 2. Catalog sources, per dialect
 
@@ -288,9 +290,10 @@ decision at generation time. An `index.ts` barrel re-exports them, which is the 
 strategy run backwards, and a strategy is not invertible: `snakeCasePlural` is not injective, and no rule
 recovers `person` from `people` without the irregular table that produced it. So the emitter does not
 invert anything. It splits on `_`, PascalCases, and singularises through the same small explicit rule set
-and irregular table the `snakeCasePlural` strategy uses — `schema-core/src/naming`, shipped by #420 in the
-naming epic, which is the dependency to reuse rather than to re-implement. Where that rule is not
-confident it PascalCases the table name verbatim and warns.
+and irregular table used by OpenAPI component naming. That pure lower-level function is exported from
+`@zmdb/query-compiler/naming`, allowing both the emitter and `@zmdb/schema-core/openapi` to reuse it without
+reversing the package graph. Where the result is not a safe or unique TypeScript identifier, the emitter
+uses a deterministic fallback and warns.
 
 The safety here is structural rather than careful: `Table<'…'>` always carries the physical table name
 verbatim, so an imperfect interface name costs nothing beyond aesthetics and can never produce a wrong

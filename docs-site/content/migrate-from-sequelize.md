@@ -33,7 +33,11 @@ ALTER TABLE "users" ALTER COLUMN "active" SET DEFAULT true;
 Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — every column in the table is a property on the interface, because the interface is what generates the DDL and the DTOs. Being implicit about columns is how the DTO and the table drift apart.
 
 > [!NOTE]
-> If you are migrating an existing Sequelize database, the catalog reader can now show the normalized snapshot and source catalog type evidence. You still write the timestamp properties by hand because declaration emission and `pull` have not landed. See [pull](./cli-pull.html).
+> If you are migrating an existing Sequelize database, the catalog reader and
+> `emitDeclarations()` now produce one reviewed interface per table, including timestamp
+> properties and comments for database defaults. Unrepresentable columns are omitted with
+> structural warnings and matching `TODO` comments. The `pull` command has not landed, so
+> invoke the library from a small script; see [pull](./cli-pull.html).
 
 ## Query methods
 

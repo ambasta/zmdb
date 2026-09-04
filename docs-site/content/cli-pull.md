@@ -1,24 +1,71 @@
-> **ToDo / feature gap.** The library now reads PostgreSQL, MySQL and SQLite
-> catalogs into a normalized snapshot. There is still no declaration emitter,
-> complete drift report, `pull` or `generate-entities` command. This page remains
-> TODO because the catalog reader is the first half of the workflow, not the CLI.
+> **ToDo / feature gap.** The library reads PostgreSQL, MySQL and SQLite
+> catalogs and emits deterministic, formatter-clean TypeScript declarations.
+> There is still no complete drift report, `pull`, or `generate-entities`
+> command. This page remains TODO because executable dispatch has not landed.
 
-## Read the catalog today
+## Read the catalog and emit declarations today
+
+The library workflow is one reader call followed by one emitter call:
 
 ```ts
-import { createIntrospector } from '@zmdb/query-compiler/introspect';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+
+import { createIntrospector, emitDeclarations } from '@zmdb/query-compiler/introspect';
 
 const live = await createIntrospector('postgres').snapshot(driver, {
   schemas: ['public'],
   exclude: ['audit_*'],
 });
+const emitted = await emitDeclarations(live, { dialect: 'postgres' });
+
+const output = 'src/schema';
+for (const file of emitted.files) {
+  const path = join(output, file.path);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, file.source);
+}
+
+for (const warning of emitted.warnings) console.warn(warning);
 ```
 
-Catalog queries use bound values, driver rows are validated before use, and the result is sorted like a declared snapshot. The reader also preserves catalog type evidence and default expressions. It deliberately does not invent TypeScript for types the declaration vocabulary cannot represent.
+The result contains one file per physical table plus an `index.ts` barrel.
+Tables and columns are sorted, the generated header has no timestamp, and every
+file is passed through the repository's `oxfmt` configuration. Two runs over the
+same snapshot are byte-identical.
+
+Catalog queries use bound values, driver rows are validated before use, and the
+snapshot retains source catalog types and default expressions. A representable
+default becomes `HasDefault` plus a comment containing the original expression;
+the expression is never evaluated.
+
+## Warnings are part of the output
+
+Reverse type mapping is necessarily partial. The emitter follows one rule:
+
+- if the application type can preserve the stored value, emit the property and a
+  warning where catalog semantics were widened;
+- if it cannot, omit the property rather than emit `unknown`.
+
+Every warning is returned structurally as `{ table, column?, reason }` and also
+appears beside the generated interface as a `// TODO:` comment. For example,
+`varchar(50)` retains `Length<50>`, while `bytea`, `BLOB`, arrays, and unsupported
+extension types are omitted. A JSON column becomes `object & Sql<'json'>` with a
+warning because the catalog does not contain its payload shape. An enum is
+omitted when the reader has no member list; inventing a union would be worse.
+
+Single-column foreign keys receive exact `References<'table.column'>` tags.
+Where one target is unambiguous, the emitter also adds a `ManyToOne` or
+`OneToOne` property. Multiple foreign keys to the same target, composite
+relations, referential actions, and indexes that cannot be represented by one
+`Unique` tag remain explicit warnings rather than guesses.
 
 ## Adopting an existing database
 
-Write the declarations by hand, then compare them with the catalog snapshot. Until the dedicated drift reporter lands, an explicit test keeps that comparison visible:
+Generate the declarations, review every `TODO`, make any application-specific
+edits, and then compare the reviewed declaration with the live catalog. Until
+the dedicated drift reporter lands, an explicit two-direction test keeps that
+comparison visible:
 
 ```ts
 import { createIntrospector } from '@zmdb/query-compiler/introspect';
@@ -35,63 +82,22 @@ it('declarations match the live database', async () => {
 });
 ```
 
-Run it against a restored production dump in CI. This currently compares table, column and normalized type presence in both directions. The dedicated drift reporter will add complete reporting for every recovered key, foreign-key and index fact.
+Run this against a restored production dump in CI. The current migration diff
+compares table presence, column presence, and normalized type. The dedicated
+drift reporter still owns nullability, lengths, ordered keys, foreign keys,
+indexes, extensions, visibility limits, and command exit codes.
 
-The full walkthrough is on [Schema-first](./schema-first.html).
+## Why the `pull` command is not shipped
 
-## A one-off generator, if the table count is large
+The catalog-to-declaration library path has landed. The command still needs to
+resolve a configured driver, choose and protect an output directory, report
+warnings in human and JSON modes, define overwrite behavior, and distinguish
+catalog failure from reviewable loss. Complete two-direction drift reporting is
+a separate remaining library slice used by `check`.
 
-For fifty tables, hand-writing is a bad use of an afternoon. A throwaway script that prints an interface per table from `information_schema` gets you 90% of the way, and you fix the rest by hand:
-
-```ts
-const cols = await driver.execute({
-  text: `SELECT column_name, data_type, is_nullable, column_default
-         FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
-  parameters: [table],
-});
-
-// app type × the Sql tag that disambiguates it
-const TYPES: Record<string, string> = {
-  integer: `number & Sql<'integer'>`,
-  bigint: `bigint & Sql<'bigint'>`,
-  text: `string & Sql<'text'>`,
-  boolean: 'boolean',
-  numeric: `number & Sql<'numeric'>`,
-  jsonb: `object & Sql<'json'>`,
-  'timestamp with time zone': `Date & Sql<'timestamp'>`,
-};
-
-console.log(`export interface ${pascal(table)} extends Table<'${table}'> {`);
-for (const c of cols) {
-  const serial = String(c.column_default ?? '').startsWith('nextval');
-  const base = serial
-    ? `number & Sql<'integer'> & Serial`
-    : (TYPES[String(c.data_type)] ?? `/* TODO ${c.data_type} */ string & Sql<'text'>`);
-  // tags bind tighter than the union, so a nullable column needs the parentheses
-  const type = c.is_nullable === 'NO' ? base : `(${base}) | null`;
-  console.log(`  ${c.column_name}: ${type};`);
-}
-console.log('}');
-```
-
-Then read every line of the output. The `TODO` markers are the point: the mapping is lossy in exactly the places that matter — `varchar(50)` loses its `Length<50>`, a `jsonb` column comes out as a bare `object` because its payload shape exists nowhere in the catalogue, `uuid` and `inet` have no representation at all, and a `CHECK` constraint is invisible.
-
-The `jsonb` line is worth staring at, because the obvious spelling for "some JSON, shape
-unknown" does not work: `unknown & Sql<'json'>` collapses to `Sql<'json'>` before reflection
-ever sees it — `unknown & X` _is_ `X` — and the reflector refuses it by name. `object &
-Sql<'json'>` is the spelling, and it validates as "not a primitive", which is honestly all a
-catalogue can tell you. And a dropped `Length<50>` no longer just loses a DDL detail: it loses
-the validator's `maxLength` and the OpenAPI document's too.
-
-## Why `pull` is not shipped
-
-The reader-side type mapping now ships. Producing declarations is a separate product because its lossy cases need named warnings and review:
-
-- **It is not injective.** `SqlType` has ten members; Postgres has a few hundred types. `varchar(50)` and `varchar(500)` both report `character varying` plus separate length evidence, while `uuid`, `inet` and `tsvector` have no declared-type equivalent. Extension-backed types such as `citext` and `vector` retain their catalog evidence but still need an emitter policy — see [Database Extensions](./db-extensions.html).
-- **Three catalogues.** The readers handle their different sources, but those sources expose different amounts of evidence. A generated declaration must explain every loss rather than hide it.
-- **Silent wrongness is worse than absence.** A generator that emits `Sql<'text'>` for a `varchar(50)` produces a declaration that type-checks, generates DTOs, and then generates a migration that widens the column in production. A wrong declaration is more dangerous than none, because everything downstream — DDL, DTOs, the validator, the OpenAPI document — trusts it. Type-first widens the blast radius: the declaration is now the single source for five things rather than one.
-
-The catalog-to-snapshot half has landed. Deterministic declaration emission and a complete two-direction drift report remain the two library slices needed before a `pull` command can be honest.
+Until that executable wiring lands, keep the script above in the project so its
+driver construction and output path are reviewable rather than hidden in a
+second ad-hoc generator.
 
 ---
 

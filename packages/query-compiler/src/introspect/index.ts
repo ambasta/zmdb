@@ -5,6 +5,12 @@ import { postgresIntrospector } from './postgres.js';
 import { sqliteIntrospector } from './sqlite.js';
 
 export {
+  emitDeclarations,
+  type EmitDeclarationsResult,
+  type EmittedDeclarationFile,
+  type EmitOptions,
+} from './emit.js';
+export {
   CatalogRowError,
   type CatalogColumnSnapshot,
   type CatalogForeignKeySnapshot,

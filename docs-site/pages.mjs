@@ -600,7 +600,7 @@ export const PAGE_META = {
     title: 'Schema-First (existing database)',
     group: 'Schema',
     status: 'todo',
-    note: 'catalog readers ship; declaration emission, complete drift reporting and the adoption CLI remain',
+    note: 'catalog readers and declaration emission ship; complete drift reporting and the adoption CLI remain',
   },
   crud: {
     title: 'CRUD',
@@ -856,7 +856,7 @@ export const PAGE_META = {
     title: 'pull (introspect)',
     group: 'CLI',
     status: 'todo',
-    note: 'catalog readers ship; no declaration emitter or pull command',
+    note: 'catalog readers and declaration emission ship; no pull command',
   },
   'cli-check': {
     title: 'check',

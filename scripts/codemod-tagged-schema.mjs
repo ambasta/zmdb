@@ -69,6 +69,8 @@ import { dirname, resolve } from 'node:path';
 import { SyntaxKind } from 'typescript/unstable/ast';
 import { API } from 'typescript/unstable/sync';
 
+import { escapeTypeString, renderTaggedProperty } from '../packages/query-compiler/src/introspect/tagged-property.ts';
+
 // ---------------------------------------------------------------------------
 // The closed vocabulary.
 // ---------------------------------------------------------------------------
@@ -85,18 +87,6 @@ const BUILDERS = {
   timestamp: 'timestamp',
   json: 'json',
   jsonEnum: 'jsonEnum',
-};
-
-/** `SqlType` → the TypeScript type it maps to. Mirrors `BaseTsType` in schema-core. */
-const TS_TYPE = {
-  serial: 'number',
-  integer: 'number',
-  numeric: 'number',
-  bigint: 'bigint',
-  text: 'string',
-  varchar: 'string',
-  boolean: 'boolean',
-  timestamp: 'Date',
 };
 
 /** `ValidationRule.kind` → the tag that spells the same constraint. See `ir`'s alias table. */
@@ -362,93 +352,10 @@ function referenceTarget(args, context, what) {
 // ---------------------------------------------------------------------------
 
 function printProperty(name, column, tagsUsed) {
-  const parts = [];
-  const use = tag => {
-    tagsUsed.add(tag.replace(/<[\s\S]*$/, ''));
-    parts.push(tag);
-  };
-
-  // A literal union already says "enum", and the reflection reads it off the type, so
-  // asking for `Sql<'jsonEnum'>` as well would be asking for the same fact twice
-  // (REQ-TF-2). Every other SQL type does need its tag, because `integer` and `numeric`
-  // are both `number`, `text` and `varchar` are both `string`, and no amount of looking
-  // at the type tells them apart.
-  if (column.sql === 'jsonEnum') {
-    if (!column.enumValues?.length) refuse(name, 'a `jsonEnum` column with no members has no type');
-    parts.push(column.enumValues.map(value => `'${escapeTypeString(value)}'`).join(' | '));
-  } else if (column.sql === 'json') {
-    // `object`, not `unknown`, for a payload-free `json()`. `unknown & X` collapses to
-    // `X`, which leaves the property typed as the tag alone — an all-optional weak type
-    // that rejects the very `{ … }` and `[ … ]` the column exists to hold. `object` is
-    // both assignable-from what a JSON column accepts and exactly what the emitted check
-    // tests for ("expected object | array").
-    parts.push(column.payload ?? 'object');
-    use(`Sql<'json'>`);
-  } else {
-    const base = TS_TYPE[column.sql];
-    if (base === undefined) refuse(name, `no TypeScript type for SQL type \`${column.sql}\``);
-    parts.push(base);
-    // `serial` is not a column type a declaration may name — it is an `integer` the
-    // database generates, and `Serial` below is the half that says "generated". See
-    // `ColumnSqlType` in `@zmdb/schema-core/tags` for why saying it twice was wrong and
-    // not merely redundant.
-    use(`Sql<'${column.sql === 'serial' ? 'integer' : column.sql}'>`);
-  }
-
-  if (column.length !== undefined) use(`Length<${column.length}>`);
-  // `serial()` sets `hasDefault` as well, and `Serial` implies it on the tagged side too,
-  // so emitting both would be two spellings of one fact.
-  if (column.sql === 'serial') use('Serial');
-  else if (column.hasDefault) use('HasDefault');
-  if (column.primaryKey) use('PrimaryKey');
-  if (column.unique) use('Unique');
-  if (column.sensitive) use('Sensitive');
-  if (column.references !== undefined) use(`References<'${escapeTypeString(column.references)}'>`);
-  for (const [tag, value] of column.constraints) {
-    use(typeof value === 'string' ? `${tag}<'${escapeTypeString(value)}'>` : `${tag}<${value}>`);
-  }
-  if (column.rules.length > 0) use(`Rule<${column.rules.map(rule => `'${escapeTypeString(rule)}'`).join(' | ')}>`);
-
-  // Only the base can be a compound type; every tag is a single reference. So it is the
-  // base, and only the base, that may need bracketing before the tags are intersected onto
-  // it — see `needsParens`.
-  const [base, ...tags] = parts;
-  const joined = tags.length > 0 ? [needsParens(base) ? `(${base})` : base, ...tags].join(' & ') : base;
-  // Nullability is `(T & Tags) | null` — tags *inside*. The other order is a trap rather
-  // than a style choice: TypeScript distributes an intersection over a union, so
-  // `(T | null) & Unique` becomes `(T & Unique) | (null & Unique)`, and `null & Unique`
-  // reduces to `never` — silently dropping the nullability.
-  return `  ${name}: ${column.nullable ? `(${joined}) | null` : joined};`;
-}
-
-/**
- * Whether a type has to be bracketed before `&` is applied to it.
- *
- * `&` binds tighter than `|`, so `'admin' | 'user' & HasDefault` is
- * `'admin' | ('user' & HasDefault)` — a type that compiles, is wrong, and looks right. It is
- * how `jsonEnum(['admin','user']).defaultTo('user')` was converted until the tagged twin of
- * `type-derivation.type-test.ts` was generated and the assertion for `role` failed.
- *
- * A depth-0 scan, not a regex: `json<Record<string, A | B>>()` has a `|` in it that binds
- * nowhere near the top, and bracketing on that would be harmless but bracketing on nothing
- * would not be. `=>` is included because a function type's body swallows a following `&`.
- */
-function needsParens(type) {
-  const pairs = { '<': '>', '(': ')', '[': ']', '{': '}' };
-  const closers = new Set(Object.values(pairs));
-  let depth = 0;
-  for (let index = 0; index < type.length; index++) {
-    const character = type[index];
-    if (character in pairs) depth++;
-    else if (closers.has(character)) depth--;
-    else if (depth === 0 && (character === '|' || type.startsWith('=>', index))) return true;
-  }
-  return false;
-}
-
-/** A `'` or `\` inside a tag argument would close or re-escape the type-level string. */
-function escapeTypeString(value) {
-  return String(value).replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+  const rendered = renderTaggedProperty(name, column);
+  if ('reason' in rendered) return refuse(name, rendered.reason);
+  for (const tag of rendered.tags) tagsUsed.add(tag);
+  return rendered.source;
 }
 
 /** `UserSchema` → `User`; `users` → `Users`. Deterministic, and never from the table name. */

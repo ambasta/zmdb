@@ -172,11 +172,14 @@ types). An invalid route, payload, injection, or state transition **must fail `t
 > _assertion-free public surface, enumerated and individually justified internal boundaries,
 > count ratcheted downward._
 
-### P5 — Zero required runtime dependencies; ESM-only
+### P5 — Zero third-party dependencies on the hot path; ESM-only
 
-Packages depend only on other `@zmdb/*` packages and Node built-ins. Third-party
-integrations (a `pg` driver, a Hono adapter) are optional and **structurally typed**, so
-the dependency is never forced. One module format, one `exports` map, no `.cjs`.
+Query execution, type derivation, validation, and repository operations depend only on
+other `@zmdb/*` packages and Node built-ins. Third-party integrations (a `pg` driver, a
+Hono adapter) are optional and **structurally typed**, so the dependency is never forced.
+The tooling exception is `oxfmt`, pinned by query-compiler because generated declarations
+must be formatted by the same engine as the repository. One module format, one `exports`
+map, no `.cjs`.
 
 ### P6 — Honest measurement
 
@@ -229,13 +232,14 @@ never averaged into a flattering score, never silently skipped. We do not claim 
 ### 5.2 Package DAG (must stay acyclic)
 
 ```
-@zmdb/schema-core  (root — the SoT; depends on nothing, imports no sibling)
-        ├──────────────┬──────────────────┐
-        ▼              ▼                  │
-@zmdb/query-compiler   @zmdb/aot-validator│   (siblings; mutually unaware)
-        └──────┬───────┘                  │
-               ▼                          │
-        @zmdb/repository ◀────────────────┘   (+ drivers: node:sqlite built-in, pg optional)
+@zmdb/query-compiler  (lower-level SQL + introspection; oxfmt only for declaration emission)
+        ▼
+@zmdb/schema-core     (the schema SoT; reuses compiler query/quoting/naming utilities)
+        ▼
+@zmdb/aot-validator   (reflection and generated boundary validation)
+        └───────────────┐
+                        ▼
+        @zmdb/repository   (+ direct schema-core/query-compiler deps; drivers: node:sqlite, pg optional)
                ▼
         @zmdb/web                              (controllers inject repositories)
                ▼
@@ -246,8 +250,8 @@ never averaged into a flattering score, never silently skipped. We do not claim 
 
 | Package                | Replaces                               | Responsibility                                                                                                                                                                                                                            | Runtime deps                           |
 | ---------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `@zmdb/schema-core`    | MikroORM entities, Zod/TypeBox schemas | Schema DSL, compile-time type derivation (Entity / Create / Update / read DTOs), relations, custom types, seeding, OpenAPI, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                  | none                                   |
-| `@zmdb/query-compiler` | **Kysely**                             | SQL-first compiler: select/insert/update/delete, joins, aggregations, FTS, set ops, schema-object DDL, migration diff, dialects                                                                                                           | none                                   |
+| `@zmdb/schema-core`    | MikroORM entities, Zod/TypeBox schemas | Schema DSL, compile-time type derivation (Entity / Create / Update / read DTOs), relations, custom types, seeding, OpenAPI, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                  | query-compiler                         |
+| `@zmdb/query-compiler` | **Kysely**                             | SQL-first compiler: select/insert/update/delete, joins, aggregations, FTS, set ops, schema-object DDL, migration diff, catalog introspection/declaration emission, dialects                                                               | oxfmt (emitter only)                   |
 | `@zmdb/aot-validator`  | **Typia**                              | AOT transformer + `is`/`assert`/`validate`/`equals`/`random`, tags, unions, transforms, JSON Ser/De                                                                                                                                       | none (`typescript` is a devDep)        |
 | `@zmdb/repository`     | **MikroORM** EM/repos                  | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read replicas, lifecycle events, entity modeling, drivers                                                                                                         | schema-core, query-compiler            |
 | `@zmdb/web`            | **NestJS**                             | Stage-3 controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing | schema-core, aot-validator, repository |

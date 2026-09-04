@@ -1,7 +1,7 @@
 {
   "name": "@zmdb/query-compiler",
   "version": "1.0.0-alpha.4",
-  "description": "SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.",
+  "description": "SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.",
   "keywords": [
     "migrations",
     "mysql",
@@ -39,6 +39,7 @@
     "./introspect": "./src/introspect/index.ts",
     "./migrations": "./src/migrations/index.ts",
     "./migrations/runner": "./src/migrations/runner.ts",
+    "./naming": "./src/naming/index.ts",
     "./outbox": "./src/outbox/index.ts",
     "./set-ops": "./src/set-ops/index.ts",
     "./schema-objects": "./src/schema-objects/index.ts"
@@ -50,6 +51,9 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "oxfmt": "0.66.0"
   },
   "devDependencies": {
     "typescript": "7.0.2"

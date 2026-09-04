@@ -71,7 +71,8 @@ Prisma's nested filter objects are close to zmdb's `WhereDTO`:
 
 `prisma migrate dev` becomes a [generate script](./cli-generate.html) over a committed snapshot. Both approaches produce SQL files you review and commit; zmdb's diff runs against the snapshot rather than a shadow database, so it needs no second connection and works offline.
 
-`prisma db pull` has no equivalent — see [pull](./cli-pull.html).
+`prisma db pull` has no command equivalent yet. The underlying catalog reader
+and declaration emitter ship as library APIs; see [pull](./cli-pull.html).
 
 ## Where the models went
 

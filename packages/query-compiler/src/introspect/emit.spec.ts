@@ -11,6 +11,15 @@ interface FrozenIndexSnapshot {
   readonly unique: boolean;
 }
 
+interface FrozenForeignKeySnapshot {
+  readonly name: string;
+  readonly columns: readonly string[];
+  readonly targetTable: string;
+  readonly targetColumns: readonly string[];
+  readonly onDelete: 'no action' | 'restrict' | 'cascade' | 'set null' | 'set default';
+  readonly onUpdate: 'no action' | 'restrict' | 'cascade' | 'set null' | 'set default';
+}
+
 type FrozenColumnSnapshot = ColumnSnapshot & {
   readonly catalogType?: string;
   readonly default?: string;
@@ -19,7 +28,7 @@ type FrozenColumnSnapshot = ColumnSnapshot & {
 type FrozenTableSnapshot = Omit<TableSnapshot, 'columns'> & {
   readonly columns: readonly FrozenColumnSnapshot[];
   readonly primaryKey: readonly string[];
-  readonly foreignKeys: readonly unknown[];
+  readonly foreignKeys: readonly FrozenForeignKeySnapshot[];
   readonly indexes: readonly FrozenIndexSnapshot[];
 };
 
@@ -50,7 +59,7 @@ async function emitDeclarations(
   snapshot: FrozenSchemaSnapshot,
   options: FrozenEmitOptions,
 ): Promise<FrozenEmitDeclarationsResult> {
-  const module: unknown = await import('../index.js');
+  const module: unknown = await import('./index.js');
   const value: unknown = Reflect.get(Object(module), 'emitDeclarations');
   if (typeof value !== 'function') {
     throw new Error('@zmdb/query-compiler exports no "emitDeclarations" (frozen: introspect/SPEC.md 6)');
@@ -67,8 +76,7 @@ function tableOf(name: string, columns: readonly FrozenColumnSnapshot[]): Frozen
 }
 
 describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
-  // actual today: @zmdb/query-compiler exports no "emitDeclarations".
-  it.fails('emits deterministic, formatted declaration source', async () => {
+  it('emits deterministic, formatted declaration source', async () => {
     const input = snapshotOf(
       tableOf('accounts', [
         {
@@ -98,6 +106,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     expect(account.source).toContain("export interface Account extends Table<'accounts'>");
     expect(account.source).toContain("id: number & Sql<'integer'> & Serial & PrimaryKey;");
     expect(account.source).toContain("created_at: Date & Sql<'timestamp'> & HasDefault;");
+    expect(account.source).toContain('// Database default expression: "CURRENT_TIMESTAMP"');
     expect(account.source).not.toMatch(/[ \t]+$/m);
     expect(account.source.endsWith('\n')).toBe(true);
   });
@@ -105,7 +114,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
   // `bytea` has no app type that round-trips its bytes. It remains exact in the
   // snapshot, but the declaration omits the property and names the omission twice:
   // structurally and beside the generated interface. `unknown` is never the fallback.
-  it.fails('warns and comments rather than widening an unrepresentable type', async () => {
+  it('warns and comments rather than widening an unrepresentable type', async () => {
     const input = snapshotOf(
       tableOf('documents', [
         { name: 'id', type: 'serial', catalogType: 'int4', nullable: false, primaryKey: true },
@@ -126,5 +135,88 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     expect(document.source).toMatch(/TODO:.*payload.*bytea/i);
     expect(document.source).not.toMatch(/^\s*payload\s*:/m);
     expect(document.source).not.toContain('unknown');
+  });
+
+  it('emits an unambiguous many-to-one relation and its exact reference', async () => {
+    const accounts = tableOf('accounts', [
+      { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },
+    ]);
+    const posts: FrozenTableSnapshot = {
+      ...tableOf('posts', [
+        {
+          name: 'account_id',
+          type: 'integer',
+          catalogType: 'INTEGER',
+          nullable: false,
+          primaryKey: false,
+        },
+        { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },
+      ]),
+      foreignKeys: [
+        {
+          name: 'posts_account_id_fkey',
+          columns: ['account_id'],
+          targetTable: 'accounts',
+          targetColumns: ['id'],
+          onDelete: 'no action',
+          onUpdate: 'no action',
+        },
+      ],
+    };
+    const result = await emitDeclarations(
+      { version: 1, tables: [posts, accounts], extensions: [] },
+      { dialect: 'sqlite' },
+    );
+    const post = result.files.find(file => file.path === 'posts.ts');
+    if (!post) throw new Error('emitter produced no posts.ts');
+
+    expect(post.source).toContain("account_id: number & Sql<'integer'> & References<'accounts.id'>;");
+    expect(post.source).toContain("account?: Account & ManyToOne<'accounts', 'account_id'>;");
+    expect(post.source).toContain("import type { Account } from './accounts.js';");
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('skips an ambiguous relation with a warning', async () => {
+    const users = tableOf('users', [
+      { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },
+    ]);
+    const posts: FrozenTableSnapshot = {
+      ...tableOf('posts', [
+        { name: 'author_id', type: 'integer', catalogType: 'INTEGER', nullable: false, primaryKey: false },
+        { name: 'editor_id', type: 'integer', catalogType: 'INTEGER', nullable: false, primaryKey: false },
+        { name: 'id', type: 'serial', catalogType: 'INTEGER', nullable: false, primaryKey: true },
+      ]),
+      foreignKeys: [
+        {
+          name: 'posts_author_id_fkey',
+          columns: ['author_id'],
+          targetTable: 'users',
+          targetColumns: ['id'],
+          onDelete: 'no action',
+          onUpdate: 'no action',
+        },
+        {
+          name: 'posts_editor_id_fkey',
+          columns: ['editor_id'],
+          targetTable: 'users',
+          targetColumns: ['id'],
+          onDelete: 'no action',
+          onUpdate: 'no action',
+        },
+      ],
+    };
+    const result = await emitDeclarations(
+      { version: 1, tables: [posts, users], extensions: [] },
+      { dialect: 'sqlite' },
+    );
+    const post = result.files.find(file => file.path === 'posts.ts');
+    if (!post) throw new Error('emitter produced no posts.ts');
+
+    expect(result.warnings).toContainEqual({
+      table: 'posts',
+      reason: expect.stringMatching(/all target "users".*ambiguous.*omitted/i),
+    });
+    expect(post.source).toMatch(/TODO:.*ambiguous.*omitted/i);
+    expect(post.source).not.toMatch(/^\s*user\??:/m);
   });
 });

@@ -16,6 +16,7 @@ the commands whose executable dispatch has not landed.
 | `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`        | one operation → SQL                      |
 | `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`        | the reverse                              |
 | `createIntrospector(dialect)`   | `@zmdb/query-compiler/introspect`        | live catalog → normalized snapshot       |
+| `emitDeclarations(snapshot, …)` | `@zmdb/query-compiler/introspect`        | snapshot → generated TypeScript files    |
 | `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner` | applies / reverts, records versions      |
 
 ## The commands, and where each stands
@@ -27,13 +28,13 @@ the commands whose executable dispatch has not landed.
 | `push`                       | recognized, not implemented                        | [push](./cli-push.html)                             |
 | `check`                      | recognized, not implemented                        | [check](./cli-check.html)                           |
 | `export`                     | `zmdb export`                                      | [export](./cli-export.html)                         |
-| `pull` / `generate-entities` | catalog reader API; emitter and CLI pending        | [pull](./cli-pull.html)                             |
+| `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending     | [pull](./cli-pull.html)                             |
 | `studio`                     | **not possible** — no server, no UI                | [studio](./cli-studio.html)                         |
 
 Two offline commands are packaged. The remaining database verbs are recognized
 so their help, config errors, JSON envelope, and exit codes stay uniform while
-their scoped implementations land. `pull` has its catalog-reader half as a
-library API but still needs declaration emission and executable dispatch.
+their scoped implementations land. `pull` has its catalog reader and
+declaration emitter as library APIs but still needs executable dispatch.
 
 ## A single entry point
 
@@ -57,7 +58,7 @@ The remaining gaps are command implementations rather than a second CLI shell:
 - **Migration application, rollback, and status** wired to the shipped runner.
 - **Push and check plans** with the command-specific result payloads.
 - **A confirmation prompt** before a destructive operation. `diff()` happily emits `DROP COLUMN`; a CLI should make you type the table name.
-- **Snapshot upgrade and declaration emission** for `upgrade` and `pull`.
+- **Snapshot upgrade** for `upgrade`, plus executable driver/config/output wiring for `pull`.
 
 The config loader, declaration reflection, migration generation, and full-schema
 export have landed. The remaining database command set reuses the same parser,

@@ -77,9 +77,11 @@ rejected regardless of how convenient it is.
    assertion-free: a user should never need `as` to use zmdb correctly.
 6. **ESM-only, no dual publishing.** One module format. `"type": "module"`,
    single `exports` map, no `.cjs`.
-7. **Zero required runtime dependencies.** Packages depend only on other `@zmdb/*`
-   packages and Node built-ins. Third-party integrations (a `pg` driver, a Hono
-   adapter) are _optional_ and structurally typed so the dep is never forced.
+7. **Zero third-party dependencies on the query/validation hot path.** Runtime
+   execution depends only on `@zmdb/*` packages and Node built-ins. Third-party
+   integrations (a `pg` driver, a Hono adapter) are _optional_ and structurally
+   typed. The tooling exception is `oxfmt`, pinned by query-compiler because
+   declaration emission must invoke the same formatter as the repository.
 8. **Honest measurement.** Performance claims are backed by the real upstream
    benchmark harnesses; gaps and trade-offs are enumerated individually, never
    averaged into a flattering score, never silently skipped (see the benchmarks
@@ -198,20 +200,23 @@ refactor.
 ### 3.2 The dependency DAG (must stay acyclic)
 
 ```
-                         ┌───────────────────┐
-                         │   @zmdb/schema-core│  (no deps — the SoT + type derivation)
-                         └─────────┬─────────┘
-                 ┌─────────────────┼──────────────────┐
-                 ▼                 ▼                  ▼
-      ┌────────────────┐  ┌────────────────┐  (schema-core has no
-      │@zmdb/query-    │  │@zmdb/aot-       │   runtime deps; validator
-      │  compiler      │  │  validator      │   is build-time + a tiny
-      │ (no deps)      │  │ (ts as devDep)  │   runtime fallback)
-      └───────┬────────┘  └───────┬────────┘
-              └───────┬───────────┘
-                      ▼
+      ┌────────────────┐
+      │@zmdb/query-    │  (runtime dep: oxfmt, declaration-emitter path only)
+      │  compiler      │
+      └───────┬────────┘
+              ▼
+      ┌───────────────────┐
+      │ @zmdb/schema-core │  (the schema SoT + type derivation)
+      └─────────┬─────────┘
+                ▼
+      ┌────────────────┐
+      │@zmdb/aot-      │  (depends on schema-core; TypeScript is a devDep)
+      │  validator     │
+      └───────┬────────┘
+              └───────┬───────────┐
+                      ▼           │
              ┌────────────────┐
-             │ @zmdb/repository│  (deps: schema-core, query-compiler)
+             │ @zmdb/repository│  (deps: schema-core, query-compiler, aot-validator)
              │  + drivers/*    │   optional peer: pg; built-in: node:sqlite
              └───────┬─────────┘
                      ▼
@@ -228,10 +233,14 @@ refactor.
 
 **Rules enforced by this DAG:**
 
-- **schema-core is the root and depends on nothing.** It is the Single Source of
-  Truth; everything derives downward. It must never import a sibling.
-- **query-compiler and aot-validator are siblings that do not know about each
-  other.** SQL compilation and boundary validation are orthogonal.
+- **query-compiler is the lower-level SQL/tooling package.** Its declaration
+  emitter is the only framework path that requires `oxfmt`; ordinary query
+  compilation does not invoke it.
+- **schema-core is the semantic Single Source of Truth.** It reuses lower-level
+  compiler query, quoting, and naming utilities but must not import validator,
+  repository, or web.
+- **aot-validator depends on schema-core, never the reverse.** Reflection and
+  boundary validation remain above the declaration vocabulary.
 - **repository is the composition layer** — it wires schema + compiler + validator
   into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
 - **web sits above repository** — controllers inject repositories, routes
@@ -245,8 +254,8 @@ refactor.
 
 | Package                | Responsibility                                                                                                                                                                                                                                                                                                   | Runtime deps                                           |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                                                                 | none                                                   |
-| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), dialects                                                                                                                                                                                 | none                                                   |
+| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                                                                 | query-compiler                                         |
+| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff), catalog introspection and declaration emission, dialects                                                                                                                                 | oxfmt (declaration emitter only)                       |
 | `@zmdb/aot-validator`  | The reflection (a tagged interface -> `TypeIR`), the AOT transformer, `zmdb-codegen`, and `schemaOf`/`is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                                                                 | none (ts is a devDep)                                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                                                         | schema-core, query-compiler                            |
 | `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, observability and W3C trace propagation, WS/SSE, testing | schema-core, query-compiler, aot-validator, repository |
