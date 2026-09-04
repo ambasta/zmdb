@@ -57,7 +57,7 @@ jobs:
 
       # `yarn build` is `workspaces foreach -A -t`, i.e. topological, which the build
       # requires: a package resolves its `@zmdb/*` imports to the sibling's `dist/*.d.ts`
-      # (see tsconfig.build.base.json). The loop this replaces named every workspace as
+      # (see tsconfig.build.json). The loop this replaces named every workspace as
       # `@zmdb/$pkg`, and the umbrella package is called `zmdb` — so the last iteration
       # had never built anything.
       - name: Build dist for every package (topological)

@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.json",
   "comment": [
     "No `rootDir`: this project is `noEmit` (nothing here is published), and a rootDir",
     "of `src` makes every cross-package import a TS6059 now that @zmdb/* resolves",

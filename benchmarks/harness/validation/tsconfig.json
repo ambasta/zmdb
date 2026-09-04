@@ -1,6 +1,6 @@
 {
   "//": "The program the generator loads. Only the two files it reads: a checker call is a round-trip to the tsgo child process, so a project that pulled in the bench and its npm-installed competitors would cost a program nothing here looks at.",
-  "extends": "../../../tsconfig.base.json",
+  "extends": "../../../tsconfig.json",
   "compilerOptions": {},
   "files": ["model.ts", "aot-source.ts"]
 }

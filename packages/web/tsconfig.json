@@ -1,19 +1,17 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.json",
   "comment": [
     "No `paths` override: this project used to remap the `@zmdb/*` imports to",
     "`../*/dist/*.d.ts`, i.e. to build artifacts that are gitignored (unresolvable",
     "in a fresh CI checkout) and stale whenever a sibling source changed without a",
-    "rebuild. The source-based paths in tsconfig.base.json are the single source of",
+    "rebuild. The source-based paths in tsconfig.json are the single source of",
     "truth. No `rootDir`/`outDir` either: this project is `noEmit`, and a rootDir",
     "of `src` makes every cross-package import a TS6059. Emit is a separate",
     "project, `./tsconfig.build.json`, for exactly that reason.",
     "Specs are not excluded — they are part of the typecheck gate."
   ],
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "experimentalDecorators": false,
-    "emitDecoratorMetadata": false
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist"]

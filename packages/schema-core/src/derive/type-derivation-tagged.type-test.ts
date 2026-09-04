@@ -97,7 +97,7 @@ export type _Upd2 = Expect<Equal<UpdateDTO<User>['role'], (('admin' | 'user') & 
 // difference in spelling — and it applies to `CreateDTO` equally.
 //
 // `UpdateDTO` is a `Partial<…>`, and under `exactOptionalPropertyTypes` — on repo-wide, in
-// `tsconfig.base.json` — `Partial` produces `email?: string`, which accepts the key being
+// `tsconfig.json` — `Partial` produces `email?: string`, which accepts the key being
 // absent but not the key being present and `undefined`. The value-side `UpdateDTO` widened to
 // `| undefined` and so accepted both.
 //

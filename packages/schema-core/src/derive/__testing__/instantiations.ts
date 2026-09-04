@@ -162,7 +162,7 @@ function project(name: string, variant: Variant): string {
   writeFileSync(`${directory}/schemas.ts`, `${source}\n`);
   writeFileSync(
     `${directory}/tsconfig.json`,
-    `${JSON.stringify({ extends: `${ROOT}tsconfig.base.json`, files: ['schemas.ts'] }, undefined, 2)}\n`,
+    `${JSON.stringify({ extends: `${ROOT}tsconfig.json`, files: ['schemas.ts'] }, undefined, 2)}\n`,
   );
   return directory;
 }

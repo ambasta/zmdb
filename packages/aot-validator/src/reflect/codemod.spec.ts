@@ -94,7 +94,7 @@ beforeAll(() => {
   // config does not name is invisible to that program however it is announced.
   writeFileSync(
     `${SCRATCH}tsconfig.json`,
-    `${JSON.stringify({ extends: `${ROOT}tsconfig.base.json`, files: ['corpus.ts'] }, undefined, 2)}\n`,
+    `${JSON.stringify({ extends: `${ROOT}tsconfig.json`, files: ['corpus.ts'] }, undefined, 2)}\n`,
   );
 
   session = ReflectSession.open({ project: `${SCRATCH}tsconfig.json` });

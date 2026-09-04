@@ -1,6 +1,6 @@
 {
   "//": "The program `openapi-model.ts` is read in. One file, because the rest of the docs build is `.mjs` and has nothing for a compiler to check; this exists so the four interfaces the published OpenAPI document is derived from are typechecked like any other declaration, and so `schemasFrom` has a project to open.",
-  "extends": "../tsconfig.base.json",
+  "extends": "../tsconfig.json",
   "compilerOptions": {},
   "files": ["openapi-model.ts"]
 }

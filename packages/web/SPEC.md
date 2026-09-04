@@ -40,7 +40,7 @@ and `@zmdb/repository`; it has **zero third-party runtime dependencies**.
 
 ### tsconfig
 
-- Extends `../../tsconfig.base.json`.
+- Extends `../../tsconfig.json`.
 - `rootDir`, `outDir` and the sibling `.d.ts` `paths` live in `tsconfig.build.json`,
   the emit project; `tsconfig.json` is `noEmit` and resolves siblings to their
   sources, so an edit in one package is a compile error here immediately.
