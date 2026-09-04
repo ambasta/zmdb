@@ -203,8 +203,8 @@ export function getRoutes(controller: abstract new (...args: never[]) => unknown
   }));
 }
 
-/** Middleware declarations are inert instances or typed application injection tokens. */
-export type MiddlewareDeclaration<T> = T | Token<T>;
+/** Middleware declarations are inert instances, class constructors, or typed application injection tokens. */
+export type MiddlewareDeclaration<T> = T | Token<T> | (new (...args: never[]) => T);
 export interface MiddlewareDeclarations {
   readonly guards: readonly MiddlewareDeclaration<Guard>[];
   readonly pipes: readonly MiddlewareDeclaration<Pipe>[];
@@ -267,6 +267,7 @@ function resolveDeclaration<T extends object>(
   resolve?: MiddlewareResolver,
 ): T {
   if (isMiddlewareInstance(value, member)) return value;
+  if (typeof value === 'function') return new (value as new () => T)();
   if (resolve === undefined)
     throw new Error(`@zmdb/web: middleware token "${value.description}" requires application DI`);
   return resolve(value);

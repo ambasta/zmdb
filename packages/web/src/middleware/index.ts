@@ -4,9 +4,11 @@
 
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { WebResponse } from '../pipeline/index.js';
+import { middlewareFor } from '../routing/index.js';
 import { BoundaryStatusError, ChainError } from './errors.js';
 
 export { ChainError } from './errors.js';
+export { UseGuards, UsePipes, UseInterceptors, UseFilters, middlewareFor } from '../routing/index.js';
 
 export type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 
@@ -45,6 +47,16 @@ export interface Chain {
 
 /** A handler invoked with the (piped) ctx. */
 export type ChainHandler = (ctx: AnyCtx) => unknown;
+
+/** Resolve the compiled Chain for a controller method, reading native Stage-3 metadata. */
+export function getChain(target: object, handlerName?: string): Chain {
+  const ctor =
+    typeof target === 'function'
+      ? (target as abstract new (...args: never[]) => unknown)
+      : (target.constructor as abstract new (...args: never[]) => unknown);
+  const instance = typeof target === 'function' ? Object.create((target as Function).prototype) : target;
+  return middlewareFor(instance, ctor, handlerName ?? '');
+}
 
 /**
  * Run a middleware chain around `handler` for `ctx`. Order: guards → pipes (fold

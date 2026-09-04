@@ -98,8 +98,8 @@ interface BoundRoute {
   readonly operation?: HttpOperationIR;
   readonly pattern: CompiledPattern;
   readonly handler: Handler;
+  readonly chain: Chain;
   readonly validateBody?: (raw: unknown) => unknown;
-  readonly guards?: readonly Guard[];
   readonly neutral?: true;
   readonly versionJsonHeaders?: Readonly<Record<string, string>>;
 }
@@ -824,6 +824,38 @@ function fileHandleStream(handle: FileHandle): ReadableStream<Uint8Array<ArrayBu
   });
 }
 
+function isWebResponse(value: unknown): value is WebResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const status: unknown = Reflect.get(value, 'status');
+  const body: unknown = Reflect.get(value, 'body');
+  const headers: unknown = Reflect.get(value, 'headers');
+  return (
+    typeof status === 'number' &&
+    (typeof body === 'string' || (typeof body === 'object' && body !== null)) &&
+    typeof headers === 'object' &&
+    headers !== null
+  );
+}
+
+function statusOfError(error: object): number | undefined {
+  const status = Reflect.get(error, 'status');
+  return typeof status === 'number' ? status : undefined;
+}
+
+function normalizeWebResponse(response: WebResponse): WebResponse {
+  const body: unknown = response.body;
+  if (typeof body === 'string') {
+    return {
+      status: response.status,
+      body: textBody(body),
+      headers: response.headers,
+    };
+  }
+  return response;
+}
+
 export interface Router {
   register(controller: object, options?: Readonly<Record<string, RouteOptions>>): void;
   registerContract(
@@ -886,16 +918,16 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   function addPathRoute(
     route: ResolvedRoute,
     handler: Handler,
-    validateBody: ((raw: unknown) => unknown) | undefined,
-    guards: readonly Guard[],
+    chain: Chain,
+    validateBody?: (raw: unknown) => unknown,
   ): void {
     const pattern = compilePattern(route.path);
     bucketFor(buckets, route.method, pattern.segmentCount).push({
       route,
       pattern,
       handler,
+      chain,
       ...(validateBody === undefined ? {} : { validateBody }),
-      ...(guards.length === 0 ? {} : { guards }),
     });
   }
 
@@ -903,8 +935,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     controller: ControllerCtor,
     route: ResolvedRoute,
     handler: Handler,
-    validateBody: ((raw: unknown) => unknown) | undefined,
-    guards: readonly Guard[],
+    chain: Chain,
+    validateBody?: (raw: unknown) => unknown,
   ): void {
     const declaration = versionsOf(controller, route.handlerName);
 
@@ -915,7 +947,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             '@Version() requires createRouter({ versioning: ... })',
         );
       }
-      addPathRoute(route, handler, validateBody, guards);
+      addPathRoute(route, handler, chain, validateBody);
       return;
     }
 
@@ -928,13 +960,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (versioning.kind === 'path') {
       if (declaration === 'neutral') {
-        addPathRoute(route, handler, validateBody, guards);
+        addPathRoute(route, handler, chain, validateBody);
         return;
       }
       for (const version of declaration) {
         const publicPath = pathForVersion(versioning.prefix, version, route.path);
         claimVersionedRoute(controller, route, version, publicPath);
-        addPathRoute({ ...route, path: publicPath }, handler, validateBody, guards);
+        addPathRoute({ ...route, path: publicPath }, handler, chain, validateBody);
       }
       return;
     }
@@ -944,8 +976,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       route,
       pattern,
       handler,
+      chain,
       ...(validateBody === undefined ? {} : { validateBody }),
-      ...(guards.length === 0 ? {} : { guards }),
     };
     if (declaration === 'neutral') {
       addNeutralRoute(versionBuckets, neutralBuckets, route.method, { ...base, neutral: true });
@@ -979,13 +1011,22 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   ): void {
     const route = { method: operation.method, path: operation.path, handlerName: operation.handler };
     const pattern = compilePattern(operation.path);
+    const decoratorChain = getChain(controller, operation.handler);
+    const optionsPipe: Pipe | undefined = validateBody ? { transform: raw => validateBody(raw) } : undefined;
+    const pipes = optionsPipe ? [optionsPipe, ...decoratorChain.pipes] : decoratorChain.pipes;
+    const chain: Chain = {
+      guards: [...guards, ...decoratorChain.guards],
+      pipes,
+      interceptors: decoratorChain.interceptors,
+      filters: decoratorChain.filters,
+    };
     const base = {
       route,
       operation,
       pattern,
       handler,
+      chain,
       ...(validateBody === undefined ? {} : { validateBody }),
-      ...(guards.length === 0 ? {} : { guards }),
     };
 
     if (operation.version.kind === 'none') {
@@ -1138,20 +1179,6 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           path: req.path,
         });
 
-        for (const guard of matched.guards ?? []) {
-          try {
-            if (!(await guard.canActivate(ctx))) {
-              response = jsonResponse(403, { error: 'forbidden' });
-              return response;
-            }
-          } catch (error) {
-            failed = true;
-            failure = error;
-            response = jsonResponse(500, { error: messageOf(error) });
-            return response;
-          }
-        }
-
         if (matched.validateBody !== undefined) {
           const validationSpan = childSpan(tracer, serverSpan, 'zmdb.validate');
           try {
@@ -1172,9 +1199,11 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         const handlerSpan = childSpan(tracer, serverSpan, 'zmdb.handler');
         const handlerCtx = handlerSpan === undefined ? ctx : { ...ctx, span: handlerSpan };
         try {
-          const result = await matched.handler(handlerCtx);
+          const result = await runChain(matched.chain, handlerCtx, matched.handler);
           response = mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result) || isWebResponse(result)
+              ? normalizeWebResponse(result)
+              : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
             matched.versionJsonHeaders,
           );
           return response;
@@ -1182,15 +1211,17 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           failed = true;
           failure = error;
           recordFailure(handlerSpan, error);
+
           if (error instanceof ChainError) {
             response = jsonResponse(error.status, { error: error.message });
             return response;
           }
-          if (error instanceof ValidationError || claimsValidationIssues(error)) {
-            const message = messageOf(error);
-            const issues = validationIssuesOf(error);
-            response = jsonResponse(400, issues ? { error: message, issues } : { error: message });
-            return response;
+          if (typeof error === 'object' && error !== null) {
+            const status = statusOfError(error);
+            if (status !== undefined) {
+              response = jsonResponse(status, { error: messageOf(error) });
+              return response;
+            }
           }
           response = jsonResponse(500, { error: messageOf(error) });
           return response;
@@ -1383,10 +1414,17 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           }
           return resolved(ctx);
         };
-        const guards = isPublic(controller, route.handlerName)
-          ? []
-          : resolveGuards(routerOptions.guardRegistry, controller.name);
-        addBoundRoute(controller, route, handler, undefined, guards);
+        const publicRoute = isPublic(controller, route.handlerName);
+        const resolvedGuards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, controller.name);
+        const decoratorChain = getChain(controller, route.handlerName);
+        const chain: Chain = {
+          guards: publicRoute ? [] : [...resolvedGuards, ...decoratorChain.guards],
+          pipes: decoratorChain.pipes,
+          interceptors: decoratorChain.interceptors,
+          filters: decoratorChain.filters,
+        };
+
+        addBoundRoute(controller, route, handler, chain);
       }
     },
 
@@ -1411,31 +1449,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           method,
           path: req.path,
         });
-        for (const guard of bound.guards ?? []) {
-          try {
-            if (!(await guard.canActivate(ctx))) {
-              return jsonResponse(403, { error: 'forbidden' });
-            }
-          } catch (error) {
-            return jsonResponse(500, { error: messageOf(error) });
-          }
-        }
-
-        if (bound.validateBody !== undefined) {
-          try {
-            ctx.body = bound.validateBody(req.rawBody);
-          } catch (error) {
-            const message = messageOf(error);
-            const issues = validationIssuesOf(error);
-            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
-          }
-        }
         try {
-          const result = await bound.handler(ctx);
-          // One symbol check on the hot path, no extra allocation: a handler that
-          // returns a plain value takes exactly the path it took before.
+          const result = await runChain(bound.chain, ctx, bound.handler);
           return mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            isTaggedResponse(result) || isWebResponse(result)
+              ? normalizeWebResponse(result)
+              : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
             bound.versionJsonHeaders,
           );
         } catch (error) {
@@ -1445,10 +1464,11 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           if (error instanceof ChainError) {
             return jsonResponse(error.status, { error: error.message });
           }
-          if (error instanceof ValidationError || claimsValidationIssues(error)) {
-            const message = messageOf(error);
-            const issues = validationIssuesOf(error);
-            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
+          if (typeof error === 'object' && error !== null) {
+            const status = statusOfError(error);
+            if (status !== undefined) {
+              return jsonResponse(status, { error: messageOf(error) });
+            }
           }
           return jsonResponse(500, { error: messageOf(error) });
         }
