@@ -178,6 +178,14 @@ describe('shallow validator fallback', () => {
     });
     expect(validateShallow<{ user: { id: number } }, 2>(malformedBelowLimit, nested, 2)).toEqual({
       success: false,
+      issues: [
+        {
+          path: 'input.user.id',
+          expected: 'number',
+          value: 'not a number',
+          message: 'expected number',
+        },
+      ],
       errors: [
         {
           path: 'input.user.id',
