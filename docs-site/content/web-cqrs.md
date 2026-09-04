@@ -4,10 +4,11 @@ sagas; those are explicit decisions rather than unfinished arms of the API.
 
 ## What the command boundary earns
 
-A command bus is useful here only because every write crosses one fixed pipeline:
-validate, authorise, optional transaction, handler, outcome observation. A
-string-keyed `dispatch(name, unknown)` API would give up the input and result
-types that justify the indirection, so the caller gets one method per command.
+A command bus is useful here only when the application routes each command
+through one fixed pipeline: validate, optional authorisation, optional
+transaction, handler, outcome observation. A string-keyed
+`dispatch(name, unknown)` API would give up the input and result types that
+justify the indirection, so the caller gets one method per command.
 
 ```ts
 import { createTransactionalDb } from '@zmdb/repository/transactions';
@@ -61,8 +62,12 @@ against the same map, so `bus.publishPost({ id: 1 })` resolves as
 
 Validation and authorisation run before the optional transaction opens. A
 handler receives the exact `TransactionContext` supplied by the wrapper and can
-bind repositories or call `events.emitInTransaction` with it. Failures are
-re-thrown unchanged after `onCommand` observes the outcome.
+bind repositories or call `events.emitInTransaction` with it. The wrapper cannot
+force a handler to use that context: writing through an unbound repository
+escapes the transaction, so transactional handlers must use
+`repo.withTransaction(tx)`. Failures are re-thrown unchanged after `onCommand`
+observes the outcome, and an observer failure cannot replace either the result
+or the original error.
 
 ## Reads stay in repositories
 

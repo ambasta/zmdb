@@ -1524,8 +1524,7 @@ export const PAGE_META = {
   'web-cqrs': {
     title: 'CQRS',
     group: 'Web Framework — DI & Modules',
-    status: 'todo',
-    note: 'the typed command boundary ships; query buses, event sourcing and sagas are deliberately absent, and final application-messaging documentation remains #597',
+    status: 'supported',
   },
   'web-openapi': {
     title: 'OpenAPI Generation',
@@ -1580,8 +1579,7 @@ export const PAGE_META = {
   'web-events': {
     title: 'Events',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'the typed application emitter and transactional crossing ship; final application-messaging documentation remains grouped with the command-bus slice (#596/#597)',
+    status: 'supported',
   },
   'web-http-client': {
     title: 'HTTP Client',

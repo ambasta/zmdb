@@ -104,6 +104,17 @@ await dispatcher.runOnce(); // one externally scheduled pass
 dispatcher.start(); // or let it own the bounded polling loop
 ```
 
+The bounded defaults are part of the operating contract:
+
+| Option        | Default                               | Effect                                           |
+| ------------- | ------------------------------------- | ------------------------------------------------ |
+| `batch`       | `100`                                 | maximum rows claimed in one pass                 |
+| `leaseMs`     | `30_000`                              | time before another dispatcher may reclaim a row |
+| `maxAttempts` | `10`                                  | failed publish count that moves a row to `dead`  |
+| `backoffMs`   | `min(2 ** attempts * 1_000, 300_000)` | retry delay stored in `leaseUntil`               |
+| `idleMs`      | `1_000`                               | first delay after an empty pass                  |
+| `maxIdleMs`   | `30_000`                              | cap for the doubling idle delay                  |
+
 `createOutboxDispatcher` also implements the app lifecycle structurally:
 `onModuleInit()` is the idempotent alias for `start()`, and `onShutdown()` is
 awaitable. Register the instance as a value provider, or resolve its factory
@@ -139,7 +150,8 @@ work; a full batch polls again immediately.
 
 Delivery is **at least once**. If publish succeeds and the process dies before the delivered mark, the lease
 expires and another dispatcher publishes the row again. Consumers must be idempotent and should carry a
-deduplication key in the payload.
+deduplication key in the payload; the [queue worker's idempotency guidance](./web-queues.html) shows the same
+handler-owned completion-marker rule.
 
 Ordering is deliberately weak:
 
@@ -148,6 +160,10 @@ Ordering is deliberately weak:
 | one dispatcher, `batch: 1`  | global and per-topic by `createdAt`                 |
 | one dispatcher, `batch > 1` | claimed by `createdAt`, then published sequentially |
 | multiple dispatchers        | none                                                |
+
+Those are clean-pass sequencing properties, not a durable ordering contract. A
+failed older row backs off while a newer row can publish, so code that requires
+per-topic order needs an application-owned per-topic sequencing rule.
 
 ## Operating it
 
@@ -159,7 +175,32 @@ Ordering is deliberately weak:
 - Outside an app, call `onShutdown()` explicitly to drain the owned loop.
 - Alert on pending-row lag, not only process health:
   `MAX(now() - created_at) WHERE status = 'pending'`.
-- Query `status = 'dead'` for terminal rows and replay them deliberately after fixing the cause.
+- Query `status = 'dead'` for terminal rows and inspect `last_error`, `attempts`,
+  `topic`, and `payload` before replaying.
+
+There is deliberately no automatic replay helper: retrying a poison message
+before fixing its cause only makes it poison again. After fixing the cause,
+reset the chosen row explicitly so the normal claim path can see it:
+
+```ts
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+const replay = createQueryCompiler(driver.dialect ?? 'postgres')
+  .updateTable('zmdb_outbox')
+  .set({
+    status: 'pending',
+    attempts: 0,
+    lease_owner: '',
+    lease_until: new Date(0),
+    delivered_at: null,
+    last_error: null,
+  })
+  .where('id', '=', deadRowId)
+  .where('status', '=', 'dead')
+  .compile();
+
+await driver.execute(replay);
+```
 
 On Postgres, `LISTEN/NOTIFY` can reduce latency, but keep the periodic poll as a floor: notifications can be
 missed during reconnects.
@@ -169,4 +210,4 @@ consumer concern because the outbox deliberately accepts any byte-stable string,
 
 ---
 
-See also: [Transactions](./transactions.html) · [Batch API](./batch.html) · [Task Scheduling](./web-task-scheduling.html)
+See also: [Transactions](./transactions.html) · [Batch API](./batch.html) · [Queues](./web-queues.html) · [Task Scheduling](./web-task-scheduling.html)

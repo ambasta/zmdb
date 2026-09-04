@@ -129,6 +129,21 @@ accidentally awaited. `emitAndWait` resolves only after every handler settles an
 returns `{ delivered, failures }`; handler failures are data, not control flow.
 Neither call gives handlers an ordering guarantee.
 
+## Application events are not repository lifecycle events
+
+`EventBus` from `@zmdb/repository/entity-modeling` is a different boundary with
+deliberately opposite failure semantics. It runs matching lifecycle subscribers
+sequentially, stops on the first failure, and lets that failure reject the
+explicit repository override that emitted it. Use it for a `beforeCreate` veto
+or another hook that is part of the write itself.
+
+Use `Events<M>` for application facts whose independent handlers must all get a
+chance to run. Its handlers run concurrently and one failure is reported without
+stopping the others. If the fact must survive a rollback, process exit, or
+another replica, write it through `emitInTransaction` and the outbox instead.
+The [lifecycle hooks page](./lifecycle-hooks.html) shows the explicit repository
+override and the point where each API belongs.
+
 ## In-process events do not cross instances
 
 An emitter reaches listeners in **this** process. With more than one replica, a cache invalidation event invalidates one instance's cache and leaves the others stale — a bug that only appears in production, because development runs one process.
@@ -158,4 +173,4 @@ The outbox dispatcher now ships. Its `publish` callback remains at-least-once, s
 
 ---
 
-See also: [Transactional Outbox](./transactional-outbox.html) · [CQRS](./web-cqrs.html) · [Queues](./web-queues.html)
+See also: [Lifecycle Hooks](./lifecycle-hooks.html) · [Transactional Outbox](./transactional-outbox.html) · [CQRS](./web-cqrs.html) · [Queues](./web-queues.html)
