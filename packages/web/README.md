@@ -1,10 +1,12 @@
 # @zmdb/web
 
-Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.
+`@zmdb/web` is the web framework for zmdb applications. It provides controllers,
+typed request contexts, compile-time dependency injection, middleware, OpenAPI,
+transports, background jobs, and scheduling using standard Stage 3 decorators.
+It does not depend on `reflect-metadata` or runtime reflection.
 
-Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
-define your schema once and entities, DTOs, validation, serialization, OpenAPI
-and CRUD all derive at compile time.
+It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript
+schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
 ## Install
 
@@ -18,17 +20,24 @@ npm add @zmdb/web@alpha
 
 ## Entry points
 
-`@zmdb/web`, `@zmdb/web/routing`, `@zmdb/web/versioning`, `@zmdb/web/context`, `@zmdb/web/di`, `@zmdb/web/state`, `@zmdb/web/pipeline`, `@zmdb/web/static`, `@zmdb/web/compression`, `@zmdb/web/upload`, `@zmdb/web/data`, `@zmdb/web/modules`, `@zmdb/web/middleware`, `@zmdb/web/app`, `@zmdb/web/dto-pipes`, `@zmdb/web/openapi`, `@zmdb/web/health`, `@zmdb/web/observability`, `@zmdb/web/otel`, `@zmdb/web/gateways`, `@zmdb/web/events`, `@zmdb/web/cqrs`, `@zmdb/web/microservices`, `@zmdb/web/microservices/redis`, `@zmdb/web/microservices/nats`, `@zmdb/web/microservices/rabbitmq`, `@zmdb/web/queues`, `@zmdb/web/queues/backends/memory`, `@zmdb/web/queues/backends/pg`, `@zmdb/web/schedule`, `@zmdb/web/testing`, `@zmdb/web/bench`, `@zmdb/web/devtools`
+The package root contains the common framework APIs. Feature-specific entry
+points include `/routing`, `/versioning`, `/context`, `/di`, `/state`,
+`/pipeline`, `/middleware`, `/app`, `/modules`, `/openapi`, `/health`, `/upload`,
+`/static`, `/compression`, `/events`, `/cqrs`, `/queues`, `/schedule`,
+`/observability`, `/testing`, and `/devtools`.
 
-`@zmdb/web/observability` contains dependency-free ports and instrumentation.
-`@zmdb/web/otel` adapts the optional `@opentelemetry/api` peer; it does not ship
-an SDK, exporter, backend or metrics endpoint.
-`@zmdb/web/versioning` contains the Stage-3 version decorators and the path,
-header and media-type strategy types used by both the router and OpenAPI.
+Transport adapters live under `/microservices`, with dedicated Redis, NATS, and
+RabbitMQ entry points. Queue backends are published under `/queues/backends`.
 
-Redis, core NATS and RabbitMQ clients are optional peers reached only through
-their named microservices subpaths. A plain `@zmdb/web` install includes none
-of them; install only the client for the adapter you import.
+`@zmdb/web/observability` contains dependency-free instrumentation interfaces.
+`@zmdb/web/otel` connects them to the optional `@opentelemetry/api` peer. It
+does not bundle an SDK, exporter, backend, or metrics endpoint.
+
+`@zmdb/web/versioning` provides version decorators and the path, header, and
+media-type strategies used by the router and OpenAPI generator.
+
+Redis, NATS, and RabbitMQ clients are optional peers. Install only the client
+used by the adapter you import.
 
 ## Documentation
 

@@ -98,7 +98,7 @@ export interface User extends Table<'users'> {
 type Public = ReadDTO<User>; // { id: number; email: string } — no passwordHash
 ```
 
-Three consequences worth knowing, because they are different from each other:
+This has three separate consequences:
 
 - **`Entity<User>` keeps it.** The column is still selected and still on the row — the tag changes what a _read endpoint_ may return, not what a query returns.
 - **`CreateDTO<User>` keeps it too**, deliberately: you have to be able to send a password.

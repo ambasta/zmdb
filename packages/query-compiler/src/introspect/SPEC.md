@@ -6,12 +6,11 @@
 
 ## 1. Why the reverse direction is not the forward one inverted
 
-Forward, the type map is a total function out of a closed vocabulary: `Sql<'text'>` is `TEXT`, always, and
-each root `DialectTypeMap` has one row per abstract type. Backward it is a partial function out of an open
-one. Postgres will report `character varying`, `varchar`, `text`, `citext`, `name`, a domain over any of
-those, or an enum — several collapsing onto one `SqlType`, one carrying a constraint no tag can state, and
-one mapping to nothing at all. A spec that said "map the type back" would produce an emitter that widens
-the awkward cases to `unknown` and reports success.
+Forward, the type map is a total function out of a closed vocabulary: `Sql<'text'>` is `TEXT`, always, and each root `DialectTypeMap` has one row per abstract type. Backward it is a partial function out of an open one.
+
+Postgres will report `character varying`, `varchar`, `text`, `citext`, `name`, a domain over any of those, or an enum — several collapsing onto one `SqlType`, one carrying a constraint no tag can state, and one mapping to nothing at all.
+
+A spec that said "map the type back" would produce an emitter that widens the awkward cases to `unknown` and reports success.
 
 There are two outputs and they are different products, which is the distinction the rest of this document
 rests on:
@@ -116,7 +115,7 @@ the result, so an empty diff can be trusted or disbelieved on the evidence.
 
 **MySQL** — `information_schema.TABLES`, `.COLUMNS`, `.STATISTICS`, `.KEY_COLUMN_USAGE`,
 `.REFERENTIAL_CONSTRAINTS`. MySQL does expose indexes through `information_schema.STATISTICS`, so there is
-no second catalog to read; the asymmetry with Postgres is worth stating so nobody goes looking for one.
+no second catalog to read for them.
 Both `DATA_TYPE` and `COLUMN_TYPE` are read, because `DATA_TYPE` is `tinyint` and `COLUMN_TYPE` is
 `tinyint(1)`, and `tinyint(1)` is the only evidence a column was meant to be a boolean. `COLUMNS.EXTRA`
 carries `auto_increment` and the generated-column expression.
@@ -167,7 +166,7 @@ drift.
 | domain (`typtype = 'd'`)                                  | its base type                       | constraint lost — warn            |
 | `uuid`, `inet`, `bytea`, `tsvector`, any array, any range | —                                   | omitted (see the policy below)    |
 
-`timestamp without time zone` is the row worth reading twice. The forward map emits `TIMESTAMPTZ`
+Pay particular attention to `timestamp without time zone`. The forward map emits `TIMESTAMPTZ`
 deliberately, because plain `TIMESTAMP` in Postgres stores the wall clock and forgets the offset. So a
 round trip through zmdb _changes that column's type_, which is an improvement and a surprise, and the
 warning says so rather than letting a `pull` quietly rewrite a table's semantics on the next `push`.
@@ -206,7 +205,7 @@ from a fixed set:
 | anything else                     | its affinity            | warn, naming the declared text           |
 
 The last row is not laziness: SQLite accepted the column, so refusing to snapshot it would make the
-snapshot less true than the database. Applying SQLite's own affinity rules and saying so is the honest
+snapshot less true than the database. Applying SQLite's own affinity rules and saying so is the
 answer.
 
 ### The unrepresentable policy, in one rule
@@ -242,7 +241,7 @@ interface ColumnSnapshot {
 `diff` compares `type`, not `catalogType`. The latter is evidence for warnings and generated comments:
 aliases can normalize to one abstract type without erasing what the server actually said. If no abstract
 type can represent the column, `type` retains the catalog spelling too; such a column cannot clean-diff
-against a declaration because no declaration can express it, which is the honest outcome.
+against a declaration because no declaration can express it, which is the accurate outcome.
 
 A default in a catalog is a SQL expression string — `now()`, `CURRENT_TIMESTAMP`, `'user'::text`,
 `uuid_generate_v4()`, `nextval('users_id_seq')` — and none of those is a value. Evaluating one means
@@ -258,15 +257,9 @@ DDL is a deliberate human act rather than something a generator guesses.
 `nextval('…')` is not recorded as a default at all. It is how Postgres spells `serial`, it is consumed by
 §5, and recording it twice would make `push` emit both a `SERIAL` and a redundant `DEFAULT`.
 
-**`diff` does not compare defaults, and this section is where that is frozen.** Servers normalise these
-strings: MySQL rewrites the case of `CURRENT_TIMESTAMP`, Postgres appends `::text` casts and reformats
-whitespace. Comparing verbatim therefore reports an `alter` after a server upgrade that changed nothing,
-and comparing loosely means writing an expression normaliser for three dialects' expression grammars —
-the same trade `../schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason. So
-the default is recorded, shown by `pull`, printed in the generated comment, and not diffed. When a
-drift report is requested, its normalization boundary explicitly removes `default` and `catalogType`
-evidence before delegating to `diff`: the normalized abstract `type` is compared, while two server
-spellings of the same default remain review evidence rather than schema drift.
+**`diff` does not compare defaults, and this section is where that is frozen.** Servers normalise these strings: MySQL rewrites the case of `CURRENT_TIMESTAMP`, Postgres appends `::text` casts and reformats whitespace. Comparing verbatim therefore reports an `alter` after a server upgrade that changed nothing, and comparing loosely means writing an expression normaliser for three dialects' expression grammars — the same trade `../schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason.
+
+So the default is recorded, shown by `pull`, printed in the generated comment, and not diffed. When a drift report is requested, its normalization boundary explicitly removes `default` and `catalogType` evidence before delegating to `diff`: the normalized abstract `type` is compared, while two server spellings of the same default remain review evidence rather than schema drift.
 
 ## 5. Recognising a generated key column, per dialect
 
@@ -285,12 +278,9 @@ spellings of the same default remain review evidence rather than schema drift.
 
 ## 6. The emitted declaration
 
-**One printer, not a second one.** `scripts/codemod-tagged-schema.mjs` already turns column facts into a
-tagged property, and it already solves the two problems a fresh printer would rediscover: the tag order,
-and that nullability is `(T & Tags) | null` with the tags _inside_, because TypeScript distributes an
-intersection over a union and `null & Unique` reduces to `never` — silently dropping the nullability.
-`emitDeclarations` is that printer promoted to a library function, and the codemod becomes a caller. A
-second printer is the four-walkers problem from `schema-core/src/ir/SPEC.md` §1, in a new place.
+**One printer, not a second one.** `scripts/codemod-tagged-schema.mjs` already turns column facts into a tagged property, and it already solves the two problems a fresh printer would rediscover: the tag order, and that nullability is `(T & Tags) | null` with the tags _inside_, because TypeScript distributes an intersection over a union and `null & Unique` reduces to `never` — silently dropping the nullability. `emitDeclarations` is that printer promoted to a library function, and the codemod becomes a caller.
+
+A second printer is the four-walkers problem from `schema-core/src/ir/SPEC.md` §1, in a new place.
 
 Tag order, frozen as the codemod already emits it: the base type, `Sql<…>` or `Ext<…>`, `Length<…>`, then
 `Serial` or `HasDefault` (never both — `Serial` implies it), `PrimaryKey`, `Unique`, `Sensitive`,
@@ -300,14 +290,9 @@ Tag order, frozen as the codemod already emits it: the base type, `Sql<…>` or 
 makes every regeneration a conflict in one place; a name derived from the database needs no naming
 decision at generation time. An `index.ts` barrel re-exports them, which is the file a person imports.
 
-**The interface name is cosmetic, and that is deliberate.** Deriving `User` from `users` is the naming
-strategy run backwards, and a strategy is not invertible: `snakeCasePlural` is not injective, and no rule
-recovers `person` from `people` without the irregular table that produced it. So the emitter does not
-invert anything. It splits on `_`, PascalCases, and singularises through the same small explicit rule set
-and irregular table used by OpenAPI component naming. That pure lower-level function is exported from
-`@zmdb/query-compiler/naming`, allowing both the emitter and `@zmdb/schema-core/openapi` to reuse it without
-reversing the package graph. Where the result is not a safe or unique TypeScript identifier, the emitter
-uses a deterministic fallback and warns.
+**The interface name is cosmetic, and that is deliberate.** Deriving `User` from `users` is the naming strategy run backwards, and a strategy is not invertible: `snakeCasePlural` is not injective, and no rule recovers `person` from `people` without the irregular table that produced it. So the emitter does not invert anything. It splits on `_`, PascalCases, and singularises through the same small explicit rule set and irregular table used by OpenAPI component naming.
+
+That pure lower-level function is exported from `@zmdb/query-compiler/naming`, allowing both the emitter and `@zmdb/schema-core/openapi` to reuse it without reversing the package graph. Where the result is not a safe or unique TypeScript identifier, the emitter uses a deterministic fallback and warns.
 
 The safety here is structural rather than careful: `Table<'…'>` always carries the physical table name
 verbatim, so an imperfect interface name costs nothing beyond aesthetics and can never produce a wrong
@@ -339,13 +324,9 @@ Tables sorted by name. Tags in §6's fixed order. The output run through the rep
 regeneration produces no incidental whitespace diff and the file looks like the rest of the codebase.
 Nothing in the output moves between two runs against the same database.
 
-Columns are emitted **in name order**, not in ordinal position, and this is a deliberate departure from
-what the epic asked for. `emitDeclarations` takes a `SchemaSnapshot`, whose columns are already sorted by
-name (`../migrations/SPEC.md` §1), so ordinal position is not available at that point — and carrying it
-into the snapshot would be worse than losing it: a column's ordinal is a fact about physical layout that
-no zmdb DDL controls, since a column added by a migration lands last, so recording it would make a diff
-report a change every time two databases reached the same schema by different routes. Legibility is worth
-less than a snapshot that does not lie.
+Columns are emitted **in name order**, not in ordinal position, and this is a deliberate departure from what the epic asked for. `emitDeclarations` takes a `SchemaSnapshot`, whose columns are already sorted by name (`../migrations/SPEC.md` §1), so ordinal position is not available at that point — and carrying it into the snapshot would be worse than losing it: a column's ordinal is a fact about physical layout that no zmdb DDL controls, since a column added by a migration lands last, so recording it would make a diff report a change every time two databases reached the same schema by different routes.
+
+Legibility is worth less than a snapshot that does not lie.
 
 ## 8. The drift check
 

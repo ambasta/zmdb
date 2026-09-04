@@ -68,7 +68,7 @@ fixed data model:
 - AOT `assert`/`is` ≥ **5×** the runtime path, and
 - AOT within **2×** of TypeBox-JIT on `assertLoose`.
 
-If unmet, #83 documents why and the architecture claim is revised honestly
+If unmet, #83 documents why and the architecture claim is revised
 (no silent overclaim).
 
 ## 6. Metro, for React Native and Expo (frozen — epic "React Native")
@@ -112,21 +112,14 @@ Three reasons for that knob rather than the other, and the third is the one that
    arranged. Metro has no `enforce: 'pre'` — there is no ordering field at all — so position in the pipeline
    is chosen by which knob you take, and only one of the two is early enough.
 
-The delegate cannot be captured in a closure. A transformer is named by a **module path** because Metro
-loads it in worker processes, so what `withZmdb` does in `metro.config.js` is read the existing
-`babelTransformerPath`, resolve it to an absolute path there (where `require.resolve` and `__dirname` are
-meaningful), and record it in a serialisable field on `config.transformer` alongside the absolute
-`tsconfig.json` path. The wrapper module in the worker reads those two fields, and requires the delegate by
-path. `#520` pins the one fact this rests on — that Metro forwards unknown `config.transformer` keys to the
-transformer — with `process.env.ZMDB_METRO_DELEGATE` as the fallback channel if it does not, and asserts
-that an app with a second transformer installed still gets that transformer's output.
+The delegate cannot be captured in a closure. A transformer is named by a **module path** because Metro loads it in worker processes, so what `withZmdb` does in `metro.config.js` is read the existing `babelTransformerPath`, resolve it to an absolute path there (where `require.resolve` and `__dirname` are meaningful), and record it in a serialisable field on `config.transformer` alongside the absolute `tsconfig.json` path.
 
-The example above is `require`, not `import`, and that is not sloppiness: `metro.config.js` is CommonJS in
-every React Native and Expo template. This package is ESM-only, so `withZmdb` is reached through Node's
-`require` of an ES module — which works, and stops working the moment anything in that module's import graph
-uses a top-level `await`. **The Metro entry point and everything it reaches must be free of top-level
-`await`**, which is a constraint on `./metro` alone and worth stating because nothing else in the repository
-has it.
+The wrapper module in the worker reads those two fields, and requires the delegate by path. `#520` pins the one fact this rests on — that Metro forwards unknown `config.transformer` keys to the transformer — with `process.env.ZMDB_METRO_DELEGATE` as the fallback channel if it does not, and asserts that an app with a second transformer installed still gets that transformer's output.
+
+The example above is `require`, not `import`, and that is not sloppiness: `metro.config.js` is CommonJS in every React Native and Expo template. This package is ESM-only, so `withZmdb` is reached through Node's `require` of an ES module — which works, and stops working the moment anything in that module's import graph uses a top-level `await`.
+
+**The Metro entry point and everything it reaches must be free of top-level
+`await`.** This constraint applies only to `./metro`.
 
 A file zmdb has nothing to do with is delegated unchanged: `node_modules`, `.d.ts`, anything that is not a
 source extension, and — before the compiler is involved at all — anything whose text does not contain one of
@@ -142,11 +135,9 @@ the process that opened it. It cannot be shared across a process boundary, and M
 session per build — is unreachable through Metro in the literal sense, and pretending otherwise would mean
 either opening one per file or claiming a number that is not true.
 
-Frozen: **at most one session per transform process**, opened lazily on the first file that survives the
-`CALLEES` scan and held for the life of the process. `apiInstanceCount()` is the measurement, and in the
-Metro tests it is asserted per worker rather than per build, with the reason recorded next to it. The cost is
-stated rather than buried: a project loaded N times for N workers, and the ceiling is memory, not CPU —
-loading the project is the expensive half and it happens once per worker either way.
+Frozen: **at most one session per transform process**, opened lazily on the first file that survives the `CALLEES` scan and held for the life of the process. `apiInstanceCount()` is the measurement, and in the Metro tests it is asserted per worker rather than per build, with the reason recorded next to it.
+
+The cost is stated rather than buried: a project loaded N times for N workers, and the ceiling is memory, not CPU — loading the project is the expensive half and it happens once per worker either way.
 
 Two escapes, both documented rather than automatic:
 
@@ -168,12 +159,9 @@ checks — or untransformed output from before zmdb was installed. So the key fo
 `getCacheKey()`, this package's version, the resolved options, and the absolute `tsconfig.json` path with its
 text.
 
-**The case the issue does not mention, and the one that can ship wrong data.** This transform's output for
-`usage.ts` is a function of a type declared in `models.ts`. Metro's key is per file and its contents are
-`usage.ts`'s, so editing `models.ts` alone leaves a cached inline check for the previous shape of `User` —
-and for `schemaOf<T>()`, a cached _schema_, which is a wrong table rather than a slow one. `getCacheKey()` is
-called once per build and not once per file, so a per-file dependency set has nowhere to go: the only key
-Metro's model can carry is a project-wide one.
+**The case the issue does not mention, and the one that can ship wrong data.** This transform's output for `usage.ts` is a function of a type declared in `models.ts`.
+
+Metro's key is per file and its contents are `usage.ts`'s, so editing `models.ts` alone leaves a cached inline check for the previous shape of `User` — and for `schemaOf<T>()`, a cached _schema_, which is a wrong table rather than a slow one. `getCacheKey()` is called once per build and not once per file, so a per-file dependency set has nowhere to go: the only key Metro's model can carry is a project-wide one.
 
 Frozen: the key also folds in a **type fingerprint** — for every file in the loaded project that is neither
 under `node_modules` nor a `.d.ts`, its path, byte length and mtime, concatenated. Three notes on that:
@@ -188,25 +176,17 @@ under `node_modules` nor a `.d.ts`, its path, byte length and mtime, concatenate
   re-transforms every module. For the files with no call site that is the delegate alone, which is what an
   app without zmdb pays.
 
-**Inside a running dev server this is still not sound, and the freeze says so rather than implying
-otherwise.** The fingerprint is taken once at startup; after that Metro re-transforms only the file that
-changed, so editing a type leaves its consumers holding the previous emission until they are touched too.
-The remedy is `--reset-cache` (`expo start --clear`), and the page documents it. Fixing it properly needs
-something that does not exist yet: `TransformResult` would have to report which files the IR was read from,
-so the integration could compare their mtimes per file. That field is the precondition, and **#521 may not
-claim dev-mode correctness without it** — an integration that quietly serves a stale schema is the failure
-this whole section is arranged around.
+**Inside a running dev server this is still not sound, and the freeze says so rather than implying otherwise.** The fingerprint is taken once at startup; after that Metro re-transforms only the file that changed, so editing a type leaves its consumers holding the previous emission until they are touched too. The remedy is `--reset-cache` (`expo start --clear`), and the page documents it.
+
+Fixing it properly needs something that does not exist yet: `TransformResult` would have to report which files the IR was read from, so the integration could compare their mtimes per file. That field is the precondition, and **#521 may not claim dev-mode correctness without it** — an integration that quietly serves a stale schema is the failure this whole section is arranged around.
 
 ### 6.4 A refusal fails the bundle, and an untransformed build already fails loudly
 
-The Metro wrapper passes no `onDiagnostic`, so the default applies and a refused call site throws during
-transform: a red screen in dev, a non-zero `expo export` in CI. That is deliberate. The alternative is a
-bundle that ships a call the transform declined, and on this platform the fallback is not a slower correct
-answer — `schemaOf<T>()` has no runtime implementation and throws by design, and `is<T>(x)` with no witness
-throws `runtime type witness required in test/fallback mode`. Neither silently accepts anything, which is
-the epic's third architecture constraint holding by construction rather than by a new check.
-`docs-site/content/connect-react-native.md` line 59 currently claims the opposite ("validators silently
-accept everything"); it is wrong, and #523 corrects it.
+The Metro wrapper passes no `onDiagnostic`, so the default applies and a refused call site throws during transform: a red screen in dev, a non-zero `expo export` in CI. That is deliberate.
+
+The alternative is a bundle that ships a call the transform declined, and on this platform the fallback is not a slower correct answer — `schemaOf<T>()` has no runtime implementation and throws by design, and `is<T>(x)` with no witness throws `runtime type witness required in test/fallback mode`.
+
+Neither silently accepts anything, which is the epic's third architecture constraint holding by construction rather than by a new check. `docs-site/content/connect-react-native.md` line 59 currently claims the opposite ("validators silently accept everything"); it is wrong, and #523 corrects it.
 
 ### 6.5 Expo has no config-plugin form of this, and the page must not offer one
 
@@ -214,11 +194,9 @@ accept everything"); it is wrong, and #523 corrects it.
 "read what is already there" is exactly why one line covers both: Expo's default config has already set
 both knobs, and the wrapper takes what it finds.
 
-There is no Expo config plugin here. Config plugins run at prebuild and edit the native projects; they have
-no access to the Metro config a later `expo start` composes. An app that never runs prebuild still needs the
-transform, so the instruction cannot live there. This is written down because "Expo has a plugin system" is
-the plausible wrong answer, and a page that offers a config plugin would be offering something that cannot
-work. Expo Router, `expo export` and EAS Build all run the same Metro pipeline and need nothing further.
+There is no Expo config plugin here. Config plugins run at prebuild and edit the native projects; they have no access to the Metro config a later `expo start` composes. An app that never runs prebuild still needs the transform, so the instruction cannot live there.
+
+This is written down because "Expo has a plugin system" is the plausible wrong answer, and a page that offers a config plugin would be offering something that cannot work. Expo Router, `expo export` and EAS Build all run the same Metro pipeline and need nothing further.
 
 ### 6.6 What #520 has to measure
 
@@ -241,4 +219,4 @@ work. Expo Router, `expo export` and EAS Build all run the same Metro pipeline a
 - **No dev-mode flag that skips the transform.** The device path has no runtime fallback to skip to (§6.4).
 - **No Expo config plugin.** §6.5 — it runs at prebuild and cannot reach the Metro config.
 - **No claim of one compiler session per build under Metro.** §6.2 — the pipe is synchronous and
-  process-owned, so the honest number is one per worker.
+  process-owned, so the valid number is one per worker.

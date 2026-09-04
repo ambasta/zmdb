@@ -9,7 +9,7 @@ const rows = await driver.execute({
 });
 ```
 
-`rows` is `readonly Record<string, unknown>[]`. Not typed, on purpose: nothing derived the column list, so nothing can honestly claim to know it.
+`rows` is `readonly Record<string, unknown>[]`. Not typed, on purpose: nothing derived the column list, so nothing can credibly claim to know it.
 
 ## Give the result a type you checked
 
@@ -90,7 +90,7 @@ Legitimately: `ON CONFLICT` ([upsert](./upsert.html)), window functions, recursi
 
 Not legitimately: as a workaround for not knowing the DTO. If you are hand-writing `SELECT * FROM users WHERE id = $1`, `findById` is shorter and stays correct when the table changes.
 
-## Keeping it honest
+## Keeping raw SQL contained
 
 Two habits make hand-written SQL maintainable:
 

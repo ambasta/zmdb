@@ -48,7 +48,7 @@ in-process assertions read every arm through the shipped `bodyText` helper.
 
 - **`request` still returns a `WebResponse`.** It is the production type driven
   through the production pipeline, and a test-only response shape would be a second
-  thing to keep honest.
+  thing to keep accurate.
 - **Assertions read the body through `bodyText`** (`../pipeline/SPEC.md` §A6),
   which is async and consumes a stream body.
 - **No `json()` reader on `TestApp`.** `JSON.parse(await bodyText(res))` in a test is

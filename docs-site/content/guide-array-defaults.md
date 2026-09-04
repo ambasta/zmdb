@@ -42,7 +42,10 @@ The database applies it, which means it also applies to rows inserted by anythin
 
 The old `defaultTo([])` put a real array into the schema object, and anything that mutated a default read back out of the schema mutated it for every row that had used it — the `useState([])` versus a module-level array problem, one layer down.
 
-There is nothing to share now. `HasDefault` is a phantom symbol slot that erases at compile time, so the schema value carries no array to alias. The trap closed as a side effect of the value moving to the migration; it is worth knowing it was there, because a `defineSchema` codebase being converted still has the mutable defaults in it and the [codemod](./codemod.html) reports each one it drops.
+There is nothing to share now. `HasDefault` is a phantom symbol slot that
+disappears at compile time, so the schema carries no array to alias. Older
+`defineSchema` code can still contain mutable defaults; the
+[codemod](./codemod.html) reports each one it removes.
 
 ## Reading and writing
 

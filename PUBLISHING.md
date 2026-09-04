@@ -35,31 +35,28 @@ short-lived OIDC credential, so there is no long-lived secret to leak, rotate, o
    - **Environment name:** _(leave blank)_
    - **Allowed actions:** `npm publish`
 
-   > ⚠️ **First publish of a brand-new package name.** npm only lets you add a
-   > Trusted Publisher to a package that **already exists**. For the very first
-   > `1.0.0-alpha.0` of each new `@zmdb/*` name you must do **one** initial publish to
-   > create the package, then attach the trusted publisher for all future
-   > releases. Two options for that first publish:
+   > [!IMPORTANT]
+   > npm only lets you configure a Trusted Publisher after a package exists. A
+   > new package therefore needs one manual publish before OIDC can take over.
    >
-   > - **Locally, once, with your logged-in account** (you said you're logged in):
-   >   ```bash
-   >   for p in schema-core query-compiler aot-validator repository; do
-   >   yarn build   # topological; every package
-   >   yarn verify:publish
-   >   node .github/scripts/repoint-dist.mjs
-   >   for p in schema-core query-compiler aot-validator repository; do
-   >     ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
-   >   done
-   >   git checkout packages/*/package.json   # restore dev state
-   >   ```
-   >   (publish in that order so dependents resolve; you'll get a normal 2FA/OTP
-   >   prompt — that's fine for a manual publish).
-   > - **Or** temporarily use a short-lived token for just the first CI run, then
-   >   switch to OIDC. The token path is discouraged, so prefer the manual first
-   >   publish above.
+   > Run that first publish from a clean temporary worktree while logged in to
+   > npm. `repoint-dist.mjs` rewrites the package manifests for publication, so a
+   > disposable worktree keeps those changes away from normal development.
    >
-   > After each name exists once, add its Trusted Publisher and **all subsequent
-   > releases go through OIDC with no token**.
+   > ```bash
+   > yarn install --immutable
+   > yarn build
+   > yarn verify:publish
+   > node .github/scripts/repoint-dist.mjs
+   >
+   > for p in query-compiler schema-core aot-validator repository web zmdb; do
+   >   ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
+   > done
+   > ```
+   >
+   > The order matches the package dependency graph. npm may ask for a normal
+   > two-factor authentication code. Once every name exists, configure its
+   > Trusted Publisher; later releases use OIDC and need no npm token.
 
 3. **(Recommended) Lock it down**: once trusted publishing works, in each
    package's **Settings → Publishing access** choose **“Require two-factor
@@ -89,27 +86,25 @@ README.md
 LICENSE
 ```
 
-`exports` maps each subpath to `{ types, import }`; `files` is
-`['dist','src','README.md','LICENSE']`; cross-package deps become the exact prerelease
-`1.0.0-alpha.0` ranges (`aot-validator` → schema-core; `repository` → schema-core +
-query-compiler). Specs, type-tests and `SPEC.md` are kept out by each package's
-`.npmignore`.
+`exports` maps each subpath to `{ types, import }`, and `files` contains `dist`,
+`src`, `README.md`, and `LICENSE`. Workspace dependencies become exact version
+ranges for prereleases. Package `.npmignore` files exclude specs, type tests, and
+`SPEC.md`.
 
 ## How the build works, and why not tsup
 
-`scripts/build-package.mjs` runs `tsc -p tsconfig.build.json` and then rewrites the `.ts`
-specifiers TypeScript leaves in its declaration output. That is the whole build.
+`scripts/build-package.mjs` runs `tsc -p tsconfig.build.json` and rewrites the
+`.ts` specifiers left in declaration output.
 
-It used to be tsup, and tsup's declaration step cannot work here at all: it is
-`rollup-plugin-dts`, which reads `ts.sys` and `ts.createProgram` off the `typescript`
-package. TypeScript 7 does not ship that API — `require('typescript')` yields an object
-with two keys — so the step died on `ts2.sys.useCaseSensitiveFileNames` before looking at
-a file, and `yarn build` had been failing at it. No tsup version fixes that.
+The project previously used tsup. Its declaration step relies on
+`rollup-plugin-dts`, which expects `ts.sys` and `ts.createProgram` from the
+`typescript` package. TypeScript 7 does not expose that API, so declaration
+generation failed before reading a source file.
 
-Losing the bundler costs nothing that mattered and buys the mirrored layout, which is why
-`repoint-dist.mjs` no longer carries a table of entry points: the publish manifest is the
-committed one with `src` → `dist` and `.ts` → `.js`. The table it replaced had drifted, and
-was missing five of schema-core's ten subpaths.
+The direct `tsc` build also produces the mirrored layout expected by
+`repoint-dist.mjs`. The publish manifest can therefore derive every `dist`
+subpath from the committed source manifest instead of maintaining a second
+entry-point table.
 
 Two things about emit are not obvious:
 
@@ -147,7 +142,7 @@ npm view @zmdb/repository dependencies
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
-1. Bump the version in all four `packages/*/package.json` (and `VERSION` in
+1. Bump the version in all six `packages/*/package.json` files (and `VERSION` in
    `prepare-publish.mjs`), commit.
 2. Tag and push:
    ```bash
@@ -157,9 +152,8 @@ Future releases are fully automated via CI OIDC — no token, no manual build:
    via OIDC under the `alpha` tag, with automatic provenance. (A tag push always
    publishes; a manual `workflow_dispatch` defaults to a dry run.)
 
-> **dist-tags policy (automated):** CI publishes each release under its _channel_
-> tag derived from the version — `alpha` / `beta` / `rc`, or `latest` for a
-> stable version. After publishing, `set-latest-tag.mjs` repoints **`latest`** to
-> the highest-precedence published version: **stable > rc > beta > alpha** (and
-> newest within a channel). So while only alphas exist, `latest` tracks the newest
-> alpha; the moment a stable `1.0.0` is published, `latest` moves to it.
+> **dist-tag policy:** before publishing, CI compares the new version with those
+> already on npm. If the new version has the highest precedence
+> (stable > rc > beta > alpha), it is published under `latest`; otherwise it uses
+> its channel tag. npm's OIDC permission covers `npm publish`, but not a later
+> `npm dist-tag` command.

@@ -97,7 +97,7 @@ const result = lenientParse<UserInput>('{"name": "Charlie"}', v => {
 // result.data => { name: 'CHARLIE' }
 ```
 
-`coerce` receives `unknown`, which is the honest type for model output. Narrowing it with `assert<T>` rather than a cast is what makes the `<UserInput>` type argument true instead of aspirational — and because `lenientParse` catches whatever `coerce` throws, the `AssertError` comes back as `{ success: false, errors: [...] }` rather than an exception.
+`coerce` receives `unknown`, which is the correct type for model output. Narrowing it with `assert<T>` rather than a cast is what makes the `<UserInput>` type argument true instead of aspirational — and because `lenientParse` catches whatever `coerce` throws, the `AssertError` comes back as `{ success: false, errors: [...] }` rather than an exception.
 
 > [!WARNING]
 > With **no** `coerce`, `lenientParse<T>` does not validate at all — `T` is your claim about the model's output, exactly as with `JSON.parse`. A model that returns `{"name": 42}` gives you `success: true` and a `number` where your types promise a `string`. Always pass a `coerce` that asserts, or run the validator on the result.

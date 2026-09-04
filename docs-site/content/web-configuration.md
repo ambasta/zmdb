@@ -122,7 +122,7 @@ later files win.
 > Never commit `.env`, and never log the config object — `databaseUrl` contains a
 > password. Log the keys, or a redacted view: `{ ...config, databaseUrl: '<set>' }`.
 
-## Typing the environment honestly
+## Typing environment variables
 
 `process.env.X` is `string | undefined`, and every value arrives as a string.
 Both facts are load-bearing:

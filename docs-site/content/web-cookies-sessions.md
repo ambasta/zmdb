@@ -55,7 +55,7 @@ if (path === '/auth/login' && out.status === 200) {
 }
 ```
 
-Ugly, and honest about it. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for.
+Ugly, and clear about the limitation. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for.
 The custom cookie adapter buffers a streamed body; the login response is
 deliberately a small JSON text response.
 

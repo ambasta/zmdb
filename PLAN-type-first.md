@@ -25,16 +25,13 @@ repository accepts `Date | string` for a `timestamp` while `TsType` said `Date` 
 `toJsonSchema` says `{type:'string',format:'date-time'}` — three answers for one
 column. Adding tags to this without restructuring would make it five walkers.
 
-**And the type layer disagrees with the runtime about presence, not just about types.**
-`CreateDTO` _omits_ a serial column, so naming it is a compile error. `validatePayload`
-builds its result as a whitelist (`repository/src/index.ts:794`, `if
-(col.flags.autoIncrement) continue;` with `out` populated from scratch), so a supplied
-`id` is **silently dropped** — as is any key not in `schema.columns`. One layer says
-"impossible", the other says "no-op". A consequence worth stating plainly: **REQ-RP-3's
-AC passes for the wrong reason.** `create({ bogus: 1 })` rejects because the required
-columns are missing, not because `bogus` is excess; `create({ ...valid, bogus: 1 })` is
-accepted and the key dropped, and no test covers it. Phase 7b has to decide which
-behaviour is correct, because the emitted validator replaces that function.
+**And the type layer disagrees with the runtime about presence, not just about types.** `CreateDTO` _omits_ a serial column, so naming it is a compile error. `validatePayload` builds its result as a whitelist (`repository/src/index.ts:794`, `if (col.flags.autoIncrement) continue;` with `out` populated from scratch), so a supplied `id` is **silently dropped** — as is any key not in `schema.columns`. One layer says "impossible", the other says "no-op".
+
+**REQ-RP-3's acceptance check currently passes for the wrong reason.**
+`create({ bogus: 1 })` fails because required columns are missing, not because
+`bogus` is unknown. `create({ ...valid, bogus: 1 })` is accepted and drops the
+extra key, and no test covers that case. Phase 7b must decide the intended
+behavior before the emitted validator replaces this function.
 
 **So the first deliverable is not tags. It is a single IR that all of them consume.**
 
@@ -183,24 +180,15 @@ Two consequences for the design:
   **will change existing DDL snapshots** (Postgres `timestamp` → `timestamptz`), so it
   is a behaviour change to land deliberately, not a refactor.
 
-`Wire<T>` is therefore accepted as a first-class derivation alongside `Entity<T>`, with
-`CustomType<TS, DB>` extended to `CustomType<Wire, TS, DB>` as the codec and a
-`Codec<'Name'>` tag naming it. `Entity<T>` validators check `instanceof Date`;
-`Wire<T>` validators check the ISO string; the web pipeline decodes wire→app once at
-the boundary. **This is still a sub-project (Phase 7b) and still the most likely thing
-to blow the schedule** — the answer settles the semantics, not the volume of work. It
-can be deferred by scoping Phase 4 to non-`timestamp` columns; it cannot be skipped,
-because `REQ-TF-7` fails on any schema with a timestamp until it lands.
+`Wire<T>` is therefore accepted as a first-class derivation alongside `Entity<T>`, with `CustomType<TS, DB>` extended to `CustomType<Wire, TS, DB>` as the codec and a `Codec<'Name'>` tag naming it. `Entity<T>` validators check `instanceof Date`; `Wire<T>` validators check the ISO string; the web pipeline decodes wire→app once at the boundary.
+
+**This is still a sub-project (Phase 7b) and still the most likely thing to blow the schedule** — the answer settles the semantics, not the volume of work. It can be deferred by scoping Phase 4 to non-`timestamp` columns; it cannot be skipped, because `REQ-TF-7` fails on any schema with a timestamp until it lands.
 
 ### D4 — Unresolvable types: error, warn, or silent? **Resolved: error, with an opt-out.**
 
-Today an unresolvable `is<T>` silently falls through to a runtime path that throws
-`'runtime type witness required'`. That policy is exactly what produced the miscompile
-fixed in `f70186c6`. New policy: the reflection emits a **build diagnostic naming the
-file, the type, and the unsupported construct**, and fails the build unless
-`{ onUnsupported: 'warn' | 'runtime' }` is set. `is<T>` where `T` is an unresolved
-type _parameter_ is always a hard error — it cannot be made to work, and silently
-compiling it is a lie.
+Today an unresolvable `is<T>` silently falls through to a runtime path that throws `'runtime type witness required'`. That policy is exactly what produced the miscompile fixed in `f70186c6`.
+
+New policy: the reflection emits a **build diagnostic naming the file, the type, and the unsupported construct**, and fails the build unless `{ onUnsupported: 'warn' | 'runtime' }` is set. `is<T>` where `T` is an unresolved type _parameter_ is always a hard error — it cannot be made to work, and silently compiling it is a lie.
 
 ### D5 — Tag identity across duplicate installs. **Resolved: name-based reflection, plus a build error. Verified, not assumed.**
 
@@ -289,27 +277,18 @@ kind and both `value` and `args[0]`. `ir/index.ts`'s `normaliseKind`/`ruleArgume
 reproduce that tolerance, so nothing regressed — but a case-folding bridge is not a
 decision, it is a symptom, and it is now the only thing holding the two together.
 
-**Recommendation:** align on the tag names and let the runtime vocabulary become
-internal to the AOT. Only two names actually differ (`Minimum`→`Min`,
-`Maximum`→`Max`); `MinLength`, `MaxLength` and `Pattern` already agree, and
-`tags.Enum` has no tag counterpart on purpose because a literal union is how you
-declare that (REQ-TF-2). Once a constraint is declared as `number & Min<18>`, the
-`tags.Minimum(18)` **call** has no declaration role left — the `Rule` object is just
-the AOT's pre-transform fallback representation, which is an implementation detail
-that happens to be exported.
+**Recommendation:** align on the tag names and let the runtime vocabulary become internal to the AOT. Only two names actually differ (`Minimum`→`Min`, `Maximum`→`Max`); `MinLength`, `MaxLength` and `Pattern` already agree, and `tags.Enum` has no tag counterpart on purpose because a literal union is how you declare that (REQ-TF-2).
+
+Once a constraint is declared as `number & Min<18>`, the `tags.Minimum(18)` **call** has no declaration role left — the `Rule` object is just the AOT's pre-transform fallback representation, which is an implementation detail that happens to be exported.
 
 **Where it lands:** Phase 5, where the emitter is rewritten against the IR and the
 `Rule` kinds are being touched anyway. Doing it now would mean renaming across the
 transformer and its tests mid-migration for no gain. What must not happen is shipping
 1.0 with all three.
 
-**Done.** The runtime vocabulary is `tags.Min(n)`/`tags.Max(n)`, so the two spellings a
-declaration can use now agree, and the IR field keeps the JSON Schema keyword because
-that is what it emits. The case fold is replaced by an explicit alias table with a test
-that it stays total, so a sixth constraint kind cannot be added without a spelling — it
-would otherwise become a named custom rule in silence. `ValidationRule.args` is now
-declared rather than merely read, because the only two writers of that field already
-disagreed with the type.
+**Done.** The runtime vocabulary is `tags.Min(n)`/`tags.Max(n)`, so the two spellings a declaration can use now agree, and the IR field keeps the JSON Schema keyword because that is what it emits.
+
+The case fold is replaced by an explicit alias table with a test that it stays total, so a sixth constraint kind cannot be added without a spelling — it would otherwise become a named custom rule in silence. `ValidationRule.args` is now declared rather than merely read, because the only two writers of that field already disagreed with the type.
 
 ---
 
@@ -386,14 +365,11 @@ golden `openapi` tests pass unchanged. That is the strongest evidence available 
 the IR reproduces the published contract, so it is worth taking early rather than
 saving for Phase 5. Four walkers → three.
 
-**Refinement 2 — the derivations keep their names and change module.** Phase 3 reads
-like a big-bang rename of `Entity`/`CreateDTO`/`UpdateDTO` in place. Doing that would
-break the repository, the web package and every fixture in one commit. Instead the
-tagged versions carry the **same canonical names** in a new module, `./derive`, and the
-schema-value versions stay in the package root untouched. ✅ **Done in Phase 9:** those
-are deleted and the root re-exports `./derive`. The end state is identical — exactly one
-`CreateDTO`, per D2 — and the tree stayed green throughout. The cost was a temporary
-second import path, which is now two paths to one type.
+**Refinement 2 — the derivations keep their names and change module.** Phase 3 reads like a big-bang rename of `Entity`/`CreateDTO`/`UpdateDTO` in place. Doing that would break the repository, the web package and every fixture in one commit.
+
+Instead the tagged versions carry the **same canonical names** in a new module, `./derive`, and the schema-value versions stay in the package root untouched. ✅ **Done in Phase 9:** those are deleted and the root re-exports `./derive`. The end state is identical — exactly one `CreateDTO`, per D2 — and the tree stayed green throughout.
+
+The cost was a temporary second import path, which is now two paths to one type.
 
 Also landed from Phase 0: the umbrella subpaths `zmdb/tags`, `zmdb/ir` and
 `zmdb/derive`, with `verify:exports` extended to hold the umbrella to REQ-UM-3 — no
@@ -417,7 +393,7 @@ measured table; the two that changed the design rather than just the code:
   `PropertyIR.optional` is the only record that absence is allowed, and an emitter that
   ignores it produces a validator that rejects every value the type accepts.
 
-Also worth recording, because each replaced a plan row with a better answer:
+Three other findings replaced plan items with simpler answers:
 
 - `Map`, `Set`, `Promise`, typed arrays and classes with methods are refused by **one**
   rule — a validatable object has only data properties — rather than by five special
@@ -438,15 +414,9 @@ Also worth recording, because each replaced a plan row with a better answer:
   intersection over a union and `null & Unique` is `never`, which silently drops the
   nullability.
 
-**Refinement 4 — a variant name and a derived type are two spellings of one thing.**
-Phase 6 below reads as if the type-driven `toJsonSchema<T>()` needs its own generator,
-one that reads optionality off `CreateDTO<User>` the way the old one read it off the
-string `'create'`. It does not, and building one would have been the fifth walker this
-whole plan exists to avoid. Instead the back-end takes a **shape** — a column plus
-whether the document requires it — and the two front-ends are adapters onto it:
-`shapeOfVariant` for the value path, `Reflector.shapeIR` for the type path. `required`
-then collapses to "not optional and not nullable", which is the single rule the three
-variants were three cases of, and REQ-TF-7 is structural instead of tested.
+**Refinement 4 — a variant name and a derived type are two spellings of one thing.** Phase 6 below reads as if the type-driven `toJsonSchema<T>()` needs its own generator, one that reads optionality off `CreateDTO<User>` the way the old one read it off the string `'create'`. It does not, and building one would have been the fifth walker this whole plan exists to avoid.
+
+Instead the back-end takes a **shape** — a column plus whether the document requires it — and the two front-ends are adapters onto it: `shapeOfVariant` for the value path, `Reflector.shapeIR` for the type path. `required` then collapses to "not optional and not nullable", which is the single rule the three variants were three cases of, and REQ-TF-7 is structural instead of tested.
 
 Two things fell out of that. The `update` variant had kept the primary key while
 `UpdateDTO<T>` dropped it — the two only agreed because every key in every fixture was a
@@ -455,13 +425,9 @@ stayed in the emitter rather than moving into the shape, because a published doc
 where REQ-TF-6 has to be unconditional: `CreateDTO<User>` deliberately _keeps_ a
 sensitive column, since you have to be able to send a password.
 
-**Refinement 5 — the schema value carries its type, so nothing downstream reconstructs
-it.** Phase 7a below says "emit `schemaFromIR` output as a generated const" and stops
-there, which would have been half an answer. The generated const is enough for the query
-compiler, which only wants the table name and the column types as data — but
-`defineRepository(generated, driver)` would then derive its DTOs from the _columns of a
-value_, re-running the schema-value derivations and losing every fact only the
-declaration has: a branded key, a literal union, a `Codec`.
+**Refinement 5 — the schema value carries its type, so nothing downstream reconstructs it.** Phase 7a below says "emit `schemaFromIR` output as a generated const" and stops there, which would have been half an answer.
+
+The generated const is enough for the query compiler, which only wants the table name and the column types as data — but `defineRepository(generated, driver)` would then derive its DTOs from the _columns of a value_, re-running the schema-value derivations and losing every fact only the declaration has: a branded key, a literal union, a `Codec`.
 
 So `schemaOf<T>()` returns a `TaggedSchema<T>`: a `CoreSchema<string>` with one
 `unique symbol`-keyed phantom property holding `T`. The property is **required**, unlike
@@ -487,14 +453,9 @@ down read like curiosities otherwise. `Numeric<P, S>` precision, `Codec<'Name'>`
 put them, the emitted validator and the DDL type map read the IR directly, and
 `defineSchema` cannot express them either.
 
-Relations were the second of those, and are no longer: `CoreSchema.ir` is required, so
-`SchemaIR.relations` reaches every repository, and `opts.relations` is gone along with
-`BaseRepository`'s second type parameter. It did not need `defineRepository<T>()` after all.
-`resolveRelation(schema.ir, name)` in `schema-core/src/relations/index.ts` turns one
-`RelationIR` into the pair of columns a query matches on, and the repository's batched select,
-its join, `compilePopulate` and `toJsonSchemaWithRelations` all read it — where before, the
-repository's own two readers of the map used different field names with different fallbacks and
-could build different queries from one entry.
+Relations were the second of those, and are no longer: `CoreSchema.ir` is required, so `SchemaIR.relations` reaches every repository, and `opts.relations` is gone along with `BaseRepository`'s second type parameter.
+
+It did not need `defineRepository<T>()` after all. `resolveRelation(schema.ir, name)` in `schema-core/src/relations/index.ts` turns one `RelationIR` into the pair of columns a query matches on, and the repository's batched select, its join, `compilePopulate` and `toJsonSchemaWithRelations` all read it — where before, the repository's own two readers of the map used different field names with different fallbacks and could build different queries from one entry.
 
 **What Phases 1–3 left for later, now done.** The relation-driven
 `PopulatedEntity`/`Populated`/`JoinRow` live in `derive/query.ts` and read the relation off
@@ -507,7 +468,7 @@ From Phase 0, the `typescript` optional-peer-dep move and its reachability guard
 **Phase 5**, not because they are hard but because they cannot land yet: the package
 root re-exports `transformCode`, which imports `typescript/unstable/ast`, so the guard
 would fail on the entry it is meant to protect. Phase 5 rewrites that transformer, which
-is when the leak closes and the peer dep becomes honest. `aot-validator`'s `./reflect`
+is when the leak closes and the peer dep matches actual use. `aot-validator`'s `./reflect`
 subpath is registered now, with `typescript` externalised in the tsup config.
 
 ---
@@ -835,14 +796,9 @@ the documents come from. `valueMatchesColumn` is gone, and with it the fourth wa
 the `Date | string` tolerance that kept the three-types disagreement from ever failing a
 test.
 
-The excess-key question the section above says 7b "has to decide" was decided the way P4
-points: a key the variant does not accept is a `ValidationError`, not something to drop.
-`create({ ...valid, bogus: 1 })` now says `"bogus" is not a column of "users"`, and
-`create({ ...valid, id: 5 })` says the database generates `id` — the two cases REQ-RP-3's
-AC used to pass for the wrong reason. They are reported _alongside_ the structural issues
-rather than only when there are none, which is where this differs from `assertEquals`: at a
-table boundary the excess key is usually a typo of the column the other issue is
-complaining about, so suppressing it hides the answer.
+The excess-key question the section above says 7b "has to decide" was decided the way P4 points: a key the variant does not accept is a `ValidationError`, not something to drop. `create({ ...valid, bogus: 1 })` now says `"bogus" is not a column of "users"`, and `create({ ...valid, id: 5 })` says the database generates `id` — the two cases REQ-RP-3's AC used to pass for the wrong reason.
+
+They are reported _alongside_ the structural issues rather than only when there are none, which is where this differs from `assertEquals`: at a table boundary the excess key is usually a typo of the column the other issue is complaining about, so suppressing it hides the answer.
 
 Per **D3**, each layer renders the type it owns, and the IR's `sql` field stays
 abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
@@ -852,9 +808,9 @@ abstract (`'timestamp'`, never `'TIMESTAMPTZ'`):
 - `Entity<T>` validators check `instanceof Date`; `Wire<T>` validators check the ISO
   string. Neither accepts both.
 
-  The second half of that was untrue for a while and is worth recording, because it failed
-  in the way this whole phase is about. The wire type said `{scalar:'string',
-format:'date-time'}` — but `format` is an _annotation_ in JSON Schema, and neither the
+  The second half of that was untrue for a while. The wire type said
+  `{scalar:'string', format:'date-time'}`, but `format` is only an annotation in
+  JSON Schema, and neither the
   runtime walk nor the emitter reads one, so the ISO string was never checked and
   `"tomorrow"` was a valid `timestamp` on the wire. It is lowered to a `pattern` now, which
   both walks already implement identically, so the claim is enforced without a sixth
@@ -896,16 +852,9 @@ The benchmark harness went first: `columnKind` and `createDtoDescriptor` are gon
 `benchmarks/harness/validation/*`, `benchmarks/src/validation/adapter.ts` and
 `benchmarks/participants/validation/cases/zmdb/`, and `verify:no-descriptors` guards it.
 
-Then the type itself, because a ratchet at five is a ratchet, not an answer.
-`TypeDescriptor`, the `RuntimeSchema = TypeIR | TypeDescriptor` union and the
-`irFromDescriptor`/`toIR` bridge are deleted; every entry point takes a `TypeIR`. The four
-specs that wrote the legacy input form now write the generated one, which is the shape
-they were testing the conversion _into_ anyway. Two ratchets recorded the change by
-failing: `verify:no-descriptors` asked for its allow-list to be emptied, and
-`verify:tf-coverage` asked for `PARTIAL_ON_PURPOSE` to be emptied — the exemption existed
-because a descriptor could not express `maximum`, and the shape with that limit is gone.
-`verify:no-descriptors` gained a third signal, a _declaration_ of the name, so the shape
-cannot return by being re-declared rather than imported.
+Then the type itself, because a ratchet at five is a ratchet, not an answer. `TypeDescriptor`, the `RuntimeSchema = TypeIR | TypeDescriptor` union and the `irFromDescriptor`/`toIR` bridge are deleted; every entry point takes a `TypeIR`. The four specs that wrote the legacy input form now write the generated one, which is the shape they were testing the conversion _into_ anyway.
+
+Two ratchets recorded the change by failing: `verify:no-descriptors` asked for its allow-list to be emptied, and `verify:tf-coverage` asked for `PARTIAL_ON_PURPOSE` to be emptied — the exemption existed because a descriptor could not express `maximum`, and the shape with that limit is gone. `verify:no-descriptors` gained a third signal, a _declaration_ of the name, so the shape cannot return by being re-declared rather than imported.
 
 The fallback's throw message went from `runtime descriptor required in test/fallback mode`
 to `runtime type witness required …` with it: the old wording named a type the repo no
@@ -996,15 +945,9 @@ because Phase 5 and 7 will delete assertions and the ratchet should capture that
   `defineSchema` over. `DESIGN-type-first.md` §5 maps each of its 25 claims to the test that
   carries it now, so nothing is lost except the duplicate.
 
-**Also fix, since it blocks publishing** — ✅ **done.** `yarn build` failed at the `dts`
-step (`Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`)
-because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API: same root
-cause as this whole project, TS 7 changed the API shape. tsup is gone and `tsc -p
-tsconfig.build.json` emits `dist` mirroring `src`. Fixing it exposed a bigger problem
-behind it — `exports` and `bin` pointed at `./src/*.ts`, and Node will not strip types
-under `node_modules`, so the published packages could not be imported at all.
-`verify:exports` passed because a workspace `node_modules` entry is a symlink Node
-resolves back out. `yarn verify:publish` is the gate for the installed form.
+**Also fix, since it blocks publishing** — ✅ **done.** `yarn build` failed at the `dts` step (`Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')`) because tsup's bundled `rollup-plugin-dts` wants the old JS compiler API: same root cause as this whole project, TS 7 changed the API shape. tsup is gone and `tsc -p tsconfig.build.json` emits `dist` mirroring `src`.
+
+Fixing it exposed a bigger problem behind it — `exports` and `bin` pointed at `./src/*.ts`, and Node will not strip types under `node_modules`, so the published packages could not be imported at all. `verify:exports` passed because a workspace `node_modules` entry is a symlink Node resolves back out. `yarn verify:publish` is the gate for the installed form.
 
 **The collapse** — ✅ **done.** The last thing this phase owed REQ-TF-4: one
 `Entity`/`CreateDTO`/`UpdateDTO`/`PrimaryKeyOf`, taking the declared type, with no arm
@@ -1042,7 +985,7 @@ that tests for a schema value.
   conditionals (`RelationEntityFromDef`, `RelationCardinalityFromDef`, `DerivedEntity`) that
   dug a target's row type back out of a value built from that type.
 - The type tests that existed only to compare the two families are deleted rather than
-  adapted, which is the honest form of "the substitution evidence is spent". The tests
+  adapted, which is the clearest form of "the substitution evidence is spent". The tests
   that assert the collapsed suite directly stayed and got stronger:
   `repository/src/tagged-to-ddl.spec.ts` now checks each table's payload against its own
   `CreateDTO<T>` instead of erasing it to `Record<string, unknown>`, which is how it
@@ -1070,7 +1013,7 @@ Phase 0 ─┬─ Phase 1 (IR) ─┬─ Phase 2 (tags) ── Phase 3 (DTOs) �
 - Phases 2+3 and 4+5 are independently parallelisable once the IR is frozen — one
   track is pure types, the other pure codegen, and they meet only at the IR.
 - Phase 9's ratchet scripts have no dependencies and should start immediately; they
-  are what keeps phases 5–7 honest as code is deleted.
+  are what keeps phases 5–7 accurate as code is deleted.
 - Phase 8 needs Phase 5's emitters but not Phases 6–7.
 - **`defineSchema`'s deletion is the last thing that happens** (D2, Phase 9), because
   the value→IR equivalence test is the safety net for everything between Phase 4 and

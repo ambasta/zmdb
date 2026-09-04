@@ -112,7 +112,7 @@ arbitrary class at runtime.
 ## What `ModuleRef` does that this does not
 
 - **`resolve()` with a fresh dependency subtree.** No equivalent; scopes are singleton or transient only.
-- **Module-scoped lookup.** `compileModule` builds **one flat container** for the whole graph, so there is no per-module registry to look in. Which brings us to the honest caveat below.
+- **Module-scoped lookup.** `compileModule` builds **one flat container** for the whole graph, so there is no per-module registry to look in. Which brings us to the caveat below.
 - **Arbitrary runtime module attachment.** Lazy subtrees must be declared and
   validated at startup. See [Lazy Modules](./web-lazy-modules.html).
 

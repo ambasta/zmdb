@@ -110,8 +110,9 @@ A value is a string, a number, a bigint, a boolean or a `Date`. `null`, `undefin
 an object are all refused, and nothing is compiled or executed first.
 
 > [!NOTE]
-> This used to be accepted, and produced a statement with **no `WHERE` clause at all** — a
-> `findById` that returned the table's first row, and an `update`/`delete` that hit every row:
+> Older versions accepted this object form and produced SQL with no `WHERE`
+> clause. `findById` returned the first row, while `update` and `delete` affected
+> the whole table:
 >
 > ```ts
 > await repo.findById({ id: 42 }); // SELECT * FROM "products" LIMIT 1
@@ -119,13 +120,14 @@ an object are all refused, and nothing is compiled or executed first.
 > await repo.delete({ id: 42 }); // DELETE FROM "products" RETURNING "id"
 > ```
 >
-> TypeScript rejected all three even then, so it only ever reached you through an `any`, a cast,
-> or a key that arrived from a request body — which is the path that matters. Two further checks
-> now stand behind the one above: `compileWhere` refuses an operator map with nothing in it, and
-> `update`/`delete` refuse to execute a compiled statement whose text has no `WHERE`.
+> TypeScript rejected these calls, but untyped request data or a cast could still
+> reach the runtime path. The repository now validates the key before compiling
+> SQL. In addition, `compileWhere` rejects empty operator maps, and `update` and
+> `delete` refuse to run compiled SQL without a `WHERE` clause.
 
-The asymmetry is deliberate rather than an oversight to smooth over: a one-column key that
-accepted both forms is how code that will break the day the key gains a column gets written.
+A single-column key intentionally accepts only the scalar form. Supporting both
+forms would make code silently change meaning if the table later gained a
+composite key.
 
 ## What remains
 
@@ -133,11 +135,10 @@ accepted both forms is how code that will break the day the key gains a column g
 column. It must pair every parent-key column with an equally sized `via` list or refuse the
 declaration, never silently join on half a key.
 
-Done since this page was written: `PrimaryKeyOf<T>` is already a record for a key of two or more
-columns, `keyWhere` assembles the multi-column filter from the whole ordered key, partial keys
-name every missing own property, the one-column record form — which built `{ id: { id: 42 } }`
-and lost the predicate — is refused, keyset pagination uses the whole key, and the ordered key
-survives snapshot → diff → DDL.
+Composite repository keys already work throughout the main data path.
+`PrimaryKeyOf<T>` returns a record for multi-column keys, `keyWhere` uses every
+ordered key column, partial keys report missing properties, and keyset pagination
+uses the full key. Snapshot, diff, and DDL operations also preserve key order.
 
 Nothing about the remaining work is blocked by design. The relation reader must stop treating
 the first primary-key column as the whole key.

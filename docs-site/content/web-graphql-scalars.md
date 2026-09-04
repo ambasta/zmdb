@@ -1,9 +1,6 @@
-> **Not planned.** There is no GraphQL layer, so there are no scalars to define —
-> no `GraphQLScalarType` registration, no `@Scalar` decorator, no scalar mapping
-> from column types — and [that is not changing](./web-graphql.html). The mapping
-> below is kept because it is the one written-down answer to what each `SqlType`
-> means in a schema language, and because the two-parse-path trap it documents bites
-> anyone writing a custom scalar by hand.
+> **Not planned.** `@zmdb/web` does not register GraphQL scalars because
+> [GraphQL is out of scope](./web-graphql.html). The mapping below remains useful
+> to applications that define equivalent scalars in an external GraphQL server.
 
 ## The related constraint that does exist
 
@@ -19,12 +16,11 @@ The upside is that the mapping is small and total. It is not, however, keyed by 
 
 ## The mapping, as frozen
 
-The design is frozen in `packages/schema-core/src/sdl/SPEC.md`, and the first thing it settles is what the
-mapping is a function of. Not `SqlType`: the emitter reads the column's **wire type**, because a
-`Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>` column is an integer in the database and a string on
-the wire, and a table keyed by the SQL type emits `Int` for a field the resolver returns as a string. There is
-also a verifier — `yarn verify:one-walker` — that exists to stop a second walker over column metadata, and a
-private `SqlType` table is exactly that.
+The design is frozen in `packages/schema-core/src/sdl/SPEC.md`, and the first thing it settles is what the mapping is a function of.
+
+Not `SqlType`: the emitter reads the column's **wire type**, because a `Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>` column is an integer in the database and a string on the wire, and a table keyed by the SQL type emits `Int` for a field the resolver returns as a string.
+
+There is also a verifier — `yarn verify:one-walker` — that exists to stop a second walker over column metadata, and a private `SqlType` table is exactly that.
 
 Reading the wire type instead, the results land where you would expect:
 
@@ -44,7 +40,11 @@ Four rows are the ones that bite.
 
 **`bigint` must not be `Int`.** GraphQL's `Int` is a signed 32-bit integer, so anything above 2,147,483,647 is a serialization error at best and a wrong value at worst. Serialise it as a string, which is what the column's wire type already says it is.
 
-**`numeric` is `Float`, and that is a consequence of the declaration rather than a recommendation.** A monetary amount through a double loses precision — `0.1 + 0.2` is the canonical demonstration, and it shows up in production as a total that is a cent off. But a `numeric` column's app type is `number`, so `Entity<T>` has a `number` and your resolver returns one; emitting `String` for it would make the schema disagree with the value, which fails in the client's parser instead of in your arithmetic. The fix is upstream of GraphQL: declare the wire form you want, with `Codec<'Money'> & WireAs<string>`, and every surface — JSON Schema, OpenAPI and SDL — follows. **A degradation has to be requested in the declaration; the emitter never picks one for you.**
+**`numeric` is `Float`, and that is a consequence of the declaration rather than a recommendation.** A monetary amount through a double loses precision — `0.1 + 0.2` is the canonical demonstration, and it shows up in production as a total that is a cent off.
+
+But a `numeric` column's app type is `number`, so `Entity<T>` has a `number` and your resolver returns one; emitting `String` for it would make the schema disagree with the value, which fails in the client's parser instead of in your arithmetic. The fix is upstream of GraphQL: declare the wire form you want, with `Codec<'Money'> & WireAs<string>`, and every surface — JSON Schema, OpenAPI and SDL — follows.
+
+**A degradation has to be requested in the declaration; the emitter never picks one for you.**
 
 **`timestamp`** needs a scalar that serialises to ISO 8601 in UTC. A `Date` through `JSON.stringify` gives you ISO already; the value of a scalar is parsing on the way _in_, where a malformed string should be an error rather than an `Invalid Date` that propagates.
 
@@ -83,7 +83,9 @@ const DateTime = new GraphQLScalarType({
 
 Throw on invalid input rather than returning `null`. A scalar that silently coerces is how `Invalid Date` reaches a database column — and returning `null` for a non-string literal, which is the shape most examples use, is that same bug with a friendlier face: a typo in a query document becomes a null column.
 
-Note the two parse paths, because a scalar that implements one is broken for the other and the break is invisible in tests that only use variables. A **variable** arrives as an already-parsed JSON value and goes to `parseValue`; a **literal** written into the query document arrives as an AST node and goes to `parseLiteral`. The frozen design derives the second from the first — convert the node to a JSON value, then call `parseValue` — so one implementation serves both and they cannot disagree. `$when` inside a literal is why `parseLiteral` receives `variables` at all.
+Note the two parse paths, because a scalar that implements one is broken for the other and the break is invisible in tests that only use variables. A **variable** arrives as an already-parsed JSON value and goes to `parseValue`; a **literal** written into the query document arrives as an AST node and goes to `parseLiteral`.
+
+The frozen design derives the second from the first — convert the node to a JSON value, then call `parseValue` — so one implementation serves both and they cannot disagree. `$when` inside a literal is why `parseLiteral` receives `variables` at all.
 
 ## The `JSON` scalar is a hole in your schema
 

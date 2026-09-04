@@ -35,6 +35,6 @@ const result = buildSearchResult(hits, { limit: 20 }); // items carry an optiona
 
 > [!IMPORTANT]
 > FTS is dialect-specific. On SQLite (no arbitrary-column FTS without FTS5),
-> `findByFullText` throws an honest `UnsupportedFeatureError` rather than
+> `findByFullText` throws an explicit `UnsupportedFeatureError` rather than
 > silently running a wrong query. This is one of the routes exercised against
 > real Postgres in the [benchmarks](../benchmarks/index.html).

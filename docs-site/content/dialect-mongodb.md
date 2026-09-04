@@ -33,7 +33,9 @@ await db.createCollection('users', {
 });
 ```
 
-`toJsonSchema` exists today and produces a document Mongo accepts. So you can already get schema enforcement in Mongo derived from a zmdb schema object, without any dialect support. That is worth knowing even though the query side is missing.
+`toJsonSchema` already produces a document Mongo accepts. You can therefore
+derive Mongo schema validation from a zmdb declaration even though the query
+dialect is not implemented.
 
 ## Using zmdb with Mongo today
 

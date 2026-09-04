@@ -22,13 +22,9 @@ a retry delay is, where a poisoned message goes. gRPC has none of those problems
 | required request timeout (§7 there)    | the caller's deadline, propagated in metadata (§6)                    |
 | `TransportStrategy`                    | **not implemented.** gRPC is not a `TransportStrategy`                |
 
-That last row is the decision to defend. It is tempting to make gRPC one more strategy, so `AppOptions.transports`
-covers it and there is a single startup path. It is refused because `TransportStrategy.listen(dispatch)` maps a
-pattern string to a handler and gRPC does not have patterns — it has a service with a fixed method set, a
-declared type per direction per method, and a streaming flag on each side. Forcing it through `RawMessage` would
-mean discarding every one of those and re-deriving them inside the gRPC layer from data it just erased. Two
-narrow contracts beat one contract that fits neither, which is `ARCHITECTURE.md` §2.6 applied to the shape of the
-abstraction rather than to the count of its methods.
+That last row is the decision to defend. It is tempting to make gRPC one more strategy, so `AppOptions.transports` covers it and there is a single startup path. It is refused because `TransportStrategy.listen(dispatch)` maps a pattern string to a handler and gRPC does not have patterns — it has a service with a fixed method set, a declared type per direction per method, and a streaming flag on each side.
+
+Forcing it through `RawMessage` would mean discarding every one of those and re-deriving them inside the gRPC layer from data it just erased. Two narrow contracts beat one contract that fits neither, which is `ARCHITECTURE.md` §2.6 applied to the shape of the abstraction rather than to the count of its methods.
 
 What gRPC does share is the lifecycle: it is started by `createApp`'s `init()` and closed before the shutdown
 hooks run, exactly as a transport is (`../SPEC.md` §10), and `AppOptions` gains one member for it (§9).
@@ -67,11 +63,9 @@ touching a line of runtime. What is refused is a runtime parser, not interoperab
 `#557` step 8 asks for build-time proto loading and says to explain why not runtime. The answer here is stronger
 than build-time: **there is no `.proto` on the read path at all.**
 
-`@grpc/proto-loader` parses a `.proto` file at process start and produces an object whose types are `any` or
-hand-declared. That is three defects in one dependency. It is I/O during startup, so a mis-packaged container
-fails at boot rather than at build. It is a parser — a second implementation of the protobuf grammar, whose
-disagreements with the emitter are wire bugs. And the object it returns is untyped, so every message crossing it
-needs a cast, which is the thing this project does not do.
+`@grpc/proto-loader` parses a `.proto` file at process start and produces an object whose types are `any` or hand-declared. That is three defects in one dependency. It is I/O during startup, so a mis-packaged container fails at boot rather than at build.
+
+It is a parser — a second implementation of the protobuf grammar, whose disagreements with the emitter are wire bugs. And the object it returns is untyped, so every message crossing it needs a cast, which is the thing this project does not do.
 
 Instead, a service descriptor is produced from the declared types:
 
@@ -118,11 +112,9 @@ export interface GrpcServiceSpec<S extends GrpcServiceDef> {
 }
 ```
 
-**A mapped type, and there is no `@GrpcMethod` decorator.** `#557`'s API surface proposes one; it is refused for
-the reason `../cqrs/SPEC.md` §3 refuses `@CommandHandler`, plus one that is decisive here and nowhere else: a
-gRPC service is a **closed contract shared with another language**, so the property worth paying for is
-exhaustiveness — a service with an unimplemented method must not compile — and a decorator cannot have it. A
-decorated class missing a method is a class, and the omission surfaces as `UNIMPLEMENTED` at the caller.
+**A mapped type, and there is no `@GrpcMethod` decorator.** `#557`'s API surface proposes one; it is refused for the reason `../cqrs/SPEC.md` §3 refuses `@CommandHandler`, plus one that is decisive here and nowhere else: a gRPC service is a **closed contract shared with another language**, so the property worth paying for is exhaustiveness — a service with an unimplemented method must not compile — and a decorator cannot have it.
+
+A decorated class missing a method is a class, and the omission surfaces as `UNIMPLEMENTED` at the caller.
 
 `GrpcHandlers<S>` has it: omitting `watch` from a four-method service is `TS2739` naming the three missing
 methods, verified against the compiler rather than assumed. Brokers keep decorators for the mirror-image reason
@@ -133,13 +125,9 @@ methods, verified against the compiler rather than assumed. Brokers keep decorat
 the same thing, so the option is dead weight that two people will spell differently. Present-or-absent is one
 spelling for one fact, and it is what makes §5's conditional type readable.
 
-**A service must be declared as a `type` alias, not an `interface`.** This is a verified TypeScript constraint,
-and it is the one way to hold this API that produces an error naming a type the user did not write. An
-`interface` has no implicit index signature, so `GrpcHandlers<OrdersInterface>` fails with `TS2344` — "Index
-signature for type 'string' is missing". Adding `extends GrpcServiceDef` to fix that makes it worse: the
-inherited index signature appears in `keyof`, so the mapped type acquires a `string` member whose handler type is
-`(call: GrpcCall<unknown>) => Promise<unknown>`, and every correct method now fails against it. The same rule
-governs `ClientPatterns` (`../SPEC.md` §2.4) and is stated in both places.
+**A service must be declared as a `type` alias, not an `interface`.** This is a verified TypeScript constraint, and it is the one way to hold this API that produces an error naming a type the user did not write. An `interface` has no implicit index signature, so `GrpcHandlers<OrdersInterface>` fails with `TS2344` — "Index signature for type 'string' is missing".
+
+Adding `extends GrpcServiceDef` to fix that makes it worse: the inherited index signature appears in `keyof`, so the mapped type acquires a `string` member whose handler type is `(call: GrpcCall<unknown>) => Promise<unknown>`, and every correct method now fails against it. The same rule governs `ClientPatterns` (`../SPEC.md` §2.4) and is stated in both places.
 
 ```ts
 type Orders = {
@@ -182,12 +170,11 @@ export type GrpcHandler<D extends GrpcMethodDef> = D extends { requestStream: tr
 | server streaming | `responseStream: true` | `(call: GrpcCall<Req>) => AsyncIterable<Res>`                |
 | bidirectional    | both flags             | `(call: GrpcCall<AsyncIterable<Req>>) => AsyncIterable<Res>` |
 
-**There is one decorator-equivalent, not four.** Nest needs `@GrpcMethod` and `@GrpcStreamMethod` because it
-cannot know at bind time which side streams — the information lives in a `.proto` it loaded into an untyped
-object. Here the descriptor is generated from the declaration, so the streaming flags are known statically _and_
-present in the artifact the binding reads, and the handler's shape is checked against them. A unary function
-where a server stream is declared is `TS2741` — "Property '[Symbol.asyncIterator]' is missing in type
-'Promise<Order>'" — which is a compile error at the handler rather than a protocol error at the caller.
+**There is one decorator-equivalent, not four.** Nest needs `@GrpcMethod` and `@GrpcStreamMethod` because it cannot know at bind time which side streams — the information lives in a `.proto` it loaded into an untyped object.
+
+Here the descriptor is generated from the declaration, so the streaming flags are known statically _and_ present in the artifact the binding reads, and the handler's shape is checked against them.
+
+A unary function where a server stream is declared is `TS2741` — "Property '[Symbol.asyncIterator]' is missing in type 'Promise<Order>'" — which is a compile error at the handler rather than a protocol error at the caller.
 
 A streaming handler is an `AsyncIterable`, which in practice is an `async function*`. That is the same shape
 `../../graphql/subscriptions/SPEC.md` uses for a subscription, and it means cancellation is
@@ -210,12 +197,9 @@ because two things need it and they need it in different forms:
   passes to anything cancellable, and the reason there is no separate `onCancelled` callback.
 - `remainingMs()` — the budget left, in milliseconds, read at the moment of the call rather than captured.
 
-**Propagation is the point of `remainingMs()`, and not propagating is the failure it prevents.** A handler that
-calls another service must pass the remaining budget rather than that service's own default. Otherwise three
-services each with a 5-second deadline take 15 seconds while the original caller left after 5, and every one of
-the three logs a success. So an outbound call inside a handler uses `remainingMs()` as its timeout, and a
-`MessageClient` (`../SPEC.md` §2.4) invoked from a gRPC handler should be constructed per call with that value
-rather than at startup with a constant.
+**Propagation is the point of `remainingMs()`, and not propagating is the failure it prevents.** A handler that calls another service must pass the remaining budget rather than that service's own default. Otherwise three services each with a 5-second deadline take 15 seconds while the original caller left after 5, and every one of the three logs a success.
+
+So an outbound call inside a handler uses `remainingMs()` as its timeout, and a `MessageClient` (`../SPEC.md` §2.4) invoked from a gRPC handler should be constructed per call with that value rather than at startup with a constant.
 
 A call with **no** deadline is served, and `remainingMs()` returns `Number.POSITIVE_INFINITY`. It is the caller's
 right to omit one and not this server's business to invent one — but `GrpcServiceSpec` may carry a

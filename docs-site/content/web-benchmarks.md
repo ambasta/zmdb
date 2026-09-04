@@ -90,19 +90,13 @@ never fabricated.
 
 ## Same-machine, apples-to-apples peer head-to-head
 
-Published cross-framework tables run on someone else's hardware. So the harness
-also builds and load-tests **17 real peer frameworks on the same machine** with
-the **identical** `oha`, levels, routes and duration as `@zmdb/web`, verifying
-each peer's contract before recording anything: **Node** (fastify, hono, express,
-koa), **Bun** (elysia, hono), **Deno** (hono, oak), **Go** (gin, fasthttp, chi,
-net/http), **Rust** (actix, axum) and **Python** (fastapi, flask, django). Peers
-whose toolchain/build/contract is unavailable are recorded as _skipped with a
-reason — never faked_. Run it with `benchmarks/harness/framework/peers/peers-run.sh`;
-the [dashboard](../benchmarks/index.html) renders the ranking (sortable, per
-concurrency level + route) with `@zmdb/web` highlighted, kept separate from the
-"published, different machine" upstream context panel.
+Published cross-framework tables run on someone else's hardware.
 
-## Honesty policy
+So the harness also builds and load-tests **17 real peer frameworks on the same machine** with the **identical** `oha`, levels, routes and duration as `@zmdb/web`, verifying each peer's contract before recording anything: **Node** (fastify, hono, express, koa), **Bun** (elysia, hono), **Deno** (hono, oak), **Go** (gin, fasthttp, chi, net/http), **Rust** (actix, axum) and **Python** (fastapi, flask, django).
+
+Peers whose toolchain/build/contract is unavailable are recorded as _skipped with a reason — never faked_. Run it with `benchmarks/harness/framework/peers/peers-run.sh`; the [dashboard](../benchmarks/index.html) renders the ranking (sortable, per concurrency level + route) with `@zmdb/web` highlighted, kept separate from the "published, different machine" upstream context panel.
+
+## Reporting policy
 
 Consistent with the rest of the [benchmarks](../benchmarks/index.html):
 

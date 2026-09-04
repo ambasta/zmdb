@@ -1,8 +1,7 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there is no plugin system: no Apollo `ApolloServerPlugin`, no envelop plugins,
-> no request lifecycle events to hook. The table below is the durable part, and it
-> was the argument against a plugin interface even when the layer was on the
-> roadmap: every hook such a thing would carry already has a home.
+> **Not planned.** `@zmdb/web` has no GraphQL plugin system because
+> [GraphQL is out of scope](./web-graphql.html). The table below shows where the
+> usual logging, tracing, limiting, and caching hooks belong in a zmdb
+> application.
 
 ## What plugins are used for
 
@@ -15,7 +14,8 @@ Almost always one of four things, and each has a home in a zmdb application.
 | Depth / complexity limits      | [Query Complexity](./web-graphql-complexity.html)                        |
 | Response caching               | [Caching](./web-caching.html)                                            |
 
-The pattern behind all four is the same and worth stating plainly: **wrap the thing you want to observe**. There is no plugin registry because there is no need for one — the framework's extension points are interfaces you decorate.
+All four follow the same pattern: wrap the component you want to observe. The
+framework uses composable interfaces instead of a plugin registry.
 
 ## The driver wrapper is the highest-value hook
 

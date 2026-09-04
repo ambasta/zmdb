@@ -132,13 +132,9 @@ The mapping, and the part the issue's step 8 asks for:
 | `operationId`                       | the tool name, after the provider's name rule               |
 | `summary` / `description`           | the tool description, `summary` preferred                   |
 
-**Headers and cookies are dropped rather than exposed, and that is a security decision, not a simplification.**
-A header parameter is where `Authorization`, `Cookie`, `X-Api-Key` and every tenant header live. A tool
-parameter is a field a language model fills in from text it was given, some of which may be attacker-supplied.
-Letting a model choose a header value is letting it choose who the request is authenticated as. So headers come
-from the caller's `fetch` wrapper, one place, per generated call, and the model cannot see or set them —
-`llm-mcp.md`'s "authorise the caller, not the request", in the one place where a document would otherwise hand
-the model the mechanism.
+**Headers and cookies are dropped rather than exposed, and that is a security decision, not a simplification.** A header parameter is where `Authorization`, `Cookie`, `X-Api-Key` and every tenant header live. A tool parameter is a field a language model fills in from text it was given, some of which may be attacker-supplied. Letting a model choose a header value is letting it choose who the request is authenticated as.
+
+So headers come from the caller's `fetch` wrapper, one place, per generated call, and the model cannot see or set them — `llm-mcp.md`'s "authorise the caller, not the request", in the one place where a document would otherwise hand the model the mechanism.
 
 Path arguments must compile to one URL scalar. Query arguments may be scalars or
 arrays of scalars, which become repeated `URLSearchParams` entries. Object-valued

@@ -36,12 +36,9 @@ rejects the caller, which is the repository write.
 | a throwing handler    | aborts the remaining handlers and rejects the write | isolated and reported (§3)              |
 | already transactional | yes — it runs inside the write                      | only via `emitInTransaction` (§5)       |
 
-**The decisive row is the failure row, and the two correct behaviours are opposites.** A `beforeCreate`
-subscriber that throws _should_ abort the write — that is how a validation veto is expressed, and it is the
-only reason to hook `beforeCreate` at all. An application-event handler that throws must _not_ abort the
-request that emitted it, because a failing cache invalidation is not a reason to fail a checkout.
-`docs-site/content/web-events.md` states the second half already: "Without it, one throwing listener stops the
-rest, so a broken metrics listener breaks the request that triggered it."
+**The decisive row is the failure row, and the two correct behaviours are opposites.** A `beforeCreate` subscriber that throws _should_ abort the write — that is how a validation veto is expressed, and it is the only reason to hook `beforeCreate` at all.
+
+An application-event handler that throws must _not_ abort the request that emitted it, because a failing cache invalidation is not a reason to fail a checkout. `docs-site/content/web-events.md` states the second half already: "Without it, one throwing listener stops the rest, so a broken metrics listener breaks the request that triggered it."
 
 Unifying them means picking one behaviour, and either choice makes the other use case wrong. That is a better
 argument than "different scopes", and it is why `docs-site/pages.mjs`'s note for the page — "EventBus covers
@@ -118,12 +115,9 @@ an emitter that rethrows makes its caller's outcome depend on which handler happ
 of nondeterminism that reproduces once a week. Collecting every failure also means a report has the same shape
 whether one handler failed or all of them, so a caller that wants to escalate can, deliberately, on evidence.
 
-**`onError` is required**, and that is the one piece of friction in this file worth defending. There are two
-alternatives and both are worse. Swallowing by default makes a broken handler invisible, which is the exact bug
-`web-events.md` warns about with the emphasis reversed. Defaulting to `console.error` — which the page's
-example does — hard-codes a logger into a package that has deliberately never had one, and cannot be asserted
-against in a test without capturing global console state. Requiring the sink means the question "where does a
-failed handler go?" is answered at construction, once, by the person who knows.
+**`onError` is required**, and that is the one piece of friction in this file worth defending. There are two alternatives and both are worse. Swallowing by default makes a broken handler invisible, which is the exact bug `web-events.md` warns about with the emphasis reversed.
+
+Defaulting to `console.error` — which the page's example does — hard-codes a logger into a package that has deliberately never had one, and cannot be asserted against in a test without capturing global console state. Requiring the sink means the question "where does a failed handler go?" is answered at construction, once, by the person who knows.
 
 `error` is `unknown` because a `throw` can be anything. Narrowing it to `Error` in the type would be a claim
 the runtime cannot keep.
@@ -157,12 +151,9 @@ emitInTransaction<K extends keyof M & string>(tx: TransactionContext, event: K, 
 Available on an `Events<M>` constructed with an outbox writer. It does **not** call any in-process handler: it
 writes one outbox row through the caller's transaction and returns its id.
 
-That is the whole of the guarantee and the whole of the surprise, so it is stated in both directions: an event
-emitted this way is delivered **after** the transaction commits, by the dispatcher, possibly more than once,
-and possibly in a different process — and is not delivered at all if the transaction rolls back. An in-process
-handler registered for the same event name does not see it. Two delivery paths that look like one call is how
-an application ends up with a handler that fires in tests and never in production, so the method is separate
-and the asymmetry is named here rather than discovered.
+That is the whole of the guarantee and the whole of the surprise, so it is stated in both directions: an event emitted this way is delivered **after** the transaction commits, by the dispatcher, possibly more than once, and possibly in a different process — and is not delivered at all if the transaction rolls back.
+
+An in-process handler registered for the same event name does not see it. Two delivery paths that look like one call is how an application ends up with a handler that fires in tests and never in production, so the method is separate and the asymmetry is named here rather than discovered.
 
 `TransactionContext` (`../../../repository/src/transactions/index.ts:8-12`) is the real type; `#592` calls it
 `Transaction`, which does not exist. The semantics, the table and the dispatcher are
@@ -195,14 +186,13 @@ and returns one function that unregisters all of them. `docs-site/content/web-di
 "Nothing scans the filesystem, nothing reads decorator metadata at runtime to find providers" — and this is
 consistent with it rather than an exception to it.
 
-`web-events.md` concludes that explicit registration makes the decorator pointless: "subscriptions would have
-to be registered explicitly, at which point the class above is the feature". **That is too strong, and it is
-worth saying exactly how much too strong.** What the decorator buys is not discovery. It is that the binding
-lives on the method instead of inside a lifecycle hook. Today the only place to call `.on(…)` is
-`onModuleInit`, and a class whose handler exists but whose `onModuleInit` forgot the `.on(…)` line is silently
-never invoked — there is nothing to notice, because the method is still there and still typed. `bind(this)` in
-`onModuleInit` is one line that cannot be partially wrong: either every decorated handler is registered or
-none is.
+`web-events.md` says explicit registration makes the decorator pointless:
+"subscriptions would have to be registered explicitly, at which point the class
+above is the feature." That overstates the case. The decorator does not provide
+discovery; it keeps the binding on the method instead of inside a lifecycle
+hook.
+
+Today the only place to call `.on(…)` is `onModuleInit`, and a class whose handler exists but whose `onModuleInit` forgot the `.on(…)` line is silently never invoked — there is nothing to notice, because the method is still there and still typed. `bind(this)` in `onModuleInit` is one line that cannot be partially wrong: either every decorated handler is registered or none is.
 
 That is a modest benefit, and `on` therefore stays public and first-class. An application that prefers the
 plain class in `web-events.md` loses nothing, and this file does not claim otherwise.
@@ -211,12 +201,9 @@ plain class in `web-events.md` loses nothing, and this file does not claim other
 
 `Promise.allSettled` over the event's handlers. Not registration order, and not sequential.
 
-Two reasons, and the second is the one that matters. Sequentially awaiting makes the emitter's latency the
-**sum** of its handlers' latencies, so adding a handler slows down an unrelated caller — which is `EventBus`'s
-behaviour and is defensible only because a lifecycle veto needs it. And running in a defined order creates a
-dependency nobody declared: two handlers work, someone reorders the registrations, and one breaks. Concurrency
-makes the non-guarantee _true at runtime_ rather than documented and accidentally violated, which is the only
-kind of non-guarantee that survives.
+Two reasons, and the second is the one that matters. Sequentially awaiting makes the emitter's latency the **sum** of its handlers' latencies, so adding a handler slows down an unrelated caller — which is `EventBus`'s behaviour and is defensible only because a lifecycle veto needs it.
+
+And running in a defined order creates a dependency nobody declared: two handlers work, someone reorders the registrations, and one breaks. Concurrency makes the non-guarantee _true at runtime_ rather than documented and accidentally violated, which is the only kind of non-guarantee that survives.
 
 `allSettled` rather than `all` is what gives §3 its isolation with no extra machinery: a rejection cannot
 short-circuit the others because `allSettled` has no short circuit.
@@ -233,7 +220,7 @@ order.
 
 With more than one replica, an in-process event reaches one of them. `web-events.md` already documents that,
 names the failure ("a bug that only appears in production, because development runs one process") and gives the
-two candidate answers; neither ships here, and the honest cross-instance path is `emitInTransaction` plus a
+two candidate answers; neither ships here, and the reliable cross-instance path is `emitInTransaction` plus a
 dispatcher, which is §5.
 
 ## 9. What #593 has to assert

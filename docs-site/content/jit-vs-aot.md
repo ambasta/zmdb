@@ -82,7 +82,7 @@ The environments where this bites are the ones with their own transpilers: [Bun]
 The [measured numbers](./benchmarks.html) are on the benchmarks page, taken from the `typescript-runtime-type-benchmarks` harness rather than from a microbenchmark written to flatter the result. Two things to take from them:
 
 - The gap is largest on **cold start**, because there is nothing to build. In a serverless function invoked once per request, schema construction is paid on every invocation for a JIT validator and never for this one. See [Serverless Performance](./perf-serverless.html).
-- On **steady-state throughput** the codegen JIT libraries are competitive. If your process is long-lived and validation is not on your critical path, the honest answer is that this is not the reason to choose zmdb — the single-schema derivation is.
+- On **steady-state throughput** the codegen JIT libraries are competitive. If your process is long-lived and validation is not on your critical path, the accurate answer is that this is not the reason to choose zmdb — the single-schema derivation is.
 
 ## Where AOT does not help
 

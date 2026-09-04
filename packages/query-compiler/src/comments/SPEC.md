@@ -38,15 +38,9 @@ The key set is closed:
 export type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
 ```
 
-**There is no arbitrary key/value form, and rejecting `Record<string, string>` is the
-central decision of this file.** An open record is the interface through which a request id
-gets tagged and the plan cache dies (§5), and through which a caller-supplied string reaches
-comment text without passing anything that knows to escape it. Because the configuration is
-a `CommentKey`-keyed structure rather than a string, **there is no path from a caller to
-comment text at all** — step 10's "no caller-supplied string reaches the comment unencoded"
-is a property of the type rather than a rule a reviewer enforces. The values come from the
-router (`route`, `controller`, `action`), the tracer (`traceparent`) and the package's own
-version (`framework`).
+**There is no arbitrary key/value form, and rejecting `Record<string, string>` is the central decision of this file.** An open record is the interface through which a request id gets tagged and the plan cache dies (§5), and through which a caller-supplied string reaches comment text without passing anything that knows to escape it.
+
+Because the configuration is a `CommentKey`-keyed structure rather than a string, **there is no path from a caller to comment text at all** — step 10's "no caller-supplied string reaches the comment unencoded" is a property of the type rather than a rule a reviewer enforces. The values come from the router (`route`, `controller`, `action`), the tracer (`traceparent`) and the package's own version (`framework`).
 
 sqlcommenter also standardises `application` and `db_driver`. Both are omitted: `framework`
 is `zmdb:<version>` and covers what `db_driver` is for, and `application` is a constant
@@ -131,26 +125,19 @@ properly anyway.
 
 ## 5. Off by default, and the one key that is a trade
 
-**Comments in statement text defeat plan caching wherever the cache keys on the text**, which
-is server-side prepared statements on Postgres and `pg_stat_statements` normalisation. A tag
-that varies per statement produces one cache entry and one `pg_stat_statements` row per
-variant, which is a slow memory problem in the database and turns the tool you added the tag
-to read into a tool with thousands of near-duplicate rows. That is why this is off unless
-`Observability.comments` is present, and it is stated plainly rather than as a caveat at the
-bottom, because it is the reason for the default.
+**Comments in statement text defeat plan caching wherever the cache keys on the text**, which is server-side prepared statements on Postgres and `pg_stat_statements` normalisation.
+
+A tag that varies per statement produces one cache entry and one `pg_stat_statements` row per variant, which is a slow memory problem in the database and turns the tool you added the tag to read into a tool with thousands of near-duplicate rows.
+
+This is why comments remain off unless `Observability.comments` is present.
 
 Four of the five keys are low cardinality — `route`, `controller`, `action` and `framework`
 take one value per route per deploy, so the number of statement variants is bounded by the
 route table and the tag is free in the sense that matters.
 
-`traceparent` is the exception and it is the whole point of the feature. It is what turns
-"this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it,
-closing the loop from `pg_stat_activity` to a waterfall, and it contains a fresh 16-byte span
-id per query, so **every statement is unique**. There is no way to have both, and rather than
-picking one the freeze names the trade and puts it in the caller's hands: `keys` is an
-explicit list, `traceparent` is one of the things you can put in it, and putting it in is a
-decision to trade the plan cache for the correlation. Diagnosing an incident is worth it; a
-steady-state default is not. sqlcommenter's own documentation reaches the same conclusion.
+`traceparent` is the exception and it is the whole point of the feature. It is what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it, closing the loop from `pg_stat_activity` to a waterfall, and it contains a fresh 16-byte span id per query, so **every statement is unique**.
+
+There is no way to have both, and rather than picking one the freeze names the trade and puts it in the caller's hands: `keys` is an explicit list, `traceparent` is one of the things you can put in it, and putting it in is a decision to trade the plan cache for the correlation. Diagnosing an incident is worth it; a steady-state default is not. sqlcommenter's own documentation reaches the same conclusion.
 
 ## 6. The comment is rendered, not stored
 
@@ -158,13 +145,11 @@ The tag is applied by the driver decorator at execute time from `CompiledQuery.t
 (`../../../web/src/observability/SPEC.md` §5) plus the request's `Ctx`. It is **not** a field
 on `CompiledQuery`.
 
-That answers the open question `sql-comments.md` raises — whether a comment counts as part
-of a query's identity for the many existing tests that compare `CompiledQuery` with
-`toEqual` — by removing it. A compiled query has no comment, so its identity is what it is
-today, a compiled query can be cached and reused across requests that would tag it
-differently, and the same statement compiled once can carry two different traceparents.
-Storing the comment on the compiled query would make a per-request value part of a
-per-route cached object, which is the sort of thing that works until the cache is enabled.
+That answers the open question `sql-comments.md` raises — whether a comment counts as part of a query's identity for the many existing tests that compare `CompiledQuery` with `toEqual` — by removing it.
+
+A compiled query has no comment, so its identity is what it is today, a compiled query can be cached and reused across requests that would tag it differently, and the same statement compiled once can carry two different traceparents.
+
+Storing the comment on the compiled query would make a per-request value part of a per-route cached object, which is the sort of thing that works until the cache is enabled.
 
 The driver decorator also fixed a smaller bug in the pre-implementation page's
 example: it returned `{ execute }` and dropped `dialect`, so the wrapped driver

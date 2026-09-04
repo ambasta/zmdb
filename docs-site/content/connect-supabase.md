@@ -73,14 +73,14 @@ Supabase's users live in the `auth` schema, which a `Table<…>` declaration can
 userId: string & Sql<'text'>; // FK to auth.users.id, added in a migration
 ```
 
-`References<'auth.users.id'>` does not work: the tag is parsed as `table.column`, so a three-part name is refused. Declare the column plainly and add the constraint in a [custom migration](./migrations-custom.html):
+`References<'auth.users.id'>` does not work: the tag is parsed as `table.column`, so a three-part name is refused. Declare the column without a reference tag and add the constraint in a [custom migration](./migrations-custom.html):
 
 ```sql
 ALTER TABLE profiles ADD CONSTRAINT profiles_user_fk
   FOREIGN KEY (user_id) REFERENCES auth.users (id) ON DELETE CASCADE;
 ```
 
-You lose the compile-time check the tag would give you, which is the honest trade — there is no declaration for `auth.users` to check against.
+You lose the compile-time check the tag would give you, which is the trade-off — there is no declaration for `auth.users` to check against.
 
 ## Edge Functions
 

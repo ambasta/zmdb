@@ -117,7 +117,13 @@ not settled by the end of the allowance, its result becomes
 
 Note that [zmdb has no query cancellation](./query-cancellation.html), so the losing query keeps running on the server. The probe returns; the connection is occupied until the query finishes. `Driver.execute` takes no `AbortSignal` — the timeout stops the _waiting_, not the _work_.
 
-Which has a consequence worth stating, because it is how a health check becomes the incident. A 2-second timeout on a 5-second probe period against a database that hangs consumes one connection every 5 seconds and returns none of them, so the readiness probe can exhaust the pool it is testing. Concurrent callers share one run while the aggregator is waiting, but after a deadline the next probe retries because failures are never cached. If the driver ignored the aborted signal, the earlier query may still be running. Keep the query trivial (`SELECT 1`), set a driver/server timeout as well, and do not probe faster than the dependency can recover.
+This can turn the health check into the incident. A 2-second timeout on a
+5-second probe period against a hung database consumes one connection every
+5 seconds and returns none of them, eventually exhausting the pool being
+tested. Concurrent callers share a run while the aggregator is waiting, but the
+next probe retries after a deadline because failures are not cached.
+
+If the driver ignored the aborted signal, the earlier query may still be running. Keep the query trivial (`SELECT 1`), set a driver/server timeout as well, and do not probe faster than the dependency can recover.
 
 ## Keep the check cheap
 

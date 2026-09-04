@@ -40,9 +40,6 @@ The generator is `@zmdb/aot-validator`'s sampler, and that package depends on
 dependency backwards. It was in `@zmdb/schema-core/seeding` until then, with a value
 generator of its own.
 
-That generator is the reason this file's "known ceilings" section is gone rather than
-updated. It read `col.type` and `col.flags.enum` and nothing else — the fifth walker over
-column metadata, with the same failure mode as the other four: partial knowledge of one
-vocabulary, held privately. Both ceilings it documented were consequences of that, and both
-are closed by not having a second generator. The return type is `CreateDTO<T>[]` because the
-rows are built from the type; the constraints hold because the sampler reads them.
+That generator is the reason this file's "known ceilings" section is gone rather than updated. It read `col.type` and `col.flags.enum` and nothing else — the fifth walker over column metadata, with the same failure mode as the other four: partial knowledge of one vocabulary, held privately.
+
+Both ceilings it documented were consequences of that, and both are closed by not having a second generator. The return type is `CreateDTO<T>[]` because the rows are built from the type; the constraints hold because the sampler reads them.

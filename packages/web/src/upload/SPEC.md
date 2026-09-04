@@ -39,9 +39,9 @@ Both are defensible and the choice is buffering, with a hard total limit.
 
 So: the adapter's `maxBodyBytes` (`../pipeline/SPEC.md` §A7) bounds the transfer,
 the parser reads from the resulting `Uint8Array`, and each part is a
-`Uint8Array<ArrayBuffer>` view. The ceiling is stated plainly rather than hidden:
-`maxTotalBytes` defaults to 8 MiB and is raisable, and above roughly 64 MiB the
-honest answer is a presigned upload, not a larger number.
+`Uint8Array<ArrayBuffer>` view. `maxTotalBytes` defaults to 8 MiB and can be
+raised. Above roughly 64 MiB, use a presigned upload instead of increasing the
+limit again.
 
 If streaming uploads are ever wanted, the prerequisite is named here so it is not
 rediscovered: `WebRequest` gains a body stream, both adapters stop materialising,
@@ -133,14 +133,9 @@ export interface Multipart {
 }
 ```
 
-**`filename` is never used for I/O, and the type cannot express that, so the rule is
-the contract.** The parser stores it as an opaque label, truncated to
-`maxFilenameBytes`, with a `\0` or a path separator making the part a `400` rather
-than being stripped — stripping produces a _different_ name that looks sanitised,
-and the sanitised version of `../../etc/passwd` is a filename somebody will
-concatenate. The caller generates a storage key (for example with
-`globalThis.crypto.randomUUID()`); the parser performs no I/O and never turns the
-client label into a path.
+**`filename` is never used for I/O, and the type cannot express that, so the rule is the contract.** The parser stores it as an opaque label, truncated to `maxFilenameBytes`, with a `\0` or a path separator making the part a `400` rather than being stripped — stripping produces a _different_ name that looks sanitised, and the sanitised version of `../../etc/passwd` is a filename somebody will concatenate.
+
+The caller generates a storage key (for example with `globalThis.crypto.randomUUID()`); the parser performs no I/O and never turns the client label into a path.
 
 The parser does not derive an extension from the filename either. An extension
 allow-list is the application's, applied to the _declared_ extension it chose to
@@ -148,13 +143,9 @@ accept, and it is an allow-list for `../compression/SPEC.md` §6's reason: a
 deny-list is a list of what somebody thought of, and `.php5`, `.phtml` and `.svg`
 are what they missed.
 
-**`declaredType` is recorded, never trusted, and never used to decide anything.**
-The framework does not sniff either: a magic-number table is a data file that goes
-stale, it disagrees with whatever the application's own image library thinks, and
-`image/svg+xml` — the type that actually matters, because an SVG served from your
-origin executes script — has no magic number at all. So the framework records what
-the client said, and the docs say what to do: derive the type from the library that
-will process the bytes, and serve user content from a different origin.
+**`declaredType` is recorded, never trusted, and never used to decide anything.** The framework does not sniff either: a magic-number table is a data file that goes stale, it disagrees with whatever the application's own image library thinks, and `image/svg+xml` — the type that actually matters, because an SVG served from your origin executes script — has no magic number at all.
+
+So the framework records what the client said, and the docs say what to do: derive the type from the library that will process the bytes, and serve user content from a different origin.
 
 `fields` is `Record<string, string>` and a non-file part over `maxPartBytes` is a
 `413` like any other. A repeated field name keeps the **last** value and does not

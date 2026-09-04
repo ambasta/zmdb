@@ -127,11 +127,17 @@ const binding = bindGrpcService<Orders>(spec, {
 });
 ```
 
-That shape is chosen for one property a decorator cannot have: **a service with an unimplemented method does not compile.** A gRPC service is a closed contract shared with another language, so an omission has to be a type error at the handler rather than an `UNIMPLEMENTED` status at the caller. It also means one binding covers all four call types — the streaming flags in the declaration decide the handler's signature, so a unary function where a server stream is declared is a compile error too. Nest needs `@GrpcMethod` and `@GrpcStreamMethod` because it loaded its `.proto` into an untyped object; generating the descriptor from the types means the flags are known statically.
+That shape is chosen for one property a decorator cannot have: **a service with an unimplemented method does not compile.** A gRPC service is a closed contract shared with another language, so an omission has to be a type error at the handler rather than an `UNIMPLEMENTED` status at the caller.
+
+It also means one binding covers all four call types — the streaming flags in the declaration decide the handler's signature, so a unary function where a server stream is declared is a compile error too. Nest needs `@GrpcMethod` and `@GrpcStreamMethod` because it loaded its `.proto` into an untyped object; generating the descriptor from the types means the flags are known statically.
 
 Nothing parses a `.proto`, at build time or runtime. `@grpc/proto-loader` would be startup I/O, a second implementation of the protobuf grammar whose disagreements with our emitter are wire bugs, and an untyped result needing a cast per message. Consuming somebody else's `.proto` is a real need and is a separate code generator emitting a `.d.ts` — the same one-source-of-truth answer run the other way, with no runtime surface.
 
-Two more decisions worth knowing before you plan around this. `credentials` is a required option with no default, because `createInsecure()` as a default is how plaintext reaches production. And a deadline is exposed as both an `AbortSignal` and a `remainingMs()`, because an outbound call inside a handler must inherit the remaining budget — otherwise three services with a 5-second deadline each take 15 seconds while the original caller left after 5, and all three log a success.
+Two other choices affect how this is used. `credentials` is required because a
+default `createInsecure()` connection could put plaintext into production. A
+deadline is exposed as both an `AbortSignal` and `remainingMs()` so outbound
+calls can inherit the remaining budget. Without that, three services with
+5-second limits could consume 15 seconds after the original caller has left.
 
 The protobuf message dependency is now satisfied. The remaining gRPC work is the service-block descriptor, the `ServiceDefinition` adapter and the server/client binding.
 

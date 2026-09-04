@@ -66,14 +66,11 @@ Four choices are load-bearing:
 - `payload` is text, preserving the exact bytes the caller supplied.
 - `id` is application-generated text, so the writer needs no dialect-dependent `RETURNING`.
 
-Postgres uses `TIMESTAMPTZ`, MySQL uses `DATETIME(3)`, and SQLite stores fixed-width ISO timestamps as `TEXT`;
-the SQLite database-clock default uses `strftime` to keep the same sortable UTC representation as driver-bound
-`Date` values.
-The Postgres and SQLite pending indexes are partial. MySQL has no partial indexes, so its full index starts
-with `status` and can still seek to pending rows. `outboxMigration` handles that difference; the lower-level
-`createIndexDdl` remains literal and does not silently discard predicates. The MySQL migration uses bounded
-`VARCHAR` storage for the UUID, lease token and status because MySQL cannot key an unrestricted `TEXT` column;
-the application types remain strings.
+Postgres uses `TIMESTAMPTZ`, MySQL uses `DATETIME(3)`, and SQLite stores fixed-width ISO timestamps as `TEXT`; the SQLite database-clock default uses `strftime` to keep the same sortable UTC representation as driver-bound `Date` values. The Postgres and SQLite pending indexes are partial.
+
+MySQL has no partial indexes, so its full index starts with `status` and can still seek to pending rows. `outboxMigration` handles that difference; the lower-level `createIndexDdl` remains literal and does not silently discard predicates.
+
+The MySQL migration uses bounded `VARCHAR` storage for the UUID, lease token and status because MySQL cannot key an unrestricted `TEXT` column; the application types remain strings.
 
 ## Write inside the caller's transaction
 

@@ -73,15 +73,12 @@ async graphql(ctx: Ctx<Record<never, string>, unknown>) {
 }
 ```
 
-Three positions were available and two are wrong. A **validation rule** — the idiomatic place — is refused
-because `ValidationRule` is `(context: ValidationContext) => ASTVisitor`, and `ValidationContext` is a
-`graphql` class, so implementing one makes `graphql` a dependency; §6 of `../SPEC.md` gave that up deliberately
-and this is not worth reversing it for. An **interceptor on the field chain** is refused for the reason at the
-top: by the time a field's chain runs, execution has begun. Between `parse` and `execute` is left, it needs
-nothing from the engine but the document, and it is three lines the reader can see.
+Three positions were available and two are wrong. A **validation rule** — the idiomatic place — is refused because `ValidationRule` is `(context: ValidationContext) => ASTVisitor`, and `ValidationContext` is a `graphql` class, so implementing one makes `graphql` a dependency; §6 of `../SPEC.md` gave that up deliberately and this is not worth reversing it for.
 
-The consequence is honest and worth stating rather than hiding: **an application that does not make this call
-has no limit.** There is no ambient enforcement, and `#549`'s page has to say so above the fold.
+An **interceptor on the field chain** is refused for the reason at the top: by the time a field's chain runs, execution has begun. Between `parse` and `execute` is left, it needs nothing from the engine but the document, and it is three lines the reader can see.
+
+**An application that does not make this call has no limit.** There is no
+ambient enforcement, and #549's page must say so above the fold.
 
 ## 2. The document is read structurally, and that shape is dated vendor data
 
@@ -147,12 +144,11 @@ So they are **not hand-written**. They come from the same type argument the SDL 
 export declare function costsOf<T>(name: string): CostTable;
 ```
 
-This is a third transform-only function alongside `sdlOf` and `sdlFields`, and therefore a third name on
-`CALLEES` — recorded in `../../../../schema-core/src/sdl/SPEC.md` §1 and §12, whose "two new names" this
-amends. It reads the same `TypeIR` walk: a field whose node is an `array` is `list: true`, a field whose node
-is an `object` or a `ref` has that definition's name as `returns`, everything else is a leaf. It cannot
-disagree with the emitted SDL because it is the same traversal over the same input, which is the property a
-hand-written table cannot have.
+This is a third transform-only function alongside `sdlOf` and `sdlFields`, and therefore a third name on `CALLEES` — recorded in `../../../../schema-core/src/sdl/SPEC.md` §1 and §12, whose "two new names" this amends.
+
+It reads the same `TypeIR` walk: a field whose node is an `array` is `list: true`, a field whose node is an `object` or a `ref` has that definition's name as `returns`, everything else is a leaf.
+
+It cannot disagree with the emitted SDL because it is the same traversal over the same input, which is the property a hand-written table cannot have.
 
 `costsOf` supplies structure and `defaultFieldCost` for every field. The cost is then refined by two sources,
 in this order:
@@ -314,7 +310,7 @@ correct upper bound rather than a conservative approximation.
 
 `__schema` and `__type` cost a flat `introspectionCost` each and **their selection sets are not walked**. The
 walk would be pricing the engine's own schema traversal, which the cost table knows nothing about, so every
-number it produced would be invented. A flat charge per introspection root is honest about what it is: a
+number it produced would be invented. A flat charge per introspection root states exactly what it measures: a
 coarse bound, multiplied by the multiplier in force, so a hundred aliased `__schema` selections cost a hundred
 times and the standard aliased-introspection amplification is closed.
 

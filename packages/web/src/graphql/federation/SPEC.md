@@ -8,11 +8,9 @@
 Part of `@zmdb/web`, exported from the `./graphql` subpath, with the emission half in
 `@zmdb/schema-core/sdl`. `../SPEC.md` owns resolvers; this file owns what makes a subgraph composable.
 
-The deliverable is **a subgraph schema a real composer accepts**, not a gateway. The epic's non-goal says so
-and the reason is worth keeping in front of the reader: a federated schema that is subtly wrong composes
-successfully and then resolves the wrong thing at runtime, in the gateway, in a different service from the one
-that got it wrong. So every rule here is written to fail at build time instead, and the arbiter of correctness
-is a real composer in CI (§7) rather than this document's reading of the specification.
+The deliverable is **a subgraph schema a real composer accepts**, not a gateway. The epic's non-goal says so and the reason is worth keeping in front of the reader: a federated schema that is subtly wrong composes successfully and then resolves the wrong thing at runtime, in the gateway, in a different service from the one that got it wrong.
+
+So every rule here is written to fail at build time instead, and the arbiter of correctness is a real composer in CI (§7) rather than this document's reading of the specification.
 
 ## 1. Directives are tags, because an entity is an interface
 
@@ -173,12 +171,9 @@ is a string in the specification's own URL space rather than something we contro
 choice a red build rather than a subtly wrong schema. It is an option and not a constant precisely because the
 right answer changes without us.
 
-**`_service` and `_entities` are not emitted.** They are the subgraph protocol's two synthetic root fields, and
-`buildSubgraphSchema({ typeDefs, resolvers })` from `@apollo/subgraph` adds them — from exactly the two things
-`parts()` already returns. So a federated app calls `buildSubgraphSchema` where a plain app calls
-`createSchema`, which is the boundary `../SPEC.md` §6 already drew, one line further along. Emitting them
-ourselves would mean re-implementing a protocol that the library the app is already using implements, and
-getting the entity-resolution dispatch subtly wrong is the exact failure this file exists to avoid.
+**`_service` and `_entities` are not emitted.** They are the subgraph protocol's two synthetic root fields, and `buildSubgraphSchema({ typeDefs, resolvers })` from `@apollo/subgraph` adds them — from exactly the two things `parts()` already returns. So a federated app calls `buildSubgraphSchema` where a plain app calls `createSchema`, which is the boundary `../SPEC.md` §6 already drew, one line further along.
+
+Emitting them ourselves would mean re-implementing a protocol that the library the app is already using implements, and getting the entity-resolution dispatch subtly wrong is the exact failure this file exists to avoid.
 
 ## 7. Composition is validated against a real composer, in CI
 

@@ -10,7 +10,7 @@ Route resolution reads the **cached** route table built once at
 `register`/`compile` time — it does **not** re-read `context.metadata` per
 request. This is the concrete, testable form of "no per-request reflection".
 
-### `benchmarkRouter(options)` — a small, honest microbench harness
+### `benchmarkRouter(options)` — a small reproducible microbenchmark
 
 - Builds a router with N routes, runs `handle` for `iters` iterations, returns
   `{ iters, totalMs, opsPerSec }`. Pure timing via `performance.now()`; no
@@ -27,11 +27,11 @@ request. This is the concrete, testable form of "no per-request reflection".
 - Repeatedly creates an eager application from one root module and returns the
   same raw `{ iters, totalMs, opsPerSec }` shape.
 - It is a measurement tool, not a fixed performance threshold: CI contention
-  makes a universal timing assertion dishonest.
+  makes a universal timing assertion misleading.
 
 ## Invariants
 
-- The benchmark is honest: real timings, no fabricated numbers; the dashboard
+- The benchmark records real timings: real timings, no fabricated numbers; the dashboard
   entry states methodology + caveats (no "fastest" claim).
 - **No `as`/`any`/`!` on the consumer surface.**
 
@@ -46,7 +46,7 @@ request. This is the concrete, testable form of "no per-request reflection".
   universal timing threshold in CI.
 - `benchmarkAppStartup` returns raw positive timings for an eager module graph.
 - No consumer-surface `as`; suite + typecheck green.
-- Dashboard/docs note added honestly (docs sub-issue).
+- Dashboard and documentation note added by the docs sub-issue.
 
 ## Out of scope
 

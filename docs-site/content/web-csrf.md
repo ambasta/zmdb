@@ -136,7 +136,7 @@ branch timing reveals nothing about the application secret.
 
 ## What it does not protect
 
-Worth stating as plainly as the freeze does, because a CSRF token in an audit looks like more than it is.
+A CSRF token can look more comprehensive in an audit than it really is.
 
 - **XSS.** A script on your origin reads any token your page can read and sets any header your page can set. CSRF protection assumes the origin is not compromised. A missing escape is not a CSRF problem and no token configuration fixes it.
 - **A stolen session cookie.** The attacker replays the session directly.

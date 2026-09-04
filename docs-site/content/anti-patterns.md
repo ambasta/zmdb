@@ -3,7 +3,7 @@ This manual covers the union of four doc surfaces — [Drizzle ORM](https://orm.
 Fourteen upstream pages are out of scope. They are not gaps and they are not roadmap — a page marked **ToDo** in this manual is a capability we intend to build; a page on this list is one we have decided against. Almost all of them share a root cause: they document machinery that exists to recover, cache or track information that zmdb resolves at compile time and then keeps in plain data.
 
 > [!NOTE]
-> Disagreeing with an entry here is a design argument, not a bug report — but do make it. Each reason below is falsifiable, and if the trade-off stops holding the honest move is to build the feature, not to soften the wording.
+> Disagreeing with an entry here is a design argument, not a bug report — but do make it. Each reason below is falsifiable, and if the trade-off stops holding the right response is to build the feature, not to soften the wording.
 
 ## What lint can enforce
 

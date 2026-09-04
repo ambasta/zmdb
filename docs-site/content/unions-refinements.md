@@ -107,7 +107,9 @@ See [Tag Reference](./tags-reference.html).
 
 ## The rule-object API
 
-`@zmdb/aot-validator/advanced` holds the older rule-value form: `refine`, `transform`, `union`, `discriminated`, `validateObject`, `coerce`. It predates type-first declaration and is largely a stub — worth knowing what it does and does not do before reaching for it:
+`@zmdb/aot-validator/advanced` contains the older rule-value API:
+`refine`, `transform`, `union`, `discriminated`, `validateObject`, and
+`coerce`. It predates type-first declarations and is mostly a stub:
 
 ```ts
 import { refine, validateObject } from '@zmdb/aot-validator/advanced';

@@ -165,13 +165,9 @@ controller, in one visible line.
 
 ## 6. Caching, conditional requests and ranges
 
-**The `ETag` is weak: `W/"<size>-<mtimeMs>"`.** Weak is the honest label. Size and
-modification time cannot distinguish two different files of the same length written
-in the same millisecond, and a strong validator would have to hash the contents,
-which reads the whole file and defeats the streaming this handler exists for.
-Labelling it strong would be worse than not sending one, because a strong validator
-licenses a client to assemble byte ranges from two different responses — so the
-label is what keeps the range behaviour below correct.
+**The `ETag` is weak: `W/"<size>-<mtimeMs>"`.** Weak is the accurate label. Size and modification time cannot distinguish two different files of the same length written in the same millisecond, and a strong validator would have to hash the contents, which reads the whole file and defeats the streaming this handler exists for.
+
+Labelling it strong would be worse than not sending one, because a strong validator licenses a client to assemble byte ranges from two different responses — so the label is what keeps the range behaviour below correct.
 
 **`Last-Modified`** comes from the same `stat`, formatted as an HTTP-date, which has
 one-second resolution. That truncation is why `If-None-Match` is evaluated first: a
@@ -203,14 +199,11 @@ the operator knows the name changes when the bytes do.
 | more than one range               | ignored: `200` with the whole file                      |
 | `If-Range` present                | ignored: `200` with the whole file                      |
 
-Two of those are decisions rather than transcriptions. **Multiple ranges are
-refused by ignoring them**, because `multipart/byteranges` is a second body format
-with its own boundary generation and its only real-world consumer is a PDF viewer
-that works fine without it; serving the whole file is always a correct answer to a
-`Range` request and this one is honest about the trade. **`If-Range` is ignored for
-the same reason the ETag is labelled weak** — `If-Range` requires a strong
-validator, and answering it with a weak one is how a client ends up splicing two
-versions of a file together.
+Two of those are decisions rather than transcriptions.
+
+**Multiple ranges are refused by ignoring them**, because `multipart/byteranges` is a second body format with its own boundary generation and its only real-world consumer is a PDF viewer that works fine without it; serving the whole file is always a correct answer to a `Range` request and this one is clear about the trade-off.
+
+**`If-Range` is ignored for the same reason the ETag is labelled weak** — `If-Range` requires a strong validator, and answering it with a weak one is how a client ends up splicing two versions of a file together.
 
 `content-range` and the window are applied while reading the already-open
 descriptor with explicit positions, so a range response streams the window and

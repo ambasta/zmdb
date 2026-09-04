@@ -87,12 +87,9 @@ evictable, because dropping the handle mid-walk would free native memory the ite
 Cancellation is only ever between rows; `node:sqlite` exposes no `sqlite3_interrupt`, so a slow single
 statement runs to completion.
 
-**`pgDriver` streams only when it can check out a connection.** With no `connect` on the queryable, the
-returned object has **no `stream` property at all**, so the repository buffers by its normal capability
-check instead of taking a cursor path that would throw. With one: check out, read `pg_backend_pid()`,
-`BEGIN`, `DECLARE … CURSOR FOR <query.text>` with the parameters, `FETCH FORWARD <batchSize>` per round
-trip, then `CLOSE`, `COMMIT` and release on cleanup — in a `finally`, so an abandoned iterator that does
-get closed cannot leave the connection in a transaction.
+**`pgDriver` streams only when it can check out a connection.** With no `connect` on the queryable, the returned object has **no `stream` property at all**, so the repository buffers by its normal capability check instead of taking a cursor path that would throw.
+
+With one: check out, read `pg_backend_pid()`, `BEGIN`, `DECLARE … CURSOR FOR <query.text>` with the parameters, `FETCH FORWARD <batchSize>` per round trip, then `CLOSE`, `COMMIT` and release on cleanup — in a `finally`, so an abandoned iterator that does get closed cannot leave the connection in a transaction.
 
 `cancelVia` is a separate queryable used for nothing but `SELECT pg_cancel_backend($1)`. It is explicit
 because the connection running the query cannot cancel it — the cancel would queue behind it — and a `Pool`

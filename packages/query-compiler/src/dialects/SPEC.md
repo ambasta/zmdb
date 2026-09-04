@@ -50,7 +50,7 @@ are one dialect's grammar shipped as if it were universal:
 | `../schema-objects/index.ts:23` | a partial index's `WHERE`                   | `mysql`, which has no filtered index   |
 
 So the real inventory is **fourteen comparisons, two tables, and eight ungated emitters — twenty-four
-sites**, and the honest reading is that the compiler is less dialect-aware than its three-member union
+sites**, and the accurate reading is that the compiler is less dialect-aware than its three-member union
 suggests rather than more.
 
 ### 1.1 The number that actually decides the mechanism
@@ -126,34 +126,25 @@ allowing CockroachDB and SingleStore to inherit most of their maps.
 Five deliberate differences from the sketch in the sub-issue, each because the sketch does not survive
 contact with the code:
 
-**`quote` is a character pair, not a function.** All four quoting styles in the matrix turn out to be the
-same rule: wrap in the pair, and escape the closing character by doubling it. Postgres and SQLite double
-`"`, MySQL doubles the backtick, SQL Server doubles `]`. `../quoting.ts` collapses to one implementation
-reading a pair from the table, and `quoteColumn` and `quoteTable`, which only split on `.` and scan for
-`AS`, need no dialect knowledge at all beyond it. A `quote: (id: string) => string` per dialect would be
-four copies of one escape loop, which is four chances to get the escape wrong in a function whose entire
-purpose is preventing injection.
+**`quote` is a character pair, not a function.** All four quoting styles in the matrix turn out to be the same rule: wrap in the pair, and escape the closing character by doubling it.
 
-**`placeholder` is a style, not a formatter.** A formatter answers "what does parameter 3 look like" and
-that is not the only question asked: `../set-ops/index.ts:26` has to _renumber_ placeholders when it
-concatenates fragments, and `renumberPlaceholders` at `../quoting.ts:84` hard-codes `/\$(\d+)/g`. With a
-formatter, `mssql` gets correct placeholders in a single statement and duplicate `@p1`s across a `UNION`.
-The style drives both — the pattern to match and the text to emit — so `renumberPlaceholders` gains a
-`dialect` parameter and the `postgres` check at `set-ops/index.ts:26` becomes
-`TRAITS[dialect].placeholder !== 'positional'`.
+Postgres and SQLite double `"`, MySQL doubles the backtick, SQL Server doubles `]`. `../quoting.ts` collapses to one implementation reading a pair from the table, and `quoteColumn` and `quoteTable`, which only split on `.` and scan for `AS`, need no dialect knowledge at all beyond it.
+
+A `quote: (id: string) => string` per dialect would be four copies of one escape loop, which is four chances to get the escape wrong in a function whose entire purpose is preventing injection.
+
+**`placeholder` is a style, not a formatter.** A formatter answers "what does parameter 3 look like" and that is not the only question asked: `../set-ops/index.ts:26` has to _renumber_ placeholders when it concatenates fragments, and `renumberPlaceholders` at `../quoting.ts:84` hard-codes `/\$(\d+)/g`. With a formatter, `mssql` gets correct placeholders in a single statement and duplicate `@p1`s across a `UNION`.
+
+The style drives both — the pattern to match and the text to emit — so `renumberPlaceholders` gains a `dialect` parameter and the `postgres` check at `set-ops/index.ts:26` becomes `TRAITS[dialect].placeholder !== 'positional'`.
 
 **`paginate` takes the whole tail, including whether the query is ordered.** The sketch's
 `(limit?, offset?) => string` cannot express SQL Server's grammar, which is the divergence most likely to
 be discovered in production (§3.3).
 
-**`types` is a local `DialectTypeMap`, not an imported `SqlType` map.** `SqlType` lives in
-`@zmdb/schema-core` and this package deliberately has no dependencies, so the runtime module does not import
-it. The implementation closes the type-level gap without crossing that boundary: each root mapping satisfies
-the local `DialectTypeMap`, and `../../../repository/src/dialect-types.type-test.ts` — in a package that
-already depends on both sides — proves `DialectSqlType` and `SqlType` are exactly equal. A missing mapping or
-a new schema type therefore breaks typecheck, while §7's runtime matrix independently checks the resolved
-maps. The migration emitter widens that complete map only at the lookup of a hand-written unknown type, where
-the existing passthrough remains intentional.
+**`types` is a local `DialectTypeMap`, not an imported `SqlType` map.** `SqlType` lives in `@zmdb/schema-core` and this package deliberately has no dependencies, so the runtime module does not import it.
+
+The implementation closes the type-level gap without crossing that boundary: each root mapping satisfies the local `DialectTypeMap`, and `../../../repository/src/dialect-types.type-test.ts` — in a package that already depends on both sides — proves `DialectSqlType` and `SqlType` are exactly equal. A missing mapping or a new schema type therefore breaks typecheck, while §7's runtime matrix independently checks the resolved maps.
+
+The migration emitter widens that complete map only at the lookup of a hand-written unknown type, where the existing passthrough remains intentional.
 
 **`features` is `Partial` on the way in and total on the way out.** An entry declares only what it differs
 from its parent on; resolution fills the rest. A total `Record<DialectFeature, boolean>` in every entry
@@ -172,7 +163,7 @@ package would merge per call. Instead `TRAITS` is built once when the module is 
 and every site indexes it. That satisfies the epic's cost model — dialect dispatch is a property read, not a
 walk — without changing a single exported signature except `renumberPlaceholders`, which gains a dialect.
 
-Two consequences worth stating because they are easy to lose:
+Two consequences are easy to miss:
 
 - **A cycle in `parent` is a load-time throw, not a stack overflow.** Every entry is resolved eagerly:
   three in #507, six when the epic is complete.
@@ -180,7 +171,7 @@ Two consequences worth stating because they are easy to lose:
   hand-written snapshot, but the repository's old `DIALECT_PARAM_LIMITS[…] ?? 1000` defences are gone:
   `TRAITS` is eager and total, so every `Dialect` has a real limit before any repository is constructed.
 
-### 2.2 What the full epic costs, stated honestly
+### 2.2 Cost of the full epic
 
 The #507 mechanism moves the inventoried behavior behind the table without changing a shipped SQL string.
 The later dialect slices supply the new values and the SQL corrections described below:
@@ -281,12 +272,11 @@ neither                 ''
 `OFFSET 0 ROWS` is emitted for a bare limit rather than special-cased, because one shape with a zero in it
 is easier to read in a golden file than two shapes.
 
-**A paginated query with no ordering is refused, not repaired.** The idiom exists — `ORDER BY (SELECT NULL)`
-is legal and is what hand-written T-SQL does — and it is rejected here. A `LIMIT` without an `ORDER BY` is
-already a latent bug on all three shipped dialects: the server may return any rows it likes, so page two can
-repeat a row from page one, and nothing tells the author. SQL Server is the only dialect whose grammar
-notices. Spending that on a synthesised clause buys a query that runs and keeps the bug; refusing costs one
-error and names the fix:
+**A paginated query with no ordering is refused, not repaired.** The idiom exists — `ORDER BY (SELECT NULL)` is legal and is what hand-written T-SQL does — and it is rejected here.
+
+A `LIMIT` without an `ORDER BY` is already a latent bug on all three shipped dialects: the server may return any rows it likes, so page two can repeat a row from page one, and nothing tells the author. SQL Server is the only dialect whose grammar notices.
+
+Spending that on a synthesised clause buys a query that runs and keeps the bug; refusing costs one error and names the fix:
 
 ```
 UnsupportedFeatureError(
@@ -344,11 +334,9 @@ So `makeInsert`, `makeUpdate` and `makeDelete` build their SQL from named parts 
 decides where the clause lands, with `'none'` for a dialect that has neither. `mysql` gets `'none'` and
 therefore acquires its first refusal for `returning()`, which today it accepts and emits invalid SQL for.
 
-One limitation is the server's and is documented rather than worked around: **`OUTPUT` without `INTO` is
-rejected on a table with an enabled trigger.** The compiler cannot know about triggers, so this is a genuine
-"fails at the server" case in a spec that otherwise forbids them. The honest handling is a named entry in the
-dialect page and a `Non-goal`: `OUTPUT … INTO @table` needs a table variable, a `DECLARE`, and a second
-statement, and `../../SPEC.md` §5d froze `text` as exactly one statement for the cursor wrapper's sake.
+One limitation is the server's and is documented rather than worked around: **`OUTPUT` without `INTO` is rejected on a table with an enabled trigger.** The compiler cannot know about triggers, so this is a genuine "fails at the server" case in a spec that otherwise forbids them.
+
+The correct handling is a named entry in the dialect page and a `Non-goal`: `OUTPUT … INTO @table` needs a table variable, a `DECLARE`, and a second statement, and `../../SPEC.md` §5d froze `text` as exactly one statement for the cursor wrapper's sake.
 
 ### 3.5 `MERGE`, its lock hint, and the one semicolon in the package
 
@@ -375,11 +363,9 @@ WHEN NOT MATCHED THEN INSERT ([email], [role]) VALUES (src.[email], src.[role]);
 
 Four decisions in that SQL, all of them the kind that is expensive to change later:
 
-**`WITH (HOLDLOCK)` is not optional.** A bare `MERGE` takes an update lock on the matching key but nothing
-on the _absent_ key, so two concurrent upserts of the same new row both fall to `WHEN NOT MATCHED` and the
-second one violates the unique index. That is precisely the race the user reached for an upsert to avoid.
-`HOLDLOCK` (serializable, on the target only) closes it at the cost of range locks, and shipping the fast
-racy version with a warning in prose would be shipping the bug.
+**`WITH (HOLDLOCK)` is not optional.** A bare `MERGE` takes an update lock on the matching key but nothing on the _absent_ key, so two concurrent upserts of the same new row both fall to `WHEN NOT MATCHED` and the second one violates the unique index. That is precisely the race the user reached for an upsert to avoid.
+
+`HOLDLOCK` (serializable, on the target only) closes it at the cost of range locks, and shipping the fast racy version with a warning in prose would be shipping the bug.
 
 **`src` is a `VALUES` row constructor, not a `SELECT`.** It keeps the parameters positional and in
 placeholder order, which the whole package's contract depends on.
@@ -419,14 +405,9 @@ All ten `SqlType` members, because nine is how a dialect half-ships:
 | `json`      | `NVARCHAR(MAX)`     | SQL Server has no JSON column type; `JSON_VALUE` reads nvarchar             |
 | `jsonEnum`  | `NVARCHAR(MAX)`     | matches the other three, all of which use their widest text type            |
 
-`timestamp` is `DATETIMEOFFSET(3)` and **not `DATETIME2`**, which is what
-`docs-site/content/dialect-mssql.md:20` and the epic body both name. The rule this table follows was set by
-the Postgres entry and written into the comment above it at `../migrations/index.ts:154`: a `timestamp`
-column gets the dialect's zone-aware type where one with a usable range exists. Postgres gets `TIMESTAMPTZ`
-for that reason and MySQL gets `DATETIME(3)` only because its `TIMESTAMP` converts to the session zone and
-stops in 2038. SQL Server has `DATETIMEOFFSET`, which keeps the offset and has the full range, so choosing
-`DATETIME2` would be choosing to forget the offset on the one dialect that can store it. `(3)` is
-milliseconds, which is the precision a JavaScript `Date` carries; the driver returns a `Date` either way.
+`timestamp` is `DATETIMEOFFSET(3)` and **not `DATETIME2`**, which is what `docs-site/content/dialect-mssql.md:20` and the epic body both name. The rule this table follows was set by the Postgres entry and written into the comment above it at `../migrations/index.ts:154`: a `timestamp` column gets the dialect's zone-aware type where one with a usable range exists. Postgres gets `TIMESTAMPTZ` for that reason and MySQL gets `DATETIME(3)` only because its `TIMESTAMP` converts to the session zone and stops in 2038.
+
+SQL Server has `DATETIMEOFFSET`, which keeps the offset and has the full range, so choosing `DATETIME2` would be choosing to forget the offset on the one dialect that can store it. `(3)` is milliseconds, which is the precision a JavaScript `Date` carries; the driver returns a `Date` either way.
 
 `UNIQUEIDENTIFIER` appears nowhere in the table and cannot, because `SqlType` has no `uuid` member
 (`../../../schema-core/src/index.ts:21`). A GUID column is declared `Sql<'varchar'>` with `Length<36>` and
@@ -581,12 +562,9 @@ Cockroach is serializable by default, so `40001` under contention is normal oper
 expected to retry. `dialect-cockroach.md:60` calls this the single most important thing to know about
 running on Cockroach, and it is right.
 
-**The retry lives in the transaction wrapper in `@zmdb/repository`, not in the driver and not in the
-migration runner.** A retry re-runs a _unit of work_, and only the caller that owns the closure can re-run
-it; a driver sees statements and has no idea which ones belonged together. What the driver contributes is
-the code, and what the dialect contributes is which codes are retryable — hence `retryableCodes` on the
-traits record, where `postgres` carries `['40001', '40P01']` (serialization failure and deadlock, both
-reachable under `SERIALIZABLE`) and Cockroach narrows it to `['40001']`.
+**The retry lives in the transaction wrapper in `@zmdb/repository`, not in the driver and not in the migration runner.** A retry re-runs a _unit of work_, and only the caller that owns the closure can re-run it; a driver sees statements and has no idea which ones belonged together.
+
+What the driver contributes is the code, and what the dialect contributes is which codes are retryable — hence `retryableCodes` on the traits record, where `postgres` carries `['40001', '40P01']` (serialization failure and deadlock, both reachable under `SERIALIZABLE`) and Cockroach narrows it to `['40001']`.
 
 A dialect table in the query compiler holding driver error codes needs a justification, and the precedent is
 exact: `DIALECT_PARAM_LIMITS` at `../index.ts:39` is a _driver_ limit living in the compiler, for the same
@@ -706,11 +684,9 @@ MySQL's entry is `INT AUTO_INCREMENT`. SingleStore allocates auto-increment valu
 strides, so the integer domain is consumed far faster than the row count suggests and an `INT` ceiling is
 reachable on a table that is nowhere near two billion rows. `BIGINT` is the override.
 
-Which leaves a seam this freeze names rather than hides: `Entity<T>` types a `Serial` column as `number`,
-`decodeRows` converts only columns _declared_ `bigint`, and a `serial` column is not one — so an id past
-`Number.MAX_SAFE_INTEGER` arrives as whatever `mysql2` produces for a `BIGINT`. The fix is a declaration, not
-a dialect: `bigint & PrimaryKey & HasDefault` with the default written by hand, which types the column as a
-`bigint` and gets it decoded. The docs page must say so, because "ids are unique but not monotonic" (line 48) is the milder half of the same fact.
+Which leaves a seam this freeze names rather than hides: `Entity<T>` types a `Serial` column as `number`, `decodeRows` converts only columns _declared_ `bigint`, and a `serial` column is not one — so an id past `Number.MAX_SAFE_INTEGER` arrives as whatever `mysql2` produces for a `BIGINT`.
+
+The fix is a declaration, not a dialect: `bigint & PrimaryKey & HasDefault` with the default written by hand, which types the column as a `bigint` and gets it decoded. The docs page must say so, because "ids are unique but not monotonic" (line 48) is the milder half of the same fact.
 
 The page's related warning is worth carrying into the spec: keyset pagination ordered by id is unreliable
 here, because per-partition allocation means a higher id is not a newer row. Order by a timestamp with a
@@ -721,21 +697,13 @@ tie-break.
 SingleStore cannot enforce a unique index that does not contain the shard key, and rejects it. So
 `email: string & Sql<'text'> & Unique` on a table sharded by `id` fails.
 
-`dialect-singlestore.md:52` says catching this "turns a deploy-time error into a compile-time one". **It
-cannot be compile-time, and the page has to be corrected.** `schemaOf` and the reflector know nothing about
-dialects — reflection reads a type, and the dialect is a runtime value from a config file
-(`../../../zmdb/src/config/SPEC.md` §1 types it as `Dialect` read off disk). The earliest a dialect-specific
-rule can fire is where the dialect is first in scope, which is DDL emission: `zmdb generate`, before the
-migration is written, with an error naming the column, the shard key and the two ways out. That is still
-before deploy and it is still valuable — it is simply not the type system, and claiming otherwise on a docs
-page is how a user comes to trust a check that does not exist.
+`dialect-singlestore.md:52` says catching this "turns a deploy-time error into a compile-time one". **It cannot be compile-time, and the page has to be corrected.** `schemaOf` and the reflector know nothing about dialects — reflection reads a type, and the dialect is a runtime value from a config file (`../../../zmdb/src/config/SPEC.md` §1 types it as `Dialect` read off disk).
 
-Shard keys are also **immutable**: SingleStore has no `ALTER` that changes one. `ChangeOp` has five kinds
-(`../migrations/index.ts:34`) and none of them can express "the table options changed", so once table options
-are in the snapshot, `diff` will see a changed shard key and have nothing to emit. It must **refuse** —
-naming the table and saying that a shard-key change means creating a new table and copying — rather than
-producing an empty diff, which would let a developer edit the declaration, generate nothing, and believe the
-change had shipped.
+The earliest a dialect-specific rule can fire is where the dialect is first in scope, which is DDL emission: `zmdb generate`, before the migration is written, with an error naming the column, the shard key and the two ways out. That is still before deploy and it is still valuable — it is simply not the type system, and claiming otherwise on a docs page is how a user comes to trust a check that does not exist.
+
+Shard keys are also **immutable**: SingleStore has no `ALTER` that changes one. `ChangeOp` has five kinds (`../migrations/index.ts:34`) and none of them can express "the table options changed", so once table options are in the snapshot, `diff` will see a changed shard key and have nothing to emit.
+
+It must **refuse** — naming the table and saying that a shard-key change means creating a new table and copying — rather than producing an empty diff, which would let a developer edit the declaration, generate nothing, and believe the change had shipped.
 
 ### 5.5 Foreign keys are refused, not silently dropped
 
@@ -767,14 +735,11 @@ export class UnsupportedFeatureError extends Error {
 `feature` and `dialect` stay machine-readable so the matrix in §7 can assert against them; the hint is where
 the sentence that saves the reader an hour goes. The existing two-argument calls are unchanged.
 
-**`feature` becomes a closed vocabulary.** Today it is any string, and two call sites happen to agree on
-`'row-level security'`. The runtime values are the existing human-readable feature names (`'materialized
-views'`, `'row-level security'`, `'full-text search'`), the closed extension operator/predicate names from
-`../../SPEC.md` §5a (`'l2'`, `'cosine'`, `'ip'`, `'st_contains'`, `'st_within'`, `'st_intersects'`,
-`'st_dwithin'`), and the statement-level refusals named here (`'pagination without ORDER BY'`, `'upsert
-without a conflict target'`, `'returning'`, `'alter column type'`, `'table options change'`). Trait property
-names such as `materializedView` are not error messages. A closed set is what lets one test enumerate every
-refusal the matrix expects and fail when a new one appears undocumented.
+**`feature` becomes a closed vocabulary.** Today it is any string, and two call sites happen to agree on `'row-level security'`.
+
+The runtime values are the existing human-readable feature names (`'materialized views'`, `'row-level security'`, `'full-text search'`), the closed extension operator/predicate names from `../../SPEC.md` §5a (`'l2'`, `'cosine'`, `'ip'`, `'st_contains'`, `'st_within'`, `'st_intersects'`, `'st_dwithin'`), and the statement-level refusals named here (`'pagination without ORDER BY'`, `'upsert without a conflict target'`, `'returning'`, `'alter column type'`, `'table options change'`).
+
+Trait property names such as `materializedView` are not error messages. A closed set is what lets one test enumerate every refusal the matrix expects and fail when a new one appears undocumented.
 
 **Compile-time where it is genuinely available, runtime where it is not.** There are exactly two
 compile-time levers, and it is worth being precise about them because "compile-time error where possible" is
@@ -785,23 +750,17 @@ easy to promise and hard to cash:
    `Partial<Record<Dialect, …>>` (§1.1).
 2. The `DialectFeature` union, so `features: { fullTextSearch: false }` cannot be misspelled.
 
-Not available, and deliberately not pursued: **parameterising the builders by dialect.** A
-`QueryCompiler<'mssql'>` whose `.limit()` returned a type that only `.orderBy()` could compile would catch
-§3.3's refusal at the type level, which is the single most valuable compile-time check in this epic. It is
-rejected because the dialect is not a literal at the boundary — it arrives from a config file as `Dialect` —
-so the type parameter would widen to the full union at the exact place it needed to be narrow, while
-threading through every builder interface, every `Repo` method and `defineRepository`. The runtime refusal
-is acceptable because `compile()` is pure: a test asserting a refusal costs precisely what a test asserting
-golden SQL costs, and §7 requires both in the same table.
+Not available, and deliberately not pursued: **parameterising the builders by dialect.** A `QueryCompiler<'mssql'>` whose `.limit()` returned a type that only `.orderBy()` could compile would catch §3.3's refusal at the type level, which is the single most valuable compile-time check in this epic.
+
+It is rejected because the dialect is not a literal at the boundary — it arrives from a config file as `Dialect` — so the type parameter would widen to the full union at the exact place it needed to be narrow, while threading through every builder interface, every `Repo` method and `defineRepository`.
+
+The runtime refusal is acceptable because `compile()` is pure: a test asserting a refusal costs precisely what a test asserting golden SQL costs, and §7 requires both in the same table.
 
 ## 7. The test matrix
 
-**Every construct, every dialect, one table, no gaps.** The pattern is not invented here; it is already in
-the repository at `../../../zmdb/src/three-types.spec.ts:63`, where a timestamp column's DDL is asserted
-against a `Readonly<Record<Dialect, string>>` iterated per dialect. Two properties of that test are the
-reason it generalises: the expectation is the whole statement rather than a fragment (the comment there
-explains why — `TIMESTAMPTZ` contains `TIMESTAMP`, so half the obvious assertions pass either way), and the
-table is keyed by `Dialect`, so a missing dialect is a compile error.
+**Every construct, every dialect, one table, no gaps.** The pattern is not invented here; it is already in the repository at `../../../zmdb/src/three-types.spec.ts:63`, where a timestamp column's DDL is asserted against a `Readonly<Record<Dialect, string>>` iterated per dialect.
+
+Two properties of that test are the reason it generalises: the expectation is the whole statement rather than a fragment (the comment there explains why — `TIMESTAMPTZ` contains `TIMESTAMP`, so half the obvious assertions pass either way), and the table is keyed by `Dialect`, so a missing dialect is a compile error.
 
 The generalisation:
 
@@ -839,7 +798,7 @@ exists today keeps its title when it is parameterised, and the per-dialect suffi
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly, and honesty starts with a fact about the three dialects that
+The epic also needs a clear definition of dialect support. Start with a fact about the three dialects that
 already ship: **`packages/repository/src/drivers/` contains `pg.ts` and `sqlite.ts` and nothing else.** MySQL
 is a supported dialect with no driver in this repository. So "supported" has always meant "the compiler emits
 correct SQL for it, and a driver is either provided or written by the user against the `Driver` interface",
@@ -858,12 +817,9 @@ Cockroach is the cheap one and should be taken: it speaks the Postgres wire prot
 and the existing E2E suite run against it with a connection string change, which makes it the only new
 dialect where §4's divergences get verified against a server rather than against a golden file.
 
-SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys,
-per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file cannot verify,
-because the question is whether the server accepts the DDL. So the suite exists, is skipped unless a licence
-key is present, and **the docs page says "golden SQL only" in the same words this table uses.** A page that
-flipped to `supported` while implying CI coverage that does not exist would be worse than the current
-`todo`, which at least tells the truth.
+SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file cannot verify, because the question is whether the server accepts the DDL.
+
+So the suite exists, is skipped unless a licence key is present, and **the docs page says "golden SQL only" in the same words this table uses.** A page that flipped to `supported` while implying CI coverage that does not exist would be worse than the current `todo`, which at least tells the truth.
 
 ## 9. Docs corrections now, support rewrite later
 

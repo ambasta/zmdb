@@ -1,10 +1,10 @@
 # zmdb
 
-The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time.
+The `zmdb` package re-exports the main schema, validation, query, repository,
+web, configuration, and command-line APIs from one install.
 
-Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
-define your schema once and entities, DTOs, validation, serialization, OpenAPI
-and CRUD all derive at compile time.
+Define a schema once and use it for TypeScript types, validation, serialization,
+SQL, OpenAPI, and CRUD.
 
 ## Install
 
@@ -18,7 +18,10 @@ npm add zmdb@alpha
 
 ## Entry points
 
-`zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/web`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
+- Core APIs: `zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`,
+  `zmdb/relations`
+- Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`
+- Application tooling: `zmdb/web`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 
 ## Documentation
 

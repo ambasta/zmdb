@@ -84,7 +84,7 @@ it('the transformer is running', () => {
 });
 ```
 
-TypeBox fails loudly when misconfigured. zmdb fails open. If you are replacing one with the other, this test is what keeps the swap honest.
+TypeBox fails loudly when misconfigured. zmdb fails open. If you are replacing one with the other, this test is what keeps the swap accurate.
 
 ---
 

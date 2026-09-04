@@ -220,11 +220,9 @@ Under `path`, **no version extractor or version-table lookup runs per request.**
 two-key table answers both without extracting or looking up a version. This is the property that makes path
 versioning the recommendation rather than merely one of three.
 
-A `@VersionNeutral()` route is registered into every version bucket that exists, and into a neutral bucket
-consulted after the version's own bucket misses — so a neutral route is found under a version no route
-declares, and a versioned route still shadows a neutral one at the same path. Registering into the buckets
-rather than testing a flag during the match keeps the per-request path a lookup: the alternative is a
-second candidate list and a branch, which is a scan reintroduced one route at a time.
+A `@VersionNeutral()` route is registered into every version bucket that exists, and into a neutral bucket consulted after the version's own bucket misses — so a neutral route is found under a version no route declares, and a versioned route still shadows a neutral one at the same path.
+
+Registering into the buckets rather than testing a flag during the match keeps the per-request path a lookup: the alternative is a second candidate list and a branch, which is a scan reintroduced one route at a time.
 
 The version resolved for a request is not put on `Ctx`. A handler that needs to know its own version has
 been given two versions' worth of behaviour and should be two handlers; the framework declining to make

@@ -48,12 +48,9 @@ to `execute` instead of a third method.
 running statement. A driver that ignores `opts` gives tier one only, so the signal is **advisory**: the
 promise rejects when the query finishes, not when the signal fires.
 
-There is no `Driver.cancels?: boolean`. A capability flag is a claim the driver author has to remember to
-keep true, and the first time it is stale it lies in the direction that costs a timeout. The observable
-difference between the tiers is _when_ the rejection arrives; both reject with the same value, and a
-caller that needs a bound on that has to impose it themselves. `stream` is different — it is a method, so
-its presence is a fact rather than an assertion, which is exactly why capability detection here is
-`typeof driver.stream === 'function'` and never a flag.
+There is no `Driver.cancels?: boolean`. A capability flag is a claim the driver author has to remember to keep true, and the first time it is stale it lies in the direction that costs a timeout.
+
+The observable difference between the tiers is _when_ the rejection arrives; both reject with the same value, and a caller that needs a bound on that has to impose it themselves. `stream` is different — it is a method, so its presence is a fact rather than an assertion, which is exactly why capability detection here is `typeof driver.stream === 'function'` and never a flag.
 
 An aborted operation rejects with the platform's own failure: `AbortSignal.throwIfAborted()` semantics,
 which means `signal.reason` when one was given and a `DOMException` named `AbortError` otherwise. Not a
@@ -103,16 +100,13 @@ not reject for a stream that was never started. A driver that closes on the last
 `return()` is a driver that double-releases a pooled connection, which shows up as an unrelated query
 failing on a connection someone else now holds.
 
-The leak that stays: an iterator obtained by hand and dropped. Nothing runs `return()` for it —
-`FinalizationRegistry` is not a guarantee, and a cursor holding a connection until GC decides to look is
-worse than the pool exhaustion it becomes. So the contract is that the connection is held until the
-iterator is closed, that `for await` and `await using` both close it, and that a consumer who steps the
-iterator manually owns calling `return()`. Named as a real hazard rather than papered over, because the
-alternative is a driver-side timeout, which would kill legitimately slow consumers.
+The leak that stays: an iterator obtained by hand and dropped. Nothing runs `return()` for it — `FinalizationRegistry` is not a guarantee, and a cursor holding a connection until GC decides to look is worse than the pool exhaustion it becomes.
+
+So the contract is that the connection is held until the iterator is closed, that `for await` and `await using` both close it, and that a consumer who steps the iterator manually owns calling `return()`. Named as a real hazard rather than papered over, because the alternative is a driver-side timeout, which would kill legitimately slow consumers.
 
 ### No `stream` on the driver: buffer, and let the caller refuse
 
-The fallback runs `execute` and yields from the array. It is honest about being a fallback in two ways
+The fallback runs `execute` and yields from the array. It is clear about being a fallback in two ways
 that a `console.warn` would not be — a library writing to stderr is unsuppressible and, in production,
 unread:
 
@@ -127,12 +121,9 @@ unread:
 
 ### Per-dialect cancellation
 
-**Postgres** cancels out of band: `SELECT pg_cancel_backend($1)` on a _different_ connection, with the
-pid the streaming connection reported from `pg_backend_pid()`. Two consequences the bundled adapter
-cannot dodge. The pid has to be read on the same connection that runs the query, which means the stream
-must hold a checked-out connection rather than call `pool.query()` per statement — the same requirement
-the cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`config` overloads only, no
-`connect()`), so `pgDriver` gets a second connection only if it is given one:
+**Postgres** cancels out of band: `SELECT pg_cancel_backend($1)` on a _different_ connection, with the pid the streaming connection reported from `pg_backend_pid()`. Two consequences the bundled adapter cannot dodge.
+
+The pid has to be read on the same connection that runs the query, which means the stream must hold a checked-out connection rather than call `pool.query()` per statement — the same requirement the cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`config` overloads only, no `connect()`), so `pgDriver` gets a second connection only if it is given one:
 
 - `PgQueryable` gains an **optional** `connect?()`. When it is absent, `pgDriver` **omits `stream` from
   the object it returns**, so the repository's buffering fallback engages by the normal capability check
@@ -149,13 +140,11 @@ the cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`c
 two constraints. **There is no bundled MySQL adapter**, so this is written for an implementer rather than
 as a description of shipped code.
 
-**SQLite** is synchronous and in-process. `StatementSync.prototype.iterate()` exists on the supported
-Node, so `sqliteDriver` can implement a real `stream` that steps rows and checks the signal between them
-— but that is the whole of it. `node:sqlite` exposes no `sqlite3_interrupt`, and no other JavaScript runs
-while a step is executing, so a single statement that takes ten seconds inside the engine (an unindexed
-`ORDER BY` over a large table) is uninterruptible and abort is observed only after it returns. Written
-down because "cancellation works on SQLite" and "abort stops the loop between rows" are different claims
-and only the second is true.
+**SQLite** is synchronous and in-process.
+
+`StatementSync.prototype.iterate()` exists on the supported Node, so `sqliteDriver` can implement a real `stream` that steps rows and checks the signal between them — but that is the whole of it. `node:sqlite` exposes no `sqlite3_interrupt`, and no other JavaScript runs while a step is executing, so a single statement that takes ten seconds inside the engine (an unindexed `ORDER BY` over a large table) is uninterruptible and abort is observed only after it returns.
+
+Written down because "cancellation works on SQLite" and "abort stops the loop between rows" are different claims and only the second is true.
 
 ### The cursor is the driver's, and the compiler emits nothing new
 
@@ -163,13 +152,9 @@ No change to `@zmdb/query-compiler`. A `CompiledQuery` is text and parameters; a
 lifecycle, which the compiler has no access to and should not acquire — see its §6 non-goal on retained
 per-query state.
 
-The bundled Postgres adapter uses `DECLARE … CURSOR` with `FETCH FORWARD <batchSize>`, in an explicit
-transaction (Postgres closes a non-holdable cursor at transaction end), and `CLOSE` on cleanup — rather
-than taking `pg-cursor` as a second optional peer dependency. One fact the implementation slice must
-verify against a live server before building on it: whether `DECLARE c CURSOR FOR <text>` accepts bound
-parameters over the extended query protocol. If it does not, the parameters would have to be interpolated
-into the `DECLARE`, which zmdb will not do at any price, and the fallback is `pg-cursor` after all. That
-is a measurement, not a design decision, and it is recorded as unmade rather than guessed.
+The bundled Postgres adapter uses `DECLARE … CURSOR` with `FETCH FORWARD <batchSize>`, in an explicit transaction (Postgres closes a non-holdable cursor at transaction end), and `CLOSE` on cleanup — rather than taking `pg-cursor` as a second optional peer dependency. One fact the implementation slice must verify against a live server before building on it: whether `DECLARE c CURSOR FOR <text>` accepts bound parameters over the extended query protocol.
+
+If it does not, the parameters would have to be interpolated into the `DECLARE`, which zmdb will not do at any price, and the fallback is `pg-cursor` after all. That is a measurement, not a design decision, and it is recorded as unmade rather than guessed.
 
 ### Inside a transaction
 
@@ -293,12 +278,9 @@ form and a compiled `UPDATE`/`DELETE` whose text has no `WHERE` is always a bug.
 the compiled statement for one and throw a `ValidationError` — `refusing to update every row
 of products: the compiled statement has no WHERE clause` — before the driver sees it.
 
-This is deliberately redundant with the key rules above, and with `compileWhere`'s own
-refusals (`schema-core`'s `dto/SPEC.md` §1). The rules stop the arguments that were known to
-produce it; this stops the outcome. Every step of the path that produced #608 was correct on
-its own and the composition was not, and the cost of the next such composition is the whole
-table, so the check is worth one regular expression per write. `{}` remains a legal
-`WhereDTO` for reads, which is why the refusal lives here rather than in the fold.
+This is deliberately redundant with the key rules above, and with `compileWhere`'s own refusals (`schema-core`'s `dto/SPEC.md` §1). The rules stop the arguments that were known to produce it; this stops the outcome.
+
+Every step of the path that produced #608 was correct on its own and the composition was not, and the cost of the next such composition is the whole table, so the check is worth one regular expression per write. `{}` remains a legal `WhereDTO` for reads, which is why the refusal lives here rather than in the fold.
 
 `update(id, {})` has nothing to set and answers with the current row. The key is still checked
 first, so the shortcut cannot become a second unguarded path and the message names `update`
@@ -369,11 +351,9 @@ await posts.update(7, { views: inc(1), published: not() });
 await posts.increment(7, 'views');
 ```
 
-**`create` refuses every variant.** Not as a policy but because there is nothing for the expression to read:
-`INSERT INTO "posts" ("views") VALUES ("views" + 1)` is a reference to a column of a row that does not exist
-yet, and Postgres rejects it with `column "views" does not exist`. The refusal names the column and says so,
-rather than letting the database produce that message about SQL the caller never wrote. The one expression
-that is legal on an `INSERT` is `proposed()`, and it lives in the upsert's update branch, which is an update.
+**`create` refuses every variant.** Not as a policy but because there is nothing for the expression to read: `INSERT INTO "posts" ("views") VALUES ("views" + 1)` is a reference to a column of a row that does not exist yet, and Postgres rejects it with `column "views" does not exist`.
+
+The refusal names the column and says so, rather than letting the database produce that message about SQL the caller never wrote. The one expression that is legal on an `INSERT` is `proposed()`, and it lives in the upsert's update branch, which is an update.
 
 ### The validation rule
 
@@ -440,12 +420,9 @@ users.findAll({ filters: { tenant: { tenantId: ctx.tenantId } } });
 users.findAll({ filters: { softDelete: false } });
 ```
 
-**`where` returns predicates, never SQL text.** Two reasons and the second one is mechanical. A filter is
-applied to every statement, so a raw string there is not one injection point but all of them at once. And
-a fragment carrying its own `$1` would collide with the numbering of the statement it is spliced into —
-the compiler numbers placeholders across the whole query, and a filter is appended after the caller's
-predicates, so a hand-written fragment is wrong for every query except the first one it was tested
-against.
+**`where` returns predicates, never SQL text.** Two reasons and the second one is mechanical. A filter is applied to every statement, so a raw string there is not one injection point but all of them at once.
+
+And a fragment carrying its own `$1` would collide with the numbering of the statement it is spliced into — the compiler numbers placeholders across the whole query, and a filter is appended after the caller's predicates, so a hand-written fragment is wrong for every query except the first one it was tested against.
 
 Soft delete is declared instead of registered, as a tag, and lives in the IR
 (`../schema-core/src/ir/SPEC.md` §4.4): it is a property of the table, it needs no parameters, and three
@@ -460,7 +437,7 @@ Every read is filtered, and the list is written out because these are the paths 
 point rather than an edge case.
 
 `driver.execute` is not filtered and cannot be. zmdb does not parse the SQL a caller wrote, so raw SQL is
-outside the boundary; the spec says so plainly rather than leaving the impression that a filter is a
+outside the boundary; the spec makes this explicit instead of leaving the impression that a filter is a
 property of the database.
 
 ### The join rule, per relation kind
@@ -489,12 +466,11 @@ SELECT * FROM "posts" LEFT JOIN "users"
   ON "posts"."userId" = "users"."id" AND "users"."deletedAt" IS NULL
 ```
 
-Both halves of that are forced. `INNER JOIN` would drop the post, violating the invariant. And the filter
-in a trailing `WHERE` instead of the `ON` turns the left join back into an inner one — the unmatched row
-has `NULL` in `users.deletedAt`, and `NULL IS NULL` is true, so that particular predicate survives it, but
-any other filter (`users.tenantId = $1`) would evaluate to `NULL` on the outer row and drop the post. A
-rule that works for one predicate shape and not the others is not a rule, so it is the `ON` clause,
-always.
+Both halves of that are forced. `INNER JOIN` would drop the post, violating the invariant.
+
+And the filter in a trailing `WHERE` instead of the `ON` turns the left join back into an inner one — the unmatched row has `NULL` in `users.deletedAt`, and `NULL IS NULL` is true, so that particular predicate survives it, but any other filter (`users.tenantId = $1`) would evaluate to `NULL` on the outer row and drop the post.
+
+A rule that works for one predicate shape and not the others is not a rule, so it is the `ON` clause, always.
 
 The parent's own filters stay in the `WHERE`, because there is no outer row to preserve there.
 
@@ -572,7 +548,7 @@ than implying that `appliesToWrites: true` is one.
 
 ### Confirming a filter was applied
 
-The honest answer is the compiled SQL, so there is an API that hands it over:
+The accurate answer is the compiled SQL, so there is an API that hands it over:
 
 ```ts
 interface QueryMeta {
@@ -639,12 +615,11 @@ export interface RepositoryOptions {
 
 ### The batching window is one microtask, and one batch is not one statement
 
-The flush is scheduled with `queueMicrotask` on the first `load()` of an empty batch; every `load()` made
-before it runs joins. Not `setTimeout(0)` and not `setImmediate`: a macrotask window batches strictly more
-and costs a full turn of the event loop on _every_ load, which in a resolver tree is one turn per level of
-nesting whether or not anything was there to batch. A longer window is not offered as an option, because
-the option's correct value depends on the shape of a request rather than on the application, so nobody can
-set it once and be right.
+The flush is scheduled with `queueMicrotask` on the first `load()` of an empty batch; every `load()` made before it runs joins.
+
+Not `setTimeout(0)` and not `setImmediate`: a macrotask window batches strictly more and costs a full turn of the event loop on _every_ load, which in a resolver tree is one turn per level of nesting whether or not anything was there to batch.
+
+A longer window is not offered as an option, because the option's correct value depends on the shape of a request rather than on the application, so nobody can set it once and be right.
 
 What this means at a call site, stated because it is the way the feature is most often defeated:
 
@@ -653,13 +628,9 @@ for (const id of ids) await loader.load(id); // n statements — the await flush
 await Promise.all(ids.map(id => loader.load(id))); // one batch
 ```
 
-**One batch is one dispatch, not one statement.** The batch reuses machinery that already ships:
-`sanitizeKeys` deduplicates and drops nullish keys, and `chunkArray` splits the ids to stay under the
-dialect's placeholder ceiling. `wherein-chunking.spec.ts` pins that those chunks run **sequentially rather
-than concurrently**, so a batch of five thousand ids is `ceil(5000 / limit)` statements one after another,
-not one statement and not five thousand concurrent ones. Reusing that path rather than writing a second
-one is the point — a loader that built its own `IN` list would rediscover the placeholder limit in
-production.
+**One batch is one dispatch, not one statement.** The batch reuses machinery that already ships: `sanitizeKeys` deduplicates and drops nullish keys, and `chunkArray` splits the ids to stay under the dialect's placeholder ceiling. `wherein-chunking.spec.ts` pins that those chunks run **sequentially rather than concurrently**, so a batch of five thousand ids is `ceil(5000 / limit)` statements one after another, not one statement and not five thousand concurrent ones.
+
+Reusing that path rather than writing a second one is the point — a loader that built its own `IN` list would rediscover the placeholder limit in production.
 
 `relationLoader(repo, relation)` uses the same window and scope for parents obtained at separate call
 sites. It resolves the declaration through the ordinary populate machinery, so parent keys are
@@ -677,12 +648,9 @@ built. So a `load(42)` that hits an entry another request populated returns a ro
 filter ever running. That is not stale data, it is a tenant-isolation bypass, and it is invisible in the
 diff of whatever code moved the loader to module scope for reuse.
 
-The scope is **passed explicitly, not resolved from the DI container**. `@zmdb/web`'s `Scope` is
-`'singleton' | 'transient'` — there is no request scope — and both available registrations are wrong in
-opposite directions: `singleton` is the module-level loader above, and `transient` hands out a fresh scope
-per injection, so two collaborators in one request batch nothing and the feature silently does nothing at
-all. A request scope in the container is a different epic; until it exists, the scope is constructed at the
-request boundary and threaded.
+The scope is **passed explicitly, not resolved from the DI container**. `@zmdb/web`'s `Scope` is `'singleton' | 'transient'` — there is no request scope — and both available registrations are wrong in opposite directions: `singleton` is the module-level loader above, and `transient` hands out a fresh scope per injection, so two collaborators in one request batch nothing and the feature silently does nothing at all.
+
+A request scope in the container is a different epic; until it exists, the scope is constructed at the request boundary and threaded.
 
 The scope is also the cache's lifetime bound. It holds no rows after the request, and there is no
 `clear()` to remember to call, because forgetting it is the leak.
@@ -696,13 +664,9 @@ The scope is also the cache's lifetime bound. It holds no rows after the request
   a row nobody looked at.
 - Duplicate ids in one batch fetch **one** row and resolve twice.
 
-**Each resolution is a fresh shallow copy, and this is where the epic's boundary actually lives.** Two
-`load(42)` calls do not receive the same object. That is a deliberate reversal of the convenient answer,
-and it is forced by decisions already frozen: `../schema-core/src/relations/SPEC.md` rejects "identity map
-/ shared references", `src/replicas/SPEC.md` froze that the replica wrapper adds no identity map, and
-`attachRelations` already gives each parent fresh child copies rather than aliases. The published
-anti-patterns entry says it outright — zmdb returns a fresh value per read, equality is structural — so a
-loader handing out shared references would make that sentence false for the one read path people use most.
+**Each resolution is a fresh shallow copy, and this is where the epic's boundary actually lives.** Two `load(42)` calls do not receive the same object. That is a deliberate reversal of the convenient answer, and it is forced by decisions already frozen: `../schema-core/src/relations/SPEC.md` rejects "identity map / shared references", `src/replicas/SPEC.md` froze that the replica wrapper adds no identity map, and `attachRelations` already gives each parent fresh child copies rather than aliases.
+
+The published anti-patterns entry says it outright — zmdb returns a fresh value per read, equality is structural — so a loader handing out shared references would make that sentence false for the one read path people use most.
 
 The guarantee is "no two callers hold the same row object", **not** "no two callers can reach the same
 object": the copy is shallow, so a `json` column's parsed value is still shared. Deep-cloning every row to
@@ -745,13 +709,9 @@ z1 : dialect : fingerprint : table : filters : text : params
   `JSON.stringify` collapses the first two and turns a `Date` into a string that a later ISO string would
   collide with.
 
-**The key is a readable string and is not hashed.** Three reasons, in order of weight. A hash collision
-serves another query's rows, which is the worst failure this feature can produce, and a key that cannot
-collide is better than one that probably will not. `node:crypto` is banned by this repo's lint config in
-favour of Web Crypto, whose `digest` is async, so hashing would make key construction asynchronous for no
-benefit. And a key that can be read in `redis-cli --scan` is the difference between diagnosing a stale
-read in minutes and guessing. A store that wants to hash internally is free to; that is its key space, not
-this one's.
+**The key is a readable string and is not hashed.** Three reasons, in order of weight. A hash collision serves another query's rows, which is the worst failure this feature can produce, and a key that cannot collide is better than one that probably will not. `node:crypto` is banned by this repo's lint config in favour of Web Crypto, whose `digest` is async, so hashing would make key construction asynchronous for no benefit.
+
+And a key that can be read in `redis-cli --scan` is the difference between diagnosing a stale read in minutes and guessing. A store that wants to hash internally is free to; that is its key space, not this one's.
 
 A composite primary key (§2.1) is serialised in **`ir.primaryKey` declaration order**, not object key
 order, so `{ tenantId, id }` and `{ id, tenantId }` are one key. A missing component throws rather than
@@ -809,13 +769,9 @@ A cached value is returned as it was stored until its TTL expires or a tag inval
 read-through check against the database, and the rule does **not** differ between the in-memory default
 and a shared store.
 
-Re-validating means a round trip, which is the cost the cache exists to remove; that is an `ETag`, not a
-cache. And an asymmetry would be worse than either rule on its own, because staleness would then depend on
-which store happens to be configured — tested against the in-memory default, shipped against Redis. The
-concern behind the asymmetry is real and is answered structurally instead: the `fingerprint` segment of the
-key means another process's or another deploy's value cannot be deserialised into the wrong shape, it
-simply is not found. A deliberately poisoned shared store is a compromised datastore, and per-read
-validation does not fix that — the same Redis holds the sessions.
+Re-validating means a round trip, which is the cost the cache exists to remove; that is an `ETag`, not a cache. And an asymmetry would be worse than either rule on its own, because staleness would then depend on which store happens to be configured — tested against the in-memory default, shipped against Redis.
+
+The concern behind the asymmetry is real and is answered structurally instead: the `fingerprint` segment of the key means another process's or another deploy's value cannot be deserialised into the wrong shape, it simply is not found. A deliberately poisoned shared store is a compromised datastore, and per-read validation does not fix that — the same Redis holds the sessions.
 
 `ttlMs` is therefore the caller's declared staleness tolerance and the only thing that bounds it.
 `cache: false` on a call bypasses the store in both directions, so it is also the answer to "read my own

@@ -14,7 +14,7 @@ The `../pipeline/SPEC.md` streaming amendment shipped in #567. Compression remai
 a separate middleware over that union; this spec owns negotiation and the
 incremental transform, not the response model.
 
-## 1. The honest recommendation comes first
+## 1. The recommendation comes first
 
 Compressing at the edge is better than compressing in the application, and the spec
 saying so is not a hedge. A CDN compresses once and serves the result to everybody;
@@ -120,13 +120,9 @@ Compression applies only to a `content-type` whose media type is in the list:
 `text/*`, `application/json`, `application/javascript`, `application/xml`,
 `application/xhtml+xml`, `image/svg+xml`, and any subtype ending `+json` or `+xml`.
 
-An allow-list rather than a deny-list of already-compressed formats, and the
-asymmetry of the failure modes is the argument. A deny-list that is missing an entry
-spends CPU inflating a JPEG that is already compressed — a real cost, on every
-request, for a payload that got bigger. An allow-list that is missing an entry
-leaves a compressible response uncompressed, which costs bandwidth and nothing else.
-The same reasoning picks an allow-list in `../static/SPEC.md` §7 and
-`../upload/SPEC.md` §4; unfamiliar input is refused rather than accommodated.
+An allow-list rather than a deny-list of already-compressed formats, and the asymmetry of the failure modes is the argument. A deny-list that is missing an entry spends CPU inflating a JPEG that is already compressed — a real cost, on every request, for a payload that got bigger.
+
+An allow-list that is missing an entry leaves a compressible response uncompressed, which costs bandwidth and nothing else. The same reasoning picks an allow-list in `../static/SPEC.md` §7 and `../upload/SPEC.md` §4; unfamiliar input is refused rather than accommodated.
 
 A response with no `content-type` at all — which `respond()` produces on purpose —
 is not compressed. Guessing the type of a body whose author declined to declare one
@@ -152,7 +148,7 @@ is exactly the sniffing this package refuses to do elsewhere.
   forms. A strong `ETag` would have to be varied per coding, which is one more
   reason §6 there does not claim one.
 
-## 8. BREACH, and what the framework can honestly do about it
+## 8. BREACH, and what the framework can do about it
 
 Compression leaks the _ratio_ of a response, and the ratio depends on whether
 attacker-supplied text matches a secret already in the body. That is BREACH: an
@@ -166,9 +162,9 @@ neither is visible in a `WebResponse`. Pretending otherwise — an
 "automatic BREACH protection" flag — would be the protection theatre this epic
 rejects elsewhere.
 
-So there are three honest positions, and all three are taken:
+So there are three defensible positions, and all three are taken:
 
-1. **The guidance, stated plainly.** Do not compress a response that contains both a
+1. **Application guidance.** Do not compress a response that contains both a
    long-lived secret and attacker-controlled input in the same body. In a JSON API
    this is rare; in server-rendered HTML with a token in a form it is the default
    arrangement.

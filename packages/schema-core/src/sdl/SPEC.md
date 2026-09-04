@@ -29,12 +29,9 @@ export declare function scalar<Wire, TS>(name: string, codec: ScalarCodec<Wire, 
 export declare function costsOf<T>(name: string): CostTable;
 ```
 
-**The product is a string.** Not a `GraphQLSchema`, not a `DocumentNode`, not an AST. `graphql` is not a
-dependency of this package, not a peer dependency, and not an optional one — the same position
-`../llm/adapters/SPEC.md` §1 takes for LangChain and the AI SDK, for the same reason: a string plus a plain
-resolver map is what `buildSchema`, `makeExecutableSchema` and `createSchema` all accept, so a caller composes
-them in one line and nobody negotiates a version range. The epic's constraint list says `graphql` is a peer
-dependency; this freeze is stricter, and strictly cheaper for a consumer who never writes a resolver.
+**The product is a string.** Not a `GraphQLSchema`, not a `DocumentNode`, not an AST. `graphql` is not a dependency of this package, not a peer dependency, and not an optional one — the same position `../llm/adapters/SPEC.md` §1 takes for LangChain and the AI SDK, for the same reason: a string plus a plain resolver map is what `buildSchema`, `makeExecutableSchema` and `createSchema` all accept, so a caller composes them in one line and nobody negotiates a version range.
+
+The epic's constraint list says `graphql` is a peer dependency; this freeze is stricter, and strictly cheaper for a consumer who never writes a resolver.
 
 `sdlOf<T>` and `sdlFields<F>` read a **type argument**, which means they are compiled away by the transform
 and have no runtime. That is not an implementation detail — it is the property that makes §10's mapped types
@@ -42,13 +39,9 @@ work at all — and it puts three new names on `CALLEES` (§12).
 
 ## 2. The mapping is a function of the wire `TypeIR`
 
-Every row below reads a `TypeIR` node, produced by `wireTypeOf(col)` for a column and by the reflector for
-anything nested. **Nothing in the emitter names `SqlType`, `ColumnMeta` or `ColumnsMap`**, and that is a hard
-constraint rather than a style preference: a table keyed by SQL type — which is exactly what
-`docs-site/content/web-graphql-schema-first.md` sketches, and what a reader would write first — is the sixth
-walker `.github/scripts/verify-one-walker.mjs` exists to stop. It would also be wrong in the ordinary way: a
-`Codec<'Money'> & WireAs<string>` column is `integer` in SQL and a string on the wire, and a table keyed by
-`sql` emits `Int` for a field the resolver returns as a string.
+Every row below reads a `TypeIR` node, produced by `wireTypeOf(col)` for a column and by the reflector for anything nested. **Nothing in the emitter names `SqlType`, `ColumnMeta` or `ColumnsMap`**, and that is a hard constraint rather than a style preference: a table keyed by SQL type — which is exactly what `docs-site/content/web-graphql-schema-first.md` sketches, and what a reader would write first — is the sixth walker `.github/scripts/verify-one-walker.mjs` exists to stop.
+
+It would also be wrong in the ordinary way: a `Codec<'Money'> & WireAs<string>` column is `integer` in SQL and a string on the wire, and a table keyed by `sql` emits `Int` for a field the resolver returns as a string.
 
 | Wire `TypeIR` node                       | SDL                                                       |
 | ---------------------------------------- | --------------------------------------------------------- |
@@ -81,14 +74,11 @@ but not your rules" is the same observation from the reader's side.
 
 ### 2.1 `numeric` is `Float`, and the docs page is wrong about it
 
-`web-graphql-scalars.md` says `numeric` must map to `String` and that "zmdb's drivers already return `numeric`
-as a string for exactly this reason". The second half is false — nothing in `packages/repository` or
-`packages/query-compiler` converts a `numeric` result, and `appBaseOf` maps the column to `number`, so
-`Entity<T>` has a `number` and a resolver returns a `number`. Emitting `String` for it would make the SDL
-disagree with the value, which is a worse failure than the precision it was trying to avoid: the client gets a
-serialisation error, or a number stringified by the engine, and the type no longer describes the resolver.
+`web-graphql-scalars.md` says `numeric` must map to `String` and that "zmdb's drivers already return `numeric` as a string for exactly this reason". The second half is false — nothing in `packages/repository` or `packages/query-compiler` converts a `numeric` result, and `appBaseOf` maps the column to `number`, so `Entity<T>` has a `number` and a resolver returns a `number`.
 
-So the mapping follows the declaration, and the honest route to a decimal string is to declare one:
+Emitting `String` for it would make the SDL disagree with the value, which is a worse failure than the precision it was trying to avoid: the client gets a serialisation error, or a number stringified by the engine, and the type no longer describes the resolver.
+
+So the mapping follows the declaration, and the sound route to a decimal string is to declare one:
 `amount: Money & Sql<'numeric'> & Codec<'Money'> & WireAs<string>` emits `String`, because the wire type says
 so. **A degradation has to be requested in the declaration; the emitter never chooses one.** That rule is
 applied again in §5 and §7, and it is the single idea this file is built on.
@@ -133,12 +123,9 @@ A GraphQL input object cannot be used as an output type, so a TypeScript type re
 emits two definitions. Frozen: **the `Input` suffix is applied to every input object unconditionally**, not
 only when a type happens to be used in both positions.
 
-The conditional version is the tempting one and it is wrong for the reason `operationId` is derived rather
-than counted (`packages/web/src/openapi/SPEC.md`): under a conditional rule, adding one mutation that takes an
-`Address` renames the `Address` input that some other mutation was already using. A rename is a new type to
-every client and every generated artefact downstream, so a rule under which an unrelated addition renames an
-existing type is a rule that breaks consumers at a distance. Unconditional suffixing costs a slightly
-redundant `AddressInput` in a schema that has only inputs, and it costs it visibly, once.
+The conditional version is the tempting one and it is wrong for the reason `operationId` is derived rather than counted (`packages/web/src/openapi/SPEC.md`): under a conditional rule, adding one mutation that takes an `Address` renames the `Address` input that some other mutation was already using.
+
+A rename is a new type to every client and every generated artefact downstream, so a rule under which an unrelated addition renames an existing type is a rule that breaks consumers at a distance. Unconditional suffixing costs a slightly redundant `AddressInput` in a schema that has only inputs, and it costs it visibly, once.
 
 Collisions are refused rather than resolved. If a declared type is itself named `AddressInput` and is reachable
 as an input, the derived name and the declared name collide; the emitter refuses, naming both paths. The
@@ -276,12 +263,11 @@ A variable arrives as an already-parsed JSON value and goes to `parseValue`. A l
 document arrives as an AST node and goes to `parseLiteral`. A scalar that implements one is broken for the
 other, and the break is invisible in tests that only use variables.
 
-Frozen: `parseLiteral` converts the node to a JSON value and then calls `parseValue`. One implementation, two
-entry points, and they cannot disagree. The conversion handles the node kinds by their `kind` string —
-`StringValue`, `IntValue`, `FloatValue`, `BooleanValue`, `EnumValue`, `NullValue`, `ListValue`, `ObjectValue`,
-`Variable` — recorded as data with the specification revision they were read from, the same discipline
-`../llm/SPEC.md` §2.1 sets for provider keyword tables and `../llm/mcp/SPEC.md` §2 for a protocol version. Reading
-them as strings is also what keeps `graphql`'s `Kind` enum from becoming an import (§1).
+Frozen: `parseLiteral` converts the node to a JSON value and then calls `parseValue`. One implementation, two entry points, and they cannot disagree.
+
+The conversion handles the node kinds by their `kind` string — `StringValue`, `IntValue`, `FloatValue`, `BooleanValue`, `EnumValue`, `NullValue`, `ListValue`, `ObjectValue`, `Variable` — recorded as data with the specification revision they were read from, the same discipline `../llm/SPEC.md` §2.1 sets for provider keyword tables and `../llm/mcp/SPEC.md` §2 for a protocol version.
+
+Reading them as strings is also what keeps `graphql`'s `Kind` enum from becoming an import (§1).
 
 Two rules that the docs page currently gets wrong, and which are the point of specifying this at all:
 
@@ -340,13 +326,9 @@ sdlOf<Omit<Entity<Post>, 'authorEmail'>>('PublicPost');
 sdlOf<Pick<Entity<Post>, 'id' | 'title'>>('PostSummary');
 ```
 
-The page says a hypothetical emitter "would work from a _schema object_, and `Omit<PostRow, 'authorEmail'>` is
-a TypeScript type with no runtime representation", and concludes that a composed shape would have to be
-post-processed by deleting keys from a JSON Schema, with a wished-for `omitFromSchema` helper. That is only
-true of a value-taking emitter. `sdlOf<T>` takes a **type argument** and is compiled away, so the checker
-resolves the composition and the emitter never sees a value — every operator TypeScript has works, including
-ones no helper library offers. `omitFromSchema` is therefore not needed and is refused: it would be a second
-way to compose a shape, reachable only from the JSON Schema side, and the two would drift.
+The page says a hypothetical emitter "would work from a _schema object_, and `Omit<PostRow, 'authorEmail'>` is a TypeScript type with no runtime representation", and concludes that a composed shape would have to be post-processed by deleting keys from a JSON Schema, with a wished-for `omitFromSchema` helper.
+
+That is only true of a value-taking emitter. `sdlOf<T>` takes a **type argument** and is compiled away, so the checker resolves the composition and the emitter never sees a value — every operator TypeScript has works, including ones no helper library offers. `omitFromSchema` is therefore not needed and is refused: it would be a second way to compose a shape, reachable only from the JSON Schema side, and the two would drift.
 
 Consistency with the DTO family is by construction rather than by convention: `Partial<CreateDTO<Post>>` for
 SDL is the same type as `Partial<CreateDTO<Post>>` for a validator, because it is the same type.
@@ -374,11 +356,9 @@ What ships instead, in the two situations the page distinguishes:
    in `../llm/adapters/SPEC.md` §4). It runs in the build script, and a disagreement is a non-zero exit naming
    each field.
 
-**Where a disagreement surfaces as a compile error** — which is what the issue's step 10 asks for — is
-`implements ResolversOf<F>` (§9), on the resolver class, naming the method. That is total for a schema you own,
-because `F` and the SDL are one declaration. For a schema you do not own there is no declaration to check
-against, so the honest answer is a build-script diff and not a compile error, and pretending otherwise would
-mean generating the declaration — which is the thing being refused.
+**Where a disagreement surfaces as a compile error** — which is what the issue's step 10 asks for — is `implements ResolversOf<F>` (§9), on the resolver class, naming the method. That is total for a schema you own, because `F` and the SDL are one declaration.
+
+For a schema you do not own there is no declaration to check against, so the accurate answer is a build-script diff and not a compile error, and pretending otherwise would mean generating the declaration — which is the thing being refused.
 
 This changes the epic's Definition of Done item 5 and two of #539's test titles;
 `../../../web/src/graphql/SPEC.md` §8 lists the replacements.
@@ -506,12 +486,9 @@ tags feed the same walk, and that each one's refusal is the emitter's:
 the same argument §14.1 makes for `costsOf` and §2 makes for the mapping table: one declaration, several
 renderings.
 
-Four refusals are the emitter's, each naming the type and the field, and one of them is the interesting one:
-**`External` on a field of a `Table<…>` interface is a build error**, because this file's walk is also the DDL's
-input — a tag saying "another service owns this" on a declared column would create a column in _our_ table for
-data we never write. An extended entity is declared as a plain interface with no `Table<…>`, which keeps it out
-of the DDL walk by construction rather than by convention. The others: a field set naming an undeclared field, a
-`Requires` whose field set names a non-`External` field, and `Requires`/`Provides` on a type with no key.
+Four refusals are the emitter's, each naming the type and the field, and one of them is the interesting one: **`External` on a field of a `Table<…>` interface is a build error**, because this file's walk is also the DDL's input — a tag saying "another service owns this" on a declared column would create a column in _our_ table for data we never write.
+
+An extended entity is declared as a plain interface with no `Table<…>`, which keeps it out of the DDL walk by construction rather than by convention. The others: a field set naming an undeclared field, a `Requires` whose field set names a non-`External` field, and `Requires`/`Provides` on a type with no key.
 
 The document-level `@link` prelude is **not** emitted here. It is a statement about the whole schema, so it
 comes from the registry (`federation/SPEC.md` §6), which is also what knows which directives were actually used.

@@ -68,7 +68,7 @@ A path with several methods shares one path item, so give each method its own en
 schemas: { '/posts': { body: toJsonSchema(posts, 'create') } }
 ```
 
-That body schema attaches to **every** method on `/posts`, including the `GET`. There is no per-method schema key. If your `GET /posts` and `POST /posts` need different documents, the honest options are to split the path or to post-process the returned document:
+That body schema attaches to **every** method on `/posts`, including the `GET`. There is no per-method schema key. If your `GET /posts` and `POST /posts` need different documents, the practical options are to split the path or to post-process the returned document:
 
 ```ts
 const doc = toOpenApi([PostsController], options);

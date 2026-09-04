@@ -75,7 +75,7 @@ wrangler d1 migrations apply app
 
 Point your generate script at `migrations/` with Wrangler's naming convention and the two fit together with no glue. Using `runCli` instead is possible — a `MigrationConnection` over the binding — but it can only run inside a Worker, which is an awkward place to run migrations.
 
-## Limits worth knowing
+## Limits
 
 Database size, statement count per batch and query duration are all capped, and the caps change. A `find({})` over a large table will hit one of them. Paginate everything; there is no [streaming](./streaming.html) to fall back on.
 

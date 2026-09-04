@@ -4,12 +4,9 @@ Part of `@zmdb/query-compiler`. This file owns the **SQL** an outbox needs — t
 three statements that make a claim safe. The declaration and the dispatcher loop land in `@zmdb/repository`
 (§1), which is what `docs-site/content/transactional-outbox.md` already says the shape should be.
 
-The reason this needs a freeze rather than an implementation note: three of the four mechanisms the pattern is
-normally built on are **not expressible in this repository today**, and each one is unavailable for a different
-reason. A design written against the textbook version compiles into SQL that is a syntax error on one dialect,
-silently claims the same row twice on another, and cannot say "this event will never be delivered" at all.
-Those are found by discovering them here, in front of the reader, rather than by an implementation that
-appears to work on Postgres.
+The reason this needs a freeze rather than an implementation note: three of the four mechanisms the pattern is normally built on are **not expressible in this repository today**, and each one is unavailable for a different reason.
+
+A design written against the textbook version compiles into SQL that is a syntax error on one dialect, silently claims the same row twice on another, and cannot say "this event will never be delivered" at all. Those are found by discovering them here, in front of the reader, rather than by an implementation that appears to work on Postgres.
 
 ## 1. Which package, and why the issue names the wrong one
 
@@ -80,23 +77,15 @@ on a column that is never null, which is why `status` exists and why `leaseOwner
 nullable is fine for data, fatal for a predicate — is the rule to remember, and it applies well beyond the
 outbox.
 
-`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is this project's spelling for a
-column whose app type is a literal union — `vocabulary.type-test.ts:66` states it as data
-(`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the tagged-DTO path at
-`../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is identical: `jsonEnum` is `TEXT` on
-all three dialects (`../migrations/index.ts:158,173,187`), and nothing JSON-encodes — the name is about the IR,
-not the wire. What the tag buys is that the literal union survives into the IR's `enum`, so the app type is the
-union rather than a bare string (`../../../schema-core/src/ir/index.ts:428-431`) and OpenAPI emits
-`type: 'string'` with the three values listed (`:553-556`). Spelling it `text` would have discarded all of that
-for a column whose entire purpose is that it has three legal values.
+`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is this project's spelling for a column whose app type is a literal union — `vocabulary.type-test.ts:66` states it as data (`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the tagged-DTO path at `../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is identical: `jsonEnum` is `TEXT` on all three dialects (`../migrations/index.ts:158,173,187`), and nothing JSON-encodes — the name is about the IR, not the wire.
+
+What the tag buys is that the literal union survives into the IR's `enum`, so the app type is the union rather than a bare string (`../../../schema-core/src/ir/index.ts:428-431`) and OpenAPI emits `type: 'string'` with the three values listed (`:553-556`). Spelling it `text` would have discarded all of that for a column whose entire purpose is that it has three legal values.
 
 ### 2.2 `status`, again, because "dead" has to have a name
 
-`#592` step 8 requires "the terminal state for a permanently failing event. Without that last one the
-dispatcher spins forever on one bad row and delivers nothing else." A `deliveredAt: Date | null` has exactly
-two states, so it cannot carry a third. `attempts` cannot either: a threshold on `attempts` is a rule the
-candidate query has to re-apply on every poll, so a poison row stays in the working set forever and keeps
-paying for itself. `status = 'dead'` drops the row out of the index (§3) and out of the candidate query, once.
+`#592` step 8 requires "the terminal state for a permanently failing event.
+
+Without that last one the dispatcher spins forever on one bad row and delivers nothing else." A `deliveredAt: Date | null` has exactly two states, so it cannot carry a third. `attempts` cannot either: a threshold on `attempts` is a rule the candidate query has to re-apply on every poll, so a poison row stays in the working set forever and keeps paying for itself. `status = 'dead'` drops the row out of the index (§3) and out of the candidate query, once.
 
 The pre-implementation page named the failure mode: otherwise one poisoned
 message blocks the queue behind it. This is where it stops being the user's
@@ -104,15 +93,9 @@ problem.
 
 ### 2.3 `payload` is `text`, not `json`
 
-The pre-implementation page declared
-`payload: Record<string, unknown> & Sql<'json'>`. The issue says `string`, and
-the issue is right, for a reason neither states: a `json` column round-trips
-through the driver's own JSON handling, so the bytes a consumer receives are
-not the bytes that were written — key order, number formatting and unicode
-escaping are all the driver's choice. A payload that is signed, hashed for
-deduplication, or compared to a replay is then not comparable to itself.
-Serialising once at the emit boundary makes the stored string the message, and
-a broker takes a string anyway.
+The pre-implementation page declared `payload: Record<string, unknown> & Sql<'json'>`. The issue says `string`, and the issue is right, for a reason neither states: a `json` column round-trips through the driver's own JSON handling, so the bytes a consumer receives are not the bytes that were written — key order, number formatting and unicode escaping are all the driver's choice.
+
+A payload that is signed, hashed for deduplication, or compared to a replay is then not comparable to itself. Serialising once at the emit boundary makes the stored string the message, and a broker takes a string anyway.
 
 It also means a payload that is not JSON — protobuf in base64, a CloudEvents envelope — needs no new column
 type.
@@ -152,33 +135,23 @@ createIndexDdl(
 predicate is expressible even though the query builder's `WHERE` is not — which is worth noticing, because it
 is why §2.1's restriction lands on the dispatcher's queries and not on its schema.
 
-**Partial indexes are Postgres and SQLite only. MySQL has none.** `outboxPendingIndexDdl` drops the `where` on
-MySQL before calling `createIndexDdl`; the generic emitter itself remains deliberately literal and would emit
-invalid MySQL SQL if handed a predicate. The outbox's MySQL index is therefore created in full, and that is why
-`status` is the **leading column**: a full composite index on
-`(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from
-"index over a small set" to "index prefix over a small set" rather than to a table scan. An index ordered
-`(created_at, status)` would degrade to a scan of every row ever written.
+**Partial indexes are Postgres and SQLite only. MySQL has none.** `outboxPendingIndexDdl` drops the `where` on MySQL before calling `createIndexDdl`; the generic emitter itself remains deliberately literal and would emit invalid MySQL SQL if handed a predicate.
 
-`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also
-executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all three
-dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the
-SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering. MySQL's
-migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status:
-MySQL rejects a `TEXT` primary key and a `TEXT` column in this index without a prefix length. The Node surface
-remains `string`; the bounded spelling is a storage requirement, not a narrower application type.
+The outbox's MySQL index is therefore created in full, and that is why `status` is the **leading column**: a full composite index on `(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from "index over a small set" to "index prefix over a small set" rather than to a table scan.
+
+An index ordered `(created_at, status)` would degrade to a scan of every row ever written.
+
+`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all three dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering.
+
+MySQL's migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status: MySQL rejects a `TEXT` primary key and a `TEXT` column in this index without a prefix length. The Node surface remains `string`; the bounded spelling is a storage requirement, not a narrower application type.
 
 ## 4. Claiming a row with what exists
 
-The pre-implementation page claimed rows with
-`SELECT … FOR UPDATE SKIP LOCKED`, then noted that the whole operation had to
-run inside one transaction for the lock to hold. That is correct and it is the
-reason not to do it. The broker publishes for the entire batch with row locks
-held and a transaction open, so **one slow broker holds a transaction for the
-length of a batch** — which on Postgres also holds back the
-oldest-transaction horizon and blocks vacuum on every table, not just this one.
-A pattern whose job is decoupling should not couple the broker's latency to the
-database's transaction age.
+The pre-implementation page claimed rows with `SELECT … FOR UPDATE SKIP LOCKED`, then noted that the whole operation had to run inside one transaction for the lock to hold. That is correct and it is the reason not to do it.
+
+The broker publishes for the entire batch with row locks held and a transaction open, so **one slow broker holds a transaction for the length of a batch** — which on Postgres also holds back the oldest-transaction horizon and blocks vacuum on every table, not just this one.
+
+A pattern whose job is decoupling should not couple the broker's latency to the database's transaction age.
 
 It is also not expressible: `SelectBuilder` (`../index.ts:98-121`) has no lock
 clause of any kind, and SQLite has no `SKIP LOCKED` at all — which is why the
@@ -297,21 +270,13 @@ the predicate that is already there.
 `backoffMs` defaults to `Math.min(2 ** attempts * 1000, 300_000)` — capped, because uncapped exponential
 backoff on a row that will eventually succeed becomes an outage of its own.
 
-**The idle poll backs off; the busy poll does not.** A pass that claimed a full batch polls again immediately,
-because there is known work. A pass that claimed nothing doubles `idleMs` up to `maxIdleMs`, which is what
-stops an empty outbox from being a permanent query load. On Postgres, `LISTEN/NOTIFY` collapses the idle
-latency to nothing and the poll stays as a floor — `transactional-outbox.md` already documents that, including
-why the poll must not be removed, and it is not restated or shipped here.
+**The idle poll backs off; the busy poll does not.** A pass that claimed a full batch polls again immediately, because there is known work. A pass that claimed nothing doubles `idleMs` up to `maxIdleMs`, which is what stops an empty outbox from being a permanent query load.
 
-`onModuleInit` is the app lifecycle alias for `start`; `onShutdown` is the matching
-awaitable hook. A dispatcher registered as a constructed provider therefore starts during
-`app.init()` and is drained by disposal. A factory first resolved after init is still drained,
-but is not retroactively started, and an unresolved factory is never constructed merely to
-stop it. Shutdown runs in reverse actual construction order, so the dispatcher drains before
-the driver its factory resolved. It stops claiming, waits for the in-flight batch to finish
-its publish-and-mark steps, and does **not** wait for the lease interval after that work is
-done. If the process dies instead of shutting down cleanly, the future lease remains the
-recovery mechanism and another dispatcher picks the row up after `leaseMs`.
+On Postgres, `LISTEN/NOTIFY` collapses the idle latency to nothing and the poll stays as a floor — `transactional-outbox.md` already documents that, including why the poll must not be removed, and it is not restated or shipped here.
+
+`onModuleInit` is the app lifecycle alias for `start`; `onShutdown` is the matching awaitable hook. A dispatcher registered as a constructed provider therefore starts during `app.init()` and is drained by disposal. A factory first resolved after init is still drained, but is not retroactively started, and an unresolved factory is never constructed merely to stop it. Shutdown runs in reverse actual construction order, so the dispatcher drains before the driver its factory resolved.
+
+It stops claiming, waits for the in-flight batch to finish its publish-and-mark steps, and does **not** wait for the lease interval after that work is done. If the process dies instead of shutting down cleanly, the future lease remains the recovery mechanism and another dispatcher picks the row up after `leaseMs`.
 
 `#592` step 8 asks what happens "on a dialect without `SKIP LOCKED`". The
 answer is that the question does not arise: §4.2 never uses it, so SQLite runs
@@ -362,9 +327,9 @@ per-topic ordering to fall back on, and a design that wants one needs a per-topi
 one — which is a different feature with a different failure mode (one stuck topic blocks itself, forever) and
 is a non-goal.
 
-`#592` step 9 asks for this to be stated honestly "because users will assume more than is true". Stating it in
-the type is better than stating it in prose, and `#593` pins the prose: the documented guarantee is delivery,
-and the ordering row for "more than one dispatcher" says _none_ rather than _best-effort_.
+#592 step 9 requires this limitation to be explicit. The type captures it more
+reliably than prose, while #593 keeps the documentation aligned: delivery is
+guaranteed, but ordering with more than one dispatcher is not.
 
 ## 8. At-least-once, and the crash that is the reason
 

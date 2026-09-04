@@ -1,8 +1,7 @@
-> **Not planned.** `@zmdb/web` ships **HTTP + WebSocket/SSE**, not a GraphQL layer
-> (no `@nestjs/graphql` analogue, no schema-first/code-first resolver decorators) —
-> and it is not going to. The three GraphQL epics are closed as wontfix. This page
-> and its neighbours stay as a record of the design that was frozen and of what to
-> reach for instead.
+> **Not planned.** `@zmdb/web` supports HTTP, WebSockets, and SSE, but it does not
+> include a GraphQL layer. The related epics are closed as wontfix. These pages
+> preserve the design notes and show how to compose an external GraphQL server
+> with zmdb when needed.
 
 ## How it would have sat on the existing seams
 

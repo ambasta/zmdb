@@ -1,9 +1,6 @@
-> **Not planned.** There is no GraphQL support — no `@Resolver`, `@Query`,
-> `@Mutation`, `@ObjectType` or `@Field`, no schema building, and no server — and
-> there will not be: [GraphQL is out of scope](./web-graphql.html). Every
-> `@zmdb/web` route returns JSON over HTTP. The composition below is the supported
-> way to put GraphQL in front of a zmdb application, and it needs nothing from the
-> framework.
+> **Not planned.** `@zmdb/web` does not provide GraphQL resolvers or a GraphQL
+> server. [GraphQL is out of scope](./web-graphql.html). The example below shows
+> how to place an external GraphQL server in front of ordinary zmdb services.
 
 ## Running GraphQL alongside a zmdb application
 

@@ -69,9 +69,9 @@ cosmetic tidying — a `string | object` union where the object arm carries func
 spelling, and collapsing it into one key would have forced the whole config out of the validator.
 
 The loader splits the two callable keys off, runs `assert<ZmdbConfigData>` over what is left, and checks
-each callable with `typeof`. Two consequences worth stating rather than discovering:
+each callable with `typeof`. Two consequences follow:
 
-- **The dogfooding claim gets narrower and more honest.** Every plain-data field — including `dialect`,
+- **The dogfooding claim gets narrower and clearer.** Every plain-data field — including `dialect`,
   which is a string union and is therefore checked exactly — is validated by the project's own emitted
   validator, with the field path in the error. The two function fields are checked for callability and
   nothing else, because nothing can check the body of a function before it runs.

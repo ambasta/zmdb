@@ -1,8 +1,6 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there is no federation: no Apollo Federation directives, no subgraph schema
-> building, no gateway, no `@key`/`@external`/`@requires` support. The design is
-> frozen (see the last section) and covered the subgraph only; the argument against
-> reaching for federation at all is the part of this page that still applies.
+> **Not planned.** `@zmdb/web` does not implement GraphQL federation because
+> [GraphQL is out of scope](./web-graphql.html). This page keeps the earlier
+> subgraph design and the architectural trade-offs behind it.
 
 ## What federation solves, and the cheaper answer
 

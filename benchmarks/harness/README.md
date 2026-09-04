@@ -85,14 +85,9 @@ disagrees. A speed table for checkers that answer differently is not a compariso
 and that equivalence used to be a sentence in RESULTS.md rather than something the
 harness enforced.
 
-One caution on reading its output: this box throttles under sustained load, and the
-top of this field is fast enough to notice. Three back-to-back sessions moved every
-library's absolute number down together by ~8%, and moved the zmdb-aot-vs-typebox
-`assertStrict` ratio from 1.08× ahead to 0.82× behind — far more than the within-run
-spread the harness prints. So a gap between two fast libraries needs more than one
-session before it means anything. `REPEATS=9 ./run.sh` widens the median within a
-session; it does not help with drift across sessions, which is why RESULTS.md
-publishes the ratios per session instead of one number.
+One caution on reading its output: this box throttles under sustained load, and the top of this field is fast enough to notice. Three back-to-back sessions moved every library's absolute number down together by ~8%, and moved the zmdb-aot-vs-typebox `assertStrict` ratio from 1.08× ahead to 0.82× behind — far more than the within-run spread the harness prints.
+
+So a gap between two fast libraries needs more than one session before it means anything. `REPEATS=9 ./run.sh` widens the median within a session; it does not help with drift across sessions, which is why RESULTS.md publishes the ratios per session instead of one number.
 
 ```sh
 yarn bench:validation                              # whole field
@@ -173,7 +168,7 @@ ORM=zmdb    PORT=3002 node --experimental-strip-types server.ts &
 HOST=http://localhost:3000 k6 run bench.js
 ```
 
-A route an ORM's builder cannot express returns **HTTP 501** here — an honest
+A route an ORM's builder cannot express returns **HTTP 501** here — an explicit
 per-route DNF, never a faked 200.
 
 ## Framework (HTTP) — the-benchmarker/web-frameworks
@@ -195,17 +190,12 @@ CONCURRENCIES=64,256,512 ROUTES='GET:/,GET:/user/42,POST:/user' \
   bash benchmarks/harness/framework/run.sh
 ```
 
-`run.sh` builds `@zmdb/web`, esbuild-compiles the app (lowering its Stage-3
-decorators — Node 26 does not run standard decorators natively yet), starts it,
-verifies the contract, then drives `oha` (15s per route, keep-alive disabled,
-latency-corrected) and extracts the upstream metric fields.
-`framework/peers/peers-run.sh` does the same for 17 peer frameworks across six
-runtimes **on the same box**, which is the only version of this comparison worth
-publishing. Upstream's own published table is carried on the dashboard too, in a
-separate section, because it was measured on different hardware.
+`run.sh` builds `@zmdb/web`, esbuild-compiles the app (lowering its Stage-3 decorators — Node 26 does not run standard decorators natively yet), starts it, verifies the contract, then drives `oha` (15s per route, keep-alive disabled, latency-corrected) and extracts the upstream metric fields. `framework/peers/peers-run.sh` does the same for 17 peer frameworks across six runtimes **on the same box**, which is the only version of this comparison worth publishing.
+
+Upstream's own published table is carried on the dashboard too, in a separate section, because it was measured on different hardware.
 
 See [`framework/SPEC.md`](./framework/SPEC.md) for the full contract,
-methodology and honesty policy.
+methodology and reporting policy.
 
 ## Where the numbers end up
 

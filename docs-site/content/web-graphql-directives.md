@@ -1,8 +1,6 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there are no schema directives: no `@Directive`, no `SchemaDirectiveVisitor`, no
-> `@auth` or `@deprecated` handling. The design is frozen (see the last section) and
-> stays as a record; the table below is the part that still applies, because each
-> directive's zmdb equivalent exists today.
+> **Not planned.** `@zmdb/web` has no GraphQL schema directives because
+> [GraphQL is out of scope](./web-graphql.html). The table below maps common
+> directive use cases to features that are available today.
 
 ## What directives are used for, and what to use instead
 

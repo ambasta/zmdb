@@ -123,13 +123,11 @@ File name: `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC, where the fourteen digits are t
 comes from `--name` or is derived from the ops. Sortable lexically and numerically at once, which is the
 only property that matters.
 
-**That version overflows the shipped ledger.** `_zmdb_migrations` is created with
-`version INTEGER PRIMARY KEY`, and `20260903120000` is far above Postgres's `INTEGER` maximum of
-2 147 483 647. SQLite's `INTEGER` is already 64-bit; Postgres and MySQL are not. So **the ledger column
-becomes `BIGINT`** on those two dialects, which is a change to the `CREATE TABLE IF NOT EXISTS` template in
-`@zmdb/query-compiler`'s runner and not to this package. Existing ledgers need no data migration — every
-32-bit value still fits — but they do need the `ALTER`, and `migrate` must not be the thing that discovers
-this at 3am against a production database.
+**That version overflows the shipped ledger.** `_zmdb_migrations` is created with `version INTEGER PRIMARY KEY`, and `20260903120000` is far above Postgres's `INTEGER` maximum of 2 147 483 647. SQLite's `INTEGER` is already 64-bit; Postgres and MySQL are not.
+
+So **the ledger column becomes `BIGINT`** on those two dialects, which is a change to the `CREATE TABLE IF NOT EXISTS` template in `@zmdb/query-compiler`'s runner and not to this package.
+
+Existing ledgers need no data migration — every 32-bit value still fits — but they do need the `ALTER`, and `migrate` must not be the thing that discovers this at 3am against a production database.
 
 One file, not a pair. It carries both directions, separated by a single sentinel line:
 
@@ -146,12 +144,11 @@ and `rollback` refuses that version by name rather than guessing at an inverse.
 
 ### 4.1 `embed`, for a bundle that cannot read a directory
 
-`zmdb embed [--out <file>] [--with-down]` reads the migration directory, splits each file at the sentinels
-above, and writes a TypeScript module of `EmbeddedMigration` values — version, name, the `up` text verbatim,
-and a SHA-256 digest of it. React Native and the browser have no filesystem and Metro cannot resolve a
-`.sql` file, so a device gets its migrations as bundle data or not at all. The format, the digest, the
-ledger and the runner are frozen in `@zmdb/query-compiler`'s `src/migrations/SPEC.md` §5; what belongs here
-is only that this is the command, and why it is not spelled another way.
+`zmdb embed [--out <file>] [--with-down]` reads the migration directory, splits each file at the sentinels above, and writes a TypeScript module of `EmbeddedMigration` values — version, name, the `up` text verbatim, and a SHA-256 digest of it.
+
+React Native and the browser have no filesystem and Metro cannot resolve a `.sql` file, so a device gets its migrations as bundle data or not at all.
+
+The format, the digest, the ledger and the runner are frozen in `@zmdb/query-compiler`'s `src/migrations/SPEC.md` §5; what belongs here is only that this is the command, and why it is not spelled another way.
 
 It is not `generate --embed`: `generate` diffs declarations against the stored snapshot and writes one
 migration file, and it never reads the directory. It is not `export --embed`: `export` writes DDL for the
@@ -176,11 +173,9 @@ Each migration runs inside its own transaction, in version order, with its ledge
 transaction. One failure stops the run: the migrations already applied stay applied and recorded, the
 failing one is rolled back and not recorded, and the message names the version and the failing statement.
 
-**MySQL has no transactional DDL**, so that guarantee is only available on Postgres and SQLite. On MySQL an
-interrupted migration leaves the ledger honest — the row is not written — and the schema half-applied,
-which is worse than the reverse and cannot be fixed from here. So on MySQL the failure message additionally
-lists the statements that already ran, because that list is the only way to hand-finish the migration, and
-a spec that omitted this would be promising atomicity three times and delivering it twice.
+**MySQL has no transactional DDL**, so that guarantee is only available on Postgres and SQLite. On MySQL an interrupted migration leaves the ledger accurate — the row is not written — and the schema half-applied, which is worse than the reverse and cannot be fixed from here.
+
+So on MySQL the failure message additionally lists the statements that already ran, because that list is the only way to hand-finish the migration, and a spec that omitted this would be promising atomicity three times and delivering it twice.
 
 `rollback` reverts exactly one version, the highest applied. `--to <version>` reverts down to and excluding
 that version, one transaction per migration, stopping on the first failure.
@@ -195,11 +190,9 @@ is the command whose job is to fail.
 for development, it prints the statements it is about to run before running any of them, and it refuses
 destructive operations without `--force` (§10).
 
-The consequence that will be mistaken for a bug: **a column rename requires `--force`.** `diff` reports a
-rename as a drop plus an add, and `src/migrations/SPEC.md` §1.4 already explains why it cannot do
-otherwise — two snapshots either side of a rename differ byte-for-byte the way a real drop and a real add
-do, and pairing them by shape would guess. So `push` sees a drop, refuses, and is right to: the operation
-it is being asked to perform really does delete a column's data.
+The consequence that will be mistaken for a bug: **a column rename requires `--force`.** `diff` reports a rename as a drop plus an add, and `src/migrations/SPEC.md` §1.4 already explains why it cannot do otherwise — two snapshots either side of a rename differ byte-for-byte the way a real drop and a real add do, and pairing them by shape would guess.
+
+So `push` sees a drop, refuses, and is right to: the operation it is being asked to perform really does delete a column's data.
 
 `push` never writes to the ledger, and a database built by `push` therefore has no history. Running
 `migrate` against it afterwards will attempt migration 1 against a schema that already has the tables. That
@@ -252,12 +245,9 @@ instead of defaulting to permitted:
 | `alter_column_type`                | sometimes   | Destructive when the new type is narrower.                              |
 | `alter_primary_key`                | no          | Reindexes existing rows; duplicates can fail it, but no row is deleted. |
 
-Narrowing is read off the `from`/`to` pair the op already carries — both are abstract types, so this is a
-table lookup and not a guess: `varchar(n)` → `varchar(m)` with `m < n`, `text` → `varchar`,
-`bigint` → `integer`, `numeric` → `integer`, `timestamp` → `date`. Anything else, **including a pair this
-build does not recognise**, is destructive. `ddlType` passes an unknown abstract type through unchanged, so
-an unrecognised pair is exactly the case where nobody has reasoned about the conversion, and the default
-has to fall on the side that asks a question.
+Narrowing is read off the `from`/`to` pair the op already carries — both are abstract types, so this is a table lookup and not a guess: `varchar(n)` → `varchar(m)` with `m < n`, `text` → `varchar`, `bigint` → `integer`, `numeric` → `integer`, `timestamp` → `date`.
+
+Anything else, **including a pair this build does not recognise**, is destructive. `ddlType` passes an unknown abstract type through unchanged, so an unrecognised pair is exactly the case where nobody has reasoned about the conversion, and the default has to fall on the side that asks a question.
 
 Every command that applies DDL uses this one classification. Destructive operations are listed
 individually before anything runs, they require `--force`, and `--force` is per-invocation with no config
@@ -342,12 +332,9 @@ it('the transformer is running', () => {
 });
 ```
 
-Worth being precise about what that canary catches, since the docs are not. Untransformed, `is<T>(value)`
-does not quietly return `true`: `@zmdb/aot-validator`'s fallback `is` requires a runtime witness and throws
-`runtime type witness required in test/fallback mode` without one. So the canary fails either way, and the
-un-transformed build fails loudly rather than silently — which is the direction to want, and the opposite
-of what `docs-site/content/web-cli-apps.md` currently claims (it says an `assert<T>()` in a stripped script
-"is permissive"). §15 records the correction for the docs sub-issue.
+Worth being precise about what that canary catches, since the docs are not. Untransformed, `is<T>(value)` does not quietly return `true`: `@zmdb/aot-validator`'s fallback `is` requires a runtime witness and throws `runtime type witness required in test/fallback mode` without one.
+
+So the canary fails either way, and the un-transformed build fails loudly rather than silently — which is the direction to want, and the opposite of what `docs-site/content/web-cli-apps.md` currently claims (it says an `assert<T>()` in a stripped script "is permissive"). §15 records the correction for the docs sub-issue.
 
 ### 13.2 Monorepo targeting is explicit, and a wrong guess is unrecoverable
 
@@ -367,11 +354,9 @@ than:
 > If a zmdb CLI ships, the monorepo-specific parts worth having are a schema registry check across
 > workspaces and a migration command that knows which app owns which tables — not project scaffolding.
 
-The registry check it wants is already `check`'s `uncommitted-schema` finding (§7) once `schema` globs are
-read through a project, and "which app owns which tables" is answered by each package having its own
-`zmdb.config.ts` and the discovery walk stopping at a package boundary. Neither needs a monorepo mode. So
-there is no `zmdb new library`, no `zmdb.workspace.json`, and no build orchestration — the package manager
-already does that, and doing it worse in one more place is how a CLI becomes the thing you fight.
+The registry check it wants is already `check`'s `uncommitted-schema` finding (§7) once `schema` globs are read through a project, and "which app owns which tables" is answered by each package having its own `zmdb.config.ts` and the discovery walk stopping at a package boundary. Neither needs a monorepo mode.
+
+So there is no `zmdb new library`, no `zmdb.workspace.json`, and no build orchestration — the package manager already does that, and doing it worse in one more place is how a CLI becomes the thing you fight.
 
 ### 13.3 A scaffold never edits a file it did not create
 
@@ -459,12 +444,11 @@ rather than a production incident. `orderBy` is a single declared column with a 
 exactly as long as the socket is unreachable from anywhere else, because the security boundary _is_ the
 loopback bind.
 
-So the decision the issue asks for: **there is no `--host` flag.** Not a flag that requires a token, not
-a flag behind a warning. The reasoning is that any non-loopback bind turns a no-auth read-only view of
-every table into an unauthenticated database viewer on a network, and the mitigation people would actually
-reach for — a token in the URL — puts a credential in shell history, a proxy log and a browser history,
-which is worse than the problem. A user who genuinely needs remote access has `ssh -L`, which
-authenticates properly and is one flag on a command they already know.
+So the decision the issue asks for: **there is no `--host` flag.** Not a flag that requires a token, not a flag behind a warning.
+
+The reasoning is that any non-loopback bind turns a no-auth read-only view of every table into an unauthenticated database viewer on a network, and the mitigation people would actually reach for — a token in the URL — puts a credential in shell history, a proxy log and a browser history, which is worse than the problem.
+
+A user who genuinely needs remote access has `ssh -L`, which authenticates properly and is one flag on a command they already know.
 
 `--port` exists, because a fixed port is sometimes needed for a browser bookmark and it does not change
 the boundary. Binding fails rather than falling back to `0.0.0.0` if loopback is unavailable.
@@ -535,12 +519,9 @@ reads the schema:
 | `modules` | application declarations | stdout            | no        |
 | `repl`    | application declarations | whatever you type | yes (§R4) |
 
-§1's "Twelve in total, and the count is not the interesting number — the division is" paragraph
-becomes fourteen, with a **third** division, and the new sentence is the load-bearing part: ten
-verbs read or write a database or the tree that describes it, two are a code generator and a
-viewer, and two describe or inhabit an application's own object graph. The third division is the
-first thing in this CLI that reads `@zmdb/web` rather than the schema packages, and saying so is
-what keeps a future contributor from adding `--migrate` to `zmdb modules`.
+§1's "Twelve in total, and the count is not the interesting number — the division is" paragraph becomes fourteen, with a **third** division, and the new sentence is the load-bearing part: ten verbs read or write a database or the tree that describes it, two are a code generator and a viewer, and two describe or inhabit an application's own object graph.
+
+The third division is the first thing in this CLI that reads `@zmdb/web` rather than the schema packages, and saying so is what keeps a future contributor from adding `--migrate` to `zmdb modules`.
 
 §3's per-command `result` table gains one row:
 
@@ -570,13 +551,9 @@ wrong-after-this:
 #599 and the roadmap both call it `zmdb graph`. In this CLI that name is unavailable, under the
 rule §1 and §13 are both about: a verb must not acquire a second meaning.
 
-`zmdb`'s other twelve verbs are about a database schema. In that company `graph` reads as the
-table graph — the foreign-key graph a `pull` walks, the dependency order a `push` sorts DDL into,
-the thing a schema visualiser would draw. A developer typing `zmdb graph` in a project with
-thirty tables and four modules cannot know which one they are asking for, and the output tells
-them only after the fact. `zmdb modules` names the thing it describes, matches
-`@zmdb/web`'s module vocabulary exactly, and leaves `graph` free for the schema graph if that is
-ever wanted — which is the same argument §12.1's `embed` makes against `export --embed`.
+`zmdb`'s other twelve verbs are about a database schema. In that company `graph` reads as the table graph — the foreign-key graph a `pull` walks, the dependency order a `push` sorts DDL into, the thing a schema visualiser would draw.
+
+A developer typing `zmdb graph` in a project with thirty tables and four modules cannot know which one they are asking for, and the output tells them only after the fact. `zmdb modules` names the thing it describes, matches `@zmdb/web`'s module vocabulary exactly, and leaves `graph` free for the schema graph if that is ever wanted — which is the same argument §12.1's `embed` makes against `export --embed`.
 
 The output is not only modules; it can include providers and controllers. That is a fair objection
 and it loses to the alternative, because `modules` is the graph's _granularity_ — the default
@@ -608,20 +585,13 @@ start describing the application, and the first thing to ask for it after this w
 Two commands taking one positional argument is cheaper than a config field that changes what the
 config is for.
 
-Loading the spec cannot use Node's type stripping alone. Measured on the realistic fixture under
-Node 26.8.1, the import fails with `SyntaxError: Invalid or unexpected token`: type stripping does
-not lower standard Stage-3 decorators. The CLI therefore installs a synchronous loader only for
-the application import and applies esbuild's standard-decorator transform, the same transform the
-Vitest configuration uses. Relative `.js` specifiers are mapped to their `.ts` siblings in that
-loader. `esbuild` is a dependency of the build-time-only `zmdb/cli` entry; no runtime package entry
-reaches it.
+Loading the spec cannot use Node's type stripping alone. Measured on the realistic fixture under Node 26.8.1, the import fails with `SyntaxError: Invalid or unexpected token`: type stripping does not lower standard Stage-3 decorators. The CLI therefore installs a synchronous loader only for the application import and applies esbuild's standard-decorator transform, the same transform the Vitest configuration uses.
 
-The cost that §4 names still applies, plus one that belongs here: **importing a root module
-evaluates that file and everything it imports.** Decorators run, which is the point, and any
-top-level side effect in application code runs too. `zmdb modules` constructs no provider and
-calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module scope was
-already opening on every import and is out of the CLI's hands. Naming it is the difference between
-a surprising connection and a documented one.
+Relative `.js` specifiers are mapped to their `.ts` siblings in that loader. `esbuild` is a dependency of the build-time-only `zmdb/cli` entry; no runtime package entry reaches it.
+
+The cost that §4 names still applies, plus one that belongs here: **importing a root module evaluates that file and everything it imports.** Decorators run, which is the point, and any top-level side effect in application code runs too. `zmdb modules` constructs no provider and calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module scope was already opening on every import and is out of the CLI's hands.
+
+Naming it is the difference between a surprising connection and a documented one.
 
 ### R3. `zmdb modules`: flags, the `--json` collision, and exit codes
 
@@ -633,15 +603,9 @@ a surprising connection and a documented one.
 | `--token`     | restrict to one token, its dependencies and its dependents                    |
 | `--depth`     | bound the transitive closure. Default 2                                       |
 
-**`--json` and `--format` collide, and the resolution is that `--json` wins by being the same
-thing.** The global `--json` (§3) already promises exactly one JSON document on stdout, and that
-document is `CliResult<GraphDescription>` — which _is_ the machine-readable form of this command,
-not a wrapper around a rendered string. So `--format` takes only the two human-or-tool renderings,
-and `--json --format dot` exits 2 with a sentence saying they ask for opposite things, following
-§2's existing convention and its `zmdb-codegen: --check and --watch ask for opposite things`
-precedent. Making `--format json` a third value would give the CLI two ways to ask for JSON that
-differ in whether the `CliResult` envelope is present, which is the sort of divergence that gets
-discovered by a script.
+**`--json` and `--format` collide, and the resolution is that `--json` wins by being the same thing.** The global `--json` (§3) already promises exactly one JSON document on stdout, and that document is `CliResult<GraphDescription>` — which _is_ the machine-readable form of this command, not a wrapper around a rendered string.
+
+So `--format` takes only the two human-or-tool renderings, and `--json --format dot` exits 2 with a sentence saying they ask for opposite things, following §2's existing convention and its `zmdb-codegen: --check and --watch ask for opposite things` precedent. Making `--format json` a third value would give the CLI two ways to ask for JSON that differ in whether the `CliResult` envelope is present, which is the sort of divergence that gets discovered by a script.
 
 Exit codes, under §2's three:
 
@@ -651,13 +615,11 @@ Exit codes, under §2's three:
 | 1    | at least one `error` finding: a cycle, an unresolved token, a duplicate provider, a shadowed route |
 | 2    | the module spec did not resolve, colliding flags, or `--providers` unfiltered above the threshold  |
 
-A finding exits 1 for the reason §7 gives for `check`: the tree is not in the state it should be,
-and there is nothing wrong with the invocation. And as there, it is **any** finding rather than a
-code per finding kind — §16 already rejects per-finding exit codes, and a graph description is
-where the temptation returns, because a cycle feels more serious than a duplicated token
-description. It is; that is what `severity` is for, and it is in the output rather than in the exit
-status. Warnings alone exit 0, so `zmdb modules` is usable as a CI gate without failing on a
-cosmetic finding.
+A finding exits 1 for the reason §7 gives for `check`: the tree is not in the state it should be, and there is nothing wrong with the invocation.
+
+And as there, it is **any** finding rather than a code per finding kind — §16 already rejects per-finding exit codes, and a graph description is where the temptation returns, because a cycle feels more serious than a duplicated token description.
+
+It is; that is what `severity` is for, and it is in the output rather than in the exit status. Warnings alone exit 0, so `zmdb modules` is usable as a CI gate without failing on a cosmetic finding.
 
 This makes `zmdb modules` the second command after `check` that is worth running in CI, and the
 two do not overlap: `check` is about the schema tree, this is about the application graph. A
@@ -680,12 +642,9 @@ most for. And `createTestApp` carries override semantics: a session built on it 
 option away from a graph that is not the application's, in a tool whose whole value is that it is
 the application's.
 
-The session calls `app.init()` before handing over the prompt, so `onModuleInit` and
-`onApplicationBootstrap` have run and a repository you resolve is usable rather than half-built.
-That is what puts `yes` in the `Connects` column of §R0's table, and it is what the `exit` handler
-is for: the session is an `await using` scope, so leaving it runs `onShutdown` in reverse order.
-`web-repl.md` is right that this is what stops the process hanging on an open pool, and it is
-better as a property of the command than as a snippet a reader must remember to copy.
+The session calls `app.init()` before handing over the prompt, so `onModuleInit` and `onApplicationBootstrap` have run and a repository you resolve is usable rather than half-built.
+
+That is what puts `yes` in the `Connects` column of §R0's table, and it is what the `exit` handler is for: the session is an `await using` scope, so leaving it runs `onShutdown` in reverse order. `web-repl.md` is right that this is what stops the process hanging on an open pool, and it is better as a property of the command than as a snippet a reader must remember to copy.
 
 `--json` is rejected for `repl` with exit 2. §3 promises one JSON document on stdout, and an
 interactive session's stdout is a conversation; there is no document to be. `--yes` and `--force`
@@ -716,22 +675,17 @@ leaves the property true:
    enumerates every public symbol by habit (`packages/zmdb/src/web.ts:1-2`), so that file is where
    this rule breaks first, and a gate is the only thing that notices.
 
-**There is no socket, no `--inspect`, no `--host` and no `--port`.** §14.3's argument for `studio`
-applies here in a stronger form: for the studio, the loopback bind _is_ the security boundary; for
-the REPL there is no bind at all, so the boundary is satisfied vacuously. A remote-attach protocol
-— which is how NestJS's REPL and every language's debug server get reached — is the one design
-that would make barrier 3 pointless, because a TTY on the operator's machine plus a socket into
-the server is exactly the thing being refused.
+**There is no socket, no `--inspect`, no `--host` and no `--port`.** §14.3's argument for `studio` applies here in a stronger form: for the studio, the loopback bind _is_ the security boundary; for the REPL there is no bind at all, so the boundary is satisfied vacuously.
+
+A remote-attach protocol — which is how NestJS's REPL and every language's debug server get reached — is the one design that would make barrier 3 pointless, because a TTY on the operator's machine plus a socket into the server is exactly the thing being refused.
 
 ### R6. The banner, the scope, and where history goes
 
-The banner prints on stderr: the resolved config path, the root module, the available scope and
-the history location. The original freeze also required the application's dialect and database
-name. Measuring the two real boundaries makes that claim impossible: `ZmdbConfig` has a dialect
-but no database-name field, §7 says the application does not read that config, and `Driver`
-exposes `dialect?` plus `execute()` but no connection identity. Invoking the config's separate
-driver thunk would open the wrong object graph, while scanning resolved provider values for a URL
-would execute factories and risk printing credentials.
+The banner prints on stderr: the resolved config path, the root module, the available scope and the history location. The original freeze also required the application's dialect and database name.
+
+Measuring the two real boundaries makes that claim impossible: `ZmdbConfig` has a dialect but no database-name field, §7 says the application does not read that config, and `Driver` exposes `dialect?` plus `execute()` but no connection identity.
+
+Invoking the config's separate driver thunk would open the wrong object graph, while scanning resolved provider values for a URL would execute factories and risk printing credentials.
 
 The banner therefore prints `dialect: application-owned` and `database:
 application-owned`, with those reasons, rather than inventing assurance it cannot have. The root
@@ -764,15 +718,9 @@ because its container is keyed by class; here the container is keyed by `Token`
 (`@zmdb/web`'s `src/di/index.ts`), and a class-keyed helper would have to be a second index over
 the graph description that resolves nothing the container knows about.
 
-History goes to `~/.zmdb_repl_history`, mode `0600`, matching `node:repl`'s own
-`~/.node_repl_history` convention so the location is already where a user's tooling ignores it.
-`ZMDB_REPL_HISTORY` relocates it; a relative value resolves under the home directory, never the
-cwd. `--no-history` disables it, and an explicit path inside the nearest package tree is refused.
-That is the whole reason the path is frozen rather than left to the implementation: a history file
-in the working directory gets committed, gets copied into a Docker image, and contains whatever
-was typed against production — which is the one artifact of this feature with a real chance of
-leaking a credential. `0600` because it is a transcript of statements, and a transcript is as
-sensitive as the statements.
+History goes to `~/.zmdb_repl_history`, mode `0600`, matching `node:repl`'s own `~/.node_repl_history` convention so the location is already where a user's tooling ignores it. `ZMDB_REPL_HISTORY` relocates it; a relative value resolves under the home directory, never the cwd. `--no-history` disables it, and an explicit path inside the nearest package tree is refused.
+
+That is the whole reason the path is frozen rather than left to the implementation: a history file in the working directory gets committed, gets copied into a Docker image, and contains whatever was typed against production — which is the one artifact of this feature with a real chance of leaking a credential. `0600` because it is a transcript of statements, and a transcript is as sensitive as the statements.
 
 ### R7. What #600 has to assert
 

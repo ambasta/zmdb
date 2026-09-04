@@ -66,13 +66,11 @@ key (a)      →  key (a, b)      b's flag goes false → true
 key (a)      →  key (a) + b PK  … also b's flag going false → true
 ```
 
-The first must produce a key change; the second is not expressible in SQL at all (a table has
-one primary key). Worse, `(a, b)` → `(b, a)` changes the index the database builds and moves no
-flag whatsoever, so a flag-only snapshot reports no change for it. Hence the list, and hence
-`primaryKey` is **not** optional on `TableSnapshot`: an absent field would make "old snapshot,
-key unknown" and "table with no key" the same value, and the diff would have to guess which.
-A snapshot is `version: 1` and there is no compatibility promise across a version — the
-migration for an existing snapshot is to re-run `snapshot`.
+The first must produce a key change; the second is not expressible in SQL at all (a table has one primary key). Worse, `(a, b)` → `(b, a)` changes the index the database builds and moves no flag whatsoever, so a flag-only snapshot reports no change for it.
+
+Hence the list, and hence `primaryKey` is **not** optional on `TableSnapshot`: an absent field would make "old snapshot, key unknown" and "table with no key" the same value, and the diff would have to guess which.
+
+A snapshot is `version: 1` and there is no compatibility promise across a version — the migration for an existing snapshot is to re-run `snapshot`.
 
 Column order within the list is preserved; the surrounding determinism rule (tables and
 columns sorted by name) deliberately does not apply to it, because sorting it would destroy
@@ -99,14 +97,9 @@ mysql     CREATE TABLE `memberships` (`org_id` INT NOT NULL, `role` TEXT NOT NUL
 sqlite    CREATE TABLE "memberships" ("org_id" INTEGER NOT NULL, "role" TEXT NOT NULL, "user_id" INTEGER NOT NULL, PRIMARY KEY ("user_id", "org_id"))
 ```
 
-Two details in those lines are load-bearing. The columns are alphabetical (`org_id`, `role`,
-`user_id`) because that is the snapshot's determinism rule; the key clause is `("user_id",
-"org_id")` because that is the declaration order — the two orders differing in the same
-statement is the point. And a key column in the multi-column form emits `NOT NULL`
-explicitly, which the inline form suppresses as redundant. It is not redundant here: SQLite
-permits a NULL in a `PRIMARY KEY` column of a table constraint unless the column is declared
-`NOT NULL`, which is a documented deviation from the standard and would let a duplicate-ish
-row in.
+Two details in those lines are load-bearing. The columns are alphabetical (`org_id`, `role`, `user_id`) because that is the snapshot's determinism rule; the key clause is `("user_id", "org_id")` because that is the declaration order — the two orders differing in the same statement is the point.
+
+And a key column in the multi-column form emits `NOT NULL` explicitly, which the inline form suppresses as redundant. It is not redundant here: SQLite permits a NULL in a `PRIMARY KEY` column of a table constraint unless the column is declared `NOT NULL`, which is a documented deviation from the standard and would let a duplicate-ish row in.
 
 `serial` never appears in a multi-column key — the reflector refuses it upstream (see
 `schema-core/src/ir/SPEC.md` §4.1), so `INT AUTO_INCREMENT` and a trailing `PRIMARY KEY`
@@ -135,13 +128,9 @@ migration should be interruptible in. Postgres names the constraint `<table>_pke
 its own default and therefore what an unnamed key is actually called; a key created under a
 different name is out of scope for a generated migration and the runner's failure names it.
 
-**SQLite cannot do this at all.** There is no `ALTER TABLE` form that touches a primary key;
-the real procedure is create-new-table / copy / drop / rename, which needs the full target
-schema, has to move the table's foreign keys and indexes with it, and cannot be expressed as
-one op. The emitter therefore **refuses**, and the refusal is a thrown
-`UnsupportedFeatureError` that the runner surfaces as a failed migration — never a skipped op
-and never a comment in the output, which are the two ways this becomes a schema that diverges
-from its snapshot silently:
+**SQLite cannot do this at all.** There is no `ALTER TABLE` form that touches a primary key; the real procedure is create-new-table / copy / drop / rename, which needs the full target schema, has to move the table's foreign keys and indexes with it, and cannot be expressed as one op.
+
+The emitter therefore **refuses**, and the refusal is a thrown `UnsupportedFeatureError` that the runner surfaces as a failed migration — never a skipped op and never a comment in the output, which are the two ways this becomes a schema that diverges from its snapshot silently:
 
 ```
 sqlite cannot alter the primary key of "memberships" ((user_id) → (user_id, org_id)); SQLite has no
@@ -207,7 +196,7 @@ drop-and-add for the column it was supposed to protect.
 
 A `naming` field is deliberately **not** added to the snapshot. The strategy's output is already
 recorded — it is the names — and a user-supplied function has no identity to record, so the field
-would be honest only for the two built-ins and misleading for the case it was added to help.
+would be accurate only for the two built-ins and misleading for the case it was added to help.
 
 ### 1.5 Extensions in the snapshot, and statement order (frozen — epic "Database extensions")
 
@@ -369,13 +358,9 @@ migration guide
 
 #### `PRAGMA foreign_keys` — zmdb turns it on
 
-SQLite enforces foreign keys only when `PRAGMA foreign_keys = ON`, and the setting is **per connection**.
-The initial state cannot be assumed: the Node 26 `DatabaseSync` build in the repository's E2E starts at
-`1`, while SQLite can be compiled or opened with enforcement off. So the choice is between DDL that may be
-decorative and an idempotent setting zmdb applies on the caller's behalf, and the tie is broken by a fact
-about SQLite rather than by preference: **enabling the pragma does not validate the rows already in the
-table.** Enforcement applies to statements executed afterwards, so turning it on cannot fail a deploy over
-historical data.
+SQLite enforces foreign keys only when `PRAGMA foreign_keys = ON`, and the setting is **per connection**. The initial state cannot be assumed: the Node 26 `DatabaseSync` build in the repository's E2E starts at `1`, while SQLite can be compiled or opened with enforcement off.
+
+So the choice is between DDL that may be decorative and an idempotent setting zmdb applies on the caller's behalf, and the tie is broken by a fact about SQLite rather than by preference: **enabling the pragma does not validate the rows already in the table.** Enforcement applies to statements executed afterwards, so turning it on cannot fail a deploy over historical data.
 
 zmdb's `node:sqlite` adapter therefore issues `PRAGMA foreign_keys = ON` on every connection it opens. The
 alternative leaves an author who wrote `ON DELETE CASCADE` with no cascade, a passing test suite, and no
@@ -479,18 +464,11 @@ most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` the
 the offset of every `Date` written through it. An abstract type the map does not know is
 passed through unchanged rather than guessed at.
 
-**"Per dialect" has been less true of this emitter than the heading claims**, and the audit that found it is
-in `../dialects/SPEC.md` §1. Three statements here are emitted in one dialect's grammar for all of them:
-`add_column` says `ADD COLUMN`, which T-SQL rejects; `alter_column_type` says `ALTER COLUMN c TYPE t`, which
-is the Postgres spelling and not MySQL's `MODIFY COLUMN`; and `emitDown` of a `drop_table` produces
-`CREATE TABLE t ()`, an empty column list that only Postgres parses. SQL Server uses
-`ALTER COLUMN c t` with no `TYPE`; SQLite has no direct alter-type statement at all, and the five-field op
-does not contain the complete table snapshot a rebuild would need, so SQLite refuses `'alter column type'`.
-The first two spellings and that refusal are fixed as part of the dialect-traits work, since that is where a
-per-dialect answer acquires somewhere to live. The `drop_table` reversal is not a spelling problem — the
-columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of a `drop_table` becomes a
-refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot run on three dialects out
-of six.
+**"Per dialect" has been less true of this emitter than the heading claims**, and the audit that found it is in `../dialects/SPEC.md` §1. Three statements here are emitted in one dialect's grammar for all of them: `add_column` says `ADD COLUMN`, which T-SQL rejects; `alter_column_type` says `ALTER COLUMN c TYPE t`, which is the Postgres spelling and not MySQL's `MODIFY COLUMN`; and `emitDown` of a `drop_table` produces `CREATE TABLE t ()`, an empty column list that only Postgres parses.
+
+SQL Server uses `ALTER COLUMN c t` with no `TYPE`; SQLite has no direct alter-type statement at all, and the five-field op does not contain the complete table snapshot a rebuild would need, so SQLite refuses `'alter column type'`. The first two spellings and that refusal are fixed as part of the dialect-traits work, since that is where a per-dialect answer acquires somewhere to live.
+
+The `drop_table` reversal is not a spelling problem — the columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of a `drop_table` becomes a refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot run on three dialects out of six.
 
 The type map itself gains three columns and one correction. `mssql` maps `timestamp` to `DATETIMEOFFSET(3)`
 rather than `DATETIME2`, following the same rule the Postgres row is annotated with: a `timestamp` gets the
@@ -539,30 +517,21 @@ id would have been introduced to provide. Carrying both would be two names for o
 record which one the ledger is keyed on, and the answer is already fixed: the ledger's primary key is the
 version.
 
-**`up: string`, not `readonly string[]`.** Splitting the section into statements is attractive — a device
-binding's parameterised call takes one statement — and it is refused, because the split would have to happen
-somewhere and both places are wrong. On the device it is a SQL parse. At build time it is a SQL parse in the
-CLI, and `;` is not a statement boundary in the text this format carries: §1.5's extension statements and
-routine bodies contain semicolons, `CREATE TRIGGER … BEGIN … END` contains several, and so does any string
-literal with one in it. A splitter that is right about those is a SQL parser, and this package has no reason
-to own one. So the section travels verbatim and the driver requirement (§5.6) is a call that accepts more
-than one statement — which every SQLite binding already has, because DDL needs it.
+**`up: string`, not `readonly string[]`.** Splitting the section into statements is attractive — a device binding's parameterised call takes one statement — and it is refused, because the split would have to happen somewhere and both places are wrong. On the device it is a SQL parse.
 
-**No `down`.** `zmdb embed` omits it unless asked (`--with-down`), because rolling an app back does not roll
-the database back and the runner below has no rollback verb at all — the reasoning is on
-`docs-site/content/migrations-web-mobile.md` and it is right. Every embedded byte is shipped to a phone
-(ARCHITECTURE §1), and a `down` that nothing can call is the cheapest thing to not ship. The consequence is
-that `EmbeddedMigration` is **not** assignable to `Migration`, which is correct rather than unfortunate: the
-two runners share no code, no connection type and no ledger rule, so a shared type would only make it look
-like they did.
+At build time it is a SQL parse in the CLI, and `;` is not a statement boundary in the text this format carries: §1.5's extension statements and routine bodies contain semicolons, `CREATE TRIGGER … BEGIN … END` contains several, and so does any string literal with one in it. A splitter that is right about those is a SQL parser, and this package has no reason to own one.
 
-**`checksum` is computed at build time and only ever compared on the device.** No hashing happens on a
-device, and that is a constraint rather than a preference: `.oxlintrc.json` bans `node:crypto`,
-`globalThis.crypto.subtle.digest` is asynchronous and is not present in a React Native runtime without a
-platform package, and adding `expo-crypto` as a peer dependency to compare two strings would be absurd. The
-CLI runs in Node where `crypto.subtle` does exist, so the digest is SHA-256 over the exact `up` text, hex,
-prefixed `sha256:` so that changing the algorithm later shows up as a different prefix instead of as every
-migration mismatching at once.
+So the section travels verbatim and the driver requirement (§5.6) is a call that accepts more than one statement — which every SQLite binding already has, because DDL needs it.
+
+**No `down`.** `zmdb embed` omits it unless asked (`--with-down`), because rolling an app back does not roll the database back and the runner below has no rollback verb at all — the reasoning is on `docs-site/content/migrations-web-mobile.md` and it is right.
+
+Every embedded byte is shipped to a phone (ARCHITECTURE §1), and a `down` that nothing can call is the cheapest thing to not ship.
+
+The consequence is that `EmbeddedMigration` is **not** assignable to `Migration`, which is correct rather than unfortunate: the two runners share no code, no connection type and no ledger rule, so a shared type would only make it look like they did.
+
+**`checksum` is computed at build time and only ever compared on the device.** No hashing happens on a device, and that is a constraint rather than a preference: `.oxlintrc.json` bans `node:crypto`, `globalThis.crypto.subtle.digest` is asynchronous and is not present in a React Native runtime without a platform package, and adding `expo-crypto` as a peer dependency to compare two strings would be absurd.
+
+The CLI runs in Node where `crypto.subtle` does exist, so the digest is SHA-256 over the exact `up` text, hex, prefixed `sha256:` so that changing the algorithm later shows up as a different prefix instead of as every migration mismatching at once.
 
 What the checksum is for: detecting that a migration which has already been applied has since been edited.
 On a device that is the common accident, not an exotic one — version `003` ships in a TestFlight build,
@@ -616,14 +585,9 @@ export declare function runEmbedded(
 ): Promise<readonly number[]>; // the versions applied, in order
 ```
 
-The issue proposes `runEmbedded(driver: Driver, …)`. `Driver` is declared in `@zmdb/repository`, which
-_depends on_ this package, so naming it here inverts a dependency edge — `MigrationDriver` in `runner.ts`
-exists for exactly that reason. But the embedded runner does not take that either, and the reason is §5.5:
-`MigrationDriver.execute` takes a `CompiledQuery`, which means a compiler, and the whole point of the
-embedded entry point is that it imports nothing. Every SQL string the runner issues is a constant in its own
-module, so what it needs is three calls and no query builder. Those three map one-to-one onto
-`expo-sqlite`'s `execAsync` / `runAsync` / `getAllAsync` — the pairing the docs page already uses, where
-`execAsync` runs the multi-statement DDL and `runAsync` takes the parameters.
+The issue proposes `runEmbedded(driver: Driver, …)`. `Driver` is declared in `@zmdb/repository`, which _depends on_ this package, so naming it here inverts a dependency edge — `MigrationDriver` in `runner.ts` exists for exactly that reason. But the embedded runner does not take that either, and the reason is §5.5: `MigrationDriver.execute` takes a `CompiledQuery`, which means a compiler, and the whole point of the embedded entry point is that it imports nothing.
+
+Every SQL string the runner issues is a constant in its own module, so what it needs is three calls and no query builder. Those three map one-to-one onto `expo-sqlite`'s `execAsync` / `runAsync` / `getAllAsync` — the pairing the docs page already uses, where `execAsync` runs the multi-statement DDL and `runAsync` takes the parameters.
 
 Frozen order of operations, and every failure below happens **before any migration is applied**:
 
@@ -644,12 +608,9 @@ Frozen order of operations, and every failure below happens **before any migrati
    here because SQLite's DDL is transactional. SQLite has no nested transactions, so `runEmbedded` must not
    be called inside one; that is a stated precondition rather than something it can detect.
 
-The three failures are one class with a discriminant, so an app can branch:
-`EmbeddedMigrationError` with `kind: 'duplicate' | 'checksum' | 'ledger-ahead' | 'ledger-shape'`.
-`QueryCompilerError` is not reused: it carries no kind, and branching on a message is not an API. The
-recommended handling for `ledger-ahead` belongs on the page and is the one the page's own framing implies —
-a device database is a cache with a schema, so an app that finds a ledger from the future may delete it and
-start at version 0, which is a decision only the app can make.
+The three failures are one class with a discriminant, so an app can branch: `EmbeddedMigrationError` with `kind: 'duplicate' | 'checksum' | 'ledger-ahead' | 'ledger-shape'`. `QueryCompilerError` is not reused: it carries no kind, and branching on a message is not an API.
+
+The recommended handling for `ledger-ahead` belongs on the page and is the one the page's own framing implies — a device database is a cache with a schema, so an app that finds a ledger from the future may delete it and start at version 0, which is a decision only the app can make.
 
 An empty ledger is not a special case. A reinstalled or evicted database is "version 0", every migration is
 pending, and that path is the one every fresh install takes.
@@ -712,7 +673,7 @@ and `ARCHITECTURE.md` §10's subpath count moves. It is not a build-time entry �
 
 **SQLite, and the three calls in §5.3.** Not a dialect parameter: the runner selects nothing, emits no DDL of
 its own beyond the ledger table, and its one non-portable statement is the `pragma_table_info` probe in
-§5.2. That is honest for the platforms that need this — `expo-sqlite`, `op-sqlite`, `wa-sqlite`, `sql.js`,
+§5.2. That works for the platforms that need this — `expo-sqlite`, `op-sqlite`, `wa-sqlite`, `sql.js`,
 OPFS — and a second dialect would need a second probe and no other change.
 
 The migrations themselves are of course dialect-specific, and they were emitted for SQLite by the generator

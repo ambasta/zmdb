@@ -112,14 +112,11 @@ is not assignable to type 'void | (() => Promise<void>)'"_. Both verified by com
 sketch as written. `emitDecoratorMetadata` is `false` on the line above, so there is no
 reflection to fall back on either; the seam is §9's.
 
-The stage-3 signature is not merely the one that compiles. `../routing/index.ts:84` types
-its target as `(...args: never[]) => unknown`, which accepts every function, and it has to
-— a route handler receives a `Ctx`. **A scheduled method receives nothing**, because there
-is no caller with anything to pass, so narrowing the target to `ScheduledMethod` makes
-`@Cron('0 0 3 * * *') nightly(when: Date)` a compile error at the application site.
-Verified, along with the companion case: a method returning `Promise<number>` is rejected,
-because a scheduled task's return value has nowhere to go and a developer who returns one
-believes something reads it.
+The stage-3 signature is not merely the one that compiles. `../routing/index.ts:84` types its target as `(...args: never[]) => unknown`, which accepts every function, and it has to — a route handler receives a `Ctx`.
+
+**A scheduled method receives nothing**, because there is no caller with anything to pass, so narrowing the target to `ScheduledMethod` makes `@Cron('0 0 3 * * *') nightly(when: Date)` a compile error at the application site.
+
+Verified, along with the companion case: a method returning `Promise<number>` is rejected, because a scheduled task's return value has nowhere to go and a developer who returns one believes something reads it.
 
 ### 2.2 `TaskOptions` is required, not optional, and `runs` is the reason
 
@@ -134,14 +131,11 @@ the absence of `overlap` are the same state, and no code can branch on it. Verif
 sense that `if (opts.overlap === true)` is a compile error under the sketch's own type — so
 the option the sketch declares cannot be read.
 
-There are two honest repairs and this freeze takes the second. Widening to `boolean` gives
-a scheduler the ability to start an unbounded number of concurrent runs of one task on a
-timer, which is the only way a scheduler can produce a self-inflicted incident with no
-external trigger — a task that takes 70 seconds on a 60-second interval accumulates one
-extra concurrent run per minute, forever, and the symptom appears an hour later as memory
-pressure. **So overlap is never permitted and the option does not exist.** A task still
-running when its next instant arrives skips that instant and reports
-`reason: 'still-running'`.
+There are two viable fixes and this freeze takes the second.
+
+Widening to `boolean` gives a scheduler the ability to start an unbounded number of concurrent runs of one task on a timer, which is the only way a scheduler can produce a self-inflicted incident with no external trigger — a task that takes 70 seconds on a 60-second interval accumulates one extra concurrent run per minute, forever, and the symptom appears an hour later as memory pressure.
+
+**So overlap is never permitted and the option does not exist.** A task still running when its next instant arrives skips that instant and reports `reason: 'still-running'`.
 
 The capability is not lost, it is relocated to where it has a bound: a task that wants
 concurrent work calls `enqueue`, and `../queues/SPEC.md` §2.4 gives the worker a real
@@ -183,12 +177,11 @@ introduces the package's first time dependency and it gets exactly one door.
 
 ### 2.7 What the sketch omits
 
-No missed-run behaviour (§8), no coordination mechanism (§7), no cron dialect (§4), no
-timezone semantics (§5), no drain (§9), and no error sink. The sinks are **required**, in
-the shape `../microservices/SPEC.md` §5 requires its three: a task that throws inside a
-timer with no sink is a rejected promise nobody observes, and a scheduled task's failure is
-by construction unwitnessed — nobody is waiting for a response. Silence is the default
-failure mode of this entire module, so the field that breaks the silence cannot be optional.
+No missed-run behaviour (§8), no coordination mechanism (§7), no cron dialect (§4), no timezone semantics (§5), no drain (§9), and no error sink.
+
+The sinks are **required**, in the shape `../microservices/SPEC.md` §5 requires its three: a task that throws inside a timer with no sink is a rejected promise nobody observes, and a scheduled task's failure is by construction unwitnessed — nobody is waiting for a response.
+
+Silence is the default failure mode of this entire module, so the field that breaks the silence cannot be optional.
 
 ## 3. `runs`, required — and why the field is not called `scope`
 
@@ -199,30 +192,21 @@ the billing run and wrong for the cache warmer, which must run on every replica 
 each has its own cache. A framework that guessed would be wrong half the time, silently,
 and in one direction the wrongness is a duplicated charge.
 
-This is `../health/SPEC.md` §4's reasoning applied to a different field: `timeoutMs` is
-required there because "the correct value is a property of the dependency". Note that
-`../queues/SPEC.md` §2.4 argues the _opposite_ for its timeouts, and the principle that
-reconciles them is worth stating once for both files: **a value is required when no value
-is safe, and defaulted when the absence is what is dangerous.** A missing job timeout means
-a job that can never be drained; a missing `runs` means a decision nobody made.
+This is `../health/SPEC.md` §4's reasoning applied to a different field: `timeoutMs` is required there because "the correct value is a property of the dependency".
 
-**`'once-per-cluster'` with no `leases` is a construction-time error**, listing every task
-that asked for it. Not a warning, and not a lazy failure at first fire: a task whose
-coordination silently degraded to per-replica is precisely the bug the field exists to
-prevent, and discovering it at 03:00 when the first nightly task fires on three replicas at
-once is discovering it in production. Startup is the only moment at which the check is free
-and the operator is watching. The check cannot be a type check, because the decorator and
-the scheduler are different objects in different files; that is a real limitation and the
-construction check is the closest enforcement available.
+`../queues/SPEC.md` §2.4 makes the opposite choice for its timeouts. The two
+rules share one principle: **require a value when no default is safe, and supply
+a default when omission is itself dangerous.** A missing job timeout creates a
+job that may never drain; a missing `runs` leaves an application decision
+unmade.
 
-**The field is `runs` and not `scope` because `scope` is taken.**
-`packages/web/src/index.ts:88` exports `type Scope` from the DI module, where it is
-`'singleton' | 'transient'` (`../di/index.ts:96`). A `scope` option on a scheduled task
-would read, to anyone who has used this framework's container, as a statement about
-instance lifetime. This is the same collision that forced `Subscription` to be renamed
-`EventBinding` in `../graphql/subscriptions/SPEC.md` §3 — one barrel, so one namespace, and
-a word that already means something in it cannot be reused for something else. `runs` also
-reads as an English sentence at the call site: `runs: 'once-per-cluster'`.
+**`'once-per-cluster'` with no `leases` is a construction-time error**, listing every task that asked for it. Not a warning, and not a lazy failure at first fire: a task whose coordination silently degraded to per-replica is precisely the bug the field exists to prevent, and discovering it at 03:00 when the first nightly task fires on three replicas at once is discovering it in production.
+
+Startup is the only moment at which the check is free and the operator is watching. The check cannot be a type check, because the decorator and the scheduler are different objects in different files; that is a real limitation and the construction check is the closest enforcement available.
+
+**The field is `runs` and not `scope` because `scope` is taken.** `packages/web/src/index.ts:88` exports `type Scope` from the DI module, where it is `'singleton' | 'transient'` (`../di/index.ts:96`). A `scope` option on a scheduled task would read, to anyone who has used this framework's container, as a statement about instance lifetime.
+
+This is the same collision that forced `Subscription` to be renamed `EventBinding` in `../graphql/subscriptions/SPEC.md` §3 — one barrel, so one namespace, and a word that already means something in it cannot be reused for something else. `runs` also reads as an English sentence at the call site: `runs: 'once-per-cluster'`.
 
 ## 4. The cron dialect: five fields mean what `crontab` means
 
@@ -251,14 +235,9 @@ unchanged with its original meaning, or rejected, and never quietly reinterprete
 | `L`, `W`, `#`, `?`                         | **no**   | Quartz extensions, not cron; each needs calendar arithmetic and there is no agreed dialect for them                           |
 | a sixth field for a year                   | **no**   | Quartz again; a schedule that fires in one year is a one-off, which is a job with a `delayMs`                                 |
 
-**The day-of-month/day-of-week rule is POSIX's OR, including the part everybody finds
-surprising.** When neither field is `*`, an entry matches if **either** matches, so
-`0 0 1 * MON` fires on the first of the month _and_ on every Monday. Rejecting that
-combination as ambiguous is tempting and is refused: a dialect that is ninety-five percent
-`crontab` is worse than one that is either wholly compatible or obviously different,
-because the missing five percent is discovered in production by somebody who copied a line
-that worked for years. #587 asserts this rule directly so it cannot be "fixed" later by
-somebody who reads it as a bug.
+**The day-of-month/day-of-week rule is POSIX's OR, including the part everybody finds surprising.** When neither field is `*`, an entry matches if **either** matches, so `0 0 1 * MON` fires on the first of the month _and_ on every Monday.
+
+Rejecting that combination as ambiguous is tempting and is refused: a dialect that is ninety-five percent `crontab` is worse than one that is either wholly compatible or obviously different, because the missing five percent is discovered in production by somebody who copied a line that worked for years. #587 asserts this rule directly so it cannot be "fixed" later by somebody who reads it as a bug.
 
 An expression is parsed **once, at registration**, into per-field bitsets. Parse failure is
 a registration error naming the task and the field. This is the §1 cost constraint of epic
@@ -274,13 +253,9 @@ nightly job. UTC is the only value that is identical everywhere, and a task that
 cares about local midnight says so explicitly — which is also the only form a reviewer can
 check.
 
-The zone is validated at registration against `Intl.supportedValuesOf('timeZone')` —
-verified to return 418 entries on this Node, to contain `Europe/Berlin` and not to contain a
-fabricated name. `Intl` is not restricted by `.oxlintrc.json`, unlike `node:crypto` and
-`Buffer`, so this needs no dependency and no escape hatch. The `Intl.DateTimeFormat` for the
-zone is also constructed at registration, because it throws `RangeError` on an unknown zone
-and a lazily constructed formatter throws that at first fire — turning a typo into a 3 a.m.
-incident instead of a failed deploy.
+The zone is validated at registration against `Intl.supportedValuesOf('timeZone')` — verified to return 418 entries on this Node, to contain `Europe/Berlin` and not to contain a fabricated name. `Intl` is not restricted by `.oxlintrc.json`, unlike `node:crypto` and `Buffer`, so this needs no dependency and no escape hatch.
+
+The `Intl.DateTimeFormat` for the zone is also constructed at registration, because it throws `RangeError` on an unknown zone and a lazily constructed formatter throws that at first fire — turning a typo into a 3 a.m. incident instead of a failed deploy.
 
 **The scheduler's state is `nextAt: number`, an absolute epoch-millisecond instant.** It is
 not a local wall-clock time that gets converted when it fires. This one representational
@@ -307,14 +282,9 @@ instant. Verified against `Europe/Berlin` in 2026, where the transitions are
 | `0 30 2 * * *`              | `2026-10-25` | exists twice   | `00:30Z`, once           | overlap resolves earlier — verified: `00:30Z` is `02:30 GMT+2` and `01:30Z` is `02:30 GMT+1` |
 | `0 30 4 * * *`              | either       | unambiguous    | as written               | most days are this row                                                                       |
 
-Both alternatives lose, and for the same reason in opposite directions. **Skipping the
-nonexistent time** means a daily task does not run on one day a year, which is found in a
-quarterly reconciliation rather than in a log. **Firing on both instants of the overlap**
-means a billing job runs twice on one day a year — and it does so in a system where the
-operator asked for `once-per-cluster` specifically to prevent a double run, so the framework
-would be causing, through a timezone rule, the exact failure its coordination advertises
-protection against. A rule that can only be wrong in one direction should be wrong in the
-direction that fires once.
+Both alternatives lose, and for the same reason in opposite directions. **Skipping the nonexistent time** means a daily task does not run on one day a year, which is found in a quarterly reconciliation rather than in a log.
+
+**Firing on both instants of the overlap** means a billing job runs twice on one day a year — and it does so in a system where the operator asked for `once-per-cluster` specifically to prevent a double run, so the framework would be causing, through a timezone rule, the exact failure its coordination advertises protection against. A rule that can only be wrong in one direction should be wrong in the direction that fires once.
 
 `@Interval` has no `timeZone`, because a fixed duration has no local wall clock to be
 ambiguous about. Passing one is a registration error rather than being ignored, on
@@ -331,17 +301,13 @@ no way to refuse it. So each task schedules a single `setTimeout` for
 Two consequences follow, and both are stated rather than discovered:
 
 `@Interval(everyMs)` is therefore **completion-to-start**, not a fixed rate. A task that
-takes 2s on `@Interval(10_000)` runs every 12 seconds, not every 10. This is the honest
+takes 2s on `@Interval(10_000)` runs every 12 seconds, not every 10. This is the
 reading of "every 10 seconds" for a task the framework is not allowed to overlap, and the
 fixed-rate reading is unimplementable without either overlap or a skipped tick.
 
-`@Cron` **is** a fixed rate, because the instant comes from the expression and not from the
-previous completion, so `0 * * * * *` fires at each minute boundary regardless of how long
-the last run took, and a run that overruns its next instant produces one `onSkipped` with
-`reason: 'still-running'`. Clamping the delay to `2_147_483_647` (§2.4) matters for `@Cron`
-too — a `@monthly` task's next instant is more than 24.86 days away, so the wait is a chain
-of clamped timeouts rather than one, and #587 asserts the monthly case for exactly this
-reason.
+`@Cron` **is** a fixed rate, because the instant comes from the expression and not from the previous completion, so `0 * * * * *` fires at each minute boundary regardless of how long the last run took, and a run that overruns its next instant produces one `onSkipped` with `reason: 'still-running'`.
+
+Clamping the delay to `2_147_483_647` (§2.4) matters for `@Cron` too — a `@monthly` task's next instant is more than 24.86 days away, so the wait is a chain of clamped timeouts rather than one, and #587 asserts the monthly case for exactly this reason.
 
 Because the delay is recomputed from `clock.now()` on every hop, a machine that suspends or
 a timer the event loop delays produces a late run and never a drifting series: error does
@@ -350,13 +316,9 @@ recomputed timeout does not.
 
 ## 7. Leader by lease, per task, and why the advisory lock loses
 
-`once-per-cluster` is a lease over the task's name, and the protocol is
-`../../../query-compiler/src/outbox/SPEC.md` §4.2's with one row: a conditional `UPDATE`
-whose `WHERE heldUntil <= :now OR holder = :self` predicate **is** the mutual exclusion,
-because the row's own write lock serialises two replicas racing on it. The scheduler holds
-the lease while a task runs, renews at `leaseMs / 3`, and fires only while it holds it. A
-renewal that fails aborts the running task's signal and stops firing, because a scheduler
-that keeps firing without the lease is two schedulers.
+`once-per-cluster` is a lease over the task's name, and the protocol is `../../../query-compiler/src/outbox/SPEC.md` §4.2's with one row: a conditional `UPDATE` whose `WHERE heldUntil <= :now OR holder = :self` predicate **is** the mutual exclusion, because the row's own write lock serialises two replicas racing on it.
+
+The scheduler holds the lease while a task runs, renews at `leaseMs / 3`, and fires only while it holds it. A renewal that fails aborts the running task's signal and stops firing, because a scheduler that keeps firing without the lease is two schedulers.
 
 **Per task, not per process.** A single global leader concentrates every scheduled task on
 one replica — a load imbalance that grows with the number of tasks, and a single failure that
@@ -391,23 +353,17 @@ and the builders are not in this package, and `packages/web/package.json` does n
 `@zmdb/query-compiler`. **This is a correction to #586's `Files` list**, which names only
 the two `SPEC.md` files.
 
-**The honest limitation, which the epic asks for by name.** A lease bounds at-most-one
-_starter_, not at-most-one _runner_. A replica that stalls past its renewal — a long GC
-pause, a suspended VM — can still be inside the task body when another replica acquires the
-lease and starts it. So `once-per-cluster` means "one fire per instant, except across a
-stall", and no lease implementation improves on that; it is the same bound outbox §8 accepts
-for its dispatcher. The durable guarantee has to come from the task's own effect, which is
-§8.
+**The limitation, which the epic asks for by name.** A lease bounds at-most-one _starter_, not at-most-one _runner_. A replica that stalls past its renewal — a long GC pause, a suspended VM — can still be inside the task body when another replica acquires the lease and starts it.
+
+So `once-per-cluster` means "one fire per instant, except across a stall", and no lease implementation improves on that; it is the same bound outbox §8 accepts for its dispatcher. The durable guarantee has to come from the task's own effect, which is §8.
 
 ## 8. Missed runs are not caught up, and this is where the two halves compose
 
-**A task whose instant passed while nothing fired it is not run late.** Not on startup, not
-when a lease is finally acquired, and not after a clock jump. The alternative is a nightly
-task that fires three times in the first second after a three-day outage, and it does so
-with no concurrency bound (§2.3) and no idempotency the framework can see. A missed run is
-reported as `onSkipped({ reason: 'missed', scheduledFor })` and the operator decides, because
-"should the nightly billing run for the three nights we were down happen now, all at once?"
-is not a question a framework default can answer.
+**A task whose instant passed while nothing fired it is not run late.** Not on startup, not when a lease is finally acquired, and not after a clock jump.
+
+The alternative is a nightly task that fires three times in the first second after a three-day outage, and it does so with no concurrency bound (§2.3) and no idempotency the framework can see.
+
+A missed run is reported as `onSkipped({ reason: 'missed', scheduledFor })` and the operator decides, because "should the nightly billing run for the three nights we were down happen now, all at once?" is not a question a framework default can answer.
 
 The mechanism a task uses to _get_ catch-up is the point of this section and it is the only
 place the epic's two halves must be used together:
@@ -442,32 +398,19 @@ where losing a run costs nothing.
 
 ## 9. Discovery, registration, and the drain
 
-The metadata seam mirrors `../routing/index.ts` exactly, because a second pattern for the
-same problem is a second thing to learn: a module-private `SCHEDULES` symbol on
-`Symbol.metadata` (`../routing/index.ts:28-29`), one boundary function that narrows the
-`unknown` metadata slot in the one enumerated place a cast is allowed under directive 5
-(`routingView`, `:45-47`), and a reader `schedulesOf` in the shape of `getRoutes`
-(`:106-122`). Registration is `createScheduler({ tasks: [instances] })` — instances the
-container already built, never a filesystem scan and never a module-load side effect, per
-the epic's §2.7 constraint that "two apps in one process must not share them, and nothing
-registers itself at module load".
+The metadata seam mirrors `../routing/index.ts` exactly, because a second pattern for the same problem is a second thing to learn: a module-private `SCHEDULES` symbol on `Symbol.metadata` (`../routing/index.ts:28-29`), one boundary function that narrows the `unknown` metadata slot in the one enumerated place a cast is allowed under directive 5 (`routingView`, `:45-47`), and a reader `schedulesOf` in the shape of `getRoutes` (`:106-122`).
 
-**The decorator is defined in this module and never applied inside it.**
-`ARCHITECTURE.md:112-114` states the constraint: "no module on a path reachable from an
-entry point may contain syntax that is not type syntax, / which rules out a decorator."
-`@Cron` is a function and a type, so defining it is legal; a `@Cron` in this package's own
-source would break `yarn verify:exports`, which imports every subpath under plain `node`.
-Tests may apply it, because `vitest.config.ts`'s `stage3Decorators()` esbuild plugin
-transpiles files matching `/(^|\n)\s*@[A-Za-z_$]/` — and its comment says why that is
-test-execution only.
+Registration is `createScheduler({ tasks: [instances] })` — instances the container already built, never a filesystem scan and never a module-load side effect, per the epic's §2.7 constraint that "two apps in one process must not share them, and nothing registers itself at module load".
 
-**The drain, and the one step people forget.** `onShutdown` stops scheduling, waits up to
-`graceMs` for a running task, aborts its signal, and then **releases every lease it holds**.
-Releasing is what turns a rolling deploy's scheduler gap from `leaseMs` into approximately
-zero: without it, the replica that is already running takes up to a minute to notice the
-expiry, and a task scheduled during that minute simply does not run — reported as `'missed'`
-(§8) and never made up. The release is a best-effort write and a failed one is not an error,
-because the lease expires anyway.
+**The decorator is defined in this module and never applied inside it.** `ARCHITECTURE.md:112-114` states the constraint: "no module on a path reachable from an entry point may contain syntax that is not type syntax, / which rules out a decorator." `@Cron` is a function and a type, so defining it is legal; a `@Cron` in this package's own source would break `yarn verify:exports`, which imports every subpath under plain `node`.
+
+Tests may apply it, because `vitest.config.ts`'s `stage3Decorators()` esbuild plugin transpiles files matching `/(^|\n)\s*@[A-Za-z_$]/` — and its comment says why that is test-execution only.
+
+**The drain, and the one step people forget.** `onShutdown` stops scheduling, waits up to `graceMs` for a running task, aborts its signal, and then **releases every lease it holds**.
+
+Releasing is what turns a rolling deploy's scheduler gap from `leaseMs` into approximately zero: without it, the replica that is already running takes up to a minute to notice the expiry, and a task scheduled during that minute simply does not run — reported as `'missed'` (§8) and never made up.
+
+The release is a best-effort write and a failed one is not an error, because the lease expires anyway.
 
 `graceMs` is a construction option for the reason `../queues/SPEC.md` §9 spells out at
 length: `../lifecycle.ts:49-54` awaits each `onShutdown` indefinitely and in sequence, and

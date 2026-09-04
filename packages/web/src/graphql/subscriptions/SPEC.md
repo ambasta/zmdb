@@ -24,12 +24,9 @@ export interface PubSub {
 export declare function createMemoryPubSub(opts?: { readonly buffer?: number }): PubSub;
 ```
 
-**`payload` is `unknown` and so is the iterable's element.** The issue's `publish<T>(topic, payload: T)` and
-`subscribe<T>(…): AsyncIterable<T>` put the type where the caller chooses it, which is an unchecked assertion
-dressed as a generic — a publisher and a subscriber who disagree about `T` compile cleanly and fail at
-runtime, in a different process from the one that was wrong. A published payload crosses a boundary
-(ARCHITECTURE.md §2.3), so it is validated on the way out of the iterable, by the same mechanism a field's
-arguments are (§3). The typed surface is §2, one layer up.
+**`payload` is `unknown` and so is the iterable's element.** The issue's `publish<T>(topic, payload: T)` and `subscribe<T>(…): AsyncIterable<T>` put the type where the caller chooses it, which is an unchecked assertion dressed as a generic — a publisher and a subscriber who disagree about `T` compile cleanly and fail at runtime, in a different process from the one that was wrong.
+
+A published payload crosses a boundary (ARCHITECTURE.md §2.3), so it is validated on the way out of the iterable, by the same mechanism a field's arguments are (§3). The typed surface is §2, one layer up.
 
 **`AbortSignal` is the only cancellation path, and there is no `unsubscribe`.** A signal is passed in rather
 than a teardown function returned, and the difference is that the caller cannot forget it: the four ways a
@@ -96,12 +93,9 @@ at all.
 
 ### 2.1 Scoping a topic is the authorisation mechanism that cannot be forgotten
 
-A topic name may be derived from the authenticated identity at subscribe time — `post.created:tenant-7` — and
-that is the recommended shape for anything multi-tenant. It is stronger than any check further down because
-there is no code path that could subscribe to another tenant's topic: the name does not exist unless the
-identity produced it. `web-graphql-subscriptions.md` states the same rule for its SSE example ("scope the
-subscription to the authenticated tenant… the client filters, which means the client receives"), and §5 is
-why the alternative is refused.
+A topic name may be derived from the authenticated identity at subscribe time — `post.created:tenant-7` — and that is the recommended shape for anything multi-tenant.
+
+It is stronger than any check further down because there is no code path that could subscribe to another tenant's topic: the name does not exist unless the identity produced it. `web-graphql-subscriptions.md` states the same rule for its SSE example ("scope the subscription to the authenticated tenant… the client filters, which means the client receives"), and §5 is why the alternative is refused.
 
 ## 3. `@Subscription`, and two things it is not
 
@@ -126,14 +120,9 @@ a parameter every caller has to write and no code reads. The payload type comes 
 TypeScript decorator types; under Stage 3 the shape is `(target, context: ClassMethodDecoratorContext)`, the
 same correction `../SPEC.md` §13's `@Complexity` records.
 
-**The exported name collides with something already shipped**, and the collision is resolved by renaming the
-other one. `gateways/index.ts:15` exports `interface Subscription { event; handlerName }`, re-exported from the
-root barrel at `packages/web/src/index.ts:158`, so two different `Subscription`s cannot both be re-exported
-from it. The gateways interface is renamed **`EventBinding`**, because that is what it is — a handler bound to
-an event name, not a subscription to anything — and `Subscription` is left to mean what every GraphQL user
-already thinks it means. `@Subscribe` and `getSubscriptions` keep their names: they are about events, and
-"subscribe to an event" reads correctly. This changes `gateways/SPEC.md` and `packages/web/src/index.ts`, and
-`#552` asserts the old name is gone rather than deprecated.
+**The exported name collides with something already shipped**, and the collision is resolved by renaming the other one. `gateways/index.ts:15` exports `interface Subscription { event; handlerName }`, re-exported from the root barrel at `packages/web/src/index.ts:158`, so two different `Subscription`s cannot both be re-exported from it.
+
+The gateways interface is renamed **`EventBinding`**, because that is what it is — a handler bound to an event name, not a subscription to anything — and `Subscription` is left to mean what every GraphQL user already thinks it means. `@Subscribe` and `getSubscriptions` keep their names: they are about events, and "subscribe to an event" reads correctly. This changes `gateways/SPEC.md` and `packages/web/src/index.ts`, and `#552` asserts the old name is gone rather than deprecated.
 
 `topic` may be a function of the arguments, which is what makes §2.1 expressible: `topic: args => \`post.created:${args.tenant}\`` — evaluated once, at subscribe time, after the arguments have been validated and piped.
 
@@ -182,12 +171,9 @@ publishing 100 events a second, is 100,000 queries a second under per-event and 
 Per-event authorisation is a denial-of-service amplifier pointed at your own database, and a spec that made it
 the default would be trading one outage for another.
 
-**A guard that fails mid-stream terminates that operation with an error.** It does not skip the event. Skipping
-looks gentler and is worse: the client keeps a subscription it believes is live, sees no activity, and cannot
-distinguish that from a quiet topic — so it never re-authenticates and never learns. The client observes an
-`error` message with `extensions.code = 'FORBIDDEN'` for that operation id, then the operation completes. The
-**socket stays open**: one connection carries many operations, and killing all of them because one lost
-permission is a failure the client cannot localise either.
+**A guard that fails mid-stream terminates that operation with an error.** It does not skip the event. Skipping looks gentler and is worse: the client keeps a subscription it believes is live, sees no activity, and cannot distinguish that from a quiet topic — so it never re-authenticates and never learns.
+
+The client observes an `error` message with `extensions.code = 'FORBIDDEN'` for that operation id, then the operation completes. The **socket stays open**: one connection carries many operations, and killing all of them because one lost permission is a failure the client cannot localise either.
 
 The exception is connection-level: a `connection_init` payload that does not authenticate closes the socket
 (§8), because there is nothing to keep it open for.
@@ -210,12 +196,9 @@ Server shutdown uses the existing hook: the subscription registry implements `On
 `app.dispose()` — the surface is `await using app = createApp(…)`, which calls `App[Symbol.asyncDispose]`
 (`app/index.ts:38`).
 
-**One gap has to be named rather than assumed away.** `createApp` wires disposal as
-`runShutdown(controllers)` (`app/index.ts:38`), so `onShutdown` fires for **controllers only** — a registry
-registered as a _provider_ is never torn down, and every open subscription survives the app that served it.
-Extending hook detection to providers is the app epic's, not this one's; until it lands, the registry must be
-reachable from a controller, and `#552` asserts disposal through a controller-held registry so the test does
-not silently depend on the broken path.
+**One gap has to be named rather than assumed away.** `createApp` wires disposal as `runShutdown(controllers)` (`app/index.ts:38`), so `onShutdown` fires for **controllers only** — a registry registered as a _provider_ is never torn down, and every open subscription survives the app that served it.
+
+Extending hook detection to providers is the app epic's, not this one's; until it lands, the registry must be reachable from a controller, and `#552` asserts disposal through a controller-held registry so the test does not silently depend on the broken path.
 
 Inspection, so the assertion the epic requires is possible without reaching into internals:
 
@@ -231,12 +214,9 @@ still open. A count that is merely small is a leak with a slower clock.
 
 ### 6.1 `sseStream` leaks today, and it has to stop
 
-`sseStream` (`gateways/index.ts:123-137`) builds a `ReadableStream` whose underlying source has a `pull` and
-**no `cancel`**. When a client disconnects the stream is cancelled, and nothing calls `iterator.return()` — so
-the source async iterable is never told, keeps running, and keeps whatever it holds. That is a real leak in
-shipped code, on the exact path a subscription would use, and no cleanup guarantee in this file is true while
-it is there. `#552` covers it: `cancel(reason)` calls `iterator.return?.()`, asserted with a source that
-records whether it was closed.
+`sseStream` (`gateways/index.ts:123-137`) builds a `ReadableStream` whose underlying source has a `pull` and **no `cancel`**. When a client disconnects the stream is cancelled, and nothing calls `iterator.return()` — so the source async iterable is never told, keeps running, and keeps whatever it holds.
+
+That is a real leak in shipped code, on the exact path a subscription would use, and no cleanup guarantee in this file is true while it is there. `#552` covers it: `cancel(reason)` calls `iterator.return?.()`, asserted with a source that records whether it was closed.
 
 ## 7. Backpressure: a bounded buffer per subscriber, and overflow closes the operation
 
@@ -244,12 +224,9 @@ An unbounded buffer is a memory-exhaustion bug reachable by a client that opens 
 stops reading. It is ruled out, explicitly, in the interface: `createMemoryPubSub({ buffer })` has a default
 and no way to say "no limit".
 
-**`publish` never waits for a subscriber.** Pull-based backpressure all the way to the publisher is the
-tempting answer — the existing `sseStream` really is pull-based, via `ReadableStream.pull` — and it is wrong
-here, because `publish` is called from a transaction commit or a `NOTIFY` handler. Letting one slow client
-apply backpressure to that is head-of-line blocking across every tenant: the slowest subscriber in the system
-sets the rate for everyone, which converts a client-side problem into an outage. `publish` enqueues to each
-subscriber's bounded buffer and returns.
+**`publish` never waits for a subscriber.** Pull-based backpressure all the way to the publisher is the tempting answer — the existing `sseStream` really is pull-based, via `ReadableStream.pull` — and it is wrong here, because `publish` is called from a transaction commit or a `NOTIFY` handler.
+
+Letting one slow client apply backpressure to that is head-of-line blocking across every tenant: the slowest subscriber in the system sets the rate for everyone, which converts a client-side problem into an outage. `publish` enqueues to each subscriber's bounded buffer and returns.
 
 Within the bound, delivery **is** pull-based: the buffer only fills while the consumer is behind, and a
 consumer that keeps up never buffers more than one event.
@@ -344,10 +321,10 @@ reach the container — so it is structurally incapable of being a permission ch
 documented as not being one. The issue's own signature already omits `ctx`; this records that as the point of
 it.
 
-The distinction, stated plainly because it has to reach the docs: **a filter is about relevance, a guard is
-about permission.** A filter answers "does this subscriber care about this event"; a guard answers "is this
-subscriber allowed to know". Conflating them leaks data to the wrong subscriber, and the leak is quiet — a
-filter with a bug delivers, it does not throw.
+**A filter controls relevance; a guard controls permission.** A filter asks
+whether a subscriber wants an event. A guard asks whether that subscriber may
+receive it. Treating a filter as authorization can quietly deliver data to the
+wrong subscriber.
 
 Ordering follows: the guard runs first (§5), then the filter, then delivery. A filter returning `false` is not
 an error, sends nothing, and does not count against the buffer. A guard returning `false` terminates.

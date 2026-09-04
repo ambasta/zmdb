@@ -137,7 +137,7 @@ from the routing table. A convention nobody checks is not a control.
 For a resource whose existence is itself sensitive — a private repository, another
 tenant's record — return **404**. A 403 confirms the id is real, which is enough
 for enumeration. For an operation the caller is simply not permitted to perform,
-403 is the honest answer and the more useful one.
+403 is the accurate answer and the more useful one.
 
 Pick per endpoint, deliberately, and be consistent within a resource: a 404 on
 `GET` and a 403 on `DELETE` for the same id leaks what the 404 was hiding.

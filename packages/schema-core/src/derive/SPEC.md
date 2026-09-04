@@ -14,14 +14,9 @@ Every derivation takes a tagged type and nothing else. There is no conditional
 dispatch on `{ columns: … }` — backwards compatibility is not a requirement (plan D2),
 which also means no per-use `extends` test and no instantiation cost from a dispatch.
 
-The parameter is also constrained, which is what makes "nothing else" enforceable rather
-than a convention. `DeclaredTable` is `Table<string>`; because `Table` is all-optional,
-TypeScript's weak-type rule rejects any source with no property in common with it, and a
-schema value has none. So `Entity<typeof userSchema>` does not compile — worth constraining
-for because the wrong answer was structurally plausible, being a type with keys and types
-that nothing downstream would have questioned. A row keyed by a table _name_ still passes,
-via the index-signature exemption; `dto/index.ts`'s `UnknownRow` is the only type that
-needs it.
+The parameter is also constrained, which is what makes "nothing else" enforceable rather than a convention. `DeclaredTable` is `Table<string>`; because `Table` is all-optional, TypeScript's weak-type rule rejects any source with no property in common with it, and a schema value has none.
+
+So `Entity<typeof userSchema>` does not compile — worth constraining for because the wrong answer was structurally plausible, being a type with keys and types that nothing downstream would have questioned. A row keyed by a table _name_ still passes, via the index-signature exemption; `dto/index.ts`'s `UnknownRow` is the only type that needs it.
 
 ## 2. Key filters
 

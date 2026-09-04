@@ -112,7 +112,7 @@ const concerts = compiler
 
 The declaration gets you two things here that the row shape alone does not: `type` narrows to
 `'concert' | 'game'`, so the `switch` below is exhaustive and a third subtype breaks the
-compile; and the per-subtype columns are honestly `| null`, which is what the table says. The
+compile; and the per-subtype columns are typed as `| null`, which is what the table says. The
 part it cannot express is the invariant — that a `concert` row has a `title` and a `game` row
 does not — because that is a `CHECK` constraint, not a type.
 

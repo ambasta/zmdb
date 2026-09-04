@@ -96,16 +96,9 @@ second pool and warms a cache pays for both at startup today even in a process t
 an admin route. It is not the win `docs-site/content/web-lazy-modules.md` implies when it talks
 about cold start, and that page has to change (§DOCS).
 
-The deferred-import arm — `lazy(() => import('./heavy.module.js'))` — is a **non-goal**, for a
-reason that is structural rather than a matter of appetite. #599's own architecture constraint
-is that a lazy module is "validated at startup", and a module inside an unevaluated `import()`
-has no metadata to validate: its `imports`, its providers and its controllers' `@Inject` fields
-do not exist until the file is evaluated. Supporting it would mean either awaiting every dynamic
-import during `createApp` — which defers nothing and is a slower startup than today, because it
-serialises imports the loader would have done in parallel — or abandoning startup validation for
-those subtrees, which is the one thing the epic says not to do. The cold-start goal it aims at is
-already reachable, and already documented: a dynamic `import()` inside a `useFactory`
-(`web-lazy-modules.md:39-49`).
+The deferred-import arm — `lazy(() => import('./heavy.module.js'))` — is a **non-goal**, for a reason that is structural rather than a matter of appetite. #599's own architecture constraint is that a lazy module is "validated at startup", and a module inside an unevaluated `import()` has no metadata to validate: its `imports`, its providers and its controllers' `@Inject` fields do not exist until the file is evaluated.
+
+Supporting it would mean either awaiting every dynamic import during `createApp` — which defers nothing and is a slower startup than today, because it serialises imports the loader would have done in parallel — or abandoning startup validation for those subtrees, which is the one thing the epic says not to do. The cold-start goal it aims at is already reachable, and already documented: a dynamic `import()` inside a `useFactory` (`web-lazy-modules.md:39-49`).
 
 `## Invariants`' first bullet (:32-33) currently reads "Static wiring at compile time
 (module-graph walk), cached — **no per-request graph walk, no reflection.**" As written, that
@@ -168,25 +161,15 @@ under `--strict --exactOptionalPropertyTypes`.
 an `imports` array reads as a decorator being called, in the one position where a reader is
 already scanning for class names.
 
-**`LazyModuleRef` with `load()` and `loaded` on the value `lazy()` returns is a cross-app state
-bug, and this is the correction that matters most.** `imports: [LazyModule(Heavy)]` evaluates
-once, when the module file is imported, so the object holding `loaded` and its cached promise is
-shared by every application compiled from that module class. Two `createApp` calls from one root
-module is not hypothetical — it is what `docs-site/content/web-multiple-servers.md` documents and
-what every test file that builds an app per `it()` does. The second app would observe
-`loaded: true` for a module it never wired, and resolve tokens out of the _first_ app's container
-or throw, depending on which. So `lazy()` returns an inert **declaration** with no state at all,
-and load state lives per-app on `CompiledModule.lazy`. Test isolation is not a nice property
-here; a framework whose module declarations accumulate state across apps cannot be tested at all.
+**`LazyModuleRef` with `load()` and `loaded` on the value `lazy()` returns is a cross-app state bug, and this is the correction that matters most.** `imports: [LazyModule(Heavy)]` evaluates once, when the module file is imported, so the object holding `loaded` and its cached promise is shared by every application compiled from that module class.
 
-**`load(): Promise<void>`, not `Promise<CompiledModule>`.** There is exactly one `Container` for
-the entire graph — `compileModule` constructs it once at :66 and every module registers into it —
-so there is no second `CompiledModule` for a lazy subtree to be. Returning one would mean either
-a nested container, which double-constructs the shared singletons the parent already holds (the
-precise cost `web-lazy-modules.md` warns about in its two-apps workaround), or a fabricated
-object whose `container` is the parent's and whose `controllers` is a subset, which invites
-exactly the misreading that this is a separate graph. `void` says the thing that is true: the
-load's effect is on the app you already have.
+Two `createApp` calls from one root module is not hypothetical — it is what `docs-site/content/web-multiple-servers.md` documents and what every test file that builds an app per `it()` does. The second app would observe `loaded: true` for a module it never wired, and resolve tokens out of the _first_ app's container or throw, depending on which. So `lazy()` returns an inert **declaration** with no state at all, and load state lives per-app on `CompiledModule.lazy`.
+
+Test isolation is not a nice property here; a framework whose module declarations accumulate state across apps cannot be tested at all.
+
+**`load(): Promise<void>`, not `Promise<CompiledModule>`.** There is exactly one `Container` for the entire graph — `compileModule` constructs it once at :66 and every module registers into it — so there is no second `CompiledModule` for a lazy subtree to be.
+
+Returning one would mean either a nested container, which double-constructs the shared singletons the parent already holds (the precise cost `web-lazy-modules.md` warns about in its two-apps workaround), or a fabricated object whose `container` is the parent's and whose `controllers` is a subset, which invites exactly the misreading that this is a separate graph. `void` says the thing that is true: the load's effect is on the app you already have.
 
 **`status: LazyStatus`, not `loaded: boolean`.** A boolean cannot distinguish "not started" from
 "in flight", which is the state a concurrency assertion has to observe (§L8), nor from
@@ -206,23 +189,15 @@ touches a lazy module:
 | two modules registering the same token                       | comparing declarations rather than watching `#bindings.set`    |
 | an eager class injecting a token only a lazy module provides | the eager set from pass one vs. the lazy set from pass two     |
 
-The last row is the one worth arguing. Without it, that application starts, and then the _first_
-request to an eager controller fails inside a field initialiser with a bare
-`UnresolvedTokenError` naming the token but not the reason — and the reason is a `lazy()` wrapper
-in a module the reader is not looking at. Refused at startup, the message names both classes and
-the token, and the fix is obvious: unwrap the `lazy()`. This is also why laziness cannot be a
-per-import property. **A module reachable by any eager path is eager**, even where another module
-imports it lazily; lazy means "a subtree nothing eager reaches".
+The last row is the one worth arguing. Without it, that application starts, and then the _first_ request to an eager controller fails inside a field initialiser with a bare `UnresolvedTokenError` naming the token but not the reason — and the reason is a `lazy()` wrapper in a module the reader is not looking at.
 
-That forces a **two-pass compile**, which is a real change to the walk at :65-101 and not an
-addition to it. Pass one follows only eager edges from the root and computes the eager set; pass
-two takes the lazy edges out of every module in that set and assigns each unreached subtree to a
-handle. One pass cannot do it: reaching `SharedModule` through a `lazy()` edge before reaching it
-eagerly, or after, would decide whether it is lazy — so laziness would depend on the order of an
-`imports` array, and moving one line in an unrelated module would move a pool open from startup
-into the first request. Order-dependent wiring is the failure this project rejects in its
-guards-versus-middleware ordering, and it is worse here because there is nothing to read that
-reveals it.
+Refused at startup, the message names both classes and the token, and the fix is obvious: unwrap the `lazy()`. This is also why laziness cannot be a per-import property. **A module reachable by any eager path is eager**, even where another module imports it lazily; lazy means "a subtree nothing eager reaches".
+
+That forces a **two-pass compile**, which is a real change to the walk at :65-101 and not an addition to it. Pass one follows only eager edges from the root and computes the eager set; pass two takes the lazy edges out of every module in that set and assigns each unreached subtree to a handle.
+
+One pass cannot do it: reaching `SharedModule` through a `lazy()` edge before reaching it eagerly, or after, would decide whether it is lazy — so laziness would depend on the order of an `imports` array, and moving one line in an unrelated module would move a pool open from startup into the first request.
+
+Order-dependent wiring is the failure this project rejects in its guards-versus-middleware ordering, and it is worse here because there is nothing to read that reveals it.
 
 The residue cannot be validated at startup by any means, and pretending otherwise is worse than
 naming it:
@@ -236,21 +211,18 @@ naming it:
 
 So the guarantee is stated exactly: **a lazy module's wiring is validated at startup; its
 execution is not.** An application that wants execution validated at startup should not make that
-module lazy, which is the honest trade and the reason the default stays eager.
+module lazy, which is the trade-off and the reason the default stays eager.
 
 ### L4. Routes register eagerly, and the handler is a trampoline
 
 **Every route of a lazy module is registered at startup, from the controller class.** This is
 forced, and by two independent things.
 
-The first is reachability. If routes appeared only after a load, nothing would ever trigger the
-load — the request to `/admin/users` would 404, so the module stays unloaded, so the route never
-appears. The only escapes are a second dispatch mechanism (a catch-all that consults a table of
-maybe-routes, which is a per-request graph walk in the shape :32-33 exists to forbid) or an
-`app.register()` the application calls after startup, which is `web-lazy-modules.md`'s own
-suggestion and which it correctly notes costs "the route table no longer being fixed after
-`init()` — which is currently a property worth something". It also does not solve the trigger
-problem: something still has to decide when.
+The first is reachability. If routes appeared only after a load, nothing would ever trigger the load — the request to `/admin/users` would 404, so the module stays unloaded, so the route never appears.
+
+The only escapes are a second dispatch mechanism (a catch-all that consults a table of maybe-routes, which is a per-request graph walk in the shape :32-33 exists to forbid) or an `app.register()` the application calls after startup, which is `web-lazy-modules.md`'s own suggestion and which it correctly notes costs "the route table no longer being fixed after `init()` — which is currently a property worth something".
+
+It also does not solve the trigger problem: something still has to decide when.
 
 The second is that the data is already available from the class. `getRoutes` takes the controller
 **class** (`../routing/index.ts:106`) and reads `Symbol.metadata` off it; only the final bind of
@@ -265,15 +237,11 @@ The router therefore gains one method, additively:
 registerDeferred(controller: Constructor<object>, instance: () => Promise<object>): void;
 ```
 
-`register`'s signature and every existing call site are untouched, which matters because
-`../pipeline/SPEC.md`'s `## Amendments (streaming responses, #565)` is frozen against the current
-one. Routes registered this way bind a handler that awaits `instance()` and then invokes the
-named method on what it returns — the same final step `readHandler` performs, one `await` later.
-The router may replace that handler with the ordinary bound one after the first successful load;
-what is frozen is that **no route is added or removed after startup**, so the table's contents,
-its order and its shadowing are decided at `createApp` exactly as they are today. Registration
-order for a lazy module's routes is its position in the graph walk, so a shadowing conflict
-between a lazy and an eager controller resolves identically whether or not the module ever loads.
+`register`'s signature and every existing call site are untouched, which matters because `../pipeline/SPEC.md`'s `## Amendments (streaming responses, #565)` is frozen against the current one. Routes registered this way bind a handler that awaits `instance()` and then invokes the named method on what it returns — the same final step `readHandler` performs, one `await` later.
+
+The router may replace that handler with the ordinary bound one after the first successful load; what is frozen is that **no route is added or removed after startup**, so the table's contents, its order and its shadowing are decided at `createApp` exactly as they are today.
+
+Registration order for a lazy module's routes is its position in the graph walk, so a shadowing conflict between a lazy and an eager controller resolves identically whether or not the module ever loads.
 
 The observable cost is one microtask on requests to a lazy module's routes, and nothing at all
 elsewhere: `registerDeferred` is never called by an application with no lazy imports.
@@ -283,21 +251,18 @@ elsewhere: `registerDeferred` is never called by an application with no lazy imp
 Inside a load, registration and construction must happen in a single synchronous region — no
 `await` between the first `container.register` and the last `container.build`.
 
-This is not style. `../di/index.ts:50` holds a module-scope `currentContainer`, set and restored
-around `new Ctor()` by `withActiveContainer` (:55-63), and it is what `@Inject`'s field
-initializer reads (:81-88). The save/restore is safe only because the region between them cannot
-interleave; an `await` inside it lets a concurrent load, or a concurrent `createApp` in the same
-process, observe or clobber the wrong container. The existing code is correct because
-`compileModule` is entirely synchronous, and a lazy load is the first place in this package where
-that could stop being true.
+This is not style. `../di/index.ts:50` holds a module-scope `currentContainer`, set and restored around `new Ctor()` by `withActiveContainer` (:55-63), and it is what `@Inject`'s field initializer reads (:81-88).
 
-So a load is: resolve the subtree's declarations (already done at startup), register its
-providers, build its controllers, all synchronously; **then** await hooks (§L6). `load()` returns
-a promise because of the hooks and because a caller awaits it, not because the wiring is async.
-A consequence worth stating: a `useFactory` remains synchronous, exactly as it is today, and lazy
-modules do not create an async-provider path. `web-lazy-modules.md:39-49` is right that "the
-container has no async resolution", and this does not change that — a provider needing async
-setup still resolves to a client that connects in `onModuleInit`.
+The save/restore is safe only because the region between them cannot interleave; an `await` inside it lets a concurrent load, or a concurrent `createApp` in the same process, observe or clobber the wrong container.
+
+The existing code is correct because `compileModule` is entirely synchronous, and a lazy load is the first place in this package where that could stop being true.
+
+So a load is: resolve the subtree's declarations (already done at startup), register its providers, build its controllers, all synchronously; **then** await hooks (§L6). `load()` returns a promise because of the hooks and because a caller awaits it, not because the wiring is async.
+
+`useFactory` remains synchronous, and lazy modules do not create an
+async-provider path. As `web-lazy-modules.md:39-49` notes, the container has no
+async resolution. A provider that needs asynchronous setup still returns a
+client that connects in `onModuleInit`.
 
 ### L6. The triggering request waits
 
@@ -315,23 +280,13 @@ client that retries turns one slow request into two, and a client that does not 
 service is unavailable when it is merely cold. This is a latency spike on one request per lazy
 module per process, and it is the cost the application opted into by writing `lazy()`.
 
-No framework timeout, because there is no safe thing to do when it fires. Abandoning a load
-leaves a container with some of a module's providers registered and some of its controllers built
-— the half-built graph `mapping.mjs:873-879` objects to — and there is no rollback (§L7). An
-application that needs a bounded wait puts it where the deadline is known, on the client or in a
-proxy; a framework timeout would be a number the framework invented, and the only correct value
-depends on the pool it is opening.
+No framework timeout, because there is no safe thing to do when it fires. Abandoning a load leaves a container with some of a module's providers registered and some of its controllers built — the half-built graph `mapping.mjs:873-879` objects to — and there is no rollback (§L7).
 
-`runInit` is reused unchanged over just that module's instances, which means both hooks run:
-`onModuleInit` for all of them, then `onApplicationBootstrap` for all of them
-(`../lifecycle.ts:39-46`). Skipping `onApplicationBootstrap` because "the application already
-bootstrapped" is refused — a hook that silently does not run is the failure mode this project
-rejects everywhere, and a warmup written in that hook would go missing precisely in the module
-whose warmup was expensive enough to defer. The honest consequence is a semantic shift, stated
-rather than hidden: `../lifecycle.ts:34-38` promises that a bootstrap hook "can rely on every
-module having been initialized", and for a lazily loaded module that becomes **every instance of
-this module**, because the eager graph's hooks ran at startup and no other lazy module's have to
-run first.
+An application that needs a bounded wait puts it where the deadline is known, on the client or in a proxy; a framework timeout would be a number the framework invented, and the only correct value depends on the pool it is opening.
+
+`runInit` is reused unchanged over just that module's instances, which means both hooks run: `onModuleInit` for all of them, then `onApplicationBootstrap` for all of them (`../lifecycle.ts:39-46`). Skipping `onApplicationBootstrap` because "the application already bootstrapped" is refused — a hook that silently does not run is the failure mode this project rejects everywhere, and a warmup written in that hook would go missing precisely in the module whose warmup was expensive enough to defer.
+
+The consequence is a semantic shift, stated rather than hidden: `../lifecycle.ts:34-38` promises that a bootstrap hook "can rely on every module having been initialized", and for a lazily loaded module that becomes **every instance of this module**, because the eager graph's hooks ran at startup and no other lazy module's have to run first.
 
 ### L7. A failed load is terminal, and this answers the poisoned-promise question
 
@@ -339,28 +294,17 @@ If any part of a load throws — a factory, a constructor, a field initializer, 
 handle's `status` becomes `failed`, the triggering request gets that error, and **every later
 request to that module gets the same error**. `failed` is absorbing; `load()` never retries.
 
-That is not a policy choice among several. `Container` has no transaction: `register` and
-`registerFactory` are `Map.set` (`../di/index.ts:108-115`), there is no `unregister`, and adding
-one would not help — an instance built before the failure may already be held by a controller
-that was built successfully, and evicting a binding cannot un-build it. A nested container
-double-constructs the parent's singletons. And a factory that ran had its side effect: a socket
-is open, and it is not tracked anywhere, because nothing asked it to be. A retry over that state
-is a second pool on top of a leaked first one.
+That is not a policy choice among several. `Container` has no transaction: `register` and `registerFactory` are `Map.set` (`../di/index.ts:108-115`), there is no `unregister`, and adding one would not help — an instance built before the failure may already be held by a controller that was built successfully, and evicting a binding cannot un-build it. A nested container double-constructs the parent's singletons.
 
-So #599's demand that a failure "not poison the promise forever" is engaged directly rather than
-accommodated. The pathology it names is real, and it is the pathology of caching a **retryable**
-failure. With `lazy(ModuleClass)` there is no import step, therefore no transient
-module-resolution failure, therefore nothing retryable in the load itself — every failure mode
-left is application code that threw, and re-running it is how the second pool gets opened. The
-freeze is the mechanism that makes the pathology inexpressible, not a policy layered over it.
+And a factory that ran had its side effect: a socket is open, and it is not tracked anywhere, because nothing asked it to be. A retry over that state is a second pool on top of a leaked first one.
 
-Two mechanical points follow. The settled failure is stored as an **error value** and rethrown
-from each `load()` call, not as a retained rejected promise: a rejected promise nobody awaits —
-and `registerDeferred`'s trampoline can produce one on a request that is abandoned — is an
-unhandled rejection, which by default terminates the process. And the rule for a future
-deferred-import arm is written down now while the reasoning is at hand: an `import()` that fails
-_is_ retryable, its promise must be dropped rather than cached, and it must be distinguished from
-a wiring failure, which is not.
+So #599's demand that a failure "not poison the promise forever" is engaged directly rather than accommodated. The pathology it names is real, and it is the pathology of caching a **retryable** failure.
+
+With `lazy(ModuleClass)` there is no import step, therefore no transient module-resolution failure, therefore nothing retryable in the load itself — every failure mode left is application code that threw, and re-running it is how the second pool gets opened. The freeze is the mechanism that makes the pathology inexpressible, not a policy layered over it.
+
+Two mechanical points follow. The settled failure is stored as an **error value** and rethrown from each `load()` call, not as a retained rejected promise: a rejected promise nobody awaits — and `registerDeferred`'s trampoline can produce one on a request that is abandoned — is an unhandled rejection, which by default terminates the process.
+
+And the rule for a future deferred-import arm is written down now while the reasoning is at hand: an `import()` that fails _is_ retryable, its promise must be dropped rather than cached, and it must be distinguished from a wiring failure, which is not.
 
 The consequence for #600: its title `does not cache a failed load, and retries per the specified
 policy` describes the opposite of what is frozen. The specified policy is no retry, and the
@@ -392,13 +336,11 @@ providers, resolved factory results and built controllers feed, so `runShutdown`
 (`../lifecycle.ts:48-54`) tears them down before the eager providers they depend on, which is the
 same guarantee an eager module gets and for the same reason.
 
-`[Symbol.asyncDispose]` refuses a **new** load — `'@zmdb/web: application is shutting down'`,
-delivered to the request that triggered it — and **awaits an in-flight one** before running
-`onShutdown`. Abandoning an in-flight load is the worse of the two: the region in §L5 does not
-yield, so what is abandoned is the hooks, leaving a module that finishes initializing after
-shutdown completed, holding a connection whose `onShutdown` has already run or will never run.
-Waiting is bounded by one load. This makes shutdown the one place a load can be observed by
-something other than the request that triggered it.
+`[Symbol.asyncDispose]` refuses a **new** load — `'@zmdb/web: application is shutting down'`, delivered to the request that triggered it — and **awaits an in-flight one** before running `onShutdown`.
+
+Abandoning an in-flight load is the worse of the two: the region in §L5 does not yield, so what is abandoned is the hooks, leaving a module that finishes initializing after shutdown completed, holding a connection whose `onShutdown` has already run or will never run. Waiting is bounded by one load.
+
+This makes shutdown the one place a load can be observed by something other than the request that triggered it.
 
 ### L10. Where the graph description's data comes from, and one divergence to record
 
@@ -424,18 +366,9 @@ Frozen text: `@zmdb/web: import cycle in the module graph: AppModule -> BillingM
 UsersModule -> BillingModule`. `moduleClass.name` needs no assertion — verified to compile
 against `ModuleClass`'s bare construct signature under `--strict`.
 
-**One divergence between this file and the code has to be recorded, because a graph description
-would otherwise publish it as a guarantee.** `### compileModule` says providers are registered
-"respecting `imports`/`exports` visibility" (:23-24) and `@Module`'s contract says `imports` are
-"other `@Module` classes whose **exports** are visible here" (:16-17). `compileModule` does not
-implement that: it registers every visited module's providers into the one container without
-consulting `exports` at all (:89-93, whose only condition is the testing override check at :90),
-and `def.exports` is never read anywhere in the file. Every token is visible to every
-module, and `exports` is inert. #599 does not fix it — changing resolution semantics affects
-every existing application and belongs to its own freeze — so the two sentences above are
-**aspirational and marked as such**, `describeGraph` does not report `exports`, and no diagram
-draws it as a boundary. Documenting an unenforced boundary is worse than documenting none,
-because a reader who trusts it writes code whose correctness depends on it.
+**One divergence between this file and the code has to be recorded, because a graph description would otherwise publish it as a guarantee.** `### compileModule` says providers are registered "respecting `imports`/`exports` visibility" (:23-24) and `@Module`'s contract says `imports` are "other `@Module` classes whose **exports** are visible here" (:16-17). `compileModule` does not implement that: it registers every visited module's providers into the one container without consulting `exports` at all (:89-93, whose only condition is the testing override check at :90), and `def.exports` is never read anywhere in the file.
+
+Every token is visible to every module, and `exports` is inert. #599 does not fix it — changing resolution semantics affects every existing application and belongs to its own freeze — so the two sentences above are **aspirational and marked as such**, `describeGraph` does not report `exports`, and no diagram draws it as a boundary. Documenting an unenforced boundary is worse than documenting none, because a reader who trusts it writes code whose correctness depends on it.
 
 ### L11. Two amendments this forces in sibling specs
 

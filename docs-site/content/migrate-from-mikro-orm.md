@@ -3,7 +3,7 @@ The hard part of this migration is not syntax, it is the change in model: MikroO
 If the MikroORM application already has a live database, begin with the
 [schema-first adoption path](./schema-first.html): introspect into a staging
 directory, review every warning, copy the accepted declarations into
-application-owned files, take a baseline snapshot, and keep it honest with
+application-owned files, take a baseline snapshot, and keep it accurate with
 `detectDrift()` in CI. That is safer than translating hundreds of decorators by
 hand before comparing either result with the catalog.
 

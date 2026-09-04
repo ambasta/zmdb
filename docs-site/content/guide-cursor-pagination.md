@@ -86,7 +86,7 @@ Until it lands, page backwards by reversing the `orderBy` and reversing the retu
 
 ## What you give up
 
-No page numbers, no "jump to page 40", no total. If the UI needs those, offset pagination is the honest choice — see [Count rows](./guide-count-rows.html) for why the total is the expensive part.
+No page numbers, no "jump to page 40", no total. If the UI needs those, offset pagination is the better choice — see [Count rows](./guide-count-rows.html) for why the total is the expensive part.
 
 ## Both
 

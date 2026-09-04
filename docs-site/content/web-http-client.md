@@ -89,7 +89,7 @@ const retryable = (e: unknown) => e instanceof Error && (e.name === 'TimeoutErro
 
 The jitter is not decoration: without it, every instance retries in lockstep and you turn a brief upstream blip into a synchronised thundering herd.
 
-Never retry a non-idempotent `POST` blindly. Send an idempotency key and let the upstream deduplicate, or only retry on a timeout where you know the request did not land — and be honest that a timeout does not tell you that.
+Never retry a non-idempotent `POST` blindly. Send an idempotency key and let the upstream deduplicate, or only retry on a timeout where you know the request did not land — and remember that a timeout does not tell you that.
 
 ## Do not log the response body
 

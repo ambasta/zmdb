@@ -69,21 +69,15 @@ export declare function healthRoutes(checks: {
 }): { readonly live: () => WebResponse; readonly ready: () => Promise<WebResponse> };
 ```
 
-**`run(): boolean` is the enforcement.** A function whose return type is `boolean` cannot
-`await`, so it cannot wait for a socket, a connection from a pool, a DNS answer or a
-timer. It cannot be slow except by being CPU-bound, and it cannot fail because something
-across the network failed. There is no `timeoutMs` on a `LivenessCheck` because a
-synchronous predicate has no deadline to enforce, and no `AbortSignal` because there is
-nothing to abort. There is no `detail` because §3 fixes the liveness body regardless of
-what a check might want to say.
+**`run(): boolean` is the enforcement.** A function whose return type is `boolean` cannot `await`, so it cannot wait for a socket, a connection from a pool, a DNS answer or a timer. It cannot be slow except by being CPU-bound, and it cannot fail because something across the network failed.
 
-The honest limit: a synchronous predicate can still read a flag that a background timer
-maintains by pinging the database, which is a dependency observed by laundering. No type
-prevents that. What the type does prevent is the accident — the check that awaits a
-query because awaiting a query is what checks do — and it bounds the deliberate version:
-a flag cannot block, cannot consume a connection when the probe runs, and cannot flip on
-a single transient error unless the application wrote code to make it. That is a decision
-somebody had to take on purpose, which is the most a signature can ask for.
+There is no `timeoutMs` on a `LivenessCheck` because a synchronous predicate has no deadline to enforce, and no `AbortSignal` because there is nothing to abort. There is no `detail` because §3 fixes the liveness body regardless of what a check might want to say.
+
+The limit: a synchronous predicate can still read a flag that a background timer maintains by pinging the database, which is a dependency observed by laundering. No type prevents that.
+
+What the type does prevent is the accident — the check that awaits a query because awaiting a query is what checks do — and it bounds the deliberate version: a flag cannot block, cannot consume a connection when the probe runs, and cannot flip on a single transient error unless the application wrote code to make it.
+
+That is a decision somebody had to take on purpose, which is the most a signature can ask for.
 
 The three checks worth having are all synchronous, which is the evidence that the
 restriction is not costing anything real: the process has finished `init()`, the process
@@ -134,26 +128,19 @@ the default would be the number every check silently inherits and nobody chooses
 correct value is a property of the dependency — a local Postgres and a cross-region
 object store do not share it.
 
-Readiness checks run **concurrently**, so the aggregate deadline is
-`max(timeoutMs) + 50ms` rather than the sum. Serial execution makes the endpoint's worst
-case grow with every check added, which is how a probe that was fine with two dependencies
-starts timing out at the orchestrator with six. The endpoint returns within that bound
-even if every check hangs, and a check that has not answered by its own deadline counts as
-**failed** with `detail: 'timeout'` — not as unknown, because the orchestrator has two
-states and inventing a third only moves the decision somewhere that has less information.
+Readiness checks run **concurrently**, so the aggregate deadline is `max(timeoutMs) + 50ms` rather than the sum. Serial execution makes the endpoint's worst case grow with every check added, which is how a probe that was fine with two dependencies starts timing out at the orchestrator with six.
 
-**The `AbortSignal` aborts the waiting, not the work, and this is worth stating precisely
-because the sketch implies otherwise.** `Driver.execute` is
-`execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>`
-(`packages/repository/src/index.ts:53`) and takes no signal. So when a probe's deadline
-fires, the framework stops waiting, the promise is abandoned, and the query keeps running
-on the server with its connection held until it finishes or the server kills it. The docs
-page already says this honestly at `web-health-checks.md`; the freeze names the
-consequence that follows. A 2-second timeout against a wedged database with a 5-second
-probe period consumes one connection every 5 seconds and never returns any, so a readiness
-probe can exhaust the pool it is testing — the probe becomes the outage.
+The endpoint returns within that bound even if every check hangs, and a check that has not answered by its own deadline counts as **failed** with `detail: 'timeout'` — not as unknown, because the orchestrator has two states and inventing a third only moves the decision somewhere that has less information.
 
-Three things bound the effect honestly:
+**The `AbortSignal` stops the wait, not the database work.**
+`Driver.execute` takes no signal
+(`packages/repository/src/index.ts:53`). When a probe reaches its deadline, the
+framework abandons the promise, but the server query keeps running and holds its
+connection until it finishes or the server terminates it.
+
+The docs page already says this plainly at `web-health-checks.md`; the freeze names the consequence that follows. A 2-second timeout against a wedged database with a 5-second probe period consumes one connection every 5 seconds and never returns any, so a readiness probe can exhaust the pool it is testing — the probe becomes the outage.
+
+Three facts bound the effect:
 
 1. The probe query must be trivial. `SELECT 1` is the documented one; a probe that grew
    into a smoke test is a different bug, already described on the page.

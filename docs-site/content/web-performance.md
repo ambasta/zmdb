@@ -145,7 +145,7 @@ Expect **sublinear** scaling: in the harness, 8 workers returned 3.58× one work
 
 ## What the benchmarks say
 
-The [framework benchmarks](./benchmarks.html) place `@zmdb/web` against 17 peers on the same machine, and the numbers there are the honest ones: routing overhead is not where a real application spends its time, which is exactly why the framework spends so little effort on it and so much on the query layer.
+The [framework benchmarks](./benchmarks.html) place `@zmdb/web` against 17 peers on the same machine, and the numbers there are the ones: routing overhead is not where a real application spends its time, which is exactly why the framework spends so little effort on it and so much on the query layer.
 
 ---
 

@@ -41,7 +41,9 @@ The rewrite is destructive. After a run the source says `zmdbIsUser(body)` and t
 
 The **witness** keeps it, as a wrapper per entry written against the runtime API and checked by your own `tsc`. That makes a renamed or deleted `User` a build error in a generated file, rather than a compiled validator that quietly goes on describing a type nobody declares any more.
 
-The witness is also the transform's input, and its output cannot be the artifact: the emitted helpers are untyped JavaScript, which under `noImplicitAny` is an error per parameter. So the artifact is a **`.js`** — nothing typechecks it, so it needs no annotations — plus a **`.d.ts`** carrying the signatures. That split pays for itself twice: there is not one cast anywhere in the generated code, and `schemaOf<T>()`'s phantom slot (a `unique symbol` no object literal can satisfy) is _declared_ in the `.d.ts` rather than asserted into existence.
+The witness is also the transform's input, and its output cannot be the artifact: the emitted helpers are untyped JavaScript, which under `noImplicitAny` is an error per parameter. So the artifact is a **`.js`** — nothing typechecks it, so it needs no annotations — plus a **`.d.ts`** carrying the signatures.
+
+That split pays for itself twice: there is not one cast anywhere in the generated code, and `schemaOf<T>()`'s phantom slot (a `unique symbol` no object literal can satisfy) is _declared_ in the `.d.ts` rather than asserted into existence.
 
 ## Flags
 
@@ -60,7 +62,9 @@ The witness is also the transform's input, and its output cannot be the artifact
 - run: npx zmdb-codegen --check
 ```
 
-`--check` writes nothing and still checks everything. A check that had to write the witnesses in order to verify them would be a check that dirties the tree it is auditing — and it does not have to. The witness is a pure function of the scan, so a stale one is caught by comparing text; and if every witness matches, the compiled modules are derivable from files already on disk, so the transform runs against those and its output is compared the same way.
+`--check` writes nothing and still checks everything. A check that had to write the witnesses in order to verify them would be a check that dirties the tree it is auditing — and it does not have to.
+
+The witness is a pure function of the scan, so a stale one is caught by comparing text; and if every witness matches, the compiled modules are derivable from files already on disk, so the transform runs against those and its output is compared the same way.
 
 When something is stale you get a sentence rather than a bare exit code:
 

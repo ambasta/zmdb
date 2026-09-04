@@ -10,20 +10,18 @@
 Supported operators include `=`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`, `like`, `is null`, `is not null`. Values are always parameterized.
 
 > [!WARNING]
-> The **value** is parameterized; the **operator** is not. An operator the builder does
-> not recognise is passed through into the SQL text verbatim, which is what makes
-> `.where('ts', '@>', range)` work for a dialect-specific operator the builder has never
-> heard of. So `.where(col, op, value)` must never be handed an operator that came from
-> a request:
+> Values are parameterized, but operators are inserted into the SQL text.
+> This allows dialect-specific operators such as `@>`, even when the builder
+> does not know about them. It also means an operator from an HTTP request must
+> not be passed directly to `.where()`:
 >
 > ```ts
 > // measured: SELECT * FROM "users" WHERE "role" = 'x' OR 1=1 -- $1
 > qb.selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
 > ```
 >
-> Use the typed `WhereDTO` below for anything user-supplied — it maps a closed set of
-> operator names to SQL and refuses the rest — or check the operator against your own
-> allowlist before calling `.where`.
+> For user input, use the typed `WhereDTO` below or validate the operator against
+> an allowlist before calling `.where()`.
 
 ## Typed filters — WhereDTO
 

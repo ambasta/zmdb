@@ -211,7 +211,7 @@ Four generation targets, in dependency order:
 3. **JSON Schema literals** — `toJsonSchema<T>()` → a frozen object literal.
 4. **The runtime schema value** — the query compiler needs the table name and column
    SQL types as _data_ to build SQL. It gets a generated `const` instead of a
-   hand-written `defineSchema` call. This is the honest boundary of the design:
+   hand-written `defineSchema` call. This is the practical boundary of the design:
    **types can generate the runtime data; they cannot be the runtime data.** The
    difference from today is that the value is derived, not authored, so P2 holds.
 

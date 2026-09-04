@@ -94,14 +94,9 @@ pgvector's three distance operators are added to `OP_MAP` under **names**, not u
 
 Two reasons, and the second is the decisive one.
 
-`sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned
-by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible where it
-lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of
-three dialects is a losing game. It is not defensible one layer up, where `compileWhere` in
-`schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security
-side. So a `<->` typed into `where()` would already "work" today, by fall-through, on the one surface that
-must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it
-is mapped rather than passed through, which the punctuation spelling is not.
+`sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible where it lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of three dialects is a losing game.
+
+It is not defensible one layer up, where `compileWhere` in `schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security side. So a `<->` typed into `where()` would already "work" today, by fall-through, on the one surface that must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it is mapped rather than passed through, which the punctuation spelling is not.
 
 And `<=>` is not free to take. In MySQL it is the NULL-safe equality operator, so one string would mean
 two unrelated things depending on the dialect, and the compiler would be unable to refuse it on the
@@ -113,12 +108,9 @@ selectFrom('items').where('embedding', 'cosine', [0.1, 0.2])
    parameters: ['[0.1,0.2]']
 ```
 
-All three are Postgres-only and refused elsewhere at compile time, naming the operator and the dialect.
-The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is
-represented by the closed `distance<T>(column, op, query)` expression. The same expression can be
-projected with `.as(alias)` or passed to `orderBy`. Every query vector is encoded as pgvector text
-before it becomes a bound parameter; passing the raw JavaScript array would make node-postgres encode a
-PostgreSQL array (`{"0.1","0.2"}`), which pgvector does not accept as vector input.
+All three are Postgres-only and refused elsewhere at compile time, naming the operator and the dialect. The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is represented by the closed `distance<T>(column, op, query)` expression. The same expression can be projected with `.as(alias)` or passed to `orderBy`.
+
+Every query vector is encoded as pgvector text before it becomes a bound parameter; passing the raw JavaScript array would make node-postgres encode a PostgreSQL array (`{"0.1","0.2"}`), which pgvector does not accept as vector input.
 
 **PostGIS predicates are functions, not operators**, so they do not go in `OP_MAP` at all. They are a
 predicate kind of their own with a closed function set:
@@ -136,12 +128,9 @@ type Predicate = … | { kind: 'spatial'; fn: SpatialFn; col: string; value: unk
 => ST_DWithin("location", ST_GeomFromGeoJSON($1), $2)
 ```
 
-`ST_DWithin` is why `distance` is a field rather than an extra element of `value`: it is the one member
-with a third argument, it is a number rather than a geometry, and it is a parameter rather than
-interpolated text. A closed enum, again, because the function name is emitted unquoted and the whole
-point of a spatial predicate is that a caller supplies the geometry — the value — and never the SQL.
-The public surface exposes the two predicates required by the extension guide, `stContains` and
-`stDWithin`; the lower-level closed renderer retains all four frozen matrix members.
+`ST_DWithin` is why `distance` is a field rather than an extra element of `value`: it is the one member with a third argument, it is a number rather than a geometry, and it is a parameter rather than interpolated text.
+
+A closed enum, again, because the function name is emitted unquoted and the whole point of a spatial predicate is that a caller supplies the geometry — the value — and never the SQL. The public surface exposes the two predicates required by the extension guide, `stContains` and `stDWithin`; the lower-level closed renderer retains all four frozen matrix members.
 
 ## 5b. Write expressions (frozen — epic "Expression-valued writes")
 
@@ -202,12 +191,11 @@ export function coalesce<T>(fallback: T): ColumnExpr<T>;
 export function proposed<T>(): ColumnExpr<T>;
 ```
 
-**There is no `column` field, and its absence is the design.** The column is the key of the `set()` object:
-`set({ views: inc(1) })` increments `views`. Two things follow, and both were the reason for dropping the
-field rather than making it optional. A cross-column reference — `SET a = b + 1` — becomes
-_unrepresentable_ rather than merely undocumented, so the non-goal in §5b.6 is enforced by the type instead
-of by a review comment. And no column name ever arrives as data on this path, so the identifier-from-caller
-problem that `opclass` and `IndexMethod` each had to solve separately does not exist here at all.
+**There is no `column` field, and its absence is the design.** The column is the key of the `set()` object: `set({ views: inc(1) })` increments `views`. Two things follow, and both were the reason for dropping the field rather than making it optional.
+
+A cross-column reference — `SET a = b + 1` — becomes _unrepresentable_ rather than merely undocumented, so the non-goal in §5b.6 is enforced by the type instead of by a review comment.
+
+And no column name ever arrives as data on this path, so the identifier-from-caller problem that `opclass` and `IndexMethod` each had to solve separately does not exist here at all.
 
 **The runtime brand is a symbol, and the emitter tests for the symbol — never for `'op' in value`.** A
 `json` column can legitimately hold `{ op: 'add', by: 1 }`; that is somebody's stored document, and
@@ -286,13 +274,9 @@ has to be a variant rather than the implicit meaning of a bare column. It also m
 the same expression string as the plain `UPDATE` path, with `EXCLUDED` being the one thing that needs an
 explicit qualifier.
 
-**MySQL keeps `VALUES(col)`** — which is what the compiler already emits — and no minimum server version
-enters the contract. `VALUES()` in the `ON DUPLICATE KEY UPDATE` clause is deprecated as of MySQL 8.0.20 in
-favour of a row alias (`INSERT … AS new … SET c = new.c`), but deprecated is not removed: it still works,
-and it works on servers older than 8.0.19 and on MariaDB, which never implemented the alias form at all.
-Emitting the alias would break two populations to silence a warning in one. If MySQL removes `VALUES()`,
-the emitter needs a server-version probe, and that is named here as future work rather than built on
-speculation.
+**MySQL keeps `VALUES(col)`** — which is what the compiler already emits — and no minimum server version enters the contract. `VALUES()` in the `ON DUPLICATE KEY UPDATE` clause is deprecated as of MySQL 8.0.20 in favour of a row alias (`INSERT … AS new … SET c = new.c`), but deprecated is not removed: it still works, and it works on servers older than 8.0.19 and on MariaDB, which never implemented the alias form at all.
+
+Emitting the alias would break two populations to silence a warning in one. If MySQL removes `VALUES()`, the emitter needs a server-version probe, and that is named here as future work rather than built on speculation.
 
 ### 5b.5 Nullability, and the one place the vocabulary bites
 
@@ -305,20 +289,13 @@ Every arithmetic and concatenation variant is null-propagating on all three dial
 - `concat` with a nullable column produces null, and if that column is `NOT NULL` the contradiction cannot
   arise. If it is nullable, null is a legal value and the write succeeds.
 
-**`inc` on a nullable numeric column yields NULL, not `by`.** This is the classic surprise, and zmdb does
-not wrap it in a `COALESCE` to be helpful: that would make `inc` mean two different things depending on a
-column's nullability, and the author who wanted the wrapping cannot tell from the call site whether they
-got it. The vocabulary cannot compose either — there is no way to say "coalesce then add" — so the answer
-is that a counter should be `NOT NULL DEFAULT 0`, which is what the column wanted anyway, and anything
-beyond that is raw SQL. This is the closedness costing something, and it is accepted knowingly rather than
-discovered later.
+**`inc` on a nullable numeric column yields NULL, not `by`.** This is the classic surprise, and zmdb does not wrap it in a `COALESCE` to be helpful: that would make `inc` mean two different things depending on a column's nullability, and the author who wanted the wrapping cannot tell from the call site whether they got it.
 
-One guarantee genuinely weakens: a `varchar` column's `Length<n>` bound is enforced on the value a DTO
-validates, and `concat` produces a value no validator sees. Postgres and SQLite raise on overflow; MySQL
-**truncates silently** outside strict mode. The check that would prevent it is
-`char_length(col) + char_length($1) <= n`, which is a predicate rather than an assignment and therefore out
-of this vocabulary. So the gap is stated: a `concat` onto a length-bounded column is the one write where the
-declared bound is the database's business rather than zmdb's.
+The vocabulary cannot compose either — there is no way to say "coalesce then add" — so the answer is that a counter should be `NOT NULL DEFAULT 0`, which is what the column wanted anyway, and anything beyond that is raw SQL. This is the closedness costing something, and it is accepted knowingly rather than discovered later.
+
+One guarantee genuinely weakens: a `varchar` column's `Length<n>` bound is enforced on the value a DTO validates, and `concat` produces a value no validator sees. Postgres and SQLite raise on overflow; MySQL **truncates silently** outside strict mode.
+
+The check that would prevent it is `char_length(col) + char_length($1) <= n`, which is a predicate rather than an assignment and therefore out of this vocabulary. So the gap is stated: a `concat` onto a length-bounded column is the one write where the declared bound is the database's business rather than zmdb's.
 
 ### 5b.6 Non-goals (rejected, and not to be relitigated)
 
@@ -346,12 +323,9 @@ declared bound is the database's business rather than zmdb's.
 `compileWhere` binds **no** parameter for either, and a `value` passed alongside one is ignored rather than
 bound — a bound-but-unused parameter would shift the numbering of every placeholder after it.
 
-They are needed rather than convenient: a soft-delete filter is `deletedAt IS NULL`, and there was no way
-to say that. The alternative a caller reaches for without them is `where('deletedAt', '=', null)`, which
-compiles to `"deletedAt" = $1` with a `null` parameter and **matches no rows at all** under SQL's
-three-valued logic. That failure is silent and reads as an empty table rather than as a mistake, which is
-the worst possible shape for the one predicate that gets conjoined into every query
-(`../repository/SPEC.md` §3c).
+They are needed rather than convenient: a soft-delete filter is `deletedAt IS NULL`, and there was no way to say that. The alternative a caller reaches for without them is `where('deletedAt', '=', null)`, which compiles to `"deletedAt" = $1` with a `null` parameter and **matches no rows at all** under SQL's three-valued logic.
+
+That failure is silent and reads as an empty table rather than as a mistake, which is the worst possible shape for the one predicate that gets conjoined into every query (`../repository/SPEC.md` §3c).
 
 ## 5d. Cursors (frozen — epic "Streaming reads and query cancellation")
 
@@ -384,12 +358,9 @@ same reason — bounding a stream is what `batchSize` is for, and it bounds memo
 The per-dialect divergences, construct by construct with the SQL written out, are in `src/dialects/SPEC.md`.
 What belongs here is the mechanism, because it changes how every section above is implemented.
 
-**A traits record per dialect, with an optional `parent`, merged once at module load.** Not a flat union with
-more comparisons. The pre-mechanism measurement that decided it, preserved in
-`src/dialects/SPEC.md` §1, found no `switch (dialect)`: fourteen inline comparisons across seven files, two
-`Record<Dialect, …>` tables, and eight emitters that produced one dialect's grammar with no branch. Adding
-three members then stopped exactly three files; the other twenty-one sites kept compiling and quietly
-emitted Postgres SQL for SQL Server. That ratio, three of twenty-four, is the argument for the traits table.
+**A traits record per dialect, with an optional `parent`, merged once at module load.** Not a flat union with more comparisons. The pre-mechanism measurement that decided it, preserved in `src/dialects/SPEC.md` §1, found no `switch (dialect)`: fourteen inline comparisons across seven files, two `Record<Dialect, …>` tables, and eight emitters that produced one dialect's grammar with no branch.
+
+Adding three members then stopped exactly three files; the other twenty-one sites kept compiling and quietly emitted Postgres SQL for SQL Server. That ratio, three of twenty-four, is the argument for the traits table.
 
 The cost is not hidden: `quoting.ts` is built around a quote-character pair,
 `renumberPlaceholders` takes a dialect so named placeholders can be continued across a `UNION`, and
@@ -425,25 +396,15 @@ column is not a boolean expression; the spelling is `~[published]`.
 the SQL path. Both targets are refused, for reasons that are about the data model rather than the seam, and
 the part that belongs in this file is what the question turned up about the seam itself.
 
-**`CompiledQuery` does not change, and the seam has already moved.** The DTO folders that build a query —
-`compileWhere`, `applyOrderBy`, `applyKeysetFilter`, `applyPagination`, all in `@zmdb/schema-core/dto` —
-drive a builder through two structural interfaces, `WhereTarget` and `OrderTarget`, whose methods are
-`where(col, op, value)` and `orderBy(col, dir)` and which mention neither SQL nor `CompiledQuery`. A
-non-SQL target is a builder factory implementing those plus its own `compile()`, executed by its own
-driver. So §1's contract stands as written, `Driver` keeps taking a `CompiledQuery`, and the alternatives —
-a `Q` type parameter, or a discriminated union — are both rejected: the parameter reaches `WhereDTO`
-through `SubqueryTarget` and therefore lands inside the `verify:instantiations` budget, and the union turns
-all 46 references to `CompiledQuery` into narrowing sites. `ARCHITECTURE.md` §2.6 settles it — an
-abstraction that costs the SQL path anything is the wrong one, and the structural seam costs it nothing.
+**`CompiledQuery` does not change, and the seam has already moved.** The DTO folders that build a query — `compileWhere`, `applyOrderBy`, `applyKeysetFilter`, `applyPagination`, all in `@zmdb/schema-core/dto` — drive a builder through two structural interfaces, `WhereTarget` and `OrderTarget`, whose methods are `where(col, op, value)` and `orderBy(col, dir)` and which mention neither SQL nor `CompiledQuery`. A non-SQL target is a builder factory implementing those plus its own `compile()`, executed by its own driver.
 
-**One thing this file has been quietly wrong about.** §2's grammar presents a predicate list as a list.
-`predicateList` joins predicates with each one's own connector and emits **no parentheses**, so the meaning
-of a compiled `WHERE` is supplied by SQL's precedence: `[{a, AND}, {b, OR}, {c, AND}]` is `a OR (b AND c)`.
-Keyset pagination depends on that — `applyKeysetFilter`'s branch wrapper says so in its own comment, and
-its cost is that an `OR` inside a user's `where` flattens into the branch's `AND`. The grammar is therefore
-not target-neutral: a target with no operator precedence to inherit must reimplement SQL's in order to read
-a plan correctly. Nesting the predicate tree is the fix, it is an improvement to the SQL path, and it is a
-precondition for any target rather than a part of one.
+So §1's contract stands as written, `Driver` keeps taking a `CompiledQuery`, and the alternatives — a `Q` type parameter, or a discriminated union — are both rejected: the parameter reaches `WhereDTO` through `SubqueryTarget` and therefore lands inside the `verify:instantiations` budget, and the union turns all 46 references to `CompiledQuery` into narrowing sites. `ARCHITECTURE.md` §2.6 settles it — an abstraction that costs the SQL path anything is the wrong one, and the structural seam costs it nothing.
+
+**One thing this file has been quietly wrong about.** §2's grammar presents a predicate list as a list. `predicateList` joins predicates with each one's own connector and emits **no parentheses**, so the meaning of a compiled `WHERE` is supplied by SQL's precedence: `[{a, AND}, {b, OR}, {c, AND}]` is `a OR (b AND c)`.
+
+Keyset pagination depends on that — `applyKeysetFilter`'s branch wrapper says so in its own comment, and its cost is that an `OR` inside a user's `where` flattens into the branch's `AND`. The grammar is therefore not target-neutral: a target with no operator precedence to inherit must reimplement SQL's in order to read a plan correctly.
+
+Nesting the predicate tree is the fix, it is an improvement to the SQL path, and it is a precondition for any target rather than a part of one.
 
 ## 6. Non-goals / anti-patterns (rejected)
 

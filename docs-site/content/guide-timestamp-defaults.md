@@ -99,13 +99,9 @@ The one that causes data loss. Postgres has two types:
 - `timestamp` — no time zone. Stores wall-clock digits with no offset, so `12:00` is meaningless without knowing where.
 - `timestamptz` — stores an instant, converting on the way in and out.
 
-**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>`
-emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all
-three dialects, so the instant is what crosses the boundary rather than a set of digits. The
-old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration;
-that is no longer a thing you have to remember, because a table of zone-less timestamps
-written from servers in different regions cannot be repaired — the information needed to
-interpret them was never stored.
+**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all three dialects, so the instant is what crosses the boundary rather than a set of digits.
+
+The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration; that is no longer a thing you have to remember, because a table of zone-less timestamps written from servers in different regions cannot be repaired — the information needed to interpret them was never stored.
 
 SQLite has no date type at all — it stores `TEXT`, and comparisons are lexicographic, so
 store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.

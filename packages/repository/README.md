@@ -1,10 +1,12 @@
 # @zmdb/repository
 
-Auto-validating CRUD repository over a zmdb schema: transactions, transactional outbox, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.
+`@zmdb/repository` provides typed CRUD over a zmdb schema. It includes
+transactions, relation loading, read replicas, result caching, streaming,
+seeding, lifecycle hooks, and a transactional outbox. Rows stay plain objects;
+there are no proxies or identity map.
 
-Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
-define your schema once and entities, DTOs, validation, serialization, OpenAPI
-and CRUD all derive at compile time.
+It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript
+schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
 ## Install
 
@@ -18,7 +20,10 @@ npm add @zmdb/repository@alpha
 
 ## Entry points
 
-`@zmdb/repository`, `@zmdb/repository/outbox`, `@zmdb/repository/jobs`, `@zmdb/repository/seeding`, `@zmdb/repository/transactions`, `@zmdb/repository/replicas`, `@zmdb/repository/integrations`, `@zmdb/repository/entity-modeling`, `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
+- Repository APIs: `@zmdb/repository`
+- Application features: `/outbox`, `/jobs`, `/seeding`, `/transactions`,
+  `/replicas`, `/integrations`, `/entity-modeling`
+- Bundled drivers: `/drivers/sqlite`, `/drivers/pg`
 
 ## Documentation
 

@@ -22,14 +22,9 @@ interface User extends Table<'users'> {
 const users = defineRepository(schemaOf<User>(), driver);
 ```
 
-There used to be a second way — `defineSchema('users', { id: serial().primaryKey() })`,
-ten column builders and eight function-style modifiers, all specified by §1–§3 of this
-document. They are gone, and `.github/scripts/verify-no-defineschema.mjs` is what keeps
-them gone. The reason is not that the DSL was bad on its own terms: it is that two
-front-ends give two answers to "what are this table's columns", the emitted validator only
-agrees with one of them, and the divergence is silent. `git log` has the surface if you
-need it; the codemod at `scripts/codemod-tagged-schema.mjs` converts a codebase that still
-uses it.
+There used to be a second way — `defineSchema('users', { id: serial().primaryKey() })`, ten column builders and eight function-style modifiers, all specified by §1–§3 of this document. They are gone, and `.github/scripts/verify-no-defineschema.mjs` is what keeps them gone.
+
+The reason is not that the DSL was bad on its own terms: it is that two front-ends give two answers to "what are this table's columns", the emitted validator only agrees with one of them, and the divergence is silent. `git log` has the surface if you need it; the codemod at `scripts/codemod-tagged-schema.mjs` converts a codebase that still uses it.
 
 ## 2. What a column is, as data
 
@@ -126,34 +121,19 @@ declaration, keyed by `ColumnKeys<T>` and reading the tags in §1:
 - `UpdateDTO`: `Partial<Entity<T>>` minus `Serial` and the primary key, because a key is
   not a field you patch.
 
-There is no TS-type mapping table here, and that is the collapse: a declaration already
-states that `visits` is a `bigint` and `createdAt` is a `Date`, so nothing reconstructs it
-from a `SqlType`. The old derivation had a second spelling that walked `columns` and did
-reconstruct it, and it could not be right — a `ColumnMeta` has nowhere to put a json
-payload's shape, so `json` came out as `unknown` there and exact here. Deriving from the
-declaration is not a better answer to the same question; it is the only one available, and
-the twin is gone rather than deprecated.
+There is no TS-type mapping table here, and that is the collapse: a declaration already states that `visits` is a `bigint` and `createdAt` is a `Date`, so nothing reconstructs it from a `SqlType`.
 
-`DeclaredTable` is `Table<string>`, and the constraint carries weight rather than
-documenting an intent. `Table` is all-optional, so TypeScript's weak-type rule refuses a
-source with no property in common with it — which a schema _value_ is. `Entity<typeof
-userSchema>`, the spelling this design replaced, is therefore a compile error instead of the
-schema's own five properties dressed up as a row; it is worth constraining for precisely
-because the wrong answer was structurally plausible. A row keyed by a table _name_ rather
-than a declaration still passes, because a string index signature is exempt from that rule —
-`dto/index.ts`'s `UnknownRow`, the subquery corner, is the one type that relies on it. The
-whole read/query family in `./dto` carries the same constraint, so a filter, an order-by, a
-projection and an aggregate spec are all keyed by a declaration too.
+The old derivation had a second spelling that walked `columns` and did reconstruct it, and it could not be right — a `ColumnMeta` has nowhere to put a json payload's shape, so `json` came out as `unknown` there and exact here.
 
-A value still has to reach a declaration, because that is what a caller holds. It happens
-by inference, once, at each boundary that takes a schema: `defineRepository`,
-`findJoined`, `defineEntityStateMachine` and `repositoryToken` all declare
-`TaggedSchema<T>` in a parameter position and let the call site supply `T`. Two places
-cannot do that and say so in a comment — a relations map names its child by value, so
-`RelationEntity` in `@zmdb/repository` and `TargetEntityOf`/`ColumnNameOf` here read the
-phantom with an explicit conditional. `src/schema-of.type-test.ts` is the gate on the
-crossing, including that a plain `CoreSchema<string>` is _rejected_ at those boundaries
-rather than deriving something empty and plausible.
+Deriving from the declaration is not a better answer to the same question; it is the only one available, and the twin is gone rather than deprecated.
+
+`DeclaredTable` is `Table<string>`, and the constraint carries weight rather than documenting an intent. `Table` is all-optional, so TypeScript's weak-type rule refuses a source with no property in common with it — which a schema _value_ is. `Entity<typeof userSchema>`, the spelling this design replaced, is therefore a compile error instead of the schema's own five properties dressed up as a row; it is worth constraining for precisely because the wrong answer was structurally plausible.
+
+A row keyed by a table _name_ rather than a declaration still passes, because a string index signature is exempt from that rule — `dto/index.ts`'s `UnknownRow`, the subquery corner, is the one type that relies on it. The whole read/query family in `./dto` carries the same constraint, so a filter, an order-by, a projection and an aggregate spec are all keyed by a declaration too.
+
+A value still has to reach a declaration, because that is what a caller holds. It happens by inference, once, at each boundary that takes a schema: `defineRepository`, `findJoined`, `defineEntityStateMachine` and `repositoryToken` all declare `TaggedSchema<T>` in a parameter position and let the call site supply `T`.
+
+Two places cannot do that and say so in a comment — a relations map names its child by value, so `RelationEntity` in `@zmdb/repository` and `TargetEntityOf`/`ColumnNameOf` here read the phantom with an explicit conditional. `src/schema-of.type-test.ts` is the gate on the crossing, including that a plain `CoreSchema<string>` is _rejected_ at those boundaries rather than deriving something empty and plausible.
 
 ## 5. Non-goals / anti-patterns (rejected)
 

@@ -50,14 +50,9 @@ The app goes through the **public API** end to end: `createRouter()`,
 `router.register(controller, { … validateBody })`, and `toNodeHandler(router)`
 into `createServer`. Nothing about the request path is re-implemented here.
 
-It did not always. The upstream contract requires **exact** bodies — a bare `id`
-from `GET /user/0`, truly empty responses elsewhere — and the pipeline used to
-wrap every handler result in `jsonResponse(200, result)`, so the only expressible
-body was JSON and `JSON.stringify('0')` is `"0"` with quotes. The app therefore
-wrote its responses directly through `node:http`, which meant the published
-number was an upper bound on a framework nobody could actually call: the
-dispatcher, the adapter and the validation hook were all outside the
-measurement. `json()` / `text()` / `respond()` closed that gap.
+It did not always. The upstream contract requires **exact** bodies — a bare `id` from `GET /user/0`, truly empty responses elsewhere — and the pipeline used to wrap every handler result in `jsonResponse(200, result)`, so the only expressible body was JSON and `JSON.stringify('0')` is `"0"` with quotes.
+
+The app therefore wrote its responses directly through `node:http`, which meant the published number was an upper bound on a framework nobody could actually call: the dispatcher, the adapter and the validation hook were all outside the measurement. `json()` / `text()` / `respond()` closed that gap.
 
 Moving the measurement inside the framework turned out to cost **nothing
 detectable**. Both variants, built from one tree and interleaved over 5 rotated
@@ -124,13 +119,11 @@ overwrite a number measured on another.
 
 ## Interleaving, and why sequential runs on this box are not trustworthy
 
-`peers/peers-run.sh` measures one framework at a time, all of its cells, then moves
-on. That is upstream's shape, and on stable hardware it is fine. **This box is not
-stable hardware**: it throttles from 5.13 GHz to ~2.8 GHz under sustained load, so
-a framework measured 40 minutes into a run is measured on a materially slower CPU
-than the one measured first. The effect is up to ~2×, which is larger than most of
-the margins the suite is trying to resolve — the identical `@zmdb/web` code path
-medianed **76,871** req/s in one sequential session and **93,647** in another.
+`peers/peers-run.sh` measures one framework at a time, all of its cells, then moves on. That is upstream's shape, and on stable hardware it is fine.
+
+**This box is not stable hardware**: it throttles from 5.13 GHz to ~2.8 GHz under sustained load, so a framework measured 40 minutes into a run is measured on a materially slower CPU than the one measured first.
+
+The effect is up to ~2×, which is larger than most of the margins the suite is trying to resolve — the identical `@zmdb/web` code path medianed **76,871** req/s in one sequential session and **93,647** in another.
 
 `peers/interleaved-run.sh` is the answer for any comparison whose margin matters:
 
@@ -139,13 +132,9 @@ bash benchmarks/harness/framework/peers/peers-run.sh        # once, to stage + i
 PASSES=5 bash benchmarks/harness/framework/peers/interleaved-run.sh
 ```
 
-Each **pass** visits every candidate once, and the visiting order **rotates**
-between passes, so position in the thermal ramp is not a fixed property of any
-candidate. The per-candidate result is the median over passes, published beside the
-pass spread (`max/min`) — a margin that falls inside the spreads is reported as no
-result. The CPU clock is sampled immediately before every individual measurement
-and kept in `interleaved-measurements.csv`, so the throttling is visible in the
-data rather than something a reader has to take on trust.
+Each **pass** visits every candidate once, and the visiting order **rotates** between passes, so position in the thermal ramp is not a fixed property of any candidate. The per-candidate result is the median over passes, published beside the pass spread (`max/min`) — a margin that falls inside the spreads is reported as no result.
+
+The CPU clock is sampled immediately before every individual measurement and kept in `interleaved-measurements.csv`, so the throttling is visible in the data rather than something a reader has to take on trust.
 
 Every candidate serves from **one process**, because no peer app clusters; that
 makes it the per-core, like-for-like reading. It also measures our own app twice —
@@ -165,7 +154,7 @@ wrong numbers first:
   and be measured as `NOT_READY` (or worse, not noticed). Both bundles are now
   size-checked before any measurement runs.
 
-## Honesty policy
+## Reporting policy
 
 Consistent with the other harnesses (see `../README.md`):
 
@@ -194,7 +183,7 @@ Consistent with the other harnesses (see `../README.md`):
 - `model.ts` — the `User` interface and `UserCreate`, the app's one declaration.
 - `model.zmdb.generated.js` / `.d.ts` / `model.zmdb.witness.ts` — the compiled
   check, its declarations, and the witness that keeps the compiler's copy of the
-  claim honest. Generated by `zmdb-codegen`, committed, not edited.
+  claim grounded. Generated by `zmdb-codegen`, committed, not edited.
 - `tsconfig.json` — the program the codegen compiles `model.ts` in.
 - `config.yaml` — upstream per-framework config (website, version, engine).
 - `contract-check.mjs` — the RSpec-equivalent shared correctness check.

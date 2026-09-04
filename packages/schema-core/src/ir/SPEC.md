@@ -138,12 +138,9 @@ fact the list carries — `['a','b']` and `['b','a']` project to identical flags
 exists for per-column consumers such as `CreateDTO`'s serial drop and migration column
 metadata; a consumer that needs to know _the key_, including `CREATE TABLE`, reads the list.
 
-A table may declare no key at all, and `primaryKey` is then `[]`. That is a legal IR, not a
-defect to normalise: a join table written as two `References` columns with no `PrimaryKey`
-tag is expressible, and the back-ends each refuse it in their own terms (the repository
-throws on any key operation, the DDL emits no key clause). What is _not_ legal is a
-`primaryKey` naming a column the table does not have, and the reflector refuses that at
-derivation rather than letting the DDL emit a clause over a phantom column.
+A table may declare no key at all, and `primaryKey` is then `[]`. That is a legal IR, not a defect to normalise: a join table written as two `References` columns with no `PrimaryKey` tag is expressible, and the back-ends each refuse it in their own terms (the repository throws on any key operation, the DDL emits no key clause).
+
+What is _not_ legal is a `primaryKey` naming a column the table does not have, and the reflector refuses that at derivation rather than letting the DDL emit a clause over a phantom column.
 
 Four back-ends read the key, and before this section they each read something different —
 `PrimaryKeyOf` an object-or-scalar, the repository `primaryKey[0]` for `pkColumn`, the DDL
@@ -189,12 +186,9 @@ property vocabulary; DDL, snapshots, `WHERE` clauses and result-set aliases are 
 vocabulary. A layer that mixes the two is a layer that has to know a strategy, which is the thing
 this design exists to avoid.
 
-And one hard rule, which is the whole cost argument in a sentence: **nothing outside the IR producer
-may compute a physical name.** No strategy function is called downstream of the reflection — not in
-the query compiler, not in a repository, not per row. A naming strategy that is reachable at runtime
-is a function call per column per row, forever, and every other ORM's naming support is exactly that
-call (§1 north star 1). Here it runs once per column per build; see
-`aot-validator/src/reflect/SPEC.md` §7a for where.
+And one hard rule, which is the whole cost argument in a sentence: **nothing outside the IR producer may compute a physical name.** No strategy function is called downstream of the reflection — not in the query compiler, not in a repository, not per row.
+
+A naming strategy that is reachable at runtime is a function call per column per row, forever, and every other ORM's naming support is exactly that call (§1 north star 1). Here it runs once per column per build; see `aot-validator/src/reflect/SPEC.md` §7a for where.
 
 `schemaFromIR` (§5) is the one place the vocabulary switches. It keys `columns` by `physicalName` and
 sets `table` to `physicalTable`, so a `CoreSchema` value is entirely in SQL vocabulary, while the `ir`
@@ -211,13 +205,11 @@ interface User extends Table<'users'>, Physical<'user_accounts'> {
 }
 ```
 
-One tag rather than a `Column<'…'>` for columns and something else for tables, because the table needs
-the same escape hatch and cannot borrow the one it already has. `Table<'users'>` is the table's
-**identity** — `References<'users.id'>`, `OneToMany<'posts', …>` and every `populate` name it by that
-string — so it cannot double as the physical name without making the table strategy unable to ever
-apply. `Physical<N>` in interface position names the physical table, in property position the physical
-column, and the position is unambiguous. On a relation property it is refused: a relation is not a
-column and has no name in the database.
+One tag rather than a `Column<'…'>` for columns and something else for tables, because the table needs the same escape hatch and cannot borrow the one it already has.
+
+`Table<'users'>` is the table's **identity** — `References<'users.id'>`, `OneToMany<'posts', …>` and every `populate` name it by that string — so it cannot double as the physical name without making the table strategy unable to ever apply. `Physical<N>` in interface position names the physical table, in property position the physical column, and the position is unambiguous.
+
+On a relation property it is refused: a relation is not a column and has no name in the database.
 
 Two properties reaching the same physical name is a build error, and the message names both
 **properties**, because the physical name is the one string in the failure that does not appear in the
@@ -239,22 +231,15 @@ The check runs over the strategy's **output**, not over the strategy, so an expl
 lands on a name the strategy also produced is caught by the same rule. The column check is per table;
 the table check needs the whole set and therefore runs where the set is known.
 
-**Cross-table names stay in declared vocabulary.** `ColumnIR.references`, `RelationIR.target` and
-`RelationIR.via` are identifiers into the schema set, not fragments of SQL, and they are not
-translated when the IR is built. The tempting alternative is to re-run the strategy on the foreign
-name — `strategy.table('users')` is pure and right there — and it is wrong for a reason no test would
-catch quickly: it misses a `Physical<'…'>` on the target, so the foreign key points at a column that
-does not exist while every unit test on `users` alone still passes. A foreign name is resolved by
-looking the target up in the schema set, at the one point where the whole set is in hand
-(`snapshot(schemas)`, the DDL pass, a resolver handed to `resolveRelation`).
+**Cross-table names stay in declared vocabulary.** `ColumnIR.references`, `RelationIR.target` and `RelationIR.via` are identifiers into the schema set, not fragments of SQL, and they are not translated when the IR is built.
 
-**A derived name is derived from physical names.** Three exist today and each is a live case rather
-than a hypothetical: the FTS shadow table (`fts/index.ts` builds `${table}_fts`), the Postgres primary
-key constraint (`${table}_pkey`, §1.3 of the migrations spec), and any index name zmdb generates
-rather than being handed. A `Table<'userAccount'>` under a snake_case-plural strategy gets
-`user_accounts_fts`, not `userAccount_fts` — otherwise a snake_case database ends up with exactly one
-camelCase object in it, which is the shape of every naming-strategy bug report other ORMs receive. A
-name the caller supplies — `IndexDef.name`, a check constraint's name — is used as typed.
+The tempting alternative is to re-run the strategy on the foreign name — `strategy.table('users')` is pure and right there — and it is wrong for a reason no test would catch quickly: it misses a `Physical<'…'>` on the target, so the foreign key points at a column that does not exist while every unit test on `users` alone still passes.
+
+A foreign name is resolved by looking the target up in the schema set, at the one point where the whole set is in hand (`snapshot(schemas)`, the DDL pass, a resolver handed to `resolveRelation`).
+
+**A derived name is derived from physical names.** Three exist today and each is a live case rather than a hypothetical: the FTS shadow table (`fts/index.ts` builds `${table}_fts`), the Postgres primary key constraint (`${table}_pkey`, §1.3 of the migrations spec), and any index name zmdb generates rather than being handed.
+
+A `Table<'userAccount'>` under a snake_case-plural strategy gets `user_accounts_fts`, not `userAccount_fts` — otherwise a snake_case database ends up with exactly one camelCase object in it, which is the shape of every naming-strategy bug report other ORMs receive. A name the caller supplies — `IndexDef.name`, a check constraint's name — is used as typed.
 
 ### 4.3 Extension-backed column types (frozen — epic "Database extensions")
 
@@ -278,7 +263,7 @@ cheaper to write and both cost more than they save:
 
 - **Widening `SqlType` with `'vector' | 'geometry' | 'citext'`** is a three-line diff, and it puts
   Postgres extension types in the core vocabulary of a library that also targets MySQL and SQLite —
-  where `DDL_TYPES` would then owe them a row each, and the honest row is a refusal. It also cannot
+  where `DDL_TYPES` would then owe them a row each, and the accurate row is a refusal. It also cannot
   carry `1536`, so it needs a second field beside it anyway, which is `length` again for a type that
   is not `varchar`.
 - **`SqlType | string`** deletes the property `vocabulary.type-test.ts` exists to pin. Note that the
@@ -308,14 +293,9 @@ interface Item extends Table<'items'> {
 }
 ```
 
-**`args` has exactly two kinds, and the distinction is enforced rather than conventional.** A `number`
-is emitted bare. A `string` is emitted bare as an identifier — `geometry(Point, 4326)` — and must match
-`/^[A-Za-z_][A-Za-z0-9_]*$/`, refused at derivation otherwise. That check is not defensive tidiness:
-`args` is the one place in the DDL where a value the author supplied reaches SQL without going through
-`quoteIdentifier` or a placeholder, which makes it the same shape as #364 one layer down. A quoted
-string literal is deliberately **not** a third kind — no extension type in scope takes one, and adding
-the tagged form now would be a field with no test and no caller, which is how a `params: string[]`
-dumping ground starts.
+**`args` has exactly two kinds, and the distinction is enforced rather than conventional.** A `number` is emitted bare. A `string` is emitted bare as an identifier — `geometry(Point, 4326)` — and must match `/^[A-Za-z_][A-Za-z0-9_]*$/`, refused at derivation otherwise. That check is not defensive tidiness: `args` is the one place in the DDL where a value the author supplied reaches SQL without going through `quoteIdentifier` or a placeholder, which makes it the same shape as #364 one layer down.
+
+A quoted string literal is deliberately **not** a third kind — no extension type in scope takes one, and adding the tagged form now would be a field with no test and no caller, which is how a `params: string[]` dumping ground starts.
 
 The three types, each answering §6's three renderings, because a type that cannot answer all three is a
 type that will be guessed at somewhere:
@@ -392,15 +372,11 @@ nullable, because IS NULL is what "live" means
 The column is dropped from `CreateDTO` and `UpdateDTO` — it is managed, like a serial key — and kept in
 `Entity`, because a caller who asked for deleted rows needs to see which ones they are.
 
-**A general filter is not in the IR, and this is a hard constraint rather than a preference.** A
-`FilterDef` carries `where: (params) => …`, and the IR is written to a file: `model.zmdb.generated.d.ts`
-and the `.witness.ts` files are the AOT route, and `snapshot()` serialises the same values. A function
-cannot survive that round trip, so an IR field holding one would be an IR that is only sometimes the IR —
-present in the source route, absent in the generated one, with the filter silently off in exactly the
-build the user shipped. So the IR carries the facts a tag can state in literal types, and everything
-parameterised lives as a value on the repository (`../../../repository/SPEC.md` §3c). Soft delete is on
-the declaration because it is a property of the table; a tenant filter is not on the declaration because
-its parameter is a property of the request.
+**A general filter is not in the IR, and this is a hard constraint rather than a preference.** A `FilterDef` carries `where: (params) => …`, and the IR is written to a file: `model.zmdb.generated.d.ts` and the `.witness.ts` files are the AOT route, and `snapshot()` serialises the same values.
+
+A function cannot survive that round trip, so an IR field holding one would be an IR that is only sometimes the IR — present in the source route, absent in the generated one, with the filter silently off in exactly the build the user shipped. So the IR carries the facts a tag can state in literal types, and everything parameterised lives as a value on the repository (`../../../repository/SPEC.md` §3c).
+
+Soft delete is on the declaration because it is a property of the table; a tenant filter is not on the declaration because its parameter is a property of the request.
 
 ### 4.5 Protobuf vocabulary and its carriage (frozen — epic "Protobuf")
 
@@ -459,11 +435,9 @@ Required on every property of a message type, unique within the message, in `1 �
 the reserved `19000 … 19999`. Each violation is a build diagnostic naming the property, the message and
 the number.
 
-They are **required rather than defaulted from declaration order**, and that is the whole reason the tag
-exists. A number derived from order changes when somebody reorders two properties — a diff that looks
-like formatting and is a wire break that no test in the sending codebase can see. Numbers 1–15 encode
-their tag in one byte, so the spec _recommends_ them for the most frequent fields and does not enforce
-it: a rule that renumbers to optimise is the rule we just refused.
+They are **required rather than defaulted from declaration order**, and that is the whole reason the tag exists. A number derived from order changes when somebody reorders two properties — a diff that looks like formatting and is a wire break that no test in the sending codebase can see.
+
+Numbers 1–15 encode their tag in one byte, so the spec _recommends_ them for the most frequent fields and does not enforce it: a rule that renumbers to optimise is the rule we just refused.
 
 #### Nested messages number independently
 
@@ -481,13 +455,9 @@ two or reconstruct one from the other.
 `schemaFromIR(schema.ir)` equals `schema` — both asserted in `ir.spec.ts`. That is the
 property the required field rests on: the value holds everything the IR does.
 
-There was an `irFromSchema` going the other way, and its job was to prove the tagged
-front-end equal to the value one — "the IR from `User` equals the IR from `UserSchema`" —
-so that the existing SQL and JSON Schema snapshots could serve as the correctness argument
-for type-first declaration. It did that, and went with `defineSchema` (plan D2). It could
-not have stayed: a `CoreSchema` cannot express a numeric precision, a codec, a wire type, a
-json payload shape or a relation, so going value → IR meant inventing a default for each of
-the five. Relations were the visible one — it returned `relations: []` unconditionally.
+There was an `irFromSchema` going the other way, and its job was to prove the tagged front-end equal to the value one — "the IR from `User` equals the IR from `UserSchema`" — so that the existing SQL and JSON Schema snapshots could serve as the correctness argument for type-first declaration. It did that, and went with `defineSchema` (plan D2).
+
+It could not have stayed: a `CoreSchema` cannot express a numeric precision, a codec, a wire type, a json payload shape or a relation, so going value → IR meant inventing a default for each of the five. Relations were the visible one — it returned `relations: []` unconditionally.
 
 ### 5.1 Back-end: the IR printed back to a declaration (frozen — epic "Introspection")
 
@@ -495,12 +465,9 @@ The reflection turns a declaration into a `SchemaIR`. `emitDeclarations` is the 
 belongs on this list because it is a back-end onto the same IR rather than a separate tool: it takes the
 column facts and prints the tagged property that would produce them.
 
-The property that makes it honest is a round trip, and it is the same kind of argument §5 makes for
-`schemaFromIR`. **Reflecting a declaration, printing it back, and reflecting it again yields the same
-`SchemaIR`** — for any declaration the reflection can read, modulo formatting. That is testable against the
-existing fixture corpus rather than against a hand-written expectation, which matters because the reverse
-direction is where a plausible-looking wrong answer is cheapest to produce: a column widened by one step
-still compiles, still validates, and still writes.
+The property that makes it reliable is a round trip, and it is the same kind of argument §5 makes for `schemaFromIR`. **Reflecting a declaration, printing it back, and reflecting it again yields the same `SchemaIR`** — for any declaration the reflection can read, modulo formatting.
+
+That is testable against the existing fixture corpus rather than against a hand-written expectation, which matters because the reverse direction is where a plausible-looking wrong answer is cheapest to produce: a column widened by one step still compiles, still validates, and still writes.
 
 It is one printer for both callers. `scripts/codemod-tagged-schema.mjs` already prints tagged declarations
 from column facts, and it already carries the two facts a second printer would rediscover the hard way —
@@ -528,17 +495,11 @@ One column has three renderings, and each layer owns one:
 `appTypeOf(col)` and `wireTypeOf(col)` return the first two; `ddlType(dialect, col)` in
 `query-compiler/migrations` returns the third.
 
-A `format` in the wire column above comes with the `pattern` that enforces it. In JSON
-Schema a `format` is an annotation — a conforming validator may ignore it — and neither the
-runtime walk nor the emitter reads one at all, so a wire type that said only
-`format: 'date-time'` accepted `"tomorrow"` and this table's first row was a claim no
-validator made. `date-time` is RFC 3339, so the offset is required: `2026-01-01T12:30:00`
-is valid ISO-8601 and `new Date()` reads it as local time, which is the same lost-offset
-bug `timestamptz` is here to prevent, and the wire is the last layer that can still see it.
-`int64`'s pattern is the decoder's own, so what the validator accepts and what
-`decodeWireValue` can convert are one expression. The published document still says
-`format` and nothing else — that is the keyword JSON Schema has for the idea, and a
-consumer that honours it needs no help.
+A `format` in the wire column above comes with the `pattern` that enforces it.
+
+In JSON Schema a `format` is an annotation — a conforming validator may ignore it — and neither the runtime walk nor the emitter reads one at all, so a wire type that said only `format: 'date-time'` accepted `"tomorrow"` and this table's first row was a claim no validator made. `date-time` is RFC 3339, so the offset is required: `2026-01-01T12:30:00` is valid ISO-8601 and `new Date()` reads it as local time, which is the same lost-offset bug `timestamptz` is here to prevent, and the wire is the last layer that can still see it. `int64`'s pattern is the decoder's own, so what the validator accepts and what `decodeWireValue` can convert are one expression.
+
+The published document still says `format` and nothing else — that is the keyword JSON Schema has for the idea, and a consumer that honours it needs no help.
 
 A codec column is the case where nothing can be inferred: it is stored as one type, held
 as another and crossed as a third, and only the declaration knows the last two.
@@ -592,13 +553,9 @@ shape, and a nullable column widens its `type` keyword — except a `json` colum
 no `type` to widen. That last quirk is pre-existing published behaviour and is preserved
 deliberately.
 
-`objectTypeFromIR(ir, variant, layer)` is the other back-end onto the same shape, and it
-answers a different question: not "what document do I publish" but "what type is a legal
-payload for this". It returns an `ObjectIR`, which the one runtime walker in
-`@zmdb/aot-validator` checks — the same walker the emitted code is differentially tested
-against. It replaced the repository's own `valueMatchesColumn`, the fourth walker of §1,
-which accepted `Date | string` for a `timestamp` while `toJsonSchema` said ISO string and
-the derived type said `Date`.
+`objectTypeFromIR(ir, variant, layer)` is the other back-end onto the same shape, and it answers a different question: not "what document do I publish" but "what type is a legal payload for this". It returns an `ObjectIR`, which the one runtime walker in `@zmdb/aot-validator` checks — the same walker the emitted code is differentially tested against.
+
+It replaced the repository's own `valueMatchesColumn`, the fourth walker of §1, which accepted `Date | string` for a `timestamp` while `toJsonSchema` said ISO string and the derived type said `Date`.
 
 `Layer` is `'app' | 'wire'`, and it selects which of §6's three renderings each property
 gets. A validator has to pick one — accepting both is how that disagreement went unnoticed
@@ -618,22 +575,15 @@ or a `Date`.
 | `decodeDbValue(col, value)`     | db → app   | the repository's read path           |
 | `dbDecodedColumns(ir)`          | —          | so a read path can skip the walk     |
 
-They convert and nothing else. A value they cannot convert is passed through untouched for
-the validator to reject: a decoder that produced `new Date('nonsense')` would hand the app
-layer an `Invalid Date`, which passes `instanceof Date` and reaches the driver as `NULL` or
-an error. Leaving the string alone makes the validator say `expected Date`, which is true
-and actionable. `decodeWire` copies through keys the variant does not have, for the same
-reason: deciding what a payload may contain belongs to exactly one place, and this is not it.
+They convert and nothing else. A value they cannot convert is passed through untouched for the validator to reject: a decoder that produced `new Date('nonsense')` would hand the app layer an `Invalid Date`, which passes `instanceof Date` and reaches the driver as `NULL` or an error.
 
-`timestamp` and `bigint` are the only core types whose app and JSON wire forms differ: JSON
-cannot carry a `Date` or a `bigint` directly. The db→app crossing additionally decodes an
-extension `vector` when a driver returns pgvector's text form, even though its app and wire
-forms are both number arrays. `decodeDbValue` is written in terms of what _arrived_ rather
-than in terms of the dialect: `pg` hands back a `Date` for a `timestamptz`, a string for an
-`int8`, and either an array or text for a vector; SQLite hands back the `TEXT` it stored, and
-a third driver will do something else again. A `bigint` a driver read into a `number` is
-converted only when it is a safe integer; past 2^53 the digits are already gone, and
-`BigInt(9007199254740993)` would state a value the database never held.
+Leaving the string alone makes the validator say `expected Date`, which is true and actionable. `decodeWire` copies through keys the variant does not have, for the same reason: deciding what a payload may contain belongs to exactly one place, and this is not it.
+
+`timestamp` and `bigint` are the only core types whose app and JSON wire forms differ: JSON cannot carry a `Date` or a `bigint` directly.
+
+The db→app crossing additionally decodes an extension `vector` when a driver returns pgvector's text form, even though its app and wire forms are both number arrays. `decodeDbValue` is written in terms of what _arrived_ rather than in terms of the dialect: `pg` hands back a `Date` for a `timestamptz`, a string for an `int8`, and either an array or text for a vector; SQLite hands back the `TEXT` it stored, and a third driver will do something else again.
+
+A `bigint` a driver read into a `number` is converted only when it is a safe integer; past 2^53 the digits are already gone, and `BigInt(9007199254740993)` would state a value the database never held.
 
 A `Codec<'Name'>` column is converted by the application's own `CodecRegistry`, and a name
 with nothing behind it **throws** rather than passing the value through — the column's whole

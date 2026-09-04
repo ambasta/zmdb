@@ -9,7 +9,7 @@ cookies protects nothing, costs a token endpoint and a client change, and — wo
 looks like a security control in an audit. Epic #564's item 6 says "no protection
 theatre", and §1 is how that is enforced rather than encouraged.
 
-## 1. The threat model, stated plainly
+## 1. Threat model
 
 **What CSRF is.** A browser attaches cookies to a request based on where the request
 is _going_, not where it came _from_. So a page on `evil.example` can cause the
@@ -62,7 +62,7 @@ Set-Cookie: sid=…; HttpOnly; Secure; SameSite=Lax; Path=/
 now and it is supported everywhere. `HttpOnly` and `Secure` are not CSRF controls and
 are not optional either.
 
-So the honest ordering is: set `SameSite`, add the origin check in §4 because it is
+So the ordering is: set `SameSite`, add the origin check in §4 because it is
 free, and reach for a token only when a deployment genuinely needs `SameSite=None` —
 a cross-origin frontend on a different site, or an embedded widget.
 
@@ -152,14 +152,10 @@ failure mode and it is not CSRF protection: a restrictive
 
 ## 5. Comparison and masking
 
-**Comparison is double-HMAC, not a timing-safe byte compare.** `.oxlintrc.json` bans
-importing `node:crypto`, so `timingSafeEqual` is unavailable; Web Crypto has no
-constant-time comparison primitive; and a hand-rolled XOR-accumulate loop's
-constant-timeness is a property of the JIT rather than of the source, so it cannot be
-asserted by a test. Double-HMAC removes the requirement instead of trying to satisfy
-it: MAC both the expected and the provided value under a per-process random key and
-compare the digests with `===`. An attacker cannot steer a digest they cannot
-predict, so the timing of the comparison carries no information about the secret.
+**Comparison is double-HMAC, not a timing-safe byte compare.** `.oxlintrc.json` bans importing `node:crypto`, so `timingSafeEqual` is unavailable; Web Crypto has no constant-time comparison primitive; and a hand-rolled XOR-accumulate loop's constant-timeness is a property of the JIT rather than of the source, so it cannot be asserted by a test.
+
+Double-HMAC removes the requirement instead of trying to satisfy it: MAC both the expected and the provided value under a per-process random key and compare the digests with `===`. An attacker cannot steer a digest they cannot predict, so the timing of the comparison carries no information about the secret.
+
 Everything needed is a global — verified on the supported runtime:
 
 ```ts
@@ -171,15 +167,9 @@ const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
 `Uint8Array.prototype.toBase64` rather than `btoa`, which `.oxlintrc.json` bans by
 name.
 
-**The issued token is masked per response.** `issue` returns
-`mask ‖ '.' ‖ base64url(mask XOR tokenBytes)` with a fresh 16-byte mask, and `verify`
-unmasks before checking. The mask does not add secrecy — an attacker who sees the
-response sees both halves — and that is not what it is for. It makes the _bytes_ of
-the response different every time, which removes the compression side channel:
-`../compression/SPEC.md` §8 explains that BREACH recovers a secret from response
-sizes, and a secret whose encoding changes per response has no stable ratio to leak.
-That is a structural fix rather than an exclusion rule, so it keeps working when
-somebody forgets the rule.
+**The issued token is masked per response.** `issue` returns `mask ‖ '.' ‖ base64url(mask XOR tokenBytes)` with a fresh 16-byte mask, and `verify` unmasks before checking. The mask does not add secrecy — an attacker who sees the response sees both halves — and that is not what it is for.
+
+It makes the _bytes_ of the response different every time, which removes the compression side channel: `../compression/SPEC.md` §8 explains that BREACH recovers a secret from response sizes, and a secret whose encoding changes per response has no stable ratio to leak. That is a structural fix rather than an exclusion rule, so it keeps working when somebody forgets the rule.
 
 ## 6. What is protected
 
@@ -209,15 +199,9 @@ A single-page application fetches it after login and keeps it **in memory**, not
 survive into another tab or another day, which limits what a one-shot injection
 gets.
 
-The surface makes a pointless installation awkward on purpose. `sessionOf` is
-required and returns the session id the token binds to — so a developer installing
-this on a bearer-token API has to write a function that answers "which cookie
-session is this", discovers there isn't one, and gets `undefined`. `issue` and
-`verify` both **throw** when `sessionOf` returns `undefined`, rather than issuing an
-unbound token or passing the request. A required argument that cannot be answered is
-a better warning than a paragraph in the documentation, and it is the same technique
-`../microservices/SPEC.md` §2.3 uses to make an undeliverable message impossible to
-configure by accident.
+The surface makes a pointless installation awkward on purpose. `sessionOf` is required and returns the session id the token binds to — so a developer installing this on a bearer-token API has to write a function that answers "which cookie session is this", discovers there isn't one, and gets `undefined`. `issue` and `verify` both **throw** when `sessionOf` returns `undefined`, rather than issuing an unbound token or passing the request.
+
+A required argument that cannot be answered is a better warning than a paragraph in the documentation, and it is the same technique `../microservices/SPEC.md` §2.3 uses to make an undeliverable message impossible to configure by accident.
 
 ## 8. What #566 has to assert
 

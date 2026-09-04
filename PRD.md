@@ -16,12 +16,11 @@
 
 ## 1. Executive summary
 
-A TypeScript backend team today assembles its stack from four unrelated
-libraries — **NestJS** (HTTP framework + DI), **Typia** (boundary validation),
-**MikroORM** (entities + repositories), **Kysely** (SQL) — and then pays, forever,
-for the seams between them. The seams cost two things: **maintenance** (one column
-added → 4–5 hand-edited layers) and **runtime performance** (reflection lookups,
-proxy traps, runtime schema parsing, per-request metadata reads).
+A TypeScript backend commonly combines **NestJS** for HTTP and dependency
+injection, **Typia** for boundary validation, **MikroORM** for entities and
+repositories, and **Kysely** for SQL. A schema change then has to be carried
+through several independently maintained layers. The stack may also repeat work
+at runtime through reflection, proxies, schema parsing, and metadata lookups.
 
 **zmdb is one ecosystem that replaces all four**, built on a single thesis:
 
@@ -30,8 +29,7 @@ proxy traps, runtime schema parsing, per-request metadata reads).
 > DI graph resolve at init time. Runtime does only the irreducible work: one SQL
 > round-trip, a boolean chain, one object shape.
 
-This yields the two product guarantees that the source PRDs asked for separately,
-now as one:
+The product is built around two goals:
 
 1. **Zero-maintenance schema** — the developer edits one file; entities, create/update/read
    DTOs, query filters, validators, response serializers, OpenAPI, and controller
@@ -53,7 +51,7 @@ Adding `orders.discount_code` to a conventional stack requires edits to: the SQL
 migration, the ORM entity, the Zod/TypeBox validation schema, the inbound `CreateOrderDto`,
 the `UpdateOrderDto`, and the outbound API response type. Six edits, one intent. Miss one
 and the failure surfaces at runtime, in production, as a silently dropped field or a 500.
-This is **schema drift maintenance hell**.
+This is a routine source of schema drift.
 
 ### 2.2 The performance half (framework layer)
 
@@ -143,7 +141,7 @@ Domain invariants, illegal state transitions, route/param typing, and the DI gra
 expressed in the type system (template literal types, branded/phantom types, conditional
 types). An invalid route, payload, injection, or state transition **must fail `tsc`**.
 
-### P4 — Honest type safety (no escape hatches on the public surface)
+### P4 — Type safety without public escape hatches (no escape hatches on the public surface)
 
 - **Consumer code: zero assertions.** If a user must write `as` to use zmdb correctly,
   that is our bug.
@@ -154,24 +152,24 @@ types). An invalid route, payload, injection, or state transition **must fail `t
   guarantee that makes it sound. Preference order: type guard > carrying generic >
   `satisfies` > commented boundary cast.
 
-> This replaces the source PRD's absolute "zero escape hatches" claim, which its own
-> sample code violated four times (§13). The honest invariant is: **assertion-free public
-> surface, enumerated internal boundaries, count tracked toward zero.**
+> The source PRD said "zero escape hatches", although four of its own examples
+> used them (§13). The enforceable policy is narrower: the public API requires no
+> assertions, internal trust boundaries are listed and explained, and their
+> count cannot rise unnoticed.
 >
-> ✅ **P4 as written is met, and `yarn verify:escape-hatches` is what keeps it met** (§9.4).
-> The 2026-09-04 recount over 172 shipped files: **57 framework assertions under 57
-> `// boundary:` comments**, **0 double casts**, **0 `any`**, **0 non-null `!`**, **0
-> `@ts-expect-error` in src**, **1 lint suppression** (argued in §9.4), and **0
-> consumer-facing `as`** in the docs. The
-> first audit on 2026-08-31 found **91 assertions / 14 boundary comments / 19 non-null `!` /
-> 4 `as any`** across 67 files; the gap was mechanical, not irreducible — four structural
-> fixes account for all 63, see §9.4.
+> The 2026-09-04 count covers 176 shipped files: **55 framework assertions with
+> 55 `// boundary:` comments**, no double casts, no `any`, no non-null
+> assertions, no `@ts-expect-error` in source, one explained lint suppression,
+> and no consumer-facing casts in the documentation.
 >
-> This is still **not** "zero escape hatches": 57 assertions remain, each an argued trust
-> boundary. What changed is that the count is now checked rather than published — CI fails on
-> an increase and on an assertion nobody explained. The claim to make is the precise one —
-> _assertion-free public surface, enumerated and individually justified internal boundaries,
-> count ratcheted downward._
+> The first audit on 2026-08-31 found 91 assertions, 14 boundary comments, 19
+> non-null assertions, and four `as any` uses across 67 files. Four structural
+> fixes removed 63 of those cases (§9.4). The remaining 55 are trust boundaries,
+> not a claim of zero internal assertions.
+>
+> `yarn verify:escape-hatches` now fails when the count rises or an assertion has
+> no explanation. P4 therefore means: _an assertion-free public surface, with
+> individually justified internal boundaries whose count is ratcheted down._
 
 ### P5 — Zero third-party dependencies on the hot path; ESM-only
 
@@ -182,12 +180,11 @@ The tooling exception is `oxfmt`, pinned by query-compiler because generated dec
 must be formatted by the same engine as the repository. One module format, one `exports`
 map, no `.cjs`.
 
-### P6 — Honest measurement
+### P6 — Reproducible measurement
 
-Performance claims are produced by the **real upstream benchmark harnesses** against the
-**real competitor libraries**. Gaps, DNFs, and trade-offs are enumerated individually —
-never averaged into a flattering score, never silently skipped. We do not claim a
-"fastest" title we have not earned across a full workload.
+Performance claims use upstream benchmark harnesses and the actual competitor
+libraries. Results include unsupported cases and trade-offs instead of hiding
+them inside an aggregate score.
 
 ---
 
@@ -363,15 +360,9 @@ part REQ-AV-2 states directly.
 
 ### 6.7 Type-first declaration (REQ-TF)
 
-The design goal that makes **P2** and **P3** literally true rather than aspirational:
-the declaration is a _type_, and every runtime artefact is generated from it.
-`defineSchema` inverted this — the column facts lived in a value and the types were a
-shadow of that value — and it has been deleted rather than kept working alongside the
-tagged form (REQ-TF-12). Full rationale and encoding are in
-[DESIGN-type-first.md](DESIGN-type-first.md); the phased implementation plan is in
-[PLAN-type-first.md](PLAN-type-first.md), whose five shaping decisions were all
-resolved on 2026-09-02 — notably the removal above, and that a column has three types,
-rendered per layer (REQ-TF-13).
+The design goal that makes **P2** and **P3** literally true rather than aspirational: the declaration is a _type_, and every runtime artefact is generated from it. `defineSchema` inverted this — the column facts lived in a value and the types were a shadow of that value — and it has been deleted rather than kept working alongside the tagged form (REQ-TF-12).
+
+Full rationale and encoding are in [DESIGN-type-first.md](DESIGN-type-first.md); the phased implementation plan is in [PLAN-type-first.md](PLAN-type-first.md), whose five shaping decisions were all resolved on 2026-09-02 — notably the removal above, and that a column has three types, rendered per layer (REQ-TF-13).
 
 **Where this stands (2026-09-03).** All thirteen requirements are met, and each row below
 names the script or test that enforces it rather than asserting the outcome.
@@ -410,40 +401,27 @@ SQL type without adding it to the list, which is exactly when you want to hear a
 
 Three parts of the same requirement are not statable that way, and all three fail silently.
 
-A tag is an optional `unique symbol` slot, and the reflection cannot import the tags — the
-module is types-only, by design — so it recognises them by the **escaped symbol name**
-(`__@zmdbSerial@1`) through the `TAG_NAMES` table. Nothing in the type system connects a
-`declare const zmdbFts` to its row in that table: a tag with no row compiles, derives
-correctly, and is quietly absent from the emitted validator. `FLAG_TO_TAG` has the same
-problem one level up — it names its tags as _strings_, because the tags are parameterised
-differently and a heterogeneous map of them is not writable, so a rename leaves it naming
-something that no longer exists. And `Constraints` has five optional fields, so a reader that
-handles four of them is not a type error; that is precisely the bug the IR was introduced to
-end, where `TypeDescriptor` carried `minimum` and `maxLength` but not `maximum` or
-`minLength` and `Min<18> & Max<120>` validated differently depending on which walker you
-asked.
+A tag is an optional `unique symbol` slot, and the reflection cannot import the tags — the module is types-only, by design — so it recognises them by the **escaped symbol name** (`__@zmdbSerial@1`) through the `TAG_NAMES` table. Nothing in the type system connects a `declare const zmdbFts` to its row in that table: a tag with no row compiles, derives correctly, and is quietly absent from the emitted validator.
 
-There were five such walkers in the end, not four. The fifth was the seeder's `genValue`,
-which read `col.type` and an enum flag and nothing else, so a `Min<18> & Max<120>` column got
-whatever the PRNG produced and every seeded row failed the table's own validator — inside
-tests whose subject was something else. It went the same way as the other four, by generating
-from the IR through the sampler the emitter already uses, which also moved seeding to
-`@zmdb/repository/seeding`: the sampler lives in `@zmdb/aot-validator`, and `schema-core`
-cannot depend on that without pointing the graph backwards. What is worth recording is that
-nothing caught it. The four were found by reading the code with the question in hand; the
-fifth was found the same way, eight phases later. `yarn verify:one-walker` is the answer to
-"and the sixth?" — it names who may read column metadata at all, so the next one has to
-argue for itself in a diff rather than arrive as two convenient lines.
+`FLAG_TO_TAG` has the same problem one level up — it names its tags as _strings_, because the tags are parameterised differently and a heterogeneous map of them is not writable, so a rename leaves it naming something that no longer exists.
 
-`yarn verify:tf-coverage` checks those off a parse tree, and found four tags — `Fts`,
-`OneToOne`, `ManyToMany` and `AnyRelation` — that were published, documented, and written by
-no test or fixture anywhere in the repo. The reflection's code for reading an FTS table had
-never run. All four are covered now: `Fts<'users_fts'>` went into `reflect/__fixtures__/tables.ts`,
-where the golden pins the `ftsTable` it produces, and the boolean spelling `Fts<true>` plus the
-two missing cardinalities went in beside it as assertions of their own. `Fts<true>` is also
-declared in `ir.spec.ts`, `tagged-to-ddl.spec.ts` and the codemod's corpus, so the two
-spellings are checked at every stage they pass through. A vocabulary entry nothing has ever declared is an entry whose behaviour is a guess, so
-"is every tag exercised" is now part of the gate rather than an assumption.
+And `Constraints` has five optional fields, so a reader that handles four of them is not a type error; that is precisely the bug the IR was introduced to end, where `TypeDescriptor` carried `minimum` and `maxLength` but not `maximum` or `minLength` and `Min<18> & Max<120>` validated differently depending on which walker you asked.
+
+There were five such walkers in the end, not four. The fifth was the seeder's `genValue`, which read `col.type` and an enum flag and nothing else, so a `Min<18> & Max<120>` column got whatever the PRNG produced and every seeded row failed the table's own validator — inside tests whose subject was something else.
+
+It was removed in the same way as the other four: generation now starts from
+the IR and uses the emitter's sampler. This also moved seeding to
+`@zmdb/repository/seeding`, because the sampler lives in
+`@zmdb/aot-validator` and `schema-core` cannot depend on it without reversing
+the package graph. No existing check found the extra walker.
+
+The four were found by reading the code with the question in hand; the fifth was found the same way, eight phases later. `yarn verify:one-walker` is the answer to "and the sixth?" — it names who may read column metadata at all, so the next one has to argue for itself in a diff rather than arrive as two convenient lines.
+
+`yarn verify:tf-coverage` checks those off a parse tree, and found four tags — `Fts`, `OneToOne`, `ManyToMany` and `AnyRelation` — that were published, documented, and written by no test or fixture anywhere in the repo. The reflection's code for reading an FTS table had never run.
+
+All four are covered now: `Fts<'users_fts'>` went into `reflect/__fixtures__/tables.ts`, where the golden pins the `ftsTable` it produces, and the boolean spelling `Fts<true>` plus the two missing cardinalities went in beside it as assertions of their own. `Fts<true>` is also declared in `ir.spec.ts`, `tagged-to-ddl.spec.ts` and the codemod's corpus, so the two spellings are checked at every stage they pass through.
+
+A vocabulary entry nothing has ever declared is an entry whose behaviour is a guess, so "is every tag exercised" is now part of the gate rather than an assumption.
 
 #### REQ-TF-3: "zero type-level computation", measured
 
@@ -453,32 +431,25 @@ sides from one code path — 512 tables, 4,096 tagged columns, and the same 512 
 every tag stripped — and reports what separates them. The claim survives, but not in the form
 it was written in.
 
-**Declaring is as close to free as the requirement implies, for a reason worth stating
-precisely.** 512 tagged tables cost 6.01 type instantiations per table above an empty project,
-and the untagged twin costs zero. 6.01 is not a coincidence: it is the number of tag arguments
-that differ between two of the generated tables. The checker caches an instantiation per
-distinct type argument, so `Sql<'varchar'>` is instantiated once for a program however many
-thousand columns carry it, and only the arguments that vary — the table name, and this
-fixture's per-table lengths, patterns and bounds — cost anything. So the enforceable statement
-is stronger than "cheap": the cost of declaring is proportional to the number of _distinct tag
-arguments_, not to the number of tagged columns. Rewriting one tag as a conditional type takes
-that row from 6.01 to 8.01 and fails the gate.
+**Declarations add little type-checking work.** Across 512 tagged tables, the
+measured cost was 6.01 type instantiations per table above an empty project; the
+untagged version added none. The 6.01 figure tracks the six tag arguments that
+differ between generated tables.
+
+The checker caches an instantiation per distinct type argument, so `Sql<'varchar'>` is instantiated once for a program however many thousand columns carry it, and only the arguments that vary — the table name, and this fixture's per-table lengths, patterns and bounds — cost anything. So the enforceable statement is stronger than "cheap": the cost of declaring is proportional to the number of _distinct tag arguments_, not to the number of tagged columns.
+
+Rewriting one tag as a conditional type takes that row from 6.01 to 8.01 and fails the gate.
 
 That finding cost a false result first. The original fixture used identical tag arguments for
 every table and reported 523 instantiations for the whole 512-table schema — one per table,
 nothing per column, apparently free. It was measuring the cache. The same conditional-tag
 mutation moved it by two instantiations in total and passed.
 
-**Deriving is not free, and the number is now published.** The DTO suite over a tagged table
-costs 606 instantiations against the untagged twin's 505 — 1.20x — and about 0.25ms of checker
-time per table. The key filters are conditional types and that is what the tags are _for_, so
-the ratio is above 1 by design; what the ratchet enforces is that it does not climb. Wall-time
-is the honest wrinkle: the tagged program's check time is near 2.1x the untagged one's, higher
-than the instantiation ratio, so the checker is doing work on a tagged declaration that is not
-an instantiation. In absolute terms the whole difference across a 512-table schema is 130ms of
-check time, which is why the gate on that row is deliberately loose — it is there to catch a
-change of kind, and the instantiation count, which is reproducible to the digit across runs, is
-what catches a change of degree.
+**Deriving is not free, and the number is now published.** The DTO suite over a tagged table costs 606 instantiations against the untagged twin's 505 — 1.20x — and about 0.25ms of checker time per table. The key filters are conditional types and that is what the tags are _for_, so the ratio is above 1 by design; what the ratchet enforces is that it does not climb.
+
+Wall-time is the wrinkle: the tagged program's check time is near 2.1x the untagged one's, higher than the instantiation ratio, so the checker is doing work on a tagged declaration that is not an instantiation.
+
+In absolute terms the whole difference across a 512-table schema is 130ms of check time, which is why the gate on that row is deliberately loose — it is there to catch a change of kind, and the instantiation count, which is reproducible to the digit across runs, is what catches a change of degree.
 
 #### REQ-TF-4 vs REQ-TF-5: why "unchanged" became "substituted"
 
@@ -499,26 +470,15 @@ schema-value twin — asserted in
 `packages/schema-core/src/derive/type-derivation-tagged.type-test.ts`, which is
 `type-derivation.type-test.ts` with `S` rebound.
 
-**"Only `Equal` can see the difference" is not quite true, and finding out where cost a
-redesign.** A tag erases against an _untagged_ type, but two tagged columns see each other's
-tags, and a tag payload sits in an invariant position: `Sql<'serial'>` and `Sql<'integer'>` were
-unrelated types. So `orders.create({ userId: user.id })` — a serial key read out of one table
-and written into another table's integer foreign key, which is in the quickstart — did not
-compile. The fix was to stop spelling one fact twice: `serial` left the tag vocabulary
-(`ColumnSqlType` is `Exclude<SqlType, 'serial'>`), a generated key is now
-`number & Sql<'integer'> & Serial`, and the reflection maps `integer` + `Serial` back to
-`sql: 'serial'` so the IR, every dialect's DDL and the equivalence corpus are unchanged. The
-residue is real and much smaller, and is recorded rather than papered over: `varchar` and `text`
-columns still do not interchange, because unlike the serial case those two columns genuinely are
-different types. `packages/schema-core/src/tags/serial-foreign-key.type-test.ts` pins both
-halves.
+**"Only `Equal` can see the difference" is not quite true, and finding out where cost a redesign.** A tag erases against an _untagged_ type, but two tagged columns see each other's tags, and a tag payload sits in an invariant position: `Sql<'serial'>` and `Sql<'integer'>` were unrelated types. So `orders.create({ userId: user.id })` — a serial key read out of one table and written into another table's integer foreign key, which is in the quickstart — did not compile.
 
-One genuine behavioural change came out of it, and it is a breaking one:
-`exactOptionalPropertyTypes` is on repo-wide, and the tagged `CreateDTO`/`UpdateDTO` are plain
-`Partial`s, so `{ email: undefined }` is now an error where the value-side DTOs accepted it.
-`{}` and `{ email: null }` are how "leave it alone" and "set it to NULL" are spelled; the
-widened form bought a third spelling for one of two meanings. The strict tagged DTO is still
-assignable everywhere the widened one was — only the reverse fails.
+The fix was to stop spelling one fact twice: `serial` left the tag vocabulary (`ColumnSqlType` is `Exclude<SqlType, 'serial'>`), a generated key is now `number & Sql<'integer'> & Serial`, and the reflection maps `integer` + `Serial` back to `sql: 'serial'` so the IR, every dialect's DDL and the equivalence corpus are unchanged.
+
+The residue is real and much smaller, and is recorded rather than papered over: `varchar` and `text` columns still do not interchange, because unlike the serial case those two columns genuinely are different types. `packages/schema-core/src/tags/serial-foreign-key.type-test.ts` pins both halves.
+
+One genuine behavioural change came out of it, and it is a breaking one: `exactOptionalPropertyTypes` is on repo-wide, and the tagged `CreateDTO`/`UpdateDTO` are plain `Partial`s, so `{ email: undefined }` is now an error where the value-side DTOs accepted it. `{}` and `{ email: null }` are how "leave it alone" and "set it to NULL" are spelled; the widened form bought a third spelling for one of two meanings.
+
+The strict tagged DTO is still assignable everywhere the widened one was — only the reverse fails.
 
 #### REQ-TF-11: "once per build", and the number that turned out not to matter
 
@@ -527,33 +487,21 @@ measurement. `yarn verify:build-budget` writes a 64-module project — each modu
 interface with `is`, `assert`, `validate` and `toJsonSchema` over it — runs the real `codegen`
 on a session it owns so it can watch it, and then does the same at 8 modules.
 
-The gate is two integers, and neither is a clock. **One compiler API** for the 64-module build,
-which is the requirement as written. And, the sharper half, **a snapshot-update log that does
-not depend on the file count**: `[open, refresh]` at 8 modules and `[open, refresh]` at 64. That
-is what "not once per file" means operationally, because telling the compiler about a new file
-re-checks it, and it is why `cli/index.ts` writes every witness before transforming any of them
-— an ordering that reads like an arbitrary choice and is the only reason the second number is 2
-instead of 65. Moving those two calls inside the loop is a one-line tidy-up that takes the log
-to 65 updates; the gate fails.
+The gate is two integers, and neither is a clock. **One compiler API** for the 64-module build, which is the requirement as written. And, the sharper half, **a snapshot-update log that does not depend on the file count**: `[open, refresh]` at 8 modules and `[open, refresh]` at 64.
+
+That is what "not once per file" means operationally, because telling the compiler about a new file re-checks it, and it is why `cli/index.ts` writes every witness before transforming any of them — an ordering that reads like an arbitrary choice and is the only reason the second number is 2 instead of 65. Moving those two calls inside the loop is a one-line tidy-up that takes the log to 65 updates; the gate fails.
 
 The clock is published rather than enforced, and the reason is the same mutation. It moved the
 per-module time from 6.0ms to 8.2ms — 37%, comfortably inside any ceiling a shared CI runner
 would tolerate. A wall-time gate would have let that through.
 
-The published split also corrects the intuition the requirement is usually justified with.
-Opening the project is about 20ms and **does not grow with the file count**, because the
-compiler defers the expensive work until something asks it a question; generating costs about
-6ms per module, linear, and at 64 modules that dominates the load by a factor of twenty. So "the
-fixed cost dominates" is false here. The claim that is true is the narrower one the requirement
-actually makes: the load is paid once, and a codegen that reopened the project per file would
-pay that 20ms sixty-four times for nothing.
+The published split also corrects the intuition the requirement is usually justified with. Opening the project is about 20ms and **does not grow with the file count**, because the compiler defers the expensive work until something asks it a question; generating costs about 6ms per module, linear, and at 64 modules that dominates the load by a factor of twenty.
 
-One thing the measurement forced into the open. `codegen` rewrites the source files it just
-read, so when it returns, the snapshot its session holds is stale — a second pass on the same
-session refuses with "changed on disk since the project loaded; run again". That is correct
-behaviour and a clear message, but it means a rebuild is a new session, not a reused one, which
-is how the script measures `--check`. On a clean tree that check's log is `[open]` and nothing
-else: verifying a generated tree in CI costs one project load and no re-checks at all.
+So "the fixed cost dominates" is false here. The claim that is true is the narrower one the requirement actually makes: the load is paid once, and a codegen that reopened the project per file would pay that 20ms sixty-four times for nothing.
+
+One thing the measurement forced into the open. `codegen` rewrites the source files it just read, so when it returns, the snapshot its session holds is stale — a second pass on the same session refuses with "changed on disk since the project loaded; run again".
+
+That is correct behaviour and a clear message, but it means a rebuild is a new session, not a reused one, which is how the script measures `--check`. On a clean tree that check's log is `[open]` and nothing else: verifying a generated tree in CI costs one project load and no re-checks at all.
 
 ---
 
@@ -700,12 +648,9 @@ class AppModule {}
 export const app = createApp(AppModule);
 ```
 
-Sections 2–4 use decorators, so they are application files rather than published ones.
-zmdb's own source has to load under Node's type stripping — that is how the tests, the dev
-loop and the consumer fixtures run it — and stripping admits no syntax that is not type
-syntax; `target: ESNext` then means a decorator that did get in would survive the emit into
-`dist` and reach a runtime with no decorators either. The declaration in section 1 has that
-property by construction, which is a large part of why it is a type and not a builder call.
+Sections 2–4 use decorators, so they are application files rather than published ones. zmdb's own source has to load under Node's type stripping — that is how the tests, the dev loop and the consumer fixtures run it — and stripping admits no syntax that is not type syntax; `target: ESNext` then means a decorator that did get in would survive the emit into `dist` and reach a runtime with no decorators either.
+
+The declaration in section 1 has that property by construction, which is a large part of why it is a type and not a builder call.
 
 **What this example demonstrates against the four incumbents:**
 
@@ -759,7 +704,7 @@ field in four places.
 
 ### 8.4 Migration from the incumbents
 
-**REQ-DX-4:** Ship a documented migration path per incumbent, stating honestly what is
+**REQ-DX-4:** Ship a documented migration path per incumbent, stating plainly what is
 mechanical and what requires redesign:
 
 | From         | Mechanical                                                 | Requires redesign                                                                              |
@@ -788,16 +733,16 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 | **REQ-NF-6** | Web        | Throughput in the **same-machine peer head-to-head** (the-benchmarker contract, identical `oha` invocation) must be **in the same band as the mainstream Node frameworks** (Fastify/Hono/Koa) — a decorator framework must not cost a tier. |
 | **REQ-NF-7** | All        | SQL compilation overhead must be negligible against the round-trip (target: sub-microsecond per query).                                                                                                                                     |
 
-### 9.2 Measured status (2026-08-31 — honest)
+### 9.2 Measured status (2026-08-31)
 
 | Requirement  | Status                        | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| REQ-NF-1     | ✅ met (with a caveat)        | Transformer-produced `zmdb-aot`: **101.7M** parseSafe / **40.0M** parseStrict / **108.9M** assertLoose / **42.3M** assertStrict ops/s vs typia 100.7M/38.9M/78.1M/31.1M and zod v4 8.7M/4.9M/4.2M/4.2M. Leads all four cases on Node and Deno; Bun's JIT favours typia on strict (~2.4×) and DCE-fakes assertLoose.                                                                                                                                                                                       |
+| REQ-NF-1     | ✅ met (with a caveat)        | Transformer-produced `zmdb-aot`: **83.3M** parseSafe / **55.7M** parseStrict / **93.2M** assertLoose / **51.7M** assertStrict ops/s. The recorded Typia row is 100.7M/38.9M/78.1M/31.1M. Only the zmdb rows were refreshed in that upstream table, so competitor gaps are approximate; the local harness consumes every result and is the preferred comparison.                                                                                                                                           |
 | REQ-NF-2     | ✅ met                        | `parse<T>` identity fix measured **1.56×** faster in a low-noise probe.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| REQ-NF-3     | ✅ coverage met; ⚠️ trade-off | **13/13 routes, 0 DNF** on real Postgres. Full-replay k6: zmdb **2,916 req/s / 102ms avg** leads throughput and average latency; **Drizzle keeps the better tail** (p95 173.8 vs 215.5). Opt-in `ZMDB_PREPARED=1` → 3,068 req/s / 97ms / p95 209.5. Aggregate routes use a different projection shape. **No "fastest ORM" claim.**                                                                                                                                                                        |
+| REQ-NF-3     | ✅ coverage met; ⚠️ trade-off | **13/13 routes, 0 DNF** on real Postgres. Repeated full-replay sessions put zmdb, Drizzle, and Kysely within a few percent on throughput, with the ordering changing between runs. Drizzle keeps the better tail (p95 173.8 ms vs zmdb 215.5 ms in the recorded run). Opt-in `ZMDB_PREPARED=1` measured 3,068 req/s / 97 ms / p95 209.5 ms. Aggregate routes use a different projection shape.                                                                                                            |
 | REQ-NF-4     | ✅ met                        | Reads return objects with `prototype === Object.prototype`; no identity map exists.                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | REQ-NF-5     | ✅ met                        | `countMetadataReads()` guard in `packages/web/src/bench` asserts 0 per-request reads.                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| REQ-NF-6     | ✅ met                        | Same-machine, same-`oha`, contract-verified, level 256 `GET /`: **@zmdb/web 13,294 req/s** vs koa 13,285 · hono-node 13,828 · fastify 14,799 · express 9,941. Same band as mainstream Node peers; Go/Rust peers (actix 33,080, fasthttp 28,146) are a tier up, as expected.                                                                                                                                                                                                                               |
+| REQ-NF-6     | ✅ met                        | Same-machine, contract-verified, interleaved per-core `GET /`: **@zmdb/web 29,698 req/s** vs fastify 25,441 · hono-node 22,385 · koa 20,099 · express 16,440. Pass spreads were at most 1.08× for these Node rows.                                                                                                                                                                                                                                                                                        |
 | **REQ-AV-3** | ✅ met (2026-09-02)           | Closed by the second route. A bundler plugin only helps a project that has a bundler, so `zmdb-codegen` compiles the checks into files beside the source and rewrites the call sites to import them — no plugin, no transform, no bundler, runnable under plain `node`. Both routes are consumer fixtures in CI (`fixtures/`), and they emit the **same code**: `is<Order>` measures **27.1M ops/s** compiled by the CLI and **33.3M** through the plugin, a spread that is measurement order, not route. |
 
 ### 9.3 Build, type, and quality requirements
@@ -805,13 +750,13 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 | ID            | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **REQ-NF-8**  | tsconfig floor for every package: `strict`, `noImplicitAny`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `isolatedModules`, and `experimentalDecorators: false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **REQ-NF-9**  | Type-level behaviour is **tested**, not assumed — in a file the typechecker actually compiles: `Expect<Equal<…>>` in `*.type-test.ts` for positives, `@ts-expect-error` for every documented compile error. **`expectTypeOf` is banned**: vitest only _runs_ specs, so those calls are runtime no-ops (see §9.6). **11 type-test files, 18 `@ts-expect-error` assertions** today.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **REQ-NF-9**  | Type-level behaviour is **tested**, not assumed — in a file the typechecker actually compiles: `Expect<Equal<…>>` in `*.type-test.ts` for positives, `@ts-expect-error` for every documented compile error. **`expectTypeOf` is banned**: vitest only _runs_ specs, so those calls are runtime no-ops (see §9.6). **67 type-test files and 242 `@ts-expect-error` assertions** today.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **REQ-NF-10** | Spec-first: a concern gets a frozen `SPEC.md`, then failing tests, then implementation, then docs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **REQ-NF-11** | Branded/phantom types must contribute **0 bytes** to bundle output and **0 ns** of runtime evaluation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **REQ-NF-12** | Publishing: ESM-only, single `exports` map, Trusted Publishing (OIDC) with provenance, `latest` tracking highest-precedence release. License **GPL-3.0-or-later**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **REQ-NF-13** | Every capability must be documented on the docs site before it counts as shipped (**0 TODO** policy), including an **Anti-patterns** page explaining each deliberate exclusion.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **REQ-NF-14** | ✅ **Met.** Framework `as`/assertion count is tracked in CI and must be **monotonically non-increasing**, with every remaining assertion carrying a `// boundary:` comment. Enforced by `yarn verify:escape-hatches`, which recomputes every row of §9.4 off a parse tree and fails on an increase or on an undocumented assertion. Ratchet (2026-09-04): **57 assertions, 57 boundary comments, 0 double casts, 0 non-null `!`, 0 `any`, 1 argued lint suppression** — see §9.4.                                                                                                                                                                                                                                                                                                                                                                           |
-| **REQ-NF-15** | ✅ **Met (2026-09-03).** Every public export is exercised by a functional test, and "public" is decided by reading the export names off each published subpath rather than by grepping. The bar for _enough_ tests is set outside this repo: the **742 public-API test suites (9,258 assertions)** Drizzle, Kysely, MikroORM, NestJS and Typia run are inventoried at a pinned commit, and each is either mapped to a zmdb test or argued against with a reason. Enforced by `yarn verify:api-coverage`; re-harvested deliberately by `scripts/harvest-api-tests.mjs`, never in CI. Today: **503 suites answered by 298 of our 1,915 tests, 239 argued against under 48 distinct rationales** — and the gate prints its widest credits (currently 64 suites resting on one populate test) so that fan-in stays visible instead of averaging into the total. |
+| **REQ-NF-14** | ✅ **Met.** Framework `as`/assertion count is tracked in CI and must be **monotonically non-increasing**, with every remaining assertion carrying a `// boundary:` comment. Enforced by `yarn verify:escape-hatches`, which recomputes every row of §9.4 off a parse tree and fails on an increase or on an undocumented assertion. Ratchet (2026-09-04): **55 assertions, 55 boundary comments, 0 double casts, 0 non-null `!`, 0 `any`, 1 argued lint suppression** — see §9.4.                                                                                                                                                                                                                                                                                                                                                                           |
+| **REQ-NF-15** | ✅ **Met (2026-09-03).** Every public export is exercised by a functional test, and "public" is decided by reading the export names off each published subpath rather than by grepping. The bar for _enough_ tests is set outside this repo: the **742 public-API test suites (9,258 assertions)** Drizzle, Kysely, MikroORM, NestJS and Typia run are inventoried at a pinned commit, and each is either mapped to a zmdb test or argued against with a reason. Enforced by `yarn verify:api-coverage`; re-harvested deliberately by `scripts/harvest-api-tests.mjs`, never in CI. Today: **503 suites answered by 311 of our 1,952 tests, 239 argued against under 48 distinct rationales** — and the gate prints its widest credits (currently 64 suites resting on one populate test) so that fan-in stays visible instead of averaging into the total. |
 
 ### 9.4 Escape-hatch audit — ratcheted in CI as of 2026-09-04
 
@@ -820,35 +765,33 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 on any assertion whose enclosing function has no `// boundary:` comment. RISK-7 — "P4 holds
 today but nothing keeps it holding" — is closed by that script, not by this section.
 
-Counted off a real parse tree, per package, over the **172 shipped source files** in
+Counted off a real parse tree, per package, over the **176 shipped source files** in
 `packages/*/src`. Tests are excluded and the script says why: `*.spec.ts`, `*.type-test.ts`,
 `__testing__/` and `__fixtures__/`. A file whose job is to prove a type _rejects_ something
-is nothing but `@ts-expect-error`, and 45 of those are not 45 escape hatches.
+is expected to contain `@ts-expect-error`; those directives are not framework escape hatches.
 
 | Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | 2026-09-03 (DSL deleted) | 2026-09-04 current | Ceiling |
 | ------------------------------------------ | --------------------------: | --------------------------------: | -----------------------: | -----------------: | ------: |
 | `: any` / `<any>` / `any[]` / `as any`     |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 | `@ts-expect-error` / `@ts-ignore` in src   |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 | `as unknown as` double casts               |                       **1** |                             **2** |                    **1** |              **0** |       0 |
-| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |                   **62** |             **57** |      57 |
-| `// boundary:` comments                    |                      **37** |                            **56** |                   **54** |             **57** |       — |
+| Type assertions (`as T`, excl. `as const`) |                      **28** |                            **65** |                   **62** |             **55** |      55 |
+| `// boundary:` comments                    |                      **37** |                            **56** |                   **54** |             **55** |       — |
 | Non-null assertions (`!`)                  |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 | `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |                    **1** |              **1** |       1 |
 | `new Function` / `eval` call sites         |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 
-The third column is plan D2 landing: `defineSchema`, ten column builders and eight
-function-style modifiers deleted. It took three assertions and one double cast with it, and
-they are the good kind of removal — nothing was rewritten to dodge a cast, the code that
-needed the cast is gone. Both ceilings came down in the same commit, which is the direction
-this table is supposed to move; see the four structural fixes at the end of this section for
-the shape of the argument.
+The third column is plan D2 landing: `defineSchema`, ten column builders and eight function-style modifiers deleted. It took three assertions and one double cast with it, and they are the good kind of removal — nothing was rewritten to dodge a cast, the code that needed the cast is gone.
+
+Both ceilings came down in the same commit, which is the direction this table is supposed to move; see the four structural fixes at the end of this section for the shape of the argument.
 
 Subsequent work had already brought the assertion ceiling from 62 to 61. The shallow
 validator public surface then replaced the three successful validator-return casts with one
 shared `certified` boundary, taking the measured count from 61 to 59 without weakening a
 check. Repository loader work then replaced `attachRelations`' asserted populated-row
 return with checked overloads, taking the count from 59 to 57 and the double-cast count from
-one to zero.
+one to zero. Composite-key queries then moved from asserted runtime `where` objects to the
+compiler's typed `where` methods, taking the count from 57 to 55.
 
 Three rows moved between the first two columns, and none of them because the code got worse:
 
@@ -886,21 +829,18 @@ Per-package distribution of the 2026-09-04 recount:
 | ---------------------- | ---------: | -------------: | ------------------------------------------------------------------------------------ |
 | `@zmdb/aot-validator`  |         26 |             16 | checker `Type` → `TypeReference`, `JSON.parse` → `T`, one certified validator return |
 | `@zmdb/schema-core`    |         12 |             10 | untrusted DTO payload reads, the custom-type registry, `every` as a predicate        |
-| `@zmdb/repository`     |          8 |              8 | driver row → `Entity<S>`, the subclass statics, cursor payload                       |
+| `@zmdb/repository`     |          6 |              6 | driver row → `Entity<S>`, the subclass statics, cursor payload                       |
 | `@zmdb/web`            |         10 |             22 | decorator-metadata reads, DI token → instance, brand attach                          |
-| `@zmdb/query-compiler` |          1 |              2 | the `compile()` duck-type guard                                                      |
+| `@zmdb/query-compiler` |          1 |              1 | the `compile()` duck-type guard                                                      |
 | `zmdb` (umbrella)      |          0 |              0 | —                                                                                    |
 
 `@zmdb/web` has more boundary comments than assertions, which is the intended direction: a
 boundary is a place where types stop proving things, and several of them are guards and
 `unknown` reads rather than casts.
 
-**Writing the ratchet found four hatches nobody had counted**, all fixed by removing them
-rather than documenting them: a stale `oxlint-disable` in `schema-core`; two non-null
-assertions in `query-compiler`; and `validate()`'s `Pattern` rule reading `r.args[0] as
-string` unchecked, so a `Pattern` with a number in it compiled a regex out of the coerced
-number instead of answering `false` like every other rule with a bad argument. That last one
-was a bug, not a style problem, which is the argument for the script in one sentence.
+**Writing the ratchet found four hatches nobody had counted**, all fixed by removing them rather than documenting them: a stale `oxlint-disable` in `schema-core`; two non-null assertions in `query-compiler`; and `validate()`'s `Pattern` rule reading `r.args[0] as string` unchecked, so a `Pattern` with a number in it compiled a regex out of the coerced number instead of answering `false` like every other rule with a bad argument.
+
+That last one was a bug, not a style problem, which is the argument for the script in one sentence.
 
 **Conclusion.** `ARCHITECTURE.md` §2.1's rule — "each with a `// boundary:` comment stating
 _why it is sound_" — holds in every package, and now holds mechanically. This is still not
@@ -908,7 +848,7 @@ _why it is sound_" — holds in every package, and now holds mechanically. This 
 `JSON.parse`, decorator-metadata slots, driver rows, and a compiler client whose predicates
 are booleans. Lowering a ceiling is a normal commit; raising one has to be argued here.
 
-The 68-assertion drop came from four structural fixes, not 68 individual edits:
+Most of the reduction came from four structural fixes rather than one-off cast edits:
 
 1. **Generic-erasure returns in the column builders** (`schema-core/src/index.ts`) —
    `makeColumn(): Column` erased `T`/`F`, so each of the **19** builders and function-style
@@ -916,7 +856,7 @@ The 68-assertion drop came from four structural fixes, not 68 individual edits:
    (`makeColumn<C extends Column>`, inferred from the caller's declared return type) removed
    all 19, leaving one `as unknown as C` inside it carrying the soundness argument. Plan D2
    then deleted the builders outright and that last one with them, which is the better ending:
-   the cast was sound and well-argued and the honest fix was to stop needing it.
+   the cast was sound and well-argued and the right fix was to stop needing it.
 2. **`CoreSchema<string>` widening in the repository** — `list()` cast its typed DTOs down to
    `CoreSchema<string>` to reach the schema-core helpers, cast the builder through `any` to
    reach `applyOrderBy`/`applyPagination`, and cast the result back. Making those helpers
@@ -944,9 +884,9 @@ core `is`/`assert` path. Under a strict CSP those two builders threw.
 **Resolved via option (a):** both now take a **real function value** (`RefinePredicate` /
 `TransformFn`) and recover `source` from `Function.prototype.toString` purely so the AOT
 transformer can still inline the body. There are **zero** `new Function`/`eval` call sites in
-`packages/*/src`, so the grep guard REQ-AV-2 asks for passes; a predicate passed as a
-function is also typechecked at its call site, which a source string never was. RISK-7b is
-closed. What remains is to _wire_ that grep guard into CI so it cannot regress.
+`packages/*/src`, so the REQ-AV-2 check passes; a predicate passed as a function is also
+typechecked at its call site, which a source string never was. RISK-7b is closed, and
+`yarn verify:escape-hatches` keeps the check in CI.
 
 ### 9.6 The type-safety gate was not actually a gate (2026-08-31)
 
@@ -956,11 +896,11 @@ ran them. Three compounding causes, all now fixed:
 1. **`expectTypeOf` in `.spec.ts` files.** vitest only _executes_ specs; `expectTypeOf(...)`
    is a runtime no-op unless `vitest typecheck` runs, which it never did. Every such
    assertion — path-param derivation, brand nominality, DI token binding, DTO shapes — was
-   decoration. All of them are now `Expect<Equal<…>>` in **11 `*.type-test.ts` files** that
+   decoration. All of them are now `Expect<Equal<…>>` in **67 `*.type-test.ts` files** that
    `tsc` compiles; `expectTypeOf` is banned outright.
 2. **Specs were excluded from every package tsconfig.** So the `@ts-expect-error` directives
    in them were inert too: a directive in a file outside the program cannot fail. Specs are
-   now inside the program, which turns each of the **18** directives into a real assertion —
+   now inside the program, which turns each of the **242** directives into a real assertion —
    and `tsc` reports an _unused_ `@ts-expect-error`, so a directive that stops being needed
    also fails the build.
 3. **CI typechecked four packages, not seven.** The workflow ran a hand-written
@@ -970,13 +910,9 @@ ran them. Three compounding causes, all now fixed:
    whenever a sibling source changed. `scripts/typecheck.mjs` now discovers projects from the
    filesystem and CI calls `yarn typecheck`, so adding a package cannot silently opt out.
 
-Bringing the excluded files into the program surfaced **34 real type errors**, including one
-that invalidated a frozen SPEC: `findById(id, { populate })` returned `Entity<S>`, not a
-populated type, so the "no lazy getters, typed populate" acceptance criterion had never been
-met and specs papered over it with casts. `Populated` now derives the attached fields, `find`
-accepts `populate` too, and an unknown relation name is a compile error rather than a runtime
-throw. (It derived them from a relations map at the time; it reads the relation off the declared
-type now, and the map is gone — see §9.4's note on the type-first work.)
+Bringing the excluded files into the program surfaced **34 real type errors**, including one that invalidated a frozen SPEC: `findById(id, { populate })` returned `Entity<S>`, not a populated type, so the "no lazy getters, typed populate" acceptance criterion had never been met and specs papered over it with casts.
+
+`Populated` now derives the attached fields, `find` accepts `populate` too, and an unknown relation name is a compile error rather than a runtime throw. (It derived them from a relations map at the time; it reads the relation off the declared type now, and the map is gone — see §9.4's note on the type-first work.)
 
 **Lesson recorded, not just fixed:** a type-level assertion is only a gate if the file it
 lives in is inside a program that CI compiles. Anything else is a comment.
@@ -1031,7 +967,7 @@ The unified product is "done" for a release when **all** hold:
 
 | ID          | Risk                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RISK-1**  | ~~**The AOT premise is unearned out of the box.**~~ **Closed 2026-09-02.** The premise needed a route that did not assume a bundler, and `zmdb-codegen` is it: it compiles the checks to files next to the source, rewrites the call sites to import them, and `--check` fails a build whose committed output is stale. Both routes are fixtures in CI, emitting the same code (§9.2).                                                                | Keep it closed by keeping the fixtures honest: `yarn verify:fixtures` runs the published binary in CI, and `consumer-fixtures.spec.ts` fails if the two fixtures stop being the same program. **Residual risk:** a consumer who wires neither still gets the runtime path, so the remaining work is loudness, not capability — a build-time warning when a `is<T>()` call reaches runtime uncompiled.                                                                                                                                                                                                                                                                                                            |
+| **RISK-1**  | ~~**The AOT premise is unearned out of the box.**~~ **Closed 2026-09-02.** The premise needed a route that did not assume a bundler, and `zmdb-codegen` is it: it compiles the checks to files next to the source, rewrites the call sites to import them, and `--check` fails a build whose committed output is stale. Both routes are fixtures in CI, emitting the same code (§9.2).                                                                | Keep it closed by keeping the fixtures representative: `yarn verify:fixtures` runs the published binary in CI, and `consumer-fixtures.spec.ts` fails if the two fixtures stop being the same program. **Residual risk:** a consumer who wires neither still gets the runtime path, so the remaining work is loudness, not capability — a build-time warning when a `is<T>()` call reaches runtime uncompiled.                                                                                                                                                                                                                                                                                                    |
 | **RISK-2**  | **ORM tail latency** (p95 behind Drizzle) is inherent to the stateless, zero-state design; the compile step (~254 ns) is not the cause.                                                                                                                                                                                                                                                                                                               | Server-side prepared statements exist as opt-in (`ZMDB_PREPARED=1`, verified +4–5% req/s and a narrower tail); a plan cache is planned, kept opt-in to preserve the zero-state default.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **RISK-3**  | **Node 26 / TS 7 / ESM-only floor** excludes much of the current market.                                                                                                                                                                                                                                                                                                                                                                              | Deliberate and permanent. It is what lets us delete shims and use `node:sqlite`, `using`, Stage 3 metadata. Marketed as a forward-looking stack, not a migration target for legacy apps.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **RISK-4**  | **No parameter decorators** is the biggest DX shock for NestJS migrants.                                                                                                                                                                                                                                                                                                                                                                              | `Ctx` is strictly more type-safe (params derived from the path literal); document the 1:1 rewrite table (§8.4) and provide codemod guidance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -1039,7 +975,7 @@ The unified product is "done" for a release when **all** hold:
 | **RISK-6**  | ~~**Type-level derivation cost** — heavy conditional types can slow consumer `tsc`.~~ **Closed 2026-09-02.** Budgets are in CI and the numbers are published: `yarn verify:instantiations` ratchets what a tag costs at 512 tables against the same schema untagged, and `derive/instantiation-budget.spec.ts` holds the 8-table ceiling and the 4x-scaling factor. Both measure through one module, so they cannot disagree about what they measure. | Keep both in CI, and treat a `tsc` regression as a perf regression — the P1 north star applies to _the consumer's_ build too. The residual risk is that the fixture is generated: it says what 512 uniform tables cost, not what one awkward real schema costs, and writing it showed how easily a generated fixture measures the compiler's instantiation cache instead of the design (see the REQ-TF-3 note). A nested JSON column, a deep relation graph and a 40-member literal union are the shapes it does not have.                                                                                                                                                                                       |
 | **RISK-7**  | ~~**P4 holds today but nothing keeps it holding.**~~ **Closed 2026-09-02.** `yarn verify:escape-hatches` recomputes every row of §9.4 off a parse tree, fails on any increase, fails on an assertion whose enclosing function has no `// boundary:` comment, and carries the `new Function`/`eval` presence check REQ-AV-2 asks for. Writing it found four uncounted hatches, one of which was a bug (§9.4).                                          | Keep it in CI. Lowering a ceiling is a normal commit; raising one has to be argued in §9.4, which is where the failure message points. The residual risk is scope: it measures `packages/*/src` and deliberately not tests, so a hatch moved into a `__testing__/` helper that ships would not be seen.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **RISK-7b** | ~~**`new Function()` in `refine`/`transform`**~~ **Closed.** Both take a real function value; `source` is recovered via `Function.prototype.toString` for AOT inlining only, and there are 0 `new Function`/`eval` call sites (§9.5).                                                                                                                                                                                                                 | Kept closed by `verify:escape-hatches`, which fails on a `new Function` or `eval` call site and names it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **RISK-7c** | **The type-safety gate was decorative** (§9.6): `expectTypeOf` in specs is a runtime no-op, specs were outside every tsconfig so their `@ts-expect-error` directives were inert, and CI typechecked 4 of 7 projects. Fixing it surfaced 34 real errors, one of which invalidated the frozen typed-populate SPEC.                                                                                                                                      | Fixed: 11 `*.type-test.ts` files, specs inside the program, `scripts/typecheck.mjs` discovering projects from the filesystem, and CI running `yarn typecheck`/`yarn lint`/`yarn fmt:check`. Residual risk is cultural — a new `expectTypeOf` call would pass review unless the counter script bans it too.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **RISK-7c** | **The type-safety gate was decorative** (§9.6): `expectTypeOf` in specs is a runtime no-op, specs were outside every tsconfig so their `@ts-expect-error` directives were inert, and CI typechecked 4 of 7 projects. Fixing it surfaced 34 real errors, one of which invalidated the frozen typed-populate SPEC.                                                                                                                                      | Fixed: 67 `*.type-test.ts` files, specs inside the program, `scripts/typecheck.mjs` discovering projects from the filesystem, and CI running `yarn typecheck`/`yarn lint`/`yarn fmt:check`. Residual risk is cultural — a new `expectTypeOf` call would pass review unless the counter script bans it too.                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **RISK-8**  | **`defineSchema` inverted P2** — resolved 2026-09-03. The column facts lived in a runtime value and the types were derived from it, so the runtime data was the source of truth and the type system was downstream: the opposite of what P2 and P3 claim. It was also why the AOT transformer could not see a named type, and why `benchmarks/harness/framework/app.ts` hand-wrote a `TypeDescriptor`.                                                | Type-first declaration (§6.7, `REQ-TF-*`, `DESIGN-type-first.md`) shipped: the tags are on the interface, the TS 7 checker resolves it, and both the checks and the runtime schema value are generated from that. `defineSchema` was deleted rather than kept as a peer — `yarn verify:no-defineschema` fails if it comes back — and `reflect/codemod.spec.ts` carries an existing project across. Nothing named here is still open: the hand-written descriptor is gone from the harness and from the four spec files that used to test that path, and `TypeDescriptor` itself is deleted — `verify-tf-coverage.mjs` tolerates no partial reader, because the shape that needed the tolerance no longer exists. |
 | **OPEN-1**  | Should the DI container be promoted from a `@zmdb/web` sub-module to its own package?                                                                                                                                                                                                                                                                                                                                                                 | Deferred until it is independently useful per the §3.1 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **OPEN-2**  | Native/WASM kernels for the validator emitter or SQL string assembly.                                                                                                                                                                                                                                                                                                                                                                                 | Not justified today. Gated on a committed benchmark showing a _consumer_ hot-path bottleneck, and must ship with an identical-behaviour pure-JS fallback.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -1066,16 +1002,16 @@ docs site's Anti-patterns page:
 Both source documents are absorbed in full. Where they conflicted with each other, with
 `ARCHITECTURE.md`, or with the shipped code, this PRD resolves as follows:
 
-| Source clause                                                                                                                                                                                    | Resolution here                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Stage-3 PRD: _"Strict Type Verification (Zero Escape Hatches)"_ — no `as` anywhere, while its own sample code used `as DraftOrder`, `as PaidOrder`, `as RouteDefinition[]`, and `any` four times | **P4.** Assertion-free _public surface_; framework internals hold an enumerated, commented, CI-tracked boundary-cast list driven toward zero. `defineState`/`transition` give consumers branding with no `as`.                                         |
-| Data-layer PRD: `totalPrice: numeric().validate(typia.tags.Min<0>())` — depends on Typia, which we are replacing, and contradicts the zero-dependency rule                                       | **REQ-SC-6.** Native `tags` from `@zmdb/aot-validator`. No third-party validator appears in any API or example.                                                                                                                                        |
-| Data-layer PRD: `defineCoreSchema(...)`, `this.rawEngine.selectFrom(...)`                                                                                                                        | Unified on the shipped API: a tagged `interface` plus `schemaOf<T>()`, `defineRepository(...)`/`BaseRepository`, typed `find`/`list` plus the query compiler for raw SQL.                                                                              |
-| Stage-3 PRD: DI via a static global `Container.register/resolve` with `Constructor` tokens and `throw` on miss                                                                                   | **REQ-WB-5/6.** Module-scoped container with explicit `createToken`/`repositoryToken`, graph validated at `compileModule` time (fails _before_ serving), resolved at class-init. No module-level mutable singleton on the hot path.                    |
-| Stage-3 PRD: `Ctx<Params, Body>` with `Params = Record<string, string>` default                                                                                                                  | **REQ-WB-3.** `Ctx<Params, Body, Query>` with `headers`/`method`/`path`, and params **derived from the path literal** via `PathParams<Path>` so an undeclared param is a compile error rather than `string`.                                           |
-| Stage-3 PRD: _"benchmark within <2% variance of native HTTP router speeds"_                                                                                                                      | **REQ-NF-5 + REQ-NF-6.** Split into the claim we can actually machine-verify (0 per-request metadata reads/reflection) and an honest, contract-verified, same-machine peer comparison. The original single-number target was unfalsifiable as written. |
-| Data-layer PRD: _"10x–100x faster than runtime parsing"_ as an assumed property                                                                                                                  | **REQ-NF-1 + §9.2.** Measured: ~40–100× the runtime path, in typia's league — **but only for a build that compiles the checks**, which is now two documented routes with a fixture each rather than an assumption (REQ-AV-3, closed 2026-09-02).       |
-| Both PRDs: four packages / a data layer with a separate framework                                                                                                                                | **§5.** Six packages in one acyclic DAG, with the schema as the shared source of truth for _both_ the SQL boundary and the HTTP boundary (§7 — the seam).                                                                                              |
+| Source clause                                                                                                                                                                                    | Resolution here                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Stage-3 PRD: _"Strict Type Verification (Zero Escape Hatches)"_ — no `as` anywhere, while its own sample code used `as DraftOrder`, `as PaidOrder`, `as RouteDefinition[]`, and `any` four times | **P4.** Assertion-free _public surface_; framework internals hold an enumerated, commented, CI-tracked boundary-cast list driven toward zero. `defineState`/`transition` give consumers branding with no `as`.                                   |
+| Data-layer PRD: `totalPrice: numeric().validate(typia.tags.Min<0>())` — depends on Typia, which we are replacing, and contradicts the zero-dependency rule                                       | **REQ-SC-6.** Native `tags` from `@zmdb/aot-validator`. No third-party validator appears in any API or example.                                                                                                                                  |
+| Data-layer PRD: `defineCoreSchema(...)`, `this.rawEngine.selectFrom(...)`                                                                                                                        | Unified on the shipped API: a tagged `interface` plus `schemaOf<T>()`, `defineRepository(...)`/`BaseRepository`, typed `find`/`list` plus the query compiler for raw SQL.                                                                        |
+| Stage-3 PRD: DI via a static global `Container.register/resolve` with `Constructor` tokens and `throw` on miss                                                                                   | **REQ-WB-5/6.** Module-scoped container with explicit `createToken`/`repositoryToken`, graph validated at `compileModule` time (fails _before_ serving), resolved at class-init. No module-level mutable singleton on the hot path.              |
+| Stage-3 PRD: `Ctx<Params, Body>` with `Params = Record<string, string>` default                                                                                                                  | **REQ-WB-3.** `Ctx<Params, Body, Query>` with `headers`/`method`/`path`, and params **derived from the path literal** via `PathParams<Path>` so an undeclared param is a compile error rather than `string`.                                     |
+| Stage-3 PRD: _"benchmark within <2% variance of native HTTP router speeds"_                                                                                                                      | **REQ-NF-5 + REQ-NF-6.** Split into the claim we can actually machine-verify (0 per-request metadata reads/reflection) and a contract-verified, same-machine peer comparison. The original single-number target was unfalsifiable as written.    |
+| Data-layer PRD: _"10x–100x faster than runtime parsing"_ as an assumed property                                                                                                                  | **REQ-NF-1 + §9.2.** Measured: ~40–100× the runtime path, in typia's league — **but only for a build that compiles the checks**, which is now two documented routes with a fixture each rather than an assumption (REQ-AV-3, closed 2026-09-02). |
+| Both PRDs: four packages / a data layer with a separate framework                                                                                                                                | **§5.** Six packages in one acyclic DAG, with the schema as the shared source of truth for _both_ the SQL boundary and the HTTP boundary (§7 — the seam).                                                                                        |
 
 **Supersession:** `Stage3_Decorator_Framework_PRD.md` and
 `zero_maintenance_data_layer_prd.md` have been **deleted**; their content is absorbed above

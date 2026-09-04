@@ -1,7 +1,7 @@
 # zmdb
 
-> A TypeScript data layer framework that eliminates schema drift maintenance hell.
-> Written entire by LLMs
+> A TypeScript data layer that keeps schemas, types, validation, and SQL in sync.
+> The codebase was written entirely by LLMs.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -11,26 +11,28 @@
 
 ## Packages
 
-| Package                                             | Status | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI) + LLM tool specs, a bounded chat loop, and MCP server/client cores                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + catalog introspection/declaration emission + migration diff/DDL/runner                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + full/shallow is/assert/validate, equals/random, unions, transforms, JSON Ser/De and protobuf descriptors/codecs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, startup-built API versioning, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, streaming, confined static files, gzip/deflate compression, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, health probes, opt-in tracing/metrics and transport propagation, typed application events and command boundaries, Redis/NATS/RabbitMQ strategies, SQL-backed queues, cron and interval scheduling, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
+| Package                                             | Status | What it provides                                                        |
+| --------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | Schema tags, the shared IR, derived DTOs, relations, OpenAPI, and tools |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SQL compilation, dialect support, introspection, DDL, and migrations    |
+| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, random data, and protobuf codecs  |
+| [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming    |
+| [`@zmdb/web`](./packages/web)                       | ✅     | Controllers, DI, middleware, OpenAPI, transports, jobs, and scheduling  |
 
 > Status legend:
 > ✅ complete.
 > 🚧 in progress.
 > 🔜 planned.
 >
-> Measured status: **2,281 tests green** across 212 files, with **144 expected-failing tests**.
-> Of 742 upstream public-API suites, 503 are covered and 239 are argued against.
-> Of 276 docs-site pages, 228 are supported, 35 are TODO, and 13 are not planned.
+> The current suite has **2,281 passing tests** across 212 files, plus **144
+> expected failures** that describe work still to be done. The compatibility
+> inventory covers 503 of 742 upstream API suites and explains why the other 239
+> are out of scope. The documentation site contains 228 supported pages, 35 TODO
+> pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
 
-Install once — the `zmdb` umbrella package re-exports the whole ecosystem:
+The `zmdb` package re-exports the whole project:
 
 ```bash
 npm add zmdb@alpha
@@ -42,15 +44,15 @@ import { defineRepository, schemaOf } from 'zmdb';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
-// Define once — a table is a type. The tags say what TypeScript has no syntax for,
-// and they are phantom symbols, so this declaration compiles to no JavaScript.
+// A table is a TypeScript type. Tags carry the database details that TypeScript
+// cannot express on its own, and disappear from the emitted JavaScript.
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   role: ('admin' | 'user') & HasDefault;
 }
 
-// Wire a fully typed repository in one call — no subclass, no hand-written driver
+// Create a typed repository without a subclass.
 const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
 
 await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
@@ -58,47 +60,60 @@ const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
 const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 ```
 
-`schemaOf<T>()` is a compile-time call: its answer is a function of a type argument,
-and type arguments do not exist at runtime. Wire the build plugin (or run the codegen
-CLI) once — see [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html). An
-untransformed build throws a message saying so; it does not hand back an empty schema.
+`schemaOf<T>()` is resolved at build time because TypeScript erases type arguments
+before the program runs. Set up the build plugin, or run the code generator, as
+described in [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html).
+Calling untransformed code fails with a clear error instead of returning an empty
+schema.
 
-Prefer granular installs (`@zmdb/schema-core`, …) and subclassing `BaseRepository`?
-Both are fully supported — see the [Quick Start](https://ambasta.github.io/zmdb/docs/quick-start.html).
+You can also install individual packages or subclass `BaseRepository`. The
+[full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) covers
+both approaches.
 
 ## Documentation
 
-📚 **Full documentation site:** **<https://ambasta.github.io/zmdb/>** schema, CRUD, relations, transactions, migrations, the query builder, validators and Ser/De are written up in full.
-**Every page has a body**: The read/query DTOs, filters, pagination, projections, populate/join/aggregate results, schema objects, set operations, batch, read replicas, custom types, seeding, entity
-modeling, framework integrations, and the LLM harness are all documented.
+The [documentation site](https://ambasta.github.io/zmdb/) covers schemas, CRUD,
+relations, transactions, migrations, query building, validation, serialization,
+the web framework, and the remaining roadmap.
 
-Features that are **anti-patterns** for a zero-overhead / no-proxy / AOT data layer (identity map, unit-of-work auto-flush, lazy proxy relations, JIT mappers, …) are deliberately excluded and
-explained on the [Anti-patterns](https://ambasta.github.io/zmdb/docs/anti-patterns.html) page.
+Some familiar ORM features conflict with zmdb's no-proxy, ahead-of-time design.
+The [anti-patterns guide](https://ambasta.github.io/zmdb/docs/anti-patterns.html)
+explains why identity maps, automatic unit-of-work flushes, lazy relation proxies,
+and JIT mappers are not part of the project.
 
 See also [ARCHITECTURE.md](./ARCHITECTURE.md) and the [COOKBOOK.md](./COOKBOOK.md).
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for full details, and the [COOKBOOK.md](./COOKBOOK.md) for real-world usage (model definition, CRUD, transactions, relations, validation, Ser/De, JSON/OpenAPI).
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the design and
+[COOKBOOK.md](./COOKBOOK.md) for practical examples.
 
 ## Benchmarks
 
-We run zmdb inside the **actual upstream benchmark harnesses** against the **real competitor libraries** — including the real drizzle-benchmarks method (HTTP server per ORM + k6 load) against
-**PostgreSQL 16**. This honestly surfaces both throughput and, crucially, **which routes/cases zmdb cannot express** (each listed individually, never summed into a score):
+The benchmark suite uses the upstream projects and their normal workloads. The
+ORM comparison runs the 13
+[drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks) routes
+against PostgreSQL 16 and replays them with k6. zmdb supports every route,
+including joins, aggregates, and full-text search.
 
-- **ORM** — [drizzle-benchmarks](https://github.com/drizzle-team/drizzle-benchmarks)
-  routes + k6 vs Drizzle / Kysely. **zmdb now serves all 13 routes (0 DNF)** - joins (#85/#88), aggregations (#90/#93), and full-text search (#95/#97) are implemented and each previously-DNF route
-  returns HTTP 200 with correct data, verified on real Postgres. On the **full 13-route k6 run** (real Northwind, 427k-request replay) zmdb leads on throughput (2,916 req/s) and average latency
-  (102ms); **drizzle keeps the best tail** (p95 173.8ms vs zmdb 215.5) — a real trade-off, not a "fastest ORM" claim. Server-side prepared statements (`ZMDB_PREPARED=1`) reproducibly lift
-  zmdb to 3,068 req/s / 97ms avg and narrow the tail (p95 209.5) — kept opt-in to preserve the zero-state default. (Aggregate routes also use a different projection shape; see RESULTS.md.)
-- **Validation** — [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks) runner vs Zod v3/v4, Valibot, Ajv, TypeBox, ArkType, myzod. zmdb covers all 4
-  cases (no DNF) but runs its **runtime** validator (the AOT transformer is not yet a wired build plugin), so JIT/AOT libraries are 6–24× faster on assert - the AOT premise is unproven here and not claimed.
+In the recorded Northwind run, zmdb handled 2,916 requests per second with
+102 ms average latency. Drizzle had the better tail latency: 173.8 ms at p95,
+compared with 215.5 ms for zmdb. Enabling prepared statements with
+`ZMDB_PREPARED=1` raised zmdb to 3,068 requests per second, lowered the average
+to 97 ms, and brought p95 down to 209.5 ms. Prepared statements remain opt-in
+because the default repository does not keep hidden statement state.
 
-**Honesty policy:** DNF routes/cases are enumerated individually, not aggregated. Typia (needs its AOT build) and Prisma (engine not installed) are DNF. We never silently skip or fake an in-scope
-case, and we do not claim a "fastest" title we have not earned across the full workload.
+The validation comparison uses
+[typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks).
+The runtime validator covers all four cases, but it is slower than libraries
+that generate or compile validators. The separate AOT benchmark measures zmdb's
+generated path.
 
-Full results + per-route/per-case DNF listings:
-[`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md). Reproduction (HTTP servers + k6 + Postgres-via-podman): [`benchmarks/harness/`](./benchmarks/harness).
+Unsupported cases are listed individually. Typia is omitted when its build step
+is unavailable, and Prisma is omitted when its engine is not installed.
+
+See [`benchmarks/RESULTS.md`](./benchmarks/RESULTS.md) for the full results and
+[`benchmarks/harness/`](./benchmarks/harness) for reproduction instructions.
 
 📊 **Interactive dashboard** (charts + Node/Bun/Deno tabs, like the upstream sites): **<https://ambasta.github.io/zmdb/benchmarks/>**
 

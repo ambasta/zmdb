@@ -110,7 +110,11 @@ Do not put real data in an example. Specs get published, and an "example" user w
 
 The decorator half is not hard — a `@ApiDoc({ summary, tags })` method decorator writing to `Symbol.metadata`, read by `toOpenApi` the same way `getRoutes` reads routes. Perhaps fifty lines.
 
-The reason it has not shipped is worth stating: a decorator that only carries prose is a thin win over a keyed record, and a decorator that carries _schema_ information (`@ApiProperty`) would reintroduce exactly the duplicate-declaration problem the schema derivation exists to remove. So if this lands, it lands as prose-and-metadata only, with schemas still coming from `toJsonSchema`.
+It has not shipped because a prose-only decorator offers little over a keyed
+record, while a schema-bearing decorator such as `@ApiProperty` would recreate
+the duplicate declarations that schema derivation removes. If added, the
+decorator will carry only prose and metadata; schemas will still come from
+`toJsonSchema`.
 
 ---
 

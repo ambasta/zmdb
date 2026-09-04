@@ -73,7 +73,7 @@ Resumable, interruptible, and it does not hold a transaction open for an hour. S
 
 ## Irreversible migrations
 
-Write the honest `down`:
+Write the `down`:
 
 ```ts
 {

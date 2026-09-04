@@ -1,10 +1,8 @@
-> **Not planned.** There is no GraphQL, and therefore no subscriptions — no
-> `@Subscription`, no `PubSub`, no `graphql-ws` integration — and there will not be:
-> [GraphQL is out of scope](./web-graphql.html). The design is frozen (see the last
-> section) and stays in the tree as a record, because the four failure modes it
-> settles — cancellation, an expiring guard's verdict, a slow subscriber and a
-> filter mistaken for a permission check — are the same four in any long-lived
-> stream, including the `@Gateway` and SSE ones below that do work today.
+> **Not planned.** `@zmdb/web` has no GraphQL subscriptions because
+> [GraphQL is out of scope](./web-graphql.html). For real-time delivery, use the
+> WebSocket and SSE features shown below. The remaining design notes cover
+> cancellation, authorization expiry, backpressure, and filtering in any
+> long-lived stream.
 
 ## What exists for real-time
 
@@ -108,15 +106,25 @@ export interface PubSub {
 }
 ```
 
-Two methods, an `AbortSignal`, and an in-process implementation. Five of the decisions around it are worth knowing now, because four of them are about what happens when things go wrong — which is what the four bullets in the section above are also about.
+The interface has two methods, an `AbortSignal`, and an in-process
+implementation. Five design choices determine how it behaves when a stream
+fails or a client disconnects.
 
 **Cancellation is a signal passed in, not a teardown function handed back.** The four ways a subscription ends — client disconnect, client `complete`, an error in the stream, and `app.dispose()` — all abort the same controller, so cleanup is one code path with four triggers rather than four call sites, one of which would eventually be missing. That is the `req.on('close')` bullet above, made structural. The registry implements the existing `OnShutdown` hook, so `app.dispose()` is the whole of the shutdown story.
 
-**A guard's verdict expires.** A guard that runs at subscribe time and never again means a revoked token keeps receiving data indefinitely, and the alternative — re-running the guard per event — is a fan-out amplifier pointed at your own database: 1,000 subscribers on a topic publishing 100 events a second is 100,000 guard evaluations a second. So the guard runs before delivery and its verdict is memoised for `reauthMs`, default **5000**. Exposure after a revocation is at most five seconds, and the same knob spells the other two policies: `0` is per-event, `Infinity` is subscribe-time only and has to be written out. A guard that fails mid-stream **terminates that operation** with `FORBIDDEN` and leaves the socket open — skipping the event instead would leave a client that cannot distinguish "revoked" from "quiet topic".
+**A guard's verdict expires.** A guard that runs at subscribe time and never again means a revoked token keeps receiving data indefinitely, and the alternative — re-running the guard per event — is a fan-out amplifier pointed at your own database: 1,000 subscribers on a topic publishing 100 events a second is 100,000 guard evaluations a second. So the guard runs before delivery and its verdict is memoised for `reauthMs`, default **5000**.
 
-**A slow subscriber is terminated, not trimmed, and never blocks the publisher.** The buffer is bounded per subscriber (default 64) with no option for an unbounded one, because a client that opens a subscription and stops reading would otherwise be a memory-exhaustion attack from one connection. On overflow the client gets `SUBSCRIPTION_OVERFLOW` and reconnects; dropping the oldest event is refused, because a subscription payload has no sequence number, so a silently incomplete stream is undetectable from the client side. And `publish` never waits for a subscriber: it is called from a transaction commit, and letting the slowest client set the rate there is head-of-line blocking across every tenant.
+Exposure after a revocation is at most five seconds, and the same knob spells the other two policies: `0` is per-event, `Infinity` is subscribe-time only and has to be written out. A guard that fails mid-stream **terminates that operation** with `FORBIDDEN` and leaves the socket open — skipping the event instead would leave a client that cannot distinguish "revoked" from "quiet topic".
 
-**A filter is not an authorisation check, and the signature is what says so.** `filter(payload, args)` is not given the context — it cannot see the headers, the viewer or the container, so it is structurally incapable of being a permission check. A filter is about relevance; a guard is about permission; conflating them leaks data to the wrong subscriber, quietly, because a filter with a bug delivers rather than throwing. Where a filter is tempting for authorisation, put the identity in the **topic name** at subscribe time — `post.created:tenant-7` — which is the same rule as the third bullet above and is the one control no new field can be added without.
+**A slow subscriber is terminated, not trimmed, and never blocks the publisher.** The buffer is bounded per subscriber (default 64) with no option for an unbounded one, because a client that opens a subscription and stops reading would otherwise be a memory-exhaustion attack from one connection.
+
+On overflow the client gets `SUBSCRIPTION_OVERFLOW` and reconnects; dropping the oldest event is refused, because a subscription payload has no sequence number, so a silently incomplete stream is undetectable from the client side.
+
+And `publish` never waits for a subscriber: it is called from a transaction commit, and letting the slowest client set the rate there is head-of-line blocking across every tenant.
+
+**A filter is not an authorisation check, and the signature is what says so.** `filter(payload, args)` is not given the context — it cannot see the headers, the viewer or the container, so it is structurally incapable of being a permission check. A filter is about relevance; a guard is about permission; conflating them leaks data to the wrong subscriber, quietly, because a filter with a bug delivers rather than throwing.
+
+Where a filter is tempting for authorisation, put the identity in the **topic name** at subscribe time — `post.created:tenant-7` — which is the same rule as the third bullet above and is the one control no new field can be added without.
 
 **The socket is still yours.** The freeze had zmdb implement the `graphql-transport-ws` protocol state machine — `connection_init`, `subscribe`, `next`, `error`, `complete`, and the close codes — with the WebSocket server left where [the WebSocket adapter](./web-ws-adapter.html) already puts it, for the same reason nothing serves `POST /graphql`. Since none of that is being built, the state machine is yours too if you want that protocol; the handshake was to be one callback, with `connection_init`'s payload becoming the `RequestFacts` every guard reads.
 

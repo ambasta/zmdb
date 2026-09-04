@@ -124,7 +124,10 @@ export class ZmdbChatHistory extends BaseListChatMessageHistory {
 
 ## What is worth being careful about
 
-Adopting LangChain adds a large dependency tree to a project whose data layer has none. That is a legitimate trade for the orchestration, and it is worth knowing you are making it. If what you need is "call a model with a schema-constrained tool and validate the result", that is [twenty lines of `fetch`](./llm-http.html) and no dependency.
+LangChain adds a large dependency tree, which may be justified when the
+application needs its orchestration features. If the requirement is only to call
+a model with a schema-constrained tool and validate the result, the
+[plain `fetch` example](./llm-http.html) does that without another dependency.
 
 ---
 

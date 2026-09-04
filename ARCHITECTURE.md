@@ -82,45 +82,38 @@ rejected regardless of how convenient it is.
    integrations (a `pg` driver, a Hono adapter) are _optional_ and structurally
    typed. The tooling exception is `oxfmt`, pinned by query-compiler because
    declaration emission must invoke the same formatter as the repository.
-8. **Honest measurement.** Performance claims are backed by the real upstream
-   benchmark harnesses; gaps and trade-offs are enumerated individually, never
-   averaged into a flattering score, never silently skipped (see the benchmarks
-   dashboard).
+8. **Reproducible measurement.** Performance claims are backed by the real upstream
+   benchmark harnesses. The results include unsupported cases and trade-offs
+   instead of reducing them to a single score (see the benchmarks dashboard).
 9. **One front-end: a table is a type.** There is no builder DSL and no schema
-   value you author by hand. A declaration is a TypeScript interface carrying
-   phantom tags, the reflection reads it once into a `TypeIR`, and every back-end
-   — DDL, DTOs, JSON Schema, the emitted validator — reads that IR and nothing
-   else. Two front-ends would mean two answers to "what are this table's
-   columns", and the emitted validator can only ever agree with one of them.
-   Enforced by `yarn verify:no-defineschema`, which imports every published
-   surface and reads its export names rather than grepping for a spelling. The
-   back-end half has its own gate, because it decays differently: the four walks
-   this replaced were each two convenient lines in a package that needed one more
-   fact about a column, and a fifth had already grown in the seeder before anyone
-   looked. `yarn verify:one-walker` names the files that may read column metadata
-   at all — the producer, the DDL boundary, one flag in the repository — with the
-   reason beside each, and fails on a new reader or a stale exemption.
+   value to maintain. A TypeScript interface with phantom tags is reflected once
+   into `TypeIR`. DDL, DTOs, JSON Schema, and generated validators all consume
+   that same IR.
+
+   `yarn verify:no-defineschema` protects the single front-end by checking every
+   published export. `yarn verify:one-walker` protects the back-end by listing
+   the few places allowed to inspect column metadata, together with the reason
+   for each exception. It fails when another metadata reader appears or an
+   existing exception is no longer needed.
+
 10. **The source runs as-is; the build only mirrors it.** In the repo every
     `exports` target is a `.ts` file and Node reads it directly, stripping the
-    types — that is how the tests, the dev loop and the consumer fixtures all
-    run, and `yarn verify:exports` imports every published subpath that way. Relative
-    specifiers are written `'./errors.js'`, which is what NodeNext resolution
-    asks for with `allowImportingTsExtensions` off, and what the emit needs
-    verbatim. Node will not map that onto `errors.ts` by itself, so every entry
-    point that runs the sources under `node` loads a resolve hook —
-    `scripts/ts-specifier-hook.mjs`, thirty lines, no transform and no compiler.
-    It fires only where the `.ts` sibling exists and the `.js` one does not, so a
-    specifier naming a real `.js` file (`dist/index.js`, a
-    `*.zmdb.generated.js`) still means that file. Separately, no module on a path
-    reachable from an entry point may contain syntax that is not type syntax,
-    which rules out a decorator. What ships is `dist`, a
-    file-for-file `tsc` emit of `src` (`scripts/build-package.mjs`); the source
-    ships beside it for the maps. It has to be a build, because Node refuses to
-    strip types under `node_modules` — an `exports` target of `./src/index.ts`
-    throws `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING` once installed, which
-    the workspace's own symlinks hide. `yarn verify:publish` is the check that
-    does not get fooled: it packs, installs and imports every subpath from a
-    directory that is not this one.
+    types. Tests, local development, and consumer fixtures use those source
+    exports, and `yarn verify:exports` imports every published subpath that way.
+
+    Relative imports still use NodeNext-style `.js` specifiers. Node does not
+    resolve those to source `.ts` files, so source entry points load the small
+    `scripts/ts-specifier-hook.mjs` resolver. The hook only substitutes a `.ts`
+    sibling when the requested `.js` file does not exist. Real JavaScript files,
+    including generated files and `dist`, are left alone. Source modules must
+    also avoid runtime syntax that Node's type stripping cannot parse, including
+    decorators.
+
+    Published packages use a file-for-file `tsc` build in `dist`, with `src`
+    included for source maps. A build is required because Node refuses to strip
+    types inside `node_modules`; workspace symlinks would otherwise hide that
+    failure. `yarn verify:publish` catches it by packing each package, installing
+    it outside the workspace, and importing every subpath.
 
 ### 2.1 The `as`-free rule and its narrow exceptions
 
@@ -141,28 +134,23 @@ shape." The policy:
   cast. New assertions require justification in review; the count is tracked and
   driven toward zero.
 
-> This is the honest position: we make the _public surface_ assertion-free and
-> hold framework internals to a documented, shrinking exception list — rather
-> than claim an absolute we'd have to fake with hidden `any`.
+> The public API is assertion-free. Framework internals use a documented
+> exception list for places where runtime data crosses into a TypeScript type.
 >
-> **Where that stands (2026-09-04):** 57 assertions across 172 shipped files in
-> `packages/*/src`, all documented under 57 `// boundary:` comments; 0 `any`, 0
-> non-null `!`, 1 lint suppression, 0 `as unknown as`, 0 consumer-facing `as` in
-> the docs.
+> As of 2026-09-04, the 176 shipped files under `packages/*/src` contain 55
+> assertions and 55 matching `// boundary:` comments. They contain no `any`, no
+> non-null assertions, no `as unknown as`, and one lint suppression. The
+> consumer documentation contains no required casts.
 >
-> That is up from 28, and the increase came with the type-first work.
-> `aot-validator` holds 26 of the 57, clustered where the type system stops being
-> able to help: checker values, parsed JSON and the certified validation return.
-> Every assertion carries a
-> `// boundary:` comment stating the runtime guarantee that makes it sound —
-> that is the part the gate below checks, and it is the part that matters more
-> than the count.
+> The count rose from 28 during the type-first work. Of the 55 current
+> assertions, 26 are in `aot-validator`, mainly around checker values, parsed
+> JSON, and validated return values. Each comment records the runtime guarantee
+> behind its assertion.
 >
-> The number is now **ratcheted in CI** — `yarn verify:escape-hatches` fails both
-> when a count exceeds its ceiling and when an assertion has no `// boundary:`
-> comment, and it tells you to lower the ceiling when a row drops below it. The
-> earlier version of this note recorded a silent drift from 23 to 28 that nobody
-> caught; that is what the ratchet is for (PRD RISK-7).
+> `yarn verify:escape-hatches` enforces both the comments and a per-package count
+> ceiling. It fails when a count rises, when an assertion lacks its boundary
+> comment, or when a ceiling can be lowered. This closes the gap that previously
+> let the total move from 23 to 28 without a failing check (PRD RISK-7).
 
 ---
 
@@ -313,17 +301,11 @@ Because native code trades maintainability for speed, it is gated:
   string", "hash these bytes") — never a chatty API that crosses the JS↔native
   boundary per row.
 
-### 4.3 Current reality (honest)
+### 4.3 Current state
 
-Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc`
-(`scripts/build-package.mjs`), and it already meets our validation/ORM benchmark
-targets on Node/Bun/Deno. The
-AOT validator's inlined output _is_ our "generated JS" tier. **No native/WASM
-kernel exists or is currently justified.** The policy above is the rule we'll
-apply _if and when_ a measured bottleneck appears — we do not add native
-complexity speculatively (north star 2). The realistic first candidates, should
-they ever be needed, are the AOT validator's JS emitter and the query compiler's
-string assembly — both pure, both boundary-clean.
+Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc` (`scripts/build-package.mjs`), and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The AOT validator's inlined output _is_ our "generated JS" tier.
+
+**No native/WASM kernel exists or is currently justified.** The policy above is the rule we'll apply _if and when_ a measured bottleneck appears — we do not add native complexity speculatively (north star 2). The realistic first candidates, should they ever be needed, are the AOT validator's JS emitter and the query compiler's string assembly — both pure, both boundary-clean.
 
 ---
 
@@ -352,29 +334,27 @@ Committing to a hard floor is itself an architecture decision — it removes cod
   `expectTypeOf`: vitest only _runs_ specs, so `expectTypeOf(...)` there is a
   runtime no-op. Those files hold no runtime code — they are a **compilation**
   gate, run by `yarn typecheck` (which is what CI runs). See PRD §9.6.
-- **The public surface is tested against what the incumbents test, not only
-  against what they document.** `yarn verify:docs-coverage` maps 396 upstream
-  documentation pages; `yarn verify:api-coverage` does the harder half — the 742
-  public-API test suites (9,258 assertions) that Drizzle, Kysely, MikroORM,
-  NestJS and Typia actually run. A documented feature with no test upstream is a
-  promise; a tested one is behaviour someone already depends on, so it is the
-  better inventory of what a data layer is expected to do. Every suite in
-  `tests/api-coverage/inventory.mjs` either names a zmdb test or carries a
-  written reason we do not want it, and the gate fails on a suite that has
-  neither. 453 suites are answered by 198 of our tests and 289 are argued
-  against — a ratio worth reading honestly, because a family upstream writes out
-  eighteen times is one behaviour, while a test credited for sixty suites is a
-  thinner claim than the same test credited for two. The gate cannot tell those
-  apart, so it prints its widest credits on every run rather than folding them
-  into a total. The inventory is **pinned to an upstream commit** and re-harvested
-  deliberately by `scripts/harvest-api-tests.mjs`, which clones the five
-  repositories; CI never runs it, because a competitor landing a test at 3am
-  should not turn our build red.
+- **Coverage follows upstream documentation and tests.**
+  `yarn verify:docs-coverage` maps 396 documentation pages.
+  `yarn verify:api-coverage` maps the 742 public API suites and 9,258 assertions
+  run by Drizzle, Kysely, MikroORM, NestJS, and Typia.
+
+  Each upstream suite in `tests/api-coverage/inventory.mjs` either points to a
+  zmdb test or explains why the behavior is out of scope. At present, 311 zmdb
+  tests cover 503 suites and the remaining 239 have recorded exclusions. These
+  totals are not a quality score: one behavior may appear in many upstream
+  suites, and a single broad zmdb test may receive many credits. The gate prints
+  its broadest mappings so they can be reviewed directly.
+
+  The inventory is pinned to specific upstream commits. Maintainers refresh it
+  with `scripts/harvest-api-tests.mjs`; CI uses the pinned copy so an upstream
+  change cannot break this repository without review.
+
 - **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
   `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins
   `noImplicitAny` and asserts `experimentalDecorators: false`.
-- **Build:** `tsup` → ESM `.js` + `.d.ts`; `@zmdb/*` kept external so cross-package
-  edges resolve to published packages, not bundled copies.
+- **Build:** `scripts/build-package.mjs` runs `tsc` to produce ESM `.js` and
+  `.d.ts` files in a layout that mirrors `src`.
 - **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag
   tracks the highest-precedence release (stable > rc > beta > alpha); provenance
   attested. License **GPL-3.0-or-later**.

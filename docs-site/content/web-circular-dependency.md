@@ -68,7 +68,7 @@ class AppModule {}
 ```
 
 `A` and `B` now depend on `EVENTS` and not on each other. This is usually the
-honest fix: the "cycle" was two services reaching into each other to notify.
+right fix: the "cycle" was two services reaching into each other to notify.
 
 **Depend on the container, not the instance.** If one direction is only needed
 occasionally, resolve it at the point of use — lazily, and after both are

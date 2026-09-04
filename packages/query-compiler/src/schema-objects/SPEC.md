@@ -45,13 +45,11 @@ mysql     — refused (see below)
 Mixed forms are allowed and each element is treated on its own:
 `columns: ['tenant_id', { expr: 'lower(email)' }]` gives `("tenant_id", lower(email))`.
 
-The tagged wrapper exists to make the choice explicit at the call site. A bare string could
-not: `'lower(email)'` quoted as an identifier produces `"lower(email)"`, which Postgres reads
-as a column whose name contains parentheses and rejects with "column does not exist" — and
-sniffing for a `(` to decide would make a legitimately odd column name unindexable while
-quietly accepting a half-written expression. So the caller says which it meant, and the case-
-insensitive-unique recipe this epic exists to enable (`{ expr: 'lower(email)' }`) is spelled
-differently from an ordinary index on a column that happens to be called `email`.
+The tagged wrapper exists to make the choice explicit at the call site.
+
+A bare string could not: `'lower(email)'` quoted as an identifier produces `"lower(email)"`, which Postgres reads as a column whose name contains parentheses and rejects with "column does not exist" — and sniffing for a `(` to decide would make a legitimately odd column name unindexable while quietly accepting a half-written expression.
+
+So the caller says which it meant, and the case- insensitive-unique recipe this epic exists to enable (`{ expr: 'lower(email)' }`) is spelled differently from an ordinary index on a column that happens to be called `email`.
 
 The expression is trusted, schema-authored DDL rather than request data. The caller is responsible
 for quoting every identifier inside it and must never interpolate user input. This is a deliberate
@@ -210,13 +208,9 @@ extension is a migration that fails halfway, leaving the database in a state the
 describe — which is worse than either succeeding or failing cleanly. See
 `../migrations/SPEC.md` §1.5 for where that order is imposed and how a snapshot records extensions.
 
-**Dropping is not automatic, and this is the deliberate asymmetry.** An extension declared and then
-undeclared produces no `DROP EXTENSION`, because `DROP EXTENSION vector` fails while any column still
-uses the type and `DROP EXTENSION vector CASCADE` drops those columns instead — so the two available
-behaviours are "the migration fails" and "the migration deletes data". Neither is something to generate
-from the absence of a declaration, particularly when that absence often means "somebody else manages
-this one now". Removal is a hand-written migration, and the generated operation list intentionally
-contains no extension-removal entry.
+**Dropping is not automatic, and this is the deliberate asymmetry.** An extension declared and then undeclared produces no `DROP EXTENSION`, because `DROP EXTENSION vector` fails while any column still uses the type and `DROP EXTENSION vector CASCADE` drops those columns instead — so the two available behaviours are "the migration fails" and "the migration deletes data".
+
+Neither is something to generate from the absence of a declaration, particularly when that absence often means "somebody else manages this one now". Removal is a hand-written migration, and the generated operation list intentionally contains no extension-removal entry.
 
 ## 8. Stored routines (frozen — epic "Stored procedures and functions")
 
@@ -269,13 +263,9 @@ Parameter types are rendered by the same `ddlType(dialect, type)` the columns us
 is `TIMESTAMPTZ` here and not `TIMESTAMP` — a routine parameter and a column of the same declared type must
 be the same database type, or a value round-trips through the routine having lost its offset.
 
-**The body is dollar-quoted with a tagged delimiter, never with bare `$$`.** A plpgsql body containing `$$`
-is ordinary — it happens the moment somebody nests a function definition or pastes an example — and bare
-`$$` there does not fail cleanly: it terminates the literal early, and the remainder either is a syntax
-error or parses as further clauses, giving a function whose body is a truncated prefix of what the author
-wrote. So the tag is `$zmdb$`, and if the body contains that string the emitter appends the smallest
-integer that does not appear: `$zmdb1$`, `$zmdb2$`, and so on. The search is over the body text, so the tag
-is a pure function of the body and the goldens stay stable.
+**The body is dollar-quoted with a tagged delimiter, never with bare `$$`.** A plpgsql body containing `$$` is ordinary — it happens the moment somebody nests a function definition or pastes an example — and bare `$$` there does not fail cleanly: it terminates the literal early, and the remainder either is a syntax error or parses as further clauses, giving a function whose body is a truncated prefix of what the author wrote.
+
+So the tag is `$zmdb$`, and if the body contains that string the emitter appends the smallest integer that does not appear: `$zmdb1$`, `$zmdb2$`, and so on. The search is over the body text, so the tag is a pure function of the body and the goldens stay stable.
 
 ### 8.2 MySQL
 
@@ -356,13 +346,9 @@ The Postgres `DROP` names the **previous** parameter types, because an unqualifi
 That is also why `replaceRoutineStatements` takes `prev`: no other input carries the signature that has to
 be dropped, and reconstructing it from the database would mean introspecting `pg_proc` at emit time.
 
-**Drop-then-create is not atomic, and the spec does not pretend otherwise.** On Postgres the pair is inside
-the migration's transaction, because Postgres has transactional DDL, so no window exists. On MySQL, DDL
-commits implicitly and there is a real interval in which the routine does not exist; a caller in that
-interval gets `PROCEDURE does not exist`. There is no emitter trick that closes it — the honest remedies
-are outside the emitter: deploy the new routine under a new name and switch callers, or accept the window
-in a maintenance step. The runner surfaces the failure; it does not retry, because a retry after an
-implicit commit re-runs a `CREATE` against a routine that may now exist.
+**Drop-then-create is not atomic, and the spec does not pretend otherwise.** On Postgres the pair is inside the migration's transaction, because Postgres has transactional DDL, so no window exists. On MySQL, DDL commits implicitly and there is a real interval in which the routine does not exist; a caller in that interval gets `PROCEDURE does not exist`.
+
+There is no emitter trick that closes it — the practical remedies are outside the emitter: deploy the new routine under a new name and switch callers, or accept the window in a maintenance step. The runner surfaces the failure; it does not retry, because a retry after an implicit commit re-runs a `CREATE` against a routine that may now exist.
 
 ### 8.5 The `DELIMITER` question, resolved
 
@@ -392,12 +378,11 @@ Two consumers, two treatments:
 and any trailing newline**. Equal fingerprints mean no statement is emitted; any difference re-emits by
 §8.4.
 
-That is all the normalisation there will be, and the consequence is accepted: a reindent, a comment edit or
-a case change in a keyword causes a re-emit. The alternative is a SQL parser, and not even one —
-`language` is an open string, so the body may be plpgsql, sql, plv8 JavaScript, or PL/Python. "Normalise
-the body" means "normalise an arbitrary programming language", and a normaliser that is wrong in the other
-direction reports no change for a routine that did change, which is the failure worth avoiding. A
-re-emitted identical routine costs one DDL statement; a missed change costs a wrong answer in production.
+That is all the normalisation there will be, and the consequence is accepted: a reindent, a comment edit or a case change in a keyword causes a re-emit.
+
+The alternative is a SQL parser, and not even one — `language` is an open string, so the body may be plpgsql, sql, plv8 JavaScript, or PL/Python. "Normalise the body" means "normalise an arbitrary programming language", and a normaliser that is wrong in the other direction reports no change for a routine that did change, which is the failure worth avoiding.
+
+A re-emitted identical routine costs one DDL statement; a missed change costs a wrong answer in production.
 
 A parameter **rename** changes the fingerprint even though the call signature is unchanged, because a
 plpgsql body references parameters by name and the emitter cannot tell whether the body was updated to
@@ -409,13 +394,9 @@ match.
 exists rather than being omitted so that a declaration written today does not change shape when support
 lands, and so the refusal can name the parameter instead of failing as an unknown property.
 
-The reason it is refused is that retrieving an output parameter is not a result set. MySQL needs
-`CALL p(@out)` followed by `SELECT @out` — two statements sharing session state, which a
-`Driver.execute(CompiledQuery)` returning rows cannot express and a pooled connection cannot guarantee is
-the same session. Postgres instead returns output parameters _as a result row_. So one declaration would
-need two call shapes and two result types, and the typed call surface (`../../../repository/SPEC.md` §4a)
-would have a return type that depends on the dialect. Refusing is honest; supporting it on one dialect is
-how a schema stops being portable.
+The reason it is refused is that retrieving an output parameter is not a result set. MySQL needs `CALL p(@out)` followed by `SELECT @out` — two statements sharing session state, which a `Driver.execute(CompiledQuery)` returning rows cannot express and a pooled connection cannot guarantee is the same session. Postgres instead returns output parameters _as a result row_.
+
+So one declaration would need two call shapes and two result types, and the typed call surface (`../../../repository/SPEC.md` §4a) would have a return type that depends on the dialect. Refusing is consistent; supporting it on one dialect is how a schema stops being portable.
 
 ### 8.8 Not expressible, on purpose
 
@@ -436,7 +417,7 @@ how a schema stops being portable.
 - Identifiers quoted per dialect (`"` pg/sqlite, `` ` `` mysql).
 - Emitters are pure functions returning a single DDL statement; deterministic.
 - RLS / materialized views are postgres features — on other dialects the emitter
-  throws an honest `UnsupportedFeatureError` (never silently wrong).
+  throws an explicit `UnsupportedFeatureError` (never silently wrong).
 
 <!-- §3 sequences frozen: CREATE SEQUENCE with optional START/INCREMENT. -->
 

@@ -67,13 +67,9 @@ If you do not do this, you will see intermittent failures under load that look l
 
 ## What a real dialect would change
 
-`serial` would stay numeric and become `INT8 DEFAULT unique_rowid()`, because
-`Entity<T>` types a `Serial` column as a `number`; changing the storage type to UUID
-would make the generated TypeScript type false. UUID primary keys remain the explicit
-`Sql<'text'> & PrimaryKey & HasDefault` declaration shown above. A dedicated dialect
-would also map `integer` to `INT4`, refuse Postgres full-text-search SQL, and classify
-`40001` for a transaction wrapper to retry. The wrapper owns the unit of work; neither
-the query compiler nor a driver can safely replay application side effects.
+`serial` would stay numeric and become `INT8 DEFAULT unique_rowid()`, because `Entity<T>` types a `Serial` column as a `number`; changing the storage type to UUID would make the generated TypeScript type false. UUID primary keys remain the explicit `Sql<'text'> & PrimaryKey & HasDefault` declaration shown above.
+
+A dedicated dialect would also map `integer` to `INT4`, refuse Postgres full-text-search SQL, and classify `40001` for a transaction wrapper to retry. The wrapper owns the unit of work; neither the query compiler nor a driver can safely replay application side effects.
 
 ---
 

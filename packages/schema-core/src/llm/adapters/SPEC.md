@@ -29,25 +29,20 @@ new DynamicStructuredTool(langchainTool('create_user', users, { … }));
 tool(aiSdkTool('create_user', users, { … }));
 ```
 
-Which means the type compatibility is structural, and a structural claim that nothing checks is a claim that
-rots. So it is checked: **a package under `fixtures/` devDepends on `@langchain/core` and `ai`, and its
-typecheck is the assertion** — it assigns each adapter's return to the framework's own parameter type and does
-nothing else. `fixtures/` rather than the package's own devDependencies, for the reason the existing
-`consumer-cli` and `consumer-plugin` fixtures are there: a fixture consumes the built package through its
-published types, so what it proves is what a user gets rather than what the source happens to allow. When a
-framework renames a field, that typecheck fails in this repository instead of in a user's.
+Which means the type compatibility is structural, and a structural claim that nothing checks is a claim that rots.
+
+So it is checked: **a package under `fixtures/` devDepends on `@langchain/core` and `ai`, and its typecheck is the assertion** — it assigns each adapter's return to the framework's own parameter type and does nothing else. `fixtures/` rather than the package's own devDependencies, for the reason the existing `consumer-cli` and `consumer-plugin` fixtures are there: a fixture consumes the built package through its published types, so what it proves is what a user gets rather than what the source happens to allow.
+
+When a framework renames a field, that typecheck fails in this repository instead of in a user's.
 
 The version each framework is pinned at is recorded in the fixture's manifest and nowhere else. A framework
 version is not a fact about zmdb.
 
 ## 2. The validation call cannot live inside the adapter
 
-`assert<T>(x)` is rewritten by the transform **at the call site the transform can see**, from a type argument
-the checker can resolve there. Inside a published adapter, `T` is the adapter's own type parameter: there is
-no type to inline, so the call degrades to the witness path and throws `runtime type witness required in
-test/fallback mode` at runtime. A generic function in a library cannot validate its own type parameter, which
-is the same rule `tests/api-coverage/mapping.mjs` records as `NO_FACTORY_FORM` and the reason no
-`createIs<T>()` exists.
+`assert<T>(x)` is rewritten by the transform **at the call site the transform can see**, from a type argument the checker can resolve there. Inside a published adapter, `T` is the adapter's own type parameter: there is no type to inline, so the call degrades to the witness path and throws `runtime type witness required in test/fallback mode` at runtime.
+
+A generic function in a library cannot validate its own type parameter, which is the same rule `tests/api-coverage/mapping.mjs` records as `NO_FACTORY_FORM` and the reason no `createIs<T>()` exists.
 
 So the adapter cannot be the thing that validates, and pretending otherwise would produce an adapter that
 throws on its first tool call. Frozen: **`validate` is a required field the caller supplies**, one arrow, in
@@ -128,12 +123,9 @@ export declare function aiSdkTool<T, S>(
 ): { readonly description: string; readonly inputSchema: S; readonly execute: (input: unknown) => Promise<unknown> };
 ```
 
-The AI SDK's `tool()` wants `inputSchema` — `parameters` was the v4 key and `llm-vercel-ai-sdk.md:16` and
-`:34` still use it — and its value must be either a Zod schema or the SDK's own `Schema`, which is **branded
-with a symbol**. A brand exists precisely so it cannot be produced from outside, so there are three ways
-through and two are wrong: importing `ai` is §1, and casting puts a lie in zmdb that goes stale the day the
-brand changes. Frozen: **the caller passes the SDK's own `jsonSchema` in**, typed by the minimal signature
-above, and `S` is generic so whatever it returns flows out unchanged and stays assignable to `tool()`.
+The AI SDK's `tool()` wants `inputSchema` — `parameters` was the v4 key and `llm-vercel-ai-sdk.md:16` and `:34` still use it — and its value must be either a Zod schema or the SDK's own `Schema`, which is **branded with a symbol**.
+
+A brand exists precisely so it cannot be produced from outside, so there are three ways through and two are wrong: importing `ai` is §1, and casting puts a lie in zmdb that goes stale the day the brand changes. Frozen: **the caller passes the SDK's own `jsonSchema` in**, typed by the minimal signature above, and `S` is generic so whatever it returns flows out unchanged and stays assignable to `tool()`.
 
 ```ts
 import { tool, jsonSchema } from 'ai';
@@ -203,12 +195,11 @@ retry.
 
 ## 6. Where the `{}` gap is actually covered
 
-`json-schema` passes an empty schema through (`../SPEC.md` §2), so a `json` column is an unconstrained tool
-parameter in both frameworks — the model may put anything there and the framework will accept it. The
-`validate` arrow is what closes that, and it is the reason §2 makes it required rather than optional: the
-app's TypeScript type for that column is not `unknown`, so `assert<CreateDTO<User>>` rejects what the tool
-schema permitted. Both pages should say this next to their `validate` line, because "the schema constrains the
-model" is otherwise a reasonable thing to assume from the code.
+`json-schema` passes an empty schema through (`../SPEC.md` §2), so a `json` column is an unconstrained tool parameter in both frameworks — the model may put anything there and the framework will accept it.
+
+The `validate` arrow is what closes that, and it is the reason §2 makes it required rather than optional: the app's TypeScript type for that column is not `unknown`, so `assert<CreateDTO<User>>` rejects what the tool schema permitted.
+
+Both pages should say this next to their `validate` line, because "the schema constrains the model" is otherwise a reasonable thing to assume from the code.
 
 ## 7. What #526 has to assert
 

@@ -36,9 +36,9 @@ function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): Pa
 
 ## 1. What the document contains, which decides every question below
 
-One function emits every keyword a zmdb tool spec can contain: `jsonSchemaForColumn` in `../ir/index.ts`.
-It is worth reading before reasoning about providers, because what it emits is much smaller than what JSON
-Schema can say:
+One function emits every keyword a zmdb tool spec can contain:
+`jsonSchemaForColumn` in `../ir/index.ts`. Its output is a small subset of JSON
+Schema:
 
 | Column                     | Emitted keywords                                                                        |
 | -------------------------- | --------------------------------------------------------------------------------------- |
@@ -100,13 +100,9 @@ why one document cannot serve every provider. Strict mode publishes the keywords
 lossless: JSON Schema `format` is an annotation, and nothing a model can produce is rejected by `int64` that
 `type: 'integer'` accepts.
 
-**`{}` is a refusal and not a translation, on the two providers that require every property to have a
-type.** There is no honest substitute. `type: 'object'` with no properties would tell the model the value is
-an object when a `json` column holds anything JSON can hold; `type: 'string'` would be a lie the validator
-then rejects. So the tool spec is refused, by column name, with the reformulation that works: declare the
-payload's shape with `WireAs<W>` — which is exactly the case `declaredWireKeywords` exists for — or omit the
-column from the tool. This is the one construct in zmdb that a provider genuinely cannot take, and it is a
-column kind rather than a type-system feature.
+**`{}` is a refusal and not a translation, on the two providers that require every property to have a type.** There is no accurate substitute. `type: 'object'` with no properties would tell the model the value is an object when a `json` column holds anything JSON can hold; `type: 'string'` would be a lie the validator then rejects.
+
+So the tool spec is refused, by column name, with the reformulation that works: declare the payload's shape with `WireAs<W>` — which is exactly the case `declaredWireKeywords` exists for — or omit the column from the tool. This is the one construct in zmdb that a provider genuinely cannot take, and it is a column kind rather than a type-system feature.
 
 **`gemini` translating a nullable type is a translation and not a refusal**, because OpenAPI 3.0 — the
 dialect Gemini's schema is a subset of — has no type arrays and does have `nullable`. The information
@@ -151,13 +147,9 @@ mind: the input is not "optional or nullable", it is what the emitter already de
 | optional, not nullable | not in `required`, `type: T`    | as emitted                             | **in `required`**, and the type is widened to `[T,'null']` | not in `required`, `type: T`                                                      |
 | both                   | not in `required`, `[T,'null']` | as emitted                             | **in `required`**, `[T,'null']`                            | not in `required`, `type: T` + `nullable: true`                                   |
 
-The one row that changes meaning is the third, and it is frozen deliberately: **for `openai-strict`, an
-optional non-nullable column is emitted as nullable.** Strict mode requires every property in `required` and
-documents a nullable union as the way to say "may be absent", so there are exactly two options — widen the
-type, or drop the column from the spec entirely. Dropping it changes what the model is allowed to fill in,
-which is a worse lie than a type that admits a value the app would then reject. It is written down here
-because a reader comparing `toolFor('openai-strict', …)` with `toolFor('anthropic', …)` will see a type they
-did not declare, and the answer must not be "some provider quirk".
+The one row that changes meaning is the third, and it is frozen deliberately: **for `openai-strict`, an optional non-nullable column is emitted as nullable.** Strict mode requires every property in `required` and documents a nullable union as the way to say "may be absent", so there are exactly two options — widen the type, or drop the column from the spec entirely.
+
+Dropping it changes what the model is allowed to fill in, which is a worse lie than a type that admits a value the app would then reject. It is written down here because a reader comparing `toolFor('openai-strict', …)` with `toolFor('anthropic', …)` will see a type they did not declare, and the answer must not be "some provider quirk".
 
 `gemini` keeps zmdb's `required` rule unchanged and adds `nullable: true`, so nothing is widened there.
 
@@ -191,12 +183,11 @@ export interface ToolSpecRefusal {
 `path` and `reason` are named identically to `EmitDiagnostic`'s on purpose: a reader who knows one knows the
 other, and the shape is the thing worth sharing when the type cannot be.
 
-**It does not happen at AOT time, and step 4 is wrong about that.** `toolFor(provider, name, schema, opts)`
-takes a schema _value_ and a provider _string_; `P` is inferred from an argument. The transform reads **type**
-arguments — `CALLEES` is fourteen names and a call site's type argument is what the reflector reads — so
-`toolFor` cannot join that list, and there would be nothing for it to do if it did. Frozen: `toolFor` throws
-a `ToolSpecRefusal`-carrying error at the call, which for a tool registry built at module scope is startup
-rather than first request.
+**It does not happen at AOT time, and step 4 is wrong about that.** `toolFor(provider, name, schema, opts)` takes a schema _value_ and a provider _string_; `P` is inferred from an argument.
+
+The transform reads **type** arguments — `CALLEES` is fourteen names and a call site's type argument is what the reflector reads — so `toolFor` cannot join that list, and there would be nothing for it to do if it did.
+
+Frozen: `toolFor` throws a `ToolSpecRefusal`-carrying error at the call, which for a tool registry built at module scope is startup rather than first request.
 
 Two build-time routes were considered. `toolFor<'gemini', CreateDTO<Order>>()` — provider as a type argument —
 _is_ transformable, and is refused because a provider is a runtime configuration value in any app that

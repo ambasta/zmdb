@@ -46,7 +46,11 @@ Typed, paginated, behind your existing auth, and it only exposes the tables you 
 
 ## What it would take
 
-Introspection first, because without it a studio can only show what the schema objects declare — which is a data browser for your own tables, not a database client. That narrower tool is genuinely feasible: it would be a `@zmdb/web` application over an array of schemas you hand it — nothing enumerates your tables, so the list is an argument — generating a list and a detail view per table from `toJsonSchema`, with writes going through the repositories. Shipping it as an opt-in package rather than a CLI command would keep the credentials question in the user's hands, which is where it belongs.
+Introspection first, because without it a studio can only show what the schema objects declare — which is a data browser for your own tables, not a database client.
+
+That narrower tool is genuinely feasible: it would be a `@zmdb/web` application over an array of schemas you hand it — nothing enumerates your tables, so the list is an argument — generating a list and a detail view per table from `toJsonSchema`, with writes going through the repositories.
+
+Shipping it as an opt-in package rather than a CLI command would keep the credentials question in the user's hands, which is where it belongs.
 
 ---
 

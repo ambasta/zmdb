@@ -88,7 +88,9 @@ CREATE TABLE `users` (`createdAt` DATETIME(3) NOT NULL, `email` TEXT NOT NULL, `
 
 Columns come out sorted by name, because a snapshot has to be byte-stable to be diffable.
 
-Two things the snapshot does not yet carry, and so the DDL does not either: `DEFAULT` clauses and `UNIQUE`/`CHECK` constraints. For defaults this is not only a gap in the snapshot — `HasDefault` says a column _has_ a default, not _which one_, because a default is a runtime value and no type holds one. Write the value in the migration, where the DDL is written anyway. Validation tags feed the JSON Schema, the OpenAPI document and the [seed generator](./seed-functions.html); enforce them at the HTTP boundary with [`assert`](./validators-assert.html), where a failure becomes a 400 rather than a partially-applied write.
+Two things the snapshot does not yet carry, and so the DDL does not either: `DEFAULT` clauses and `UNIQUE`/`CHECK` constraints. For defaults this is not only a gap in the snapshot — `HasDefault` says a column _has_ a default, not _which one_, because a default is a runtime value and no type holds one.
+
+Write the value in the migration, where the DDL is written anyway. Validation tags feed the JSON Schema, the OpenAPI document and the [seed generator](./seed-functions.html); enforce them at the HTTP boundary with [`assert`](./validators-assert.html), where a failure becomes a 400 rather than a partially-applied write.
 
 > [!TIP]
 > A column is required in `CreateDTO` unless something says otherwise. `HasDefault` makes it optional, `| null` makes it optional, and `Serial` removes it from the type entirely. See [Type derivation](./type-derivation.html).

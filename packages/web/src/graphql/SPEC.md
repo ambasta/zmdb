@@ -9,11 +9,9 @@ Part of `@zmdb/web`, a new `./graphql` subpath. The resolver half of the GraphQL
 `packages/schema-core/src/sdl/SPEC.md` freezes the SDL a type produces, and this freezes what runs when a
 client asks for a field.
 
-The claim the epic makes is that a resolver is structurally a controller — a method on a container-resolved
-class with typed arguments and a typed return — so this should be a second front end over machinery that
-already exists rather than a second framework. That claim holds, and holding it is a constraint on every
-decision below: `Container`, `Chain`, `runChain`, `Symbol.metadata` and the module graph are reused as they
-are, and where the existing shape does not fit, the shape is named rather than duplicated.
+The claim the epic makes is that a resolver is structurally a controller — a method on a container-resolved class with typed arguments and a typed return — so this should be a second front end over machinery that already exists rather than a second framework.
+
+That claim holds, and holding it is a constraint on every decision below: `Container`, `Chain`, `runChain`, `Symbol.metadata` and the module graph are reused as they are, and where the existing shape does not fit, the shape is named rather than duplicated.
 
 ## 1. The decorators, and the two things the issue's API surface cannot be
 
@@ -39,19 +37,13 @@ class that was decorated but not registered.
 
 Two departures from the issue's API block, both forced:
 
-**There is no `@Args`, because there are no parameter decorators.** `packages/web/src/context/index.ts:22`
-states the reason as a design note on `Ctx` itself — "Stage 3 has no parameter decorators, so params/body/query
-/headers arrive on one strongly-typed context object" — and it is not a limitation this package can route
-around: `Args(): ParameterDecorator` is a TypeScript-experimental-decorators type, and this codebase proves it
-uses ES decorators everywhere (`Inject` is a `ClassFieldDecoratorContext`, the verbs are
-`ClassMethodDecoratorContext`). Arguments therefore arrive the way a body does, on the one context object (§2).
+**There is no `@Args`, because there are no parameter decorators.** `packages/web/src/context/index.ts:22` states the reason as a design note on `Ctx` itself — "Stage 3 has no parameter decorators, so params/body/query /headers arrive on one strongly-typed context object" — and it is not a limitation this package can route around: `Args(): ParameterDecorator` is a TypeScript-experimental-decorators type, and this codebase proves it uses ES decorators everywhere (`Inject` is a `ClassFieldDecoratorContext`, the verbs are `ClassMethodDecoratorContext`).
 
-**No decorator takes a thunk.** `Resolver(of?: () => unknown)` and `Query(returns?: () => unknown)` are the
-code-first idiom of a library whose types are classes with runtime metadata; `() => Post` there evaluates to a
-constructor the schema builder reads. Here `Post` is an `interface` — there is nothing to return and nothing to
-read, which is the same reason `web-graphql-mapped-types.md` gives for there being no `PartialType`. So
-`@Resolver` takes the SDL type name as a string, and a field's type comes from the declaration the SDL was
-emitted from:
+Arguments therefore arrive the way a body does, on the one context object (§2).
+
+**No decorator takes a thunk.** `Resolver(of?: () => unknown)` and `Query(returns?: () => unknown)` are the code-first idiom of a library whose types are classes with runtime metadata; `() => Post` there evaluates to a constructor the schema builder reads.
+
+Here `Post` is an `interface` — there is nothing to return and nothing to read, which is the same reason `web-graphql-mapped-types.md` gives for there being no `PartialType`. So `@Resolver` takes the SDL type name as a string, and a field's type comes from the declaration the SDL was emitted from:
 
 ```ts
 interface PostQueries {
@@ -122,12 +114,9 @@ guard, usable on a route and on a field, which is what the epic means by reusing
 duplicating it. Widening `Guard` to a union of two context types would have meant editing every guard anyone
 has written, to make the GraphQL case possible.
 
-**`body` is the arguments, and there is no separate `args` field.** `runChain` folds the pipes over `ctx.body`
-and hands the handler `{ ...ctx, body }`, so a validation pipe works on a field's arguments unchanged — and a
-second name for the same value would be the pre-pipe value, still visible, still readable, silently stale. The
-spread also carries `parent`, `request` and `field` through untouched, which is why the resolver still has them
-after the chain has run. `params` and `query` are empty: a GraphQL request has no path parameters and its query
-string is not input.
+**`body` is the arguments, and there is no separate `args` field.** `runChain` folds the pipes over `ctx.body` and hands the handler `{ ...ctx, body }`, so a validation pipe works on a field's arguments unchanged — and a second name for the same value would be the pre-pipe value, still visible, still readable, silently stale.
+
+The spread also carries `parent`, `request` and `field` through untouched, which is why the resolver still has them after the chain has run. `params` and `query` are empty: a GraphQL request has no path parameters and its query string is not input.
 
 `operation`'s third member arrived with `subscriptions/SPEC.md` §4, which extends `GqlCtx` rather than
 declaring a fourth context type. A query's narrowing is unaffected; `#552` pins that.
@@ -163,12 +152,9 @@ registry.register<PostQueries>(container.build(PostResolver), {
 });
 ```
 
-`validate` is **required by the type** for every field that has arguments, and the epic's "no path around it"
-is therefore not a runtime check that could be skipped — it is a compile error at the registration site. The
-validator is the caller's for the reason `packages/schema-core/src/llm/chat/SPEC.md` §3 and
-`.../llm/adapters/SPEC.md` §2 give at length: `assert<T>` is inlined where the checker can resolve `T`, and
-inside a published generic there is no `T` to resolve, so a framework that offered to validate for you would
-fall back to a runtime walk — which §2.2 forbids anyway.
+`validate` is **required by the type** for every field that has arguments, and the epic's "no path around it" is therefore not a runtime check that could be skipped — it is a compile error at the registration site.
+
+The validator is the caller's for the reason `packages/schema-core/src/llm/chat/SPEC.md` §3 and `.../llm/adapters/SPEC.md` §2 give at length: `assert<T>` is inlined where the checker can resolve `T`, and inside a published generic there is no `T` to resolve, so a framework that offered to validate for you would fall back to a runtime walk — which §2.2 forbids anyway.
 
 `[keyof A] extends [never]` degrades in the safe direction, like `HasEffectful<R>` in the chat loop: an `args`
 type that widened to a record still has keys, so `validate` stays required. Only a declaration that genuinely
@@ -236,22 +222,15 @@ adds is the mechanical consequence, so nobody expects otherwise:
   `web-mapped-types.md` already says this; it is repeated here because a reader arriving from the SDL side will
   assume a `Sensitive` column cannot be selected as a GraphQL field. It can, if a resolver returns it.
 
-This is also where the boundary to the runtime-controls epic sits. That epic owns the GraphQL execution
-context as a first-class object, per-field middleware, plugins, complexity limits and directives. This epic
-owns exactly the seam: `GqlCtx` carries `typeName`, `field`, `fieldPath` and `operation` because a guard needs
-them to make a decision, and nothing more. **No `info` object is exposed and none is re-exported** — those four
-values are read structurally from the engine's fourth resolver argument (`fieldName`, `parentType.name`,
-`path`), which keeps `GraphQLResolveInfo` from becoming part of this package's surface before the epic that
-owns it decides what it should look like.
+This is also where the boundary to the runtime-controls epic sits. That epic owns the GraphQL execution context as a first-class object, per-field middleware, plugins, complexity limits and directives. This epic owns exactly the seam: `GqlCtx` carries `typeName`, `field`, `fieldPath` and `operation` because a guard needs them to make a decision, and nothing more.
+
+**No `info` object is exposed and none is re-exported** — those four values are read structurally from the engine's fourth resolver argument (`fieldName`, `parentType.name`, `path`), which keeps `GraphQLResolveInfo` from becoming part of this package's surface before the epic that owns it decides what it should look like.
 
 ## 6. An executable schema, with no dependency on the engine
 
-`parts()` returns SDL text and a plain resolver map — `{ Query: { post(…) }, Post: { author(…) }, DateTime: … }`
-— which is what `createSchema`, `makeExecutableSchema` and `buildSchema` plus `execute` all consume. So
-`graphql` is **not** a dependency, not a peer dependency and not an optional peer, which is stricter than the
-epic's constraint list and is the position `packages/schema-core/src/llm/adapters/SPEC.md` §1 already took for
-LangChain and the AI SDK. `web-graphql-resolvers.md`'s "it would be an optional entry point with a peer
-dependency" is superseded: there is nothing to peer on.
+`parts()` returns SDL text and a plain resolver map — `{ Query: { post(…) }, Post: { author(…) }, DateTime: … }` — which is what `createSchema`, `makeExecutableSchema` and `buildSchema` plus `execute` all consume.
+
+So `graphql` is **not** a dependency, not a peer dependency and not an optional peer, which is stricter than the epic's constraint list and is the position `packages/schema-core/src/llm/adapters/SPEC.md` §1 already took for LangChain and the AI SDK. `web-graphql-resolvers.md`'s "it would be an optional entry point with a peer dependency" is superseded: there is nothing to peer on.
 
 The one thing that genuinely needs the engine's class is a custom scalar, and it is **injected**:
 

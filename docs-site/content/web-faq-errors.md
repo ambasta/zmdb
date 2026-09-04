@@ -84,15 +84,9 @@ See [Raw Body](./web-raw-body.html).
 
 ## A 500 where you threw a 403
 
-`ChainError(403, …)` reaching the router serialises as a 500. A handler throw has
-only two built-in mappings — 400 when it carries `issues`, and 500 otherwise —
-and the status on the error is ignored. Route selection separately returns 400
-for an unsupported header version, 406 for an unacceptable media-type version,
-or 404 for an unknown path; a registered guard returning `false` returns 403.
-Nothing in the router's dispatch path calls `runChain`, so no `ExceptionFilter`
-runs unless your handler ran the chain itself; one that does reaches the client,
-provided the filter built its response with `json`, `text` or `respond` rather
-than as a plain `{ status, body, headers }` literal, which serialises as a 200.
+`ChainError(403, …)` reaching the router serialises as a 500. A handler throw has only two built-in mappings — 400 when it carries `issues`, and 500 otherwise — and the status on the error is ignored. Route selection separately returns 400 for an unsupported header version, 406 for an unacceptable media-type version, or 404 for an unknown path; a registered guard returning `false` returns 403.
+
+Nothing in the router's dispatch path calls `runChain`, so no `ExceptionFilter` runs unless your handler ran the chain itself; one that does reaches the client, provided the filter built its response with `json`, `text` or `respond` rather than as a plain `{ status, body, headers }` literal, which serialises as a 200.
 
 Catch it and return the status instead of throwing:
 

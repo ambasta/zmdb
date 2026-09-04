@@ -83,7 +83,7 @@ SELECT reltuples::bigint FROM pg_class WHERE relname = 'events';
 
 Accurate to the last `ANALYZE`, and O(1). Serve it through a [named raw query](./raw-sql.html).
 
-For a paginated UI, the honest alternative is not to show a total at all — fetch `limit + 1` rows and report "more results" rather than "page 7 of 4,318". That is exactly what `hasMore` is, and it is what makes [cursor pagination](./guide-cursor-pagination.html) work.
+For a paginated UI, the practical alternative is not to show a total at all — fetch `limit + 1` rows and report "more results" rather than "page 7 of 4,318". That is exactly what `hasMore` is, and it is what makes [cursor pagination](./guide-cursor-pagination.html) work.
 
 ---
 

@@ -51,7 +51,7 @@ If you are choosing between them for the HTTP layer:
 | Subscription protocol        | built in                | application-owned                        |
 | Class + decorator style      | no                      | yes                                      |
 
-The honest split: tRPC for an internal TypeScript-to-TypeScript API where the inferred client is the whole point; `@zmdb/web` for a public REST API where OpenAPI is the contract and consumers are not all TypeScript.
+The sensible split: tRPC for an internal TypeScript-to-TypeScript API where the inferred client is the whole point; `@zmdb/web` for a public REST API where OpenAPI is the contract and consumers are not all TypeScript.
 
 tRPC's subscription protocol remains a real advantage: `@zmdb/web` can stream a
 response body, but it does not define subscription routing, reconnection or a

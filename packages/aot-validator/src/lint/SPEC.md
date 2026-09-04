@@ -51,12 +51,9 @@ The plugin object's own shape is dictated by the hosts, not chosen: the default 
 `{ meta: { name, version }, rules: { … } }`, because that is what both loaders read. `rules` is a
 property of that object, not a top-level export, so the name is fine there.
 
-**`configs` cannot be one exported value for both hosts.** ESLint flat config consumes an array of config
-objects; oxlint reads `jsPlugins` plus a `rules` map out of JSON and cannot evaluate a JavaScript config
-object at all. So the ESLint half is exported —
-`export const configs: { readonly recommended: unknown; readonly strict: unknown }` — and the oxlint half
-is a documented `.oxlintrc.json` snippet on the docs page. That is a real reduction in the API surface the
-issue proposed, and pretending otherwise would ship an export that one of the two hosts silently ignores.
+**`configs` cannot be one exported value for both hosts.** ESLint flat config consumes an array of config objects; oxlint reads `jsPlugins` plus a `rules` map out of JSON and cannot evaluate a JavaScript config object at all.
+
+So the ESLint half is exported — `export const configs: { readonly recommended: unknown; readonly strict: unknown }` — and the oxlint half is a documented `.oxlintrc.json` snippet on the docs page. That is a real reduction in the API surface the issue proposed, and pretending otherwise would ship an export that one of the two hosts silently ignores.
 
 ## 3. The rule set
 
@@ -101,28 +98,19 @@ names `Table<…>`, whose annotation is a `TSIntersectionType` with a member tha
 containing `TSNullKeyword` or `TSUndefinedKeyword`. The fix rewrites it to a union of intersections with
 the `null` arm left bare.
 
-The fix is safe, and the reason is worth writing down rather than assuming: every tag in the vocabulary is
-an object type with one optional symbol slot, so `null & Tag` is `never`. The arm the fix stops tagging is
-uninhabitable before the fix, so no code can depend on it. That reasoning is also the fix's precondition —
-it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member
-is a local binding for a known declaration-tag export from `@zmdb/schema-core/tags` or `zmdb/tags`.
-Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and
-`RelationKind`; importing one of those does not satisfy the precondition. Import tracking, not type
-resolution; `(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it
-alone.
+The fix is safe, and the reason is worth writing down rather than assuming: every tag in the vocabulary is an object type with one optional symbol slot, so `null & Tag` is `never`. The arm the fix stops tagging is uninhabitable before the fix, so no code can depend on it.
+
+That reasoning is also the fix's precondition — it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member is a local binding for a known declaration-tag export from `@zmdb/schema-core/tags` or `zmdb/tags`. Those modules also export non-tag helpers such as `Nullable`, `NonNull`, `ColumnSqlType` and `RelationKind`; importing one of those does not satisfy the precondition.
+
+Import tracking, not type resolution; `(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
 
 **`no-unknown-json-column`.** An intersection with a `TSUnknownKeyword` member. Reported with a
 _suggestion_ rather than a fix, because `object` and `Record<string, …>` are both plausible replacements
 and they are not equivalent — the rule offers `object` and does not apply it.
 
-**`no-interpolated-sql`.** A `TemplateLiteral` with at least one expression, in a sink the rule can see
-without types: the `text` property of an object literal that also has a `parameters` property, and an
-argument to a call whose callee property is `execute`. The sibling property is the syntactic marker that
-separates a `CompiledQuery` from generic `{ start, end, text }` edit objects. A template literal with no
-substitutions, and a plain string literal, are both fine — which is precisely what keeps the SQL-string
-features out of the rule. The expression-index tag this epic's sibling will add takes its SQL as a _type_
-argument, and a type-level string literal cannot contain a substitution, so it can never trip this rule;
-a filter fragment written as a plain literal cannot either.
+**`no-interpolated-sql`.** A `TemplateLiteral` with at least one expression, in a sink the rule can see without types: the `text` property of an object literal that also has a `parameters` property, and an argument to a call whose callee property is `execute`. The sibling property is the syntactic marker that separates a `CompiledQuery` from generic `{ start, end, text }` edit objects.
+
+A template literal with no substitutions, and a plain string literal, are both fine — which is precisely what keeps the SQL-string features out of the rule. The expression-index tag this epic's sibling will add takes its SQL as a _type_ argument, and a type-level string literal cannot contain a substitution, so it can never trip this rule; a filter fragment written as a plain literal cannot either.
 
 A `BinaryExpression` using `+` is outside this frozen detector, as is an interpolation assigned to a
 variable before that variable reaches a sink. An interpolated filter fragment is reported only when it is
@@ -138,13 +126,9 @@ earlier is missed. Under-reporting is the correct direction for a rule with no t
 
 ### The three that ship as warnings
 
-**`require-sql-on-number`.** Precise only on a literal annotation and **defeated by a type alias**:
-`type Money = number & Sql<'numeric'>; price: Money` is correct code the rule does not report, while
-`type Qty = number; qty: Qty` is a mistake it also misses. Resolving either alias would require the parser
-services §1 rules out. It remains a warning because it is an early, incomplete duplicate of a build error
-that already exists — `schemaOf<T>()` refuses a bare
-`number` because it spells both `integer` and `numeric` — so the rule's entire value is arrival time,
-under the cursor instead of in the build log. That is worth a warning and not worth an error.
+**`require-sql-on-number`.** Precise only on a literal annotation and **defeated by a type alias**: `type Money = number & Sql<'numeric'>; price: Money` is correct code the rule does not report, while `type Qty = number; qty: Qty` is a mistake it also misses. Resolving either alias would require the parser services §1 rules out.
+
+It remains a warning because it is an early, incomplete duplicate of a build error that already exists — `schemaOf<T>()` refuses a bare `number` because it spells both `integer` and `numeric` — so the rule's entire value is arrival time, under the cursor instead of in the build log. That is worth a warning and not worth an error.
 
 **`no-unbounded-find`.** `find` with no argument or with an empty object literal. Whether the receiver is a
 repository needs types, so this is a method-name match. `Array.prototype.find` takes a callback and never
@@ -160,14 +144,9 @@ every `if (x)` in a file that also builds a `where`, or nothing.
 
 **`no-select-star-with-sensitive`** has to resolve a declared type to see a tag. §1.
 
-**`no-find-by-id-without-key`** has to do the same, and more importantly it is a lint rule patching a hole
-in a type this project owns. `PrimaryKeyOf<T>` is `unknown` when the type declares no primary key
-(`@zmdb/schema-core`'s `src/derive/index.ts`), so `findById(anything)` type-checks and then throws
-`schema … has no primary key` at runtime from `@zmdb/repository`. The fix belongs in the alias: that
-branch should yield a string literal naming the problem, so the compiler's own "Argument of type 'number'
-is not assignable to parameter of type '…'" reads as the diagnostic. Its test is a `*.type-test.ts` and
-its owner is the repository, not this plugin. The `[PrimaryKeyKeys<T>] extends [never]` guard the shipped
-alias already uses is the right shape — only the branch's value changes.
+**`no-find-by-id-without-key`** has to do the same, and more importantly it is a lint rule patching a hole in a type this project owns. `PrimaryKeyOf<T>` is `unknown` when the type declares no primary key (`@zmdb/schema-core`'s `src/derive/index.ts`), so `findById(anything)` type-checks and then throws `schema … has no primary key` at runtime from `@zmdb/repository`.
+
+The fix belongs in the alias: that branch should yield a string literal naming the problem, so the compiler's own "Argument of type 'number' is not assignable to parameter of type '…'" reads as the diagnostic. Its test is a `*.type-test.ts` and its owner is the repository, not this plugin. The `[PrimaryKeyKeys<T>] extends [never]` guard the shipped alias already uses is the right shape — only the branch's value changes.
 
 **`no-untransformed-schema-of`** — §5.
 
@@ -209,7 +188,7 @@ specific to this project:
   `zmdb-codegen` performs the AOT rewrite. Reading it still cannot prove this rule's condition.
 - **The heuristic reports on every project it cannot prove is configured**, which is all of them.
 
-The honest form of this check is not a lint rule. `schemaOf<T>()` already throws with a long explanatory
+The clearest form of this check is not a lint rule. `schemaOf<T>()` already throws with a long explanatory
 message when the transform did not run, and one line in a consumer's own test suite turns that into a
 build failure. The docs page should say so. This is the "it cannot, so say so" answer step 1 asked for,
 recorded rather than papered over with a rule that fires on correct code.
@@ -270,12 +249,11 @@ caught it.
 
 ## 7. Packaging: a `./lint` subpath, not a new package
 
-The argument for a separate package is that a consumer gets the rules without the transformer. That
-argument is already satisfied by a gate. `.github/scripts/verify-exports.mjs` partitions this package's
-subpaths into a runtime surface and a `BUILD_TIME_ENTRIES` set, on exactly this reasoning — a build-time
-entry must not be reachable from an application bundle, or a consumer ships a compiler to a browser. A
-lint plugin is loaded by a linter and never by an application, so `./lint` joins that set and the
-isolation the separate package would buy is enforced by CI instead of by a `package.json`.
+The argument for a separate package is that a consumer gets the rules without the transformer.
+
+That argument is already satisfied by a gate. `.github/scripts/verify-exports.mjs` partitions this package's subpaths into a runtime surface and a `BUILD_TIME_ENTRIES` set, on exactly this reasoning — a build-time entry must not be reachable from an application bundle, or a consumer ships a compiler to a browser.
+
+A lint plugin is loaded by a linter and never by an application, so `./lint` joins that set and the isolation the separate package would buy is enforced by CI instead of by a `package.json`.
 
 `package.json` exports `"./lint": "./src/lint/index.ts"`, which
 `it('declares every export as a source path the build mirrors', …)` in `../plugin/packaging.spec.ts`

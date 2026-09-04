@@ -254,9 +254,9 @@ guard arrays are the thing that runs and the thing that is read. Epic #572 asks 
 _detectable_; deriving from the running objects makes the question not arise. The one place a
 disagreement can still be written is the explicit `security` override, and S5 constrains it.
 
-The cost, stated plainly: guards are configured next to module wiring rather than beside the handler, so
-a reviewer reading a controller does not see them. That is why `@Public()` (S4) stays a decorator on the
-handler — the assertion that a route needs _no_ protection is the one a reviewer must be able to see
+Guards are configured with module wiring rather than beside the handler, so a
+reviewer reading only a controller will not see them. `@Public()` therefore
+remains a handler decorator: an explicitly unprotected route should be visible
 without opening another file.
 
 ### S3. `enforces`, and what several guards on one route mean
@@ -267,13 +267,9 @@ export interface SecurityAwareGuard extends Guard {
 }
 ```
 
-**`scopes` is required and may be empty**, against the sketch's `scopes?`. Two reasons. OpenAPI's security
-requirement object always carries an array — `{ bearerAuth: [] }` is the no-scopes form, not an absent
-key — so the required field is the document's own shape and removes a `?? []` from the emitter. And under
-`exactOptionalPropertyTypes` an optional `scopes?: readonly string[]` cannot be filled from a computed
-`readonly string[] | undefined`, so a guard deriving its scopes from configuration could not construct
-itself without a cast. Verified; the same correction as `../pipeline/SPEC.md` §A1 made for a stream's
-`length`, and for the same reason.
+**`scopes` is required and may be empty**, against the sketch's `scopes?`. Two reasons. OpenAPI's security requirement object always carries an array — `{ bearerAuth: [] }` is the no-scopes form, not an absent key — so the required field is the document's own shape and removes a `?? []` from the emitter.
+
+And under `exactOptionalPropertyTypes` an optional `scopes?: readonly string[]` cannot be filled from a computed `readonly string[] | undefined`, so a guard deriving its scopes from configuration could not construct itself without a cast. Verified; the same correction as `../pipeline/SPEC.md` §A1 made for a stream's `length`, and for the same reason.
 
 `scheme` is a `string` checked at generation against `securitySchemes`, not a `keyof` of it. Making it a
 key would put the scheme record's type into the signature of every guard, and a guard is a small class
@@ -293,12 +289,9 @@ an OR. So:
 | app `[auth]`, controller `[apiKeyGuard]`, route `[requireWrite]` | `[{ bearerAuth: ['posts:write'], apiKey: [] }]` |
 | any inherited guards, with `@Public()` and no route guard        | `[]`                                            |
 
-One object, always. Two guards declaring the **same** scheme merge into one entry whose scopes are the
-union, sorted, deduplicated — because `{ bearerAuth: ['a'], bearerAuth: ['b'] }` is not a thing and a
-route requiring two scopes requires both. Emitting the OR form is never correct here: the array-of-objects
-spelling would tell a generated client that satisfying any one guard is enough, which is the opposite of
-what the code does, and a document that understates enforcement is the failure this epic exists to
-prevent.
+One object, always. Two guards declaring the **same** scheme merge into one entry whose scopes are the union, sorted, deduplicated — because `{ bearerAuth: ['a'], bearerAuth: ['b'] }` is not a thing and a route requiring two scopes requires both.
+
+Emitting the OR form is never correct here: the array-of-objects spelling would tell a generated client that satisfying any one guard is enough, which is the opposite of what the code does, and a document that understates enforcement is the failure this epic exists to prevent.
 
 Scopes remain documentation. Neither route execution nor `runChain` reads
 `enforces` — the guard's own `canActivate` is the enforcement, and `enforces` is
@@ -316,7 +309,7 @@ Not `MethodDecorator`. That is the pre-stage-3 type and this project sets `exper
 (`tsconfig.json:6`), so `@Public()` typed as `MethodDecorator` fails to compile at every application
 site: `TS1241 — the runtime will invoke the decorator with 2 arguments, but the decorator expects 3`, plus
 `TS1270` on the return type. Verified. The same correction applies to `Version` (`../versioning/SPEC.md`
-§V2) and it is worth stating once here because #573's sketch uses `MethodDecorator` for both.
+§V2). This also corrects #573's sketch, which uses `MethodDecorator` for both.
 
 `Public` writes a symbol-keyed slot on `context.metadata`, read by a `isPublic(controller, handlerName)`
 that lives beside `getRoutes` — the same mechanism, the same trust boundary comment, per §2.1. A route
@@ -343,13 +336,9 @@ non-empty. Conversely, `@Public()` cannot declare route guards or a non-empty
 override; inherited app and controller guards are deliberately bypassed. That
 keeps a grep of public markers identical to the operations carrying `security: []`.
 
-The opt-out is `strictSecurity: false`, and what it costs is worth being exact about, because it is not
-"the document becomes wrong". A route with neither effective guards nor `@Public()` emits **no
-`security` key at all**, and since S6 emits no document-level `security` either, a reader and a client
-generator both see a route with nothing said about it — which they will read as public. So the opt-out
-does not produce a false document, it produces a _silent_ one, and silence is what the epic's first
-paragraph objects to. It exists so an existing application can generate a document on the day it adopts
-this, and leaving it off is a decision to keep the gap.
+The opt-out is `strictSecurity: false`, and what it costs is worth being exact about, because it is not "the document becomes wrong". A route with neither effective guards nor `@Public()` emits **no `security` key at all**, and since S6 emits no document-level `security` either, a reader and a client generator both see a route with nothing said about it — which they will read as public.
+
+So the opt-out does not produce a false document, it produces a _silent_ one, and silence is what the epic's first paragraph objects to. It exists so an existing application can generate a document on the day it adopts this, and leaving it off is a decision to keep the gap.
 
 ### S5. A guard that cannot declare
 
@@ -378,12 +367,9 @@ runs at generation, which is boot or build time, so it is not a per-request cost
 `toOpenApi` never emits a top-level `security`, and there is no option to supply one. The
 pre-#575 workaround on `web-openapi-security.md` used exactly that conventional arrangement.
 
-The reason is that a document-level default plus per-operation overrides makes "this route inherits the
-default" and "nobody wrote anything for this route" the same document text — an absent key. Every audit
-question then requires knowing the default, and the failure mode is silent in the unsafe direction. When
-the requirement is derived rather than written, there is no cost to writing it on every operation, and a
-document whose every operation states its own security can be read a line at a time. The `security: []`
-that `@Public()` produces is then a positive statement rather than an override of something offscreen.
+The reason is that a document-level default plus per-operation overrides makes "this route inherits the default" and "nobody wrote anything for this route" the same document text — an absent key. Every audit question then requires knowing the default, and the failure mode is silent in the unsafe direction.
+
+When the requirement is derived rather than written, there is no cost to writing it on every operation, and a document whose every operation states its own security can be read a line at a time. The `security: []` that `@Public()` produces is then a positive statement rather than an override of something offscreen.
 
 That workaround no longer appears on the current page. A caller can still
 post-process the plain document object, but the supported generated shape is
@@ -432,14 +418,9 @@ so no second schema mechanism is needed.
 { "name": "accept-version", "in": "header", "required": false, "schema": { "enum": ["1", "2"], "default": "1" } }
 ```
 
-`required: false` with a `default` because `../versioning/SPEC.md` §V4 requires the header strategy to
-carry a default version; a client omitting the header gets it. Generation fails
-when the configured default is not among that operation's versions, because
-OpenAPI requires a schema default to satisfy its enum and an optional header
-would otherwise describe a request the route refuses. Request and response
-schemas must be identical across header versions: one operation has one
-`requestBody` and one `responses` block, with no dimension keyed by a header
-value.
+`required: false` with a `default` because `../versioning/SPEC.md` §V4 requires the header strategy to carry a default version; a client omitting the header gets it. Generation fails when the configured default is not among that operation's versions, because OpenAPI requires a schema default to satisfy its enum and an optional header would otherwise describe a request the route refuses.
+
+Request and response schemas must be identical across header versions: one operation has one `requestBody` and one `responses` block, with no dimension keyed by a header value.
 
 **Media-type versioning** produces one path item per route. Its request body, if
 present, remains under plain `application/json`. Its response schemas are under

@@ -121,9 +121,15 @@ No `*/`, no unescaped `'`.
 
 The frozen design goes one step further and takes the string away: the keys are a closed union — `traceparent`, `controller`, `action`, `route`, `framework` — rather than a `Record<string, string>`, so an arbitrary key cannot be written at a call site. An open key set is the interface through which a request id gets tagged and the plan cache dies, and through which an unescaped value arrives.
 
-The guarantee is worth stating exactly, because it is narrower than "no path". An object literal carrying `request_id` is a compile error; a value whose declared type is already `Record<string, string>` is still assignable, because an index signature satisfies every optional member of the closed record and excess-property checking only applies to fresh literals. So the closed set removes the _accidental_ key, which is the one that actually arrives. For a value laundered through an open record the escaping is still what holds, which is why the serializer encodes the key as well as the value — a key it was told cannot need it.
+The guarantee is narrower than "no path." An object literal carrying
+`request_id` is a compile error. A value already typed as
+`Record<string, string>` remains assignable because its index signature
+satisfies the optional members, and excess-property checking applies only to
+fresh literals.
 
-## Caveats worth knowing before you turn it on
+So the closed set removes the _accidental_ key, which is the one that actually arrives. For a value laundered through an open record the escaping is still what holds, which is why the serializer encodes the key as well as the value — a key it was told cannot need it.
+
+## Caveats
 
 - **Prepared-statement caches key on the text.** A comment that varies per request makes every statement unique, which defeats server-side plan caching on Postgres and fills `pg_stat_statements` with one entry per variant. Tag with the _route_, not the request id.
 - **`ZMDB_PREPARED=1` does not remove that trade-off.** It enables the benchmark driver's server-side prepared statements, whose cache key still includes the SQL text. A per-query `traceparent` deliberately makes that text unique and gives up the prepared-statement gain while diagnosis is enabled.
@@ -134,7 +140,9 @@ The guarantee is worth stating exactly, because it is narrower than "no path". A
 
 Four of the five keys are low cardinality: `route`, `controller`, `action` and `framework` take one value per route per deploy, so the number of distinct statement texts is bounded by the route table.
 
-`traceparent` is not, and it is the whole point of the feature. It contains a fresh span id per query, so **every statement becomes unique** — and it is also what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it. There is no way to have both, so the frozen design names the trade rather than picking: `keys` is an explicit list, and putting `traceparent` in it is a decision to spend the plan cache on the correlation. Worth it while you are diagnosing; not a steady-state default. sqlcommenter's own documentation reaches the same conclusion.
+`traceparent` is not, and it is the whole point of the feature. It contains a fresh span id per query, so **every statement becomes unique** — and it is also what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it.
+
+There is no way to have both, so the frozen design names the trade rather than picking: `keys` is an explicit list, and putting `traceparent` in it is a decision to spend the plan cache on the correlation. Worth it while you are diagnosing; not a steady-state default. sqlcommenter's own documentation reaches the same conclusion.
 
 ## Rendered, not stored
 

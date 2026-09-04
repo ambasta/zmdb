@@ -75,7 +75,7 @@ Declare it on the interface as a plain column so you can filter on it, and mark 
 emailLower: string & Sql<'text'> & HasDefault; // maintained by the database; never write to it
 ```
 
-`HasDefault` is the closest tag to "the database supplies this" — it makes the property optional in `CreateDTO<User>`. It does not stop you from _passing_ a value, which a generated column will reject at the database. The alternative is to leave the column off the interface entirely and reach it through the query builder, which costs you the type and keeps the write path honest by construction.
+`HasDefault` is the closest tag to "the database supplies this" — it makes the property optional in `CreateDTO<User>`. It does not stop you from _passing_ a value, which a generated column will reject at the database. The alternative is to leave the column off the interface entirely and reach it through the query builder. That loses the derived type, but it also keeps generated values out of the repository write path.
 
 ## Workaround 3 — normalise in the application
 
@@ -111,7 +111,8 @@ This is the simplest option and it has a real hole: any writer that is not this 
 > two code points in some locales, and `ß` versus `SS` differs again. For email
 > addresses this rarely matters; for usernames it is a real
 > account-confusion vector. Postgres `lower()` and JavaScript `toLowerCase()` can
-> also disagree, which is worth knowing if you use both approaches together.
+> also disagree, so applications that combine both approaches need tests for
+> their supported character sets.
 
 Also note: the local part of an email address is technically case-sensitive per RFC 5321. In practice every mail provider treats it as insensitive, and treating it otherwise creates duplicate accounts — so lowercase it, but understand that you are choosing a convention.
 

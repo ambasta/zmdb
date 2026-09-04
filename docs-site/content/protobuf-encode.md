@@ -33,7 +33,7 @@ a descriptor or look a field up by name. The returned `Uint8Array` owns an
 exact-sized buffer.
 
 An untransformed call throws. A type argument has no runtime representation, so
-there is no honest fallback that can recover the field numbers.
+there is no safe fallback that can recover the field numbers.
 
 ## Integer widths are part of the contract
 

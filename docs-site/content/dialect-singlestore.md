@@ -54,15 +54,11 @@ through repositories.
 
 ## What a real dialect would change
 
-`ShardKey<…>` and `SortKey<…>` tags on the `extends` clause — the same place
-`Fts<…>` sits, because both are facts about the table rather than one column —
-would flow through the snapshot into DDL, with a `Rowstore` tag for the explicit
-alternative to SingleStore's default columnstore. A unique index outside the shard
-key can be refused when DDL is generated, before a migration is written; it cannot
-be a compile-time reflection error because reflection has no dialect value. There
-must also use its `foreignKeys: false` trait to refuse a table whose snapshot
-contains constraints. Silently dropping the constraint would make the
-declaration promise integrity the database does not enforce.
+`ShardKey<…>` and `SortKey<…>` tags on the `extends` clause — the same place `Fts<…>` sits, because both are facts about the table rather than one column — would flow through the snapshot into DDL, with a `Rowstore` tag for the explicit alternative to SingleStore's default columnstore.
+
+A unique index outside the shard key can be refused when DDL is generated, before a migration is written; it cannot be a compile-time reflection error because reflection has no dialect value. There must also use its `foreignKeys: false` trait to refuse a table whose snapshot contains constraints.
+
+Silently dropping the constraint would make the declaration promise integrity the database does not enforce.
 
 ---
 

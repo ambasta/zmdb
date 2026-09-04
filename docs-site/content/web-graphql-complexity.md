@@ -1,9 +1,6 @@
-> **Not planned.** There is no GraphQL layer, so there is no complexity
-> analysis — no depth limiter and no query cost estimation — and [the layer is out of
-> scope](./web-graphql.html), so there will not be. The design is frozen (see the last
-> section) and kept as a record; the risk it addresses is not GraphQL-specific, and
-> the two framework-side pieces at the end of this page are unaffected by the
-> decision.
+> **Not planned.** `@zmdb/web` does not include GraphQL complexity analysis
+> because [GraphQL itself is out of scope](./web-graphql.html). This page remains
+> useful for the broader problem of bounding client-controlled queries.
 
 ## The underlying risk, which applies to any API
 

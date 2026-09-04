@@ -4,11 +4,9 @@ Part of `@zmdb/web`; the `./cqrs` subpath ships a **command** bus only. The quer
 sourcing and sagas are refused, each with a reason, in §6 — and recording those as decisions rather than
 omissions is `#592` step 5.
 
-The framing matters, because CQRS in a typed codebase is mostly a naming convention. A command bus that only
-looks up a handler and calls it is a dispatch hop with no property the direct call lacked, and it costs a
-stack frame plus the type safety you gave up to make the lookup dynamic. So the question this file answers is
-not "what does a command bus look like" but **what does one do that a method call does not** — and there is
-exactly one honest answer.
+The framing matters, because CQRS in a typed codebase is mostly a naming convention. A command bus that only looks up a handler and calls it is a dispatch hop with no property the direct call lacked, and it costs a stack frame plus the type safety you gave up to make the lookup dynamic.
+
+So the question this file answers is not "what does a command bus look like" but **what does one do that a method call does not** — and there is exactly one accurate answer.
 
 ## 1. The one thing that earns the indirection
 
@@ -153,18 +151,13 @@ property is symmetry with the command bus. §1's argument does not transfer eith
 transactionality to centralise, and its authorisation is row-scoped filtering, which lives in the query
 (`entity-filters.md`), not in a wrapper that has already lost the predicate.
 
-**No event sourcing.** Out of scope per the issue, and the reason it is out of scope is worth recording: an
+**No event sourcing.** It is out of scope because an
 event-sourced write path replaces the repository rather than layering on it, which makes it a different
 persistence model and a different product, not a `@zmdb/web` module.
 
-**No sagas — yet, and for a concrete reason.** A saga's easy part is calling three steps in order; its hard part
-is the terminal state of a failure that cannot be compensated, which requires durable per-step state, an
-attempt count and a retry schedule. A saga built on the in-process emitter loses all of that on restart —
-precisely when it is needed, because the restart is usually what interrupted the saga. The outbox
-(`../../../query-compiler/src/outbox/SPEC.md`) and queue worker now supply durable delivery and retries, but
-they do not invent the saga's state row or compensation contract. A saga is a queue consumer with those two
-application-owned records, not a hidden arm of the command bus, and it can be specified separately without
-inventing durability twice.
+**No sagas — yet, and for a concrete reason.** A saga's easy part is calling three steps in order; its hard part is the terminal state of a failure that cannot be compensated, which requires durable per-step state, an attempt count and a retry schedule. A saga built on the in-process emitter loses all of that on restart — precisely when it is needed, because the restart is usually what interrupted the saga.
+
+The outbox (`../../../query-compiler/src/outbox/SPEC.md`) and queue worker now supply durable delivery and retries, but they do not invent the saga's state row or compensation contract. A saga is a queue consumer with those two application-owned records, not a hidden arm of the command bus, and it can be specified separately without inventing durability twice.
 
 **No `CommandBus` on the container as a required provider.** It is a value produced by `createCommandBus` and
 registered like any other provider. A framework-owned singleton would need a registration API, and the mapped

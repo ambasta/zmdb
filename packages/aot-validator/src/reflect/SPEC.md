@@ -20,13 +20,9 @@ and a JSON Schema document. It is the only front-end there is: `defineSchema` an
 column builders were the other one, and they were deleted once this one could say
 everything they could and five things they could not (§8).
 
-While both existed, the gate was deep equality — `schemaIR` of a tagged interface against
-`irFromSchema` of the matching `defineSchema` call, table for table. That test did its job
-and went with the API it was comparing against. What replaced it is stronger, because it
-does not need a second front-end to be true: every SQL snapshot, DDL golden and JSON
-Schema contract in the repository is now produced from a declaration through this module,
-so the back-ends are exercised on real output rather than on output certified equal to
-something else's.
+While both existed, the gate was deep equality — `schemaIR` of a tagged interface against `irFromSchema` of the matching `defineSchema` call, table for table. That test did its job and went with the API it was comparing against.
+
+What replaced it is stronger, because it does not need a second front-end to be true: every SQL snapshot, DDL golden and JSON Schema contract in the repository is now produced from a declaration through this module, so the back-ends are exercised on real output rather than on output certified equal to something else's.
 
 The module is three files, and the split is deliberate:
 
@@ -111,14 +107,14 @@ and the checker reports it as the escaped name `__@zmdbSerial@1`. `TAG_NAMES` in
 column flag is reachable through it, and a tag with no entry is a tag the reflection
 cannot see.
 
-Two questions get different answers, and conflating them was a bug worth recording.
-"Is this property _data_?" is answered by the escaped name starting `__@` — any
-`unique symbol` slot, ours or not. "Which IR field does this tag set?" is answered by
-`TAG_NAMES`. Testing the second question in place of the first made
-`Brand<number, 'UserId'>` a build error: the brand object looked like a second data part
-of the intersection, so the refusal was "an intersection of unrelated non-object types".
-A symbol-keyed property cannot cross a JSON boundary, so there is nothing to check and
-nothing lost by treating every one of them as phantom.
+Two questions need different answers. "Is this property _data_?" is determined
+by whether its escaped name starts with `__@`, which identifies any
+`unique symbol` slot. "Which IR field does this tag set?" is answered by
+`TAG_NAMES`.
+
+Testing the second question in place of the first made `Brand<number, 'UserId'>` a build error: the brand object looked like a second data part of the intersection, so the refusal was "an intersection of unrelated non-object types".
+
+A symbol-keyed property cannot cross a JSON boundary, so there is nothing to check and nothing lost by treating every one of them as phantom.
 
 The `@<id>` suffix is what makes plan **D5** detectable: two installed copies of
 `@zmdb/schema-core` declare `zmdbSerial` twice, the two `unique symbol`s are nominally
@@ -198,13 +194,11 @@ export interface NamingStrategy {
 }
 ```
 
-This module is the IR producer, so by `../../../schema-core/src/ir/SPEC.md` §4.2 it is the only place a
-strategy is ever called. `schemaIrFromType` calls `table` once per table and `column` once per column,
-writes the results into `physicalTable` and `physicalName`, and nothing downstream calls a strategy
-again. The alternative — a hook in the query compiler, where names become SQL — is where every other
-ORM put it, and it is a function call per column per row for the lifetime of the project. Having it
-here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than
-resolving names twice and agreeing by luck.
+This module is the IR producer, so by `../../../schema-core/src/ir/SPEC.md` §4.2 it is the only place a strategy is ever called. `schemaIrFromType` calls `table` once per table and `column` once per column, writes the results into `physicalTable` and `physicalName`, and nothing downstream calls a strategy again.
+
+The alternative — a hook in the query compiler, where names become SQL — is where every other ORM put it, and it is a function call per column per row for the lifetime of the project.
+
+Having it here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than resolving names twice and agreeing by luck.
 
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one,
 else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy, and
@@ -215,26 +209,17 @@ a table wants the string the author wrote, and passing the declared name means t
 same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently
 changes which branch a `column` strategy takes.
 
-A strategy is a function from names to names and nothing else. It never sees a type, a tag, a `SchemaIR`
-or a value, which is what makes it safe to run at build time and what makes the transform's cache key a
-fingerprint of the resolved config rather than of the project. It also means the four things a name
-could plausibly be are not names for this purpose and are never passed to it: a relation property, a
-relation's `via`, a `References` target, and the payload of a `Rule`, `Codec` or `WireAs` tag.
+A strategy is a function from names to names and nothing else. It never sees a type, a tag, a `SchemaIR` or a value, which is what makes it safe to run at build time and what makes the transform's cache key a fingerprint of the resolved config rather than of the project.
 
-A collision is reported through the existing diagnostic channel — `#refuse` / `ReflectDiagnostic`,
-reaching the build as a `TransformDiagnostic` — and **not** thrown. Rule 1 of §2 is why: the transformer
-collects diagnostics per call site, so throwing would abort a whole file over one interface. It is a
-schema-level diagnostic rather than an `unsupported` node, because there is no single property to blame
-and neither of the two colliding columns may be dropped or quietly renamed. The message names both
-property names; the known defect in `EmitDiagnostic.path` (it carries an emitted-source expression
-rather than a property chain) must not be extended into this one.
+It also means the four things a name could plausibly be are not names for this purpose and are never passed to it: a relation property, a relation's `via`, a `References` target, and the payload of a `Rule`, `Codec` or `WireAs` tag.
 
-Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved,
-from `loadConfig` in `zmdb/src/config` — sub-issue #492 in the CLI epic, which the naming epic's
-implementation slice is blocked on for exactly this reason. Both AOT routes have to resolve the same
-config: the unplugin transformer and `zmdb-codegen` each read it and hand it over, and
-`yarn verify:fixtures` is the gate that proves the two routes emit the same physical names, because
-`fixtures/consumer-plugin` and `fixtures/consumer-cli` declare the same tables.
+A collision is reported through the existing diagnostic channel — `#refuse` / `ReflectDiagnostic`, reaching the build as a `TransformDiagnostic` — and **not** thrown. Rule 1 of §2 is why: the transformer collects diagnostics per call site, so throwing would abort a whole file over one interface.
+
+It is a schema-level diagnostic rather than an `unsupported` node, because there is no single property to blame and neither of the two colliding columns may be dropped or quietly renamed. The message names both property names; the known defect in `EmitDiagnostic.path` (it carries an emitted-source expression rather than a property chain) must not be extended into this one.
+
+Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved, from `loadConfig` in `zmdb/src/config` — sub-issue #492 in the CLI epic, which the naming epic's implementation slice is blocked on for exactly this reason.
+
+Both AOT routes have to resolve the same config: the unplugin transformer and `zmdb-codegen` each read it and hand it over, and `yarn verify:fixtures` is the gate that proves the two routes emit the same physical names, because `fixtures/consumer-plugin` and `fixtures/consumer-cli` declare the same tables.
 
 ## 8. What a declaration says and a schema value cannot
 

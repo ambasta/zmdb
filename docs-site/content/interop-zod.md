@@ -82,7 +82,7 @@ User.parse(body)      → assert<User>(body)
 User.safeParse(body)  → validate<User>(body)   // { success, data?, errors? }
 ```
 
-**3. Translate the refinements you actually rely on.** Format checks that Zod gives you as methods are `validate()` rules or a [`refine`](./unions-refinements.html) predicate. Be honest about which ones matter — `z.string().email()` is a regex, and half the codebases that call it do not need it.
+**3. Translate the refinements you actually rely on.** Format checks that Zod gives you as methods are `validate()` rules or a [`refine`](./unions-refinements.html) predicate. Decide explicitly which ones matter — `z.string().email()` is a regex, and half the codebases that call it do not need it.
 
 > [!WARNING]
 > Zod coerces nothing by default and neither does `assert`. But `z.coerce.number()`

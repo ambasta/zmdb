@@ -54,7 +54,9 @@ Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — 
 | `instance.save()`                         | — rows are plain data                    |
 | `instance.reload()`                       | `repo.findById(id)`                      |
 
-`findAndCountAll` mapping to `list` is not a rename, and the difference will bite if you assume it is. `list` returns `ListResult<Row>` — `{ items, hasMore, total?, cursor? }` — and it takes the same `where` / `orderBy` / `page` DTO your HTTP layer received, which is the improvement. But **`total` is never populated by `list()`**: Sequelize's `count` was a second query it ran for you, and here you run it yourself with `aggregate`. See [Count rows](./guide-count-rows.html). If your UI only needs "is there another page", `hasMore` is free and no count is needed at all.
+`findAndCountAll` mapping to `list` is not a rename, and the difference will bite if you assume it is. `list` returns `ListResult<Row>` — `{ items, hasMore, total?, cursor? }` — and it takes the same `where` / `orderBy` / `page` DTO your HTTP layer received, which is the improvement.
+
+But **`total` is never populated by `list()`**: Sequelize's `count` was a second query it ran for you, and here you run it yourself with `aggregate`. See [Count rows](./guide-count-rows.html). If your UI only needs "is there another page", `hasMore` is free and no count is needed at all.
 
 ## Operators
 

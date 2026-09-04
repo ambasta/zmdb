@@ -1,8 +1,6 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there is no `PartialType`/`PickType`/`OmitType`/`IntersectionType` for GraphQL
-> types, and no `@ObjectType`/`@InputType` to derive from. The argument below is
-> unaffected by that: TypeScript's own operators are what zmdb offers instead, and
-> they compose DTOs for the REST surface today.
+> **Not planned.** `@zmdb/web` does not provide GraphQL mapped types because
+> [GraphQL is out of scope](./web-graphql.html). Use TypeScript's built-in type
+> operators to compose DTOs for the supported HTTP surface.
 
 ## Why these helpers exist elsewhere, and would not here
 

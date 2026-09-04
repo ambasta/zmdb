@@ -1,4 +1,4 @@
-# Benchmark Results (real upstream suites, honest accounting)
+# Benchmark Results (real upstream suites, complete accounting)
 
 > zmdb run inside the **actual upstream benchmark harnesses** against **real
 > competitor libraries**. Reproduction: [`harness/`](./harness).
@@ -121,11 +121,8 @@ join/aggregate/FTS routes were DNF, and in the actual replay those routes are
 **57.8% of all requests** (the two 100k-request JOIN routes dominate). That was
 a real, significant feature gap.
 
-> **Status update — all 13 routes now served (0 DNF):** the query-compiler gained
-> JOIN (`joinableSelectFrom`, #85), aggregation (`aggregateSelectFrom`, #90), and
-> full-text-search (`ftsSelectFrom`, #95) builders, and every previously-DNF
-> route is now wired and returns **HTTP 200 with correct data**, verified against
-> real Postgres:
+> All 13 routes now work against real Postgres. The six routes that originally
+> did not finish were added through the following query-compiler features:
 >
 > - **FTS** `/search-customer`, `/search-product` — FTS builder (#97).
 > - **JOIN** `/employee-with-recipient` (self-join), `/product-with-supplier` —
@@ -134,16 +131,15 @@ a real, significant feature gap.
 >   builder grouping on the FK in `order_details` (#93); order 10500 → count 15,
 >   sum 1038, cross-checked vs raw SQL. Repository `aggregate` passes E2E (#92).
 >
-> **Honest caveats:** (1) the aggregate routes return the per-order aggregate
-> shape (`order_id`, `products_count`, `quantity_sum`) via GROUP-BY on the child
-> table — zmdb's aggregate builder does **not** join in the parent `orders`
-> columns (shipName, etc.), so the shape differs slightly from drizzle/kysely's
-> joined projection while the aggregate values match. (2) On the full 13-route
-> k6 run, throughput between the three ORMs is a **tie** — the ordering flips
-> between sessions and every margin is a few percent (see the bottom line). What
-> does reproduce is the tail: drizzle keeps the best p95. Server-side prepared
-> statements (`ZMDB_PREPARED=1`) reproducibly narrow that gap (see the
-> head-to-head).
+> The aggregate routes return `order_id`, `products_count`, and `quantity_sum`.
+> They do not include parent `orders` columns such as `shipName`, so their
+> projection differs from the Drizzle and Kysely versions even though the
+> aggregate values match.
+>
+> Repeated 13-route runs put all three ORMs within a few percentage points on
+> throughput, with the order changing between sessions. Drizzle consistently
+> has the better p95. Enabling server-side prepared statements with
+> `ZMDB_PREPARED=1` narrows that tail-latency gap.
 
 ### Throughput & latency — k6, FULL 13-route replay (all serve every route, 0 failures)
 
@@ -159,13 +155,13 @@ in ms, from the same k6 run (ramp to 400 VUs). p50 omitted — k6
 | drizzle             |     2,795 |    106.8 | **157.6** | **173.8** |      0 |
 | kysely              |     2,733 |    109.3 |     176.8 |     200.8 |      0 |
 
-- **Honest read:** on this single run zmdb led on **throughput (2,916 req/s)** and
+- **Result:** on this single run zmdb led on **throughput (2,916 req/s)** and
   **average latency (102 ms)** while **drizzle kept the best tail** (p95 173.8 vs
   zmdb 215.5).
 - **The throughput half of that has since been withdrawn.** These are one sample
   per ORM in a fixed order with no warmup. Three later sessions of _interleaved_
   repeats put the three ORMs within a few percent of each other with the ordering
-  flipping between sessions, so the honest verdict on throughput is a **tie** — see
+  flipping between sessions, so the conclusion on throughput is a **tie** — see
   the bottom line. The tail difference is the part that reproduced.
 
 ### Prepared-statement head-to-head (the tail-latency lever, verified)
@@ -233,9 +229,9 @@ not register:
 | zod (v3)                          |   1,087,654 |     970,236 |   1,051,654 |    1,014,129 | —                      |
 
 Only the two zmdb rows were re-measured for this table; the competitor rows are
-carried forward from the previous full run on the same box. That is fine for the
-zmdb-vs-self comparison and worth knowing before reading any single competitor
-gap as precise.
+carried forward from the previous full run on the same box. That is sufficient
+for comparing zmdb variants, but individual gaps to competitors should not be
+read as exact.
 
 ¹ **`zmdb-aot` numbers come from a generated file that is committed here.** The
 validators are the output of the real `@zmdb/aot-validator` transform over
@@ -245,15 +241,9 @@ calls written the way a user writes them — produced by
 [`harness/validation/aot.generated.ts`](./harness/validation/aot.generated.ts), and
 verified current in CI. Anyone can read the emitted JS and re-derive it.
 
-They replace numbers measured against a **hand-inlined** file whose comment claimed
-it was what the transformer "WOULD emit". It was not, and the difference is
-measurable: the hand-written check skipped the `!Array.isArray(...)` guard at each
-object level and the `!Number.isNaN(...)` guard on each of the four number fields,
-and hoisted `deeplyNested` into a local instead of re-reading the property. That is
-why `assertLoose` fell from 108.9M to 93.2M. The skipped work is not optional
-either — typebox's compiled checker, the closest competitor here, emits
-`Number.isFinite(value['n'])` and its own `!Array.isArray(value)`, so the old row
-was scoring less work against libraries doing more.
+They replace numbers measured against a **hand-inlined** file whose comment claimed it was what the transformer "WOULD emit". It was not, and the difference is measurable: the hand-written check skipped the `!Array.isArray(...)` guard at each object level and the `!Number.isNaN(...)` guard on each of the four number fields, and hoisted `deeplyNested` into a local instead of re-reading the property.
+
+That is why `assertLoose` fell from 108.9M to 93.2M. The skipped work is not optional either — typebox's compiled checker, the closest competitor here, emits `Number.isFinite(value['n'])` and its own `!Array.isArray(value)`, so the old row was scoring less work against libraries doing more.
 
 ² **The `zmdb` runtime row is 5.4× the previous one, and none of that is the
 walker getting faster.** The witness is now a generated `TypeIR`; it used to be a
@@ -265,22 +255,18 @@ same shape and the same data:
 | hand-written `TypeDescriptor` | 1,340,445 |
 | generated `TypeIR`            | 7,833,292 |
 
-`irFromDescriptor` rebuilt the IR — and with it the reference table keyed on that
-IR object — on **every call**, so a descriptor input paid a full conversion per
-validation. Benchmarking it was benchmarking a compatibility shim over an input form
-the library never produced, and that front-end has since been deleted outright: the
-entry points take a `TypeIR` and nothing else. The previous local row (6.37M, below)
-was measured before the conversion existed at all, so it is not comparable to either
-number above — which is the second reason to generate the witness: the benchmark's
-input form stopped matching what the library did with it, and nothing said so.
+`irFromDescriptor` rebuilt the IR — and with it the reference table keyed on that IR object — on **every call**, so a descriptor input paid a full conversion per validation. Benchmarking it was benchmarking a compatibility shim over an input form the library never produced, and that front-end has since been deleted outright: the entry points take a `TypeIR` and nothing else.
+
+The previous local row (6.37M, below) was measured before the conversion existed at all, so it is not comparable to either number above — which is the second reason to generate the witness: the benchmark's input form stopped matching what the library did with it, and nothing said so.
 
 > [!WARNING]
-> **The upstream runner discards every result, and that used to inflate the AOT
-> rows by 3.3–5×.** The runner — and, until this was found, our own local harness
-> — calls each validator and throws the answer away. The hand-inlined AOT
-> validator was a single pure boolean chain, so `void aotIs(FROZEN)` was dead code
-> and V8 deleted the call outright. Measured on Node 26, 50M iterations, median of
-> 5, interleaved, **against that hand-inlined file**:
+> The upstream runner discards every result. That used to inflate the
+> hand-inlined AOT rows by 3.3–5× because V8 could remove the pure
+> `void aotIs(FROZEN)` call as dead code. The same problem existed in our old
+> local harness.
+>
+> These Node 26 results use 50 million iterations and the median of five
+> interleaved passes:
 >
 > | what the loop does                       |     ops/s |
 > | ---------------------------------------- | --------: |
@@ -288,26 +274,21 @@ input form stopped matching what the library did with it, and nothing said so.
 > | result observed, input still frozen      |   317.9 M |
 > | result observed, input rotates in a pool |   208.7 M |
 >
-> The elimination was also _asymmetric_: zod, ajv and valibot allocate and throw,
-> so their calls cannot be removed and they never got the discount. Only the
-> implementations we were trying to show off did. This is likewise the real
-> explanation for footnote ³ below — the ~942M Bun row was never Bun-specific, it
-> was the discarded result, and the same thing was happening on Node.
+> This affected the comparison unevenly. Zod, Ajv, and Valibot allocate or throw,
+> which prevents their calls from being removed. The ~942M Bun result in
+> footnote ³ came from the same discarded-result problem, not from a Bun-specific
+> optimization.
 >
-> **On the transformer-generated validators the two harnesses now agree.** The
-> emitted code calls a named helper per type and does more work per field, and the
-> upstream numbers land within ~15% of the DCE-proof band the local harness produced
-> over three sessions (`assertLoose` 93.2M upstream against 98.2–107.9M local;
-> `parseStrict` 55.7M upstream against 37.5–50.0M local) rather than 3–5× above it. Why
-> V8 no longer removes the call is not something this repository has established,
-> so treat the agreement as an observation, not a guarantee: the local harness
-> still observes every result, because a benchmark should not depend on an
-> optimiser's mood.
+> With transformer-generated validators, the upstream results now fall within
+> roughly 15% of the local harness across three sessions: `assertLoose` measured
+> 93.2M upstream and 98.2–107.9M locally, while `parseStrict` measured 55.7M
+> upstream and 37.5–50.0M locally. We have not established why V8 keeps these
+> generated calls, so the local harness still consumes every result.
 >
 > The local harness (`harness/validation`) observes results, rotates inputs, and
 > runs 1,000 validations per timed call so tinybench's ~10ns per-call overhead
-> cannot dominate. **Prefer its numbers, below.** The upstream table is kept
-> because it is what the upstream runner reports.
+> does not dominate. Use its numbers below for comparisons. The upstream table
+> remains as a record of what the upstream runner reports.
 
 ### DCE-proof local measurement (`harness/validation`, `./run.sh`)
 
@@ -370,7 +351,7 @@ scored against four libraries doing none. zod is measured with `safeParse` for t
 assert cases because it has no allocation-free assert at all, so its assert rows
 necessarily carry parse cost.
 
-### What this shows (honestly)
+### What the results show
 
 - **The AOT premise holds, and the multiple is ~8–14×.** Measured DCE-proof,
   transformer-generated `zmdb-aot` is **8.0–14.2× the `zmdb` runtime** across the
@@ -411,7 +392,7 @@ Function()` JIT (124M)" claim was measuring eliminated code; static CSP-safe
   against the hand-inlined AOT file.
 - **The shipped, out-of-the-box path is still the `zmdb` runtime** unless the
   transformer plugin is enabled. With the plugin, code gets the AOT path. Note what
-  that means for the honest comparison: the _default_ install is the ~7.9M ops/s
+  that means for the valid comparison: the _default_ install is the ~7.9M ops/s
   row, behind ajv and typebox and ahead of zod and valibot.
 
 ### Cross-runtime (Node / Bun / Deno) — `zmdb-aot`, ops/sec
@@ -462,7 +443,7 @@ Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/
   from the upstream runner and inherits its discarded-result inflation, so
   "leads" in it means "led under a measurement that flattered us". The local
   DCE-proof harness does not include typia (it needs its own AOT transform step),
-  so **we currently have no honest zmdb-vs-typia number at all**. Treat every
+  so **we currently have no valid zmdb-vs-typia comparison at all**. Treat every
   typia comparison on this page as unverified until that is fixed.
 - **assertLoose — behind typebox.** The "352M ops/s, faster than `new Function()`
   JIT (124M)" claim was measuring eliminated code. Measured DCE-proof against the
@@ -538,26 +519,13 @@ WORKERS=16 bash benchmarks/harness/framework/run.sh  # every core, as the Go/Rus
 
 #### Why each cell is repeated
 
-A single `oha` run of this workload is not a measurement. With
-`--disable-keepalive` every request opens a TCP connection, so a run's result
-depends on the kernel's ephemeral-port state — which it _inherits_ from whatever
-ran before it. On the reference box ~26k of the 28,231-port range sits in
-TIME_WAIT under load, and five back-to-back runs of one unchanged binary have
-been observed spanning **3.4×**. So each cell runs a discarded **warmup** (to put
-the port table in the same state every recorded run will see), then `REPEATS`
-recorded runs reduced to the **median run** — one real run, so its percentiles
-stay consistent with the throughput beside them. `requests_per_s_min` and
-`requests_per_s_max` publish the spread; under this protocol on a quiet box the
-same cells reproduce within **1.01–1.15×**.
+A single `oha` run of this workload is not a measurement. With `--disable-keepalive` every request opens a TCP connection, so a run's result depends on the kernel's ephemeral-port state — which it _inherits_ from whatever ran before it. On the reference box ~26k of the 28,231-port range sits in TIME_WAIT under load, and five back-to-back runs of one unchanged binary have been observed spanning **3.4×**.
 
-This noise is a property of the box, not of any one framework, but it does **not**
-hit every framework equally, and the asymmetry is the interesting part. Measured
-in one settled session, the Rust and Go peers repeated to within 1.004× while the
-two Node servers — `@zmdb/web` and fastify alike — spanned 1.1–2.5×. A framework
-whose per-request cost leaves it far below the box's connection-churn ceiling is
-insensitive to how much of that ceiling is left; one operating near it is not. So
-single-draw numbers understate Node servers specifically, which is the honest
-reason the committed figures needed re-measuring rather than defending.
+So each cell runs a discarded **warmup** (to put the port table in the same state every recorded run will see), then `REPEATS` recorded runs reduced to the **median run** — one real run, so its percentiles stay consistent with the throughput beside them. `requests_per_s_min` and `requests_per_s_max` publish the spread; under this protocol on a quiet box the same cells reproduce within **1.01–1.15×**.
+
+This noise is a property of the box, not of any one framework, but it does **not** hit every framework equally, and the asymmetry is the interesting part. Measured in one settled session, the Rust and Go peers repeated to within 1.004× while the two Node servers — `@zmdb/web` and fastify alike — spanned 1.1–2.5×.
+
+A framework whose per-request cost leaves it far below the box's connection-churn ceiling is insensitive to how much of that ceiling is left; one operating near it is not. So single-draw numbers understate Node servers specifically, which is the reason the committed figures needed re-measuring rather than defending.
 
 #### Why the worker count is published, and why it is not `nproc`
 
@@ -566,14 +534,9 @@ otherwise silently unfair in both directions. Node is single-threaded, so one
 process uses one core, while the Go peers here use `GOMAXPROCS` and the Rust peers
 `num_cpus` — every core — by default.
 
-Two things had to be fixed before a worker count meant anything. First,
-`node:cluster` defaults to `SCHED_RR`, where the **primary** accepts every
-connection and forwards it to a worker over IPC; with keep-alive off that
-single-threaded accept loop is the ceiling, and it measured **flat at ~25k req/s
-across an 8× concurrency range** — the signature of a serialized accept. Setting
-`cluster.schedulingPolicy = SCHED_NONE` lets workers accept for themselves and
-roughly doubles it to ~51–56k. (Per-worker `listen({ reusePort: true })` measures
-the same, so it buys nothing extra.)
+Two things had to be fixed before a worker count meant anything. First, `node:cluster` defaults to `SCHED_RR`, where the **primary** accepts every connection and forwards it to a worker over IPC; with keep-alive off that single-threaded accept loop is the ceiling, and it measured **flat at ~25k req/s across an 8× concurrency range** — the signature of a serialized accept.
+
+Setting `cluster.schedulingPolicy = SCHED_NONE` lets workers accept for themselves and roughly doubles it to ~51–56k. (Per-worker `listen({ reusePort: true })` measures the same, so it buys nothing extra.)
 
 Second, more workers stop helping well before `nproc`, because the load generator
 runs on this same box and competes for the same CPUs. Real contract app, `GET /`,
@@ -660,21 +623,16 @@ is internally comparable in a way the previous single-draw dataset was not.
 | 18  | fastapi       | python (uvicorn)   |        4,125 |          1.52× |
 
 > [!WARNING]
-> **This table has a position bias, and its `@zmdb/web` row is not comparable to
-> the rest of it.** The 18 entries were measured back to back in one session, and
-> this box throttles from 5.13 GHz to ~2.8 GHz under sustained load — so whoever
-> ran late was measured on a slower CPU than whoever ran first. `fastify` is first
-> in the peer list and reads 31,943 here against **25,441** when measured
-> interleaved (below); the Go and Rust entries run late and are correspondingly
-> understated. Worse, the `@zmdb/web` row came from a _different session_
-> altogether, and the same code has since medianed anywhere from 76,871 to 93,647
-> depending only on thermal state.
+> This table has a position bias. The 18 peers ran one after another while the
+> CPU fell from 5.13 GHz to about 2.8 GHz, so later entries ran on a slower
+> machine. Fastify, which ran early, records 31,943 req/s here but 25,441 req/s
+> in the interleaved test below.
 >
-> Treat this as a rough tier list — Rust/Go ahead of the JS/TS class, Python behind
-> it — and take the head-to-head from the interleaved table below, which controls
-> for all of it. The `@zmdb/web` row is left at its measured value rather than
-> quietly refreshed, because replacing it with a number from yet another session
-> would repeat the mistake.
+> The `@zmdb/web` row also came from another session; thermal conditions alone
+> have moved the same code between 76,871 and 93,647 req/s. Use this table only
+> for broad runtime tiers. The interleaved per-core table below is the meaningful
+> JS/TS comparison. The original values remain here so the published dataset is
+> not silently rewritten.
 
 The old reading of this table — "**4th of 18**, at **2.9× the fastest peer Node
 framework**" — was wrong, and not by a little. It compared `@zmdb/web` on **8
@@ -710,7 +668,7 @@ is sampled before every single measurement and stored beside it.
 | 11  | koa                          | node     |         20,099 |       1.10× |
 | 12  | express                      | node     |         16,440 |       1.09× |
 
-So, honestly, per runtime:
+By runtime:
 
 - **On Node we lead the class.** 29,698 against fastify's 25,441 (**1.17×**), hono's
   22,385 (1.33×), koa (1.48×) and express (1.81×). Both spreads are ≤1.08×, so the
@@ -732,8 +690,8 @@ the unit guard in `packages/web/src/bench`, independent of this HTTP harness.
 
 #### Where the gap to actix actually is — a layer budget
 
-Before optimising anything here it is worth knowing how much of the request there
-is left to optimise. Same box, 8 workers, `GET /`, keep-alive off, c=256, median
+Before optimizing the framework, first identify how much of the request it
+controls. Same box, 8 workers, `GET /`, keep-alive off, c=256, median
 of 3, each layer adding one thing to the one above it:
 
 | layer                                  |   req/s |                                 that layer's cost |
@@ -743,59 +701,44 @@ of 3, each layer adding one thing to the one above it:
 | bare `node:http` + `writeHead({…})`    | 103,407 |              −11,031 (10%) serialising one header |
 | the contract app                       | 102,651 | **−756 (0.7%)** routing + controller + validation |
 
-**actix's 151,669 is the 152,748 raw-socket floor.** It is running at the rate
-this machine can accept and close TCP connections, and there is no layer above it
-to reclaim. Meanwhile everything `@zmdb/web` does — bucket lookup, pattern match,
-controller dispatch, AOT validation — is **0.7% of the budget**, and `node:http`
-is 25%. So the distance to the Rust frameworks is not a design problem in this
-package; it is the cost of Node's HTTP stack, and no amount of tuning inside the
-framework can pay for it. Header strategy is a dead end too: of five variants
-measured, inline `writeHead` (91,302), a hoisted object (89,843) and a raw array
-(91,244) are indistinguishable, `setHeader`-per-entry is worse (78,962) and
-sending none at all is 97,458 — the cost is Node serialising the header, not
-allocating the object.
+**actix's 151,669 is the 152,748 raw-socket floor.** It is running at the rate this machine can accept and close TCP connections, and there is no layer above it to reclaim. Meanwhile everything `@zmdb/web` does — bucket lookup, pattern match, controller dispatch, AOT validation — is **0.7% of the budget**, and `node:http` is 25%.
+
+So the distance to the Rust frameworks is not a design problem in this package; it is the cost of Node's HTTP stack, and no amount of tuning inside the framework can pay for it.
+
+Header strategy is a dead end too: of five variants measured, inline `writeHead` (91,302), a hoisted object (89,843) and a raw array (91,244) are indistinguishable, `setHeader`-per-entry is worse (78,962) and sending none at all is 97,458 — the cost is Node serialising the header, not allocating the object.
 
 > [!NOTE]
-> **This is now the number a consumer gets, and it turned out to cost nothing.** The
-> contract app used to hand-write its responses through `node:http` — real
-> decorators, real `compilePattern`/`matchCompiled`, real AOT validator, but its
-> own dispatcher and its own `res.writeHead`/`res.end`. So the published figure
-> was an upper bound on a framework nobody could call: the dispatcher, the
-> adapter and the validation hook, every one of which a real user pays for, sat
-> outside the measurement.
+> The contract app now uses the same public API as a consumer. Its earlier
+> version used real decorators, route matching, and AOT validation, but bypassed
+> the framework dispatcher, adapter, validation hook, and response helpers by
+> calling `res.writeHead` and `res.end` directly.
 >
-> It was not benchmark convenience, it was a **capability gap**. `Router.handle`
-> returned `jsonResponse(200, result)` on every success, so a handler could not
-> set a status, add a header, or emit anything but `application/json` — and
-> the-benchmarker's contract wants `GET /user/0` to answer with the single byte
-> `0`, where `JSON.stringify('0')` is `"0"`. `json()` / `text()` / `respond()`
-> close it (`packages/web/src/pipeline`), the app is now what a user would
-> write, and the harness measures `createRouter` + `toNodeHandler` end to end.
+> At the time, `Router.handle` always returned `jsonResponse(200, result)`. A
+> handler could not choose a status, add a header, or return plain text. The
+> benchmark contract requires `GET /user/0` to return the single byte `0`, not
+> the JSON string `"0"`. The `json()`, `text()`, and `respond()` helpers in
+> `packages/web/src/pipeline` added that missing control. The harness now measures
+> `createRouter` and `toNodeHandler` end to end.
 >
-> **The cost of moving the measurement inside the framework is not measurable.**
-> An earlier reading said 17% (92,993 → 76,872), and that was an artifact: the two
-> numbers came from different sessions on a CPU that throttles by 1.85×. Measured
-> properly — both variants built from the same tree and **interleaved over 5
-> rotated passes**, per core — the public-API app does **29,698** req/s and the
-> hand-written one **27,930**. The public API is nominally 1.06× _ahead_, with pass
-> spreads of 1.03× and 1.08×, so the difference is at the edge of the noise and the
-> only defensible statement is that `createRouter` + `toNodeHandler` costs nothing
-> detectable against hand-writing `res.writeHead`/`res.end`. The 17% figure is
-> withdrawn.
+> Five rotated, interleaved, per-core passes measured the public-API app at
+> **29,698 req/s** and the hand-written app at **27,930 req/s**. Their pass
+> spreads were 1.03× and 1.08×. The difference is too small to distinguish from
+> run-to-run variation, so this experiment found no detectable overhead from the
+> public dispatcher and adapter.
 >
-> That is a better outcome than the honest-cost story it replaces, and it is
-> consistent with the layer budget above: the framework's own work was measured at
-> 0.7% of the request, so there was never 17% there to lose.
+> This replaces the earlier 17% estimate, which compared 92,993 and 76,872 req/s
+> from separate sessions on a CPU whose clock varies by 1.85×. It also agrees
+> with the layer budget above, where framework work accounted for 0.7% of the
+> request.
 >
-> Peer audit, so this is a fact and not an assumption: all ~75 JS/TS
-> implementations in the vendored suite register on their own router and let the
-> framework write the response. Direct byte-writing appears only in
-> implementations explicitly named `vanilla_*` and in routerless primitives
-> (hyper, may_minihttp, polkadot, pxe) where that _is_ the public API. Our
-> hand-written harness was the sole JS outlier. One premise that audit corrected:
-> the contract does **not** assert `Content-Type` — `v/vanilla_epoll` announces
-> `application/json` for the empty `/` and passes — what it asserts is
-> byte-exact bodies (`route_spec.rb:28` demands exactly `0`).
+> We also checked roughly 75 vendored JS/TS implementations. Framework-based
+> entries register routes and let the framework write the response. Direct byte
+> writes appear only in `vanilla_*` entries and routerless primitives such as
+> hyper, may_minihttp, polkadot, and pxe. Our old harness was the only JS
+> framework entry that bypassed its own response path.
+>
+> The contract checks exact response bytes, not `Content-Type`.
+> `route_spec.rb:28`, for example, requires exactly `0`.
 
 #### Runtimes — and the serving API that matters more than the runtime
 
@@ -841,7 +784,7 @@ Node has no equivalent to switch to; `createServer` is the only path there.
 
 ---
 
-## Bottom line (honest)
+## Bottom line
 
 - **HTTP speed, per core, against our own language class**: we **lead on Node**
   (29,698 req/s vs fastify 25,441 — 1.17×, and 1.33× hono, 1.81× express), are
@@ -877,7 +820,7 @@ Node has no equivalent to switch to; `createServer` is the only path there.
   assertStrict too unstable here to call** (1.08× ahead → 0.82× behind across three
   sessions). The previously published "~40–100×" and the typia comparisons came
   from a harness that discarded results and so deleted our validator's calls
-  outright; there is currently **no honest zmdb-vs-typia number**. Shipped default
+  outright; there is currently **no valid zmdb-vs-typia comparison**. Shipped default
   is still the runtime path unless the transformer plugin is enabled.
 - **ORM speed**: **tied with kysely and drizzle** on the full 13-route k6 run.
   Three sessions of interleaved repeats, each ORM's overall median req/s:
@@ -889,7 +832,7 @@ Node has no equivalent to switch to; `createServer` is the only path there.
   | RUN4 (freshly-booted box) |     3,827 | **4,012** |   3,654 |    kysely +4.8% |
 
   The ordering **flips between sessions** and every margin is a few percent,
-  against a worst per-cell spread of 43% in the same data — so the honest verdict
+  against a worst per-cell spread of 43% in the same data — so the conclusion
   is a tie, not a win. This replaces the earlier "zmdb led at 2,491 req/s", which
   was one sample per ORM taken in a fixed order with no warmup.
 

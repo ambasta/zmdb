@@ -175,12 +175,9 @@ Naming the key order in the message is the point. The author has to write the co
 order the parent key declares, and the diagnostic that tells them the count is wrong without
 telling them the order is the one that gets fixed twice.
 
-Downstream, `compilePopulate` conjoins the pairs — a to-one becomes `INNER JOIN t ON
-p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple `IN`
-(`WHERE (a, b) IN ((…), (…))`) on Postgres and MySQL. SQLite has row values from 3.15, so the
-same form works there; a driver that predates it is out of scope, and the alternative — an
-`OR` of conjunctions, one per parent — grows the statement with the batch and is what the
-`IN` was introduced to avoid. No parent keys is still `WHERE 1 = 0`.
+Downstream, `compilePopulate` conjoins the pairs — a to-one becomes `INNER JOIN t ON p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple `IN` (`WHERE (a, b) IN ((…), (…))`) on Postgres and MySQL.
+
+SQLite has row values from 3.15, so the same form works there; a driver that predates it is out of scope, and the alternative — an `OR` of conjunctions, one per parent — grows the statement with the batch and is what the `IN` was introduced to avoid. No parent keys is still `WHERE 1 = 0`.
 
 A single-column key resolves to a one-element list, so there is one code path rather than a
 general one and a fast one. `parentKey[0]` disappears from the module entirely; a consumer

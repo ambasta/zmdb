@@ -186,11 +186,9 @@ will look for a difference that is not there.
 
 At depth 1, `string[]` is `Array.isArray(v)` and nothing more. Elements are depth 2.
 
-The O() consequence is the reason, and it is the whole reason to have this feature: a per-element `typeof`
-is nearly free per element and still **O(n)**, so it does not bound the work — it only lowers the
-constant. A depth-1 check over an array is **O(1) in the number of elements**, and that is a property no
-amount of emitter improvement can give a full check. Stated generally: **a depth-`D` check is O(the data
-reachable within `D` constructors)**, and depth 1 over an array is the only case where that is constant.
+The O() consequence is the reason, and it is the whole reason to have this feature: a per-element `typeof` is nearly free per element and still **O(n)**, so it does not bound the work — it only lowers the constant.
+
+A depth-1 check over an array is **O(1) in the number of elements**, and that is a property no amount of emitter improvement can give a full check. Stated generally: **a depth-`D` check is O(the data reachable within `D` constructors)**, and depth 1 over an array is the only case where that is constant.
 
 A tuple is different, and the difference is not arbitrary: **arity is a property of the tuple constructor
 itself, not of its elements.** So a tuple at depth 1 checks `Array.isArray` and `length` — exactly, or
@@ -209,11 +207,11 @@ that is a narrowing the type system will believe on the strength of no evidence 
 this section exists to prevent. §7's ladder therefore emits unchanged at every depth; only the arm's own
 properties are subject to `D`.
 
-An **undiscriminated** union at depth 1 is the depth-1 check of each arm, `||`-joined in declaration order,
-as §7 already does. Two arms indistinguishable at depth 1 (`{ a: { x: number } } | { a: { y: number } }`)
-both pass, and that is correct rather than a hole: the promise made is depth 1, `T` is the union, and the
-value does satisfy the union to depth 1. It is not refused at build time, because the same reasoning
-applies at every depth and refusing here would mean refusing unions.
+An **undiscriminated** union at depth 1 is the depth-1 check of each arm, `||`-joined in declaration order, as §7 already does.
+
+Two arms indistinguishable at depth 1 (`{ a: { x: number } } | { a: { y: number } }`) both pass, and that is correct rather than a hole: the promise made is depth 1, `T` is the union, and the value does satisfy the union to depth 1.
+
+It is not refused at build time, because the same reasoning applies at every depth and refusing here would mean refusing unions.
 
 A union of primitives has no interior, so it is fully checked at depth 1 — including the `> 8 literals`
 `Set` strategy, unchanged.
@@ -289,12 +287,9 @@ A default of `int32` would silently truncate above 2^31 — no diagnostic, no ex
 on the wire than in memory — and the whole point of an ahead-of-time codec is that the failure modes are
 build errors.
 
-**`Sql<'integer'>` does not imply `int32`.** It is tempting, since the column is four bytes, and it is
-wrong: a `Sql` argument is a statement about storage in one database, and a `Proto` argument is a contract
-another language reads. Coupling them means that widening a column from `integer` to `bigint` — an
-ordinary migration — silently changes the wire format for every consumer, which is precisely the class of
-break step 8's compatibility rules exist to prevent. The two vocabularies stay independent, and a field
-that needs both says both.
+**`Sql<'integer'>` does not imply `int32`.** It is tempting, since the column is four bytes, and it is wrong: a `Sql` argument is a statement about storage in one database, and a `Proto` argument is a contract another language reads.
+
+Coupling them means that widening a column from `integer` to `bigint` — an ordinary migration — silently changes the wire format for every consumer, which is precisely the class of break step 8's compatibility rules exist to prevent. The two vocabularies stay independent, and a field that needs both says both.
 
 `bigint` requires an explicit 64-bit `Proto` with no default, because signedness is not inferable from the
 type and the cost of guessing is not symmetric: `int64` spends ten varint bytes on any negative value,
@@ -326,13 +321,9 @@ TypeScript has two spellings of it, and forcing them together would make one of 
 unusable. `a?: T | null` is refused: three source states cannot round-trip through two wire states, and
 picking a winner would make one of the three silently unreachable.
 
-**A required field's absence is undetectable, so `protoDecode` does not claim to detect it.** Under
-implicit presence, `0`, `''`, `false` and "not on the wire at all" are the same bytes — proto3 removed
-required fields for exactly this reason. So the decoder fills absent scalar fields with proto3 zeros and
-substantiates its `T` by construction rather than by checking. The consequence must be written on the
-docs page and not just here: a **truncated or empty message decodes to a plausible all-zeros object**, and
-`assert<T>` will pass on it. A field whose absence matters has to be `optional`, and then the check is a
-key lookup rather than a value comparison.
+**A required field's absence is undetectable, so `protoDecode` does not claim to detect it.** Under implicit presence, `0`, `''`, `false` and "not on the wire at all" are the same bytes — proto3 removed required fields for exactly this reason. So the decoder fills absent scalar fields with proto3 zeros and substantiates its `T` by construction rather than by checking.
+
+The consequence must be written on the docs page and not just here: a **truncated or empty message decodes to a plausible all-zeros object**, and `assert<T>` will pass on it. A field whose absence matters has to be `optional`, and then the check is a key lookup rather than a value comparison.
 
 ### Composites
 

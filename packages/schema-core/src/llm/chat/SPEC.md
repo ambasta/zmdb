@@ -31,13 +31,9 @@ export interface ToolCall {
 }
 ```
 
-**The rename is not cosmetic.** `docs-site/content/llm-chat.md` and `llm-strategy.md` both declare
-`interface Message extends Table<'messages'>` as the canonical example, and that is the shape a reader has in
-their own project. A type named `Message` exported from `@zmdb/schema-core/llm` would collide in precisely the
-file where both are used — the controller that stores a turn and runs a loop. So the wire type is
-`ChatMessage`, the stored row stays the reader's `Message`, and the two are related by a mapping the
-application writes, because a stored row has a `conversationId` and a `createdAt` that a provider has never
-heard of.
+**The rename is not cosmetic.** `docs-site/content/llm-chat.md` and `llm-strategy.md` both declare `interface Message extends Table<'messages'>` as the canonical example, and that is the shape a reader has in their own project. A type named `Message` exported from `@zmdb/schema-core/llm` would collide in precisely the file where both are used — the controller that stores a turn and runs a loop.
+
+So the wire type is `ChatMessage`, the stored row stays the reader's `Message`, and the two are related by a mapping the application writes, because a stored row has a `conversationId` and a `createdAt` that a provider has never heard of.
 
 `args` is `unknown` and stays `unknown`. It came from a model over a network; the registry entry's validator
 is what turns it into a type (§3), and any signature that made it look already-typed would be inviting the
@@ -45,9 +41,9 @@ is what turns it into a type (§3), and any signature that made it look already-
 
 ### 1.1 Provider passthrough, and what is guaranteed
 
-Reasoning blocks, cache markers, citations, signatures and safety metadata are all real, all provider-shaped,
-and all changing. Two dishonest options: leave them out, so a loop cannot round-trip a reasoning block and
-therefore cannot be used with a reasoning model at all; or model them, and be wrong within a quarter.
+Reasoning blocks, cache markers, citations, signatures and safety metadata are all real, provider-specific,
+and changing. Leaving them out prevents a loop from round-tripping a reasoning block. Modeling every
+provider shape would make the API stale quickly.
 
 Frozen: **one opaque field — a list of blocks, since a reasoning model emits several — and an explicit
 guarantee about it.**
@@ -154,11 +150,9 @@ cannot contain a validator that returns a real value. `defineTools` links each k
 return, so a handler for `ReadUser` beside a validator for `CreateUser` is a compile error while the returned
 object keeps its literal keys and exact entry types.
 
-**`effectful` is omitted-means-true, which is the opposite of how an optional boolean usually reads.** A
-reader who writes four tools and thinks about the flag for none of them gets four tools that require approval,
-and finds out at the first `run` call rather than after the first `DELETE`. The safe default is the one that
-demands a decision. `effectful: false` is a claim the author makes — "this only reads" — and it is the sort of
-claim that belongs next to the handler rather than in a policy file.
+**`effectful` is omitted-means-true, which is the opposite of how an optional boolean usually reads.** A reader who writes four tools and thinks about the flag for none of them gets four tools that require approval, and finds out at the first `run` call rather than after the first `DELETE`.
+
+The safe default is the one that demands a decision. `effectful: false` is a claim the author makes — "this only reads" — and it is the sort of claim that belongs next to the handler rather than in a policy file.
 
 The optional second argument is the transport-authenticated identity when the same registry is exposed through
 MCP. The chat loop passes no identity. Keeping identity outside the model's input is what prevents a caller
@@ -191,12 +185,9 @@ export declare function run<
 ): Promise<RunResult>;
 ```
 
-Step 3 of the issue asks for a type error if one is achievable. It is: `HasEffectful<R>` is
-`{ [K in keyof R]: R[K] extends { readonly effectful: false } ? never : K }[keyof R] extends never ? false : true`,
-and it **degrades in the safe direction** — which is the property worth checking rather than the cleverness.
-A registry built dynamically, or passed through `Record<string, ToolEntry<unknown>>`, has `effectful` widened to
-`boolean | undefined`, so no entry matches `{ effectful: false }`, so `approve` is required. Losing type
-information can only make the requirement stricter, never looser.
+Step 3 of the issue asks for a type error if one is achievable. It is: `HasEffectful<R>` is `{ [K in keyof R]: R[K] extends { readonly effectful: false } ? never : K }[keyof R] extends never ? false : true`, and it **degrades in the safe direction** — which is the property worth checking rather than the cleverness.
+
+A registry built dynamically, or passed through `Record<string, ToolEntry<unknown>>`, has `effectful` widened to `boolean | undefined`, so no entry matches `{ effectful: false }`, so `approve` is required. Losing type information can only make the requirement stricter, never looser.
 
 The runtime check stays anyway: `run` throws before the first driver call if any entry is effectful and
 `approve` is absent. Not because the type is unreliable, but because the type is absent in a file compiled
@@ -204,13 +195,9 @@ with `checkJs` off, in a registry that came from `JSON.parse`, and in the one pl
 error with an `as`. The type is the primary mechanism because it cannot be skipped at three in the morning;
 the throw is what happens when it was.
 
-**`maxToolCallsPerTurn` defaults to 8, and the number that matters is the product.** Two independent caps are
-how a reader accidentally authorises ten thousand tool calls: `maxTurns: 50` reads as modest and
-`maxToolCallsPerTurn: 200` reads as generous, and nobody multiplies. So `RunResult` reports
-`budget = maxTurns * maxToolCallsPerTurn` and the docs page states it as the number to reason about. Eight is
-chosen as more than any provider emits for a well-specified tool set and small enough that a runaway is
-capped; it is a default rather than a required field because, unlike `maxTurns`, exceeding it is a bounded
-mistake.
+**`maxToolCallsPerTurn` defaults to 8, and the number that matters is the product.** Two independent caps are how a reader accidentally authorises ten thousand tool calls: `maxTurns: 50` reads as modest and `maxToolCallsPerTurn: 200` reads as generous, and nobody multiplies. So `RunResult` reports `budget = maxTurns * maxToolCallsPerTurn` and the docs page states it as the number to reason about.
+
+Eight is chosen as more than any provider emits for a well-specified tool set and small enough that a runaway is capped; it is a default rather than a required field because, unlike `maxTurns`, exceeding it is a bounded mistake.
 
 ## 5. Termination is a value, not an absence
 

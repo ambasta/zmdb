@@ -1,8 +1,7 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there is no GraphQL middleware: no `graphql-middleware`, no envelop `onExecute`
-> hooks, no operation-level wrappers. The four interfaces below are real and shipped,
-> and the two router changes at the end of this page are still on the roadmap — they
-> were never blocked on GraphQL.
+> **Not planned.** `@zmdb/web` has no GraphQL middleware because
+> [GraphQL is out of scope](./web-graphql.html). Its existing guards, pipes,
+> interceptors, and exception filters are documented below. The two router gaps
+> at the end are separate from GraphQL.
 
 ## The middleware that does exist
 
@@ -36,7 +35,7 @@ const result = await runChain(chain, ctx, () => this.repo.list({ page: { limit: 
 > the router serialises as a 500, not as its own status. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
-That is the honest state of it: the composition primitives are built and tested; the wiring is not.
+That is the state of it: the composition primitives are built and tested; the wiring is not.
 
 ## Applying a chain in practice
 
@@ -110,7 +109,12 @@ Two framework-internal changes, in order of value, and neither of them was ever 
 
 Until they land, `runChain` called explicitly plus the adapter and driver layers is the supported arrangement.
 
-The GraphQL side is frozen, in `packages/web/src/graphql/SPEC.md`, and will not be built — but the freeze is worth reading here, because it reuses these four interfaces rather than introducing a parallel set, and the reasoning transfers to the router. There is **no `onExecute` hook and no plugin interface**, because `onExecute(ctx, next)` and `Interceptor.intercept(ctx, next)` are the same signature — see [Plugins](./web-graphql-plugins.html). Three things about that wiring are worth keeping on record, because each is visible from this page.
+The archived GraphQL design in `packages/web/src/graphql/SPEC.md` reused these
+four interfaces instead of introducing another middleware system. There is no
+`onExecute` hook or plugin interface because `onExecute(ctx, next)` and
+`Interceptor.intercept(ctx, next)` have the same shape; see
+[Plugins](./web-graphql-plugins.html). Three parts of that design also apply to
+the router:
 
 **A field's chain would have run without you calling it.** The freeze had the registry wrap each field's resolver, so unlike a route, a field with a chain declared on it actually got one. With the GraphQL layer dropped, `runChain` in the router is the only route to that property — the warning above is about the router, and it stays true.
 

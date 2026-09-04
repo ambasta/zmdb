@@ -1,10 +1,11 @@
 # @zmdb/schema-core
 
-Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, custom types, and bounded chat/MCP tools — the single source of truth for a zmdb data layer.
+`@zmdb/schema-core` contains the schema tags and shared intermediate
+representation used throughout zmdb. It also derives entities and DTOs, builds
+relation and OpenAPI types, and provides the common types used by the LLM tools.
 
-Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
-define your schema once and entities, DTOs, validation, serialization, OpenAPI
-and CRUD all derive at compile time.
+It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript
+schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
 ## Install
 
@@ -18,7 +19,10 @@ npm add @zmdb/schema-core@alpha
 
 ## Entry points
 
-`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/llm`, `@zmdb/schema-core/llm/chat`, `@zmdb/schema-core/llm/http`, `@zmdb/schema-core/llm/mcp`
+- Core schema APIs: `@zmdb/schema-core`
+- Schema building blocks: `/tags`, `/ir`, `/derive`, `/dto`, `/relations`,
+  `/openapi`, `/custom-types`
+- LLM integrations: `/llm`, `/llm/chat`, `/llm/http`, `/llm/mcp`
 
 ## Documentation
 

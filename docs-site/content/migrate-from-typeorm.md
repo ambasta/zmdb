@@ -69,12 +69,12 @@ export interface Post extends Table<'posts'> {
 }
 ```
 
-The tag carries the target table and the column holding the join; cardinality comes from the
-declared type — `User & …` is to-one, `Comment[] & …` is to-many — so there is nothing to
-decode and nothing that can disagree with the property. Make relation properties optional:
-`Entity<T>` excludes them, and a row only has one when you asked for it. There is nothing else to
-wire: `populate: ['author']` checks the key against the declaration and batches its query from
-the same tag.
+The tag names the target table and join column. The declared property type carries
+the cardinality: `User & …` is to-one, while `Comment[] & …` is to-many.
+
+Keep relation properties optional. `Entity<T>` omits them, and a returned row
+contains the relation only when it was requested. `populate: ['author']` checks
+the name against the declaration and batches the query from the same tag.
 
 `eager: true` has no equivalent — that is lazy loading with the switch flipped, and both are excluded. Ask for what you want with `populate`. See [Loading Strategies](./loading-strategies.html).
 

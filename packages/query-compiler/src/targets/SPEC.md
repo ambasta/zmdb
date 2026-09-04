@@ -80,40 +80,29 @@ the cost:
 > An OR _inside_ the user's own where therefore flattens into the branch's AND; expressing it
 > faithfully needs predicate grouping, which `WhereTarget` has no way to say.
 
-For a SQL target this is a known, documented under-expressiveness. For a non-SQL target it is worse
-than that, because **MongoDB has no precedence to borrow.** `$and` and `$or` are explicit nested
-arrays, so a Mongo target reading the same flat list has to _reconstruct_ the grouping SQL got for
-free — that is, implement SQL's precedence rules in order to read a plan that is supposed to be
-target-neutral. A target that does not is not slightly wrong; it returns a different result set. This
-is the "silently wrong query" the project refuses everywhere else, arriving through the abstraction
-that was supposed to prevent it.
+For a SQL target this is a known, documented under-expressiveness.
+
+For a non-SQL target it is worse than that, because **MongoDB has no precedence to borrow.** `$and` and `$or` are explicit nested arrays, so a Mongo target reading the same flat list has to _reconstruct_ the grouping SQL got for free — that is, implement SQL's precedence rules in order to read a plan that is supposed to be target-neutral.
+
+A target that does not is not slightly wrong; it returns a different result set. This is the "silently wrong query" the project refuses everywhere else, arriving through the abstraction that was supposed to prevent it.
 
 Anything that generalises the plan therefore has to nest the predicate tree first, which is a change
 to the SQL path — `WhereDTO`'s `and`/`or` arms would finally round-trip faithfully — and a real
 improvement. It is also strictly larger than the target work and belongs to whichever epic owns
 predicate grouping, not to this one.
 
-**(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has twelve
-universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`,
-`notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and
-`and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable;
-the twelve universal members map almost one-to-one onto Mongo (§4.1), while the three extension
-members are PostgreSQL-only and type-constrained to vector columns. But the slot it lands in is not
-closed: `Operator` in the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`,
-`findJoined` takes `{ col, op: string, value }`, and §5a's extension operators put real SQL — `@>`,
-`&&`, `ILIKE` — into the same slot on purpose.
+**(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has twelve universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`, `notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and `and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable; the twelve universal members map almost one-to-one onto Mongo (§4.1), while the three extension members are PostgreSQL-only and type-constrained to vector columns.
+
+But the slot it lands in is not closed: `Operator` in the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`, `findJoined` takes `{ col, op: string, value }`, and §5a's extension operators put real SQL — `@>`, `&&`, `ILIKE` — into the same slot on purpose.
 
 So one plan field carries two different things: a closed DTO vocabulary a target can exhaustively
 translate or explicitly refuse, and arbitrary builder SQL text a target can only refuse. A target
 cannot tell them apart from the plan alone, which means the refusal has to happen at the call site or
 not at all.
 
-**(c) A subquery in the plan is already compiled SQL.** `whereExists(subquery)` accepts
-`SelectBuilder | { compile(): CompiledQuery }` and stores it as the predicate's `value`;
-`SubqueryTarget` in `@zmdb/schema-core` has the same `{ compile(): CompiledQuery }` arm, so
-`WhereDTO`'s `exists`/`notExists` and every `FieldOps` operator can carry one. The only thing the
-plan can do with that value is ask it for SQL text, which `set-ops` then renumbers with a regex over
-`$n`. A non-SQL target handed one of those has a compiled Postgres string inside its query document.
+**(c) A subquery in the plan is already compiled SQL.** `whereExists(subquery)` accepts `SelectBuilder | { compile(): CompiledQuery }` and stores it as the predicate's `value`; `SubqueryTarget` in `@zmdb/schema-core` has the same `{ compile(): CompiledQuery }` arm, so `WhereDTO`'s `exists`/`notExists` and every `FieldOps` operator can carry one.
+
+The only thing the plan can do with that value is ask it for SQL text, which `set-ops` then renumbers with a regex over `$n`. A non-SQL target handed one of those has a compiled Postgres string inside its query document.
 
 ### 2.2 And two places SQL leaves the compiler as text
 
@@ -154,12 +143,9 @@ The last row is the problem. `SubqueryTarget` is a member of `FieldOps`, `FieldO
 band is roughly twelve percent, and it is a per-table number over ten shapes — "roughly 60
 instantiations each", as its own rationale puts it.
 
-Threading `Q` from `Driver` down to `SubqueryTarget` therefore does not stop at the compiler. It adds
-a type parameter to the DTO family that consumers write by hand, that the AOT reflector reads, and
-whose derivation cost is already gated. Whether it fits in the band is not knowable from inspection;
-what is knowable is that **the measurement is mandatory before that shape is chosen**, taken with
-`yarn verify:instantiations` before and after, and that a budget raise is a decision for a commit
-message rather than a detail of a refactor.
+Threading `Q` from `Driver` down to `SubqueryTarget` therefore does not stop at the compiler. It adds a type parameter to the DTO family that consumers write by hand, that the AOT reflector reads, and whose derivation cost is already gated.
+
+Whether it fits in the band is not knowable from inspection; what is knowable is that **the measurement is mandatory before that shape is chosen**, taken with `yarn verify:instantiations` before and after, and that a budget raise is a decision for a commit message rather than a detail of a refactor.
 
 The readability cost is not measured and is not smaller. `BaseRepository<T>` becomes
 `BaseRepository<T, Q>`; `Driver`, which `../../../repository/SPEC.md` §1 calls "the one interface
@@ -169,12 +155,11 @@ type parameter and gains nothing.
 
 ### 3.2 A discriminated union is cheaper for the types and worse for the code
 
-`dialect-mongodb.md` already froze this shape — `{ kind: 'sql', text, parameters } | { kind: 'mongo', command }` —
-and it has the merit of costing no type parameter anywhere, so `WhereDTO` and the instantiation budget
-are untouched. It pays instead at every one of the 46 references that reads `.text`: each becomes a
-narrowing site, `isWrite` becomes a function with a per-arm body, and every test that asserts on
-`q.text` — which is most of the golden suites — needs the arm proved first. It also makes the union a
-public shape, so a third-party driver must handle an arm it will never receive.
+`dialect-mongodb.md` already froze this shape — `{ kind: 'sql', text, parameters } | { kind: 'mongo', command }` — and it has the merit of costing no type parameter anywhere, so `WhereDTO` and the instantiation budget are untouched.
+
+It pays instead at every one of the 46 references that reads `.text`: each becomes a narrowing site, `isWrite` becomes a function with a per-arm body, and every test that asserts on `q.text` — which is most of the golden suites — needs the arm proved first.
+
+It also makes the union a public shape, so a third-party driver must handle an arm it will never receive.
 
 ### 3.3 A structural target costs nothing, and already exists
 
@@ -204,7 +189,7 @@ That is the whole seam, and the reason it is worth writing down even though noth
 it: a future proposal that reaches for a type parameter or a union has to explain why this was not
 enough, and the answer is not "the seam" — it is §4.3.
 
-### 3.4 Three coverage justifications survive this, which is worth stating precisely
+### 3.4 Three coverage justifications remain
 
 `tests/api-coverage/mapping.mjs` carries rationales that a generalised seam could have falsified. On
 the structural shape they hold, and the wording is load-bearing:
@@ -223,7 +208,7 @@ the structural shape they hold, and the wording is load-bearing:
 
 ## 4. MongoDB, per method
 
-The matrix the epic's honesty constraint asks for — "a target that supports 60% of the repository
+The matrix required by the epic's reporting constraint — a target that supports 60% of the repository
 surface must say which 60%, per method" — for both targets at once, because a reader choosing between
 them wants one table. The Gel column is the _query_ half only; that target is refused one level up, on
 schema ownership (§5.1), so a cell there is "could EdgeQL express this", not "is it supported".
@@ -278,13 +263,9 @@ them:
 | `like`     | `{ $regex: … }`                | **no**  |
 | `ilike`    | `{ $regex: …, $options: 'i' }` | **no**  |
 
-The two that are not direct are the interesting ones, because passing them through is the failure
-mode. A `LIKE` pattern and a regex are different languages: `%` and `_` are the wildcards in one and
-literals in the other, while `.`, `*`, `+`, `?`, `(`, `[`, `\` and `^` are literals in one and
-metacharacters in the other. So `like: 'a.b%'`, which in SQL matches `a.b` followed by anything,
-becomes in a naive mapping a regex where `.` matches any character — a wider result set, silently.
-A target must translate: escape every regex metacharacter, then map `%` to `.*` and `_` to `.`, then
-anchor with `^` and `$` unless the pattern begins or ends with `%`.
+The two that are not direct are the interesting ones, because passing them through is the failure mode. A `LIKE` pattern and a regex are different languages: `%` and `_` are the wildcards in one and literals in the other, while `.`, `*`, `+`, `?`, `(`, `[`, `\` and `^` are literals in one and metacharacters in the other.
+
+So `like: 'a.b%'`, which in SQL matches `a.b` followed by anything, becomes in a naive mapping a regex where `.` matches any character — a wider result set, silently. A target must translate: escape every regex metacharacter, then map `%` to `.*` and `_` to `.`, then anchor with `^` and `$` unless the pattern begins or ends with `%`.
 
 `isNull` narrows because Mongo does not distinguish "the field is null" from "the field is absent",
 and `{ $eq: null }` matches both. That is a real semantic difference, not a spelling one, and it is
@@ -327,19 +308,14 @@ correctly say so"). The available workarounds are all worse than refusing:
   `../dialects/SPEC.md` §3.6, which reaches the same wall from the SQL Server side) and no ObjectId
   member, so there is no tag to spell it with.
 
-Which leaves the only honest option: the _declaration_ differs per target. That contradicts the
+Which leaves the only practical option: the _declaration_ differs per target. That contradicts the
 premise the whole project rests on, and it fails the epic's own constraint that the target must offer
 "the same validation and typing as the SQL path". Every schema the scaffold generates has a `Serial`
 primary key, so this is not an edge case — it is the default case.
 
-**`aggregate` has no target-neutral spelling.** Its second form takes a callback,
-`(agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void`, hands it a builder wrapped
-in a `Proxy` that re-wraps every returned builder, and accepts anything with a `compile()`. So
-application code — not library code — holds a SQL builder and names SQL functions on it. There is no
-version of that method whose caller is target-agnostic, which means an application that calls
-`aggregate` is SQL-specific by construction, however good the seam underneath is. The epic's own
-definition of done asks for "aggregation for the operations the repository exposes"; this is the
-operation it exposes.
+**`aggregate` has no target-neutral spelling.** Its second form takes a callback, `(agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void`, hands it a builder wrapped in a `Proxy` that re-wraps every returned builder, and accepts anything with a `compile()`. So application code — not library code — holds a SQL builder and names SQL functions on it.
+
+There is no version of that method whose caller is target-agnostic, which means an application that calls `aggregate` is SQL-specific by construction, however good the seam underneath is. The epic's own definition of done asks for "aggregation for the operations the repository exposes"; this is the operation it exposes.
 
 **`savepoint` cannot be implemented, and it is frozen public API.**
 `TransactionContext.savepoint(fn)` is in `../../../repository/src/transactions/SPEC.md` §2, its
@@ -382,13 +358,9 @@ cost nothing at all, which is the part worth remembering, because the seam is wh
 declaration, with no compiler work whatever. That is on the page already and is buried under the
 feature gap. It also does not work as written:
 
-`toJsonSchema` emits JSON Schema `format` — `format: 'date-time'` for a `timestamp` column and
-`format: 'int64'` for a `bigint` — and Mongo's `$jsonSchema` implements a subset that does not include
-`format` and **rejects unknown keywords** rather than ignoring them. Since a `timestamp` column is in
-almost every schema, the page's example fails for almost every reader. The page must either strip
-unsupported keywords in the example or say plainly that it needs stripping; `dialect-mongodb.md` line
-32's claim that the emitter "produces a document Mongo accepts" is the specific sentence that is
-wrong.
+`toJsonSchema` emits JSON Schema `format` — `format: 'date-time'` for a `timestamp` column and `format: 'int64'` for a `bigint` — and Mongo's `$jsonSchema` implements a subset that does not include `format` and **rejects unknown keywords** rather than ignoring them. Since a `timestamp` column is in almost every schema, the page's example fails for almost every reader.
+
+The page must either strip unsupported keywords in the example or say plainly that it needs stripping; `dialect-mongodb.md` line 32's claim that the emitter "produces a document Mongo accepts" is the specific sentence that is wrong.
 
 ## 5. Gel, per method
 
@@ -412,7 +384,7 @@ product:
    client, `Table<'users'>` declarations stop being authoritative, and the AOT validator is validating
    against a type it did not derive from the declaration the user wrote.
 
-Option 2 is the more honest of the two and is what the page recommends. It is also not this library.
+Option 2 is the clearer of the two and is what the page recommends. It is also not this library.
 **Refused**, on the schema half rather than the query half.
 
 ### 5.2 The query half would have gone well, which is why the refusal needs stating carefully
@@ -467,7 +439,7 @@ The docs sub-issue (#517) owns the prose. What it must change, so that it has no
    instead that populate maps to `$in` and needs no pipeline.
 3. **Line 32 is factually wrong** about `$jsonSchema` accepting the emitter's output (§4.6). Keep the
    recipe — it is the best thing on the page — and add what has to be stripped.
-4. **Add the per-method matrix** from §4, all fourteen rows, because "honesty over completeness" in
+4. **Add the per-method matrix** from §4, all fourteen rows, because explicit reporting matters more than completeness in
    the epic's architecture constraints asks for exactly that.
 5. **Add the `LIKE`-to-regex translation** and the null/absent conflation (§4.1). A reader evaluating
    Mongo needs to know the filter half is close but not free.
@@ -524,7 +496,7 @@ And two rules for any target that does arrive:
   does.
 - **zmdb generating `.gel` schema files.** §5.1 — two migration systems, and zmdb's `migrate` becomes
   a code generator.
-- **zmdb reading Gel's schema to derive TypeScript.** §5.1 — the more honest design, and a different
+- **zmdb reading Gel's schema to derive TypeScript.** §5.1 — the more cleaner design, and a different
   product.
 - **Flipping either page to `supported`.** §6 — refusal with reasons is the outcome, and the pages'
   status has to say so.

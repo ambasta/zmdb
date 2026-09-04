@@ -22,14 +22,15 @@ Deno.serve(async request => {
 
 Deno strips type annotations and runs the result. There is no TypeScript transformer plugin mechanism, so the descriptor argument that `assert<T>` and `is<T>` need is never emitted.
 
-The consequence, stated plainly: **`assert<T>(body)` returns the body unchanged and validates nothing.** No error, no warning. A validation layer that reports success on every input.
+**`assert<T>(body)` therefore returns the body unchanged and performs no
+validation.** It produces neither an error nor a warning.
 
 ```ts
 // in a Supabase Edge Function, this passes
 assert<{ id: number }>({ id: 'not a number' });
 ```
 
-Two honest options:
+Two practical options:
 
 **1. Do not use the AOT validators here.** Everything else works natively — the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and DI. `schemaOf<T>()` needs the transform, so run the build step over the function's source and deploy the output. Validate the boundary with something Deno can run:
 

@@ -95,8 +95,9 @@ Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CO
 ## The conflict target is honoured on Postgres and SQLite, and ignored on MySQL
 
 > [!CAUTION]
-> `upsert(dto, { target: ['email'] })` — and `onConflict('email')` — is emitted on Postgres and
-> SQLite and **silently dropped on MySQL**, which has no syntax for a conflict target at all:
+> Postgres and SQLite emit the target supplied to
+> `upsert(dto, { target: ['email'] })` or `onConflict('email')`. MySQL has no
+> equivalent syntax, so it ignores that target:
 >
 > ```sql
 > -- postgres, sqlite
@@ -105,13 +106,21 @@ Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CO
 > INSERT INTO `users` (…) VALUES (…) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)
 > ```
 >
-> On a table with one unique index the two agree. On a table with **two**, they are different
-> programs: Postgres raises on a collision with the non-target index, and MySQL quietly updates
-> whichever row it collided with. If your table has more than one unique constraint and you are
-> targeting one of them, the upsert is not portable, and no amount of testing on Postgres will
-> tell you.
+> With one unique index, the behavior is equivalent. With several unique
+> constraints, Postgres raises when a non-target index conflicts, while MySQL
+> updates the row for whichever unique index matched. An upsert that relies on a
+> particular conflict target is therefore not portable to MySQL.
 
-**Why the API does not refuse an explicit target on MySQL.** It could — the dialect is known when the compiler is constructed, so `createQueryCompiler('mysql').insertInto(…).onConflict('email')` is a diagnosable call. It stays permitted because the dialect is usually a deployment choice rather than a call-site one: refusing would mean the same repository code compiles against one database and not another, and the divergence would move from a documented behaviour to a build failure in whichever environment happens to run MySQL. The trade is a real one and it is decided in favour of portable code plus this warning; if you want the strict reading, assert your dialect at the call site.
+**Why the API permits an explicit target on MySQL.** The compiler knows its
+dialect and could reject
+`createQueryCompiler('mysql').insertInto(…).onConflict('email')`.
+
+The call remains valid because the database dialect is often selected at
+deployment time. Rejecting it would make the same repository code compile for
+one environment and fail for another.
+
+Applications that require strict conflict-target semantics should check the
+dialect before issuing the upsert.
 
 ## MySQL's `VALUES()` is deprecated, on purpose
 

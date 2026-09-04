@@ -45,7 +45,7 @@ You get `@zmdb/web`'s routing and DI, the generated validators, and `toOpenApi` 
 
 ## What it would take
 
-Not a dialect. It would be a second compiler target emitting EdgeQL, and a decision about which schema is authoritative — either zmdb generates `.gel` schema files from schema objects (making zmdb the source and Gel's migration tooling downstream), or it reads Gel's schema and derives TypeScript types from it (making zmdb a client). The second is more honest about who owns what, and is a different product from what zmdb is.
+Not a dialect. It would be a second compiler target emitting EdgeQL, and a decision about which schema is authoritative — either zmdb generates `.gel` schema files from schema objects (making zmdb the source and Gel's migration tooling downstream), or it reads Gel's schema and derives TypeScript types from it (making zmdb a client). The second is clearer about who owns what, and is a different product from what zmdb is.
 
 No work is planned here. If you are choosing between them, choose one.
 

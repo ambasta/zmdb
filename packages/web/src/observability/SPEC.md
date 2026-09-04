@@ -16,12 +16,9 @@ somebody's on-call rotation, and it breaks silently: nothing fails to compile, t
 just goes flat. That is why this file is a freeze rather than a design note, and why §3
 pins a version number.
 
-**The conventions are pinned to OpenTelemetry semantic conventions v1.30.0.** HTTP became
-stable at v1.23.0 and database client conventions settled at v1.30.0, which is the later
-of the two and therefore the floor for citing both. A convention release that renames an
-attribute is an **edit to this file** with a new section recording the old name, the new
-one and the release that changed it — never a rename in code with the spec left behind.
-Anything a future release adds is additive and needs no amendment.
+**The conventions are pinned to OpenTelemetry semantic conventions v1.30.0.** HTTP became stable at v1.23.0 and database client conventions settled at v1.30.0, which is the later of the two and therefore the floor for citing both.
+
+A convention release that renames an attribute is an **edit to this file** with a new section recording the old name, the new one and the release that changed it — never a rename in code with the spec left behind. Anything a future release adds is additive and needs no amendment.
 
 ## 2. Directive 7, and why `Tracer` is declared here
 
@@ -80,14 +77,9 @@ the real lookup, while the conventional server-span name is only known after
 that lookup. The router starts it with the method, measures matching under the
 route child, then renames it to `{method} {http.route}`.
 
-**This spec does not claim structural compatibility with `@opentelemetry/api`.** Its
-`Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and a
-claim that a locally declared interface satisfies them cannot be compiled from the
-dependency-free core entry points. A claim that cannot be checked is a claim that rots in
-silence. So the port above is a port, and the adapter lives in the optional `@zmdb/web/otel` entry point, where
-`@opentelemetry/api` is both an optional peer and a dev dependency and the
-compatibility claim is therefore _typechecked_. Importing `@zmdb/web` or
-`@zmdb/web/observability` does not resolve that peer.
+**This spec does not claim structural compatibility with `@opentelemetry/api`.** Its `Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and a claim that a locally declared interface satisfies them cannot be compiled from the dependency-free core entry points. A claim that cannot be checked is a claim that rots in silence.
+
+So the port above is a port, and the adapter lives in the optional `@zmdb/web/otel` entry point, where `@opentelemetry/api` is both an optional peer and a dev dependency and the compatibility claim is therefore _typechecked_. Importing `@zmdb/web` or `@zmdb/web/observability` does not resolve that peer.
 
 **`comments` corrects the sketch.** #579 has
 `comments?: { readonly enabled: boolean; readonly keys: readonly CommentKey[] }`, in which
@@ -156,22 +148,13 @@ creates query spans under that request's handler. A process-wide wrapper with no
 parent still emits useful root database spans, but it cannot infer a request
 parent because §3 deliberately has no ambient current span.
 
-**No interceptor span.** #573 established that `runChain` has no caller in the pipeline —
-every call site in the repository is a `*.spec.ts` — so an interceptor never runs and a
-span wrapping one would never be recorded. A span for a code path that does not execute is
-worse than a missing span: it appears in this document, somebody builds a panel expecting
-it, and the panel is empty for a reason nobody can find. The interceptor span arrives with
-the wiring, in whatever issue owns `runChain`.
+**No interceptor span.** #573 established that `runChain` has no caller in the pipeline — every call site in the repository is a `*.spec.ts` — so an interceptor never runs and a span wrapping one would never be recorded.
 
-**The server span is created by the router, not by the adapter, and this is forced.**
-Semconv requires the span name to be `{method} {http.route}` with a low-cardinality route,
-and `http.route` is not derivable from anything a handler or an adapter sees: `Ctx` has
-`params`, `body`, `query`, `headers`, `method`, `path` and an optional handler `span`, while
-`path` is still the concrete `/posts/1`.
-Only the matched route knows `/posts/:id`. This is precisely the gap
-`docs-site/content/web-tracing.md` papers over with a hand-written `routeFor(req)` and
-that `web-observability.md` warns about, and moving span creation into the router is
-what closes it rather than documenting a workaround for it.
+A span for a code path that does not execute is worse than a missing span: it appears in this document, somebody builds a panel expecting it, and the panel is empty for a reason nobody can find. The interceptor span arrives with the wiring, in whatever issue owns `runChain`.
+
+**The server span is created by the router, not by the adapter, and this is forced.** Semconv requires the span name to be `{method} {http.route}` with a low-cardinality route, and `http.route` is not derivable from anything a handler or an adapter sees: `Ctx` has `params`, `body`, `query`, `headers`, `method`, `path` and an optional handler `span`, while `path` is still the concrete `/posts/1`.
+
+Only the matched route knows `/posts/:id`. This is precisely the gap `docs-site/content/web-tracing.md` papers over with a hand-written `routeFor(req)` and that `web-observability.md` warns about, and moving span creation into the router is what closes it rather than documenting a workaround for it.
 
 A request that matches no route has no `http.route`, so its span name remains
 the method alone — `GET` — because semconv forbids putting the raw path in a
@@ -245,14 +228,11 @@ export interface CompiledQuery {
 }
 ```
 
-Attached rather than re-derived, and the alternative is a bug that is already written down.
-`web-observability.md` derives the operation with
-`(/^\s*(\w+)/.exec(sql)?.[1] ?? 'other').toUpperCase()`, which is a parse of SQL that the
-compiler generated moments earlier and had exact knowledge of. It reads `WITH` for a CTE
-that ends in an `INSERT`, and it returns `other` for any statement with a leading comment —
-which is to say that turning on §11 of the comment spec, in its leading form, would silently
-degrade every database metric label in the application. The compiler knows the dialect, the
-verb and the table without a regular expression, so it says so once.
+Attached rather than re-derived, and the alternative is a bug that is already written down. `web-observability.md` derives the operation with `(/^\s*(\w+)/.exec(sql)?.[1] ?? 'other').toUpperCase()`, which is a parse of SQL that the compiler generated moments earlier and had exact knowledge of.
+
+It reads `WITH` for a CTE that ends in an `INSERT`, and it returns `other` for any statement with a leading comment — which is to say that turning on §11 of the comment spec, in its leading form, would silently degrade every database metric label in the application.
+
+The compiler knows the dialect, the verb and the table without a regular expression, so it says so once.
 
 `telemetry` is optional and populated only when the compiler is built with it enabled. Not
 for backwards compatibility, but because a field nothing reads is a field that changes the
@@ -266,24 +246,22 @@ invite exactly the confusion the refusal is about.
 
 ## 6. Statement recording, and the one thing that is never recorded
 
-**`db.query.text` is recorded by default, and zmdb has an unusually strong right to do it.**
-`CompiledQuery` always separates `text` from `parameters`; the optional compile-time
-`telemetry` field carries only the database system, operation and collection. Parameters
-are bound by the driver, so the text is a placeholder-only template. It contains no user
-data by _construction_ — not because a redaction pass looked for values and did not find
-any. An ORM that interpolates has to default this off, because its "statement" is a document
-containing whatever was in the request; zmdb's cannot be, and the difference is worth
-stating rather than inheriting the cautious default from tools that need it.
+**`db.query.text` is recorded by default, and zmdb has an unusually strong right to do it.** `CompiledQuery` always separates `text` from `parameters`; the optional compile-time `telemetry` field carries only the database system, operation and collection. Parameters are bound by the driver, so the text is a placeholder-only template.
+
+It contains no user data by _construction_ — not because a redaction pass looked for values and did not find any.
+
+An ORM that interpolates values must disable this by default because its
+"statement" may contain request data. zmdb statements contain placeholders, so
+they do not need to inherit that default.
 
 `web-tracing.md` already makes this argument. The freeze keeps it and hardens the other
 half.
 
-**Parameter values are never recorded, at any level, and there is no option that enables
-it.** Not off-by-default: absent. An option to record parameters is a switch somebody flips
-to debug staging and does not unflip, in a system where traces are retained for weeks and
-readable by everyone in the organisation, and where parameters are emails, tokens, addresses
-and whatever a request body contained. The count is emitted instead, which answers the
-question the values are usually reached for — whether the query is the shape you think it is.
+**Parameter values are never recorded, at any level, and there is no option that enables it.** Not off-by-default: absent.
+
+An option to record parameters is a switch somebody flips to debug staging and does not unflip, in a system where traces are retained for weeks and readable by everyone in the organisation, and where parameters are emails, tokens, addresses and whatever a request body contained.
+
+The count is emitted instead, which answers the question the values are usually reached for — whether the query is the shape you think it is.
 
 Request bodies, response bodies, header values and full URLs with query strings are not
 recorded either, for the same reason. `url.path` is the path, not the query string.
@@ -316,25 +294,15 @@ cardinality bound. `url.path` never appears on a metric — that is
 
 ## 8. Propagation, in both directions
 
-**Inbound.** `traceparent` and `tracestate` are read from the request headers by
-`fromTraceContext`, and the server span is created as a child of the extracted
-remote context. `traceparent` is accepted when
-it is exactly the W3C shape: four hyphen-separated fields of 2, 32, 16 and 2 lowercase hex
-digits, a trace-id that is not all zeroes, a span-id that is not all zeroes, and a version
-that is not `ff`. A version above `00` is accepted by reading the first four fields and
-ignoring the remainder, which is the forward-compatibility rule the W3C spec requires and
-the one an implementation is most likely to get wrong by rejecting instead.
+**Inbound.** `traceparent` and `tracestate` are read from the request headers by `fromTraceContext`, and the server span is created as a child of the extracted remote context. `traceparent` is accepted when it is exactly the W3C shape: four hyphen-separated fields of 2, 32, 16 and 2 lowercase hex digits, a trace-id that is not all zeroes, a span-id that is not all zeroes, and a version that is not `ff`.
 
-**A malformed `traceparent` is ignored and a new trace begins. It never fails the
-request.** A header a client controls must not be able to produce a `400` on a route that
-has nothing to do with tracing, and the failure mode of the alternative is a
-telemetry-shaped outage: a misconfigured upstream injecting a bad header takes down every
-downstream service at once. `tracestate` that fails to parse is dropped while
-`traceparent` is kept, because the two carry different things and the vendor field is the
-one nobody's correctness depends on. A valid list is preserved, in order, on
-`SpanContext.traceState`; `isRemote: true` survives the optional OpenTelemetry
-adapter so parent-based sampling can distinguish an extracted parent from a
-locally-created context.
+A version above `00` is accepted by reading the first four fields and ignoring the remainder, which is the forward-compatibility rule the W3C spec requires and the one an implementation is most likely to get wrong by rejecting instead.
+
+**A malformed `traceparent` is ignored and a new trace begins.
+
+It never fails the request.** A header a client controls must not be able to produce a `400` on a route that has nothing to do with tracing, and the failure mode of the alternative is a telemetry-shaped outage: a misconfigured upstream injecting a bad header takes down every downstream service at once. `tracestate` that fails to parse is dropped while `traceparent` is kept, because the two carry different things and the vendor field is the one nobody's correctness depends on.
+
+A valid list is preserved, in order, on `SpanContext.traceState`; `isRemote: true` survives the optional OpenTelemetry adapter so parent-based sampling can distinguish an extracted parent from a locally-created context.
 
 Without extraction the caller's trace ends at the door, which
 `docs-site/content/web-tracing.md` calls the single most common tracing
@@ -356,16 +324,9 @@ package should be least willing to do, the auto-instrumentation on
 `web-tracing.md` already patches `fetch` for anyone who wants that, and two
 things patching the same global is a debugging session nobody enjoys.
 
-**Message transports.** `../microservices` crosses a process boundary, so the
-same `traceparent`/`tracestate` carrier travels on its request and event
-envelopes and is validated on the way in. The application event registry and
-command bus are in-process calls, not transports, so they carry no wire header.
-A consumer that runs synchronously with its producer — a request/reply call —
-starts a **child** span. A consumer that dequeues a message some time after it
-was produced starts a span **linked** to the producer instead, because a
-parent-child edge across an unbounded queue delay produces a trace whose
-duration is the queue's latency and whose waterfall is unreadable. Semconv says
-the same; the reason is worth having in the file.
+**Message transports.** `../microservices` crosses a process boundary, so the same `traceparent`/`tracestate` carrier travels on its request and event envelopes and is validated on the way in. The application event registry and command bus are in-process calls, not transports, so they carry no wire header. A consumer that runs synchronously with its producer — a request/reply call — starts a **child** span.
+
+A consumer that dequeues a message some time after it was produced starts a span **linked** to the producer instead, because a parent-child edge across an unbounded queue delay produces a trace whose duration is the queue's latency and whose waterfall is unreadable. Semconv says the same; the reason is worth having in the file.
 
 ## 9. What #580 asserts
 

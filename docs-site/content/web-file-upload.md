@@ -174,10 +174,10 @@ export interface FileRecord extends Table<'files'> {
 }
 ```
 
-`bytes` is a `bigint`, so `Sql<'bigint'>` is redundant — TypeScript's `bigint` maps to it with
-nothing else to disambiguate. It is written here anyway because the DDL type is worth reading
-off the declaration. `number` is the one app type that _must_ carry a tag, because `integer`
-and `numeric` are both spelled `number`.
+`bytes` is a `bigint`, so `Sql<'bigint'>` is redundant: TypeScript's `bigint`
+already maps to that SQL type. It remains in the example to make the DDL type
+visible in the declaration. A `number` column must carry a tag because both
+`integer` and `numeric` use the same TypeScript type.
 
 Store the key, never the bytes. Filter by `owner_id` in the `where` on every read
 — see [Authorization](./web-authorization.html).
@@ -189,9 +189,8 @@ Three pieces, in order:
 1. **Bytes through the adapter — shipped.** A non-JSON, non-text request reaches
    `WebRequest.rawBody` as a `Uint8Array`, and both adapters enforce
    `maxBodyBytes` with a 1 MiB default before dispatch.
-2. **A buffering multipart parser — shipped.** The design picked buffering, and
-   the reason is worth knowing before you plan around it: a streaming
-   parser needs `WebRequest` to carry a `ReadableStream`, which means routing,
+2. **A buffering multipart parser — shipped.** A streaming parser would require
+   `WebRequest` to carry a `ReadableStream`, which means routing,
    validation and `Ctx` construction all have to cope with a body that does not exist
    yet at match time — a redesign of the request half of the pipeline. A bounded
    buffer's safety is one comparison; a streaming parser's is every consumer
@@ -219,14 +218,9 @@ limits run after that bounded body is materialised; the parser stops scanning an
 the handler never runs. A client still writing past the adapter limit may see a
 connection reset instead of the `413`.
 
-**The client filename is a label and nothing else.** A filename containing a `\0` or
-a path separator makes the part a `400` rather than being stripped, because the
-sanitised version of `../../etc/passwd` is a filename somebody will concatenate. The
-caller generates the storage key; the parser performs no I/O. The declared content
-type is recorded verbatim and nothing in the parser branches on it — the framework
-does not sniff, because a magic-number table goes stale, disagrees with whatever
-library will process the bytes, and has nothing to say about `image/svg+xml`, which
-is the type that actually matters.
+**The client filename is a label and nothing else.** A filename containing a `\0` or a path separator makes the part a `400` rather than being stripped, because the sanitised version of `../../etc/passwd` is a filename somebody will concatenate. The caller generates the storage key; the parser performs no I/O.
+
+The declared content type is recorded verbatim and nothing in the parser branches on it — the framework does not sniff, because a magic-number table goes stale, disagrees with whatever library will process the bytes, and has nothing to say about `image/svg+xml`, which is the type that actually matters.
 
 Even with all of it, presigned uploads remain the better production answer for
 anything large.

@@ -1,5 +1,5 @@
 There is no `ThrottlerModule`. A limiter is a counter keyed on something you
-choose, plus a decision — and the honest recommendation is to put it in front of
+choose, plus a decision — and the recommendation is to put it in front of
 your process, not inside it.
 
 ## The layer question first
@@ -118,7 +118,7 @@ export function memoryCounters(): CounterStore {
 }
 ```
 
-Correct and fast, with two honest limits: it is **per instance**, so N replicas
+Correct and fast, with two practical limits: it is **per instance**, so N replicas
 give a caller N times the limit; and the `Map` grows with distinct keys, so sweep
 expired entries on an interval or it is a memory leak — an unbounded map keyed by
 attacker-controlled input is itself the vulnerability.

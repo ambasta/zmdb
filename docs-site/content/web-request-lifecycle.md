@@ -60,7 +60,7 @@ async byId(ctx: Ctx<{ id: string }>) {
 }
 ```
 
-That yields a 400, not a 404 — which is honest but not correct REST. If you need real status codes, wrap `app.handle` and post-process, or map in the adapter:
+That yields a 400, not a 404 — which is explicit but not correct REST. If you need real status codes, wrap `app.handle` and post-process, or map in the adapter:
 
 ```ts
 import { bodyText } from '@zmdb/web';
@@ -72,7 +72,7 @@ const status = out.status === 400 && isNotFound(body) ? 404 : out.status;
 res.writeHead(status, { ...out.headers }).end(text);
 ```
 
-Ugly, and the honest description of where the framework is today. Everything downstream of it — [status codes](./web-exception-filters.html), [cookies](./web-cookies-sessions.html), [CORS](./web-cors.html), [caching headers](./web-caching.html), [redirects](./web-request-lifecycle.html) — needs the same wrapper.
+Ugly, and the description of where the framework is today. Everything downstream of it — [status codes](./web-exception-filters.html), [cookies](./web-cookies-sessions.html), [CORS](./web-cors.html), [caching headers](./web-caching.html), [redirects](./web-request-lifecycle.html) — needs the same wrapper.
 
 ## Route matching is first-match, in registration order
 
@@ -159,7 +159,9 @@ There is no automatic content-type negotiation or form parsing.
 
 ## Building the `WebRequest` yourself
 
-Every page that maps statuses, sets a cookie, adds CORS headers or logs a request does it in a hand-written adapter, because those are the things the router cannot do — and such an adapter calls `app.handle(request)` with a `WebRequest` it built. **There is no `toWebRequest` helper to import.** `toNodeHandler(router)` owns the whole `(req, res)` pair and writes the response itself, so it cannot be used by an adapter that needs to touch either one. The build is a dozen lines; every sample on those pages calls this function, so it is written out once here:
+Every page that maps statuses, sets a cookie, adds CORS headers or logs a request does it in a hand-written adapter, because those are the things the router cannot do — and such an adapter calls `app.handle(request)` with a `WebRequest` it built.
+
+**There is no `toWebRequest` helper to import.** `toNodeHandler(router)` owns the whole `(req, res)` pair and writes the response itself, so it cannot be used by an adapter that needs to touch either one. The build is a dozen lines; every sample on those pages calls this function, so it is written out once here:
 
 ```ts
 import type { IncomingMessage } from 'node:http';

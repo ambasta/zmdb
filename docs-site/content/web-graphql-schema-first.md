@@ -1,8 +1,7 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> and no SDL-first workflow: no `typePaths`, no `GraphQLDefinitionsFactory`, no type
-> generation from a `.graphql` file. The refusal of SDL-as-source-of-truth below is
-> not a consequence of that decision; it is the project's central design rule, and it
-> is the same reason there is no generator reading an OpenAPI document either.
+> **Not planned.** `@zmdb/web` has no SDL-first workflow because
+> [GraphQL is out of scope](./web-graphql.html). More generally, zmdb derives
+> external schemas from TypeScript declarations instead of treating SDL or
+> OpenAPI documents as a second source of truth.
 
 ## Why the project is code-first by construction
 
@@ -43,7 +42,8 @@ const sdl = [
 ].join('\n\n');
 ```
 
-The version you would write by hand is a `Record<SqlType, string>` lookup over `schema.columns`, and it is worth knowing why that shape is refused rather than merely superseded. Three reasons, in increasing order of how much they cost:
+A hand-written version would use a `Record<SqlType, string>` lookup over
+`schema.columns`. That design was rejected for three reasons:
 
 - A table keyed by the **SQL** type is wrong for any column that declares a wire form: `Codec<'Money'> & WireAs<string>` is `integer` in the database and a string on the wire, so the lookup emits `Int` for a field your resolver returns as a string.
 - `?? 'String'` is a silent degradation. Every construct GraphQL cannot express — a tuple, a map, an anonymous nested object — becomes a `String` field that no longer describes its data, and nothing fails.
@@ -65,7 +65,7 @@ A failing diff in CI means someone changed the public contract, which is precise
 
 ## If you must consume an existing SDL
 
-You have an SDL you do not own — a partner's federated subgraph, or a contract agreed elsewhere. Then the SDL and your tables are genuinely two things, and the honest arrangement is to treat the SDL as an external interface and map to it explicitly:
+You have an SDL you do not own — a partner's federated subgraph, or a contract agreed elsewhere. Then the SDL and your tables are genuinely two things, and the clean arrangement is to treat the SDL as an external interface and map to it explicitly:
 
 ```ts
 const resolvers = {

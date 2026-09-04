@@ -49,7 +49,8 @@ Do not run `assert<T>` and `Schema.decode` over the same value. The failure shap
 | Dependencies     | Effect                             | zero                                             |
 | Dynamic schemas  | yes                                | no                                               |
 
-Bidirectional transforms are worth calling out: Effect Schema encodes as well as decodes, which zmdb does not do. If you rely on encode, there is no equivalent.
+Effect Schema supports bidirectional transforms: it encodes as well as decodes.
+zmdb has no equivalent for applications that depend on the encode direction.
 
 ## Do not wrap zmdb in Effect wholesale
 

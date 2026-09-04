@@ -115,7 +115,7 @@ warning in the generated file.
 - Views, triggers, stored routine bodies, grants and policies are not emitted as
   table declarations. Keep their SQL and review process separate.
 - `inet`, `bytea`, an arbitrary SQLite declaration, or an enum without recovered
-  members cannot become an honest tagged property. The emitter warns instead of
+  members cannot become a valid tagged property. The emitter warns instead of
   widening one silently. See [Database Extensions](./db-extensions.html).
 
 The `pull` and `check` executables remain CLI work, not missing library

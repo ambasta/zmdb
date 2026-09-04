@@ -34,7 +34,7 @@ async list(ctx: Ctx<Record<never, string>, unknown>) {
 }
 ```
 
-`tenantFrom` reads and validates a header; `listFor` takes it as an argument. One extra parameter per call in the chain — tedious in a deep stack, and the tedium is the honest cost.
+`tenantFrom` reads and validates a header; `listFor` takes it as an argument. One extra parameter per call in the chain — tedious in a deep stack, and the tedium is the trade-off.
 
 ## A per-request driver: the pattern that solves most of it
 

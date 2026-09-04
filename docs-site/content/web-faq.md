@@ -1,4 +1,4 @@
-What maps 1:1 from NestJS, what's deliberately different, and the honest
+What maps 1:1 from NestJS, what's deliberately different, and the
 feature-gap list.
 
 ## Maps directly
@@ -25,7 +25,7 @@ feature-gap list.
   so the [Node and Fetch adapters](./web-pipeline.html) share one handler.
 - **Target ES2026+/ESNext** — no downlevel of decorators in source.
 
-## Honest feature gaps
+## Known feature gaps
 
 - [File upload](./web-file-upload.html) (multipart) · [GraphQL](./web-graphql.html) ·
   [Microservices](./web-microservices.html)

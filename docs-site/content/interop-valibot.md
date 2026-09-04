@@ -14,7 +14,7 @@ interface User {
 const parsed = assert<User>(body);
 ```
 
-## Bundle size, honestly
+## Bundle size
 
 Valibot's advantage over Zod is real: you import the validators you use, so a small schema pulls in a small amount of code.
 

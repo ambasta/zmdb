@@ -1,7 +1,6 @@
-> **Not planned.** There is no GraphQL layer — and [there will not be](./web-graphql.html) —
-> so there is no field middleware: no `@UseMiddleware` on a field, no `middleware`
-> option on `@Field`, no per-field resolution wrapper. The table below still holds,
-> and so does the `preSave` gap at the end, which was never a GraphQL problem.
+> **Not planned.** `@zmdb/web` has no GraphQL field middleware because
+> [GraphQL is out of scope](./web-graphql.html). The alternatives below use
+> features that exist today, and the final `preSave` limitation still applies.
 
 ## What field middleware is for
 
@@ -99,7 +98,9 @@ registry.register<PostFields>(container.build(PostResolver), {
 });
 ```
 
-It is the same `Chain` an HTTP route takes — the same `Guard`, `Pipe`, `Interceptor` and `ExceptionFilter` interfaces — bound per field in the registration table rather than declared on the field. Two consequences worth knowing now:
+It uses the same `Chain`, `Guard`, `Pipe`, `Interceptor`, and
+`ExceptionFilter` interfaces as an HTTP route, but binds them per field in the
+registration table. Two consequences follow:
 
 - A chain does **not** inherit down a traversal. A guard on `Query.post` says nothing about `Post.authorEmail`; each field that exposes data carries its own. That is deliberate, for the reason the section above gives — a control that a new field can be added without is a control that will be forgotten.
 - It authorises, it does not mask. A guard refuses the field, which becomes an error entry with `FORBIDDEN` in `extensions.code` and `null` in the data; nothing rewrites a value on the way out. `Sensitive` still does not stop a resolver returning a value, exactly as the warning above says, so the `select` advice on this page keeps its force.
@@ -115,7 +116,9 @@ registry.register<PostFields>(resolver, bindings, {
 });
 ```
 
-**Three declared levels, flattened once at registration.** A field's own `chain` is the third, and the concatenation happens at boot, not per request — `chainFor('Post', 'author')` returns the same object every time. Guards, pipes and interceptors go broadest-first, so a global timer wraps the field's work and a field's pipe sees what the type's pipe produced. **Filters go narrowest-first**, because the first filter that returns a response wins: a global catch-all placed first would swallow every error before a field's own filter ran, and every test would still pass.
+**Three declared levels, flattened once at registration.** A field's own `chain` is the third, and the concatenation happens at boot, not per request — `chainFor('Post', 'author')` returns the same object every time. Guards, pipes and interceptors go broadest-first, so a global timer wraps the field's work and a field's pipe sees what the type's pipe produced.
+
+**Filters go narrowest-first**, because the first filter that returns a response wins: a global catch-all placed first would swallow every error before a field's own filter ran, and every test would still pass.
 
 **A field with no chain in any of the three levels is not wrapped.** The resolver map holds the bound method itself, so this feature costs a schema that does not use it nothing at all — not a small constant, zero. A field that does carry one allocates its context, plus a piped context only when there are pipes to fold.
 
