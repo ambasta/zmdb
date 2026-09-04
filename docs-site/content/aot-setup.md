@@ -5,7 +5,7 @@ parsers, no reflection.
 
 ## Why AOT?
 
-Runtime validators like Zod parse type definitions on every call. AOT inlining compiles those checks once, at build time:
+Runtime-schema validators carry schema machinery into the application and execute it on every call. AOT inlining compiles checks from the TypeScript type once, at build time:
 
 ```ts
 // Authored code
@@ -44,17 +44,48 @@ For TypeScript project references or direct ts-patch usage:
 }
 ```
 
+## Prove the transform is installed
+
+No lint rule can prove that a transform runs. A project may wire zmdb through
+Vite, esbuild, Webpack, Rollup, ts-patch or `zmdb-codegen`, and a linter looking
+at one source file cannot distinguish those working configurations from a
+missing one without false positives.
+
+Add a build-path smoke test instead:
+
+```ts
+import { schemaOf } from 'zmdb';
+import type { User } from './schema.js';
+
+it('runs the zmdb AOT transform', () => {
+  expect(schemaOf<User>().table).toBe('users');
+});
+```
+
+An untransformed `schemaOf<User>()` call throws rather than returning a
+plausible empty schema. The [Lint Rules](./lint-rules.html) complement this test
+by catching declaration mistakes that are precise from syntax alone.
+
 ## Intercepted Functions
 
-The transformer recognizes these generic functions from `@zmdb/aot-validator`:
+The transformer recognizes these fourteen generic entry points:
 
-| Function                | Emits                                                       |
-| ----------------------- | ----------------------------------------------------------- |
-| `is<T>(x)`              | Inline boolean check                                        |
-| `assert<T>(x)`          | Inline check + throw on failure                             |
-| `validate<T>(x)`        | Returns `{ success: boolean; data?: T; errors?: Issues[] }` |
-| `equals<T>(x, y)`       | Inline deep equality + excess key check                     |
-| `assertEquals<T>(x, y)` | Inline equality + throw on mismatch                         |
+| Function                   | Emits                                       |
+| -------------------------- | ------------------------------------------- |
+| `is<T>(x)`                 | Inline full-depth boolean check             |
+| `isShallow<T, D>(x)`       | Inline boolean check through depth `D`      |
+| `assert<T>(x)`             | Full-depth check + throw on failure         |
+| `assertShallow<T, D>(x)`   | Depth-limited check + throw on failure      |
+| `equals<T>(x)`             | Exact-shape check with excess-key rejection |
+| `assertEquals<T>(x)`       | Exact-shape check + throw on mismatch       |
+| `validate<T>(x)`           | Structured full-depth success or issues     |
+| `validateShallow<T, D>(x)` | Structured depth-limited success or issues  |
+| `random<T>()`              | Type-directed value generator               |
+| `toJsonSchema<T>()`        | JSON Schema object                          |
+| `schemaOf<T>()`            | Frozen tagged table schema and IR           |
+| `protoDescriptor<T>()`     | Protobuf message descriptor                 |
+| `protoDecode<T>(bytes)`    | Generated protobuf decoder                  |
+| `protoEncode<T>(value)`    | Generated protobuf encoder                  |
 
 ## Golden Transformations
 
@@ -124,18 +155,31 @@ export default defineConfig({
 });
 ```
 
-## Fallback Runtime
+## Runtime witness fallback
 
-If AOT is not configured, the runtime validator from `@zmdb/aot-validator` is used as a fallback — validation still works, just without the speed benefit.
+An untransformed generic call has no runtime access to its type argument.
+`is<User>(payload)`, `assert<User>(payload)`, `validate<User>(payload)` and their
+shallow variants therefore throw
+`runtime type witness required in test/fallback mode`; they do not silently run
+a weaker reflective validator.
+
+The utilities accept an explicit `TypeIR` witness for tests and generated
+fallback modules:
 
 ```ts
-// Without AOT build, this uses runtime parser (slower but functional)
 import { is } from '@zmdb/aot-validator/utilities';
-const ok = is<User>(payload);
+
+const ok = is(payload, userTypeIr);
 ```
+
+The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are
+compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available
+when the caller already has a runtime schema. Use the build plugin or
+`zmdb-codegen` for the generic forms.
 
 ## Cross-links
 
 - [Pure TypeScript](./pure-typescript.html) — runtime-only validation
 - [Validation](./validators-is.html) — validation API surface
+- [Lint Rules](./lint-rules.html) — syntactic declaration and query checks
 - [Benchmarks](./benchmarks.html) — performance numbers

@@ -1216,8 +1216,7 @@ export const PAGE_META = {
   'lint-rules': {
     title: 'Lint Rules',
     group: 'Advanced',
-    status: 'todo',
-    note: 'six syntactic rules ship and run in repository CI; the complete setup/reference page remains',
+    status: 'supported',
   },
   'interop-zod': {
     title: 'Zod',

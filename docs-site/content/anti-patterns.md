@@ -5,6 +5,15 @@ Fourteen upstream pages are out of scope. They are not gaps and they are not roa
 > [!NOTE]
 > Disagreeing with an entry here is a design argument, not a bug report — but do make it. Each reason below is falsifiable, and if the trade-off stops holding the honest move is to build the feature, not to soften the wording.
 
+## What lint can enforce
+
+Most entries on this page are architectural choices, not syntax a linter can
+identify from one file. The shipped [Lint Rules](./lint-rules.html) deliberately
+cover only six precise local mistakes: nullable tag distribution, erased JSON
+shapes, interpolated SQL sinks, ambiguous numeric columns, unbounded reads and
+empty update patches. They do not pretend to detect an identity map, a unit of
+work or another application-level design from an AST node.
+
 <!-- generated: coverage/mapping.mjs antiPatterns() -->
 
 ## What is _not_ on this list
@@ -17,4 +26,4 @@ Three exclusions people expect to find here, and why they are not:
 
 ---
 
-See also: [Why zmdb](./why-zmdb.html) · [Architecture](./architecture.html) · [Inert Rows](./inert-rows.html) · [JIT vs AOT](./jit-vs-aot.html)
+See also: [Why zmdb](./why-zmdb.html) · [Architecture](./architecture.html) · [Lint Rules](./lint-rules.html) · [Inert Rows](./inert-rows.html) · [JIT vs AOT](./jit-vs-aot.html)
