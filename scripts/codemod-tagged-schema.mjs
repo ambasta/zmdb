@@ -95,7 +95,7 @@ const BUILDERS = {
 };
 
 /** `SqlType` → the TypeScript type it maps to. Mirrors `BaseTsType` in schema-core. */
-const TS_TYPE = {
+const _TS_TYPE = {
   serial: 'number',
   integer: 'number',
   numeric: 'number',

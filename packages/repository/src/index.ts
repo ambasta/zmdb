@@ -2571,7 +2571,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     for (const { column } of shape) {
       if (column.name in obj) {
         const val = obj[column.name];
-        if (PRIMITIVE_TYPES.has(column.sql) && !this.valueMatchesPrimitiveType(val, column)) {
+        if (
+          typeof column.sql === 'string' &&
+          PRIMITIVE_TYPES.has(column.sql) &&
+          !this.valueMatchesPrimitiveType(val, column)
+        ) {
           issues.push({
             path: `input.${column.name}`,
             message: `value does not match column type ${column.sql}`,
@@ -2593,7 +2597,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return out;
   }
 
-<<<<<<< HEAD
   /**
    * Validate a patch without teaching the DTO validator that arbitrary objects are
    * column values. Plain values still cross the unchanged UpdateDTO object check;
@@ -2624,6 +2627,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const operand = expressionOperand(value);
       if (operand !== NO_EXPRESSION_OPERAND) {
         expressionIssues.push(...issuesFor(operand, appTypeOf(column), `input.${key}`));
+      }
+    }
+
+    const PRIMITIVE_TYPES = new Set(['uuid', 'date', 'time', 'decimal', 'blob']);
+    for (const { column } of shape) {
+      if (column.name in obj) {
+        const val = obj[column.name];
+        if (
+          typeof column.sql === 'string' &&
+          PRIMITIVE_TYPES.has(column.sql) &&
+          !this.valueMatchesPrimitiveType(val, column)
+        ) {
+          expressionIssues.push({
+            path: `input.${column.name}`,
+            message: `value does not match column type ${column.sql}`,
+            expected: column.sql,
+            value: val,
+          });
+        }
       }
     }
 

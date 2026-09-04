@@ -56,6 +56,8 @@ describe('DDL emitter — native primitive column types', () => {
       { name: 'price', type: 'decimal', nullable: false, primaryKey: false },
       { name: 'data', type: 'blob', nullable: false, primaryKey: false },
     ],
+    primaryKey: ['guid'],
+    foreignKeys: [],
   };
 
   it('postgres maps blob to bytea', () => {

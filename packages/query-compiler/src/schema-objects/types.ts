@@ -50,7 +50,12 @@ export type RoutineSqlType =
   | 'boolean'
   | 'timestamp'
   | 'json'
-  | 'jsonEnum';
+  | 'jsonEnum'
+  | 'uuid'
+  | 'date'
+  | 'time'
+  | 'decimal'
+  | 'blob';
 
 export interface RoutineDef {
   readonly kind: 'function' | 'procedure';

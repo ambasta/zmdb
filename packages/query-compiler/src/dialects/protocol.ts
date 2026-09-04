@@ -40,6 +40,11 @@ export const DIALECT_SQL_TYPES = [
   'timestamp',
   'json',
   'jsonEnum',
+  'uuid',
+  'date',
+  'time',
+  'decimal',
+  'blob',
 ] as const;
 export type DialectSqlType = (typeof DIALECT_SQL_TYPES)[number];
 export type DialectTypeMap = Readonly<Record<DialectSqlType, string>>;
