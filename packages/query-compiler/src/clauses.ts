@@ -10,8 +10,8 @@
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import type { CompiledQuery, Dialect } from './index.ts';
-import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders } from './quoting.ts';
+import type { CompiledQuery, Dialect } from './index.js';
+import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export type JoinKind = 'inner' | 'left' | 'right';
 

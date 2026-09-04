@@ -49,8 +49,8 @@
 // `duplicate-install.type-test.ts` pins the failure mode exactly — using `Equal`
 // throughout, never assignability, for the reason given there.
 
-import type { SqlType } from '../index.ts';
-import type { RelationKind } from '../ir/index.ts';
+import type { SqlType } from '../index.js';
+import type { RelationKind } from '../ir/index.js';
 
 declare const zmdbTable: unique symbol;
 declare const zmdbFts: unique symbol;
@@ -159,7 +159,7 @@ export type WireAs<W> = { readonly [zmdbWire]?: W };
  * listed in `../ir`, where the same four exist as data for the reflection to check against.
  * Re-exported here because this is where a reader looking at the tags expects to find it.
  */
-export type { RelationKind } from '../ir/index.ts';
+export type { RelationKind } from '../ir/index.js';
 
 /**
  * Matches a property carrying any relation tag, whatever its cardinality.

@@ -5,7 +5,7 @@
 // one claim, so they read the states and edges from here rather than each
 // declaring their own — the type-test's extra `Shipped` state exists precisely so
 // there is a `Draft -> Shipped` edge that was never defined.
-import { defineState, transition } from './index.ts';
+import { defineState, transition } from './index.js';
 
 export interface Order {
   id: number;

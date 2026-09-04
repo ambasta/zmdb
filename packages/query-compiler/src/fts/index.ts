@@ -1,7 +1,7 @@
-import { frozenQuery, renderPredicate, tailClause } from '../clauses.ts';
-import { UnsupportedFeatureError } from '../errors.ts';
-import type { CompiledQuery, Dialect } from '../index.ts';
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
+import { frozenQuery, renderPredicate, tailClause } from '../clauses.js';
+import { UnsupportedFeatureError } from '../errors.js';
+import type { CompiledQuery, Dialect } from '../index.js';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export { UnsupportedFeatureError };
 

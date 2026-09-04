@@ -16,8 +16,8 @@
 import type { TypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { equals, is, issuesFor, type ValidationIssue } from '../utilities/index.ts';
-import { FixtureProject } from './__testing__/project.ts';
+import { equals, is, issuesFor, type ValidationIssue } from '../utilities/index.js';
+import { FixtureProject } from './__testing__/project.js';
 
 const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pattern<"^[^@]+@[^@]+$">; nickname?: string }
   interface Tree { value: number; children: Tree[] }

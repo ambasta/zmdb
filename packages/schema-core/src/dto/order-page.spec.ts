@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { type User } from './fixtures.ts';
-import { applyOrderBy, applyPagination, type OrderByDTO, type PaginationDTO } from './index.ts';
+import { type User } from './fixtures.js';
+import { applyOrderBy, applyPagination, type OrderByDTO, type PaginationDTO } from './index.js';
 
 // Fake builder recording orderBy/limit/offset calls.
 function recorder() {

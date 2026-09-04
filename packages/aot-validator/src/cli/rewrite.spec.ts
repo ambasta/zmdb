@@ -22,8 +22,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { apiInstanceCount, ReflectSession } from '../reflect/session.ts';
-import { codegen, watchCodegen, type CodegenResult } from './index.ts';
+import { apiInstanceCount, ReflectSession } from '../reflect/session.js';
+import { codegen, watchCodegen, type CodegenResult } from './index.js';
 
 /** The repo root, so a temp project outside it can still resolve `@zmdb/*`. */
 const ROOT = new URL('../../../../', import.meta.url).pathname;
@@ -124,7 +124,7 @@ describe('an import the rewrite compiled away', () => {
   it('goes, and takes its line with it', () => {
     const run = generate(`import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
@@ -143,7 +143,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // because the generated module exports `zmdbIsOrder`, not `is`.
     const run = generate(`import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 // Six derivations of one interface: the type argument *is* the input, and nothing
 // declares a schema. \`is\` is the one this file needs.
@@ -159,7 +159,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // rewrite of the clause rather than a deletion of the statement.
     const run = generate(`import { is, type ValidateResult, validate } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 export const explain = (value: unknown): ValidateResult<Order> => validate<Order>(value);
@@ -192,7 +192,7 @@ export const acceptsPoint = (value: unknown): boolean => is<{ readonly x: number
     // not divisible. So it stays.
     const run = generate(`import * as zmdb from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => zmdb.is<Order>(value);
 export const failed = (error: unknown): boolean => error instanceof zmdb.AssertError;
@@ -213,7 +213,7 @@ describe('a second run', () => {
     // committed fixture depends on: `--check` recomputes the whole rewrite and compares.
     const first = generate(`import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
@@ -234,7 +234,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // told off by `fmt --check` on the next run, forever. It compares the imported *names*.
     const run = generate(`import { assert, is, validate } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 export const insist = (value: unknown): Order => assert<Order>(value);
@@ -266,7 +266,7 @@ describe('the generated import is written in the style of the file it joins', ()
     // project whose formatter disagrees with ours.
     const run = generate(`import { is } from "@zmdb/aot-validator/utilities";
 
-import type { Order } from "./model.ts";
+import type { Order } from "./model.js";
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
@@ -281,7 +281,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // deletion swallowed it — leaving a file that called `zmdbIsOrder` and imported nothing.
     const run = generate(`// A header comment, which is not an import and must stay where it is.
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 import { is } from '@zmdb/aot-validator/utilities';
 
@@ -305,7 +305,7 @@ describe('a file that stops validating anything', () => {
   it('has its generated modules deleted, not left behind', () => {
     const first = generate(`import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `);
@@ -352,7 +352,7 @@ describe('--watch', () => {
       join(src, 'app.ts'),
       `import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `,
@@ -380,7 +380,7 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
 
 const APP = `import { is } from '@zmdb/aot-validator/utilities';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export const accepts = (value: unknown): boolean => is<Order>(value);
 `;

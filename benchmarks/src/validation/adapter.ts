@@ -7,7 +7,7 @@
 // declaring in TypeScript (REQ-TF-9).
 import { equals, is, validate, type TypeIR } from '@zmdb/aot-validator/utilities';
 
-import type { BenchResult } from '../results.ts';
+import type { BenchResult } from '../results.js';
 
 // Minimal high-resolution clock (Node 26 provides globalThis.performance;
 // declared locally to avoid a hard @types/node dependency in the harness).

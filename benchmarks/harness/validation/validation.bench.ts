@@ -47,10 +47,10 @@ import {
 } from 'valibot';
 import { object as zObject, number as zNumber, string as zString, boolean as zBoolean } from 'zod';
 
-import { is, equals } from '../../../packages/aot-validator/src/utilities/index.ts';
-import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './aot.generated.ts';
-import { MOLTAR } from './model.generated.ts';
-import type { Moltar } from './model.ts';
+import { is, equals } from '../../../packages/aot-validator/src/utilities/index.js';
+import { aotIs, aotEquals, aotParseSafe, aotParseStrict } from './aot.generated.js';
+import { MOLTAR } from './model.generated.js';
+import type { Moltar } from './model.js';
 
 const LONG_STRING =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';

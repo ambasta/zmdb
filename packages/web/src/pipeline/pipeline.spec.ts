@@ -6,8 +6,8 @@ import { ValidationError } from '@zmdb/schema-core';
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Controller, Get, Post } from '../routing/index.ts';
-import { createRouter, json, respond, text, toFetchHandler, toNodeHandler, type Ctx, type Router } from './index.ts';
+import { Controller, Get, Post } from '../routing/index.js';
+import { createRouter, json, respond, text, toFetchHandler, toNodeHandler, type Ctx, type Router } from './index.js';
 
 @Controller('/users')
 class UsersController {

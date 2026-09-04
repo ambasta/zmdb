@@ -3,7 +3,7 @@
 // → serialize. Thin, structurally-typed node:http + Fetch adapters (no hard
 // deps). No reflection; no `as` on the consumer surface.
 
-import '../polyfill.ts';
+import '../polyfill.js';
 import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 import {
@@ -13,10 +13,10 @@ import {
   type CompiledPattern,
   type Ctx,
   type QueryValues,
-} from '../context/index.ts';
-import { getRoutes, type ResolvedRoute } from '../routing/index.ts';
+} from '../context/index.js';
+import { getRoutes, type ResolvedRoute } from '../routing/index.js';
 
-export type { Ctx } from '../context/index.ts';
+export type { Ctx } from '../context/index.js';
 
 /** A minimal, framework-neutral request. */
 export interface WebRequest {

@@ -4,7 +4,7 @@
 // Per packages/web/src/context/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { compilePattern, countSegments, extractParams, matchCompiled } from './index.ts';
+import { compilePattern, countSegments, extractParams, matchCompiled } from './index.js';
 
 describe('@zmdb/web context: extractParams (runtime)', () => {
   it('extracts params from a matching path', () => {

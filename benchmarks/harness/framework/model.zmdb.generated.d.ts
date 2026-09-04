@@ -7,6 +7,6 @@
 // This half is the types: the signatures the compiler reads when the source imports the
 // module next door. Nothing here is checked against the implementation, and nothing needs
 // to be — the witness makes the same claims against the runtime API, and *that* is checked.
-import type { UserCreate } from './model.ts';
+import type { UserCreate } from './model.js';
 
 export declare function zmdbAssertUserCreate(value: unknown): UserCreate;

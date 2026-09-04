@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { zmdbAot } from './index.ts';
+import { zmdbAot } from './index.js';
 
 const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
   exports: Record<string, string>;

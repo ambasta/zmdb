@@ -3,8 +3,8 @@ import { objectTypeFromIR } from '@zmdb/schema-core/ir';
 import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { validateResult, validateCoverage, type BenchResult } from '../results.ts';
-import { zmdbAdapter, runValidationSuite } from './adapter.ts';
+import { validateResult, validateCoverage, type BenchResult } from '../results.js';
+import { zmdbAdapter, runValidationSuite } from './adapter.js';
 
 // #70: validation-suite adapter + runner.
 //

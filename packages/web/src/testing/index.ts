@@ -2,10 +2,10 @@
 // applies provider overrides, then drives routes in-process (no socket). No `as`
 // on the consumer surface.
 
-import type { Container, Token } from '../di/index.ts';
-import { runInit, runShutdown } from '../lifecycle.ts';
-import { compileModule, type ModuleClass, type ProviderDef } from '../modules/index.ts';
-import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
+import type { Container, Token } from '../di/index.js';
+import { runInit, runShutdown } from '../lifecycle.js';
+import { compileModule, type ModuleClass, type ProviderDef } from '../modules/index.js';
+import { createRouter, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
 
 /** Options for `createTestApp`. */
 export interface TestAppOptions {

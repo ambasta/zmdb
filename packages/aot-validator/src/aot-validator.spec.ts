@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { escapePattern } from './emit/index.ts';
-import { validate, tags, getEnumSet, getRegExp } from './index.ts';
-import { transformCode } from './transformer.ts';
+import { escapePattern } from './emit/index.js';
+import { validate, tags, getEnumSet, getRegExp } from './index.js';
+import { transformCode } from './transformer.js';
 
 // RED PHASE (#21 spec freeze): transformer golden fixtures + runtime fallback.
 //

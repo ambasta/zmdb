@@ -2,7 +2,7 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, type Driver } from './index.ts';
+import { BaseRepository, type Driver } from './index.js';
 
 // #28: delete + pre/post lifecycle hooks.
 

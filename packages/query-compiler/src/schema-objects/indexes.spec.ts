@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createIndexDdl, checkConstraintDdl } from './index.ts';
+import { createIndexDdl, checkConstraintDdl } from './index.js';
 
 describe('indexes & constraints DDL (#100)', () => {
   it('creates a non-unique index', () => {

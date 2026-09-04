@@ -3,11 +3,11 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 
-import { runCli } from './cli.ts';
-import { fixtureResults } from './fixtures.ts';
-import { competitorDnf } from './orm/adapter.ts';
-import { toJson } from './report.ts';
-import type { BenchResult } from './results.ts';
+import { runCli } from './cli.js';
+import { fixtureResults } from './fixtures.js';
+import { competitorDnf } from './orm/adapter.js';
+import { toJson } from './report.js';
+import type { BenchResult } from './results.js';
 
 const testDir = join(__dirname, '..', '.test-tmp');
 

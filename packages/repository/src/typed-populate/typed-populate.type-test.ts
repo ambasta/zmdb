@@ -9,8 +9,8 @@
 // `user.orders` was `unknown` and every caller cast it.
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-import { BaseRepository } from '../index.ts';
-import { ProfileSchema, UserSchema, type Order, type Profile, type User } from './fixtures.ts';
+import { BaseRepository } from '../index.js';
+import { ProfileSchema, UserSchema, type Order, type Profile, type User } from './fixtures.js';
 
 // The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is
 // what the populate assertions below are about.

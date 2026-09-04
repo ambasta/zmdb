@@ -3,11 +3,11 @@
 // Per packages/web/src/testing/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import type { Ctx } from '../context/index.ts';
-import { createToken, Inject } from '../di/index.ts';
-import { Module } from '../modules/index.ts';
-import { Controller, Get } from '../routing/index.ts';
-import { createTestApp } from './index.ts';
+import type { Ctx } from '../context/index.js';
+import { createToken, Inject } from '../di/index.js';
+import { Module } from '../modules/index.js';
+import { Controller, Get } from '../routing/index.js';
+import { createTestApp } from './index.js';
 
 interface Greeter {
   greet(): string;

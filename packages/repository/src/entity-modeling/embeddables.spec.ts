@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { flattenEmbeddable, liftEmbeddable } from './index.ts';
+import { flattenEmbeddable, liftEmbeddable } from './index.js';
 
 describe('embeddables (#146)', () => {
   const addr = { street: '1 Main', city: 'Metropolis', zip: '00001' };

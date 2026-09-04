@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { defineType, encodeValue, decodeValue, wireCodec } from './index.ts';
+import { defineType, encodeValue, decodeValue, wireCodec } from './index.js';
 
 // The codec's TS-side/DB-side types are asserted in `custom-types.type-test.ts`.
 // (This file used to build its fixture inside a try/catch that fell back to a

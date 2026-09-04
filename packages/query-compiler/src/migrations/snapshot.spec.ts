@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { snapshot } from './index.ts';
+import { snapshot } from './index.js';
 
 // #41: schema snapshot serializer.
 

@@ -1,6 +1,6 @@
 // LLM function-calling harness — see ./SPEC.md.
-import type { CoreSchema } from '../index.ts';
-import { toJsonSchema, type JsonSchemaObject } from '../openapi/index.ts';
+import type { CoreSchema } from '../index.js';
+import { toJsonSchema, type JsonSchemaObject } from '../openapi/index.js';
 
 export interface ToolSpec {
   name: string;

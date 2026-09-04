@@ -16,7 +16,7 @@ import type { Entity, TaggedSchema } from '@zmdb/schema-core';
 import type { Length, PrimaryKey, Sensitive, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';
 import { afterAll, describe, expect, expectTypeOf, it } from 'vitest';
 
-import { schemaIrsFrom, schemasFrom } from './index.ts';
+import { schemaIrsFrom, schemasFrom } from './index.js';
 
 export interface Account extends Table<'accounts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -92,7 +92,7 @@ describe('schemasFrom', () => {
   }, 60_000);
 
   it('names the compile error rather than every column it made unreadable', () => {
-    const file = scratch(`import type { Sql, Table } from './nowhere.ts';
+    const file = scratch(`import type { Sql, Table } from './nowhere.js';
 
 export interface Broken extends Table<'broken'> {
   id: number & Sql<'integer'>;

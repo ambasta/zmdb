@@ -11,7 +11,7 @@
 
 import type { CreateDTO, Entity, UpdateDTO } from '@zmdb/schema-core/derive';
 
-import type { Membership, User } from './tables.ts';
+import type { Membership, User } from './tables.js';
 
 declare function payload<T>(label: string, of?: T): void;
 

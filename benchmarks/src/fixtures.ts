@@ -8,7 +8,7 @@
 //
 // Derived from IN_SCOPE_CASES so a new case cannot appear in the spec and quietly
 // stay out of the fixtures.
-import { IN_SCOPE_CASES, type BenchResult } from './results.ts';
+import { IN_SCOPE_CASES, type BenchResult } from './results.js';
 
 // The ORM cases the architecture rejects outright — reported as visible DNF by
 // runOrmSuite, and mirrored here so the fixture has both statuses in it.

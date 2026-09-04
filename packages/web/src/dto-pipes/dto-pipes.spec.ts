@@ -3,9 +3,9 @@
 // Per packages/web/src/dto-pipes/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import type { Ctx } from '../context/index.ts';
-import { runChain } from '../middleware/index.ts';
-import { validationPipe, serializationInterceptor, decodePipe, dtoChain } from './index.ts';
+import type { Ctx } from '../context/index.js';
+import { runChain } from '../middleware/index.js';
+import { validationPipe, serializationInterceptor, decodePipe, dtoChain } from './index.js';
 
 interface CreateUser {
   name: string;

@@ -8,8 +8,8 @@
 // produce different documents: both are read off the same `SchemaIR`, and the emitter is
 // a pure function of it (REQ-TF-7). What is left in this file is the OpenAPI framing —
 // components, list/search envelopes, naming — which is genuinely its own concern.
-import type { CoreSchema } from '../index.ts';
-import { jsonSchemaFromIR, type JsonSchemaObject, type Variant } from '../ir/index.ts';
+import type { CoreSchema } from '../index.js';
+import { jsonSchemaFromIR, type JsonSchemaObject, type Variant } from '../ir/index.js';
 
 export type { JsonSchemaObject, Variant };
 

@@ -41,9 +41,9 @@ import {
   type ConvertedSchema,
   type ProjectFileConversion,
 } from '../../../../scripts/codemod-tagged-schema.mjs';
-import { findCallSites } from './callsites.ts';
-import { Reflector, type ReflectDiagnostic } from './index.ts';
-import { ReflectSession } from './session.ts';
+import { findCallSites } from './callsites.js';
+import { Reflector, type ReflectDiagnostic } from './index.js';
+import { ReflectSession } from './session.js';
 
 const ROOT = new URL('../../../../', import.meta.url).pathname;
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
@@ -163,7 +163,7 @@ describe('the codemod reads every schema in the corpus (REQ-TF-4)', () => {
   it('prunes the DSL import it made dead and leaves what the file still uses', () => {
     // The corpus's header text mentions `json` and `defaultTo`; an earlier prune matched on
     // a text search and kept the import alive because of the prose. This is that bug's test.
-    expect(corpus.rewritten).not.toContain("from './legacy-dsl.ts'");
+    expect(corpus.rewritten).not.toContain("from './legacy-dsl.js'");
     expect(corpus.rewritten).toContain("from '@zmdb/schema-core/tags'");
     // `Attachment` is not part of the DSL and is still referenced, so it stays.
     expect(corpus.rewritten).toContain('export interface Attachment');

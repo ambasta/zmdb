@@ -6,11 +6,11 @@ import {
   tailClause,
   tailMethods,
   whereClause,
-} from '../clauses.ts';
-import type { CompiledQuery, Dialect } from '../index.ts';
-import { quoteTable } from '../quoting.ts';
+} from '../clauses.js';
+import type { CompiledQuery, Dialect } from '../index.js';
+import { quoteTable } from '../quoting.js';
 
-export type { JoinKind } from '../clauses.ts';
+export type { JoinKind } from '../clauses.js';
 
 interface State {
   readonly table: string;

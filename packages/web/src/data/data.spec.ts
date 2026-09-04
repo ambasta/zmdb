@@ -9,10 +9,10 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 // validated before persist, typed response. Per packages/web/src/data/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Container, Inject } from '../di/index.ts';
-import { createRouter, type Ctx } from '../pipeline/index.ts';
-import { Controller, Get, Post } from '../routing/index.ts';
-import { repositoryToken, validateWith, wireDecoder, wireEncoder } from './index.ts';
+import { Container, Inject } from '../di/index.js';
+import { createRouter, type Ctx } from '../pipeline/index.js';
+import { Controller, Get, Post } from '../routing/index.js';
+import { repositoryToken, validateWith, wireDecoder, wireEncoder } from './index.js';
 
 export interface Order extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

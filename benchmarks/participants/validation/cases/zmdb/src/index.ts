@@ -3,7 +3,7 @@
 // runtime path: no transformer, so the validator walks that structure per call. The AOT
 // path is a separate participant (`zmdb-aot`) precisely so the two are not conflated in
 // the results table.
-import { MOLTAR } from '../../../../../../benchmarks/harness/validation/model.generated.ts';
+import { MOLTAR } from '../../../../../../benchmarks/harness/validation/model.generated.js';
 // zmdb participant in moltar/typescript-runtime-type-benchmarks — RUNTIME path.
 //
 // This file is grafted into the upstream clone at cases/zmdb/src/index.ts by
@@ -16,7 +16,7 @@ import { MOLTAR } from '../../../../../../benchmarks/harness/validation/model.ge
 //   benchmarks/upstream/typescript-runtime-type-benchmarks/cases/zmdb/src
 // back up to the repository root. graft.mjs asserts the target resolves before
 // copying, so a moved checkout fails loudly instead of bundling nothing.
-import { equals, is, validate } from '../../../../../../packages/aot-validator/src/utilities/index.ts';
+import { equals, is, validate } from '../../../../../../packages/aot-validator/src/utilities/index.js';
 
 export function looseIs(data: unknown): boolean {
   return is(data, MOLTAR);

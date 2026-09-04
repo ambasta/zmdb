@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { type Order } from './fixtures.ts';
-import { describeAggregate, type AggregateSpec } from './index.ts';
+import { type Order } from './fixtures.js';
+import { describeAggregate, type AggregateSpec } from './index.js';
 
 describe('AggregateResult<Order,Spec> (#198)', () => {
   it('describeAggregate lists group-key cols then computed keys', () => {

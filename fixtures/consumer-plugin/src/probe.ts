@@ -5,7 +5,7 @@
 // time, and what is printed about it is whether the validator accepts it — which is the
 // interesting claim anyway (REQ-AV-4: the generator and the checker agree about the type).
 
-import { accepts, acceptsPoint, document, explain, insist, sample, schema } from './orders.ts';
+import { accepts, acceptsPoint, document, explain, insist, sample, schema } from './orders.js';
 
 const good = {
   id: 1,

@@ -36,9 +36,9 @@
 //
 // No runtime code: a compilation gate, run by `yarn typecheck` and therefore by CI.
 
-import type { Equal, Expect, Mutual } from '../index.ts';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
-import type { CreateDTO, Entity, PrimaryKeyOf, UpdateDTO } from './index.ts';
+import type { Equal, Expect, Mutual } from '../index.js';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
+import type { CreateDTO, Entity, PrimaryKeyOf, UpdateDTO } from './index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

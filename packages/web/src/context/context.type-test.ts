@@ -6,7 +6,7 @@
 // only executes those files, where `expectTypeOf(...)` is a no-op.
 import type { Equal, Expect } from '@zmdb/schema-core';
 
-import type { Ctx, HandlerFor, PathParams } from './index.ts';
+import type { Ctx, HandlerFor, PathParams } from './index.js';
 
 // --- PathParams ------------------------------------------------------------
 export type _Path1 = Expect<Equal<PathParams<'/users/:id'>, { id: string }>>;

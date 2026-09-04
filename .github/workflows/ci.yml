@@ -216,9 +216,10 @@ jobs:
 
       # Run directly rather than through `yarn verify:bench`: the script imports
       # only benchmarks/src and node builtins, so it needs no install, and
-      # `yarn run` wants the node_modules state file.
+      # `yarn run` wants the node_modules state file. The `--import` is the same
+      # resolve hook that script gets through `yarn`, and it needs no install either.
       - name: Verify committed benchmark results
-        run: node .github/scripts/verify-bench-results.mjs
+        run: node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs
 
   audit:
     name: Dependency vulnerability audit

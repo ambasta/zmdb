@@ -2,8 +2,8 @@
 // ./SPEC.md). A Chain composes middleware around a handler in deterministic
 // order. Static composition, no reflection, no `as` on the consumer surface.
 
-import type { Ctx, QueryValues } from '../context/index.ts';
-import type { WebResponse } from '../pipeline/index.ts';
+import type { Ctx, QueryValues } from '../context/index.js';
+import type { WebResponse } from '../pipeline/index.js';
 
 type AnyCtx = Ctx<Record<string, string>, unknown, QueryValues>;
 

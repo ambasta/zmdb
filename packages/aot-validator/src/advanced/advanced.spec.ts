@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { tags } from '../index.ts';
-import { coerce, validateObject, refine } from './index.ts';
+import { tags } from '../index.js';
+import { coerce, validateObject, refine } from './index.js';
 
 // RED PHASE (#45 spec freeze): advanced validation semantics.
 

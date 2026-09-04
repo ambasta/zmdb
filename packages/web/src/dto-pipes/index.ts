@@ -3,7 +3,7 @@
 // (an Interceptor), built on the middleware chain. Zero runtime parser (consumer
 // supplies the AOT assert); no `as` on the consumer surface.
 
-import type { Chain, Pipe, Interceptor } from '../middleware/index.ts';
+import type { Chain, Pipe, Interceptor } from '../middleware/index.js';
 
 /**
  * A validation pipe: runs `validator` (e.g. `assert<CreateDTO<S>>`) on the body,

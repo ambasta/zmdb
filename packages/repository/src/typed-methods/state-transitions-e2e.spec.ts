@@ -10,7 +10,7 @@ import {
   type Driver,
   type TransactionContext,
   type ActiveTransactionContext,
-} from '../index.ts';
+} from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Domain Workflow 1: Order Processing Lifecycle

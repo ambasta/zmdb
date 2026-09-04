@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { tags } from '../index.ts';
-import { coerce, validateObject, type Brand } from './index.ts';
+import { tags } from '../index.js';
+import { coerce, validateObject, type Brand } from './index.js';
 
 // #49: coercion, branded types, object strictness.
 

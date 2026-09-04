@@ -12,7 +12,7 @@
 import type { CreateDTO, Entity, ReadDTO, UpdateDTO } from '@zmdb/schema-core/derive';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 
-import type { Membership, User } from './tables.ts';
+import type { Membership, User } from './tables.js';
 
 /** Declared, not defined. The spec passes it in when it evaluates the emitted module. */
 declare function document(label: string, doc: unknown): void;

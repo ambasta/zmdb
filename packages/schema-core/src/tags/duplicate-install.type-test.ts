@@ -16,10 +16,10 @@
 // `never` is assignable to anything, so an assignability check reports success on
 // a completely broken filter. The first probe written for D5 did exactly that.
 
-import type { CreateDTO, SerialKeys } from '../derive/index.ts';
-import type { Equal, Expect } from '../index.ts';
-import type { Serial as CopiedSerial } from './__fixtures__/duplicate-copy.ts';
-import type { PrimaryKey, Serial, Sql, Table } from './index.ts';
+import type { CreateDTO, SerialKeys } from '../derive/index.js';
+import type { Equal, Expect } from '../index.js';
+import type { Serial as CopiedSerial } from './__fixtures__/duplicate-copy.js';
+import type { PrimaryKey, Serial, Sql, Table } from './index.js';
 
 // The control: a type tagged with this package's own `Serial`.
 interface Sound extends Table<'sounds'> {

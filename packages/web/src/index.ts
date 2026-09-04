@@ -12,7 +12,7 @@
 // Install the well-known Symbol.metadata if the runtime lacks it (Node 26 does).
 // Must run before any decorated class is evaluated — hence the side-effecting
 // import at the top of the package entry.
-import './polyfill.ts';
+import './polyfill.js';
 
 // The Stage-3 metadata record type. `Symbol.metadata` is a well-known symbol
 // present on Node 26; `DecoratorMetadata`/`DecoratorMetadataObject` come from
@@ -62,7 +62,7 @@ export {
   type HttpMethod,
   type RouteDefinition,
   type ResolvedRoute,
-} from './routing/index.ts';
+} from './routing/index.js';
 
 // Typed request context + compile-time path-param derivation. See ./context.
 export {
@@ -75,7 +75,7 @@ export {
   type QueryValues,
   type Ctx,
   type HandlerFor,
-} from './context/index.ts';
+} from './context/index.js';
 
 // Compile-time dependency injection: Container + @Inject. See ./di.
 export {
@@ -86,10 +86,10 @@ export {
   type Token,
   type Constructor,
   type Scope,
-} from './di/index.ts';
+} from './di/index.js';
 
 // Compile-time domain state machines (branded/phantom types). See ./state.
-export { defineState, transition, type Brand, type State } from './state/index.ts';
+export { defineState, transition, type Brand, type State } from './state/index.js';
 
 // Request pipeline & runtime adapters. See ./pipeline.
 export {
@@ -104,10 +104,10 @@ export {
   type WebResponse,
   type RouteOptions,
   type ResponseOptions,
-} from './pipeline/index.ts';
+} from './pipeline/index.js';
 
 // zmdb data-layer integration: repository DI token + validateBody adapter. See ./data.
-export { repositoryToken, validateWith } from './data/index.ts';
+export { repositoryToken, validateWith } from './data/index.js';
 
 // Modules & providers over the DI Container. See ./modules.
 export {
@@ -117,7 +117,7 @@ export {
   type ModuleClass,
   type ProviderDef,
   type CompiledModule,
-} from './modules/index.ts';
+} from './modules/index.js';
 
 // Guards, pipes, interceptors & exception filters. See ./middleware.
 export {
@@ -129,13 +129,13 @@ export {
   type ExceptionFilter,
   type Chain,
   type ChainHandler,
-} from './middleware/index.ts';
+} from './middleware/index.js';
 
 // Application bootstrap & lifecycle. See ./app.
-export { createApp, type App, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './app/index.ts';
+export { createApp, type App, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './app/index.js';
 
 // DTO validation & serialization pipes. See ./dto-pipes.
-export { validationPipe, serializationInterceptor, dtoChain, type DtoChainOptions } from './dto-pipes/index.ts';
+export { validationPipe, serializationInterceptor, dtoChain, type DtoChainOptions } from './dto-pipes/index.js';
 
 // OpenAPI 3.1 generation from routes + schemas. See ./openapi.
 export {
@@ -145,7 +145,7 @@ export {
   type OpenApiOptions,
   type RouteSchemas,
   type JsonSchema,
-} from './openapi/index.ts';
+} from './openapi/index.js';
 
 // WebSocket & SSE gateways. See ./gateways.
 export {
@@ -158,10 +158,10 @@ export {
   type Subscription,
   type GatewayDispatcher,
   type SseFrame,
-} from './gateways/index.ts';
+} from './gateways/index.js';
 
 // Testing utilities: in-process app + provider overrides. See ./testing.
-export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.ts';
+export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.js';
 
 // Router benchmark & perf verification. See ./bench.
 export {
@@ -170,4 +170,4 @@ export {
   type BenchmarkOptions,
   type BenchmarkResult,
   type MetadataReadCounter,
-} from './bench/index.ts';
+} from './bench/index.js';

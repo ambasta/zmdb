@@ -8,7 +8,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import { BaseRepository, type Driver } from '../index.ts';
+import { BaseRepository, type Driver } from '../index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

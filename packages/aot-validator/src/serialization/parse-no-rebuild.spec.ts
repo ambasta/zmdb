@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { parse } from './index.ts';
+import { parse } from './index.js';
 
 // #162 — parse must NOT rebuild the value: the parsed input IS the result for a
 // plain structural type. These lock the fast-path invariant and guard against a

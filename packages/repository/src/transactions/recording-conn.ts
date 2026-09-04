@@ -6,7 +6,7 @@
 // recorder out longhand.
 import type { CompiledQuery } from '@zmdb/query-compiler';
 
-import type { TxConnection } from './index.ts';
+import type { TxConnection } from './index.js';
 
 export interface RecordingConn extends TxConnection {
   /** Every statement the transaction machinery issued, in order. */

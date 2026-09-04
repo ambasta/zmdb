@@ -43,8 +43,8 @@ import {
   isStringLiteral,
 } from 'typescript/unstable/ast/is';
 
-import { CALLEES, Rewriter } from '../transformer.ts';
-import type { Entry, SiteEntry, TypeImport } from './scan.ts';
+import { CALLEES, Rewriter } from '../transformer.js';
+import type { Entry, SiteEntry, TypeImport } from './scan.js';
 
 /** Wraps the header and the import block: everything the `.js` does not want. */
 const IMPORTS_OPEN = '/*zmdb:imports*/';

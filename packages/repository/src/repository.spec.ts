@@ -3,7 +3,7 @@ import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
 import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from './index.ts';
+import { BaseRepository, ValidationError, type Driver } from './index.js';
 
 // #25: repository CRUD + validation interception.
 

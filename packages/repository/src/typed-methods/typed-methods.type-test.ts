@@ -10,7 +10,7 @@
 import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
-import type { User, Users } from './fixtures.ts';
+import type { User, Users } from './fixtures.js';
 
 declare const repo: Users;
 

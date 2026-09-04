@@ -1,6 +1,6 @@
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
-import type { CompiledQuery, Dialect } from '../index.ts';
-import { renumberPlaceholders } from '../quoting.ts';
+import type { CompiledQuery, Dialect } from '../index.js';
+import { renumberPlaceholders } from '../quoting.js';
 
 export type SetOp = 'union' | 'unionAll' | 'intersect' | 'except';
 

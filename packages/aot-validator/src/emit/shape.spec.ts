@@ -13,7 +13,7 @@
 import type { ObjectIR, TypeIR } from '@zmdb/schema-core/ir';
 import { describe, expect, it } from 'vitest';
 
-import { equals, issuesFor } from '../utilities/index.ts';
+import { equals, issuesFor } from '../utilities/index.js';
 import {
   discriminantOf,
   expectedForConstraint,
@@ -21,7 +21,7 @@ import {
   expectedOf,
   hasExcessCheck,
   messageFor,
-} from './shape.ts';
+} from './shape.js';
 
 /** A required, mutable property, which is what all but one case below wants. */
 const property = (name: string, type: TypeIR, optional = false) => ({ name, type, optional, readonly: false });

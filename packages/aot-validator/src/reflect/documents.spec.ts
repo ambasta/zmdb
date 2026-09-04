@@ -23,9 +23,9 @@ import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
 import { toJsonSchema, type Variant } from '@zmdb/schema-core/openapi';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { schemasFrom } from '../testing/index.ts';
-import { transformFile } from '../transformer.ts';
-import { ReflectSession } from './session.ts';
+import { schemasFrom } from '../testing/index.js';
+import { transformFile } from '../transformer.js';
+import { ReflectSession } from './session.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;

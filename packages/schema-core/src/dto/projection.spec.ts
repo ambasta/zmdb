@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { project } from './index.ts';
+import { project } from './index.js';
 
 describe('typed select()/projection narrowing (#185)', () => {
   const row = { id: 1, email: 'a@b.com', age: 30 };

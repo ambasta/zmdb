@@ -7,7 +7,7 @@
 
 import { schemaOf } from '@zmdb/schema-core';
 
-import type { Membership, User } from './tables.ts';
+import type { Membership, User } from './tables.js';
 
 /** Declared, not defined. The spec passes it in when it evaluates the emitted module. */
 declare function schema(label: string, value: unknown): void;

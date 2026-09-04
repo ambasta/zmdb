@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { createTransactionalDb } from './index.ts';
-import { recordingConn } from './recording-conn.ts';
+import { createTransactionalDb } from './index.js';
+import { recordingConn } from './recording-conn.js';
 
 // #38: savepoints / nested transactions.
 

@@ -7,9 +7,9 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { FixtureProject } from '../emit/__testing__/project.ts';
-import { apiInstanceCount, ReflectSession } from '../reflect/session.ts';
-import { transformTypeChecks, zmdbAot, type UnpluginLike } from './index.ts';
+import { FixtureProject } from '../emit/__testing__/project.js';
+import { apiInstanceCount, ReflectSession } from '../reflect/session.js';
+import { transformTypeChecks, zmdbAot, type UnpluginLike } from './index.js';
 
 const project = FixtureProject.open({
   declarations: '  interface User { id: number & Min<1>; email: string }',

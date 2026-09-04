@@ -11,7 +11,7 @@
 // its export name, so deleting a call in the source is how you delete a validator; there's
 // no bookkeeping to keep in step.
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 import type { JsonSchemaObject, TaggedSchema, ValidateResult } from 'zmdb';
 import { assert, is, random, schemaOf, toJsonSchema, validate } from 'zmdb';
 /*zmdb:/imports*/

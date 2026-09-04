@@ -2,8 +2,8 @@
 // No runtime code: this file is a *compilation* gate run by `yarn typecheck`.
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-import { BaseRepository, type defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, type Order, type Profile, type User } from './fixtures.ts';
+import { BaseRepository, type defineRepository } from '../index.js';
+import { OrderSchema, UserSchema, type Order, type Profile, type User } from './fixtures.js';
 
 // The repositories are keyed by the declared type; a *row* of one is `Entity<…>`, which is what
 // the populate and join assertions below are about.

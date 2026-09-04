@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it, expect } from 'vitest';
 
-import { fixtureResults } from './fixtures.ts';
-import { parseResultsFile } from './guardrail.ts';
-import { toMarkdown, assertNoSilentSkips } from './report.ts';
+import { fixtureResults } from './fixtures.js';
+import { parseResultsFile } from './guardrail.js';
+import { toMarkdown, assertNoSilentSkips } from './report.js';
 
 // #72: the RESULTS.md pipeline, checked without measuring anything.
 //

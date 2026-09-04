@@ -5,7 +5,7 @@ import type { ValidationIssue } from '@zmdb/schema-core';
 // exact error paths). Coercion + object strictness (#49) are co-implemented
 // because the same validateObject drives them. #47 transform and #48 union
 // have no runtime-fallback tests in this suite and are left as thin stubs.
-import type { Rule } from '../index.ts';
+import type { Rule } from '../index.js';
 
 export type { ValidationIssue };
 

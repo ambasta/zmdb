@@ -4,8 +4,8 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { BaseRepository } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { BaseRepository } from './index.js';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
 

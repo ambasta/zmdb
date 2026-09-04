@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { attachPopulated } from './index.ts';
+import { attachPopulated } from './index.js';
 
 // `PopulatedEntity`'s widening is asserted in `relations.type-test.ts`.
 describe('Populated<S,K> result typing (#190)', () => {

@@ -24,9 +24,9 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { FixtureProject } from '../emit/__testing__/project.ts';
-import { is as runtimeIs } from '../utilities/index.ts';
-import { peakOpsPerSecond } from './inline-bench.ts';
+import { FixtureProject } from '../emit/__testing__/project.js';
+import { is as runtimeIs } from '../utilities/index.js';
+import { peakOpsPerSecond } from './inline-bench.js';
 
 const TYPE = '{ a: number; b: string; c: { d: number } }';
 

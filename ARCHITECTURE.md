@@ -101,11 +101,17 @@ rejected regardless of how convenient it is.
 10. **The source runs as-is; the build only mirrors it.** In the repo every
     `exports` target is a `.ts` file and Node reads it directly, stripping the
     types — that is how the tests, the dev loop and the consumer fixtures all
-    run, and `yarn verify:exports` imports all 62 subpaths that way. So a
-    relative specifier must name the file that exists (`'./errors.ts'`, not
-    `'./errors.js'` — `tsc` and vitest both map the latter back, Node does not),
-    and no module on a path reachable from an entry point may contain syntax that
-    is not type syntax, which rules out a decorator. What ships is `dist`, a
+    run, and `yarn verify:exports` imports all 62 subpaths that way. Relative
+    specifiers are written `'./errors.js'`, which is what NodeNext resolution
+    asks for with `allowImportingTsExtensions` off, and what the emit needs
+    verbatim. Node will not map that onto `errors.ts` by itself, so every entry
+    point that runs the sources under `node` loads a resolve hook —
+    `scripts/ts-specifier-hook.mjs`, thirty lines, no transform and no compiler.
+    It fires only where the `.ts` sibling exists and the `.js` one does not, so a
+    specifier naming a real `.js` file (`dist/index.js`, a
+    `*.zmdb.generated.js`) still means that file. Separately, no module on a path
+    reachable from an entry point may contain syntax that is not type syntax,
+    which rules out a decorator. What ships is `dist`, a
     file-for-file `tsc` emit of `src` (`scripts/build-package.mjs`); the source
     ships beside it for the maps. It has to be a build, because Node refuses to
     strip types under `node_modules` — an `exports` target of `./src/index.ts`

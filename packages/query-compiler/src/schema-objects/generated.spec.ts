@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { generatedColumnDdl } from './index.ts';
+import { generatedColumnDdl } from './index.js';
 
 describe('generated columns DDL (#109)', () => {
   it('stored generated column', () => {

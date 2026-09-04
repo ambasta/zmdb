@@ -3,8 +3,8 @@
 // mapping. Per packages/web/src/middleware/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import type { Ctx } from '../context/index.ts';
-import { runChain, type Guard, type Pipe, type Interceptor, type ExceptionFilter, type Chain } from './index.ts';
+import type { Ctx } from '../context/index.js';
+import { runChain, type Guard, type Pipe, type Interceptor, type ExceptionFilter, type Chain } from './index.js';
 
 function ctxWith(body: unknown): Ctx<Record<string, string>, unknown> {
   return { params: {}, body, query: {}, headers: {}, method: 'POST', path: '/' };

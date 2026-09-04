@@ -21,7 +21,7 @@ import {
   validationIssuesOf,
   ValidationError,
   type ValidationIssue,
-} from './index.ts';
+} from './index.js';
 
 describe('schemaOf<T>()', () => {
   it('throws when the build transform did not run', () => {

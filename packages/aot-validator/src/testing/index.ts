@@ -49,8 +49,8 @@ import { fileURLToPath } from 'node:url';
 import type { CoreSchema, TaggedSchema } from '@zmdb/schema-core';
 import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 
-import { schemaIrFromType, type ReflectDiagnostic } from '../reflect/index.ts';
-import { ReflectSession } from '../reflect/session.ts';
+import { schemaIrFromType, type ReflectDiagnostic } from '../reflect/index.js';
+import { ReflectSession } from '../reflect/session.js';
 
 export interface SchemasFromOptions {
   /**

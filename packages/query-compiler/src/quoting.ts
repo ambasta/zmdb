@@ -1,4 +1,4 @@
-import type { Dialect } from './index.ts';
+import type { Dialect } from './index.js';
 
 /**
  * Safely quote a single SQL identifier (table name, column name, alias, etc.)

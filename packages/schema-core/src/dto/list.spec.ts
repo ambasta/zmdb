@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { buildListResult } from './index.ts';
+import { buildListResult } from './index.js';
 
 const rows = [
   { id: 1, email: 'a@b.com' },

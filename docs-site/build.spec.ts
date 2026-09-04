@@ -9,7 +9,12 @@ const SITE_DIR = join(ROOT, 'site');
 const DASH_DIR = join(ROOT, 'benchmarks', 'site');
 
 function build() {
-  execFileSync('node', ['docs-site/build.mjs'], { cwd: ROOT, stdio: 'pipe' });
+  // `--import`: the generator imports the packages' sources, which name their siblings as
+  // `./x.js`. See `scripts/ts-specifier-hook.mjs` for why plain `node` needs help with that.
+  execFileSync('node', ['--import=./scripts/ts-specifier-hook.mjs', 'docs-site/build.mjs'], {
+    cwd: ROOT,
+    stdio: 'pipe',
+  });
 }
 
 function benchmarksHtml() {

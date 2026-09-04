@@ -14,8 +14,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { zmdbAot, transformTypeChecks } from './plugin/index.ts';
-import { CALLEES, Rewriter, transformCode } from './transformer.ts';
+import { zmdbAot, transformTypeChecks } from './plugin/index.js';
+import { CALLEES, Rewriter, transformCode } from './transformer.js';
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -140,7 +140,7 @@ describe('CALLEES', () => {
       'validate',
     ]);
 
-    const utilities = await import('./utilities/index.ts');
+    const utilities = await import('./utilities/index.js');
     const core = await import('@zmdb/schema-core');
     const openapi = await import('@zmdb/schema-core/openapi');
     const surface: Record<string, unknown> = { ...openapi, ...core, ...utilities };

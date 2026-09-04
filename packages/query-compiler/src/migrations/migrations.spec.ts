@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { diff, emitUp, emitDown, type SchemaSnapshot } from './index.ts';
+import { diff, emitUp, emitDown, type SchemaSnapshot } from './index.js';
 
 // RED PHASE (#40 spec freeze): diff engine + DDL emitter goldens.
 

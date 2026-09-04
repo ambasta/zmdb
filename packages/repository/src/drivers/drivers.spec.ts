@@ -4,9 +4,9 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository } from '../index.ts';
-import { pgDriver, type PgQueryable } from './pg.ts';
-import { sqliteDriver } from './sqlite.ts';
+import { BaseRepository } from '../index.js';
+import { pgDriver, type PgQueryable } from './pg.js';
+import { sqliteDriver } from './sqlite.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

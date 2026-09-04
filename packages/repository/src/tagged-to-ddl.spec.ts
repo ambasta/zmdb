@@ -39,7 +39,7 @@ import type {
 } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { defineRepository, type Driver } from './index.ts';
+import { defineRepository, type Driver } from './index.js';
 
 /** The payload of the json column. Erased in a column map; carried in the IR. */
 export interface Settings {

@@ -15,7 +15,7 @@ import { lenientParse, toolFromSchema } from '@zmdb/schema-core/llm';
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { objectTypeFromIR, schemaFromIR } from './ir.ts';
+import { objectTypeFromIR, schemaFromIR } from './ir.js';
 
 export interface Booking extends Table<'bookings'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

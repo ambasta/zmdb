@@ -6,8 +6,8 @@ import {
   defineEntityStateMachine,
   createStateUpdatePayload,
   type StateUpdateDTO,
-} from './index.ts';
-import type { PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
+} from './index.js';
+import type { PrimaryKey, Serial, Sql, Table } from './tags/index.js';
 
 export interface Article extends Table<'articles'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -13,9 +13,9 @@ import type { ColumnIR, SchemaIR, TypeIR } from '@zmdb/schema-core/ir';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { findCallSites } from './callsites.ts';
-import { DEFAULT_LIMITS, irFromType, Reflector, schemaIrFromType, type ReflectDiagnostic } from './index.ts';
-import { ReflectSession } from './session.ts';
+import { findCallSites } from './callsites.js';
+import { DEFAULT_LIMITS, irFromType, Reflector, schemaIrFromType, type ReflectDiagnostic } from './index.js';
+import { ReflectSession } from './session.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;

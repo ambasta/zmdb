@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { getResult } from './index.ts';
+import { getResult } from './index.js';
 
 describe('GetDTO + Projection (#165)', () => {
   const row = { id: 1, email: 'a@b.com', age: 30 };

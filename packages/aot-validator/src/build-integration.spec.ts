@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { validate, tags } from './index.ts';
-import { transformCode } from './transformer.ts';
+import { validate, tags } from './index.js';
+import { transformCode } from './transformer.js';
 
 // #24: runtime-safety fallback + build integration.
 // Contract: the inlined (transformed) code must behave identically to the

@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { zmdbAot } from '@zmdb/aot-validator/plugin';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Controller, Get, Post } from '../routing/index.ts';
-import { toOpenApi, type RouteSchemas } from './index.ts';
+import { Controller, Get, Post } from '../routing/index.js';
+import { toOpenApi, type RouteSchemas } from './index.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const FILE = `${FIXTURES}route-schemas.ts`;

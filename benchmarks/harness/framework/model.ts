@@ -17,8 +17,8 @@
 // The generated files are committed, which is what lets `run.sh` bundle this with esbuild and
 // no zmdb tool in the loop at all.
 
-import type { CreateDTO } from '../../../packages/schema-core/src/derive/index.ts';
-import type { PrimaryKey, Serial, Sql, Table } from '../../../packages/schema-core/src/tags/index.ts';
+import type { CreateDTO } from '../../../packages/schema-core/src/derive/index.js';
+import type { PrimaryKey, Serial, Sql, Table } from '../../../packages/schema-core/src/tags/index.js';
 import { zmdbAssertUserCreate } from './model.zmdb.generated.js';
 
 /**

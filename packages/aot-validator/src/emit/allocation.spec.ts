@@ -13,8 +13,8 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { assert, assertEquals, equals, is, validate } from '../utilities/index.ts';
-import { FixtureProject } from './__testing__/project.ts';
+import { assert, assertEquals, equals, is, validate } from '../utilities/index.js';
+import { FixtureProject } from './__testing__/project.js';
 
 const project = FixtureProject.open({
   declarations: `  interface User { id: number & Min<1>; email: string; tags: string[] }

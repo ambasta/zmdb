@@ -18,7 +18,7 @@
 // `RelationIR` into the pair of columns a query needs, and the two row helpers.
 import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-compiler';
 
-import type { SchemaIR } from '../ir/index.ts';
+import type { SchemaIR } from '../ir/index.js';
 
 /**
  * One relation, resolved to the pair of columns a join or a batched select matches on.

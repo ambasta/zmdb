@@ -47,8 +47,10 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      # `--import`: the packages' sources import their siblings as `./x.js`, which
+      # only `tsc` and vitest resolve to `./x.ts` on their own. See the hook.
       - name: Build docs site (docs at root, benchmarks at /benchmarks/)
-        run: node docs-site/build.mjs
+        run: node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs
       - uses: actions/configure-pages@v5
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

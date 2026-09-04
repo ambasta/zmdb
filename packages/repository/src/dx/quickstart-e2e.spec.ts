@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.ts';
-import { defineRepository } from '../index.ts';
-import { UserSchema } from './fixtures.ts';
+import { sqliteDriver } from '../drivers/sqlite.js';
+import { defineRepository } from '../index.js';
+import { UserSchema } from './fixtures.js';
 
 function db() {
   const d = new DatabaseSync(':memory:');

@@ -7,4 +7,4 @@
 //
 // Depth: this lives at benchmarks/upstream/web-frameworks/javascript/zmdb, so
 // four levels up is benchmarks/.
-import '../../../../harness/framework/app.ts';
+import '../../../../harness/framework/app.js';

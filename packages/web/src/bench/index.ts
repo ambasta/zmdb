@@ -2,9 +2,9 @@
 // An honest microbench + an init-time-resolution probe proving route resolution
 // does not re-read metadata per request. No `as` on the consumer surface.
 
-import '../polyfill.ts';
-import { createRouter } from '../pipeline/index.ts';
-import { Controller, Get } from '../routing/index.ts';
+import '../polyfill.js';
+import { createRouter } from '../pipeline/index.js';
+import { Controller, Get } from '../routing/index.js';
 
 /** A probe that counts reads of a class's Symbol.metadata. */
 export interface MetadataReadCounter {

@@ -4,8 +4,8 @@
 
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
 
-import '../polyfill.ts';
-import { getRoutes } from '../routing/index.ts';
+import '../polyfill.js';
+import { getRoutes } from '../routing/index.js';
 
 /**
  * A JSON Schema document.

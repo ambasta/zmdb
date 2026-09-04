@@ -2,8 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.ts';
-import { createTransactionalDb, batch, type TxConnection } from './index.ts';
+import { sqliteDriver } from '../drivers/sqlite.js';
+import { createTransactionalDb, batch, type TxConnection } from './index.js';
 
 // #39: explicit write-batching helper + E2E (real SQLite atomicity).
 

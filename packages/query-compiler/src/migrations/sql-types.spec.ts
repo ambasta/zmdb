@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.ts';
+import { ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';
 
 // The DDL type map: what each dialect calls each abstract column type.
 //

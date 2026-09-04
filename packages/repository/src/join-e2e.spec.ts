@@ -2,8 +2,8 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { BaseRepository } from './index.ts';
-import { usePostgres } from './pg-fixture.ts';
+import { BaseRepository } from './index.js';
+import { usePostgres } from './pg-fixture.js';
 
 // #87: JOIN repository integration + E2E on REAL PostgreSQL.
 

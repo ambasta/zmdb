@@ -28,7 +28,7 @@ import type {
   Table,
 } from '@zmdb/schema-core/tags';
 
-import { defineRepository, type Driver } from './index.ts';
+import { defineRepository, type Driver } from './index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import type { Driver } from '../index.ts';
-import { withReplicas, isWrite } from './index.ts';
+import type { Driver } from '../index.js';
+import { withReplicas, isWrite } from './index.js';
 
 function tagDriver(tag: string, log: string[]): Driver {
   return { execute: async q => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };

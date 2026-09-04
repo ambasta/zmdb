@@ -20,7 +20,7 @@ import type {
   Table,
   Unique,
   WireAs,
-} from '../tags/index.ts';
+} from '../tags/index.js';
 
 /**
  * What every derivation takes: a type that could have been declared as a table.
@@ -209,4 +209,4 @@ export type {
   PopulatedEntity,
   Projection,
   WhereDTO,
-} from './query.ts';
+} from './query.js';

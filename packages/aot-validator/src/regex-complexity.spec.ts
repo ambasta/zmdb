@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { tags, validate, ValidationError } from './index.ts';
-import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.ts';
-import { transformCode } from './transformer.ts';
-import { is, validate as utilityValidate } from './utilities/index.ts';
+import { tags, validate, ValidationError } from './index.js';
+import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
+import { transformCode } from './transformer.js';
+import { is, validate as utilityValidate } from './utilities/index.js';
 
 describe('Static Regular Expression Complexity Validation & Caching', () => {
   describe('validatePatternComplexity', () => {

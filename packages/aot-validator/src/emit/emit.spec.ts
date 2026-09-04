@@ -11,9 +11,9 @@
 import type { TypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { equals, is, validate } from '../utilities/index.ts';
-import { FixtureProject } from './__testing__/project.ts';
-import { Emitter } from './index.ts';
+import { equals, is, validate } from '../utilities/index.js';
+import { FixtureProject } from './__testing__/project.js';
+import { Emitter } from './index.js';
 
 const DECLARATIONS = `  interface User { id: number & Min<1>; email: string & Pattern<"^[^@]+@[^@]+$">; nickname?: string }
   interface Point { x: number; y: number }

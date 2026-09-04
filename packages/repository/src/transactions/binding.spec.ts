@@ -2,9 +2,9 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { BaseRepository, defineRepository, type Driver } from '../index.ts';
-import { createTransactionalDb } from './index.ts';
-import { recordingConn } from './recording-conn.ts';
+import { BaseRepository, defineRepository, type Driver } from '../index.js';
+import { createTransactionalDb } from './index.js';
+import { recordingConn } from './recording-conn.js';
 
 // #37: transaction-scoped repository binding.
 

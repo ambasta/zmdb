@@ -36,8 +36,8 @@ import {
   isVariableStatement,
 } from 'typescript/unstable/ast/is';
 
-import { findCallSites, type CallSite } from '../reflect/callsites.ts';
-import { CALLEES } from '../transformer.ts';
+import { findCallSites, type CallSite } from '../reflect/callsites.js';
+import { CALLEES } from '../transformer.js';
 
 /** How a name got into a module's scope, in a form that can be written down again. */
 export interface ImportBinding {

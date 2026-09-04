@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import type { TypeIR } from '../utilities/index.ts';
-import { decode } from './index.ts';
+import type { TypeIR } from '../utilities/index.js';
+import { decode } from './index.js';
 
 // #54: typed parse<T> / decode path. Tests first (TDD).
 

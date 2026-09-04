@@ -14,9 +14,9 @@
 // key sets, identical optionality, and mutual assignability with the bare shape — because
 // `Equal` is the only thing a phantom slot is visible to. Where the tag is part of the
 // claim the assertion still spells it out.
-import type { Entity, Equal, Expect, Extends, Mutual } from '../index.ts';
-import type { Sql } from '../tags/index.ts';
-import type { Order, User } from './fixtures.ts';
+import type { Entity, Equal, Expect, Extends, Mutual } from '../index.js';
+import type { Sql } from '../tags/index.js';
+import type { Order, User } from './fixtures.js';
 import type {
   AggregateResult,
   FieldOps,
@@ -29,8 +29,8 @@ import type {
   SearchHit,
   SubqueryTarget,
   WhereDTO,
-} from './index.ts';
-import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.ts';
+} from './index.js';
+import { applyOrderBy, applyPagination, buildListResult, compileWhere, project } from './index.js';
 
 // --- WhereDTO (#179) -------------------------------------------------------
 // Fields are value-typed, and `like`/`ilike` exist only on string fields.

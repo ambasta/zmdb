@@ -1,10 +1,10 @@
 // Type-level tests for custom types & codecs (#133): the TS-side and DB-side
 // types must flow through `defineType`/`encodeValue`/`decodeValue` so a codec
 // cannot be wired up backwards. Compiled by `yarn typecheck`.
-import type { Equal, Expect } from '../index.ts';
-import { defineType } from './index.ts';
+import type { Equal, Expect } from '../index.js';
+import { defineType } from './index.js';
 // Referenced only in type position (`typeof`), hence the type-only import.
-import type { decodeValue, encodeValue } from './index.ts';
+import type { decodeValue, encodeValue } from './index.js';
 
 // A jsonb codec: TS object <-> JSON string in the DB.
 const jsonType = defineType<string, Record<string, unknown>, string>({

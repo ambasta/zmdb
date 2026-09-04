@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { makeEndpoint } from './index.ts';
+import { makeEndpoint } from './index.js';
 
 interface CreateUser {
   email: string;

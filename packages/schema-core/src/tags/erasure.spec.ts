@@ -11,12 +11,12 @@ describe('the tag vocabulary is type-only', () => {
     // function or a real `const` is ever added here, that value shows up and this
     // fails — which is the point: a tag that exists at runtime is a tag that can
     // be imported, bundled, and shipped to a browser.
-    const tags: Record<string, unknown> = await import('./index.ts');
+    const tags: Record<string, unknown> = await import('./index.js');
     expect(Object.keys(tags)).toEqual([]);
   });
 
   it('and so do the derivations built on it', async () => {
-    const derive: Record<string, unknown> = await import('../derive/index.ts');
+    const derive: Record<string, unknown> = await import('../derive/index.js');
     expect(Object.keys(derive)).toEqual([]);
   });
 });
@@ -33,7 +33,7 @@ export const DEFAULT_AGE = 18;
 `;
 
   const tagged = `
-import type { HasDefault, Length, Min, PrimaryKey, Serial, Sql, Table, Unique } from './index.ts';
+import type { HasDefault, Length, Min, PrimaryKey, Serial, Sql, Table, Unique } from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

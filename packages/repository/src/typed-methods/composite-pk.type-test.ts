@@ -9,8 +9,8 @@
 // half of the claim.
 import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-import type { Driver } from '../index.ts';
-import { ProductsRepo, TenantUsersRepo } from './fixtures.ts';
+import type { Driver } from '../index.js';
+import { ProductsRepo, TenantUsersRepo } from './fixtures.js';
 
 declare const driver: Driver;
 const compRepo = new TenantUsersRepo(driver);

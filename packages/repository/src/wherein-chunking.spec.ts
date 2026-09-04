@@ -5,8 +5,8 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { defineRepository, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { defineRepository, type Driver } from './index.js';
 
 export interface Users extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

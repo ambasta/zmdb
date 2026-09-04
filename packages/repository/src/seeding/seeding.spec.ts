@@ -2,7 +2,7 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { Max, Min, MinLength, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { makeRng, seedRows } from './index.ts';
+import { makeRng, seedRows } from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

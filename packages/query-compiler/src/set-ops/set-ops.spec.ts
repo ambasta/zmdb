@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler } from '../index.ts';
-import { setOperation, SET_KEYWORD } from './index.ts';
+import { createQueryCompiler } from '../index.js';
+import { setOperation, SET_KEYWORD } from './index.js';
 
 const qc = createQueryCompiler('postgres');
 const q1 = qc.selectFrom('users').where('role', '=', 'admin').compile();

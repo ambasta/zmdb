@@ -1,8 +1,8 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
-import { toJsonSchema, toListSchema, toSearchSchema } from './index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
+import { toJsonSchema, toListSchema, toSearchSchema } from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

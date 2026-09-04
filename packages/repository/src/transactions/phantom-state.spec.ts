@@ -5,7 +5,7 @@ import {
   markTransactionClosed,
   type ActiveTransactionContext,
   type TxConnection,
-} from './index.ts';
+} from './index.js';
 
 function mockConn(): TxConnection & { log: string[] } {
   const log: string[] = [];

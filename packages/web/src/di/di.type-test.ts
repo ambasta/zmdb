@@ -6,8 +6,8 @@
 // where such a call does nothing at runtime.
 import type { Equal, Expect } from '@zmdb/schema-core';
 
-import { createToken } from './index.ts';
-import type { Container } from './index.ts';
+import { createToken } from './index.js';
+import type { Container } from './index.js';
 
 class Logger {
   log(msg: string): string {

@@ -10,7 +10,7 @@ import type { BaseRepository } from '@zmdb/repository';
 import type { CoreSchema, DeclaredTable } from '@zmdb/schema-core';
 import { decodeWire, encodeWire, type CodecRegistry, type Variant } from '@zmdb/schema-core/ir';
 
-import { createToken, type Token } from '../di/index.ts';
+import { createToken, type Token } from '../di/index.js';
 
 /**
  * A typed DI token for a repository over the entity `T`. Register a

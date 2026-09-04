@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createSequenceDdl } from './index.ts';
+import { createSequenceDdl } from './index.js';
 
 describe('sequences DDL (#106)', () => {
   it('bare sequence', () => {

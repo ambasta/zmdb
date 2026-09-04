@@ -3,12 +3,12 @@
 // hooks + `await using` graceful shutdown. Per-request path is unchanged. No
 // reflection per request; no `as` on the consumer surface.
 
-import type { Container } from '../di/index.ts';
-import { runInit, runShutdown } from '../lifecycle.ts';
-import { compileModule, type ModuleClass } from '../modules/index.ts';
-import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.ts';
+import type { Container } from '../di/index.js';
+import { runInit, runShutdown } from '../lifecycle.js';
+import { compileModule, type ModuleClass } from '../modules/index.js';
+import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
 
-export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.ts';
+export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.js';
 
 /** A bootstrapped application. */
 export interface App extends AsyncDisposable {

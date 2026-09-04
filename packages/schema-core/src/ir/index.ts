@@ -30,7 +30,7 @@
 //     the dialect's job; baking one in here would force every other back-end to
 //     parse it back out.
 
-import type { ColumnMeta, CoreSchema, SqlType, ValidationRule } from '../index.ts';
+import type { ColumnMeta, CoreSchema, SqlType, ValidationRule } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Type IR

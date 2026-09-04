@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { aggregateSelectFrom } from './aggregations/index.ts';
-import { ftsSelectFrom } from './fts/index.ts';
-import { createQueryCompiler } from './index.ts';
-import { joinableSelectFrom } from './joins/index.ts';
-import { emitUp } from './migrations/index.ts';
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
+import { aggregateSelectFrom } from './aggregations/index.js';
+import { ftsSelectFrom } from './fts/index.js';
+import { createQueryCompiler } from './index.js';
+import { joinableSelectFrom } from './joins/index.js';
+import { emitUp } from './migrations/index.js';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 import {
   createIndexDdl,
   createPolicyDdl,
@@ -13,7 +13,7 @@ import {
   createSequenceDdl,
   createViewDdl,
   quoteId,
-} from './schema-objects/index.ts';
+} from './schema-objects/index.js';
 
 describe('Centralized Identifier Quoting Engine', () => {
   describe('quoteIdentifier', () => {

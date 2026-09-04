@@ -2,7 +2,7 @@
 // Applies/rolls back ordered migrations against an async connection or
 // adapted database driver, recording applied versions in _zmdb_migrations table.
 
-import { createQueryCompiler, type CompiledQuery, type Dialect } from '../index.ts';
+import { createQueryCompiler, type CompiledQuery, type Dialect } from '../index.js';
 
 export interface Migration {
   readonly version: number;

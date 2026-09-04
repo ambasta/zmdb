@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createSchemaDdl, qualify } from './index.ts';
+import { createSchemaDdl, qualify } from './index.js';
 
 describe('schemas / namespaces DDL (#112)', () => {
   it('creates a schema', () => {

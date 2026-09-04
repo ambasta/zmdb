@@ -21,7 +21,7 @@ import type {
   Serial,
   Sql,
   Table,
-} from '../tags/index.ts';
+} from '../tags/index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -9,7 +9,7 @@
 // that and reported success while no tag was matching at all. Exact identity is
 // the only assertion that catches it.
 
-import type { Equal, Expect } from '../index.ts';
+import type { Equal, Expect } from '../index.js';
 import type {
   AnyRelation,
   Codec,
@@ -31,7 +31,7 @@ import type {
   Table,
   Unique,
   WireAs,
-} from '../tags/index.ts';
+} from '../tags/index.js';
 import type {
   ColumnKeys,
   CreateDTO,
@@ -56,7 +56,7 @@ import type {
   Wire,
   WireCreateDTO,
   WhereDTO,
-} from './index.ts';
+} from './index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey & Min<1>;

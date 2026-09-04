@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { transform } from './index.ts';
+import { transform } from './index.js';
 
 // #47: transform compilation. Tests written BEFORE implementation (TDD).
 // A transform rule carries a pure conversion applied AFTER validation passes.

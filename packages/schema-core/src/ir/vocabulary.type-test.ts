@@ -6,9 +6,9 @@
 // which was the standard to meet; the tags are now the only front-end, so the IR's
 // own fields are the standard, and `ColumnIR` is what the totality is read off.
 
-import type { ColumnFlags, Equal, Expect, SqlType } from '../index.ts';
-import type { ColumnSqlType } from '../tags/index.ts';
-import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagField } from './index.ts';
+import type { ColumnFlags, Equal, Expect, SqlType } from '../index.js';
+import type { ColumnSqlType } from '../tags/index.js';
+import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagField } from './index.js';
 
 // --- every SqlType is in SQL_TYPES, and nothing else is --------------------
 //

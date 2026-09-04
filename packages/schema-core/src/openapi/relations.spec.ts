@@ -1,8 +1,8 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.ts';
-import { toJsonSchemaWithRelations } from './index.ts';
+import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.js';
+import { toJsonSchemaWithRelations } from './index.js';
 
 // #66: DTO-aware generation + relation $refs.
 //

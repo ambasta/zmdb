@@ -2,7 +2,7 @@
 // Aggregates BenchResult[] into deterministic Markdown + JSON. DNF is rendered
 // explicitly (never omitted); an in-scope case missing from the inputs is a
 // hard ERROR, not a silent skip.
-import { IN_SCOPE_CASES, validateResult, type BenchResult } from './results.ts';
+import { IN_SCOPE_CASES, validateResult, type BenchResult } from './results.js';
 
 export class ReportError extends Error {}
 

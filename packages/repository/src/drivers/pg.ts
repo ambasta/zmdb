@@ -1,5 +1,5 @@
 // pg (node-postgres) driver adapter — see ../drivers/SPEC.md.
-import type { Driver } from '../index.ts';
+import type { Driver } from '../index.js';
 
 // Minimal structural type so we don't hard-depend on `pg`'s types at build time.
 export interface PgQueryable {

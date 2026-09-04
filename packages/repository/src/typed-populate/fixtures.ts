@@ -23,7 +23,7 @@ import type {
   Table,
 } from '@zmdb/schema-core/tags';
 
-import { OrderSchema, type Order } from '../orders-fixture.ts';
+import { OrderSchema, type Order } from '../orders-fixture.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

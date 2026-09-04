@@ -6,8 +6,8 @@
 // previously "checked" by `expectTypeOf` inside the E2E spec, a runtime no-op.
 import type { CreateDTO, Entity, Equal, Expect, Mutual, UpdateDTO } from '@zmdb/schema-core';
 
-import { defineRepository, type Driver } from '../index.ts';
-import { UserSchema, type Order, type User } from './fixtures.ts';
+import { defineRepository, type Driver } from '../index.js';
+import { UserSchema, type Order, type User } from './fixtures.js';
 
 declare const driver: Driver;
 

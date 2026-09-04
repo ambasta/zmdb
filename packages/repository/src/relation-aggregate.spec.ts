@@ -5,8 +5,8 @@ import type { AggregateSpec } from '@zmdb/schema-core/dto';
 import type { ManyToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { BaseRepository, defineRepository, type Driver } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { BaseRepository, defineRepository, type Driver } from './index.js';
 
 export interface Category extends Table<'categories'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

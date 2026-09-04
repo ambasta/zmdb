@@ -2,8 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.ts';
-import { sqliteDriver } from '../../../repository/src/drivers/sqlite.ts';
+import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.js';
+import { sqliteDriver } from '../../../repository/src/drivers/sqlite.js';
 import {
   down,
   driverMigrationConnection,
@@ -13,7 +13,7 @@ import {
   ensureVersionTable,
   type MigrationConnection,
   up,
-} from './runner.ts';
+} from './runner.js';
 
 // #44: async migration runner + CLI + version tracking + E2E (real SQLite & PG adapter).
 

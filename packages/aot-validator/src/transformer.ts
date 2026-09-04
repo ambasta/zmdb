@@ -24,11 +24,11 @@ import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 import type { Type } from 'typescript/unstable/sync';
 
-import { Emitter, escapePattern, type EmitOptions } from './emit/index.ts';
-import { findCallSites, type CallSite } from './reflect/callsites.ts';
-import { Reflector, type ReflectOptions } from './reflect/index.ts';
-import type { ReflectSession } from './reflect/session.ts';
-import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.ts';
+import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
+import { findCallSites, type CallSite } from './reflect/callsites.js';
+import { Reflector, type ReflectOptions } from './reflect/index.js';
+import type { ReflectSession } from './reflect/session.js';
+import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 /**
  * The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`.

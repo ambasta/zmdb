@@ -10,9 +10,9 @@
 // the project is the expensive half; a checker call is a cheap round-trip. A session per
 // file would make the AOT path cost more than the runtime walker it replaces.
 
-import type { EmitOptions } from '../emit/index.ts';
-import { ReflectSession } from '../reflect/session.ts';
-import { transformCode, transformFile, type TransformDiagnostic } from '../transformer.ts';
+import type { EmitOptions } from '../emit/index.js';
+import { ReflectSession } from '../reflect/session.js';
+import { transformCode, transformFile, type TransformDiagnostic } from '../transformer.js';
 
 /** Inline `validate(tags.X(…), …)` with no compiler. Type arguments need `transformFile`. */
 export function transformTypeChecks(code: string): string {

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { RELATION_KINDS, type ColumnIR, type SchemaIR } from '../ir/index.ts';
-import { PostSchema, UserSchema } from './fixtures.ts';
-import { compilePopulate, resolveRelation } from './index.ts';
+import { RELATION_KINDS, type ColumnIR, type SchemaIR } from '../ir/index.js';
+import { PostSchema, UserSchema } from './fixtures.js';
+import { compilePopulate, resolveRelation } from './index.js';
 
 // Resolution and SQL for populate. Both read the relation off the declaration — the fixtures
 // declare `posts`, `profile`, `author` and `tags` as tags on the interface, and there is no

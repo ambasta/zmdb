@@ -3,8 +3,8 @@
 // detection. Per packages/web/src/modules/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { createToken, Inject } from '../di/index.ts';
-import { Module, compileModule } from './index.ts';
+import { createToken, Inject } from '../di/index.js';
+import { Module, compileModule } from './index.js';
 
 class Clock {
   now(): number {

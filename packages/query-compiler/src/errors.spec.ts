@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { UnsupportedFeatureError as FtsUnsupportedFeatureError } from './fts/index.ts';
-import { QueryCompilerError, UnsupportedFeatureError } from './index.ts';
-import { UnsupportedFeatureError as SchemaObjectsUnsupportedFeatureError } from './schema-objects/index.ts';
+import { UnsupportedFeatureError as FtsUnsupportedFeatureError } from './fts/index.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './index.js';
+import { UnsupportedFeatureError as SchemaObjectsUnsupportedFeatureError } from './schema-objects/index.js';
 
 describe('UnsupportedFeatureError', () => {
   it('instantiates with feature and dialect and exposes structured properties', () => {

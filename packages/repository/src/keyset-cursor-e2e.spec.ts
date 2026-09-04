@@ -6,7 +6,7 @@ import type { ListResult } from '@zmdb/schema-core/dto';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { BaseRepository, type Driver } from './index.ts';
+import { BaseRepository, type Driver } from './index.js';
 
 function sqliteDriver(db: DatabaseSync): Driver {
   return {

@@ -6,7 +6,7 @@
 // Improvements, dnf→ok, and newly-added cases are never flagged.
 import { readFileSync, existsSync } from 'node:fs';
 
-import type { BenchResult } from './results.ts';
+import type { BenchResult } from './results.js';
 
 export const RegressionKind = {
   OkToDnf: 'ok_to_dnf',

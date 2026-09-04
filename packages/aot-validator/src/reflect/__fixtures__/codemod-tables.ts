@@ -25,7 +25,7 @@ import {
   text,
   timestamp,
   varchar,
-} from './legacy-dsl.ts';
+} from './legacy-dsl.js';
 
 export const users = defineSchema(
   'users',

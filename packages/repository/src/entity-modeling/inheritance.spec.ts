@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { discriminatorFor, rowToSubtype, type SingleTableInheritance } from './index.ts';
+import { discriminatorFor, rowToSubtype, type SingleTableInheritance } from './index.js';
 
 const sti: SingleTableInheritance = {
   discriminator: 'kind',

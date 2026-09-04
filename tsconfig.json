@@ -1,18 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "allowImportingTsExtensions": false,
+    "exactOptionalPropertyTypes": true,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": false,
+    "isolatedModules": true,
     "lib": ["ESNext"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
     "noEmit": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
     // Node's own typings, declared explicitly. They are NOT picked up
     // implicitly: `@types/node` reaches `node_modules` only as a transitive
     // dependency of `@types/pg`, so before this line the only project that
@@ -20,6 +21,7 @@
     // whose types carry a `/// <reference types="node" />`). Everything else
     // failed with TS2591 the moment `.spec.ts` files entered the program.
     "types": ["node"],
+    "verbatimModuleSyntax": true,
     // Cross-package resolution for typechecking, declared ONCE here (the same
     // single-source-of-truth rule we apply to schemas). Targets are sibling
     // **sources**, not `dist/*.d.ts`: `dist/` is gitignored, so dist-based paths

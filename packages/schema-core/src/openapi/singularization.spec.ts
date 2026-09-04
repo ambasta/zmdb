@@ -10,8 +10,8 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, expect, it } from 'vitest';
 
-import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.ts';
-import { componentName, toJsonSchemaWithRelations, toOpenApiComponents } from './index.ts';
+import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.js';
+import { componentName, toJsonSchemaWithRelations, toOpenApiComponents } from './index.js';
 
 describe('componentName', () => {
   it('leaves a word that only looks plural alone', () => {

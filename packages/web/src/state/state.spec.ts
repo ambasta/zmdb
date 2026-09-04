@@ -4,8 +4,8 @@
 // Per packages/web/src/state/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Draft, Paid, pay, type Order } from './fixtures.ts';
-import { defineState, transition, type Brand } from './index.ts';
+import { Draft, Paid, pay, type Order } from './fixtures.js';
+import { defineState, transition, type Brand } from './index.js';
 
 describe('@zmdb/web state: branding erases at runtime', () => {
   it('create returns the very object it was given (zero-cost brand)', () => {

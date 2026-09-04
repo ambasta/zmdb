@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import type { TypeIR } from '../utilities/index.ts';
-import { assertStringify, stringify } from './index.ts';
+import type { TypeIR } from '../utilities/index.js';
+import { assertStringify, stringify } from './index.js';
 
 // #53: validated assertStringify. Tests written BEFORE implementation (TDD).
 

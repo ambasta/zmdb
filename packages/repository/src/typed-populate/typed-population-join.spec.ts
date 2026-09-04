@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.ts';
-import { BaseRepository, defineRepository } from '../index.ts';
-import { OrderSchema, UserSchema, type User } from './fixtures.ts';
+import { sqliteDriver } from '../drivers/sqlite.js';
+import { BaseRepository, defineRepository } from '../index.js';
+import { OrderSchema, UserSchema, type User } from './fixtures.js';
 
 class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;

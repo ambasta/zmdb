@@ -3,7 +3,7 @@
 // Per packages/web/src/gateways/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Gateway, Subscribe, getSubscriptions, createGatewayDispatcher, sseStream, type MessageCtx } from './index.ts';
+import { Gateway, Subscribe, getSubscriptions, createGatewayDispatcher, sseStream, type MessageCtx } from './index.js';
 
 @Gateway('chat')
 class ChatGateway {

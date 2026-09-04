@@ -15,7 +15,7 @@
 // `schemaOf` is imported for its *signature* — it is compiled away at build time, and calling
 // it in a file the transform never sees would throw.
 
-import type { WhereDTO } from './dto/index.ts';
+import type { WhereDTO } from './dto/index.js';
 import type {
   CoreSchema,
   CreateDTO,
@@ -27,8 +27,8 @@ import type {
   PrimaryKeyOf,
   schemaOf,
   TaggedSchema,
-} from './index.ts';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
+} from './index.js';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

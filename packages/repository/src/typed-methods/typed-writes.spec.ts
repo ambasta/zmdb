@@ -4,8 +4,8 @@ import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from '../index.ts';
-import { Users, type User } from './fixtures.ts';
+import { BaseRepository, ValidationError, type Driver } from '../index.js';
+import { Users, type User } from './fixtures.js';
 
 /** The payload type of the `settings` column, named separately because the tests below
  *  cast to it when they hand the column a primitive on purpose. */

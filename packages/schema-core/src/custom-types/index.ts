@@ -1,6 +1,6 @@
 // Custom types & codecs — see ./SPEC.md.
 
-import type { Codec } from '../ir/index.ts';
+import type { Codec } from '../ir/index.js';
 
 /**
  * A column type the library does not know, described by its owner.

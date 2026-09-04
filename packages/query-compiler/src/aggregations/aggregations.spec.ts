@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { aggregateSelectFrom } from './index.ts';
+import { aggregateSelectFrom } from './index.js';
 
 // RED PHASE (#89 spec freeze): aggregate / GROUP BY / HAVING golden SQL.
 

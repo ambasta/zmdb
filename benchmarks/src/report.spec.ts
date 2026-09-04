@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { fixtureResults as fullResults } from './fixtures.ts';
-import { toMarkdown, toJson, assertNoSilentSkips, ReportError } from './report.ts';
-import type { BenchResult } from './results.ts';
+import { fixtureResults as fullResults } from './fixtures.js';
+import { toMarkdown, toJson, assertNoSilentSkips, ReportError } from './report.js';
+import type { BenchResult } from './results.js';
 
 // #72: DNF reporting + comparative results table generator.
 

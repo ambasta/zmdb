@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { escapeFts5Term, ftsSelectFrom, UnsupportedFeatureError } from './index.ts';
+import { escapeFts5Term, ftsSelectFrom, UnsupportedFeatureError } from './index.js';
 
 describe('full-text search compilation', () => {
   it('postgres to_tsvector/@@/to_tsquery (parameterized)', () => {

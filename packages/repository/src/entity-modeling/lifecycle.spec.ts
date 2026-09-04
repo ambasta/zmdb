@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { EventBus } from './index.ts';
+import { EventBus } from './index.js';
 
 describe('lifecycle events & subscribers (#143)', () => {
   it('emits to matching subscribers in order', async () => {

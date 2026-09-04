@@ -13,7 +13,7 @@
 import { assert, is, random, schemaOf, toJsonSchema, validate } from 'zmdb';
 import type { JsonSchemaObject, TaggedSchema, ValidateResult } from 'zmdb';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 
 export function accepts(value: unknown): boolean {
   return is<Order>(value);

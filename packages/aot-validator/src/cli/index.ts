@@ -29,9 +29,9 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
-import { ReflectSession, type SourceFileHandle } from '../reflect/session.ts';
-import { transformFile } from '../transformer.ts';
-import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.ts';
+import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
+import { transformFile } from '../transformer.js';
+import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.js';
 import {
   artifactPaths,
   generatedModules,
@@ -40,7 +40,7 @@ import {
   rewriteSource,
   witnessSource,
   type ArtifactPaths,
-} from './witness.ts';
+} from './witness.js';
 
 export interface CodegenOptions {
   /** Path to the `tsconfig.json` that defines what to generate for. */

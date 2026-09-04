@@ -26,14 +26,23 @@ import { join } from 'node:path';
 import { transformSync } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { opsPerSecond } from '../plugin/inline-bench.ts';
-import { codegen } from './index.ts';
+import { opsPerSecond } from '../plugin/inline-bench.js';
+import { codegen } from './index.js';
 
 const ROOT = new URL('../../../../', import.meta.url).pathname;
 const CLI = join(ROOT, 'fixtures', 'consumer-cli');
 const PLUGIN = join(ROOT, 'fixtures', 'consumer-plugin');
 
 const read = (path: string): string => readFileSync(path, 'utf8');
+
+/**
+ * `--import` for every `node` spawned below.
+ *
+ * The fixtures import their siblings as `./orders.js`, which is what `tsc` asks for and what
+ * plain `node` cannot resolve to `orders.ts`. `scripts/ts-specifier-hook.mjs` is the repository's
+ * answer to that, and a fixture standing in for a consumer has to run the way a consumer would.
+ */
+const HOOK = `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`;
 
 /** Long enough for two `tsgo` sessions and an esbuild run on a loaded machine. */
 const BUILD_TIMEOUT = 180_000;
@@ -46,7 +55,7 @@ let bundled: {
 
 beforeAll(async () => {
   bundle = mkdtempSync(join(tmpdir(), 'zmdb-fixture-'));
-  execFileSync('node', [join(PLUGIN, 'build.mjs'), bundle], { stdio: 'pipe' });
+  execFileSync('node', [HOOK, join(PLUGIN, 'build.mjs'), bundle], { stdio: 'pipe' });
   bundled = (await import(join(bundle, 'orders.mjs'))) as typeof bundled;
 }, BUILD_TIMEOUT);
 
@@ -125,7 +134,7 @@ describe('both routes produce the same program', () => {
       // stdout. So "the two fixtures agree" is `diff`, over the whole observable surface at
       // once rather than a hand-written table of expectations that could omit the case that
       // broke.
-      const viaCli = execFileSync('node', [join(CLI, 'src', 'probe.ts')], { encoding: 'utf8' });
+      const viaCli = execFileSync('node', [HOOK, join(CLI, 'src', 'probe.ts')], { encoding: 'utf8' });
       const viaPlugin = execFileSync('node', [join(bundle, 'probe.mjs')], { encoding: 'utf8' });
       expect(viaPlugin).toBe(viaCli);
       expect(viaCli).toContain('accepts(good): true');
@@ -137,7 +146,9 @@ describe('both routes produce the same program', () => {
   it('runs under plain `node`, with no build tool present (REQ-AV-3)', () => {
     // The whole reason the CLI exists. `src/probe.ts` is TypeScript that Node type-strips, and
     // the validator it calls was compiled at commit time — there is no bundler, no plugin, no
-    // transform and no runtime walker anywhere in that sentence.
+    // transform and no runtime walker anywhere in that sentence. The `--import` the spawn above
+    // carries is a resolve hook and only that: it maps `./orders.js` onto `orders.ts` and
+    // compiles nothing.
     const generated = read(join(CLI, 'src', 'orders.zmdb.generated.js'));
     expect(generated).toContain('export function zmdbIsOrder(value) {');
     expect(read(join(CLI, 'src', 'orders.ts'))).not.toMatch(/\bis</);

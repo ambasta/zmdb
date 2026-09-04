@@ -6,7 +6,7 @@
 // DNF(anti-pattern).
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-import type { BenchResult } from '../results.ts';
+import type { BenchResult } from '../results.js';
 
 declare const performance: { now(): number };
 

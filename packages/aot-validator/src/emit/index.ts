@@ -48,7 +48,7 @@ import {
   type UnionIR,
 } from '@zmdb/schema-core/ir';
 
-import { validatePatternComplexity } from '../regex-complexity.ts';
+import { validatePatternComplexity } from '../regex-complexity.js';
 import {
   discriminantOf,
   expectedForConstraint,
@@ -56,7 +56,7 @@ import {
   expectedOf,
   hasExcessCheck,
   type ConstraintKeyword,
-} from './shape.ts';
+} from './shape.js';
 
 /** Sanitise a pattern before it goes between `/` delimiters in emitted source. */
 export function escapePattern(pattern: string): string {
@@ -1181,5 +1181,5 @@ export {
   expectedOf,
   hasExcessCheck,
   messageFor,
-} from './shape.ts';
-export type { ConstraintKeyword, Discriminant, DiscriminantArm } from './shape.ts';
+} from './shape.js';
+export type { ConstraintKeyword, Discriminant, DiscriminantArm } from './shape.js';

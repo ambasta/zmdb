@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createViewDdl, dropViewDdl, UnsupportedFeatureError } from './index.ts';
+import { createViewDdl, dropViewDdl, UnsupportedFeatureError } from './index.js';
 
 describe('views DDL (#103)', () => {
   it('creates a plain view', () => {

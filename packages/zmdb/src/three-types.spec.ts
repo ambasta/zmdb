@@ -29,7 +29,7 @@ import {
   schemaFromIR,
   wireTypeOf,
   type ColumnIR,
-} from './ir.ts';
+} from './ir.js';
 
 export interface Events extends Table<'events'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

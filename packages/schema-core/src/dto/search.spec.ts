@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { buildSearchResult } from './index.ts';
+import { buildSearchResult } from './index.js';
 
 const hits = [
   { id: 1, body: 'alpha', _score: 0.9 },

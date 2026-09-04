@@ -15,8 +15,8 @@
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
-import type { DeclaredTable, UpdateDTO } from './derive/index.ts';
-import type { SchemaIR } from './ir/index.ts';
+import type { DeclaredTable, UpdateDTO } from './derive/index.js';
+import type { SchemaIR } from './ir/index.js';
 
 export type SqlType =
   | 'serial'
@@ -183,7 +183,7 @@ export function schemaOf<T>(): TaggedSchema<T> {
 // `TaggedSchema<T>` and gets `T` from it (`defineRepository`, `findJoined`,
 // `defineEntityStateMachine`, `repositoryToken`). Everything after that point is
 // parameterised on the declared type. `schema-of.type-test.ts` pins the crossing.
-export type { CreateDTO, DeclaredTable, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO } from './derive/index.ts';
+export type { CreateDTO, DeclaredTable, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO } from './derive/index.js';
 
 export interface ValidationIssue {
   readonly path: string;
@@ -299,9 +299,9 @@ export type ExpectNot<T extends false> = T;
 // `./derive`, which reads the relation off the declared type — there is no relations map to
 // derive them from any more, and no `manyToOne`/`oneToMany`/`oneToOne`/`manyToMany` builder
 // to write one with.
-export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.ts';
-export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.ts';
-export type { Populated, PopulatedEntity } from './derive/index.ts';
+export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.js';
+export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.js';
+export type { Populated, PopulatedEntity } from './derive/index.js';
 
 // ---------------------------------------------------------------------------
 // Entity State Machine & State Transition Helpers
@@ -456,5 +456,5 @@ export function defineEntityStateMachine<
   };
 }
 
-export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.ts';
-export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.ts';
+export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.js';
+export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.js';

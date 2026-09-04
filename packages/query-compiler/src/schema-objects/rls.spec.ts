@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { enableRlsDdl, createPolicyDdl, UnsupportedFeatureError } from './index.ts';
+import { enableRlsDdl, createPolicyDdl, UnsupportedFeatureError } from './index.js';
 
 /** RLS is Postgres-only, so every other dialect must refuse by name rather than emit something. */
 function expectRefused(dialect: string, emit: () => unknown) {

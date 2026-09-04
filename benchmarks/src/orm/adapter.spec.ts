@@ -2,8 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { validateResult, validateCoverage, IN_SCOPE_CASES } from '../results.ts';
-import { seed, zmdbQueries, runOrmSuite, competitorDnf, sqliteEngine, type OrmEngine } from './adapter.ts';
+import { validateResult, validateCoverage, IN_SCOPE_CASES } from '../results.js';
+import { seed, zmdbQueries, runOrmSuite, competitorDnf, sqliteEngine, type OrmEngine } from './adapter.js';
 
 // #71: ORM-suite adapter + seed + query set, with honest DNF reporting.
 

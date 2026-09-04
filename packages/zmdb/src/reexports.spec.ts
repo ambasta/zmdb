@@ -36,7 +36,7 @@ import {
   defineEntityStateMachine,
   createStateUpdatePayload,
   markTransactionClosed,
-} from './index.ts';
+} from './index.js';
 
 describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports the curated schema-core surface, identical to source', () => {
@@ -70,7 +70,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
   });
 
   it('re-exports unplugin zmdbAot via zmdb/unplugin', async () => {
-    const unplugin = await import('./unplugin.ts');
+    const unplugin = await import('./unplugin.js');
     expect(typeof unplugin.zmdbAot).toBe('function');
   });
 
@@ -83,7 +83,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
   });
 
   it('re-exports the schema IR via zmdb/ir, identical to source', async () => {
-    const [umbrella, source] = await Promise.all([import('./ir.ts'), import('@zmdb/schema-core/ir')]);
+    const [umbrella, source] = await Promise.all([import('./ir.js'), import('@zmdb/schema-core/ir')]);
     expect(umbrella.jsonSchemaFromIR).toBe(source.jsonSchemaFromIR);
     expect(umbrella.jsonSchemaForColumn).toBe(source.jsonSchemaForColumn);
     expect(umbrella.appTypeOf).toBe(source.appTypeOf);
@@ -108,7 +108,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
     // symbol name* the checker reports for a tag (`__@zmdbSerial@1`), which exists so the
     // reflection can match tags without importing a types-only module. Publishing it would
     // publish how reflection is implemented, and no consumer generating artefacts needs it.
-    const [umbrella, source] = await Promise.all([import('./ir.ts'), import('@zmdb/schema-core/ir')]);
+    const [umbrella, source] = await Promise.all([import('./ir.js'), import('@zmdb/schema-core/ir')]);
     expect(Object.keys(source)).toContain('TAG_NAMES');
     expect(Object.keys(umbrella).toSorted()).toEqual(
       Object.keys(source)
@@ -121,8 +121,8 @@ describe('zmdb umbrella re-exports (#227)', () => {
     // Both subpaths are type-only. Asserted here as well as in schema-core because
     // the umbrella is where a stray value re-export would actually reach a consumer's
     // bundle (REQ-TF-3).
-    const tagsSubpath: Record<string, unknown> = await import('./tags.ts');
-    const deriveSubpath: Record<string, unknown> = await import('./derive.ts');
+    const tagsSubpath: Record<string, unknown> = await import('./tags.js');
+    const deriveSubpath: Record<string, unknown> = await import('./derive.js');
     expect(Object.keys(tagsSubpath)).toEqual([]);
     expect(Object.keys(deriveSubpath)).toEqual([]);
   });

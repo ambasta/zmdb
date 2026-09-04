@@ -28,10 +28,10 @@ import { objectTypeFromIR, type SchemaIR, type TypeIR, type Variant } from '@zmd
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { schemaIrsFrom } from '../testing/index.ts';
-import { findCallSites } from './callsites.ts';
-import { Reflector } from './index.ts';
-import { ReflectSession } from './session.ts';
+import { schemaIrsFrom } from '../testing/index.js';
+import { findCallSites } from './callsites.js';
+import { Reflector } from './index.js';
+import { ReflectSession } from './session.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const PROJECT = `${FIXTURES}tsconfig.json`;

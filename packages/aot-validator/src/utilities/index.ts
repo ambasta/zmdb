@@ -34,11 +34,11 @@ import {
   hasExcessCheck,
   messageFor,
   type ConstraintKeyword,
-} from '../emit/shape.ts';
-import { failWith } from '../errors.ts';
-import { getCachedRegExp } from '../regex-complexity.ts';
+} from '../emit/shape.js';
+import { failWith } from '../errors.js';
+import { getCachedRegExp } from '../regex-complexity.js';
 
-export { AssertError, failWith } from '../errors.ts';
+export { AssertError, failWith } from '../errors.js';
 
 /** True for a non-null, non-array object — proves a keyed read is safe. */
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { validateResult, validateCoverage, IN_SCOPE_CASES, type BenchResult } from './results.ts';
+import { validateResult, validateCoverage, IN_SCOPE_CASES, type BenchResult } from './results.js';
 
 // RED PHASE (#69 spec freeze): result schema + coverage rules, incl. DNF.
 

@@ -1,12 +1,12 @@
 // @zmdb/query-compiler — implementation.
-export { QueryCompilerError, UnsupportedFeatureError } from './errors.ts';
+export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
-import { frozenQuery, tailClause, tailMethods, whereClause } from './clauses.ts';
-import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.ts';
+import { frozenQuery, tailClause, tailMethods, whereClause } from './clauses.js';
+import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export type Dialect = 'postgres' | 'mysql' | 'sqlite';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
@@ -26,7 +26,7 @@ export type Operator =
   | 'not exists'
   | (string & {});
 
-export { OP_MAP } from './clauses.ts';
+export { OP_MAP } from './clauses.js';
 
 export type Direction = 'asc' | 'desc';
 

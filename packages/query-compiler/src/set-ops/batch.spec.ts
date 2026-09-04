@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { createQueryCompiler } from '../index.ts';
-import { batch } from './index.ts';
+import { createQueryCompiler } from '../index.js';
+import { batch } from './index.js';
 
 const qc = createQueryCompiler('postgres');
 const a = qc.selectFrom('users').compile();

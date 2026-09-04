@@ -41,7 +41,7 @@ import type {
   Sql,
   Table,
   Unique,
-} from '../tags/index.ts';
+} from '../tags/index.js';
 import {
   appTypeOf,
   dbDecodedColumns,
@@ -59,7 +59,7 @@ import {
   type PropertyIR,
   type SchemaIR,
   type Variant,
-} from './index.ts';
+} from './index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

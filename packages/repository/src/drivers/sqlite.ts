@@ -1,5 +1,5 @@
 // node:sqlite driver adapter — see ../drivers/SPEC.md.
-import type { Driver } from '../index.ts';
+import type { Driver } from '../index.js';
 
 // Minimal structural types, for the same reason as `PgQueryable` in ./pg.ts: the
 // adapter must not hard-depend on `@types/node` at build time (a repo that only

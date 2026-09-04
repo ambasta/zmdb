@@ -12,8 +12,8 @@
 import type { CreateDTO, ReadDTO } from '@zmdb/schema-core/derive';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 
-import type { RouteSchemas } from '../index.ts';
-import type { User } from './entities.ts';
+import type { RouteSchemas } from '../index.js';
+import type { User } from './entities.js';
 
 declare function routes(schemas: Readonly<Record<string, RouteSchemas>>): void;
 

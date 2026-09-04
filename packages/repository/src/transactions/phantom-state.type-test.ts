@@ -5,7 +5,7 @@ import {
   type TransactionContext,
   type ActiveTransactionContext,
   type ClosedTransactionContext,
-} from './index.ts';
+} from './index.js';
 
 // 1. TransactionContext defaults to 'active'
 type _TestDefaultTxContext = Expect<Equal<TransactionContext, TransactionContext<'active'>>>;

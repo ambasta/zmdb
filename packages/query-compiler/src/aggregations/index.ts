@@ -7,11 +7,11 @@ import {
   tailClause,
   tailMethods,
   whereClause,
-} from '../clauses.ts';
-import type { CompiledQuery, Dialect } from '../index.ts';
-import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.ts';
+} from '../clauses.js';
+import type { CompiledQuery, Dialect } from '../index.js';
+import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
-export type { JoinKind } from '../clauses.ts';
+export type { JoinKind } from '../clauses.js';
 
 type SelectItem =
   | { kind: 'col'; col: string }

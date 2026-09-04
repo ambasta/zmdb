@@ -1,6 +1,6 @@
 import type { CreateDTO, Entity, Equal, Expect } from '@zmdb/schema-core';
 
-import type { User, Users } from './fixtures.ts';
+import type { User, Users } from './fixtures.js';
 
 declare const repo: Users;
 

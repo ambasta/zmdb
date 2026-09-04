@@ -3,9 +3,9 @@
 // Per packages/web/src/bench/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { createRouter } from '../pipeline/index.ts';
-import { Controller, Get } from '../routing/index.ts';
-import { benchmarkRouter, countMetadataReads } from './index.ts';
+import { createRouter } from '../pipeline/index.js';
+import { Controller, Get } from '../routing/index.js';
+import { benchmarkRouter, countMetadataReads } from './index.js';
 
 @Controller('/x')
 class XController {

@@ -22,9 +22,9 @@
 // A compilation gate. `_Fk1` is the assertion; the assignments below it are the failure
 // this file exists to prevent, written the way a consumer writes them.
 
-import type { CreateDTO, Entity } from '../derive/index.ts';
-import type { Equal, Expect, Mutual } from '../index.ts';
-import type { PrimaryKey, Serial, Sql, Table } from './index.ts';
+import type { CreateDTO, Entity } from '../derive/index.js';
+import type { Equal, Expect, Mutual } from '../index.js';
+import type { PrimaryKey, Serial, Sql, Table } from './index.js';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -14,9 +14,9 @@
 //
 // No runtime code: a compilation gate, run by `yarn typecheck` and therefore by CI.
 
-import type { CreateDTO, Entity, UpdateDTO } from './derive/index.ts';
-import type { Equal, Expect } from './index.ts';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.ts';
+import type { CreateDTO, Entity, UpdateDTO } from './derive/index.js';
+import type { Equal, Expect } from './index.js';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from './tags/index.js';
 
 interface UserMetadata {
   preferences: { theme: 'light' | 'dark' };

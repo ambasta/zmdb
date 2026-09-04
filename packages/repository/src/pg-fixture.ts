@@ -10,8 +10,8 @@
 import { Pool } from 'pg';
 import { afterAll, beforeAll } from 'vitest';
 
-import { pgDriver } from './drivers/pg.ts';
-import type { Driver } from './index.ts';
+import { pgDriver } from './drivers/pg.js';
+import type { Driver } from './index.js';
 
 /** Where the e2e specs look for Postgres: `ZMDB_PG`, else the benchmark container. */
 export const PG_CONN = process.env.ZMDB_PG || 'postgres://postgres:postgres@localhost:55432/bench';

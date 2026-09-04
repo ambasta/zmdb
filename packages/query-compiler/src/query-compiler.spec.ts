@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler, sanitizeKeys, chunkArray, OP_MAP } from './index.ts';
+import { createQueryCompiler, sanitizeKeys, chunkArray, OP_MAP } from './index.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 

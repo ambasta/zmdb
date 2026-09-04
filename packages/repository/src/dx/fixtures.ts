@@ -6,7 +6,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { OneToMany, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import { OrderSchema, type Order } from '../orders-fixture.ts';
+import { OrderSchema, type Order } from '../orders-fixture.js';
 
 // `email` and `age` are here because `quickstart-e2e.spec.ts` creates the table
 // with them; the population fixtures' `users` is deliberately a different shape.

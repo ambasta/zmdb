@@ -1,7 +1,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import type { HasDefault, Pattern, PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.ts';
+import type { HasDefault, Pattern, PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.js';
 import {
   toJsonSchema,
   toJsonSchemaWithRelations,
@@ -9,7 +9,7 @@ import {
   toOpenApiComponents,
   toSearchSchema,
   type Variant,
-} from './index.ts';
+} from './index.js';
 
 // #63: JSON Schema / OpenAPI golden fixtures.
 

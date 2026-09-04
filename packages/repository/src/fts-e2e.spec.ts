@@ -4,9 +4,9 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { BaseRepository } from './index.ts';
-import { usePostgres } from './pg-fixture.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { BaseRepository } from './index.js';
+import { usePostgres } from './pg-fixture.js';
 
 const pg = usePostgres(async pool => {
   await pool.query('DROP TABLE IF EXISTS fts_docs');

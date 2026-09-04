@@ -1,9 +1,9 @@
 // Compile-time type assertions for the relations module.
 // Checked by `yarn typecheck`.
 
-import type { Entity, Equal, Expect, Populated } from '../index.ts';
-import type { Post, Profile, User } from './fixtures.ts';
-import type { attachPopulated, JoinRow } from './index.ts';
+import type { Entity, Equal, Expect, Populated } from '../index.js';
+import type { Post, Profile, User } from './fixtures.js';
+import type { attachPopulated, JoinRow } from './index.js';
 
 // 1. Foreign key type checking — deleted with `references()` (plan D2).
 //

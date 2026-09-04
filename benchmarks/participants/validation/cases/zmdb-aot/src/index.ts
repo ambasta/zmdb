@@ -17,4 +17,4 @@ export {
   aotIs,
   aotParseSafe,
   aotParseStrict,
-} from '../../../../../../benchmarks/harness/validation/aot.generated.ts';
+} from '../../../../../../benchmarks/harness/validation/aot.generated.js';

@@ -11,7 +11,7 @@ import {
   type WhereDTO,
   type OrderTarget,
   type WhereTarget,
-} from './index.ts';
+} from './index.js';
 
 // Fake recorder for testing builder method calls
 function createWhereRecorder() {

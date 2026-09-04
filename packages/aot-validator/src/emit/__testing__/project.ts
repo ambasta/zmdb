@@ -23,12 +23,12 @@ import { join } from 'node:path';
 import type { TypeIR } from '@zmdb/schema-core/ir';
 import type { Diagnostic } from 'typescript/unstable/sync';
 
-import { AssertError } from '../../errors.ts';
-import { findCallSites } from '../../reflect/callsites.ts';
-import { Reflector } from '../../reflect/index.ts';
-import { ReflectSession } from '../../reflect/session.ts';
-import { transformFile, type TransformResult } from '../../transformer.ts';
-import type { EmitOptions } from '../index.ts';
+import { AssertError } from '../../errors.js';
+import { findCallSites } from '../../reflect/callsites.js';
+import { Reflector } from '../../reflect/index.js';
+import { ReflectSession } from '../../reflect/session.js';
+import { transformFile, type TransformResult } from '../../transformer.js';
+import type { EmitOptions } from '../index.js';
 
 /** The repo root, so the temp project can resolve `@zmdb/*` by absolute path. */
 const ROOT = new URL('../../../../../', import.meta.url).pathname;

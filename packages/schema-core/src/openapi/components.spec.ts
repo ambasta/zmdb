@@ -1,8 +1,8 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, it, expect } from 'vitest';
 
-import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
-import { toOpenApiComponents } from './index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
+import { toOpenApiComponents } from './index.js';
 
 // #67: toOpenApiComponents + determinism + E2E golden document.
 //

@@ -25,10 +25,10 @@ import { Hono } from 'hono';
 // rules ask for. Nothing about the pool differs.
 import { Pool } from 'pg';
 
-import { aggregateSelectFrom } from '../../../../packages/query-compiler/src/aggregations/index.ts';
-import { ftsSelectFrom } from '../../../../packages/query-compiler/src/fts/index.ts';
-import { createQueryCompiler } from '../../../../packages/query-compiler/src/index.ts';
-import { joinableSelectFrom } from '../../../../packages/query-compiler/src/joins/index.ts';
+import { aggregateSelectFrom } from '../../../../packages/query-compiler/src/aggregations/index.js';
+import { ftsSelectFrom } from '../../../../packages/query-compiler/src/fts/index.js';
+import { createQueryCompiler } from '../../../../packages/query-compiler/src/index.js';
+import { joinableSelectFrom } from '../../../../packages/query-compiler/src/joins/index.js';
 import cpuUsage from './cpu-usage';
 
 const numCPUs = os.cpus().length;

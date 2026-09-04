@@ -3,8 +3,8 @@
 // Per packages/web/src/openapi/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Controller, Get, Post } from '../routing/index.ts';
-import { serveOpenApi, toOpenApi } from './index.ts';
+import { Controller, Get, Post } from '../routing/index.js';
+import { serveOpenApi, toOpenApi } from './index.js';
 
 @Controller('/users')
 class UsersController {

@@ -10,7 +10,7 @@ import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { Pool } from 'pg';
 import { Bench } from 'tinybench';
 
-import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
+import { createQueryCompiler } from '../../../packages/query-compiler/src/index.js';
 
 const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 10 });
 

@@ -73,7 +73,7 @@ import {
   validateWith,
   type Ctx,
 } from '../../../packages/web/dist/index.js';
-import { assertUserCreate, type UserCreate } from './model.ts';
+import { assertUserCreate, type UserCreate } from './model.js';
 
 // Ensure the well-known Symbol.metadata exists before the decorated class is
 // evaluated. @zmdb/web ships this polyfill, but the package is `sideEffects:

@@ -9,7 +9,7 @@
 // build would. See `@zmdb/aot-validator/testing`.
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 
-import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.ts';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -10,10 +10,10 @@ import { Hono } from 'hono';
 import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 import { Pool } from 'pg';
 
-import { aggregateSelectFrom } from '../../../packages/query-compiler/src/aggregations/index.ts';
-import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.ts';
-import { createQueryCompiler } from '../../../packages/query-compiler/src/index.ts';
-import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/index.ts';
+import { aggregateSelectFrom } from '../../../packages/query-compiler/src/aggregations/index.js';
+import { ftsSelectFrom } from '../../../packages/query-compiler/src/fts/index.js';
+import { createQueryCompiler } from '../../../packages/query-compiler/src/index.js';
+import { joinableSelectFrom } from '../../../packages/query-compiler/src/joins/index.js';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);

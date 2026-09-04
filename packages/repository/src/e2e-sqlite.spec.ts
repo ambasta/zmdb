@@ -5,8 +5,8 @@ import type { UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.ts';
-import { BaseRepository, ValidationError } from './index.ts';
+import { sqliteDriver } from './drivers/sqlite.js';
+import { BaseRepository, ValidationError } from './index.js';
 
 // #29: end-to-end integration — a <10-line repository performing real CRUD
 // against an in-process SQLite database (Node 26 built-in `node:sqlite`).

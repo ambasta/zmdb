@@ -3,7 +3,7 @@
 // consumer surface. Proves the @zmdb/web decorator baseline.
 import { describe, it, expect } from 'vitest';
 
-import { metadataOf } from './index.ts';
+import { metadataOf } from './index.js';
 
 // A trivial Stage-3 class decorator that records a value in context.metadata.
 // Standard decorators only — `experimentalDecorators` is false.

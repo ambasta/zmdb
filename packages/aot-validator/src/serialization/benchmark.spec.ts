@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { stringify } from './index.ts';
+import { stringify } from './index.js';
 
 // #55: benchmark vs JSON.stringify + E2E correctness at scale.
 // (Timing is environment-dependent, so the committed assertions verify

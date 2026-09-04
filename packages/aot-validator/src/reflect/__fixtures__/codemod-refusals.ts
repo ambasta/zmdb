@@ -8,7 +8,7 @@
 // The DSL comes from `./legacy-dsl.ts`, which declares it without implementing it — see that
 // file. Nothing imports this one at runtime, and nothing could.
 
-import { defineSchema, integer, serial, type Column } from './legacy-dsl.ts';
+import { defineSchema, integer, serial, type Column } from './legacy-dsl.js';
 
 /** A column built by something outside the DSL. Its flags are not readable from syntax. */
 declare function opaqueColumn(): Column<'integer', { nullable: false }>;

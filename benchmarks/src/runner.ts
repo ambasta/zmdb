@@ -4,9 +4,9 @@ import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { objectTypeFromIR } from '@zmdb/schema-core/ir';
 import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.ts';
-import type { BenchResult } from './results.ts';
-import { runValidationSuite, zmdbAdapter } from './validation/adapter.ts';
+import { seed, runOrmSuite, competitorDnf, type OrmEngine } from './orm/adapter.js';
+import type { BenchResult } from './results.js';
+import { runValidationSuite, zmdbAdapter } from './validation/adapter.js';
 
 function toSqlInput(val: unknown): string | number | bigint | Uint8Array | null {
   if (

@@ -3,8 +3,8 @@
 // Container + built controllers. Static wiring, no per-request walk, no `as` on
 // the consumer surface.
 
-import '../polyfill.ts';
-import { Container, type Constructor, type Scope, type Token } from '../di/index.ts';
+import '../polyfill.js';
+import { Container, type Constructor, type Scope, type Token } from '../di/index.js';
 
 /** A provider binds a token to a value or a factory, with an optional scope. */
 export type ProviderDef<T = unknown> =

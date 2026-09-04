@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { validate, type TypeIR } from '../utilities/index.ts';
+import { validate, type TypeIR } from '../utilities/index.js';
 
 // #50: structured error reporting with exact paths + E2E.
 // Deeply-nested object with multiple failures must report EVERY failure with an

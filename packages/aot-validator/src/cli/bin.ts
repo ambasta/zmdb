@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { codegen, watchCodegen } from './index.ts';
+import { codegen, watchCodegen } from './index.js';
 
 const USAGE = `zmdb-codegen — compile zmdb's validators ahead of time, without a bundler.
 

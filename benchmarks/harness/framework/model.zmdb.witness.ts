@@ -11,8 +11,8 @@
 // its export name, so deleting a call in the source is how you delete a validator; there's
 // no bookkeeping to keep in step.
 
-import type { UserCreate } from './model.ts';
-import { assert } from '../../../packages/aot-validator/src/utilities/index.ts';
+import type { UserCreate } from './model.js';
+import { assert } from '../../../packages/aot-validator/src/utilities/index.js';
 /*zmdb:/imports*/
 
 /*zmdb:begin:zmdbAssertUserCreate*/

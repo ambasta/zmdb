@@ -7,8 +7,8 @@
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
 // pay: Draft -> Paid, ship: Paid -> Shipped. There is no Draft -> Shipped edge.
-import { Draft, pay, ship, type Order } from './fixtures.ts';
-import { type Brand } from './index.ts';
+import { Draft, pay, ship, type Order } from './fixtures.js';
+import { type Brand } from './index.js';
 
 // --- branding --------------------------------------------------------------
 export type _State1 = ExpectNot<Equal<Brand<Order, 'Draft'>, Brand<Order, 'Paid'>>>;

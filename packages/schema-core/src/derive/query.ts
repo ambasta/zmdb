@@ -14,7 +14,7 @@
 // carries no relations at all, which is why the version of `Populated` this replaced had
 // to rebuild the cardinality out of a `RelationMeta` through six nested conditionals.
 
-import type { DeclaredTable, Entity, RelationKeys } from './index.ts';
+import type { DeclaredTable, Entity, RelationKeys } from './index.js';
 
 export type {
   GetDTO,
@@ -25,7 +25,7 @@ export type {
   PaginationDTO,
   Projection,
   WhereDTO,
-} from '../dto/index.ts';
+} from '../dto/index.js';
 
 // ---------------------------------------------------------------------------
 // Relations.

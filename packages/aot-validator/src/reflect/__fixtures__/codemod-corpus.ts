@@ -36,7 +36,7 @@ import {
   text as textColumn,
   timestamp,
   varchar,
-} from './legacy-dsl.ts';
+} from './legacy-dsl.js';
 
 /** The payload of the `json` column below. Erased at runtime; recovered from the type. */
 export interface Attachment {

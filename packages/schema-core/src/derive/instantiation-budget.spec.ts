@@ -34,7 +34,7 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { cleanup, measure } from './__testing__/instantiations.ts';
+import { cleanup, measure } from './__testing__/instantiations.js';
 
 /**
  * The measured ceiling for `TABLES` tables, with headroom.

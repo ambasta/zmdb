@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { parseResultsFile, checkRegressions } from './guardrail.ts';
-import { assertNoSilentSkips } from './report.ts';
-import type { BenchResult } from './results.ts';
-import { runLiveBenchmarks } from './runner.ts';
+import { parseResultsFile, checkRegressions } from './guardrail.js';
+import { assertNoSilentSkips } from './report.js';
+import type { BenchResult } from './results.js';
+import { runLiveBenchmarks } from './runner.js';
 
 export function runCli(args: string[] = process.argv.slice(2)): number {
   let baselinePath: string | undefined;

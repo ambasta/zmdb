@@ -3,7 +3,7 @@ import { defineEntityStateMachine } from '@zmdb/schema-core';
 import type { Equal, Expect } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-import { markTransactionClosed, type ActiveTransactionContext, type ClosedTransactionContext } from '../index.ts';
+import { markTransactionClosed, type ActiveTransactionContext, type ClosedTransactionContext } from '../index.js';
 
 // Closed context type assertion
 declare const activeTx: ActiveTransactionContext;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createQueryCompiler } from './index.ts';
+import { createQueryCompiler } from './index.js';
 
 // #19: dialect coverage across all statement kinds (Postgres/MySQL/SQLite).
 

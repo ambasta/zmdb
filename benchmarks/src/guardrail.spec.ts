@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { checkRegressions, RegressionKind, parseJsonResults, parseMarkdownResults } from './guardrail.ts';
-import type { BenchResult } from './results.ts';
+import { checkRegressions, RegressionKind, parseJsonResults, parseMarkdownResults } from './guardrail.js';
+import type { BenchResult } from './results.js';
 
 // #73: regression-guardrail logic. Compares a previous vs current results set
 // and flags ok→DNF transitions, ops/sec drops beyond a threshold, and missing cases.

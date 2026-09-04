@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { aliasRow } from './index.ts';
+import { aliasRow } from './index.js';
 
 // `JoinRow`'s left/inner typing is asserted in `relations.type-test.ts`.
 describe('typed join result rows (#193)', () => {

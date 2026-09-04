@@ -4,7 +4,7 @@
 // with `expectTypeOf` inside a `.spec.ts` (a runtime no-op) checked nothing.
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import type { Brand } from './index.ts';
+import type { Brand } from './index.js';
 
 type UserId = Brand<number, 'UserId'>;
 type OrderId = Brand<number, 'OrderId'>;

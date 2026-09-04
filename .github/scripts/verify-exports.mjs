@@ -191,7 +191,7 @@ for (const pkgDirName of packageDirs) {
   }
 }
 
-// Every subpath actually loads, under plain `node`, with no bundler and no loader.
+// Every subpath actually loads, under `node`, with no bundler and no transform.
 //
 // This is a check on the *source*, and it is worth being precise about that, because the
 // obvious reading of it is wrong. Every `exports` target here is a `.ts` file, so what runs
@@ -201,13 +201,20 @@ for (const pkgDirName of packageDirs) {
 // ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING. So the published form is a different question,
 // answered by `yarn verify:publish`, and nothing here should be read as covering it.
 //
-// What it does cover is loading the source, which the tests, the dev loop, the examples and
-// the consumer fixtures all do. Two things break that while resolving and typechecking
+// One thing is not plain about the `node` this runs under: `yarn verify:exports` passes
+// `--import ./scripts/ts-specifier-hook.mjs`, because the sources name their siblings as
+// `./x.js` and Node will not map that to `./x.ts` on its own. That hook resolves specifiers
+// and nothing else — it compiles no code and rewrites no source, so what loads below is still
+// the file as committed.
+//
+// What this covers, then, is loading the source, which the tests, the dev loop, the examples
+// and the consumer fixtures all do. Two things break that while resolving and typechecking
 // perfectly:
 //
-//   * a relative specifier written `'../index.js'`. `tsc` maps it back to `../index.ts` and
-//     vitest resolves it, so the whole test suite passes; Node looks for a file called
-//     `index.js` and finds nothing.
+//   * a relative specifier that names neither a real file nor a `.ts` sibling — a stale path,
+//     or a `.js` target that was deleted. `tsc` and vitest are more forgiving about the shape
+//     of a specifier than Node's resolver plus the hook are, so the whole test suite can pass
+//     with an import Node cannot follow.
 //   * syntax that is not type syntax. Decorators are the case that bit us — a single
 //     `@Controller` in a benchmark helper made `import '@zmdb/web'` a SyntaxError, because the
 //     root index re-exported it. `target: ESNext` means such a decorator would also survive

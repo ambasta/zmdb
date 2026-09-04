@@ -1,8 +1,8 @@
 import type { PrimaryKeyOf } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
-import { ValidationError } from '../index.ts';
-import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './fixtures.ts';
+import { ValidationError } from '../index.js';
+import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './fixtures.js';
 
 describe('Composite Primary Key Repository Operations', () => {
   it('findById compiles parameterized multi-column SQL predicates', async () => {

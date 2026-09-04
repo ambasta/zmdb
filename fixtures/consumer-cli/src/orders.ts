@@ -12,7 +12,7 @@
 
 import type { JsonSchemaObject, TaggedSchema, ValidateResult } from 'zmdb';
 
-import type { Order } from './model.ts';
+import type { Order } from './model.js';
 import {
   zmdbIsOrder,
   zmdbIsReadonlyXNumberReadonlyYNumber,
