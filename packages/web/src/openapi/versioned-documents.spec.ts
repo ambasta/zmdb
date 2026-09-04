@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Controller, Get } from '../routing/index.js';
-import { toOpenApi, type OpenApiDocument } from './index.js';
+import { toOpenApi } from './index.js';
 
 // How a versioned API appears in the document. Tests freeze for the epic "OpenAPI security schemes
 // and API versioning" (#572 / spec freeze #573); the frozen text is `./SPEC.md` §S7, plus
@@ -22,15 +22,6 @@ import { toOpenApi, type OpenApiDocument } from './index.js';
 //
 // What is left is the path strategy, which is the one §S7 recommends and the only one whose document
 // representation is a function of the route table alone.
-
-/** The `operationId` the frozen derivation produces, which today's generator does not emit. */
-interface FrozenOperation {
-  readonly operationId?: string;
-}
-
-type FrozenDocument = Omit<OpenApiDocument, 'paths'> & {
-  readonly paths: Readonly<Record<string, Readonly<Record<string, FrozenOperation>>>>;
-};
 
 // The arrangement `docs-site/content/web-versioning.md` documents today and the one
 // `../versioning/SPEC.md` §6 keeps working under a configured path strategy: the version is written
@@ -67,18 +58,13 @@ const CONTROLLERS = [PostsV1, PostsV2];
 const INFO = { title: 'Posts API', version: '1.0.0' };
 
 /**
- * Every operation's `operationId`, or that it has none.
- *
- * boundary: `operationId` is frozen by the epic "The agent runtime" and is not on today's
- * `OpenApiOperation`, so the claim is made against the serialised document rather than through a cast
- * naming the whole future shape. `'absent'` rather than a `?? ''` default, because the failure being
- * frozen against is a tool name that quietly changes, and an empty string reads like a name.
+ * Every operation's generated `operationId`.
  */
 function operationIdsOf(controllers: readonly object[]): string {
-  const doc: FrozenDocument = JSON.parse(JSON.stringify(toOpenApi(controllers, { info: INFO })));
+  const doc = toOpenApi(controllers, { info: INFO });
   return Object.entries(doc.paths)
     .flatMap(([path, item]) =>
-      Object.entries(item).map(([method, operation]) => `${method} ${path}=${operation.operationId ?? 'absent'}`),
+      Object.entries(item).map(([method, operation]) => `${method} ${path}=${operation.operationId}`),
     )
     .join(', ');
 }
@@ -94,12 +80,7 @@ describe('versioned documents (frozen: openapi/SPEC.md S7)', () => {
   // `toolsFromOpenApi` has a stable tool name; §S7 depends on it and cannot be finished before it.
   // The test is here because §S9 item 9 asks for it and because a version scheme that produces two
   // operations with the *same* id produces a tool list with a silently dropped tool.
-  //
-  // actual today:
-  //   get /v1/posts=absent, get /v1/posts/{id}=absent, get /v2/posts=absent, get /v2/posts/{id}=absent
-  // — no operation carries an `operationId` at all, so the ids are not merely colliding, they are
-  // missing, and `toolsFromOpenApi` has nothing to name a tool with.
-  it.fails('derives a distinct operationId for each version of a path-versioned route', () => {
+  it('derives a distinct operationId for each version of a path-versioned route', () => {
     expect(operationIdsOf(CONTROLLERS)).toBe(
       [
         'get /v1/posts=get_v1_posts',

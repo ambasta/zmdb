@@ -4,5 +4,5 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "files": ["entities.ts", "route-schemas.ts"]
+  "files": ["entities.ts", "openapi-tools.fixture.ts", "route-schemas.ts"]
 }

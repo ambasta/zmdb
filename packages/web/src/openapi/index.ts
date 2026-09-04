@@ -38,6 +38,7 @@ interface OpenApiParameter {
 }
 
 interface OpenApiOperation {
+  operationId: string;
   parameters?: OpenApiParameter[];
   requestBody?: { content: Record<string, { schema: JsonSchema }> };
   responses: Record<string, { description: string; content?: Record<string, { schema: JsonSchema }> }>;
@@ -81,6 +82,12 @@ function toOpenApiPath(path: string): { openapiPath: string; params: string[] } 
   return { openapiPath, params };
 }
 
+/** Stable tool/client name derived only from the route's public method and path. */
+export function operationIdForRoute(method: string, path: string): string {
+  const suffix = path.replaceAll(/[/:{}]+/g, '_').replaceAll(/^_+|_+$/g, '');
+  return suffix === '' ? method.toLowerCase() : `${method.toLowerCase()}_${suffix}`;
+}
+
 /**
  * Generate an OpenAPI 3.1 document from controller routes (+ optional per-route
  * schemas). Deterministic: paths sorted, methods lowercased operation keys.
@@ -94,7 +101,13 @@ export function toOpenApi(
   const paths: Record<string, PathItem> = {};
 
   // Collect routes across controllers, then emit in a stable order.
-  const collected: { openapiPath: string; method: string; params: string[]; routePath: string }[] = [];
+  const collected: {
+    openapiPath: string;
+    method: string;
+    operationId: string;
+    params: string[];
+    routePath: string;
+  }[] = [];
   for (const controller of controllers) {
     const cls = toClass(controller);
     if (cls === undefined) {
@@ -102,16 +115,34 @@ export function toOpenApi(
     }
     for (const route of getRoutes(cls)) {
       const { openapiPath, params } = toOpenApiPath(route.path);
-      collected.push({ openapiPath, method: route.method.toLowerCase(), params, routePath: route.path });
+      const method = route.method.toLowerCase();
+      collected.push({
+        openapiPath,
+        method,
+        operationId: operationIdForRoute(method, route.path),
+        params,
+        routePath: route.path,
+      });
     }
   }
   collected.sort((a, b) =>
     a.openapiPath === b.openapiPath ? a.method.localeCompare(b.method) : a.openapiPath.localeCompare(b.openapiPath),
   );
 
+  const operationIds = new Set<string>();
+  const routeKeys = new Set<string>();
   for (const entry of collected) {
+    const routeKey = `${entry.method} ${entry.openapiPath}`;
+    if (routeKeys.has(routeKey) || operationIds.has(entry.operationId)) {
+      throw new Error(`@zmdb/web: duplicate OpenAPI operationId ${entry.operationId} for ${routeKey}`);
+    }
+    routeKeys.add(routeKey);
+    operationIds.add(entry.operationId);
     const item = paths[entry.openapiPath] ?? {};
-    const operation: OpenApiOperation = { responses: { '200': { description: 'OK' } } };
+    const operation: OpenApiOperation = {
+      operationId: entry.operationId,
+      responses: { '200': { description: 'OK' } },
+    };
     if (entry.params.length > 0) {
       operation.parameters = entry.params.map(name => ({
         name,

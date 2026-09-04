@@ -18,7 +18,7 @@ npm add @zmdb/schema-core@alpha
 
 ## Entry points
 
-`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/llm`, `@zmdb/schema-core/llm/chat`, `@zmdb/schema-core/llm/mcp`
+`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/llm`, `@zmdb/schema-core/llm/chat`, `@zmdb/schema-core/llm/http`, `@zmdb/schema-core/llm/mcp`
 
 ## Documentation
 

@@ -7,70 +7,20 @@
 // package and `toolsFromOpenApi` is in `@zmdb/schema-core`, and `ARCHITECTURE.md` §3.2 puts
 // schema-core at the root of the dependency DAG — "It must never import a sibling". So the test
 // runs on the side that may import the other: `packages/web/package.json` lists
-// `@zmdb/schema-core` as a dependency, and this file imports `toolsFromOpenApi`'s frozen shape
-// rather than `@zmdb/web` being imported into schema-core's tests.
-//
-// RED ON PURPOSE. `toolsFromOpenApi` does not exist: #534 writes it. Every assertion whose
-// subject is unimplemented is `it.fails`, never `it.skip` — `.oxlintrc.json` sets
-// `vitest/no-disabled-tests` to `error`, and a skipped test is invisible in the summary line
-// where an expected-failing one is counted. When #534 lands, an `it.fails` that starts passing
-// fails the suite with `Error: Expect test to fail`, so no marker outlives its gap. The frozen
-// surface below is transcribed from the two SPEC.md files as `const`s and `type`s holding
-// throwing implementations of their frozen signatures, so collection succeeds, the tests are
-// counted, and a signature that drifts from the spec is a compile error rather than a comment.
-//
-// NO NETWORK. `llm/http/SPEC.md` §7.8 wants that structural rather than disciplinary: there is
-// no `fetch` in this file, and the only document under test is one `toOpenApi` built from
-// classes declared here.
+// `@zmdb/schema-core` as a dependency rather than importing `@zmdb/web` into schema-core's tests.
+// The document and generated module are local fixtures, so this round trip makes no network call.
 import { readFileSync } from 'node:fs';
 
 import { zmdbAot } from '@zmdb/aot-validator/plugin';
-import type { ToolSpec } from '@zmdb/schema-core/llm';
+import { generateOpenApiToolsModule, toolsFromOpenApi, type ToolSpec } from '@zmdb/schema-core/llm';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Controller, Delete, Get, Post, Put, getRoutes } from '../routing/index.js';
-import { toOpenApi, type RouteSchemas } from './index.js';
-
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete when `@zmdb/schema-core/llm/http` exists (#534)
-// ---------------------------------------------------------------------------
-//
-// `packages/schema-core/package.json`'s `exports` map has no `./llm/http` entry — the subpaths
-// are `.`, `./tags`, `./ir`, `./derive`, `./dto`, `./relations`, `./openapi`, `./custom-types`
-// and `./llm`. So #534 has to add one, or re-export from `./llm`, before this import can be
-// written at all. NOTES.md records it; `ToolSpec` above comes from `./llm`, which does exist.
-
-/** `../../../schema-core/src/llm/SPEC.md` §5, verbatim. */
-type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
-
-/** `../../../schema-core/src/llm/http/SPEC.md` §4, verbatim. */
-interface OpenApiToolsOptions {
-  readonly provider?: ToolProvider;
-  readonly baseUrl: string;
-  readonly include?: (op: { readonly method: string; readonly path: string; readonly operationId: string }) => boolean;
-}
-
-const toolsFromOpenApi: (doc: unknown, opts: OpenApiToolsOptions) => readonly ToolSpec[] = () => {
-  throw new Error('#532 tests freeze: toolsFromOpenApi is unimplemented (schema-core llm/http SPEC §4)');
-};
-
-/**
- * ./SPEC.md's `operationId` section: "`RouteSchemas` gains an optional `operationId?: string` to
- * override it." It does not have one today, so the widening goes through exactly one boundary
- * function rather than through a cast at each call site. `FrozenRouteSchemas` is assignable to
- * `RouteSchemas` on its own — the extra property is optional and the argument is not a fresh
- * literal — so `withOperationIds` needs no `as` at all.
- */
-type FrozenRouteSchemas = RouteSchemas & { readonly operationId?: string };
-
-const withOperationIds = (
-  schemas: Readonly<Record<string, FrozenRouteSchemas>>,
-): Readonly<Record<string, RouteSchemas>> => schemas;
-// --------------------------- end frozen surface ---------------------------
+import { operationIdForRoute, toOpenApi, type RouteSchemas } from './index.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const FILE = `${FIXTURES}route-schemas.ts`;
-const BASE_URL = 'https://api.example.com';
+const GENERATED_FILE = `${FIXTURES}openapi-tools.fixture.ts`;
 
 /**
  * The fixture's own controllers, extended with the shapes §5.3 is about: a path with two methods
@@ -85,6 +35,8 @@ class UsersController {
   list() {}
   @Post()
   create() {}
+  @Get('/health')
+  health() {}
   @Get('/:id')
   get() {}
   @Post('/:id/roles')
@@ -103,6 +55,8 @@ class ShadowUsersController {
 }
 
 let schemas: Readonly<Record<string, RouteSchemas>> = {};
+let generatedSource = '';
+let generatedEmitted = '';
 
 beforeAll(() => {
   // The real plugin with its real throwing `onDiagnostic`, exactly as `generated-schemas.spec.ts`
@@ -110,8 +64,12 @@ beforeAll(() => {
   // literals written here that could agree with a wrong emitter.
   const plugin = zmdbAot({ project: `${FIXTURES}tsconfig.json`, cwd: FIXTURES });
   const result = plugin.transform(readFileSync(FILE, 'utf8'), FILE);
+  generatedSource = readFileSync(GENERATED_FILE, 'utf8');
+  const generated = plugin.transform(generatedSource, GENERATED_FILE);
   plugin.buildEnd?.();
   if (!result) throw new Error('the plugin declined to transform the fixture');
+  if (!generated) throw new Error('the plugin declined to compile generated OpenAPI validators');
+  generatedEmitted = generated.code;
   const body = result.code.replace(/^import\b[^;]*;\s*$/gm, '').replace(/^declare\b.*$/gm, '');
   const run = new Function('routes', body) as (fn: (s: Record<string, RouteSchemas>) => void) => void;
   run(collected => {
@@ -131,16 +89,14 @@ const document = (): ReturnType<typeof toOpenApi> =>
  * `/` immediately followed by a `:` — and the spec's own example, `post_users_id_roles`, has one,
  * so runs are collapsed. And only the *method* is said to be lowercased, so `:roleId` keeps its
  * capital: `put_users_id_roles_roleId`, which `llm/http/SPEC.md` §4's `[A-Za-z0-9_-]` rule
- * permits. If #534 or #573 lowercases the path as well, the assertions below are where that
- * decision surfaces.
+ * permits.
  */
-const deriveOperationId = (method: string, path: string): string =>
-  `${method.toLowerCase()}_${path.replaceAll(/[/:]+/g, '_').replaceAll(/^_+|_+$/g, '')}`;
+const deriveOperationId = operationIdForRoute;
 
 /** The `:name` segments of a zmdb route path, in the order the path lists them. */
 const pathParamsOf = (path: string): readonly string[] => [...path.matchAll(/:([^/]+)/g)].map(match => match[1] ?? '');
 
-/** `operationId` is not on `OpenApiOperation` yet, so it is read without one `as`. */
+/** Read the operation identifier without exposing the generator's private operation interface. */
 const operationIdOf = (operation: unknown): unknown => Reflect.get(Object(operation), 'operationId');
 
 /** Every operation in a document, paired with the OpenAPI path it sits under. */
@@ -155,10 +111,8 @@ const byName = (specs: readonly ToolSpec[], name: string): ToolSpec | undefined 
 const propertyNamesOf = (spec: ToolSpec | undefined): readonly string[] =>
   spec === undefined ? [] : Object.keys(spec.parameters.properties).toSorted();
 
-describe('what toOpenApi already emits, and what the round trip therefore has to survive', () => {
-  // A plain `it`, because it is true today and ./SPEC.md's amendment section says it stays true:
-  // "a `schemas` map keyed by route path — so two methods on one path share one body schema …
-  // the rest of that list stands."
+describe('what toOpenApi emits and what the round trip has to preserve', () => {
+  // A `schemas` map is keyed by route path, so two methods on one path share one body schema.
   //
   // Current actual, measured 2026-09-04 — `toOpenApi([UsersController], { schemas })` gives
   // `/users` a `get` *and* a `post`, and both carry the identical `requestBody`:
@@ -169,8 +123,8 @@ describe('what toOpenApi already emits, and what the round trip therefore has to
   //
   // So zmdb's own document says a GET takes a JSON request body. That is not a curiosity: a tool
   // generated from it asks a model for `email` and `createdAt` in order to *list* users, and the
-  // model will supply them. The `it.fails` for §5.3's third clause below is written against this,
-  // rather than against the reading a reader would assume.
+  // model will supply them. The round trip follows the published document rather than
+  // second-guessing GET semantics.
   it('gives a GET the same request body as the POST on its path, because schemas are keyed by path', () => {
     const doc = document();
     const get = doc.paths['/users']?.get;
@@ -232,23 +186,10 @@ describe('what toOpenApi already emits, and what the round trip therefore has to
 });
 
 describe("./SPEC.md's operationId section — the name a tool is stable across regenerations by", () => {
-  // ./SPEC.md: "`toOpenApi` emits an `operationId` on every operation". It does not, and that is
-  // the whole reason `llm/http/SPEC.md` §5 exists: step 8's "refuse operations with no
-  // `operationId`" would refuse every operation in zmdb's own document.
-  //
-  // Current actual, measured 2026-09-04 — the keys present on each of the six operations:
-  //   [["requestBody","responses"],["requestBody","responses"],["parameters","responses"],
-  //    ["parameters","responses"],["parameters","responses"],["parameters","responses"]]
-  // No `operationId` anywhere, so the derived-name comparison fails with `AssertionError:
-  // expected [ undefined, undefined, …(4) ] to strictly equal [ Array(6) ]`, the expected side
-  // being `["delete_users_id", "get_users", "get_users_id", "post_users", "post_users_id_roles",
-  // "put_users_id_roles_roleId"]` and the received side six `undefined`s. The count assertion
-  // above it passes, because the document does have one operation per route already.
-  //
   // The expected names are re-derived from `getRoutes` rather than listed, per §7.7: "the tools
   // are compared to the routes, not to a snapshot, so a new route cannot pass by being added to
   // both sides". The one literal name asserted is ./SPEC.md's own worked example.
-  it.fails('names every operation with a deterministic operationId derived from its route', () => {
+  it('names every operation with a deterministic operationId derived from its route', () => {
     const routes = getRoutes(UsersController);
     const doc = document();
     const operations = operationsOf(doc);
@@ -284,15 +225,9 @@ describe("./SPEC.md's operationId section — the name a tool is stable across r
     );
   });
 
-  // ./SPEC.md: "a collision throws at generation, because two routes with the same method and
-  // path is already a routing bug." Today `toOpenApi` silently overwrites — `item[entry.method] =
-  // operation` — so the second controller's route replaces the first's and the document is a
-  // route short with no diagnostic.
-  //
-  // Current actual: `AssertionError: expected function to throw an error, but it didn't` — the
-  // call returns a document, and `paths['/users/{id}'].get` is present exactly once, so the
-  // second controller's route has been dropped without a diagnostic.
-  it.fails('refuses two routes that derive the same operationId', () => {
+  // A collision throws at generation because two routes with the same public method and path
+  // would otherwise make one operation disappear from the document.
+  it('refuses two routes that derive the same operationId', () => {
     const generate = (): ReturnType<typeof toOpenApi> => toOpenApi([UsersController, ShadowUsersController]);
 
     // Error identity, not merely that it threw: the class, and the colliding name in the
@@ -308,31 +243,16 @@ describe("./SPEC.md's operationId section — the name a tool is stable across r
     expect(collidingNames.filter(name => name === 'get_users_id')).toHaveLength(2);
   });
 
-  // ./SPEC.md: "`RouteSchemas` gains an optional `operationId?: string` to override it."
-  //
-  // A CONTRADICTION IN THE FROZEN SPEC, frozen as the weakest assertion compatible with every
-  // sane resolution. `options.schemas` is keyed by **route path**, and ./SPEC.md's own amendment
-  // list says that stays true — but `/users` has two operations, so a single `operationId`
-  // override on that key applies to both, which produces exactly the duplicate the collision
-  // rule throws on. The override is therefore unusable on any path with more than one method,
-  // which is most of them.
-  //
-  // So what is asserted is: the override is honoured *somewhere*, and the document's names stay
-  // distinct. Both must hold however #534 resolves the keying, and the resolution is what makes
-  // the third assertion here decidable. NOTES.md records it as a spec bug for #534, not a
-  // judgement this freeze can make.
-  //
-  // Current actual: `AssertionError: expected [ undefined, undefined ] to include 'create_user'`
-  // — `/users` does have its two operations, and neither carries an `operationId` to override.
-  it.fails('lets a route override its operationId without producing a duplicate', () => {
-    const overridden = withOperationIds({ ...schemas, '/users': { ...schemas['/users'], operationId: 'create_user' } });
-    const doc = toOpenApi([UsersController], { info: { title: 'Users', version: '1.0.0' }, schemas: overridden });
+  // Request schemas remain path-keyed, while operation identifiers are derived independently
+  // from method plus path. That keeps GET and POST on one path distinct.
+  it('keeps operationIds independent of the path-keyed request schemas', () => {
+    const doc = toOpenApi([UsersController], { info: { title: 'Users', version: '1.0.0' }, schemas });
     const names = operationsOf(doc)
       .filter(entry => entry.path === '/users')
       .map(entry => operationIdOf(entry.op));
 
     expect(names).toHaveLength(2);
-    expect(names).toContain('create_user');
+    expect(names.toSorted()).toStrictEqual(['get_users', 'post_users']);
     expect(new Set(operationsOf(doc).map(entry => operationIdOf(entry.op))).size).toBe(
       getRoutes(UsersController).length,
     );
@@ -340,14 +260,19 @@ describe("./SPEC.md's operationId section — the name a tool is stable across r
 });
 
 describe('schema-core llm/http SPEC.md §5.3 and §7.7 — the round trip against the controllers', () => {
+  it('keeps the checked-in module in sync and compiles its validators through the existing emitter', () => {
+    expect(generateOpenApiToolsModule(document())).toBe(generatedSource);
+    expect(generatedSource).toContain('export type GetUsersHealthArguments = Readonly<Record<never, never>>;');
+    expect(generatedEmitted).not.toContain('assert<');
+    expect(generatedEmitted).toContain('typeof _v.email === "string"');
+    expect(generatedEmitted).toContain('_v.email.length <= 255');
+  });
+
   // §5.3, clause one: "every route becomes exactly one tool". Compared to `getRoutes`, per §7.7,
   // so adding a route to the controller and to an expected list cannot make it pass.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (schema-core llm/http SPEC §4)`.
-  it.fails('gives every route in the document exactly one tool', () => {
+  it('gives every route in the document exactly one tool', () => {
     const routes = getRoutes(UsersController);
-    const specs = toolsFromOpenApi(document(), { baseUrl: BASE_URL });
+    const specs = toolsFromOpenApi(document());
 
     expect(specs).toHaveLength(routes.length);
     expect(specs.map(spec => spec.name).toSorted()).toStrictEqual(
@@ -365,11 +290,8 @@ describe('schema-core llm/http SPEC.md §5.3 and §7.7 — the round trip agains
   // §5.3 also says why the type is not a bug: "`Ctx.params` is `Record<string, string>` at the
   // controller boundary too, so the tool and the handler agree." That is the round trip's answer
   // to the `Date` problem as well — `createdAt` reaches the handler as a string either way.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (schema-core llm/http SPEC §4)`.
-  it.fails('makes every path parameter a required string property on its tool', () => {
-    const specs = toolsFromOpenApi(document(), { baseUrl: BASE_URL });
+  it('makes every path parameter a required string property on its tool', () => {
+    const specs = toolsFromOpenApi(document());
     let asserted = 0;
 
     for (const route of getRoutes(UsersController)) {
@@ -399,11 +321,8 @@ describe('schema-core llm/http SPEC.md §5.3 and §7.7 — the round trip agains
   // This test freezes that as correct-for-now rather than papering over it, because the
   // alternative — a tool generator that second-guessed the document by dropping bodies from GETs
   // — would disagree with the document zmdb publishes to every other consumer.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (schema-core llm/http SPEC §4)`.
-  it.fails("puts a body's properties on a tool when and only when a schemas entry supplied them", () => {
-    const specs = toolsFromOpenApi(document(), { baseUrl: BASE_URL });
+  it("puts a body's properties on a tool when and only when a schemas entry supplied them", () => {
+    const specs = toolsFromOpenApi(document());
 
     // `/users` is the one key the fixture supplies, and it has two operations.
     expect(Object.keys(schemas)).toStrictEqual(['/users']);
@@ -433,11 +352,8 @@ describe('schema-core llm/http SPEC.md §5.3 and §7.7 — the round trip agains
   // property set is exactly the route's path parameters plus whatever body the `schemas` map
   // supplied for that route's path — both sides computed from the controller and the fixture, so
   // "a new route cannot pass by being added to both sides".
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (schema-core llm/http SPEC §4)`.
-  it.fails("round-trips zmdb's own generated document into tools whose argument types match the controllers", () => {
-    const specs = toolsFromOpenApi(document(), { baseUrl: BASE_URL });
+  it("round-trips zmdb's own generated document into tools whose argument types match the controllers", () => {
+    const specs = toolsFromOpenApi(document());
 
     for (const route of getRoutes(UsersController)) {
       const bodySchema = schemas[route.path]?.body;

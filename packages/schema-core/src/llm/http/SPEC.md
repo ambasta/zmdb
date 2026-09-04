@@ -88,10 +88,35 @@ driver that took a logger would be a driver that could make it; it takes none.
 ```ts
 export interface OpenApiToolsOptions {
   readonly provider?: ToolProvider; // default 'json-schema'
-  readonly baseUrl: string;
   readonly include?: (op: { readonly method: string; readonly path: string; readonly operationId: string }) => boolean;
 }
-export declare function toolsFromOpenApi(doc: unknown, opts: OpenApiToolsOptions): readonly ToolSpec[];
+export declare function toolsFromOpenApi(doc: unknown, opts?: OpenApiToolsOptions): readonly ToolSpec[];
+export declare function generateOpenApiToolsModule(doc: unknown, opts?: OpenApiToolsOptions): string;
+
+export interface OpenApiGeneratedTool<T> {
+  readonly spec: ToolSpec;
+  readonly request: {
+    readonly method: string;
+    readonly path: string;
+    readonly pathParameters: readonly string[];
+    readonly queryParameters: readonly string[];
+    readonly bodyParameters: readonly string[];
+    readonly hasBody: boolean;
+  };
+  readonly validate: (input: unknown) => T;
+}
+
+export declare function bindOpenApiTool<T>(
+  tool: OpenApiGeneratedTool<T>,
+  opts: {
+    readonly baseUrl: string;
+    readonly allowedBaseUrls: readonly string[];
+    readonly headers?: Readonly<Record<string, string>>;
+    readonly timeoutMs?: number;
+    readonly maxResponseBytes?: number;
+    readonly fetch?: typeof globalThis.fetch;
+  },
+): { readonly spec: ToolSpec; readonly validate: (input: unknown) => T; handler(input: T): Promise<unknown> };
 ```
 
 The mapping, and the part the issue's step 8 asks for:
@@ -115,6 +140,11 @@ from the caller's `fetch` wrapper, one place, per generated call, and the model 
 `llm-mcp.md`'s "authorise the caller, not the request", in the one place where a document would otherwise hand
 the model the mechanism.
 
+Path arguments must compile to one URL scalar. Query arguments may be scalars or
+arrays of scalars, which become repeated `URLSearchParams` entries. Object-valued
+URL parameters are refused during generation rather than reaching a caller that
+cannot serialize them without inventing a convention.
+
 **Flattening the body into the same object** is chosen because a tool document is one level deep for zmdb's own
 schemas (`../SPEC.md` §1) and a nested `body` object would be the only nesting in the system, reachable only by
 this path. A name collision between a parameter and a body property refuses the operation rather than
@@ -122,7 +152,7 @@ resolving it, since either resolution silently sends the model's value to the wr
 
 Refusals, each naming the operation:
 
-- no `operationId` **and** no derivable name (§5),
+- no `operationId`,
 - a name the target provider's pattern rejects — the same table `../SPEC.md` §2.1 freezes, which is where a
   64-character limit and a `[A-Za-z0-9_-]` rule live,
 - two operations that produce the same tool name,
@@ -139,31 +169,23 @@ network call at build time against a document that may be hostile.
 ## 5. `operationId`, and the round trip through zmdb's own document
 
 Step 9 asks that zmdb's own generated document round-trip into tools that match the controllers' inputs.
-Reading `packages/web/src/openapi/index.ts` first is what makes that requirement precise, because as it stands
-it cannot hold:
+`toOpenApi` now emits a deterministic `operationId` from the lowercased method and public route path. It
+refuses duplicate method/path pairs and any second route that would derive the same identifier instead of
+silently overwriting one operation. `toolsFromOpenApi` therefore requires the field and refuses a third-party
+document that omits it, naming the method and path. It never invents a fallback name from a document it does
+not own.
 
-- `toOpenApi` emits **no `operationId`** — `OpenApiOperation` has `parameters`, `requestBody` and `responses`
-  and nothing else. Step 8's "refuse operations with no `operationId`" would therefore refuse every operation
-  in zmdb's own document, which contradicts step 9 directly.
-- It emits **no query or header parameters at all**: `parameters` is derived from the path string alone, every
-  entry `in: 'path'`, `required: true`, `schema: { type: 'string' }`.
-- A request body appears only when the caller passes `options.schemas`, keyed by **route path** — so two
-  methods on one path share one body schema.
+The rest of the generated document remains deliberately narrow:
 
-So the round-trip claim is frozen at what is actually true, and the gap is closed on the `@zmdb/web` side
-rather than papered over here:
+- it emits no query or header parameters; route parameters are `in: 'path'`, required strings,
+- request and response schemas still come from `options.schemas`, keyed by route path, so two methods on one
+  path share one body schema,
+- every route becomes exactly one tool, path parameters stay required strings, and body properties appear
+  exactly when the published document carries them.
 
-1. `toOpenApi` gains a deterministic `operationId` per operation, overridable per route. That is one field, and
-   it is specified in `packages/web/src/openapi/SPEC.md` alongside the reason a tool name has to be stable:
-   renaming a tool between two generations is a _new_ tool to a model, and the prompt caches that make a tool
-   loop affordable key on the tool list.
-2. `toolsFromOpenApi` falls back to a derived name — `<method>_<path with separators replaced>` — when a
-   third-party document omits `operationId`, and refuses on collision. Refusing an operation because a document
-   we do not control omits an optional field would make the generator useless against most real documents.
-3. **The round-trip assertion is: every route becomes exactly one tool; path parameters become required string
-   properties; a body's properties appear when and only when a `schemas` entry supplied them.** Path parameters
-   being `string` is not a mismatch to fix — `Ctx.params` is `Record<string, string>` at the controller
-   boundary too, so the tool and the handler agree.
+Path parameters being strings is not a mismatch to repair: `Ctx.params` is `Record<string, string>` at the
+controller boundary too. The round trip recovers the wire document, not a lost application type such as
+`Date`.
 
 ## 6. Build time, and what is _not_ generated
 
@@ -173,45 +195,45 @@ document does, so it happens once in a script that writes a module, the way
 `migrations-web-mobile.md` already generates client migrations. A process that does it at boot pays for it on
 every deploy, every worker and every lambda cold start.
 
-**Validators are not generated, and the issue's step 8 is wrong that they could be.** The transform reads
-TypeScript types from the checker; it does not read JSON Schema. Generating a validator from a document means
-either a second validation front end compiling JSON Schema — which `ARCHITECTURE.md` §2.9's one-front-end rule
-forbids, and which would be a different implementation of the same semantics, drifting — or generating
-TypeScript interfaces from the document and letting the existing transform compile those. The second is a real
-option, and it is refused for this epic as a second codegen front end whose output has to be checked in,
-reviewed and kept in sync with a document somebody else owns.
-
-What the caller does instead is what they already do everywhere: declare the type they expect and
-`assert<T>` it at their own call site. For a tool derived from a third-party document that is the honest state
-of affairs anyway — the document is a claim about the API, not a proof.
-
-The generated module therefore contains tool **specs** and a call template, and no validators:
+The generated module contains TypeScript argument types, provider-neutral tool specs, request plans and one
+ordinary `assert<T>` validator per operation:
 
 ```ts
-// generated by scripts/generate-api-tools.mjs — do not edit
-export const searchDocs = { name: 'search_docs', description: '…', parameters: { … } } as const;
+// generated by @zmdb/schema-core/llm/http — do not edit
+export type SearchDocsArguments = {
+  readonly q: string & MinLength<1>;
+};
+export const searchDocsTool: OpenApiGeneratedTool<SearchDocsArguments> = {
+  spec: { name: 'search_docs', parameters: { … } },
+  request: { method: 'GET', path: '/search', pathParameters: [], queryParameters: ['q'], … },
+  validate: (input: unknown): SearchDocsArguments => assert<SearchDocsArguments>(input),
+};
 ```
 
-The handler is the caller's, and it is where the base URL, the headers and the timeout live — one wrapper for
-all generated tools, which is also the answer to §4's dropped headers.
+That is not a JSON-Schema validator implementation. The existing AOT transform reads the generated TypeScript
+type into the same `TypeIR` as every handwritten `assert<T>` and emits the validator. The checked-in fixture is
+run through the real transform in the round-trip suite, which also catches a stale generated module.
 
-## 7. What #534 has to assert
+`bindOpenApiTool` validates the configured base URL once against an exact caller-owned allowlist. Only the
+validated argument object reaches URL construction: path values are percent-encoded, query values go through
+`URLSearchParams`, and body fields are selected from the generated request plan. Credentials and tenant
+headers remain caller-owned. Static and parameter-supplied `.` / `..` URL segments are refused before
+`URL` resolution can normalize them outside the intended path. Responses have a default 1 MiB bound and
+requests a default 60-second timeout.
 
-1. Each driver's request body, against a recorded fixture per provider, with an injected `fetch` and no
-   network — including the Anthropic `system` lift and the `provider` passthrough emitted in place.
-2. A driver refuses a `provider` block whose `kind` it does not recognise, rather than dropping it.
-3. A non-2xx throws with the status and the body; a 200 carrying an error envelope fails the envelope
-   assertion with a field name.
-4. `timeoutMs` aborts: an injected `fetch` that never settles, and the driver rejects.
-5. `toolsFromOpenApi` over a fixture document covers every row of §4's table, including that a header
+## 7. What #535 has to assert
+
+1. `toolsFromOpenApi` over a fixture document covers every row of §4's table, including that a header
    parameter does not appear in any tool's properties.
-6. Each refusal in §4, by operation name: missing name, provider-rejected name, duplicate name, non-JSON body,
+2. Each refusal in §4, by operation name: missing name, provider-rejected name, duplicate name, non-JSON body,
    unresolvable `$ref`, `$ref` cycle, external `$ref`, parameter/body name collision.
-7. The round trip of §5.3 against `toOpenApi([...controllers])` for the existing
+3. The round trip of §5 against `toOpenApi([...controllers])` for the existing
    `openapi/__fixtures__/route-schemas.ts` controllers — the tools are compared to the routes, not to a
    snapshot, so a new route cannot pass by being added to both sides.
-8. No test makes a network call, which the injected `fetch` makes structural rather than a matter of
-   discipline.
+4. The generated module is deterministic, is already formatter-clean, is checked in, and its `assert<T>` calls
+   are compiled by the existing AOT emitter.
+5. The caller refuses a base URL outside the exact allowlist and constructs the path, query and JSON body only
+   from the validated argument object. Its `fetch` is injected, so no test makes a network call.
 
 ## 8. Non-goals (rejected)
 
@@ -225,7 +247,7 @@ all generated tools, which is also the answer to §4's dropped headers.
   choosing an identity.
 - **No nested `body` object in a generated tool.** §4 — it would be the only nesting in the system.
 - **No `$ref` fetching, and no cyclic `$ref` support.** §4.
-- **No generated validators, and no generated TypeScript interfaces.** §6 — one validation front end, one
-  codegen front end.
-- **No runtime document parsing helper.** §6 — a boot-time parse of a build-time-constant document is a cost
-  with no benefit, and offering it is how it gets used.
+- **No second validator front end.** §6 — generated `assert<T>` calls go through the existing TypeScript
+  reflector and `TypeIR` emitter.
+- **No boot-time generation in the documented path.** §6 — `generateOpenApiToolsModule` belongs in a build
+  script and its checked-in output is what the application imports.

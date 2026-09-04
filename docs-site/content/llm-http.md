@@ -1,8 +1,46 @@
-> **ToDo / feature gap.** There is no generator that turns an OpenAPI document
-> into callable tools, and no generic model HTTP client. The chat subpath has one
-> thin Anthropic adapter over an injected optional SDK client; it does not create
-> a client, read credentials or choose retries. The direct `fetch` examples below
-> remain complete alternatives.
+> **ToDo / remaining guide work.** OpenAPI-to-tool generation and the allowlisted
+> HTTP caller ship. There is still no generic model HTTP client: the chat subpath
+> has one thin Anthropic adapter over an injected optional SDK client, and the
+> direct provider `fetch` examples below remain complete alternatives.
+
+## Generate callable tools from OpenAPI
+
+Generate once in a build script and check the module in:
+
+```ts
+import { writeFile } from 'node:fs/promises';
+
+import { generateOpenApiToolsModule } from '@zmdb/schema-core/llm/http';
+import { doc } from './openapi.js';
+
+await writeFile('src/openapi-tools.ts', generateOpenApiToolsModule(doc));
+```
+
+The generated module contains each provider-neutral tool spec, its request plan,
+and an `assert<T>` validator. The normal zmdb AOT transform compiles those calls
+through the same `TypeIR` emitter as handwritten validators; there is no second
+JSON-Schema validator.
+
+Bind a generated tool to one exact caller-owned base URL:
+
+```ts
+import { bindOpenApiTool } from '@zmdb/schema-core/llm/http';
+
+import { openApiTools } from './openapi-tools.js';
+
+const createIssue = bindOpenApiTool(openApiTools.create_issue, {
+  baseUrl: 'https://issues.example.com/v1/',
+  allowedBaseUrls: ['https://issues.example.com/v1/'],
+  headers: { authorization: `Bearer ${requireEnv('ISSUES_TOKEN')}` },
+});
+```
+
+`createIssue` has the `{ spec, validate, handler }` shape the bounded chat
+registry expects. Validation runs before the handler. Path values are
+percent-encoded, query values go through `URLSearchParams`, and only generated
+body fields are serialized. Header and cookie parameters are deliberately absent
+from model-controlled arguments; credentials remain in the caller configuration.
+An unlisted base URL and URL dot segments are refused before any request can run.
 
 ## Anthropic
 

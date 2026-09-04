@@ -41,11 +41,15 @@ A tiny helper returning a route handler (`Ctx → the doc`) so an app can expose
 
 ## `operationId` (frozen — epic "The agent runtime")
 
-`toOpenApi` emits an `operationId` on every operation, and `RouteSchemas` gains an optional
-`operationId?: string` to override it. Derived form: the lowercased method, then the path with `/` and `:`
-replaced by `_`, leading and trailing separators dropped — `POST /users/:id/roles` becomes
-`post_users_id_roles`. Deterministic, like the path ordering above; a collision throws at generation, because
-two routes with the same method and path is already a routing bug.
+`toOpenApi` emits an `operationId` on every operation. Derived form: the lowercased method, then the path with
+runs of `/`, `:` and OpenAPI braces replaced by `_`, leading and trailing separators dropped —
+`POST /users/:id/roles` becomes `post_users_id_roles`. Deterministic, like the path ordering above; a
+collision throws at generation, because two routes with the same method and path is already a routing bug.
+
+There is deliberately no `operationId` override on `RouteSchemas`: that record is keyed only by route path,
+so one override would apply to both `GET /users` and `POST /users` and create the duplicate this rule refuses.
+An application that needs a different public name post-processes the plain returned document, where the
+operation itself — method plus path — is available as the key.
 
 Why a document generator cares: `toolsFromOpenApi`
 (`packages/schema-core/src/llm/http/SPEC.md` §5) uses `operationId` as the tool name, and a tool name has to be

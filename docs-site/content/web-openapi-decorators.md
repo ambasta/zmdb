@@ -36,11 +36,14 @@ const operation = doc.paths['/posts/{id}']?.get;
 if (operation === undefined) throw new Error('route /posts/{id} GET is missing from the document');
 
 Object.assign(operation, {
-  operationId: 'posts_byId',
   summary: 'Fetch one post',
   tags: ['Posts'],
 });
 ```
+
+`operationId` is already generated from the method and public route path. You
+can replace it in this post-processing pass if an external contract requires a
+different stable name, but most applications should keep the generated value.
 
 ## A maintainable version of that
 
@@ -61,7 +64,7 @@ export function annotate(doc: OpenApiDocument, controllers: readonly ControllerC
       const meta = DOCS[`${C.name}.${r.handlerName}`];
       const op = doc.paths[r.path.replace(/:([^/]+)/g, '{$1}')]?.[r.method.toLowerCase()];
       if (op !== undefined) {
-        Object.assign(op, { operationId: `${C.name.replace(/Controller$/, '')}_${r.handlerName}`, ...meta });
+        Object.assign(op, meta);
       }
     }
   }
@@ -105,7 +108,7 @@ Do not put real data in an example. Specs get published, and an "example" user w
 
 ## What it would take
 
-The decorator half is not hard — a `@ApiDoc({ summary, tags, operationId })` method decorator writing to `Symbol.metadata`, read by `toOpenApi` the same way `getRoutes` reads routes. Perhaps fifty lines.
+The decorator half is not hard — a `@ApiDoc({ summary, tags })` method decorator writing to `Symbol.metadata`, read by `toOpenApi` the same way `getRoutes` reads routes. Perhaps fifty lines.
 
 The reason it has not shipped is worth stating: a decorator that only carries prose is a thin win over a keyed record, and a decorator that carries _schema_ information (`@ApiProperty`) would reintroduce exactly the duplicate-declaration problem the schema derivation exists to remove. So if this lands, it lands as prose-and-metadata only, with schemas still coming from `toJsonSchema`.
 

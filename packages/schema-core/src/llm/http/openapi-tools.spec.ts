@@ -1,16 +1,5 @@
-// Tests for `toolsFromOpenApi` — the mapping table, the refusals and the round trip frozen in
-// ./SPEC.md §4, §5 and §6 (#532, epic #530). Every document here is a literal, so nothing is
-// fetched and §7.8's "no test makes a network call" is structural rather than a matter of
-// discipline: there is no `fetch` in this file at all.
-//
-// RED ON PURPOSE. `./index.ts` does not exist: #534 writes it. Every assertion whose subject is
-// unimplemented is `it.fails`, never `it.skip` — a skipped test is absent from the summary line,
-// an expected-failing one is counted in it, and `.oxlintrc.json` sets
-// `vitest/no-disabled-tests` to `error` besides. When #534 lands, an `it.fails` that starts
-// passing fails the suite with `Error: Expect test to fail`, so the marker cannot outlive the
-// gap. The frozen surface is transcribed from ./SPEC.md and `../SPEC.md` as `const`s holding
-// throwing implementations of their frozen types: collection succeeds, the tests are counted,
-// and a signature that drifts from the spec is a compile error.
+// Contract tests for OpenAPI tool mapping, refusals, generated validators and the allowlisted
+// caller in ./SPEC.md §§4–7. Documents are literals and the only HTTP call uses an injected fake.
 //
 // WHAT IS *NOT* IN THIS FILE, AND WHY. ./SPEC.md §7.7 asks for the round trip against
 // `toOpenApi([...controllers])` for `packages/web/src/openapi/__fixtures__/route-schemas.ts`.
@@ -22,48 +11,23 @@
 // expressible in this package: the real `toJsonSchema` out and `toolsFromOpenApi` back, which is
 // the same claim minus the routing. NOTES.md records the split.
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { format } from 'oxfmt';
 import { describe, expect, it } from 'vitest';
 
 import { toJsonSchema, type JsonSchemaObject } from '../../openapi/index.js';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '../../tags/index.js';
 import type { ToolSpec } from '../index.js';
+import {
+  bindOpenApiTool,
+  generateOpenApiToolsModule,
+  ToolSpecRefusalError,
+  toolsFromOpenApi,
+  type OpenApiGeneratedTool,
+  type OpenApiToolsOptions,
+  type ToolSpecRefusal,
+} from './index.js';
 
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#534)
-// ---------------------------------------------------------------------------
-
-/** `../SPEC.md` §5, verbatim. */
-type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
-
-/** `../SPEC.md` §4, verbatim. Five fields, two of them named after `EmitDiagnostic`'s on purpose. */
-interface ToolSpecRefusal {
-  readonly provider: ToolProvider;
-  readonly path: string;
-  readonly construct: string;
-  readonly reason: string;
-  readonly suggestion: string;
-}
-
-/** ./SPEC.md §4, verbatim. */
-interface OpenApiToolsOptions {
-  readonly provider?: ToolProvider;
-  readonly baseUrl: string;
-  readonly include?: (op: { readonly method: string; readonly path: string; readonly operationId: string }) => boolean;
-}
-
-const toolsFromOpenApi: (doc: unknown, opts: OpenApiToolsOptions) => readonly ToolSpec[] = () => {
-  throw new Error('#532 tests freeze: toolsFromOpenApi is unimplemented (http SPEC §4)');
-};
-// --------------------------- end frozen surface ---------------------------
-
-/**
- * ./SPEC.md §4's `baseUrl` is required by the options type, and `ToolSpec` has nowhere to put
- * it — §6 says the base URL lives in the caller's handler wrapper. Both calls in this file pass
- * the same value, and one test asserts that changing it changes nothing, which is the only
- * observable form the claim can take. NOTES.md records the redundancy.
- */
-const BASE_URL = 'https://api.example.com';
-const opts = (extra: Partial<OpenApiToolsOptions> = {}): OpenApiToolsOptions => ({ baseUrl: BASE_URL, ...extra });
+const opts = (extra: OpenApiToolsOptions = {}): OpenApiToolsOptions => extra;
 
 /** A minimal OpenAPI 3.1 wrapper, so each fixture below is only the part under test. */
 const doc = (paths: Readonly<Record<string, unknown>>, components?: Readonly<Record<string, unknown>>): unknown =>
@@ -99,11 +63,7 @@ const { Order: OrderSchema } = schemasFrom(import.meta.url, ['Order']);
 
 const orderCreateSchema: JsonSchemaObject = toJsonSchema(OrderSchema, 'create');
 
-describe('what already ships: the forward half of the round trip, and where it loses information', () => {
-  // Trap-shaped on purpose: this is the *only* half of the round trip that runs today, so it is
-  // a plain `it`, and it is what makes the `it.fails` round-trip test below an assertion about
-  // `toolsFromOpenApi` rather than about `toJsonSchema`.
-  //
+describe('the forward half of the round trip and where it loses information', () => {
   // Current actual, measured 2026-09-04 — `toJsonSchema(OrderSchema, 'create')`:
   //   {"type":"object","properties":{
   //     "note":{"type":"string"},
@@ -172,10 +132,7 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
   // because §4's table is a set of simultaneous claims about one object: the body is "flattened
   // into the same object" as the parameters, so a test that checked the rows separately could
   // pass against an implementation that put the body somewhere else.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('turns an OpenAPI operation into a tool spec with path, query and body parameters', () => {
+  it('turns an OpenAPI operation into a tool spec with path, query and body parameters', () => {
     const specs = toolsFromOpenApi(
       doc({
         '/projects/{projectId}/issues': {
@@ -245,10 +202,7 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
   // The header names are the four §4 lists by name, and the assertion is against the serialized
   // spec rather than against `properties`, so a header that reappeared as a description, an
   // `enum` value or a nested key fails too.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('drops header and cookie parameters from every generated tool', () => {
+  it('drops header and cookie parameters from every generated tool', () => {
     const specs = toolsFromOpenApi(
       doc({
         '/admin/users': {
@@ -290,10 +244,7 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
   //
   // The `$ref` here is nested one level — a body schema referencing a component — because a
   // resolver that only handled a top-level `$ref` is the common half-implementation.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('inlines an in-document $ref and leaves no $ref in the tool', () => {
+  it('inlines an in-document $ref and leaves no $ref in the tool', () => {
     const specs = toolsFromOpenApi(
       doc(
         {
@@ -336,10 +287,7 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
   // the option — via `../SPEC.md` §5's `ToolSpecFor` shapes, where `anthropic` spells the schema
   // `input_schema` and `openai` wraps it in `{ type: 'function', function: … }` — and that the
   // default is the one §4 names, rather than hard-coding a keyword table here.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('frames the tool for the provider in the options and defaults to json-schema', () => {
+  it('checks the requested provider dialect and defaults to json-schema', () => {
     const source = doc({
       '/issues': {
         get: { operationId: 'list_issues', responses: { '200': { description: 'ok' } } },
@@ -371,10 +319,7 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
   // refusing, and the order is observable and matters: a document containing one operation this
   // caller does not want and cannot name must be usable, or `include` is not an escape hatch at
   // all. Frozen here as "filtered first", and recorded in NOTES.md as a judgement call.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('filters operations through include before naming or refusing them', () => {
+  it('filters named operations through include before parsing their schemas', () => {
     const seen: { readonly method: string; readonly path: string; readonly operationId: string }[] = [];
     const specs = toolsFromOpenApi(
       doc({
@@ -407,93 +352,186 @@ describe('./SPEC.md §4 — the mapping table, row by row', () => {
     expect(seen.map(op => op.method.toLowerCase()).toSorted()).toStrictEqual(['delete', 'get']);
   });
 
-  // §4's `baseUrl` is required and, by §6, has nowhere to go: "The handler is the caller's, and
-  // it is where the base URL, the headers and the timeout live." `ToolSpec` is
-  // `{ name; description?; parameters }`, so a base URL in the output would be a fourth field
-  // §4 did not freeze — and one that leaked an internal host name into a document sent to a
-  // model provider. NOTES.md records the redundancy in the options type.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('keeps baseUrl out of the tool spec entirely', () => {
-    const source = doc({
-      '/issues': { get: { operationId: 'list_issues', responses: { '200': { description: 'ok' } } } },
-    });
-
-    const external = toolsFromOpenApi(source, { baseUrl: 'https://api.example.com' });
-    const internal = toolsFromOpenApi(source, { baseUrl: 'http://orders.internal.svc.cluster.local:8080' });
-
-    // Two different base URLs, one identical answer.
-    expect(internal).toStrictEqual(external);
-    const serialized = JSON.stringify(external) + JSON.stringify(internal);
-    expect(serialized).not.toContain('example.com');
-    expect(serialized).not.toContain('cluster.local');
-    expect(serialized).not.toContain('baseUrl');
-    expect(Object.keys(Object(external[0])).toSorted()).toStrictEqual(['name', 'parameters']);
-  });
-});
-
-describe('./SPEC.md §4 and §5 — the refusals, each naming the operation', () => {
-  // The issue's title, and it contradicts the frozen spec, which is the point of keeping it
-  // verbatim. ./SPEC.md §5 spends its first bullet on exactly this: `toOpenApi` emits **no**
-  // `operationId`, so "refuse operations with no `operationId`" would refuse every operation in
-  // zmdb's own document and contradict the round-trip requirement outright. §5.2 therefore
-  // freezes a *fallback* — `<method>_<path with separators replaced>` — and refuses only when
-  // the fallback collides.
-  //
-  // So the assertion is the frozen behaviour: a missing `operationId` is derived, and the
-  // *derivation colliding* is what refuses, naming the path. NOTES.md records the contradiction
-  // between the issue's title and §5.2, and DOCS.md leaves it alone, because no docs page states
-  // either rule.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('refuses an operation with no operationId, naming the path', () => {
-    // §5.2: derived, not refused. The transformation is spelled out in §5.2 as "`<method>_<path
-    // with separators replaced>`", and `packages/web/src/openapi/SPEC.md` gives the worked
-    // example for the `@zmdb/web` side — `POST /users/:id/roles` becomes `post_users_id_roles`,
-    // "leading and trailing separators dropped".
-    const derived = toolsFromOpenApi(
+  it('constructs request URLs from validated parameters against an allowlisted base', async () => {
+    type Args = {
+      readonly projectId: string;
+      readonly notify?: boolean;
+      readonly tags?: readonly string[];
+      readonly title: string;
+    };
+    const spec = toolsFromOpenApi(
       doc({
-        '/users/{id}/roles': {
+        '/projects/{projectId}/issues': {
           post: {
-            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            operationId: 'create_issue',
+            parameters: [
+              { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+              { name: 'notify', in: 'query', required: false, schema: { type: 'boolean' } },
+              {
+                name: 'tags',
+                in: 'query',
+                required: false,
+                schema: { type: 'array', items: { type: 'string' } },
+              },
+            ],
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: { title: { type: 'string' } },
+                    required: ['title'],
+                  },
+                },
+              },
+            },
             responses: { '201': { description: 'created' } },
           },
         },
       }),
-      opts(),
-    );
-    expect(derived).toHaveLength(1);
-    expect(derived[0]?.name).toBe('post_users_id_roles');
+    )[0];
+    if (spec === undefined) throw new Error('fixture produced no tool');
 
-    // And the refusal is the collision: two operations whose derived names are the same. `{id}`
-    // and `{userId}` differ in the document and produce different names, so the collision is
-    // built from two paths that genuinely flatten together.
-    const collide = () =>
-      toolsFromOpenApi(
-        doc({
-          '/users/{id}': {
-            get: {
-              parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-              responses: { '200': { description: 'ok' } },
+    const generated: OpenApiGeneratedTool<Args> = {
+      spec,
+      request: {
+        method: 'POST',
+        path: '/projects/{projectId}/issues',
+        pathParameters: ['projectId'],
+        queryParameters: ['notify', 'tags'],
+        bodyParameters: ['title'],
+        hasBody: true,
+      },
+      validate(raw): Args {
+        const projectId = Reflect.get(Object(raw), 'projectId');
+        const notify = Reflect.get(Object(raw), 'notify');
+        const tags = Reflect.get(Object(raw), 'tags');
+        const title = Reflect.get(Object(raw), 'title');
+        if (typeof projectId !== 'string' || typeof title !== 'string') throw new Error('invalid generated args');
+        if (notify !== undefined && typeof notify !== 'boolean') throw new Error('invalid generated args');
+        if (tags !== undefined && (!Array.isArray(tags) || tags.some(tag => typeof tag !== 'string'))) {
+          throw new Error('invalid generated args');
+        }
+        return {
+          projectId,
+          title,
+          ...(notify === undefined ? {} : { notify }),
+          ...(tags === undefined ? {} : { tags }),
+        };
+      },
+    };
+
+    const requests: { readonly url: string; readonly init: RequestInit | undefined }[] = [];
+    const fetch: typeof globalThis.fetch = (input, init) => {
+      requests.push({ url: String(input), init });
+      return Promise.resolve(
+        new Response('{"id":1}', { status: 201, headers: { 'content-type': 'application/json' } }),
+      );
+    };
+    const bound = bindOpenApiTool(generated, {
+      baseUrl: 'https://api.example.com/v1',
+      allowedBaseUrls: ['https://api.example.com/v1/'],
+      headers: { authorization: 'Bearer caller-owned' },
+      fetch,
+    });
+
+    const input = bound.validate({
+      projectId: '../tenant/a',
+      notify: true,
+      tags: ['needs triage', 'p/1'],
+      title: 'A bug',
+    });
+    await expect(bound.handler(input)).resolves.toStrictEqual({ id: 1 });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      'https://api.example.com/v1/projects/..%2Ftenant%2Fa/issues?notify=true&tags=needs+triage&tags=p%2F1',
+    );
+    expect(requests[0]?.init?.body).toBe('{"title":"A bug"}');
+    expect(new Headers(requests[0]?.init?.headers).get('authorization')).toBe('Bearer caller-owned');
+
+    const dotSegment = bound.validate({ projectId: '..', title: 'Escape the base path' });
+    await expect(bound.handler(dotSegment)).rejects.toThrow(/dot segment/);
+    expect(requests).toHaveLength(1);
+
+    expect(() =>
+      bindOpenApiTool(generated, {
+        baseUrl: 'http://169.254.169.254/latest',
+        allowedBaseUrls: ['https://api.example.com/v1/'],
+        fetch,
+      }),
+    ).toThrow(/not allowlisted/);
+  });
+});
+
+describe('build-time module generation', () => {
+  it('generates a deterministic formatter-clean module whose validators use the existing emitter', async () => {
+    const source = doc({
+      '/projects/{projectId}/issues': {
+        post: {
+          operationId: 'create_issue',
+          parameters: [{ name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string', minLength: 1, maxLength: 120 },
+                    priority: { type: 'string', enum: ['low', 'high'] },
+                  },
+                  required: ['title'],
+                },
+              },
             },
           },
-          '/users_{id}': {
-            get: {
+          responses: { '201': { description: 'created' } },
+        },
+      },
+    });
+
+    const generated = generateOpenApiToolsModule(source);
+    expect(generateOpenApiToolsModule(source)).toBe(generated);
+    expect(generated).toContain('// generated by @zmdb/schema-core/llm/http — do not edit');
+    expect(generated).toContain('assert<CreateIssueArguments>(input)');
+    expect(generated).toContain("import type { MaxLength, MinLength } from '@zmdb/schema-core/tags';");
+
+    const formatted = await format('openapi-tools.ts', generated, {
+      arrowParens: 'avoid',
+      bracketSpacing: true,
+      endOfLine: 'lf',
+      insertFinalNewline: true,
+      objectWrap: 'preserve',
+      printWidth: 120,
+      quoteProps: 'as-needed',
+      semi: true,
+      singleQuote: true,
+      sortImports: true,
+      tabWidth: 2,
+      trailingComma: 'all',
+      useTabs: false,
+    });
+    expect(formatted.errors).toStrictEqual([]);
+    expect(formatted.code).toBe(generated);
+  });
+});
+
+describe('./SPEC.md §4 and §5 — the refusals, each naming the operation', () => {
+  it('refuses an operation with no operationId, naming the path', () => {
+    const attempt = () =>
+      toolsFromOpenApi(
+        doc({
+          '/users/{id}/roles': {
+            post: {
               parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-              responses: { '200': { description: 'ok' } },
+              responses: { '201': { description: 'created' } },
             },
           },
         }),
-        opts(),
       );
 
-    // Error identity, not merely "it threw": the class, and the operation named in the message,
-    // because a refusal a reader cannot act on is a stack trace.
-    expect(collide).toThrowError(Error);
-    expect(collide).toThrowError(/users/);
-    expect(collide).toThrowError(/get_users_id/);
+    expect(attempt).toThrowError(ToolSpecRefusalError);
+    expect(attempt).toThrowError(/POST \/users\/\{id\}\/roles/);
+    expect(attempt).toThrowError(/operationId/);
   });
 
   // §7.6, every refusal §4 lists, "by operation name". One test rather than eight because the
@@ -507,14 +545,7 @@ describe('./SPEC.md §4 and §5 — the refusals, each naming the operation', ()
   // records the dangling cross-reference; the two limits are quoted here from §4's own sentence,
   // which is the only place in the frozen specs that states them.
   //
-  // Current actual — and this one is not the bare stub throw, because the frozen surface throws
-  // an `Error`, so the first assertion of the first case already passes and it is the *identity*
-  // assertion that fails: `AssertionError: a body that is not application/json: the refusal must
-  // name the operation: expected [Function attempt] to throw error matching /import_csv/ but got
-  // '#532 tests freeze: toolsFromOpenApi i…'`. Which is the trap this test is built around: a
-  // refusal that throws is not the same as a refusal a reader can act on, and only the second
-  // assertion can tell them apart.
-  it.fails('refuses each operation §4 lists, naming it and the construct', () => {
+  it('refuses each operation §4 lists, naming it and the construct', () => {
     const ok = { '200': { description: 'ok' } };
     const jsonBody = (schema: unknown): unknown => ({ content: { 'application/json': { schema } } });
 
@@ -622,6 +653,60 @@ describe('./SPEC.md §4 and §5 — the refusals, each naming the operation', ()
         /create_issue/,
         /title/,
       ],
+      [
+        'an object-valued path parameter',
+        doc({
+          '/projects/{filter}': {
+            get: {
+              operationId: 'get_project',
+              parameters: [
+                {
+                  name: 'filter',
+                  in: 'path',
+                  required: true,
+                  schema: { type: 'object', properties: { id: { type: 'string' } } },
+                },
+              ],
+              responses: ok,
+            },
+          },
+        }),
+        /get_project/,
+        /path parameter filter|URL-safe scalar/,
+      ],
+      [
+        'an object-valued query parameter',
+        doc({
+          '/projects': {
+            get: {
+              operationId: 'search_projects',
+              parameters: [
+                {
+                  name: 'filter',
+                  in: 'query',
+                  schema: { type: 'object', properties: { id: { type: 'string' } } },
+                },
+              ],
+              responses: ok,
+            },
+          },
+        }),
+        /search_projects/,
+        /query parameter filter|URL-safe/,
+      ],
+      [
+        'a static URL dot segment',
+        doc({
+          '/projects/../admin': {
+            get: {
+              operationId: 'get_admin',
+              responses: ok,
+            },
+          },
+        }),
+        /\/projects\/\.\.\/admin/,
+        /dot segment/,
+      ],
     ];
 
     for (const [label, source, names, construct] of cases) {
@@ -674,10 +759,7 @@ describe('./SPEC.md §5.3 — the round trip, and the direction it cannot go', (
   // comes back a string with a `format` annotation and no way home; and the optional-versus-
   // nullable pair comes back distinguishable only because `'null'` survives in the type array,
   // which is the one piece of the distinction the document carries.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('round-trips a schema emitted by toJsonSchema back into the same object', () => {
+  it('round-trips a schema emitted by toJsonSchema back into the same object', () => {
     const specs = toolsFromOpenApi(
       doc({
         '/orders': {
@@ -732,10 +814,7 @@ describe('./SPEC.md §5.3 — the round trip, and the direction it cannot go', (
   // `schema: { type: 'string' }`" and no query or header parameters at all, so this fixture is
   // that shape by hand — the version driven by the real `toOpenApi` is
   // `packages/web/src/openapi/openapi-tools-roundtrip.spec.ts`.
-  //
-  // Current actual: throws `Error: #532 tests freeze: toolsFromOpenApi is unimplemented
-  // (http SPEC §4)`.
-  it.fails('gives every route exactly one tool and makes path parameters required strings', () => {
+  it('gives every route exactly one tool and makes path parameters required strings', () => {
     const specs = toolsFromOpenApi(
       doc({
         '/users': {

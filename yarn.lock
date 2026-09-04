@@ -956,7 +956,13 @@ __metadata:
     "@anthropic-ai/sdk": "npm:0.123.0"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
+    oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    "@anthropic-ai/sdk": 0.123.0
+  peerDependenciesMeta:
+    "@anthropic-ai/sdk":
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -1400,7 +1406,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oxfmt@npm:^0.66.0":
+"oxfmt@npm:0.66.0, oxfmt@npm:^0.66.0":
   version: 0.66.0
   resolution: "oxfmt@npm:0.66.0"
   dependencies:

@@ -87,7 +87,7 @@ strategies genuinely differ.
 
 | strategy     | in the document                                                      |
 | ------------ | -------------------------------------------------------------------- |
-| `path`       | distinct paths, independent schemas; no `operationId` yet (below)    |
+| `path`       | distinct paths, independent schemas and distinct `operationId`s      |
 | `media-type` | one path, each version's schemas under its own `content` key         |
 | `header`     | one path, the version as an `enum` header parameter with a `default` |
 
@@ -104,11 +104,10 @@ path versioning is for versions that differ in shape.** If you are versioning
 because the JSON changed, the URI versioning at the top of this page is not the
 workaround — it is the answer.
 
-Two things the table above promises are not emitted yet. `toOpenApi` generates no
-`operationId` on any operation — see
-[OpenAPI Operations](./web-openapi-operations.html), which says the same — and its
-derivation is frozen under a different epic, so path versioning gives you distinct
-paths and independent schemas but not distinct operation identifiers.
+`toOpenApi` derives `operationId` from the expanded public path, so path versions
+are distinct without a separate naming rule: `GET /v1/posts` becomes
+`get_v1_posts`, while `GET /v2/posts` becomes `get_v2_posts`. A collision is a
+generation error rather than an operation silently disappearing.
 
 `deprecated: true` becomes expressible per route once the frozen `RouteOptions`
 amendment lands (`packages/web/src/openapi/SPEC.md` §S8); `RouteOptions` has one

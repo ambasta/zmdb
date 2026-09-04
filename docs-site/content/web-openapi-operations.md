@@ -15,9 +15,15 @@ const doc = toOpenApi([PostsController, UsersController], {
   "openapi": "3.1.0",
   "info": { "title": "Blog API", "version": "1.0.0" },
   "paths": {
-    "/posts": { "get": { "responses": { "200": { "description": "OK" } } } },
+    "/posts": {
+      "get": {
+        "operationId": "get_posts",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
     "/posts/{id}": {
       "get": {
+        "operationId": "get_posts_id",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "responses": { "200": { "description": "OK" } }
       }
@@ -26,7 +32,7 @@ const doc = toOpenApi([PostsController, UsersController], {
 }
 ```
 
-Three things happen automatically: `:id` becomes `{id}`, path parameters are declared as required strings, and paths and methods are emitted in sorted order so the document is byte-stable across runs. That last property is what lets you commit the spec and diff it in review — a spec that reorders itself is a spec nobody reads.
+Four things happen automatically: `:id` becomes `{id}`, path parameters are declared as required strings, each operation gets a stable method-and-path-derived `operationId`, and paths and methods are emitted in sorted order so the document is byte-stable across runs. That last property is what lets you commit the spec and diff it in review — a spec that reorders itself is a spec nobody reads.
 
 ## Adding schemas
 
@@ -71,23 +77,23 @@ delete doc.paths['/posts']?.get?.requestBody;
 
 The document is a plain object, so editing it is legitimate and is the escape hatch for everything below.
 
-## What an operation does not have
+## Generated and omitted operation fields
 
-|                          |                                                     |
-| ------------------------ | --------------------------------------------------- |
-| `summary`, `description` | not generated                                       |
-| `operationId`            | not generated                                       |
-| `tags`                   | not generated                                       |
-| Non-200 responses        | only `200: OK`                                      |
-| Query parameters         | not generated                                       |
-| Header parameters        | not generated                                       |
-| `components` / `$ref`    | schemas are inlined                                 |
-| `deprecated`             | not generated                                       |
-| Security                 | see [OpenAPI Security](./web-openapi-security.html) |
+| field                    | behaviour                                            |
+| ------------------------ | ---------------------------------------------------- |
+| `summary`, `description` | not generated                                        |
+| `operationId`            | generated deterministically from method + route path |
+| `tags`                   | not generated                                        |
+| Non-200 responses        | only `200: OK`                                       |
+| Query parameters         | not generated                                        |
+| Header parameters        | not generated                                        |
+| `components` / `$ref`    | schemas are inlined                                  |
+| `deprecated`             | not generated                                        |
+| Security                 | see [OpenAPI Security](./web-openapi-security.html)  |
 
-`operationId` and `tags` are the two that matter most in practice, because client generators use them for method and class names. Without them, a generated client has names derived from paths.
+`operationId` and `tags` are the two that matter most in practice, because client generators use them for method and class names. zmdb emits the operation identifier from the lowercased method and public route path — `POST /users/:id/roles` becomes `post_users_id_roles` — and refuses a collision rather than silently overwriting one route.
 
-Both are addable in a post-processing pass, and doing it from the same metadata keeps it in sync:
+Tags remain addable in a post-processing pass, and doing it from the same metadata keeps them in sync:
 
 ```ts
 import { getRoutes } from '@zmdb/web/routing';
@@ -99,12 +105,12 @@ for (const C of CONTROLLERS) {
   for (const r of getRoutes(C)) {
     const openapiPath = r.path.replace(/:([^/]+)/g, '{$1}');
     const op = doc.paths[openapiPath]?.[r.method.toLowerCase()];
-    if (op !== undefined) Object.assign(op, { operationId: `${tag}_${r.handlerName}`, tags: [tag] });
+    if (op !== undefined) Object.assign(op, { tags: [tag] });
   }
 }
 ```
 
-Twenty lines, derived from the same source of truth as the routes, and it survives a rename. This is what the decorators on [OpenAPI Decorators](./web-openapi-decorators.html) would automate.
+Derived from the same source of truth as the routes, it survives a rename. This is what the tag half of the decorators on [OpenAPI Decorators](./web-openapi-decorators.html) would automate.
 
 ## The `200`-only responses reflect reality
 

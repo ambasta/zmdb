@@ -1146,7 +1146,7 @@ export const PAGE_META = {
     title: 'HTTP Tools from Controllers',
     group: 'LLM',
     status: 'todo',
-    note: 'no generator that turns an OpenAPI document into callable tool specs',
+    note: 'generation and the allowlisted caller ship; the final end-to-end generated-output guide is still pending',
   },
   'llm-mcp': {
     title: 'Model Context Protocol',
