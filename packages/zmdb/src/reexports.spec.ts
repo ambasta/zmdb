@@ -1,4 +1,4 @@
-import { tags as srcTags } from '@zmdb/aot-validator';
+import { protoDescriptor as srcProtoDescriptor, tags as srcTags } from '@zmdb/aot-validator';
 import { is as srcIs, assert as srcAssert, validate as srcValidate } from '@zmdb/aot-validator/utilities';
 import { createQueryCompiler as srcQC, UnsupportedFeatureError as srcUFE } from '@zmdb/query-compiler';
 import {
@@ -28,6 +28,7 @@ import {
   defineRepository,
   is,
   migrations,
+  protoDescriptor,
   schemaOf,
   tags,
   UnsupportedFeatureError,
@@ -56,11 +57,12 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(UnsupportedFeatureError).toBe(srcUFE);
   });
 
-  it('re-exports validators is/assert/validate/tags', () => {
+  it('re-exports validators is/assert/validate/tags and protobuf descriptors', () => {
     expect(is).toBe(srcIs);
     expect(assert).toBe(srcAssert);
     expect(validate).toBe(srcValidate);
     expect(tags).toBe(srcTags);
+    expect(protoDescriptor).toBe(srcProtoDescriptor);
   });
 
   it('re-exports the repository surface (BaseRepository, defineRepository, markTransactionClosed)', () => {

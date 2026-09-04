@@ -61,6 +61,8 @@ export type ScalarKind = 'string' | 'number' | 'integer' | 'bigint' | 'boolean' 
 export interface ScalarIR {
   readonly kind: 'scalar';
   readonly scalar: ScalarKind;
+  /** Protobuf scalar spelling, when the declaration made width/signedness explicit. */
+  readonly proto?: ProtoScalar;
   /** JSON Schema `format`, when the scalar has a conventional one. */
   readonly format?: string;
   readonly constraints?: Constraints;
@@ -143,6 +145,8 @@ export interface PropertyIR {
   readonly type: TypeIR;
   readonly optional: boolean;
   readonly readonly: boolean;
+  /** Stable protobuf identity. Required only when this object is emitted as a message. */
+  readonly protoField?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -285,10 +289,33 @@ export const TAG_NAMES = {
   maxLength: 'zmdbMaxLength',
   pattern: 'zmdbPattern',
   rules: 'zmdbRule',
+  protoField: 'zmdbProtoField',
+  protoScalar: 'zmdbProtoScalar',
 } as const;
 
 /** An IR field a tag can set. */
 export type TagField = keyof typeof TAG_NAMES;
+
+/** The closed protobuf scalar vocabulary carried by {@link ScalarIR}. */
+export const PROTO_SCALARS = [
+  'int32',
+  'int64',
+  'uint32',
+  'uint64',
+  'sint32',
+  'sint64',
+  'fixed32',
+  'fixed64',
+  'sfixed32',
+  'sfixed64',
+  'float',
+  'double',
+  'bool',
+  'string',
+  'bytes',
+] as const;
+
+export type ProtoScalar = (typeof PROTO_SCALARS)[number];
 
 // ---------------------------------------------------------------------------
 // Back-end: IR → schema value (REQ-TF-10)

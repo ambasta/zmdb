@@ -1,6 +1,6 @@
 > **ToDo / feature gap.** There is no protobuf encoder. See
-> [Protobuf Messages](./protobuf-message.html) for the whole gap, why it is open,
-> and what implementing it would involve.
+> [Protobuf Messages](./protobuf-message.html) for the descriptor surface that
+> exists and the remaining codec gap.
 
 ## The nearest thing that exists
 
@@ -37,8 +37,8 @@ The `assert` before the encode is the part worth keeping: `toMessage` is hand-wr
 
 The type mapping is frozen: explicit integer widths, proto3 presence, packed
 scalar arrays, nested messages, enums, `Date`/Timestamp, and the refused shapes
-are all specified. Encoder work is operationally sequenced after the field-number
-and scalar tags reach the IR and the descriptor emitter exists; `oneof` is refused
+are all specified. The field-number/scalar IR and descriptor prerequisite now
+ships; the remaining work is the emitted encoder itself. `oneof` is refused
 rather than pending, and maps remain blocked by reflection.
 
 ---

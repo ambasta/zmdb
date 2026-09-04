@@ -1,29 +1,63 @@
-> **ToDo / feature gap.** There is no protobuf support. No `.proto` emitter, no
-> wire-format encoder or decoder, and no descriptor mapping. The functions on the
-> other two pages — [encode](./protobuf-encode.html),
-> [decode](./protobuf-decode.html) — do not exist either.
+> **Partial support.** `ProtoField<N>` and `Proto<K>` are carried through the
+> shared TypeIR, and `protoDescriptor<T>()` emits a parser-valid proto3 descriptor
+> at build time. The wire-format [encoder](./protobuf-encode.html) and
+> [decoder](./protobuf-decode.html) do not exist yet.
+
+## Declare the wire contract once
+
+```ts
+import { protoDescriptor } from '@zmdb/aot-validator';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+
+type State = 'active' | 'paused';
+
+interface UserMessage {
+  id: number & Proto<'int32'> & ProtoField<1>;
+  name: string & ProtoField<2>;
+  state: State & ProtoField<3>;
+  seenAt?: Date & ProtoField<4>;
+}
+
+export const userProto = protoDescriptor<UserMessage>();
+```
+
+The build transform replaces that call with proto3 text. Fields are ordered by
+number, string unions become enums with a generated zero member, nested objects
+become messages, arrays become `repeated`, optional or nullable singular fields
+become `optional`, and `Date` imports `google.protobuf.Timestamp`.
+
+Every property needs a unique `ProtoField<N>` in `1 … 536870911`, excluding the
+reserved `19000 … 19999` range. Missing, duplicate, out-of-range and reserved
+numbers are build diagnostics naming the message and property.
 
 ## What you would use it for, and what to use instead
 
-**Compact wire format for internal service calls.** Today: JSON via
+**Compact wire format for internal service calls.** The descriptor is available,
+but zmdb still has no binary codec. Today the executable path is JSON via
 [`stringify`](./json-stringify.html) / [`parse`](./json-parse.html).
 `stringify` currently follows the runtime `JSON.stringify` path and `parse`
 follows `JSON.parse`; neither supplies a binary schema contract.
 
-**A schema contract between services in different languages.** Today: [OpenAPI](./openapi.html) from `toOpenApi`, or JSON Schema from `toJsonSchema`. Both are generated from the same TypeScript types, and both have code generators for most languages. This covers the contract need; it does not give you the binary format.
+**A schema contract between services in different languages.** Emit
+`protoDescriptor<T>()` during the build and feed the resulting `.proto` text to
+the other language's ordinary protobuf generator. OpenAPI and JSON Schema remain
+the alternatives for JSON APIs.
 
-**gRPC.** Not available at all — see [gRPC](./web-microservices-grpc.html), which is blocked on this page.
+**gRPC.** Not available — see [gRPC](./web-microservices-grpc.html), which still
+needs the encoder and decoder.
 
 ## Using a protobuf library alongside zmdb
 
-Nothing prevents it; the cost is that the message shape is declared twice.
+Nothing prevents it. Generate the `.proto` from the TypeScript declaration first,
+then let the protobuf library compile or load that descriptor:
 
 ```ts
-// user.proto is the source of truth for the wire format
-// schema.ts is the source of truth for the database
+await writeFile('user.proto', protoDescriptor<UserMessage>());
 ```
 
-If you go this way, add a test that pins the two together, because nothing else will:
+The descriptor removes the second hand-written schema. Until zmdb's encoder and
+decoder land, a library still owns the byte conversion; validate its plain result
+at that boundary:
 
 ```ts
 import { is } from '@zmdb/aot-validator/utilities';
@@ -34,19 +68,15 @@ it('proto message satisfies the entity type', () => {
 });
 ```
 
-The generated validator is doing real work here: it is the only thing that notices when someone adds a field to the `.proto` and not to the schema, or changes an `int64` that arrives as a `Long` rather than a `number`.
+The generated validator is still doing real work here: protobuf libraries differ
+in how they represent 64-bit integers and timestamps, and the application adapter
+has to return the TypeScript shape it declared.
 
-## What it would take
+## What remains
 
-The mapping is frozen, and implementation is split into three pieces:
-
-1. **IR carriage and a `.proto` emitter.** Every message property has
-   `ProtoField<N>`; an untagged `number` is `double`, integer widths use
-   `Proto<K>`, 64-bit integers are `bigint`, and `Date` maps to
-   `google.protobuf.Timestamp`.
-2. **An encoder** generated from that same IR, including proto3 zero omission,
+1. **An encoder** generated from the same IR, including proto3 zero omission,
    packed scalar arrays and exact-width integer handling.
-3. **A decoder** over the same mapping, including bounded malformed-input
+2. **A decoder** over the same mapping, including bounded malformed-input
    handling and the declared unknown-field policy.
 
 Some source shapes are deliberately refused rather than left undecided:

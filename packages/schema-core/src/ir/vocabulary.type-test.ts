@@ -8,7 +8,18 @@
 
 import type { ColumnFlags, Equal, Expect, SqlType } from '../index.js';
 import type { ColumnSqlType } from '../tags/index.js';
-import type { ColumnIR, ConstraintKind, Constraints, SQL_TYPES, TAG_NAMES, TagField } from './index.js';
+import type {
+  ColumnIR,
+  ConstraintKind,
+  Constraints,
+  PROTO_SCALARS,
+  PropertyIR,
+  ProtoScalar,
+  SQL_TYPES,
+  ScalarIR,
+  TAG_NAMES,
+  TagField,
+} from './index.js';
 
 // --- every SqlType is in SQL_TYPES, and nothing else is --------------------
 //
@@ -111,3 +122,9 @@ export const FLAG_TAG_REACHABLE: {
 // `declare const`, invisible outside that module by design.
 type StartsWithZmdb<S extends string> = S extends `zmdb${string}` ? true : false;
 export type _V6 = Expect<Equal<StartsWithZmdb<(typeof TAG_NAMES)[TagField]>, true>>;
+
+// --- protobuf tags survive into the serialisable IR -----------------------
+
+export type _V7 = Expect<Equal<(typeof PROTO_SCALARS)[number], ProtoScalar>>;
+export type _V8 = Expect<Equal<NonNullable<PropertyIR['protoField']>, number>>;
+export type _V9 = Expect<Equal<NonNullable<ScalarIR['proto']>, ProtoScalar>>;

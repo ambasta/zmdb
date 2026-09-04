@@ -1100,7 +1100,7 @@ export const PAGE_META = {
     title: 'Protobuf Messages',
     group: 'JSON & Serialization',
     status: 'todo',
-    note: 'no protobuf schema derivation from TypeScript types',
+    note: 'proto3 descriptors ship; protobuf wire encoder and decoder remain open',
   },
   'protobuf-encode': {
     title: 'protobuf encode',

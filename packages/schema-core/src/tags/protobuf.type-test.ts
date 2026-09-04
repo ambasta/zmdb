@@ -7,12 +7,7 @@
 // string/number key, and the exact literal payload.
 
 import type { Equal, Expect } from '@zmdb/schema-core';
-import type {
-  // @ts-expect-error TS2305 — frozen by `../ir/SPEC.md` §4.5; not exported yet.
-  Proto,
-  // @ts-expect-error TS2305 — frozen by `../ir/SPEC.md` §4.5; not exported yet.
-  ProtoField,
-} from '@zmdb/schema-core/tags';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 type FrozenProtoScalar =
   | 'int32'
@@ -56,12 +51,10 @@ interface FrozenScalarTags {
   readonly payload: FrozenProtoScalar;
 }
 
-// @ts-expect-error TS2344 — `ProtoField` is an error type until the export lands.
 export type _proto_field_shape = Expect<Equal<NormalizedTag<ProtoField<7>>, FrozenFieldSeven>>;
 
 // Instantiating with the full union means omitting any frozen scalar from the real
 // generic constraint is a compile error when the export lands.
-// @ts-expect-error TS2344 — `Proto` is an error type until the export lands.
 export type _proto_scalar_shape = Expect<Equal<NormalizedTag<Proto<FrozenProtoScalar>>, FrozenScalarTags>>;
 
 // Weak tags erase under intersection: an ordinary value needs no symbol property.
@@ -69,7 +62,6 @@ type TaggedNumberNeedsNoMember = Equal<
   number extends number & ExportedTag<Proto<'int32'>> & ExportedTag<ProtoField<1>> ? true : false,
   true
 >;
-// @ts-expect-error TS2344 — the imported aliases are still error types.
 export type _tagged_number_needs_no_runtime_member = Expect<TaggedNumberNeedsNoMember>;
 
 // Green controls over a local spelling. These prove the normalization would notice

@@ -47,6 +47,7 @@ export const CALLEES: ReadonlySet<string> = new Set([
   'random',
   'toJsonSchema',
   'schemaOf',
+  'protoDescriptor',
 ]);
 
 /**
@@ -65,7 +66,8 @@ export const CALLEES: ReadonlySet<string> = new Set([
 type Reflected =
   | { readonly kind: 'type'; readonly node: TypeIR }
   | { readonly kind: 'shape'; readonly shape: ShapeIR }
-  | { readonly kind: 'schema'; readonly ir: SchemaIR };
+  | { readonly kind: 'schema'; readonly ir: SchemaIR }
+  | { readonly kind: 'protobuf'; readonly node: TypeIR; readonly name: string };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -204,6 +206,8 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
       return { kind: 'shape', shape: reflector.shapeIR(type) };
     case 'schemaOf':
       return { kind: 'schema', ir: reflector.schemaIR(type) };
+    case 'protoDescriptor':
+      return { kind: 'protobuf', node: reflector.protobufIR(type), name: protobufName(type) };
     default:
       return { kind: 'type', node: reflector.typeIR(type) };
   }
@@ -214,6 +218,7 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
   // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
   if (reflected.kind === 'schema') return emitter.emitSchemaValue(reflected.ir);
+  if (reflected.kind === 'protobuf') return emitter.emitProtoDescriptor(reflected.node, reflected.name);
 
   const node = reflected.node;
   if (site.callee === 'random') return emitter.emitRandom(node);
@@ -239,6 +244,13 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
     default:
       return undefined;
   }
+}
+
+function protobufName(type: Type): string {
+  const alias = type.getAliasSymbol()?.name;
+  if (alias !== undefined && alias !== '__type') return alias;
+  const symbol = type.getSymbol()?.name;
+  return symbol === undefined || symbol === '__type' ? 'Message' : symbol;
 }
 
 /** Hoisted helpers go at the top of the module, but after a shebang if there is one. */

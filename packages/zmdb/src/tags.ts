@@ -25,6 +25,8 @@ export type {
   OneToOne,
   Pattern,
   PrimaryKey,
+  Proto,
+  ProtoField,
   References,
   Rule,
   Sensitive,

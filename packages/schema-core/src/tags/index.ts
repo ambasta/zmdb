@@ -50,7 +50,7 @@
 // throughout, never assignability, for the reason given there.
 
 import type { SqlType } from '../index.js';
-import type { RelationKind } from '../ir/index.js';
+import type { ProtoScalar, RelationKind } from '../ir/index.js';
 
 declare const zmdbTable: unique symbol;
 declare const zmdbFts: unique symbol;
@@ -72,6 +72,8 @@ declare const zmdbMinLength: unique symbol;
 declare const zmdbMaxLength: unique symbol;
 declare const zmdbPattern: unique symbol;
 declare const zmdbRule: unique symbol;
+declare const zmdbProtoField: unique symbol;
+declare const zmdbProtoScalar: unique symbol;
 
 // ---------------------------------------------------------------------------
 // Entity-level tags — applied to the interface itself, via `extends`.
@@ -208,6 +210,16 @@ export type Pattern<S extends string> = { readonly [zmdbPattern]?: S };
  * invent a check, and an unregistered name is a build error (plan D4).
  */
 export type Rule<Name extends string> = { readonly [zmdbRule]?: Name };
+
+// ---------------------------------------------------------------------------
+// Protobuf tags — facts the wire contract needs that TypeScript cannot state.
+// ---------------------------------------------------------------------------
+
+/** Protobuf field number. Required on every property of a protobuf message. */
+export type ProtoField<N extends number> = { readonly [zmdbProtoField]?: N };
+
+/** Protobuf scalar spelling where TypeScript does not determine width or signedness. */
+export type Proto<K extends ProtoScalar> = { readonly [zmdbProtoScalar]?: K };
 
 // ---------------------------------------------------------------------------
 // Readability aliases. Not tags — these expand to native TypeScript.

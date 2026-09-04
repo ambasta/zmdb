@@ -12,6 +12,20 @@ import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from
 export { AssertError, failWith } from './errors.js';
 export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
+/**
+ * Emit the proto3 descriptor for `T` at build time.
+ *
+ * A type argument does not exist at runtime, so an untransformed call cannot provide
+ * a partial fallback. The build plugin replaces this call with a string literal.
+ */
+export function protoDescriptor<_T>(): string {
+  throw new Error(
+    'protoDescriptor<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
+      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+      'be read at runtime, so there is no descriptor to fall back to.',
+  );
+}
+
 export interface Rule {
   readonly kind: string;
   readonly args: readonly unknown[];

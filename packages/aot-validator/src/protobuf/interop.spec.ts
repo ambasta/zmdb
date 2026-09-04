@@ -27,7 +27,7 @@ const referenceBytes = ReferenceInterop.encode(ReferenceInterop.fromObject(refer
 afterAll(() => project.close());
 
 describe('descriptor interop', () => {
-  it.fails('emits a .proto descriptor that a reference parser accepts', () => {
+  it('emits a .proto descriptor that a reference parser accepts', () => {
     const { value: source } = descriptor(project, 'InteropMessage');
     const root = parse(source).root;
     const message = root.lookupType('InteropMessage');
@@ -40,7 +40,7 @@ describe('descriptor interop', () => {
     });
   });
 
-  it.fails('orders fields by number in the descriptor', () => {
+  it('orders fields by number in the descriptor', () => {
     const { value: source } = descriptor(project, 'DescriptorOrder');
     parse(source);
     const first = source.search(/\bfirst\s*=\s*1\s*;/);
@@ -49,7 +49,7 @@ describe('descriptor interop', () => {
     expect(third).toBeGreaterThan(first);
   });
 
-  it.fails('names two colliding nested types distinctly and deterministically', () => {
+  it('names two colliding nested types distinctly and deterministically', () => {
     const first = descriptor(project, 'CollidingNestedNames').value;
     const second = descriptor(project, 'CollidingNestedNames').value;
     expect(second).toBe(first);
@@ -62,7 +62,7 @@ describe('descriptor interop', () => {
     expect(left?.fullName).not.toBe(right?.fullName);
   });
 
-  it.fails('synthesises enum zero and numbers source members from one', () => {
+  it('synthesises enum zero and numbers source members from one', () => {
     const { value: source } = descriptor(project, 'InteropMessage');
     const message = parse(source).root.lookupType('InteropMessage');
     const resolved = message.fields.state?.resolve().resolvedType;
@@ -74,11 +74,45 @@ describe('descriptor interop', () => {
     expect(entries[0]?.[0]).toMatch(/_UNSPECIFIED$/);
   });
 
-  it.fails('imports google.protobuf.Timestamp for Date', () => {
+  it('imports google.protobuf.Timestamp for Date', () => {
     const { value: source } = descriptor(project, 'TimestampMessage');
     expect(source).toContain('import "google/protobuf/timestamp.proto";');
     expect(source).toMatch(/google\.protobuf\.Timestamp\s+at\s*=\s*1\s*;/);
     parse(source);
+  });
+
+  it('emits the frozen scalar, repeated, nested and presence spellings', () => {
+    const scalarSource = descriptor(project, 'AllScalars').value;
+    const scalars = parse(scalarSource).root.lookupType('AllScalars').fields;
+    expect(Object.fromEntries(Object.entries(scalars).map(([name, field]) => [name, field.type]))).toEqual({
+      defaultDouble: 'double',
+      int32: 'int32',
+      int64: 'int64',
+      uint32: 'uint32',
+      uint64: 'uint64',
+      sint32: 'sint32',
+      sint64: 'sint64',
+      fixed32: 'fixed32',
+      fixed64: 'fixed64',
+      sfixed32: 'sfixed32',
+      sfixed64: 'sfixed64',
+      float: 'float',
+      double: 'double',
+      bool: 'bool',
+      string: 'string',
+    });
+
+    const repeated = descriptor(project, 'PackedInt32').value;
+    expect(repeated).toMatch(/repeated\s+int32\s+values\s*=\s*1\s*;/);
+    parse(repeated);
+
+    const nested = parse(descriptor(project, 'NestedEnvelope').value).root.lookupType('NestedEnvelope');
+    expect(nested.fields.value?.resolve().resolvedType?.name).toBe('NestedValue');
+
+    const optional = descriptor(project, 'OptionalInt32').value;
+    const nullable = descriptor(project, 'NullableInt32').value;
+    expect(optional).toMatch(/optional\s+int32\s+value\s*=\s*1\s*;/);
+    expect(nullable).toMatch(/optional\s+int32\s+value\s*=\s*1\s*;/);
   });
 });
 

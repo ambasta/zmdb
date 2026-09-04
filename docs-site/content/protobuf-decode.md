@@ -1,6 +1,6 @@
 > **ToDo / feature gap.** There is no protobuf decoder. See
-> [Protobuf Messages](./protobuf-message.html) for the whole gap and what
-> implementing it would involve.
+> [Protobuf Messages](./protobuf-message.html) for the descriptor surface that
+> exists and the remaining codec gap.
 
 ## The nearest thing that exists
 

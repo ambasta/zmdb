@@ -20,6 +20,8 @@ import type {
   Nullable,
   Pattern,
   PrimaryKey,
+  Proto,
+  ProtoField,
   Rule,
   Sensitive,
   Serial,
@@ -62,6 +64,7 @@ probe<string & Sql<'varchar'> & Length<255>>('tagged-varchar');
 probe<string & Length<64> & MaxLength<10>>('tagged-length-vs-maxlength');
 probe<string & Pattern<'^\\S+@\\S+$'>>('tagged-pattern');
 probe<Nullable<string & MinLength<3>>>('tagged-nullable');
+probe<number & Proto<'int32'> & ProtoField<7>>('protobuf-tags');
 probe<Serial>('tags-only');
 
 // --- composites ------------------------------------------------------------

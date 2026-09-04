@@ -48,6 +48,7 @@ import {
   type UnionIR,
 } from '@zmdb/schema-core/ir';
 
+import { emitProtoDescriptor } from '../protobuf/descriptor.js';
 import { validatePatternComplexity } from '../regex-complexity.js';
 import {
   discriminantOf,
@@ -269,6 +270,13 @@ export class Emitter {
    */
   emitSchemaValue(ir: SchemaIR): string | undefined {
     return this.#literal('schema', 'Schema', schemaFromIR(ir));
+  }
+
+  /** `protoDescriptor<T>()` -> one compile-time-produced proto3 string literal. */
+  emitProtoDescriptor(node: TypeIR, name: string): string | undefined {
+    const result = emitProtoDescriptor(node, name);
+    for (const diagnostic of result.diagnostics) this.#diagnostics.push(diagnostic);
+    return result.source === undefined ? undefined : JSON.stringify(result.source);
   }
 
   /**

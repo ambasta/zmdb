@@ -34,12 +34,15 @@
 import type { SqlType } from '@zmdb/schema-core';
 import {
   KNOWN_CONSTRAINT_KINDS,
+  PROTO_SCALARS,
   RELATION_KINDS,
   SQL_TYPES,
   TAG_NAMES,
   type ColumnIR,
   type Constraints,
+  type ObjectIR,
   type PropertyIR,
+  type ProtoScalar,
   type RelationIR,
   type RelationKind,
   type SchemaIR,
@@ -116,6 +119,7 @@ const TAG_FIELD_BY_NAME: ReadonlyMap<string, TagField> = new Map(
 // one place the narrowing has to be earned — and a predicate earns it for every caller.
 const SQL_TYPE_SET: ReadonlySet<string> = new Set<string>(SQL_TYPES);
 const RELATION_KIND_SET: ReadonlySet<string> = new Set<string>(RELATION_KINDS);
+const PROTO_SCALAR_SET: ReadonlySet<string> = new Set<string>(PROTO_SCALARS);
 
 function isSqlType(value: string): value is SqlType {
   return SQL_TYPE_SET.has(value);
@@ -123,6 +127,10 @@ function isSqlType(value: string): value is SqlType {
 
 function isRelationKind(value: string): value is RelationKind {
   return RELATION_KIND_SET.has(value);
+}
+
+function isProtoScalar(value: string): value is ProtoScalar {
+  return PROTO_SCALAR_SET.has(value);
 }
 
 /**
@@ -210,6 +218,20 @@ export class Reflector {
   /** The structural IR of a type. Total: always returns a node. */
   typeIR(type: Type, path = ''): TypeIR {
     return this.#type(type, path, 0);
+  }
+
+  /**
+   * The structural IR of a protobuf message, with field-number validation enabled.
+   *
+   * Ordinary validators may reflect an object whose properties have no protobuf
+   * numbers; only a protobuf call makes complete numbering mandatory. Keeping that
+   * decision here means every protobuf back-end receives the same checked IR.
+   */
+  protobufIR(type: Type): TypeIR {
+    const name = typeName(type) ?? 'message';
+    const node = this.#type(type, name, 0);
+    this.#validateProtoNumbers(node, name, new Set<ObjectIR>());
+    return node;
   }
 
   /**
@@ -470,7 +492,7 @@ export class Reflector {
     // arrives here as two *intersections*. Reading through them is what stops a tagged
     // boolean column emitting two literal comparisons where a `typeof` check is meant.
     if (members.length === 2 && members.every(m => this.#dataPart(m).isBooleanLiteralType())) {
-      return { kind: 'scalar', scalar: 'boolean' };
+      return this.#applyConstraints({ kind: 'scalar', scalar: 'boolean' }, this.#mergeTags(members));
     }
     // The checker sorts `null` and `undefined` to the FRONT of a union. `../ir`'s
     // `withNull` puts them at the back, and the IR has to say one of the two — a union
@@ -602,6 +624,15 @@ export class Reflector {
     const members: PropertyIR[] = [];
     for (const { member, type: propertyType } of properties) {
       const childPath = path === '' ? member.name : `${path}.${member.name}`;
+      const propertyTags =
+        propertyType === undefined
+          ? new Map<TagField, Type>()
+          : this.#mergeTags(this.#splitNullable(propertyType).rest);
+      const protoFieldType = this.#nonNullable(propertyTags.get('protoField'));
+      const protoField = numberOf(protoFieldType);
+      if (protoFieldType !== undefined && protoField === undefined) {
+        this.#refuse(childPath, 'ProtoField<N> needs a number literal argument', this.#print(protoFieldType));
+      }
       members.push({
         name: member.name,
         type: propertyType
@@ -617,6 +648,7 @@ export class Reflector {
         // distinction anyway: it constrains writes, and validation reads. Recorded as
         // `false` rather than guessed at.
         readonly: false,
+        ...(protoField === undefined ? {} : { protoField }),
       });
     }
 
@@ -758,9 +790,11 @@ export class Reflector {
     if (node.kind === 'array') {
       return Object.keys(constraints).length === 0 ? node : { ...node, constraints };
     }
+    const proto = this.#protoScalarOf(tags);
     return {
       ...node,
       ...(scalar === undefined ? {} : { scalar }),
+      ...(proto === undefined ? {} : { proto }),
       ...(Object.keys(constraints).length === 0 ? {} : { constraints }),
     };
   }
@@ -791,6 +825,85 @@ export class Reflector {
       return undefined;
     }
     return declared;
+  }
+
+  #protoScalarOf(tags: ReadonlyMap<TagField, Type>): ProtoScalar | undefined {
+    const tagged = this.#nonNullable(tags.get('protoScalar'));
+    const declared = literalOf(tagged);
+    if (declared === undefined) return undefined;
+    if (typeof declared === 'string' && isProtoScalar(declared)) return declared;
+    this.#refuse(
+      'protoScalar',
+      `Proto<K> needs one protobuf scalar literal; expected one of ${PROTO_SCALARS.join(', ')}`,
+      tagged === undefined ? undefined : this.#print(tagged),
+    );
+    return undefined;
+  }
+
+  // -------------------------------------------------------------------------
+  // Protobuf field numbering
+  // -------------------------------------------------------------------------
+
+  #validateProtoNumbers(node: TypeIR, path: string, seen: Set<ObjectIR>): void {
+    switch (node.kind) {
+      case 'object': {
+        if (seen.has(node)) return;
+        seen.add(node);
+        const message = node.name ?? path;
+        const numbered = new Map<number, PropertyIR[]>();
+
+        for (const property of node.properties) {
+          const propertyPath = `${message}.${property.name}`;
+          const number = property.protoField;
+          if (number === undefined) {
+            this.#refuse(
+              propertyPath,
+              `protobuf message \`${message}\` property \`${property.name}\` has no ProtoField<N> field number`,
+            );
+          } else if (!Number.isInteger(number) || number < 1 || number > 536_870_911) {
+            this.#refuse(
+              propertyPath,
+              `protobuf field number ${number} on \`${message}.${property.name}\` is outside the valid range 1 … 536870911`,
+            );
+          } else if (number >= 19_000 && number <= 19_999) {
+            this.#refuse(
+              propertyPath,
+              `protobuf field number ${number} on \`${message}.${property.name}\` is in the reserved range 19000 … 19999`,
+            );
+          } else {
+            const group = numbered.get(number);
+            if (group) group.push(property);
+            else numbered.set(number, [property]);
+          }
+          this.#validateProtoNumbers(property.type, propertyPath, seen);
+        }
+
+        for (const [number, properties] of numbered) {
+          if (properties.length < 2) continue;
+          const names = properties.map(property => `\`${property.name}\``).join(', ');
+          for (const property of properties) {
+            this.#refuse(
+              `${message}.${property.name}`,
+              `protobuf field number ${number} is duplicated by properties ${names} in message \`${message}\``,
+            );
+          }
+        }
+        return;
+      }
+      case 'array':
+        this.#validateProtoNumbers(node.element, `${path}[]`, seen);
+        return;
+      case 'tuple':
+        for (const [index, element] of node.elements.entries()) {
+          this.#validateProtoNumbers(element, `${path}[${index}]`, seen);
+        }
+        return;
+      case 'union':
+        for (const member of node.members) this.#validateProtoNumbers(member, path, seen);
+        return;
+      default:
+        return;
+    }
   }
 
   // -------------------------------------------------------------------------

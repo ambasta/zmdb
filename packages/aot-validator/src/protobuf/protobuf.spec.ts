@@ -3,13 +3,9 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { buildValue, decode, descriptor, encode, openProtoProject } from './__testing__/fixture.js';
 
 // Tests freeze for #478. The normative mapping is `../emit/SPEC.md` §7b and
-// `@zmdb/schema-core/ir`'s SPEC §4.5. Every implementation-facing assertion is
-// `it.fails`: current HEAD has no protobuf callees, so a behavior test reaches
-//
-//   Error: transform left the source unchanged; nothing was inlined
-//
-// rather than a hand-written stub. A newly passing body is therefore a failing
-// test until the implementation slice deliberately retires `.fails`.
+// `@zmdb/schema-core/ir`'s SPEC §4.5. Descriptor/reflection assertions owned by
+// #479 are green; encoder and decoder assertions remain `it.fails` until their
+// implementation slices replace the call sites with real emitted code.
 //
 // Byte vectors marked "protoc 34.2" were generated from
 // `./__fixtures__/reference.proto`; the canonical 150 vector is also the example
@@ -338,7 +334,26 @@ describe('decoder boundaries from #481', () => {
 });
 
 describe('descriptor and reflection refusals', () => {
-  it.fails('refuses a message with a missing field number, naming the property', () => {
+  it('carries protobuf field numbers and scalar choices through TypeIR', () => {
+    const node = project.ir('InteropMessage');
+    expect(node.kind).toBe('object');
+    if (node.kind !== 'object') return;
+
+    const protoOf = (type: (typeof node.properties)[number]['type']): string | undefined => {
+      if (type.kind === 'scalar') return type.proto;
+      if (type.kind === 'array' && type.element.kind === 'scalar') return type.element.proto;
+      return undefined;
+    };
+    expect(node.properties.map(property => [property.name, property.protoField, protoOf(property.type)])).toEqual([
+      ['id', 1, 'int32'],
+      ['name', 2, undefined],
+      ['deltas', 3, 'sint32'],
+      ['state', 4, undefined],
+      ['marker', 5, 'int32'],
+    ]);
+  });
+
+  it('refuses a message with a missing field number, naming the property', () => {
     refusal('const check = () => protoDescriptor<MissingFieldNumber>();', [
       /MissingFieldNumber/,
       /value/,
@@ -346,7 +361,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses duplicate field numbers, naming both properties', () => {
+  it('refuses duplicate field numbers, naming both properties', () => {
     refusal('const check = () => protoDescriptor<DuplicateFieldNumbers>();', [
       /DuplicateFieldNumbers/,
       /first/,
@@ -355,7 +370,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses field number zero', () => {
+  it('refuses field number zero', () => {
     refusal('const check = () => protoDescriptor<ZeroFieldNumber>();', [
       /ZeroFieldNumber/,
       /value/,
@@ -364,7 +379,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a negative field number', () => {
+  it('refuses a negative field number', () => {
     refusal('const check = () => protoDescriptor<NegativeFieldNumber>();', [
       /NegativeFieldNumber/,
       /value/,
@@ -373,7 +388,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a field number above the protobuf maximum', () => {
+  it('refuses a field number above the protobuf maximum', () => {
     refusal('const check = () => protoDescriptor<TooLargeFieldNumber>();', [
       /TooLargeFieldNumber/,
       /value/,
@@ -382,7 +397,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a reserved field number', () => {
+  it('refuses a reserved field number', () => {
     refusal('const check = () => protoDescriptor<ReservedFieldNumber>();', [
       /ReservedFieldNumber/,
       /value/,
@@ -417,7 +432,27 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses an optional nullable field because it has three source states', () => {
+  it('refuses scalar mappings that cannot produce an honest descriptor', () => {
+    refusal('const check = () => protoDescriptor<UntaggedBigint>();', [
+      /UntaggedBigint/,
+      /value/,
+      /bigint/i,
+      /Proto|width|signed/i,
+    ]);
+    refusal('const check = () => protoDescriptor<NumberAsInt64>();', [
+      /NumberAsInt64/,
+      /value/,
+      /int64/,
+      /number|bigint|range/i,
+    ]);
+    refusal('const check = () => protoDescriptor<BytesMessage>();', [
+      /BytesMessage/,
+      /value/,
+      /Uint8Array|typed array/i,
+    ]);
+  });
+
+  it('refuses an optional nullable field because it has three source states', () => {
     refusal('const check = () => protoDescriptor<OptionalNullableInt32>();', [
       /OptionalNullableInt32/,
       /value/,
@@ -427,7 +462,7 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a nested array instead of inventing a wrapper message', () => {
+  it('refuses a nested array instead of inventing a wrapper message', () => {
     refusal('const check = () => protoDescriptor<NestedArrayMessage>();', [
       /NestedArrayMessage/,
       /values/,
@@ -435,15 +470,15 @@ describe('descriptor and reflection refusals', () => {
     ]);
   });
 
-  it.fails('refuses a map because reflection cannot read its index signature', () => {
+  it('refuses a map because reflection cannot read its index signature', () => {
     refusal('const check = () => protoDescriptor<MapMessage>();', [/MapMessage/, /values/, /index signature|Record/i]);
   });
 
-  it.fails('refuses a discriminated union because oneof arms have no field-number tags', () => {
+  it('refuses a discriminated union because oneof arms have no field-number tags', () => {
     refusal('const check = () => protoDescriptor<Payment>();', [/Payment/, /oneof|union/i, /field number|tag/i]);
   });
 
-  it.fails('accepts the same field number in independently numbered nested messages', () => {
+  it('accepts the same field number in independently numbered nested messages', () => {
     const { value } = descriptor(project, 'CollidingNestedNames');
     expect(value).toContain('left');
     expect(value).toContain('right');

@@ -9,7 +9,6 @@
 import type {
   // @ts-expect-error TS2305 — frozen by `emit/SPEC.md` §7b; not exported yet.
   protoDecode,
-  // @ts-expect-error TS2305 — frozen by `emit/SPEC.md` §7b; not exported yet.
   protoDescriptor,
   // @ts-expect-error TS2305 — frozen by `emit/SPEC.md` §7b; not exported yet.
   protoEncode,
@@ -28,7 +27,6 @@ export type _proto_encode_signature = Expect<Equal<ExportedFunction<typeof proto
 export type _proto_decode_signature = Expect<Equal<ExportedFunction<typeof protoDecode>, FrozenProtoDecode>>;
 
 type ProtoDescriptorMatches = Equal<ExportedFunction<typeof protoDescriptor>, FrozenProtoDescriptor>;
-// @ts-expect-error TS2344 — `protoDescriptor` is an error type until the export lands.
 export type _proto_descriptor_signature = Expect<ProtoDescriptorMatches>;
 
 function unimplemented(what: string): never {

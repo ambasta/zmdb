@@ -557,6 +557,7 @@ describe('irFromType — refusals are named', () => {
       'literal-union',
       'tagged-bounds',
       'tagged-varchar',
+      'protobuf-tags',
       'nested-object',
       'recursive',
       'tuple',
