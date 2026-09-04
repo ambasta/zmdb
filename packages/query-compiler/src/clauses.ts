@@ -1,4 +1,3 @@
-import { QueryCompilerError } from './errors.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -11,13 +10,14 @@ import { QueryCompilerError } from './errors.js';
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
+import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
   encodePgVector,
   isDistanceOp,
   renderSpatialPredicate,
+  type DistanceOp,
   type SpatialPredicateNode,
 } from './extensions/index.js';
 import type { CompiledQuery, Operator, QueryTelemetry } from './index.js';
@@ -66,7 +66,7 @@ export function isUnsafeOperator(value: unknown): value is UnsafeOperator {
 export interface ComparisonPredicate {
   readonly kind?: 'comparison';
   readonly col: string;
-  readonly op: Operator | UnsafeOperator;
+  readonly op: Operator | UnsafeOperator | DistanceOp;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR' | undefined;
 }
@@ -160,7 +160,7 @@ export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: Dia
   if (mapped !== undefined) {
     return mapped;
   }
-  throw new QueryCompilerError(`Invalid query operator "${typeof op === 'object' ? (op as UnsafeOperator).op : op}"`);
+  throw new QueryCompilerError(`Invalid query operator "${op}"`);
 }
 
 /**

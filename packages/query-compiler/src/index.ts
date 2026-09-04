@@ -104,6 +104,7 @@ import {
   renderDistanceExpression,
   type AliasedDistanceExpression,
   type DistanceExpression,
+  type DistanceOp,
   type SpatialPredicate,
 } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
@@ -214,11 +215,11 @@ interface SelectState {
 export interface SelectBuilder<T = unknown> {
   select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
   where(predicate: SpatialPredicate): SelectBuilder<T>;
-  where(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  andWhere(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -243,7 +244,7 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | UnsafeOperator, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
@@ -251,10 +252,10 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
-  function where(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  function where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   function where(
     first: string | SpatialPredicate,
-    op?: Operator | UnsafeOperator,
+    op?: Operator | UnsafeOperator | DistanceOp,
     value?: unknown,
   ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
@@ -263,10 +264,10 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
   }
 
   function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function andWhere(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  function andWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   function andWhere(
     first: string | SpatialPredicate,
-    op?: Operator | UnsafeOperator,
+    op?: Operator | UnsafeOperator | DistanceOp,
     value?: unknown,
   ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
@@ -275,10 +276,10 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
   }
 
   function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): SelectBuilder<T>;
+  function orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   function orWhere(
     first: string | SpatialPredicate,
-    op?: Operator | UnsafeOperator,
+    op?: Operator | UnsafeOperator | DistanceOp,
     value?: unknown,
   ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('OR', first);
