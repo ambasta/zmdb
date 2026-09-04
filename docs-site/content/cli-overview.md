@@ -1,8 +1,8 @@
-> **ToDo / feature gap.** There is no `zmdb` executable. One command ships —
-> [`zmdb-codegen`](./cli-codegen.html), `@zmdb/aot-validator`'s `bin` — and nothing
-> on this page other than that has a wrapper yet.
+> **ToDo / feature gap.** The `zmdb` executable exists and currently exposes
+> `modules` and `repl`. The schema commands and `studio` described below still
+> have no executable wrappers.
 
-The engine every command would need is public API, though, so each command below is a short script you own. That is the honest position: the capability exists, the packaging does not.
+The schema and migration engine these commands need is public API, so each command below remains a short script you own. That is the honest position for this page: the capability exists, but these wrappers do not.
 
 ## The pieces
 
@@ -92,7 +92,7 @@ Add it to `package.json`:
 
 That is `yarn db generate`, `yarn db check`, `yarn db up`. Roughly forty lines for the five commands that are possible.
 
-## What a real CLI would add
+## What the schema CLI still needs
 
 Not capability — ergonomics and a few things a script cannot easily do well:
 

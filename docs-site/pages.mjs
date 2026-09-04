@@ -823,7 +823,7 @@ export const PAGE_META = {
     title: 'CLI Overview',
     group: 'CLI',
     status: 'todo',
-    note: 'there is no zmdb executable; the snapshot / diff / DDL engine is a library API you call from a script',
+    note: 'the zmdb executable ships modules and repl; schema commands and studio remain unimplemented',
   },
   'config-file': {
     title: 'Config File',
@@ -1731,13 +1731,13 @@ export const PAGE_META = {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'no zmdb executable, so no project/controller/module scaffolding',
+    note: 'the zmdb executable exists, but project/controller/module scaffolding is not built',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'depends on the CLI, which is not built',
+    note: 'no monorepo-aware scaffolding or explicit --package targeting',
   },
   'web-cli-apps': {
     title: 'Building CLI Applications',

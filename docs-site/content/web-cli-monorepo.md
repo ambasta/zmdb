@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** There is no CLI, so there is no monorepo mode — no
-> `nest-cli.json`, no `zmdb generate library`, no project-aware build
-> orchestration.
+> **ToDo / feature gap.** The `zmdb` executable exists, but it has no
+> monorepo-aware scaffolding: no `new --package`, no project generator and no
+> framework build orchestration.
 
 ## What to use instead
 
@@ -154,7 +154,9 @@ Vitest discovers tests across workspaces from the root, so one command covers ev
 
 ## What it would take
 
-Very little, and that is the point: the gap is a CLI feature whose replacement is the package manager. If a zmdb CLI ships, the monorepo-specific parts worth having are a schema registry check across workspaces and a migration command that knows which app owns which tables — not project scaffolding.
+Very little, and that is the point: the existing CLI still has no
+monorepo-aware scaffolding. The monorepo-specific parts worth having are a
+schema registry check across workspaces and a migration command that knows which app owns which tables — not framework build orchestration.
 
 ---
 

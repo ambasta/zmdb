@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** There is no CLI. No package in the monorepo has a `bin`
-> field — there is no `zmdb` command, no `zmdb generate`, no scaffolding and no
-> project templates.
+> **ToDo / feature gap.** The `zmdb` executable exists and currently ships the
+> application-graph `modules` command and the local-terminal `repl`. It does not
+> yet ship `zmdb new`, scaffolding or project templates.
 
 ## What exists instead
 
@@ -62,7 +62,7 @@ export class PostsController {
 }
 ```
 
-and registering it is one array entry. There is no `.module.ts` triple, no `.spec.ts` stub with mocked reflection, no provider metadata to generate — so `zmdb generate resource posts` would produce roughly what you just read.
+and registering it is one array entry. There is no `.module.ts` triple, no `.spec.ts` stub with mocked reflection, no provider metadata to generate — so `zmdb new controller posts` would produce roughly what you just read.
 
 A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job — and the reason the one build step that does exist, [`zmdb-codegen`](./cli-codegen.html), writes nothing into your repository.
 
@@ -103,7 +103,8 @@ A `--dry-run` that logs instead of writing is worth building into anything that 
 
 ## What it would take
 
-A `bin` entry, an argument parser (Node's `parseArgs` suffices), and a set of commands. The migration commands already exist as a library call, so wrapping them is small.
+The `bin` entry and argument dispatch already exist. Scaffolding still needs the
+`new` dispatch, templates, workspace targeting and generated-code gates. The migration commands already exist as library calls, so wrapping them is small.
 
 The commands worth building are the ones that are not one-liners today: introspection (`db pull`), a diff against a live database, and a repeatable seed runner. Scaffolding is the least valuable, because the thing it would scaffold is already about eight lines.
 

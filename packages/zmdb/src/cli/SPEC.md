@@ -422,12 +422,11 @@ The tables are the ones in the config's `schema` set (`../config/SPEC.md` §5) �
 file buys here, and the direct answer to the page's "nothing enumerates your tables, so the list is an
 argument". Under the CLI there is a list, and it is the same list `generate` diffs.
 
-A table that exists in the database and not in the declarations is **listed as unrenderable, not
-rendered**. Not hidden: a studio that silently omits a table is a studio you cannot trust to tell you
-what is in your database. It appears with the reason ("no declaration in the schema set — see `pull`"),
-and clicking it does nothing. Rendering it would require reading its columns from the server, which is
-introspection, which is a different epic and would make the studio the second thing in the project that
-types a column.
+The table index is **exactly that configured schema set**. A table that exists only in the database is
+neither listed nor rendered: `Driver` exposes query execution, not a catalogue operation, so discovering
+even its name would be introspection owned by `pull`. A request that names a table outside the set is
+refused as undeclared. The page labels the index "declared tables"; it does not claim to enumerate the
+whole database.
 
 ### 14.2 The UI has no build step, because there is nowhere to put one
 
@@ -509,8 +508,8 @@ sub-issue, so none is edited here. What that sub-issue has to carry:
 - **A scaffold that edits an existing module.** §13.3 — and `--force` does not extend to overwriting a
   file, because §10's `--force` is about a database.
 - **A studio write mode, behind any flag.** §14.
-- **Rendering a table the schema set does not declare.** §14.1 — it is listed with its reason instead.
-- **Hiding it instead.** §14.1 — a viewer that omits a table silently is not a viewer.
+- **Discovering, listing or rendering a table the schema set does not declare.** §14.1 — even its name
+  requires catalogue introspection, which belongs to `pull`.
 - **A bundler or UI framework for the studio.** §14.2.
 - **Keyset pagination in the studio.** §14.2 — a browser needs a page number.
 - **`studio --host`, with or without a token.** §14.3 — the loopback bind _is_ the boundary, and a token
