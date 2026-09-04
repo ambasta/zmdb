@@ -387,9 +387,11 @@ learn to distrust.
 the one that answers "can I change this?". It is a function over the description rather than a
 field in it, because reverse edges are derivable, and materialising them would double the JSON
 and create a second place the same truth lives. Its answer is **complete for `@Inject` edges and
-incomplete for factory edges by construction** (§4), so a node with `dependencies: null` among
-the dependents is reported explicitly — `provider:POOL (edges unknown)` in the tree, a dashed
-node in DOT — never omitted. A silent omission here is the deletion described in §2.
+incomplete for factory edges by construction** (§4). There is no honest way to name which opaque
+factory consumes a token: doing so would require running or parsing the body, both rejected in
+§2. So every provider query on a graph containing an opaque factory appends the explicit sentinel
+`<factory dependencies unknown>`. Factory nodes are dashed in DOT and labelled `dependencies
+unknown` in the text tree. A silent omission here is the deletion described in §2.
 
 ## 9. `./devtools`, and four barriers rather than a convention
 
@@ -409,10 +411,11 @@ DoD 6 of the epic asks that nothing in this path be importable into a production
    starts a REPL, and `node:repl` appears nowhere under `packages/web/src`.
 3. **A gate.** `yarn verify:devtools-boundary` →
    `.github/scripts/verify-devtools-boundary.mjs`, in `.github/scripts/` rather than in `scripts/`
-   as #602 currently says — thirteen of the fourteen existing `verify:*` scripts live there, the
-   exception being `verify:fixtures`, which runs a package's own bin. It walks the
-   transitive import graph from every `@zmdb/web` and `zmdb` `exports` target except
-   `@zmdb/web#./devtools`, and fails if any of them reaches a file under `src/devtools/` or a
+   as #602 currently says — repository verification scripts live there, while
+   `verify:fixtures` runs a package's own bin. It walks the
+   transitive import graph from every production `@zmdb/web` and `zmdb` `exports` target except
+   the two intended tool entries, `@zmdb/web#./devtools` and build-time-only `zmdb#./cli`, and
+   fails if any other entry reaches a file under `src/devtools/` or a
    `node:repl` specifier, printing the chain. The walker already exists: `importsOf` and
    `resolveSpecifier` at `.github/scripts/verify-exports.mjs:145-173` do this for `typescript`,
    including following `@zmdb/*` across package boundaries and matching dynamic `import()`, and
@@ -443,9 +446,9 @@ secret, and it is also not something to hand out.
    it. This replaces #600's `does not retain graph metadata when the description was never
 requested`, which cannot pass as titled — the metadata is owned by the class in both arms.
    The title has to change with it, before `mapping.mjs` cites it.
-5. `dependentsOf` over a token injected by two controllers returns both, and a provider whose
-   only consumer is a factory is reported with its edges unknown rather than as having no
-   dependents.
+5. `dependentsOf` over a token injected by two controllers returns both plus the opaque-factory
+   sentinel, and a provider with no known consumer still returns that sentinel rather than the
+   unsafe claim that it has no dependents.
 6. `injectionsOf(Base)` returns only the base class's fields when a subclass adds one — the
    assertion that fails against `../di/index.ts:78` as written today (§4).
 7. Each row of §5, by `kind` and `severity`, on a fixture variant that provokes it; and

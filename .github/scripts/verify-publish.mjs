@@ -123,7 +123,8 @@ for (const name of PACKAGES) {
     specifiers.push(subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`);
   }
   if (pkg.bin) {
-    for (const [command, target] of Object.entries(pkg.bin)) {
+    const bins = typeof pkg.bin === 'string' ? { [pkg.name]: pkg.bin } : pkg.bin;
+    for (const [command, target] of Object.entries(bins)) {
       const binPath = join(into, target);
       const source = (() => {
         try {

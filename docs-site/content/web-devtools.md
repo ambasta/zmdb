@@ -1,107 +1,135 @@
-> **ToDo / feature gap.** There is no devtools — no graph visualiser, no
-> `@nestjs/devtools-integration` equivalent, no runtime inspector UI.
+> **Module graph inspector available.** `@zmdb/web/devtools` describes application
+> declarations on demand, and `zmdb modules` renders the same graph as text, JSON
+> or Graphviz DOT. There is deliberately no runtime inspector route or web UI.
 
-## What you can inspect today
-
-More than you might expect, because the module system is deliberately small and everything it produces is a plain object.
-
-**The compiled container and controllers:**
+## Describe a graph without booting it
 
 ```ts
-const compiled = compileModule(AppModule);
-console.log(compiled.controllers.map(c => c.constructor.name));
+import { describeGraph, renderTree } from '@zmdb/web/devtools';
+
+import { AppModule } from './app.module.js';
+
+const graph = describeGraph(AppModule);
+console.log(renderTree(graph));
 ```
 
-`CompiledModule` is `{ container, controllers, lazy }`. `lazy` contains per-app
-load handles; the container remains flat, with no injector hierarchy.
+`describeGraph` takes the root module class, not an `App` or a `Container`. It
+reads the metadata already written by `@Module`, `@Controller`, the route
+decorators and `@Inject`; it does not construct a provider, call a lifecycle hook
+or retain an inspector index on the running application.
 
-**Every route, from metadata:**
+The returned `GraphDescription` contains:
 
-```ts
-import { getRoutes } from '@zmdb/web/routing';
+- modules, their imports and whether each declaration is lazy;
+- value and factory providers, their owning module and factory scope;
+- controllers, routes and `@Inject` dependency edges;
+- findings for cycles, unresolved tokens, eager-to-lazy dependencies, duplicate
+  providers, shadowed routes, duplicate token descriptions and anonymous
+  classes.
 
-for (const C of CONTROLLERS) {
-  for (const r of getRoutes(C)) console.log(`${r.method.padEnd(6)} ${r.path.padEnd(30)} ${C.name}.${r.handlerName}`);
-}
+Factory bodies remain opaque. A factory receives the whole container and may
+resolve anything conditionally, so its `dependencies` field is `null`, not an
+invented list. `dependentsOf(graph, providerId)` returns every known direct
+consumer and adds `<factory dependencies unknown>` when opaque factories mean the
+reverse query cannot be complete.
+
+## Use the CLI
+
+Name the root as `<path>#<export>`:
+
+```bash
+zmdb modules ./src/app.module.ts#AppModule
 ```
 
-That printout is the single most useful diagnostic in the framework. It shows registration order, which is what determines [first-match routing](./web-performance.html) — so a route being shadowed is visible right there.
+The default human form is a text tree. Application TypeScript is loaded through
+the same Stage-3 decorator transform used by the test runner; Node 26 can strip
+types, but it cannot parse standard decorator syntax by itself.
 
-**Whether a token resolves:**
+Machine-readable output is one JSON document:
 
-```ts
-console.log(compiled.container.has(POSTS));
+```bash
+zmdb modules ./src/app.module.ts#AppModule --json | jq '.result.findings'
 ```
 
-`has(token)` without resolving. Useful in a startup assertion.
+The `result` value is the programmatic `GraphDescription`, unchanged. Exit 0
+means there are no error-severity findings, exit 1 means the graph has an error
+finding, and exit 2 means the invocation or module spec is invalid. Warnings such
+as duplicate token descriptions do not fail the command.
 
-## A startup diagnostic worth having
+For a diagram:
 
-```ts
-export function describeApp(controllers: readonly ControllerClass[]): string {
-  const rows = controllers.flatMap(C =>
-    getRoutes(C).map(r => ({ method: r.method, path: r.path, handler: `${C.name}.${r.handlerName}` })),
-  );
-  const duplicates = rows.filter((a, i) => rows.findIndex(b => b.method === a.method && b.path === a.path) !== i);
-  return JSON.stringify({ routes: rows.length, duplicates }, undefined, 2);
-}
+```bash
+zmdb modules ./src/app.module.ts#AppModule --format dot > modules.dot
+dot -Tsvg modules.dot > modules.svg
 ```
 
-Turn the duplicate check into a test rather than a log line — a shadowed route is a bug that a printout only reveals if someone reads it:
+DOT is used because route paths and token descriptions routinely contain `/`,
+`:`, spaces and `#`; every identifier and label is quoted.
 
-```ts
-it('no two routes share a method and path', () => {
-  expect(duplicatesOf(CONTROLLERS)).toEqual([]);
-});
+## Filter realistic graphs
+
+The default diagram includes modules and import edges only. Add declarations
+with `--providers`, then keep the result useful with one of the graph filters:
+
+```bash
+zmdb modules ./src/app.module.ts#AppModule --providers --module UsersModule
+zmdb modules ./src/app.module.ts#AppModule --providers --token USERS_REPOSITORY
+zmdb modules ./src/app.module.ts#AppModule --providers --module UsersModule --depth 1
 ```
 
-## Debugging the module graph
+`--module` follows that module's transitive imports. `--token` follows known
+dependency and reverse-dependency edges. `--depth` bounds either closure and
+defaults to 2. An unfiltered provider view above 50 provider nodes is refused
+with the count and module names to filter by instead of emitting a hairball.
 
-Cycles throw with a clear message:
+## Read findings before startup
 
+A cyclic graph is still described completely:
+
+```text
+ERROR cycle: Import cycle: module:AppModule -> module:BillingModule -> module:AppModule
 ```
-@zmdb/web: import cycle in the module graph: AppModule -> BillingModule -> AppModule
-```
 
-The path includes lazy edges and is produced during startup validation.
+`compileModule` continues to reject the same graph. The asymmetry is intentional:
+the inspector must work on the broken declaration that prevents an application
+from booting.
 
-Unresolved tokens throw `UnresolvedTokenError` naming the token's description — which is why `createToken<T>('POSTS_REPOSITORY')` with a meaningful description pays for itself the first time something is missing. A token described as `'token'` produces a useless error.
+Shadowed routes are findings too. They compare the registered method and path
+from controller metadata, so the diagnostic uses the graph the application
+declared rather than a hand-maintained controller list.
 
-## Debugging queries
+## The production boundary
 
-The most useful "devtool" in the project, and it exists: `compile()` returns the SQL and parameters without executing anything.
+The inspector is available only from `@zmdb/web/devtools`; it is not re-exported
+from `@zmdb/web`, `zmdb/web` or the application entry points. The `zmdb/cli`
+subpath is separately classified as build-time-only.
+
+`yarn verify:devtools-boundary` walks every production `@zmdb/web` and `zmdb`
+export transitively. It fails if one reaches the devtools directory or
+`node:repl`, and CI runs the gate. That structural rule is why the project does
+not offer a `/__graph` endpoint: a route exposing every route pattern, token and
+module would be an application oracle.
+
+## Other useful debugging surfaces
+
+The query compiler still gives the most direct database diagnostic without a
+connection:
 
 ```ts
 const { text, parameters } = compiler.selectFrom('posts').select(['id']).where('id', '=', 1).compile();
 console.log(text, parameters);
 ```
 
-No connection needed, so it works in a unit test. See [Debugging Queries](./logging.html) and the [logging driver wrapper](./logging.html).
-
-## The Node inspector
+For ordinary code debugging, run built output under the Node inspector:
 
 ```bash
 node --inspect-brk dist/main.js
 ```
 
-Then `chrome://inspect` or your editor's debugger. Breakpoints work in handlers, and because the framework does no reflection per request the stack from the adapter to your handler is short and readable — three or four frames, not thirty.
-
-Source maps come from `tsup` if you enable them:
-
-```ts
-export default defineConfig({ sourcemap: true });
-```
-
-Without them a stack trace points into bundled output and the debugging experience gets much worse. Enable them everywhere, including production — they cost nothing at runtime and make an incident report legible.
-
-## What it would take
-
-A devtools UI needs three things, and only two of them are missing: a per-request timeline (no observation hook) and a confined [static-file handler](./web-static-files.html) for the UI assets. The response body can now carry bytes and streams. The third — provider dependency edges — turns out to be recorded already. [`@Inject` is a field decorator](./web-injection-scopes.html), and it writes `{ field, token }` into the class's decorator metadata at decoration time; the slot is simply never read by anything. An earlier version of this paragraph said there were "none to record", which was wrong: the graph is kept, by the classes. Edges into a `useFactory` are the real exception and are unknowable — a factory takes the whole container and can resolve anything — so those are the nodes to be careful about if you are deleting a provider because nothing appears to depend on it.
-
-`packages/web/src/devtools/SPEC.md` freezes what reads that metadata back, and it is a CLI over your declarations rather than a UI: no HTTP surface, and nothing in `@zmdb/web` serves the graph, because a `/__graph` route is a route-table oracle.
-
-The honest assessment: a graph visualiser is most valuable in a framework whose graph is hard to understand. Here the graph is one flat container and a list of routes, both printable in five lines. The route table and the duplicate test above cover the real need.
+The package build emits source maps alongside JavaScript and declarations, so an
+editor or `chrome://inspect` can map framework frames back to TypeScript.
 
 ---
 
-See also: [Debugging Queries](./logging.html) · [Discovery](./web-discovery.html) · [Testing Applications](./web-testing.html)
+See also: [Modules](./web-modules.html) · [Lazy Modules](./web-lazy-modules.html) ·
+[Debugging Queries](./logging.html) · [Testing Applications](./web-testing.html)

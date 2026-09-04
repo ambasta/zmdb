@@ -49,7 +49,8 @@
     "./queues/backends/memory": "./src/queues/backends/memory.ts",
     "./queues/backends/pg": "./src/queues/backends/pg.ts",
     "./testing": "./src/testing/index.ts",
-    "./bench": "./src/bench/index.ts"
+    "./bench": "./src/bench/index.ts",
+    "./devtools": "./src/devtools/index.ts"
   },
   "publishConfig": {
     "access": "public",

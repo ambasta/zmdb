@@ -2318,6 +2318,9 @@ __metadata:
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     "@zmdb/web": "workspace:^"
+    esbuild: "npm:^0.28.2"
     typescript: "npm:7.0.2"
+  bin:
+    zmdb: ./src/cli/bin.ts
   languageName: unknown
   linkType: soft

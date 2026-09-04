@@ -2,49 +2,35 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { describeGraph } from '@zmdb/web/devtools';
 import { Container, createToken } from '@zmdb/web/di';
 import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
+
+import {
+  AmbiguousTokenAppModule,
+  AppModule,
+  CycleAppModule,
+  DuplicateProviderAppModule,
+  ShadowedRouteAppModule,
+} from '../../../web/src/modules/__fixtures__/large-graph.js';
 
 // `zmdb modules`, `zmdb repl`, and the barriers around them. Tests freeze for the epic "The module
 // graph as a first-class object" (#598 / spec freeze #599); the frozen text is `./SPEC.md`'s
 // `## Amendments (the module inspector and the REPL, #599)` §R7, plus §12 for where the bin lives.
 //
-// **The problem this file has, stated up front.** §R7 lists fourteen assertions and twelve of them
-// are behavioural claims about two CLI verbs. There is no CLI. `./` contains `SPEC.md` and nothing
-// else — no `bin.ts`, no `index.ts`; `../../package.json` has no `bin` field and no `./cli` export;
-// `zmdb#./cli` is not in `BUILD_TIME_ENTRIES`. Writing §R7.1 through §R7.12 as twelve `it.fails`
-// against a command that cannot be spawned produces twelve tests that all fail with
-// `ERR_MODULE_NOT_FOUND` on the same path, which is the exact failure the convention this freeze
-// follows exists to avoid: "a red test is only worth having if its failure is diagnostic", and
-// twelve identical module-resolution errors say nothing about which of the twelve claims is unmet.
-//
-// So the file is shaped around what can be made diagnostic today:
-//
-// - **Four manifest facts, one red each** (§12, §R5.2). Each is a single value in a single file that
-//   can be read now and is false now, and each names the value it found.
-// - **Two exit-code tables, one red each** (§R7.4, §R7.5, §R7.6, §R7.7). These spawn the real bin at
-//   the frozen path and compare the whole table of invocation-to-exit-code in one assertion, so the
-//   failure diff shows every row at once instead of arriving one identical error at a time. They
-//   call the real entry point the moment it exists, and they retire as a unit.
-// - **One red over `tests/api-coverage/mapping.mjs`** (§R7.14), which is a fact about a file that
-//   exists, so it is the one §R7 item that is fully assertable today.
-// - **Two greens over the real `@zmdb/web`**, pinning the two facts the frozen design rests on:
+// The file asserts the shipped modules command, its package/build-time boundary and the two REPL
+// refusals #602 owns. It also pins the two facts the later REPL design rests on:
 //   `TestApp` has no `container` (§R4's reason for `createApp`), and two tokens sharing a description
 //   are distinct in the container (§R6's reason `get('db')` must refuse rather than pick, and §5's
 //   reason `duplicate-token-description` is a finding at all).
 //
-// **What is not here, and why.** §R7.1, §R7.2, §R7.3, §R7.8, §R7.9's session half, §R7.10, §R7.11
-// and §R7.12 are behavioural claims about a session object and a command's stdout. Each of them
-// needs `describeGraph` (§10 of `../../../web/src/devtools/SPEC.md`, also unwritten) *and* an
+// §R7.8, §R7.9's session half, §R7.10, §R7.11 and §R7.12 remain for #603. Each needs an
 // evaluate function whose name §R6 does not freeze — the scope table names `get`, `tokens`,
 // `describe`, `request` and `load` as prompt bindings, not as exports. A test cannot call an unnamed
 // function, and inventing a name here would freeze by accident something the spec left open. They
-// belong to the implementation slice, and they are listed in this comment rather than only in a
-// commit message so that the slice's author has the debt in front of them.
-//
-// Every recorded actual below came from running the command or reading the file, not from
-// reasoning about it.
+// belong to the REPL implementation slice. Every value below comes from running the command or
+// reading the file, not from reasoning about it.
 
 const ROOT = process.cwd();
 const CLI_DIR = join(ROOT, 'packages', 'zmdb', 'src', 'cli');
@@ -52,6 +38,11 @@ const BIN = join(CLI_DIR, 'bin.ts');
 
 /** The fixture root `zmdb modules` is pointed at, in §R2's `path#export` form. */
 const WIDE_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#WideAppModule';
+const APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#AppModule';
+const CYCLE_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#CycleAppModule';
+const SHADOWED_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#ShadowedRouteAppModule';
+const DUPLICATE_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#DuplicateProviderAppModule';
+const AMBIGUOUS_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#AmbiguousTokenAppModule';
 
 /**
  * `zmdb <argv>`, run the way `yarn verify:fixtures` runs the codegen bin.
@@ -67,13 +58,17 @@ const WIDE_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#WideAppMo
  * §R5.3 is about — "it also refuses the specific attack the rule exists for — piping a socket into
  * stdin".
  */
-function zmdb(...argv: readonly string[]): { readonly status: number | null; readonly stderr: string } {
+function zmdb(...argv: readonly string[]): {
+  readonly status: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+} {
   const result = spawnSync(
     process.execPath,
     ['--import', join(ROOT, 'scripts', 'ts-specifier-hook.mjs'), BIN, ...argv],
     { cwd: ROOT, encoding: 'utf8', input: '', timeout: 30_000 },
   );
-  return { status: result.status, stderr: result.stderr ?? '' };
+  return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
 /** `argv -> exit code`, or `argv -> ERR:<code>` when the bin could not be run at all. */
@@ -89,75 +84,70 @@ function exitRow(...argv: readonly string[]): string {
 }
 
 describe('the zmdb CLI boundary', () => {
-  // §12: the bin. Red. Asserted on the manifest rather than by running `--help`, because the value in
+  // §12: the bin. Asserted on the manifest rather than by running `--help`, because the value in
   // the manifest is what `npx zmdb` resolves and a bin that exists at an unlisted path is not one.
-  it.fails('declares the zmdb bin at ./src/cli/bin.ts', () => {
-    // Today: `undefined`. `packages/zmdb/package.json` has no `bin` field at all — ten `exports`
-    // subpaths, `files: ["src", "README.md", "LICENSE"]`, and no executable.
+  it('declares the zmdb bin at ./src/cli/bin.ts', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'));
-    const record: { bin?: Record<string, unknown> } = Object(manifest);
-    expect(record.bin?.['zmdb']).toBe('./src/cli/bin.ts');
+    const record: { bin?: string | Record<string, unknown> } = Object(manifest);
+    const target = typeof record.bin === 'string' ? record.bin : record.bin?.['zmdb'];
+    expect(target).toBe('./src/cli/bin.ts');
   });
 
-  // §12: the export. Red, and separate from the bin because they fail independently — the bin is what
+  // §12: the export, separate from the bin because they fail independently — the bin is what
   // a user types and the export is what `BUILD_TIME_ENTRIES` and the test suite import.
-  it.fails('publishes ./cli as a zmdb subpath', () => {
-    // Today: `undefined`. The ten subpaths end at `./unplugin`.
+  it('publishes ./cli as a zmdb subpath', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'));
     const record: { exports?: Record<string, unknown> } = Object(manifest);
     expect(record.exports?.['./cli']).toBe('./src/cli/index.ts');
   });
 
   // §12 and §R5.2, and this is the barrier rather than a tidiness rule: the entry has to be
-  // *build-time only* or a server bundle contains the REPL. Red.
+  // *build-time only* or a server bundle contains the REPL.
   //
   // Asserted against the source text of the gate and not by running it, deliberately. The set is a
   // literal in `.github/scripts/verify-exports.mjs`, the gate exits non-zero for a dozen unrelated
   // reasons, and what §12 freezes is membership of that list — "beside the `zmdb#./unplugin` entry
   // that is already there", which is the entry this assertion also proves is still present.
-  it.fails('lists zmdb#./cli in BUILD_TIME_ENTRIES', () => {
-    // Today: `['zmdb#./unplugin']`. The set has eight entries, seven of them `@zmdb/aot-validator#*`.
+  it('lists zmdb#./cli in BUILD_TIME_ENTRIES', () => {
     const gate = readFileSync(join(ROOT, '.github', 'scripts', 'verify-exports.mjs'), 'utf8');
     const listed = ['zmdb#./cli', 'zmdb#./unplugin'].filter(entry => gate.includes(`'${entry}'`));
     expect(listed).toEqual(['zmdb#./cli', 'zmdb#./unplugin']);
   });
 
-  // §12's split: the work in `index.ts`, argument parsing and exit codes in `bin.ts`. Red, and one
+  // §12's split: the work in `index.ts`, argument parsing and exit codes in `bin.ts`. One
   // assertion over both names so the failure says which of the two is missing.
   // Asserted as a filter over the two frozen names rather than as the directory listing, and the
   // reason is a trap worth recording: `readdirSync(CLI_DIR)` includes *this file*, so an equality
   // against `['SPEC.md', 'bin.ts', 'index.ts']` could never pass no matter what the slice lands. A
   // red test that cannot retire is worse than no test, because the next author deletes it.
-  it.fails('ships the CLI as bin.ts and index.ts under src/cli', () => {
-    // Today: `[]`. The directory holds `SPEC.md` and this spec file, verified with `readdirSync`.
+  it('ships the CLI as bin.ts and index.ts under src/cli', () => {
     const present = ['bin.ts', 'index.ts'].filter(name => existsSync(join(CLI_DIR, name)));
     expect(present).toEqual(['bin.ts', 'index.ts']);
   });
 
-  // §R7.6 and §R7.7 — the two `repl` barriers, as a table. Red.
+  // §R7.6 and §R7.7 — the two `repl` barriers.
   //
   // §R7.6 asks for the TTY refusal "asserted by spawning it with a piped stdin — the §R5 barrier
   // asserted as a barrier, not as documentation", so this is one of the two places in this freeze
   // where spawning a process is the assertion rather than a heavy way to reach a function. §R7.7's
   // `--json` refusal shares the table because it shares the exit code and the entry point; a
   // partial implementation shows up in the diff as the row that is wrong.
-  it.fails('refuses zmdb repl without a TTY and refuses zmdb repl --json', () => {
-    // Today, both rows: `-> ERR:ERR_MODULE_NOT_FOUND`. `node --import ./scripts/ts-specifier-hook.mjs
-    // packages/zmdb/src/cli/bin.ts repl` exits 1 with
-    // `Cannot find module '/home/.../packages/zmdb/src/cli/bin.ts'`, so the exit code carries no
-    // information about the barrier and the row says so instead of reporting a 1.
-    expect([exitRow('repl'), exitRow('repl', '--json')]).toEqual(['repl -> 2', 'repl --json -> 2']);
+  it('refuses zmdb repl without a TTY and refuses zmdb repl --json', () => {
+    const piped = zmdb('repl');
+    const json = zmdb('repl', '--json');
+    expect([piped.status, json.status]).toEqual([2, 2]);
+    expect(piped.stderr).toMatch(/stdin must be a TTY/);
+    expect(json.stderr).toMatch(/--json is unavailable/);
   });
 
-  // §R7.4 and §R7.5 — `zmdb modules`'s three exit-2 cases and the one that exits 0, as a table. Red.
+  // §R7.4 and §R7.5 — `zmdb modules`'s three exit-2 cases and the one that exits 0.
   //
   // The four rows are the whole of §R3's exit-2 column: colliding flags, an unresolvable module spec,
   // and `--providers` unfiltered above the threshold; plus the `--module` form that must exit 0, which
   // is what stops the threshold refusal from being implemented as a blanket refusal. The fixture is
   // the sixty-provider root the graph tests already use, so the threshold case is provoked by real
   // data rather than by a flag that says "pretend there are sixty".
-  it.fails('exits 2 for colliding flags, an unresolvable spec and an unfiltered wide graph', () => {
-    // Today, every row: `-> ERR:ERR_MODULE_NOT_FOUND`, for the reason recorded on the test above.
+  it('exits 2 for colliding flags, an unresolvable spec and an unfiltered wide graph', () => {
     expect([
       exitRow('modules', WIDE_APP, '--json', '--format', 'dot'),
       exitRow('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule'),
@@ -171,12 +161,59 @@ describe('the zmdb CLI boundary', () => {
     ]);
   });
 
-  // §R7.14. Red, and the only §R7 item that is fully assertable today, because `mapping.mjs` exists.
-  //
-  // The four rows §R7.14 cites all resolve to `oos(NO_REPL, …)` or, for `lazy-modules/e2e/*`, to an
-  // inline argument that the epic contradicts: it says "zmdb builds its modules eagerly and cheaply
-  // … so there is nothing to defer", which stops being true in the slice that lands `lazy()`. The
-  // assertion is that they carry a coverage title instead of an `outOfScope` argument.
+  it('emits one JSON document equal to describeGraph for the same root module', () => {
+    const result = zmdb('modules', APP, '--json');
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout.trim().split('\n')).toHaveLength(1);
+    const parsed: unknown = JSON.parse(result.stdout);
+    const record: { ok?: unknown; command?: unknown; result?: unknown } = Object(parsed);
+    expect({ ok: record.ok, command: record.command, result: record.result }).toEqual({
+      ok: true,
+      command: 'modules',
+      result: describeGraph(AppModule),
+    });
+  });
+
+  it('returns complete descriptions and finding-derived exit codes for invalid graphs', () => {
+    const cycle = zmdb('modules', CYCLE_APP, '--json');
+    expect(cycle.status).toBe(1);
+    const parsed: unknown = JSON.parse(cycle.stdout);
+    const envelope: { result?: unknown } = Object(parsed);
+    const graph: { modules?: unknown[]; findings?: { kind?: unknown; path?: unknown }[] } = Object(envelope.result);
+    expect(graph.modules).toHaveLength(3);
+    expect(graph.findings?.[0]).toMatchObject({
+      kind: 'cycle',
+      path: ['module:CycleAppModule', 'module:CycleBillingModule', 'module:CycleUsersModule', 'module:CycleAppModule'],
+    });
+
+    const shadowed = zmdb('modules', SHADOWED_APP);
+    const duplicate = zmdb('modules', DUPLICATE_APP);
+    const ambiguous = zmdb('modules', AMBIGUOUS_APP);
+    expect([shadowed.status, duplicate.status, ambiguous.status]).toEqual([1, 1, 0]);
+    expect(shadowed.stdout).toContain('ERROR shadowed-route');
+    expect(duplicate.stdout).toContain('ERROR duplicate-provider');
+    expect(ambiguous.stdout).toContain('WARNING duplicate-token-description');
+    expect(describeGraph(ShadowedRouteAppModule).findings[0]?.kind).toBe('shadowed-route');
+    expect(describeGraph(DuplicateProviderAppModule).findings[0]?.kind).toBe('duplicate-provider');
+    expect(describeGraph(AmbiguousTokenAppModule).findings.every(finding => finding.severity === 'warning')).toBe(true);
+    expect(describeGraph(CycleAppModule).modules).toHaveLength(3);
+  });
+
+  it('names both halves of a bad module spec and the filter for a wide graph', () => {
+    const missing = zmdb('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule');
+    expect(missing.status).toBe(2);
+    expect(missing.stderr).toContain('packages/web/src/modules/__fixtures__/large-graph.ts');
+    expect(missing.stderr).toContain('NoSuchModule');
+
+    const wide = zmdb('modules', WIDE_APP, '--providers');
+    expect(wide.status).toBe(2);
+    expect(wide.stderr).toContain('66 provider nodes');
+    expect(wide.stderr).toContain('WideModule');
+  });
+
+  // §R7.14. The inspector and lazy rows cite live tests; the REPL row remains honestly out of scope
+  // until #603 ships the interactive session.
   //
   // What this does *not* do is check the titles. `yarn verify:api-coverage` does that — it requires a
   // cited title to match real `it()` text — so a second copy of that check here would be a second
@@ -187,10 +224,7 @@ describe('the zmdb CLI boundary', () => {
   // `import` of it makes `node scripts/typecheck.mjs` fail with TS2307 on this file. The four keys
   // each sit on one line immediately followed by `oos(`, verified by reading the file, so the text
   // form is exact rather than approximate.
-  it.fails('covers the inspector, REPL and lazy-module rows in the api-coverage mapping', () => {
-    // Today: all four are out of scope —
-    // `['injector/e2e/introspection: oos', 'lazy-modules/e2e/*: oos',
-    //   'inspector/e2e/graph-inspector: oos', 'repl/e2e/*: oos']`.
+  it('covers the inspector and lazy-module rows while the unshipped REPL stays out of scope', () => {
     const source = readFileSync(join(ROOT, 'tests', 'api-coverage', 'mapping.mjs'), 'utf8');
     const cited = ['injector/e2e/introspection', 'lazy-modules/e2e/*', 'inspector/e2e/graph-inspector', 'repl/e2e/*'];
     const state = cited.map(key => {
@@ -198,7 +232,12 @@ describe('the zmdb CLI boundary', () => {
       const outOfScope = new RegExp(`'${literal}':\\s*oos\\(`).test(source);
       return `${key}: ${outOfScope ? 'oos' : 'covered'}`;
     });
-    expect(state).toEqual(cited.map(key => `${key}: covered`));
+    expect(state).toEqual([
+      'injector/e2e/introspection: covered',
+      'lazy-modules/e2e/*: covered',
+      'inspector/e2e/graph-inspector: covered',
+      'repl/e2e/*: oos',
+    ]);
   });
 
   // Green, and it is §R4's whole argument as an assertion rather than as prose. The session is built

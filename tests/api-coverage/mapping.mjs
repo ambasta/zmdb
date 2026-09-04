@@ -164,10 +164,10 @@ const NO_PLATFORM_ADAPTER =
   'adapter abstraction with two implementations to keep honest.';
 
 const NO_REPL =
-  'The NestJS REPL and graph inspector are developer tooling that introspects a booted ' +
-  'application graph. zmdb resolves its graph at module construction and has no runtime metadata ' +
-  'store to browse; what a developer needs to see is in the types and in the generated OpenAPI ' +
-  'document, both of which exist before the process starts.';
+  'NestJS exposes an interactive shell over a booted application. zmdb now describes the declared ' +
+  'module graph on demand, including providers, routes and injection edges, without retaining a ' +
+  'runtime metadata store; it does not yet ship the separate interactive session that boots the ' +
+  'real container and runs arbitrary user expressions.';
 
 const NO_PROTOBUF =
   'Typia compiles Protobuf encoders and decoders from the same types it validates. zmdb emits ' +
@@ -863,20 +863,14 @@ export const nestjs = {
       'that shows up later and further away than the declaration that caused it.',
     'web-di',
   ),
-  'injector/e2e/introspection': oos(NO_REPL, 'web-devtools'),
+  'injector/e2e/introspection': 'describes the large fixture graph',
   'injector/e2e/scoped-instances': oos(NO_REQUEST_SCOPE, 'web-injection-scopes'),
   'injector/e2e/parallel-request-scoped-resolution': oos(NO_REQUEST_SCOPE, 'web-injection-scopes'),
   'injector/e2e/request-scope*': oos(NO_REQUEST_SCOPE, 'web-injection-scopes'),
   'injector/e2e/request-scoped-factory-provider': oos(NO_REQUEST_SCOPE, 'web-injection-scopes'),
   'scopes/e2e/transient-scope': 'resolves transient providers fresh each time; singletons cached',
   'scopes/e2e/*': oos(NO_REQUEST_SCOPE, 'web-injection-scopes'),
-  'lazy-modules/e2e/*': oos(
-    'Lazy module loading defers constructing part of the graph until a request needs it, which ' +
-      'trades startup time for a graph that is not fully known until it runs. zmdb builds its ' +
-      'modules eagerly and cheaply — the bench asserts controller metadata is read once at ' +
-      'register, not per request — so there is nothing to defer and no half-built graph.',
-    'web-modules',
-  ),
+  'lazy-modules/e2e/*': 'constructs a lazy module provider on the first request to its route, not at startup',
   'module-utils/test/integration-module': 'builds controllers with providers resolved from imports',
   'hooks/e2e/on-module-init': 'runs init hooks in order and onShutdown on dispose (reversed)',
   'hooks/e2e/on-app-bootstrap': 'runs init hooks in order and onShutdown on dispose (reversed)',
@@ -903,7 +897,7 @@ export const nestjs = {
   'route-conflict/e2e/wildcard*': 'collapses duplicate slashes and strips trailing slashes',
   'route-conflict/e2e/versioned-wildcard': oos(NO_VERSIONING, 'web-versioning'),
   'versioning/e2e/*': oos(NO_VERSIONING, 'web-versioning'),
-  'inspector/e2e/graph-inspector': oos(NO_REPL, 'web-devtools'),
+  'inspector/e2e/graph-inspector': 'describes the large fixture graph',
   'repl/e2e/*': oos(NO_REPL, 'web-repl'),
   'websockets/e2e/*': oos(NO_WEBSOCKETS, 'web-gateways'),
   'microservices/e2e/*': oos(NO_MICROSERVICES, 'web-microservices'),

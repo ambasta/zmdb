@@ -1659,7 +1659,7 @@ export const PAGE_META = {
     title: 'Devtools',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no module-graph inspector',
+    note: 'the programmatic and CLI module-graph inspector ships; the final epic docs pass remains blocked on the REPL (#603/#604)',
   },
   'web-hot-reload': {
     title: 'Hot Reload',

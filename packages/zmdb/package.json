@@ -22,6 +22,7 @@
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/zmdb"
   },
+  "bin": "./src/cli/bin.ts",
   "files": [
     "src",
     "README.md",
@@ -39,7 +40,8 @@
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
     "./web": "./src/web.ts",
-    "./unplugin": "./src/unplugin.ts"
+    "./unplugin": "./src/unplugin.ts",
+    "./cli": "./src/cli/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -54,7 +56,8 @@
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
-    "@zmdb/web": "workspace:^"
+    "@zmdb/web": "workspace:^",
+    "esbuild": "^0.28.2"
   },
   "devDependencies": {
     "typescript": "7.0.2"

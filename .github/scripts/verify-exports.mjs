@@ -5,6 +5,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createImportGraph } from './lib/import-graph.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
 
@@ -88,7 +90,7 @@ if (existsSync(UMBRELLA_SRC)) {
     }
 
     for (const [, specifier] of source.matchAll(/^\s*(?:export|import)\s+(?:type\s+)?[^;]*?from\s+'([^']+)'/gm)) {
-      if (!specifier.startsWith('@zmdb/') && !specifier.startsWith('./')) {
+      if (!specifier.startsWith('@zmdb/') && !specifier.startsWith('./') && !specifier.startsWith('node:')) {
         console.error(`[ERROR] zmdb export "${subpath}" re-exports from "${specifier}", which is not a zmdb package`);
         errorsCount++;
       }
@@ -115,75 +117,16 @@ const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./testing',
   '@zmdb/aot-validator#./transformer',
   '@zmdb/aot-validator#./unplugin',
+  'zmdb#./cli',
   'zmdb#./unplugin',
 ]);
 
-/** Workspace package name -> directory, so a `@zmdb/*` import can be followed. */
-const WORKSPACE = new Map();
-for (const pkgDirName of packageDirs) {
-  const manifest = join(PACKAGES_DIR, pkgDirName, 'package.json');
-  if (!existsSync(manifest)) continue;
-  const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
-  if (pkg.name) WORKSPACE.set(pkg.name, { dir: join(PACKAGES_DIR, pkgDirName), exports: pkg.exports ?? {} });
-}
-
-/**
- * The file a specifier points at, or null when it leaves the workspace.
- *
- * `@zmdb/*` is followed rather than stopped at, because the umbrella package is the one
- * consumers actually import: a guard that gave up at the package boundary would miss the
- * only import graph that matters.
- *
- * A relative specifier needs the same `.js` -> `.ts` mapping `scripts/ts-specifier-hook.mjs`
- * does at runtime, and for the same reason: the sources name their siblings as `./x.js`, and
- * no `x.js` exists. Without it every walk below stopped at its entry file — measured, one
- * file per export instead of sixteen for `@zmdb/web` — so the reachability check reported
- * success by never looking.
- */
-function relativeTarget(file, specifier) {
-  const direct = join(dirname(file), specifier);
-  if (existsSync(direct)) return direct;
-  const sibling = direct.replace(/\.js$/, '.ts');
-  return existsSync(sibling) ? sibling : direct;
-}
-
-function resolveSpecifier(file, specifier) {
-  if (specifier.startsWith('.')) return relativeTarget(file, specifier);
-  const match = /^(@[^/]+\/[^/]+|[^@][^/]*)(\/.*)?$/.exec(specifier);
-  const target = match && WORKSPACE.get(match[1]);
-  if (!target) return null;
-  const entry = target.exports[`.${match[2] ?? ''}`];
-  return typeof entry === 'string' ? join(target.dir, entry) : null;
-}
-
-/** Every import in `source`, paired with the file it resolves to. */
-function importsOf(file, source) {
-  const specifiers = [];
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])(?:export|import)\b[^;]*?from\s+['"]([^'"]+)['"]/g)) {
-    specifiers.push(specifier);
-  }
-  for (const [, specifier] of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
-    specifiers.push(specifier);
-  }
-  return specifiers.map(specifier => ({ specifier, resolved: resolveSpecifier(file, specifier) }));
-}
+const importGraph = createImportGraph(ROOT);
 
 /** The chain of files from `entry` to the first one that imports `typescript`, or null. */
 function pathToTypescript(entry) {
-  const seen = new Set();
-  const queue = [[entry]];
-  while (queue.length > 0) {
-    const chain = queue.shift();
-    const file = chain.at(-1);
-    if (seen.has(file) || !existsSync(file)) continue;
-    seen.add(file);
-    const source = readFileSync(file, 'utf8');
-    for (const { specifier, resolved } of importsOf(file, source)) {
-      if (/^typescript(\/|$)/.test(specifier)) return chain;
-      if (resolved) queue.push([...chain, resolved]);
-    }
-  }
-  return null;
+  const path = importGraph.findImportPath(entry, ({ specifier }) => /^typescript(\/|$)/.test(specifier));
+  return path === null ? null : path.slice(0, -1);
 }
 
 for (const pkgDirName of packageDirs) {

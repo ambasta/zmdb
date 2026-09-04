@@ -19,32 +19,10 @@ import {
 import { compileModule, type ModuleClass } from '../modules/index.js';
 import type { HttpMethod } from '../routing/index.js';
 
-// The graph description. Tests freeze for the epic "The module graph as a first-class object"
-// (#598 / spec freeze #599); the frozen text is `./SPEC.md` §10.
-//
-// `./` contains this file, `devtools.type-test.ts` and `SPEC.md`, and no code at all: `describeGraph`,
-// `dependentsOf`, `renderTree` and `renderDot` do not exist, `packages/web/package.json` has no
-// `./devtools` subpath, and `../modules/index.ts` and `../di/index.ts` export neither of the two
-// readers §4 says the description is built from. So this file is the whole of §10 written against
-// nothing, which forces two decisions that are worth stating rather than discovering later.
-//
-// **One boundary, and it checks the export before calling it.** Every behavioural assertion goes
-// through `devtools()` below, which imports the module at run time and, once that succeeds, reports
-// which of the four named exports are missing. Without the second half, the day the module exists
-// but `renderDot` is spelled `toDot` these tests would fail with `fn is not a function` — a message
-// that says nothing about which of the two things went wrong. This is the concession to the
-// convention that a red test's failure be diagnostic: it cannot be diagnostic about behaviour that
-// has no implementation, so it is made diagnostic about *why*.
-//
-// **Two assertions are diagnostic against real code rather than the missing module.** §10.6 reads
-// `../di/index.ts`'s metadata slot and is a passing regression for the ownership fix already in the
-// tree; the `pushRoute` half of §4 is represented in the fixture consumed by the golden graph. And
-// §10.7's asymmetry claim is half-asserted by a green test over the real `compileModule`. Everything
-// else records a missing module and cannot do better.
-//
-// Every recorded actual came from running the code, in `packages/web/src/probe600/p5.spec.ts` — a
-// throwaway spec that collected each value into a string and compared it to a sentinel so the
-// assertion diff printed them all.
+// The graph description tests for epic #598. The frozen contract is
+// `./SPEC.md` §10. Every behavioural assertion goes through one dynamic import
+// boundary, which checks all four required exports before calling them; the
+// metadata ownership and compile-time cycle refusal are also asserted directly.
 
 // ---------------------------------------------------------------------------
 // The frozen surface, declared locally
@@ -147,14 +125,10 @@ function missingExports(loaded: object): readonly string[] {
 let loadOutcome: DevtoolsModule | string | undefined;
 
 /**
- * `./index.js`, or a sentence saying why not.
+ * `./index.js`, or a diagnostic sentence if the package boundary regresses.
  *
- * The specifier is assembled at run time and this is not incidental. A static
- * `await import('@zmdb/web/devtools')` is resolved by Vite at transform time, and a subpath that is
- * not in the `exports` map makes the *whole spec file* fail to load — `packages/web/src/devtools/
- * devtools.spec.ts (0 test)`, a failed suite rather than a red test, which no `it.fails` can
- * absorb. Joining the segments defeats the static analysis, so the failure arrives at run time
- * where it can be caught. Verified both ways.
+ * The specifier is assembled at run time so a missing subpath or export is reported by the
+ * assertion boundary instead of preventing Vitest from collecting this file.
  */
 async function devtools(): Promise<DevtoolsModule | string> {
   if (loadOutcome !== undefined) {
@@ -253,7 +227,7 @@ function findingKinds(graph: GraphDescription | string): readonly string[] | str
  * The `INJECTIONS` slot as `field=token` strings, read straight off the class metadata.
  *
  * This is the one reader in this file that does not go through `./index.js`, because §10.6's claim
- * is about `../di/index.ts:78` and not about a module that does not exist. The slot is found by
+ * is about the metadata writer itself. The slot is found by
  * symbol *description* rather than by importing the symbol, which `../di/index.ts` does not export;
  * the property is then read with an ordinary get, which follows the prototype chain — exactly what
  * `injectionsOf` reading `metadata[INJECTIONS]` would do, so this measures the bug rather than an
@@ -433,14 +407,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // for three providers and interesting for thirty: every row of §4's provenance table is exercised
   // once here, including the two that are only interesting in combination — a `value` provider with
   // no `scope` key next to a `factory` one with `scope` and `dependencies: null`.
-  //
-  // actual today, and for every assertion in this file that goes through the boundary:
-  //   devtools did not load: Cannot find module '/packages/web/src/devtools/index.js' imported from
-  //   <abs>/packages/web/src/devtools/devtools.spec.ts
-  // The `imported from` tail is an absolute path, so it is not asserted. This is a weaker recorded
-  // actual than the convention asks for and there is no stronger one available: the directory holds
-  // `SPEC.md` and these two test files.
-  it.fails('describes the large fixture graph', async () => {
+  it('describes the large fixture graph', async () => {
     expect(sortById(await describeGraph(AppModule))).toEqual(goldenAppGraph);
   });
 
@@ -448,10 +415,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // treats `{ kind: 'value' }` and `{ kind: 'value', scope: undefined }` as equal, so an
   // implementation that spread `scope` in unconditionally would pass the golden and fail here.
   // `toStrictEqual` is the assertion that distinguishes an absent key from an `undefined` one.
-  //
-  // actual today: `devtools did not load: Cannot find module ...`, so the filter finds nothing and
-  // `undefined` is compared against the value node.
-  it.fails('gives a value provider no scope key at all', async () => {
+  it('gives a value provider no scope key at all', async () => {
     const graph = await describeGraph(AppModule);
     const config = typeof graph === 'string' ? graph : graph.providers.find(node => node.id === 'provider:CONFIG');
     expect(config).toStrictEqual({
@@ -467,10 +431,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // output format a script reads and `?? []` away from "nothing depends on POOL" — which §2 calls
   // the single most likely way this tool causes an outage rather than preventing one. Asserted on
   // the serialised bytes, because that is where the difference lives.
-  //
-  // actual today: the description is the load-failure sentence, whose JSON contains no
-  // `"dependencies"` at all.
-  it.fails('serialises an opaque factory dependency list as null', async () => {
+  it('serialises an opaque factory dependency list as null', async () => {
     const graph = await describeGraph(AppModule);
     expect(JSON.stringify(graph)).toContain('"dependencies":null');
   });
@@ -486,11 +447,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // `createApp` and the first `describeGraph` call ... reports zero reads" — is only true of the
   // interval, not of the bootstrap, and this is the reading that makes it a true statement. Both
   // placements were probed.
-  //
-  // actual today: zero reads in the interval, which is the first half passing for the right reason,
-  // and zero after the call as well, because there is no call — the load fails before any metadata
-  // is touched. So the second `expect` is what fails.
-  it.fails('reads no module metadata until a description is asked for, and some after', async () => {
+  it('reads no module metadata until a description is asked for, and some after', async () => {
     const app = createApp(AppModule);
     await app.init();
     const counter = countMetadataReads(AppModule);
@@ -503,27 +460,20 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   });
 
   // §10.5, and §8's reverse-edge query. `USERS_REPOSITORY` is injected by two controllers, so both
-  // come back; `POOL`'s only consumer is `USERS_REPOSITORY`'s factory *body*, which is opaque, so
-  // `dependentsOf` must not answer "nothing" — §2 calls reading "nothing depends on POOL" off a
-  // graph that cannot see factory edges the way a provider gets deleted. §8 freezes the shape of
-  // the honest answer: the unknown-edge node is reported explicitly rather than omitted.
-  //
-  // §2 and §8 do not say what `dependentsOf` returns for that case beyond "reported explicitly" —
-  // the tree spelling `provider:POOL (edges unknown)` is given for `renderTree`, not for this
-  // function's `readonly string[]`. This asserts the id plus the marker suffix, which is the only
-  // reading that makes the two sentences consistent, and `NOTES.md` records that it is a reading.
-  //
-  // actual today: `devtools did not load: Cannot find module ...` for both calls.
-  it.fails('reports both consumers of a shared token and marks an unknowable factory edge', async () => {
+  // come back. Factory bodies are opaque, so every provider query also carries the explicit
+  // sentinel that says reverse factory edges are incomplete; it never guesses which factory
+  // consumed `POOL`.
+  it('reports both consumers of a shared token and marks an unknowable factory edge', async () => {
     const graph = await describeGraph(AppModule);
     expect(await dependentsOf(graph, 'provider:USERS_REPOSITORY')).toEqual([
       'controller:UsersModule.UsersController',
       'controller:BillingModule.BillingController',
+      '<factory dependencies unknown>',
     ]);
-    expect(await dependentsOf(graph, 'provider:POOL')).toEqual(['provider:USERS_REPOSITORY (edges unknown)']);
+    expect(await dependentsOf(graph, 'provider:POOL')).toEqual(['<factory dependencies unknown>']);
   });
 
-  // §10.6, asserted against real metadata rather than the missing devtools module.
+  // §10.6, asserted against the metadata reader's source slot.
   //
   // A stage-3 subclass metadata object inherits the base record. The writer therefore has to make
   // an own copy before appending a subclass injection; otherwise the base owns the subclass field.
@@ -544,9 +494,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // `severity` together, because §5 makes severity the CLI's exit code (`error` exits 1, a lone
   // `warning` exits 0) — so a finding with the right kind and the wrong severity turns
   // `zmdb modules` in CI into either a no-op or a failure on a cosmetic token description.
-  //
-  // actual today: every one of these is the load-failure sentence.
-  it.fails('reports each finding kind on a fixture that provokes it', async () => {
+  it('reports each finding kind on a fixture that provokes it', async () => {
     expect(findingKinds(await describeGraph(CycleAppModule)), 'cycle').toEqual(['cycle/error']);
     expect(findingKinds(await describeGraph(UnresolvedTokenAppModule)), 'unresolved token').toEqual([
       'unresolved-token/error',
@@ -571,10 +519,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // graph with a cycle, where `compileModule` throws. §5's argument is that the inspector is the
   // tool you reach for *because* the application will not boot, so a diagnostic that fails on the
   // input it exists to explain is useless.
-  //
-  // actual today: the load-failure sentence, so `modules` cannot be counted. The `compileModule`
-  // half of the asymmetry is pinned green below.
-  it.fails('describes a cyclic graph completely rather than throwing', async () => {
+  it('describes a cyclic graph completely rather than throwing', async () => {
     const graph = await describeGraph(CycleAppModule);
     expect(typeof graph, 'a description, not a sentence about why there is none').toBe('object');
     if (typeof graph !== 'string') {
@@ -595,9 +540,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // The message half of §10.8 — the frozen `A -> B -> C -> A` sentence out of `compileModule` — is
   // asserted in `../modules/lazy.spec.ts` ('names the cycle path in the import cycle message'),
   // where it fails on a comparison of two real strings. It is not duplicated here.
-  //
-  // actual today: the load-failure sentence, so there is no finding to read `path` off.
-  it.fails('carries the cycle path on the finding, first element repeated last', async () => {
+  it('carries the cycle path on the finding, first element repeated last', async () => {
     const graph = await describeGraph(CycleAppModule);
     const finding = typeof graph === 'string' ? undefined : graph.findings[0];
     expect(finding?.kind).toBe('cycle');
@@ -615,9 +558,7 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // several and the escaping differs between node shapes. Asserted by the quoting rule rather than
   // by spawning graphviz, which is what §10.9 asks for: the fixture's `user cache #1` token has a
   // space and a `#`, and `/users/:id` has slashes and a colon.
-  //
-  // actual today: the load-failure sentence, which contains neither quoted form.
-  it.fails('quotes every DOT label so a path and a token description survive', async () => {
+  it('quotes every DOT label so a path and a token description survive', async () => {
     const dot = await renderDot(await describeGraph(AppModule), { providers: true });
     expect(dot, 'a token description with a space and a hash').toContain('"provider:user cache #1"');
     expect(dot, 'a route path with slashes and a colon').toContain('/users/:id');
@@ -634,15 +575,13 @@ describe('describeGraph (frozen: devtools/SPEC.md 10)', () => {
   // diagram of 200 providers is unreadable, and an unreadable diagram is indistinguishable from a
   // broken one. Above fifty provider nodes with no `module` and no `token`, the answer is a refusal
   // that names the count and lists the modules to filter by — the same judgement `../static/SPEC.md`
-  // §5 makes about directory listings. `WideAppModule` has sixty-nine provider nodes: sixty from
-  // `WideModule` plus `UsersModule`'s transitive nine.
+  // §5 makes about directory listings. `WideAppModule` has sixty-six provider nodes: sixty from
+  // `WideModule` plus six in the transitive UsersModule graph.
   //
-  // actual today: `renderDot` returns the load-failure sentence for all three calls, so the refusal
-  // assertion fails on the message and the two positive ones on their content.
-  it.fails('refuses an unfiltered provider diagram above fifty nodes and emits a filtered one', async () => {
+  it('refuses an unfiltered provider diagram above fifty nodes and emits a filtered one', async () => {
     const graph = await describeGraph(WideAppModule);
     const refused = await renderDot(graph, { providers: true });
-    expect(refused, 'names the count').toMatch(/refused: .*69/);
+    expect(refused, 'names the count').toMatch(/refused: .*66/);
     expect(refused, 'lists a module to filter by').toContain('WideModule');
 
     const filtered = await renderDot(graph, { providers: true, module: 'UsersModule' });

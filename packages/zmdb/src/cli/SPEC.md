@@ -285,8 +285,9 @@ is not a re-export. It goes there anyway, for one reason that outweighs the tidi
 whose only content is an executable. The facade already depends on all five packages, so it can reach the
 compiler, the reflector and the runner without a new dependency edge.
 
-`package.json` gains `"bin": { "zmdb": "./src/cli/bin.ts" }` and the export `"./cli": "./src/cli/index.ts"`,
-and `./cli` joins `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin`
+`package.json` gains the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent
+to `{ "zmdb": "./src/cli/bin.ts" }`) and the export `"./cli": "./src/cli/index.ts"`, and `./cli`
+joins `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin`
 entry that is already there. That gate is what keeps the config loader, the filesystem walk and the
 compiler session out of an application bundle — the same reason the entry beside it exists.
 
@@ -606,13 +607,20 @@ start describing the application, and the first thing to ask for it after this w
 Two commands taking one positional argument is cheaper than a config field that changes what the
 config is for.
 
-Loading the spec uses the same mechanism §4 already documents for the config file — Node's own
-type stripping — with the cost that section names, and one more that belongs here: **importing a
-root module evaluates that file and everything it imports.** Decorators run, which is the point,
-and any top-level side effect in application code runs too. `zmdb modules` constructs no provider
-and calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module
-scope was already opening on every import and is out of the CLI's hands. Naming it is the
-difference between a surprising connection and a documented one.
+Loading the spec cannot use Node's type stripping alone. Measured on the realistic fixture under
+Node 26.8.1, the import fails with `SyntaxError: Invalid or unexpected token`: type stripping does
+not lower standard Stage-3 decorators. The CLI therefore installs a synchronous loader only for
+the application import and applies esbuild's standard-decorator transform, the same transform the
+Vitest configuration uses. Relative `.js` specifiers are mapped to their `.ts` siblings in that
+loader. `esbuild` is a dependency of the build-time-only `zmdb/cli` entry; no runtime package entry
+reaches it.
+
+The cost that §4 names still applies, plus one that belongs here: **importing a root module
+evaluates that file and everything it imports.** Decorators run, which is the point, and any
+top-level side effect in application code runs too. `zmdb modules` constructs no provider and
+calls no hook, so a pool declared in a `useFactory` stays closed; a pool opened at module scope was
+already opening on every import and is out of the CLI's hands. Naming it is the difference between
+a surprising connection and a documented one.
 
 ### R3. `zmdb modules`: flags, the `--json` collision, and exit codes
 

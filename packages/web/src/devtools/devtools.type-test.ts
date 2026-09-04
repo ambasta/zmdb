@@ -2,24 +2,15 @@
 // object" (#598 / spec freeze #599); the frozen text is `./SPEC.md` §2 and §10.2.
 //
 // The type-level half of `devtools.spec.ts`. `node scripts/typecheck.mjs` compiles this file, so a
-// frozen claim written plainly is a build failure rather than a red test, and `@ts-expect-error`
-// over the claim is the `it.fails` of the type level. See `../di/di.type-test.ts` for the house
-// style and `../../../query-compiler/src/schema-objects/expression-indexes.type-test.ts` for the
-// placement rule: the directive goes on the line the compiler reports, one assertion per line.
+// signature or shape regression is a build failure.
 //
 // §10.2 asks for three things, and only one of them can be written as an assertion in the shape it
 // is stated. That is worth setting out before the file, because the shape of the file is entirely
 // determined by it.
 //
-// **"`describeGraph(app)` is rejected where `app: App`" cannot be written as a rejection.** The
-// convention this freeze follows cannot pre-assert that a currently-legal expression becomes
-// illegal: `describeGraph` is not exported today, so the imported name is an error type, an error
-// type is callable with anything, and `@ts-expect-error` over `describeGraph(app)` is an unused
-// directive — TS2578, a build failure, today. The claim is therefore carried positively, as the two
-// facts that make the rejection follow: `App` is not assignable to `ModuleClass`, and
-// `describeGraph`'s first parameter is `ModuleClass`. The first is green and provable against the
-// real `../app/index.ts`; the second is a signature assertion, which is the case the note at the
-// import explains.
+// **"`describeGraph(app)` is rejected where `app: App`"** is carried positively as the two facts
+// that make the rejection follow: `App` is not assignable to `ModuleClass`, and
+// `describeGraph`'s first parameter is exactly `ModuleClass`.
 //
 // **"reading `scope` off a `ProviderNode` without narrowing `kind` is rejected" likewise.** It is
 // carried as `keyof ProviderNode` — `keyof` over a union is the intersection of the members' keys,
@@ -39,25 +30,6 @@ import type { Scope } from '../di/index.js';
 import type { AppModule } from '../modules/__fixtures__/large-graph.js';
 import type { ModuleClass } from '../modules/index.js';
 import type { HttpMethod } from '../routing/index.js';
-// One directive, and it sits between the last specifier and the closing brace. That placement is
-// not decoration: `./index.ts` does not exist, so the compiler's complaint is TS2307 against the
-// *module specifier* — reported on the `} from './index.js';` line once `oxfmt` has reflowed a
-// seven-name list past `printWidth: 120` — and not TS2305 per name. Verified by running `tsc`, not
-// reasoned about; a directive above the `import` keyword covers only the first line and is reported
-// unused. `oxfmt` preserves a trailing comment inside the braces, also verified.
-//
-// The consequence is the one thing to understand about this file. While the module is missing, every
-// imported name is the compiler's error type, and the error type compares *equal* to any function
-// type it is measured against while comparing *unequal* to an object type — verified with a
-// four-line `tsc` probe. So the shape assertions below (`_ProviderNodeShape`, `_GraphFilterShape`)
-// are genuinely red and carry directives, and the signature assertions are vacuously true today and
-// deliberately carry none: a directive over one of them would be TS2578 and would fail the build.
-// They are not dead weight, and this is the same trade `../modules/lazy.type-test.ts` records for
-// `_LazySignature`: the *existence* of the module is asserted once, by the directive below, and the
-// moment `index.ts` lands, TS2307 clears and all six signature assertions become live at once —
-// which means the implementation slice cannot satisfy this file by exporting four functions of the
-// wrong shape. What cannot be done is make them red *first*, and that is a limit of the idiom
-// rather than a choice.
 import type {
   GraphDescription,
   GraphFilter,
@@ -66,7 +38,6 @@ import type {
   describeGraph,
   renderDot,
   renderTree,
-  // @ts-expect-error frozen (SPEC.md §2): `./index.ts` exists and exports §2's surface.
 } from './index.js';
 
 // ---------------------------------------------------------------------------
@@ -126,7 +97,6 @@ type FrozenFactoryProvider = {
 /** §2 verbatim: two arms, discriminated by `kind`, and the value arm has no `scope` at all. */
 type FrozenProviderNode = FrozenValueProvider | FrozenFactoryProvider;
 
-// @ts-expect-error frozen (SPEC.md §2): `ProviderNode` is the two-arm union with no third member.
 export type _ProviderNodeShape = Expect<Equal<ProviderNode, FrozenProviderNode>>;
 
 // ---------------------------------------------------------------------------
@@ -202,8 +172,8 @@ export function edgesOf(node: FrozenProviderNode): readonly string[] | 'unknown'
 type FrozenDependentsOf = (graph: GraphDescription, id: string) => readonly string[];
 
 // `readonly string[]`, not `readonly ProviderNode[]` and not a `Map`: §8 freezes reverse edges as
-// derivable rather than materialised, so what comes back is ids into the description the caller
-// already holds. Returning nodes would be a second copy of the truth, which is §8's stated non-goal.
+// derivable rather than materialised, so what comes back is known ids plus the explicit opaque-
+// factory sentinel. Returning nodes would be a second copy of the truth.
 export type _DependentsOfSignature = Expect<Equal<typeof dependentsOf, FrozenDependentsOf>>;
 
 type FrozenRenderer = (graph: GraphDescription, filter?: GraphFilter) => string;
@@ -222,9 +192,16 @@ export type _RenderDotSignature = Expect<Equal<typeof renderDot, FrozenRenderer>
 // `Parameters<...>[1]` because the optionality of the *parameter* and the optionality of its
 // *fields* are two different claims, and the tuple is the only form that states the first. The
 // tuple is held in an alias so the assertion fits `printWidth: 120` on one line.
-type FrozenRendererParams = [graph: GraphDescription, filter?: GraphFilter];
+type RendererParams = Parameters<typeof renderDot>;
 
-export type _FilterIsOptional = Expect<Equal<Parameters<typeof renderDot>, FrozenRendererParams>>;
+// TypeScript 7 includes `undefined` explicitly in an optional parameter tuple
+// under exact optional property types. Assert the two slots and the 1-or-2
+// length directly instead of relying on tuple identity.
+export type _FilterIsOptional = Expect<Equal<RendererParams['length'], 1 | 2>>;
+
+export type _RendererGraphParameter = Expect<Equal<RendererParams[0], GraphDescription>>;
+
+export type _RendererFilterParameter = Expect<Equal<RendererParams[1], GraphFilter | undefined>>;
 
 // The frozen `GraphFilter`, held locally, so the second claim can be made today: four fields, all
 // optional, and no fifth. §8's table is the whole of it — a `findings: boolean` or a `format` field
@@ -236,7 +213,6 @@ type FrozenGraphFilter = {
   readonly providers?: boolean;
 };
 
-// @ts-expect-error frozen (SPEC.md §2): `GraphFilter` is §8's four optional fields and no more.
 export type _GraphFilterShape = Expect<Equal<GraphFilter, FrozenGraphFilter>>;
 
 // ---------------------------------------------------------------------------
@@ -246,7 +222,7 @@ export type _GraphFilterShape = Expect<Equal<GraphFilter, FrozenGraphFilter>>;
 // `routes[].method` is `HttpMethod` and not `string`. This matters more than it looks: `getRoutes`
 // (`../routing/index.ts:106-121`) returns `{ method, path, handlerName }`, so a description that
 // typed `method` as `string` would compile against that reader forever and silently accept a
-// seventh verb that the router cannot dispatch. Held locally because `ClassNode` does not exist yet.
+// seventh verb that the router cannot dispatch. Held locally to pin the exact exported field names.
 type FrozenRouteNode = { readonly method: HttpMethod; readonly path: string; readonly handler: string };
 
 // `handler`, not `handlerName`. §2 renames the field on the way out of `getRoutes`, and this is the

@@ -13,11 +13,8 @@ import { describe, expect, it } from 'vitest';
 // (`yarn verify:devtools-boundary`), and a runtime TTY refusal. This file is about the third, and
 // about the two manifest facts the first two consist of.
 //
-// **Why the assertions are shaped the way they are.** §10.11 asks that the gate "fails on a planted
-// `import '@zmdb/web/devtools'` in `../app/index.ts` and passes on the tree as committed — the
-// enforcement asserted as enforcement, not as a convention". The gate does not exist:
-// `.github/scripts/verify-devtools-boundary.mjs` is absent and `package.json` has no
-// `verify:devtools-boundary` script, both asserted below. So the honest split is:
+// §10.11 asks that the gate fail on a planted inspector import and pass on the committed tree.
+// The oracle below uses overlays so all three plants are tested without mutating the workspace:
 //
 // - The *oracle* is written here, once, as `reachesInspector` — the walk §9.3 specifies, over the
 //   real workspace, with an overlay so a plant can be tried without writing to the tree. Three green
@@ -28,8 +25,7 @@ import { describe, expect, it } from 'vitest';
 //   the real `.mjs` has something to be checked against, and they break if the walk stops following
 //   `@zmdb/*` across package boundaries or stops matching bare side-effect imports.
 // - The *tree as committed* is green, and stays a live assertion for as long as the repository does.
-// - The gate *itself*, the subpath and the `zmdb#./web` re-export list are red, one assertion each,
-//   because each is a single fact about a file that can be read today and is false today.
+// - The gate, subpath and CI wiring are asserted as repository facts.
 //
 // The walk is a local copy of `.github/scripts/verify-exports.mjs`'s `importsOf`,
 // `resolveSpecifier` and `pathToTypescript` (`:145-173`), which §9.3 names as the shape to copy —
@@ -48,8 +44,8 @@ const DEVTOOLS_DIR = join(PACKAGES_DIR, 'web', 'src', 'devtools');
 /** The two packages a consumer installs, which are the only entry points §9.3 walks from. */
 const GUARDED_PACKAGES: readonly string[] = ['@zmdb/web', 'zmdb'];
 
-/** The one subpath that is *allowed* to reach the inspector, because it is the inspector. */
-const EXEMPT_ENTRY = '@zmdb/web#./devtools';
+/** The two tool-only subpaths allowed to reach the inspector. */
+const EXEMPT_ENTRIES: ReadonlySet<string> = new Set(['@zmdb/web#./devtools', 'zmdb#./cli']);
 
 interface WorkspacePackage {
   readonly name: string;
@@ -223,7 +219,7 @@ function reachesInspector(entry: string, overlay: ReadonlyMap<string, string>): 
   return null;
 }
 
-/** `name#subpath` for every guarded entry point except the inspector's own. */
+/** `name#subpath` for every guarded production entry point. */
 function guardedEntries(): readonly { readonly id: string; readonly file: string }[] {
   const entries: { id: string; file: string }[] = [];
   for (const name of GUARDED_PACKAGES) {
@@ -234,7 +230,7 @@ function guardedEntries(): readonly { readonly id: string; readonly file: string
         continue;
       }
       const id = `${name}#${subpath}`;
-      if (id === EXEMPT_ENTRY) {
+      if (EXEMPT_ENTRIES.has(id)) {
         continue;
       }
       entries.push({ id, file: join(pkg?.dir ?? '', target) });
@@ -369,22 +365,16 @@ describe('the devtools boundary', () => {
     expect(named).toEqual(['lazy', 'moduleDefOf', 'injectionsOf']);
   });
 
-  // §9.1's first barrier: the subpath itself. Red.
-  it.fails('publishes ./devtools as a separate @zmdb/web subpath', () => {
-    // Today: `undefined`. `packages/web/package.json` has fifteen subpaths, `./bench` last, and no
-    // `./devtools`.
+  // §9.1's first barrier: the subpath itself.
+  it('publishes ./devtools as a separate @zmdb/web subpath', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(PACKAGES_DIR, 'web', 'package.json'), 'utf8'));
     const record: { exports?: Record<string, unknown> } = Object(manifest);
     expect(record.exports?.['./devtools']).toBe('./src/devtools/index.ts');
   });
 
   // §9.1's other half of the first barrier, and the one that is not a manifest fact: nothing under
-  // `src/devtools/` may be reachable from `src/index.ts`. Red, because the module that must not be
-  // re-exported does not exist to be re-exported. This is the assertion that becomes load-bearing
-  // the moment it can be broken, which is why it is written now rather than with the implementation.
-  it.fails('keeps the inspector out of the @zmdb/web root entry once it exists', () => {
-    // Today: `devtools/index.ts is absent`. The directory holds `SPEC.md`, `devtools.spec.ts` and
-    // `devtools.type-test.ts` and no `index.ts`.
+  // `src/devtools/` may be reachable from `src/index.ts`.
+  it('keeps the inspector out of the @zmdb/web root entry once it exists', () => {
     const inspector = join(DEVTOOLS_DIR, 'index.ts');
     const state = existsSync(inspector) ? 'present' : 'devtools/index.ts is absent';
     expect([state, reachesInspector(join(PACKAGES_DIR, 'web', 'src', 'index.ts'), NO_OVERLAY)]).toEqual([
@@ -393,32 +383,25 @@ describe('the devtools boundary', () => {
     ]);
   });
 
-  // §9.3's third barrier. Red, and the two halves are separate assertions because they fail
-  // independently: a script with no `yarn` entry is never run by CI, and a `yarn` entry pointing at
-  // a missing script fails with an unhelpful `MODULE_NOT_FOUND`.
-  it.fails('ships the gate as .github/scripts/verify-devtools-boundary.mjs', () => {
-    // Today: `[]`. `.github/scripts/` holds fourteen `verify-*.mjs` files and this is not one.
+  // §9.3's third barrier. The two halves are separate because they fail independently.
+  it('ships the gate as .github/scripts/verify-devtools-boundary.mjs', () => {
     const present = ['verify-devtools-boundary.mjs'].filter(name => existsSync(join(ROOT, '.github', 'scripts', name)));
     expect(present).toEqual(['verify-devtools-boundary.mjs']);
   });
 
-  it.fails('wires the gate to yarn verify:devtools-boundary', () => {
-    // Today: `undefined`. The sixteen `verify:*` scripts in the root manifest do not include it.
-    // §9.3 puts the script in `.github/scripts/` rather than in `scripts/` as #602 says, on the
-    // grounds that thirteen of the fourteen existing `verify:*` scripts live there — which is the
-    // count this repository actually has, verified by reading the manifest.
+  it('wires the gate to yarn verify:devtools-boundary', () => {
+    // §9.3 puts repository gates in `.github/scripts/`; `verify:fixtures` is the package-bin
+    // exception.
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     const record: { scripts?: Record<string, unknown> } = Object(manifest);
     expect(record.scripts?.['verify:devtools-boundary']).toBe('node .github/scripts/verify-devtools-boundary.mjs');
   });
 
-  // The gate has to be *run*, not merely present. Red, and separate from the two above because a
+  // The gate has to be *run*, not merely present. Separate from the two above because a
   // script that exists and is wired to `yarn` but never invoked by a workflow is the failure mode
   // that looks most like success: `yarn verify:devtools-boundary` passes locally forever and nothing
   // stops the plant from merging.
-  it.fails('runs the boundary gate in CI', () => {
-    // Today: `no verify:devtools-boundary step`. `.github/workflows/ci.yml` invokes `verify:exports`,
-    // `verify:api-coverage`, `verify:escape-hatches` and the rest; this is not among them.
+  it('runs the boundary gate in CI', () => {
     const workflow = join(ROOT, '.github', 'workflows', 'ci.yml');
     const source = existsSync(workflow) ? readFileSync(workflow, 'utf8') : '';
     const found = source.includes('verify:devtools-boundary')

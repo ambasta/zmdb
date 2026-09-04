@@ -49,9 +49,13 @@ export function publishManifest(pkg) {
   // which is also the reason `exports` cannot stay on `src`, however well it works in the
   // workspace, where `node_modules/@zmdb/*` is a symlink and the realpath is outside it.
   if (pkg.bin) {
-    next.bin = {};
-    for (const [command, target] of Object.entries(pkg.bin)) {
-      next.bin[command] = typeof target === 'string' ? toDist(target, '.js') : target;
+    if (typeof pkg.bin === 'string') {
+      next.bin = toDist(pkg.bin, '.js');
+    } else {
+      next.bin = {};
+      for (const [command, target] of Object.entries(pkg.bin)) {
+        next.bin[command] = typeof target === 'string' ? toDist(target, '.js') : target;
+      }
     }
   }
   // `workspace:^` is a yarn protocol; plain `npm publish` would leave it in the tarball.
