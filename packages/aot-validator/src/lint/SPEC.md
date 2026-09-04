@@ -237,6 +237,24 @@ four repository specs that exercise `update(id, {})` and one populate spec that 
 method-name/literal detectors remain warnings in `recommended` rather than pretending their signal is
 error-grade.
 
+### Repository integration
+
+The root `.oxlintrc.json` loads this source entry as the `zmdb` plugin and enables all six
+`recommended` severities. Oxlint loads plugins before a package build has created this source tree's
+`.js` siblings, so `scripts/zmdb-lint-plugin.mjs` registers `scripts/ts-specifier-hook.mjs` and then
+dynamically imports the TypeScript entry. That adapter makes both `yarn lint` and the direct
+`npx oxlint` gate load the same rules. CI invokes `yarn lint` in its existing lint step, so dogfooding
+adds rules to one parse and traversal rather than running a second linter.
+
+`maxWarnings` remains zero. Exact overrides disable only the rule each deliberate sample exercises:
+the two invalid rule fixtures, the compile-only `unknown & Sql<'json'>` proof, four empty-patch tests
+across three files, and one unbounded populate test. Every other built-in and zmdb rule still reads
+those files.
+
+Measured on 2026-09-04 with seven warm local runs on the parent and current checkouts, median `yarn lint`
+wall-clock time moved from 0.410 s to 0.768 s: +0.358 s (+87.3%). A one-line unoverridden
+`repo.update(id, {})` probe exited 1 with `zmdb/no-empty-patch`; the complete repository exited 0.
+
 The rules are tested with oxlint's own `RuleTester`, whose test cases are ESLint-shaped — deliberately, so
 they port — and which exposes settable `describe` and `it` statics. Assigning vitest's to them puts the
 rule tests in the ordinary suite with no second runner and no second reporter.

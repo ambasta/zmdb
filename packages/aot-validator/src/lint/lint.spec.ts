@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { expect, it } from 'vitest';
 
 import { loadLintModule } from './__fixtures__/rule-tester.js';
@@ -57,4 +59,21 @@ it('sets the frozen recommended and strict severities', async () => {
     'no-unknown-json-column': 'error',
     'require-sql-on-number': 'error',
   });
+});
+
+it('runs the complete recommended rule set through the repository lint command in CI', async () => {
+  const module = await loadLintModule();
+  const config = readFileSync(new URL('../../../../.oxlintrc.json', import.meta.url), 'utf8');
+  const loader = readFileSync(new URL('../../../../scripts/zmdb-lint-plugin.mjs', import.meta.url), 'utf8');
+  const manifest = readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8');
+  const workflow = readFileSync(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+
+  expect(config).toContain('"specifier": "./scripts/zmdb-lint-plugin.mjs"');
+  for (const [name, severity] of Object.entries(byRuleName(module.configs.recommended))) {
+    expect(config).toContain(`"zmdb/${name}": "${String(severity)}"`);
+  }
+  expect(loader).toContain("import './ts-specifier-hook.mjs'");
+  expect(loader).toContain("await import('../packages/aot-validator/src/lint/index.ts')");
+  expect(manifest).toContain('"lint": "oxlint"');
+  expect(workflow).toContain('name: Lint (oxlint + zmdb recommended rules)\n        run: yarn lint');
 });

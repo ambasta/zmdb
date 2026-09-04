@@ -1,6 +1,6 @@
-> **ToDo / integration and reference gap.** The `@zmdb/aot-validator/lint` subpath ships six syntactic
-> rules and ESLint flat configs. The plugin is not yet wired into `yarn lint` or a dedicated CI step, and
-> this page is still rationale rather than a complete setup and rule reference.
+> **ToDo / reference gap.** The `@zmdb/aot-validator/lint` subpath ships six syntactic rules and
+> ESLint flat configs. This repository runs the complete recommended set through `yarn lint` and CI;
+> this page is still rationale rather than a complete consumer setup and rule reference.
 
 ## What the shipped rules catch
 

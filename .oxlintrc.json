@@ -5,6 +5,14 @@
   // switches on the plugin's correctness rules, and the seven turned off at the bottom of `rules`
   // are ones this suite violates deliberately — each says why.
   "plugins": ["typescript", "unicorn", "oxc", "import", "vitest"],
+  // The package exports the same plugin for consumers. CI loads the source entry because lint runs
+  // before build; the root script supplies the repository's `.js` -> `.ts` source-resolution hook.
+  "jsPlugins": [
+    {
+      "name": "zmdb",
+      "specifier": "./scripts/zmdb-lint-plugin.mjs"
+    }
+  ],
   "categories": {
     "correctness": "error",
     "pedantic": "off",
@@ -39,6 +47,46 @@
     "maxWarnings": 0,
     "respectEslintDisableDirectives": false
   },
+  "overrides": [
+    {
+      // Rule fixtures must contain the spelling their own RuleTester case rejects. Disable only
+      // that rule; every other general and zmdb rule still checks each fixture.
+      "files": ["packages/aot-validator/src/lint/__fixtures__/nullable-tags.input.ts"],
+      "rules": {
+        "zmdb/no-distributed-nullable-tags": "off"
+      }
+    },
+    {
+      // The first file is the invalid fixture; the second is a compile-only proof that
+      // `unknown & Sql<'json'>` collapses. Both are intentional instances of this one rule.
+      "files": [
+        "packages/aot-validator/src/lint/__fixtures__/unknown-json.input.ts",
+        "packages/schema-core/src/json.type-test.ts"
+      ],
+      "rules": {
+        "zmdb/no-unknown-json-column": "off"
+      }
+    },
+    {
+      // These four tests exercise the empty-patch behaviour deliberately. Warning elsewhere still
+      // fails because maxWarnings is zero, so adding another instance requires an explicit audit.
+      "files": [
+        "packages/repository/src/tagged-to-ddl.spec.ts",
+        "packages/repository/src/typed-methods/key-arguments.spec.ts",
+        "packages/repository/src/typed-methods/whole-table-writes.spec.ts"
+      ],
+      "rules": {
+        "zmdb/no-empty-patch": "off"
+      }
+    },
+    {
+      // This populate test needs every row and deliberately exercises the unbounded form.
+      "files": ["packages/repository/src/typed-populate/typed-populate.spec.ts"],
+      "rules": {
+        "zmdb/no-unbounded-find": "off"
+      }
+    }
+  ],
   "rules": {
     "eslint/no-underscore-dangle": "off",
     "eslint/no-unused-vars": [
@@ -106,6 +154,12 @@
     // Both are style asks in a suite whose house rule is that a test asserts the message it measured;
     // `vi.fn()` without a type parameter is inferred from its use, and adding one is noise.
     "vitest/require-mock-type-parameters": "off",
-    "vitest/require-to-throw-message": "off"
+    "vitest/require-to-throw-message": "off",
+    "zmdb/no-distributed-nullable-tags": "error",
+    "zmdb/no-empty-patch": "warn",
+    "zmdb/no-interpolated-sql": "error",
+    "zmdb/no-unbounded-find": "warn",
+    "zmdb/no-unknown-json-column": "error",
+    "zmdb/require-sql-on-number": "warn"
   }
 }

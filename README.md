@@ -27,7 +27,7 @@
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
 > **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
-> and OpenAPI-derived tools** harness. **2,035 tests green** across 210 files,
+> and OpenAPI-derived tools** harness. **2,036 tests green** across 210 files,
 > including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
 > Alongside them, **290 expected-failing tests** hold the frozen specs of features
