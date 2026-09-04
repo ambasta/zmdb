@@ -27,10 +27,10 @@
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
 > **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
-> and OpenAPI-derived tools** harness. **1,806 tests green** across 183 files,
+> and OpenAPI-derived tools** harness. **1,807 tests green** across 185 files,
 > including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **160 expected-failing tests** hold the frozen specs of features
+> Alongside them, **172 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.
