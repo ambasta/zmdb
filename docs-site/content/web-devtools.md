@@ -33,6 +33,46 @@ invented list. `dependentsOf(graph, providerId)` returns every known direct
 consumer and adds `<factory dependencies unknown>` when opaque factories mean the
 reverse query cannot be complete.
 
+Against the repository's large fixture, a filtered provider tree is:
+
+```text
+UsersModule
+  imports: DataModule
+  controller UsersController
+    GET    /users/:id                     UsersController.byId
+    GET    /users/me                      UsersController.me
+    POST   /users                         UsersController.create
+DataModule
+  imports: CoreModule
+  provider POOL (singleton; dependencies unknown)
+  provider USERS_REPOSITORY (singleton; dependencies unknown)
+CoreModule
+  provider CONFIG (value)
+  provider CLOCK (singleton; dependencies unknown)
+  provider REQUEST_ID (transient; dependencies unknown)
+  provider user cache #1 (value)
+```
+
+The reverse query on that same description keeps both known consumers and the
+unknown-factory residue visible:
+
+```ts
+import { dependentsOf, describeGraph } from '@zmdb/web/devtools';
+
+import { AppModule } from './app.module.js';
+
+const graph = describeGraph(AppModule);
+console.log(dependentsOf(graph, 'provider:USERS_REPOSITORY'));
+```
+
+```text
+[
+  'controller:UsersModule.UsersController',
+  'controller:BillingModule.BillingController',
+  '<factory dependencies unknown>'
+]
+```
+
 ## Use the CLI
 
 Name the root as `<path>#<export>`:
@@ -82,12 +122,30 @@ dependency and reverse-dependency edges. `--depth` bounds either closure and
 defaults to 2. An unfiltered provider view above 50 provider nodes is refused
 with the count and module names to filter by instead of emitting a hairball.
 
+The large fixture's filtered diagram is small enough to inspect directly:
+
+```dot
+digraph zmdb {
+  rankdir="LR";
+  "module:UsersModule" [shape="box", label="UsersModule"];
+  "module:DataModule" [shape="box", label="DataModule"];
+  "module:UsersModule" -> "module:DataModule" [label="imports"];
+  "provider:POOL" [shape="ellipse", label="POOL\nsingleton\ndependencies unknown", style="dashed"];
+  "module:DataModule" -> "provider:POOL" [label="provides"];
+  "provider:USERS_REPOSITORY" [shape="ellipse", label="USERS_REPOSITORY\nsingleton\ndependencies unknown", style="dashed"];
+  "module:DataModule" -> "provider:USERS_REPOSITORY" [label="provides"];
+  "controller:UsersModule.UsersController" [shape="component", label="UsersController\nGET /users/:id byId\nGET /users/me me\nPOST /users create"];
+  "module:UsersModule" -> "controller:UsersModule.UsersController" [label="controller"];
+  "controller:UsersModule.UsersController" -> "provider:USERS_REPOSITORY" [label="injects"];
+}
+```
+
 ## Read findings before startup
 
 A cyclic graph is still described completely:
 
 ```text
-ERROR cycle: Import cycle: module:AppModule -> module:BillingModule -> module:AppModule
+ERROR cycle: Import cycle: module:CycleAppModule -> module:CycleBillingModule -> module:CycleUsersModule -> module:CycleAppModule
 ```
 
 `compileModule` continues to reject the same graph. The asymmetry is intentional:

@@ -1,6 +1,7 @@
-> **Local REPL available.** `zmdb repl` boots the real application container,
-> runs its startup lifecycle and opens a TTY-only Node REPL. It creates no HTTP
-> server, debug socket or remote-attach port.
+> **Development-only local REPL.** Nothing starts it automatically. An explicit
+> `zmdb repl` command boots the real application container, runs its startup
+> lifecycle and opens a TTY-only Node REPL. It creates no HTTP server, debug
+> socket or remote-attach port.
 
 ## Start the application shell
 
@@ -128,6 +129,8 @@ closes through the same lifecycle as the server application.
 The boundary is structural:
 
 - stdin must be a TTY; piped and network-controlled input exits 2;
+- it opens no listener, not even on loopback, and accepts only local terminal
+  input;
 - there is no `--host`, `--port`, `--inspect` or remote protocol;
 - `--json` is refused because an interactive conversation is not one JSON
   document;

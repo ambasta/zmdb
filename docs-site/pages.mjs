@@ -1658,8 +1658,7 @@ export const PAGE_META = {
   'web-devtools': {
     title: 'Devtools',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'the module-graph inspector and local CLI REPL ship; the final three-page epic docs pass is #604',
+    status: 'supported',
   },
   'web-hot-reload': {
     title: 'Hot Reload',
@@ -1669,8 +1668,7 @@ export const PAGE_META = {
   'web-repl': {
     title: 'REPL',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'the local TTY-only REPL ships; the final lazy/inspector/REPL docs pass is #604',
+    status: 'supported',
   },
   'web-multiple-servers': {
     title: 'Multiple Servers',

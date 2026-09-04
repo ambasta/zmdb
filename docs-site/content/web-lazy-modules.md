@@ -1,3 +1,9 @@
+Applications start eagerly by default. Eager construction keeps initialization
+failures at startup and avoids charging the first matching request for setup.
+Reach for a lazy module when startup cost matters and the subtree is genuinely
+optional: a cold-started process, a short-lived CLI, or a rarely used
+administrative surface.
+
 Lazy modules defer construction without deferring validation. The complete
 module graph is checked when `createApp` runs; a lazy subtree's providers,
 controllers and lifecycle hooks are instantiated only when one of its routes or
@@ -26,7 +32,7 @@ class AppModule {}
 ```
 
 Use the eager form when the module is required on most requests or when its
-initialization must be proven during startup.
+factories and lifecycle hooks must be proven during startup.
 
 ## What is still eager
 
@@ -41,7 +47,7 @@ For a large optional library, put a dynamic `import()` inside a provider
 factory. The DI container remains synchronous, so such a token is a
 `Promise<T>` that its consumer explicitly awaits.
 
-## Validation happens at startup
+## Graph validation still happens at startup
 
 `compileModule` validates both eager and lazy declarations before constructing
 any controller. Startup refuses:
@@ -51,8 +57,10 @@ any controller. Startup refuses:
 - the same token registered by two modules;
 - an eager controller that injects a token available only from a lazy subtree.
 
-A factory, constructor or lifecycle hook can still throw only when the lazy
-module runs. Validation proves the wiring, not arbitrary application code.
+A factory, constructor, dynamic import or lifecycle hook can still throw only
+when the lazy module runs. Validation proves the declared wiring, not arbitrary
+application code. That first-load residue is the reason eager remains the safer
+default when deferral has no measured benefit.
 
 If a module is reachable through any eager import, it is eager everywhere. Its
 behavior does not depend on which `imports` entry happened to be visited first.

@@ -83,4 +83,6 @@ failure behavior.
 
 ## Cross-links
 
-- [Dependency injection](./web-di.html) · [Controllers & routing](./web-controllers.html)
+- [Dependency injection](./web-di.html) · [Controllers & routing](./web-controllers.html) ·
+  [Lazy modules](./web-lazy-modules.html) · [Module inspector](./web-devtools.html) ·
+  [REPL](./web-repl.html)
