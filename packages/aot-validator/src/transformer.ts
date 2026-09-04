@@ -21,8 +21,14 @@
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
 import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
+import type { ToolProvider } from '@zmdb/schema-core/llm';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
-import { isLiteralTypeNode, isNumericLiteral, isPrefixUnaryExpression } from 'typescript/unstable/ast/is';
+import {
+  isLiteralTypeNode,
+  isNumericLiteral,
+  isPrefixUnaryExpression,
+  isStringLiteral,
+} from 'typescript/unstable/ast/is';
 import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
@@ -51,6 +57,7 @@ export const CALLEES: ReadonlySet<string> = new Set([
   'random',
   'toJsonSchema',
   'schemaOf',
+  'toolFor',
   'protoDescriptor',
   'protoDecode',
   'protoEncode',
@@ -81,6 +88,8 @@ type EmissionDepth =
   | { readonly kind: 'refused'; readonly reason: string };
 
 const SHALLOW_CALLEES: ReadonlySet<string> = new Set(['isShallow', 'assertShallow', 'validateShallow']);
+const TOOL_PROVIDERS: ReadonlySet<string> = new Set(['openai', 'openai-strict', 'anthropic', 'gemini', 'json-schema']);
+type ToolProviderTarget = ToolProvider | 'dynamic';
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -181,6 +190,28 @@ export function transformFile(fileName: string, code: string, context: Transform
     }
     const reflected: Reflected = reflect(reflector, site.callee, type);
 
+    const provider = site.callee === 'toolFor' ? toolProvider(site) : undefined;
+    if (site.callee === 'toolFor' && provider === undefined) {
+      diagnostics.push({
+        fileName,
+        position,
+        callee: site.callee,
+        path: '',
+        reason: '`toolFor<T>` needs a provider argument',
+      });
+      continue;
+    }
+    if (site.callee === 'toolFor' && site.node.arguments[1] === undefined) {
+      diagnostics.push({
+        fileName,
+        position,
+        callee: site.callee,
+        path: '',
+        reason: '`toolFor<T>` needs a tool name',
+      });
+      continue;
+    }
+
     const refusals = reflector.diagnostics.slice(reflectedAt);
     if (refusals.length > 0) {
       // The type is only partly understood, so nothing is emitted from it. This is the
@@ -190,7 +221,14 @@ export function transformFile(fileName: string, code: string, context: Transform
       continue;
     }
 
-    const replacement = emitFor(emitter, site, reflected, rewriter, depth.kind === 'shallow' ? depth.value : undefined);
+    const replacement = emitFor(
+      emitter,
+      site,
+      reflected,
+      rewriter,
+      depth.kind === 'shallow' ? depth.value : undefined,
+      provider,
+    );
     if (replacement === undefined) {
       const emitted = emitter.diagnostics.slice(emittedAt);
       if (emitted.length === 0) {
@@ -260,6 +298,7 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
     case 'toJsonSchema':
       return { kind: 'shape', shape: reflector.shapeIR(type) };
     case 'schemaOf':
+    case 'toolFor':
       return { kind: 'schema', ir: reflector.schemaIR(type) };
     case 'protoDescriptor':
     case 'protoDecode':
@@ -270,7 +309,39 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
   }
 }
 
-function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewriter: Rewriter, maxDepth?: number) {
+function emitFor(
+  emitter: Emitter,
+  site: CallSite,
+  reflected: Reflected,
+  rewriter: Rewriter,
+  maxDepth?: number,
+  provider?: ToolProviderTarget,
+) {
+  if (site.callee === 'toolFor' && reflected.kind === 'schema' && provider !== undefined) {
+    const providerArgument = site.node.arguments[0];
+    const name = site.node.arguments[1];
+    if (providerArgument === undefined || name === undefined) return undefined;
+    const providerExpression = rewriter.slice(providerArgument.getStart(), providerArgument.end);
+    const nameExpression = rewriter.slice(name.getStart(), name.end);
+    const options = site.node.arguments[2];
+    const optionsExpression = options === undefined ? undefined : rewriter.slice(options.getStart(), options.end);
+    if (provider !== 'dynamic') {
+      const parameters = emitter.emitToolSchema(reflected.ir, provider);
+      return parameters === undefined ? undefined : toolFrame(provider, nameExpression, parameters, optionsExpression);
+    }
+    const documents = toolProviders().map(target => {
+      const parameters = emitter.emitToolSchema(reflected.ir, target);
+      return parameters === undefined ? undefined : { provider: target, parameters };
+    });
+    if (documents.some(document => document === undefined)) return undefined;
+    return toolFrameDynamic(
+      providerExpression,
+      nameExpression,
+      documents.filter(document => document !== undefined),
+      optionsExpression,
+    );
+  }
+
   // Both of these are the answer itself, so there is nothing to check and no argument
   // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
@@ -313,6 +384,64 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
     default:
       return undefined;
   }
+}
+
+function toolProvider(site: CallSite): ToolProviderTarget | undefined {
+  const argument = site.node.arguments[0];
+  if (argument === undefined) return undefined;
+  if (!isStringLiteral(argument)) return 'dynamic';
+  if (!TOOL_PROVIDERS.has(argument.text)) return undefined;
+  switch (argument.text) {
+    case 'openai':
+    case 'openai-strict':
+    case 'anthropic':
+    case 'gemini':
+    case 'json-schema':
+      return argument.text;
+  }
+}
+
+function toolProviders(): readonly ToolProvider[] {
+  return ['openai', 'openai-strict', 'anthropic', 'gemini', 'json-schema'];
+}
+
+function toolFrame(provider: ToolProvider, name: string, parameters: string, options: string | undefined): string {
+  const description = options === undefined ? '' : '...(_o?.description ? { description: _o.description } : {}), ';
+  let body: string;
+  switch (provider) {
+    case 'openai':
+      body = `{ type: "function", function: { name: _n, ${description}parameters: ${parameters} } }`;
+      break;
+    case 'openai-strict':
+      body = `{ type: "function", function: { name: _n, ${description}strict: true, parameters: ${parameters} } }`;
+      break;
+    case 'anthropic':
+      body = `{ name: _n, ${description}input_schema: ${parameters} }`;
+      break;
+    case 'gemini':
+    case 'json-schema':
+      body = `{ name: _n, ${description}parameters: ${parameters} }`;
+      break;
+  }
+  return options === undefined ? `((_n) => (${body}))(${name})` : `((_n, _o) => (${body}))(${name}, ${options})`;
+}
+
+function toolFrameDynamic(
+  provider: string,
+  name: string,
+  documents: readonly { readonly provider: ToolProvider; readonly parameters: string }[],
+  options: string | undefined,
+): string {
+  const cases = documents
+    .map(document => {
+      const framed = toolFrame(document.provider, '_n', document.parameters, options === undefined ? undefined : '_o');
+      return `case ${JSON.stringify(document.provider)}: return ${framed};`;
+    })
+    .join(' ');
+  const body = `switch (_p) { ${cases} } throw new Error(\`unsupported tool provider \${String(_p)}\`);`;
+  return options === undefined
+    ? `((_p, _n) => { ${body} })(${provider}, ${name})`
+    : `((_p, _n, _o) => { ${body} })(${provider}, ${name}, ${options})`;
 }
 
 function protobufName(type: Type): string {

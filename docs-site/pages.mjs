@@ -1124,7 +1124,7 @@ export const PAGE_META = {
     title: 'Provider Schema Strategies',
     group: 'LLM',
     status: 'todo',
-    note: 'toolFromSchema emits one JSON Schema shape; no per-provider dialect (OpenAI / Claude / Gemini) switch',
+    note: 'provider dialects ship; LangChain and Vercel AI SDK adapters remain manual',
   },
   'llm-chat': {
     title: 'Chat & Agents',

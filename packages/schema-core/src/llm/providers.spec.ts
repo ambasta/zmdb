@@ -1,21 +1,12 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, expect, it } from 'vitest';
 
-import type { CoreSchema } from '../index.js';
 import { schemaFromIR, type ColumnIR } from '../ir/index.js';
 import type { JsonSchemaObject } from '../openapi/index.js';
 import type { Codec, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Table, WireAs } from '../tags/index.js';
-import { toolFromSchema } from './index.js';
+import { toolFor, toolFromSchema, type GeminiSchemaObject, type StrictJsonSchemaObject } from './index.js';
 
-const llmApi: object = await import('./index.js');
-
-// Tests freeze for llm/SPEC.md (#526, epic #524).
-//
-// RED ON PURPOSE. `toolFor` is not exported at the tests-freeze baseline. A
-// static import would stop collection, so `callToolFor` is the one documented boundary to the
-// frozen surface. Every test that reaches it is `it.fails`; the two green
-// controls call today's `toolFromSchema` and pin the exact input document the
-// provider dialects must transform.
+// Implementation suite for llm/SPEC.md (#527, epic #524).
 //
 // The issue's original recursive/discriminated-union cases are deliberately
 // absent. SPEC §1 establishes that schema-derived tools contain one object
@@ -55,63 +46,6 @@ const {
   ProviderFixture: ProviderSchema,
   UntypedPayload: UntypedPayloadSchema,
 } = schemasFrom(import.meta.url, ['ProviderFixture', 'UntypedPayload', 'NoVisibleCreateShape']);
-
-type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
-
-interface StrictJsonSchemaObject extends JsonSchemaObject {
-  readonly additionalProperties: false;
-}
-
-interface GeminiSchemaObject extends JsonSchemaObject {}
-
-interface ToolSpecFor {
-  readonly openai: {
-    readonly type: 'function';
-    readonly function: {
-      readonly name: string;
-      readonly description?: string;
-      readonly parameters: JsonSchemaObject;
-    };
-  };
-  readonly 'openai-strict': {
-    readonly type: 'function';
-    readonly function: {
-      readonly name: string;
-      readonly description?: string;
-      readonly strict: true;
-      readonly parameters: StrictJsonSchemaObject;
-    };
-  };
-  readonly anthropic: {
-    readonly name: string;
-    readonly description?: string;
-    readonly input_schema: JsonSchemaObject;
-  };
-  readonly gemini: {
-    readonly name: string;
-    readonly description?: string;
-    readonly parameters: GeminiSchemaObject;
-  };
-  readonly 'json-schema': {
-    readonly name: string;
-    readonly description?: string;
-    readonly parameters: JsonSchemaObject;
-  };
-}
-
-function callToolFor<P extends ToolProvider>(
-  provider: P,
-  name: string,
-  schema: CoreSchema<string>,
-  opts?: { readonly description?: string },
-): ToolSpecFor[P] {
-  const candidate: unknown = Reflect.get(llmApi, 'toolFor');
-  if (typeof candidate !== 'function') {
-    throw new Error('#526 tests freeze: toolFor is not exported from @zmdb/schema-core/llm');
-  }
-  const args = opts === undefined ? [provider, name, schema] : [provider, name, schema, opts];
-  return Reflect.apply(candidate, undefined, args) as ToolSpecFor[P];
-}
 
 const GENERIC_DOCUMENT: JsonSchemaObject = {
   type: 'object',
@@ -196,8 +130,8 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     expect(JSON.stringify(GENERIC_DOCUMENT)).not.toContain('oneOf');
   });
 
-  it.fails('emits an OpenAI strict schema with additionalProperties false at every level', () => {
-    const tool = callToolFor('openai-strict', 'create_record', ProviderSchema, {
+  it('emits an OpenAI strict schema with additionalProperties false at every level', () => {
+    const tool = toolFor('openai-strict', 'create_record', ProviderSchema, {
       description: 'Create one record',
     });
     expect(tool).toStrictEqual({
@@ -211,8 +145,8 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     });
   });
 
-  it.fails('lists every property in required and expresses an optional field as nullable under openai-strict', () => {
-    const tool = callToolFor('openai-strict', 'create_record', ProviderSchema);
+  it('lists every property in required and expresses an optional field as nullable under openai-strict', () => {
+    const tool = toolFor('openai-strict', 'create_record', ProviderSchema);
     expect(tool.function.parameters.required).toStrictEqual([
       'amount',
       'count',
@@ -227,8 +161,8 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     });
   });
 
-  it.fails('emits an OpenAI function schema without strict rewriting', () => {
-    expect(callToolFor('openai', 'create_record', ProviderSchema)).toStrictEqual({
+  it('emits an OpenAI function schema without strict rewriting', () => {
+    expect(toolFor('openai', 'create_record', ProviderSchema)).toStrictEqual({
       type: 'function',
       function: {
         name: 'create_record',
@@ -237,31 +171,37 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     });
   });
 
-  it.fails('emits input_schema for anthropic', () => {
-    expect(callToolFor('anthropic', 'create_record', ProviderSchema)).toStrictEqual({
+  it('emits input_schema for anthropic', () => {
+    expect(toolFor('anthropic', 'create_record', ProviderSchema)).toStrictEqual({
       name: 'create_record',
       input_schema: GENERIC_DOCUMENT,
     });
   });
 
-  it.fails('emits the Gemini subset and omits no required information', () => {
-    expect(callToolFor('gemini', 'create_record', ProviderSchema)).toStrictEqual({
+  it('emits the Gemini subset and omits no required information', () => {
+    expect(toolFor('gemini', 'create_record', ProviderSchema)).toStrictEqual({
       name: 'create_record',
       parameters: GEMINI_DOCUMENT,
     });
   });
 
-  it.fails('keeps the json-schema provider byte-identical to toolFromSchema', () => {
+  it('keeps the json-schema provider byte-identical to toolFromSchema', () => {
     const legacy = toolFromSchema('create_record', ProviderSchema, { description: 'Create one record' });
-    const provider = callToolFor('json-schema', 'create_record', ProviderSchema, {
+    const provider = toolFor('json-schema', 'create_record', ProviderSchema, {
       description: 'Create one record',
     });
     expect(JSON.stringify(provider)).toBe(JSON.stringify(legacy));
   });
 
-  it.fails('refuses an untyped json column for gemini, naming the provider and the path', () => {
+  it('keeps toolFromSchema behaviour for an empty visible create shape', () => {
+    const legacy = toolFromSchema('empty_tool', NoVisibleCreateSchema);
+    expect(legacy.parameters).toStrictEqual({ type: 'object', properties: {}, required: [] });
+    expect(toolFor('json-schema', 'empty_tool', NoVisibleCreateSchema)).toStrictEqual(legacy);
+  });
+
+  it('refuses an untyped json column for gemini, naming the provider and the path', () => {
     try {
-      callToolFor('gemini', 'store_payload', UntypedPayloadSchema);
+      toolFor('gemini', 'store_payload', UntypedPayloadSchema);
       expect.unreachable('gemini accepted an untyped json column');
     } catch (error) {
       const refusal = refusalOf(error);
@@ -272,9 +212,9 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     }
   });
 
-  it.fails('refuses an untyped json column for openai-strict, naming the provider and the path', () => {
+  it('refuses an untyped json column for openai-strict, naming the provider and the path', () => {
     try {
-      callToolFor('openai-strict', 'store_payload', UntypedPayloadSchema);
+      toolFor('openai-strict', 'store_payload', UntypedPayloadSchema);
       expect.unreachable('openai-strict accepted an untyped json column');
     } catch (error) {
       const refusal = refusalOf(error);
@@ -285,9 +225,9 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     }
   });
 
-  it.fails('refuses a create schema with no visible properties', () => {
+  it('refuses a create schema with no visible properties', () => {
     try {
-      callToolFor('anthropic', 'empty_tool', NoVisibleCreateSchema);
+      toolFor('anthropic', 'empty_tool', NoVisibleCreateSchema);
       expect.unreachable('a property-less create schema was accepted');
     } catch (error) {
       const refusal = refusalOf(error);
@@ -298,9 +238,9 @@ describe('provider-accepted LLM tool documents (#526)', () => {
     }
   });
 
-  it.fails('refuses a schema exceeding the provider property limit', () => {
+  it('refuses a schema exceeding the provider property limit', () => {
     try {
-      callToolFor('openai-strict', 'too_wide', OverPropertyLimitSchema);
+      toolFor('openai-strict', 'too_wide', OverPropertyLimitSchema);
       expect.unreachable('a schema beyond the provider limit was accepted');
     } catch (error) {
       const refusal = refusalOf(error);

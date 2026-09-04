@@ -1,16 +1,10 @@
 // LLM function-calling harness — see ./SPEC.md.
 import type { CoreSchema } from '../index.js';
-import { toJsonSchema, type JsonSchemaObject } from '../openapi/index.js';
+import { toJsonSchema } from '../openapi/index.js';
+import { toolFor, type ToolOptions, type ToolSpec } from './providers.js';
 
-export interface ToolSpec {
-  name: string;
-  description?: string;
-  parameters: JsonSchemaObject;
-}
-
-export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: { description?: string }): ToolSpec {
-  const parameters = toJsonSchema(schema, 'create');
-  return opts?.description ? { name, description: opts.description, parameters } : { name, parameters };
+export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: ToolOptions): ToolSpec {
+  return toolFor('json-schema', name, schema, opts);
 }
 
 export interface ParseResult<T> {
@@ -45,6 +39,7 @@ export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) =>
 
 // re-exported for impl reuse
 export { toJsonSchema };
+export * from './providers.js';
 export * from './chat/index.js';
 export * from './http/index.js';
 export * from './mcp/index.js';

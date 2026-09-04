@@ -15,7 +15,7 @@ export class ToolSpecRefusalError extends Error {
 
   constructor(refusal: ToolSpecRefusal) {
     super(
-      `OpenAPI operation ${refusal.path} cannot become a ${refusal.provider} tool: ` +
+      `Tool input ${refusal.path || '<root>'} cannot become a ${refusal.provider} tool: ` +
         `${refusal.reason} (${refusal.construct}). ${refusal.suggestion}`,
     );
     this.name = 'ToolSpecRefusalError';

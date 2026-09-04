@@ -3,21 +3,24 @@ Getting a model to return data your database accepts is two problems: constraini
 ## Constrain: a tool from a schema
 
 ```ts
-import { toolFromSchema } from '@zmdb/schema-core/llm';
-import { users } from './schema.js';
+import { toolFor } from '@zmdb/schema-core/llm';
+import type { User } from './schema.js';
 
-const tool = toolFromSchema('save_user', users, {
+const tool = toolFor<User>('anthropic', 'save_user', {
   description: 'Save a user extracted from the message',
 });
 ```
 
-That produces `{ name, description, parameters }`, with `parameters` derived from the schema object — `Sensitive` columns omitted, the five validation constraints carried through as JSON Schema keywords. `parameters` is the key OpenAI's function-calling API uses; Anthropic's tool API calls the same field `input_schema`, so rename it at the call site.
+That produces Anthropic's `{ name, description, input_schema }` shape directly. `Sensitive` columns are omitted,
+the validation constraints are retained, and the provider document is computed from the declaration IR and
+inlined by the AOT transform. `toolFromSchema(name, schema, opts)` remains available when a provider-neutral
+`{ name, description, parameters }` record is what the caller needs.
 
 ```ts
 const res = await client.messages.create({
   model: 'claude-opus-5',
   max_tokens: 1024,
-  tools: [{ name: tool.name, description: tool.description, input_schema: tool.parameters }],
+  tools: [tool],
   tool_choice: { type: 'tool', name: 'save_user' },
   messages: [{ role: 'user', content: transcript }],
 });
@@ -60,20 +63,12 @@ Prefer tool use over parsing prose when the API offers it. `lenientParse` is for
 
 ## The whole extraction path
 
-One adapter, once, converts a `ToolSpec` to Anthropic's field names:
-
-```ts
-import type { ToolSpec } from '@zmdb/schema-core/llm';
-
-const anthropicTool = (t: ToolSpec) => ({ name: t.name, description: t.description, input_schema: t.parameters });
-```
-
 ```ts
 async function extractUser(transcript: string) {
   const res = await client.messages.create({
     model: 'claude-opus-5',
     max_tokens: 1024,
-    tools: [anthropicTool(toolFromSchema('save_user', users, { description: 'Save a user' }))],
+    tools: [toolFor<User>('anthropic', 'save_user', { description: 'Save a user' })],
     tool_choice: { type: 'tool', name: 'save_user' },
     messages: [{ role: 'user', content: transcript }],
   });
@@ -86,7 +81,7 @@ async function extractUser(transcript: string) {
 }
 ```
 
-Three lines of glue between the model and the database, and one declaration behind all of it. Nothing here restates the shape of a user.
+One declaration drives the provider document and the boundary validator. Nothing here restates the shape of a user.
 
 ## Shapes that are not table rows
 

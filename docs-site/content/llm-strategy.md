@@ -1,14 +1,16 @@
 > **Small runtime, not an agent framework.** There is no agent graph, unified
-> provider abstraction or conversation store. Alongside `toolFromSchema` and
-> `lenientParse`, `@zmdb/schema-core/llm/chat` now provides a bounded tool loop,
-> typed messages and an optional injected Anthropic SDK driver.
+> provider client abstraction or conversation store. Alongside provider-specific
+> `toolFor`, generic `toolFromSchema` and `lenientParse`,
+> `@zmdb/schema-core/llm/chat` provides a bounded tool loop, typed messages and
+> an optional injected Anthropic SDK driver.
 
 ## What is actually provided, and why it is the right amount
 
 The library gives you the things that are reusable without choosing application
 policy:
 
-- **`toolFromSchema(name, schema, opts)`** — the tool definition, so the model's output shape comes from your database's shape
+- **`toolFor<T>(provider, name, opts)`** — an AOT-inlined OpenAI, Anthropic, Gemini or generic tool definition
+- **`toolFromSchema(name, schema, opts)`** — the unchanged provider-neutral JSON Schema form
 - **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
 - **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
@@ -26,7 +28,7 @@ implement that method or call its API with `fetch`.
 **One: the declaration is the contract.** Do not hand-write a JSON Schema for the model and a TypeScript type for your code. Both come off the one interface, so a new column appears in the tool definition automatically:
 
 ```ts
-const tool = toolFromSchema('save_order', schemaOf<Order>(), { description: 'Record an order' });
+const tool = toolFor<Order>('openai-strict', 'save_order', { description: 'Record an order' });
 ```
 
 **Two: validate at the boundary, always.** Treat model output exactly like a request body from an untrusted client — because that is what it is. A `tool_use` block is a suggestion:

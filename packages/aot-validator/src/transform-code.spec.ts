@@ -141,6 +141,7 @@ describe('CALLEES', () => {
       'random',
       'schemaOf',
       'toJsonSchema',
+      'toolFor',
       'validate',
       'validateShallow',
     ]);
@@ -150,8 +151,9 @@ describe('CALLEES', () => {
     const utilities = await import('./utilities/index.js');
     const validator = await import('./index.js');
     const core = await import('@zmdb/schema-core');
+    const llm = await import('@zmdb/schema-core/llm');
     const openapi = await import('@zmdb/schema-core/openapi');
-    const surface: Record<string, unknown> = { ...openapi, ...core, ...utilities, ...validator };
+    const surface: Record<string, unknown> = { ...openapi, ...core, ...llm, ...utilities, ...validator };
     for (const callee of CALLEES) {
       expect(typeof surface[callee], `${callee} is in CALLEES but nothing exports it`).toBe('function');
     }

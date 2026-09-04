@@ -67,7 +67,7 @@ because the call is gone, and passed explicitly by tests exactly as the witness 
 
 ### These are three new callees, and that has a visible cost
 
-`CALLEES` in `../transformer.ts` has fourteen names, and
+`CALLEES` in `../transformer.ts` has fifteen names, and
 `it('names every transformed call, and every one of them is a function somebody can call', …)` in
 `../transform-code.spec.ts` asserts that list literally. The three shallow functions are exported from the
 same runtime utilities module as their full-depth siblings, and `zmdb-codegen` includes a non-default depth

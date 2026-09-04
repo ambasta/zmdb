@@ -23,11 +23,12 @@ is the core; the packaging wrappers adapt it.
 
 ## 2. Intercepted calls
 
-The transformer recognizes the fourteen generic calls in `CALLEES`:
+The transformer recognizes the fifteen generic calls in `CALLEES`:
 `is<T>(x)`, `isShallow<T, D>(x)`, `assert<T>(x)`, `assertShallow<T, D>(x)`,
 `validate<T>(x)`, `validateShallow<T, D>(x)`, `equals<T>(x)`,
 `assertEquals<T>(x)`, `random<T>()`, `toJsonSchema<T>()`, `schemaOf<T>()`,
-`protoDescriptor<T>()`, `protoDecode<T>(bytes)` and `protoEncode<T>(value)`. It
+`toolFor<T>(provider, name, opts)`, `protoDescriptor<T>()`, `protoDecode<T>(bytes)` and
+`protoEncode<T>(value)`. It
 reads `T` (and the shallow depth literal) from the TS checker and replaces the call
 with emitted JavaScript.
 

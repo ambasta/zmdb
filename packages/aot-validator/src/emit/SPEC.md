@@ -393,7 +393,7 @@ unknown fields should forward the bytes.
 
 ### What this target adds to existing gates
 
-- `CALLEES` in `../transformer.ts` includes all three names. Together with §1a's three that is fourteen, and
+- `CALLEES` in `../transformer.ts` includes all three names. With `toolFor`'s provider-document target that is fifteen, and
   `it('names every transformed call, and every one of them is a function somebody can call', …)` asserts
   the list literally without putting its moving count in the title.
 - The fourteen upstream `protobuf.*` suites in `tests/api-coverage/inventory.mjs` are mapped to real

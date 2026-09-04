@@ -121,7 +121,7 @@ An unlisted base URL and URL dot segments are refused before any request can run
 ## Anthropic
 
 ```ts
-import { toolFromSchema } from '@zmdb/schema-core/llm';
+import type { ToolSpecFor } from '@zmdb/schema-core/llm';
 import { assert } from '@zmdb/aot-validator/utilities';
 
 interface AnthropicResponse {
@@ -129,7 +129,7 @@ interface AnthropicResponse {
   usage: { input_tokens: number; output_tokens: number };
 }
 
-export async function extract<T>(prompt: string, tool: ReturnType<typeof toolFromSchema>) {
+export async function extract<T>(prompt: string, tool: ToolSpecFor['anthropic']) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -162,6 +162,9 @@ The two `assert` calls are doing different jobs, and both are worth having. The 
 ## OpenAI
 
 ```ts
+import { toolFor } from '@zmdb/schema-core/llm';
+
+const tool = toolFor<User>('openai-strict', 'user');
 const res = await fetch('https://api.openai.com/v1/chat/completions', {
   method: 'POST',
   headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
@@ -170,24 +173,20 @@ const res = await fetch('https://api.openai.com/v1/chat/completions', {
     messages: [{ role: 'user', content: prompt }],
     response_format: {
       type: 'json_schema',
-      json_schema: { name: 'user', strict: true, schema: toJsonSchema(users, 'create') },
+      json_schema: {
+        name: tool.function.name,
+        strict: tool.function.strict,
+        schema: tool.function.parameters,
+      },
     },
   }),
 });
 ```
 
-OpenAI's strict mode requires `additionalProperties: false` and **every** property in `required`. `toJsonSchema` emits neither — its `required` is "not optional and not nullable" — so both halves have to be added:
-
-```ts
-const doc = toJsonSchema(users, 'create');
-const strict = {
-  ...doc,
-  additionalProperties: false,
-  required: Object.keys(doc.properties),
-};
-```
-
-Adding the second half changes what you are telling the model: a column that was optional is now one it must send. Strict mode's own answer to that is a nullable type — `{ type: ['string', 'null'] }` — so an optional column has to become nullable in the schema you send, or be left out of it. Adding `required` without doing one of those describes a column as mandatory when your code treats it as optional.
+`toolFor` adds `additionalProperties: false`, lists every property in `required`, widens optional
+non-nullable fields to include `null`, and refuses a property with no expressible type. Those choices are made
+from the declaration IR before the document is inlined; adding `required` to a generic JSON Schema after the
+fact would no longer know which fields were optional.
 
 ## Retries
 

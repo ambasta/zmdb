@@ -59,11 +59,12 @@ function end(name: string): string {
 }
 
 /** The type each callee's signature needs beyond the type argument itself. */
-const SUPPORT_TYPES: Readonly<Record<string, string>> = {
-  validate: 'ValidateResult',
-  validateShallow: 'ValidateResult',
-  toJsonSchema: 'JsonSchemaObject',
-  schemaOf: 'TaggedSchema',
+const SUPPORT_TYPES: Readonly<Record<string, readonly string[]>> = {
+  validate: ['ValidateResult'],
+  validateShallow: ['ValidateResult'],
+  toJsonSchema: ['JsonSchemaObject'],
+  schemaOf: ['TaggedSchema'],
+  toolFor: ['ToolOptions', 'ToolProvider', 'ToolSpecFor'],
 };
 
 // -----------------------------------------------------------------------------
@@ -132,6 +133,8 @@ export function isGeneratedPath(path: string): boolean {
 // -----------------------------------------------------------------------------
 
 interface Signature {
+  /** Generic parameters the generated wrapper itself carries. */
+  readonly typeParameters?: string;
   /** The TypeScript parameter list, annotations included. */
   readonly parameters: string;
   /** The TypeScript return type. */
@@ -201,6 +204,14 @@ function signature(entry: Entry): Signature {
       return { parameters: '', returns: 'JsonSchemaObject', plain: '', call: `toJsonSchema<${type}>()` };
     case 'schemaOf':
       return { parameters: '', returns: `TaggedSchema<${type}>`, plain: '', call: `schemaOf<${type}>()` };
+    case 'toolFor':
+      return {
+        typeParameters: '<P extends ToolProvider>',
+        parameters: 'provider: P, name: string, opts?: ToolOptions',
+        returns: 'ToolSpecFor[P]',
+        plain: 'provider, name, opts',
+        call: `toolFor<${type}, P>(provider, name, opts)`,
+      };
     case 'protoDescriptor':
       return { parameters: '', returns: 'string', plain: '', call: `protoDescriptor<${type}>()` };
     case 'protoDecode':
@@ -226,8 +237,8 @@ function signature(entry: Entry): Signature {
 
 /** `export function NAME(value: unknown): value is User {` — the line the `.js` swaps out. */
 function tsOpening(entry: Entry): string {
-  const { parameters, returns } = signature(entry);
-  return `export function ${entry.name}(${parameters}): ${returns} {`;
+  const { parameters, returns, typeParameters = '' } = signature(entry);
+  return `export function ${entry.name}${typeParameters}(${parameters}): ${returns} {`;
 }
 
 // -----------------------------------------------------------------------------
@@ -276,7 +287,9 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     const specifier = sources.get(entry.callee) ?? '@zmdb/aot-validator/utilities';
     into(values, specifier, entry.callee);
     const support = SUPPORT_TYPES[entry.callee];
-    if (support) into(types, specifier, support);
+    if (support) {
+      for (const name of support) into(types, specifier, name);
+    }
   }
 
   const lines: string[] = [];
@@ -426,8 +439,8 @@ export function generatedModules(input: GenerateInput): GeneratedModules {
   const bodies = entries.map(entry => javascriptFor(entry, transformed));
 
   const declarations = entries.map(entry => {
-    const { parameters, returns } = signature(entry);
-    return `export declare function ${entry.name}(${parameters}): ${returns};`;
+    const { parameters, returns, typeParameters = '' } = signature(entry);
+    return `export declare function ${entry.name}${typeParameters}(${parameters}): ${returns};`;
   });
 
   const dtsImports = [

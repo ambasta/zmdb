@@ -37,6 +37,7 @@
 import {
   jsonSchemaFromShape,
   schemaFromIR,
+  shapeOfVariant,
   type ArrayIR,
   type Constraints,
   type ObjectIR,
@@ -47,6 +48,7 @@ import {
   type TypeIR,
   type UnionIR,
 } from '@zmdb/schema-core/ir';
+import { toolSchemaForProvider, ToolSpecRefusalError, type ToolProvider } from '@zmdb/schema-core/llm';
 
 import { emitProtoDecoder } from '../protobuf/decode.js';
 import { emitProtoDescriptor } from '../protobuf/descriptor.js';
@@ -300,6 +302,28 @@ export class Emitter {
    */
   emitSchemaValue(ir: SchemaIR): string | undefined {
     return this.#literal('schema', 'Schema', schemaFromIR(ir));
+  }
+
+  /**
+   * `toolFor<T>(provider, name, opts)` → the provider's frozen parameter document.
+   *
+   * The transformer supplies the framing expressions because `name` and `description`
+   * belong to the call site. The schema itself is complete here: a pure projection of the
+   * reflected table IR, shared with the runtime schema-value overload.
+   */
+  emitToolSchema(ir: SchemaIR, provider: ToolProvider): string | undefined {
+    try {
+      const document = toolSchemaForProvider(provider, shapeOfVariant(ir, 'create'));
+      return this.#literal('toolSchema', 'ToolSchema', document);
+    } catch (error) {
+      if (!(error instanceof ToolSpecRefusalError)) throw error;
+      const { refusal } = error;
+      this.#diagnostics.push({
+        path: refusal.path,
+        reason: `${refusal.provider} refuses ${refusal.construct}: ${refusal.reason}. ` + refusal.suggestion,
+      });
+      return undefined;
+    }
   }
 
   /** `protoDescriptor<T>()` -> one compile-time-produced proto3 string literal. */

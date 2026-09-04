@@ -14,6 +14,15 @@ interface ToolSpec {
 }
 function toolFromSchema<S>(name: string, schema: S, opts?: { description?: string }): ToolSpec;
 
+type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
+function toolFor<T, P extends ToolProvider>(provider: P, name: string, opts?: { description?: string }): ToolSpecFor[P];
+function toolFor<P extends ToolProvider>(
+  provider: P,
+  name: string,
+  schema: CoreSchema<string>,
+  opts?: { description?: string },
+): ToolSpecFor[P];
+
 interface ParseResult<T> {
   success: boolean;
   data?: T;
@@ -26,6 +35,8 @@ function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): Pa
 
 - `toolFromSchema(name, schema)` returns `{ name, description?, parameters }`
   where `parameters` is the schema's `create`-variant JSON Schema (input shape).
+- `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen
+  create document. The schema-value overload is the source-mode/runtime equivalent.
 - `lenientParse(text)`:
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a
@@ -122,10 +133,9 @@ documentation:
    would have to be rewritten the day Gemini stops; a test that asserts the translation happens for whatever
    the table says does not.
 
-The numeric limits providers publish — property counts, nesting depth, enum sizes, total identifier length —
-are recorded in that same table and are **structurally unreachable** for a schema-derived tool spec (§1): one
-level, one object, one property per column. They are checked anyway, because a hand-passed schema could reach
-them and a 400 from a provider is a worse place to learn it than a build.
+The table also carries a conservative 1,024-property cap below the providers' moving request-size ceilings.
+It is checked recursively. Learning that a generated tool is too large during the build is preferable to a
+provider-side 400 after deployment.
 
 ## 3. Optionality, which is already conflated before a provider sees it
 
@@ -157,18 +167,13 @@ Dropping it changes what the model is allowed to fill in, which is a worse lie t
 
 The refusal list is short, because §1 made it short:
 
-| Provider        | Construct                                                 | Reformulation offered                                    |
-| --------------- | --------------------------------------------------------- | -------------------------------------------------------- |
-| `openai-strict` | a column whose document is `{}`                           | declare the payload with `WireAs<W>`, or omit the column |
-| `gemini`        | a column whose document is `{}`                           | the same                                                 |
-| any             | a schema whose `create` variant has no visible properties | drop the tool, or unmark a `Sensitive` column            |
+| Provider         | Construct                                                 | Reformulation offered                                    |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| `openai-strict`  | a column whose document is `{}`                           | declare the payload with `WireAs<W>`, or omit the column |
+| `gemini`         | a column whose document is `{}`                           | the same                                                 |
+| provider dialect | a schema whose `create` variant has no visible properties | drop the tool, or unmark a `Sensitive` column            |
 
-**`EmitDiagnostic` is not reused, and the instruction to reuse it is refused on the dependency graph.**
-`EmitDiagnostic` is declared in `@zmdb/aot-validator/emit`. `@zmdb/aot-validator` lists `@zmdb/schema-core`
-in its `dependencies`; `@zmdb/schema-core` lists `@zmdb/aot-validator` only in `devDependencies`. A runtime
-module of this package importing from that one is a cycle and a devDependency at runtime, and it would be the
-first. It also has three fields — `path`, `reason`, `source?` — where this needs the provider and the
-construct as well. Frozen instead:
+The runtime layer carries the provider-specific context without importing the AOT package:
 
 ```ts
 export interface ToolSpecRefusal {
@@ -180,23 +185,19 @@ export interface ToolSpecRefusal {
 }
 ```
 
-`path` and `reason` are named identically to `EmitDiagnostic`'s on purpose: a reader who knows one knows the
-other, and the shape is the thing worth sharing when the type cannot be.
+`path` and `reason` deliberately match `EmitDiagnostic`. The AOT emitter catches
+`ToolSpecRefusalError`, records an `EmitDiagnostic`, and the transformer adds the source file, call offset and
+`toolFor` callee. A refusal therefore names both the provider and declaration property while remaining
+locatable at the call site.
 
-**It does not happen at AOT time, and step 4 is wrong about that.** `toolFor(provider, name, schema, opts)` takes a schema _value_ and a provider _string_; `P` is inferred from an argument.
+`toolFor<T>(provider, name, opts)` is the AOT form. `T` is the tagged table declaration, so the transformer
+reflects its `SchemaIR`, selects the create shape, applies the provider dialect and hoists the deeply frozen
+document. A literal provider emits one framing; a runtime provider emits a closed five-arm switch whose
+documents were all computed during the build. No schema value or schema walk survives in either output.
 
-The transform reads **type** arguments — `CALLEES` is fourteen names and a call site's type argument is what the reflector reads — so `toolFor` cannot join that list, and there would be nothing for it to do if it did.
-
-Frozen: `toolFor` throws a `ToolSpecRefusal`-carrying error at the call, which for a tool registry built at module scope is startup rather than first request.
-
-Two build-time routes were considered. `toolFor<'gemini', CreateDTO<Order>>()` — provider as a type argument —
-_is_ transformable, and is refused because a provider is a runtime configuration value in any app that
-supports more than one model, and forcing it into a type argument makes the common case unwritable. A `check`
-finding is the other, and is left to the CLI epic: it needs the declaration set, which `check` already reads,
-and it is additive rather than a change of shape.
-
-What the transform already does is the part worth keeping: `toJsonSchema<CreateDTO<Order>>()` is inlined to a
-frozen literal, and a provider framing is a pure function of that literal.
+The schema-value overload remains for source-mode tests and applications that deliberately hold a
+`CoreSchema`. It uses the same `toolSchemaForProvider` function as the emitter, so runtime and AOT output have
+one producer rather than merely similar tests.
 
 ## 5. `toolFor`, `ToolSpecFor`, and what `toolFromSchema` becomes
 
@@ -213,6 +214,12 @@ export interface ToolSpecFor {
   readonly gemini: { name: string; description?: string; parameters: GeminiSchemaObject };
   readonly 'json-schema': ToolSpec;
 }
+
+export declare function toolFor<T, P extends ToolProvider>(
+  provider: P,
+  name: string,
+  opts?: { description?: string },
+): ToolSpecFor[P];
 
 export declare function toolFor<P extends ToolProvider>(
   provider: P,
@@ -237,9 +244,9 @@ Three departures from the issue's block, all of them the same departure:
   `ToolSpec` is the name in them. It is not deprecated and not reimplemented: one of the two is a call to the
   other.
 
-`toolFor` never re-derives a document. It calls `toJsonSchema(schema, 'create')` — the same `create` variant
-`toolFromSchema` uses, because a tool call is an input — and then reframes and translates. One producer, five
-framings, which is the same rule §2.9 of `ARCHITECTURE.md` applies to the transform.
+`toolFor` never re-derives a document. Both forms select `shapeOfVariant(ir, 'create')` and pass it to
+`toolSchemaForProvider`; `toolFromSchema` is the `json-schema` schema-value form. One producer, five framings,
+which is the same rule §2.9 of `ARCHITECTURE.md` applies to the transform.
 
 ## 6. What the three pages have to change
 
