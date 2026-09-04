@@ -1,175 +1,248 @@
-> **Implementation available; final guide pending #590.** `@Cron`, `@Interval`, the
-> app-owned scheduler, the daylight-saving rules and the renewable per-task lease ship
-> from `@zmdb/web/schedule`. Call `start()` explicitly, or from an owning provider's
-> `onApplicationBootstrap`; registering the scheduler as a constructed value provider lets
-> its `onShutdown` participate in app disposal. A task can enqueue durable, deduplicated
-> work without doing that work while it holds the scheduler lease.
+## Scale-out is the first decision
 
-## The decision that matters more than the decorator
+Three replicas run an in-process timer three times. That is correct for a local
+cache refresh and a billing defect for a cluster-wide job, so every schedule
+must choose explicitly:
 
-Where the schedule lives determines whether your job runs twice, or not at all.
+| `runs` value       | Behaviour                                        | Typical use                      |
+| ------------------ | ------------------------------------------------ | -------------------------------- |
+| `once-per-replica` | every application instance runs the task         | local cache or connection state  |
+| `once-per-cluster` | one instance acquires a renewable per-task lease | billing, cleanup, reconciliation |
 
-| Approach                                  | Runs once across replicas? | Survives a restart? | Use when                               |
-| ----------------------------------------- | -------------------------- | ------------------- | -------------------------------------- |
-| `setInterval` in the process              | **No** — once per replica  | No                  | single instance, best-effort work      |
-| Advisory lock + interval                  | Yes                        | Yes                 | you have Postgres and several replicas |
-| Platform cron hitting an HTTP route       | Yes                        | Yes                 | most deployments                       |
-| External scheduler (Kubernetes `CronJob`) | Yes                        | Yes                 | you already run Kubernetes             |
+There is no default. Constructing a scheduler with a
+`once-per-cluster` task and no `leases` throws before the loop starts; it never
+silently degrades to one run per replica.
 
-`@Cron` refuses to choose a row for you: `runs` is required, either `'once-per-replica'` or `'once-per-cluster'`, because neither is safe for both a cache warmer (which must run everywhere, since each replica has its own cache) and a billing run (which must not). Choosing per-replica on three replicas means three concurrent runs. Asking for `'once-per-cluster'` without giving the scheduler a lease store is an error at startup rather than a surprise at 3 a.m.
-
-## Recommended — a platform cron calling a route
+`LeaseStore` is structural, so the application can implement it over the
+database or coordination service it already operates:
 
 ```ts
-@Controller('/jobs')
-export class JobsController {
-  @Inject(REPORTS) private readonly reports!: ReportService;
+interface LeaseStore {
+  acquire(key: string, holder: string, ttlMs: number): Promise<boolean>;
+  renew(key: string, holder: string, ttlMs: number): Promise<boolean>;
+  release(key: string, holder: string): Promise<void>;
+}
+```
 
-  @Post('/nightly-digest')
-  async digest(ctx: Ctx<Record<never, string>, unknown>) {
-    await requireJobSecret(ctx.headers);
-    const sent = await this.reports.sendDigests();
-    return { sent };
+The scheduler acquires a lease named after the task before invoking it, renews
+at one third of `leaseMs`, and releases it after settlement or shutdown. A
+failed acquisition produces `onSkipped({ reason: 'lease-not-held' })`. A
+renewal failure reaches `onTaskError` and disables future fires for that task.
+
+A lease bounds concurrent **starters**, not every possible runner. A process
+that stalls beyond its lease can resume after another replica has acquired the
+same task. Durable work must therefore still be idempotent.
+
+## Make a double fire harmless
+
+The recommended cluster-wide task is short: calculate a stable business-period
+key and enqueue durable work with that key.
+
+```ts
+import { Cron } from '@zmdb/web/schedule';
+import type { Clock, Queue } from '@zmdb/web/queues';
+
+type Jobs = {
+  readonly 'billing.run': { readonly runDate: string };
+};
+
+class BillingTasks {
+  constructor(
+    private readonly jobs: Queue<Jobs>,
+    private readonly clock: Clock,
+  ) {}
+
+  @Cron('0 30 2 * * *', {
+    name: 'billing.daily',
+    runs: 'once-per-cluster',
+    timeZone: 'Europe/Berlin',
+    timeoutMs: 30_000,
+  })
+  async run(): Promise<void> {
+    const runDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+    }).format(new Date(this.clock.now()));
+
+    await this.jobs.enqueue('billing.run', { runDate }, { dedupeKey: `billing:${runDate}` });
   }
 }
 ```
 
-```ts
-// A per-process HMAC key. Comparing digests taken under an unpredictable key is
-// constant-time enough: an attacker cannot steer the bytes being compared, so a
-// byte-by-byte `===` on the digests leaks nothing about the secret.
-const compareKey = await globalThis.crypto.subtle.importKey(
-  'raw',
-  globalThis.crypto.getRandomValues(new Uint8Array(32)),
-  { name: 'HMAC', hash: 'SHA-256' },
-  false,
-  ['sign'],
-);
-const encoder = new TextEncoder();
+The queue's unique deduplication key turns two scheduler fires into one job row.
+The handler should also use its `ctx.idempotencyKey` completion marker as
+described in [Queues](./web-queues.html), because enqueue deduplication and
+at-least-once delivery are separate races.
 
-async function digest(value: string): Promise<string> {
-  const mac = await globalThis.crypto.subtle.sign('HMAC', compareKey, encoder.encode(value));
-  return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
+## Declare and start the scheduler
 
-async function requireJobSecret(headers: Readonly<Record<string, string>>): Promise<void> {
-  const given = headers['x-job-secret'] ?? '';
-  if ((await digest(given)) !== (await digest(env.JOB_SECRET))) {
-    throw new ValidationError('unauthorized', []);
-  }
-}
-```
-
-The obvious version of this — `timingSafeEqual(Buffer.from(given), Buffer.from(expected))` — is what most guides show, and it is not available here. `.oxlintrc.json` restricts the `Buffer` global along with `Buffer.from`, `Buffer.alloc`, `Buffer.concat` and `Buffer.byteLength`, and it restricts the `node:crypto` import with the message _"Use globalThis.crypto and the Web Crypto API."_ — which is where `timingSafeEqual` lives. Web Crypto has no equivalent, so the replacement is the double-HMAC construction above rather than a mechanical substitution.
-
-The digest is always 64 characters regardless of the input's length, which is why the explicit length check the `Buffer` version needed disappears: a length difference is already a digest difference.
-
-> [!WARNING]
-> A job route is a public HTTP endpoint. Without authentication, anyone can trigger
-> your nightly billing run repeatedly. Use a shared secret compared in constant
-> time — never a bare `===` on the secret itself, which leaks it byte by byte
-> through timing — or restrict by source; Vercel and Cloud Scheduler both provide
-> a verifiable header.
-
-Wire it up per platform:
-
-```json
-// vercel.json
-{ "crons": [{ "path": "/api/jobs/nightly-digest", "schedule": "0 3 * * *" }] }
-```
-
-```yaml
-# Kubernetes
-apiVersion: batch/v1
-kind: CronJob
-spec:
-  schedule: '0 3 * * *'
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-            - name: curl
-              image: curlimages/curl
-              args: ['-fsS', '-XPOST', '-H', 'x-job-secret: $(SECRET)', 'http://api/jobs/nightly-digest']
-          restartPolicy: OnFailure
-```
-
-Also: GitHub Actions `schedule`, Cloud Scheduler, EventBridge, Railway cron, `systemd` timers. All of them run once, retry on failure and give you a run history — none of which an in-process interval does.
-
-## In-process, with a lock
-
-When you want the schedule in your code and you have Postgres:
+`@Cron` and `@Interval` only record declarations. `createScheduler` receives
+the instances built for one application, so two applications in one process do
+not share a registry.
 
 ```ts
-async function withLock(driver: Driver, key: number, fn: () => Promise<void>): Promise<void> {
-  const [row] = await driver.execute({
-    text: 'SELECT pg_try_advisory_lock($1) AS acquired',
-    parameters: [key],
-  });
-  if (row?.acquired !== true) return; // another replica has it
-  try {
-    await fn();
-  } finally {
-    await driver.execute({ text: 'SELECT pg_advisory_unlock($1)', parameters: [key] });
+import { Cron, Interval, createScheduler, type LeaseStore } from '@zmdb/web/schedule';
+import type { Clock } from '@zmdb/web/queues';
+
+const clock: Clock = {
+  now: () => Date.now(),
+  sleep(ms, signal) {
+    return new Promise<void>((resolve, reject) => {
+      if (signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
+
+      const timer = setTimeout(done, ms);
+
+      function done(): void {
+        signal.removeEventListener('abort', aborted);
+        resolve();
+      }
+
+      function aborted(): void {
+        clearTimeout(timer);
+        reject(signal.reason);
+      }
+
+      signal.addEventListener('abort', aborted, { once: true });
+    });
+  },
+};
+
+class LocalTasks {
+  @Interval(60_000, {
+    name: 'cache.refresh',
+    runs: 'once-per-replica',
+    timeoutMs: 10_000,
+  })
+  refresh(): void {
+    localCache.refresh();
   }
 }
-```
 
-```ts
-@Controller('/internal')
-export class SchedulerController implements OnApplicationBootstrap, OnShutdown {
-  @Inject(DRIVER) private readonly driver!: Driver;
-  #timer?: NodeJS.Timeout;
+declare const billingTasks: BillingTasks;
+declare const leases: LeaseStore;
 
-  onApplicationBootstrap() {
-    this.#timer = setInterval(() => {
-      void withLock(this.driver, 42, () => this.run()).catch(e => console.error(String(e)));
-    }, 60_000);
-    this.#timer.unref();
-  }
-
-  onShutdown() {
-    if (this.#timer !== undefined) clearInterval(this.#timer);
-  }
-}
-```
-
-Four details:
-
-- **`pg_try_advisory_lock`, not `pg_advisory_lock`.** The blocking version queues every replica, so they run in sequence instead of one running.
-- **The lock is held on a session.** If your driver uses a pool, the lock and the unlock must be on the same connection, or the unlock is a no-op and the lock leaks until that connection closes. A dedicated connection for the scheduler avoids this. This is also the reason the shipped scheduler does not use advisory locks: a session lock cannot expire, so a process that is wedged but still connected holds it forever and recovery needs a human, where a lease's worst case is bounded by its TTL and needs nobody. It is Postgres-only besides.
-- **`unref()`** so the timer does not hold the process open.
-- **`clearInterval` in `onShutdown`**, or a rolling deploy leaves the old process ticking.
-
-Register this scheduler as a provider rather than as a route-free controller.
-A value provider is initialized at `app.init()` and drained at disposal; a
-factory provider participates once something actually resolves it.
-
-## Idempotency, which is the part people skip
-
-Every schedule repeats, and every distributed lease has an edge case. Assume your job may run twice and make that harmless:
-
-```ts
-await driver.execute({
-  text: 'INSERT INTO job_runs (name, run_date) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-  parameters: ['nightly-digest', today],
+const scheduler = createScheduler({
+  tasks: [billingTasks, new LocalTasks()],
+  clock,
+  leases,
+  leaseMs: 60_000,
+  graceMs: 15_000,
+  onTaskError(task, scheduledFor, error) {
+    logger.error({ task, scheduledFor, error });
+  },
+  onSkipped(skipped) {
+    logger.warn(skipped);
+  },
 });
+
+scheduler.start();
 ```
 
-If the insert affected no rows, today's run already happened — return. A unique constraint is a more reliable guard than a lock, because it survives a process death mid-job.
+Call `start()` explicitly during bootstrap, or from an owning provider's
+`onApplicationBootstrap`. The scheduler implements `onShutdown()`: registering
+the constructed scheduler as a value provider lets application disposal invoke
+that hook. It installs no process signal handlers.
 
-## What it would take
+Use the same `Clock` instance for queues and schedules. Tests can supply a
+controllable clock; production can use the system-clock implementation above.
 
-The design question this section used to name — coordination — is answered, in `packages/web/src/schedule/SPEC.md` (#586). It is a per-task lease rather than a pluggable lock, held while the task runs and renewed at a third of its TTL, and it is per task rather than per process so that fifty tasks spread across replicas instead of piling onto whichever one won a global election.
+## Cron dialect
 
-The shipped parser has no dependency, and a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR. The scheduler stores absolute instants, sleeps to the earliest one, prevents overlap, and renews a per-task lease while a cluster-wide task runs. #590 owns the final operational examples and page restructure.
+A five-field expression has normal `crontab(5)` meaning. An optional **leading**
+seconds field makes six:
 
-Two things the freeze settled that are worth knowing before you write your own. **The scheduler's state is an absolute instant, not a wall-clock time**, which is what makes daylight saving one conversion rule instead of two special cases: a 02:30 task in `Europe/Berlin` fires once on the spring-forward day, at 03:30 local, and once on the fall-back day, at the earlier of the two 02:30s. `Date` cannot represent a zoned wall-clock time at all — `new Date('2026-03-29T02:30:00')` is parsed in the _host_ zone, which is the thing a scheduler must not depend on — and `Temporal` is not in Node yet, so this is `Intl.DateTimeFormat` and `formatToParts`. And **`timeZone` defaults to `'UTC'` and never to the host zone**, because the host zone is a container setting and a base-image bump should not move your nightly job.
+```text
+┌───────────── second (0-59), optional
+│ ┌─────────── minute (0-59)
+│ │ ┌───────── hour (0-23)
+│ │ │ ┌─────── day of month (1-31)
+│ │ │ │ ┌───── month (1-12 or JAN-DEC)
+│ │ │ │ │ ┌─── day of week (0-7 or SUN-SAT)
+* * * * * *
+```
 
-A second trap worth knowing if you write the timer yourself: `setTimeout`'s delay is coerced to a signed 32-bit integer, so anything past **24.86 days** does not wait. `setTimeout(fn, 2_147_483_648)` logs a `TimeoutOverflowWarning` and fires immediately, which turns a naive `@Interval(THIRTY_DAYS)` into a busy loop. The shipped implementation refuses that interval at registration and points you at `@Cron`, where "the first of the month" is expressible in the first place.
+The parser runs once at scheduler construction.
 
-The idempotency section above is still the important part, and it composes with the other half of this epic: the recommended shape for anything that must not be lost is a scheduled task that only **enqueues** — `enqueue('billing.run', …, { dedupeKey: 'billing:2026-03-29' })` — because the queue's unique index turns a double fire into one row, which is a far weaker thing to need from a lease than exactness.
+| Construct                                     | Result                                           |
+| --------------------------------------------- | ------------------------------------------------ |
+| `*`, ranges, lists and steps                  | supported                                        |
+| `JAN`–`DEC`, `SUN`–`SAT`, case-insensitive    | supported                                        |
+| Sunday as `0` or `7`                          | supported                                        |
+| `@yearly`, `@annually`, `@monthly`, `@weekly` | supported                                        |
+| `@daily`, `@midnight`, `@hourly`              | supported                                        |
+| `@reboot`                                     | refused: startup is not a calendar instant       |
+| Quartz `L`, `W`, `#`, `?` or a trailing year  | refused rather than assigned a different dialect |
+
+When both day-of-month and day-of-week are restricted, cron's POSIX **OR**
+rule applies. `0 0 1 * MON` fires on the first of each month and on every
+Monday.
+
+An invalid expression, unknown IANA time zone, duplicate task name, non-positive
+duration, or interval longer than `2_147_483_647` milliseconds is a
+construction error. Use `@Cron` rather than a multi-week interval for calendar
+time.
+
+## Time zones and daylight saving
+
+`timeZone` defaults to `UTC`, never the host's zone. State is stored as an
+absolute instant; `Intl.DateTimeFormat` converts the requested wall time in the
+declared IANA zone.
+
+For this declaration:
+
+```ts
+@Cron('0 30 2 * * *', {
+  runs: 'once-per-cluster',
+  timeZone: 'Europe/Berlin',
+})
+```
+
+the 2026 transitions are:
+
+| Local date                 | Requested wall time    | Fired instant              | Rule                                         |
+| -------------------------- | ---------------------- | -------------------------- | -------------------------------------------- |
+| 2026-03-29, spring forward | 02:30 (does not exist) | `2026-03-29T01:30:00.000Z` | shift forward to 03:30 local                 |
+| 2026-10-25, fall back      | 02:30 (occurs twice)   | `2026-10-25T00:30:00.000Z` | choose the earlier occurrence; do not repeat |
+
+The host's `TZ` setting does not participate.
+
+## Overlap, missed runs and failures
+
+Overlap is always prevented; there is no option to enable it.
+
+- A cron instant reached while its previous invocation is still running is
+  reported through `onSkipped` with `reason: 'still-running'`.
+- An interval is completion-to-start: its next delay begins only after the
+  previous invocation settles.
+- An instant passed during a clock jump or event-loop pause is reported with
+  `reason: 'missed'`. The scheduler does not catch up missed work.
+- A cluster task that loses the acquisition race reports
+  `reason: 'lease-not-held'`.
+
+`onTaskError(task, scheduledFor, error)` receives thrown task errors, timeout
+reports and lease-renewal failures. The scheduler does not retry task bodies:
+enqueue work when it needs retries and a dead-letter path.
+
+`timeoutMs` is an observation deadline, not a way to terminate JavaScript. A
+scheduled method receives no `AbortSignal`, so a method that does not settle
+remains the active invocation even after its timeout is reported and continues
+to prevent overlap.
+Likewise, `onShutdown()` waits up to `graceMs`, releases held leases and then
+returns, but it cannot forcibly stop application code. A resumed old runner can
+overlap a replacement, so idempotency remains required.
+
+Both observation callbacks are isolated: if logging throws, it does not stop
+the scheduler or replace the original error.
+
+## When an external scheduler is still better
+
+A platform cron, Kubernetes `CronJob`, EventBridge or another managed scheduler
+remains a good fit when operations needs a provider-owned run history or does
+not want timers inside the application. Authenticate any HTTP endpoint it
+calls, and keep the same idempotency rule: an external trigger may also be
+retried or delivered again.
 
 ---
 

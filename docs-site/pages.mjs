@@ -1619,8 +1619,7 @@ export const PAGE_META = {
   'web-task-scheduling': {
     title: 'Task Scheduling',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: '@Cron, @Interval and the app-owned scheduler ship; the final operational guide and supported-page pass are #590.',
+    status: 'supported',
   },
   'web-queues': {
     title: 'Queues',

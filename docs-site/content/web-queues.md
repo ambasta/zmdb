@@ -1,3 +1,36 @@
+## Delivery is at-least-once: make the effect idempotent
+
+A worker can commit an effect and die before it marks the job done. That crash
+window makes delivery **at-least-once**, so every handler must make a repeated
+invocation harmless. Scaling from one worker to many does not change that
+obligation.
+
+The framework gives every invocation a stable key:
+
+```ts
+ctx.idempotencyKey === (dedupeKey ?? jobId);
+```
+
+For an effect that must happen once, write `ctx.idempotencyKey` to
+`zmdb_job_done` in the same transaction as the effect. The worker checks that
+table before invoking the handler. A later retry or replay then finishes as
+`done` with `skipped: 1`.
+
+The worker cannot safely write the marker around the handler: writing it first
+can lose work, while writing it afterwards cannot be atomic with an application
+effect in another transaction. The handler owns the only transaction that can
+make the effect and marker one fact.
+
+Enqueue-side deduplication solves a different race. Repeating a non-empty
+`dedupeKey` returns the existing job id because `dedupe_key` has a unique
+constraint. Use both mechanisms when both duplicate enqueue and duplicate
+delivery matter.
+
+Marker cleanup is deliberately application policy. Retention must exceed the
+retry and manual-replay horizon, and the framework cannot infer either value.
+The shipped scheduler can trigger cleanup, but it does not choose the retention
+interval.
+
 ## What ships
 
 The queue has two public constructors:
@@ -138,22 +171,6 @@ The default is five attempts with exponential backoff from one second to a five-
 
 `ctx.attempt` is one-based. `ctx.signal` is aborted on timeout and after the shutdown grace period. A timed-out handler that ignores the signal keeps occupying its concurrency slot until its promise settles, so the configured bound continues to count the work actually running.
 
-## At-least-once and the completion marker
-
-Delivery is at-least-once. The crash window is unavoidable: a handler can commit its effect and the process can die before the worker marks the job done.
-
-The framework supplies a stable key:
-
-```ts
-ctx.idempotencyKey === (dedupeKey ?? jobId);
-```
-
-For an effect that must happen once, write `ctx.idempotencyKey` to `zmdb_job_done` in the same transaction as the effect. The worker checks that table before invoking the handler. This turns a later retry or replay into `done` with `skipped: 1`.
-
-The worker cannot write that marker around the handler safely. Writing it first creates a lost-job window; writing it afterwards cannot be atomic with an application effect in another transaction. The handler owns the only transaction that can make those two writes one fact.
-
-Marker cleanup is not automatic. Retention must exceed the retry and manual-replay horizon, and the framework cannot infer either value. Use the shipped scheduler if desired, but keep the retention interval in application policy rather than adopting a framework default that may reopen duplicates.
-
 ## Dead letters and replay
 
 Dead rows remain in `zmdb_job` and are available through bounded APIs:
@@ -181,7 +198,14 @@ On shutdown the worker:
 3. aborts unfinished job signals;
 4. writes their lease back to the current instant without incrementing attempts.
 
-If that final write fails, the original lease still expires and another worker claims the row later. Work becomes late rather than silently lost.
+An abort signal is cooperative. A handler that ignores `ctx.signal` cannot be
+forcibly stopped and keeps occupying its concurrency slot until its promise
+settles. Drain still returns after the bounded grace period and requeues the
+row; the old JavaScript invocation may therefore overlap its replacement, which
+is another reason the effect must be idempotent.
+
+If the final lease write fails, the original lease still expires and another
+worker claims the row later. Work becomes late rather than silently lost.
 
 ## Backend boundary
 
