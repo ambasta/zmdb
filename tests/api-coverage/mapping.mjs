@@ -1009,7 +1009,8 @@ export const nestjs = {
     '404s a path whose segment count matches no route',
   ],
   'route-conflict/e2e/wildcard*': 'collapses duplicate slashes and strips trailing slashes',
-  'route-conflict/e2e/versioned-wildcard': 'preserves first-registered route ordering within one version bucket',
+  'route-conflict/e2e/versioned-wildcard':
+    'lets exact static routes take precedence over param routes in the trie within one version bucket',
   'versioning/e2e/custom-versioning': oos(NO_CUSTOM_VERSIONING, 'web-versioning'),
   'versioning/e2e/default-versioning': [
     'uses the configured default when the request names no version',
