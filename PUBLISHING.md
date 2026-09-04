@@ -124,7 +124,7 @@ Two things about emit are not obvious:
   of `node_modules`. Installed for real it fails:
   `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. The same goes for `bin`.
   `yarn verify:publish` is the gate for this: it packs, installs into a throwaway
-  project, and imports and typechecks all 62 subpaths from outside the repo.
+  project, and imports and typechecks every published subpath from outside the repo.
 
 ## Verify after publish
 

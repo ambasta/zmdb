@@ -1,12 +1,13 @@
 > **ToDo / partial support.** The public custom-transport contract ships and is
-> usable today. Packaged broker strategies and the final supported-page pass
-> remain pending.
+> usable today, and Redis, NATS and RabbitMQ demonstrate that contract. gRPC and
+> the final supported-page pass remain pending.
 
 ## Implementing the public contract
 
-Use only imports from `@zmdb/web/microservices`:
+Use only the public microservices and observability entry points:
 
 ```ts
+import type { TraceCarrier } from '@zmdb/web/observability';
 import type {
   DispatchOutcome,
   MessageReply,
@@ -50,8 +51,8 @@ export class AcmeTransport implements TransportStrategy {
     );
   }
 
-  async emit(pattern: string, payload: unknown): Promise<void> {
-    await wire.publish({ pattern, payload });
+  async emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void> {
+    await wire.publish({ pattern, payload, ...carrier });
   }
 
   async close(graceMs: number): Promise<void> {

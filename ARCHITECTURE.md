@@ -101,7 +101,7 @@ rejected regardless of how convenient it is.
 10. **The source runs as-is; the build only mirrors it.** In the repo every
     `exports` target is a `.ts` file and Node reads it directly, stripping the
     types — that is how the tests, the dev loop and the consumer fixtures all
-    run, and `yarn verify:exports` imports all 62 subpaths that way. Relative
+    run, and `yarn verify:exports` imports every published subpath that way. Relative
     specifiers are written `'./errors.js'`, which is what NodeNext resolution
     asks for with `allowImportingTsExtensions` off, and what the emit needs
     verbatim. Node will not map that onto `errors.ts` by itself, so every entry

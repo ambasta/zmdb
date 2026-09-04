@@ -36,7 +36,17 @@ import { PACKAGES, ROOT, publishManifest, readManifest } from './lib/publish-man
 // Build-time and optional integration subpaths reach their peers on purpose (see
 // `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
 // subpath would already have.
-const PEERS = ['typescript', 'pg', '@types/node', '@types/pg', '@anthropic-ai/sdk', '@opentelemetry/api'];
+const PEERS = [
+  'typescript',
+  'pg',
+  '@types/node',
+  '@types/pg',
+  '@anthropic-ai/sdk',
+  '@opentelemetry/api',
+  '@nats-io/transport-node',
+  'amqplib',
+  'redis',
+];
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
 

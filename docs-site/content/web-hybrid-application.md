@@ -1,6 +1,6 @@
 > **ToDo / partial support.** One application can now own HTTP routing and any
-> custom `TransportStrategy`. Packaged Redis, NATS, RabbitMQ and gRPC adapters
-> remain pending. `createApp` still does not open an HTTP listening socket.
+> custom or packaged Redis, NATS and RabbitMQ `TransportStrategy`. gRPC remains
+> pending. `createApp` still does not open an HTTP listening socket.
 
 ## One application, two transport surfaces
 

@@ -1,14 +1,14 @@
-> **ToDo / partial support.** The public transport strategy, dispatcher,
-> decorators and typed clients ship. Packaged Redis, NATS and RabbitMQ
-> strategies do not yet ship.
+> **ToDo / partial support.** Redis Pub/Sub, core NATS and RabbitMQ strategies
+> ship behind optional subpaths. This page remains `todo` until the microservices
+> epic completes its gRPC and final documentation slices.
 
 ## The strategy boundary
 
-A strategy handles broker framing, subscriptions, replies and settlement. It
-does not discover controllers, validate handler payloads or invoke handlers
-itself:
+A strategy owns broker framing, subscriptions, replies and settlement. The
+application owns payload validation, handler invocation and retry policy:
 
 ```ts
+import type { TraceCarrier } from '@zmdb/web/observability';
 import type {
   DispatchOutcome,
   MessageReply,
@@ -22,123 +22,145 @@ export interface TransportStrategy {
   readonly capabilities: TransportCapabilities;
   listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
   send(request: TransportRequest): Promise<MessageReply>;
-  emit(pattern: string, payload: unknown): Promise<void>;
+  emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void>;
   close(graceMs: number): Promise<void>;
 }
 ```
 
-`listen` supplies the application dispatcher with a parsed `RawMessage`. If
-framing failed, it sets `parseError` and keeps inspectable raw input in
-`payload`. After dispatch, the strategy applies `outcome.settlement` and, when
-present, publishes `outcome.reply` to the delivery's reply destination.
+All three packaged strategies use a versioned JSON envelope and reject an
+`undefined` payload. Malformed JSON reaches the dispatcher as
+`RawMessage.parseError`, with the original input retained for
+`onInvalidPayload`. `traceparent` / `tracestate` travel in the envelope;
+correlation and reply destinations use either envelope fields or native broker
+metadata.
 
-`send` receives the framework-generated correlation id, required deadline and
-an `AbortSignal`. It returns a `MessageReply` carrying that same correlation
-id. `createMessageClient` performs the deadline race, correlation check, remote
-error mapping and response validation.
+## Install only the selected client
 
-## Binding a strategy
+The neutral package and microservices entry point import no broker client.
+Install the optional peer alongside the adapter you use:
 
-`createApp` owns inbound transport lifecycle:
+```bash
+npm add @zmdb/web redis
+npm add @zmdb/web @nats-io/transport-node
+npm add @zmdb/web amqplib
+```
 
 ```ts
-await using app = createApp(AppModule, {
-  transports: [ordersTransport],
-  dispatcher: {
-    onUnhandled,
-    onInvalidPayload,
-    onHandlerError,
-    onUndeliverable,
+import { createRedisStrategy } from '@zmdb/web/microservices/redis';
+import { createNatsStrategy } from '@zmdb/web/microservices/nats';
+import { createRabbitMqStrategy } from '@zmdb/web/microservices/rabbitmq';
+```
+
+## Redis Pub/Sub
+
+```ts
+const redis = createRedisStrategy({
+  connection: { url: process.env.REDIS_URL },
+  channels: ['orders.get'],
+  channelPatterns: ['orders.events.*'],
+  onError: error => transportErrors.report(error),
+});
+```
+
+This is Redis Pub/Sub, not Streams. A message published while no matching
+subscriber is connected is lost. There is no acknowledgement, redelivery or
+dead-letter destination, so `deliveryAttempt` is always `1` and
+`createApp({ transports: [redis] })` requires `dispatcher.onUndeliverable`.
+
+Exact and glob subscriptions dispatch the concrete channel. Request/reply uses
+a process-owned reply-channel prefix and still requires the caller's explicit
+deadline.
+
+## Core NATS
+
+```ts
+const nats = createNatsStrategy({
+  connection: { servers: process.env.NATS_URL },
+  subscriptions: [{ subject: 'orders.*', queue: 'orders-workers' }, { subject: 'audit.>' }],
+  onError: error => transportErrors.report(error),
+});
+```
+
+This is core NATS, not JetStream. Delivery is at-most-once: there is no
+acknowledgement, redelivery or dead-letter destination. Native `*` and final
+`>` subscriptions are compiled into a trie at construction, and each delivery
+matches that trie rather than scanning the configured patterns. Queue groups
+are passed to NATS unchanged; the concrete delivered subject is the dispatcher
+pattern.
+
+Core NATS also requires `dispatcher.onUndeliverable`. Request/reply uses an
+inbox subscription that is removed on reply, timeout, abort or publish failure.
+
+## RabbitMQ
+
+```ts
+const rabbit = createRabbitMqStrategy({
+  connection: env.RABBITMQ_URL,
+  exchange: 'orders',
+  queue: 'orders.worker',
+  bindings: ['orders.*'],
+  prefetch: 32,
+  retry: {
+    exchange: 'orders.retry',
+    queue: 'orders.worker.retry',
   },
-  graceMs: 5_000,
-});
-
-await app.init();
-```
-
-Strategies open after application bootstrap hooks. They close in reverse order
-before shutdown hooks. A failed `listen` closes strategies opened earlier and
-rejects initialization; the application does not silently serve HTTP while
-dropping broker work.
-
-The capability declaration is checked at this boundary. If redelivery or
-dead-lettering is unavailable, `onUndeliverable` is required so a
-`retry`/`dead` decision cannot disappear silently.
-
-## Request/reply and events
-
-Use `createMessageClient` for typed request/reply:
-
-```ts
-type Calls = {
-  readonly 'order.get': {
-    readonly request: { readonly id: number };
-    readonly response: Order;
-  };
-};
-
-const client = createMessageClient<Calls>(ordersTransport, {
-  timeoutMs: 5_000,
-  validate: { 'order.get': raw => assert<Order>(raw) },
-});
-
-const order = await client['order.get']({ id: 7 });
-```
-
-Use `createEventPublisher` for one-way publishing:
-
-```ts
-type Events = {
-  readonly 'order.placed': { readonly id: number };
-};
-
-const events = createEventPublisher<Events>(ordersTransport);
-await events['order.placed']({ id: 7 });
-```
-
-Declare maps as type aliases rather than interfaces: the public constraint is a
-string-keyed map, and TypeScript does not give an interface an implicit index
-signature.
-
-## What to use before broker adapters land
-
-**HTTP between services.** Every zmdb application already exposes Fetch and
-framework-neutral handlers, and OpenAPI can describe the boundary. Validate
-responses just as strictly as requests.
-
-**The [transactional outbox](./transactional-outbox.html) for durable
-publication.** Publishing inside a database transaction creates a dual-write
-race. Write the event row in the transaction, then let a relay publish it:
-
-```ts
-await db.transaction(async tx => {
-  const order = await repo.withTransaction(tx).create(dto);
-  await outboxWriter(tx).write('order.placed', JSON.stringify({ id: order.id }));
+  deadLetter: {
+    exchange: 'orders.dead',
+    queue: 'orders.worker.dead',
+  },
+  onError: error => transportErrors.report(error),
 });
 ```
 
-**Postgres `LISTEN/NOTIFY` for deliberately lossy notifications.** A
-disconnected listener misses messages, so it is suitable for cache
-invalidation or a prompt to re-poll, not durable work.
+`prefetch` is required and must be a positive integer; it is RabbitMQ's
+consumer backpressure control. The strategy declares topic exchanges, the main
+queue, a per-message-TTL retry queue and an owned dead-letter queue.
 
-## Adapter requirements
+On `retry`, it publisher-confirm-publishes a copy to the retry queue with
+`expiration: afterMs`, then acknowledges the original. The retry queue
+dead-letters the expired copy back to the main exchange. On `dead`, it calls
+`basic.nack(requeue: false)` so the main queue routes the original to the
+configured DLQ. There is deliberately no `nack(requeue: true)`: immediate
+head-of-queue requeue turns deterministic failures into a tight poison-message
+loop.
 
-A broker adapter must:
+## Settlement table
 
-- authenticate and encrypt its connection;
-- validate its envelope before constructing `RawMessage`;
-- preserve generated correlation ids on replies;
-- honour cancellation and release pending waiters;
-- translate all three settlements without inventing immediate requeue;
-- stop intake, drain bounded in-flight work and close under `graceMs`;
-- report its capabilities truthfully.
+| Outcome                         | Redis Pub/Sub               | Core NATS                   | RabbitMQ                                                |
+| ------------------------------- | --------------------------- | --------------------------- | ------------------------------------------------------- |
+| handler returned                | no-op                       | no-op                       | confirm reply, then `basic.ack`                         |
+| retry requested                 | dropped → `onUndeliverable` | dropped → `onUndeliverable` | confirm TTL retry copy, then `basic.ack`                |
+| dead or invalid payload         | dropped → `onUndeliverable` | dropped → `onUndeliverable` | `basic.nack(requeue: false)` into the owned DLQ         |
+| no handler                      | no-op                       | no-op                       | `basic.ack`                                             |
+| consumer disappears mid-handler | lost                        | lost                        | unacked delivery is redelivered when the channel closes |
+| `deliveryAttempt`               | always `1`                  | always `1`                  | `x-death` count, or `2` for a broker-marked redelivery  |
+| capability flags                | `false / false / true`      | `false / false / true`      | `true / true / true`                                    |
 
-Assume at-least-once delivery and make effects idempotent. Do not trust identity
-claims from the payload, and do not put secrets in retained messages.
+Capability order is `redelivery / deadLetter / requestResponse`. Broker
+delivery is never a substitute for an application transaction. Use the
+[transactional outbox](./transactional-outbox.html) when a database write and
+event publication must not become a dual write.
 
-Redis, NATS and RabbitMQ adapters remain pending. Kafka, MQTT and bespoke TCP
-are deferred for the reasons on [Microservices](./web-microservices.html).
+## Lifecycle and security
+
+Attach strategies through `createApp`. They open after application bootstrap,
+stop intake before dependencies are disposed, drain in-flight dispatch under
+`graceMs` and close in reverse declaration order.
+
+Connection authentication, TLS and credential rotation are broker-client
+configuration. Do not trust identity claims carried in the payload, and do not
+put secrets in retained or dead-lettered messages. Handler effects must remain
+idempotent because RabbitMQ can redeliver an unacknowledged message.
+
+## Deferred transports
+
+Kafka is deferred because a consumer-group offset commits every earlier record
+in the partition; that cannot express independent settlement of concurrent
+messages through this interface. MQTT is deferred because broker QoS controls
+redelivery on the broker's schedule and cannot honour `retry.afterMs`.
+
+No bespoke TCP framing is shipped.
 
 ---
 
-See also: [Custom Transports](./web-microservices-custom-transport.html) · [Hybrid Applications](./web-hybrid-application.html) · [Queues](./web-queues.html)
+See also: [Microservices](./web-microservices.html) · [Custom Transports](./web-microservices-custom-transport.html) · [Hybrid Applications](./web-hybrid-application.html)

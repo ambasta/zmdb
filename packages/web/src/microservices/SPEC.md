@@ -1,7 +1,8 @@
 # `@zmdb/web/microservices` — transport strategy and message dispatch SPEC
 
-This is the transport-neutral layer of epic #556, implemented by #559. Broker
-adapters are #560 and gRPC remains a separate contract under `./grpc/SPEC.md`.
+This is the transport-neutral layer of epic #556, implemented by #559. Redis,
+core NATS and RabbitMQ adapters are implemented by #560; gRPC remains a
+separate contract under `./grpc/SPEC.md`.
 The layer here owns validation, exact-pattern dispatch, typed request clients,
 correlation, deadlines and application lifecycle. A strategy owns broker
 framing, subscriptions, replies and applying settlements.
@@ -87,6 +88,8 @@ export interface TransportRequest {
   readonly correlationId: string;
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
+  readonly traceparent?: string;
+  readonly tracestate?: string;
 }
 
 export interface TransportCapabilities {
@@ -100,7 +103,7 @@ export interface TransportStrategy {
   readonly capabilities: TransportCapabilities;
   listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
   send(request: TransportRequest): Promise<MessageReply>;
-  emit(pattern: string, payload: unknown): Promise<void>;
+  emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void>;
   close(graceMs: number): Promise<void>;
 }
 ```
@@ -325,10 +328,57 @@ Within a major release, new required members are not added to
 `TransportStrategy`, and new settlement arms are not added. Optional diagnostic
 members may be added to `RawMessage` because existing strategies can omit them.
 
-## 9. Deferred transports
+## 9. Broker strategies
 
-#560 implements Redis, NATS and RabbitMQ as optional peers. Kafka and MQTT are
-deferred:
+The three clients are optional peers and live behind separate subpaths:
+
+- `@zmdb/web/microservices/redis` uses Redis Pub/Sub;
+- `@zmdb/web/microservices/nats` uses core NATS;
+- `@zmdb/web/microservices/rabbitmq` uses a RabbitMQ topic exchange.
+
+Importing `@zmdb/web` or `@zmdb/web/microservices` reaches none of those
+clients. A plain production install therefore contains no broker client.
+
+All three adapters use the same versioned JSON envelope. Payloads must be
+JSON-serializable and cannot be `undefined`. The envelope carries W3C trace
+propagation; correlation and reply destinations use either envelope fields or
+the broker's native metadata. Parsing remains the strategy's responsibility:
+malformed JSON becomes `RawMessage.parseError` with the original text retained
+in `payload`.
+
+### 9.1 Delivery semantics
+
+| Outcome                           | Redis Pub/Sub                 | Core NATS                     | RabbitMQ                                                   |
+| --------------------------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------------- |
+| handler returned                  | no-op; nothing to acknowledge | no-op; nothing to acknowledge | `basic.ack` after any reply publish is confirmed           |
+| handler threw, attempts left      | dropped → `onUndeliverable`   | dropped → `onUndeliverable`   | confirm-publish to a per-message-TTL retry queue, then ack |
+| handler threw, attempts exhausted | dropped → `onUndeliverable`   | dropped → `onUndeliverable`   | `basic.nack(requeue: false)` into the owned DLQ            |
+| payload or envelope invalid       | dropped → `onUndeliverable`   | dropped → `onUndeliverable`   | `basic.nack(requeue: false)` into the owned DLQ            |
+| no handler                        | no-op                         | no-op                         | `basic.ack`                                                |
+| consumer disappears mid-handler   | message lost                  | message lost                  | unacked delivery is redelivered on channel close           |
+| `deliveryAttempt`                 | always `1`                    | always `1`                    | `x-death` count, with broker redelivery as attempt `2`     |
+| capabilities                      | `false / false / true`        | `false / false / true`        | `true / true / true`                                       |
+
+The capability order in the last row is
+`redelivery / deadLetter / requestResponse`. Redis and core NATS are lossy
+transports: publishing while no matching consumer is connected loses the
+message. Attaching either one to `createApp` therefore requires
+`dispatcher.onUndeliverable`.
+
+Redis accepts exact channels and Redis glob subscriptions, always dispatching
+the concrete channel. Core NATS accepts native `*` and final-`>` subjects plus
+queue groups. Its subject membership is compiled to a trie at construction;
+delivery never scans the configured pattern array.
+
+RabbitMQ requires a positive `prefetch`, which is its backpressure control. It
+owns the main queue, a TTL retry queue and a dead-letter queue. A retry is
+publisher-confirmed before the original delivery is acknowledged. Immediate
+`nack(requeue: true)` remains deliberately absent: it would return a
+deterministic failure to the queue head in a tight loop.
+
+### 9.2 Deferred transports
+
+Kafka and MQTT remain deferred:
 
 - Kafka commits ordered offsets rather than settling independent messages.
 - MQTT retry timing belongs to broker QoS and cannot honour `retry.afterMs`.
@@ -361,4 +411,6 @@ The implementation tests prove:
 - no default request timeout;
 - no module-scope connection or registry;
 - no GraphQL integration;
-- no broker or gRPC dependency in this slice.
+- no broker client reachable from the package root or transport-neutral
+  microservices entry point;
+- no gRPC dependency in this slice.

@@ -167,6 +167,45 @@ for (const [subpath, target] of Object.entries(webManifest.exports ?? {})) {
   }
 }
 
+// Broker clients are optional integration peers. Each may be reached only from
+// its explicit strategy subpath; the package root and transport-neutral
+// microservices seam must remain importable without any broker installed.
+const BROKER_PEERS = new Map([
+  ['@nats-io/transport-node', './microservices/nats'],
+  ['amqplib', './microservices/rabbitmq'],
+  ['redis', './microservices/redis'],
+]);
+
+for (const [peer, allowedSubpath] of BROKER_PEERS) {
+  if (webManifest.dependencies?.[peer] !== undefined) {
+    console.error(`[ERROR] @zmdb/web broker client "${peer}" is a dependency instead of an optional peer`);
+    errorsCount++;
+  }
+  if (
+    webManifest.peerDependencies?.[peer] === undefined ||
+    webManifest.peerDependenciesMeta?.[peer]?.optional !== true
+  ) {
+    console.error(`[ERROR] @zmdb/web broker client "${peer}" is not declared as an optional peer`);
+    errorsCount++;
+  }
+
+  for (const [subpath, target] of Object.entries(webManifest.exports ?? {})) {
+    if (typeof target !== 'string' || subpath === allowedSubpath) continue;
+    const chain = importGraph.findImportPath(
+      join(PACKAGES_DIR, 'web', target),
+      ({ specifier }) => specifier === peer || specifier.startsWith(`${peer}/`),
+    );
+    if (chain !== null) {
+      const trail = chain
+        .slice(0, -1)
+        .map(file => file.slice(ROOT.length + 1))
+        .join(' -> ');
+      console.error(`[ERROR] @zmdb/web export "${subpath}" reaches optional broker peer "${peer}": ${trail}`);
+      errorsCount++;
+    }
+  }
+}
+
 // Every subpath actually loads, under `node`, with no bundler and no transform.
 //
 // This is a check on the *source*, and it is worth being precise about that, because the

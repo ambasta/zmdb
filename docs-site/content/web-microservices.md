@@ -1,7 +1,6 @@
-> **ToDo / partial support.** The transport-neutral layer ships:
-> `@MessagePattern`, `@EventPattern`, startup-built dispatch, typed clients,
-> custom strategies and application-owned lifecycle. Redis, NATS, RabbitMQ and
-> gRPC adapters are still pending, so this page remains a feature-gap page.
+> **ToDo / partial support.** The transport-neutral layer plus Redis Pub/Sub,
+> core NATS and RabbitMQ strategies ship. gRPC and the epic-wide final docs pass
+> remain pending, so this page stays marked `todo`.
 
 ## The public seam
 
@@ -145,13 +144,44 @@ strategies that already opened and rejects. Disposal closes transports in
 reverse order before provider/controller shutdown hooks, so no message handler
 outlives its dependencies.
 
-## What remains
+## Packaged broker strategies
 
-Redis, NATS and RabbitMQ strategies remain to be shipped as optional peer
-integrations. Kafka is deferred because an offset commits every predecessor,
-which does not implement independent per-message settlement. MQTT is deferred
-because broker QoS cannot honour `retry.afterMs`. There is no bespoke
-length-prefixed TCP protocol.
+Install only the client used by the selected strategy:
+
+```bash
+npm add @zmdb/web redis
+npm add @zmdb/web @nats-io/transport-node
+npm add @zmdb/web amqplib
+```
+
+Import the adapter through its own optional subpath:
+
+```ts
+import { createRedisStrategy } from '@zmdb/web/microservices/redis';
+import { createNatsStrategy } from '@zmdb/web/microservices/nats';
+import { createRabbitMqStrategy } from '@zmdb/web/microservices/rabbitmq';
+```
+
+| Strategy      | Redelivery | Dead letter | Request/reply | Delivery warning                                      |
+| ------------- | ---------- | ----------- | ------------- | ----------------------------------------------------- |
+| Redis Pub/Sub | no         | no          | yes           | messages are lost while no matching subscriber exists |
+| Core NATS     | no         | no          | yes           | deliveries are at-most-once                           |
+| RabbitMQ      | yes        | yes         | yes           | handlers must tolerate redelivery                     |
+
+Redis and core NATS therefore require `dispatcher.onUndeliverable`. RabbitMQ
+requires an explicit positive `prefetch`, owns its dead-letter destination and
+uses publisher-confirmed, per-message-TTL retry copies. It never immediately
+requeues a failed delivery.
+
+See [Broker Transports](./web-microservices-transports.html) for concrete
+configuration and the complete settlement table.
+
+## What remains deferred
+
+Kafka is deferred because committing an ordered partition offset also commits
+every predecessor, which does not implement independent per-message
+settlement. MQTT is deferred because broker QoS cannot honour
+`retry.afterMs`. There is no bespoke length-prefixed TCP protocol.
 
 GraphQL remains out of scope; the message layer has no GraphQL dependency.
 

@@ -1675,7 +1675,7 @@ export const PAGE_META = {
     title: 'Hybrid Applications',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'custom transport lifecycle ships; packaged broker and gRPC adapters remain pending',
+    note: 'custom and packaged broker transports ship; gRPC remains pending',
   },
   'web-serverless': {
     title: 'Serverless',
@@ -1750,13 +1750,13 @@ export const PAGE_META = {
     title: 'Microservices',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'strategy, decorators, dispatcher, typed clients and app lifecycle ship; adapters remain',
+    note: 'strategy, clients, lifecycle and Redis / NATS / RabbitMQ ship; gRPC remains pending',
   },
   'web-microservices-transports': {
     title: 'Broker Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'public strategy seam ships; Redis / NATS / RabbitMQ adapters remain pending',
+    note: 'Redis Pub/Sub, core NATS and RabbitMQ strategies ship; final epic docs pass remains',
   },
   'web-microservices-grpc': {
     title: 'gRPC',
@@ -1768,7 +1768,7 @@ export const PAGE_META = {
     title: 'Custom Transports',
     group: 'Web Framework — Microservices',
     status: 'todo',
-    note: 'public custom-strategy seam ships; epic status completion waits on broker and gRPC adapters',
+    note: 'public custom strategy and packaged brokers ship; epic completion waits on gRPC',
   },
   'web-graphql': {
     title: 'GraphQL',
