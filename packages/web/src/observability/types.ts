@@ -1,10 +1,7 @@
-import type { QueryTelemetry } from '@zmdb/query-compiler';
+import type { CommentKey, CommentKeys, CommentPairs, QueryTelemetry } from '@zmdb/query-compiler';
 
 /** Scalar attributes accepted by the framework's telemetry ports. */
 export type Attributes = Readonly<Record<string, string | number | boolean>>;
-
-/** The closed sqlcommenter key set frozen by the operability spec. */
-export type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
 
 /** Span roles understood by the framework's telemetry port. */
 export const SpanKind = {
@@ -65,7 +62,7 @@ export interface Meter {
 export interface Observability {
   readonly tracer?: Tracer;
   readonly meter?: Meter;
-  readonly comments?: { readonly keys: readonly [CommentKey, ...CommentKey[]] };
+  readonly comments?: { readonly keys: CommentKeys };
 }
 
-export type { QueryTelemetry };
+export type { CommentKey, CommentKeys, CommentPairs, QueryTelemetry };

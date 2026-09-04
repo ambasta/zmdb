@@ -92,6 +92,8 @@ export type {
   ChainHandler,
   Clock,
   CommentKey,
+  CommentKeys,
+  CommentPairs,
   ClientPatterns,
   CompiledModule,
   CompiledPattern,

@@ -32,6 +32,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./comments": "./src/comments/index.ts",
     "./fts": "./src/fts/index.ts",
     "./joins": "./src/joins/index.ts",
     "./aggregations": "./src/aggregations/index.ts",

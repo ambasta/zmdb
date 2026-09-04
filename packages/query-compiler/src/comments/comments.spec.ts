@@ -1,65 +1,14 @@
 // Tests for the sqlcommenter query tagging frozen in ./SPEC.md (#580, epic #578).
-//
-// RED ON PURPOSE, AND VISIBLY SO. ./index.ts does not exist: #583 writes it. Every
-// assertion whose subject is unimplemented is `it.fails`, never `it.skip`, because a skipped
-// test is invisible in the summary line and an expected-failing one is counted there. When
-// #583 lands, each `it.fails` that starts passing fails the suite with
-// `Error: Expect test to fail`, which is the ratchet: the implementer cannot land the code
-// without also deleting the `.fails`.
-//
-// THE IDIOM, used in all three of #580's spec files. An `it.fails` whose body cannot be
-// typechecked asserts nothing, so the frozen surface is transcribed from ./SPEC.md into the
-// block below and each missing function is a `const` holding a throwing implementation of
-// its frozen type. A `const` rather than `declare function` for three reasons: nothing throws
-// at module load, so collection succeeds and the tests appear in the summary; the type is
-// checked against the spec's signature at compile time, so a signature that drifts is a build
-// failure; and there is no `declare`d name that oxlint's `no-undef` would have to be told
-// about. When #583 lands, the block is replaced by one `import` and the test bodies are
-// untouched.
-//
-// CURRENT ACTUALS. Every `it.fails` records, in a comment, what the code produces today.
-// An `it.fails` asserting an invented wrong value is worse than no test, because it passes
-// the freeze and then passes the implementation for the wrong reason.
+// The bodies were recorded before implementation and remain the ratchet for #583.
 import { describe, expect, it } from 'vitest';
 
 import { createQueryCompiler, type CompiledQuery } from '../index.js';
-
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#583)
-// ---------------------------------------------------------------------------
-
-/** ./SPEC.md §2. Five keys, closed. */
-type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
-
-/** ./SPEC.md §3's serializer argument. */
-type CommentPairs = Readonly<Partial<Record<CommentKey, string>>>;
-
-/**
- * ./SPEC.md §3: `key='value'` pairs, comma-separated, keys sorted, each key and value
- * through `encodeURIComponent` and then `'` -> `\'`. Returns the inside of the comment,
- * without the `/*` and `*\/`.
- */
-const serializeComment: (pairs: CommentPairs) => string = () => {
-  throw new Error('#580 tests freeze: serializeComment is unimplemented (comments SPEC §3)');
-};
-
-/**
- * ./SPEC.md §4: the tag goes at the end, so `text.startsWith(firstToken)` survives.
- * Returns `text` unchanged when `pairs` has no keys, which is §7.9's byte-identical case.
- */
-const appendComment: (text: string, pairs: CommentPairs) => string = () => {
-  throw new Error('#580 tests freeze: appendComment is unimplemented (comments SPEC §4)');
-};
-// --------------------------- end frozen surface ---------------------------
+import { appendComment, serializeComment, withComments, type CommentPairs } from './index.js';
 
 // ./SPEC.md §6: the tag is rendered by the driver decorator at execute time. Where that
-// decorator is *exported* from is #583's call and the spec does not say — it cannot live in
-// this package if it takes a `@zmdb/repository` `Driver`, because `@zmdb/repository` depends
-// on this package and not the other way round. So the decorator is composed here, from the
-// two frozen string functions, against the structural minimum of `Driver`
-// (`packages/repository/src/index.ts:51-54`). This local version is what §7.7 and §7.8 are
-// assertions about, and it is deliberately three lines: if the real one needs more than this,
-// the tag is doing something §6 did not freeze.
+// decorator is exported from was #583's call. It lives beside the serializer and accepts the
+// structural minimum of `Driver`, so `@zmdb/query-compiler` does not depend on
+// `@zmdb/repository`. §7.7 and §7.8 exercise that public decorator directly.
 interface ExecutingDriver {
   readonly dialect?: 'postgres' | 'mysql' | 'sqlite';
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
@@ -69,15 +18,6 @@ interface ExecutingDriver {
 interface RecordingDriver extends ExecutingDriver {
   readonly seen: readonly string[];
 }
-
-const withComments = (driver: RecordingDriver, pairs: () => CommentPairs): RecordingDriver => ({
-  // Spread, per §6's last paragraph: `sql-comments.md`'s version returned `{ execute }` and
-  // dropped `dialect`, so the wrapped driver lost the field the repository reads.
-  ...driver,
-  // A new object, never a mutation: the compiled query is `Object.isFrozen` today and §6's
-  // whole argument is that it stays reusable across differently-tagged requests.
-  execute: query => driver.execute({ ...query, text: appendComment(query.text, pairs()) }),
-});
 
 const recordingDriver = (): RecordingDriver => {
   const seen: string[] = [];
@@ -103,11 +43,9 @@ const FULL_PAIRS: CommentPairs = {
 };
 
 describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
-  // §7.9. This is the only test in the file that is green today, and it is the one that
-  // makes the rest meaningful: "byte-identical to today's" is a claim about a string, so
-  // the string has to be written down before the feature exists. If #583 changes any of
-  // these four texts, this test fails and the change is a breaking one whatever it was
-  // meant to be.
+  // §7.9. "Byte-identical to today's" is a claim about a string, so the untagged baseline
+  // was written down before the feature existed. If the disabled path changes any of these
+  // four texts, this test fails.
   //
   // Recorded 2026-09-04 by running the four builders under
   // `node --import scripts/ts-specifier-hook.mjs`.
@@ -133,10 +71,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
 
   // §7.9, the other half: with `comments` absent the text is unchanged. `appendComment` with
   // no pairs is that path, and it must return the input rather than an empty `/**/`.
-  //
-  // Current actual: throws `Error: #580 tests freeze: appendComment is unimplemented
-  // (comments SPEC §4)`.
-  it.fails('emits no comment when comments are disabled', () => {
+  it('emits no comment when comments are disabled', () => {
     const query = selectUsers();
     expect(appendComment(query.text, {})).toBe('SELECT "id", "email" FROM "users" WHERE "id" = $1');
     expect(appendComment(query.text, {})).not.toContain('/*');
@@ -144,12 +79,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
 
   // §7.1 and §7.4. The exact string from §3's worked example, byte for byte, including the
   // sort order and the `\'`.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`. Verified separately with `node` that §3's serializer produces the
-  // right-hand side exactly: `"action='list',controller='o\\'brien*%2FDROP',` +
-  // `route='%2Fusers%2F%3Aid',traceparent='00-abc-def-01'"`.
-  it.fails('emits a sorted sqlcommenter comment with url-encoded values', () => {
+  it('emits a sorted sqlcommenter comment with url-encoded values', () => {
     const out = serializeComment({
       route: '/users/:id',
       controller: "o'brien*/DROP",
@@ -176,10 +106,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // one checked with `node`: `*/` -> `*%2F` (§3: `*` is unreserved and passes through, so a
   // sanitizer that stripped `*` would have done nothing), `\n` -> `%0A`, `\r` -> `%0D`,
   // U+2028 -> `%E2%80%A8`, U+2029 -> `%E2%80%A9`.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`.
-  it.fails('cannot terminate the comment early', () => {
+  it('cannot terminate the comment early', () => {
     // The two line-separator characters are written as `\u2028` / `\u2029` escapes rather
     // than as literals: they terminate a line in JavaScript source, so a literal one here
     // would be an invisible hazard in a file whose subject is invisible characters.
@@ -221,11 +148,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // §7.2. The assertion `sql-comments.md`'s serializer fails: `encodeURIComponent("o'brien")`
   // is `"o'brien"` — the apostrophe is unreserved and survives — so a value containing one
   // closes its own quote and the remainder of the tag stops being a quoted value.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`. Verified with `node` that the docs page's serializer produces
-  // `"controller='o'brien*%2FDROP'"` for §3's input, i.e. it does close its own quote.
-  it.fails('escapes an apostrophe as a backslash apostrophe', () => {
+  it('escapes an apostrophe as a backslash apostrophe', () => {
     expect(encodeURIComponent("o'brien")).toBe("o'brien"); // the premise, not the assertion
     expect(serializeComment({ controller: "o'brien" })).toBe("controller='o\\'brien'");
 
@@ -241,12 +164,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // a single backslash becoming `%5C`. This is what makes the tag unambiguous to a human
   // reading it back out of `pg_stat_statements`, and it is why §3 encodes before escaping
   // rather than after.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`. Verified with `node`: `encodeURIComponent('\\')` is `'%5C'`,
-  // §3's serializer gives `"controller='%5C'"` with zero backslashes in the output, and its
-  // worked example gives exactly one backslash, the escaper's.
-  it.fails('leaves the escaper as the only backslash in a serialized value', () => {
+  it('leaves the escaper as the only backslash in a serialized value', () => {
     expect(serializeComment({ controller: '\\' })).toBe("controller='%5C'");
     expect(serializeComment({ controller: '\\\\' })).toBe("controller='%5C%5C'");
     expect(serializeComment({ controller: "\\'" })).toBe("controller='%5C\\''");
@@ -267,10 +185,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // §7.4. Sorted keys are what make the statement text stable enough to be one
   // `pg_stat_statements` entry instead of one per key ordering (§2), so this is a cardinality
   // assertion wearing a formatting assertion's clothes.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`.
-  it.fails('produces an identical string whatever order the pairs were inserted in', () => {
+  it('produces an identical string whatever order the pairs were inserted in', () => {
     const forward = serializeComment({ action: 'get', controller: 'C', route: '/x', traceparent: '00-a-b-01' });
     const reverse = serializeComment({ traceparent: '00-a-b-01', route: '/x', controller: 'C', action: 'get' });
     const shuffled = serializeComment({ route: '/x', action: 'get', traceparent: '00-a-b-01', controller: 'C' });
@@ -288,12 +203,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // `Object.create`. That is #364's shape — repository issue #364 is the inherited-key
   // problem in this codebase — and it is worth an assertion because the obvious "fix" for a
   // future reviewer is `for (const k in pairs)`, which would emit it.
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`. Verified with `node`: `Object.keys` of a child of
-  // `{ route: '/evil' }` carrying its own `action` is `["action"]` while `'route' in child`
-  // is `true`, and §3's serializer gives `"action='list'"`.
-  it.fails('refuses a key that is not in the closed set', () => {
+  it('refuses a key that is not in the closed set', () => {
     const hostileProto = { route: '/evil', traceparent: '00-forged-forged-01' };
     const laundered = Object.create(hostileProto) as Record<string, string>;
     laundered.action = 'list';
@@ -304,18 +214,13 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   });
 
   // §7.6 and §4. Trailing for the three reasons §4 lists, and the one that bites hardest is
-  // the third: a leading comment makes `/^\s*(\w+)/` — the operation-name extraction still
-  // printed on `docs-site/content/web-observability.md:116` — return nothing, so turning
-  // tracing on silently relabels every database metric in the application to `other`.
+  // the third: a leading comment makes `/^\s*(\w+)/` return nothing, so a downstream parser
+  // can silently relabel every database metric in the application to `other`.
   //
   // The regex is reproduced here rather than imported because it is the *docs page's* code,
   // not this package's, and the point of the assertion is that our placement keeps somebody
   // else's parser working.
-  //
-  // Current actual: throws `Error: #580 tests freeze: appendComment is unimplemented
-  // (comments SPEC §4)`. Verified with `node` on the hand-assembled tagged string: trailing
-  // gives `startsWith('SELECT')` true and the regex `"SELECT"`; leading gives `"OTHER"`.
-  it.fails('emits the comment trailing, so the first token is unchanged', () => {
+  it('emits the comment trailing, so the first token is unchanged', () => {
     const query = selectUsers();
     const tagged = appendComment(query.text, FULL_PAIRS);
     const firstToken = (sql: string) => (/^\s*(\w+)/.exec(sql)?.[1] ?? 'other').toUpperCase();
@@ -338,12 +243,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // the compiled query — or if `CompiledQuery` grew a `comment` field — a per-request value
   // would have been written into a per-route cached object, which works until the cache is
   // enabled.
-  //
-  // Current actual: throws `Error: #580 tests freeze: appendComment is unimplemented
-  // (comments SPEC §4)`, from inside `withComments`. Verified with `node` that the untagged
-  // query is `Object.isFrozen` today, so a decorator that tried to mutate it would throw
-  // rather than silently succeed — but freezing is not the assertion, identity is.
-  it.fails('leaves the compiled query deep-equal to its untagged self after a tagged execute', async () => {
+  it('leaves the compiled query deep-equal to its untagged self after a tagged execute', async () => {
     const query = selectUsers();
     const before = { text: query.text, parameters: [...query.parameters] };
     const driver = recordingDriver();
@@ -355,8 +255,8 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     expect(Object.keys(query)).toEqual(['text', 'parameters']);
     expect(query.text).toBe('SELECT "id", "email" FROM "users" WHERE "id" = $1');
     // §6's smaller point: a decorator spreads the driver it wraps, so `dialect` survives.
-    // `sql-comments.md`'s `tagged` returned `{ execute }` and dropped it, which broke the
-    // field `Driver` declares and the repository reads to pick its dialect.
+    // The original docs sketch returned `{ execute }` and dropped the field `Driver`
+    // declares and the repository reads to pick its dialect.
     expect(tagged.dialect).toBe('postgres');
     // And the statement the driver actually saw was the tagged one, or nothing was tested.
     expect(driver.seen).toHaveLength(1);
@@ -366,10 +266,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // §7.8: the property that makes reuse safe. One compiled query, two traceparents, two
   // statement texts — which is also §5's stated trade, because it is exactly why
   // `traceparent` costs the plan cache.
-  //
-  // Current actual: throws `Error: #580 tests freeze: appendComment is unimplemented
-  // (comments SPEC §4)`, from inside `withComments`.
-  it.fails('produces two statement texts for one compiled query under two traceparents', async () => {
+  it('produces two statement texts for one compiled query under two traceparents', async () => {
     const query = selectUsers();
     const driver = recordingDriver();
     let traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
@@ -395,10 +292,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // that does — which the type forbids at a call site and a cast permits here. This is the
   // runtime counterpart to ./comments.type-test.ts's note that the type's guarantee is
   // "no accidental key" rather than "no path".
-  //
-  // Current actual: throws `Error: #580 tests freeze: serializeComment is unimplemented
-  // (comments SPEC §3)`.
-  it.fails('encodes the key as well as the value', () => {
+  it('encodes the key as well as the value', () => {
     const laundered = { "a'*/b": 'x' } as unknown as CommentPairs;
     const out = serializeComment(laundered);
 

@@ -5,7 +5,7 @@
 // which is what §1 says is the public interface — rather than about the order of calls on a
 // spy. A call-order assertion passes an implementation that emits the right calls in the
 // wrong hierarchy, and the hierarchy is the thing a waterfall renders.
-import { type CompiledQuery } from '@zmdb/query-compiler';
+import { createQueryCompiler, type CompiledQuery } from '@zmdb/query-compiler';
 import { describe, expect, it, vi } from 'vitest';
 
 import { bodyText, createRouter, json, type Ctx, type WebRequest } from '../pipeline/index.js';
@@ -17,6 +17,7 @@ import {
   toTraceparent,
   tracedDriver,
   type Attributes,
+  type CommentPairs,
   type ExecutingDriver,
   type Meter,
   type Observability,
@@ -348,6 +349,66 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     const traced = createTracedRouter({ tracer: throwingTracer() });
     traced.register(controller());
     await expect(traced.handle(GET_POST)).rejects.toThrow('tracer was constructed');
+  });
+
+  it('tags a query at execution with only the configured closed comment keys', async () => {
+    const tracer = recordingTracer();
+    const parent = tracer.startSpan('zmdb.handler');
+    const seen: CompiledQuery[] = [];
+    const query = createQueryCompiler('postgres', { telemetry: true })
+      .selectFrom('posts')
+      .select(['id'])
+      .where('id', '=', 1)
+      .compile();
+    const driver = tracedDriver(
+      {
+        dialect: 'postgres',
+        execute: executed => {
+          seen.push(executed);
+          return Promise.resolve([]);
+        },
+      },
+      { tracer, comments: { keys: ['traceparent', 'route', 'action'] } },
+      parent,
+      () => ({
+        route: '/posts/:id',
+        action: 'get',
+        controller: 'PostsController',
+        framework: 'zmdb:1.0.0-alpha.4',
+      }),
+    );
+
+    await driver.execute(query);
+
+    const querySpan = tracer.spans.at(-1);
+    expect(querySpan?.name).toBe('SELECT posts');
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.text).toBe(
+      `${query.text} /*action='get',route='%2Fposts%2F%3Aid',` +
+        `traceparent='00-${querySpan?.context.traceId}-${querySpan?.context.spanId}-01'*/`,
+    );
+    expect(seen[0]?.text).not.toContain('PostsController');
+    expect(seen[0]?.text).not.toContain('framework');
+    expect(seen[0]?.parameters).toBe(query.parameters);
+    expect(query.text).toBe('SELECT "id" FROM "posts" WHERE "id" = $1');
+    expect(Object.isFrozen(query)).toBe(true);
+    expect(driver.queryTelemetry).toBe(true);
+
+    const inherited: CommentPairs = Object.create({ route: '/forged' });
+    Object.defineProperty(inherited, 'action', { value: 'get', enumerable: true });
+    const prototypeSeen: CompiledQuery[] = [];
+    const commentsOnly = tracedDriver(
+      { execute: executed => (prototypeSeen.push(executed), Promise.resolve([])) },
+      { comments: { keys: ['route', 'action'] } },
+      undefined,
+      () => inherited,
+    );
+
+    await commentsOnly.execute(query);
+
+    expect(prototypeSeen[0]?.text).toBe(`${query.text} /*action='get'*/`);
+    expect(prototypeSeen[0]?.text).not.toContain('forged');
+    expect(commentsOnly.queryTelemetry).toBeUndefined();
   });
 
   // §9.3 and §9.4. Semconv requires `{method} {http.route}` with a low-cardinality route, so

@@ -18,7 +18,7 @@ npm add @zmdb/query-compiler@alpha
 
 ## Entry points
 
-`@zmdb/query-compiler`, `@zmdb/query-compiler/fts`, `@zmdb/query-compiler/joins`, `@zmdb/query-compiler/aggregations`, `@zmdb/query-compiler/migrations`, `@zmdb/query-compiler/migrations/runner`, `@zmdb/query-compiler/outbox`, `@zmdb/query-compiler/set-ops`, `@zmdb/query-compiler/schema-objects`
+`@zmdb/query-compiler`, `@zmdb/query-compiler/comments`, `@zmdb/query-compiler/fts`, `@zmdb/query-compiler/joins`, `@zmdb/query-compiler/aggregations`, `@zmdb/query-compiler/migrations`, `@zmdb/query-compiler/migrations/runner`, `@zmdb/query-compiler/outbox`, `@zmdb/query-compiler/set-ops`, `@zmdb/query-compiler/schema-objects`
 
 ## Documentation
 

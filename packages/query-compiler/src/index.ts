@@ -87,6 +87,9 @@ export interface QueryTelemetry {
   readonly collection: string;
 }
 
+export { appendComment, serializeComment, withComments } from './comments/index.js';
+export type { CommentKey, CommentKeys, CommentPairs } from './comments/index.js';
+
 /** Optional compiler features that would otherwise change every query shape. */
 export interface QueryCompilerOptions {
   readonly telemetry?: true;

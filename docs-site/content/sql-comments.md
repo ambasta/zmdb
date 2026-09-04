@@ -1,11 +1,7 @@
-> **ToDo / feature gap.** There is no way to attach a comment to a compiled
-> query. `CompiledQuery` always carries `text` and `parameters` and may carry
-> optional compile-time `telemetry`, but the compiler emits no comment and there
-> is no sqlcommenter driver decorator yet.
->
-> The format, the closed key set and the escaping rules are frozen in
-> `packages/query-compiler/src/comments/SPEC.md`. The wrapper below is the right
-> idea with an escaping bug and a dropped field, both fixed in place.
+> SQL comments are opt-in. `withComments` is the dependency-free driver
+> decorator; `tracedDriver` additionally supplies the query span's
+> `traceparent` when that key is selected. Neither stores request data on
+> `CompiledQuery`, and the disabled path keeps the original SQL byte-for-byte.
 
 ## Why anyone wants this
 
@@ -13,42 +9,53 @@ A comment in the SQL text survives into `pg_stat_statements`, the slow-query log
 
 ## Doing it in the driver
 
-The driver sees every statement and is the only place that knows what request it is serving, so a wrapper covers the whole application:
+The driver sees every statement and is the right place to add request-scoped
+text without changing a reusable compiled query:
 
 ```ts
-const encode = (s: string): string => encodeURIComponent(s).replace(/'/g, "\\'");
+import { withComments } from '@zmdb/query-compiler/comments';
 
-type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
-
-function tagged(inner: Driver, tags: () => Partial<Record<CommentKey, string>>): Driver {
-  return {
-    ...inner,
-    execute(q) {
-      const t = Object.entries(tags())
-        .sort(([a], [b]) => (a < b ? -1 : 1))
-        .map(([k, v]) => `${encode(k)}='${encode(v)}'`)
-        .join(',');
-      return inner.execute({ ...q, text: `${q.text} /*${t}*/` });
-    },
-  };
-}
+const driver = withComments(baseDriver, () => ({
+  route: routePattern,
+  controller: 'UsersController',
+  action: 'get',
+  framework: 'zmdb:1.0.0-alpha.4',
+}));
 ```
 
-Four details in there that an earlier version of this page got wrong, and the third one is the reason this has a frozen spec:
+Four details in the shipped decorator matter, and the third is the reason this
+has a frozen spec:
 
-1. **`...inner`.** Returning a bare `{ execute }` drops `dialect`, which `Driver` declares and the repository reads to pick its SQL. A decorator spreads what it wraps.
-2. **`...q`.** Rebuilding `{ text, parameters }` drops optional compile-time `telemetry`, so tracing and metrics lose their operation and collection labels.
+1. **It spreads the driver.** Returning a bare `{ execute }` drops `dialect`, which `Driver` declares and the repository reads to pick its SQL.
+2. **It spreads the query.** Rebuilding `{ text, parameters }` drops optional compile-time `telemetry`, so tracing and metrics lose their operation and collection labels.
 3. **`.replace(/'/g, "\\'")`.** `encodeURIComponent` alone is not enough — see the next section.
 4. **`.sort()`.** Sorted keys mean the same request produces the same statement text, so it is one `pg_stat_statements` row rather than one per key ordering. Same reason the [metrics page](./web-observability.html) sorts label keys.
 
-Construct it per request so the tags describe _this_ request:
+For trace correlation, let `tracedDriver` create the query span and select the
+keys that may reach the statement:
 
 ```ts
-const driver = tagged(base, () => ({ route: routePattern, action: 'list' }));
-const repo = defineRepository(users, driver);
+const observability = {
+  tracer,
+  comments: { keys: ['traceparent', 'route', 'action'] as const },
+};
+
+const driver = tracedDriver(baseDriver, observability, ctx.span, () => ({
+  route: '/users/:id',
+  action: 'get',
+}));
+const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
 ```
 
-Two things about those values, both of which an earlier version of this page got wrong. `routePattern` is `/users/:id` and not `ctx.path`, which is `/users/1` — the first caveat below is about exactly that difference, and getting the pattern is harder than this line makes it look: `Ctx` carries `params`, `body`, `query`, `headers`, `method`, `path` and optional `span`, but not the matched route. The [metrics page](./web-observability.html) hits the same wall for `http.route` and for the same structural reason. And `method` is not one of the five frozen keys; `action` — the handler name — carries what you wanted it for, at one value per route rather than one per verb crossed with route.
+The configuration is an allowlist: the callback may return more closed keys,
+but only `keys` are emitted. When `traceparent` is selected, `tracedDriver`
+uses the query span it just created (or the supplied parent span when there is
+no tracer), so the callback cannot accidentally tag the wrong span.
+
+`route` is `/users/:id`, not `ctx.path` (`/users/1`). `Ctx` deliberately does
+not expose the matched route, so the handler must close over the route pattern
+it registered. `method` is not one of the five keys; `action`, the handler
+name, carries the low-cardinality value wanted here.
 
 Because there is no ambient request context, the closure is how the tag gets in — which is more wiring than a global, and also the reason two concurrent requests cannot tag each other's queries.
 
@@ -81,6 +88,7 @@ The guarantee is worth stating exactly, because it is narrower than "no path". A
 ## Caveats worth knowing before you turn it on
 
 - **Prepared-statement caches key on the text.** A comment that varies per request makes every statement unique, which defeats server-side plan caching on Postgres and fills `pg_stat_statements` with one entry per variant. Tag with the _route_, not the request id.
+- **`ZMDB_PREPARED=1` does not remove that trade-off.** It enables the benchmark driver's server-side prepared statements, whose cache key still includes the SQL text. A per-query `traceparent` deliberately makes that text unique and gives up the prepared-statement gain while diagnosis is enabled.
 - **MySQL strips some comment forms** depending on the client and `CLIENT_MULTI_STATEMENTS`; verify the tag actually lands in your slow log before relying on it.
 - **A trailing comment can confuse tooling** that appends its own `LIMIT` — real, and narrow: that tooling is a proxy rewriting statements, which has to parse SQL properly anyway. Trailing is nonetheless the frozen placement, for three reasons in increasing order of how annoying they are to find. Some proxies and MySQL clients strip a _leading_ comment, so the tag silently does not arrive. `text.startsWith('SELECT')` stays true, which snapshot assertions and `EXPLAIN` prefixing rely on. And a leading comment breaks the first-word verb extraction that [metrics](./web-observability.html) and most slow-query parsers use — so enabling tracing would degrade metrics, which is a self-inflicted bug worth avoiding by construction.
 
@@ -90,17 +98,20 @@ Four of the five keys are low cardinality: `route`, `controller`, `action` and `
 
 `traceparent` is not, and it is the whole point of the feature. It contains a fresh span id per query, so **every statement becomes unique** — and it is also what turns "this `SELECT` on `orders` is slow" into a link to the trace of the request that issued it. There is no way to have both, so the frozen design names the trade rather than picking: `keys` is an explicit list, and putting `traceparent` in it is a decision to spend the plan cache on the correlation. Worth it while you are diagnosing; not a steady-state default. sqlcommenter's own documentation reaches the same conclusion.
 
-## What #583 still has to add
+## Rendered, not stored
 
-Less than this page previously assumed, and the difference resolves the open question it left. **The comment does not go on `CompiledQuery` at all** — no `comment?: string` field and no `.comment(s)` builder method. It is rendered at execute time by the driver decorator, from compile-time metadata on the query plus the request's context.
+**The comment does not go on `CompiledQuery` at all** — there is no
+`comment?: string` field and no `.comment(s)` builder method. The decorator
+renders it at execute time from the explicit request-scoped callback and, for
+`tracedDriver`, the current query span.
 
 That answers "does the comment count as part of the query's identity for `toEqual`" by removing the question: a compiled query has no comment, so its identity is exactly what it is today, and the same compiled query can be reused across two requests that tag it differently. A `.comment(s)` builder method would have made a per-request value part of a per-route cached object, which is the kind of thing that works until the cache is switched on.
 
-`CompiledQuery` now has optional `telemetry` — the dialect, operation and table
-the compiler already knows — so nothing downstream has to parse SQL to label a
-metric. It is populated only when an observing driver requests it, leaving
-default snapshots byte-identical. #583 still owns the serializer, closed-key
-lookup and execute-time decorator that appends the comment.
+`CompiledQuery` may carry optional `telemetry` — the dialect, operation and
+table the compiler already knows — so tracing and metrics do not parse SQL.
+The decorator preserves that field and the original parameter array while
+changing only the copied query's `text`. With comments absent, `tracedDriver`
+returns the original driver on the unobserved path and emits the original SQL.
 
 ---
 

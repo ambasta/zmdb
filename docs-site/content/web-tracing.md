@@ -132,10 +132,11 @@ Linking avoids making queue delay look like handler duration.
 ## Connecting traces to SQL
 
 `pg_stat_activity` shows a slow query but not which request caused it. The
-sqlcommenter serializer and driver decorator remain the separate #583 gap; this
-page does not imply that configuring tracing changes SQL text. See
-[SQL Comments](./sql-comments.html) for the frozen escaping and statement-cache
-trade-offs.
+sqlcommenter decorator can append the query span's `traceparent` plus selected
+route metadata. It remains off unless `observability.comments` is present, so
+configuring tracing alone does not change SQL text. See
+[SQL Comments](./sql-comments.html) for the wiring, escaping and
+statement-cache trade-offs.
 
 ## Sampling
 

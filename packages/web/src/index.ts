@@ -131,6 +131,8 @@ export {
   toTraceparent,
   type Attributes,
   type CommentKey,
+  type CommentKeys,
+  type CommentPairs,
   type ExecutingDriver,
   type Meter,
   type Observability,

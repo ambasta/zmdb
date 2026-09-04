@@ -30,6 +30,9 @@ export type {
 
 // Query compiler & Migrations.
 export {
+  appendComment,
+  serializeComment,
+  withComments,
   createQueryCompiler,
   UnsupportedFeatureError,
   sanitizeKeys,
@@ -37,7 +40,7 @@ export {
   DIALECT_PARAM_LIMITS,
 } from '@zmdb/query-compiler';
 export * as migrations from '@zmdb/query-compiler/migrations';
-export type { Dialect, CompiledQuery } from '@zmdb/query-compiler';
+export type { CommentKey, CommentKeys, CommentPairs, Dialect, CompiledQuery } from '@zmdb/query-compiler';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.
 //

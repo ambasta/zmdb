@@ -15,8 +15,8 @@ is the one part where the failure mode is SQL injection in generated SQL. A valu
 close the comment early turns the remainder of the tag into statement text, on a statement
 the application built and trusts, from a value that may be `ctx.path`.
 
-`docs-site/content/sql-comments.md` already carries the warning. What it does not carry is a
-correct serializer, and §3 shows why the obvious one is wrong.
+At freeze time, `docs-site/content/sql-comments.md` already carried the warning but not a
+correct serializer. Section 3 records why the obvious one was wrong.
 
 ## 2. The format and the closed key set
 
@@ -166,10 +166,10 @@ differently, and the same statement compiled once can carry two different tracep
 Storing the comment on the compiled query would make a per-request value part of a
 per-route cached object, which is the sort of thing that works until the cache is enabled.
 
-The driver decorator also fixes a smaller bug in the page's example: `tagged` at
-`sql-comments.md` returns `{ execute }` and drops `dialect`, so the wrapped driver
-loses the field `Driver` declares and the repository reads to pick its dialect. A decorator
-spreads the driver it wraps.
+The driver decorator also fixed a smaller bug in the pre-implementation page's
+example: it returned `{ execute }` and dropped `dialect`, so the wrapped driver
+lost the field `Driver` declares and the repository reads to pick its dialect.
+A decorator spreads the driver it wraps.
 
 ## 7. What #580 has to assert
 

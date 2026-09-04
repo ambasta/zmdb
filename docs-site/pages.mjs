@@ -729,7 +729,7 @@ export const PAGE_META = {
     title: 'SQL Comments',
     group: 'Data Access',
     status: 'todo',
-    note: 'compile-time query telemetry ships, but no sqlcommenter serializer or execute-time comment decorator exists yet (#583)',
+    note: 'serializer and execute-time decorators ship; the final trace-to-slow-query-log worked example remains (#584)',
   },
   streaming: {
     title: 'Streaming Results',

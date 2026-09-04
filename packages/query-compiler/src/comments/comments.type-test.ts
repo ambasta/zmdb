@@ -17,30 +17,12 @@
 // refactor moves `Equal`/`Expect` into a package this one may depend on, delete them and
 // import instead.
 import type { CompiledQuery } from '../index.js';
+import { serializeComment as serialize, type CommentKey, type CommentPairs } from './index.js';
 
 /** Local `Expect`. See the note above on why this is not the `@zmdb/schema-core` one. */
 type Expect<T extends true> = T;
 /** Local `Equal`. The bivariance trick, identical to `@zmdb/schema-core`'s. */
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
-
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#583)
-// ---------------------------------------------------------------------------
-// `./index.ts` does not exist yet, so importing from it would be TS2307 and this file would
-// not compile at all — which is the one thing a tests freeze may not do. The declarations
-// below are transcribed verbatim from ./SPEC.md §2 and §3 and from
-// `../../../web/src/observability/SPEC.md` §5. When #583 lands, delete them and write
-//
-//   import type { CommentKey, CommentPairs } from './index.js';
-//
-// and nothing else in this file changes. The same block appears in ./comments.spec.ts;
-// both copies are deleted in the same commit.
-
-/** ./SPEC.md §2. Five keys, closed, and the closure is the security property. */
-type CommentKey = 'traceparent' | 'controller' | 'action' | 'route' | 'framework';
-
-/** ./SPEC.md §3's serializer signature. `Partial`, because the caller picks keys. */
-type CommentPairs = Readonly<Partial<Record<CommentKey, string>>>;
 
 // `../../../web/src/observability/SPEC.md` §2's `Observability.comments.keys`. The real
 // declaration lives in `@zmdb/web`, which this package must not import — `@zmdb/web`
@@ -50,10 +32,6 @@ type CommentPairs = Readonly<Partial<Record<CommentKey, string>>>;
 // property against the real `Observability`, and the duplication is on purpose: the two
 // would diverge silently if only one existed.
 type CommentKeys = readonly [CommentKey, ...CommentKey[]];
-
-// --------------------------- end frozen surface ---------------------------
-
-declare function serialize(pairs: CommentPairs): string;
 
 // Every negative assertion in this file is written as a ONE-LINE declaration, deliberately,
 // and kept under `.oxfmtrc.json`'s `printWidth` of 120. `@ts-expect-error` suppresses errors
@@ -115,10 +93,10 @@ export const serialized: string = serialize({ traceparent: '00-abc-def-01' });
 // It is asserted positively rather than with `@ts-expect-error` because it compiles today
 // and an `@ts-expect-error` here would be a TS2578. The type still carries the property that
 // matters — an arbitrary key cannot be *written* at a call site — but the guarantee is
-// "no accidental key", not "no path". #583 does not need to close this; the values in §2 all
-// come from the router, the tracer and the package's own version, and none of them is typed
-// as an open record. If a caller does launder one through, §3's `encode` still runs on both
-// the key and the value, which is the reason §3 encodes keys it says cannot need it.
+// "no accidental key", not "no path". The shipped decorators source values from an explicit
+// closed callback and a runtime-selected key map, not from an open record. If a caller launders
+// one directly into the serializer, §3's `encode` still runs on both the key and the value,
+// which is the reason §3 encodes keys it says cannot need it.
 declare const openRecord: Record<string, string>;
 export const serializedOpen: string = serialize(openRecord);
 
