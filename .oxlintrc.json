@@ -85,6 +85,15 @@
       "rules": {
         "zmdb/no-unbounded-find": "off"
       }
+    },
+    {
+      // Polyfills Symbol.metadata and Base64 for Node runtimes that lack native support.
+      "files": ["packages/web/src/polyfill.ts"],
+      "rules": {
+        "no-extend-native": "off",
+        "no-restricted-globals": "off",
+        "no-restricted-properties": "off"
+      }
     }
   ],
   "rules": {
