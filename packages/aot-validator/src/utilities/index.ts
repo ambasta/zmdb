@@ -107,6 +107,18 @@ function refsOf(root: TypeIR): RefTable {
   return result;
 }
 
+/** Deterministic PRNG (mulberry32). Same seed ⇒ same sequence. */
+export function makeRng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // check
 // ---------------------------------------------------------------------------
@@ -449,9 +461,8 @@ function hasNoExcessKeys(value: unknown, node: TypeIR, refs: RefTable): boolean 
       const target = refs.get(node.name);
       return target ? objectHasNoExcessKeys(value, target, refs) : true;
     }
-    default:
-      return true;
   }
+  return true;
 }
 
 function objectHasNoExcessKeys(value: unknown, node: ObjectIR, refs: RefTable): boolean {
@@ -720,10 +731,10 @@ export function assertEquals<T = unknown>(input: unknown, schema?: TypeIR): T {
   failWith(issues);
 }
 
-export function random<T = unknown>(schema?: TypeIR, rng?: () => number): T {
+export function random<T = unknown>(schema?: TypeIR, seedOrRng?: number | (() => number)): T {
   const node = required(schema);
   const previous = entropy;
-  entropy = rng ?? Math.random;
+  entropy = typeof seedOrRng === 'number' ? makeRng(seedOrRng) : (seedOrRng ?? Math.random);
   try {
     // boundary: `sample` builds the value FROM the IR, so it satisfies it by
     // construction — the `is(random(d), d)` property test guards this.

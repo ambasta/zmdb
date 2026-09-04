@@ -2,7 +2,19 @@
 // named re-exports: implementations remain in their owning packages, while
 // advanced surfaces live under concern-based `zmdb/*` entry points.
 
-export { AssertError, assert, is, validate } from '@zmdb/aot-validator/utilities';
+export {
+  AssertError,
+  assert,
+  assertShallow,
+  assertEquals,
+  equals,
+  is,
+  isShallow,
+  makeRng,
+  random,
+  validate,
+  validateShallow,
+} from '@zmdb/aot-validator/utilities';
 export type { ValidateResult } from '@zmdb/aot-validator/utilities';
 
 export { Container, Inject, Module, createApplication, createToken } from '@zmdb/app';
@@ -25,8 +37,29 @@ export type { Observability } from '@zmdb/app/observability';
 export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/repository';
 export type { Driver, UpdatePatch } from '@zmdb/repository';
 
-export { schemaOf } from '@zmdb/schema-core';
-export type { CreateDTO, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO, ValidationIssue } from '@zmdb/schema-core';
+export {
+  createStateUpdatePayload,
+  decodeValue,
+  defineEntityStateMachine,
+  defineStateTransitions,
+  defineType,
+  encodeValue,
+  schemaOf,
+} from '@zmdb/schema-core';
+export type {
+  AllowedTargetStates,
+  CreateDTO,
+  CustomType,
+  Entity,
+  EntityStateMachine,
+  EntityStateMachineOptions,
+  PrimaryKeyOf,
+  ReadDTO,
+  StateTransitions,
+  StateUpdateDTO,
+  UpdateDTO,
+  ValidationIssue,
+} from '@zmdb/schema-core';
 export type {
   HasDefault,
   Max,

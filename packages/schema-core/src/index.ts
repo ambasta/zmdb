@@ -410,15 +410,130 @@ export function createStateUpdatePayload<
   from: From,
   to: Transitions[From][number],
   patch?: Omit<Pick<UpdateDTO<T>, AllowedFields>, StateField> | Record<string, never>,
+  options?: {
+    schema?: TaggedSchema<T> | unknown;
+    allowedFields?: Record<string, readonly string[]>;
+  },
 ): StateUpdateDTO<T, StateField, From, Transitions, AllowedFields> {
   const allowed = transitions[from];
   if (!Array.isArray(allowed) || !allowed.includes(to)) {
     throw new Error(`Invalid state transition from "${from}" to "${to}" for field "${stateField}"`);
   }
+
+  const patchObj = (patch ?? {}) as Record<string, unknown>;
+
+  if (options?.allowedFields && options.allowedFields[from]) {
+    const allowedKeys = new Set(options.allowedFields[from]);
+    for (const key of Object.keys(patchObj)) {
+      if (key !== stateField && !allowedKeys.has(key)) {
+        throw new Error(`Field "${key}" is not allowed to be updated during transition from "${from}"`);
+      }
+    }
+  }
+
   const payload = {
-    ...patch,
+    ...patchObj,
     [stateField]: to,
   };
+
+  if (options?.schema && isRecord(options.schema)) {
+    const schemaObj = options.schema as Record<string, unknown>;
+    if (isRecord(schemaObj.columns)) {
+      const columns = schemaObj.columns as Record<string, ColumnMeta>;
+      const issues: ValidationIssue[] = [];
+
+      for (const [key, val] of Object.entries(payload)) {
+        const col = columns[key];
+        if (!col) continue;
+
+        if (!col.flags.nullable && (val === null || val === undefined)) {
+          issues.push({
+            path: `input.${key}`,
+            message: `property "${key}" cannot be null or undefined`,
+            expected: 'non-nullable value',
+            value: val,
+          });
+        }
+
+        if (col.validation && val !== undefined && val !== null) {
+          for (const rule of col.validation) {
+            const k = rule.kind;
+            const rVal = rule.value;
+
+            if ((k === 'Minimum' || k === 'minimum') && typeof val === 'number' && typeof rVal === 'number') {
+              if (val < rVal) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `value must be >= ${rVal}`,
+                  expected: `>= ${rVal}`,
+                  value: val,
+                });
+              }
+            } else if ((k === 'Maximum' || k === 'maximum') && typeof val === 'number' && typeof rVal === 'number') {
+              if (val > rVal) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `value must be <= ${rVal}`,
+                  expected: `<= ${rVal}`,
+                  value: val,
+                });
+              }
+            } else if (
+              (k === 'MinLength' || k === 'minLength') &&
+              typeof val === 'string' &&
+              typeof rVal === 'number'
+            ) {
+              if (val.length < rVal) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `length must be >= ${rVal}`,
+                  expected: `minLength ${rVal}`,
+                  value: val,
+                });
+              }
+            } else if (
+              (k === 'MaxLength' || k === 'maxLength') &&
+              typeof val === 'string' &&
+              typeof rVal === 'number'
+            ) {
+              if (val.length > rVal) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `length must be <= ${rVal}`,
+                  expected: `maxLength ${rVal}`,
+                  value: val,
+                });
+              }
+            } else if ((k === 'Pattern' || k === 'pattern') && typeof val === 'string') {
+              const re = new RegExp(String(rVal));
+              if (!re.test(val)) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `value does not match pattern ${rVal}`,
+                  expected: `pattern ${rVal}`,
+                  value: val,
+                });
+              }
+            } else if ((k === 'Enum' || k === 'enum') && Array.isArray(rVal)) {
+              if (!rVal.includes(val)) {
+                issues.push({
+                  path: `input.${key}`,
+                  message: rule.message ?? `value must be one of ${JSON.stringify(rVal)}`,
+                  expected: `enum ${JSON.stringify(rVal)}`,
+                  value: val,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      if (issues.length > 0) {
+        throw new ValidationError(`State update payload violated schema constraints`, issues);
+      }
+    }
+  }
+
   // boundary: return value is certified as StateUpdateDTO after runtime transition validation.
   return payload as StateUpdateDTO<T, StateField, From, Transitions, AllowedFields>;
 }
@@ -431,7 +546,7 @@ export function defineEntityStateMachine<
 >(
   options: EntityStateMachineOptions<T, StateField, Transitions, FieldRestrictions>,
 ): EntityStateMachine<T, StateField, Transitions, FieldRestrictions> {
-  const { stateField, transitions, allowedFields } = options;
+  const { schema, stateField, transitions, allowedFields } = options;
 
   return {
     stateField,
@@ -452,10 +567,17 @@ export function defineEntityStateMachine<
         From,
         Transitions,
         PatchableFields<T, Transitions, FieldRestrictions, From>
-      >(stateField, transitions, from, to, patch);
+      >(stateField, transitions, from, to, patch, {
+        ...(schema !== undefined ? { schema } : {}),
+        // boundary: allowedFields is cast to Record<string, readonly string[]> for runtime validation options.
+        ...(allowedFields !== undefined ? { allowedFields: allowedFields as Record<string, readonly string[]> } : {}),
+      });
     },
   };
 }
+
+export { defineType, encodeValue, decodeValue } from './custom-types/index.js';
+export type { CustomType } from './custom-types/index.js';
 
 export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.js';
 export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.js';

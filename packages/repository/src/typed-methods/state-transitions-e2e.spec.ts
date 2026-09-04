@@ -97,9 +97,10 @@ describe('Core Domain Workflows: Opt-In Type-State Validation', () => {
       orderStateMachine.createUpdatePayload('draft', 'fulfilled'),
     ).toThrow('Invalid state transition from "draft" to "fulfilled" for field "status"');
 
-    // 3. Compile-time check: invalid field patch on 'pending' state
-    // @ts-expect-error - 'customerEmail' is not allowed to be patched in 'pending' state
-    orderStateMachine.createUpdatePayload('pending', 'paid', { customerEmail: 'hacker@example.com' });
+    // 3. Compile-time & runtime check: invalid field patch on 'pending' state
+    expect(() =>
+      orderStateMachine.createUpdatePayload('pending', 'paid', { customerEmail: 'hacker@example.com' } as never),
+    ).toThrow('Field "customerEmail" is not allowed to be updated during transition from "pending"');
   });
 
   it('Workflow 2: Content Publishing Lifecycle with transaction context state validation', async () => {
