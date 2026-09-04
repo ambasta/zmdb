@@ -747,17 +747,18 @@ function resolveCorsHeaders(
   return headers;
 }
 
-function isWebResponse(val: unknown): val is WebResponse {
+function isWebResponse(
+  val: unknown,
+): val is { status: number; body: unknown; headers: Readonly<Record<string, string>> } {
   return (
     typeof val === 'object' &&
     val !== null &&
     'status' in val &&
-    typeof val.status === 'number' &&
+    typeof (val as { status: unknown }).status === 'number' &&
     'body' in val &&
-    typeof val.body === 'string' &&
     'headers' in val &&
-    typeof val.headers === 'object' &&
-    val.headers !== null
+    typeof (val as { headers: unknown }).headers === 'object' &&
+    (val as { headers: unknown }).headers !== null
   );
 }
 
@@ -772,7 +773,7 @@ function buildResponse(
   if (!routerOptions?.security && !routerOptions?.cors && !customHeaders) {
     return isJson
       ? jsonResponse(status, body)
-      : { status, body: typeof body === 'string' ? body : String(body), headers: NO_HEADERS };
+      : { status, body: textBody(typeof body === 'string' ? body : String(body ?? '')), headers: NO_HEADERS };
   }
 
   const securityHeaders = resolveSecurityHeaders(routerOptions?.security);
@@ -794,11 +795,11 @@ function buildResponse(
     }
   }
 
-  const responseBody = typeof body === 'string' ? body : isJson ? JSON.stringify(body) : String(body);
+  const responseBody = typeof body === 'string' ? body : isJson ? (JSON.stringify(body) ?? '') : String(body ?? '');
 
   return {
     status,
-    body: responseBody,
+    body: textBody(responseBody),
     headers,
   };
 }
@@ -1640,8 +1641,16 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         try {
           const result = await bound.handler(ctx);
           if (isTaggedResponse(result) || isWebResponse(result)) {
+            const body: ResponseBody = typeof result.body === 'string' ? textBody(result.body) : (result.body as ResponseBody);
             if (!routerOptions?.security && !routerOptions?.cors) {
-              return mediaVersionedResponse(result, bound.versionJsonHeaders);
+              return mediaVersionedResponse(
+                {
+                  status: result.status,
+                  body,
+                  headers: result.headers,
+                },
+                bound.versionJsonHeaders,
+              );
             }
             const securityHeaders = resolveSecurityHeaders(routerOptions?.security);
             const corsHeaders = resolveCorsHeaders(routerOptions?.cors, req, false);
@@ -1655,7 +1664,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             return mediaVersionedResponse(
               {
                 status: result.status,
-                body: result.body,
+                body,
                 headers: mergedHeaders,
               },
               bound.versionJsonHeaders,
