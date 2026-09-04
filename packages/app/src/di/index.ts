@@ -4,7 +4,7 @@
 
 // Install Symbol.metadata (used by field decorators) before any decorated class
 // in a consumer module is evaluated.
-import '../polyfill.ts';
+import '../polyfill.js';
 
 // A typed injection token. The phantom `__type` carries the instance type at
 // compile time without existing at runtime (it is `never`-valued and optional).

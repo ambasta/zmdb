@@ -3,7 +3,7 @@
 // order, and no-reflection reads. Per packages/web/src/routing/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Controller, Get, Post, Put, Patch, Delete, getRoutes } from './index.ts';
+import { Controller, Get, Post, Put, Patch, Delete, getRoutes } from './index.js';
 
 describe('@zmdb/web routing: decorators + getRoutes', () => {
   it('records routes with composed paths in declaration order', () => {
