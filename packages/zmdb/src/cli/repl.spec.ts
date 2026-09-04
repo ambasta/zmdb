@@ -140,7 +140,7 @@ describe('the zmdb REPL', () => {
     expect(repl.scope.tokens).toEqual(['ADMIN', 'DATABASE', 'USERS']);
     expect(await repl.evaluate('get("USERS").list()')).toBe('users@fixture');
 
-    const response = await repl.scope.request('/users/');
+    const response = await repl.scope.request('/users');
     expect(response).toMatchObject({ status: 200, body: { kind: 'text', value: '"users@fixture"' } });
 
     await repl.scope.load('AdminModule');
