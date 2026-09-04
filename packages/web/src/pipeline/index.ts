@@ -150,7 +150,7 @@ function versionTrieFor(versionTries: VersionTries, method: string, version: str
 
 function insertRoute(root: SegmentTrieNode, path: string, bound: BoundRoute): void {
   let curr = root;
-  let start = path.startsWith('/') ? 1 : 0;
+  let start = path.charCodeAt(0) === 47 ? 1 : 0;
   const len = path.length;
 
   while (start <= len) {
@@ -158,7 +158,7 @@ function insertRoute(root: SegmentTrieNode, path: string, bound: BoundRoute): vo
     if (slashIdx === -1) {
       slashIdx = len;
     }
-    const segment = path.substring(start, slashIdx);
+    const segment = path.slice(start, slashIdx);
     start = slashIdx + 1;
 
     if (segment.startsWith(':')) {
@@ -219,7 +219,7 @@ function matchTrie(
   if (slashIdx === -1) {
     slashIdx = len;
   }
-  const segment = path.substring(start, slashIdx);
+  const segment = path.slice(start, slashIdx);
   const nextStart = slashIdx === len ? len + 1 : slashIdx + 1;
 
   // 1. Exact static match
@@ -241,7 +241,7 @@ function matchTrie(
 
   // 3. Wildcard match
   if (node.wildcardChild) {
-    const rest = path.substring(start);
+    const rest = path.slice(start);
     params[node.wildcardChild.paramName] = rest;
     if (node.wildcardChild.node.boundRoute) {
       return node.wildcardChild.node.boundRoute;
@@ -557,7 +557,7 @@ function mediaTypeVersionLabel(accept: string | undefined, key: string): string 
     const memberEnd = unquotedIndexOf(accept, COMMA, memberStart, accept.length);
     let parameterStart = unquotedIndexOf(accept, SEMICOLON, memberStart, memberEnd);
     while (parameterStart < memberEnd) {
-      const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, parameterEnd);
+      const parameterEnd = unquotedIndexOf(accept, SEMICOLON, parameterStart + 1, memberEnd);
       const separator = unquotedIndexOf(accept, EQUALS, parameterStart + 1, parameterEnd);
       if (separator < parameterEnd && equalsAsciiIgnoringCase(accept, parameterStart + 1, separator, key)) {
         const memberQuality = qualityInMember(accept, memberStart, memberEnd);
@@ -1002,7 +1002,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     requestVersion: string | undefined,
     params: Record<string, string>,
   ): BoundRoute | undefined {
-    const start = path.startsWith('/') ? 1 : 0;
+    const start = path.charCodeAt(0) === 47 ? 1 : 0;
     if (requestVersion !== undefined) {
       const vRoot = versionTries.get(method)?.get(requestVersion);
       if (vRoot !== undefined) {
