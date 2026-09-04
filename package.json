@@ -35,6 +35,7 @@
     "test:watch": "vitest --project unit",
     "typecheck": "node scripts/typecheck.mjs",
     "verify:angular-adapter": "node --import ./scripts/ts-specifier-hook.mjs fixtures/client-adapters/angular/verify-packed.mjs",
+    "verify:audit": "node .github/scripts/verify-audit.mjs",
     "verify:database-cockroach": "node fixtures/database-cockroach/verify-installed.mjs",
     "verify:database-postgres": "node fixtures/database-postgres/verify-installed.mjs",
     "verify:database-singlestore": "node fixtures/database-singlestore/verify-installed.mjs",
