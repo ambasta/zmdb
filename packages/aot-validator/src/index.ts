@@ -7,7 +7,7 @@
 // `./plugin` and `./transformer` subpaths, which are build-time by contract;
 // `.github/scripts/verify-exports.mjs` enforces the split.
 
-import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
+import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
 export {
