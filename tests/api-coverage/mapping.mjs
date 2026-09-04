@@ -239,7 +239,12 @@ export const kysely = {
 
   // --- INSERT / UPDATE / DELETE -------------------------------------------
   'insert > insert into': ['INSERT ... RETURNING', 'valid create executes an INSERT'],
-  update: 'UPDATE ... SET ... WHERE',
+  update: [
+    'UPDATE ... SET ... WHERE',
+    'increments a column without reading it first',
+    'toggles a boolean with the dialect negation operator',
+    'mixes an expression column and a value column in one SET',
+  ],
   delete: 'DELETE ... WHERE',
   'replace > replace into': oos(NO_DIALECT_ONLY_SYNTAX, 'dialect-mysql'),
   merge: oos(NO_MERGE, 'upsert'),

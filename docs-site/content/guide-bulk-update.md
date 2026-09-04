@@ -1,11 +1,6 @@
-> **ToDo / feature gap.** `BaseRepository.updateMany` applies one validated
-> patch to every matching row. The closed SET expressions operate on each row's
-> own column; they do not provide a `CASE` expression or a `VALUES` source, so
-> “update many rows, each to a different value” still has no typed form.
-
-## Two different problems
-
-**Same patch, many rows** — use the repository:
+`BaseRepository.updateMany` applies one validated patch to every matching row
+in one statement. Ordinary values and closed SET expressions are both
+supported:
 
 ```ts
 import { inc } from 'zmdb';
@@ -15,11 +10,33 @@ await postRepo.updateMany({ authorId }, { views: inc(1) });
 ```
 
 The `where` is a typed `WhereDTO`, the patch is an expression-aware
-`UpdatePatch`, and both are compiled into one statement. Postgres and SQLite
-return the count of rows returned by the statement. MySQL omits unsupported
-`RETURNING` and resolves to `undefined`.
+`UpdatePatch`, and both are compiled into one statement.
 
-**Different value per row** — this is the gap.
+## SQL by dialect
+
+For `postRepo.updateMany({ published: false }, { views: inc(1) })`, the
+repository emits:
+
+```sql
+-- PostgreSQL
+UPDATE "posts" SET "views" = "views" + $1 WHERE "published" = $2 RETURNING "id"
+
+-- MySQL
+UPDATE `posts` SET `views` = `views` + ? WHERE `published` = ?
+
+-- SQLite
+UPDATE "posts" SET "views" = "views" + ? WHERE "published" = ? RETURNING "id"
+```
+
+The parameters are `[1, false]`. Postgres and SQLite return the number of
+primary-key rows returned by the statement. MySQL omits unsupported
+`RETURNING`, executes the same atomic update, and resolves to `undefined`.
+
+## Different values per row
+
+This is a separate shape and remains outside the typed API. The closed SET
+expressions operate on each row's own column; they do not provide a `CASE`
+expression or a `VALUES` source.
 
 ```ts
 for (const { id, title } of updates) await postRepo.update(id, { title }); // N statements

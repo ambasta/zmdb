@@ -29,12 +29,24 @@ await postRepo.update(id, { views: (post?.views ?? 0) + 1 });
 Two concurrent requests can both read `10` and both write `11`. `inc(1)`
 instead compiles the dependency into the update itself:
 
+## SQL by dialect
+
+For `postRepo.increment(7, 'views')`, the repository emits:
+
 ```sql
+-- PostgreSQL
 UPDATE "posts" SET "views" = "views" + $1 WHERE "id" = $2 RETURNING *
+
+-- MySQL
+UPDATE `posts` SET `views` = `views` + ? WHERE `id` = ?
+
+-- SQLite
+UPDATE "posts" SET "views" = "views" + ? WHERE "id" = ? RETURNING *
 ```
 
-The delta is still a bound parameter. The expression can reference only the
-column named by the patch key; it is not a general SQL AST.
+The parameters are `[1, 7]` in every case. `dec(1)` emits the same statement
+with `-` in place of `+`. The delta remains bound, and the expression can
+reference only the column named by the patch key; it is not a general SQL AST.
 
 ## Compiler form
 

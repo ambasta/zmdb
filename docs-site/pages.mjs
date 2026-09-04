@@ -1289,10 +1289,9 @@ export const PAGE_META = {
     status: 'supported',
   },
   'guide-bulk-update': {
-    title: 'Updating many rows to different values',
+    title: 'Bulk updates',
     group: 'Guides',
-    status: 'todo',
-    note: 'updateMany applies one patch; different values per row still need CASE or a VALUES source',
+    status: 'supported',
   },
   'guide-array-defaults': {
     title: 'Array columns and empty defaults',

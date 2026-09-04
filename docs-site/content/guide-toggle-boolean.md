@@ -10,9 +10,23 @@ await userRepo.updateMany({ suspended: false }, { active: not() });
 
 The repository validates the patch before emitting one atomic statement:
 
+## SQL by dialect
+
+For `userRepo.update(7, { active: not() })`, the repository emits:
+
 ```sql
+-- PostgreSQL
 UPDATE "users" SET "active" = NOT "active" WHERE "id" = $1 RETURNING *
+
+-- MySQL
+UPDATE `users` SET `active` = NOT `active` WHERE `id` = ?
+
+-- SQLite
+UPDATE "users" SET "active" = NOT "active" WHERE "id" = ? RETURNING *
 ```
+
+The sole parameter is the id, `7`. MySQL omits `RETURNING`; Postgres and SQLite
+return the computed row.
 
 `{ active: { toggle: true } }` remains invalid. The expression is identified by
 the compiler-owned symbol brand, not by a request-body object with a familiar
@@ -43,13 +57,9 @@ const query = createQueryCompiler('postgres')
 await driver.execute(query);
 ```
 
-On MySQL, booleans are `tinyint(1)`, so `NOT` works but stores `0`/`1`:
-
-```sql
-UPDATE `users` SET `active` = NOT `active` WHERE `id` = ?
-```
-
-SQLite is the same. `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a `Sql<'boolean'>` column fine.
+On MySQL, booleans are `tinyint(1)`, so `NOT` stores `0`/`1`. SQLite has the
+same truth table: `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a
+`Sql<'boolean'>` column.
 
 Postgres and SQLite return the computed row. MySQL has no `UPDATE …
 RETURNING`, so an expression-bearing repository update omits it and resolves to
