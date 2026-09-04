@@ -1,10 +1,12 @@
 /** An error carrying an HTTP status, thrown when a middleware chain short-circuits. */
 export class ChainError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  override readonly cause?: unknown;
+  constructor(status: number, message: string, cause?: unknown) {
     super(message);
     this.name = 'ChainError';
     this.status = status;
+    this.cause = cause;
   }
 }
 
