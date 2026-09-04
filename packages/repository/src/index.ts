@@ -2438,9 +2438,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       case 'json':
         if (typeof val === 'string') return val;
         return JSON.stringify(val);
-      case 'boolean':
-        if (typeof val === 'boolean') return val ? 1 : 0;
-        return val;
       case 'bigint':
         if (typeof val === 'bigint') return val;
         if (typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean') return BigInt(val);
