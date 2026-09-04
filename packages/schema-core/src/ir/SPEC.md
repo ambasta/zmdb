@@ -93,6 +93,8 @@ interface ColumnIR {
   precision?: readonly [number, number];
   enum?: readonly string[];
   references?: string;
+  onDelete?: ReferentialAction;
+  onUpdate?: ReferentialAction;
   codec?: string;
   wire?: TypeIR; // the declared wire type (WireAs<W>)
   constraints: Constraints;
@@ -101,11 +103,18 @@ interface ColumnIR {
   payload?: TypeIR; // the declared app type: a json payload shape, or a codec's type
 }
 
+interface ForeignKeyIR {
+  columns: readonly string[];
+  targetTable: string;
+  targetColumns: readonly string[];
+}
+
 interface SchemaIR {
   table: string;
   columns: readonly ColumnIR[];
   primaryKey: readonly string[];
   relations: readonly RelationIR[];
+  foreignKeys: readonly ForeignKeyIR[];
   ftsTable?: string | boolean;
 }
 ```

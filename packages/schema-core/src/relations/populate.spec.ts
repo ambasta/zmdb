@@ -110,6 +110,7 @@ describe('the relation vocabulary', () => {
         { name: 'profile', relation: 'oneToOne', target: 'profiles', via: 'userId' },
         { name: 'groups', relation: 'manyToMany', target: 'groups', via: 'group_members' },
       ],
+      foreignKeys: [],
     };
 
     // The owning side reads both ends off the declaration: the column, and what it references.

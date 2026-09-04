@@ -59,6 +59,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
       columns: [column('orgId'), column('role', { sql: 'text' }), column('userId')],
       primaryKey: ['userId', 'orgId'],
       relations: [],
+      foreignKeys: [],
     };
     expect(schemaFromIR(ir).primaryKey).toEqual(['userId', 'orgId']);
   });
@@ -75,6 +76,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
       columns: [column('at', { sql: 'timestamp' }), column('what', { sql: 'text' })],
       primaryKey: [],
       relations: [],
+      foreignKeys: [],
     };
     expect(schemaFromIR(ir).primaryKey).toEqual([]);
   });
@@ -103,6 +105,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
       columns: [column('userId', { primaryKey: true })],
       primaryKey: ['userId', 'orgId'],
       relations: [],
+      foreignKeys: [],
     };
     expect(() => schemaFromIR(ir)).toThrow(/memberships/);
     expect(() => schemaFromIR(ir)).toThrow(/orgId/);
@@ -130,6 +133,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
       columns: [column('a', { primaryKey: true }), column('b', { primaryKey: true })],
       primaryKey: ['a'],
       relations: [],
+      foreignKeys: [],
     };
     const value = schemaFromIR(ir);
     expect(flagsOf(value.ir)).toEqual(projectionOf(value.ir));
@@ -148,6 +152,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
       columns: [column('a', { primaryKey: false })],
       primaryKey: ['a'],
       relations: [],
+      foreignKeys: [],
     };
     const value = schemaFromIR(ir);
     expect(flagsOf(value.ir)).toEqual(projectionOf(value.ir));
@@ -167,6 +172,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
       ],
       primaryKey: ['userId', 'orgId'],
       relations: [],
+      foreignKeys: [],
     };
     const value = schemaFromIR(ir);
     expect(flagsOf(value.ir)).toEqual(projectionOf(value.ir));

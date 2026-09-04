@@ -13,6 +13,7 @@ export interface SqliteStatement {
   run(...params: unknown[]): unknown;
 }
 export interface SqliteDatabase {
+  exec(sql: string): unknown;
   prepare(sql: string): SqliteStatement;
 }
 
@@ -50,6 +51,7 @@ function bindable(value: unknown): unknown {
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
 export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Driver {
+  db.exec('PRAGMA foreign_keys = ON');
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 

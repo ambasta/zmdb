@@ -98,6 +98,7 @@ const USER_IR: SchemaIR = {
   columns: [column('id', 'integer', { primaryKey: true }), column('email', 'text')],
   primaryKey: ['id'],
   relations: [],
+  foreignKeys: [],
 };
 
 const USER_V2_IR: SchemaIR = {
@@ -106,6 +107,7 @@ const USER_V2_IR: SchemaIR = {
   columns: [...USER_IR.columns, column('role', 'text')],
   primaryKey: ['id'],
   relations: [],
+  foreignKeys: [],
 };
 
 const UserSchema = schemaFromIR(USER_IR);

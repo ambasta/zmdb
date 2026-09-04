@@ -86,9 +86,10 @@ See [pull](./cli-pull.html).
    index whose sole purpose is supporting its foreign key.
 
    The report deliberately inherits the current migration `diff` coverage:
-   table and column presence, normalized type changes, and extensions. Ordered
-   keys, foreign keys and general indexes become reportable when their migration
-   operation slices land; drift does not maintain a second comparator.
+   table and column presence, normalized type changes, extensions, ordered
+   primary keys, and foreign keys with referential actions. General indexes
+   become reportable when their migration operation slice lands; drift does not
+   maintain a second comparator.
 
 4. **Generate forward from there.** Once the baseline is committed,
    [generate](./cli-generate.html) works normally: change the interface, diff

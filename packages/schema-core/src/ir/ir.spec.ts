@@ -484,6 +484,7 @@ describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
       ],
       primaryKey: ['total'],
       relations: [],
+      foreignKeys: [],
     };
     const value = schemaFromIR(ir);
     expect(value.columns.total).toEqual({ type: 'numeric', flags: { nullable: false, primaryKey: true } });

@@ -66,7 +66,10 @@ PRAGMA journal_mode = WAL;  -- concurrent readers with a writer
 PRAGMA busy_timeout = 5000; -- wait for the write lock instead of failing
 ```
 
-`foreign_keys` being off by default is the one that bites: the constraint exists in your migration, and nothing enforces it. Cascades silently do nothing. Set it on every connection, in the driver.
+`foreign_keys` being off by default is the one that bites: the constraint exists
+in your migration, and nothing enforces it. `sqliteDriver(db)` enables it when
+the adapter wraps the connection. A custom driver must still set it on every
+connection itself.
 
 ## Types are advisory
 

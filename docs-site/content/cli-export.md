@@ -48,9 +48,10 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 
 The export covers what `snapshot()` implements today — required extension
 installation, tables, columns, core and extension-backed types, nullability,
-primary keys and `varchar` lengths. It does **not** include:
+primary keys, foreign keys with referential actions, and `varchar` lengths. It
+does **not** include:
 
-- defaults, unique constraints or foreign keys
+- defaults or unique constraints
 - indexes — those come from `createIndexDdl`, see [Indexes & Constraints](./indexes-constraints.html)
 - views, materialized views, sequences, generated columns
 - triggers, functions, or extension upgrades/removal

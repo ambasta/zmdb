@@ -37,7 +37,16 @@ export const driver: Driver = {
 
 PlanetScale historically disallowed them, and support depends on your plan and configuration. If they are off, a `REFERENCES` clause is rejected.
 
-What you keep either way is the **declaration**: `References<'authors.id'>` records the target on the column IR, where the query compiler and the emitted documents can read it, and that costs nothing at the database. It is a string literal, though — nothing cross-checks that `authors.id` exists. What you lose is enforcement — so a dangling `authorId` becomes possible, and cascades do not exist. See [Cascading](./cascading.html).
+`References<'authors.id'>` now emits a real named constraint, including any
+`OnDelete<…>` / `OnUpdate<…>` action. Enable PlanetScale foreign-key support
+before applying that generated migration. The target remains a string literal;
+nothing cross-checks that `authors.id` exists before the server sees the DDL.
+
+If foreign keys are disabled, the generated constraint will be rejected. Omit
+the `References` tag and keep the relationship explicit in query code, or own
+that table's DDL as a custom migration. In either case a dangling `authorId`
+becomes possible and database cascades do not exist. See
+[Cascading](./cascading.html).
 
 If FKs are unavailable, do writes through repositories and add integrity checks you run periodically:
 

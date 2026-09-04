@@ -202,6 +202,7 @@ describe('Centralized Identifier Quoting Engine', () => {
           table: 'user"s',
           columns: [{ name: 'col"name', type: 'TEXT', nullable: false, primaryKey: true }],
           primaryKey: ['col"name'],
+          foreignKeys: [],
         },
         'postgres',
       );

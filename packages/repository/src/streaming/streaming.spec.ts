@@ -83,6 +83,7 @@ const STREAM_RECORD_IR: SchemaIR = {
   ],
   primaryKey: ['id'],
   relations: [],
+  foreignKeys: [],
 };
 
 const StreamRecordSchema = schemaFromIR(STREAM_RECORD_IR);

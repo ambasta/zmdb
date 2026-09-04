@@ -70,10 +70,10 @@ interface User extends Table<'users'> {
 
 > [!NOTE]
 > It is a string, and nothing cross-checks it: a typo in the table or column name reaches
-> the IR unchallenged. It also does not reach a generated migration — the snapshot format
-> has no place for a foreign key — so the `REFERENCES` clause is written by hand in a
-> [custom migration](./migrations-custom.html). What the tag _does_ feed is the column IR,
-> the relation-aware documents, and the pull/diff tooling.
+> the IR unchallenged. It reaches generated migrations as a named foreign-key
+> constraint; compose `OnDelete<…>` and `OnUpdate<…>` on the same column when
+> the action is not `NO ACTION`. The tag also feeds relation-aware documents and
+> the pull/diff tooling.
 
 ## How columns become DDL
 

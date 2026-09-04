@@ -1,69 +1,91 @@
-> **ToDo / feature gap.** Relations carry no cascade configuration. `ManyToOne`,
-> `OneToMany`, `OneToOne` and `ManyToMany` take a target and a foreign-key column
-> and nothing else, and `References<…>` records a target with no `ON DELETE` /
-> `ON UPDATE` action — it does not reach a generated migration at all, so the
-> `REFERENCES` clause is yours to write. Deleting a parent with children raises a
-> foreign-key violation from the database.
+> **Database actions are supported; application graph cascades remain explicit.**
+> `OnDelete<…>` and `OnUpdate<…>` are tags on the column that carries
+> `References<…>`. Generated migrations emit and diff the foreign-key
+> constraint. Repository deletes do not walk relation objects or persist an
+> object graph.
 
-## Let the database do it
-
-This is the better answer regardless of whether zmdb models it, because the constraint holds against every writer — your application, a migration, a colleague in `psql`:
+## Declare the database action
 
 ```ts
-const migrations = [
-  {
-    version: 3,
-    name: 'posts_cascade',
-    up: `ALTER TABLE "posts"
-           DROP CONSTRAINT "posts_author_id_fkey",
-           ADD CONSTRAINT "posts_author_id_fkey"
-             FOREIGN KEY ("author_id") REFERENCES "authors"("id") ON DELETE CASCADE`,
-    down: `ALTER TABLE "posts"
-             DROP CONSTRAINT "posts_author_id_fkey",
-             ADD CONSTRAINT "posts_author_id_fkey"
-               FOREIGN KEY ("author_id") REFERENCES "authors"("id")`,
-  },
-];
+import type { OnDelete, OnUpdate, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+
+interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  authorId: number & Sql<'integer'> & References<'authors.id'> & OnDelete<'cascade'>;
+  editorId: (number & Sql<'integer'> & References<'users.id'> & OnDelete<'set null'> & OnUpdate<'restrict'>) | null;
+}
 ```
 
-The available actions, and what each is actually for:
+The two actions are independent. Omitting either tag emits `NO ACTION`
+explicitly. `OnDelete<'set null'>` is refused on a non-nullable column, and
+`'set default'` is refused unless the column has `HasDefault`.
 
-| Action        | Effect                          | Use it when                                                                             |
-| ------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
-| `CASCADE`     | delete the children too         | the child has no meaning without the parent (comments on a post)                        |
-| `SET NULL`    | null the FK, keep the row       | the child outlives the parent (orders keep their line items when a customer is deleted) |
-| `SET DEFAULT` | write the FK column's default   | the declared default is meaningful; InnoDB does not support this action                 |
-| `RESTRICT`    | refuse the delete               | the parent should not be deletable while referenced                                     |
-| `NO ACTION`   | the default; refuse, deferrable | you want the check at commit rather than at statement time                              |
+The generated PostgreSQL constraint for `authorId` is:
 
-> [!NOTE]
-> SQLite enforces foreign keys only if `PRAGMA foreign_keys = ON` is set **per
-> connection**. Set it in your driver, or your cascades silently do nothing on
-> SQLite and work on Postgres — the worst possible split between test and
-> production.
+```sql
+ALTER TABLE "posts"
+  ADD CONSTRAINT "posts_authorId_fkey"
+  FOREIGN KEY ("authorId") REFERENCES "authors" ("id")
+  ON DELETE CASCADE ON UPDATE NO ACTION
+```
 
-## Or cascade in application code
+Each `References<'table.column'>` is one single-column constraint. A composite
+foreign key is declared explicitly at table level so separate references are
+never grouped by guesswork:
 
-When the cascade has to do more than delete rows — archive them, emit an event, call a service — do it in a transaction so a partial cascade cannot commit:
+```ts
+import type { ForeignKey } from 'zmdb/tags';
+
+interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId', 'users', 'tenantId,id'> {
+  // columns...
+}
+```
+
+## The available actions
+
+| Action        | Effect                          | Use it when                                                      |
+| ------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `CASCADE`     | delete the children too         | the child has no meaning without the parent                      |
+| `SET NULL`    | null the FK, keep the row       | the child outlives the parent                                    |
+| `SET DEFAULT` | write the FK column's default   | the declared default is meaningful; InnoDB does not support this |
+| `RESTRICT`    | refuse the delete               | the parent should not be deletable while referenced              |
+| `NO ACTION`   | the default; refuse, deferrable | you want the database's default referential behavior             |
+
+## Migration behavior and limits
+
+- PostgreSQL and MySQL create all tables first, then add named constraints.
+- MySQL receives a deterministic supporting index immediately before each
+  constraint. `SET DEFAULT` is refused because InnoDB does not implement it.
+- SQLite emits constraints inline in `CREATE TABLE`. A cycle between newly
+  created tables is refused because neither table can be created first.
+- SQLite cannot add, drop or change a constraint on an existing table. The diff
+  names the constraint and requires a hand-written table rebuild.
+- Generated constraint names use `<table>_<column>_fkey`; names longer than
+  PostgreSQL's 63-character limit are refused rather than truncated.
+
+The `node:sqlite` adapter runs `PRAGMA foreign_keys = ON` when it wraps a
+connection, and the repository E2E proves a real `ON DELETE CASCADE`. A custom
+SQLite driver still owns its connection setup.
+
+## Cascade in application code when deletion has side effects
+
+When a cascade also archives rows, emits an event or calls a service, make those
+steps explicit in a transaction:
 
 ```ts
 await db.transaction(async () => {
-  await commentRepo.deleteWhere({ postId: { eq: id } });
+  await driver.execute(createQueryCompiler('postgres').deleteFrom('comments').where('post_id', '=', id).compile());
   await postRepo.delete(id);
 });
 ```
 
-`BaseRepository` has `delete(id)` but no bulk `deleteWhere`, so the child step is a compiled statement:
+Order matters: children first, then the parent, unless the database constraint
+itself uses `CASCADE`.
 
-```ts
-await driver.execute(createQueryCompiler('postgres').deleteFrom('comments').where('post_id', '=', id).compile());
-```
+## Persist cascades have no equivalent
 
-Order matters: children first, then the parent, or the FK rejects the parent delete.
-
-## Persist-cascades have no equivalent either
-
-MikroORM's `cascade: [Cascade.PERSIST]` writes a new parent and its new children from one `flush()`. Here that is two `create` calls in a transaction, and you have the id from the first one:
+MikroORM's `cascade: [Cascade.PERSIST]` writes a new parent and its new children
+from one `flush()`. Here that is two explicit writes in a transaction:
 
 ```ts
 await db.transaction(async () => {
@@ -72,13 +94,8 @@ await db.transaction(async () => {
 });
 ```
 
-More typing, and the insert order is visible rather than inferred from a graph walk.
-
-## What it would take
-
-The migration format first has to carry the foreign key itself — [it does not today](./composite-keys.html). The frozen declaration then composes `OnDelete<'cascade'>` and `OnUpdate<'…'>` beside `References<'users.id'>`, and `diff()` recognises a changed action as a drop/add constraint pair.
-
-There is no application-level cascade half to add. The referential-actions contract puts this work in the database and explicitly keeps repository deletes from walking a relation graph; a cascade that also archives rows, emits events or calls services remains the explicit transaction shown above.
+The insert order is visible, and there is no identity-map graph walk hidden
+behind the call.
 
 ---
 

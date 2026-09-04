@@ -91,6 +91,7 @@ describe('emitUp uses the map', () => {
       col('timestamp', { name: 'at', nullable: true }),
     ],
     primaryKey: ['id'],
+    foreignKeys: [],
   };
 
   it('postgres', () => {
@@ -147,7 +148,7 @@ describe('the snapshot stays abstract', () => {
       { table: 't', primaryKey: [], columns: { id: { type: 'integer', flags: { nullable: false } } } },
     ]);
     expect(JSON.stringify(taken)).toBe(
-      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}],"primaryKey":[]}],"extensions":[]}',
+      '{"version":1,"tables":[{"name":"t","columns":[{"name":"id","type":"integer","nullable":false,"primaryKey":false}],"primaryKey":[],"foreignKeys":[]}],"extensions":[]}',
     );
   });
 });

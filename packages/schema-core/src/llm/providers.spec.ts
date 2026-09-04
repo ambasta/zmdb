@@ -182,6 +182,7 @@ const OverPropertyLimitSchema = schemaFromIR({
   columns: Array.from({ length: 1_025 }, (_, index) => textColumn(`field_${String(index).padStart(4, '0')}`)),
   primaryKey: [],
   relations: [],
+  foreignKeys: [],
 });
 
 describe('provider-accepted LLM tool documents (#526)', () => {

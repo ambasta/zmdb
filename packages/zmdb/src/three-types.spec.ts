@@ -59,6 +59,7 @@ function ddl(dialect: Dialect): string {
     table: table.name,
     columns: table.columns,
     primaryKey: table.primaryKey,
+    foreignKeys: table.foreignKeys,
   };
   return emitUp(create, dialect);
 }

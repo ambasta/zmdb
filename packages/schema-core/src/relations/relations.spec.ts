@@ -109,7 +109,7 @@ const column = (schema: SchemaIR, name: string): FrozenColumnIR | undefined =>
 describe('referential-action tags (frozen: relations/SPEC.md 1.1)', () => {
   // actual today: all four values are undefined. The local weak tags erase from
   // the data type, but TAG_NAMES has no onDelete/onUpdate entries to read them.
-  it.fails('records ON DELETE and ON UPDATE independently on each referenced column', () => {
+  it('records ON DELETE and ON UPDATE independently on each referenced column', () => {
     const { ir } = actionColumns;
     expect({
       author: [column(ir, 'authorId')?.onDelete, column(ir, 'authorId')?.onUpdate],
@@ -134,7 +134,7 @@ describe('referential-action tags (frozen: relations/SPEC.md 1.1)', () => {
   });
 
   // actual today: [].
-  it.fails('refuses SET NULL on a NOT NULL column at build time', () => {
+  it('refuses SET NULL on a NOT NULL column at build time', () => {
     const reasons = renderedReasons('invalid_set_null', invalidSetNull).join('\n');
     expect(reasons).toContain("invalid_set_null.userId: OnDelete<'set null'>");
     expect(reasons).toContain('NOT NULL');
@@ -142,7 +142,7 @@ describe('referential-action tags (frozen: relations/SPEC.md 1.1)', () => {
   });
 
   // actual today: [].
-  it.fails('refuses SET DEFAULT on a column with no default at build time', () => {
+  it('refuses SET DEFAULT on a column with no default at build time', () => {
     const reasons = renderedReasons('invalid_set_default', invalidSetDefault).join('\n');
     expect(reasons).toContain("invalid_set_default.userId: OnUpdate<'set default'>");
     expect(reasons).toMatch(/HasDefault|no default/i);
@@ -154,7 +154,7 @@ describe('explicit composite foreign keys (frozen: relations/SPEC.md 1.1)', () =
   // in TAG_NAMES yet, today's reflector silently turns its symbol slot into a
   // third column named `__@zmdbForeignKey@20` and reports no diagnostic. The
   // expected value is what makes recognition, not merely silence, pass.
-  it.fails('reflects an explicit composite foreign key without grouping separate References columns', () => {
+  it('reflects an explicit composite foreign key without grouping separate References columns', () => {
     const ir = compositeMembership.ir as FrozenSchemaIR;
     expect(
       ir.foreignKeys.map(foreignKey => ({
@@ -172,7 +172,7 @@ describe('explicit composite foreign keys (frozen: relations/SPEC.md 1.1)', () =
   });
 
   // actual today: no diagnostic; the table tag is the same phantom third column.
-  it.fails('refuses a composite foreign key whose column lists have different lengths', () => {
+  it('refuses a composite foreign key whose column lists have different lengths', () => {
     const reasons = renderedReasons('invalid_composite_length', invalidCompositeLength).join('\n');
     expect(reasons).toContain('2 local columns');
     expect(reasons).toContain('1 target column');

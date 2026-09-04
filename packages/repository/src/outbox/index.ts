@@ -49,6 +49,7 @@ export const OutboxSchema: CoreSchema<string> = schemaFromIR({
   physicalTable: 'zmdb_outbox',
   primaryKey: ['id'],
   relations: [],
+  foreignKeys: [],
   columns: [
     {
       ...EMPTY_COLUMN,

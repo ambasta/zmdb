@@ -34,7 +34,7 @@ type DriftColumnSnapshot = ColumnSnapshot & {
   readonly default?: string;
 };
 
-interface DriftTableSnapshot extends TableSnapshot {
+interface DriftTableSnapshot extends Omit<TableSnapshot, 'columns' | 'foreignKeys'> {
   readonly columns: readonly DriftColumnSnapshot[];
   readonly foreignKeys?: readonly CatalogForeignKeySnapshot[];
   readonly indexes?: readonly CatalogIndexSnapshot[];
@@ -44,8 +44,8 @@ interface DriftComparableSnapshot extends Omit<SchemaSnapshot, 'tables'> {
   readonly tables: readonly DriftTableSnapshot[];
 }
 
-interface NormalizedDriftTableSnapshot extends TableSnapshot {
-  readonly foreignKeys?: readonly CatalogForeignKeySnapshot[];
+interface NormalizedDriftTableSnapshot extends Omit<TableSnapshot, 'foreignKeys'> {
+  readonly foreignKeys: readonly CatalogForeignKeySnapshot[];
   readonly indexes?: readonly CatalogIndexSnapshot[];
 }
 
@@ -120,7 +120,7 @@ export function normalizeDriftSnapshot(
         // aliases have already collapsed into `type`, and servers rewrite defaults.
         columns: table.columns.map(normalizeColumn),
         primaryKey: table.primaryKey,
-        ...(table.foreignKeys === undefined ? {} : { foreignKeys: table.foreignKeys }),
+        foreignKeys: table.foreignKeys ?? [],
         ...(indexes === undefined ? {} : { indexes }),
       };
       return normalized;
@@ -141,8 +141,8 @@ export function normalizeDriftSnapshot(
 export function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, options: DriftOptions = {}): DriftReport {
   const normalizedLive = normalizeDriftSnapshot(live, 'live', options);
   const normalizedDeclared = normalizeDriftSnapshot(declared, 'declared', options);
-  const onlyInDatabase = diff(normalizedDeclared, normalizedLive);
-  const onlyInDeclarations = diff(normalizedLive, normalizedDeclared);
+  const onlyInDatabase = diff(normalizedDeclared, normalizedLive, { dialect: options.dialect });
+  const onlyInDeclarations = diff(normalizedLive, normalizedDeclared, { dialect: options.dialect });
 
   return {
     onlyInDatabase,

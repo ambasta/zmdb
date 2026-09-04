@@ -13,7 +13,7 @@ export interface ExportResult {
 /** Reflect declarations and hand the resulting plan directly to the DDL emitter. */
 export function exportSchema(config: ResolvedConfig): ExportResult {
   const schemas = schemasFromFiles(config.schemaFiles, { project: config.project });
-  const ops = diff(EMPTY_SNAPSHOT, snapshot(schemas));
+  const ops = diff(EMPTY_SNAPSHOT, snapshot(schemas), { dialect: config.dialect });
   return {
     ops,
     statements: ops.map(operation => emitUp(operation, config.dialect)),

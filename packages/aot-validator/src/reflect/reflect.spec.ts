@@ -815,6 +815,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
       ],
       primaryKey: ['id'],
       relations: [],
+      foreignKeys: [],
       ftsTable: 'users_fts',
     });
   });
@@ -832,6 +833,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
       // `WHERE` the query compiler builds, so reversing it would be a different table.
       primaryKey: ['userId', 'groupId'],
       relations: [],
+      foreignKeys: [],
     });
   });
 
@@ -856,6 +858,22 @@ describe('what only a tagged declaration can say', () => {
 
   const invoice = (): SchemaIR => taggedOnly('invoices');
   const extensionItems = (): SchemaIR => taggedOnly('extension-items');
+
+  it('carries referential actions and an explicit composite foreign key', () => {
+    const reflected = taggedOnly('referential-actions');
+    expect(reflected.columns.find(column => column.name === 'userId')).toMatchObject({
+      references: 'users.id',
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    });
+    expect(reflected.foreignKeys).toEqual([
+      {
+        columns: ['tenantId', 'userId'],
+        targetTable: 'users',
+        targetColumns: ['tenantId', 'id'],
+      },
+    ]);
+  });
 
   it('carries numeric precision, which ColumnFlags has no field for', () => {
     expect(invoice().columns.find(c => c.name === 'amount')?.precision).toEqual([12, 2]);

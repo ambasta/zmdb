@@ -55,10 +55,11 @@ tags: `Nullable<string>` is exactly `string | null`.
 
 ### Entity-level (applied via `extends`)
 
-| Tag           | Meaning                                                                                        |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `Table<Name>` | The table the entity maps to.                                                                  |
-| `Fts<Name>`   | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to. |
+| Tag                                | Meaning                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `Table<Name>`                      | The table the entity maps to.                                                                  |
+| `Fts<Name>`                        | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to. |
+| `ForeignKey<Local, Table, Target>` | Composite foreign key; comma-separated local and target columns are paired positionally.       |
 
 ### Column-level, structural
 
@@ -71,6 +72,8 @@ tags: `Nullable<string>` is exactly `string | null`.
 | `HasDefault`         | Has a database default, so **optional** on insert.                                |
 | `Sensitive`          | Never serialised. `ReadDTO<T>` cannot name it.                                    |
 | `References<Target>` | Foreign key target.                                                               |
+| `OnDelete<Action>`   | `ON DELETE` action for the column's `References<…>` constraint.                   |
+| `OnUpdate<Action>`   | `ON UPDATE` action for the column's `References<…>` constraint.                   |
 | `Length<N>`          | `varchar(N)`; also emits `maxLength: N`.                                          |
 | `Numeric<P, S>`      | `numeric(P, S)` precision and scale.                                              |
 | `Codec<Name>`        | Names a `CustomType` codec.                                                       |

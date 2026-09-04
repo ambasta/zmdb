@@ -51,7 +51,7 @@
 // throughout, never assignability, for the reason given there.
 
 import type { SqlType } from '../index.js';
-import type { ProtoScalar, RelationKind } from '../ir/index.js';
+import type { ProtoScalar, ReferentialAction, RelationKind } from '../ir/index.js';
 
 declare const zmdbTable: unique symbol;
 declare const zmdbFts: unique symbol;
@@ -62,6 +62,9 @@ declare const zmdbUnique: unique symbol;
 declare const zmdbDefault: unique symbol;
 declare const zmdbSensitive: unique symbol;
 declare const zmdbReferences: unique symbol;
+declare const zmdbOnDelete: unique symbol;
+declare const zmdbOnUpdate: unique symbol;
+declare const zmdbForeignKey: unique symbol;
 declare const zmdbLength: unique symbol;
 declare const zmdbNumeric: unique symbol;
 declare const zmdbCodec: unique symbol;
@@ -141,6 +144,16 @@ export type HasDefault = { readonly [zmdbDefault]?: true };
 /** Never serialised. `ReadDTO<T>` cannot name it, so a leak is a type error. */
 export type Sensitive = { readonly [zmdbSensitive]?: true };
 export type References<Target extends string> = { readonly [zmdbReferences]?: Target };
+export type { ReferentialAction } from '../ir/index.js';
+export type OnDelete<Action extends ReferentialAction> = { readonly [zmdbOnDelete]?: Action };
+export type OnUpdate<Action extends ReferentialAction> = { readonly [zmdbOnUpdate]?: Action };
+export type ForeignKey<LocalColumns extends string, TargetTable extends string, TargetColumns extends string> = {
+  readonly [zmdbForeignKey]?: {
+    readonly columns: LocalColumns;
+    readonly targetTable: TargetTable;
+    readonly targetColumns: TargetColumns;
+  };
+};
 /** `varchar(N)`. Also emits `maxLength: N` into JSON Schema. */
 export type Length<N extends number> = { readonly [zmdbLength]?: N };
 /** `numeric(P, S)` precision and scale. */

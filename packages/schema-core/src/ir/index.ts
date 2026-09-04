@@ -165,12 +165,20 @@ export const RELATION_KINDS = ['manyToOne', 'oneToMany', 'oneToOne', 'manyToMany
 
 export type RelationKind = (typeof RELATION_KINDS)[number];
 
+export type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
+
 export interface RelationIR {
   readonly name: string;
   readonly relation: RelationKind;
   readonly target: string;
   /** The foreign-key column, or the join table for `manyToMany`. */
   readonly via: string;
+}
+
+export interface ForeignKeyIR {
+  readonly columns: readonly string[];
+  readonly targetTable: string;
+  readonly targetColumns: readonly string[];
 }
 
 /** A SQL type installed by a database extension rather than the closed core vocabulary. */
@@ -209,6 +217,8 @@ export interface ColumnIR {
    */
   readonly enum?: readonly string[];
   readonly references?: string;
+  readonly onDelete?: ReferentialAction;
+  readonly onUpdate?: ReferentialAction;
   readonly codec?: string;
   /**
    * The declared wire type (`WireAs<W>`), for a column whose wire form does not follow
@@ -237,6 +247,7 @@ export interface SchemaIR {
   readonly columns: readonly ColumnIR[];
   readonly primaryKey: readonly string[];
   readonly relations: readonly RelationIR[];
+  readonly foreignKeys: readonly ForeignKeyIR[];
   readonly ftsTable?: string | boolean;
 }
 
@@ -290,6 +301,9 @@ export const TAG_NAMES = {
   hasDefault: 'zmdbDefault',
   sensitive: 'zmdbSensitive',
   references: 'zmdbReferences',
+  onDelete: 'zmdbOnDelete',
+  onUpdate: 'zmdbOnUpdate',
+  foreignKeys: 'zmdbForeignKey',
   length: 'zmdbLength',
   precision: 'zmdbNumeric',
   codec: 'zmdbCodec',

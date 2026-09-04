@@ -50,28 +50,22 @@ interface Post extends Table<'posts'> {
 type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
 ```
 
-**And the DDL emits no `FOREIGN KEY` clause at all today.** `ColumnIR.references` is reflected and used to
-resolve relations, but nothing in `columnDdl` or `emitUp` writes a constraint, and `ColumnSnapshot` has no
-field for one. So this is not "add an action to the existing constraint" — the constraint is the new thing,
-and the action rides along with it. `../../../query-compiler/src/migrations/SPEC.md` §1.6 owns the snapshot
-field, the statements and the diff.
+`ColumnIR.references` is reflected both for relation resolution and for the
+migration snapshot. `../../../query-compiler/src/migrations/SPEC.md` §1.6 owns
+the constraint shape, statements and diff.
 
 Omitting both tags emits `NO ACTION`, explicitly rather than by leaving the clause off, because MySQL and
 Postgres both default to `NO ACTION` and writing it makes the emitted DDL say what the declaration means.
 
-Two separate tags rather than a second parameter on `References`, which is what
-`docs-site/content/cascading.md` currently sketches as `References<'users.id', { onDelete: 'cascade' }>`.
-`onDelete` and `onUpdate` are independently optional, so an options object makes absence a missing key in a
-partial object type where two tags make it the absence of a tag — and `References` would become the only
-member of the tag vocabulary taking a second type parameter, when every other tag composes by intersection.
+Two separate tags rather than a second parameter on `References`.
+`onDelete` and `onUpdate` are independently optional, so an options object makes
+absence a missing key in a partial object type where two tags make it the absence
+of a tag — and `References` would become the only member of the tag vocabulary
+taking a second type parameter, when every other tag composes by intersection.
 
-**A test currently asserts the opposite of this.**
-`packages/repository/src/tagged-to-ddl.spec.ts` pins `.not.toContain('REFERENCES')` under the title
-`drops the unique constraint and the foreign key on the way to the DDL`, and that title is cited three
-times by `tests/api-coverage/mapping.mjs`. Emitting a foreign key inverts the assertion **and** falsifies
-the title, so the implementation slice rewrites both and updates the mapping in the same change. Recorded
-here because a renamed test title is a build failure by design, and finding that out mid-implementation
-reads like a mistake rather than the plan.
+`packages/repository/src/tagged-to-ddl.spec.ts` follows the declaration through
+the real snapshot and asserts that all three dialect plans contain
+`REFERENCES`; `tests/api-coverage/mapping.mjs` cites that shipped behavior.
 
 #### Two references to one table are two constraints
 

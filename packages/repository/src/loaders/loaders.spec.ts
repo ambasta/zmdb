@@ -56,6 +56,7 @@ const USER_IR: SchemaIR = {
     { name: 'orders', relation: 'oneToMany', target: 'orders', via: 'userId' },
     { name: 'profile', relation: 'oneToOne', target: 'profiles', via: 'userId' },
   ],
+  foreignKeys: [],
 };
 
 const UserSchema = schemaFromIR(USER_IR);
@@ -70,6 +71,7 @@ const MEMBERSHIP_IR: SchemaIR = {
   ],
   primaryKey: ['tenantId', 'userId'],
   relations: [],
+  foreignKeys: [],
 };
 
 const MembershipSchema = schemaFromIR(MEMBERSHIP_IR);

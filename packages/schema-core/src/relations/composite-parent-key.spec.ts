@@ -60,6 +60,7 @@ const users: SchemaIR = {
     // The inverse one-to-one takes the same path, so it has the same defect.
     { name: 'profile', relation: 'oneToOne', target: 'profiles', via: 'userId' },
   ],
+  foreignKeys: [],
 };
 
 /** The owning side. `(tenantId, userId)` together point at `users`' two key columns. */
@@ -78,6 +79,7 @@ const posts: SchemaIR = {
     // Two columns, one `References`. §2.1 refuses this rather than defaulting the other to `id`.
     { name: 'authorHalf', relation: 'manyToOne', target: 'users', via: 'tenantId,noRef' },
   ],
+  foreignKeys: [],
 };
 
 /**

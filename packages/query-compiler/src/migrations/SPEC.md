@@ -253,9 +253,12 @@ as permission to drop database objects.
 recover it:
 
 1. `create_extension` — before anything that could name a type it provides.
-2. Renames (§1.4) — before the adds and drops they would otherwise collide with.
-3. Table and column drops, then creates, then `alter_column_type` and `alter_primary_key`.
-4. Index creation last, so an index over a column added in the same plan has a column to be over.
+2. `drop_foreign_key` — before a column or table the constraint names is dropped.
+3. Renames (§1.4) — before the adds and drops they would otherwise collide with.
+4. Table and column drops, then target-before-child table creates and column adds,
+   then `alter_column_type` and `alter_primary_key`.
+5. `add_foreign_key` — after every table and column it names exists.
+6. Index creation last, so an index over a column added in the same plan has a column to be over.
 
 A dimension change — `vector(1536)` to `vector(3072)` — is an ordinary `alter_column_type` and the
 emitter produces the `ALTER` for it. It will fail on a non-empty table, because Postgres cannot rewrite
@@ -264,8 +267,7 @@ migration and there is no DDL that can stand in for it. The emitter does not sof
 
 ### 1.6 Foreign keys and referential actions (frozen — epic "Referential actions")
 
-Nothing in this package emits a `FOREIGN KEY` clause today, so the snapshot gains the constraint and not
-just an action:
+The snapshot carries the constraint as well as its actions:
 
 ```ts
 interface ForeignKeySnapshot {
@@ -301,8 +303,8 @@ A generated name longer than 63 characters is **refused at build time**, naming 
 rather than truncated or hashed. Postgres silently truncates at 63 bytes, which can make two distinct
 constraints collide; and the alternative — a hash suffix — puts an unreadable name in the one message where
 a constraint name is actually read by a human:
-`violates foreign key constraint "posts_a1b2c3d4_fkey"`. An explicit `ForeignKey<…>` declaration may
-therefore need to carry its own name on a schema with long identifiers.
+`violates foreign key constraint "posts_a1b2c3d4_fkey"`. A schema whose generated
+name exceeds the limit must currently shorten the table or column identifiers.
 
 #### The clause is a separate statement, except on SQLite
 
@@ -330,9 +332,10 @@ emit it later:
 }
 ```
 
-Without that field the SQLite statement above is not representable: `emitUp` receives one op, not the
-snapshot it came from, and the current payload carries only columns. Postgres and MySQL still emit separate
-`add_foreign_key` statements so mutually-referencing tables remain possible there.
+Without that field the SQLite statement above is not representable: `emitUp`
+receives one op, not the snapshot it came from. Postgres and MySQL emit separate
+`add_foreign_key` statements so mutually-referencing tables remain possible
+there.
 
 Which means a mutually-referencing pair of tables is **not expressible on SQLite** at all, and the emitter
 cannot discover that from either table's op in isolation. The caller therefore passes the target dialect to
@@ -398,7 +401,7 @@ Constraints are compared structurally by every field except the name, so a const
 target match but whose action differs is a change rather than a drop plus an unrelated add. Comparing by
 name alone would make a hand-named constraint look like a different one entirely.
 
-The statement order in §1.5 gains two positions, both forced by dependency:
+The statement order in §1.5 includes two positions forced by dependency:
 
 1. `create_extension`.
 2. **`drop_foreign_key`** — before any column or table drop, because a constraint referencing a column

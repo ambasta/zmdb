@@ -41,9 +41,11 @@ import {
   type ColumnIR,
   type Constraints,
   type ExtensionType,
+  type ForeignKeyIR,
   type ObjectIR,
   type PropertyIR,
   type ProtoScalar,
+  type ReferentialAction,
   type RelationIR,
   type RelationKind,
   type SchemaIR,
@@ -162,6 +164,13 @@ function recognizedTag(symbol: TsSymbol): RecognizedTag | undefined {
 const SQL_TYPE_SET: ReadonlySet<string> = new Set<string>(SQL_TYPES);
 const RELATION_KIND_SET: ReadonlySet<string> = new Set<string>(RELATION_KINDS);
 const PROTO_SCALAR_SET: ReadonlySet<string> = new Set<string>(PROTO_SCALARS);
+const REFERENTIAL_ACTION_SET: ReadonlySet<string> = new Set<string>([
+  'cascade',
+  'restrict',
+  'set null',
+  'set default',
+  'no action',
+]);
 const SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function isSqlType(value: string): value is SqlType {
@@ -174,6 +183,10 @@ function isRelationKind(value: string): value is RelationKind {
 
 function isProtoScalar(value: string): value is ProtoScalar {
   return PROTO_SCALAR_SET.has(value);
+}
+
+function isReferentialAction(value: string): value is ReferentialAction {
+  return REFERENTIAL_ACTION_SET.has(value);
 }
 
 /**
@@ -330,6 +343,7 @@ export class Reflector {
 
     const fts = literalOf(this.#nonNullable(tags.get('ftsTable')));
     const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
+    const foreignKeys = this.#foreignKeysOf(tableName, tags, columns);
     const physicalColumns = new Map<string, string>();
     for (const column of columns) {
       const previous = physicalColumns.get(column.physicalName);
@@ -364,6 +378,7 @@ export class Reflector {
       columns,
       primaryKey,
       relations,
+      foreignKeys,
       ...(typeof fts === 'string' || fts === true ? { ftsTable: fts } : {}),
     };
   }
@@ -1076,6 +1091,80 @@ export class Reflector {
     return { name: property, relation: kind, target, via };
   }
 
+  #foreignKeysOf(
+    table: string,
+    tags: ReadonlyMap<TagField, Type>,
+    columns: readonly ColumnIR[],
+  ): readonly ForeignKeyIR[] {
+    const spec = this.#nonNullable(tags.get('foreignKeys'));
+    if (!spec) return [];
+
+    const read = (name: string): unknown => {
+      const symbol = this.#checker.getPropertyOfType(spec, name);
+      if (!symbol) return undefined;
+      const type = this.#typeOf(symbol);
+      return type ? literalOf(type) : undefined;
+    };
+    const local = read('columns');
+    const targetTable = read('targetTable');
+    const target = read('targetColumns');
+    if (typeof local !== 'string' || typeof targetTable !== 'string' || typeof target !== 'string') {
+      this.#refuse(
+        table,
+        'ForeignKey<LocalColumns, TargetTable, TargetColumns> needs three string-literal arguments',
+        this.#print(spec),
+      );
+      return [];
+    }
+
+    const split = (value: string): readonly string[] => value.split(',').map(column => column.trim());
+    const localColumns = split(local);
+    const targetColumns = split(target);
+    if (
+      localColumns.length !== targetColumns.length ||
+      localColumns.some(column => column.length === 0) ||
+      targetColumns.some(column => column.length === 0)
+    ) {
+      this.#refuse(
+        table,
+        `ForeignKey declares ${localColumns.length} local ${localColumns.length === 1 ? 'column' : 'columns'} ` +
+          `and ${targetColumns.length} target ${targetColumns.length === 1 ? 'column' : 'columns'}; ` +
+          'the lists must be positionally paired and have equal lengths',
+      );
+      return [];
+    }
+
+    const declared = new Set(columns.map(column => column.name));
+    const missing = localColumns.filter(column => !declared.has(column));
+    if (missing.length > 0) {
+      this.#refuse(
+        table,
+        `ForeignKey names ${missing.map(column => `\`${column}\``).join(', ')}, ` +
+          `${missing.length === 1 ? 'which is not a column' : 'which are not columns'} on \`${table}\``,
+      );
+      return [];
+    }
+
+    return [{ columns: localColumns, targetTable, targetColumns }];
+  }
+
+  #referentialAction(
+    property: string,
+    tag: 'OnDelete' | 'OnUpdate',
+    declared: Type | undefined,
+  ): ReferentialAction | undefined {
+    const spec = this.#nonNullable(declared);
+    if (!spec) return undefined;
+    const value = literalOf(spec);
+    if (typeof value === 'string' && isReferentialAction(value)) return value;
+    this.#refuse(
+      property,
+      `${tag}<Action> needs one of ${[...REFERENTIAL_ACTION_SET].map(action => `'${action}'`).join(', ')}`,
+      this.#print(spec),
+    );
+    return undefined;
+  }
+
   #column(property: string, split: NullableSplit, tags: ReadonlyMap<TagField, Type>, declaredTable?: string): ColumnIR {
     const { nullable, rest } = split;
     const explicitPhysicalName = this.#physicalNameFrom(rest);
@@ -1114,6 +1203,8 @@ export class Reflector {
     const length = numberOf(this.#nonNullable(tags.get('length')));
     const precision = this.#precisionOf(tags);
     const references = literalOf(this.#nonNullable(tags.get('references')));
+    const onDelete = this.#referentialAction(property, 'OnDelete', tags.get('onDelete'));
+    const onUpdate = this.#referentialAction(property, 'OnUpdate', tags.get('onUpdate'));
     const codec = literalOf(this.#nonNullable(tags.get('codec')));
     const wire = this.#nonNullable(tags.get('wire'));
 
@@ -1124,6 +1215,28 @@ export class Reflector {
     const hasDefault = serial || tags.has('hasDefault');
     if (serial && extension !== undefined) {
       this.#refuse(property, 'Serial cannot be combined with an extension-backed column type');
+    }
+    for (const [tag, action] of [
+      ['OnDelete', onDelete],
+      ['OnUpdate', onUpdate],
+    ] as const) {
+      if (action === 'set null' && !nullable) {
+        this.#refuse(
+          property,
+          `${tag}<'set null'> on a NOT NULL column; a referential action would have to write NULL into ` +
+            "a column that forbids it — make the column nullable, or use 'cascade' or 'restrict'",
+        );
+      }
+      if (action === 'set default' && !hasDefault) {
+        this.#refuse(
+          property,
+          `${tag}<'set default'> on a column with no default; add HasDefault or choose an action ` +
+            'that does not write a missing default',
+        );
+      }
+    }
+    if ((onDelete !== undefined || onUpdate !== undefined) && typeof references !== 'string') {
+      this.#refuse(property, 'OnDelete and OnUpdate require References<…> on the same foreign-key column');
     }
 
     // A generated `integer` is what `serial` means, and the declaration says it in two tags
@@ -1152,6 +1265,8 @@ export class Reflector {
       ...(precision === undefined ? {} : { precision }),
       ...(sql === 'jsonEnum' && enumValues !== undefined ? { enum: enumValues } : {}),
       ...(typeof references === 'string' ? { references } : {}),
+      ...(onDelete === undefined ? {} : { onDelete }),
+      ...(onUpdate === undefined ? {} : { onUpdate }),
       ...(typeof codec === 'string' ? { codec } : {}),
       // `WireAs<W>` is the one tag whose payload is a type rather than a literal, so it
       // is reflected like data instead of read with `literalOf`. Only the declaration

@@ -305,7 +305,7 @@ export const kysely = {
   'schema > alter table > drop index': 'creates a non-unique index',
   'schema > alter table > add check constraint': 'check constraint',
   'schema > alter table > add unique constraint':
-    'drops the unique constraint and the foreign key on the way to the DDL',
+    'keeps unique constraints as a separate migration gap while emitting foreign keys',
   'schema > alter table > add foreign key constraint': [
     'emits ON DELETE CASCADE on the foreign key',
     'emits every supported referential action',
@@ -433,11 +433,11 @@ export const drizzle = {
 
   // --- schema declaration --------------------------------------------------
   'table config*': [
-    'drops the unique constraint and the foreign key on the way to the DDL',
+    'keeps unique constraints as a separate migration gap while emitting foreign keys',
     'names a generated constraint deterministically',
   ],
   'define constraints as array*': [
-    'drops the unique constraint and the foreign key on the way to the DDL',
+    'keeps unique constraints as a separate migration gap while emitting foreign keys',
     'emits a composite foreign key referencing a composite key',
   ],
   'Object keys as column names': 'names every declared column in every dialect',

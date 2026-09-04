@@ -123,6 +123,7 @@ const usersIr: SchemaIR = {
   ],
   primaryKey: ['id'],
   relations: [{ name: 'posts', relation: 'oneToMany', target: 'posts', via: 'userId' }],
+  foreignKeys: [],
 };
 
 const postsIr: SchemaIR = {
@@ -135,6 +136,7 @@ const postsIr: SchemaIR = {
   ],
   primaryKey: ['id'],
   relations: [{ name: 'author', relation: 'manyToOne', target: 'users', via: 'userId' }],
+  foreignKeys: [],
 };
 
 const UsersSchema = schemaFromIR(usersIr);

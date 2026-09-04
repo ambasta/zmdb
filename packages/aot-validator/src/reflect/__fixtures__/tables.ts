@@ -28,6 +28,7 @@
 import type {
   Codec,
   Ext,
+  ForeignKey,
   Fts,
   HasDefault,
   Length,
@@ -38,7 +39,9 @@ import type {
   Min,
   MinLength,
   Numeric,
+  OnDelete,
   OneToOne,
+  OnUpdate,
   Pattern,
   PrimaryKey,
   References,
@@ -130,6 +133,14 @@ export interface Invoice extends Table<'invoices'> {
   author: Author & ManyToOne<'authors', 'authorId'>;
 }
 taggedOnly<Invoice>('invoices');
+
+export interface ReferentialFixture
+  extends Table<'referential_fixtures'>, ForeignKey<'tenantId,userId', 'users', 'tenantId,id'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  tenantId: number & Sql<'integer'>;
+  userId: (number & Sql<'integer'> & References<'users.id'> & OnDelete<'set null'> & OnUpdate<'cascade'>) | null;
+}
+taggedOnly<ReferentialFixture>('referential-actions');
 
 export interface GeoJsonPoint {
   readonly type: 'Point';

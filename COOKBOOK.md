@@ -436,10 +436,9 @@ const output = runCli('up', connection, migrations); // 'applied: 3'
 - No runtime `updateSchema()` against production (explicitly rejected).
 - **(planned)** A `zmdb migrate` command. The only shipped binary today is
   `zmdb-codegen`, which is the AOT transform, not the migration runner.
-- The snapshot format models name, type, nullability, primary key and length — and
-  nothing else. A `UNIQUE` constraint, a foreign key, a column default and an FTS index
-  have no place in it, so `References<…>` does not reach generated DDL: write those in
-  a custom migration.
+- The snapshot format models name, type, nullability, primary keys, lengths and
+  foreign keys with referential actions. A `UNIQUE` constraint, a column default
+  and an FTS index still need a custom migration.
 
 ---
 

@@ -33,6 +33,7 @@ const createMemberships: Extract<ChangeOp, { kind: 'create_table' }> = {
     { name: 'user_id', type: 'integer', nullable: false, primaryKey: true },
   ],
   primaryKey: ['user_id', 'org_id'],
+  foreignKeys: [],
 };
 
 describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
@@ -82,6 +83,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
         { name: 'email', type: 'varchar', nullable: false, primaryKey: false, length: 255 },
       ],
       primaryKey: ['id'],
+      foreignKeys: [],
     };
     const golden: Readonly<Record<Dialect, string>> = {
       postgres: 'CREATE TABLE "users" ("id" SERIAL PRIMARY KEY, "email" VARCHAR(255) NOT NULL)',
@@ -137,6 +139,7 @@ const keyedOnUser: SchemaSnapshot = {
         { name: 'user_id', type: 'integer', nullable: false, primaryKey: true },
       ],
       primaryKey: ['user_id'],
+      foreignKeys: [],
     },
   ],
 };
@@ -149,6 +152,7 @@ const keyedOnBothTable: TableSnapshot = {
     { name: 'user_id', type: 'integer', nullable: false, primaryKey: true },
   ],
   primaryKey: ['user_id', 'org_id'],
+  foreignKeys: [],
 };
 
 const keyedOnBoth: TableSnapshot[] = [keyedOnBothTable];
@@ -212,6 +216,7 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
           { name: 'user_id', type: 'integer', nullable: false, primaryKey: true },
         ],
         primaryKey: ['user_id', 'org_id'],
+        foreignKeys: [],
       },
     ]);
   });

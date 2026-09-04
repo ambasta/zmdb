@@ -156,6 +156,9 @@ describe('repository E2E (real SQLite)', () => {
     let allCalls = 0;
     let iterateCalls = 0;
     const measuredDb = {
+      exec(sql: string): unknown {
+        return db.exec(sql);
+      },
       prepare(sql: string) {
         const statement = db.prepare(sql);
         return {
@@ -274,7 +277,7 @@ describe('repository E2E (real SQLite)', () => {
   //   { beforeDriver: 0, afterDriver: 0, children: 2 }
   // sqliteDriver prepares statements but performs no connection setup, so the
   // constraint remains decorative and both child rows survive.
-  it.fails('cascades a real delete', async () => {
+  it('cascades a real delete', async () => {
     const cascadeDb = new DatabaseSync(':memory:');
     try {
       cascadeDb.exec('PRAGMA foreign_keys = OFF');

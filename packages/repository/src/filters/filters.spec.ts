@@ -62,6 +62,7 @@ const USER_IR: SchemaIR = {
   ],
   primaryKey: ['id'],
   relations: [],
+  foreignKeys: [],
 };
 
 const UserSchema = schemaFromIR(USER_IR);

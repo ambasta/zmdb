@@ -37,6 +37,7 @@ const usersV1 = snap([
       { name: 'email', type: 'text', nullable: false, primaryKey: false },
     ],
     primaryKey: ['id'],
+    foreignKeys: [],
   },
 ]);
 
@@ -49,6 +50,7 @@ const usersV2 = snap([
       { name: 'age', type: 'integer', nullable: false, primaryKey: false },
     ],
     primaryKey: ['id'],
+    foreignKeys: [],
   },
 ]);
 
@@ -148,7 +150,13 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     const table = namingTable();
     expect(
       emitUp(
-        { kind: 'create_table', table: table.name, columns: table.columns, primaryKey: table.primaryKey },
+        {
+          kind: 'create_table',
+          table: table.name,
+          columns: table.columns,
+          primaryKey: table.primaryKey,
+          foreignKeys: table.foreignKeys,
+        },
         'postgres',
       ),
     ).toBe('CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)');
@@ -181,6 +189,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
             { name: 'id', type: 'integer', nullable: false, primaryKey: true },
           ],
           primaryKey: ['id'],
+          foreignKeys: [],
         },
       ],
     });
@@ -369,7 +378,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
   //   mysql    undefined
   //   sqlite   CREATE TABLE "posts" ("id" INTEGER PRIMARY KEY, "user_id" INTEGER NOT NULL)
   // The SQLite value is a real CREATE TABLE with the extra `foreignKeys` field ignored.
-  it.fails('emits ON DELETE CASCADE on the foreign key', () => {
+  it('emits ON DELETE CASCADE on the foreign key', () => {
     expect({
       postgres: capture(() => up(addPostsUserId, 'postgres')),
       mysql: capture(() => up(addPostsUserId, 'mysql')),
@@ -390,7 +399,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
   // actual today: every add_foreign_key is `undefined`; every SQLite CREATE TABLE
   // omits the FOREIGN KEY; MySQL's SET DEFAULT path returns `undefined` rather than
   // refusing it.
-  it.fails('emits every supported referential action', () => {
+  it('emits every supported referential action', () => {
     const actions: readonly ReferentialAction[] = ['cascade', 'restrict', 'set null', 'set default', 'no action'];
     const actual = Object.fromEntries(
       actions.map(action => {
@@ -446,7 +455,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
   // needs to change.
   //
   // actual today: { kind: 'sql', statements: undefined }
-  it.fails('refuses SET DEFAULT on mysql, naming the action, constraint and dialect', () => {
+  it('refuses SET DEFAULT on mysql, naming the action, constraint and dialect', () => {
     const fk: FrozenForeignKeySnapshot = {
       ...postsUserId,
       onDelete: 'set default',
@@ -459,7 +468,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
   });
 
   // actual today: the add op returns undefined, so neither statement exists.
-  it.fails('creates the supporting index MySQL requires', () => {
+  it('creates the supporting index MySQL requires', () => {
     expect(capture(() => up(addPostsUserId, 'mysql'))).toEqual({
       kind: 'sql',
       statements: [mysqlIndexStatement(postsUserId), addStatement('mysql', postsUserId)],
@@ -472,7 +481,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
 
   // actual today: the two ALTER ops return undefined, and SQLite's CREATE TABLE
   // contains only the columns.
-  it.fails('emits a composite foreign key referencing a composite key', () => {
+  it('emits a composite foreign key referencing a composite key', () => {
     const fk: FrozenForeignKeySnapshot = {
       name: 'memberships_tenant_id_user_id_fkey',
       columns: ['tenant_id', 'user_id'],
@@ -571,7 +580,7 @@ function foreignKeysOf(input: FrozenSnapshotInput): readonly FrozenForeignKeySna
 
 describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => {
   // actual today: both snapshots omit `foreignKeys`, so both reads are undefined.
-  it.fails('names a generated constraint deterministically', () => {
+  it('names a generated constraint deterministically', () => {
     const input = snapshotInput('posts', 'user_id', 'users.id', { onDelete: 'cascade' });
     const first = foreignKeysOf(input);
     const second = foreignKeysOf(input);
@@ -583,7 +592,7 @@ describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => 
   // NO ACTION explicitly so the emitted DDL does too.
   //
   // actual today: undefined.
-  it.fails('defaults omitted referential-action tags to NO ACTION', () => {
+  it('defaults omitted referential-action tags to NO ACTION', () => {
     expect(foreignKeysOf(snapshotInput('posts', 'user_id', 'users.id'))).toEqual([
       {
         ...postsUserId,
@@ -598,7 +607,7 @@ describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => 
   // updated_by identify the same user, a rule the declaration never stated.
   //
   // actual today: undefined.
-  it.fails('keeps two References to one table as two foreign keys', () => {
+  it('keeps two References to one table as two foreign keys', () => {
     const input: FrozenSnapshotInput = {
       table: 'audit_entries',
       primaryKey: ['id'],
@@ -645,7 +654,7 @@ describe('foreign keys on the snapshot (frozen: migrations/SPEC.md 1.6)', () => 
   });
 
   // actual today: accepted; snapshot() returns a table with no foreignKeys field.
-  it.fails('refuses a generated constraint name longer than 63 characters', () => {
+  it('refuses a generated constraint name longer than 63 characters', () => {
     const table = 'orders_with_a_deliberately_long_table_name';
     const column = 'customer_identifier_column';
     const generated = `${table}_${column}_fkey`;
@@ -699,7 +708,7 @@ const diffForDialect: FrozenDiff = diff;
 
 describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () => {
   // actual today: [] — diff compares table/column names and column types only.
-  it.fails('diffs a changed action into a drop and an add', () => {
+  it('diffs a changed action into a drop and an add', () => {
     expect(diff(asSnapshot([noActionPosts]), asSnapshot([cascadePosts]))).toEqual([
       { kind: 'drop_foreign_key', table: 'posts', name: 'posts_user_id_fkey' },
       { kind: 'add_foreign_key', table: 'posts', fk: postsUserId },
@@ -717,9 +726,39 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
     expect(diff(asSnapshot([cascadePosts]), asSnapshot([renamed]))).toEqual([]);
   });
 
+  it('orders a newly created target table before its child', () => {
+    const users: FrozenTableSnapshot = {
+      name: 'users',
+      columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true }],
+      primaryKey: ['id'],
+      foreignKeys: [],
+    };
+    const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
+
+    expect(
+      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: 'sqlite' }).map(operation => [
+        operation.kind,
+        'table' in operation ? operation.table : undefined,
+      ]),
+    ).toEqual([
+      ['create_table', 'users'],
+      ['create_table', 'posts'],
+    ]);
+    expect(
+      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: 'postgres' }).map(operation => [
+        operation.kind,
+        'table' in operation ? operation.table : undefined,
+      ]),
+    ).toEqual([
+      ['create_table', 'users'],
+      ['create_table', 'posts'],
+      ['add_foreign_key', 'posts'],
+    ]);
+  });
+
   // actual today: no throw. The optional third argument is ignored; add and
   // drop produce no FK op, and change produces [].
-  it.fails('refuses to alter a constraint on sqlite, naming the table', () => {
+  it('refuses to alter a constraint on sqlite, naming the table', () => {
     const transitions = [
       ['add', postsWithoutForeignKeys, cascadePosts],
       ['drop', cascadePosts, postsWithoutForeignKeys],
@@ -740,7 +779,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
   // diff boundary as the action-change refusal.
   //
   // actual today: two create_table ops, no refusal.
-  it.fails('refuses mutually-referencing tables on sqlite, naming both tables', () => {
+  it('refuses mutually-referencing tables on sqlite, naming both tables', () => {
     const users: FrozenTableSnapshot = {
       name: 'users',
       columns: [
@@ -870,7 +909,7 @@ const noExtensions: SchemaSnapshot = {
 const vectorItems: SchemaSnapshot = {
   version: 1,
   extensions: [{ name: 'vector' }],
-  tables: [{ name: 'items', columns: itemColumns, primaryKey: ['id'] }],
+  tables: [{ name: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] }],
 };
 
 const vector3072: ExtensionType = {
@@ -890,6 +929,7 @@ const vectorItems3072: SchemaSnapshot = {
         { name: 'embedding', type: vector3072, nullable: false, primaryKey: false },
       ],
       primaryKey: ['id'],
+      foreignKeys: [],
     },
   ],
 };
@@ -931,7 +971,10 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
 
   it('refuses an extension type on mysql, naming the dialect and the type', () => {
     const run = () =>
-      extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] }, 'mysql');
+      extensionUp(
+        { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
+        'mysql',
+      );
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/mysql/i);
     expect(run).toThrow(/vector\(1536\)/i);
@@ -939,7 +982,10 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
 
   it('refuses an extension type on sqlite, naming the dialect and the type', () => {
     const run = () =>
-      extensionUp({ kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] }, 'sqlite');
+      extensionUp(
+        { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
+        'sqlite',
+      );
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/sqlite/i);
     expect(run).toThrow(/vector\(1536\)/i);
@@ -948,7 +994,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
   it('does not drop an extension on diff', () => {
     expect(extensionDiff(noExtensions, vectorItems)).toEqual([
       { kind: 'create_extension', name: 'vector' },
-      { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'] },
+      { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
     ]);
     expect(extensionDiff(vectorItems, noExtensions)).toEqual([{ kind: 'drop_table', table: 'items' }]);
   });

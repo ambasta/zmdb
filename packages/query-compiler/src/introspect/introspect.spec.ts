@@ -527,6 +527,7 @@ it('produces a snapshot that diffs cleanly against the declared snapshot for the
           table: declaredTable.name,
           columns: declaredTable.columns,
           primaryKey: declaredTable.primaryKey,
+          foreignKeys: declaredTable.foreignKeys,
         },
         'sqlite',
       ),
@@ -641,6 +642,7 @@ describe('the round trip and drift report', () => {
       table: declaredTable.name,
       columns: declaredTable.columns,
       primaryKey: declaredTable.primaryKey,
+      foreignKeys: declaredTable.foreignKeys,
     };
     const database = new DatabaseSync(':memory:');
     const scratch = await mkdtemp(join(tmpdir(), 'zmdb-introspect-430-'));

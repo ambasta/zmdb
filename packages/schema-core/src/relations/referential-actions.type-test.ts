@@ -1,20 +1,9 @@
 // Public declaration surface for referential actions (#455), frozen by
-// `./SPEC.md` §1.1. The missing imports and shape assertions are paired
-// `@ts-expect-error`s so the typecheck remains green now and forces this file to
-// be retired when the real exports land.
+// `./SPEC.md` §1.1.
 
 import type { Equal, Expect } from '../index.js';
 import type { ColumnIR } from '../ir/index.js';
-import type {
-  // @ts-expect-error TS2305 — frozen by relations/SPEC.md 1.1; not exported yet.
-  ForeignKey,
-  // @ts-expect-error TS2305 — frozen by relations/SPEC.md 1.1; not exported yet.
-  OnDelete,
-  // @ts-expect-error TS2305 — frozen by relations/SPEC.md 1.1; not exported yet.
-  OnUpdate,
-  // @ts-expect-error TS2305 — frozen by relations/SPEC.md 1.1; not exported yet.
-  ReferentialAction,
-} from '../tags/index.js';
+import type { ForeignKey, OnDelete, OnUpdate, ReferentialAction } from '../tags/index.js';
 
 type FrozenReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
 
@@ -37,15 +26,12 @@ interface FrozenActionTag {
 type TagEnvelope<T> = Omit<NormalizedTag<T>, 'payload'>;
 type FrozenTagEnvelope = Omit<FrozenActionTag, 'payload'>;
 
-// @ts-expect-error TS2344 — ReferentialAction is an error type until the export lands.
 export type _ReferentialAction = Expect<Equal<ReferentialAction, FrozenReferentialAction>>;
 
 // Instantiating with the complete union also pins the generic constraint: leaving
 // one action out of either tag is a compile error when the export lands.
-// @ts-expect-error TS2344 — OnDelete is an error type until the export lands.
 export type _OnDeleteShape = Expect<Equal<NormalizedTag<OnDelete<FrozenReferentialAction>>, FrozenActionTag>>;
 
-// @ts-expect-error TS2344 — OnUpdate is an error type until the export lands.
 export type _OnUpdateShape = Expect<Equal<NormalizedTag<OnUpdate<FrozenReferentialAction>>, FrozenActionTag>>;
 
 // The composite declaration is a weak, symbol-keyed tag and accepts the exact
@@ -53,16 +39,13 @@ export type _OnUpdateShape = Expect<Equal<NormalizedTag<OnUpdate<FrozenReferenti
 // frozen here: only the reflector consumes it, and the behavioral spec pins the
 // resulting IR rather than an implementation detail.
 type ImportedForeignKeyEnvelope = TagEnvelope<ForeignKey<'tenantId,userId', 'users', 'tenantId,id'>>;
-// @ts-expect-error TS2344 — ForeignKey is an error type until the export lands.
 export type _ForeignKeyIsAWeakTag = Expect<Equal<ImportedForeignKeyEnvelope, FrozenTagEnvelope>>;
 
 // The action remains optional in ColumnIR; absence becomes NO ACTION in the
 // migration snapshot, not an invented IR literal.
-// @ts-expect-error frozen (relations/SPEC.md 1.1): ColumnIR gains onDelete.
 type DeleteOnColumnIR = ColumnIR['onDelete'];
 export type _DeleteOnColumnIR = Expect<Equal<DeleteOnColumnIR, FrozenReferentialAction | undefined>>;
 
-// @ts-expect-error frozen (relations/SPEC.md 1.1): ColumnIR gains onUpdate.
 type UpdateOnColumnIR = ColumnIR['onUpdate'];
 export type _UpdateOnColumnIR = Expect<Equal<UpdateOnColumnIR, FrozenReferentialAction | undefined>>;
 

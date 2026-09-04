@@ -32,17 +32,14 @@ export async function generateMigration(
   const next = snapshot(schemas);
   const snapshotPath = join(config.outDir, 'snapshot.json');
   const previous = await readSnapshot(snapshotPath);
-  const ops = diff(previous, next);
+  const ops = diff(previous, next, { dialect: config.dialect });
   if (ops.length === 0) return { ops };
 
   const name = migrationName(options.name, ops);
   const versionText = migrationVersion(options.now ?? new Date());
   const migrationPath = join(config.outDir, `${versionText}_${name}.sql`);
   const up = ops.map(operation => emitUp(operation, config.dialect));
-  const down = ops
-    .toReversed()
-    .filter(operation => operation.kind !== 'create_extension')
-    .map(operation => emitDown(operation, config.dialect));
+  const down = downStatements(ops, previous, config.dialect);
   const migration = `-- zmdb:up\n${statements(up)}-- zmdb:down\n${statements(down)}`;
 
   await writeTextAtomically(migrationPath, migration);
@@ -54,6 +51,28 @@ export async function generateMigration(
     name,
     ops,
   };
+}
+
+function downStatements(
+  ops: readonly ChangeOp[],
+  previous: SchemaSnapshot,
+  dialect: ResolvedConfig['dialect'],
+): readonly string[] {
+  return ops
+    .toReversed()
+    .filter(operation => operation.kind !== 'create_extension')
+    .map(operation => {
+      if (operation.kind !== 'drop_foreign_key') return emitDown(operation, dialect);
+      const table = previous.tables.find(candidate => candidate.name === operation.table);
+      const foreignKey = table?.foreignKeys?.find(candidate => candidate.name === operation.name);
+      if (foreignKey === undefined) {
+        throw new Error(
+          `cannot generate the down migration for foreign key "${operation.name}" on "${operation.table}": ` +
+            'the previous snapshot does not contain its columns and referential actions',
+        );
+      }
+      return emitUp({ kind: 'add_foreign_key', table: operation.table, fk: foreignKey }, dialect);
+    });
 }
 
 async function readSnapshot(path: string): Promise<SchemaSnapshot> {
@@ -104,6 +123,10 @@ function derivedName(ops: readonly ChangeOp[]): string {
       return `alter_${operation.table}_${operation.column}`;
     case 'alter_primary_key':
       return `alter_${operation.table}_primary_key`;
+    case 'add_foreign_key':
+      return `add_${operation.table}_${operation.fk.name}`;
+    case 'drop_foreign_key':
+      return `drop_${operation.table}_${operation.name}`;
   }
 }
 

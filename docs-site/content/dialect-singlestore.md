@@ -41,7 +41,12 @@ Sharding on `customer_id` means a query filtered by customer touches one partiti
 
 **Rowstore versus columnstore.** SingleStore's default for new tables is columnstore, which is excellent for aggregates and poor for single-row point lookups and updates. `CREATE TABLE` with no `SORT KEY` and no explicit rowstore hint is a decision being made by omission. If a table is your transactional hot path, declare it rowstore.
 
-**No foreign keys.** SingleStore does not enforce them, so a hand-written `REFERENCES` clause will be rejected or ignored depending on version. `References<'users.id'>` on the column costs you nothing here — it reaches the IR and the query compiler, and a generated migration would not emit the constraint anyway — `ColumnSnapshot` models name, type, nullability, primary key and length, and has no place for a foreign key — so the `REFERENCES` clause is hand-written in a [custom migration](./migrations-custom.html) today. Referential integrity is your application's job here, which is a reason to be stricter about doing writes through repositories.
+**No foreign keys.** SingleStore does not enforce them. `References<'users.id'>`
+now reaches the migration snapshot and emits a real constraint on supported
+dialects, so a SingleStore dialect must refuse that declaration before writing
+SQL rather than inheriting MySQL's foreign-key emitter. Referential integrity is
+your application's job here, which is a reason to be stricter about doing writes
+through repositories.
 
 **Unique indexes must include the shard key.** A `Unique` column that is not part of the shard key cannot be enforced globally, and SingleStore will reject the index. So `email: string & Sql<'text'> & Unique` fails on a table sharded by `id`. Either shard by `email` or drop the constraint and enforce uniqueness in the application — with the race that implies.
 
@@ -55,8 +60,9 @@ would flow through the snapshot into DDL, with a `Rowstore` tag for the explicit
 alternative to SingleStore's default columnstore. A unique index outside the shard
 key can be refused when DDL is generated, before a migration is written; it cannot
 be a compile-time reflection error because reflection has no dialect value. There
-is no foreign-key SQL to suppress today: `ColumnSnapshot` carries no foreign keys
-and the emitter produces none on any dialect.
+must also use its `foreignKeys: false` trait to refuse a table whose snapshot
+contains constraints. Silently dropping the constraint would make the
+declaration promise integrity the database does not enforce.
 
 ---
 

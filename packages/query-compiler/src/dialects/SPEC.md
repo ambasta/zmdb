@@ -734,13 +734,13 @@ naming the table and saying that a shard-key change means creating a new table a
 producing an empty diff, which would let a developer edit the declaration, generate nothing, and believe the
 change had shipped.
 
-### 5.5 What the docs page asks for that is already a no-op
+### 5.5 Foreign keys are refused, not silently dropped
 
-`dialect-singlestore.md:52` lists "suppressed foreign-key emission" among the things a real dialect would
-change. Nothing needs suppressing: `ColumnSnapshot` models name, type, nullability, primary key and length
-and has no place for a foreign key, so no `REFERENCES` clause is emitted on any dialect — which line 44 of
-the same page states correctly. `foreignKeys: false` is in the traits record anyway, because it is true and
-because the day a foreign-key op is added is the day the flag needs to already exist.
+`TableSnapshot.foreignKeys` and the migration emitter now carry real named
+constraints with referential actions. SingleStore cannot inherit that behavior
+from MySQL: `foreignKeys: false` makes migration generation refuse a table whose
+snapshot contains one. Suppressing the SQL would leave a declaration that
+promises integrity while the database enforces none.
 
 Everything else on the MySQL page applies unchanged and is inherited: backtick quoting, `?` placeholders,
 `TINYINT(1)` booleans, no `RETURNING`, `INSERT IGNORE` and `ON DUPLICATE KEY UPDATE`.

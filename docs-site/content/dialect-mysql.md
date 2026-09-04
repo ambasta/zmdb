@@ -96,7 +96,9 @@ MySQL auto-commits DDL, so a migration with two `ALTER TABLE`s can leave the fir
 
 ## Connecting
 
-[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any MySQL-compatible server. Note that PlanetScale disallows foreign keys by default, so a hand-written `REFERENCES` clause needs their FK support turned on.
+[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any
+MySQL-compatible server. PlanetScale may have foreign keys disabled; generated
+constraints from `References<…>` need that support turned on before migration.
 
 ---
 

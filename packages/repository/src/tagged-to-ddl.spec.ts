@@ -146,7 +146,7 @@ async function everySql<T extends DeclaredTable>(
 
 /** The `CREATE TABLE` a migration would write for one schema, in one dialect. */
 function ddl(schema: CoreSchema<string>, dialect: Dialect): readonly string[] {
-  return diff(EMPTY, snapshot([schema])).map(op => emitUp(op, dialect));
+  return diff(EMPTY, snapshot([schema]), { dialect }).map(op => emitUp(op, dialect));
 }
 
 describe('the DDL a tagged declaration reaches the database as', () => {
@@ -210,38 +210,32 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     }
   });
 
-  it('drops the unique constraint and the foreign key on the way to the DDL', () => {
-    // Not an assertion about what the DDL *should* say. `ColumnSnapshot` in
-    // `@zmdb/query-compiler/migrations` models four facts — name, type, nullable, primary key —
-    // plus a length, and its header says as much. So `Unique` and `References` reach the schema
-    // value, reach the IR, and then stop: the query compiler uses them, and the migration
-    // emitter has nowhere to put them.
-    //
-    // This is pinned rather than fixed because widening the snapshot model is a change to the
-    // migration format, which is a separate piece of work from the front-end this suite is
-    // about. Pinned so that work is a failing test here rather than a discovery.
+  it('keeps unique constraints as a separate migration gap while emitting foreign keys', () => {
     expect(Users.columns.email?.flags.unique).toBe(true);
     expect(Memberships.ir.columns.find(column => column.name === 'userId')?.references).toBe('users.id');
     for (const dialect of DIALECTS) {
       expect(ddl(Users, dialect)[0], dialect).not.toContain('UNIQUE');
-      expect(ddl(Memberships, dialect)[0], dialect).not.toContain('REFERENCES');
+      const statements = ddl(Memberships, dialect).join('; ');
+      expect(statements, dialect).toContain('REFERENCES');
+      expect(statements, dialect).toContain('ON DELETE NO ACTION ON UPDATE NO ACTION');
     }
   });
 
   it('emits a composite primary key as one ordered table constraint', () => {
     expect(Memberships.primaryKey).toEqual(['userId', 'groupId']);
-    expect(ddl(Memberships, 'postgres')).toEqual([
+    expect(ddl(Memberships, 'postgres')[0]).toBe(
       'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
         'PRIMARY KEY ("userId", "groupId"))',
-    ]);
-    expect(ddl(Memberships, 'mysql')).toEqual([
+    );
+    expect(ddl(Memberships, 'mysql')[0]).toBe(
       'CREATE TABLE `memberships` (`groupId` INT NOT NULL, `note` TEXT, `userId` INT NOT NULL, ' +
         'PRIMARY KEY (`userId`, `groupId`))',
-    ]);
-    expect(ddl(Memberships, 'sqlite')).toEqual([
+    );
+    expect(ddl(Memberships, 'sqlite')[0]).toBe(
       'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
-        'PRIMARY KEY ("userId", "groupId"))',
-    ]);
+        'PRIMARY KEY ("userId", "groupId"), FOREIGN KEY ("userId") REFERENCES "users" ("id") ' +
+        'ON DELETE NO ACTION ON UPDATE NO ACTION)',
+    );
   });
 
   it('does not ask the migration for the FTS table the declaration wanted', () => {

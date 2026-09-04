@@ -29,11 +29,23 @@ export interface ColumnSnapshot {
   readonly length?: number | undefined;
 }
 
+export type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
+
+export interface ForeignKeySnapshot {
+  readonly name: string;
+  readonly columns: readonly string[];
+  readonly targetTable: string;
+  readonly targetColumns: readonly string[];
+  readonly onDelete: ReferentialAction;
+  readonly onUpdate: ReferentialAction;
+}
+
 export interface TableSnapshot {
   readonly name: string;
   readonly columns: readonly ColumnSnapshot[];
   /** Ordered by declaration, independently of the deterministically sorted columns. */
   readonly primaryKey: readonly string[];
+  readonly foreignKeys: readonly ForeignKeySnapshot[];
 }
 
 export interface SchemaSnapshot {
@@ -54,6 +66,7 @@ export type ChangeOp =
       readonly table: string;
       readonly columns: readonly ColumnSnapshot[];
       readonly primaryKey: readonly string[];
+      readonly foreignKeys: readonly ForeignKeySnapshot[];
     }
   | { readonly kind: 'drop_table'; readonly table: string }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
@@ -70,7 +83,9 @@ export type ChangeOp =
       readonly table: string;
       readonly from: readonly string[];
       readonly to: readonly string[];
-    };
+    }
+  | { readonly kind: 'add_foreign_key'; readonly table: string; readonly fk: ForeignKeySnapshot }
+  | { readonly kind: 'drop_foreign_key'; readonly table: string; readonly name: string };
 
 /**
  * The slice of a schema a snapshot reads.
@@ -94,15 +109,50 @@ export interface SnapshotableSchema {
           readonly primaryKey?: boolean | undefined;
           readonly length?: number | undefined;
         };
+        readonly references?: { readonly target: string };
       }
     >
   >;
+  readonly ir?: {
+    readonly table: string;
+    readonly columns: readonly {
+      readonly name: string;
+      readonly references?: string;
+      readonly onDelete?: ReferentialAction;
+      readonly onUpdate?: ReferentialAction;
+    }[];
+    readonly foreignKeys?: readonly {
+      readonly columns: readonly string[];
+      readonly targetTable: string;
+      readonly targetColumns: readonly string[];
+    }[];
+  };
+}
+
+function generatedForeignKeyName(table: string, columns: readonly string[]): string {
+  const name = `${table}_${columns.join('_')}_fkey`;
+  if (name.length > 63) {
+    throw new TypeError(
+      `generated foreign key name "${name}" is ${name.length} characters long; PostgreSQL's limit is 63, ` +
+        'so give the table or columns shorter names',
+    );
+  }
+  return name;
+}
+
+function referencedTarget(target: string): { readonly table: string; readonly column: string } {
+  const separator = target.indexOf('.');
+  if (separator <= 0 || separator !== target.lastIndexOf('.') || separator === target.length - 1) {
+    throw new TypeError(`foreign key target "${target}" must be written as "table.column"`);
+  }
+  return { table: target.slice(0, separator), column: target.slice(separator + 1) };
 }
 
 export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot {
   const extensions = new Map<string, ExtensionSnapshot>();
   const tables: TableSnapshot[] = schemas
     .map(schema => {
+      const irColumns = new Map(schema.ir?.columns.map(column => [column.name, column]) ?? []);
       const columns: ColumnSnapshot[] = Object.entries(schema.columns)
         .map(([name, meta]) => {
           if (typeof meta.type !== 'string') {
@@ -119,7 +169,36 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
-      return { name: schema.table, columns, primaryKey: schema.primaryKey };
+      const foreignKeys: ForeignKeySnapshot[] = [];
+      for (const [name, meta] of Object.entries(schema.columns)) {
+        if (meta.references === undefined) continue;
+        const target = referencedTarget(meta.references.target);
+        const ir = irColumns.get(name);
+        foreignKeys.push({
+          name: generatedForeignKeyName(schema.table, [name]),
+          columns: [name],
+          targetTable: target.table,
+          targetColumns: [target.column],
+          onDelete: ir?.onDelete ?? 'no action',
+          onUpdate: ir?.onUpdate ?? 'no action',
+        });
+      }
+      for (const foreignKey of schema.ir?.foreignKeys ?? []) {
+        foreignKeys.push({
+          name: generatedForeignKeyName(schema.table, foreignKey.columns),
+          columns: foreignKey.columns,
+          targetTable: foreignKey.targetTable,
+          targetColumns: foreignKey.targetColumns,
+          onDelete: 'no action',
+          onUpdate: 'no action',
+        });
+      }
+      return {
+        name: schema.table,
+        columns,
+        primaryKey: schema.primaryKey,
+        foreignKeys: foreignKeys.toSorted((a, b) => a.name.localeCompare(b.name)),
+      };
     })
     .toSorted((a, b) => a.name.localeCompare(b.name));
 
@@ -140,9 +219,11 @@ function sameType(previous: string | ExtensionType, next: string | ExtensionType
 
 export const CHANGE_PHASES = [
   ['create_extension'],
+  ['drop_foreign_key'],
   ['drop_table', 'drop_column'],
   ['create_table', 'add_column'],
   ['alter_column_type', 'alter_primary_key'],
+  ['add_foreign_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
 
 const CHANGE_PHASE = new Map<ChangeOp['kind'], number>(
@@ -162,7 +243,141 @@ function sameSequence(previous: readonly string[], next: readonly string[]): boo
   return previous.length === next.length && previous.every((value, index) => value === next[index]);
 }
 
-export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly ChangeOp[] {
+function foreignKeysOf(table: TableSnapshot): readonly ForeignKeySnapshot[] {
+  // Stored snapshots written before referential actions landed have no field.
+  // Reading them as [] lets the first post-upgrade diff add the declared constraints
+  // instead of failing while loading the migration history.
+  return table.foreignKeys ?? [];
+}
+
+function foreignKeyIdentity(foreignKey: ForeignKeySnapshot): string {
+  return JSON.stringify([foreignKey.columns, foreignKey.targetTable, foreignKey.targetColumns]);
+}
+
+function sameForeignKeyActions(previous: ForeignKeySnapshot, next: ForeignKeySnapshot): boolean {
+  return previous.onDelete === next.onDelete && previous.onUpdate === next.onUpdate;
+}
+
+function actionName(action: ReferentialAction): string {
+  return action.toUpperCase();
+}
+
+function sqliteForeignKeyRefusal(
+  table: string,
+  kind: 'add' | 'drop' | 'change',
+  previous: ForeignKeySnapshot | undefined,
+  next: ForeignKeySnapshot | undefined,
+): never {
+  const foreignKey = next ?? previous;
+  if (foreignKey === undefined) throw new Error(`foreign key ${kind} on "${table}" has no constraint`);
+  const transition =
+    previous !== undefined && next !== undefined
+      ? ` (ON DELETE ${actionName(previous.onDelete)} → ${actionName(next.onDelete)}; ` +
+        `ON UPDATE ${actionName(previous.onUpdate)} → ${actionName(next.onUpdate)})`
+      : '';
+  throw new UnsupportedFeatureError(
+    `${kind} foreign key "${foreignKey.name}" on "${table}"`,
+    'sqlite',
+    `sqlite cannot ${kind} the foreign key "${foreignKey.name}" on "${table}"${transition}; ` +
+      'SQLite has no ALTER TABLE form for a constraint, so this needs a hand-written table rebuild — ' +
+      'see the migration guide',
+  );
+}
+
+function diffForeignKeys(
+  table: string,
+  previous: readonly ForeignKeySnapshot[],
+  next: readonly ForeignKeySnapshot[],
+  dialect: Dialect | undefined,
+  ops: ChangeOp[],
+): void {
+  const unmatchedPrevious = new Map(previous.map(foreignKey => [foreignKeyIdentity(foreignKey), foreignKey]));
+
+  for (const foreignKey of next) {
+    const identity = foreignKeyIdentity(foreignKey);
+    const before = unmatchedPrevious.get(identity);
+    if (before === undefined) {
+      if (dialect === 'sqlite') sqliteForeignKeyRefusal(table, 'add', undefined, foreignKey);
+      ops.push({ kind: 'add_foreign_key', table, fk: foreignKey });
+      continue;
+    }
+    unmatchedPrevious.delete(identity);
+    if (sameForeignKeyActions(before, foreignKey)) continue;
+    if (dialect === 'sqlite') sqliteForeignKeyRefusal(table, 'change', before, foreignKey);
+    ops.push({ kind: 'drop_foreign_key', table, name: before.name });
+    ops.push({ kind: 'add_foreign_key', table, fk: foreignKey });
+  }
+
+  for (const foreignKey of unmatchedPrevious.values()) {
+    if (dialect === 'sqlite') sqliteForeignKeyRefusal(table, 'drop', foreignKey, undefined);
+    ops.push({ kind: 'drop_foreign_key', table, name: foreignKey.name });
+  }
+}
+
+function createdTablesInOrder(
+  previous: ReadonlyMap<string, TableSnapshot>,
+  next: readonly TableSnapshot[],
+  dialect: Dialect | undefined,
+): readonly TableSnapshot[] {
+  const created = new Map(next.filter(table => !previous.has(table.name)).map(table => [table.name, table]));
+  const dependencies = new Map<string, Set<string>>();
+  const dependants = new Map<string, Set<string>>();
+
+  for (const table of created.values()) {
+    const targets = new Set(
+      foreignKeysOf(table)
+        .map(foreignKey => foreignKey.targetTable)
+        .filter(target => target !== table.name && created.has(target)),
+    );
+    dependencies.set(table.name, targets);
+    for (const target of targets) {
+      const children = dependants.get(target) ?? new Set<string>();
+      children.add(table.name);
+      dependants.set(target, children);
+    }
+  }
+
+  const ready = [...created.keys()]
+    .filter(name => dependencies.get(name)?.size === 0)
+    .toSorted((left, right) => left.localeCompare(right));
+  const ordered: TableSnapshot[] = [];
+  while (ready.length > 0) {
+    const name = ready.shift();
+    if (name === undefined) break;
+    const table = created.get(name);
+    if (table !== undefined) ordered.push(table);
+    for (const child of dependants.get(name) ?? []) {
+      const remaining = dependencies.get(child);
+      remaining?.delete(name);
+      if (remaining?.size === 0) {
+        ready.push(child);
+        ready.sort((left, right) => left.localeCompare(right));
+      }
+    }
+  }
+
+  if (ordered.length === created.size) return ordered;
+  const orderedNames = new Set(ordered.map(table => table.name));
+  const cyclic = [...created.keys()]
+    .filter(name => !orderedNames.has(name))
+    .toSorted((left, right) => left.localeCompare(right));
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(
+      `creating mutually-referencing tables ${cyclic.map(name => `"${name}"`).join(', ')}`,
+      'sqlite',
+      `sqlite cannot create the mutually-referencing tables ${cyclic.map(name => `"${name}"`).join(' and ')}; ` +
+        'their foreign keys must be inline, so neither table can be created before the other — ' +
+        'use a hand-written table rebuild or remove the cycle',
+    );
+  }
+  return [...ordered, ...cyclic.map(name => created.get(name)).filter(table => table !== undefined)];
+}
+
+export interface DiffOptions {
+  readonly dialect?: Dialect | undefined;
+}
+
+export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOptions = {}): readonly ChangeOp[] {
   const ops: ChangeOp[] = [];
   const prevTables = new Map(prev.tables.map(t => [t.name, t]));
   const nextTables = new Map(next.tables.map(t => [t.name, t]));
@@ -182,13 +397,10 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
   for (const t of prev.tables) {
     if (!nextTables.has(t.name)) ops.push({ kind: 'drop_table', table: t.name });
   }
-  // Created tables + column-level diffs.
+  // Column-level and foreign-key diffs on tables that already exist.
   for (const t of next.tables) {
     const before = prevTables.get(t.name);
-    if (!before) {
-      ops.push({ kind: 'create_table', table: t.name, columns: t.columns, primaryKey: t.primaryKey });
-      continue;
-    }
+    if (!before) continue;
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
     const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
@@ -204,6 +416,26 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot): readonly Chang
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
       ops.push({ kind: 'alter_primary_key', table: t.name, from: before.primaryKey, to: t.primaryKey });
+    }
+    diffForeignKeys(t.name, foreignKeysOf(before), foreignKeysOf(t), options.dialect, ops);
+  }
+
+  // Created tables are target-before-child. SQLite needs that order for inline
+  // constraints; the other dialects get the same deterministic plan even though
+  // their constraints are emitted later.
+  for (const table of createdTablesInOrder(prevTables, next.tables, options.dialect)) {
+    const foreignKeys = foreignKeysOf(table);
+    ops.push({
+      kind: 'create_table',
+      table: table.name,
+      columns: table.columns,
+      primaryKey: table.primaryKey,
+      foreignKeys,
+    });
+    if (options.dialect !== 'sqlite') {
+      for (const foreignKey of foreignKeys) {
+        ops.push({ kind: 'add_foreign_key', table: table.name, fk: foreignKey });
+      }
     }
   }
   return orderChanges(ops);
@@ -384,6 +616,15 @@ function primaryKeyDdl(dialect: Dialect, columns: readonly string[]): string {
   return `PRIMARY KEY (${columns.map(column => quoteIdentifier(dialect, column)).join(', ')})`;
 }
 
+function foreignKeyDdl(dialect: Dialect, foreignKey: ForeignKeySnapshot): string {
+  const columns = foreignKey.columns.map(column => quoteIdentifier(dialect, column)).join(', ');
+  const targetColumns = foreignKey.targetColumns.map(column => quoteIdentifier(dialect, column)).join(', ');
+  return (
+    `FOREIGN KEY (${columns}) REFERENCES ${quoteIdentifier(dialect, foreignKey.targetTable)} (${targetColumns}) ` +
+    `ON DELETE ${actionName(foreignKey.onDelete)} ON UPDATE ${actionName(foreignKey.onUpdate)}`
+  );
+}
+
 function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect: Dialect): string {
   const inline = op.primaryKey.length === 1 ? op.primaryKey[0] : undefined;
   const tableLevel = op.primaryKey.length > 1 ? new Set(op.primaryKey) : undefined;
@@ -394,7 +635,61 @@ function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect
     }),
   );
   if (op.primaryKey.length > 1) definitions.push(primaryKeyDdl(dialect, op.primaryKey));
+  if (dialect === 'sqlite') {
+    for (const foreignKey of op.foreignKeys) definitions.push(foreignKeyDdl(dialect, foreignKey));
+  }
   return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${definitions.join(', ')})`;
+}
+
+function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect: Dialect): string {
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(
+      `adding foreign key "${foreignKey.name}" on "${table}"`,
+      dialect,
+      `sqlite cannot add the foreign key "${foreignKey.name}" on "${table}"; ` +
+        'SQLite has no ALTER TABLE form for a constraint, so this needs a hand-written table rebuild — ' +
+        'see the migration guide',
+    );
+  }
+  if (dialect === 'mysql' && (foreignKey.onDelete === 'set default' || foreignKey.onUpdate === 'set default')) {
+    throw new UnsupportedFeatureError(
+      `SET DEFAULT on foreign key "${foreignKey.name}"`,
+      dialect,
+      `SET DEFAULT on foreign key "${foreignKey.name}" is not supported by mysql; ` +
+        'InnoDB accepts the syntax but refuses the constraint',
+    );
+  }
+
+  const constraint =
+    `ALTER TABLE ${quoteIdentifier(dialect, table)} ADD CONSTRAINT ${quoteIdentifier(dialect, foreignKey.name)} ` +
+    foreignKeyDdl(dialect, foreignKey);
+  if (dialect !== 'mysql') return constraint;
+
+  const indexName = `${foreignKey.name}_idx`;
+  if (indexName.length > 64) {
+    throw new UnsupportedFeatureError(
+      `supporting index "${indexName}"`,
+      dialect,
+      `the mysql supporting index "${indexName}" is ${indexName.length} characters long; mysql's limit is 64`,
+    );
+  }
+  const columns = foreignKey.columns.map(column => quoteIdentifier(dialect, column)).join(', ');
+  const index = `CREATE INDEX ${quoteIdentifier(dialect, indexName)} ON ${quoteIdentifier(dialect, table)} (${columns})`;
+  return `${index}; ${constraint}`;
+}
+
+function dropForeignKeyDdl(table: string, name: string, dialect: Dialect): string {
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(
+      `dropping foreign key "${name}" on "${table}"`,
+      dialect,
+      `sqlite cannot drop the foreign key "${name}" on "${table}"; ` +
+        'SQLite has no ALTER TABLE form for a constraint, so this needs a hand-written table rebuild — ' +
+        'see the migration guide',
+    );
+  }
+  const keyword = dialect === 'postgres' ? 'DROP CONSTRAINT' : 'DROP FOREIGN KEY';
+  return `ALTER TABLE ${quoteIdentifier(dialect, table)} ${keyword} ${quoteIdentifier(dialect, name)}`;
 }
 
 function keyList(columns: readonly string[]): string {
@@ -455,6 +750,10 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.to)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.from, op.to, dialect);
+    case 'add_foreign_key':
+      return addForeignKeyDdl(op.table, op.fk, dialect);
+    case 'drop_foreign_key':
+      return dropForeignKeyDdl(op.table, op.name, dialect);
   }
 }
 
@@ -476,5 +775,12 @@ export function emitDown(op: ChangeOp, dialect: Dialect): string {
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.from)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.to, op.from, dialect);
+    case 'add_foreign_key':
+      return dropForeignKeyDdl(op.table, op.fk.name, dialect);
+    case 'drop_foreign_key':
+      throw new Error(
+        `foreign key "${op.name}" on "${op.table}" cannot be recreated automatically because the drop operation ` +
+          'does not carry its columns or referential actions; write the down migration by hand',
+      );
   }
 }

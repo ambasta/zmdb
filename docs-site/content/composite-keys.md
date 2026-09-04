@@ -45,9 +45,11 @@ form, so generation throws an `UnsupportedFeatureError` naming the table and req
 hand-written table rebuild; it never silently omits the change.
 
 > [!NOTE]
-> Foreign-key `REFERENCES` clauses remain a separate migration gap. The composite primary key
-> itself is generated; the two references in the declaration above are not yet emitted. See
-> [Migrations](./migrations.html).
+> The two `References<…>` tags above emit two independent single-column foreign
+> keys. They are never grouped merely because both columns belong to one primary
+> key. When one constraint must pair several local and target columns, declare it
+> explicitly with
+> `ForeignKey<'tenantId,userId', 'users', 'tenantId,id'>`.
 
 ## What does work today
 

@@ -61,6 +61,7 @@ const keylessIr: SchemaIR = {
   ],
   primaryKey: [],
   relations: [],
+  foreignKeys: [],
 };
 
 /** The keyless schema as a repository. `never` because no tagged interface can describe it yet. */
