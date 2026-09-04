@@ -2597,7 +2597,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return out;
   }
 
-<<<<<<< HEAD
   /**
    * Validate a patch without teaching the DTO validator that arbitrary objects are
    * column values. Plain values still cross the unchanged UpdateDTO object check;

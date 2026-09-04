@@ -214,6 +214,7 @@ export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
   return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
 }
 
+
 function routineLabel(def: RoutineDef, dialect: Dialect): string {
   return `${def.kind} ${quoteId(dialect, def.name)}`;
 }
