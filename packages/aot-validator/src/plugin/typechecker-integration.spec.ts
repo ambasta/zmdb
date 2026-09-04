@@ -4,14 +4,14 @@ import type { TypeIR } from '@zmdb/schema-core/ir';
 import { API } from 'typescript/unstable/sync';
 import { describe, it, expect, vi } from 'vitest';
 
-import { tsTypeToTypeIR, emitCheckFromIR } from '../transformer.ts';
-import { zmdbAot, transformTypeChecks } from './index.ts';
+import { tsTypeToTypeIR, emitCheckFromIR } from '../transformer.js';
+import { zmdbAot, transformTypeChecks } from './index.js';
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 describe('TypeChecker Integration with TypeIR in Unplugin', () => {
   const api = new API();
-  const snapshot = api.updateSnapshot({ openProjects: ['tsconfig.base.json'] });
+  const snapshot = api.updateSnapshot({ openProjects: ['tsconfig.json'] });
   const proj = snapshot.getProjects()[0]!;
   const checker = proj.checker;
   const appFilePath = path.resolve('benchmarks/harness/framework/app.ts');
@@ -31,7 +31,7 @@ describe('TypeChecker Integration with TypeIR in Unplugin', () => {
   });
 
   it('Requirement 3 & AC 2: type aliases imported across workspace package boundaries resolve via path configurations', () => {
-    const plugin = zmdbAot({ tsconfigPath: 'tsconfig.base.json' });
+    const plugin = zmdbAot({ tsconfigPath: 'tsconfig.json' });
     const sampleCode = 'const ok = assert<UserCreate>(payload);';
 
     const transformed = plugin.transform(sampleCode, appFilePath);
