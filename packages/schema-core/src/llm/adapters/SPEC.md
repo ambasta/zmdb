@@ -1,42 +1,48 @@
-# SPEC — LangChain and Vercel AI SDK tool adapters (frozen)
+# SPEC — LangChain and Vercel AI SDK tool adapters
 
-Part of `@zmdb/schema-core`, exported from the existing `./llm` subpath. Two functions,
-`langchainTool` and `aiSdkTool`, that turn a declared schema into the object shape each framework's
-tool constructor wants. `../SPEC.md` freezes the document; this freezes the framing.
+Part of `@zmdb/schema-core`. The optional `./llm/langchain` and `./llm/ai-sdk`
+subpaths export two functions, `langchainTool` and `aiSdkTool`, that turn a
+declared schema into the object shape each framework's tool constructor wants.
+`../SPEC.md` freezes the document; this freezes the framing.
 
-No new subpath. The adapters import nothing from either framework (§1), so there is nothing to isolate
-behind an entry point, and `ARCHITECTURE.md`'s subpath inventory does not move.
+The subpaths isolate the framework-facing declarations from applications that
+use neither integration. Their runtime graphs still import neither framework.
 
-## 1. Neither adapter imports its framework, and that is still type-checked
+## 1. Optional peers, without framework runtime imports
 
-`packages/schema-core/package.json` has exactly one dependency — `@zmdb/query-compiler` — and **no
-`peerDependencies` field at all**. This section exists to keep that true, because "an adapter for X" is
-normally spelled as a dependency on X.
+`packages/schema-core/package.json` still has one runtime dependency:
+`@zmdb/query-compiler`. LangChain and the AI SDK are optional peer dependencies,
+so applications that do not import their subpaths do not install or load either
+framework through zmdb.
 
-- A `dependency` puts LangChain's tree in every consumer's `node_modules`, including the ones that use the
-  AI SDK, and including the ones that use neither.
-- A `peerDependency` makes an install warn for every app that does not have it.
-- `peerDependenciesMeta.optional` silences the warning and still puts both framework names in the published
-  manifest, where a resolver, an audit tool and a reader all see them. A package with zero runtime
-  dependencies is a claim `docs-site/content/why-zmdb.md` makes on the front page; two optional peers are a
-  footnote on that claim.
+- `@langchain/core` is tested at `1.2.9` and peers on `^1.2.9`.
+- `ai` is tested at `7.0.83` and peers on `^7.0.83`.
+- `peerDependenciesMeta.optional` prevents warnings for applications that use
+  neither integration.
 
-Frozen: **no dependency of any kind, and the adapters return plain objects that the app passes to the
-framework's own constructor.**
+The adapter modules use structural fields and local runtime helpers. They do
+not import either peer, Zod or another runtime schema package:
 
 ```ts
+import { langchainTool } from '@zmdb/schema-core/llm/langchain';
+import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
+
 new DynamicStructuredTool(langchainTool('create_user', users, { … }));
 tool(aiSdkTool('create_user', users, { … }));
 ```
 
-Which means the type compatibility is structural, and a structural claim that nothing checks is a claim that rots.
+The compatibility is structural, so it needs a real compiler check rather than
+a handwritten claim.
 
-So it is checked: **a package under `fixtures/` devDepends on `@langchain/core` and `ai`, and its typecheck is the assertion** — it assigns each adapter's return to the framework's own parameter type and does nothing else. `fixtures/` rather than the package's own devDependencies, for the reason the existing `consumer-cli` and `consumer-plugin` fixtures are there: a fixture consumes the built package through its published types, so what it proves is what a user gets rather than what the source happens to allow.
+`fixtures/llm-adapters` pins the two tested versions and compiles the published
+subpaths against `DynamicStructuredTool` and `tool()`. Like the existing
+consumer fixtures, it proves what an installed user receives rather than what a
+source-relative import happens to allow.
 
 When a framework renames a field, that typecheck fails in this repository instead of in a user's.
 
-The version each framework is pinned at is recorded in the fixture's manifest and nowhere else. A framework
-version is not a fact about zmdb.
+The exact versions remain in the fixture manifest; the package manifest carries
+only the compatible peer ranges.
 
 ## 2. The validation call cannot live inside the adapter
 
@@ -44,23 +50,26 @@ version is not a fact about zmdb.
 
 A generic function in a library cannot validate its own type parameter, which is the same rule `tests/api-coverage/mapping.mjs` records as `NO_FACTORY_FORM` and the reason no `createIs<T>()` exists.
 
-So the adapter cannot be the thing that validates, and pretending otherwise would produce an adapter that
-throws on its first tool call. Frozen: **`validate` is a required field the caller supplies**, one arrow, in
-the caller's own file, where the transform inlines it:
+So the adapter cannot synthesize the validator, and pretending otherwise would
+produce an adapter that throws on its first tool call. **`validate` is a
+required field the caller supplies**, one arrow in the caller's own file, where
+the transform inlines it:
 
 ```ts
 validate: v => assert<CreateDTO<User>>(v),
 ```
 
-Both docs pages already write that exact line inside `func` and `execute`. It moves up by one field and gains
-a job: `T` is inferred from `validate`'s return type, so `execute` receives a typed input with no type
-argument at the call and no `as` anywhere.
+The guides keep that arrow in application code. Compared with the former
+handwritten `func` and `execute` examples, it moves into the required
+`validate` field and gains a job: `T` is inferred from its return type, so
+`execute` receives a typed input with no type argument at the call and no `as`
+anywhere.
 
 ```ts
-export interface ToolAdapterOptions<T> {
+export interface ToolAdapterOptions<T, Output = unknown> {
   readonly description: string;
   readonly validate: (value: unknown) => T;
-  readonly execute: (input: T) => unknown | PromiseLike<unknown>;
+  readonly execute: (input: T) => Output | PromiseLike<Output>;
 }
 ```
 
@@ -77,32 +86,31 @@ adapters therefore use `json-schema` (`../SPEC.md` §5), and an app that wants t
 ## 3. `langchainTool`
 
 ```ts
-export interface LangChainToolFields<T> {
+export interface LangChainToolFields {
   readonly name: string;
   readonly description: string;
   readonly schema: JsonSchemaObject;
   readonly func: (input: unknown) => Promise<string>;
 }
 
-export declare function langchainTool<T>(
+export declare function langchainTool<T, Output>(
   name: string,
   schema: CoreSchema<string>,
-  opts: ToolAdapterOptions<T>,
-): LangChainToolFields<T>;
+  options: ToolAdapterOptions<T, Output>,
+): LangChainToolFields;
 ```
 
 **`schema` is the JSON Schema document, not a Zod schema, and `json-schema-to-zod` goes away.** Current
-LangChain accepts a JSON Schema for a structured tool; `llm-langchain.md:30` already knows this and calls it
-"the better path" in a sentence after the example that does not take it. What the conversion cost is worth
-naming, because it is the reason this is not merely a shorter example:
+LangChain accepts a JSON Schema for a structured tool, and the guide now takes
+that direct route. The conversion cost is worth naming because it is the reason
+this is not merely a shorter example:
 
 - `format` has no Zod equivalent that survives a round trip, so `date-time` and `int64` were dropped silently.
 - A `json` column's `{}` became `z.any()` — a tool parameter that accepts anything, described to the model as
   such. That is the one construct two providers refuse outright (`../SPEC.md` §4) being quietly waved through.
 
-`llm-langchain.md:28` currently apologises for this ("if the conversion loses a constraint — and it does") and
-tells the reader the second `assert` is what notices. With the adapter there is no first schema to lose
-anything, and the `assert` is still there for the reason §5 gives.
+With the adapter there is no intermediate schema to lose anything, and the
+caller-supplied validator remains for the reason §5 gives.
 
 **`func` returns a string, always.** A LangChain tool result becomes `ToolMessage.content`, which is text; an
 object return is stringified by whatever LangChain does that day. So the adapter stringifies a non-string
@@ -116,14 +124,25 @@ LangChain spellings are one destructure apart. The adapter does not pick one.
 ## 4. `aiSdkTool`, and the one thing that has to be injected
 
 ```ts
-export declare function aiSdkTool<T, S>(
+export interface AiSdkToolOptions<T, Output, Schema> extends ToolAdapterOptions<T, Output> {
+  readonly jsonSchema: (schema: unknown) => Schema;
+}
+
+export interface AiSdkToolFields<Schema, Output> {
+  readonly description: string;
+  readonly inputSchema: Schema;
+  readonly execute: (input: unknown) => Promise<Output | string>;
+}
+
+export declare function aiSdkTool<T, Output, Schema>(
   name: string,
   schema: CoreSchema<string>,
-  opts: ToolAdapterOptions<T> & { readonly jsonSchema: (schema: unknown) => S },
-): { readonly description: string; readonly inputSchema: S; readonly execute: (input: unknown) => Promise<unknown> };
+  options: AiSdkToolOptions<T, Output, Schema>,
+): AiSdkToolFields<Schema, Output>;
 ```
 
-The AI SDK's `tool()` wants `inputSchema` — `parameters` was the v4 key and `llm-vercel-ai-sdk.md:16` and `:34` still use it — and its value must be either a Zod schema or the SDK's own `Schema`, which is **branded with a symbol**.
+The tested AI SDK 7.0.83 `tool()` wants `inputSchema`; its value must be either a
+Zod schema or the SDK's own `Schema`, which is **branded with a symbol**.
 
 A brand exists precisely so it cannot be produced from outside, so there are three ways through and two are wrong: importing `ai` is §1, and casting puts a lie in zmdb that goes stale the day the brand changes. Frozen: **the caller passes the SDK's own `jsonSchema` in**, typed by the minimal signature above, and `S` is generic so whatever it returns flows out unchanged and stays assignable to `tool()`.
 
@@ -153,17 +172,27 @@ Two smaller things, both stated because they look like mistakes:
   SDK's inference; here `T` is already known from `validate` and `execute` is typed from it, so a second
   declaration of the same type would be a second place to get it wrong.
 
-`llm-vercel-ai-sdk.md:16` does not compile today, adapter or not: `JsonSchemaObject.properties` is a
-`Readonly<Record<string, unknown>>`, and the SDK's parameter is a mutable JSON-Schema node type, so that line
-needs a cast the page does not show. The adapter is where the one cast lives — inside `aiSdkTool`, at the
-`opts.jsonSchema(document)` call, against a signature this package declares — instead of in every app.
+The former hand-written guide passed `JsonSchemaObject` into the SDK boundary
+directly, where its deeply readonly properties did not match the SDK's mutable
+JSON-Schema node type. `aiSdkTool` now owns that structural handoff through the
+declared `(schema: unknown) => Schema` callback, so applications need neither a
+cast nor a second schema producer.
 
 ## 5. What happens when the model sends the wrong arguments
 
-A model sending a malformed tool call is **not** an operator's problem: it is a message to the model, and the
-model usually fixes it on the next turn. A repository failing is the opposite. Both adapters have to tell
-those apart without importing the package that throws, and they can, because schema-core already owns the
-answer:
+A model sending a malformed tool call is **not** an operator's problem: it is a
+message to the model, and the model usually fixes it on the next turn. A
+repository failing is the opposite.
+
+LangChain owns one earlier boundary: `@langchain/core` 1.2.9 checks the supplied
+JSON Schema before it calls `func`, and a shape-invalid call can therefore raise
+its `ToolInputParsingException` without entering this adapter. The behavior
+below covers input that reaches `func` — importantly, constraints hidden behind
+an unconstrained `{}` — and every call to the AI SDK adapter's `execute`.
+
+At that boundary the adapters tell validation failures from application
+failures without importing the package that throws, because schema-core already
+owns the answer:
 
 - `validationIssuesOf(error)` (`../../index.ts`) returns a `readonly ValidationIssue[]` for anything carrying
   a well-formed `issues` array, and `undefined` otherwise. It is deliberately structural — the doc comment
@@ -199,9 +228,10 @@ retry.
 
 The `validate` arrow is what closes that, and it is the reason §2 makes it required rather than optional: the app's TypeScript type for that column is not `unknown`, so `assert<CreateDTO<User>>` rejects what the tool schema permitted.
 
-Both pages should say this next to their `validate` line, because "the schema constrains the model" is otherwise a reasonable thing to assume from the code.
+Both pages say this next to their `validate` line, because "the schema
+constrains the model" is otherwise a reasonable thing to assume from the code.
 
-## 7. What #526 has to assert
+## 7. What the implementation tests assert
 
 1. Each adapter's return, assigned to the framework's own parameter type, in the `fixtures/` package — the
    typecheck is the test.
@@ -211,12 +241,13 @@ Both pages should say this next to their `validate` line, because "the schema co
 4. `langchainTool`'s `schema` is byte-identical to `toolFor('json-schema', …).parameters` — one producer.
 5. `aiSdkTool` calls the injected `jsonSchema` exactly once, with that same document, and returns what it
    returned.
-6. No `dependencies` or `peerDependencies` entry appears in `packages/schema-core/package.json` — the existing
-   dependency audit gains this package's manifest rather than a new script.
+6. Neither framework appears in `dependencies`; both appear as optional peers
+   at the tested compatible ranges.
 
 ## 8. Non-goals (rejected)
 
-- **No dependency, peer dependency or optional peer dependency on either framework.** §1.
+- **No runtime dependency or runtime import of either framework.** They remain
+  optional peers isolated behind their own subpaths (§1).
 - **No adapter-side validation of the caller's type.** §2 — a library cannot inline a check for its own type
   parameter, and an adapter that tried would throw on the first call.
 - **No `provider` option on the adapters.** §2 — the framework translates for its provider, and two

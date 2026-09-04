@@ -1,39 +1,41 @@
-> **ToDo / feature gap.** There is no LangChain integration. No retriever, no
-> vector store, no tool adapter, no memory backend. zmdb has
-> [zero runtime dependencies](./why-zmdb.html) and does not depend on LangChain;
-> the adapters below are what you write.
+> **Optional integration.** The tool adapter ships at
+> `@zmdb/schema-core/llm/langchain` and supports `@langchain/core` `^1.2.9`.
+> Retrievers, vector stores and chat-memory backends remain application choices.
 
 ## Tools from schema objects
 
-`DynamicStructuredTool` accepts a JSON Schema for its `schema`, and zmdb produces JSON Schema — so there is no conversion:
+`langchainTool` supplies the fields `DynamicStructuredTool` expects. Its
+validator runs before the handler and returns the decoded application value:
 
 ```ts
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { langchainTool } from '@zmdb/schema-core/llm/langchain';
 import { assert } from '@zmdb/aot-validator/utilities';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 
-export const createUserTool = new DynamicStructuredTool({
-  name: 'create_user',
-  description: 'Create a user',
-  schema: toJsonSchema(users, 'create'),
-  func: async input => {
-    const dto = assert<CreateDTO<User>>(input); // check again, LangChain's parse is not yours
-    const row = await userRepo.create(dto);
-    return JSON.stringify(row);
-  },
-});
+export const createUserTool = new DynamicStructuredTool(
+  langchainTool('create_user', users, {
+    description: 'Create a user',
+    validate: input => assert<CreateDTO<User>>(input),
+    execute: dto => userRepo.create(dto),
+  }),
+);
 ```
 
-Do not route it through `json-schema-to-zod` on the way. The conversion drops `format`, so `date-time` and
-`int64` stop being described to the model at all, and it turns a `json` column's `{}` into `z.any()` — a
-parameter the model may fill with anything, announced to it as such.
+The adapter passes zmdb's JSON Schema straight through. Do not route it through
+`json-schema-to-zod`: that conversion drops `format`, so `date-time` and
+`int64` disappear, and turns a `json` column's `{}` into `z.any()`.
 
-The `assert` earns its place either way. LangChain validates against the schema it was given, which describes
-the columns; the `assert` validates against the TypeScript type your repository accepts. A `json` column is
-the clearest case — its JSON Schema is `{}` and constrains nothing, so the `assert` is the only thing standing
-between the model and a row.
+The `validate` function belongs in the application file so the AOT transform
+can inline it. It is also the place to decode custom wire values before
+`execute` receives them. A `json` column is the clearest reason it remains
+required: its JSON Schema is `{}` and constrains nothing.
 
-`func` must return a string: the result becomes a `ToolMessage`'s content, hence the `JSON.stringify`.
+LangChain checks the JSON Schema before it calls `func`. The `validate` arrow
+then handles accepted shapes, including constraints hidden behind `{}`, before
+your handler runs.
+
+LangChain tool results are text. The adapter passes strings through and
+JSON-stringifies other handler results.
 
 ## A retriever over your own tables
 

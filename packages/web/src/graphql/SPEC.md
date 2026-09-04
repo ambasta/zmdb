@@ -230,7 +230,12 @@ This is also where the boundary to the runtime-controls epic sits. That epic own
 
 `parts()` returns SDL text and a plain resolver map — `{ Query: { post(…) }, Post: { author(…) }, DateTime: … }` — which is what `createSchema`, `makeExecutableSchema` and `buildSchema` plus `execute` all consume.
 
-So `graphql` is **not** a dependency, not a peer dependency and not an optional peer, which is stricter than the epic's constraint list and is the position `packages/schema-core/src/llm/adapters/SPEC.md` §1 already took for LangChain and the AI SDK. `web-graphql-resolvers.md`'s "it would be an optional entry point with a peer dependency" is superseded: there is nothing to peer on.
+So `graphql` is **not** a dependency, not a peer dependency and not an optional
+peer, which is stricter than the epic's constraint list. The LLM framework
+adapters isolate their optional peers behind dedicated subpaths; resolver parts
+need no corresponding peer because their engine boundary is structural.
+`web-graphql-resolvers.md`'s "it would be an optional entry point with a peer
+dependency" is superseded: there is nothing to peer on.
 
 The one thing that genuinely needs the engine's class is a custom scalar, and it is **injected**:
 

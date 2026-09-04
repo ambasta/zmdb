@@ -1124,7 +1124,7 @@ export const PAGE_META = {
     title: 'Provider Schema Strategies',
     group: 'LLM',
     status: 'todo',
-    note: 'provider dialects ship; LangChain and Vercel AI SDK adapters remain manual',
+    note: 'provider dialects and framework tool adapters ship; provider clients remain application policy',
   },
   'llm-chat': {
     title: 'Chat & Agents',
@@ -1145,13 +1145,13 @@ export const PAGE_META = {
     title: 'LangChain',
     group: 'LLM',
     status: 'todo',
-    note: 'no LangChain tool adapter',
+    note: 'tool adapter ships; retriever, vector store and memory adapters remain application code',
   },
   'llm-vercel-ai-sdk': {
     title: 'Vercel AI SDK',
     group: 'LLM',
     status: 'todo',
-    note: 'no AI SDK tool adapter',
+    note: 'tool adapter ships; LanguageModel and useChat persistence adapters remain application code',
   },
   'custom-types': {
     title: 'Custom Types & Codecs',

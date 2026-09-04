@@ -39,8 +39,10 @@
     "./openapi": "./src/openapi/index.ts",
     "./custom-types": "./src/custom-types/index.ts",
     "./llm": "./src/llm/index.ts",
+    "./llm/ai-sdk": "./src/llm/adapters/ai-sdk.ts",
     "./llm/chat": "./src/llm/chat/index.ts",
     "./llm/http": "./src/llm/http/index.ts",
+    "./llm/langchain": "./src/llm/adapters/langchain.ts",
     "./llm/mcp": "./src/llm/mcp/index.ts"
   },
   "publishConfig": {
@@ -61,10 +63,18 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "0.123.0"
+    "@anthropic-ai/sdk": "0.123.0",
+    "@langchain/core": "^1.2.9",
+    "ai": "^7.0.83"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "ai": {
       "optional": true
     }
   },

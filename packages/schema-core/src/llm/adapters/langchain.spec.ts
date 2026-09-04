@@ -5,19 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ValidationError, type CoreSchema } from '../../index.js';
-import type { JsonSchemaObject } from '../../openapi/index.js';
+import { ValidationError } from '../../index.js';
 import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '../../tags/index.js';
 import { toolFromSchema } from '../index.js';
+import { langchainTool, type LangChainToolFields } from './langchain.js';
 
-const llmApi: object = await import('../index.js');
-
-// Tests freeze for llm/adapters/SPEC.md (#526, epic #524).
-//
-// RED ON PURPOSE. `langchainTool` is absent at the tests-freeze baseline, so
-// this file reaches it through one reflected, typed boundary. The model call is a structural stub:
-// the real @langchain/core constructor compatibility is compiled separately in
-// fixtures/llm-adapters.
+// Implementation suite for llm/adapters/SPEC.md (#528, epic #524).
 
 interface Money {
   readonly cents: number;
@@ -32,31 +25,6 @@ export interface AdapterPayment extends Table<'adapter_payments'> {
 }
 
 const { AdapterPayment: PaymentSchema } = schemasFrom(import.meta.url, ['AdapterPayment']);
-
-interface ToolAdapterOptions<T> {
-  readonly description: string;
-  readonly validate: (value: unknown) => T;
-  readonly execute: (input: T) => unknown | PromiseLike<unknown>;
-}
-
-interface LangChainToolFields {
-  readonly name: string;
-  readonly description: string;
-  readonly schema: JsonSchemaObject;
-  readonly func: (input: unknown) => Promise<string>;
-}
-
-function callLangChainTool<T>(
-  name: string,
-  schema: CoreSchema<string>,
-  opts: ToolAdapterOptions<T>,
-): LangChainToolFields {
-  const candidate: unknown = Reflect.get(llmApi, 'langchainTool');
-  if (typeof candidate !== 'function') {
-    throw new Error('#526 tests freeze: langchainTool is not exported from @zmdb/schema-core/llm');
-  }
-  return Reflect.apply(candidate, undefined, [name, schema, opts]) as LangChainToolFields;
-}
 
 interface PaymentInput {
   readonly amount: Money;
@@ -85,10 +53,13 @@ const decodePayment = (value: unknown): PaymentInput => {
   return { amount: { cents: Math.round(Number(amount) * 100) }, memo };
 };
 
-const invokeStubbedModel = (tool: LangChainToolFields, args: unknown): Promise<string> => tool.func(args);
+const invokeStubbedModel = (fields: LangChainToolFields, args: unknown): Promise<string> => fields.func(args);
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
-const LLM_ENTRY = join(ROOT, 'packages/schema-core/src/llm/index.ts');
+const ADAPTER_ENTRIES = [
+  join(ROOT, 'packages/schema-core/src/llm/adapters/langchain.ts'),
+  join(ROOT, 'packages/schema-core/src/llm/adapters/ai-sdk.ts'),
+];
 
 const resolveSource = (from: string, specifier: string): string | undefined => {
   const raw = resolve(dirname(from), specifier);
@@ -143,14 +114,14 @@ const dependencyNames = (manifest: unknown, field: string): readonly string[] =>
   return value !== null && typeof value === 'object' ? Object.keys(value) : [];
 };
 
-describe('LangChain tool adapter freeze (#526)', () => {
-  it.fails('validates model arguments before the handler runs', async () => {
+describe('LangChain tool adapter (#528)', () => {
+  it('validates model arguments before the handler runs', async () => {
     const order: string[] = [];
     const handler = vi.fn((_input: PaymentInput): string => {
       order.push('handler');
       return 'created';
     });
-    const tool = callLangChainTool('create_payment', PaymentSchema, {
+    const tool = langchainTool('create_payment', PaymentSchema, {
       description: 'Create a payment',
       validate(value) {
         order.push('validate');
@@ -166,9 +137,9 @@ describe('LangChain tool adapter freeze (#526)', () => {
     expect(content).toContain('$input.amount');
   });
 
-  it.fails('reports a validation failure to the model as a tool error rather than throwing', async () => {
+  it('reports a validation failure to the model as a tool error rather than throwing', async () => {
     const handler = vi.fn((_input: PaymentInput): string => 'created');
-    const tool = callLangChainTool('create_payment', PaymentSchema, {
+    const tool = langchainTool('create_payment', PaymentSchema, {
       description: 'Create a payment',
       validate: decodePayment,
       execute: handler,
@@ -186,8 +157,8 @@ describe('LangChain tool adapter freeze (#526)', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it.fails('returns a non-string handler result as JSON text', async () => {
-    const tool = callLangChainTool('create_payment', PaymentSchema, {
+  it('returns a non-string handler result as JSON text', async () => {
+    const tool = langchainTool('create_payment', PaymentSchema, {
       description: 'Create a payment',
       validate: decodePayment,
       execute: input => ({ cents: input.amount.cents, memo: input.memo }),
@@ -198,10 +169,10 @@ describe('LangChain tool adapter freeze (#526)', () => {
     );
   });
 
-  it.fails('rethrows a non-validation handler error unchanged', async () => {
+  it('rethrows a non-validation handler error unchanged', async () => {
     class RepositoryFailure extends Error {}
     const failure = new RepositoryFailure('database unavailable');
-    const tool = callLangChainTool('create_payment', PaymentSchema, {
+    const tool = langchainTool('create_payment', PaymentSchema, {
       description: 'Create a payment',
       validate: decodePayment,
       execute() {
@@ -212,8 +183,8 @@ describe('LangChain tool adapter freeze (#526)', () => {
     await expect(invokeStubbedModel(tool, { amount: '19.99', memo: 'invoice' })).rejects.toBe(failure);
   });
 
-  it.fails('uses the byte-identical json-schema document without a second producer', () => {
-    const tool = callLangChainTool('create_payment', PaymentSchema, {
+  it('uses the byte-identical json-schema document without a second producer', () => {
+    const tool = langchainTool('create_payment', PaymentSchema, {
       description: 'Create a payment',
       validate: decodePayment,
       execute: input => input,
@@ -224,7 +195,7 @@ describe('LangChain tool adapter freeze (#526)', () => {
   });
 
   it('does not import zod or any runtime schema library', () => {
-    const imported = externalImportsFrom(LLM_ENTRY);
+    const imported = new Set(ADAPTER_ENTRIES.flatMap(entry => [...externalImportsFrom(entry)]));
     for (const forbidden of [
       '@langchain/core',
       'ai',
@@ -240,17 +211,19 @@ describe('LangChain tool adapter freeze (#526)', () => {
     }
   });
 
-  it('keeps framework packages out of schema-core dependency fields', () => {
+  it('keeps framework packages optional and out of schema-core dependencies', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages/schema-core/package.json'), 'utf8'));
-    const runtimeNames = new Set([
-      ...dependencyNames(manifest, 'dependencies'),
-      ...dependencyNames(manifest, 'peerDependencies'),
-      ...dependencyNames(manifest, 'optionalDependencies'),
-    ]);
+    const dependencies = new Set(dependencyNames(manifest, 'dependencies'));
+    const peers: unknown = Reflect.get(Object(manifest), 'peerDependencies');
+    const peerMeta: unknown = Reflect.get(Object(manifest), 'peerDependenciesMeta');
 
-    expect(runtimeNames.has('@langchain/core')).toBe(false);
-    expect(runtimeNames.has('ai')).toBe(false);
-    expect(runtimeNames.has('zod')).toBe(false);
-    expect(runtimeNames.has('json-schema-to-zod')).toBe(false);
+    expect(dependencies.has('@langchain/core')).toBe(false);
+    expect(dependencies.has('ai')).toBe(false);
+    expect(dependencies.has('zod')).toBe(false);
+    expect(dependencies.has('json-schema-to-zod')).toBe(false);
+    expect(Reflect.get(Object(peers), '@langchain/core')).toBe('^1.2.9');
+    expect(Reflect.get(Object(peers), 'ai')).toBe('^7.0.83');
+    expect(Reflect.get(Object(Reflect.get(Object(peerMeta), '@langchain/core')), 'optional')).toBe(true);
+    expect(Reflect.get(Object(Reflect.get(Object(peerMeta), 'ai')), 'optional')).toBe(true);
   });
 });

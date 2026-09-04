@@ -11,6 +11,8 @@ policy:
 
 - **`toolFor<T>(provider, name, opts)`** — an AOT-inlined OpenAI, Anthropic, Gemini or generic tool definition
 - **`toolFromSchema(name, schema, opts)`** — the unchanged provider-neutral JSON Schema form
+- **`langchainTool(...)`** — optional `@langchain/core` tool fields with validation before dispatch
+- **`aiSdkTool(...)`** — optional Vercel AI SDK tool fields using the SDK's own `jsonSchema`
 - **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
 - **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
@@ -19,9 +21,9 @@ policy:
 Plus the validators, which are the part that actually matters: `assert<CreateDTO<Order>>(toolInput)` before any write.
 
 What it deliberately does not give you is one provider abstraction pretending
-every model API is the same. The loop depends on a one-method `ChatDriver`; one
-Anthropic adapter ships as an optional peer integration. For another provider,
-implement that method or call its API with `fetch`.
+every model API is the same. The framework adapters only build tools; the loop
+depends on a one-method `ChatDriver`, with an optional Anthropic implementation.
+For another provider, implement that method or call its API with `fetch`.
 
 ## The strategy that follows from that
 

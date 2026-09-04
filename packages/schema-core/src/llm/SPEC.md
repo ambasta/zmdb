@@ -252,22 +252,25 @@ which is the same rule §2.9 of `ARCHITECTURE.md` applies to the transform.
 
 Owned by the docs slice; both adapter pages and the strategy page stay `todo` until the epic closes.
 
-1. _Done._ `llm-langchain.md` routed the document through `json-schema-to-zod` and then admitted the
-   conversion was lossy. It now passes the document to `DynamicStructuredTool` directly, and names what the
-   conversion was dropping — `format`, and `{}` becoming `z.any()`. The adapter removes the remaining glue
-   (`adapters/SPEC.md` §3).
+1. _Done._ `llm-langchain.md` routed the document through
+   `json-schema-to-zod` and then admitted the conversion was lossy. It now uses
+   `langchainTool`, which passes the document to `DynamicStructuredTool`
+   directly and names what the conversion was dropping — `format`, and `{}`
+   becoming `z.any()` (`adapters/SPEC.md` §3).
 2. _Done._ `llm-vercel-ai-sdk.md` passed `parameters:` to `tool()`, which is the pre-v5 key; v5 calls it
    `inputSchema`. It also passed `toJsonSchema(...)` straight into `jsonSchema<T>()`, and
-   `JsonSchemaObject.properties` is a `Readonly<Record<string, unknown>>` — not assignable to a mutable index
-   signature of JSON-Schema nodes, so that line did not compile. The page now shows the one cast and says why
-   it is unavoidable by hand; the adapter is where that cast moves to (`adapters/SPEC.md` §4). The same pass
-   fixed two more v4 names on that page, `toDataStreamResponse` and `usage.completionTokens`.
+   `JsonSchemaObject.properties` is a `Readonly<Record<string, unknown>>` — not
+   assignable to a mutable index signature of JSON-Schema nodes, so that line
+   did not compile. The page now uses `aiSdkTool` with the SDK's own
+   `jsonSchema` factory, keeping that structural boundary out of application
+   code (`adapters/SPEC.md` §4). The same pass fixed two more v4 names on that
+   page, `toDataStreamResponse` and `usage.completionTokens`.
 3. `toolFor` emits a document; it does not make a request. `llm-strategy.md` now distinguishes that from the
    optional Anthropic `ChatDriver`: one thin injected adapter exists, while there is still no unified provider
    wrapper. Other providers can implement the one-method driver or call their API with `fetch`.
-4. Both adapter pages open with "no tool adapter" in the ToDo banner. When #526 lands, that clause is false
-   and the remaining gaps are the retriever, the memory backend and the `useChat` store — which are what the
-   banners should then say, rather than being deleted. A banner that overstates the gap sends a reader off to
+4. _Done._ Both adapter pages now identify the shipped tool adapter and reserve
+   their ToDo status for the retriever, memory backend, `LanguageModel` wrapper
+   and `useChat` store. A banner that overstates the gap sends a reader off to
    write something that exists.
 5. `tests/api-coverage/mapping.mjs` cites one test title for four typia entries — `llm.schema`,
    `llm.parameters`, `llm.application` and `llm.structuredOutput` all point at "produces a schema an LLM tool

@@ -22,7 +22,8 @@ npm add @zmdb/schema-core@alpha
 - Core schema APIs: `@zmdb/schema-core`
 - Schema building blocks: `/tags`, `/ir`, `/derive`, `/dto`, `/relations`,
   `/openapi`, `/custom-types`
-- LLM integrations: `/llm`, `/llm/chat`, `/llm/http`, `/llm/mcp`
+- LLM integrations: `/llm`, `/llm/ai-sdk`, `/llm/chat`, `/llm/http`,
+  `/llm/langchain`, `/llm/mcp`
 
 ## Documentation
 

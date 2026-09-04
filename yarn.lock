@@ -1277,8 +1277,14 @@ __metadata:
     typescript: "npm:7.0.2"
   peerDependencies:
     "@anthropic-ai/sdk": 0.123.0
+    "@langchain/core": ^1.2.9
+    ai: ^7.0.83
   peerDependenciesMeta:
     "@anthropic-ai/sdk":
+      optional: true
+    "@langchain/core":
+      optional: true
+    ai:
       optional: true
   languageName: unknown
   linkType: soft

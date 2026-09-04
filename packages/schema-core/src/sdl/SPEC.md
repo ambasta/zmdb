@@ -29,7 +29,12 @@ export declare function scalar<Wire, TS>(name: string, codec: ScalarCodec<Wire, 
 export declare function costsOf<T>(name: string): CostTable;
 ```
 
-**The product is a string.** Not a `GraphQLSchema`, not a `DocumentNode`, not an AST. `graphql` is not a dependency of this package, not a peer dependency, and not an optional one — the same position `../llm/adapters/SPEC.md` §1 takes for LangChain and the AI SDK, for the same reason: a string plus a plain resolver map is what `buildSchema`, `makeExecutableSchema` and `createSchema` all accept, so a caller composes them in one line and nobody negotiates a version range.
+**The product is a string.** Not a `GraphQLSchema`, not a `DocumentNode`, not an
+AST. `graphql` is not a dependency of this package, not a peer dependency, and
+not an optional one. The LLM framework adapters isolate their optional peers
+behind dedicated subpaths; SDL needs no corresponding peer because a string
+plus a plain resolver map is what `buildSchema`, `makeExecutableSchema` and
+`createSchema` all accept.
 
 The epic's constraint list says `graphql` is a peer dependency; this freeze is stricter, and strictly cheaper for a consumer who never writes a resolver.
 

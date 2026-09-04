@@ -1,31 +1,33 @@
-> **ToDo / feature gap.** There is no Vercel AI SDK integration. No tool adapter,
-> no `LanguageModel` wrapper, no persistence adapter for `useChat`. The glue below
-> is what you write.
+> **Optional integration.** The tool adapter ships at
+> `@zmdb/schema-core/llm/ai-sdk` and supports `ai` `^7.0.83`. A `LanguageModel`
+> wrapper and persistence adapter for `useChat` remain application choices.
 
 ## Tools
 
-`tool()` takes a Zod schema or one of the SDK's own `Schema` objects, and `jsonSchema()` builds the second from what zmdb already emits — so no Zod:
+`aiSdkTool` builds the fields accepted by `tool()`. Pass the SDK's own
+`jsonSchema` factory so it keeps ownership of its branded schema type:
 
 ```ts
 import { tool, jsonSchema } from 'ai';
-import type { JSONSchema7 } from 'json-schema';
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
 import { assert } from '@zmdb/aot-validator/utilities';
 
-export const createUser = tool({
-  description: 'Create a user',
-  // `inputSchema` on v5; it was `parameters` on v4.
-  inputSchema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create') as JSONSchema7),
-  execute: async input => {
-    const dto = assert<CreateDTO<User>>(input);
-    return userRepo.create(dto);
-  },
-});
+export const createUser = tool(
+  aiSdkTool('create_user', users, {
+    jsonSchema,
+    description: 'Create a user',
+    validate: input => assert<CreateDTO<User>>(input),
+    execute: dto => userRepo.create(dto),
+  }),
+);
 ```
 
-`jsonSchema<T>()` carries your TypeScript type through for the SDK's inference while the runtime schema comes from your schema object — one declaration, both halves. The `assert` still earns its place: the SDK's schema handling is not the same code as your repository's type.
+The AOT validator remains the trust boundary. It runs before `execute`, and its
+return value is the decoded value the repository receives. Validation failures
+become tool-result text the model can correct; handler failures still throw.
 
-The cast is not optional. `toJsonSchema` returns deeply `readonly` properties, and the SDK's parameter is a mutable JSON-Schema node — the shapes agree, the modifiers do not. It is one cast at one boundary, which is the shape of every hand-written adapter on this page.
+The application no longer needs the `JSONSchema7` cast. The adapter owns that
+single structural handoff, and imports neither Zod nor another schema library.
 
 ## Structured output
 
@@ -106,9 +108,11 @@ const messages = page.items.map(m => ({ role: m.role, content: m.content }));
 
 The `id` tie-break matters: two messages in the same millisecond otherwise come back in an arbitrary order.
 
-## What an integration would provide
+## What remains application code
 
-A `zmdbChatStore(repo)` implementing the SDK's persistence interface, and a `toolsFromSchemas()` helper. Both are thin, and both would pin zmdb to the SDK's interfaces, which have changed shape more than once. Writing the twenty lines above in your own repository means an SDK upgrade is your decision rather than a version conflict.
+A `zmdbChatStore(repo)` would still pin zmdb to the SDK's persistence
+interfaces, which have changed shape more than once. Keeping the short
+`onFinish` repository call in the application makes that upgrade your decision.
 
 ---
 
