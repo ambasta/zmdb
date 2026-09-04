@@ -1140,8 +1140,7 @@ export const PAGE_META = {
   'llm-chat': {
     title: 'Chat & Agents',
     group: 'LLM',
-    status: 'todo',
-    note: 'no chat loop, message types or agent driver',
+    status: 'supported',
   },
   'llm-http': {
     title: 'HTTP Tools from Controllers',

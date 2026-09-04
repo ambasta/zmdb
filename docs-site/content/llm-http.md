@@ -1,6 +1,8 @@
-> **ToDo / feature gap.** There is no HTTP client for model providers. zmdb has
-> [zero runtime dependencies](./why-zmdb.html) and does not wrap any vendor API.
-> Use `fetch`; the examples below are complete.
+> **ToDo / feature gap.** There is no generator that turns an OpenAPI document
+> into callable tools, and no generic model HTTP client. The chat subpath has one
+> thin Anthropic adapter over an injected optional SDK client; it does not create
+> a client, read credentials or choose retries. The direct `fetch` examples below
+> remain complete alternatives.
 
 ## Anthropic
 

@@ -1,7 +1,7 @@
-> **ToDo / feature gap.** There is no MCP support. Nothing implements the Model
-> Context Protocol — no server, no transport, no tool registry. `toolFromSchema`
-> produces a provider tool definition, not an MCP one, though the two shapes are
-> close.
+> **ToDo / feature gap.** There is no MCP server, client or transport.
+> `defineTools` now provides the validator-linked registry the protocol would
+> expose, but `toolFromSchema` still produces a provider tool definition rather
+> than an MCP one.
 
 ## What MCP would need
 
@@ -116,7 +116,12 @@ Note the buffering: a chunk boundary can land mid-message, and treating each `da
 
 ## What it would take
 
-The JSON-RPC framing and a tool registry, alongside the tool definitions in `@zmdb/schema-core/llm` — the same registry a chat loop would call, so a tool is declared once rather than once per caller. Not a separate package and not a transport: `process.stdin` does not exist in a browser or on a device, and this package runs in both, so the framing is a pure function from one message to the next and the transport stays the fifteen lines above. Feasible, and not started.
+The remaining work is JSON-RPC framing around the registry from
+`@zmdb/schema-core/llm/chat`, plus server/client negotiation and transports. A
+tool can then be declared once and called by both the chat loop and MCP. The
+registry is shipped; the protocol work is not. `process.stdin` does not exist in
+a browser or on a device, so stdio remains an adapter around pure framing rather
+than part of the schema package.
 
 ---
 

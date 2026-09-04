@@ -1,146 +1,27 @@
 // Tests for the chat loop, the tool registry and every bound frozen in ./SPEC.md
 // (#532, epic #530). The driver is scripted, so there is no network and no non-determinism.
 //
-// RED ON PURPOSE, AND VISIBLY SO. `./index.ts` does not exist: #533 writes it. Every
-// assertion whose subject is unimplemented is `it.fails`, never `it.skip`, because a skipped
-// test is invisible in the summary line and an expected-failing one is counted there — and
-// because `.oxlintrc.json` sets `vitest/no-disabled-tests` to `error`, so `.skip` does not
-// even lint. When #533 lands, each `it.fails` that starts passing fails the suite with
-// `Error: Expect test to fail`, which is the ratchet: the implementer cannot land the code
-// without also deleting the `.fails`.
-//
-// THE IDIOM. An `it.fails` whose body does not typecheck asserts nothing, so the frozen
-// surface is transcribed from ./SPEC.md into the block below and each missing function is a
-// `const` holding a throwing implementation of its frozen type. A `const` rather than a
-// `declare function` for three reasons: nothing throws at module load, so collection succeeds
-// and the tests appear in the summary; the type is checked against the spec's signature at
-// compile time, so a signature that drifts is a build failure; and there is no `declare`d
-// name for `no-undef` to be told about. When #533 lands, the block is replaced by one
-// `import` and the test bodies are untouched.
-//
-// ONE DEVIATION FROM VERBATIM, AND IT IS A SPEC BUG. ./SPEC.md §3 freezes
-// `type ToolRegistry = Readonly<Record<string, ToolEntry<never>>>`, and that type is
-// uninhabited: `ToolEntry<T>.validate` is `(args: unknown) => T`, so an entry whose validator
-// returns anything at all is unassignable to `ToolEntry<never>`. Measured, not reasoned —
-// `tsc` on the verbatim form says
-//   error TS2322: Type '{ create_user: { spec: ToolSpec; validate: (v: unknown) => Dto;
-//   handler: (input: Dto) => string; }; }' is not assignable to type
-//   'Readonly<Record<string, ToolEntry<never>>>'. … The types returned by 'validate(...)' are
-//   incompatible between these types. Type 'Dto' is not assignable to type 'never'.
-// so `defineTools` as frozen cannot be called with a real tool. Erasing `T` needs it widened
-// to `unknown` in `validate`'s return and narrowed to `never` in `handler`'s parameter, which
-// one type parameter cannot do at once — hence `ErasedToolEntry` below. NOTES.md carries the
-// finding; ./chat.type-test.ts carries it as an assertion so #533 has to resolve it.
-//
-// CURRENT ACTUALS. Every `it.fails` records, in a comment, what the code produces today,
-// captured by running it. Every one of them throws from the frozen-surface stub, because the
-// module is the entire subject of the file — so the two behaviours this freeze *depends* on
-// and that already ship (Web Crypto for `errorId`, `validationIssuesOf` for the validation
-// path) get plain `it`s that lock them in, including the fact that `validationIssuesOf` does
-// **not** strip `value` — §6's redaction is the loop's job, not the helper's.
+// The public implementation replaces the frozen throwing surface, so every loop assertion is
+// now an ordinary test. The two pre-existing runtime facts the loop depends on remain explicit:
+// Web Crypto supplies the error id, and `validationIssuesOf` preserves the offending value, so
+// redacting it is the loop's responsibility.
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import { ValidationError, validationIssuesOf } from '../../index.js';
 import type { ToolSpec } from '../index.js';
+import {
+  defineTools,
+  run,
+  type ChatDriver,
+  type ChatMessage,
+  type ProviderPassthrough,
+  type RunOptionsFor,
+  type RunResult,
+  type ToolCall,
+  type ToolRegistry,
+} from './index.js';
 
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — delete this block when `./index.js` exists (#533)
-// ---------------------------------------------------------------------------
-
-/** ./SPEC.md §1. `ChatMessage`, not `Message`: the reader's own `Message` row keeps the name. */
-type ChatMessage =
-  | { readonly role: 'system'; readonly content: string }
-  | { readonly role: 'user'; readonly content: string }
-  | {
-      readonly role: 'assistant';
-      readonly content: string;
-      readonly toolCalls?: readonly ToolCall[];
-      readonly provider?: readonly ProviderPassthrough[];
-    }
-  | { readonly role: 'tool'; readonly callId: string; readonly content: string; readonly isError?: boolean };
-
-/** ./SPEC.md §1. `args` is `unknown` and stays `unknown`: it came from a model over a network. */
-interface ToolCall {
-  readonly id: string;
-  readonly name: string;
-  readonly args: unknown;
-}
-
-/** ./SPEC.md §1.1. One opaque field, carried out and back in, never inspected. */
-interface ProviderPassthrough {
-  readonly kind: string;
-  readonly raw: unknown;
-}
-
-/** ./SPEC.md §2. One method: no streaming, no retries, no token accounting. */
-interface ChatDriver {
-  next(messages: readonly ChatMessage[], tools: readonly ToolSpec[]): Promise<ChatMessage>;
-}
-
-/** ./SPEC.md §3. The validator is the caller's and required; `effectful` omitted means true. */
-interface ToolEntry<T> {
-  readonly spec: ToolSpec;
-  readonly validate: (args: unknown) => T;
-  readonly handler: (input: T) => unknown | PromiseLike<unknown>;
-  readonly effectful?: boolean;
-}
-
-/**
- * `ToolEntry<T>` with `T` erased in both directions at once — the repair described in the
- * header, written as a delta against the frozen type so the deviation is exactly one property
- * wide. `never` into `handler` is what `ToolEntry<never>` already gives; `unknown` out of
- * `validate` is the correction, because any validator's result is admissible there.
- */
-type ErasedToolEntry = Omit<ToolEntry<never>, 'validate'> & { readonly validate: (args: unknown) => unknown };
-
-type ToolRegistry = Readonly<Record<string, ErasedToolEntry>>;
-
-/** ./SPEC.md §4, verbatim. It degrades in the safe direction, which is the property worth having. */
-type HasEffectful<R> = {
-  [K in keyof R]: R[K] extends { readonly effectful: false } ? never : K;
-}[keyof R] extends never
-  ? false
-  : true;
-
-/** ./SPEC.md §4. `maxTurns` required; `maxToolCallsPerTurn` defaults to 8. */
-interface RunOptions {
-  readonly maxTurns: number;
-  readonly maxToolCallsPerTurn?: number;
-  readonly approve?: (call: ToolCall) => Promise<boolean>;
-}
-
-type RunOptionsFor<R extends ToolRegistry> =
-  HasEffectful<R> extends true ? RunOptions & { readonly approve: (call: ToolCall) => Promise<boolean> } : RunOptions;
-
-/** ./SPEC.md §5. Termination is a value, not an absence. */
-interface RunResult {
-  readonly messages: readonly ChatMessage[];
-  readonly stop: 'complete' | 'max-turns' | 'max-tool-calls';
-  readonly turns: number;
-  readonly toolCalls: number;
-  readonly budget: number;
-  readonly declined: readonly ToolCall[];
-  readonly errors: readonly {
-    readonly callId: string;
-    readonly name: string;
-    readonly errorId: string;
-    readonly error: unknown;
-  }[];
-}
-
-const defineTools: <R extends ToolRegistry>(tools: R) => R = () => {
-  throw new Error('#532 tests freeze: defineTools is unimplemented (chat SPEC §3)');
-};
-
-const run: <R extends ToolRegistry>(
-  driver: ChatDriver,
-  messages: readonly ChatMessage[],
-  tools: R,
-  opts: RunOptionsFor<R>,
-) => Promise<RunResult> = () => {
-  throw new Error('#532 tests freeze: run is unimplemented (chat SPEC §4)');
-};
-// --------------------------- end frozen surface ---------------------------
+type ErasedToolEntry = ToolRegistry[string];
 
 /** ./SPEC.md §5's frozen content for a call `approve` refused. Matched exactly, not by fragment. */
 const DECLINED = 'declined by the operator';
@@ -271,9 +152,8 @@ describe('chat loop: what already ships that §6 depends on', () => {
   //        "value":"PLAINTEXT-SECRET-90210"}]
   //
   // The value survives. So §6's "never `ValidationIssue.value`" is a redaction the **loop**
-  // performs; a #533 implementation that forwards `validationIssuesOf`'s output verbatim
-  // exfiltrates it. This test is here to make that visible next to the `it.fails` that checks
-  // the redaction.
+  // performs; forwarding `validationIssuesOf`'s output verbatim would exfiltrate it. This
+  // test is here to make that visible next to the test that checks the redaction.
   it('gets the issue list from validationIssuesOf with value still attached', () => {
     const error = new ValidationError('input is not Query', [
       { path: '$input.q', message: 'expected string', expected: 'string', value: 'PLAINTEXT-SECRET-90210' },
@@ -290,9 +170,7 @@ describe('chat loop: what already ships that §6 depends on', () => {
 describe('chat loop bounds — §5 (stop is a value) and §4 (the caps)', () => {
   // §7.1, first of three. `complete` is the only outcome that means the model considered
   // itself finished, and §5 is explicit that a message list cannot carry that fact.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('stops when the driver returns no tool calls', async () => {
+  it('stops when the driver returns no tool calls', async () => {
     const driver = scriptedDriver([done]);
     const tools = { search: readOnlyEntry('search') };
 
@@ -315,9 +193,7 @@ describe('chat loop bounds — §5 (stop is a value) and §4 (the caps)', () => 
   // The assertion that matters is not "it terminated" — an implementation that terminated
   // because its script ran out would pass that — but that `stop` distinguishes the cap from a
   // natural finish, and that `turns` equals the cap exactly.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('stops at maxTurns and reports that it was capped', async () => {
+  it('stops at maxTurns and reports that it was capped', async () => {
     const script = Array.from({ length: 6 }, (_unused, turn) => assistantWithCalls('search', 1, `t${String(turn)}`));
     const driver = scriptedDriver(script);
     const tools = { search: readOnlyEntry('search') };
@@ -340,9 +216,7 @@ describe('chat loop bounds — §5 (stop is a value) and §4 (the caps)', () => 
   // §7.1, third, plus §5's no-partial-execution rule. The bound and one past it, in one test,
   // because a cap asserted only from above passes against an off-by-one that runs the ninth
   // call and then stops.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('caps tool calls per turn', async () => {
+  it('caps tool calls per turn', async () => {
     const atBound = scriptedDriver([assistantWithCalls('search', 3, 'at'), done]);
     const tools = { search: readOnlyEntry('search') };
 
@@ -370,9 +244,7 @@ describe('chat loop bounds — §5 (stop is a value) and §4 (the caps)', () => 
   // §4's default, asserted as a number rather than trusted. A default nobody froze drifts, and
   // this one is load-bearing twice over: it is the multiplicand in `budget`, which §4 says is
   // "the number that matters".
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('defaults maxToolCallsPerTurn to 8 and reports budget as the product', async () => {
+  it('defaults maxToolCallsPerTurn to 8 and reports budget as the product', async () => {
     const tools = { search: readOnlyEntry('search') };
 
     const eight = scriptedDriver([assistantWithCalls('search', 8, 'e'), done]);
@@ -397,14 +269,27 @@ describe('chat loop bounds — §5 (stop is a value) and §4 (the caps)', () => 
     expect(withOption.budget).toBe(20);
   });
 
+  it('rejects invalid bounds before asking the driver for a turn', async () => {
+    const tools = { search: readOnlyEntry('search') };
+    const cases = [
+      [{ maxTurns: 0 }, 'maxTurns'],
+      [{ maxTurns: 1.5 }, 'maxTurns'],
+      [{ maxTurns: 1, maxToolCallsPerTurn: 0 }, 'maxToolCallsPerTurn'],
+      [{ maxTurns: 1, maxToolCallsPerTurn: Number.MAX_SAFE_INTEGER + 1 }, 'maxToolCallsPerTurn'],
+    ] as const;
+
+    for (const [options, field] of cases) {
+      const driver = scriptedDriver([done]);
+      await expect(run(driver, user, tools, options)).rejects.toThrowError(field);
+      expect(driver.calls()).toBe(0);
+    }
+  });
+
   // §3 freezes `defineTools` as an identity function whose only job is inference. Asserted by
   // identity, because a version that copied the registry would silently break a caller who
   // compares entries — and because an identity function is the whole claim, so there is
   // nothing else to check.
-  //
-  // Current actual: throws `Error: #532 tests freeze: defineTools is unimplemented
-  // (chat SPEC §3)`.
-  it.fails('returns the registry defineTools was given, by identity', () => {
+  it('returns the registry defineTools was given, by identity', () => {
     const tools = { search: readOnlyEntry('search') };
     expect(defineTools(tools)).toBe(tools);
   });
@@ -419,9 +304,7 @@ describe('validation before dispatch — §3, and epic §2.3 at its most load-be
   // **never** `ValidationIssue.value`. The value here is chosen to be unmistakable if it
   // leaked, and the assertion is against the serialized message rather than a field, so a
   // future implementation that tucks the value into a second field fails too.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('refuses malformed tool arguments and reports them to the model as a tool error', async () => {
+  it('refuses malformed tool arguments and reports them to the model as a tool error', async () => {
     const bad: ChatMessage = {
       role: 'assistant',
       content: '',
@@ -439,8 +322,8 @@ describe('validation before dispatch — §3, and epic §2.3 at its most load-be
     expect(message?.isError).toBe(true);
     expect(message?.content).toContain('$input.q');
     expect(message?.content).toContain('string');
-    expect(JSON.stringify(result.messages)).not.toContain('991403');
-    expect(JSON.stringify(result.messages)).not.toContain('991_403');
+    expect(JSON.stringify(message)).not.toContain('991403');
+    expect(JSON.stringify(message)).not.toContain('991_403');
     // A validation failure is the model's problem, so the loop keeps going and the model gets
     // its second chance.
     expect(driver.calls()).toBe(2);
@@ -461,11 +344,8 @@ describe('validation before dispatch — §3, and epic §2.3 at its most load-be
   // that reporting it as `isError` "tells the model to keep trying a tool that does not exist"
   // — but in the loop there is no client to answer, and throwing would discard the turns
   // already spent, which is the reason §5 gives for not aborting a declined call either. So
-  // the frozen-by-analogy behaviour asserted here is an `isError` tool message and a loop that
-  // continues. A reviewer who wants a throw instead should say so now.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('refuses a tool call for a name that is not registered', async () => {
+  // the behaviour asserted here is an `isError` tool message and a loop that continues.
+  it('refuses a tool call for a name that is not registered', async () => {
     const hallucinated: ChatMessage = {
       role: 'assistant',
       content: '',
@@ -484,6 +364,30 @@ describe('validation before dispatch — §3, and epic §2.3 at its most load-be
     expect(result.stop).toBe('complete');
     expect(driver.calls()).toBe(2);
   });
+
+  it('treats prototype property names as unknown tools', async () => {
+    const requested: ChatMessage = {
+      role: 'assistant',
+      content: '',
+      toolCalls: ['toString', '__proto__', 'constructor'].map((name, index) => ({
+        id: `call-prototype-${String(index)}`,
+        name,
+        args: { q: 'anything' },
+      })),
+    };
+    const driver = scriptedDriver([requested, done]);
+    const tools = { search: readOnlyEntry('search') };
+
+    const result = await run(driver, user, tools, { maxTurns: 5 });
+
+    expect(ENTERED).toStrictEqual([]);
+    expect(toolMessages(result).map(message => message.content)).toStrictEqual([
+      'unknown tool toString',
+      'unknown tool __proto__',
+      'unknown tool constructor',
+    ]);
+    expect(result.stop).toBe('complete');
+  });
 });
 
 describe('approval — §4 (required when it matters) and §5 (declined, and the loop continues)', () => {
@@ -499,12 +403,7 @@ describe('approval — §4 (required when it matters) and §5 (declined, and the
   // the runtime check is to be the caller §4 describes: "the one place where someone silenced
   // an error with an `as`". The retype is narrowing-incompatible, which is why it is spelled
   // this way and why it is worth grepping for.
-  //
-  // Current actual: `AssertionError: expected [Function] to throw error matching /approve/ but
-  // got '#532 tests freeze: run is unimplement…'` — it gets past `rejects.toBeInstanceOf(Error)`
-  // on the stub's own throw and fails on the message. So this test cannot yet distinguish the
-  // stub from a real refusal; `driver.calls()` is what will, once #533 lands.
-  it.fails('requires an approval hook when a tool is effectful', async () => {
+  it('requires an approval hook when a tool is effectful', async () => {
     const driver = scriptedDriver([done]);
     const tools = { delete_user: recordingEntry('delete_user'), search: readOnlyEntry('search') };
     const noApprove = { maxTurns: 3 } as unknown as RunOptionsFor<typeof tools>;
@@ -531,9 +430,7 @@ describe('approval — §4 (required when it matters) and §5 (declined, and the
   //
   // The content is matched exactly. §5 freezes the string, and a fragment match would accept
   // an implementation that appended the arguments to it.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('does not call an effectful tool when approval is denied, and tells the model it was denied', async () => {
+  it('does not call an effectful tool when approval is denied, and tells the model it was denied', async () => {
     const requested: ChatMessage = {
       role: 'assistant',
       content: '',
@@ -581,9 +478,7 @@ describe('what the model sees versus what the caller gets — §6', () => {
   // The internal detail is planted rather than hoped for: the thrown error's message carries a
   // table name and a compiled SQL string — the three examples §6 names — and its stack
   // necessarily carries this file's path.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('sanitises a handler exception before sending it to the model', async () => {
+  it('sanitises a handler exception before sending it to the model', async () => {
     const internal = new RangeError(
       'relation "billing_secrets" does not exist: SELECT card_pan FROM billing_secrets WHERE id = $1',
     );
@@ -633,9 +528,7 @@ describe('what the model sees versus what the caller gets — §6', () => {
   // never inspects the block: a structural copy would satisfy `toStrictEqual` and would still
   // have lost a non-JSON-serialisable field, which is exactly how a reasoning signature gets
   // dropped.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('carries a provider passthrough block into the next driver call by identity', async () => {
+  it('carries a provider passthrough block into the next driver call by identity', async () => {
     const block: ProviderPassthrough = { kind: 'thinking', raw: { signature: new Uint8Array([1, 2, 3]) } };
     const second: ProviderPassthrough = { kind: 'redacted_thinking', raw: 'opaque' };
     const reasoned: ChatMessage = {
@@ -671,9 +564,7 @@ describe('no hidden state — §2.7, the epic’s architecture constraint', () =
   // The cross-talk assertion is on what each *driver* saw, not only on the results: a loop
   // that shared state would show B's user message inside A's `next()` argument even if it then
   // returned two plausible results.
-  //
-  // Current actual: throws `Error: #532 tests freeze: run is unimplemented (chat SPEC §4)`.
-  it.fails('holds no state between two concurrent runs', async () => {
+  it('holds no state between two concurrent runs', async () => {
     const openGate = (): { readonly wait: Promise<void>; readonly open: () => void } => {
       let open = (): void => undefined;
       const wait = new Promise<void>(resolve => {

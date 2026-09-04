@@ -7,111 +7,32 @@
 // which no runtime test can reach: that a tool's argument type is inferred from its own
 // validator, and that forgetting `approve` on an effectful registry does not compile.
 //
-// RED ON PURPOSE. `./index.ts` does not exist (#533 writes it), so there is nothing to import
-// and the frozen surface is transcribed below. It is transcribed rather than imported so that
-// every assertion in this file is against the text of ./SPEC.md; when #533 lands, the block is
-// deleted, one `import type` replaces it, and any assertion that stops holding is a real
-// signal rather than a stale copy agreeing with itself.
-//
-// ONE DELIBERATE DEVIATION, RECORDED AS AN ASSERTION RATHER THAN A COMMENT. ./SPEC.md §3's
-// `ToolRegistry = Readonly<Record<string, ToolEntry<never>>>` is uninhabited. The
-// `frozenRegistryIsUninhabited` assertion below is the proof, and it is written as a
-// `@ts-expect-error` so that it is #533's problem to make it go away: whichever way #533
-// resolves it, this file fails until the resolution is written down.
+// The real surface is imported below. The registry uses an erased runtime entry while
+// `defineTools` applies a key-by-key linked constraint, so each handler is checked against
+// its own validator without making the registry uninhabitable.
+import type Anthropic from '@anthropic-ai/sdk';
+
 import type { Equal, Expect, Extends } from '../../index.js';
 import type { ToolSpec } from '../index.js';
+import {
+  type AnthropicMessagesClient,
+  defineTools,
+  run,
+  type ChatDriver,
+  type ChatMessage,
+  type HasEffectful,
+  type ProviderPassthrough,
+  type RunOptions,
+  type RunOptionsFor,
+  type RunResult,
+  type ToolCall,
+  type ToolEntry,
+  type ToolRegistry,
+} from './index.js';
 
-// ---------------------------------------------------------------------------
-// FROZEN SURFACE — replace with `import type { … } from './index.js'` (#533)
-// ---------------------------------------------------------------------------
-
-/** ./SPEC.md §1. */
-type ChatMessage =
-  | { readonly role: 'system'; readonly content: string }
-  | { readonly role: 'user'; readonly content: string }
-  | {
-      readonly role: 'assistant';
-      readonly content: string;
-      readonly toolCalls?: readonly ToolCall[];
-      readonly provider?: readonly ProviderPassthrough[];
-    }
-  | { readonly role: 'tool'; readonly callId: string; readonly content: string; readonly isError?: boolean };
-
-/** ./SPEC.md §1. */
-interface ToolCall {
-  readonly id: string;
-  readonly name: string;
-  readonly args: unknown;
-}
-
-/** ./SPEC.md §1.1. */
-interface ProviderPassthrough {
-  readonly kind: string;
-  readonly raw: unknown;
-}
-
-/** ./SPEC.md §2. */
-interface ChatDriver {
-  next(messages: readonly ChatMessage[], tools: readonly ToolSpec[]): Promise<ChatMessage>;
-}
-
-/** ./SPEC.md §3, verbatim. */
-interface ToolEntry<T> {
-  readonly spec: ToolSpec;
-  readonly validate: (args: unknown) => T;
-  readonly handler: (input: T) => unknown | PromiseLike<unknown>;
-  readonly effectful?: boolean;
-}
-
-/** ./SPEC.md §3, verbatim — and, as the assertions below establish, uninhabited. */
-type FrozenToolRegistry = Readonly<Record<string, ToolEntry<never>>>;
-
-/** The one-property repair. See the header and NOTES.md. */
-type ErasedToolEntry = Omit<ToolEntry<never>, 'validate'> & { readonly validate: (args: unknown) => unknown };
-
-type ToolRegistry = Readonly<Record<string, ErasedToolEntry>>;
-
-/** ./SPEC.md §4, verbatim. */
-type HasEffectful<R> = {
-  [K in keyof R]: R[K] extends { readonly effectful: false } ? never : K;
-}[keyof R] extends never
-  ? false
-  : true;
-
-/** ./SPEC.md §4, verbatim. */
-interface RunOptions {
-  readonly maxTurns: number;
-  readonly maxToolCallsPerTurn?: number;
-  readonly approve?: (call: ToolCall) => Promise<boolean>;
-}
-
-type RunOptionsFor<R extends ToolRegistry> =
-  HasEffectful<R> extends true ? RunOptions & { readonly approve: (call: ToolCall) => Promise<boolean> } : RunOptions;
-
-/** ./SPEC.md §5, verbatim. */
-interface RunResult {
-  readonly messages: readonly ChatMessage[];
-  readonly stop: 'complete' | 'max-turns' | 'max-tool-calls';
-  readonly turns: number;
-  readonly toolCalls: number;
-  readonly budget: number;
-  readonly declined: readonly ToolCall[];
-  readonly errors: readonly {
-    readonly callId: string;
-    readonly name: string;
-    readonly errorId: string;
-    readonly error: unknown;
-  }[];
-}
-
-declare function defineTools<R extends ToolRegistry>(tools: R): R;
-declare function run<R extends ToolRegistry>(
-  driver: ChatDriver,
-  messages: readonly ChatMessage[],
-  tools: R,
-  opts: RunOptionsFor<R>,
-): Promise<RunResult>;
-// --------------------------- end frozen surface ---------------------------
+declare const realAnthropicClient: Anthropic;
+const sdkConformsToDriverClient: AnthropicMessagesClient = realAnthropicClient;
+void sdkConformsToDriverClient;
 
 interface CreateUser {
   readonly email: string;
@@ -128,7 +49,7 @@ declare const approve: (call: ToolCall) => Promise<boolean>;
 declare const conversation: readonly ChatMessage[];
 
 // ---------------------------------------------------------------------------
-// §3 — the spec bug: the frozen registry type admits no tool at all
+// §3 — the registry is inhabitable, and defineTools links each validator to its handler
 // ---------------------------------------------------------------------------
 
 const realEntries = {
@@ -145,16 +66,22 @@ const realEntries = {
   },
 } as const;
 
-// @ts-expect-error — chat SPEC §3's `ToolRegistry` is uninhabited: `validate` returning `never`
-const frozenRegistryIsUninhabited: FrozenToolRegistry = realEntries;
-void frozenRegistryIsUninhabited;
-
-// The repair admits exactly the same object, with no cast at the call site.
-const erasedRegistryAdmitsRealTools: ToolRegistry = realEntries;
-void erasedRegistryAdmitsRealTools;
+const registryAdmitsRealTools: ToolRegistry = realEntries;
+void registryAdmitsRealTools;
 
 const inferred = defineTools(realEntries);
 type Inferred = typeof inferred;
+
+const contextuallyInferred = defineTools({
+  create_user: {
+    spec: anySpec,
+    validate: (args: unknown): CreateUser => args as CreateUser,
+    handler: input => input.email,
+  },
+});
+type _UnannotatedHandlerTakesValidatorOutput = Expect<
+  Equal<Parameters<typeof contextuallyInferred.create_user.handler>, [CreateUser]>
+>;
 
 // §3: `defineTools` is an identity function whose only job is to keep the literal keys and the
 // per-entry types the caller wrote, so `RunOptionsFor` can read `effectful` off them.
@@ -173,26 +100,15 @@ type _SecondHandlerIsIndependent = Expect<Equal<Parameters<ReadUserHandler>, [Re
 // And the two entries do not collapse into one another: an entry's type is its own.
 type _EntriesAreNotUnified = Expect<Equal<Equal<CreateUserHandler, ReadUserHandler>, false>>;
 
-// A MEASURED GAP, FROZEN AS AN EQUALITY RATHER THAN AS A `@ts-expect-error`.
-//
-// §3 says a handler's input type "comes from the entry's own validator". Inference delivers
-// that, as the assertions above show — but nothing in the frozen surface *checks* it: an entry
-// whose handler is annotated with a type its validator never produces is accepted today.
-// Measured on the three candidate signatures:
-//   const mismatched = { create_user: { spec, validate: (a: unknown): CreateUser => …,
-//                                       handler: (input: ReadUser) => input.id } };
-//   const a: ToolRegistry = mismatched;      // no error
-//   defineToolsErased(mismatched);            // no error  (the frozen `R extends ToolRegistry`)
-//   defineToolsLinked(mismatched);            // error TS2345: Argument of type '{ create_user:
-//     { spec: ToolSpec; validate: (args: unknown) => CreateUser; handler: (input: ReadUser) =>
-//     string; }; }' is not assignable to parameter of type '{ readonly create_user:
-//     ToolEntry<CreateUser>; }'
-// where `defineToolsLinked` is the same function with a self-referential mapped constraint,
-// `R extends { readonly [K in keyof R]: ToolEntry<ReturnType<R[K]['validate']>> }`.
-//
-// A `@ts-expect-error` cannot pre-assert that a currently-legal literal becomes illegal, so the
-// gap is frozen the other way round: as the true statement that it is accepted. When #533 adopts
-// the linked constraint, `Extends` flips to `false` and this line fails — which is the signal.
+const missingValidator = defineTools({
+  // @ts-expect-error — chat SPEC §3: a tool cannot be registered without a validator
+  create_user: {
+    spec: anySpec,
+    handler: (_input: CreateUser) => 'created',
+  },
+});
+void missingValidator;
+
 const mismatched = {
   create_user: {
     spec: anySpec,
@@ -200,8 +116,11 @@ const mismatched = {
     handler: (input: ReadUser) => input.id,
   },
 };
-type _MismatchedHandlerIsAcceptedToday = Expect<Equal<Extends<typeof mismatched, ToolRegistry>, true>>;
-void mismatched;
+// @ts-expect-error — chat SPEC §3: the handler must accept the validator's CreateUser output
+const mismatchedRegistry = defineTools(mismatched);
+void mismatchedRegistry;
+// @ts-expect-error — bypassing defineTools must not bypass validator/handler correlation
+void run(driver, conversation, mismatched, { maxTurns: 4, approve });
 
 // ---------------------------------------------------------------------------
 // §4 — approval is required by the type when, and only when, a tool is effectful
@@ -236,6 +155,10 @@ const widenedEntries = {
 };
 type _WidenedLiteralDegradesToEffectful = Expect<Equal<HasEffectful<typeof widenedEntries>, true>>;
 type _ErasedRegistryDegradesToEffectful = Expect<Equal<HasEffectful<ToolRegistry>, true>>;
+declare const dynamicRegistry: ToolRegistry;
+void run(driver, conversation, dynamicRegistry, { maxTurns: 4, approve });
+// @ts-expect-error — an erased/dynamic registry must still provide approval
+void run(driver, conversation, dynamicRegistry, { maxTurns: 4 });
 
 // The two shapes of `RunOptionsFor`, spelled out rather than left to the conditional.
 type EffectfulOptions = RunOptionsFor<EffectfulRegistry>;
@@ -325,8 +248,8 @@ type _ToolMessageCarriesCallId = Expect<Equal<ToolMessage['callId'], string>>;
 const toolWithoutCallId: ToolMessage = { role: 'tool', content: 'ran' };
 void toolWithoutCallId;
 
-// `callId` on the tool variant, `id` on the call: the names differ, and the type test is where
-// that gets frozen, because a runtime test would pass either way against a stub.
+// `callId` on the tool variant, `id` on the call: the names differ, and the type test pins the
+// distinction directly.
 type _CallUsesIdNotCallId = Expect<Equal<keyof ToolCall, 'id' | 'name' | 'args'>>;
 // @ts-expect-error — chat SPEC §1: `ToolCall` has no `callId`; the tool *message* does
 const callHasNoCallId: string = ({} as ToolCall).callId;
@@ -357,4 +280,4 @@ type _PassthroughIsOptionalOnAssistant = Expect<
 // never the registry. It cannot reach a handler, a validator or an `effectful` flag.
 type DriverTools = Parameters<ChatDriver['next']>[1];
 type _DriverSeesOnlyToolSpecs = Expect<Equal<DriverTools, readonly ToolSpec[]>>;
-type _DriverCannotSeeHandlers = Expect<Equal<Extends<DriverTools, readonly ErasedToolEntry[]>, false>>;
+type _DriverCannotSeeHandlers = Expect<Equal<Extends<DriverTools, readonly ToolEntry<unknown>[]>, false>>;

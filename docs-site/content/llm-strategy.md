@@ -1,18 +1,25 @@
-> **ToDo / feature gap.** There is no agent framework, no provider abstraction and
-> no conversation state. `@zmdb/schema-core/llm` is two functions —
-> `toolFromSchema` and `lenientParse` — and everything else on this page is a
-> pattern rather than an API.
+> **Small runtime, not an agent framework.** There is no agent graph, unified
+> provider abstraction or conversation store. Alongside `toolFromSchema` and
+> `lenientParse`, `@zmdb/schema-core/llm/chat` now provides a bounded tool loop,
+> typed messages and an optional injected Anthropic SDK driver.
 
 ## What is actually provided, and why it is the right amount
 
-The library gives you the two things that need to be derived from your schema:
+The library gives you the things that are reusable without choosing application
+policy:
 
 - **`toolFromSchema(name, schema, opts)`** — the tool definition, so the model's output shape comes from your database's shape
 - **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
+- **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
+- **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
+- **`anthropicDriver(opts)`** — a thin adapter over an injected optional Anthropic SDK client
 
 Plus the validators, which are the part that actually matters: `assert<CreateDTO<Order>>(toolInput)` before any write.
 
-What it deliberately does not give you is a provider wrapper. Model APIs are HTTP endpoints that change every few months, and a thin abstraction over them ages badly while adding a dependency to a project with [zero runtime dependencies](./why-zmdb.html). Call the API with `fetch`.
+What it deliberately does not give you is one provider abstraction pretending
+every model API is the same. The loop depends on a one-method `ChatDriver`; one
+Anthropic adapter ships as an optional peer integration. For another provider,
+implement that method or call its API with `fetch`.
 
 ## The strategy that follows from that
 
@@ -63,7 +70,11 @@ export interface Message extends Table<'messages'> {
 
 ## What a framework would have to justify
 
-Retries with backoff, streaming, tool-call loops, token accounting and provider fallback are all real needs — and all of them are twenty to fifty lines that depend heavily on which provider you use and what your failure policy is. A framework that guesses those for you is a framework you fight. If something lands here, it would be the pieces that are genuinely derived from your declarations, which is what the two existing functions already are.
+Retries with backoff, streaming, token accounting and provider fallback are all
+real needs, and all depend heavily on which provider you use and what your
+failure policy is. The shipped loop owns only the provider-independent safety
+properties: validation before dispatch, approval for effectful tools, bounded
+turns, bounded calls per turn and a reasoned stop result.
 
 ---
 

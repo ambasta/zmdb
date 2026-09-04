@@ -45,3 +45,4 @@ export function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) =>
 
 // re-exported for impl reuse
 export { toJsonSchema };
+export * from './chat/index.js';

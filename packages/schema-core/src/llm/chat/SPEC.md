@@ -1,8 +1,9 @@
 # SPEC — the chat loop, the tool registry, and its bounds (frozen)
 
-Part of `@zmdb/schema-core`, exported from the existing `./llm` subpath. A driver-shaped chat loop over a
-registry of tools, with every bound and every approval point in the type. `../SPEC.md` freezes the tool
-document; `../adapters/SPEC.md` freezes the framework framings; this freezes the loop that calls them.
+Part of `@zmdb/schema-core`, exported from the existing `./llm` subpath and the direct `./llm/chat` subpath. A
+driver-shaped chat loop over a registry of tools, with every bound and every approval point in the type.
+`../SPEC.md` freezes the tool document; `../adapters/SPEC.md` freezes the framework framings; this freezes the
+loop that calls them.
 
 The reason this file is written before any code: an unbounded loop over effectful tools is the one failure in
 this epic whose consequence is not a wrong answer but a changed database. Every decision below is made in the
@@ -95,6 +96,33 @@ derivable from a declaration:
 `ToolSpec` — not a provider framing — is what the loop hands the driver, and the driver reframes for its
 provider (`../SPEC.md` §5). A driver knows which provider it is; the loop does not.
 
+### 2.1 The optional Anthropic driver
+
+One concrete driver ships from `@zmdb/schema-core/llm/chat`:
+
+```ts
+export interface AnthropicMessagesClient {
+  readonly messages: {
+    create(params: Anthropic.MessageCreateParamsNonStreaming): PromiseLike<Anthropic.Message>;
+  };
+}
+
+export declare function anthropicDriver(opts: {
+  readonly client: AnthropicMessagesClient;
+  readonly model: string;
+  readonly maxOutputTokens: number;
+}): ChatDriver;
+```
+
+`@anthropic-ai/sdk` is an optional peer and a type-only import in shipped code. The caller constructs and
+injects the client; importing the chat module does not read an environment variable, instantiate an SDK
+client or start network I/O.
+
+The adapter translates system, user, assistant and tool-result messages, translates `ToolSpec` into the
+SDK's tool input schema, and translates text and tool-use response blocks back. Anthropic
+`thinking`/`redacted_thinking` blocks use §1.1's passthrough route. Any other passthrough kind is refused
+before the SDK call rather than silently dropped.
+
 ## 3. The registry, and effectful-by-default
 
 ```ts
@@ -105,13 +133,27 @@ export interface ToolEntry<T> {
   readonly effectful?: boolean; // omitted means effectful — see below
 }
 
-export type ToolRegistry = Readonly<Record<string, ToolEntry<never>>>;
-export declare function defineTools<R extends Readonly<Record<string, ToolEntry<never>>>>(tools: R): R;
+export type ToolRegistry = Readonly<Record<string, ToolEntry<unknown>>>;
+export declare function defineTools<
+  const I extends Readonly<Record<string, unknown>>,
+  const R extends {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+>(
+  tools: R & {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+): R;
 ```
 
 `validate` is the caller's, required, for the reason `../adapters/SPEC.md` §2 gives at length: `assert<T>` is
 inlined where the checker can resolve `T`, and inside a published generic there is no `T` to resolve. So the
 registry entry carries `v => assert<CreateDTO<User>>(v)` and `handler` is typed from its return.
+
+The registry's erased form is `ToolEntry<unknown>`, not the frozen draft's `ToolEntry<never>`. The latter
+cannot contain a validator that returns a real value. `defineTools` links each key back to its own validator
+return, so a handler for `ReadUser` beside a validator for `CreateUser` is a compile error while the returned
+object keeps its literal keys and exact entry types.
 
 **`effectful` is omitted-means-true, which is the opposite of how an optional boolean usually reads.** A
 reader who writes four tools and thinks about the flag for none of them gets four tools that require approval,
@@ -131,10 +173,17 @@ export interface RunOptions {
 export type RunOptionsFor<R extends ToolRegistry> =
   HasEffectful<R> extends true ? RunOptions & { readonly approve: (call: ToolCall) => Promise<boolean> } : RunOptions;
 
-export declare function run<R extends ToolRegistry>(
+export declare function run<
+  const I extends Readonly<Record<string, unknown>>,
+  R extends {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
+>(
   driver: ChatDriver,
   messages: readonly ChatMessage[],
-  tools: R,
+  tools: R & {
+    readonly [K in keyof I]: ToolEntry<I[K]>;
+  },
   opts: RunOptionsFor<R>,
 ): Promise<RunResult>;
 ```
@@ -142,7 +191,7 @@ export declare function run<R extends ToolRegistry>(
 Step 3 of the issue asks for a type error if one is achievable. It is: `HasEffectful<R>` is
 `{ [K in keyof R]: R[K] extends { readonly effectful: false } ? never : K }[keyof R] extends never ? false : true`,
 and it **degrades in the safe direction** — which is the property worth checking rather than the cleverness.
-A registry built dynamically, or passed through `Record<string, ToolEntry<never>>`, has `effectful` widened to
+A registry built dynamically, or passed through `Record<string, ToolEntry<unknown>>`, has `effectful` widened to
 `boolean | undefined`, so no entry matches `{ effectful: false }`, so `approve` is required. Losing type
 information can only make the requirement stricter, never looser.
 
@@ -223,21 +272,29 @@ and on a device — so the errors are returned rather than reported, and a calle
 `RunResult.errors` has decided to. A `console.error` here would be a library writing to a stream it does not
 own.
 
-## 7. What #532 has to assert
+The redaction applies to the generated tool-error message. The caller-owned transcript is preserved: if the
+incoming assistant message contained the offending value in `toolCalls[].args`, that original message remains
+in `RunResult.messages`. The loop does not mutate or selectively rewrite conversation history; the caller
+chooses whether and where to retain it.
+
+## 7. What the suite asserts
 
 1. `stop` is `complete`, `max-turns` and `max-tool-calls` for three drivers that each end the loop a
    different way, and `turns`/`toolCalls`/`budget` agree with the caps in every case.
 2. A registry with a default-`effectful` entry and no `approve` throws before the driver is called once — the
    driver is a spy and its call count is zero.
-3. The type-level requirement, in a `*.type-test.ts`: `run` with an effectful registry and no `approve` is an
-   error; with `effectful: false` throughout it is not; with a `Record<string, ToolEntry<never>>` it is an
-   error again, which is the safe-degradation claim in §4.
+3. The type-level requirement, in a `*.type-test.ts`: a missing validator and a validator/handler mismatch are
+   errors; `run` with an effectful registry and no `approve` is an error; with `effectful: false` throughout it
+   is not; with an erased `ToolRegistry` it is an error again, which is the safe-degradation claim in §4.
 4. A throwing tool produces `isError: true`, content matching `tool <name> failed (<8 hex>)` and one
    `RunResult.errors` entry carrying the original error object by identity.
 5. A validation failure produces a message containing the path and **not** containing the offending value, for
    a value chosen to be recognisable if it leaked.
 6. A `provider` block on an assistant message is passed to the next `next()` call by identity, unmodified.
 7. A declined call appears in `declined`, produces an `isError` tool message, and does not stop the loop.
+8. The Anthropic adapter is checked against the installed SDK's request and response types without network
+   I/O, carries supported reasoning blocks by identity, and refuses an unknown passthrough block before
+   calling the SDK.
 
 ## 8. Non-goals (rejected)
 

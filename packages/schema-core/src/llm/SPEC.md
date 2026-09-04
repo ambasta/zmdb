@@ -264,9 +264,9 @@ Owned by the docs slice; both adapter pages and the strategy page stay `todo` un
    signature of JSON-Schema nodes, so that line did not compile. The page now shows the one cast and says why
    it is unavoidable by hand; the adapter is where that cast moves to (`adapters/SPEC.md` §4). The same pass
    fixed two more v4 names on that page, `toDataStreamResponse` and `usage.completionTokens`.
-3. `llm-strategy.md`'s "no provider wrapper, call the API with `fetch`" is still the position and does not
-   change — `toolFor` emits a document, it does not make a request. The page should say that explicitly, since
-   a per-provider tool spec looks like the first half of a provider abstraction and is not.
+3. `toolFor` emits a document; it does not make a request. `llm-strategy.md` now distinguishes that from the
+   optional Anthropic `ChatDriver`: one thin injected adapter exists, while there is still no unified provider
+   wrapper. Other providers can implement the one-method driver or call their API with `fetch`.
 4. Both adapter pages open with "no tool adapter" in the ToDo banner. When #526 lands, that clause is false
    and the remaining gaps are the retriever, the memory backend and the `useChat` store — which are what the
    banners should then say, rather than being deleted. A banner that overstates the gap sends a reader off to

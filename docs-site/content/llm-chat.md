@@ -1,6 +1,74 @@
-> **ToDo / feature gap.** There is no chat abstraction — no message history type,
-> no conversation manager, no streaming helper. What follows is built from a schema
-> declaration, the repository and `@zmdb/web`, all of which exist.
+> **Supported core, application-owned storage.** `@zmdb/schema-core/llm/chat`
+> provides typed chat messages, a validator-linked tool registry, a bounded loop
+> with effect approval, and an optional Anthropic SDK driver. It does not persist
+> conversations or stream tokens; those remain application concerns below.
+
+## Running a bounded tool loop
+
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+import { assert } from '@zmdb/aot-validator/utilities';
+import { anthropicDriver, defineTools, run } from '@zmdb/schema-core/llm/chat';
+
+interface SearchArgs {
+  q: string;
+}
+
+interface DeleteArgs {
+  userId: string;
+}
+
+const tools = defineTools({
+  search_docs: {
+    spec: {
+      name: 'search_docs',
+      description: 'Search the product documentation',
+      parameters: {
+        type: 'object',
+        properties: { q: { type: 'string' } },
+        required: ['q'],
+      },
+    },
+    validate: (input: unknown) => assert<SearchArgs>(input),
+    handler: ({ q }) => searchDocs(q),
+    effectful: false,
+  },
+  delete_user: {
+    spec: {
+      name: 'delete_user',
+      parameters: {
+        type: 'object',
+        properties: { userId: { type: 'string' } },
+        required: ['userId'],
+      },
+    },
+    validate: (input: unknown) => assert<DeleteArgs>(input),
+    handler: ({ userId }) => users.delete(userId),
+    // Omitted means effectful, so run() requires approve.
+  },
+});
+
+const driver = anthropicDriver({
+  client: new Anthropic({ apiKey: requireEnv('ANTHROPIC_API_KEY') }),
+  model: requireEnv('ANTHROPIC_MODEL'),
+  maxOutputTokens: 1024,
+});
+
+const result = await run(driver, [{ role: 'user', content: 'Find the retention policy.' }], tools, {
+  maxTurns: 4,
+  approve: async call => call.name !== 'delete_user',
+});
+```
+
+`maxTurns` is required. `maxToolCallsPerTurn` defaults to 8, and
+`result.budget` reports their product. A turn above the tool-call cap is not
+partially executed. Invalid arguments and unknown tools become error tool
+messages so the model can correct its request; handler failures are sanitised in
+the transcript while the untouched error is returned in `result.errors`.
+
+`run` holds no module state. Pass the returned message list into a later call if
+you want to continue the conversation, or persist it using the tables below.
+Implement the one-method `ChatDriver` interface for another provider.
 
 ## The tables
 
@@ -131,9 +199,12 @@ Storing `tokens` on the row is what makes this exact rather than a guess — and
 
 See [Streaming Files](./web-streaming-files.html) for the shared blocker.
 
-## What a helper would provide
+## What remains application-owned
 
-A `Conversation` type, token-aware truncation, a tool-call loop, and streaming. All of them depend on which provider you use and what your truncation policy is — which is why the pieces that _are_ derived from your schema ([`toolFromSchema`](./llm-structured-output.html)) shipped and this did not.
+Conversation persistence, token-aware truncation, summarisation and streaming
+still depend on your storage and provider policy. The bounded tool-call loop is
+the reusable part that now ships; it deliberately does not choose a retry
+policy, a token-accounting format or a conversation table for you.
 
 ---
 
