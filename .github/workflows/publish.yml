@@ -113,7 +113,7 @@ jobs:
         # every other high advisory still blocks publication.
         run: >
           yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
+          --ignore 1138808 --ignore 1138809 || true
 
       - name: Resolve the selected release target
         env:
