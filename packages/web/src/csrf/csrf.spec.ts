@@ -523,10 +523,17 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
-    const toB64Url = (arr: Uint8Array) =>
-      typeof (arr as unknown as { toBase64?: unknown }).toBase64 === 'function'
-        ? (arr as unknown as { toBase64: (opts: unknown) => string }).toBase64({ alphabet: 'base64url', omitPadding: true })
-        : Buffer.from(arr).toString('base64url');
+    const toB64Url = (arr: Uint8Array) => {
+      const u = arr as unknown as { toBase64?: (opts: unknown) => string };
+      if (typeof u.toBase64 === 'function') {
+        return u.toBase64({ alphabet: 'base64url', omitPadding: true });
+      }
+      let binary = '';
+      for (let i = 0; i < arr.length; i++) {
+        binary += String.fromCharCode(arr[i]!);
+      }
+      return globalThis.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
     const encoded = toB64Url(mac);
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
