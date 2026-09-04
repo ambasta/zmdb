@@ -87,13 +87,12 @@ export interface SecurityHeadersOptions {
 }
 
 /** Router initialization configuration options. */
-export type RouterOptions = Observability & {
+export interface RouterOptions extends Observability {
   readonly guardRegistry?: GuardRegistry;
   readonly cors?: CorsOptions | boolean;
   readonly security?: SecurityHeadersOptions | boolean;
   readonly versioning?: VersionStrategy;
-  readonly [key: string]: unknown;
-};
+}
 
 /** Per-handler pipeline, guard and OpenAPI options. */
 export interface RouteOptions {
@@ -626,7 +625,6 @@ function jsonResponse(
 ): WebResponse {
   return { status, body: textBody(JSON.stringify(value) ?? ''), headers };
 }
-}
 
 function textBody(value: string): ResponseBody {
   return value.length === 0 ? EMPTY_TEXT : { kind: 'text', value };
@@ -747,6 +745,10 @@ function resolveCorsHeaders(
   return headers;
 }
 
+function isResponseBody(val: unknown): val is ResponseBody {
+  return typeof val === 'object' && val !== null && 'kind' in val;
+}
+
 function isWebResponse(
   val: unknown,
 ): val is { status: number; body: unknown; headers: Readonly<Record<string, string>> } {
@@ -754,11 +756,11 @@ function isWebResponse(
     typeof val === 'object' &&
     val !== null &&
     'status' in val &&
-    typeof (val as { status: unknown }).status === 'number' &&
+    typeof val.status === 'number' &&
     'body' in val &&
     'headers' in val &&
-    typeof (val as { headers: unknown }).headers === 'object' &&
-    (val as { headers: unknown }).headers !== null
+    typeof val.headers === 'object' &&
+    val.headers !== null
   );
 }
 
@@ -795,7 +797,7 @@ function buildResponse(
     }
   }
 
-  const responseBody = typeof body === 'string' ? body : isJson ? (JSON.stringify(body) ?? '') : String(body ?? '');
+  const responseBody = isJson ? (JSON.stringify(body) ?? '') : typeof body === 'string' ? body : String(body ?? '');
 
   return {
     status,
@@ -1641,7 +1643,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         try {
           const result = await bound.handler(ctx);
           if (isTaggedResponse(result) || isWebResponse(result)) {
-            const body: ResponseBody = typeof result.body === 'string' ? textBody(result.body) : (result.body as ResponseBody);
+            const body: ResponseBody =
+              typeof result.body === 'string'
+                ? textBody(result.body)
+                : isResponseBody(result.body)
+                  ? result.body
+                  : textBody('');
             if (!routerOptions?.security && !routerOptions?.cors) {
               return mediaVersionedResponse(
                 {

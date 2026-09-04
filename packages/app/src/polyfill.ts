@@ -81,3 +81,27 @@ if (!('toBase64' in proto)) {
     configurable: true,
   });
 }
+
+function decodeBase64(str: string, _alphabet: 'base64' | 'base64url'): Uint8Array {
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4 !== 0) {
+    base64 += '=';
+  }
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+if (!('fromBase64' in Uint8Array)) {
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (string: string, options?: { alphabet?: 'base64' | 'base64url' }) {
+      return decodeBase64(string, options?.alphabet ?? 'base64');
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}
