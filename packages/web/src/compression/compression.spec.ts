@@ -698,7 +698,7 @@ describe('the platform under these tests', () => {
   // fail today for a reason that has nothing to do with compression.
   it('really cannot construct a brotli or zstd CompressionStream', () => {
     expect(() => new CompressionStream('br' as CompressionFormat)).toThrow(
-      /Failed to construct 'CompressionStream': 1st argument 'br' is not a valid enum value of type CompressionFormat\./,
+      /Failed to construct 'CompressionStream': 1st argument (?:value )?'br' is not a valid enum value of type CompressionFormat\.?/,
     );
     expect(() => new CompressionStream('zstd' as CompressionFormat)).toThrow(TypeError);
     // And the three §3 says are available, which is where `ContentCoding`'s two values come from —
