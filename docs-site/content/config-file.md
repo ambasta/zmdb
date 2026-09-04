@@ -1,110 +1,163 @@
-> **ToDo / feature gap.** There is no configuration file and nothing that reads
-> one. No `zmdb.config.ts`, no `drizzle.config.ts` equivalent, no
-> `mikro-orm.config.ts`. Everything is a function argument.
+`zmdb.config.ts` is the build-tool and database-command configuration file. The
+loader is published from `zmdb/config`; it discovers one file, executes it with
+Node, validates its data fields, and returns absolute paths.
 
-## What zmdb takes instead of config
+It does not initialise an application. Repositories still receive an explicit
+driver, and importing `zmdb` does not read the filesystem.
 
-| Concern         | How it is supplied                                                       |
-| --------------- | ------------------------------------------------------------------------ |
-| dialect         | `createQueryCompiler('postgres')`, `defineRepository(s, d, { dialect })` |
-| connection      | a `Driver` you construct and pass                                        |
-| schema location | you `import` it                                                          |
-| relations       | `defineRepository(s, d, { relations })`                                  |
-| migrations      | an array you build and pass to `runCli`                                  |
-
-There is no discovery step and no ambient configuration, which has a real upside: a repository cannot be constructed against the wrong database because a config file was resolved from the wrong directory. It also means there is nothing for the database commands to read — the config loader is their prerequisite, not a prerequisite for the existing `modules` and `repl` commands.
-
-## Doing it yourself, in TypeScript
-
-A config module is the useful pattern even without tooling that consumes it, because it puts the environment reading in one place:
+## A minimal config
 
 ```ts
-// src/config.ts
-import { Pool } from 'pg';
-import type { Driver, Dialect } from '@zmdb/query-compiler';
+// zmdb.config.ts
+import { defineConfig } from 'zmdb/config';
 
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (v === undefined) throw new Error(`missing env ${name}`);
-  return v;
-};
-
-export const dialect: Dialect = 'postgres';
-
-export const pool = new Pool({
-  connectionString: required('DATABASE_URL'),
-  max: Number(process.env.DB_POOL_MAX ?? 10),
-  statement_timeout: 5_000,
+export default defineConfig({
+  schema: ['src/**/*.schema.ts'],
+  dialect: 'postgres',
 });
+```
 
-export const driver: Driver = {
-  async execute(q) {
-    const res = await pool.query(q.text, [...q.parameters]);
-    return res.rows;
+`defineConfig` is an identity function for type inference and completion.
+Validation happens in `loadConfig`, including for a module that exports a plain
+object without calling `defineConfig`.
+
+```ts
+import { loadConfig } from 'zmdb/config';
+
+const config = await loadConfig();
+
+config.configPath; // absolute selected config file
+config.project; // absolute tsconfig path
+config.schemaFiles; // absolute files, expanded eagerly
+config.outDir; // absolute migration output directory
+```
+
+The schema-oriented `generate`, `migrate`, `push`, `check`, `up`, `export`, and
+`pull` commands are still planned. The loader is their shared prerequisite and
+is usable as a library now.
+
+## Fields
+
+| Field               | Type                                  | Default            | Resolution                            |
+| ------------------- | ------------------------------------- | ------------------ | ------------------------------------- |
+| `schema`            | `string \| readonly string[]`         | required           | globs relative to the config file     |
+| `dialect`           | `'postgres' \| 'mysql' \| 'sqlite'`   | required           | —                                     |
+| `project`           | `string`                              | `./tsconfig.json`  | relative to the config file           |
+| `out`               | `string`                              | `./migrations`     | relative to the config file           |
+| `naming`            | `'snake_case' \| 'snake_case_plural'` | absent             | —                                     |
+| `namingStrategy`    | `NamingStrategy`                      | absent             | callable boundary, checked separately |
+| `driver`            | `() => Driver \| Promise<Driver>`     | absent             | callable boundary, checked separately |
+| `migrations.table`  | `string`                              | `_zmdb_migrations` | —                                     |
+| `migrations.schema` | `string`                              | dialect default    | PostgreSQL only                       |
+| `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
+
+Every glob must match at least one file, and every matched file must belong to
+the configured TypeScript project. A match outside the project is an error
+rather than a silently omitted table.
+
+```ts
+export default defineConfig({
+  schema: ['src/accounts.schema.ts', 'src/billing/**/*.schema.ts'],
+  dialect: 'postgres',
+  project: './tsconfig.build.json',
+  out: './database/migrations',
+  migrations: {
+    table: '_app_migrations',
+    schema: 'app',
   },
-};
-```
-
-Validate the whole environment once, at startup, rather than reading `process.env` where it is needed:
-
-```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-
-interface Env {
-  DATABASE_URL: string;
-  PORT: number;
-  LOG_LEVEL: 'debug' | 'info' | 'warn';
-}
-
-export const env = assert<Env>({
-  DATABASE_URL: process.env.DATABASE_URL,
-  PORT: Number(process.env.PORT ?? 3000),
-  LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
+  introspect: {
+    schemas: ['public', 'app'],
+    exclude: ['audit_*'],
+  },
 });
 ```
 
-A missing or misspelled variable fails at boot with the field name, instead of at 3am as `undefined` in a connection string. That is the single highest-value use of the validator in an application.
+`migrations.schema` is refused for MySQL and SQLite. It is not ignored.
 
-> [!NOTE]
-> `Number(undefined)` is `NaN`, not a failure — `NaN` is a `number`, so it passes
-> a `number` check. Default before coercing, as above, or type the field as a
-> string and parse it after.
+## Discovery
 
-## Per-environment values
-
-Plain code, no cascade to reason about:
+An explicit path wins:
 
 ```ts
-export const config = {
-  development: { poolMax: 2, logQueries: true },
-  production: { poolMax: 20, logQueries: false },
-}[process.env.NODE_ENV === 'production' ? 'production' : 'development'];
+await loadConfig({ cwd: '/workspace/orders', path: './config/database.ts' });
 ```
 
-## Wiring it through DI
+Without `path`, discovery checks this order in the starting directory and then
+walks upward:
 
-If you are using `@zmdb/web`, the driver belongs in the container so tests can substitute it:
+1. `zmdb.config.ts`
+2. `zmdb.config.mjs`
+3. `zmdb.config.js`
+
+The walk stops at the first directory containing `package.json`. A command run
+inside one monorepo package therefore cannot silently select a config above that
+package boundary. There is no cascade or merge: the first selected file is the
+whole configuration.
+
+`path` resolves against `cwd`. Paths written inside the selected module resolve
+against that module's directory, so running the same command from a nested
+directory does not change its schema, project, or migration output.
+
+## Loading TypeScript
+
+The loader uses Node 26's native type stripping:
 
 ```ts
-export const DRIVER = createToken<Driver>('DRIVER');
-
-@Module({
-  providers: [{ token: DRIVER, useValue: driver }],
-  controllers: [UsersController],
-})
-export class AppModule {}
+await import(pathToFileURL(configPath));
 ```
 
-`createTestApp(AppModule, { overrides: [{ token: DRIVER, useValue: fakeDriver }] })` then swaps it for a test. See [Testing](./testing.html).
+That keeps a second bundler out of config loading, with three deliberate limits:
 
-## What a config file would need to decide
+- tsconfig `paths` aliases are not resolved by Node;
+- `./module.js` is not remapped to a source file named `module.ts`;
+- non-erasable TypeScript syntax such as `enum`, `namespace`, and parameter
+  properties is not transformed.
 
-Two things, and they are the reason this is not just a JSON reader:
+If a project needs custom resolution, use a Node loader hook through
+`NODE_OPTIONS=--import ...`. A failed import reports the absolute config path,
+the original error and its cause; missing-module errors also explain the
+`.js`-specifier case.
 
-1. **How schemas are located.** A glob (`src/**/*.schema.ts`) means the CLI has to load TypeScript, which means a loader, which means a build-tool dependency in a project with [zero runtime dependencies](./why-zmdb.html). An explicit `schemas: () => import('./src/schema.js')` avoids that and keeps the import in your code.
-2. **Whether the application reads it too.** If the config file is CLI-only, there are two sources of connection truth. If the application reads it, zmdb acquires an initialisation step — the thing its architecture currently does without.
+## Validation
 
-The likely shape is a TypeScript module the CLI imports and the application may import, exporting a typed object, with no discovery and no defaults resolved from the filesystem.
+Plain data is checked by a generated `@zmdb/aot-validator` validator. Errors
+name the field, including nested paths such as `introspect.include`.
+
+Functions cannot be validated as data. The loader therefore separates the two
+callable fields and checks their boundary explicitly:
+
+- `driver` must be a function;
+- each present `namingStrategy.column`, `.table`, and `.index` member must be a
+  function.
+
+```ts
+export default defineConfig({
+  schema: 'src/**/*.schema.ts',
+  dialect: 'postgres',
+  driver: () => import('./src/database.ts').then(module => module.driver),
+  namingStrategy: {
+    table: declared => declared.toLowerCase(),
+    column: (property, { table }) => `${table}_${property}`.toLowerCase(),
+  },
+});
+```
+
+The driver is a thunk so the CLI can avoid opening a database for commands that
+only inspect declarations.
+
+## Process-local cache
+
+`loadConfig` caches by absolute config path for the lifetime of the process.
+Repeated callers share one module evaluation and one resolved result. Two
+packages with two config paths receive separate entries; there is no
+cross-package ambient config.
+
+## Application configuration remains explicit
+
+The application does not automatically read this file. Construct the driver
+you want and pass it to repositories or the DI container. The config thunk can
+delegate to that same application module, keeping one source of connection
+truth without introducing an implicit initialisation step.
 
 ---
 

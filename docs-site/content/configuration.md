@@ -1,4 +1,10 @@
-There is no configuration file and no initialisation step. Everything zmdb needs is a function argument, which means a wrong configuration is usually a compile error rather than a runtime surprise.
+Application configuration has no implicit initialisation step. Everything the
+runtime needs is still a function argument, which means a wrong repository or
+web configuration is usually a compile error rather than a filesystem surprise.
+
+Build tools and the planned schema-command CLI have a separate
+[`zmdb.config.ts`](./config-file.html) loader. Applications do not read it
+automatically.
 
 ## What each layer takes
 
@@ -10,7 +16,10 @@ createApp(rootModule)
 toOpenApi(controllers, { info?, schemas? })
 ```
 
-That is the complete surface. No `zmdb.config.ts`, no discovery, no `reflect-metadata`, no boot-time metadata scan. See [Config File](./config-file.html) for why, and what a CLI would need.
+That is the complete runtime surface. There is no `reflect-metadata`, boot-time
+metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling
+boundary for schema files, dialect and migration paths; it does not change how
+an application constructs a driver or repository.
 
 The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`:
 

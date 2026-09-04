@@ -93,7 +93,10 @@ One snapshot, several SQL directories. The snapshot is dialect-independent.
 
 ## What a real command would add
 
-Config-driven [schema discovery](./config-file.html), a naming convention it enforces, a prompt before a destructive operation, and `--dry-run`. All ergonomics on top of the same three functions.
+The [config loader](./config-file.html) now supplies concrete schema files and
+resolved paths. The missing command still has to consume them, apply the naming
+configuration, add safe file naming and `--dry-run`, and wrap the same three
+library functions.
 
 ---
 

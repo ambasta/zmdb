@@ -1,18 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { codegen } from '@zmdb/aot-validator/codegen';
 import { afterEach, describe, expect, it } from 'vitest';
 
-// Tests freeze for #491. The public signature is not declared here: it belongs in
-// `config/SPEC.md`, whose missing `loadConfig`/`ResolvedConfig` declarations are corrected by
-// this draft. A computed import keeps this file collectable until #492 creates the real module.
-//
-// Current actual at 4c8fbfc552af38cafaa2a6d19d073bb898bac0ee for every
-// `it.fails` below:
-//   ERR_MODULE_NOT_FOUND: packages/zmdb/src/config/index.ts does not exist.
-// Each test then reaches a different frozen assertion once #492 supplies that module.
+// The five load-bearing titles frozen in #491 stay exact. #492 promotes them
+// from expected failures and adds the boundary cases the loader now owns.
 
 const ROOT = process.env.ZMDB_REPOSITORY_ROOT ?? process.cwd();
 const CONFIG_ENTRY = join(ROOT, 'packages', 'zmdb', 'src', 'config', 'index.ts');
@@ -69,7 +64,7 @@ async function configModule(): Promise<Record<string, unknown>> {
   return Object.fromEntries(Object.entries(Object(loaded)));
 }
 
-function exported(module: Readonly<Record<string, unknown>>, name: 'defineConfig' | 'loadConfig') {
+function exported(module: Readonly<Record<string, unknown>>, name: 'defineConfig' | 'loadConfig' | 'resolveConfig') {
   const value = module[name];
   if (typeof value !== 'function') throw new TypeError(`config module does not export ${name}()`);
   return value;
@@ -85,8 +80,7 @@ afterEach(() => {
 });
 
 describe('the zmdb config loader', () => {
-  // Current actual: ERR_MODULE_NOT_FOUND for the absent config implementation.
-  it.fails('loads a config file and resolves its paths against the config directory', async () => {
+  it('loads a config file and resolves its paths against the config directory', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
@@ -100,19 +94,19 @@ export default {
 
     expect(loaded.configPath).toBe(fixture.config);
     expect(loaded.schemaFiles).toEqual([fixture.schema]);
+    expect(loaded.project).toBe(join(fixture.root, 'tsconfig.json'));
+    expect(loaded.out).toBe(join(fixture.root, 'migrations'));
     expect(loaded.outDir).toBe(join(fixture.root, 'migrations'));
   });
 
-  // Current actual: ERR_MODULE_NOT_FOUND for the absent config implementation.
-  it.fails('reports a config that fails to load, including the underlying error', async () => {
+  it('reports a config that fails to load, including the underlying error', async () => {
     const fixture = project(`throw new Error('fixture config exploded');\n`);
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(
       new RegExp(`${fixture.config.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*fixture config exploded`, 's'),
     );
   });
 
-  // Current actual: ERR_MODULE_NOT_FOUND for the absent config implementation.
-  it.fails('rejects a config whose shape is wrong, naming the field', async () => {
+  it('rejects a config whose shape is wrong, naming the field', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
@@ -122,8 +116,7 @@ export default {
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/dialect.*(?:string|postgres|mysql|sqlite)/i);
   });
 
-  // Current actual: ERR_MODULE_NOT_FOUND for the absent config implementation.
-  it.fails('walks up to find a config file', async () => {
+  it('walks up to find a config file', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
@@ -136,8 +129,7 @@ export default {
     expect(loaded.configPath).toBe(fixture.config);
   });
 
-  // Current actual: ERR_MODULE_NOT_FOUND for the absent config implementation.
-  it.fails('honours --config', async () => {
+  it('honours --config', async () => {
     const discovered = project(`
 export default {
   schema: 'src/*.ts',
@@ -162,5 +154,276 @@ export default {
     });
     expect(loaded.configPath).toBe(explicit);
     expect(loaded.outDir).toBe(join(dirname(explicit), 'chosen'));
+  });
+
+  it('defineConfig is the identity function', async () => {
+    const value = { schema: 'src/*.ts', dialect: 'sqlite' };
+    const defineConfig = exported(await configModule(), 'defineConfig');
+    expect(defineConfig(value)).toBe(value);
+  });
+
+  it('keeps the generated config validator current', () => {
+    const result = codegen({
+      project: join(ROOT, 'packages', 'zmdb', 'tsconfig.codegen.json'),
+      check: true,
+    });
+    expect(result.problems).toEqual([]);
+    expect(result.written).toEqual([]);
+    expect(result.deleted).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('uses a named config export when there is no default export', async () => {
+    const fixture = project(`
+export const config = {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+};
+`);
+    expect((await loadConfig({ cwd: fixture.root })).configPath).toBe(fixture.config);
+  });
+
+  it('awaits an asynchronous config export', async () => {
+    const fixture = project(`
+export default Promise.resolve({
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+});
+`);
+    expect((await loadConfig({ cwd: fixture.root })).schemaFiles).toEqual([fixture.schema]);
+  });
+
+  it('rejects a module with no config export', async () => {
+    const fixture = project(`
+const config = {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+};
+void config;
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/exactly one.*no exports/i);
+  });
+
+  it('rejects a module with both supported config exports', async () => {
+    const fixture = project(`
+export const config = {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+};
+export default config;
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/exactly one.*config.*default/i);
+  });
+
+  it('prefers TypeScript over mjs and js in one directory', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  out: './typescript',
+};
+`);
+    write(
+      join(fixture.root, 'zmdb.config.mjs'),
+      `export default { schema: 'src/*.ts', dialect: 'sqlite', out: './mjs' };\n`,
+    );
+    write(
+      join(fixture.root, 'zmdb.config.js'),
+      `export default { schema: 'src/*.ts', dialect: 'sqlite', out: './js' };\n`,
+    );
+
+    expect((await loadConfig({ cwd: fixture.root })).outDir).toBe(join(fixture.root, 'typescript'));
+  });
+
+  it('stops discovery at the nearest package boundary', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+};
+`);
+    const child = join(fixture.root, 'packages', 'child');
+    const nested = join(child, 'src', 'nested');
+    write(join(child, 'package.json'), '{"private":true,"type":"module"}\n');
+    mkdirSync(nested, { recursive: true });
+
+    await expect(loadConfig({ cwd: nested })).rejects.toThrow(
+      new RegExp(`package boundary ${child.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    );
+  });
+
+  it('loads two different configs in one process without cross-talk', async () => {
+    const first = project(`
+export default { schema: 'src/*.ts', dialect: 'sqlite', out: './first' };
+`);
+    const second = project(`
+export default { schema: 'src/*.ts', dialect: 'sqlite', out: './second' };
+`);
+
+    const [a, b] = await Promise.all([loadConfig({ cwd: first.root }), loadConfig({ cwd: second.root })]);
+    expect(a.configPath).toBe(first.config);
+    expect(a.outDir).toBe(join(first.root, 'first'));
+    expect(b.configPath).toBe(second.config);
+    expect(b.outDir).toBe(join(second.root, 'second'));
+  });
+
+  it('caches one resolved config by its absolute path', async () => {
+    const fixture = project(`
+export default { schema: 'src/*.ts', dialect: 'sqlite' };
+`);
+    const marker = join(fixture.root, 'loads.txt');
+    write(
+      fixture.config,
+      `
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+const marker = ${JSON.stringify(marker)};
+const count = existsSync(marker) ? Number(readFileSync(marker, 'utf8')) : 0;
+writeFileSync(marker, String(count + 1));
+export default { schema: 'src/*.ts', dialect: 'sqlite' };
+`,
+    );
+
+    const first = await loadConfig({ cwd: fixture.root });
+    const second = await loadConfig({ cwd: fixture.root, path: './zmdb.config.ts' });
+    expect(second).toStrictEqual(first);
+    expect(readFileSync(marker, 'utf8')).toBe('1');
+  });
+
+  it('expands, deduplicates and sorts multiple schema globs', async () => {
+    const fixture = project(`
+export default {
+  schema: ['src/*.ts', 'src/schema.ts'],
+  dialect: 'sqlite',
+};
+`);
+    const other = join(fixture.root, 'src', 'another.ts');
+    write(other, 'export interface Another { readonly id: number; }\n');
+
+    expect((await loadConfig({ cwd: fixture.root })).schemaFiles).toEqual([other, fixture.schema].toSorted());
+  });
+
+  it('rejects a schema glob that matches no files', async () => {
+    const fixture = project(`
+export default {
+  schema: 'missing/**/*.ts',
+  dialect: 'sqlite',
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/schema glob.*matched no files/i);
+  });
+
+  it('rejects a matched schema file outside the configured TypeScript project', async () => {
+    const fixture = project(`
+export default {
+  schema: 'outside.ts',
+  dialect: 'sqlite',
+};
+`);
+    const outside = join(fixture.root, 'outside.ts');
+    write(outside, 'export interface Outside { readonly id: number; }\n');
+
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(
+      new RegExp(`${outside.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*not included`, 's'),
+    );
+  });
+
+  it('reports the config and project paths when the TypeScript project cannot load', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  project: './missing-tsconfig.json',
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(
+      new RegExp(
+        `${join(fixture.root, 'missing-tsconfig.json').replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*${fixture.config.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        's',
+      ),
+    );
+  });
+
+  it('preserves a callable driver and naming strategy', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  driver: () => ({ execute: async () => [] }),
+  namingStrategy: {
+    table: name => name.toUpperCase(),
+    column: name => name.toLowerCase(),
+    index: (table, columns) => [table, ...columns].join('_'),
+  },
+};
+`);
+    const loaded = await loadConfig({ cwd: fixture.root });
+    expect(typeof loaded.driver).toBe('function');
+    expect(typeof Object(loaded.namingStrategy).table).toBe('function');
+  });
+
+  it('rejects a non-callable driver', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  driver: 17,
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/driver.*function/i);
+  });
+
+  it('rejects a non-callable naming strategy member', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  namingStrategy: { table: 'snake' },
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/namingStrategy.*functions/i);
+  });
+
+  it('validates nested plain-data fields with their full path', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  introspect: { include: [17] },
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/introspect\.include.*string/i);
+  });
+
+  it('refuses migrations.schema outside PostgreSQL', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  migrations: { schema: 'app' },
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/migrations\.schema.*PostgreSQL.*sqlite/i);
+  });
+
+  it('resolveConfig applies the same validation and path rules to an imported object', async () => {
+    const fixture = project(`
+export default { schema: 'src/*.ts', dialect: 'sqlite' };
+`);
+    const resolveConfig = exported(await configModule(), 'resolveConfig');
+    const loaded = await resolveConfig(
+      { schema: 'src/*.ts', dialect: 'sqlite', out: './resolved-directly' },
+      fixture.config,
+    );
+    const resolved = Object.fromEntries(Object.entries(Object(loaded)));
+    expect(resolved.outDir).toBe(join(fixture.root, 'resolved-directly'));
+    expect(resolved.schemaFiles).toEqual([fixture.schema]);
+  });
+
+  it('adds the Node .js-to-.ts resolution hint without hiding the import error', async () => {
+    const fixture = project(`
+import './missing.js';
+export default { schema: 'src/*.ts', dialect: 'sqlite' };
+`);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/missing\.js.*does not remap.*\.js.*\.ts/s);
   });
 });

@@ -201,8 +201,9 @@ specific to this project:
   ts-patch, or none of those because they ran `zmdb-codegen`. A rule that reads `tsconfig.json` reports on
   a correctly configured project that configures it elsewhere — a false positive on working code, which
   §6 forbids outright.
-- **`zmdb.config.ts` does not exist yet.** No loader, no format, no epic finished. A rule cannot read a
-  file whose shape is not frozen.
+- **`zmdb.config.ts` does not record transform installation.** Its loader and shape now exist, but the
+  file names schema, dialect and tooling paths — not whether Vite, Rollup, webpack, ts-patch or
+  `zmdb-codegen` performs the AOT rewrite. Reading it still cannot prove this rule's condition.
 - **The heuristic reports on every project it cannot prove is configured**, which is all of them.
 
 The honest form of this check is not a lint rule. `schemaOf<T>()` already throws with a long explanatory

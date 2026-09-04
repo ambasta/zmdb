@@ -41,7 +41,8 @@
     "./drivers/pg": "./src/drivers-pg.ts",
     "./web": "./src/web.ts",
     "./unplugin": "./src/unplugin.ts",
-    "./cli": "./src/cli/index.ts"
+    "./cli": "./src/cli/index.ts",
+    "./config": "./src/config/index.ts"
   },
   "publishConfig": {
     "access": "public",

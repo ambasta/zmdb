@@ -87,7 +87,11 @@ await repo.list({ where: { age: { gte: 18 } }, orderBy: [{ column: 'email', dir:
 
 ## Config
 
-`MikroORM.init({ entities, dbName, driver })` becomes: construct a [driver](./custom-driver.html) and pass it to repositories. There is no init step, no discovery, and no `mikro-orm.config.ts`. See [Configuration](./configuration.html).
+`MikroORM.init({ entities, dbName, driver })` becomes: construct a
+[driver](./custom-driver.html) and pass it to repositories. There is no runtime
+init or entity discovery. `zmdb.config.ts` exists for build tools and database
+commands, not as an application bootstrap. See
+[Configuration](./configuration.html).
 
 ---
 

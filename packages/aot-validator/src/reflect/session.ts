@@ -220,6 +220,19 @@ export class ReflectSession implements Disposable {
   }
 }
 
+/**
+ * The concrete source-file set selected by a tsconfig.
+ *
+ * Config loading needs this narrower fact without retaining a compiler process:
+ * schema globs are allowed to select files only when the configured project
+ * includes them. Copy the names before closing because the program belongs to
+ * the session snapshot.
+ */
+export function projectSourceFileNames(project: string): readonly string[] {
+  using session = ReflectSession.open({ project });
+  return [...session.sourceFileNames()];
+}
+
 /** `try`/`finally` around a session, for callers that cannot use `using`. */
 export function withSession<T>(options: SessionOptions, fn: (session: ReflectSession) => T): T {
   const session = ReflectSession.open(options);

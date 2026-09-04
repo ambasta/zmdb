@@ -18,7 +18,7 @@ npm add zmdb@alpha
 
 ## Entry points
 
-`zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/web`, `zmdb/unplugin`, `zmdb/cli`
+`zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/web`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 
 ## Documentation
 

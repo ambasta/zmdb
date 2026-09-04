@@ -55,6 +55,8 @@ import type { Node } from 'typescript/unstable/ast';
 import { SignatureKind, SymbolFlags } from 'typescript/unstable/sync';
 import type { Checker, IntersectionType, Symbol as TsSymbol, Type, TypeReference } from 'typescript/unstable/sync';
 
+export { projectSourceFileNames } from './session.js';
+
 // ---------------------------------------------------------------------------
 // Diagnostics and limits
 // ---------------------------------------------------------------------------

@@ -827,8 +827,7 @@ export const PAGE_META = {
   'config-file': {
     title: 'Config File',
     group: 'CLI',
-    status: 'todo',
-    note: 'no zmdb.config.ts loader',
+    status: 'supported',
   },
   'cli-codegen': {
     title: 'zmdb-codegen',

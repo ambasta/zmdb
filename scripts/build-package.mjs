@@ -22,7 +22,7 @@
 // now, so `tsc` emits the right specifier into both halves and there is nothing
 // left to repair.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,5 +38,26 @@ if (res.status !== 0) {
   process.stderr.write(`\n${pkg.name}: tsc exited ${res.status}\n`);
   process.exit(res.status ?? 1);
 }
+
+// `zmdb-codegen` writes executable JavaScript beside a checked TypeScript witness.
+// TypeScript follows the sibling `.d.ts` while compiling but does not copy either
+// checked-in file to `outDir`, so a package source that imports its generated module
+// would otherwise build an import whose target is absent. Preserve those generated
+// pairs at the same relative path; ordinary authored JavaScript is still not copied.
+function copyGenerated(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const source = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      copyGenerated(source);
+      continue;
+    }
+    if (!entry.name.endsWith('.zmdb.generated.js') && !entry.name.endsWith('.zmdb.generated.d.ts')) continue;
+    const target = join(pkgDir, 'dist', source.slice(join(pkgDir, 'src').length + 1));
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(source, target);
+  }
+}
+
+copyGenerated(join(pkgDir, 'src'));
 
 process.stdout.write(`${pkg.name}: dist built\n`);

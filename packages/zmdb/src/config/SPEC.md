@@ -95,8 +95,8 @@ selected module resolves against `configPath`'s directory. The returned `schemaF
 `zmdb.config.js`, in the current directory, then in each parent — **stopping at the first directory that
 contains a `package.json`.**
 
-`docs-site/content/config-file.md` argues for no discovery at all, and its argument is the one that
-matters:
+The pre-implementation `config-file` gap page argued for no discovery at all,
+and its argument is the one that matters:
 
 > There is no discovery step and no ambient configuration, which has a real upside: a repository cannot be
 > constructed against the wrong database because a config file was resolved from the wrong directory.
@@ -212,8 +212,8 @@ export default defineConfig({
 });
 ```
 
-That is one source of connection truth with a four-line adapter, and it is the shape
-`config-file.md`'s own "Doing it yourself" section already recommends writing. `driver` stays optional:
+That is one source of connection truth with a four-line adapter, and it is the
+shape the config reference recommends. `driver` stays optional:
 `generate`, `check`, `upgrade` and `export` never open a connection, and requiring one would make a
 schema-only workflow need a database.
 

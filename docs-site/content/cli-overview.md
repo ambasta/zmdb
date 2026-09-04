@@ -96,12 +96,13 @@ That is `yarn db generate`, `yarn db check`, `yarn db up`. Roughly forty lines f
 
 Not capability — ergonomics and a few things a script cannot easily do well:
 
-- **Schema discovery.** The script above imports `../src/schema.js` and filters. A CLI would need a [config file](./config-file.html) to find them, which is the first thing to build.
+- **Schema discovery in the command.** The script above imports `../src/schema.js` and filters. The shared [config loader](./config-file.html) now resolves the project and concrete schema files; the database command still has to consume them.
 - **Migration file naming and ordering**, consistently, with the [team conventions](./migrations-teams.html) baked in.
 - **A confirmation prompt** before a destructive operation. `diff()` happily emits `DROP COLUMN`; a CLI should make you type the table name.
 - **Multi-dialect output** in one invocation.
 
-The config file is the prerequisite for the database command set, which is why it is the [next page](./config-file.html) and the first part of that set that would land.
+The config loader has landed. The remaining gap is the database command set
+that calls it and wraps the existing snapshot, diff, DDL, and migration APIs.
 
 ---
 

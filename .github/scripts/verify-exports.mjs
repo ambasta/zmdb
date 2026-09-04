@@ -118,6 +118,7 @@ const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./transformer',
   '@zmdb/aot-validator#./unplugin',
   'zmdb#./cli',
+  'zmdb#./config',
   'zmdb#./unplugin',
 ]);
 
