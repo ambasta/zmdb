@@ -1,7 +1,7 @@
 {
   "name": "@zmdb/schema-core",
   "version": "1.0.0-alpha.4",
-  "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, custom types, and a bounded LLM tool/chat harness — the single source of truth for a zmdb data layer.",
+  "description": "Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, custom types, and bounded chat/MCP tools — the single source of truth for a zmdb data layer.",
   "keywords": [
     "dto",
     "openapi",
@@ -39,7 +39,8 @@
     "./openapi": "./src/openapi/index.ts",
     "./custom-types": "./src/custom-types/index.ts",
     "./llm": "./src/llm/index.ts",
-    "./llm/chat": "./src/llm/chat/index.ts"
+    "./llm/chat": "./src/llm/chat/index.ts",
+    "./llm/mcp": "./src/llm/mcp/index.ts"
   },
   "publishConfig": {
     "access": "public",

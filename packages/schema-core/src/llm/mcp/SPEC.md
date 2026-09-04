@@ -1,222 +1,182 @@
-# SPEC — MCP, both directions (frozen)
+# SPEC — MCP tools in both directions
 
-Part of `@zmdb/schema-core`, exported from the existing `./llm` subpath. A server that answers JSON-RPC for a
-registry of tools, and a client that calls a remote server's. `../chat/SPEC.md` owns the registry; this owns
-the protocol.
+Part of `@zmdb/schema-core`, exported from `./llm` and `./llm/mcp`. The module exposes a
+validator-linked tool registry as a pure MCP server core and consumes a remote server through a
+bounded client. `../chat/SPEC.md` owns the registry; this file owns the protocol boundary.
 
-The payoff of sharing the registry is the reason both live here: a tool written once — spec, validator,
-handler, `effectful` flag — is callable by the loop and reachable over MCP without being declared twice, and a
-tool declared twice is a tool whose validator drifts.
+## 1. The protocol core is pure; applications own transports
 
-## 1. The protocol core is a pure function, and both transports are the app's
-
-`@zmdb/schema-core` has no `node:` import outside a `__testing__` helper, and that is load-bearing:
-`docs-site/content/connect-react-native.md` lists this package as running unchanged on device, and
-`migrations-web-mobile.md` lists it as running in a browser. A stdio transport needs `process.stdin`. So a
-stdio transport cannot live here, and neither can an HTTP server.
-
-Frozen: **the whole server is one pure async function.**
+`@zmdb/schema-core` runs in Node.js, browsers, and React Native, so it does not import
+`node:process`, open sockets, or mount controllers. Its whole server surface is:
 
 ```ts
 export interface McpServer {
-  handle(message: unknown, identity: unknown): Promise<unknown | undefined>;
+  handle(message: unknown, transport: unknown): Promise<unknown | undefined>;
 }
-export declare function createMcpServer(tools: ToolRegistry, opts: McpServerOptions): McpServer;
-```
 
-A JSON-RPC message in, a JSON-RPC message out, `undefined` for a notification (which by the protocol takes no
-response). No sockets, no streams, no framing, no `process`. Both transports then become what the docs pages
-already show: fifteen lines of newline-delimited JSON over stdin/stdout, or a `@Post('/')` controller in
-`@zmdb/web`. Neither is code this repository ships, and both are code it tests as fixtures.
-
-That also settles a question the issue leaves open: **nothing lands in `@zmdb/web` for MCP.** The HTTP
-transport is a controller the application writes, because it needs the application's authentication (§4), and
-a controller zmdb shipped would either be unauthenticated or would invent an auth model.
-
-## 2. One protocol version, echoed and negotiated
-
-```ts
-export const MCP_PROTOCOL_VERSION = '2025-06-18';
-```
-
-One constant, one supported revision, declared in one place, with the same discipline `../SPEC.md` §2.1 sets
-for provider keyword tables: it is somebody else's specification, so it is recorded as data with the date it
-was read, and #532 confirms it against the revision current when the code lands and edits this one line.
-
-`initialize` returns that string, the server's `capabilities` (`tools` only — §6) and its `serverInfo`. An
-`initialize` naming an unsupported version is answered with this version rather than an error, per the
-protocol's own negotiation rule, and the client then decides whether it can proceed. Every subsequent request
-is answered regardless of what the client claimed, because a server that tracks per-connection state is a
-server with sessions, and §4 explains why there are none.
-
-## 3. Protocol errors and tool errors are different channels
-
-This is the distinction implementations get wrong, and it matters more than it looks:
-
-| Situation                                 | Answer                        | Who sees it   |
-| ----------------------------------------- | ----------------------------- | ------------- |
-| unparseable JSON                          | `-32700`                      | the client    |
-| not a JSON-RPC message                    | `-32600`                      | the client    |
-| unknown method                            | `-32601`                      | the client    |
-| `tools/call` naming an unregistered tool  | `-32602`                      | the client    |
-| arguments that fail the entry's validator | a result with `isError: true` | **the model** |
-| a handler that throws                     | a result with `isError: true` | **the model** |
-
-A JSON-RPC error goes to the client program; an `isError` result goes into the conversation, where the model
-can read it and try again. Reporting a bad argument as `-32602` means the model is told nothing and the client
-sees a protocol violation for what is an ordinary mistake. Reporting an unknown _tool_ as `isError` is the
-opposite error: it tells the model to keep trying a tool that does not exist.
-
-The content of an `isError` result follows `../chat/SPEC.md` §6 exactly — validation paths without values, and
-`tool <name> failed (<errorId>)` for anything else — because a tool result crossing a network to a model
-someone else is running is the same exposure as one crossing a function call, only easier to forget.
-
-## 4. `tools/list` is the registry, and nothing else
-
-`tools/list` maps over the registry and emits `{ name, description, inputSchema }` per entry, where
-`inputSchema` is the entry's `spec.parameters` — the `json-schema` framing (`../SPEC.md` §5), which is what MCP
-wants and is why the two shapes were described as "close" in `llm-mcp.md`.
-
-**There is no other source.** No table enumeration, no route reflection, no wildcard, no
-`exposeAllRepositories`. The registry is a literal an author wrote, and `llm-mcp.md` already argues the case:
-a server that loops over your tables is a remote CRUD console with a language model at the keyboard. The
-absence of an enumerating helper is deliberate, and this section is where that is written down so that
-"convenient" does not later look like an oversight.
-
-`createMcpServer` requires an identity, and the requirement is in the type:
-
-```ts
 export interface McpServerOptions {
   readonly serverInfo: { readonly name: string; readonly version: string };
   readonly identify: (transport: unknown) => Promise<unknown>;
 }
+
+export declare function createMcpServer(tools: ToolRegistry, opts: McpServerOptions): McpServer;
 ```
 
-`identify` has no default. A local stdio server returns a constant — it is already running as the user — and
-that is a one-line function the author writes, which is exactly the point: there is no path to a mounted
-server where nobody decided who the caller is. The resolved identity is passed to `handle` and reaches the
-handler, so a tool scopes its queries by it the way `entity-filters.md` scopes a tenant. The model's arguments
-never carry identity; if a handler reads a user id out of `args`, it has been told who to act for by the thing
-being authorised, which is the failure `llm-mcp.md` calls "authorise the caller, not the request".
+A JSON-RPC message goes in, a JSON-RPC answer comes out, and a notification returns `undefined`.
+The application supplies newline framing for stdio or an HTTP controller. Both adapters are
+fixture-tested against the same core.
 
-For the HTTP transport specifically, three requirements, all of them the app's to satisfy and all of them
-stated because a reader will otherwise ship without them:
+`identify` has no default and runs inside `handle` before parsing or dispatch. A stdio adapter can
+resolve a constant local identity; an HTTP adapter resolves credentials from headers. Either way,
+there is no callable server path where nobody decided who the caller is.
 
-1. **Authentication before dispatch.** The controller resolves an identity from the transport, not from the
-   body. An MCP endpoint with no auth is an unauthenticated remote procedure call over your database.
-2. **`Origin` validation.** A browser can be made to POST to `http://localhost:<port>/mcp` by any page the
-   user visits; checking `Origin` is the protocol's own DNS-rebinding requirement and costs one comparison.
-3. **Bind to loopback for a local server.** A dev server on `0.0.0.0` is on the coffee shop's network.
+## 2. Current stateless protocol revision
 
-## 5. What the HTTP transport cannot do, and why the freeze says so
+```ts
+export const MCP_PROTOCOL_VERSION = '2026-07-28';
+```
 
-`WebResponse.body` is a `string` (`packages/web/src/pipeline/index.ts:31`), and `Ctx`
-(`packages/web/src/context/index.ts:24`) carries `params`, `body`, `query`, `headers`, `method` and `path` —
-**no `AbortSignal`**. Two consequences, both named rather than discovered:
+This value was checked against the published MCP specification on 2026-09-04. This revision is
+stateless: there is no `initialize` handshake. Every request carries these entries under
+`params._meta`:
 
-- **Request/response only.** A `POST` returning `application/json` is a conforming Streamable HTTP server for
-  everything in §3, because the protocol permits a single JSON response instead of an event stream. What is
-  therefore unsupported: the `GET` stream, server-initiated notifications, progress updates, and any
-  server→client request (`sampling/*`, `roots/*`, `elicitation/*`). The server advertises no capability that
-  requires them, so a client will not ask.
-- **No cancellation.** `notifications/cancelled` is accepted and ignored — a notification takes no response, so
-  ignoring it is protocol-legal — and the handler runs to completion. Doing better needs a signal on `Ctx`
-  that does not exist; when the transports epic adds one, this section is the precondition to revisit.
+- `io.modelcontextprotocol/protocolVersion`
+- `io.modelcontextprotocol/clientCapabilities`
+- optionally `io.modelcontextprotocol/clientInfo`
 
-`sseStream` in `@zmdb/web/gateways` produces a `ReadableStream<Uint8Array>` and is the eventual route to the
-`GET` stream, but it does not compose with a controller returning a `WebResponse` — which is the shared
-streaming blocker `llm-chat.md` and `web-streaming-files.md` both already point at. Claiming stream support
-before that resolves would be claiming a capability that fails on the first notification.
+Missing required metadata is `-32602`. An unsupported version is `-32022` with
+`data: { supported: [MCP_PROTOCOL_VERSION], requested }`. The server implements
+`server/discover`, returning `resultType: 'complete'`, its supported version, `{ tools: {} }`, and
+`io.modelcontextprotocol/serverInfo`.
 
-## 6. Tools only: no resources, no prompts
+Every successful response carries `resultType: 'complete'`. No connection state is used to remember
+a previous request's version, identity, or capabilities.
 
-`llm-mcp.md` maps resources onto rows and resource schemas onto `toJsonSchema(schema, 'entity')`, and the
-mapping is genuinely mechanical. It is still refused for this epic, and for a reason worth stating rather than
-hiding behind scope: a resource is addressed by a URI the server invents, so shipping resources means shipping
-a URI scheme (`zmdb://users/42`?), a listing model, subscriptions to changes, and a decision about what a
-client may enumerate. The subscription half needs §5's stream. A URI scheme frozen now, without the
-subscription that gives it meaning, is a shape we would be stuck with.
+## 3. Protocol errors and tool errors are separate channels
 
-Prompts are refused outright: a prompt template is not derived from a declaration, and this package's rule is
-that what it publishes comes from the reader's types.
+| Situation                                | Answer                      |
+| ---------------------------------------- | --------------------------- |
+| unparseable JSON                         | `-32700`                    |
+| not a JSON-RPC request                   | `-32600`                    |
+| unknown method                           | `-32601`                    |
+| malformed call or unknown tool           | `-32602`                    |
+| unsupported protocol revision            | `-32022`                    |
+| arguments rejected by the tool validator | result with `isError: true` |
+| a handler throws                         | result with `isError: true` |
 
-So `initialize` advertises `{ tools: {} }`, `resources/list` and `prompts/list` answer `-32601`, and the epic
-does not claim MCP support beyond tools.
+A JSON-RPC error is for the client program. An `isError` tool result reaches the model, which can
+correct its arguments. Validation messages contain paths, messages, and expectations, never the
+rejected value. Handler failures become `tool <name> failed (<eight-hex-id>)`; no class, message,
+stack, query, or table name crosses the boundary.
 
-## 7. The client, and the honest limit of typing it
+The server and chat loop call the same internal invocation path, so validator ordering and
+redaction cannot drift between local and remote tools.
+
+## 4. The registry is the whole exposed surface
+
+`tools/list` maps only the entries passed to `createMcpServer`:
+
+```ts
+{
+  name: entry.spec.name,
+  description: entry.spec.description,
+  inputSchema: entry.spec.parameters,
+}
+```
+
+The registry key must equal `spec.name`; construction refuses a mismatch and snapshots the set of
+entries, so adding a property later cannot create an unlisted callable tool. There is no table
+enumeration, route reflection, wildcard, or `run_sql` convenience.
+
+`tools/call` looks up an own property, validates the untrusted arguments, then invokes the handler.
+The authenticated identity is supplied as the handler's optional second argument. The model's
+arguments never supply identity.
+
+## 5. HTTP adapter requirements
+
+The package does not ship an HTTP server. An application adapter must:
+
+1. authenticate through the server's required `identify` callback;
+2. validate `Origin`, and bind a local endpoint to loopback;
+3. require `MCP-Protocol-Version` and `Mcp-Method`, plus `Mcp-Name` for `tools/call`;
+4. compare those headers with the request body before dispatch and return HTTP 400 with MCP
+   `-32020` on a mismatch;
+5. return HTTP 202 with no body for an accepted notification.
+
+The test fixture exercises unauthenticated, wrong-token, cross-origin, and header-mismatch
+requests before proving that the same authenticated call reaches its handler.
+
+## 6. Tools only
+
+The server advertises `{ tools: {} }`. Resources, prompts, sampling, roots, elicitation, and
+completion methods return `-32601`.
+
+Resources require a URI scheme, enumeration policy, and subscriptions. Prompts are not derived from
+a schema declaration. Neither is smuggled into this slice under an empty-list response, which would
+already be a capability claim.
+
+## 7. The bounded client
 
 ```ts
 export interface McpClient {
   listTools(): Promise<readonly RemoteTool[]>;
   callTool(name: string, args: unknown): Promise<RemoteToolResult>;
 }
-export interface RemoteTool {
-  readonly name: string;
-  readonly description?: string;
-  readonly inputSchema: Readonly<Record<string, unknown>>;
-}
-export interface RemoteToolResult {
-  readonly content: readonly { readonly type: string; readonly text?: string }[];
-  readonly isError: boolean;
+
+export interface McpClientOptions {
+  readonly maxCalls?: number; // default 64
+  readonly maxResponseBytes?: number; // default 1 MiB
+  readonly clientInfo?: { readonly name: string; readonly version: string };
+  readonly clientCapabilities?: Readonly<Record<string, unknown>>;
 }
 ```
 
-**A remote tool's types come from a document this codebase did not compile, so no type flows.** `inputSchema`
-is a JSON Schema that arrived over a network at runtime; `args` is therefore `unknown` and the result's
-`content` is a list of loosely-typed blocks. That is the ceiling, and pretending otherwise would mean either a
-lie in a signature or a `as` in a library.
+The client adds current per-request metadata and unique numeric ids. A transport may return parsed
+JSON or raw JSON text; raw text is byte-bounded before parsing. The client refuses a call before
+sending when the 64-call default budget is exhausted, and rejects a serialized response over the
+1 MiB default before reading fields from it. Both bounds must be positive safe integers when
+overridden.
 
-What the caller does about it is the same move as everywhere else in this package: `assert<T>` at their own
-call site, where `T` is a type they declared and the transform can see it.
+The client validates:
 
-```ts
-const result = await client.callTool('search_docs', { q });
-const parsed = assert<{ hits: readonly { id: number; title: string }[] }>(JSON.parse(text(result)));
-```
+- JSON-RPC version and correlation id;
+- protocol errors, surfaced as `McpProtocolError`;
+- `resultType` (`complete`, with an absent value accepted only for backward-compatible responses);
+- every `tools/list` entry's name, optional description, and object-shaped `inputSchema`;
+- every `tools/call` content block's type and optional text, and normalises omitted `isError` to
+  `false`.
 
-The one route that would give real types is a build-time codegen from a captured `tools/list` snapshot,
-emitting interfaces. It is refused for the same reason `../http/SPEC.md` §5 refuses generating validators from
-an OpenAPI document — it is a second codegen front end, and `ARCHITECTURE.md` §2.9 allows one — and because a
-remote server may change its schema between the snapshot and the call, which makes the generated type a
-statement about the past.
+No compile-time type flows from a remote JSON Schema. `inputSchema` remains
+`Readonly<Record<string, unknown>>`, arguments remain `unknown`, and content remains untrusted text.
+Compiling arbitrary remote JSON Schema into validators would add a second validation front end and
+would need bounded `$ref`, composition, dialect, and network-resolution semantics. Callers validate
+domain payloads at their own boundary with a type and validator they own.
 
-Three rules about remote results, which are the security half of being a client:
+An `isError` tool result is returned as a value. A JSON-RPC error throws because it is addressed to
+the client program, not the model.
 
-1. **A remote result is untrusted text.** It goes into a conversation a model reads, so it can contain
-   instructions. Never give a remote tool's output the authority of a system message, and never interpolate it
-   into SQL — `raw-sql.md`'s rule applies with more force here, not less.
-2. **Validate the envelope before the content.** A server that answers `tools/call` with something that is not
-   a result is a failure to report, not a value to index into.
-3. **`isError` is not an exception.** It is a message for the model, and a client that throws on it converts
-   something the model could recover from into something the application must.
+## 8. Assertions
 
-## 8. What #533 has to assert
+1. Requests echo ids and notifications return `undefined`.
+2. Every row in §3 is asserted by exact error code or `isError` channel.
+3. `server/discover` reports the one supported revision; missing metadata and unsupported revisions
+   use their current protocol error shapes.
+4. `tools/list` exactly equals the registry, and an absent tool cannot be called.
+5. Validation precedes dispatch; rejected values and handler internals do not cross the wire.
+6. HTTP fixture auth, origin, and mirrored-header checks happen before a handler runs.
+7. The resolved transport identity reaches the handler while forged identity fields are removed by
+   validation.
+8. stdio and HTTP fixtures receive identical JSON-RPC answers from the pure core.
+9. The client rejects malformed envelopes, malformed results, exhausted call budgets, and oversized
+   responses while preserving untrusted result text verbatim.
+10. Type tests keep remote schemas opaque and prevent a convenience generic from inventing a
+    compile-time result type.
 
-1. `handle` returns `undefined` for a notification and a response for a request, including for
-   `notifications/cancelled`.
-2. Each row of §3's table, by code, including that a bad argument is `isError` and an unknown tool is `-32602`.
-3. `tools/list` equals the registry's specs, and a tool absent from the registry is unreachable by any method.
-4. `initialize` echoes `MCP_PROTOCOL_VERSION` and advertises exactly `{ tools: {} }`;
-   `resources/list` and `prompts/list` are `-32601`.
-5. The identity from `identify` reaches the handler, and no code path reads an identity out of `args`.
-6. A fixture stdio transport and a fixture `@zmdb/web` controller both drive the same `McpServer` and agree
-   response for response — which is what makes §1's "the core is pure" a tested claim rather than a stated one.
-7. The client's `callTool` returns `unknown`-shaped content, asserted in a `*.type-test.ts` so a future
-   convenience overload cannot quietly widen it.
+## 9. Non-goals
 
-## 9. Non-goals (rejected)
-
-- **No transport in this package.** §1 — `process.stdin` does not exist on a device, and this package runs
-  there.
-- **No MCP code in `@zmdb/web`.** §1 — the transport needs the app's authentication, and a shipped controller
-  would either invent an auth model or omit one.
-- **No sessions, no `Mcp-Session-Id` state.** §2, §5 — with no server→client stream there is nothing for a
-  session to carry, and a session id is a thing to leak.
-- **No `GET` event stream, no server-initiated requests, no progress notifications.** §5 — the response body
-  is a string and there is no signal on `Ctx`.
-- **No cancellation.** §5 — accepted and ignored, which is protocol-legal and honestly documented.
-- **No resources and no prompts.** §6.
-- **No tool enumeration from tables, repositories or routes.** §4 — the lazy version has to stay hard to
-  write.
-- **No generated types for remote tools.** §7 — a second codegen front end, describing a schema that may
-  already have changed.
+- No transport, socket, stream, controller, or `node:` import in this package.
+- No legacy `initialize` session and no hidden per-connection state.
+- No server-initiated requests, event stream, progress, or cancellation.
+- No resources or prompts.
+- No table, repository, or route enumeration.
+- No generated TypeScript types or runtime JSON Schema compiler for remote tools.

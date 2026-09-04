@@ -12,7 +12,7 @@
 
 | Package                                             | Status | Description                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI) + LLM tool specs and a bounded chat loop                                                                                                                                                                           |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | The tag vocabulary + the IR + type derivation (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, OpenAPI) + LLM tool specs, a bounded chat loop, and MCP server/client cores                                                                                                                                                 |
 | [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SELECT/INSERT/UPDATE/DELETE + dialects + JOINs + aggregations + FTS + migration diff/DDL/runner                                                                                                                                                                                                                           |
 | [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | AOT inlining + is/assert/validate/equals/random, unions, transforms, Ser/De                                                                                                                                                                                                                                               |
 | [`@zmdb/repository`](./packages/repository)         | ✅     | Auto-validating CRUD + hooks + transactions + populate                                                                                                                                                                                                                                                                    |
@@ -27,10 +27,10 @@
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
-> **framework integrations**, and an **LLM function-calling + bounded chat**
-> harness. **1,254 tests green** across 172 files, including real `node:sqlite` E2E, a Kysely
+> **framework integrations**, and an **LLM function-calling, bounded chat, and MCP**
+> harness. **1,265 tests green** across 172 files, including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **461 expected-failing tests** hold the frozen specs of features
+> Alongside them, **450 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.
@@ -38,7 +38,7 @@
 > MikroORM, NestJS and Typia run between them: 453 are answered by a named zmdb
 > test, 289 are argued against in writing, and `yarn verify:api-coverage` fails
 > on a suite that is neither.
-> Of the 276 docs-site pages, 192 document a capability that exists, 72 are marked
+> Of the 276 docs-site pages, 193 document a capability that exists, 71 are marked
 > `todo` — a page that argues for a feature gap rather than describing one — and 12
 > are marked not planned, where the answer is no and the page says what to reach for
 > instead. All three are counted by `yarn verify:docs-coverage`.

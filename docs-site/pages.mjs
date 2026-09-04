@@ -1151,8 +1151,7 @@ export const PAGE_META = {
   'llm-mcp': {
     title: 'Model Context Protocol',
     group: 'LLM',
-    status: 'todo',
-    note: 'no MCP server or client',
+    status: 'supported',
   },
   'llm-langchain': {
     title: 'LangChain',

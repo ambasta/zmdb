@@ -1,5 +1,5 @@
-import { validationIssuesOf } from '../../index.js';
 import type { ToolSpec } from '../index.js';
+import { invokeTool, toolErrorId } from '../tool-runtime.js';
 
 export type ChatMessage =
   | { readonly role: 'system'; readonly content: string }
@@ -28,7 +28,7 @@ export interface ChatDriver {
 }
 
 type ToolHandler<T> = {
-  bivarianceHack(input: T): unknown | PromiseLike<unknown>;
+  bivarianceHack(input: T, identity?: unknown): unknown | PromiseLike<unknown>;
 }['bivarianceHack'];
 
 export interface ToolEntry<T> {
@@ -45,7 +45,7 @@ type ToolInputs = Readonly<Record<string, unknown>>;
 interface LinkedToolEntry<T> {
   readonly spec: ToolSpec;
   readonly validate: (args: unknown) => T;
-  readonly handler: (input: T) => unknown | PromiseLike<unknown>;
+  readonly handler: (input: T, identity?: unknown) => unknown | PromiseLike<unknown>;
   readonly effectful?: boolean;
 }
 
@@ -104,49 +104,8 @@ interface RunState {
 
 const DEFAULT_MAX_TOOL_CALLS_PER_TURN = 8;
 
-const errorId = (): string =>
-  [...globalThis.crypto.getRandomValues(new Uint8Array(4))].map(byte => byte.toString(16).padStart(2, '0')).join('');
-
 const toolResult = (callId: string, content: string, isError?: boolean): ChatMessage =>
   isError === undefined ? { role: 'tool', callId, content } : { role: 'tool', callId, content, isError };
-
-const serialiseResult = (result: unknown): string => {
-  if (typeof result === 'string') return result;
-  const serialised = JSON.stringify(result);
-  return serialised ?? 'undefined';
-};
-
-const validationMessage = (error: unknown): string | undefined => {
-  const issues = validationIssuesOf(error);
-  if (issues === undefined) return undefined;
-  return JSON.stringify(
-    issues.map(issue =>
-      issue.expected === undefined
-        ? { path: issue.path, message: issue.message }
-        : { path: issue.path, message: issue.message, expected: issue.expected },
-    ),
-  );
-};
-
-type Invocation =
-  | { readonly kind: 'success'; readonly content: string }
-  | { readonly kind: 'validation-error'; readonly error: unknown }
-  | { readonly kind: 'handler-error'; readonly error: unknown };
-
-const invoke = async <T>(entry: LinkedToolEntry<T>, args: unknown): Promise<Invocation> => {
-  let input: T;
-  try {
-    input = entry.validate(args);
-  } catch (error) {
-    return { kind: 'validation-error', error };
-  }
-
-  try {
-    return { kind: 'success', content: serialiseResult(await entry.handler(input)) };
-  } catch (error) {
-    return { kind: 'handler-error', error };
-  }
-};
 
 const finish = (state: RunState, stop: RunResult['stop'], budget: number): RunResult => ({
   messages: state.messages,
@@ -214,20 +173,20 @@ export async function run<const I extends ToolInputs, R extends LinkedRegistry<I
         }
       }
 
-      const invocation = await invoke(entry, call.args);
+      const invocation = await invokeTool(entry, call.args);
       if (invocation.kind === 'validation-error') {
-        const content = validationMessage(invocation.error);
+        const { content } = invocation;
         if (content !== undefined) {
           state.messages.push(toolResult(call.id, content, true));
           continue;
         }
-        const id = errorId();
+        const id = toolErrorId();
         state.errors.push({ callId: call.id, name: call.name, errorId: id, error: invocation.error });
         state.messages.push(toolResult(call.id, `tool ${call.name} failed (${id})`, true));
         continue;
       }
       if (invocation.kind === 'handler-error') {
-        const id = errorId();
+        const id = toolErrorId();
         state.errors.push({ callId: call.id, name: call.name, errorId: id, error: invocation.error });
         state.messages.push(toolResult(call.id, `tool ${call.name} failed (${id})`, true));
         continue;

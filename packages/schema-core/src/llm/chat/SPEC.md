@@ -129,7 +129,7 @@ before the SDK call rather than silently dropped.
 export interface ToolEntry<T> {
   readonly spec: ToolSpec;
   readonly validate: (args: unknown) => T;
-  readonly handler: (input: T) => unknown | PromiseLike<unknown>;
+  readonly handler: (input: T, identity?: unknown) => unknown | PromiseLike<unknown>;
   readonly effectful?: boolean; // omitted means effectful — see below
 }
 
@@ -160,6 +160,10 @@ reader who writes four tools and thinks about the flag for none of them gets fou
 and finds out at the first `run` call rather than after the first `DELETE`. The safe default is the one that
 demands a decision. `effectful: false` is a claim the author makes — "this only reads" — and it is the sort of
 claim that belongs next to the handler rather than in a policy file.
+
+The optional second argument is the transport-authenticated identity when the same registry is exposed through
+MCP. The chat loop passes no identity. Keeping identity outside the model's input is what prevents a caller
+from authorising itself by writing a user or tenant id into tool arguments.
 
 ## 4. `maxTurns` is required, and the approval hook is required by the type when it matters
 

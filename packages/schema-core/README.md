@@ -1,6 +1,6 @@
 # @zmdb/schema-core
 
-Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, custom types, and a bounded LLM tool/chat harness — the single source of truth for a zmdb data layer.
+Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, custom types, and bounded chat/MCP tools — the single source of truth for a zmdb data layer.
 
 Part of **[zmdb](https://github.com/ambasta/zmdb)** — a zero-maintenance TypeScript data layer where you
 define your schema once and entities, DTOs, validation, serialization, OpenAPI
@@ -18,7 +18,7 @@ npm add @zmdb/schema-core@alpha
 
 ## Entry points
 
-`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/llm`, `@zmdb/schema-core/llm/chat`
+`@zmdb/schema-core`, `@zmdb/schema-core/tags`, `@zmdb/schema-core/ir`, `@zmdb/schema-core/derive`, `@zmdb/schema-core/dto`, `@zmdb/schema-core/relations`, `@zmdb/schema-core/openapi`, `@zmdb/schema-core/custom-types`, `@zmdb/schema-core/llm`, `@zmdb/schema-core/llm/chat`, `@zmdb/schema-core/llm/mcp`
 
 ## Documentation
 

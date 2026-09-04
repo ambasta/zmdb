@@ -1,128 +1,185 @@
-> **ToDo / feature gap.** There is no MCP server, client or transport.
-> `defineTools` now provides the validator-linked registry the protocol would
-> expose, but `toolFromSchema` still produces a provider tool definition rather
-> than an MCP one.
+`@zmdb/schema-core/llm/mcp` turns the same validator-linked registry used by
+the [bounded chat loop](./llm-chat.html) into a pure MCP server, and provides a
+bounded client for remote MCP tools. The package owns protocol messages; your
+application owns stdio or HTTP framing.
 
-## What MCP would need
-
-An MCP server exposes tools, resources and prompts over JSON-RPC 2.0, on stdio or over HTTP. Mapping zmdb onto it is mostly mechanical:
-
-| MCP concept     | zmdb source                                           |
-| --------------- | ----------------------------------------------------- |
-| tool definition | `toolFromSchema(name, schema)` — near-identical shape |
-| tool invocation | a repository method, after `assert`                   |
-| resource        | a row or a query result                               |
-| resource schema | `toJsonSchema(schema, 'entity')`                      |
-
-The transport and the JSON-RPC framing are what is missing, and neither is derived from your schema — which is why they are not in a schema library.
-
-## Building one over `@zmdb/web`
-
-For the HTTP transport, a controller is enough. This is a real, working shape:
+## Declare once
 
 ```ts
-import { toolFromSchema } from '@zmdb/schema-core/llm';
 import { assert } from '@zmdb/aot-validator/utilities';
+import { toolFromSchema } from '@zmdb/schema-core/llm';
+import { defineTools } from '@zmdb/schema-core/llm/chat';
+import { createMcpServer } from '@zmdb/schema-core/llm/mcp';
 
-const TOOLS = {
-  list_users: {
-    def: { name: 'list_users', description: 'List users', inputSchema: toListSchema(users) },
-    run: (input: unknown) => userRepo.list(assert<ListDTO<User>>(input)),
+const tools = defineTools({
+  search_docs: {
+    spec: toolFromSchema('search_docs', docs, {
+      description: 'Search documentation',
+    }),
+    validate: value => assert<{ q: string }>(value),
+    handler: ({ q }, identity) => docsRepo.for(identity).search(q),
+    effectful: false,
   },
-  create_user: {
-    def: { ...toolFromSchema('create_user', users, { description: 'Create a user' }) },
-    run: (input: unknown) => userRepo.create(assert<CreateDTO<User>>(input)),
-  },
-} as const;
+});
 
-@Controller('/mcp')
-export class McpController {
-  @Post('/')
-  async rpc(ctx: Ctx<Record<never, string>, unknown>) {
-    const req = assert<{ id?: number | string; method: string; params?: Record<string, unknown> }>(ctx.body);
+const server = createMcpServer(tools, {
+  serverInfo: { name: 'docs-service', version: '1.0.0' },
+  identify: transport => authenticateTransport(transport),
+});
+```
 
-    // A notification has no `id` and must not be answered with a JSON-RPC message.
-    // `notifications/initialized` arrives right after the handshake, so a server that
-    // replies to everything violates the protocol on its second message.
-    if (req.id === undefined) return respond({ status: 202 });
+`tools/list` contains only `tools`. `tools/call` resolves an own registry
+property, runs its validator, and only then calls its handler. The optional
+second handler argument is the identity resolved from the transport; identity
+does not come from model-written arguments.
 
-    switch (req.method) {
-      case 'initialize':
-        return {
-          jsonrpc: '2.0',
-          id: req.id,
-          result: {
-            protocolVersion: '2025-06-18',
-            capabilities: { tools: {} },
-            serverInfo: { name: 'my-app', version: '1.0.0' },
-          },
-        };
+The server core is one function:
 
-      case 'tools/list':
-        return { jsonrpc: '2.0', id: req.id, result: { tools: Object.values(TOOLS).map(t => t.def) } };
+```ts
+const answer = await server.handle(message, transport);
+```
 
-      case 'tools/call': {
-        const { name, arguments: args } = assert<{ name: string; arguments: unknown }>(req.params);
-        const tool = TOOLS[name as keyof typeof TOOLS];
-        if (tool === undefined) {
-          return { jsonrpc: '2.0', id: req.id, error: { code: -32602, message: `unknown tool ${name}` } };
-        }
-        const result = await tool.run(args);
-        return { jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: JSON.stringify(result) }] } };
-      }
+It accepts parsed JSON or raw JSON text, returns a JSON-RPC value, and returns
+`undefined` for a notification. It does not open a socket, read `process.stdin`,
+or mount an HTTP controller, so the same code runs in Node.js, a browser, or a
+device runtime.
 
-      default:
-        return { jsonrpc: '2.0', id: req.id, error: { code: -32601, message: req.method } };
+## Current protocol shape
+
+The exported `MCP_PROTOCOL_VERSION` is `2026-07-28`. This is the stateless MCP
+revision: there is no `initialize` handshake. Every request carries:
+
+```json
+{
+  "_meta": {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+    "io.modelcontextprotocol/clientCapabilities": {},
+    "io.modelcontextprotocol/clientInfo": {
+      "name": "my-client",
+      "version": "1.0.0"
     }
   }
 }
 ```
 
-Every tool's input schema comes from the schema object and every invocation validates before touching the database. That is the part worth copying.
+`server/discover` reports the supported revision and `{ "tools": {} }`.
+Missing metadata is `-32602`; an unsupported revision is `-32022` with the
+supported and requested versions in `error.data`. Successful responses include
+`resultType: "complete"`.
 
-Two things it does not do, both of which matter before you expose it. It advertises `capabilities: { tools: {} }` and nothing else, so a client will not ask for resources, prompts, or a `GET` event stream — which is right, because `WebResponse.body` is a `string` and a stream is [the shared blocker](./web-streaming-files.html). And a tool whose arguments fail `assert` should come back as `{ result: { isError: true, content: [...] } }`, not as a JSON-RPC error: an `isError` result reaches the model, which can then correct itself, whereas a JSON-RPC error reaches the client program. Reserve the error channel for unknown methods, which are `-32601`, and unknown tools, which are `-32602` — `tools/call` is a method the server has, called with a name it does not.
+The server intentionally advertises no resources, prompts, roots, sampling,
+elicitation, or completion support. Requests for those methods receive
+`-32601`, rather than an empty result that would falsely claim the capability.
 
-## Read this before exposing one
+## stdio adapter
 
-**An MCP server is a remote API with a model driving it.** The model chooses which tools to call and with what arguments, based on text it was given — which may include text from an untrusted source. So:
-
-- **Whitelist tools explicitly.** Do not loop over your tables and expose CRUD across all of them. The `TOOLS` object above is a decision per operation, which is the right granularity — and since nothing enumerates your tables for you, the lazy version takes deliberate effort to write.
-- **No `run_sql` tool.** See [HTTP Proxy](./connect-http-proxy.html) — a tool that executes arbitrary SQL is a remote database console with a language model at the keyboard.
-- **Authorise the caller, not the request.** The model's arguments cannot be trusted to say who it is acting for. Scope every query by an identity from the transport's authentication, the way [multi-tenancy](./entity-filters.html) does.
-- **Read-only by default.** Expose reads first. Add each write deliberately, and gate the destructive ones.
-- **Check `Origin`, and bind a local server to loopback.** Any page the user visits can POST to
-  `http://localhost:<port>/mcp`; the check is one comparison, and a dev server on `0.0.0.0` is on the coffee
-  shop's network.
-
-## stdio transport
-
-For a local MCP server, the framing is newline-delimited JSON on stdin/stdout — no HTTP:
+For a local process, resolve a constant identity and frame one JSON value per
+line:
 
 ```ts
+const local = createMcpServer(tools, {
+  serverInfo: { name: 'docs-local', version: '1.0.0' },
+  identify: async () => ({ sub: process.env.USER }),
+});
+
 process.stdin.setEncoding('utf8');
 let buffer = '';
+
 process.stdin.on('data', async chunk => {
   buffer += chunk;
-  let i;
-  while ((i = buffer.indexOf('\n')) >= 0) {
-    const line = buffer.slice(0, i);
-    buffer = buffer.slice(i + 1);
-    if (line.trim() !== '') process.stdout.write(JSON.stringify(await handle(JSON.parse(line))) + '\n');
+  let newline;
+  while ((newline = buffer.indexOf('\n')) >= 0) {
+    const line = buffer.slice(0, newline);
+    buffer = buffer.slice(newline + 1);
+    if (line.trim() === '') continue;
+    const answer = await local.handle(line, { kind: 'stdio' });
+    if (answer !== undefined) process.stdout.write(`${JSON.stringify(answer)}\n`);
   }
 });
 ```
 
-Note the buffering: a chunk boundary can land mid-message, and treating each `data` event as one message is a bug that appears only under load.
+Buffering matters: a stream chunk can end halfway through a JSON message.
 
-## What it would take
+## Authenticated HTTP adapter
 
-The remaining work is JSON-RPC framing around the registry from
-`@zmdb/schema-core/llm/chat`, plus server/client negotiation and transports. A
-tool can then be declared once and called by both the chat loop and MCP. The
-registry is shipped; the protocol work is not. `process.stdin` does not exist in
-a browser or on a device, so stdio remains an adapter around pure framing rather
-than part of the schema package.
+HTTP authentication is not optional in the core API: `identify` is required,
+and `handle` invokes it before parsing or dispatch. The adapter still owns the
+HTTP-specific checks:
+
+- reject an invalid `Origin` with 403 and bind a local server to loopback;
+- require `MCP-Protocol-Version` and `Mcp-Method`;
+- require `Mcp-Name` for `tools/call`;
+- compare those headers with the request body and reject a mismatch with HTTP
+  400 and MCP error `-32020`;
+- pass headers or the request object as `transport`, so `identify` reads
+  credentials from the transport rather than the body;
+- return 202 with no body for an accepted notification.
+
+This ordering matters. An anonymous or cross-origin request must not learn
+whether a tool exists, and it must never reach a validator or handler.
+
+## Calling a remote server
+
+The client is transport-independent too:
+
+```ts
+import { createMcpClient } from '@zmdb/schema-core/llm/mcp';
+
+const client = createMcpClient(sendJsonRpc, {
+  clientInfo: { name: 'my-client', version: '1.0.0' },
+  maxCalls: 32,
+  maxResponseBytes: 256 * 1024,
+});
+
+const remoteTools = await client.listTools();
+const result = await client.callTool('search_docs', { q: 'transactions' });
+```
+
+`sendJsonRpc` is your stdio or HTTP adapter. For HTTP it mirrors the method,
+name, and protocol version into the required headers. It may return parsed JSON
+or raw response text; returning text lets the client apply its byte bound before
+parsing. The client adds request ids and current `_meta`, checks correlation and
+JSON-RPC errors, validates tool-list and tool-result envelopes, and normalises
+omitted `isError` to `false`.
+
+Bounds apply even when you omit options: at most 64 calls and 1 MiB per
+response. Explicit bounds must be positive safe integers. A call beyond the
+budget is refused before `sendJsonRpc` runs; an oversized answer is rejected
+before fields are read from it.
+
+## Trust boundary
+
+A remote `inputSchema` is a network document, not a TypeScript type. It remains
+an opaque `Readonly<Record<string, unknown>>`; `callTool` arguments are
+`unknown`, and result blocks are validated protocol values containing
+untrusted text.
+
+Do not put remote tool text in a system message, interpolate it into SQL, or
+treat it as a domain object because a generic type argument says so. Validate a
+domain payload with a type and validator you own:
+
+```ts
+const result = await client.callTool('search_docs', { q });
+const text = result.content.find(block => block.type === 'text')?.text;
+const hits = assert<{ hits: readonly { id: number; title: string }[] }>(JSON.parse(text ?? 'null'));
+```
+
+An MCP tool result with `isError: true` is returned as a value so the model can
+recover. A JSON-RPC error throws `McpProtocolError`, because that channel is for
+the client program.
+
+## Error exposure
+
+Argument validation failures return paths and expectations, never rejected
+values. Handler exceptions become:
+
+```text
+tool search_docs failed (1a2b3c4d)
+```
+
+The exception class, message, stack, SQL, table names, and filesystem paths do
+not cross the protocol boundary.
 
 ---
 
-See also: [Structured Output](./llm-structured-output.html) · [LLM Strategy](./llm-strategy.html) · [HTTP Proxy](./connect-http-proxy.html)
+See also: [Chat & Agents](./llm-chat.html) · [Structured Output](./llm-structured-output.html) · [HTTP Tools from Controllers](./llm-http.html)
