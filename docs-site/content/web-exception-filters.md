@@ -11,17 +11,18 @@ export interface ExceptionFilter {
 Returning `undefined` means "not mine" — the next filter gets a chance, and if none handles it the error propagates.
 
 ```ts
-import type { ExceptionFilter, WebResponse } from '@zmdb/web/middleware';
+import { json } from '@zmdb/web';
+import type { ExceptionFilter } from '@zmdb/web/middleware';
 
 export const dbErrors: ExceptionFilter = {
   catch(error) {
     if (!isUniqueViolation(error)) return undefined;
-    return { status: 409, body: JSON.stringify({ error: 'already exists' }), headers: {} };
+    return json({ error: 'already exists' }, { status: 409 });
   },
 };
 ```
 
-Note `body` is a **`string`** — `WebResponse.body` is not an object. Stringify it yourself.
+Build the response with `json`, `text` or `respond` rather than as an object literal. A hand-built `{ status, body, headers }` is a valid `WebResponse` — and `body` is a **`string`**, not an object, so you stringify it yourself — but it is untagged, and the router serialises an untagged return value as a 200. See the warning below.
 
 ## The gap you must plan around
 
@@ -30,9 +31,12 @@ const result = await runChain({ guards: [], pipes: [], interceptors: [], filters
 ```
 
 > [!WARNING]
-> `runChain` returns the filter's `WebResponse` **as a value**, and the router then
-> serialises that value as a **200**. So a filter returning `{ status: 409, … }`
-> produces a 200 whose body contains the number 409. See
+> `runChain` returns the filter's `WebResponse` **as a value**, and the router
+> serialises a returned value as a **200** unless it was built by `json`, `text` or
+> `respond` — those tag the object, and a tagged response is passed through with its
+> own status. So `catch: () => json(body, { status: 409 })` really is a 409, while
+> `catch: () => ({ status: 409, body, headers })` is a 200 whose body contains the
+> number 409. Measured both ways. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
 A **thrown** error has four outcomes, and the status it carries is not one of the inputs:
@@ -116,12 +120,11 @@ Translate at the boundary, where you know what the code should become. See [Cust
 
 ## What it would take
 
-Two changes, both framework-internal and neither blocked on anything else:
+One change, framework-internal and not blocked on anything else: **wire `runChain` into the router**, registrable per controller or per route. Until then a filter only runs where a handler invokes the chain itself.
 
-1. Wire `runChain` into the router, registrable per controller or per route.
-2. Let a filter's returned `WebResponse` become the actual response rather than a serialised value.
+The second half of this gap has closed. A `WebResponse` built by `json`, `text` or `respond` carries a non-enumerable tag, and the router returns a tagged response as-is instead of serialising it — so a filter's 409 is a 409 today. Only a hand-built literal still becomes a 200.
 
-Together those make the interface on this page work as designed, and they would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html), [CORS](./web-cors.html) and [health checks](./web-health-checks.html).
+That one change makes the interface on this page work as designed, and they would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html), [CORS](./web-cors.html) and [health checks](./web-health-checks.html).
 
 ---
 

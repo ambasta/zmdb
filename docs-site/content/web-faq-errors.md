@@ -80,7 +80,7 @@ See [Raw Body](./web-raw-body.html).
 
 ## A 500 where you threw a 403
 
-`ChainError(403, …)` reaching the router serialises as a 500. A **thrown** error still has exactly three outcomes — 400 (it carries `issues`), 500 (anything else), plus 404 when no route matched — and the status it carries is ignored. `ExceptionFilter.catch` returns a `WebResponse` the router never sees, because **the router does not call `runChain`**.
+`ChainError(403, …)` reaching the router serialises as a 500. A **thrown** error still has exactly three outcomes — 400 (it carries `issues`), 500 (anything else), plus 404 when no route matched — and the status it carries is ignored. Nothing in the router's dispatch path calls `runChain`, so no `ExceptionFilter` runs unless your handler ran the chain itself; one that does reaches the client, provided the filter built its response with `json`, `text` or `respond` rather than as a plain `{ status, body, headers }` literal, which serialises as a 200.
 
 Catch it and return the status instead of throwing:
 

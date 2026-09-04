@@ -59,7 +59,7 @@ function at an HTTP boundary: a syntax error is a value you turn into a 400, not
 you have to catch to avoid a 500. Note the field is `issues`, not `errors` — `validate`'s
 result uses `errors`, and the two shapes are otherwise the same.
 
-Throw rather than return a response object. The router serialises whatever a handler returns as a **200**, so a returned `{ status: 400, … }` becomes a 200 whose body happens to contain the number 400. Only a throw carrying an `issues` property produces a 400 — see [Request Lifecycle](./web-request-lifecycle.html).
+Throw, or return a response the router recognises. An **object literal** is not one: the router serialises an untagged return value as a **200**, so a returned `{ status: 400, … }` becomes a 200 whose body happens to contain the number 400. `json(body, { status: 400 })` is recognised and really is a 400, and so is a throw carrying an `issues` property — see [Request Lifecycle](./web-request-lifecycle.html).
 
 > [!WARNING]
 > `parse<T>()`'s type argument is an **unvalidated claim** — the same one `JSON.parse` gives
