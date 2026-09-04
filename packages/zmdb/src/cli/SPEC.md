@@ -64,8 +64,8 @@ either convention being suboptimal.
 
 That distinction is already load-bearing in `zmdb-codegen`, whose `--check` failure says in a full
 sentence that it is "not an error in the code — an error in the tree", and it is what lets CI treat a 2 as
-a pipeline bug and a 1 as a review comment. Parsing stays hand-rolled over `process.argv` with no
-dependency, as it is there.
+a pipeline bug and a 1 as a review comment. Parsing uses Node's `util.parseArgs`, with the command
+definitions also rendering global and per-command help. There is no CLI-framework dependency.
 
 Global flags: `--config <path>`, `--project <tsconfig>` (overriding the config's `project`), `--json`,
 `--yes`, `--force`, `--help`, `--version`. Two flags that ask for opposite things exit 2 with a sentence
@@ -285,15 +285,15 @@ is not a re-export. It goes there anyway, for one reason that outweighs the tidi
 whose only content is an executable. The facade already depends on all five packages, so it can reach the
 compiler, the reflector and the runner without a new dependency edge.
 
-`package.json` gains the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent
+`package.json` declares the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent
 to `{ "zmdb": "./src/cli/bin.ts" }`) and the export `"./cli": "./src/cli/index.ts"`, and `./cli`
-joins `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin`
-entry that is already there. That gate is what keeps the config loader, the filesystem walk and the
-compiler session out of an application bundle — the same reason the entry beside it exists.
+is in `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin`
+entry. That gate keeps the config loader, the filesystem walk and the compiler session out of an
+application bundle — the same reason the entry beside it exists.
 
-The work is in `index.ts` and the bin is argument parsing and exit codes only, as
-`packages/aot-validator/src/cli/bin.ts` already does. That split is what makes the commands testable
-without spawning a process.
+Dispatch, argument parsing, output and exit-code decisions live behind `index.ts`; `bin.ts` only
+passes `process.argv` into `runCli` and assigns the returned exit code. That split is what makes the
+commands testable without spawning a process.
 
 ## 13. `new`, the scaffold command — and it is not called `generate`
 

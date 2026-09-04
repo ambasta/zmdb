@@ -1,8 +1,11 @@
-> **ToDo / feature gap.** The `zmdb` executable exists and currently exposes
-> `modules` and `repl`. The schema commands and `studio` described below still
-> have no executable wrappers.
+> **ToDo / documentation gap.** The published `zmdb` executable exposes
+> `generate`, `export`, `modules`, and `repl`. The remaining database commands
+> and `studio` are still implementation gaps; the final full CLI reference and
+> command transcript remain for the documentation slice.
 
-The schema and migration engine these commands need is public API, so each command below remains a short script you own. That is the honest position for this page: the capability exists, but these wrappers do not.
+`generate` and `export` are thin packaged wrappers over the public reflection,
+snapshot, diff, and DDL APIs. The same library entry points remain available for
+the commands whose executable dispatch has not landed.
 
 ## The pieces
 
@@ -16,93 +19,47 @@ The schema and migration engine these commands need is public API, so each comma
 
 ## The commands, and where each stands
 
-| drizzle-kit / mikro-orm      | zmdb today                          | Page                                                |
-| ---------------------------- | ----------------------------------- | --------------------------------------------------- |
-| `generate`                   | a ~20-line script                   | [generate](./cli-generate.html)                     |
-| `migrate` / `up`             | `runCli('up', …)`                   | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
-| `push`                       | a script over `emitUp`              | [push](./cli-push.html)                             |
-| `check`                      | `diff()` returning `[]`             | [check](./cli-check.html)                           |
-| `export`                     | `emitUp` to stdout                  | [export](./cli-export.html)                         |
-| `pull` / `generate-entities` | **not possible** — no introspection | [pull](./cli-pull.html)                             |
-| `studio`                     | **not possible** — no server, no UI | [studio](./cli-studio.html)                         |
+| drizzle-kit / mikro-orm      | zmdb today                                         | Page                                                |
+| ---------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| `generate`                   | `zmdb generate`                                    | [generate](./cli-generate.html)                     |
+| `migrate` / `up`             | `migrate` is pending; `up` is deliberately refused | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
+| `push`                       | recognized, not implemented                        | [push](./cli-push.html)                             |
+| `check`                      | recognized, not implemented                        | [check](./cli-check.html)                           |
+| `export`                     | `zmdb export`                                      | [export](./cli-export.html)                         |
+| `pull` / `generate-entities` | **not possible** — no introspection                | [pull](./cli-pull.html)                             |
+| `studio`                     | **not possible** — no server, no UI                | [studio](./cli-studio.html)                         |
 
-The first five are packaging. The last two need features that do not exist.
+Two offline commands are packaged. The remaining database verbs are recognized
+so their help, config errors, JSON envelope, and exit codes stay uniform while
+their scoped implementations land.
 
 ## A single entry point
 
-Rather than seven scripts, one dispatcher covers the lot:
+The installed binary owns config discovery, help, JSON output, stream
+separation, and exit codes:
 
-```ts
-// scripts/db.ts — run with `node --experimental-strip-types scripts/db.ts <cmd>`
-import { snapshot, diff, emitUp, emitDown } from '@zmdb/query-compiler/migrations';
-import { runCli } from '@zmdb/query-compiler/migrations/runner';
-import { readFileSync, writeFileSync } from 'node:fs';
-import * as schemas from '../src/schema.js';
-import { conn, migrations } from './db-config.js';
-
-const DIALECT = 'postgres';
-const SNAP = 'migrations/snapshot.json';
-const all = Object.values(schemas).filter(s => typeof s === 'object' && 'table' in s);
-
-const cmd = process.argv[2];
-
-switch (cmd) {
-  case 'generate': {
-    const prev = JSON.parse(readFileSync(SNAP, 'utf8'));
-    const next = snapshot(all);
-    const ops = diff(prev, next);
-    if (ops.length === 0) {
-      console.log('no changes');
-      break;
-    }
-    const version = Date.now();
-    writeFileSync(`migrations/${version}.sql`, ops.map(o => emitUp(o, DIALECT)).join(';\n') + ';\n');
-    writeFileSync(SNAP, JSON.stringify(next, null, 2));
-    console.log(`wrote migrations/${version}.sql (${ops.length} operations)`);
-    break;
-  }
-  case 'check': {
-    const ops = diff(JSON.parse(readFileSync(SNAP, 'utf8')), snapshot(all));
-    if (ops.length > 0) {
-      console.error(`${ops.length} un-generated changes`);
-      process.exit(1);
-    }
-    console.log('snapshot is current');
-    break;
-  }
-  case 'up':
-  case 'down':
-    await runCli(cmd, conn, migrations);
-    break;
-  case 'export': {
-    for (const op of diff({ version: 1, tables: [] }, snapshot(all))) console.log(emitUp(op, DIALECT) + ';');
-    break;
-  }
-  default:
-    console.error('usage: db <generate|check|up|down|export>');
-    process.exit(1);
-}
+```bash
+npx zmdb generate --name add_slug
+npx zmdb export > schema.sql
 ```
 
-Add it to `package.json`:
-
-```json
-{ "scripts": { "db": "node --experimental-strip-types scripts/db.ts" } }
-```
-
-That is `yarn db generate`, `yarn db check`, `yarn db up`. Roughly forty lines for the five commands that are possible.
+Both commands accept `--config <path>` and `--project <tsconfig>`. Add `--json`
+when a script needs the stable `CliResult` envelope instead of human output.
+Until the remaining dispatch lands, use the linked library APIs for migration
+application and checks rather than creating a second argument parser.
 
 ## What the schema CLI still needs
 
-Not capability — ergonomics and a few things a script cannot easily do well:
+The remaining gaps are command implementations rather than a second CLI shell:
 
-- **Schema discovery in the command.** The script above imports `../src/schema.js` and filters. The shared [config loader](./config-file.html) now resolves the project and concrete schema files; the database command still has to consume them.
-- **Migration file naming and ordering**, consistently, with the [team conventions](./migrations-teams.html) baked in.
+- **Migration application, rollback, and status** wired to the shipped runner.
+- **Push and check plans** with the command-specific result payloads.
 - **A confirmation prompt** before a destructive operation. `diff()` happily emits `DROP COLUMN`; a CLI should make you type the table name.
-- **Multi-dialect output** in one invocation.
+- **Snapshot upgrade and database introspection** for `upgrade` and `pull`.
 
-The config loader has landed. The remaining gap is the database command set
-that calls it and wraps the existing snapshot, diff, DDL, and migration APIs.
+The config loader, declaration reflection, migration generation, and full-schema
+export have landed. The remaining database command set reuses the same parser,
+output writer, and resolved config.
 
 ---
 

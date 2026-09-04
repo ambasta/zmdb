@@ -822,7 +822,7 @@ export const PAGE_META = {
     title: 'CLI Overview',
     group: 'CLI',
     status: 'todo',
-    note: 'the zmdb executable ships modules and repl; schema commands and studio remain unimplemented',
+    note: 'the executable ships generate, export, modules and repl; the remaining database commands and studio are unimplemented',
   },
   'config-file': {
     title: 'Config File',
@@ -838,7 +838,7 @@ export const PAGE_META = {
     title: 'generate',
     group: 'CLI',
     status: 'todo',
-    note: 'no CLI wrapper around snapshot() + diff() + emitUp()',
+    note: 'generate ships; the final CLI reference and transcript remain for the documentation slice',
   },
   'cli-migrate': {
     title: 'migrate',
@@ -874,7 +874,7 @@ export const PAGE_META = {
     title: 'export',
     group: 'CLI',
     status: 'todo',
-    note: 'no CLI wrapper that prints the full DDL for a schema set',
+    note: 'export ships; the final CLI reference and transcript remain for the documentation slice',
   },
   'cli-studio': {
     title: 'studio',

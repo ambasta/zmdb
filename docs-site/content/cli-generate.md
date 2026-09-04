@@ -1,65 +1,48 @@
-> **ToDo / feature gap.** There is no `zmdb generate`. The diffing engine is
-> public API, so the equivalent is a script — about twenty lines, shown below.
+> **ToDo / documentation gap.** `zmdb generate` ships in the published binary.
+> The final full command reference and captured transcript remain for the CLI
+> documentation slice.
 
 ## What generation does
 
 Compare the committed snapshot against your schema objects, and write the SQL that closes the gap:
 
 ```
-schema.ts  ──snapshot()──▶  next  ──┐
-                                     ├──diff()──▶ ops ──emitUp()──▶ 0004_add_slug.sql
-snapshot.json ──────────────▶ prev ──┘
+schema files ──reflect()──▶ snapshot() ──▶ next ──┐
+                                                   ├──diff()──▶ ops ──emit()──▶ migration.sql
+snapshot.json ───────────────────────────▶ prev ──┘
 ```
 
 Note what is _not_ in that diagram: the database. Generation never connects, so it works offline, in CI, and on a machine that has no credentials.
 
-## The script
-
-```ts
-// scripts/generate.ts
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { snapshot, diff, emitUp, emitDown } from '@zmdb/query-compiler/migrations';
-import * as schemas from '../src/schema.js';
-
-const DIALECT = 'postgres';
-const SNAP = 'migrations/snapshot.json';
-const all = Object.values(schemas).filter(s => typeof s === 'object' && s !== null && 'table' in s);
-
-const prev = JSON.parse(readFileSync(SNAP, 'utf8'));
-const next = snapshot(all);
-const ops = diff(prev, next);
-
-if (ops.length === 0) {
-  console.log('no changes');
-  process.exit(0);
-}
-
-const name = process.argv[2] ?? 'migration';
-const version = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
-
-mkdirSync('migrations', { recursive: true });
-writeFileSync(`migrations/${version}_${name}.up.sql`, ops.map(o => emitUp(o, DIALECT)).join(';\n') + ';\n');
-writeFileSync(
-  `migrations/${version}_${name}.down.sql`,
-  [...ops]
-    .reverse()
-    .map(o => emitDown(o, DIALECT))
-    .join(';\n') + ';\n',
-);
-writeFileSync(SNAP, JSON.stringify(next, null, 2));
-
-console.log(`${version}_${name}: ${ops.length} operations`);
-for (const op of ops) console.log('  ' + emitUp(op, DIALECT));
-```
+## The command
 
 ```bash
-node --experimental-strip-types scripts/generate.ts add_slug
+npx zmdb generate --name add_slug
 ```
 
-Two details in there are not incidental:
+The command loads [the project config](./config-file.html), reflects every
+exported tagged table in its concrete schema file set, then passes the resulting
+schemas through the existing `snapshot()`, `diff()`, `emitUp()`, and
+`emitDown()` libraries.
 
-- **The `down` operations are reversed.** Undoing "add table, add index" means dropping the index first. Emitting `down` in forward order produces SQL that fails.
-- **The snapshot is written last.** If emitting throws, the snapshot still describes the last successfully generated state, so re-running does the same thing rather than half of it.
+The generated name is `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC. `--name` supplies
+the slug; without it, the command derives one from a single operation or uses
+`schema_change`. One file carries both directions:
+
+```sql
+-- zmdb:up
+ALTER TABLE "users" ADD COLUMN "slug" TEXT NOT NULL;
+-- zmdb:down
+ALTER TABLE "users" DROP COLUMN "slug";
+```
+
+Down operations are emitted in reverse order. The migration and snapshot are
+each written through a sibling temporary file followed by `rename`; a failed
+migration rename leaves neither a partial target nor a temporary file. The
+snapshot is updated only after the migration file is in place.
+
+If the diff is empty, the command exits 0 and writes nothing. With `--json`,
+stdout is one result document; human-readable errors stay on stderr.
 
 ## Review the output
 
@@ -71,32 +54,30 @@ The SQL is in your pull request, which is the point. Look for:
 
 ## The first migration
 
-With no snapshot yet, diff against empty:
-
-```ts
-const prev = existsSync(SNAP) ? JSON.parse(readFileSync(SNAP, 'utf8')) : { version: 1, tables: [] };
-```
+With no stored snapshot, the command diffs against `{ version: 1, tables: [] }`
+and writes the initial migration plus `snapshot.json`.
 
 For an existing database you are adopting, do the opposite: write the snapshot with no migration, so the baseline is "this already exists". See [Schema-first](./schema-first.html).
 
 ## Several dialects
 
-`emitUp` takes the dialect, so generate once per target:
+The configured dialect selects the emitter. Use separate config files and
+output directories when one declaration set targets several dialects:
 
-```ts
-for (const d of ['postgres', 'sqlite'] as const) {
-  writeFileSync(`migrations/${d}/${version}_${name}.up.sql`, ops.map(o => emitUp(o, d)).join(';\n'));
-}
+```bash
+npx zmdb generate --config zmdb.postgres.config.ts --name add_slug
+npx zmdb generate --config zmdb.sqlite.config.ts --name add_slug
 ```
 
-One snapshot, several SQL directories. The snapshot is dialect-independent.
+The snapshots remain dialect-independent; the generated SQL does not.
 
-## What a real command would add
+## What the command adds
 
-The [config loader](./config-file.html) now supplies concrete schema files and
-resolved paths. The missing command still has to consume them, apply the naming
-configuration, add safe file naming and `--dry-run`, and wrap the same three
-library functions.
+The wrapper adds config and project resolution, exported-table discovery,
+sortable names, one-file up/down output, atomic replacement, no-change
+handling, JSON results, and uniform exit codes. The schema plan and SQL remain
+the output of the existing migration libraries rather than a second
+implementation in the CLI.
 
 ---
 

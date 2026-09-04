@@ -32,9 +32,10 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The schema-oriented `generate`, `migrate`, `push`, `check`, `up`, `export`, and
-`pull` commands are still planned. The loader is their shared prerequisite and
-is usable as a library now.
+The shipped `generate` and `export` commands consume this loader. `migrate`,
+`rollback`, `status`, `push`, `check`, `upgrade`, and `pull` are recognized but
+remain implementation gaps; `up` is deliberately refused because it is
+ambiguous between migration application and snapshot upgrade.
 
 ## Fields
 

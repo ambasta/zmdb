@@ -1,27 +1,29 @@
-> **ToDo / feature gap.** There is no `zmdb export`. `emitUp` over a diff from
-> empty gives you the whole schema as SQL in six lines.
+> **ToDo / documentation gap.** `zmdb export` ships in the published binary.
+> The final full command reference and captured transcript remain for the CLI
+> documentation slice.
 
 ## Printing the full schema
 
-```ts
-// scripts/export.ts
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
-import * as schemas from '../src/schema.js';
-
-const dialect = (process.argv[2] ?? 'postgres') as 'postgres' | 'mysql' | 'sqlite';
-const all = Object.values(schemas).filter(s => typeof s === 'object' && s !== null && 'table' in s);
-
-for (const op of diff({ version: 1, tables: [] }, snapshot(all))) {
-  console.log(emitUp(op, dialect) + ';');
-}
+```bash
+npx zmdb export > schema.sql
 ```
+
+The command loads [the project config](./config-file.html), reflects its
+exported tagged tables, snapshots them, diffs from an empty snapshot, and emits
+each operation for the configured dialect. It does not connect to a database or
+need credentials.
+
+The human form writes a SQL comment naming the resolved config followed by DDL
+to stdout, so redirection remains valid SQL. With `--json`, stdout is exactly
+one `CliResult` document containing `ops` and `statements`; errors and other
+human-readable text stay on stderr.
+
+Use separate configs to compare dialects:
 
 ```bash
-node --experimental-strip-types scripts/export.ts postgres > schema.sql
-node --experimental-strip-types scripts/export.ts sqlite   > schema.sqlite.sql
+npx zmdb export --config zmdb.postgres.config.ts > schema.postgres.sql
+npx zmdb export --config zmdb.sqlite.config.ts > schema.sqlite.sql
 ```
-
-No database and no credentials — it is a pure function over your schema objects.
 
 ## What it is for
 
@@ -38,7 +40,7 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 **A reviewable artefact.** Committing `schema.sql` and regenerating it in CI makes every schema change show up as a SQL diff in the pull request, next to the TypeScript one. That is a cheap and surprisingly effective review aid.
 
 ```yaml
-- run: node --experimental-strip-types scripts/export.ts postgres > schema.sql
+- run: npx zmdb export > schema.sql
 - run: git diff --exit-code schema.sql # fails if it was not regenerated
 ```
 

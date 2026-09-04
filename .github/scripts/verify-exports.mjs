@@ -110,10 +110,10 @@ const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./codegen',
   '@zmdb/aot-validator#./plugin',
   '@zmdb/aot-validator#./reflect',
-  // The test-time bridge: `schemasFrom<{ User: User }>(import.meta.url, ['User'])` opens the
-  // caller's own project and reflects the named interfaces. It is a compiler client by
-  // definition — that is the service — and it exists because `schemaOf<T>()` has no runtime,
-  // so a test with no build step has no other route from a tagged interface to a schema.
+  // The compiler-backed schema bridge: tests name interfaces with `schemasFrom`, while the
+  // zmdb CLI passes its resolved declaration files to `schemasFromFiles`. It is a compiler
+  // client by definition — that is the service — because `schemaOf<T>()` has no runtime and
+  // build tools still need a checked route from tagged interfaces to schema values.
   '@zmdb/aot-validator#./testing',
   '@zmdb/aot-validator#./transformer',
   '@zmdb/aot-validator#./unplugin',

@@ -26,9 +26,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 // their `.ts` siblings, but refuses to rewrite imports made by the consumer fixture. That keeps
 // config/SPEC.md §4's native-Node limitation observable instead of hiding it behind the repo hook.
 //
-// Current actual at 4c8fbfc552af38cafaa2a6d19d073bb898bac0ee for each
-// database verb:
-//   exit 2, stdout "", stderr `zmdb: unknown command "<verb>"`.
+// `generate` and `export` are implemented by #493. The other seven database
+// verbs are recognized, load the same config, and then report their scoped
+// implementation gap; `up` is recognized only to name `migrate` and `upgrade`.
 
 const ROOT = process.env.ZMDB_REPOSITORY_ROOT ?? process.cwd();
 const BIN = join(ROOT, 'packages', 'zmdb', 'src', 'cli', 'bin.ts');
@@ -114,8 +114,19 @@ function run(project: Project, ...argv: readonly string[]): Run {
   return {
     status: result.status,
     stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
+    // TypeScript 7's sync client spawns tsgo with inherited stderr and kills it
+    // during API.close(); under full-suite load that dependency sometimes writes
+    // this exact shutdown line. Keep every other byte so CLI stream assertions
+    // still fail on output owned by zmdb.
+    stderr: withoutCompilerShutdownNoise(result.stderr ?? ''),
   };
+}
+
+function withoutCompilerShutdownNoise(stderr: string): string {
+  return stderr
+    .split(/\r?\n/)
+    .filter(line => line !== 'context canceled')
+    .join('\n');
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -212,9 +223,10 @@ afterEach(() => {
 });
 
 describe('the zmdb database CLI in a temporary consumer project', () => {
-  // Current actual: each row exits 2 with human stderr and empty stdout, so JSON.parse fails.
+  // Every recognized database verb reaches the shared config boundary before its
+  // command implementation, so even future verbs keep the machine API stable.
   // This exact title carries MikroORM's `cli` API-coverage row.
-  it.fails('emits machine-readable output under --json for every command', () => {
+  it('emits machine-readable output under --json for every command', () => {
     for (const command of COMMANDS) {
       const project = copyProject();
       const missing = join(project.root, 'missing.config.ts');
@@ -227,11 +239,11 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
       expect(body.config, command).toBe(missing);
       expect(list(body.errors, `${command} errors`).length, command).toBeGreaterThan(0);
     }
-  });
+  }, 30_000);
 
-  // Current actual: each row exits 2 for an unknown command. The missing config
-  // path is never reached or reported.
-  it.fails('exits non-zero on failure for every command', () => {
+  // A bad invocation is exit 2, names the attempted config, and never writes a
+  // human progress line to stdout.
+  it('exits non-zero on failure for every command', () => {
     for (const command of COMMANDS) {
       const project = copyProject();
       const missing = join(project.root, 'missing.config.ts');
@@ -240,10 +252,9 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
       expect(invocation.stdout, command).toBe('');
       expect(invocation.stderr, command).toContain(missing);
     }
-  });
+  }, 30_000);
 
-  // Current actual: exit 2, `zmdb: unknown command "generate"`.
-  it.fails('generates a migration and a snapshot from declarations', () => {
+  it('generates a migration and a snapshot from declarations', () => {
     const project = copyProject();
     const invocation = run(project, 'generate', '--name', 'initial');
     expect(invocation.status).toBe(0);
@@ -264,8 +275,7 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
     });
   });
 
-  // Current actual: the first generate exits 2 before it can establish the no-change case.
-  it.fails('generates nothing and exits zero when the schema has not changed', () => {
+  it('generates nothing and exits zero when the schema has not changed', () => {
     const project = copyProject();
     expect(run(project, 'generate', '--name', 'initial').status).toBe(0);
     const before = readdirSync(project.migrations)
@@ -282,7 +292,22 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
     ).toEqual(before);
   });
 
-  // Current actual: exit 2, so neither the user table nor the ledger exists.
+  it('treats a migration name with no slug characters as an invocation error', () => {
+    const project = copyProject();
+    const invocation = run(project, 'generate', '--name', '!!!', '--json');
+
+    expect(invocation.status).toBe(2);
+    expect(invocation.stderr).toMatch(/migration name.*letters or digits/i);
+    expect(json(invocation)).toMatchObject({
+      ok: false,
+      command: 'generate',
+      config: project.config,
+    });
+    expect(existsSync(project.migrations)).toBe(false);
+  });
+
+  // Current actual: exit 2 after config loading, naming the implementation gap;
+  // neither the user table nor the ledger is touched.
   it.fails('applies migrations to a real sqlite database and records them in the ledger', () => {
     const project = copyProject();
     const version = 20260904010101;
@@ -305,7 +330,8 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
     expect(second.stdout).toMatch(/(?:none|nothing|0)/i);
   });
 
-  // Current actual: exit 2 before any SQL; the assertions freeze the stronger transactional rule.
+  // Current actual: exit 2 before any SQL because `migrate` remains for #494;
+  // the assertions freeze the stronger transactional rule.
   it.fails('stops and reports when a migration fails, leaving the ledger honest', () => {
     const project = copyProject();
     const version = 20260904010202;
@@ -328,7 +354,8 @@ THIS IS NOT SQL;
     expect(ledgerVersions(project)).toEqual([]);
   });
 
-  // Current actual: exit 2 with no plan; the existing column is unchanged.
+  // Current actual: exit 2 because `push` remains for #494; no plan is emitted
+  // and the existing column is unchanged.
   it.fails('refuses a destructive push without --force, printing what it would drop', () => {
     const project = copyProject();
     withDatabase(project, database => {
@@ -342,7 +369,7 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toContain('legacy');
   });
 
-  // Current actual: exit 2, so `legacy` remains.
+  // Current actual: exit 2 because `push` remains for #494, so `legacy` remains.
   it.fails('applies a destructive push with --force', () => {
     const project = copyProject();
     withDatabase(project, database => {
@@ -354,7 +381,8 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toEqual(['id', 'email']);
   });
 
-  // Current actual: exit 2 for an unknown command rather than the frozen non-TTY refusal.
+  // Current actual: exit 2 for the unimplemented `push` command rather than the
+  // frozen non-TTY refusal.
   it.fails('does not prompt when stdin is not a TTY', () => {
     const project = copyProject();
     withDatabase(project, database => {
@@ -368,7 +396,7 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toContain('legacy');
   });
 
-  // Current actual: exit 2 with no JSON finding.
+  // Current actual: exit 2 with an implementation-gap JSON error and no finding.
   it.fails('detects a snapshot that does not match its migration history', () => {
     const project = copyProject();
     writeSnapshot(project, { version: 1, tables: [] });
@@ -382,7 +410,7 @@ THIS IS NOT SQL;
   });
 
   // The issue body said “same parent”, but the frozen SPEC has no lineage field: its exact
-  // check is duplicate-version. Current actual is still the unknown-command exit.
+  // check is duplicate-version. Current actual is the #494 implementation-gap exit.
   it.fails('detects two migrations generated from the same parent', () => {
     const project = copyProject();
     writeSnapshot(project, usersSnapshot());
@@ -398,7 +426,8 @@ THIS IS NOT SQL;
   });
 
   // No prior snapshot shape is frozen, so this asserts the implementable half of §8:
-  // current-version idempotence and no mtime write. Current actual is exit 2.
+  // current-version idempotence and no mtime write. Current actual is the #494
+  // implementation-gap exit.
   it.fails('upgrades a stored snapshot format idempotently', () => {
     const project = copyProject();
     const snapshot = writeSnapshot(project, usersSnapshot());
@@ -412,8 +441,7 @@ THIS IS NOT SQL;
     expect(statSync(snapshot, { bigint: true }).mtimeNs).toBe(beforeMtime);
   });
 
-  // Current actual: exit 2 and empty stdout.
-  it.fails('prints the full DDL to stdout in phase order', () => {
+  it('prints the full DDL to stdout in phase order', () => {
     const project = copyProject();
     const invocation = run(project, 'export');
     expect(invocation.status).toBe(0);
@@ -422,8 +450,8 @@ THIS IS NOT SQL;
     expect(existsSync(project.migrations)).toBe(false);
   });
 
-  // Current actual: exit 2 and no declarations. The generated path is read from the frozen
-  // JSON result rather than invented by the test.
+  // Current actual: exit 2 because `pull` remains for #495. The generated path is
+  // read from the frozen JSON result rather than invented by the test.
   it.fails('writes declarations from a live database and refuses to overwrite a hand-written file', () => {
     const project = copyProject();
     withDatabase(project, database => {
@@ -447,13 +475,46 @@ THIS IS NOT SQL;
     expect(skipped.some(item => resolve(project.root, String(item.path)) === generatedPath)).toBe(true);
   });
 
-  // Current actual says only “unknown command”; the frozen collision must name both safe choices.
-  it.fails('refuses up and names migrate and upgrade', () => {
+  it('refuses up and names migrate and upgrade', () => {
     const project = copyProject();
     const invocation = run(project, 'up');
     expect(invocation.status).toBe(2);
     expect(invocation.stdout).toBe('');
     expect(invocation.stderr).toMatch(/migrate/);
     expect(invocation.stderr).toMatch(/upgrade/);
+  });
+
+  it('keeps stdout parseable under --json when the command fails', () => {
+    const project = copyProject();
+    const missing = join(project.root, 'missing.config.ts');
+    const invocation = run(project, 'generate', '--config', missing, '--json');
+
+    expect(invocation.status).toBe(2);
+    expect(invocation.stderr).toContain(missing);
+    const body = json(invocation);
+    expect(body).toMatchObject({
+      ok: false,
+      command: 'generate',
+      config: missing,
+    });
+    expect(list(body.errors, 'generate errors')).toHaveLength(1);
+  });
+
+  it('prints global and per-command help from the parser definitions', () => {
+    const project = copyProject();
+    const global = run(project, '--help');
+    const generate = run(project, 'generate', '--help');
+    const generateJson = run(project, 'generate', '--help', '--json');
+
+    expect([global.status, generate.status, generateJson.status]).toEqual([0, 0, 0]);
+    expect(global.stderr).toBe('');
+    expect(global.stdout).toContain('generate');
+    expect(global.stdout).toContain('export');
+    expect(generate.stderr).toBe('');
+    expect(generate.stdout).toContain('zmdb generate [--name <slug>]');
+    expect(generate.stdout).toContain('--name <slug>');
+    expect(generateJson.stderr).toBe('');
+    const help = record(json(generateJson).result, 'generate help result');
+    expect(help.help).toContain('zmdb generate [--name <slug>]');
   });
 });

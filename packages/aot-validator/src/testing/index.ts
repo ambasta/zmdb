@@ -1,4 +1,4 @@
-// `@zmdb/aot-validator/testing` — a tagged type's schema value, without a build step.
+// `@zmdb/aot-validator/testing` — tagged schema values, without a transform step.
 //
 // `schemaOf<User>()` is compiled away by the transform, and it has no runtime: a type
 // argument does not survive to runtime, so a build that skipped the transform gets a thrown
@@ -7,11 +7,12 @@
 // TypeScript source with no bundler in the way — `vitest`, `node --strip-types`, `tsx`. Ask
 // for the schema there and you get the error, correctly, and no way forward.
 //
-// So this does at test time what the transform does at build time, through the same
-// reflection: open the project, read the declared type of an exported interface, and turn its
-// IR into the schema value. What comes back is what the transform would have inlined —
-// literally the same `schemaFromIR(schemaIrFromType(...))` expression — so a test written
-// against it is testing the shipped path rather than a stand-in for it.
+// So this does through the compiler API what the transform does during a build: open the
+// project, read exported tagged interfaces, and turn their IR into schema values. Tests can
+// name individual exports with `schemasFrom`; build tools whose config already resolved a
+// concrete file set use `schemasFromFiles`. Both return what the transform would have inlined
+// — literally the same `schemaFromIR(schemaIrFromType(...))` expression — rather than a
+// stand-in for the shipped path.
 //
 // ```ts
 // import { schemasFrom } from '@zmdb/aot-validator/testing';
@@ -31,10 +32,10 @@
 // ## What it costs
 //
 // One compiler session per call — about 80ms to load a package-sized project, and about 3ms
-// to resolve a type out of it. So this belongs at module scope, once per test file, with as
-// many names in the one call as the file needs; a call per `it()` would pay the load again
-// each time. The session is closed before the call returns, because an open one holds a child
-// process and a test runner that leaks those hangs on exit.
+// to resolve a type out of it. So a test should call once at module scope with every name it
+// needs, while a command should pass its whole configured file set once. The session is
+// closed before the call returns, because an open one holds a child process and a process
+// that leaks those hangs on exit.
 //
 // It does check the module's own diagnostics first, which costs about 6ms and earns it back
 // the first time somebody mistypes an import. A type read out of a file that does not compile
@@ -64,6 +65,11 @@ export interface SchemasFromOptions {
    * prevent; pass a function to inspect them instead.
    */
   readonly onDiagnostics?: ((diagnostics: readonly ReflectDiagnostic[]) => void) | undefined;
+}
+
+export interface SchemasFromFilesOptions extends SchemasFromOptions {
+  /** The project that owns every selected declaration file. */
+  readonly project: string;
 }
 
 /**
@@ -105,6 +111,83 @@ export function schemasFrom(
   const schemas: Record<string, CoreSchema<string>> = {};
   for (const [name, ir] of Object.entries(irs)) schemas[name] = schemaFromIR(ir);
   return schemas;
+}
+
+/**
+ * Every exported tagged table declaration in a concrete file set.
+ *
+ * Config loading has already expanded and project-checked these files. This
+ * bridge keeps the remaining compiler work in the reflection library: one
+ * session for the project, one pass over each module's exports, and the same
+ * `schemaFromIR` conversion used by `schemaOf<T>()` and `schemasFrom()`.
+ */
+export function schemasFromFiles(
+  files: readonly string[],
+  options: SchemasFromFilesOptions,
+): readonly CoreSchema<string>[] {
+  if (files.length === 0) throw new Error('the configured schema file set is empty');
+
+  using session = ReflectSession.open({ project: options.project });
+  const schemas = new Map<string, CoreSchema<string>>();
+  const diagnostics: ReflectDiagnostic[] = [];
+
+  for (const file of files.toSorted()) {
+    const sourceFile = session.sourceFile(file);
+    if (!sourceFile) {
+      throw new Error(
+        `${file} is not part of ${options.project}; the configured schema files must belong to the project`,
+      );
+    }
+
+    const broken = session.diagnostics(file);
+    if (broken.length > 0) {
+      throw new Error(
+        `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
+          broken
+            .slice(0, 5)
+            .map(one => `  TS${String(one.code)}: ${one.text}`)
+            .join('\n'),
+      );
+    }
+
+    const moduleSymbol = session.checker.getSymbolAtLocation(sourceFile);
+    if (!moduleSymbol) throw new Error(`${file} has no module symbol, so it exports nothing to read`);
+    const exported = session.checker
+      .getExportsOfModule(moduleSymbol)
+      .toSorted((left, right) => left.name.localeCompare(right.name));
+
+    for (const symbol of exported) {
+      const type = session.checker.getDeclaredTypeOfSymbol(symbol);
+      const reflected = schemaIrFromType(session.checker, type, sourceFile);
+      const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
+      if (!isTable) continue;
+
+      diagnostics.push(...reflected.diagnostics);
+      const schema = schemaFromIR(reflected.ir);
+      const previous = schemas.get(schema.table);
+      if (previous !== undefined) {
+        if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
+          throw new Error(`configured schema files export conflicting declarations for table ${schema.table}`);
+        }
+        continue;
+      }
+      schemas.set(schema.table, schema);
+    }
+  }
+
+  if (diagnostics.length > 0) {
+    if (options.onDiagnostics) options.onDiagnostics(diagnostics);
+    else {
+      throw new Error(
+        `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
+          diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
+      );
+    }
+  }
+  if (schemas.size === 0) {
+    throw new Error(`the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`);
+  }
+  return [...schemas.values()].toSorted((left, right) => left.table.localeCompare(right.table));
 }
 
 /**
