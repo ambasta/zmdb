@@ -11,15 +11,35 @@ export function quoteId(dialect: Dialect, id: string): string {
 }
 
 // §1 indexes & constraints
+export type IndexColumn = string | { readonly expr: string };
+
 export interface IndexDef {
   name: string;
   table: string;
-  columns: readonly string[];
+  columns: readonly IndexColumn[];
   unique?: boolean;
   where?: string;
 }
 export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
-  const cols = def.columns.map(c => quoteId(dialect, c)).join(', ');
+  const expression = def.columns.find(column => typeof column !== 'string');
+  if (dialect === 'mysql' && expression !== undefined) {
+    throw new UnsupportedFeatureError(
+      `expression index "${def.name}"`,
+      dialect,
+      `mysql does not support an expression index ("${def.name}" on "${def.table}" uses ${expression.expr}); ` +
+        'add a generated column and index that instead',
+    );
+  }
+
+  const cols = def.columns
+    .map(column => {
+      if (typeof column === 'string') return quoteId(dialect, column);
+      // boundary: index expressions are schema-authored DDL, never user input. The caller owns
+      // identifier quoting inside the expression; parsing or rewriting it would violate the
+      // contract that migrations compare and emit this string unchanged.
+      return column.expr;
+    })
+    .join(', ');
   const unique = def.unique ? 'UNIQUE ' : '';
   const where = def.where ? ` WHERE ${def.where}` : '';
   return `CREATE ${unique}INDEX ${quoteId(dialect, def.name)} ON ${quoteId(dialect, def.table)} (${cols})${where}`;

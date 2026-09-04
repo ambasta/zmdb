@@ -23,14 +23,14 @@ Four of these share one cause: `UpdateBuilder.set()` takes values, not expressio
 
 ## Schema
 
-|                                                                               |                                                              |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [Array and JSON defaults](./guide-array-defaults.html)                        | `defaultTo` with a JSON value, and the shared-reference trap |
-| [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process   |
-| [Case-insensitive unique](./guide-case-insensitive-unique.html)               | **ToDo** — needs a functional index                          |
-| [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                          |
-| [Vector search](./guide-vector-search.html)                                   | **ToDo** — `SqlType` has no vector                           |
-| [PostGIS](./guide-postgis.html)                                               | **ToDo** — same                                              |
+|                                                                               |                                                                  |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [Array and JSON defaults](./guide-array-defaults.html)                        | `defaultTo` with a JSON value, and the shared-reference trap     |
+| [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process       |
+| [Case-insensitive unique](./guide-case-insensitive-unique.html)               | Expression index on PostgreSQL/SQLite; generated column on MySQL |
+| [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                              |
+| [Vector search](./guide-vector-search.html)                                   | **ToDo** — `SqlType` has no vector                               |
+| [PostGIS](./guide-postgis.html)                                               | **ToDo** — same                                                  |
 
 ## Local development
 

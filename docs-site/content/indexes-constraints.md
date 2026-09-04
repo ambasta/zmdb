@@ -164,7 +164,7 @@ import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 const expressionIndex = {
   name: 'idx_users_email_lower',
   table: 'users',
-  columns: ['(lower(email))'], // Note: expression syntax varies by dialect
+  columns: [{ expr: 'lower("email")' }],
 };
 
 const ddl = createIndexDdl(expressionIndex, 'postgres');
@@ -172,8 +172,12 @@ console.log(ddl);
 ```
 
 ```sql
-CREATE INDEX "idx_users_email_lower" ON "users" ((lower(email)))
+CREATE INDEX "idx_users_email_lower" ON "users" (lower("email"))
 ```
+
+Expression text is emitted verbatim, so quote identifiers inside it and never interpolate user
+input. PostgreSQL and SQLite accept this form. MySQL is refused with an
+`UnsupportedFeatureError`; use a generated column there.
 
 ## Dropping Indexes and Constraints
 

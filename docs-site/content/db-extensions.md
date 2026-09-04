@@ -9,7 +9,7 @@ Several other pages are downstream of this one:
 
 - [Vector similarity search](./guide-vector-search.html) — needs `vector(n)` and the `<->` / `<=>` operators
 - [Geometry and point columns](./guide-postgis.html) — needs `geometry` / `point`
-- [Case-insensitive unique email](./guide-case-insensitive-unique.html) — `citext` is one of the two answers; the other is a functional index, which is [also missing](./indexes-constraints.html)
+- [Case-insensitive unique email](./guide-case-insensitive-unique.html) — `citext` is one answer; the other is a supported functional index on `lower(email)`
 
 ## What you can do today
 

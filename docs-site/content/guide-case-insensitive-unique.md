@@ -1,6 +1,6 @@
-> **ToDo / feature gap.** `IndexDef.columns` is a list of column names, so
-> `UNIQUE (lower(email))` — a functional index — is not expressible. `Unique`
-> gives you a case-**sensitive** constraint.
+> **Supported.** `IndexDef.columns` accepts a tagged expression, so PostgreSQL and
+> SQLite can emit a unique index on `lower(email)`. MySQL uses the generated-column
+> form below. The `Unique` tag itself remains case-**sensitive**.
 
 ## The problem
 
@@ -10,12 +10,28 @@ email: string & Sql<'varchar'> & Length<255> & Unique;
 
 `Alice@example.com` and `alice@example.com` are two different values, so both rows insert. Then your login query with one casing finds nothing, and support has two accounts to merge.
 
-## Workaround 1 — a functional unique index, hand-written
+## Expression unique index
 
-The correct fix, via a [custom migration](./migrations-custom.html):
+For PostgreSQL and SQLite, emit the index from a [custom migration](./migrations-custom.html):
+
+```ts
+import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
+
+const ddl = createIndexDdl(
+  {
+    name: 'users_email_lower',
+    table: 'users',
+    columns: [{ expr: 'lower("email")' }],
+    unique: true,
+  },
+  'postgres',
+);
+
+await exec(ddl);
+```
 
 ```sql
-CREATE UNIQUE INDEX users_email_lower ON users (lower(email));
+CREATE UNIQUE INDEX "users_email_lower" ON "users" (lower("email"))
 ```
 
 Then query through the same expression, or the index is not used:
@@ -29,9 +45,11 @@ await driver.execute({
 
 Both sides matter. `WHERE email = $1` will not use `lower(email)`, and `WHERE lower(email) = $1` with an unnormalised parameter misses rows.
 
-MySQL 8 needs a generated column to index an expression (see below). SQLite supports expression indexes since 3.9.
+The expression is emitted verbatim. Quote identifiers inside it yourself and never interpolate
+request data. MySQL is deliberately refused because its functional-key-part syntax differs;
+use the generated column below. SQLite supports expression indexes since 3.9.
 
-## Workaround 2 — a generated column
+## Generated column
 
 Portable to MySQL, and it makes the normalised value queryable through the typed API:
 
@@ -100,9 +118,11 @@ ALTER TABLE users ALTER COLUMN email TYPE citext;
 
 Now `=` and `Unique` are insensitive with no query changes. Since `SqlType` has no `citext`, declare the column as `Sql<'text'>` and change the type in a migration — see [Database Extensions](./db-extensions.html). Cleanest option if you are Postgres-only, and it applies to every writer.
 
-## What it would take
+## Declaration boundary
 
-`IndexDef.columns` accepting an expression as well as a name, and something in the tag vocabulary able to say it — `Unique` carries no arguments, so an expression form needs either a new tag or a hand-written index beside the declaration. The design question is how an expression is represented safely — index expressions cannot be parameterised, so this is unavoidably a string that ends up in DDL, which needs the same care as [raw SQL](./raw-sql.html). The same expression support would unblock functional indexes generally, which is a bigger win than this one case.
+`IndexDef` emits the functional index, but the type-level `Unique` tag carries no arguments and
+therefore cannot derive it from the interface. Keep the index declaration beside the schema in a
+migration. Its expression is raw DDL and needs the same care as [raw SQL](./raw-sql.html).
 
 ---
 

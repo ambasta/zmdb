@@ -1315,8 +1315,7 @@ export const PAGE_META = {
   'guide-case-insensitive-unique': {
     title: 'Case-insensitive unique email',
     group: 'Guides',
-    status: 'todo',
-    note: 'IndexDef takes column names, not expressions, so a functional index on lower(email) cannot be emitted',
+    status: 'supported',
   },
   'guide-fts-generated-columns': {
     title: 'Full-text search with a generated column',

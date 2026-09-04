@@ -9,8 +9,8 @@ export class UnsupportedFeatureError extends Error {
   readonly feature: string;
   readonly dialect: string;
 
-  constructor(feature: string, dialect: string) {
-    super(`${feature} is not supported on dialect "${dialect}"`);
+  constructor(feature: string, dialect: string, message = `${feature} is not supported on dialect "${dialect}"`) {
+    super(message);
     this.name = 'UnsupportedFeatureError';
     this.feature = feature;
     this.dialect = dialect;

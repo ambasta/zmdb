@@ -66,7 +66,14 @@ Partial indexes are supported and are the right tool for a filtered subset:
 createIndexDdl({ name: 'orders_open', table: 'orders', columns: ['created_at'], where: "status = 'open'" }, 'postgres');
 ```
 
-Functional indexes are not expressible — `IndexDef.columns` is column names only. Hand-write it in a [migration](./migrations-custom.html).
+Functional indexes use the tagged expression form:
+
+```ts
+createIndexDdl({ name: 'users_email_lower', table: 'users', columns: [{ expr: 'lower("email")' }] }, 'postgres');
+```
+
+The expression is schema-authored DDL and is emitted verbatim. MySQL needs a generated column
+instead.
 
 ## Read the plan
 

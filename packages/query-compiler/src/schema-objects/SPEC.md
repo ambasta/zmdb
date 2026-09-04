@@ -53,6 +53,11 @@ quietly accepting a half-written expression. So the caller says which it meant, 
 insensitive-unique recipe this epic exists to enable (`{ expr: 'lower(email)' }`) is spelled
 differently from an ordinary index on a column that happens to be called `email`.
 
+The expression is trusted, schema-authored DDL rather than request data. The caller is responsible
+for quoting every identifier inside it and must never interpolate user input. This is a deliberate
+boundary: parsing or re-quoting the text here would turn the migration compiler into an incomplete
+SQL parser and would break the opaque comparison rule below.
+
 **An expression is opaque to `diff`.** It is compared as a byte string, which makes
 `lower(email)` and `LOWER(email)` two different indexes, and a whitespace edit a drop and a
 recreate. That is deliberate and stated so nobody implements the alternative: normalising SQL
