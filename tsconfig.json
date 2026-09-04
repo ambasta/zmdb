@@ -97,7 +97,10 @@
       "@zmdb/transport-rabbitmq": ["./packages/transport-rabbitmq/src/index.ts"],
       "@zmdb/transport-redis": ["./packages/transport-redis/src/index.ts"],
       "@zmdb/web": ["./packages/web/src/index.ts"],
-      "@zmdb/web/*": ["./packages/web/src/*/index.ts"]
+      "@zmdb/web/*": ["./packages/web/src/*/index.ts"],
+      "zmdb": ["./packages/zmdb/src/index.ts"],
+      "zmdb/drivers/*": ["./packages/zmdb/src/drivers-*.ts"],
+      "zmdb/*": ["./packages/zmdb/src/*.ts"]
     }
   }
 }
