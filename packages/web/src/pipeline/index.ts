@@ -1493,6 +1493,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 type ControllerCtor = abstract new (...args: never[]) => unknown;
 
 function controllerCtor(controller: object): ControllerCtor | undefined {
+  // boundary: constructor function is checked via typeof before casting to ControllerCtor.
   const ctor = controller.constructor;
   if (typeof ctor !== 'function') {
     return undefined;
@@ -1559,6 +1560,7 @@ function securityFromGuards(guards: readonly Guard[]): readonly SecurityRequirem
 // sound because getRoutes only yields names of methods the decorators saw. This
 // is the single enumerated boundary for the pipeline (ARCHITECTURE.md §2.1).
 function readHandler(controller: object, name: string): Handler | undefined {
+  // boundary: property value is checked via typeof function before binding and casting to Handler.
   const value = Reflect.get(controller, name);
   if (typeof value !== 'function') {
     return undefined;
