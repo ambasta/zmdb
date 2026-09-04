@@ -41,6 +41,14 @@ packages/aot-validator/src/reflect/__fixtures__/__generated__/
 # The instantiation budget generates and measures its own projects
 packages/schema-core/src/derive/__budget__/
 
+# The sub-issue work stream's state — HANDOVER.md, the tracker scripts, and the per-issue drafts a
+# subagent produced but nobody has landed yet. It normally lives outside the checkout, at
+# ../zmdb-handover, precisely so it cannot be staged; these two lines mean that a copy dropped inside
+# the repository cannot be either. Nothing in it is source: the drafts are flat files named
+# `packages__web__src__…spec.ts`, so no test-include glob or tsconfig project reaches them.
+/zmdb-handover/
+/.handover/
+
 # The build budget generates a project and runs the real codegen over it. Inside the repository
 # because `zmdb` has to resolve the way it does for a consumer, and outside packages/ and
 # fixtures/ because `yarn typecheck` discovers those.
