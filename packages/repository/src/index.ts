@@ -2563,7 +2563,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
       // 2. Create primary entity
       const rootEntity = await this.create(parentData as CreateDTO<T>);
-      const rootRec = rootEntity as Record<string, unknown>;
+      const rootRec: Record<string, unknown> = isRecord(rootEntity) ? rootEntity : {};
       const rootPkVal = rootRec[this.pkColumn];
 
       // 3. Handle one-to-many, one-to-one, and many-to-many child entities
@@ -2639,7 +2639,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       ) as (RelationKeys<T> & string)[];
 
       const populated =
-        isRecord(rootEntity) && rootPkVal !== undefined && rootPkVal !== null
+        rootPkVal !== undefined && rootPkVal !== null
           ? await this.findById(rootPkVal as PrimaryKeyOf<T>, { populate: populateList })
           : undefined;
       return (populated ?? rootEntity) as Populated<T, K>;
@@ -2657,7 +2657,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.executeInTransaction(async () => {
       const existing = await this.findById(id);
       if (!existing) return undefined;
-      const existingRec = existing as Record<string, unknown>;
+      const existingRec: Record<string, unknown> = isRecord(existing) ? existing : {};
 
       const declaredRelations = this.schema.ir.relations;
       const relationNames = new Set(declaredRelations.map(r => r.name));
@@ -2789,7 +2789,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.executeInTransaction(async () => {
       const existing = await this.findById(id);
       if (!existing) return false;
-      const existingRec = existing as Record<string, unknown>;
+      const existingRec: Record<string, unknown> = isRecord(existing) ? existing : {};
 
       const declaredRelations = this.schema.ir.relations;
 
