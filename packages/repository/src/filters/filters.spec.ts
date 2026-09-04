@@ -36,6 +36,7 @@ export interface FilterUser extends Table<'users'> {
 function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
   return {
     name,
+    physicalName: name,
     sql,
     nullable: false,
     primaryKey: false,
@@ -51,6 +52,7 @@ function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR>
 
 const USER_IR: SchemaIR = {
   table: 'users',
+  physicalTable: 'users',
   columns: [
     column('id', 'integer', { primaryKey: true, serial: true }),
     column('tenantId', 'integer'),

@@ -99,6 +99,7 @@ function column(
 ): ColumnIR {
   return {
     name,
+    physicalName: name,
     sql,
     nullable: false,
     primaryKey: false,
@@ -114,6 +115,7 @@ function column(
 
 const usersIr: SchemaIR = {
   table: 'users',
+  physicalTable: 'users',
   columns: [
     column('id', 'integer', { primaryKey: true }),
     column('name', 'text'),
@@ -125,6 +127,7 @@ const usersIr: SchemaIR = {
 
 const postsIr: SchemaIR = {
   table: 'posts',
+  physicalTable: 'posts',
   columns: [
     column('id', 'integer', { primaryKey: true }),
     column('userId', 'integer', { references: 'users.id' }),

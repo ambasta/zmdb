@@ -199,6 +199,7 @@ function isRoutineDefinition(value: unknown): value is RoutineDef {
 function routineColumn(name: string, sql: RoutineType): ColumnIR {
   return {
     name,
+    physicalName: name,
     sql,
     nullable: false,
     primaryKey: false,

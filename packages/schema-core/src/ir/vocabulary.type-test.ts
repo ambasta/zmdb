@@ -15,6 +15,7 @@ import type {
   PROTO_SCALARS,
   PropertyIR,
   ProtoScalar,
+  SchemaIR,
   SQL_TYPES,
   ScalarIR,
   TAG_NAMES,
@@ -129,3 +130,8 @@ export type _V6 = Expect<Equal<StartsWithZmdb<(typeof TAG_NAMES)[TagField]>, tru
 export type _V7 = Expect<Equal<(typeof PROTO_SCALARS)[number], ProtoScalar>>;
 export type _V8 = Expect<Equal<NonNullable<PropertyIR['protoField']>, number>>;
 export type _V9 = Expect<Equal<NonNullable<ScalarIR['proto']>, ProtoScalar>>;
+
+// Physical names are explicit identity values, never optional fallbacks left to
+// each SQL consumer to remember.
+export type _V10 = Expect<Equal<ColumnIR['physicalName'], string>>;
+export type _V11 = Expect<Equal<SchemaIR['physicalTable'], string>>;

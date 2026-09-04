@@ -58,6 +58,7 @@ export interface StreamRecord extends Table<'stream_records'> {
 function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
   return {
     name,
+    physicalName: name,
     sql,
     nullable: false,
     primaryKey: false,
@@ -73,6 +74,7 @@ function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR>
 
 const STREAM_RECORD_IR: SchemaIR = {
   table: 'stream_records',
+  physicalTable: 'stream_records',
   columns: [
     column('id', 'integer', { primaryKey: true }),
     column('payload', 'text'),

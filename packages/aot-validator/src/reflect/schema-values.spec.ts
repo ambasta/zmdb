@@ -105,6 +105,27 @@ describe('the emitted schema value vs schemaFromIR (REQ-TF-10)', () => {
   it('covers every schema the fixture emits', () => {
     expect([...schemas.keys()].toSorted()).toEqual(['memberships', 'users', 'users:again']);
   });
+
+  it('carries resolved physical names through generated code without changing SQL yet', () => {
+    const named = new Map<string, CoreSchema<string>>();
+    const result = transformFile(FILE, readFileSync(FILE, 'utf8'), {
+      session,
+      reflect: {
+        naming: {
+          table: declared => `${declared}_physical`,
+          column: property => (property === 'createdAt' ? 'created_at' : property),
+        },
+      },
+    });
+    expect(result.diagnostics).toEqual([]);
+    evaluate(result.code, (label, value) => named.set(label, value));
+
+    const generatedUsers = named.get('users');
+    expect(generatedUsers).toBeDefined();
+    expect(generatedUsers?.table).toBe('users');
+    expect(generatedUsers?.ir.physicalTable).toBe('users_physical');
+    expect(generatedUsers?.ir.columns.find(column => column.name === 'createdAt')?.physicalName).toBe('created_at');
+  });
 });
 
 describe('what the emitted module contains', () => {

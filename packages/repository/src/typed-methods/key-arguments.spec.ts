@@ -30,9 +30,11 @@ import { ProductsRepo, recorder, TenantUsersRepo } from './fixtures.js';
  */
 const keylessIr: SchemaIR = {
   table: 'audit_log',
+  physicalTable: 'audit_log',
   columns: [
     {
       name: 'at',
+      physicalName: 'at',
       sql: 'timestamp',
       nullable: false,
       primaryKey: false,
@@ -45,6 +47,7 @@ const keylessIr: SchemaIR = {
     },
     {
       name: 'what',
+      physicalName: 'what',
       sql: 'text',
       nullable: false,
       primaryKey: false,

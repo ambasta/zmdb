@@ -19,6 +19,7 @@ import {
   irFromType,
   Reflector,
   schemaIrFromType,
+  type NamingStrategy,
   type ReflectDiagnostic,
   type ReflectOptions,
 } from './index.js';
@@ -664,66 +665,55 @@ describe('irFromType and schemaIrFromType', () => {
 });
 
 describe('build-time naming strategy (frozen: reflect/SPEC.md 7a)', () => {
-  interface FrozenNamingStrategy {
-    readonly column?: (property: string, context: { readonly table: string }) => string;
-    readonly table?: (declared: string) => string;
-    readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
-  }
-
-  type FrozenReflectOptions = ReflectOptions & { readonly naming?: FrozenNamingStrategy };
-  type FrozenColumnIR = ColumnIR & { readonly physicalName: string };
-  type FrozenSchemaIR = Omit<SchemaIR, 'columns'> & {
-    readonly physicalTable: string;
-    readonly columns: readonly FrozenColumnIR[];
-  };
-
-  function reflectNamingCase(label: string, options: FrozenReflectOptions = {}) {
+  function reflectNamingCase(label: string, options: ReflectOptions = {}) {
     const source = session.sourceFile(`${FIXTURES}naming-strategy.ts`);
     const call = findCallSites(source as never, new Set(['namingCase'])).find(c => labelOf(c) === label);
     expect(call, `no namingCase labelled ${label}`).toBeDefined();
     const type = session.checker.getTypeFromTypeNode((call as never as { typeArgument: never }).typeArgument);
 
-    // boundary: #417 freezes the `naming` option before `ReflectOptions` ships it.
-    // The assertion is confined to the one real exported call; the result widening
-    // below only exposes the two required IR fields the same frozen spec names.
-    const result = schemaIrFromType(session.checker, type as never, source as never, options as ReflectOptions);
-    return { ...result, ir: result.ir as FrozenSchemaIR };
+    return schemaIrFromType(session.checker, type as never, source as never, options);
   }
 
-  // actual today: `naming` is ignored, the callback is never called, and the IR
-  // contains neither `physicalTable` nor `physicalName`.
-  it.fails('applies the column strategy once, into the IR', () => {
+  // The declared table stays in the callback context even when the table
+  // strategy resolves a different physical name.
+  it('applies the column strategy once, into the IR', () => {
     const calls: string[] = [];
+    const tableCalls: string[] = [];
     const result = reflectNamingCase('camel-case', {
       naming: {
         column(property, context) {
           calls.push(`${context.table}.${property}`);
           return property === 'createdAt' ? 'created_at' : property;
         },
-      },
+        table(declared) {
+          tableCalls.push(declared);
+          return 'user_accounts';
+        },
+      } satisfies NamingStrategy,
     });
 
     expect(result.diagnostics).toEqual([]);
-    expect(result.ir.physicalTable).toBe('userAccount');
+    expect(result.ir.physicalTable).toBe('user_accounts');
     expect(result.ir.columns.map(column => [column.name, column.physicalName])).toEqual([
       ['id', 'id'],
       ['createdAt', 'created_at'],
     ]);
     expect(calls).toEqual(['userAccount.id', 'userAccount.createdAt']);
+    expect(tableCalls).toEqual(['userAccount']);
   });
 
-  // actual today: both physical fields are absent rather than carrying the
-  // identity value explicitly.
-  it.fails('leaves physicalName equal to name when no strategy is configured', () => {
+  // Identity is carried explicitly so downstream SQL consumers never have to
+  // invent their own fallback.
+  it('leaves physicalName equal to name when no strategy is configured', () => {
     const result = reflectNamingCase('camel-case');
     expect(result.diagnostics).toEqual([]);
     expect(result.ir.physicalTable).toBe(result.ir.table);
     expect(result.ir.columns.map(column => column.physicalName)).toEqual(result.ir.columns.map(column => column.name));
   });
 
-  // actual today: the local `Physical<'created_ts'>` tag is ignored and no
-  // strategy callback runs, because neither surface exists in the reflector.
-  it.fails('lets an explicit column name beat the strategy', () => {
+  // An explicit name is resolved before the strategy and therefore does not
+  // invoke the strategy callback for that property.
+  it('lets an explicit column name beat the strategy', () => {
     const calls: string[] = [];
     const result = reflectNamingCase('explicit-column', {
       naming: {
@@ -742,9 +732,9 @@ describe('build-time naming strategy (frozen: reflect/SPEC.md 7a)', () => {
     expect(calls).toEqual(['id']);
   });
 
-  // actual today: the two properties are accepted with zero diagnostics because
-  // the strategy is never applied.
-  it.fails('fails the build when two properties collide on one physical name, naming both', () => {
+  // Strategy collisions use the normal collected diagnostic channel rather
+  // than throwing out of reflection.
+  it('fails the build when two properties collide on one physical name, naming both', () => {
     const result = reflectNamingCase('collision', {
       naming: {
         column: property => (property === 'createdAt' ? 'created_at' : property),
@@ -767,6 +757,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
   // so each row below reads as the facts that are true of it rather than as ninety words of
   // `false`. The comparison is still total — `toEqual` sees a complete `ColumnIR` either way.
   type Defaulted =
+    | 'physicalName'
     | 'nullable'
     | 'primaryKey'
     | 'serial'
@@ -777,6 +768,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
     | 'rules';
   function column(facts: Omit<ColumnIR, Defaulted> & Partial<Pick<ColumnIR, Defaulted>>): ColumnIR {
     return {
+      physicalName: facts.name,
       nullable: false,
       primaryKey: false,
       serial: false,
@@ -799,6 +791,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
   it('reads every column kind in one table', () => {
     expect(reflected('users')).toEqual({
       table: 'users',
+      physicalTable: 'users',
       columns: [
         // `serial`, not `integer`: `Serial` names a column type of its own in the IR, because
         // that is the word two of the three dialects want in the DDL.
@@ -829,6 +822,7 @@ describe('the schema IR of the corpus, written out (REQ-TF-7, REQ-TF-12)', () =>
   it('reads a composite key and a foreign key spelled table.column', () => {
     expect(reflected('memberships')).toEqual({
       table: 'memberships',
+      physicalTable: 'memberships',
       columns: [
         column({ name: 'userId', sql: 'integer', primaryKey: true, references: 'users.id' }),
         column({ name: 'groupId', sql: 'integer', primaryKey: true, references: 'groups.id' }),

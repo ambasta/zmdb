@@ -164,6 +164,7 @@ const refusalOf = (error: unknown): object => {
 
 const textColumn = (name: string): ColumnIR => ({
   name,
+  physicalName: name,
   sql: 'text',
   nullable: false,
   primaryKey: false,
@@ -177,6 +178,7 @@ const textColumn = (name: string): ColumnIR => ({
 
 const OverPropertyLimitSchema = schemaFromIR({
   table: 'over_property_limit',
+  physicalTable: 'over_property_limit',
   columns: Array.from({ length: 1_025 }, (_, index) => textColumn(`field_${String(index).padStart(4, '0')}`)),
   primaryKey: [],
   relations: [],

@@ -91,6 +91,38 @@ describe('schemasFrom', () => {
     expect(ir.columns.map(column => column.name).toSorted()).toEqual(['email', 'id', 'note', 'secret']);
   }, 60_000);
 
+  it('threads a naming strategy through the IR helper', () => {
+    const calls: string[] = [];
+    const { Account: ir } = schemaIrsFrom(import.meta.url, ['Account'], {
+      naming: {
+        table(declared) {
+          calls.push(`table:${declared}`);
+          return 'account_records';
+        },
+        column(property, context) {
+          calls.push(`column:${context.table}.${property}`);
+          return property === 'email' ? 'email_address' : property;
+        },
+      },
+    });
+
+    expect(ir.table).toBe('accounts');
+    expect(ir.physicalTable).toBe('account_records');
+    expect(ir.columns.map(column => [column.name, column.physicalName])).toEqual([
+      ['id', 'id'],
+      ['email', 'email_address'],
+      ['secret', 'secret'],
+      ['note', 'note'],
+    ]);
+    expect(calls).toEqual([
+      'table:accounts',
+      'column:accounts.id',
+      'column:accounts.email',
+      'column:accounts.secret',
+      'column:accounts.note',
+    ]);
+  }, 60_000);
+
   it('names the compile error rather than every column it made unreadable', () => {
     const file = scratch(`import type { Sql, Table } from './nowhere.js';
 

@@ -50,38 +50,27 @@ const usersV2 = snap([
   },
 ]);
 
-interface FrozenNamingStrategy {
-  readonly column?: (property: string, context: { readonly table: string }) => string;
-  readonly table?: (declared: string) => string;
-  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
-}
-
-type FrozenSchemasFromOptions = SchemasFromOptions & { readonly naming?: FrozenNamingStrategy };
-
 export interface NamingUser extends Table<'userAccount'> {
   id: number & Sql<'integer'> & PrimaryKey;
   createdAt: Date & Sql<'timestamp'>;
 }
 
 // The config-loader dependency stays stubbed here by one literal strategy. The
-// real test helper and reflection path receive it through the frozen options
-// boundary; no naming implementation is introduced by this tests-freeze slice.
+// real test helper and reflection path receive it through the shipped build-time
+// option; SQL remains frozen for the next implementation slice.
 const namingStrategy = {
   column: (property: string) => (property === 'createdAt' ? 'created_at' : property),
   table: (declared: string) => (declared === 'userAccount' ? 'user_accounts' : declared),
   index: (table: string, columns: readonly string[], unique: boolean) =>
     `${table}_${columns.join('_')}_${unique ? 'uniq' : 'idx'}`,
-} satisfies FrozenNamingStrategy;
+} satisfies NonNullable<SchemasFromOptions['naming']>;
 
-const namingOptions = { naming: namingStrategy } satisfies FrozenSchemasFromOptions;
+const namingOptions = { naming: namingStrategy } satisfies SchemasFromOptions;
 
-// boundary: `SchemasFromOptions` does not carry `naming` yet. This is the one
-// widened call into the real reflection -> schemaFromIR path; #418 replaces the
-// assertion with the shipped option.
 const { NamingUser: namingUserSchema } = schemasFrom<{ NamingUser: NamingUser }>(
   import.meta.url,
   ['NamingUser'],
-  namingOptions as SchemasFromOptions,
+  namingOptions,
 );
 
 const compileNamingCalls: string[] = [];
@@ -94,12 +83,12 @@ const compileNamingStrategy = {
     compileNamingCalls.push(`table:${declared}`);
     return declared === 'userAccount' ? 'user_accounts' : declared;
   },
-} satisfies FrozenNamingStrategy;
-const compileNamingOptions = { naming: compileNamingStrategy } satisfies FrozenSchemasFromOptions;
+} satisfies NonNullable<SchemasFromOptions['naming']>;
+const compileNamingOptions = { naming: compileNamingStrategy } satisfies SchemasFromOptions;
 const { NamingUser: compileNamingUserSchema } = schemasFrom<{ NamingUser: NamingUser }>(
   import.meta.url,
   ['NamingUser'],
-  compileNamingOptions as SchemasFromOptions,
+  compileNamingOptions,
 );
 
 describe('diff engine', () => {
@@ -215,8 +204,9 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     expect(ddl).not.toContain('WHERE created_at IS NOT NULL');
   });
 
-  // actual today: the naming callbacks are never reached, so the configured
-  // schema still compiles as SELECT "createdAt" FROM "userAccount".
+  // actual today: the naming callbacks run while building the IR, but the
+  // schema value still exposes declared names, so query compilation remains
+  // SELECT "createdAt" FROM "userAccount".
   it.fails('resolves naming before query compilation without runtime strategy calls', () => {
     const baseline = createQueryCompiler('postgres').selectFrom('userAccount').select(['createdAt']).compile().text;
     const resolvedCalls = compileNamingCalls.length;

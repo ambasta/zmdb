@@ -126,6 +126,7 @@ describe('isRecord', () => {
 const embeddingType: ExtensionType = { extension: 'vector', name: 'vector', args: [1536] };
 const embeddingColumn: ColumnIR = {
   name: 'embedding',
+  physicalName: 'embedding',
   sql: embeddingType,
   nullable: false,
   primaryKey: false,

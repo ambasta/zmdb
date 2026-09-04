@@ -50,7 +50,12 @@ import { fileURLToPath } from 'node:url';
 import type { CoreSchema, TaggedSchema } from '@zmdb/schema-core';
 import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 
-import { schemaIrFromType, type ReflectDiagnostic } from '../reflect/index.js';
+import {
+  schemaIrFromType,
+  type NamingStrategy,
+  type ReflectDiagnostic,
+  type ReflectOptions,
+} from '../reflect/index.js';
 import { ReflectSession } from '../reflect/session.js';
 
 export interface SchemasFromOptions {
@@ -65,11 +70,17 @@ export interface SchemasFromOptions {
    * prevent; pass a function to inspect them instead.
    */
   readonly onDiagnostics?: ((diagnostics: readonly ReflectDiagnostic[]) => void) | undefined;
+  /** The already-resolved build-time naming strategy. */
+  readonly naming?: NamingStrategy | undefined;
 }
 
 export interface SchemasFromFilesOptions extends SchemasFromOptions {
   /** The project that owns every selected declaration file. */
   readonly project: string;
+}
+
+function reflectOptions(options: SchemasFromOptions): ReflectOptions | undefined {
+  return options.naming === undefined ? undefined : { naming: options.naming };
 }
 
 /**
@@ -158,7 +169,7 @@ export function schemasFromFiles(
 
     for (const symbol of exported) {
       const type = session.checker.getDeclaredTypeOfSymbol(symbol);
-      const reflected = schemaIrFromType(session.checker, type, sourceFile);
+      const reflected = schemaIrFromType(session.checker, type, sourceFile, reflectOptions(options));
       const isTable = reflected.diagnostics.every(diagnostic => !diagnostic.reason.includes("no Table<'name'> tag"));
       if (!isTable) continue;
 
@@ -248,7 +259,7 @@ export function schemaIrsFrom<const Names extends readonly string[]>(
     // One reflector per name, which `schemaIrFromType` gives us: the node budget and the
     // helper-name table are per-reflection state, and sharing them across unrelated tables
     // would make one table's refusals show up against another's.
-    const result = schemaIrFromType(checker, type, sourceFile);
+    const result = schemaIrFromType(checker, type, sourceFile, reflectOptions(options));
     irs[name] = result.ir;
     diagnostics.push(...result.diagnostics);
   }

@@ -182,6 +182,8 @@ export interface ExtensionType {
 
 export interface ColumnIR {
   readonly name: string;
+  /** The database column name resolved by the build-time naming strategy. */
+  readonly physicalName: string;
   /** Abstract SQL type. The dialect renders the spelling — see plan D3. */
   readonly sql: SqlType | ExtensionType;
   readonly nullable: boolean;
@@ -230,6 +232,8 @@ export interface ColumnIR {
 
 export interface SchemaIR {
   readonly table: string;
+  /** The database table name resolved by the build-time naming strategy. */
+  readonly physicalTable: string;
   readonly columns: readonly ColumnIR[];
   readonly primaryKey: readonly string[];
   readonly relations: readonly RelationIR[];

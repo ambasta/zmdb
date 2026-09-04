@@ -60,12 +60,12 @@ modes.
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       345.55 |      2893912 |        baseline |                 0 |         1.123x |
-| request  | API no-op          |      1497.39 |       667830 |         +333.3% |                 0 |         1.514x |
-| request  | recording exporter |      7715.14 |       129615 |        +2132.7% |                 3 |         1.433x |
-| query    | off                |        75.35 |     13270729 |        baseline |                 0 |         1.489x |
-| query    | API no-op          |       297.58 |      3360412 |         +294.9% |                 0 |         1.263x |
-| query    | recording exporter |      2727.82 |       366593 |        +3520.0% |                 1 |         1.193x |
+| request  | off                |       347.90 |      2874409 |        baseline |                 0 |         1.055x |
+| request  | API no-op          |      1344.23 |       743920 |         +286.4% |                 0 |         1.136x |
+| request  | recording exporter |      7335.43 |       136325 |        +2008.5% |                 3 |         1.175x |
+| query    | off                |        76.43 |     13084224 |        baseline |                 0 |         1.117x |
+| query    | API no-op          |       299.47 |      3339244 |         +291.8% |                 0 |         1.273x |
+| query    | recording exporter |      2769.08 |       361131 |        +3523.1% |                 1 |         1.188x |
 
 The request workload is one matched `GET` and records the server, route and
 handler spans. The query workload is one compiled `SELECT` through

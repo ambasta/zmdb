@@ -78,6 +78,7 @@ describe('the relation vocabulary', () => {
   /** One column, with the six booleans and two collections every column has. */
   const col = (name: string, references?: string): ColumnIR => ({
     name,
+    physicalName: name,
     sql: 'integer',
     nullable: false,
     primaryKey: name === 'id',
@@ -100,6 +101,7 @@ describe('the relation vocabulary', () => {
 
     const ir: SchemaIR = {
       table: 'users',
+      physicalTable: 'users',
       columns: [col('id'), col('accountId', 'accounts.id')],
       primaryKey: ['id'],
       relations: [

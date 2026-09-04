@@ -91,6 +91,14 @@ export const DEFAULT_LIMITS: ReflectLimits = { maxDepth: 32, maxNodes: 20_000, m
 
 export interface ReflectOptions {
   readonly limits?: Partial<ReflectLimits>;
+  /** Resolved from `zmdb.config.ts` by the caller. Absent means identity. */
+  readonly naming?: NamingStrategy;
+}
+
+export interface NamingStrategy {
+  readonly column?: (property: string, context: { readonly table: string }) => string;
+  readonly table?: (declared: string) => string;
+  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +112,7 @@ export interface ReflectOptions {
  * escaped names differ only in that number.
  */
 const TAG_PATTERN = /^__@(\w+?)@?(\d*)$/;
+const PHYSICAL_TAG_NAME = 'zmdbPhysical';
 
 /**
  * The tag vocabulary read the other way round: escaped symbol name → IR field.
@@ -133,6 +142,9 @@ interface RecognizedTag {
 function recognizedTag(symbol: TsSymbol): RecognizedTag | undefined {
   const match = TAG_PATTERN.exec(symbol.escapedName);
   const uniqueName = match?.[1];
+  if (uniqueName === PHYSICAL_TAG_NAME) {
+    return { name: uniqueName, identity: symbol.escapedName };
+  }
   if (uniqueName !== undefined && TAG_FIELD_BY_NAME.has(uniqueName)) {
     return { name: uniqueName, identity: symbol.escapedName };
   }
@@ -225,6 +237,7 @@ export class Reflector {
   readonly #checker: Checker;
   readonly #location: Node;
   readonly #limits: ReflectLimits;
+  readonly #naming: NamingStrategy;
 
   #nodes = 0;
   /** Types currently being walked, innermost last. The cycle guard. */
@@ -239,6 +252,7 @@ export class Reflector {
     this.#checker = checker;
     this.#location = location;
     this.#limits = { ...DEFAULT_LIMITS, ...options.limits };
+    this.#naming = options.naming ?? {};
   }
 
   // -------------------------------------------------------------------------
@@ -279,6 +293,9 @@ export class Reflector {
 
     const name = typeName(type);
     const tableName = typeof table === 'string' ? table : (fallbackTable ?? name ?? 'unknown');
+    const explicitPhysicalTable = this.#physicalNameOf(type);
+    const physicalTable =
+      explicitPhysicalTable ?? (this.#naming.table === undefined ? tableName : this.#naming.table(tableName));
     if (typeof table !== 'string') {
       this.#refuse(name ?? 'entity', "no Table<'name'> tag; the table name cannot be guessed from the type name");
     }
@@ -308,11 +325,24 @@ export class Reflector {
         relations.push(relation);
         continue;
       }
-      columns.push(this.#column(property, split, propertyTags));
+      columns.push(this.#column(property, split, propertyTags, tableName));
     }
 
     const fts = literalOf(this.#nonNullable(tags.get('ftsTable')));
     const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
+    const physicalColumns = new Map<string, string>();
+    for (const column of columns) {
+      const previous = physicalColumns.get(column.physicalName);
+      if (previous === undefined) {
+        physicalColumns.set(column.physicalName, column.name);
+        continue;
+      }
+      this.#refuse(
+        tableName,
+        `\`${previous}\` and \`${column.name}\` both map to the column \`${column.physicalName}\`; ` +
+          "rename one property or give one an explicit Physical<'…'>",
+      );
+    }
 
     // A table with no primary key is refused rather than accepted with an empty one. This is
     // the one rule `defineSchema` enforced that has no other home: it threw a `SchemaError`,
@@ -330,6 +360,7 @@ export class Reflector {
 
     return {
       table: tableName,
+      physicalTable,
       columns,
       primaryKey,
       relations,
@@ -718,31 +749,49 @@ export class Reflector {
     for (const symbol of this.#checker.getPropertiesOfType(type)) {
       const tag = recognizedTag(symbol);
       if (tag === undefined) continue;
+      this.#rememberTagIdentity(symbol, tag);
+
       const field = TAG_FIELD_BY_NAME.get(tag.name);
       if (field === undefined) continue;
-
-      // Plan D5. `unique symbol` identity is nominal, so two installed copies of
-      // `@zmdb/schema-core` give two `zmdbSerial` tags that the type system treats as
-      // unrelated. The derived types then quietly stop omitting serial columns while
-      // this name-based reflection carries on working — the emitted validator and the
-      // derived type disagree, and neither side reports it. The escaped name is the
-      // only place that asymmetry is visible, so it is caught here.
-      if (tag.identity !== undefined) {
-        const first = this.#tagIdentity.get(tag.name);
-        if (first === undefined) this.#tagIdentity.set(tag.name, tag.identity);
-        else if (first !== tag.identity) {
-          this.#refuse(
-            symbol.name,
-            `the tag \`${tag.name}\` resolves to two different declarations (\`${first}\` and \`${tag.identity}\`), ` +
-              'which means two copies of @zmdb/schema-core are installed; deduplicate them',
-          );
-        }
-      }
-
       const value = this.#typeOf(symbol);
       if (value) found.set(field, value);
     }
     return found;
+  }
+
+  /** The internal frozen `Physical<Name>` tag, until its public surface lands with config wiring. */
+  #physicalNameOf(type: Type): string | undefined {
+    for (const symbol of this.#checker.getPropertiesOfType(type)) {
+      const tag = recognizedTag(symbol);
+      if (tag?.name !== PHYSICAL_TAG_NAME) continue;
+      this.#rememberTagIdentity(symbol, tag);
+      const value = this.#typeOf(symbol);
+      const physical = value === undefined ? undefined : literalOf(this.#nonNullable(value));
+      if (typeof physical === 'string') return physical;
+      this.#refuse(symbol.name, 'Physical<Name> needs a string literal argument');
+    }
+    return undefined;
+  }
+
+  #physicalNameFrom(members: readonly Type[]): string | undefined {
+    let physical: string | undefined;
+    for (const member of members) physical = this.#physicalNameOf(member) ?? physical;
+    return physical;
+  }
+
+  #rememberTagIdentity(symbol: TsSymbol, tag: RecognizedTag): void {
+    if (tag.identity === undefined) return;
+    const first = this.#tagIdentity.get(tag.name);
+    if (first === undefined) {
+      this.#tagIdentity.set(tag.name, tag.identity);
+      return;
+    }
+    if (first === tag.identity) return;
+    this.#refuse(
+      symbol.name,
+      `the tag \`${tag.name}\` resolves to two different declarations (\`${first}\` and \`${tag.identity}\`), ` +
+        'which means two copies of @zmdb/schema-core are installed; deduplicate them',
+    );
   }
 
   /** Union members, minus `null` and `undefined`, plus whether either was there. */
@@ -1027,8 +1076,14 @@ export class Reflector {
     return { name: property, relation: kind, target, via };
   }
 
-  #column(property: string, split: NullableSplit, tags: ReadonlyMap<TagField, Type>): ColumnIR {
+  #column(property: string, split: NullableSplit, tags: ReadonlyMap<TagField, Type>, declaredTable?: string): ColumnIR {
     const { nullable, rest } = split;
+    const explicitPhysicalName = this.#physicalNameFrom(rest);
+    const physicalName =
+      explicitPhysicalName ??
+      (declaredTable === undefined || this.#naming.column === undefined
+        ? property
+        : this.#naming.column(property, { table: declaredTable }));
 
     // `('admin' | 'viewer') & Sql<'jsonEnum'>` does not stay written that way: an
     // intersection containing a union normalises to a union of intersections, so each
@@ -1085,6 +1140,7 @@ export class Reflector {
 
     return {
       name: property,
+      physicalName,
       sql,
       nullable,
       primaryKey: tags.has('primaryKey'),

@@ -22,6 +22,7 @@ import { schemaFromIR, type ColumnIR, type SchemaIR } from './index.js';
 
 const column = (name: string, extra: Partial<ColumnIR> = {}): ColumnIR => ({
   name,
+  physicalName: name,
   sql: 'integer',
   nullable: false,
   primaryKey: false,
@@ -54,6 +55,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
   it('keeps the key in the order it was given, not the column order', () => {
     const ir: SchemaIR = {
       table: 'memberships',
+      physicalTable: 'memberships',
       columns: [column('orgId'), column('role', { sql: 'text' }), column('userId')],
       primaryKey: ['userId', 'orgId'],
       relations: [],
@@ -69,6 +71,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
   it('accepts a table with no key at all', () => {
     const ir: SchemaIR = {
       table: 'audit_log',
+      physicalTable: 'audit_log',
       columns: [column('at', { sql: 'timestamp' }), column('what', { sql: 'text' })],
       primaryKey: [],
       relations: [],
@@ -96,6 +99,7 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
   it.fails('refuses a key naming a column the table does not have', () => {
     const ir: SchemaIR = {
       table: 'memberships',
+      physicalTable: 'memberships',
       columns: [column('userId', { primaryKey: true })],
       primaryKey: ['userId', 'orgId'],
       relations: [],
@@ -122,6 +126,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
   it.fails('never carries a flag the list does not agree with', () => {
     const ir: SchemaIR = {
       table: 't',
+      physicalTable: 't',
       columns: [column('a', { primaryKey: true }), column('b', { primaryKey: true })],
       primaryKey: ['a'],
       relations: [],
@@ -139,6 +144,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
   it.fails('never omits a flag for a column the list names', () => {
     const ir: SchemaIR = {
       table: 't',
+      physicalTable: 't',
       columns: [column('a', { primaryKey: false })],
       primaryKey: ['a'],
       relations: [],
@@ -153,6 +159,7 @@ describe('the flag is a projection of the list (frozen: ir/SPEC.md 4.1)', () => 
   it('agrees with itself for a well-formed composite key', () => {
     const ir: SchemaIR = {
       table: 'memberships',
+      physicalTable: 'memberships',
       columns: [
         column('orgId', { primaryKey: true }),
         column('role', { sql: 'text' }),

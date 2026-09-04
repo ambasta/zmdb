@@ -1,8 +1,9 @@
-> **ToDo / feature gap.** There is no naming strategy hook. The table name is the
-> argument to `Table<'…'>` and the column name is the property name, both used
-> verbatim by the DDL emitter and the query compiler. There is no pluralisation,
-> no camelCase-to-snake_case conversion, and no `NamingStrategy` interface to
-> implement.
+> **ToDo / feature gap.** The build-time reflector now accepts an already
+> resolved `NamingStrategy` and records both declared and physical names in its
+> IR. That plumbing is not yet a project feature: `zmdb.config.ts` does not load
+> a strategy, and the schema value, DDL emitter and query compiler still use the
+> declared names. There is no built-in pluralisation or
+> camelCase-to-snake_case conversion yet.
 
 ## What that means in practice
 
@@ -58,11 +59,19 @@ createViewDdl({ name: 'posts_api', select: 'SELECT id, author_id AS "authorId" F
 
 See [Views](./views.html).
 
-## What it would take
+## What remains
 
-A mapping applied in exactly three places: the DDL emitter, `quoteColumn` at compile time, and the row-to-entity path in the repository. The hard part is not the transformation — it is that `Entity<T>`'s keys are the _TypeScript_ names and the compiled SQL needs the _database_ names, so the mapping has to exist at the type level too, or the two halves silently disagree.
+The IR now carries `name` beside `physicalName`, and `table` beside
+`physicalTable`, with identity values when no strategy is supplied. The
+remaining work is to make every SQL-producing path read the physical fields,
+load the strategy from project configuration, and ship the built-in strategies
+and explicit-name tag. Derived types continue to read the declared property
+names; the strategy must never become a per-query or per-row runtime
+transformation.
 
-Type-first makes that both harder and more tractable. Harder, because there is no options object to hang a `naming` callback on any more — a declaration is a type, and a type cannot hold a function. More tractable, because the natural spelling is a tag: `authorId: number & Sql<'integer'> & Column<'author_id'>` would be read by the same reflector that reads every other tag, and a type-level rename is exactly the kind of thing a mapped type can do to `Entity<T>` without a second source of truth. That is the design work, and it is why this is a ToDo rather than a config flag.
+Until those remaining slices land together, the examples above remain the
+observable behavior and this page remains a ToDo rather than configuration
+guidance.
 
 ---
 

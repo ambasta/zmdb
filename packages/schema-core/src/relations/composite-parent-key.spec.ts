@@ -29,6 +29,7 @@ import { compilePopulate, resolveRelation, type ResolvedRelation } from './index
 
 const column = (name: string, extra: Partial<SchemaIR['columns'][number]> = {}): SchemaIR['columns'][number] => ({
   name,
+  physicalName: name,
   sql: 'integer',
   nullable: false,
   primaryKey: false,
@@ -44,6 +45,7 @@ const column = (name: string, extra: Partial<SchemaIR['columns'][number]> = {}):
 /** Keyed `(tenantId, id)` — two columns, in that declaration order. */
 const users: SchemaIR = {
   table: 'users',
+  physicalTable: 'users',
   columns: [
     column('tenantId', { sql: 'text', primaryKey: true }),
     column('id', { primaryKey: true }),
@@ -63,6 +65,7 @@ const users: SchemaIR = {
 /** The owning side. `(tenantId, userId)` together point at `users`' two key columns. */
 const posts: SchemaIR = {
   table: 'posts',
+  physicalTable: 'posts',
   columns: [
     column('id', { primaryKey: true }),
     column('tenantId', { sql: 'text', references: 'users.tenantId' }),

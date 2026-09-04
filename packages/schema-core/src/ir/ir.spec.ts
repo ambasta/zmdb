@@ -152,10 +152,21 @@ function column(name: string, ir: SchemaIR = usersIR): ColumnIR {
  * one back-end — but it no longer routes through a schema to get there. The defaults are the
  * six booleans plus the two collections, so a call names only what it is about.
  */
-type Defaulted = 'nullable' | 'primaryKey' | 'serial' | 'unique' | 'hasDefault' | 'sensitive' | 'constraints' | 'rules';
+type Defaulted =
+  | 'physicalName'
+  | 'nullable'
+  | 'primaryKey'
+  | 'serial'
+  | 'unique'
+  | 'hasDefault'
+  | 'sensitive'
+  | 'constraints'
+  | 'rules';
 function probe(facts: Omit<ColumnIR, 'name' | Defaulted> & Partial<Pick<ColumnIR, 'name' | Defaulted>>): ColumnIR {
+  const name = facts.name ?? 'v';
   return {
-    name: 'v',
+    name,
+    physicalName: name,
     nullable: false,
     primaryKey: false,
     serial: false,
@@ -460,6 +471,7 @@ describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
     // rather than papering over it, and is why the two back-ends that need these read the IR.
     const ir: SchemaIR = {
       table: 'invoices',
+      physicalTable: 'invoices',
       columns: [
         probe({
           name: 'total',

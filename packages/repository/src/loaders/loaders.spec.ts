@@ -33,6 +33,7 @@ export interface LoaderMembership extends Table<'memberships'> {
 function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
   return {
     name,
+    physicalName: name,
     sql,
     nullable: false,
     primaryKey: false,
@@ -48,6 +49,7 @@ function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR>
 
 const USER_IR: SchemaIR = {
   table: 'users',
+  physicalTable: 'users',
   columns: [column('id', 'integer', { primaryKey: true }), column('email', 'text')],
   primaryKey: ['id'],
   relations: [
@@ -60,6 +62,7 @@ const UserSchema = schemaFromIR(USER_IR);
 
 const MEMBERSHIP_IR: SchemaIR = {
   table: 'memberships',
+  physicalTable: 'memberships',
   columns: [
     column('tenantId', 'text', { primaryKey: true }),
     column('userId', 'integer', { primaryKey: true }),
