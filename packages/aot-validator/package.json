@@ -58,6 +58,7 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "protobufjs": "8.8.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {

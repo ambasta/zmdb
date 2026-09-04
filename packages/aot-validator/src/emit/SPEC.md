@@ -398,9 +398,8 @@ unknown fields should forward the bytes.
 ### What this target adds to existing gates
 
 - `CALLEES` in `../transformer.ts` gains three names. Together with §1a's three that is fourteen, and
-  `it('names eight calls, and every one of them is a function somebody can call', …)` asserts the list
-  literally while naming a count in its own title. The count in the title should go — it has now been
-  wrong twice for the same reason.
+  `it('names every transformed call, and every one of them is a function somebody can call', …)` asserts
+  the list literally without putting its moving count in the title.
 - `NO_PROTOBUF` in `tests/api-coverage/mapping.mjs` declares this target out of scope and must be
   removed, with the fourteen upstream `protobuf.*` suites in `inventory.mjs` mapped to real test titles.
 - The descriptor emitter walks a `TypeIR` outside `schema-core/src/ir/`, so it needs a `MAY_NAME`

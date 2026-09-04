@@ -4,16 +4,23 @@
 
 ## The nearest thing that exists
 
-`parse<T>()` and `decode<T>()` are the generated inbound path, and they already have the shape a protobuf decoder would need — validate while decoding, return a result rather than throwing:
+`parse<T>()` and `decode<T>()` are the current JSON-text inbound path. Both take
+a string; `decode` additionally accepts a runtime `TypeIR` witness:
 
 ```ts
 import { parse, decode } from '@zmdb/aot-validator/serialization';
+import type { TypeIR } from '@zmdb/schema-core/ir';
 
-const fromText = parse<User>(await readBody()); // JSON text -> result
-const fromValue = decode<User>(alreadyParsed); // parsed value -> result
+function decodeUser(text: string, userIr: TypeIR) {
+  const parsed = parse<User>(text); // JSON text -> unvalidated result
+  const checked = decode<User>(text, userIr); // JSON text -> checked result
+  return { parsed, checked };
+}
 ```
 
-Both return `{ success: true, data }` or `{ success: false, errors }`, which is the right shape at a boundary: a malformed message from a peer is an expected outcome, not an exception.
+Both return `{ success: true, data }` or `{ success: false, issues }`. `parse<T>`
+is an unvalidated type claim; `decode<T>` parses and then checks against its
+runtime witness.
 
 ## Decoding protobuf today
 
@@ -28,7 +35,11 @@ export function decodeUser(bytes: Uint8Array) {
 }
 ```
 
-Do not skip the `validate`. A protobuf decode succeeds on far more inputs than you expect: every field is optional on the wire in proto3, so a message missing a field you require decodes cleanly into a zero value. `0` and `''` arriving where you expected a real value is the characteristic protobuf bug, and a total check against the TypeScript type is what catches it.
+Do not mistake structural validation for presence validation. Proto3 cannot
+distinguish an absent implicit-presence scalar from its zero value, and an
+unconstrained `number`, `string` or `boolean` accepts that zero. Use an optional
+field when presence itself matters; a semantic constraint may reject a zero, but
+the plain TypeScript shape cannot prove the field was on the wire.
 
 > [!WARNING]
 > `int64` fields commonly decode to a `Long` or a `bigint`, not a `number`.
@@ -38,7 +49,13 @@ Do not skip the `validate`. A protobuf decode succeeds on far more inputs than y
 
 ## What it would take
 
-The decoder is generated the same way `parse` is, from the same descriptor walk. Wire parsing is straightforward; unknown-field preservation and the [field-presence mapping](./protobuf-message.html) are the parts that need a decision, and they are shared with the encoder.
+The presence mapping and unknown-field behavior are frozen. Optional and
+required-nullable fields use explicit presence; optional-nullable fields are
+refused. Unknown fields are skipped by wire type and discarded, so
+decode-then-re-encode loses them. The remaining decoder work is implementation:
+bounds-check lengths against the remaining input, reject mid-field truncation
+with an offset/reason, accept alternate valid packed/unpacked forms, and refuse
+deprecated groups.
 
 ---
 

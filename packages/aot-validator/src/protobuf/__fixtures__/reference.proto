@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package zmdb.reference;
+
+import "google/protobuf/timestamp.proto";
+
+message CanonicalInt32 {
+  int32 value = 1;
+}
+
+message CanonicalSint32 {
+  sint32 value = 1;
+}
+
+message DefaultDouble {
+  double value = 1;
+}
+
+message AllScalarsReference {
+  double default_double = 1;
+  int32 int32_value = 2;
+  int64 int64_value = 3;
+  uint32 uint32_value = 4;
+  uint64 uint64_value = 5;
+  sint32 sint32_value = 6;
+  sint64 sint64_value = 7;
+  fixed32 fixed32_value = 8;
+  fixed64 fixed64_value = 9;
+  sfixed32 sfixed32_value = 10;
+  sfixed64 sfixed64_value = 11;
+  float float_value = 12;
+  double double_value = 13;
+  bool bool_value = 14;
+  string string_value = 15;
+}
+
+message OptionalInt32 {
+  optional int32 value = 1;
+}
+
+message PackedInt32 {
+  repeated int32 values = 1 [packed = true];
+}
+
+message RepeatedStrings {
+  repeated string values = 1;
+}
+
+message NestedValue {
+  int32 value = 1;
+}
+
+message NestedEnvelope {
+  NestedValue value = 3;
+}
+
+enum InteropState {
+  INTEROP_STATE_UNSPECIFIED = 0;
+  INTEROP_STATE_ACTIVE = 1;
+  INTEROP_STATE_PAUSED = 2;
+}
+
+message InteropMessage {
+  int32 id = 1;
+  string name = 2;
+  repeated sint32 deltas = 3 [packed = true];
+  InteropState state = 4;
+  optional int32 marker = 5;
+}
+
+message TimestampMessage {
+  google.protobuf.Timestamp at = 1;
+}

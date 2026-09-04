@@ -388,9 +388,9 @@ This changes the epic's Definition of Done item 5 and two of #539's test titles;
 - **`CALLEES` in `packages/aot-validator/src/transformer.ts` gains `sdlOf`, `sdlFields` and `costsOf`.** An
   untransformed call is a runtime type walk, and there is no runtime to walk to — both throw the same
   "was not replaced at build time" error `schemaOf` does. The test that pins the list,
-  `it('names eight calls, and every one of them is a function somebody can call', …)`, asserts the members
-  literally but names a count in its own title; the count should come out of the title, as
-  `packages/aot-validator/src/emit/SPEC.md` §7 already concluded for the same reason.
+  `it('names every transformed call, and every one of them is a function somebody can call', …)`, asserts
+  the members literally without putting a moving count in its title, as
+  `packages/aot-validator/src/emit/SPEC.md` §7 requires.
 - **A new `./sdl` subpath** on `@zmdb/schema-core`, re-exported by the `zmdb` umbrella, covered by
   `yarn verify:exports` and `yarn verify:publish`. It is **not** a `BUILD_TIME_ENTRIES` addition: the emitter
   consumes IR, so nothing here imports `typescript`, exactly as `./openapi` does not.

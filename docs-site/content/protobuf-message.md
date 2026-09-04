@@ -5,7 +5,10 @@
 
 ## What you would use it for, and what to use instead
 
-**Compact wire format for internal service calls.** Today: JSON via [`stringify`](./json-stringify.html) / [`parse`](./json-parse.html), which is generated per-type and fast, but larger on the wire than protobuf and slower to parse for numeric-heavy payloads.
+**Compact wire format for internal service calls.** Today: JSON via
+[`stringify`](./json-stringify.html) / [`parse`](./json-parse.html).
+`stringify` currently follows the runtime `JSON.stringify` path and `parse`
+follows `JSON.parse`; neither supplies a binary schema contract.
 
 **A schema contract between services in different languages.** Today: [OpenAPI](./openapi.html) from `toOpenApi`, or JSON Schema from `toJsonSchema`. Both are generated from the same TypeScript types, and both have code generators for most languages. This covers the contract need; it does not give you the binary format.
 
@@ -35,13 +38,23 @@ The generated validator is doing real work here: it is the only thing that notic
 
 ## What it would take
 
-Three separable pieces, in increasing difficulty:
+The mapping is frozen, and implementation is split into three pieces:
 
-1. **A `.proto` emitter** from the `TypeIR` — mechanically similar to `toJsonSchema`, which already walks the same IR. This is the easy part and would be genuinely useful on its own for teams whose contract lives in protobuf.
-2. **An encoder and decoder** generated per type by the transformer, the same way `stringify` is. Varint and length-delimited framing are not hard; the work is in the volume of cases.
-3. **The type mapping**, which is where the design questions are. Protobuf's `int64` does not fit a JS `number` — the same problem as [bigint columns](./bigint-keys.html). `optional` versus proto3 field presence does not line up cleanly with `T | undefined`. `oneof` maps to a discriminated union only if you pick a tag convention. `map<K,V>` and `repeated` need decisions about `Record` versus `Map`.
+1. **IR carriage and a `.proto` emitter.** Every message property has
+   `ProtoField<N>`; an untagged `number` is `double`, integer widths use
+   `Proto<K>`, 64-bit integers are `bigint`, and `Date` maps to
+   `google.protobuf.Timestamp`.
+2. **An encoder** generated from that same IR, including proto3 zero omission,
+   packed scalar arrays and exact-width integer handling.
+3. **A decoder** over the same mapping, including bounded malformed-input
+   handling and the declared unknown-field policy.
 
-None of it is blocked; all of it is a substantial amount of surface for a feature nobody has asked for with a concrete use case. If you have one, that is the thing that would move it.
+Some source shapes are deliberately refused rather than left undecided:
+`Record<string, V>` is invisible to the current reflector, nested arrays have no
+direct proto3 spelling, optional-nullable fields have three source states but two
+wire states, and discriminated unions cannot become `oneof` until union arms have
+a field-number tag slot. Unknown fields are discarded, so decode/re-encode is not
+safe for a proxy.
 
 ---
 

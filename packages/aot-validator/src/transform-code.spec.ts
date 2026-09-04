@@ -124,7 +124,7 @@ describe('the scanner', () => {
 });
 
 describe('CALLEES', () => {
-  it('names eight calls, and every one of them is a function somebody can call', async () => {
+  it('names every transformed call, and every one of them is a function somebody can call', async () => {
     // The list is matched by identifier text, so a typo in it is not a type error anywhere:
     // `assertEqual` would simply never match, the call would stay a runtime walk, and the
     // build would report success. Resolving each name against the module that exports it is

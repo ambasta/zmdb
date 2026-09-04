@@ -4,7 +4,8 @@
 
 ## The nearest thing that exists
 
-`stringify<T>()` is the generated serializer, and it is the function a protobuf encoder would sit alongside:
+`stringify()` is the current JSON-compatible serializer, and it is the function
+a protobuf encoder would sit alongside:
 
 ```ts
 import { stringify } from '@zmdb/aot-validator/serialization';
@@ -12,7 +13,10 @@ import { stringify } from '@zmdb/aot-validator/serialization';
 const bytes = new TextEncoder().encode(stringify<User>(user));
 ```
 
-JSON, so larger on the wire than protobuf would be — but the encoder is generated from the type rather than reflecting over the value, which is where its speed comes from. For most service-to-service traffic, gzip over generated JSON is within a small factor of protobuf on size and competitive on time. Measure your payloads before assuming the format is the bottleneck. See [Benchmarks](./benchmarks.html).
+This is JSON, so it is larger on the wire than protobuf for many numeric-heavy
+payloads. At this revision `stringify` uses the runtime `JSON.stringify`-compatible
+fallback; the protobuf design is the binary AOT target. Measure your payloads
+before assuming the format is the bottleneck. See [Benchmarks](./benchmarks.html).
 
 ## If you need bytes today
 
@@ -31,7 +35,11 @@ The `assert` before the encode is the part worth keeping: `toMessage` is hand-wr
 
 ## What it would take
 
-Generating the encoder is the mechanical half of [the protobuf work](./protobuf-message.html) — varint, zigzag and length-delimited framing over a descriptor walk the transformer already does for `stringify`. It is blocked on the type-mapping decisions (`int64`, field presence, `oneof`), not on the encoding itself.
+The type mapping is frozen: explicit integer widths, proto3 presence, packed
+scalar arrays, nested messages, enums, `Date`/Timestamp, and the refused shapes
+are all specified. Encoder work is operationally sequenced after the field-number
+and scalar tags reach the IR and the descriptor emitter exists; `oneof` is refused
+rather than pending, and maps remain blocked by reflection.
 
 ---
 

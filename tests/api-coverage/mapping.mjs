@@ -163,12 +163,6 @@ const NO_PLATFORM_ADAPTER =
   'Response and ships a thin node:http bridge, so the host is the platform and there is no ' +
   'adapter abstraction with two implementations to keep honest.';
 
-const NO_PROTOBUF =
-  'Typia compiles Protobuf encoders and decoders from the same types it validates. zmdb emits ' +
-  'JSON serializers and OpenAPI documents. Protobuf is a reasonable thing to generate from the ' +
-  'same IR and the IR would support it, but nothing in zmdb does today and claiming otherwise ' +
-  'against a test that does not exist is exactly what this file is for.';
-
 const NO_FACTORY_FORM =
   'Typia offers both typia.is<T>(x) and typia.createIs<T>() — the second returning a reusable ' +
   'closure. zmdb only has the call-site form, because the AOT transformer inlines the check where ' +
@@ -953,10 +947,23 @@ export const typia = {
   'json.assertParse': 'decodes the two types JSON cannot carry, and copies the rest through',
   'json.isParse': 'decodes before validating, so the ISO string a body carries reaches the handler as a Date',
   'json.validateParse': 'still reports what the decode could not convert, as a 400 from the validator',
-  'json.isEncode': oos(NO_PROTOBUF, 'protobuf-message'),
-  'json.assertEncode': oos(NO_PROTOBUF, 'protobuf-message'),
-  'json.validateEncode': oos(NO_PROTOBUF, 'protobuf-message'),
-  'protobuf.*': oos(NO_PROTOBUF, 'protobuf-message'),
+  'json.isEncode': 'produces a response JSON.stringify can actually serialize',
+  'json.assertEncode': 'encodes a row back to the forms the published document describes',
+  'json.validateEncode': 'encodes a list, because a findMany result is one',
+  'protobuf.assertDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.assertEncode': 'produces bytes a reference implementation decodes',
+  'protobuf.createAssertDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.createDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.createEncode': 'produces bytes a reference implementation decodes',
+  'protobuf.createIsDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.createValidateDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.decode': 'decodes bytes produced by a reference implementation',
+  'protobuf.encode': 'produces bytes a reference implementation decodes',
+  'protobuf.isDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.isEncode': 'produces bytes a reference implementation decodes',
+  'protobuf.message': 'emits a .proto descriptor that a reference parser accepts',
+  'protobuf.validateDecode': 'decodes bytes produced by a reference implementation',
+  'protobuf.validateEncode': 'produces bytes a reference implementation decodes',
   'llm.schema': 'produces a schema an LLM tool call can be validated against',
   'llm.parameters': 'produces a schema an LLM tool call can be validated against',
   'llm.application': 'produces a schema an LLM tool call can be validated against',

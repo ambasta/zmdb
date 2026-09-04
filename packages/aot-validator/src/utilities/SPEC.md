@@ -68,11 +68,11 @@ because the call is gone, and passed explicitly by tests exactly as the witness 
 ### These are three new callees, and that has a visible cost
 
 `CALLEES` in `../transformer.ts` is exactly eight names, and
-`it('names eight calls, and every one of them is a function somebody can call', …)` in
-`../transform-code.spec.ts` asserts that list literally. Eleven callees break the assertion **and**
-falsify the title, and the word "eight" is also written into `../transformer.ts` twice, `../cli/SPEC.md`
-and `docs-site/content/cli-codegen.md`. The implementation slice updates all of them; recorded here so it
-reads as the plan rather than as collateral damage.
+`it('names every transformed call, and every one of them is a function somebody can call', …)` in
+`../transform-code.spec.ts` asserts that list literally. Eleven callees break the assertion, and the word
+"eight" is also written into `../transformer.ts` twice, `../cli/SPEC.md` and
+`docs-site/content/cli-codegen.md`. The implementation slice updates all of them; recorded here so it reads
+as the plan rather than as collateral damage.
 
 The alternative was a second type argument on the existing `is`/`assert`/`validate` — no new callees, no
 test churn. It is rejected because it makes every existing call site's strength depend on a default, and
