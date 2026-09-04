@@ -21,7 +21,7 @@ const shallowProject = FixtureProject.open({
 afterAll(() => shallowProject.close());
 
 describe('shallow validation behaviour', () => {
-  it.fails('accepts a value whose nesting is malformed below the limit', () => {
+  it('accepts a value whose nesting is malformed below the limit', () => {
     // Measured at d34bfbaf: changed=false, diagnostics=[], and the source still
     // contains `isShallow`, so no callable JavaScript check exists yet.
     const result = shallowProject.transform('const check = (input) => isShallow<{ user: { id: number } }, 1>(input);');
@@ -30,7 +30,7 @@ describe('shallow validation behaviour', () => {
     expect(evaluate(result.code)({ user: { id: 'not a number' } })).toBe(true);
   });
 
-  it.fails('still rejects a malformed top level', () => {
+  it('still rejects a malformed top level', () => {
     // Measured at d34bfbaf: changed=false, diagnostics=[], and the source still
     // contains `isShallow`, so the top-level object check is absent too.
     const result = shallowProject.transform('const check = (input) => isShallow<{ user: { id: number } }, 1>(input);');

@@ -105,6 +105,17 @@ const NUMERIC = /^\d+$/;
 /** An excess walk that is nothing but a delegation, so the delegation can be dropped. */
 const SOLE_GUARD = /^if \(!(\w+)\(_v\)\) return false;$/;
 
+/** Absent is the existing full-depth walk; a number is one call site's remaining depth. */
+type EmitDepth = number | undefined;
+
+function childDepth(depth: EmitDepth): EmitDepth {
+  return depth === undefined ? undefined : Math.max(0, depth - 1);
+}
+
+function depthKey(depth: EmitDepth): string {
+  return depth === undefined ? '' : `:${depth}`;
+}
+
 /**
  * "This is a keyed object." An array is excluded, because the runtime walker has always
  * excluded it, and `is<{}>([])` answering `true` in a built bundle and `false` in dev is
@@ -146,6 +157,8 @@ export class Emitter {
   readonly #diagnostics: EmitDiagnostic[] = [];
   /** `target:name` → helper, for the emission in progress. Lets a `ref` resolve. */
   readonly #open = new Map<string, string>();
+  /** Named objects reached in this walk, so a shallow `ref` can emit a smaller helper. */
+  readonly #definitions = new Map<string, ObjectIR>();
   /** `target:fingerprint` → helper, for the whole file. Two call sites share one. */
   readonly #shared = new Map<string, string>();
   #counter = 0;
@@ -197,10 +210,11 @@ export class Emitter {
   // -------------------------------------------------------------------------
 
   /** `is<T>(expr)` → a boolean expression. */
-  emitIs(node: TypeIR, expr: string): string | undefined {
+  emitIs(node: TypeIR, expr: string, maxDepth?: number): string | undefined {
     this.#open.clear();
+    const depth = this.#depthFor(node, maxDepth);
     const bound = this.#bind(expr);
-    const check = this.#check(node, bound.ref, '');
+    const check = this.#check(node, bound.ref, '', depth);
     if (check === undefined) return undefined;
     return bound.expression(`(${check})`);
   }
@@ -208,6 +222,7 @@ export class Emitter {
   /** `equals<T>(expr)` → `is<T>` plus a recursive no-excess-keys check. */
   emitEquals(node: TypeIR, expr: string): string | undefined {
     this.#open.clear();
+    this.#definitions.clear();
     const bound = this.#bind(expr);
     const check = this.#check(node, bound.ref, '');
     if (check === undefined) return undefined;
@@ -221,8 +236,8 @@ export class Emitter {
   }
 
   /** `assert<T>(expr)` / `assertEquals<T>(expr)` → the value, or a throw. */
-  emitAssert(node: TypeIR, expr: string, strict: boolean): string | undefined {
-    const plan = this.#twoPass(node, expr, strict);
+  emitAssert(node: TypeIR, expr: string, strict: boolean, maxDepth?: number): string | undefined {
+    const plan = this.#twoPass(node, expr, strict, maxDepth);
     if (!plan) return undefined;
     this.#needsAssertError = true;
     // The success path is `if (gate) return v` and nothing else: no array, no issue
@@ -236,8 +251,8 @@ export class Emitter {
   }
 
   /** `validate<T>(expr)` → a `ValidateResult<T>`, never a throw. */
-  emitValidate(node: TypeIR, expr: string, strict = false): string | undefined {
-    const plan = this.#twoPass(node, expr, strict);
+  emitValidate(node: TypeIR, expr: string, strict = false, maxDepth?: number): string | undefined {
+    const plan = this.#twoPass(node, expr, strict, maxDepth);
     if (!plan) return undefined;
     return plan.bound.block([
       `if (${plan.gate}) return { success: true, data: ${plan.bound.ref} };`,
@@ -249,6 +264,7 @@ export class Emitter {
   /** `random<T>()` → an expression producing a value that satisfies `T`. */
   emitRandom(node: TypeIR): string | undefined {
     this.#open.clear();
+    this.#definitions.clear();
     const sample = this.#sample(node, '');
     return sample === undefined ? undefined : `(${sample})`;
   }
@@ -364,6 +380,7 @@ export class Emitter {
    */
   helper(node: TypeIR, target: EmitTarget): string | undefined {
     this.#open.clear();
+    this.#definitions.clear();
     switch (target) {
       case 'check': {
         const check = this.#check(node, '_v', '');
@@ -385,6 +402,76 @@ export class Emitter {
   // -------------------------------------------------------------------------
   // Plumbing
   // -------------------------------------------------------------------------
+
+  /**
+   * Populate the named-object table and collapse an ineffective finite cap onto the
+   * existing full-depth path. That keeps `is<T>` and `isShallow<T, 99>` sharing the
+   * same helper when `T` has no constructor below depth 99.
+   */
+  #depthFor(node: TypeIR, maxDepth: number | undefined): EmitDepth {
+    this.#definitions.clear();
+    this.#collectDefinitions(node, new Set());
+    if (maxDepth === undefined) return undefined;
+    const required = Math.max(1, this.#requiredDepth(node, new Set()));
+    return maxDepth >= required ? undefined : maxDepth;
+  }
+
+  #collectDefinitions(node: TypeIR, seen: Set<TypeIR>): void {
+    if (seen.has(node)) return;
+    seen.add(node);
+    switch (node.kind) {
+      case 'object':
+        if (node.name !== undefined) this.#definitions.set(node.name, node);
+        for (const property of node.properties) this.#collectDefinitions(property.type, seen);
+        return;
+      case 'array':
+        this.#collectDefinitions(node.element, seen);
+        return;
+      case 'tuple':
+        for (const element of node.elements) this.#collectDefinitions(element, seen);
+        return;
+      case 'union':
+        for (const member of node.members) this.#collectDefinitions(member, seen);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Smallest finite `D` that emits the same walk as full depth; recursion is infinite. */
+  #requiredDepth(node: TypeIR, visiting: ReadonlySet<string>): number {
+    switch (node.kind) {
+      case 'object': {
+        if (node.name !== undefined && visiting.has(node.name)) return Number.POSITIVE_INFINITY;
+        const nested = new Set(visiting);
+        if (node.name !== undefined) nested.add(node.name);
+        let required = 1;
+        for (const property of node.properties) {
+          required = Math.max(required, 1 + this.#requiredDepth(property.type, nested));
+        }
+        return required;
+      }
+      case 'array':
+        return 1 + Math.max(1, this.#requiredDepth(node.element, visiting));
+      case 'tuple': {
+        if (node.elements.length === 0) return 1;
+        let required = 0;
+        for (const element of node.elements) required = Math.max(required, this.#requiredDepth(element, visiting));
+        return 1 + Math.max(1, required);
+      }
+      case 'union': {
+        let required = 0;
+        for (const member of node.members) required = Math.max(required, this.#requiredDepth(member, visiting));
+        return required;
+      }
+      case 'ref': {
+        const target = this.#definitions.get(node.name);
+        return target === undefined ? Number.POSITIVE_INFINITY : this.#requiredDepth(target, visiting);
+      }
+      default:
+        return 0;
+    }
+  }
 
   #refuse(path: string, reason: string, source?: string): undefined {
     this.#diagnostics.push(source === undefined ? { path, reason } : { path, reason, source });
@@ -453,16 +540,18 @@ export class Emitter {
     node: TypeIR,
     expr: string,
     strict: boolean,
+    maxDepth?: number,
   ): { readonly bound: Bound; readonly gate: string; readonly collect: string } | undefined {
     this.#open.clear();
+    const depth = this.#depthFor(node, maxDepth);
     const bound = this.#bind(expr);
-    const check = this.#check(node, bound.ref, '');
+    const check = this.#check(node, bound.ref, '', depth);
     if (check === undefined) return undefined;
 
     const excess = strict ? this.#excessHelper(node) : null;
     if (excess === undefined) return undefined;
 
-    const issues = this.#issuesHelper(node);
+    const issues = this.#issuesHelper(node, depth);
     if (issues === undefined) return undefined;
 
     const gate = excess === null ? `(${check})` : `((${check}) && ${excess}(${bound.ref}))`;
@@ -505,15 +594,15 @@ export class Emitter {
     return name;
   }
 
-  #issuesHelper(node: TypeIR): string | undefined {
-    const fingerprint = `issuesFn:${JSON.stringify(node)}`;
+  #issuesHelper(node: TypeIR, depth?: number): string | undefined {
+    const fingerprint = `issuesFn${depthKey(depth)}:${JSON.stringify(node)}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return cached;
     const slot = this.#reserve();
     if (slot === undefined) return undefined;
     const name = this.#name('Issues');
     this.#shared.set(fingerprint, name);
-    const statements = this.#issues(node, '_v', '_p', '_o', '');
+    const statements = this.#issues(node, '_v', '_p', '_o', '', depth);
     if (statements === undefined) {
       this.#shared.delete(fingerprint);
       return undefined;
@@ -556,7 +645,7 @@ export class Emitter {
   // Target: check
   // -------------------------------------------------------------------------
 
-  #check(node: TypeIR, v: string, path: string): string | undefined {
+  #check(node: TypeIR, v: string, path: string, depth?: number): string | undefined {
     switch (node.kind) {
       case 'unsupported':
         return this.#refuse(path, node.reason, node.source);
@@ -571,14 +660,21 @@ export class Emitter {
       case 'scalar':
         return this.#scalarCheck(node, v, path);
       case 'union':
-        return this.#unionCheck(node, v, path);
+        return this.#unionCheck(node, v, path, depth);
       case 'tuple':
-        return this.#tupleCheck(node, v, path);
+        return this.#tupleCheck(node, v, path, depth);
       case 'array':
-        return this.#arrayCheck(node, v, path);
+        return this.#arrayCheck(node, v, path, depth);
       case 'object':
-        return this.#objectCheck(node, v, path);
+        return this.#objectCheck(node, v, path, depth);
       case 'ref': {
+        if (depth !== undefined) {
+          const target = this.#definitions.get(node.name);
+          if (target === undefined) {
+            return this.#refuse(path, `a back-reference to \`${node.name}\`, which was never declared`);
+          }
+          return this.#objectCheck(target, v, path, depth);
+        }
         const helper = this.#open.get(`check:${node.name}`);
         if (helper === undefined) {
           return this.#refuse(path, `a back-reference to \`${node.name}\`, which was never declared`);
@@ -617,7 +713,7 @@ export class Emitter {
     return parts;
   }
 
-  #unionCheck(node: UnionIR, v: string, path: string): string | undefined {
+  #unionCheck(node: UnionIR, v: string, path: string, depth?: number): string | undefined {
     if (node.members.length === 0) return this.#refuse(path, 'an empty union matches nothing');
 
     if (node.members.length > MANY_LITERALS && node.members.every(member => member.kind === 'literal')) {
@@ -637,7 +733,7 @@ export class Emitter {
     if (discriminant) {
       const arms: string[] = [];
       for (const arm of discriminant.arms) {
-        const body = this.#objectBody(arm.node, v, path, { skip: discriminant.key, bare: true });
+        const body = this.#objectBody(arm.node, v, path, { skip: discriminant.key, bare: true }, depth);
         if (body === undefined) return undefined;
         arms.push(`${v}${accessor(discriminant.key)} === ${JSON.stringify(arm.value)} ? (${body})`);
       }
@@ -646,25 +742,33 @@ export class Emitter {
 
     const parts: string[] = [];
     for (const [index, member] of node.members.entries()) {
-      const check = this.#check(member, v, `${path}|${index}`);
+      const check = this.#check(member, v, `${path}|${index}`, depth);
       if (check === undefined) return undefined;
       parts.push(`(${check})`);
     }
     return `(${parts.join(' || ')})`;
   }
 
-  #tupleCheck(node: TupleIR, v: string, path: string): string | undefined {
+  #tupleCheck(node: TupleIR, v: string, path: string, depth?: number): string | undefined {
     const parts = [`Array.isArray(${v})`, `${v}.length === ${node.elements.length}`];
+    if (depth !== undefined && depth <= 1) return parts.join(' && ');
+    const nestedDepth = childDepth(depth);
     for (const [index, element] of node.elements.entries()) {
-      const check = this.#check(element, `${v}[${index}]`, `${path}[${index}]`);
+      const check = this.#check(element, `${v}[${index}]`, `${path}[${index}]`, nestedDepth);
       if (check === undefined) return undefined;
       if (check !== 'true') parts.push(`(${check})`);
     }
     return parts.join(' && ');
   }
 
-  #arrayCheck(node: ArrayIR, v: string, path: string): string | undefined {
-    const fingerprint = `checkArray:${JSON.stringify(node)}`;
+  #arrayCheck(node: ArrayIR, v: string, path: string, depth?: number): string | undefined {
+    if (depth !== undefined && depth <= 1) {
+      const bounds = this.#constraintChecks(node.constraints, v, true, path);
+      if (bounds === undefined) return undefined;
+      return [`Array.isArray(${v})`, ...bounds].join(' && ');
+    }
+
+    const fingerprint = `checkArray${depthKey(depth)}:${JSON.stringify(node)}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return `${cached}(${v})`;
 
@@ -673,16 +777,16 @@ export class Emitter {
     const name = this.#name('CheckArray');
     this.#shared.set(fingerprint, name);
 
-    const element = this.#check(node.element, '_v[_i]', `${path}[]`);
+    const element = this.#check(node.element, '_v[_i]', `${path}[]`, childDepth(depth));
     if (element === undefined) {
       this.#shared.delete(fingerprint);
       return undefined;
     }
-    const bounds = this.#constraintChecks(node.constraints, '_v', true, path);
-    if (bounds === undefined) return undefined;
+    const helperBounds = this.#constraintChecks(node.constraints, '_v', true, path);
+    if (helperBounds === undefined) return undefined;
 
     const body = [`if (!Array.isArray(_v)) return false;`];
-    for (const bound of bounds) body.push(`if (!(${bound})) return false;`);
+    for (const bound of helperBounds) body.push(`if (!(${bound})) return false;`);
     if (element !== 'true') {
       body.push(`for (let _i = 0; _i < _v.length; _i++) { if (!(${element})) return false; }`);
     }
@@ -691,14 +795,16 @@ export class Emitter {
     return `${name}(${v})`;
   }
 
-  #objectCheck(node: ObjectIR, v: string, path: string): string | undefined {
-    if (node.name === undefined) return this.#objectBody(node, v, path, {});
+  #objectCheck(node: ObjectIR, v: string, path: string, depth?: number): string | undefined {
+    if (node.name !== undefined) this.#definitions.set(node.name, node);
+    if (depth === 0) return recordTest(v);
+    if (node.name === undefined) return this.#objectBody(node, v, path, {}, depth);
 
-    const openKey = `check:${node.name}`;
+    const openKey = `check${depthKey(depth)}:${node.name}`;
     const open = this.#open.get(openKey);
     if (open !== undefined) return `${open}(${v})`;
 
-    const fingerprint = `check:${JSON.stringify(node)}`;
+    const fingerprint = `check${depthKey(depth)}:${JSON.stringify(node)}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return `${cached}(${v})`;
 
@@ -707,18 +813,21 @@ export class Emitter {
     const name = this.#name(`Check${capitalise(node.name)}`);
     this.#open.set(openKey, name);
     this.#shared.set(fingerprint, name);
-    const body = this.#objectBody(node, '_v', path, {});
+    const body = this.#objectBody(node, '_v', path, {}, depth);
     if (body === undefined) return undefined;
     this.#helpers[slot] = `function ${name}(_v) { return ${body}; }`;
     return `${name}(${v})`;
   }
 
-  #objectBody(node: ObjectIR, v: string, path: string, options: ObjectBodyOptions): string | undefined {
+  #objectBody(node: ObjectIR, v: string, path: string, options: ObjectBodyOptions, depth?: number): string | undefined {
+    if (node.name !== undefined) this.#definitions.set(node.name, node);
     const parts = options.bare === true ? [] : [recordTest(v)];
+    if (depth === 0) return parts.length === 0 ? 'true' : parts.join(' && ');
+    const nestedDepth = childDepth(depth);
     for (const property of node.properties) {
       if (property.name === options.skip) continue;
       const member = `${v}${accessor(property.name)}`;
-      const check = this.#check(property.type, member, join(path, property.name));
+      const check = this.#check(property.type, member, join(path, property.name), nestedDepth);
       if (check === undefined) return undefined;
       if (check === 'true') continue;
       parts.push(property.optional ? `(${member} === undefined || (${check}))` : `(${check})`);
@@ -854,7 +963,7 @@ export class Emitter {
   // Target: issues
   // -------------------------------------------------------------------------
 
-  #issues(node: TypeIR, v: string, p: string, out: string, path: string): string[] | undefined {
+  #issues(node: TypeIR, v: string, p: string, out: string, path: string, depth?: number): string[] | undefined {
     switch (node.kind) {
       case 'unsupported':
         return this.#refuse(path, node.reason, node.source);
@@ -863,21 +972,28 @@ export class Emitter {
       case 'null':
       case 'undefined':
       case 'literal': {
-        const check = this.#check(node, v, path);
+        const check = this.#check(node, v, path, depth);
         if (check === undefined) return undefined;
         return [`if (!(${check})) ${this.#issue(out, p, JSON.stringify(expectedOf(node)), v)}`];
       }
       case 'scalar':
         return this.#scalarIssues(node, v, p, out, path);
       case 'tuple':
-        return this.#tupleIssues(node, v, p, out, path);
+        return this.#tupleIssues(node, v, p, out, path, depth);
       case 'array':
-        return this.#arrayIssues(node, v, p, out, path);
+        return this.#arrayIssues(node, v, p, out, path, depth);
       case 'object':
-        return this.#objectIssues(node, v, p, out, path);
+        return this.#objectIssues(node, v, p, out, path, depth);
       case 'union':
-        return this.#unionIssues(node, v, p, out, path);
+        return this.#unionIssues(node, v, p, out, path, depth);
       case 'ref': {
+        if (depth !== undefined) {
+          const target = this.#definitions.get(node.name);
+          if (target === undefined) {
+            return this.#refuse(path, `a back-reference to \`${node.name}\`, which was never declared`);
+          }
+          return this.#objectIssues(target, v, p, out, path, depth);
+        }
         const helper = this.#open.get(`issues:${node.name}`);
         if (helper === undefined) {
           return this.#refuse(path, `a back-reference to \`${node.name}\`, which was never declared`);
@@ -929,12 +1045,22 @@ export class Emitter {
     return statements;
   }
 
-  #tupleIssues(node: TupleIR, v: string, p: string, out: string, path: string): string[] | undefined {
+  #tupleIssues(node: TupleIR, v: string, p: string, out: string, path: string, depth?: number): string[] | undefined {
     const inner: string[] = [];
-    for (const [index, element] of node.elements.entries()) {
-      const statements = this.#issues(element, `${v}[${index}]`, indexed(p, String(index)), out, `${path}[${index}]`);
-      if (statements === undefined) return undefined;
-      inner.push(...statements);
+    if (depth === undefined || depth > 1) {
+      const nestedDepth = childDepth(depth);
+      for (const [index, element] of node.elements.entries()) {
+        const statements = this.#issues(
+          element,
+          `${v}[${index}]`,
+          indexed(p, String(index)),
+          out,
+          `${path}[${index}]`,
+          nestedDepth,
+        );
+        if (statements === undefined) return undefined;
+        inner.push(...statements);
+      }
     }
     const shape = this.#issue(out, p, JSON.stringify(expectedOf(node)), v);
     return [
@@ -942,8 +1068,8 @@ export class Emitter {
     ];
   }
 
-  #arrayIssues(node: ArrayIR, v: string, p: string, out: string, path: string): string[] | undefined {
-    const fingerprint = `issuesArray:${JSON.stringify(node)}`;
+  #arrayIssues(node: ArrayIR, v: string, p: string, out: string, path: string, depth?: number): string[] | undefined {
+    const fingerprint = `issuesArray${depthKey(depth)}:${JSON.stringify(node)}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return [`${cached}(${v}, ${p}, ${out});`];
 
@@ -952,30 +1078,37 @@ export class Emitter {
     const name = this.#name('IssuesArray');
     this.#shared.set(fingerprint, name);
 
-    const element = this.#issues(node.element, '_v[_i]', indexed('_p', '_i'), '_o', `${path}[]`);
-    if (element === undefined) {
-      this.#shared.delete(fingerprint);
-      return undefined;
+    let element: string[] = [];
+    if (depth === undefined || depth > 1) {
+      const emitted = this.#issues(node.element, '_v[_i]', indexed('_p', '_i'), '_o', `${path}[]`, childDepth(depth));
+      if (emitted === undefined) {
+        this.#shared.delete(fingerprint);
+        return undefined;
+      }
+      element = emitted;
     }
     const bounds = this.#constraintIssues(node.constraints, '_v', '_p', '_o', true, path);
     if (bounds === undefined) return undefined;
     const body = [
       `if (!Array.isArray(_v)) { ${this.#issue('_o', '_p', JSON.stringify('array'), '_v')} return; }`,
       ...bounds,
-      `for (let _i = 0; _i < _v.length; _i++) { ${element.join(' ')} }`,
     ];
+    if (depth === undefined || depth > 1) {
+      body.push(`for (let _i = 0; _i < _v.length; _i++) { ${element.join(' ')} }`);
+    }
     this.#helpers[slot] = `function ${name}(_v, _p, _o) { ${body.join(' ')} }`;
     return [`${name}(${v}, ${p}, ${out});`];
   }
 
-  #objectIssues(node: ObjectIR, v: string, p: string, out: string, path: string): string[] | undefined {
-    if (node.name === undefined) return this.#objectIssuesBody(node, v, p, out, path);
+  #objectIssues(node: ObjectIR, v: string, p: string, out: string, path: string, depth?: number): string[] | undefined {
+    if (node.name !== undefined) this.#definitions.set(node.name, node);
+    if (node.name === undefined) return this.#objectIssuesBody(node, v, p, out, path, depth);
 
-    const openKey = `issues:${node.name}`;
+    const openKey = `issues${depthKey(depth)}:${node.name}`;
     const open = this.#open.get(openKey);
     if (open !== undefined) return [`${open}(${v}, ${p}, ${out});`];
 
-    const fingerprint = `issues:${JSON.stringify(node)}`;
+    const fingerprint = `issues${depthKey(depth)}:${JSON.stringify(node)}`;
     const cached = this.#shared.get(fingerprint);
     if (cached !== undefined) return [`${cached}(${v}, ${p}, ${out});`];
 
@@ -984,37 +1117,57 @@ export class Emitter {
     const name = this.#name(`Issues${capitalise(node.name)}`);
     this.#open.set(openKey, name);
     this.#shared.set(fingerprint, name);
-    const body = this.#objectIssuesBody(node, '_v', '_p', '_o', path);
+    const body = this.#objectIssuesBody(node, '_v', '_p', '_o', path, depth);
     if (body === undefined) return undefined;
     this.#helpers[slot] = `function ${name}(_v, _p, _o) { ${body.join(' ')} }`;
     return [`${name}(${v}, ${p}, ${out});`];
   }
 
-  #objectIssuesBody(node: ObjectIR, v: string, p: string, out: string, path: string): string[] | undefined {
+  #objectIssuesBody(
+    node: ObjectIR,
+    v: string,
+    p: string,
+    out: string,
+    path: string,
+    depth?: number,
+  ): string[] | undefined {
+    if (node.name !== undefined) this.#definitions.set(node.name, node);
     const inner: string[] = [];
-    for (const property of node.properties) {
-      const member = `${v}${accessor(property.name)}`;
-      const statements = this.#issues(property.type, member, join(p, property.name), out, join(path, property.name));
-      if (statements === undefined) return undefined;
-      if (statements.length === 0) continue;
-      inner.push(property.optional ? `if (${member} !== undefined) { ${statements.join(' ')} }` : statements.join(' '));
+    if (depth !== 0) {
+      const nestedDepth = childDepth(depth);
+      for (const property of node.properties) {
+        const member = `${v}${accessor(property.name)}`;
+        const statements = this.#issues(
+          property.type,
+          member,
+          join(p, property.name),
+          out,
+          join(path, property.name),
+          nestedDepth,
+        );
+        if (statements === undefined) return undefined;
+        if (statements.length === 0) continue;
+        inner.push(
+          property.optional ? `if (${member} !== undefined) { ${statements.join(' ')} }` : statements.join(' '),
+        );
+      }
     }
     const shape = this.#issue(out, p, JSON.stringify(expectedOf(node)), v);
     return [`if (!(${recordTest(v)})) { ${shape} } else { ${inner.join(' ')} }`];
   }
 
-  #unionIssues(node: UnionIR, v: string, p: string, out: string, path: string): string[] | undefined {
+  #unionIssues(node: UnionIR, v: string, p: string, out: string, path: string, depth?: number): string[] | undefined {
     const discriminant = discriminantOf(node.members);
     if (!discriminant) {
       // No discriminant, so there is no arm to blame: one issue naming the whole union.
-      const check = this.#check(node, v, path);
+      const check = this.#check(node, v, path, depth);
       if (check === undefined) return undefined;
       return [`if (!(${check})) ${this.#issue(out, p, JSON.stringify(expectedOf(node)), v)}`];
     }
 
     const branches: string[] = [];
     for (const arm of discriminant.arms) {
-      const body = this.#objectIssuesBody(arm.node, v, p, out, path);
+      const body = this.#objectIssuesBody(arm.node, v, p, out, path, depth);
       if (body === undefined) return undefined;
       branches.push(`if (${v}${accessor(discriminant.key)} === ${JSON.stringify(arm.value)}) { ${body.join(' ')} }`);
     }

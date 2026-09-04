@@ -22,6 +22,7 @@
 
 import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
+import { isLiteralTypeNode, isNumericLiteral, isPrefixUnaryExpression } from 'typescript/unstable/ast/is';
 import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
@@ -40,10 +41,13 @@ import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complex
  */
 export const CALLEES: ReadonlySet<string> = new Set([
   'is',
+  'isShallow',
   'assert',
+  'assertShallow',
   'equals',
   'assertEquals',
   'validate',
+  'validateShallow',
   'random',
   'toJsonSchema',
   'schemaOf',
@@ -70,6 +74,13 @@ type Reflected =
   | { readonly kind: 'shape'; readonly shape: ShapeIR }
   | { readonly kind: 'schema'; readonly ir: SchemaIR }
   | { readonly kind: 'protobuf'; readonly node: TypeIR; readonly name: string };
+
+type EmissionDepth =
+  | { readonly kind: 'full' }
+  | { readonly kind: 'shallow'; readonly value: number }
+  | { readonly kind: 'refused'; readonly reason: string };
+
+const SHALLOW_CALLEES: ReadonlySet<string> = new Set(['isShallow', 'assertShallow', 'validateShallow']);
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -142,6 +153,17 @@ export function transformFile(fileName: string, code: string, context: Transform
     const position = site.node.getStart();
     const reflectedAt = reflector.diagnostics.length;
     const emittedAt = emitter.diagnostics.length;
+    const depth = emissionDepth(site);
+    if (depth.kind === 'refused') {
+      diagnostics.push({
+        fileName,
+        position,
+        callee: site.callee,
+        path: '',
+        reason: depth.reason,
+      });
+      continue;
+    }
 
     const type = session.checker.getTypeFromTypeNode(site.typeArgument);
     if (!type) {
@@ -168,7 +190,7 @@ export function transformFile(fileName: string, code: string, context: Transform
       continue;
     }
 
-    const replacement = emitFor(emitter, site, reflected, rewriter);
+    const replacement = emitFor(emitter, site, reflected, rewriter, depth.kind === 'shallow' ? depth.value : undefined);
     if (replacement === undefined) {
       const emitted = emitter.diagnostics.slice(emittedAt);
       if (emitted.length === 0) {
@@ -197,6 +219,37 @@ export function transformFile(fileName: string, code: string, context: Transform
   return { code: out, changed: out !== code, diagnostics };
 }
 
+function emissionDepth(site: CallSite): EmissionDepth {
+  if (!SHALLOW_CALLEES.has(site.callee)) return { kind: 'full' };
+
+  const argument = site.node.typeArguments?.[1];
+  if (argument === undefined) return { kind: 'shallow', value: 1 };
+  if (!isLiteralTypeNode(argument)) {
+    return { kind: 'refused', reason: '`depth` must be a positive integer literal type' };
+  }
+
+  const literal = argument.literal;
+  let value: number | undefined;
+  if (isNumericLiteral(literal)) {
+    value = Number(literal.text);
+  } else if (
+    isPrefixUnaryExpression(literal) &&
+    (literal.operator === SyntaxKind.PlusToken || literal.operator === SyntaxKind.MinusToken) &&
+    isNumericLiteral(literal.operand)
+  ) {
+    const magnitude = Number(literal.operand.text);
+    value = literal.operator === SyntaxKind.MinusToken ? -magnitude : magnitude;
+  }
+
+  if (value === undefined) {
+    return { kind: 'refused', reason: '`depth` must be a positive integer literal type' };
+  }
+  if (!Number.isInteger(value) || value <= 0) {
+    return { kind: 'refused', reason: '`depth` must be a positive integer literal' };
+  }
+  return { kind: 'shallow', value };
+}
+
 function degrade(fileName: string, code: string, reason: string): TransformResult {
   const out = transformCode(code);
   return { code: out, changed: out !== code, diagnostics: [{ fileName, path: '', reason }] };
@@ -217,7 +270,7 @@ function reflect(reflector: Reflector, callee: string, type: Type): Reflected {
   }
 }
 
-function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewriter: Rewriter) {
+function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewriter: Rewriter, maxDepth?: number) {
   // Both of these are the answer itself, so there is nothing to check and no argument
   // to read.
   if (reflected.kind === 'shape') return emitter.emitJsonSchema(reflected.shape);
@@ -243,14 +296,20 @@ function emitFor(emitter: Emitter, site: CallSite, reflected: Reflected, rewrite
       return emitter.emitProtoEncode(node, reflected.kind === 'protobuf' ? reflected.name : 'Message', expression);
     case 'is':
       return emitter.emitIs(node, expression);
+    case 'isShallow':
+      return emitter.emitIs(node, expression, maxDepth);
     case 'equals':
       return emitter.emitEquals(node, expression);
     case 'assert':
       return emitter.emitAssert(node, expression, false);
+    case 'assertShallow':
+      return emitter.emitAssert(node, expression, false, maxDepth);
     case 'assertEquals':
       return emitter.emitAssert(node, expression, true);
     case 'validate':
       return emitter.emitValidate(node, expression);
+    case 'validateShallow':
+      return emitter.emitValidate(node, expression, false, maxDepth);
     default:
       return undefined;
   }
