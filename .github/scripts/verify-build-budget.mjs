@@ -60,15 +60,29 @@
 // they do for a consumer. The artifacts are the ones `zmdb-codegen` would write. `.budget/` is
 // gitignored and removed in a `finally`.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { codegen } from '../../packages/aot-validator/src/cli/index.ts';
-import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/src/reflect/session.ts';
-import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.ts';
-import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.ts';
-import { Controller, Get, Public } from '../../packages/web/src/routing/index.ts';
+if (process.version.startsWith('v22.') && !process.execArgv.includes('--js-explicit-resource-management')) {
+  try {
+    execFileSync(
+      process.execPath,
+      ['--js-explicit-resource-management', ...process.execArgv, ...process.argv.slice(1)],
+      { stdio: 'inherit' },
+    );
+    process.exit(0);
+  } catch (err) {
+    process.exit(err.status ?? 1);
+  }
+}
+
+const { codegen } = await import('../../packages/aot-validator/src/cli/index.ts');
+const { apiInstanceCount, ReflectSession } = await import('../../packages/aot-validator/src/reflect/session.ts');
+const { compileHttpContracts } = await import('../../packages/web/src/contract/compiler/index.ts');
+const { defineHttpContract, httpOperation } = await import('../../packages/web/src/contract/index.ts');
+const { Controller, Get, Public } = await import('../../packages/web/src/routing/index.ts');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRATCH = resolve(ROOT, '.budget');
