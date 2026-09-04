@@ -81,3 +81,60 @@ if (!('toBase64' in proto)) {
     configurable: true,
   });
 }
+
+const BASE64_LOOKUP = new Uint8Array(256);
+for (let i = 0; i < BASE64_CHARS.length; i += 1) {
+  BASE64_LOOKUP[BASE64_CHARS.charCodeAt(i)] = i;
+}
+for (let i = 0; i < BASE64URL_CHARS.length; i += 1) {
+  BASE64_LOOKUP[BASE64URL_CHARS.charCodeAt(i)] = i;
+}
+
+function decodeBase64(string: string, alphabet: 'base64' | 'base64url'): Uint8Array {
+  let str = string.replace(/[\n\r\t ]/g, '');
+  if (alphabet === 'base64url') {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+  }
+  while (str.length % 4 !== 0) {
+    str += '=';
+  }
+  let len = str.length;
+  if (str.endsWith('==')) len -= 2;
+  else if (str.endsWith('=')) len -= 1;
+
+  const validLen = (len * 3) >> 2;
+  const bytes = new Uint8Array(validLen);
+
+  let byteIdx = 0;
+  for (let i = 0; i < str.length && byteIdx < validLen; i += 4) {
+    const c0 = BASE64_LOOKUP[str.charCodeAt(i)] ?? 0;
+    const c1 = BASE64_LOOKUP[str.charCodeAt(i + 1)] ?? 0;
+    const c2 = BASE64_LOOKUP[str.charCodeAt(i + 2)] ?? 0;
+    const c3 = BASE64_LOOKUP[str.charCodeAt(i + 3)] ?? 0;
+
+    bytes[byteIdx] = (c0 << 2) | (c1 >> 4);
+    byteIdx += 1;
+    if (byteIdx < validLen) {
+      bytes[byteIdx] = ((c1 & 15) << 4) | (c2 >> 2);
+      byteIdx += 1;
+    }
+    if (byteIdx < validLen) {
+      bytes[byteIdx] = ((c2 & 3) << 6) | c3;
+      byteIdx += 1;
+    }
+  }
+
+  return bytes;
+}
+
+const uint8ArrayConstructor: { fromBase64?: unknown } = Uint8Array;
+if (!('fromBase64' in uint8ArrayConstructor)) {
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (string: string, options?: { alphabet?: 'base64' | 'base64url' }) {
+      return decodeBase64(string, options?.alphabet ?? 'base64');
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}
