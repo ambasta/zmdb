@@ -264,14 +264,7 @@ jobs:
           node-version: '26'
 
       - name: Audit dependencies
-        # Metro 0.87.0 is the current release and is used only by the committed
-        # React Native fixture. It resolves image-size@1.2.1; npm's current
-        # image-size@2.0.2 is still covered by these two denial-of-service
-        # advisories, so no fixed version exists to select. Keep every other
-        # high advisory fatal and name the exact temporary exceptions.
-        run: >
-          yarn npm audit --all --recursive --severity high --no-deprecations
-          --ignore 1138808 --ignore 1138809
+        run: node .github/scripts/verify-audit.mjs
 
   codeql:
     name: CodeQL SAST Analysis
