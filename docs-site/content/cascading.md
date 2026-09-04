@@ -28,12 +28,13 @@ const migrations = [
 
 The available actions, and what each is actually for:
 
-| Action      | Effect                          | Use it when                                                                             |
-| ----------- | ------------------------------- | --------------------------------------------------------------------------------------- |
-| `CASCADE`   | delete the children too         | the child has no meaning without the parent (comments on a post)                        |
-| `SET NULL`  | null the FK, keep the row       | the child outlives the parent (orders keep their line items when a customer is deleted) |
-| `RESTRICT`  | refuse the delete               | the parent should not be deletable while referenced                                     |
-| `NO ACTION` | the default; refuse, deferrable | you want the check at commit rather than at statement time                              |
+| Action        | Effect                          | Use it when                                                                             |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
+| `CASCADE`     | delete the children too         | the child has no meaning without the parent (comments on a post)                        |
+| `SET NULL`    | null the FK, keep the row       | the child outlives the parent (orders keep their line items when a customer is deleted) |
+| `SET DEFAULT` | write the FK column's default   | the declared default is meaningful; InnoDB does not support this action                 |
+| `RESTRICT`    | refuse the delete               | the parent should not be deletable while referenced                                     |
+| `NO ACTION`   | the default; refuse, deferrable | you want the check at commit rather than at statement time                              |
 
 > [!NOTE]
 > SQLite enforces foreign keys only if `PRAGMA foreign_keys = ON` is set **per
@@ -75,7 +76,9 @@ More typing, and the insert order is visible rather than inferred from a graph w
 
 ## What it would take
 
-Two pieces that can land independently. The DDL half needs the migration format to carry a foreign key first — [it does not today](./composite-keys.html) — and then a second type argument, `References<'users.id', { onDelete: 'cascade' }>`, threading the action through, plus `diff()` recognising a changed action as an operation. The application half is the one that needs a decision — a `cascade` option on a relation implies the repository walks the relation graph on delete, which means a delete issues an unknown number of statements, which is close to the implicit behaviour the [unit-of-work argument](./anti-patterns.html) rejects. The likely outcome is that the DDL half ships and the application half stays explicit.
+The migration format first has to carry the foreign key itself — [it does not today](./composite-keys.html). The frozen declaration then composes `OnDelete<'cascade'>` and `OnUpdate<'…'>` beside `References<'users.id'>`, and `diff()` recognises a changed action as a drop/add constraint pair.
+
+There is no application-level cascade half to add. The referential-actions contract puts this work in the database and explicitly keeps repository deletes from walking a relation graph; a cascade that also archives rows, emits events or calls services remains the explicit transaction shown above.
 
 ---
 

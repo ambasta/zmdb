@@ -766,7 +766,7 @@ export const PAGE_META = {
     title: 'Cascading',
     group: 'Transactions',
     status: 'todo',
-    note: 'references() records the FK target only — no ON DELETE / ON UPDATE action and no application-level cascade',
+    note: 'References<…> records the FK target only — no ON DELETE / ON UPDATE action and no application-level cascade',
   },
   'transactional-outbox': {
     title: 'Transactional Outbox',

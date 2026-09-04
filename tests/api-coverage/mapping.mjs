@@ -325,17 +325,14 @@ export const kysely = {
   'schema > alter table > add check constraint': 'check constraint',
   'schema > alter table > add unique constraint':
     'drops the unique constraint and the foreign key on the way to the DDL',
-  'schema > alter table > add foreign key constraint':
-    'drops the unique constraint and the foreign key on the way to the DDL',
+  'schema > alter table > add foreign key constraint': [
+    'emits ON DELETE CASCADE on the foreign key',
+    'emits every supported referential action',
+    'creates the supporting index MySQL requires',
+  ],
   'schema > alter table > add primary key constraint':
     'emits a composite primary key as two column constraints, which no dialect accepts',
-  'schema > alter table > drop constraint': oos(
-    'Dropping a named constraint means knowing the name the database gave it, and the three ' +
-      'dialects name unnamed constraints differently. zmdb generates constraints as part of a ' +
-      'column definition and reports the composite-key case it cannot express rather than ' +
-      'emitting DDL whose reversal depends on a name it did not choose.',
-    'indexes-constraints',
-  ),
+  'schema > alter table > drop constraint': 'diffs a changed action into a drop and an add',
   'schema > alter table > rename constraint': oos(
     'Renaming a constraint has the same problem as dropping one by name, plus Postgres and MySQL ' +
       'spell it differently and SQLite cannot do it at all. The migration diff works in terms of ' +
@@ -444,8 +441,14 @@ export const drizzle = {
   'Filter by columns not present in select': 'filters using subqueries and EXISTS conditions on real SQLite',
 
   // --- schema declaration --------------------------------------------------
-  'table config*': 'drops the unique constraint and the foreign key on the way to the DDL',
-  'define constraints as array*': 'drops the unique constraint and the foreign key on the way to the DDL',
+  'table config*': [
+    'drops the unique constraint and the foreign key on the way to the DDL',
+    'names a generated constraint deterministically',
+  ],
+  'define constraints as array*': [
+    'drops the unique constraint and the foreign key on the way to the DDL',
+    'emits a composite foreign key referencing a composite key',
+  ],
   'Object keys as column names': 'names every declared column in every dialect',
   'prefixed table': 'names every declared column in every dialect',
   'all types': ['renders every column type for postgres', 'renders every column type for sqlite'],
@@ -683,7 +686,10 @@ export const mikroOrm = {
   'default-values': 'accepts the payload every column is happy with',
   'generated-columns': ['stored generated column', 'virtual generated column (no STORED)'],
   'check-constraint': 'check constraint',
-  createForeignKeyConstraint: 'drops the unique constraint and the foreign key on the way to the DDL',
+  createForeignKeyConstraint: [
+    'emits ON DELETE CASCADE on the foreign key',
+    'names a generated constraint deterministically',
+  ],
   'custom-order': 'compiles where + orderBy + limit',
   'entity-default-order': 'compiles where + orderBy + limit',
   'multiple-schemas': 'qualifies an object with its schema',

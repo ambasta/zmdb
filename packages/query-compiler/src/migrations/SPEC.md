@@ -157,7 +157,7 @@ type RenameOp =
 function diff(
   prev: SchemaSnapshot,
   next: SchemaSnapshot,
-  opts?: { readonly renames?: readonly RenameOp[] },
+  opts?: { readonly renames?: readonly RenameOp[]; readonly dialect?: Dialect },
 ): readonly ChangeOp[];
 ```
 
@@ -298,10 +298,22 @@ emitted inline in the `CREATE TABLE` instead:
 sqlite  CREATE TABLE "posts" ("id" INTEGER PRIMARY KEY, "user_id" INTEGER NOT NULL, FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION)
 ```
 
+That makes the constraint part of the `create_table` op on every dialect, even though Postgres and MySQL
+emit it later:
+
+```ts
+{ kind: 'create_table'; table: string; columns: ColumnSnapshot[]; foreignKeys: ForeignKeySnapshot[] }
+```
+
+Without that field the SQLite statement above is not representable: `emitUp` receives one op, not the
+snapshot it came from, and the current payload carries only columns. Postgres and MySQL still emit separate
+`add_foreign_key` statements so mutually-referencing tables remain possible there.
+
 Which means a mutually-referencing pair of tables is **not expressible on SQLite** at all, and the emitter
-refuses it naming both tables rather than emitting a `CREATE TABLE` that fails. That is a real limit of the
-dialect, not of zmdb, and stating it here is cheaper than discovering it from `no such table` during a
-migration.
+cannot discover that from either table's op in isolation. The caller therefore passes the target dialect to
+`diff`; for SQLite, `diff` inspects the complete target snapshot and refuses a cycle naming both tables
+before it returns either `create_table` op. That is a real limit of the dialect, not of zmdb, and stating it
+here is cheaper than discovering it from `no such table` during a migration.
 
 #### The three dialect exceptions, and what is done about each
 
@@ -317,8 +329,9 @@ migration.
   author's — with the note that without one, `ON DELETE CASCADE` scans the child table once per deleted
   parent row.
 - **SQLite cannot alter a constraint.** Adding, dropping or changing the action of a foreign key on an
-  existing table needs the create/copy/drop/rename rebuild, exactly as `alter_primary_key` does (§1.3), so
-  the emitter **refuses** with the same class of error and the same shape of message:
+  existing table needs the create/copy/drop/rename rebuild, exactly as `alter_primary_key` does (§1.3).
+  The frozen drop/add ops do not each carry both the old and new action, while `diff` has both snapshots, so
+  a dialect-aware `diff` **refuses before returning the pair** with the same class of error and this message:
 
 ```
 sqlite cannot change the foreign key "posts_user_id_fkey" on "posts" (ON DELETE NO ACTION → CASCADE);
@@ -328,11 +341,13 @@ migration guide
 
 #### `PRAGMA foreign_keys` — zmdb turns it on
 
-SQLite enforces foreign keys only when `PRAGMA foreign_keys = ON`, the setting is **per connection**, and
-the default is off. So the choice is between DDL that is decorative and a setting zmdb changes on the
-caller's behalf, and the tie is broken by a fact about SQLite rather than by preference: **enabling the
-pragma does not validate the rows already in the table.** Enforcement applies to statements executed
-afterwards, so turning it on cannot fail a deploy over historical data.
+SQLite enforces foreign keys only when `PRAGMA foreign_keys = ON`, and the setting is **per connection**.
+The initial state cannot be assumed: the Node 26 `DatabaseSync` build in the repository's E2E starts at
+`1`, while SQLite can be compiled or opened with enforcement off. So the choice is between DDL that may be
+decorative and an idempotent setting zmdb applies on the caller's behalf, and the tie is broken by a fact
+about SQLite rather than by preference: **enabling the pragma does not validate the rows already in the
+table.** Enforcement applies to statements executed afterwards, so turning it on cannot fail a deploy over
+historical data.
 
 zmdb's `node:sqlite` adapter therefore issues `PRAGMA foreign_keys = ON` on every connection it opens. The
 alternative leaves an author who wrote `ON DELETE CASCADE` with no cascade, a passing test suite, and no
@@ -376,7 +391,7 @@ the sections above add:
 
 ```ts
 type ChangeOp =
-  | { kind: 'create_table'; table: string; columns: ColumnSnapshot[] }
+  | { kind: 'create_table'; table: string; columns: ColumnSnapshot[]; foreignKeys: ForeignKeySnapshot[] } // §1.6
   | { kind: 'drop_table'; table: string }
   | { kind: 'add_column'; table: string; column: ColumnSnapshot }
   | { kind: 'drop_column'; table: string; column: string }

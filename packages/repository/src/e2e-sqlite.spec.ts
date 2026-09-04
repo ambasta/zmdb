@@ -185,6 +185,61 @@ describe('repository E2E (real SQLite)', () => {
     const found = await users.findById(r1!.id);
     expect(found).toMatchObject({ id: r1!.id, email: 'selective@b.com', role: 'admin' });
   });
+
+  // Referential-actions tests freeze (#455), against
+  // `@zmdb/query-compiler/migrations` SPEC.md §1.6.
+  //
+  // The pragma and the rows are one assertion object on purpose: a cascade test
+  // that manually enables the pragma proves SQLite, not the adapter, while an
+  // assertion that stops at the pragma never proves the declared action executes.
+  //
+  // A fresh DatabaseSync on the measured Node 26 build starts at 1, so the test
+  // explicitly turns it off first. Without that step the body passes today because
+  // of a host default and proves nothing about sqliteDriver.
+  //
+  // actual today after the explicit OFF:
+  //   { beforeDriver: 0, afterDriver: 0, children: 2 }
+  // sqliteDriver prepares statements but performs no connection setup, so the
+  // constraint remains decorative and both child rows survive.
+  it.fails('cascades a real delete', async () => {
+    const cascadeDb = new DatabaseSync(':memory:');
+    try {
+      cascadeDb.exec('PRAGMA foreign_keys = OFF');
+      const beforeDriver = cascadeDb.prepare('PRAGMA foreign_keys').get() as {
+        readonly foreign_keys: number;
+      };
+      const driver = sqliteDriver(cascadeDb);
+      const afterDriver = cascadeDb.prepare('PRAGMA foreign_keys').get() as {
+        readonly foreign_keys: number;
+      };
+      cascadeDb.exec(
+        'CREATE TABLE parents (id INTEGER PRIMARY KEY);' +
+          'CREATE TABLE children (' +
+          'id INTEGER PRIMARY KEY, parent_id INTEGER NOT NULL, ' +
+          'FOREIGN KEY (parent_id) REFERENCES parents (id) ON DELETE CASCADE' +
+          ');' +
+          'INSERT INTO parents VALUES (1);' +
+          'INSERT INTO children VALUES (10, 1), (20, 1);',
+      );
+
+      await driver.execute({ text: 'DELETE FROM parents WHERE id = ?', parameters: [1] });
+      const count = cascadeDb.prepare('SELECT COUNT(*) AS count FROM children').get() as {
+        readonly count: number;
+      };
+
+      expect({
+        beforeDriver: beforeDriver.foreign_keys,
+        afterDriver: afterDriver.foreign_keys,
+        children: count.count,
+      }).toEqual({
+        beforeDriver: 0,
+        afterDriver: 1,
+        children: 0,
+      });
+    } finally {
+      cascadeDb.close();
+    }
+  });
 });
 
 // The third layer of plan D3, against a real database. `Entity<S>` says a `timestamp` is a
