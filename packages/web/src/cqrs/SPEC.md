@@ -1,6 +1,6 @@
 # SPEC — CQRS: what a command bus has to earn (frozen)
 
-Part of `@zmdb/web`, a new `./cqrs` subpath. This file freezes a **command** bus only. The query bus, event
+Part of `@zmdb/web`; the `./cqrs` subpath ships a **command** bus only. The query bus, event
 sourcing and sagas are refused, each with a reason, in §6 — and recording those as decisions rather than
 omissions is `#592` step 5.
 
@@ -87,13 +87,14 @@ Both halves are refused.
 
 `new (...a: never[]) => C` requires every command to be a **class**, because only a class has a constructor to
 pass. Nothing else in this project works that way: entities are interfaces refined with intersection tags,
-DTOs are types, and `docs-site/content/web-cqrs.md` already shows the interface-map form. Making commands the
+DTOs are types, and `docs-site/content/web-cqrs.md` uses a type-alias map. Making commands the
 one place a runtime class is mandatory buys a lookup key that a string literal already provides, and costs
 every command an `instanceof`-shaped identity that has to survive serialisation.
 
-`readonly _result?: Result` is a phantom field, so `Command<A>` and `Command<B>` are mutually assignable when
-either `_result` is absent — the type says less than it appears to. `#525` rejected the identical pattern for
-the same reason.
+`readonly _result?: Result` is a phantom field. Empty values satisfy every instantiation, and
+`Command<A>` widens to `Command<unknown>`, so a `C extends Command<unknown>` constraint proves no useful
+relationship between a command's data and its result. `#525` rejected the identical pattern for the same
+reason.
 
 `ClassDecorator` is the legacy decorator type and does not apply under Stage 3 (`experimentalDecorators` is
 `false`). Its real spelling is `(target, context: ClassDecoratorContext)`.
@@ -201,8 +202,8 @@ type is per-application by construction.
 - **No boolean-returning `authorise`.** §4 — a forgotten `if` around it would default to allow.
 - **No result-union return.** §4 — a second error convention for writes only.
 - **No middleware chain or interceptor array on the bus.** The four hooks are named and ordered; an open chain
-  would make the order a per-application discovery, and `runChain` is not even wired into the HTTP pipeline yet
-  (`../graphql/SPEC.md` §8).
+  would make the order a per-application discovery. The HTTP lifecycle keeps pipes, interceptors and filters
+  behind an explicit `runChain` call too (`docs-site/content/web-request-lifecycle.md`).
 - **No query bus.** §6 — repositories plus `withReplicas` already are the read side.
 - **No event sourcing.** §6 — a different persistence model.
 - **No sagas.** §6 — deferred until durable step state exists, not refused.

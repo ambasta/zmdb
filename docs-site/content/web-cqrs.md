@@ -1,15 +1,74 @@
-> **ToDo / feature gap.** There is no CQRS module — no `CommandBus`, `QueryBus`,
-> CQRS `EventBus`, `@CommandHandler` or `@Saga`. Typed [application
-> events](./web-events.html) do ship separately; they are not a command bus.
->
-> `packages/web/src/cqrs/SPEC.md` freezes a **command** bus and refuses the query
-> bus, event sourcing and sagas outright. The reasons are in "What it would take".
+`@zmdb/web/cqrs` ships one deliberately narrow CQRS primitive: a typed command
+boundary. It does not ship a query bus, event sourcing, handler decorators or
+sagas; those are explicit decisions rather than unfinished arms of the API.
 
-## What you have to build with
+## What the command boundary earns
 
-More than it sounds: a typed container, a module graph, and a data layer whose write and read paths are already separable.
+A command bus is useful here only because every write crosses one fixed pipeline:
+validate, authorise, optional transaction, handler, outcome observation. A
+string-keyed `dispatch(name, unknown)` API would give up the input and result
+types that justify the indirection, so the caller gets one method per command.
 
-`BaseRepository` is not a CQRS obstacle — `create/update/delete` and `find*/list/aggregate` are distinct methods over the same driver, and the [replica helper](./read-replicas.html) already routes reads and writes to different connections:
+```ts
+import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createCommandBus, type CommandBus, type CommandHandlers } from '@zmdb/web/cqrs';
+import { createToken } from '@zmdb/web/di';
+
+type Commands = {
+  publishPost: {
+    input: { id: number };
+    result: { url: string };
+  };
+  cancelOrder: {
+    input: { id: number; reason: string };
+    result: void;
+  };
+};
+
+const db = createTransactionalDb(connection);
+
+const handlers: CommandHandlers<Commands> = {
+  publishPost: async ({ id }, { tx }) => {
+    if (tx === undefined) throw new Error('publishPost requires a transaction');
+    const post = await posts.withTransaction(tx).update(id, { published: true });
+    if (post === undefined) throw new Error(`post ${id} not found`);
+    return { url: `/posts/${post.id}` };
+  },
+  cancelOrder: async ({ id, reason }, { tx }) => {
+    if (tx === undefined) throw new Error('cancelOrder requires a transaction');
+    await orders.withTransaction(tx).update(id, { status: 'cancelled', reason });
+  },
+};
+
+const bus = createCommandBus<Commands>(handlers, {
+  validate: {
+    publishPost: validatePublishPost,
+    cancelOrder: validateCancelOrder,
+  },
+  authorise: (command, input) => policy.authorise(command, input),
+  transaction: fn => db.transaction(fn),
+  onCommand: outcome => audit.record(outcome),
+});
+
+export const BUS = createToken<CommandBus<Commands>>('BUS');
+```
+
+`validate` is required and total: adding a command without adding its validator
+or handler is a compile error. The validator's return value, not the raw
+argument, reaches authorisation and the handler. Handler results are checked
+against the same map, so `bus.publishPost({ id: 1 })` resolves as
+`{ url: string }` and a misspelled command is not a property.
+
+Validation and authorisation run before the optional transaction opens. A
+handler receives the exact `TransactionContext` supplied by the wrapper and can
+bind repositories or call `events.emitInTransaction` with it. Failures are
+re-thrown unchanged after `onCommand` observes the outcome.
+
+## Reads stay in repositories
+
+`BaseRepository` already separates `create/update/delete` from
+`find*/list/aggregate`, and the [replica helper](./read-replicas.html) routes
+reads and writes to different connections:
 
 ```ts
 import { withReplicas } from '@zmdb/repository/replicas';
@@ -17,69 +76,21 @@ import { withReplicas } from '@zmdb/repository/replicas';
 const driver = withReplicas({ primary, replicas: [replicaA, replicaB] });
 ```
 
-That is command/query _separation_ at the level that usually matters. The rest of CQRS — a bus, handlers resolved by message type, sagas — is application structure.
-
-## A command bus in twenty lines
-
-```ts
-interface Command {
-  readonly kind: string;
-}
-interface Handler<C extends Command, R> {
-  execute(command: C): Promise<R>;
-}
-
-export class CommandBus {
-  readonly #handlers = new Map<string, Handler<Command, unknown>>();
-
-  register<C extends Command, R>(kind: C['kind'], handler: Handler<C, R>): void {
-    if (this.#handlers.has(kind)) throw new Error(`duplicate handler for ${kind}`);
-    this.#handlers.set(kind, handler as Handler<Command, unknown>);
-  }
-
-  async execute<R>(command: Command): Promise<R> {
-    const handler = this.#handlers.get(command.kind);
-    if (handler === undefined) throw new Error(`no handler for ${command.kind}`);
-    return (await handler.execute(command)) as R;
-  }
-}
-```
-
-Two casts, and they are the reason this is not in the framework: a heterogeneous `kind → handler` map cannot prove its value types structurally, so a bus either carries assertions or gives up the typing that made it worth having. The project's own [assertion policy](./anti-patterns.html) is why a half-typed bus has not shipped.
-
-The typed alternative — no map, no casts:
-
-```ts
-export type Commands = {
-  publishPost: { input: { id: number }; result: { url: string } };
-  cancelOrder: { input: { id: number; reason: string }; result: void };
-};
-
-export type Bus = { [K in keyof Commands]: (input: Commands[K]['input']) => Promise<Commands[K]['result']> };
-```
-
-Two details are not decoration. Each entry carries `input` **and** `result`, so `await bus.publishPost(…)` is typed from the map rather than from whatever the handler happened to return — a bus whose entries are just payloads types every call as `Promise<void>`. And `Commands` is a `type`, not an `interface`: only object-literal aliases get an implicit index signature, so an interface fails the frozen `M extends CommandMap` constraint with TS2344, "Index signature for type 'string' is missing".
-
-Now `bus.publishPost({ id: 1 })` is checked against the map by name, its `{ url: string }` result is checked at the call site, a typo is a compile error, and there is no dispatch table at all. This is a plain service object, and for most applications it is strictly better than a bus.
+That is command/query separation at the level that matters here. A query bus
+would add symmetry without centralising a transaction, and row-scoped read
+authorisation belongs in the query predicate.
 
 ## Register it in the container
 
 ```ts
-export const BUS = createToken<Bus>('BUS');
-
 @Module({
-  providers: [
-    {
-      token: BUS,
-      useFactory: c => ({
-        publishPost: input => c.resolve(PUBLISH).execute(input),
-        cancelOrder: input => c.resolve(CANCEL).execute(input),
-      }),
-    },
-  ],
+  providers: [{ token: BUS, useValue: bus }],
 })
 export class CqrsModule {}
 ```
+
+The bus is an ordinary app-owned value, not a container-owned singleton. Build
+one per application and register it like any other provider.
 
 ## Events
 
@@ -134,11 +145,15 @@ export interface PostSummary extends Table<'post_summaries'> {
 
 Nothing in the declaration cares that no transaction writes to this table — it is a table with a repository, and the read side gets a shape built for its queries. A [materialized view](./materialized-views.html) is the lower-effort version when the projection is a query.
 
-## What it would take
+## The shipped scope
 
-Less than a builder that accumulates `(kind, handler)` pairs into a type-level record, which is what this section used to propose. The mapped type above already _is_ that record, and it needs no type-level work at all: `CommandBus<M>` is `{ [K in keyof M]: (input: M[K]['input']) => Promise<M[K]['result']> }` over an object literal of handlers, so a missing handler is a missing property and a handler for an undeclared command is an excess one.
+`CommandBus<M>` is
+`{ [K in keyof M]: (input: M[K]['input']) => Promise<M[K]['result']> }`
+over the supplied handler object. A missing handler is a missing property and a
+handler for an undeclared command is an excess one.
 
-Which leaves the honest question: **a typed bus with no runtime lookup is a plain object, so what is the module for?** One thing, and it is worth the indirection on its own — it is the single place every write passes through, so validation, authorisation, the transaction and an audit hook are applied once instead of remembered at N call sites. A concern applied N times has N chances to be missing, and the missing one still compiles and still returns the right value for the inputs the test used. That is the whole of `packages/web/src/cqrs/SPEC.md`.
+The module earns its place by making validation, authorisation, the transaction
+and an audit hook one boundary instead of conventions repeated at every handler.
 
 Three things it refuses, so they are decisions rather than omissions:
 

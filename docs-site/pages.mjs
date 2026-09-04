@@ -1525,7 +1525,7 @@ export const PAGE_META = {
     title: 'CQRS',
     group: 'Web Framework — DI & Modules',
     status: 'todo',
-    note: 'no command bus at runtime; the command bus is frozen (#592) and asserted by expected-failing tests (#593), and the query bus, event sourcing and sagas are refused with reasons',
+    note: 'the typed command boundary ships; query buses, event sourcing and sagas are deliberately absent, and final application-messaging documentation remains #597',
   },
   'web-openapi': {
     title: 'OpenAPI Generation',

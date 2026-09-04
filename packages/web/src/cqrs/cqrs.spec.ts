@@ -1,13 +1,7 @@
 import type { TransactionContext } from '@zmdb/repository/transactions';
-// Tests freeze (#593) for the command bus — packages/web/src/cqrs/SPEC.md §7 items 4, 6, 7, 8, 9,
+// Runtime contract for the command bus — packages/web/src/cqrs/SPEC.md §7 items 4, 6, 7, 8, 9,
 // 10, 11 and 12. Items 1, 2, 3 and 5 are compile-time claims and live in ./cqrs.type-test.ts; they
 // are the closure properties of the mapped type, which no runtime test can see.
-//
-// THE IDIOM, as in the outbox and events files: ./index.ts does not exist, so `createCommandBus` is
-// declared here and initialised from `unimplemented()`, which throws. Every test that drives it is
-// `it.fails` — the body typechecks against the signature the implementation must have, and the
-// throw keeps the assertion in the summary line instead of hiding it behind `.skip`. Each records
-// what it produces today.
 //
 // SPEC §3 is why there is no decorator anywhere in this file: "There is no decorator here at all."
 // So unlike ../events/events.spec.ts this file needs no no-op decorator stub and no
@@ -20,55 +14,7 @@ import type { TransactionContext } from '@zmdb/repository/transactions';
 // `performance.now`, stubbed, because §4 makes `ms` part of the observable surface.
 import { describe, expect, it, vi } from 'vitest';
 
-// ---------------------------------------------------------------------------
-// the frozen surface — SPEC §2 and §4, verbatim. Delete when ./index.ts lands and use:
-//
-//   import {
-//     createCommandBus,
-//     type CommandBus,
-//     type CommandBusOptions,
-//     type CommandHandlers,
-//     type CommandMap,
-//     type CommandOutcome,
-//     type CommandRun,
-//   } from './index.js';
-// ---------------------------------------------------------------------------
-function unimplemented(what: string): never {
-  throw new Error(`unimplemented: ${what}`);
-}
-
-interface CommandMap {
-  readonly [command: string]: { readonly input: unknown; readonly result: unknown };
-}
-
-type CommandBus<M extends CommandMap> = {
-  readonly [K in keyof M]: (input: M[K]['input']) => Promise<M[K]['result']>;
-};
-
-type CommandHandlers<M extends CommandMap> = {
-  readonly [K in keyof M]: (input: M[K]['input'], ctx: CommandRun) => Promise<M[K]['result']>;
-};
-
-interface CommandRun {
-  readonly command: string;
-  readonly tx: TransactionContext | undefined;
-}
-
-type CommandOutcome =
-  | { readonly command: string; readonly ok: true; readonly ms: number }
-  | { readonly command: string; readonly ok: false; readonly ms: number; readonly error: unknown };
-
-interface CommandBusOptions<M extends CommandMap> {
-  readonly validate: { readonly [K in keyof M]: (raw: unknown) => M[K]['input'] };
-  readonly authorise?: <K extends keyof M & string>(command: K, input: M[K]['input']) => Promise<void>;
-  readonly onCommand?: (run: CommandOutcome) => void;
-  readonly transaction?: (fn: (tx: TransactionContext) => Promise<unknown>) => Promise<unknown>;
-}
-
-const createCommandBus: <M extends CommandMap>(
-  handlers: CommandHandlers<M>,
-  opts: CommandBusOptions<M>,
-) => CommandBus<M> = () => unimplemented('createCommandBus');
+import { createCommandBus, type CommandBusOptions, type CommandOutcome, type CommandRun } from './index.js';
 
 // ---------------------------------------------------------------------------
 // the map under test
@@ -76,9 +22,8 @@ const createCommandBus: <M extends CommandMap>(
 // A TYPE ALIAS, not an interface, for the same reason ../events/events.spec.ts uses one: an
 // interface declaration has no implicit index signature, so `interface Commands { … }` does not
 // satisfy `CommandMap` — TS2344, "Index signature for type 'string' is missing", verified
-// 2026-09-04. SPEC §3's own prose says "docs-site/content/web-cqrs.md already shows the
-// interface-map form", which means the docs page as written does not compile against the frozen
-// `CommandMap`. See NOTES.md and DOCS.md.
+// 2026-09-04. The spec and docs use the alias form; the type-test keeps that correction from
+// regressing.
 type Commands = {
   readonly publishPost: {
     readonly input: { readonly postId: number };
@@ -145,9 +90,7 @@ function recordingTransaction(): RecordingTransaction {
 // §7 item 4 — validate runs first
 // ===========================================================================
 describe('cqrs: validate (#593, SPEC §4 step 1, §7 item 4)', () => {
-  it.fails('validate runs before the handler and a rejected input never reaches it', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('validate runs before the handler and a rejected input never reaches it', async () => {
     // SPEC §4 step 1: "A validation failure never reaches the handler." Asserted as a spy with ZERO
     // calls, as §7 item 4 requires — the negative is the whole assertion, because an implementation
     // that validated *after* calling the handler would still reject and would still look correct
@@ -169,9 +112,7 @@ describe('cqrs: validate (#593, SPEC §4 step 1, §7 item 4)', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it.fails('the handler receives the validator output, not the raw input', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('the handler receives the validator output, not the raw input', async () => {
     // The positive half, and the one that makes §4's ordering worth anything: "narrows to
     // `M[k]['input']`". A bus that ran the validator and then passed `raw` through would satisfy
     // the test above and be useless. Asserted on identity (`toBe`), so a structural clone does not
@@ -196,8 +137,7 @@ describe('cqrs: validate (#593, SPEC §4 step 1, §7 item 4)', () => {
     expect(result).toEqual({ url: '/p/42' });
   });
 
-  it.fails('a validator is called once per dispatch, with the raw argument', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
+  it('a validator is called once per dispatch, with the raw argument', async () => {
     // §2: `validate` is total, so every dispatch goes through one. Twice would double a validator's
     // side effects (a coercion that increments, a schema that logs); zero would mean the bus
     // consulted a cache instead of the map.
@@ -226,9 +166,7 @@ describe('cqrs: validate (#593, SPEC §4 step 1, §7 item 4)', () => {
 // §7 items 6 and 7 — authorise
 // ===========================================================================
 describe('cqrs: authorise (#593, SPEC §4 step 2, §7 items 6 and 7)', () => {
-  it.fails('authorise runs after validate and receives the narrowed input', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('authorise runs after validate and receives the narrowed input', async () => {
     // SPEC §4 step 2's justification: "an authorisation rule reads fields (`input.postId`) and
     // reading an unvalidated field is exactly the confusion the ordering prevents." §7 item 6 asks
     // for the ARGUMENT IDENTITY, not just that it was called — so the assertion is `toBe(narrowed)`,
@@ -267,9 +205,7 @@ describe('cqrs: authorise (#593, SPEC §4 step 2, §7 items 6 and 7)', () => {
     expect(seen[0]).toBe(narrowed);
   });
 
-  it.fails('a throwing authorise prevents the handler and rethrows', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('a throwing authorise prevents the handler and rethrows', async () => {
     // SPEC §4 step 2: "Authorisation throws to deny; a boolean return would let a forgotten `if`
     // around the call default to allow." So a rejection denies, the handler never runs, and the
     // caller sees the original error — a bus that swallowed it would return `undefined` for a
@@ -285,8 +221,7 @@ describe('cqrs: authorise (#593, SPEC §4 step 2, §7 items 6 and 7)', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it.fails('authorise is optional and its absence allows the command', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
+  it('authorise is optional and its absence allows the command', async () => {
     // §2 marks it optional. The failure mode worth pinning is the opposite of the usual one: a bus
     // that defaulted to deny when `authorise` was absent would make every unauthorised-by-design
     // command — an internal job step, a migration — fail with no rule anywhere to point at.
@@ -298,8 +233,7 @@ describe('cqrs: authorise (#593, SPEC §4 step 2, §7 items 6 and 7)', () => {
     await expect(bus.publishPost({ postId: 1 })).resolves.toEqual({ url: '/p/1' });
   });
 
-  it.fails('a denied command is not counted as a success by onCommand', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
+  it('a denied command is not counted as a success by onCommand', async () => {
     // §4 step 4 says `onCommand` fires "always". A denial happens before the handler, so this is
     // the case an implementation that only wrapped the handler call would miss entirely — the
     // observability hole where authorisation failures do not appear in the command log at all.
@@ -325,9 +259,7 @@ describe('cqrs: authorise (#593, SPEC §4 step 2, §7 items 6 and 7)', () => {
 // §7 items 8, 9 and 10 — errors and observation
 // ===========================================================================
 describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)', () => {
-  it.fails("the bus rethrows the handler's error unchanged", async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it("the bus rethrows the handler's error unchanged", async () => {
     // SPEC §4: "The bus rethrows. It does not convert a failure into a result union, because the
     // caller is a controller whose error mapping already exists — `ExceptionFilter`
     // (../middleware/index.ts:27) turns a thrown value into a `WebResponse`." §7 item 8 asks for an
@@ -342,8 +274,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     await expect(bus.publishPost({ postId: 1 })).rejects.toBe(original);
   });
 
-  it.fails('a non-Error thrown by a handler also arrives unchanged', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
+  it('a non-Error thrown by a handler also arrives unchanged', async () => {
     // `CommandOutcome`'s `error` is `unknown` for the same reason ../events/SPEC.md §3's is, so the
     // rethrow must not normalise. A bus that did `throw new Error(String(e))` would turn a thrown
     // `WebResponse` — which `ExceptionFilter` is built to pass through — into a 500.
@@ -355,9 +286,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     await expect(bus.publishPost({ postId: 1 })).rejects.toBe('a bare string');
   });
 
-  it.fails('onCommand fires on success and on failure', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('onCommand fires on success and on failure', async () => {
     // §7 item 9: two cases, `ok` correct in each. `ms` is asserted only as a number, because §4
     // sources it from the global `performance.now()` and a test that pinned a duration would be
     // asserting the speed of the machine. The stubbed-clock assertion is the next test.
@@ -380,9 +309,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     expect(outcomes[1]?.ok === false ? outcomes[1].error : undefined).toBeInstanceOf(Error);
   });
 
-  it.fails('onCommand fires before the bus rethrows', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('onCommand fires before the bus rethrows', async () => {
     // §4 step 4, verbatim: "always, on success and on failure, before the bus rethrows", and §7 item
     // 9's second clause. The ordering is observable and it matters: an `onCommand` invoked in a
     // `finally` that runs after the rejection has already propagated means a caller's catch block
@@ -399,9 +326,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     expect(order).toEqual(['onCommand', 'caught']);
   });
 
-  it.fails('onCommand cannot suppress a failure', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('onCommand cannot suppress a failure', async () => {
     // §4: "`onCommand` is observation, not handling, which is why it cannot suppress." §7 item 10.
     // An `onCommand` that returns normally — its signature returns `void`, so it always does — must
     // leave the bus throwing. This is the assertion that stops the hook from becoming a de-facto
@@ -414,14 +339,10 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     await expect(bus.publishPost({ postId: 1 })).rejects.toThrow('boom');
   });
 
-  it.fails('a throwing onCommand does not replace the command outcome', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
-    // JUDGEMENT CALL, flagged in NOTES.md: SPEC §4 does not say what happens if the observer itself
-    // throws. "Observation, not handling" only settles it one way — an exception from the log must
-    // not become the command's error, or a broken metrics sink turns every SUCCESSFUL write into a
-    // failure for its caller. So the successful command still resolves. What the bus does with the
-    // observer's own exception is genuinely unspecified and is deliberately not asserted here.
+  it('a throwing onCommand does not replace the command outcome', async () => {
+    // The implementation adopts the freeze's judgement call: "observation, not handling" means an
+    // exception from the log must not become the command's error, or a broken metrics sink turns
+    // every successful write into a failure for its caller.
     const bus = createCommandBus<Commands>(
       { publishPost: () => Promise.resolve({ url: '/p/1' }), deleteUser: () => Promise.resolve() },
       {
@@ -435,9 +356,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
     await expect(bus.publishPost({ postId: 1 })).resolves.toEqual({ url: '/p/1' });
   });
 
-  it.fails('ms comes from performance.now and measures the dispatch', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('ms comes from performance.now and measures the dispatch', async () => {
     // SPEC §4: "`ms` is from the global `performance.now()`, matching ../bench/index.ts:67.
     // `node:perf_hooks` is imported nowhere in this project and is not introduced here." Stubbing
     // the GLOBAL is therefore both the deterministic way to assert the duration and the assertion
@@ -465,9 +384,7 @@ describe('cqrs: rethrow and onCommand (#593, SPEC §4 steps 3-4, §7 items 8-10)
 // §7 items 11 and 12 — transactions
 // ===========================================================================
 describe('cqrs: transactions are supplied, not assumed (#593, SPEC §5, §7 items 11 and 12)', () => {
-  it.fails('the handler receives ctx.tx when transaction is supplied', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('the handler receives ctx.tx when transaction is supplied', async () => {
     // SPEC §5, first half, and §7 item 11's first case. Asserted on identity: the handler gets the
     // SAME `TransactionContext` the wrapper created, because §5's whole composition — a repository
     // joining via `withTransaction`, an event joining via `emitInTransaction` — depends on it being
@@ -495,9 +412,7 @@ describe('cqrs: transactions are supplied, not assumed (#593, SPEC §5, §7 item
     expect(seen[0]?.tx).toBe(recorder.tx);
   });
 
-  it.fails('the handler receives ctx.tx === undefined when transaction is not supplied', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('the handler receives ctx.tx === undefined when transaction is not supplied', async () => {
     // §7 item 11's second case. SPEC §5: "If it is absent, `CommandRun.tx` is `undefined` and the
     // handler manages its own — which is what a command that writes nothing, or writes through two
     // stores, needs." So the bus must NOT invent one; `tx` is `undefined`, not a no-op stand-in,
@@ -521,9 +436,7 @@ describe('cqrs: transactions are supplied, not assumed (#593, SPEC §5, §7 item
     expect(seen[0]?.tx).toBeUndefined();
   });
 
-  it.fails('a rejecting handler rolls back', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
+  it('a rejecting handler rolls back', async () => {
     // §7 item 12, and it asks for exactly this shape: "through a recording fake `transaction`,
     // asserting the wrapper's own rejection path rather than a real database." The recorder counts
     // a rejection and no commit, and the error still reaches the caller. The bug this catches is
@@ -544,14 +457,11 @@ describe('cqrs: transactions are supplied, not assumed (#593, SPEC §5, §7 item
     expect(recorder.committed()).toBe(0);
   });
 
-  it.fails('validate and authorise run outside the transaction', async () => {
-    // actual today: Error: unimplemented: createCommandBus.
-    //
-    // JUDGEMENT CALL, flagged in NOTES.md. §4's step list puts `transaction?.(…)` at step 3, after
-    // validate and authorise, so on the plain reading the transaction opens only once the input is
-    // narrowed and allowed. The reading matters: a rejected input inside a transaction holds a
-    // connection and, on postgres, a snapshot, for the duration of a schema check — and a denial
-    // then produces an empty transaction in the log for every probe an attacker sends.
+  it('validate and authorise run outside the transaction', async () => {
+    // The implementation follows §4's order: the transaction opens only once the input is narrowed
+    // and allowed. A rejected input inside a transaction would otherwise hold a connection and, on
+    // postgres, a snapshot, for the duration of a schema check — and a denial would produce an
+    // empty transaction for every probe an attacker sends.
     // Asserted through the recorder's entry count, which is 0 when the input is refused.
     const recorder = recordingTransaction();
     const bus = createCommandBus<Commands>(
@@ -571,8 +481,7 @@ describe('cqrs: transactions are supplied, not assumed (#593, SPEC §5, §7 item
     expect(recorder.entered()).toBe(0);
   });
 
-  it.fails("the transaction wrapper's result is the command's result", async () => {
-    // actual today: Error: unimplemented: createCommandBus.
+  it("the transaction wrapper's result is the command's result", async () => {
     // §5's wrapper is typed `(fn) => Promise<unknown>`, so the bus has to carry the handler's value
     // back out through an `unknown` and hand it to the caller as `M[K]['result']`. That crossing is
     // the one place the mapped type's guarantee is re-established by hand, so it is asserted: a bus

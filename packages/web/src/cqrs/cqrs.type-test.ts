@@ -1,19 +1,23 @@
 import type { TransactionContext } from '@zmdb/repository/transactions';
-// Tests freeze (#593), the compile-time half of packages/web/src/cqrs/SPEC.md §7: items 1, 2, 3
+import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
+
+import {
+  createCommandBus,
+  type CommandBus,
+  type CommandBusOptions,
+  type CommandHandlers,
+  type CommandOutcome,
+  type CommandRun,
+} from './index.js';
+
+// Compile-time contract for packages/web/src/cqrs/SPEC.md §7: items 1, 2, 3
 // and 5. All four are closure properties of the mapped types in §2 — "Adding a key to `M` without
 // adding a handler is a missing-property error, and adding a handler for a command the map does not
 // declare is an excess-property error — which is the closure property a registry keyed on strings
 // cannot have." A runtime test can see none of that, which is why §7 sends four of its twelve items
 // here.
 //
-// No runtime code. Compiled by `node scripts/typecheck.mjs`, not run by vitest. While ./index.ts
-// does not exist the surface below is §2 and §4 transcribed; when it lands, delete the
-// transcription and add:
-//
-//   import { createCommandBus } from './index.js';
-//   import type { CommandBus, CommandBusOptions, CommandHandlers, CommandMap, CommandOutcome, CommandRun } from './index.js';
-//
-// leaving every assertion untouched.
+// No runtime code. Compiled by `node scripts/typecheck.mjs`, not run by vitest.
 //
 // ON `@ts-expect-error` PLACEMENT, because it is the one thing that makes this file fragile and the
 // rule is not what it looks like. Verified 2026-09-04 with the repo's own tsc:
@@ -27,43 +31,6 @@ import type { TransactionContext } from '@zmdb/repository/transactions';
 // TS2578, "Unused '@ts-expect-error' directive", which is a confusing way to learn this. Where an
 // `Expect<Equal<…>>` can make the same claim it is given as well, because that form has no
 // placement question at all.
-import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
-
-// ---------------------------------------------------------------------------
-// SPEC §2 and §4 — the surface, transcribed
-// ---------------------------------------------------------------------------
-interface CommandMap {
-  readonly [command: string]: { readonly input: unknown; readonly result: unknown };
-}
-
-type CommandBus<M extends CommandMap> = {
-  readonly [K in keyof M]: (input: M[K]['input']) => Promise<M[K]['result']>;
-};
-
-type CommandHandlers<M extends CommandMap> = {
-  readonly [K in keyof M]: (input: M[K]['input'], ctx: CommandRun) => Promise<M[K]['result']>;
-};
-
-interface CommandRun {
-  readonly command: string;
-  readonly tx: TransactionContext | undefined;
-}
-
-type CommandOutcome =
-  | { readonly command: string; readonly ok: true; readonly ms: number }
-  | { readonly command: string; readonly ok: false; readonly ms: number; readonly error: unknown };
-
-interface CommandBusOptions<M extends CommandMap> {
-  readonly validate: { readonly [K in keyof M]: (raw: unknown) => M[K]['input'] };
-  readonly authorise?: <K extends keyof M & string>(command: K, input: M[K]['input']) => Promise<void>;
-  readonly onCommand?: (run: CommandOutcome) => void;
-  readonly transaction?: (fn: (tx: TransactionContext) => Promise<unknown>) => Promise<unknown>;
-}
-
-declare function createCommandBus<M extends CommandMap>(
-  handlers: CommandHandlers<M>,
-  opts: CommandBusOptions<M>,
-): CommandBus<M>;
 
 // A TYPE ALIAS, not an interface — see the block at the end of this file.
 type Commands = {
@@ -278,12 +245,7 @@ type _TransactionWrapperGivesATx = Expect<
 // `CommandMap` entry is a type and nothing more. Asserted by construction: an entry needs exactly
 // `input` and `result`, and a class-based marker would need a third key.
 type _EntryShape = Expect<Mutual<keyof Commands['publishPost'], 'input' | 'result'>>;
-// "`readonly _result?: Result` is a phantom field, so `Command<A>` and `Command<B>` are mutually
-// assignable when either `_result` is absent — the type says less than it appears to." Recorded here
-// as the proof of the claim §3 makes, so the pattern is not reproposed.
-//
-// §3's phrasing is TOO STRONG and this is the file that has to say so, because the assertions here
-// are what a later reader will trust. Verified 2026-09-04 against the repo's tsc:
+// `readonly _result?: Result` is a leaky phantom field. Verified 2026-09-04 against the repo's tsc:
 //
 //   * the TYPES are not mutually assignable — `PhantomCommand<string> extends
 //     PhantomCommand<number>` is `false`, because under `exactOptionalPropertyTypes`
@@ -294,10 +256,9 @@ type _EntryShape = Expect<Mutual<keyof Commands['publishPost'], 'input' | 'resul
 //     since a command class is precisely a value with other fields and no `_result`.
 //   * what DOES slip through is a value with no properties at all, which is the pair below.
 //
-// So the phantom is leaky rather than vacuous, and §3's conclusion still holds on its other two
-// arguments — that `new (...a: never[]) => C` makes a runtime class mandatory, and that
-// `ClassDecorator` is the legacy shape. Recorded in NOTES.md; the spec's sentence should be narrowed
-// rather than the design revisited.
+// The empty value and widening cases below are the narrower claim the spec now makes. Its other two
+// arguments still hold: `new (...a: never[]) => C` makes a runtime class mandatory, and
+// `ClassDecorator` is the legacy shape.
 interface PhantomCommand<Result> {
   readonly _result?: Result;
 }
@@ -321,14 +282,14 @@ type _MapEntriesAreNotInterchangeable = Expect<
 >;
 
 // ===========================================================================
-// the defect: §3's cited docs example does not compile
+// regression guard: the interface form does not compile
 // ===========================================================================
 //
-// SPEC §3 says "`docs-site/content/web-cqrs.md` already shows the interface-map form". An interface
-// declaration has no implicit index signature, so it does not satisfy `CommandMap`. Verified
-// 2026-09-04: TS2344, "Index signature for type 'string' is missing in type 'InterfaceCommands'".
-// Only object-literal type ALIASES get one, because an interface is open to declaration merging and
-// the compiler cannot treat its key set as closed. The fix is one keyword; see DOCS.md.
+// An interface declaration has no implicit index signature, so it does not satisfy `CommandMap`.
+// Verified 2026-09-04: TS2344, "Index signature for type 'string' is missing in type
+// 'InterfaceCommands'". Only object-literal type aliases get one, because an interface is open to
+// declaration merging and the compiler cannot treat its key set as closed. The spec and docs use
+// the alias form, and this assertion protects that correction.
 interface InterfaceCommands {
   readonly publishPost: {
     readonly input: { readonly postId: number };
