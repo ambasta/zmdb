@@ -194,12 +194,6 @@ const NO_INHERITANCE_MAPPING =
   'row and otherwise does not: a hierarchy spread across tables makes the SQL for a simple read ' +
   'unpredictable, which is the property the compiler is built to preserve.';
 
-const NO_CACHE_LAYER =
-  'A result cache with pluggable adapters answers a read without going to the database, which ' +
-  'means a correct query can return a stale row and no test of the query can tell. zmdb has no ' +
-  'cache: caching is a decision about your data, made where you know how stale is too stale, and ' +
-  'a driver or an HTTP layer is the honest place for it.';
-
 // ---------------------------------------------------------------------------
 // Kysely — the query builder
 // ---------------------------------------------------------------------------
@@ -753,13 +747,14 @@ export const mikroOrm = {
   'lazy-scalar-properties': oos(NO_IDENTITY_MAP, 'loading-strategies'),
   'optimistic-lock': oos(NO_IDENTITY_MAP, 'inert-rows'),
   'concurrency-checks': oos(NO_IDENTITY_MAP, 'inert-rows'),
-  dataloader: oos(
-    'A dataloader batches the N+1 reads a lazy relation causes, which is a fix for a problem ' +
-      'zmdb does not create: populate is explicit and already one batched IN query per relation, ' +
-      'so there is no accidental per-row read to coalesce. Adding a loader would mean adding the ' +
-      'laziness first.',
-    'relations',
-  ),
+  dataloader: [
+    'coalesces findById calls in one tick into a single IN query',
+    'fetches a duplicated id once and resolves both callers',
+    'resolves undefined for an id the batch did not return',
+    'rejects every call in a batch when the driver errors',
+    'does not share loaded rows between two scopes',
+    'does not batch across ticks',
+  ],
   'joined-strategy': oos(
     'MikroORM can load a relation either as a JOIN or as a second SELECT, and the strategy is ' +
       'configurable per entity or per query. zmdb picks by cardinality and says which: a to-one ' +
@@ -779,8 +774,21 @@ export const mikroOrm = {
   'custom-entity-manager': oos(NO_ENTITY_METADATA, 'pure-typescript'),
   'compiled-functions': oos(NO_ENTITY_METADATA, 'pure-typescript'),
   'special-object-keys': oos(NO_ENTITY_METADATA, 'pure-typescript'),
-  'result-cache': oos(NO_CACHE_LAYER, 'caching'),
-  'cache-adapters': oos(NO_CACHE_LAYER, 'caching'),
+  'result-cache': [
+    'serves a second identical query from the cache',
+    'treats a differently-typed parameter as a different key',
+    'expires a cached result after its TTL',
+    'invalidates by tag on a write to the table',
+    'does not cache anything when no cache option is given',
+    'misses a shared-store value when the schema fingerprint changes',
+  ],
+  'cache-adapters': [
+    'treats a differently-typed parameter as a different key',
+    'expires a cached result after its TTL',
+    'invalidates by tag on a write to the table',
+    'does not cache anything when no cache option is given',
+    'misses a shared-store value when the schema fingerprint changes',
+  ],
   'stored-routines': [
     'emits CREATE OR REPLACE FUNCTION with a dollar-quoted body',
     'chooses a safe dollar-quote tag when the body contains $$',
