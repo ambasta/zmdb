@@ -6,7 +6,9 @@
 
 Each of these corresponds to a mistake documented elsewhere in these docs, which is the argument for automating it.
 
-**`no-distributed-nullable-tags`.** The highest-value one, because it is silently wrong rather than loud. Intersection distributes over a union, so tags written outside the parentheses of a nullable column are destroyed:
+**`no-distributed-nullable-tags`.** The highest-value one, because TypeScript accepts it and the reflector
+does not refuse it until the build transform runs. A lint rule moves that same finding under the cursor.
+Intersection distributes over a union, so tags written outside the parentheses of a nullable column are destroyed:
 
 ```ts
 email: (string | null) & Unique; // flag: null & Unique is never — the column stops being nullable
@@ -27,18 +29,7 @@ prefs: Record<string, boolean> & Sql<'json'>; // better, where the shape is know
 
 **`no-unbounded-find`.** `find({})` compiles to an unfiltered `SELECT` with no limit. Suggest `list()` with a `page`.
 
-**`no-truthiness-in-where-builder`.** The classic conditional-filter bug:
-
-```ts
-if (q.minAge) where.age = { gte: q.minAge }; // drops 0
-if (q.minAge !== undefined) where.age = { gte: q.minAge }; // correct
-```
-
-See [Dynamic Queries](./dynamic-queries.html).
-
 **`no-interpolated-sql`.** A template literal containing a value inside `driver.execute({ text })` is an injection vector. Placeholders interpolated from generated positions are fine; values are not. See [Raw SQL](./raw-sql.html).
-
-**`no-select-star-with-sensitive`.** A table with a `Sensitive` column, read without a `select`, still fetches that column — [`Sensitive` affects the emitted documents and `ReadDTO`, not queries](./gotchas.html). Suggest a projection.
 
 ## What you can enforce today
 
@@ -77,7 +68,12 @@ The repository's own rules are stricter than a consumer's would need to be: no `
 
 ## What it would take
 
-An `@zmdb/eslint-plugin` package. Most of the rules above are AST patterns over recognisable declaration or call shapes, so they are not hard — the work is in avoiding false positives, and in the ones that need type information (`no-select-star-with-sensitive` has to resolve the declared type to see the tag). `no-distributed-nullable-tags` is the one with the best ratio of value to effort, because it is purely syntactic and the mistake it catches type-checks.
+A `./lint` subpath of `@zmdb/aot-validator`, loaded as an oxlint JavaScript plugin or as an
+ESLint-shaped plugin. Oxlint gives JavaScript plugins no parser services, so this surface is deliberately
+syntactic: type-aware proposals such as `no-select-star-with-sensitive` do not ship, and
+`@typescript-eslint/strict-boolean-expressions` remains the answer to the truthiness bug.
+`no-distributed-nullable-tags` has the best ratio of value to effort because it is purely syntactic and
+the mistake it catches type-checks.
 
 ---
 

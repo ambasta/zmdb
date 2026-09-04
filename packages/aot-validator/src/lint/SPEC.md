@@ -5,7 +5,7 @@
 
 ## 1. The host, decided by one sentence in oxlint's own type definitions
 
-`yarn lint` runs oxlint 1.80.0, and it does support plugins: `jsPlugins` takes a path to a plugin module,
+`yarn lint` runs oxlint 1.81.0, and it does support plugins: `jsPlugins` takes a path to a plugin module,
 and the plugin API is ESLint's — `create(context)`, `context.report`, `fix`, `suggest`, `meta.fixable`,
 `meta.type`, all declared in `node_modules/oxlint/dist/plugins-dev.d.ts`. So the "oxlint or ESLint"
 question mostly dissolves: one ESLint-shaped `{ meta, rules }` object loads in both, and TypeScript
@@ -75,6 +75,25 @@ it: `'…' + v` and `` `…${v}` `` are the same bug, and the template form is t
 | `no-unbounded-find`            | `find()` / `find({})`                               | none       | warn          | error    |
 | `no-empty-patch`               | `update(id, {})`                                    | none       | warn          | error    |
 
+### The diagnostic contract
+
+The report node is part of the contract: RuleTester assertions use it to freeze both the start and end
+location, rather than accepting a diagnostic that points at the whole declaration or call. Messages are
+literal strings, not fragments.
+
+| Rule                           | Exact message                                                                                     | Report node                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `no-distributed-nullable-tags` | `Move null and undefined outside the tagged intersection; nullish values cannot carry zmdb tags.` | the outer `TSIntersectionType` |
+| `no-unknown-json-column`       | `unknown & X collapses to X; use object & Sql<'json'> or declare the JSON shape.`                 | the `TSUnknownKeyword`         |
+| `no-interpolated-sql`          | `Do not interpolate values into SQL text; use driver parameters.`                                 | the `TemplateLiteral`          |
+| `require-sql-on-number`        | `A bare number is ambiguous; add Sql<'integer'> or Sql<'numeric'>.`                               | the `TSNumberKeyword`          |
+| `no-unbounded-find`            | `find() and find({}) are unbounded; use list() with a page.`                                      | the `CallExpression`           |
+| `no-empty-patch`               | `update(id, {}) performs no write; it reads and returns the matching row.`                        | the second `ObjectExpression`  |
+
+`no-distributed-nullable-tags` fixes the outer intersection to a union whose nullish arm is bare.
+`no-unknown-json-column` has no fix and offers one suggestion, exactly `Replace unknown with object`,
+which replaces only the `TSUnknownKeyword`. The other four rules have neither a fix nor a suggestion.
+
 ### The three that ship as errors
 
 **`no-distributed-nullable-tags`.** A `PropertySignature` inside a `TSInterfaceDeclaration` whose heritage
@@ -86,8 +105,9 @@ The fix is safe, and the reason is worth writing down rather than assuming: ever
 an object type with one optional symbol slot, so `null & Tag` is `never`. The arm the fix stops tagging is
 uninhabitable before the fix, so no code can depend on it. That reasoning is also the fix's precondition —
 it fires only when the union has exactly one `null`/`undefined` arm _and_ every other intersection member
-is a local binding imported from `@zmdb/schema-core` or `zmdb`. Import tracking, not type resolution;
-`(A | B) & C` for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
+is a local binding imported from `@zmdb/schema-core/tags` or `zmdb/tags`. Those are the two public
+subpaths that actually export the declaration tags. Import tracking, not type resolution; `(A | B) & C`
+for arbitrary `A`, `B`, `C` is a real semantic change and the rule leaves it alone.
 
 **`no-unknown-json-column`.** An intersection with a `TSUnknownKeyword` member. Reported with a
 _suggestion_ rather than a fix, because `object` and `Record<string, …>` are both plausible replacements
@@ -100,6 +120,10 @@ is precisely what keeps the SQL-string features out of the rule. The expression-
 sibling will add takes its SQL as a _type_ argument, and a type-level string literal cannot contain a
 substitution, so it can never trip this rule; a filter fragment written as a plain literal cannot either.
 
+A `BinaryExpression` using `+` is outside this frozen detector, as is an interpolation assigned to a
+variable before that variable reaches a sink. An interpolated filter fragment is reported only when it is
+literally one of the two named sink shapes. The tests do not widen the rule beyond those AST shapes.
+
 No fix: the correct rewrite invents a placeholder and moves the value into `params`, and the placeholder
 spelling is dialect-dependent.
 
@@ -111,10 +135,11 @@ information.
 
 ### The three that ship as warnings
 
-**`require-sql-on-number`.** Precise on a literal annotation and **defeated by a type alias**:
-`type Money = number & Sql<'numeric'>; price: Money` is correct code the rule reports, and
-`type Qty = number; qty: Qty` is a mistake it misses. Reporting correct code is disqualifying for an
-error. It is also a duplicate of a build error that already exists — `schemaOf<T>()` refuses a bare
+**`require-sql-on-number`.** Precise only on a literal annotation and **defeated by a type alias**:
+`type Money = number & Sql<'numeric'>; price: Money` is correct code the rule does not report, while
+`type Qty = number; qty: Qty` is a mistake it also misses. Resolving either alias would require the parser
+services §1 rules out. It remains a warning because it is an early, incomplete duplicate of a build error
+that already exists — `schemaOf<T>()` refuses a bare
 `number` because it spells both `integer` and `numeric` — so the rule's entire value is arrival time,
 under the cursor instead of in the build log. That is worth a warning and not worth an error.
 
@@ -147,7 +172,8 @@ alias already uses is the right shape — only the branch's value changes.
 
 The issue withholds the autofix because deleting the call "changes behaviour if the call was awaited for
 its error". There is no error. `@zmdb/repository`'s `update` validates the patch, fires `preUpdate`, and
-then, on an empty patch, **returns `this.findById(id)`** — a write silently degrades to a read.
+builds the keyed `where`; on an empty patch it **returns `this.firstMatching(where)`** — the same
+single-row `SELECT` body `findById` uses after key validation. A write silently degrades to a read.
 
 Three things follow.
 
@@ -195,16 +221,21 @@ to an ignore list, and an ignore list is per-plugin, not per-rule. So the cost o
 one wrong report — it is the other five rules, silently. That is also why no rule ships off by default as a
 compromise: a rule nobody enables has the same value as a rule nobody wrote, at a higher maintenance cost.
 
-Measured on today's source, so the numbers are in the record rather than in a future pull request:
-`(T | null) & Tag` occurs nowhere in `packages/`, `fixtures/`, `examples/` or `benchmarks/` outside three
-comments explaining the trap and one fixture that exists to be refused; `unknown` in a column position
-occurs nowhere outside a type-test asserting the collapse; `find({})` occurs nowhere. Rules 1–3 clear the
-bar. The implementation slice turns that measurement into a test rather than leaving it as this
-paragraph's claim.
+Measured at the spec freeze: the three error rules found no genuine source finding under `packages/`,
+`fixtures/`, `examples/` or `benchmarks/`. The tests freeze adds deliberately invalid `.input.ts` samples
+under `src/lint/__fixtures__`; the dogfood check excludes only those samples and scans the rest of the same
+four trees. Rules 1–3 clear the bar. The implementation slice turns that measurement into a test rather
+than leaving it as this paragraph's claim.
 
 The rules are tested with oxlint's own `RuleTester`, whose test cases are ESLint-shaped — deliberately, so
 they port — and which exposes settable `describe` and `it` statics. Assigning vitest's to them puts the
 rule tests in the ordinary suite with no second runner and no second reporter.
+
+The tests freeze has one temporary wrinkle: the lint entry does not exist yet, so each outer `it.fails`
+loads it through a computed dynamic import and invokes RuleTester's registration callbacks immediately
+inside that test. The parser, traversal, diagnostics, fix passes and suggestions are still RuleTester's;
+there is no second lint harness. #486 replaces the computed load with ordinary imports and retires the
+expected failures.
 
 No rule is autofixable unless its fix is behaviour-preserving on code that already type-checks. One rule
 qualifies, one offers a suggestion, and the rest report. That ratio is the expected one for a plugin whose
