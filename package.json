@@ -44,6 +44,7 @@
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },
   "devDependencies": {
+    "@seriousme/openapi-schema-validator": "2.9.1",
     "@types/node": "^26.4.1",
     "esbuild": "^0.28.2",
     "oxfmt": "^0.66.0",

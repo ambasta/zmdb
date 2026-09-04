@@ -27,12 +27,14 @@ export interface ResolvedRoute {
 // keyspace of context.metadata.
 const ROUTES = Symbol('zmdb.web.routes');
 const PREFIX = Symbol('zmdb.web.prefix');
+const PUBLIC = Symbol('zmdb.web.public');
 
 // A metadata record carrying our two slots. Both are optional until a decorator
 // writes them.
 interface RoutingMetadata {
   [ROUTES]?: RouteDefinition[];
   [PREFIX]?: string;
+  [PUBLIC]?: string[];
 }
 
 // Read our routing view of a metadata record. `context.metadata` and the
@@ -69,6 +71,13 @@ function ownRoutes(metadata: DecoratorMetadata): readonly RouteDefinition[] {
     return [];
   }
   return routingView(metadata)[ROUTES] ?? [];
+}
+
+function ownPublicHandlers(metadata: DecoratorMetadata): readonly string[] {
+  if (!Object.hasOwn(metadata, PUBLIC)) {
+    return [];
+  }
+  return routingView(metadata)[PUBLIC] ?? [];
 }
 
 // Compose the metadata prototype chain base-first, layering each class's own
@@ -134,6 +143,34 @@ export const Put = methodDecorator('PUT');
 export const Patch = methodDecorator('PATCH');
 /** `@Delete(path?)` route decorator. */
 export const Delete = methodDecorator('DELETE');
+
+/** Mark one route as intentionally unauthenticated for OpenAPI generation. */
+export function Public() {
+  return function (_target: (...args: never[]) => unknown, context: ClassMethodDecoratorContext): void {
+    const handlerName = typeof context.name === 'string' ? context.name : context.name.toString();
+    const view = routingView(context.metadata);
+    const own = Object.hasOwn(context.metadata, PUBLIC) ? view[PUBLIC] : undefined;
+    if (own === undefined) {
+      view[PUBLIC] = [handlerName];
+    } else if (!own.includes(handlerName)) {
+      own.push(handlerName);
+    }
+  };
+}
+
+/** Whether the resolved handler is explicitly marked `@Public()`. */
+export function isPublic(controller: abstract new (...args: never[]) => unknown, handlerName: string): boolean {
+  const metadata = controller[Symbol.metadata];
+  if (metadata === undefined || metadata === null) {
+    return false;
+  }
+  for (let record: DecoratorMetadata | null = metadata; record !== null; record = Object.getPrototypeOf(record)) {
+    if (ownRoutes(record).some(route => route.handlerName === handlerName)) {
+      return ownPublicHandlers(record).includes(handlerName);
+    }
+  }
+  return false;
+}
 
 /**
  * Resolve a controller class's routes: prefix composed with each method path,

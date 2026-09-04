@@ -1546,8 +1546,7 @@ export const PAGE_META = {
   'web-openapi-security': {
     title: 'Security Schemes',
     group: 'Web Framework — OpenAPI',
-    status: 'todo',
-    note: 'no securitySchemes or per-operation security; guard-derived security and the strictness rule are frozen (#573).',
+    status: 'supported',
   },
   'web-mapped-types': {
     title: 'Mapped Types',

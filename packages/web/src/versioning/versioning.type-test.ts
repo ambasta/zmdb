@@ -27,7 +27,7 @@
 // that §2's own text says what §8 item 1 requires it to say).
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
-import type { createRouter, Router } from '../pipeline/index.js';
+import type { createRouter, GuardRegistry, Router } from '../pipeline/index.js';
 // @ts-expect-error frozen (SPEC.md 2): this module is #576's to create.
 import type { Version, VersionNeutral, versionsOf, VersionStrategy } from './index.js';
 
@@ -55,8 +55,13 @@ type FrozenVersion = (...versions: readonly [string, ...string[]]) => FrozenVers
 type FrozenVersionNeutral = () => FrozenVersionDecorator;
 type FrozenVersionsOf = (controller: SomeClass, handlerName: string) => readonly string[] | 'neutral' | undefined;
 
-/** §2: `createRouter(options?: { versioning?: VersionStrategy })`, as a parameter list. */
-type FrozenRouterParams = [options?: { readonly versioning?: FrozenVersionStrategy }];
+/** §2: the existing guard option plus `versioning`, as a parameter list. */
+type FrozenRouterParams = [
+  options?: {
+    readonly guardRegistry?: GuardRegistry;
+    readonly versioning?: FrozenVersionStrategy;
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Red today, and retiring with #576
@@ -66,10 +71,10 @@ type FrozenRouterParams = [options?: { readonly versioning?: FrozenVersionStrate
 export type _StrategyShape = Expect<Equal<VersionStrategy, FrozenVersionStrategy>>;
 
 // `Router` gains the strategy at construction, not per registration (§2), and `createRouter` is the
-// existing exported function that has to grow the parameter — so this is the one assertion in the
-// file that is about code which already exists. `Parameters` and not an `Extends`: a zero-parameter
-// function *is* assignable to a one-optional-parameter type, so an assignability claim here would
-// pass today and pin nothing.
+// existing exported function whose option bag has to grow — so this is the one assertion in the
+// file that is about code which already exists. `Parameters` and not an `Extends`: the current
+// guard-only option bag is assignable to several wider optional shapes, so an assignability claim
+// here would pass today and pin nothing.
 //
 // The alias is not decoration: rule one of the type-level idiom is that the directive goes on the
 // line the compiler reports, and written inline this assertion wraps at `printWidth: 120` with the

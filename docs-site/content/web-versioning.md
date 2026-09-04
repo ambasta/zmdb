@@ -109,10 +109,9 @@ are distinct without a separate naming rule: `GET /v1/posts` becomes
 `get_v1_posts`, while `GET /v2/posts` becomes `get_v2_posts`. A collision is a
 generation error rather than an operation silently disappearing.
 
-`deprecated: true` becomes expressible per route once the frozen `RouteOptions`
-amendment lands (`packages/web/src/openapi/SPEC.md` §S8); `RouteOptions` has one
-field today, `validateBody`. It is the half of versioning that makes a migration
-finishable, which is why it is frozen rather than left out.
+`deprecated: true` is now expressible per handler in `RouteOptions` and appears
+on that OpenAPI operation. It changes documentation only; version negotiation
+still remains the separate gap described above.
 
 ## Cross-links
 

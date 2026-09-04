@@ -58,7 +58,9 @@ export {
   Put,
   Patch,
   Delete,
+  Public,
   getRoutes,
+  isPublic,
   type HttpMethod,
   type RouteDefinition,
   type ResolvedRoute,
@@ -109,6 +111,8 @@ export {
   type WebResponse,
   type ResponseBody,
   type RouteOptions,
+  type GuardRegistry,
+  type RouterOptions,
   type ResponseOptions,
   type StreamOptions,
   type FileResponseOptions,
@@ -138,6 +142,7 @@ export {
   runChain,
   ChainError,
   type Guard,
+  type SecurityAwareGuard,
   type Pipe,
   type Interceptor,
   type ExceptionFilter,
@@ -159,6 +164,9 @@ export {
   type OpenApiOptions,
   type RouteSchemas,
   type JsonSchema,
+  type OAuthFlows,
+  type SecurityRequirement,
+  type SecurityScheme,
 } from './openapi/index.js';
 
 // WebSocket & SSE gateways. See ./gateways.

@@ -192,11 +192,8 @@ origin, missing token, bad MAC and wrong session are indistinguishable, because 
 distinction is only useful to somebody probing.
 
 `guard()` returns a `Guard`, so protection is declared rather than called per
-handler. This makes the middleware **blocked in fact on #573**, which is where guards
-are wired into `runChain`: `Guard.canActivate` exists in `../middleware/index.ts`
-and `runChain` has no caller in the pipeline yet, so until that lands `verify(ctx)`
-called at the top of a handler is the only working form. That dependency is not
-recorded as a `blocked_by` edge on either issue and is recorded here instead.
+handler. Route guards are now wired through `RouteOptions.guards`; the CSRF
+implementation can register this guard directly when it lands.
 
 ## 7. How a client gets a token, and how the surface resists theatre
 

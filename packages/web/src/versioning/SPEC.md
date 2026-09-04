@@ -61,10 +61,16 @@ export declare function versionsOf(
 ): readonly string[] | 'neutral' | undefined;
 ```
 
-`Router` gains the strategy at construction, not per registration:
+The router's existing construction options gain the strategy, not each
+registration:
 
 ```ts
-export declare function createRouter(options?: { readonly versioning?: VersionStrategy }): Router;
+export interface RouterOptions {
+  readonly guardRegistry?: GuardRegistry;
+  readonly versioning?: VersionStrategy;
+}
+
+export declare function createRouter(options?: RouterOptions): Router;
 ```
 
 Three corrections to #573's sketch, and the first is the same one `../openapi/SPEC.md` §S4 makes for

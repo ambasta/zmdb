@@ -151,11 +151,13 @@ It buys you a machine-readable permission table (useful for documentation and fo
 an access review) at the cost of a lookup keyed by handler name. Worth it for a
 large surface; for a handful of admin routes, a literal argument is clearer.
 
-## What it would take
+## Guard-level enforcement
 
-Enforcement without a call in each handler needs the router to run guards for a
-registered controller, plus a way for the authenticating guard to pass the
-principal on. Both are on [Request Lifecycle](./web-request-lifecycle.html).
+Register a permission guard in `GuardRegistry.app`, under a controller class
+name, or under the handler name to enforce it without a call inside each
+handler. Effective guards run app → controller → route. Passing a typed
+principal from a guard into the handler still needs a typed request-state
+channel; today the guard and handler can share a request-keyed cache.
 Row-level enforcement — a filter applied to every query for an entity — needs
 schema-level [entity filters](./entity-filters.html).
 

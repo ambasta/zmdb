@@ -12,6 +12,11 @@ export interface Guard {
   canActivate(ctx: AnyCtx): boolean | Promise<boolean>;
 }
 
+/** A guard that declares the OpenAPI security scheme and scopes it enforces. */
+export interface SecurityAwareGuard extends Guard {
+  readonly enforces: { readonly scheme: string; readonly scopes: readonly string[] };
+}
+
 /** Transform/validate a value (typically the body); a throw yields 400. */
 export interface Pipe<In = unknown, Out = unknown> {
   transform(value: In, ctx: AnyCtx): Out | Promise<Out>;

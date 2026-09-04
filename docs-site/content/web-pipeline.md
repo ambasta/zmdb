@@ -1,7 +1,7 @@
 The router ties everything together. Register a controller instance and the
 router reads its [routes](./web-controllers.html) **once**, then dispatches each
-request through: **match → build [Ctx](./web-context.html) → validate body →
-invoke handler → serialize**. Thin adapters connect it to `node:http` or any
+request through: **match → build [Ctx](./web-context.html) → guards → validate
+body → invoke handler → serialize**. Thin adapters connect it to `node:http` or any
 Fetch runtime (Hono, edge) with **no hard dependency** on either.
 
 ## Creating a router
@@ -24,10 +24,12 @@ class UsersController {
   }
 }
 
-const router = createRouter();
+const router = createRouter({
+  guardRegistry: { app: [authenticated] },
+});
 router.register(new UsersController(), {
-  // optional per-handler body validation — runs BEFORE the handler
-  create: { validateBody: raw => assertCreateUser(raw) },
+  // optional per-handler guards run after app/controller guards
+  create: { guards: [mayCreateUser], validateBody: raw => assertCreateUser(raw) },
 });
 ```
 
@@ -39,6 +41,7 @@ as `text`, `bytes` or `stream`:
 | step          | behavior                                                                                                                                         |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **match**     | method + segment count select a bucket of the cached table, then `matchCompiled`; no match → **404**                                             |
+| **guards**    | app → controller → route; first `false` → **403**. `@Public()` bypasses inherited guards                                                         |
 | **validate**  | if the route has `validateBody`, run it on the raw body; throw → **400**, handler **not** called                                                 |
 | **invoke**    | call the handler with the typed `Ctx`                                                                                                            |
 | **serialize** | JSON-encode the result → **200**; a thrown handler → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim |

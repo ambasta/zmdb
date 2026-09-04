@@ -87,16 +87,31 @@ export const authenticated: Guard = {
 };
 ```
 
-> [!WARNING]
-> Two things to know before relying on this. First, **the router does not call
-> `runChain`** — registering a controller applies no guards, and `createApp` passes
-> no options, so a guard runs only where you invoke the chain yourself. Second, a
-> guard returning `false` produces `ChainError(403, 'forbidden')` — there is no 401
-> path — and an uncaught `ChainError` reaching the router serialises as a **500**.
-> See [Request Lifecycle](./web-request-lifecycle.html).
+Apply it to every registered route, one controller, or one handler:
 
-Which is why the function-called-in-the-handler shape above is the one to prefer
-today.
+```ts
+const appRouter = createRouter({ guardRegistry: { app: [authenticated] } });
+appRouter.register(new AccountController());
+
+// Controller-specific:
+const controllerRouter = createRouter({
+  guardRegistry: { controllers: { AdminController: [authenticated] } },
+});
+controllerRouter.register(new AdminController());
+
+// Handler-specific:
+const routeRouter = createRouter();
+routeRouter.register(new AccountController(), { profile: { guards: [authenticated] } });
+```
+
+Effective guards run app → controller → route. A guard returning `false` produces
+a 403 and the handler does not run. `@Public()` bypasses inherited app/controller
+guards and cannot also declare a route guard or a non-empty explicit security
+requirement.
+
+`createApp` still constructs its router without a guard registry or per-route
+options, so applications using module bootstrap must either construct the router
+explicitly or keep the check in the handler.
 
 ## Getting a 401 out
 
@@ -203,11 +218,10 @@ the paths that ship broken.
 
 ## What it would take
 
-Guards to enforce authentication framework-wide needs two changes, both listed on
-[Request Lifecycle](./web-request-lifecycle.html): the router calling `runChain`
-for a registered controller, and a way for a guard to hand a value to the
-handler (a per-request bag, or a `Ctx` extension point). With those, this page
-becomes `chain: { guards: [authenticated] }` and a typed `ctx.principal`.
+App, controller and route guards now enforce authentication on an explicitly
+constructed router. A typed way for a guard to hand a principal to the handler
+still needs a per-request bag or `Ctx` extension point; `createApp` also has no
+guard-registry option.
 
 ---
 

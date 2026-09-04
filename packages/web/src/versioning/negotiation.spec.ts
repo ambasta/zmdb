@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bodyText, createRouter, type Router } from '../pipeline/index.js';
+import { bodyText, createRouter, type GuardRegistry, type Router } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 
 // Version negotiation. Tests freeze for the epic "OpenAPI security schemes and API versioning"
@@ -38,13 +38,16 @@ type FrozenVersionStrategy =
   | { readonly kind: 'media-type'; readonly key: string; readonly default: string };
 
 /**
- * §2's `createRouter(options?: { versioning?: VersionStrategy })`.
+ * §2's existing router option bag plus `versioning?: VersionStrategy`.
  *
- * No cast and no `as`: a zero-parameter function is assignable to a one-optional-parameter type, so
- * the widening is carried by an annotation on the real exported function. The annotation is the whole
- * boundary for this file, and it disappears when `createRouter` takes the option for real.
+ * No cast and no `as`: the current guard-only option bag accepts the wider object because its
+ * additional `versioning` property is optional. The annotation is the whole boundary for this file,
+ * and it disappears when `createRouter` takes the option for real.
  */
-const versionedRouter: (options?: { readonly versioning?: FrozenVersionStrategy }) => Router = createRouter;
+const versionedRouter: (options?: {
+  readonly guardRegistry?: GuardRegistry;
+  readonly versioning?: FrozenVersionStrategy;
+}) => Router = createRouter;
 
 // The arrangement `docs-site/content/web-versioning.md` recommends today: the version is in the
 // controller's own prefix, and neither controller declares a version to the framework.

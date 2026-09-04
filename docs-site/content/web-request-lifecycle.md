@@ -4,12 +4,13 @@ What happens between a request arriving and a response leaving, in order, with n
 
 1. **Adapter** — `toNodeHandler` or `toFetchHandler` builds a `WebRequest`: method, path (query string stripped), flattened headers, and a body on the decoded JSON/text-compatible path or as exact bytes. Both reject bodies above 1 MiB by default.
 2. **Route match** — the method (uppercased) and the path's segment count select a bucket of candidate routes; those are tried in registration order, matched against patterns that were compiled at registration, and the first to match yields `params`. An empty or exhausted bucket means no match.
-3. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
-4. **Ctx construction** — `{ params, body, query, headers, method, path }`.
-5. **Handler** — awaited.
-6. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text`, `bytes`, `stream`, `file` or `respond`, which is sent as-is.
-7. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
-8. **No match** — **404** with `{ error: 'no route for GET /x' }`.
+3. **Ctx construction** — `{ params, body, query, headers, method, path }`.
+4. **Guards** — app, controller and route guards run in that order. The first `false` returns **403**; `@Public()` routes bypass inherited guards.
+5. **Body validation** — if the route was registered with `validateBody`, it runs. A throw becomes **400** with `{ error, issues? }`.
+6. **Handler** — awaited.
+7. **Serialization** — the return value becomes **`200`** with `JSON.stringify(result)` and `content-type: application/json`, unless the handler returned a response built by `json`, `text`, `bytes`, `stream`, `file` or `respond`, which is sent as-is.
+8. **Errors** — a `ValidationError` (or any object with an `issues` property) becomes **400**; anything else becomes **500** with `{ error: message }`.
+9. **No match** — **404** with `{ error: 'no route for GET /x' }`.
 
 ## Returning something other than a 200 JSON body
 
@@ -78,24 +79,38 @@ Declare literal paths before parameterised ones. There is no specificity ranking
 ## Validation runs before the handler, if you register it
 
 ```ts
-const router = createRouter();
+const router = createRouter({
+  guardRegistry: {
+    app: [authenticated],
+    controllers: { PostsController: [postsAccess] },
+  },
+});
 router.register(new PostsController(), {
-  create: { validateBody: raw => assert<CreateDTO<Post>>(raw) },
+  create: {
+    guards: [mayCreatePost],
+    validateBody: raw => assert<CreateDTO<Post>>(raw),
+  },
 });
 ```
 
-`RouteOptions` is keyed by **handler name** and has exactly one field, `validateBody`. A throw is turned into a 400 with the `issues` array if the error carries one, which is what `ValidationError` from `@zmdb/schema-core` provides.
+`RouteOptions` is keyed by **handler name**. `validateBody` runs before the
+handler; effective guards run first in app → controller → route order and every
+guard must return true. The same record also carries the OpenAPI-only `security`
+override and `deprecated` marker.
 
 > [!NOTE]
-> `createApp` calls `router.register(controller)` with **no options**, so a module
-> graph gets no automatic body validation. Validate inside the handler with
-> `assert<T>(ctx.body)` instead, or build the router yourself.
+> `createApp` constructs `createRouter()` and calls `router.register(controller)`
+> with **no options**, so a module graph gets no guard registry or automatic body
+> validation. Validate inside the handler with `assert<T>(ctx.body)` instead, or
+> build the router yourself.
 
-## Guards, pipes and interceptors are not in this path
+## Route guards are in this path; full chains are explicit
 
 `@zmdb/web/middleware` exports `Guard`, `Pipe`, `Interceptor`, `ExceptionFilter`, `Chain` and `runChain`, and `runChain` composes them in a defined order — guards, then pipes folding the body, then interceptors nested outermost-first, then the handler, then filters on a throw.
 
-But the router does not call it. To use a chain, wrap the handler yourself:
+The router runs effective app/controller/route guards directly and returns 403
+on `false`. Pipes, interceptors and filters still require `runChain` inside the
+handler:
 
 ```ts
 import { runChain, type Chain } from '@zmdb/web/middleware';

@@ -1,151 +1,184 @@
-> **ToDo / feature gap.** `OpenApiOptions` has two fields, `info` and `schemas`.
-> There is no `securitySchemes`, no `security`, and no `@ApiBearerAuth`
-> equivalent — the generated `OpenApiDocument` has no `components` section at all.
->
-> The scheme types, how a guard declares what it enforces, and the strictness rule
-> are frozen in `packages/web/src/openapi/SPEC.md`. The CI check further down this
-> page is close to what ships, and the freeze explains what it changes.
+`toOpenApi` declares OpenAPI 3.1 security schemes and derives each operation's
+`security` requirement from the same guard objects the router runs. A route is
+therefore never protected by one declaration and documented by another.
 
-## Why it matters
-
-A spec without security declarations tells a client generator that every endpoint is public. Generated clients then have no auth parameter, Swagger UI has no "Authorize" button, and a reviewer reading the spec cannot tell which routes are protected. The endpoints are still protected — your [guard](./web-middleware.html) or handler check does that — but the contract is silent about it, which is the kind of gap that gets a public API mis-integrated.
-
-## Workaround — add it after generation
-
-The document is a plain object, so this is a few lines and belongs next to `toOpenApi`:
+## Declare schemes and guards
 
 ```ts
-import { toOpenApi, type OpenApiDocument } from '@zmdb/web/openapi';
+import { toOpenApi, type SecurityAwareGuard, type SecurityScheme } from '@zmdb/web/openapi';
+import { createRouter, type GuardRegistry, type RouteOptions } from '@zmdb/web/pipeline';
 
-const doc = toOpenApi(CONTROLLERS, { info, schemas });
+const SCHEMES = {
+  bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+  apiKey: { type: 'apiKey', in: 'header', name: 'x-api-key' },
+} as const satisfies Record<string, SecurityScheme>;
 
-const withSecurity = {
-  ...doc,
-  components: {
-    securitySchemes: {
-      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-    },
-  },
-  security: [{ bearerAuth: [] }],
+const authenticated: SecurityAwareGuard = {
+  canActivate: ctx => ctx.headers.authorization !== undefined,
+  enforces: { scheme: 'bearerAuth', scopes: [] },
 };
+
+const requiresApiKey: SecurityAwareGuard = {
+  canActivate: ctx => ctx.headers['x-api-key'] !== undefined,
+  enforces: { scheme: 'apiKey', scopes: [] },
+};
+
+const requiresWrite: SecurityAwareGuard = {
+  canActivate: ctx => ctx.headers.authorization?.includes('users:write') === true,
+  enforces: { scheme: 'bearerAuth', scopes: ['users:write'] },
+};
+
+const GUARD_REGISTRY = {
+  app: [authenticated],
+  controllers: { UsersController: [requiresApiKey] },
+} as const satisfies GuardRegistry;
+
+const ROUTES = {
+  UsersController: {
+    create: { guards: [requiresWrite] },
+  },
+} as const satisfies Record<string, Record<string, RouteOptions>>;
 ```
 
-A top-level `security` applies to every operation. Opt a route out explicitly:
+Pass the same registry and per-handler records to the router and document
+generator:
 
 ```ts
-const login = withSecurity.paths['/auth/login']?.post;
-if (login !== undefined) Object.assign(login, { security: [] });
-```
+const router = createRouter({ guardRegistry: GUARD_REGISTRY });
+router.register(new UsersController(), ROUTES.UsersController);
 
-`security: []` on an operation means "no authentication required" and overrides the document default. Getting this backwards — omitting the key rather than setting an empty array — leaves the route documented as protected, which is the safer direction to be wrong.
-
-That last sentence is only true _because_ of the top-level default, and the freeze drops the top-level `security` for exactly that reason: with a document-level default, "this route inherits it" and "nobody wrote anything for this route" are the same document text — an absent key — so every audit question needs the default in hand. Once the requirement is derived rather than typed, writing it on every operation costs nothing, and a document whose every operation states its own security can be read a line at a time. Keep the top-level default for as long as you are post-processing by hand; it is the right shape for a workaround and the wrong shape for generated output.
-
-## Deriving it from the routes you actually protect
-
-Hand-maintaining the exception list drifts. If your guards are per-route, key off the same data:
-
-```ts
-const PUBLIC = new Set(['AuthController.login', 'AuthController.register', 'HealthController.live']);
-
-for (const C of CONTROLLERS) {
-  for (const r of getRoutes(C)) {
-    if (!PUBLIC.has(`${C.name}.${r.handlerName}`)) continue;
-    const op = doc.paths[r.path.replace(/:([^/]+)/g, '{$1}')]?.[r.method.toLowerCase()];
-    if (op !== undefined) Object.assign(op, { security: [] });
-  }
-}
-```
-
-Then the test that makes it trustworthy:
-
-```ts
-it('every route is either guarded or explicitly public', () => {
-  for (const C of CONTROLLERS) {
-    for (const r of getRoutes(C)) {
-      const key = `${C.name}.${r.handlerName}`;
-      expect(PUBLIC.has(key) || GUARDED.has(key)).toBe(true);
-    }
-  }
+const document = toOpenApi([UsersController], {
+  info: { title: 'Users', version: '1.0.0' },
+  securitySchemes: SCHEMES,
+  guardRegistry: GUARD_REGISTRY,
+  routes: ROUTES,
 });
 ```
 
-A new route now fails CI until someone decides whether it is public. That is a stronger control than a decorator, because it cannot be forgotten.
+`register` takes a controller **instance**. `toOpenApi` accepts classes or
+instances, but the `routes` map is always keyed by class name and then handler
+name. `guardRegistry.controllers` uses the same class-name key. Effective guards
+run in app → controller → route order, and OpenAPI derives from that whole chain.
 
-The freeze keeps that control and moves it into `toOpenApi`, where it runs whether or not anybody wrote the test: with `strictSecurity` on — the default — a route with neither a guard nor an explicit `@Public()` throws at generation, naming the controller and the handler. The `PUBLIC` set above becomes the `@Public()` decorator and the `GUARDED` set becomes the guards themselves.
+## Mark intentionally public routes
 
-## Common scheme declarations
+Strict generation is on by default once `routes` or `guardRegistry` is supplied.
+Every route must have effective guards or an explicit public marker:
 
 ```ts
-// Bearer / JWT
-bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
+import { Controller, Post, Public } from '@zmdb/web/routing';
 
-// API key in a header
-apiKey: { type: 'apiKey', in: 'header', name: 'x-api-key' }
-
-// Cookie session
-session: { type: 'apiKey', in: 'cookie', name: 'sid' }
-
-// OAuth 2 authorization code
-oauth2: {
-  type: 'oauth2',
-  flows: {
-    authorizationCode: {
-      authorizationUrl: 'https://auth.example.com/authorize',
-      tokenUrl: 'https://auth.example.com/token',
-      scopes: { 'posts:read': 'Read posts', 'posts:write': 'Write posts' },
-    },
-  },
+@Controller('/auth')
+class AuthController {
+  @Public()
+  @Post('/login')
+  login() {
+    // ...
+  }
 }
 ```
 
-> [!WARNING]
-> Never put a real key, token, client secret or `example` credential in the spec.
-> Specs get committed, published to a docs site and pasted into issues. A
-> `securitySchemes` block describes _where_ the credential goes; it never contains
-> one.
+`@Public()` emits `security: []`. That is a positive statement that the operation
+needs no authentication, not an omitted field. At runtime it bypasses inherited
+app/controller guards; declaring a route guard or non-empty explicit security
+requirement on the same handler is an error.
+It is also directly auditable:
 
-## Scopes are documentation, not enforcement
+```bash
+rg '@Public\\(' packages
+```
 
-`security: [{ oauth2: ['posts:write'] }]` on an operation documents a required scope. Nothing in zmdb reads it — the enforcement is your guard or handler check, and the spec and the code can disagree. If you declare scopes, the test above is the only thing keeping them true.
+`isPublic(ControllerClass, handlerName)` reads the same Stage-3 metadata when an
+application needs a programmatic audit.
 
-## What it would take
+## Build-time failures
 
-`OpenApiOptions` gains `securitySchemes`, and `OpenApiDocument` gains an optional `components` — a type change on a public interface, emitted only when a scheme is declared, so a document generated by today's callers is byte-for-byte what it is now.
+`toOpenApi` locates the controller and handler and refuses to generate when:
 
-The per-route security does **not** go on `RouteSchemas`, which is what an earlier version of this section suggested. `RouteSchemas` is keyed by route path and two methods on one path share one entry, whereas security is per operation. It goes on `RouteOptions` — the per-handler record `router.register(controller, options)` already accepts — alongside the guards:
+- a route has no effective guards and no `@Public()`;
+- an `@Public()` route also declares route guards or a non-empty override;
+- a guard lacks `enforces` and there is no explicit security override;
+- a guard or override names an undeclared scheme;
+- an override omits a scheme or scope derived from a guard.
+
+The diagnostic tells the caller to add a guard, declare `enforces` (or provide
+`RouteOptions.security` for a legacy guard), declare referenced schemes, or mark
+the handler `@Public()`.
+
+An existing application can migrate with `strictSecurity: false`. An undeclared
+route then has no `security` key; it is silent, not explicitly public. Do not
+leave this disabled after every route has been classified.
+
+Strictness applies when a `routes` record or `guardRegistry` is supplied.
+Existing calls that pass only `info` and `schemas` retain their previous document
+byte-for-byte.
+
+## Legacy guards and infrastructure enforcement
+
+A third-party guard may have no `enforces` property. State the requirement
+explicitly on that handler:
 
 ```ts
 const ROUTES = {
-  UsersController: { list: { guards: [auth] }, create: { guards: [auth, requireWrite] } },
-  AuthController: { login: {} },
-};
-
-for (const C of CONTROLLERS) router.register(new C(), ROUTES[C.name] ?? {});
-const doc = toOpenApi(CONTROLLERS, { info, schemas, securitySchemes: SCHEMES, routes: ROUTES });
+  AdminController: {
+    list: {
+      guards: [legacyGuard],
+      security: [{ bearerAuth: [], mesh: [] }],
+    },
+  },
+} satisfies Record<string, Record<string, RouteOptions>>;
 ```
 
-> [!IMPORTANT]
-> `register` takes an **instance** and `toOpenApi` takes either, so a `CONTROLLERS` array of
-> classes — which is what `getRoutes(C)` and `${C.name}` above want — has to be constructed
-> for the router. `router.register(SomeClass, …)` registers zero routes and throws nothing,
-> so every request 404s; and `SomeClass.constructor.name` is `'Function'`, so keying `ROUTES`
-> off it silently drops every per-route option.
+An explicit requirement may add protection the framework cannot see, such as
+mutual TLS terminated by a service mesh. It may not remove anything declared by
+the route's effective app, controller or route guards.
 
-A guard declares what it enforces with a `readonly enforces = { scheme: 'bearerAuth', scopes: ['posts:write'] }`, and the operation's `security` is the union of its guards' declarations.
+## How several guards map to OpenAPI
 
-**The larger question — derive from the guard, or declare twice — resolves better than "derived".** The router and the generator read _the same object_, so there is nothing to keep in step and a disagreement is not detectable so much as unwritable. That is why the guards live in a record rather than behind a `@UseGuards` decorator: a decorator can only record a _class_, and `enforces` is a property of the instance, so reading it would mean constructing guards at generation time — running the injector in a step that is meant to be build-time and reflection-free.
+The router requires every effective guard to pass. OpenAPI represents that AND
+by putting every scheme in one requirement object:
 
-It does mean guards are configured next to the module wiring rather than beside the handler, so a reviewer reading a controller does not see them. `@Public()` stays a decorator on the handler for that reason: the claim that a route needs _no_ protection is the one a reviewer has to be able to see without opening another file.
+```ts
+const guardRegistry = {
+  app: [authenticated],
+  controllers: { UsersController: [requiresApiKey] },
+};
+const routes = { UsersController: { create: { guards: [requiresWrite] } } };
+// security: [{ bearerAuth: ['users:write'], apiKey: [] }]
+```
 
-Four other decisions worth knowing, because three of them differ from what this page recommends above:
+Two guards naming the same scheme produce one entry. Their scopes are merged,
+deduplicated and sorted:
 
-- **Several guards on one route emit one requirement object, an AND.** That is forced, not chosen: `runChain` loops over the guards and rejects on the first `false`, so every guard must pass. The array-of-objects spelling would tell a generated client that satisfying any one of them is enough — a document understating what the code enforces, which is the failure this whole page is about.
-- **`mutualTLS` is included** — it is an OpenAPI 3.1 scheme type, the document already declares `3.1.0`, and a service mesh terminating client certificates is a real deployment.
-- **The types make an invalid scheme unwritable rather than detectable.** `bearerFormat` lives only on the `bearer` arm, so `{ type: 'http', scheme: 'basic', bearerFormat: 'JWT' }` does not compile; an `oauth2` scheme must name at least one flow, so `flows: {}` does not either.
-- **`strictSecurity: false` exists and should not be left on.** It does not make the document wrong; it makes it silent — a route with neither guards nor `@Public()` emits no `security` key, and with no top-level default a reader and a client generator both read that as public. It is there so an existing application can generate a document the day it adopts this.
+```ts
+// security: [{ oauth2: ['posts:read', 'posts:write'] }]
+```
 
-Until then, declaration plus the CI check above is the honest arrangement — and it is close enough to the frozen behaviour that adopting the real thing is mostly deleting the test.
+Scopes describe what `canActivate` enforces; the framework does not independently
+interpret a token's scopes.
+
+## Supported scheme types
+
+The exported `SecurityScheme` union covers OpenAPI 3.1 HTTP basic and bearer,
+API keys in headers/query/cookies, mutual TLS, OpenID Connect, and OAuth2
+implicit, password, client-credentials and authorization-code flows.
+
+OAuth2 requires at least one flow and each flow requires a `scopes` object.
+`bearerFormat` exists only on the bearer arm, so meaningless combinations such as
+basic authentication with `bearerFormat: 'JWT'` do not compile.
+
+Never place a real key, token or client secret in `securitySchemes`. The document
+describes where credentials travel; it does not contain credentials.
+
+## Document shape
+
+Declared schemes appear under `components.securitySchemes`. Every classified
+operation carries its own `security`; no document-level default is emitted.
+That keeps "forgotten" distinguishable from "inherits a default" during review.
+
+`packages/web/src/openapi/security.spec.ts` validates representative generated
+documents against the OpenAPI 3.1 schema in addition to checking the exact
+derived requirements.
 
 ---
 

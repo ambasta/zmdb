@@ -62,11 +62,18 @@ export function rateLimit(store: CounterStore, max: number, windowMs: number): G
 }
 ```
 
-> [!WARNING]
-> **The router does not call `runChain`**, so a registered controller applies no
-> guards — the chain runs only where you invoke it. And a `false` guard produces
-> `ChainError(403)`, not a 429, which reaches the router as a **500**. See
-> [Request Lifecycle](./web-request-lifecycle.html).
+Pass it through `GuardRegistry.app` for every registered route,
+`GuardRegistry.controllers` for one controller, or `RouteOptions.guards` for one
+handler. Effective guards run app → controller → route before the handler:
+
+```ts
+const router = createRouter({
+  guardRegistry: { app: [rateLimit(counters, 100, 60_000)] },
+});
+```
+
+A rejected guard currently returns 403; a limiter that must return 429 still
+needs a handler or adapter response.
 
 ## Identifying the caller
 
@@ -161,11 +168,9 @@ Assert the limit **and** the reset. A limiter that never resets is an outage.
 
 ## What it would take
 
-For a limiter to apply framework-wide: the router running guards, and a status
-other than 403 from a rejected one — both on
-[Request Lifecycle](./web-request-lifecycle.html). Response headers would need the
-same handler-cannot-set-headers change that
-[CORS](./web-cors.html) and [caching](./web-caching.html) wait on.
+App/controller-level registration now applies a limiter across an explicitly
+constructed router. A status other than 403 from a rejected guard is still
+needed. Limit headers likewise need a handler/adapter response.
 
 ---
 

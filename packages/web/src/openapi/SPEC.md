@@ -57,11 +57,9 @@ stable across regenerations. A renamed tool is a _new_ tool as far as a model is
 the prompt caches that make a tool loop affordable. An `operationId` that is derived from the route rather than
 from a counter or a hash changes only when the route does.
 
-Still not emitted, and named here so the round-trip requirement in that file stays honest: no `query` or
-`header` parameters, no `security`, no `tags`, no per-status responses beyond the `200`, and a `schemas` map
-keyed by route path — so two methods on one path share one body schema. `security` and `components` are
-**amended by #573**, see [Amendments](#amendments-security-schemes-and-versioning-573); the rest of that
-list stands.
+Still not emitted: no `query` or `header` parameters, no `tags`, no per-status
+responses beyond the `200`, and a `schemas` map keyed by route path. Security
+and components are implemented by #575 as specified below.
 
 ## Out of scope
 
@@ -70,21 +68,21 @@ Auto-deriving schemas from handler signatures. It stays explicit, via `options.s
 
 ## Amendments (security schemes and versioning, #573)
 
-Epic #572 states that "Guards are already declared on controllers and handlers", and that is where the
-guard-derived security idea comes from. **It is not true today**, and the freeze starts by saying so,
-because the whole feature turns on where the derivation reads from.
+At the #573 freeze, guards were not attached to routes. #575 implements the
+design below: route guards live in the per-handler options record, while app and
+controller guards live in one registry; both are passed unchanged to the router
+and document generator.
 
-`Guard` is `{ canActivate(ctx): boolean | Promise<boolean> }` (`../middleware/index.ts:11`). A `Chain`
-(`:31`) is a hand-built record of guards, pipes, interceptors and filters, and `runChain` (`:58`) is the
-only thing that consults it. `runChain` has **no caller in the pipeline** — every call site in the repo is
-a `*.spec.ts`. There is no `@UseGuards`, there is no metadata slot for a guard, and `getRoutes` returns
-`{ method, path, handlerName }` and nothing else. So a guard is presently a value a caller composes by
-hand, and `toOpenApi(controllers)` could not find one if it wanted to.
+`Guard` is `{ canActivate(ctx): boolean | Promise<boolean> }`. A `Chain` is a
+hand-built record of guards, pipes, interceptors and filters, and `runChain`
+remains the complete-chain executor. #575 additionally makes the router execute
+the effective guard chain before validation. There is still no `@UseGuards`, and
+`getRoutes` still returns `{ method, path, handlerName }` only.
 
-That fact decides the design rather than blocking it. Below, the guards live in the **same per-handler
-options record the router already accepts**, and the derivation reads that record. This is stronger than
-what the epic asked for: the document is not derived from a second declaration that has to be kept in
-step with the guards, it is derived from **the very object the router runs**. Disagreement is not
+That decides the design rather than blocking it. Below, the guards are actual
+instances in the **same route record and guard registry the router runs**, and
+the derivation reads those objects. The document is not derived from a second
+declaration that has to be kept in step with execution. Disagreement is not
 detected, it is unrepresentable.
 
 ### S1. The scheme union, against OpenAPI 3.1
@@ -171,8 +169,8 @@ into `components.schemas` needs a naming scheme and a `$ref` rewrite that is a s
 
 ### S2. Where the derivation reads from
 
-`RouteOptions` — the existing per-handler record passed to `router.register(controller, options)`
-(`../pipeline/index.ts:36,166`) — gains two fields:
+`RouteOptions` — the existing per-handler record passed to
+`router.register(controller, options)` — gains two fields:
 
 ```ts
 export interface RouteOptions {
@@ -182,9 +180,19 @@ export interface RouteOptions {
 }
 
 export type SecurityRequirement = Readonly<Record<string, readonly string[]>>;
+
+export interface GuardRegistry {
+  readonly app?: readonly Guard[];
+  readonly controllers?: Readonly<Record<string, readonly Guard[]>>;
+}
+
+export interface RouterOptions {
+  readonly guardRegistry?: GuardRegistry;
+}
 ```
 
-and `OpenApiOptions` gains the same record plus the scheme declarations:
+and `OpenApiOptions` gains the same route record and guard registry plus the
+scheme declarations:
 
 ```ts
 export interface OpenApiOptions {
@@ -192,43 +200,58 @@ export interface OpenApiOptions {
   readonly schemas?: Readonly<Record<string, RouteSchemas>>;
   readonly securitySchemes?: Readonly<Record<string, SecurityScheme>>;
   readonly routes?: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>;
+  readonly guardRegistry?: GuardRegistry;
   readonly strictSecurity?: boolean; // default true, see S4
 }
 ```
 
-`routes` is keyed by controller name and then by handler name, which is the same two-level key
-`register` already uses one controller at a time. An application therefore writes its per-route options
-**once** and hands the same object to both the router and the generator:
+`routes` is keyed by controller name and then by handler name. `guardRegistry.controllers`
+uses that same controller-name key. An application therefore constructs every guard once and hands the
+same objects to both the router and the generator:
 
 ```ts
+const GUARD_REGISTRY = {
+  app: [auth],
+  controllers: { UsersController: [requireTenant] },
+} as const satisfies GuardRegistry;
+
 const ROUTES = {
   UsersController: {
-    list: { guards: [auth] },
-    create: { guards: [auth, requireWrite], validateBody: assert<CreateDTO<User>> },
+    create: { guards: [requireWrite], validateBody: assert<CreateDTO<User>> },
   },
-  AuthController: { login: {} },
 } as const satisfies Record<string, Record<string, RouteOptions>>;
 
-for (const controller of CONTROLLERS) router.register(controller, ROUTES[controller.constructor.name] ?? {});
-const doc = toOpenApi(CONTROLLERS, { info, schemas, securitySchemes: SCHEMES, routes: ROUTES });
+const router = createRouter({ guardRegistry: GUARD_REGISTRY });
+for (const ControllerClass of CONTROLLERS) {
+  router.register(new ControllerClass(), ROUTES[ControllerClass.name] ?? {});
+}
+const doc = toOpenApi(CONTROLLERS, {
+  info,
+  schemas,
+  securitySchemes: SCHEMES,
+  guardRegistry: GUARD_REGISTRY,
+  routes: ROUTES,
+});
 ```
 
-Two properties follow from this shape and neither is available if guards are attached by a decorator.
+The effective chain is resolved once, in runtime order: app guards, then the controller's guards, then
+the handler's `RouteOptions.guards`.
 
 **Guards are instances, and `enforces` is an instance property.** A `@UseGuards(AuthGuard)` decorator can
 only record a _class_, and a class has no `enforces` — reading one means constructing the guard, which
 means running the injector at document-generation time, which contradicts §2.2's build-time,
-reflection-free rule. The options record holds the constructed guard, so the declaration is right there.
+reflection-free rule. The options record and registry hold constructed guards, so the declaration is
+right there.
 
 **The document and the router cannot disagree**, because there is nothing to keep in step: the same
-`readonly Guard[]` is the thing that runs and the thing that is read. Epic #572 asks for disagreement to
-be _detectable_; deriving from the running object makes the question not arise. The one place a
+guard arrays are the thing that runs and the thing that is read. Epic #572 asks for disagreement to be
+_detectable_; deriving from the running objects makes the question not arise. The one place a
 disagreement can still be written is the explicit `security` override, and S5 constrains it.
 
-The cost, stated plainly: guards are configured in a record next to the module wiring rather than beside
-the handler, so a reviewer reading a controller does not see them. That is why `@Public()` (S4) stays a
-decorator on the handler — the assertion that a route needs _no_ protection is the one a reviewer must be
-able to see without opening another file.
+The cost, stated plainly: guards are configured next to module wiring rather than beside the handler, so
+a reviewer reading a controller does not see them. That is why `@Public()` (S4) stays a decorator on the
+handler — the assertion that a route needs _no_ protection is the one a reviewer must be able to see
+without opening another file.
 
 ### S3. `enforces`, and what several guards on one route mean
 
@@ -251,17 +274,18 @@ key would put the scheme record's type into the signature of every guard, and a 
 written once whose scheme name is data. A name with no matching declaration is a generation error, which
 catches the typo at the one moment the two are in the same room.
 
-**Several guards on one route mean _all_ of them, and that is forced rather than chosen.** `runChain`
-loops over `chain.guards` and throws `ChainError(403)` on the first `false` (`../middleware/index.ts:60`),
-so every guard must pass. In OpenAPI, several schemes inside **one** requirement object are an AND and
-several requirement objects in the array are an OR. So:
+**Several effective guards on one route mean _all_ of them, and that is forced rather than
+chosen.** Both the router's guard loop and `runChain` stop at the first
+`false`, so every guard must pass. In OpenAPI, several schemes inside **one**
+requirement object are an AND and several requirement objects in the array are
+an OR. So:
 
-| route's guards                       | emitted `security`                  |
-| ------------------------------------ | ----------------------------------- |
-| `[auth]`                             | `[{ bearerAuth: [] }]`              |
-| `[auth, requireWrite]` both `bearer` | `[{ bearerAuth: ['posts:write'] }]` |
-| `[auth, apiKeyGuard]`                | `[{ bearerAuth: [], apiKey: [] }]`  |
-| none, with `@Public()`               | `[]`                                |
+| effective guards                                                 | emitted `security`                              |
+| ---------------------------------------------------------------- | ----------------------------------------------- |
+| route `[auth]`                                                   | `[{ bearerAuth: [] }]`                          |
+| app `[auth]`, route `[requireWrite]`, both `bearer`              | `[{ bearerAuth: ['posts:write'] }]`             |
+| app `[auth]`, controller `[apiKeyGuard]`, route `[requireWrite]` | `[{ bearerAuth: ['posts:write'], apiKey: [] }]` |
+| any inherited guards, with `@Public()` and no route guard        | `[]`                                            |
 
 One object, always. Two guards declaring the **same** scheme merge into one entry whose scopes are the
 union, sorted, deduplicated — because `{ bearerAuth: ['a'], bearerAuth: ['b'] }` is not a thing and a
@@ -270,9 +294,11 @@ spelling would tell a generated client that satisfying any one guard is enough, 
 what the code does, and a document that understates enforcement is the failure this epic exists to
 prevent.
 
-Scopes remain documentation. Nothing in `runChain` reads `enforces` — the guard's own `canActivate` is the
-enforcement, and `enforces` is its description of itself. A guard whose `enforces` disagrees with its
-`canActivate` is a lie the framework cannot catch, and `web-openapi-security.md` already says so.
+Scopes remain documentation. Neither route execution nor `runChain` reads
+`enforces` — the guard's own `canActivate` is the enforcement, and `enforces` is
+its description of itself. A guard whose `enforces` disagrees with its
+`canActivate` is a lie the framework cannot catch, and
+`web-openapi-security.md` already says so.
 
 ### S4. `@Public()`, and strictness on by default
 
@@ -289,28 +315,35 @@ site: `TS1241 — the runtime will invoke the decorator with 2 arguments, but th
 `Public` writes a symbol-keyed slot on `context.metadata`, read by a `isPublic(controller, handlerName)`
 that lives beside `getRoutes` — the same mechanism, the same trust boundary comment, per §2.1. A route
 carrying it emits `security: []`, which in OpenAPI means "no authentication required" and is not the same
-as omitting the key.
+as omitting the key. At runtime it bypasses app and controller guards. Declaring a route guard or a
+non-empty explicit requirement on the same handler is an error rather than an ambiguous override.
 
 **`strictSecurity` defaults to `true`**, and under it `toOpenApi` throws when a route is in either of two
 states:
 
-| state                                                            | why it is an error                                          |
-| ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| guards present, no requirement derivable, no explicit `security` | the route is protected and the document would say nothing   |
-| no guards and no `@Public()`                                     | "forgot a guard" and "meant it to be public" look identical |
+| state                                                                      | why it is an error                                          |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| effective guards present, no requirement derivable, no explicit `security` | the route is protected and the document would say nothing   |
+| no effective guards and no `@Public()`                                     | "forgot a guard" and "meant it to be public" look identical |
 
 The second is the valuable one and it is the reason strictness is on rather than available. Without it, a
 new route added to a controller is documented as unprotected the moment it is written, and nothing ever
 asks whether that was the intent. With it, the build stops until somebody types either a guard or
 `@Public()` — a decision that takes one line and cannot be made by accident.
 
+An explicit `security` override is not a substitute for either choice: under
+strictness, a route with no effective guards still fails even if the override is
+non-empty. Conversely, `@Public()` cannot declare route guards or a non-empty
+override; inherited app and controller guards are deliberately bypassed. That
+keeps a grep of public markers identical to the operations carrying `security: []`.
+
 The opt-out is `strictSecurity: false`, and what it costs is worth being exact about, because it is not
-"the document becomes wrong". A route with neither guards nor `@Public()` emits **no `security` key at
-all**, and since S6 emits no document-level `security` either, a reader and a client generator both see a
-route with nothing said about it — which they will read as public. So the opt-out does not produce a
-false document, it produces a _silent_ one, and silence is what the epic's first paragraph objects to. It
-exists so an existing application can generate a document on the day it adopts this, and leaving it off is
-a decision to keep the gap.
+"the document becomes wrong". A route with neither effective guards nor `@Public()` emits **no
+`security` key at all**, and since S6 emits no document-level `security` either, a reader and a client
+generator both see a route with nothing said about it — which they will read as public. So the opt-out
+does not produce a false document, it produces a _silent_ one, and silence is what the epic's first
+paragraph objects to. It exists so an existing application can generate a document on the day it adopts
+this, and leaving it off is a decision to keep the gap.
 
 ### S5. A guard that cannot declare
 
@@ -320,12 +353,13 @@ exactly the applications most likely to have such a guard.
 
 The answer is the explicit `security` on `RouteOptions` (S2), and it is constrained rather than free:
 
-1. If it is absent, the requirement is the union of the declaring guards' `enforces` (S3).
-2. If it is present, it must be a **superset** of what the declaring guards derive — every scheme they
-   name must appear, with at least their scopes. A superset is allowed because a scheme may genuinely be
-   enforced somewhere the framework cannot see (an authenticating proxy, a service mesh presenting a
-   client certificate). A subset is a generation error, because a document may overstate what it requires
-   and must never understate it.
+1. If it is absent, the requirement is the union of every effective app, controller and route guard's
+   `enforces` (S3).
+2. If it is present, it must be a **superset** of what the effective declaring guards derive — every
+   scheme they name must appear, with at least their scopes. A superset is allowed because a scheme may
+   genuinely be enforced somewhere the framework cannot see (an authenticating proxy, a service mesh
+   presenting a client certificate). A subset is a generation error, because a document may overstate
+   what it requires and must never understate it.
 3. A route whose guards _all_ declare and which also carries an explicit `security` naming exactly the
    derived set is not an error — it is redundant, and redundancy that agrees is not worth an error — but
    it is the shape that drifts, so the recommendation is to omit it.
@@ -407,17 +441,18 @@ exactly as before. A `Sunset` header or a warning log would be a runtime feature
 2. Compile-time, in a `*.type-test.ts` so `scripts/typecheck.mjs` is what fails: `bearerFormat` on the
    `basic` arm is rejected, an empty `OAuthFlows` is rejected, and `enforces.scopes` accepts a computed
    `readonly string[]` under `exactOptionalPropertyTypes`.
-3. A document generated with no `securitySchemes` and no `routes` is **identical** to what today's
-   `toOpenApi` produces — no `components` key, no `security` key. This is the assertion that keeps the
-   amendment additive.
-4. Every row of S3's table, and specifically that two guards declaring the same scheme merge into one
-   entry with the sorted union of their scopes, and that two guards declaring different schemes produce
-   one requirement object rather than two.
+3. A document generated with no `securitySchemes`, `routes` or `guardRegistry` is **identical** to what
+   today's `toOpenApi` produces — no `components` key, no `security` key. This is the assertion that keeps
+   the amendment additive.
+4. Every row of S3's table, including runtime order and derivation across app, controller and route
+   guards; two guards declaring the same scheme merge into one entry with the sorted union of their
+   scopes, and two guards declaring different schemes produce one requirement object rather than two.
 5. `@Public()` emits `security: []` and not an absent key, and `isPublic` reads a route the decorator was
    applied to and not its sibling.
-6. Under `strictSecurity: true`: a route with guards that cannot declare and no explicit `security`
-   throws; a route with neither guards nor `@Public()` throws, naming the controller and handler; and
-   with `strictSecurity: false` the same two routes generate an operation with no `security` key.
+6. Under `strictSecurity: true`: a route with effective guards that cannot declare and no explicit
+   `security` throws; a route with neither effective guards nor `@Public()` throws, naming the controller
+   and handler; and with `strictSecurity: false` the same two routes generate an operation with no
+   `security` key.
 7. An explicit `security` that is a strict subset of the derived requirement throws; a superset does not;
    a scheme name with no entry in `securitySchemes` throws.
 8. No top-level `security` appears in any generated document.
@@ -443,8 +478,8 @@ exactly as before. A `Sunset` header or a warning log would be a runtime feature
   signature to catch a typo that generation already catches.
 - **Hoisting schemas into `components.schemas` with `$ref`s** (S1). It needs a naming scheme and a
   rewrite pass; the current inline-per-operation form is correct, just repetitive.
-- **`security` on `RouteSchemas`** — which is what `web-openapi-security.md`'s "What it would take"
-  suggested. `RouteSchemas` is keyed by route path, and two methods on one path share one entry; security
+- **`security` on `RouteSchemas`** — an earlier docs draft suggested it there.
+  `RouteSchemas` is keyed by route path, and two methods on one path share one entry; security
   is per operation, so it belongs on the per-handler record instead.
 - **Emitting `tags`** — still not emitted, and still worth doing; it is grouping metadata with no
   relationship to this amendment.

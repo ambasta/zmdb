@@ -7,16 +7,33 @@
 
 ### Route registration
 
-- **`createRouter()`** → a `Router`.
+- **`createRouter(options?)`** → a `Router`, where
+  `options.guardRegistry` may declare app guards and controller guards keyed by
+  controller class name.
 - **`router.register(controllerInstance)`** — read the controller's routes via
   `getRoutes(controllerInstance.constructor)` (built once at register time) and
   bind each to the instance's handler method. The resolved table is cached.
 - **`router.registerDeferred(controllerClass, instance)`** — read routes from
   the class at registration time, then await `instance()` only after one of
   those routes matches. No route is added or removed during the load.
-- Each route may carry an optional **`validateBody`** hook
-  (`(raw: unknown) => Body`) that runs before the handler; if it throws, the
+- Each route may carry optional **`guards`** and a **`validateBody`** hook. The
+  effective guard chain is resolved once at registration in app → controller →
+  route order. `@Public()` bypasses inherited app/controller guards and cannot
+  declare route guards or a non-empty explicit security requirement.
+- Guards run first; the first `false` yields 403 and the handler never runs. The
+  validator (`(raw: unknown) => Body`) then runs before the handler; if it throws, the
   handler is **not** called and the pipeline yields a 400.
+
+```ts
+export interface GuardRegistry {
+  readonly app?: readonly Guard[];
+  readonly controllers?: Readonly<Record<string, readonly Guard[]>>;
+}
+
+export interface RouterOptions {
+  readonly guardRegistry?: GuardRegistry;
+}
+```
 
 ### Incoming request → response
 
@@ -34,10 +51,12 @@
      count are never examined, so this is not a scan of the whole table.
   2. **Build `Ctx`** — params from the match, `body`/`query`/`headers`/`method`/
      `path` from the request.
-  3. **Validate** — if the route has `validateBody`, run it on `rawBody`; on throw
+  3. **Guard** — run every effective app, controller and route guard in that
+     order; first `false` → 403. A route marked `@Public()` runs none.
+  4. **Validate** — if the route has `validateBody`, run it on `rawBody`; on throw
      → `400` with the error message (handler never runs).
-  4. **Invoke** the handler with the ctx.
-  5. **Serialize** the result to JSON (`200`); a thrown handler → `500`. A handler
+  5. **Invoke** the handler with the ctx.
+  6. **Serialize** the result to JSON (`200`); a thrown handler → `500`. A handler
      that returns a response built by one of the factories below is returned
      verbatim instead, status and headers included.
 - No per-request reflection; one `Ctx` + one result object allocated per request.
@@ -87,7 +106,8 @@ plain `{ status, body, headers }` record every existing consumer reads.
 ## Acceptance
 
 - A registered controller's route dispatches: correct handler, params extracted,
-  body validated before the handler (invalid → 400, handler not called),
+  app/controller/route guards run in order before body validation (first false →
+  403), body validated before the handler (invalid → 400, handler not called),
   serialized 200 result; unknown path → 404; throwing handler → 500.
 - The node + fetch adapters round-trip a request to a response (in-process test).
 - `text('0')` answers with the single byte `0` and no quotes; `respond({status:302,
@@ -99,7 +119,7 @@ headers:{location}})` sends neither a body nor a `content-type`; a returned
 
 ## Out of scope
 
-Guards/pipes/interceptors/filters (epic #287), modules (#282), OpenAPI (#302).
+Pipes/interceptors/filters (epic #287), modules (#282), OpenAPI generation (#302).
 
 ## Amendments (streaming responses, #565; implemented by #567)
 

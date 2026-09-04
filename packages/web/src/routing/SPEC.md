@@ -17,6 +17,11 @@
   the base's as its prototype, so appending to the list a plain read returns would
   write the subclass's route into the base, and through it into every sibling
   subclass (#607).
+- **`@Public()`** — a Stage-3 method decorator that marks a route as
+  intentionally unauthenticated in symbol-keyed metadata. It does not change
+  path matching; the router bypasses inherited app/controller guards and rejects
+  a route-level guard or non-empty explicit security requirement on that handler.
+  OpenAPI generation emits `security: []`.
 
 ### Reader
 
@@ -26,6 +31,9 @@
   single leading slash and no trailing slash (except the root `/`). Ordering is
   **declaration order** of the methods. Computed by reading `context.metadata`
   (no reflection); callers may cache — the metadata is stable after class-init.
+- **`isPublic(ControllerClass, handlerName)`** → whether the resolved route
+  declaration carries `@Public()`. An override that redeclares a route replaces
+  the inherited public marker unless the override is also decorated.
 
 ### Inheritance
 
@@ -65,6 +73,8 @@
 
 - A decorated controller's routes are recoverable via `getRoutes` with correct
   method, composed path, and handler name, in declaration order.
+- `isPublic` identifies only the decorated route, including inherited and
+  overridden route declarations.
 - Prefix composition matches the rules above (covered by tests, incl. empty
   prefix and root path).
 - No `as` in the routing source; suite + typecheck green.

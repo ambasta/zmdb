@@ -19,19 +19,18 @@
 | [`@zmdb/web`](./packages/web)                       | ✅     | Stage-3 decorator web framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, WS/SSE, testing — zero `reflect-metadata`, zero runtime reflection |
 
 > Status legend: ✅ complete (all tracked sub-issues closed) · 🚧 in progress · 🔜 planned.
-> All capability epics are complete — **every tracked issue is closed** across
-> the original core (#1–#10, #62), benchmarking (#68), the perf/DNF epics
-> (#75–#78), and the follow-up feature-gap epics: the read/query **DTO family**
+> The original core (#1–#10, #62), benchmarking (#68), and perf/DNF epics
+> (#75–#78) are complete. Follow-up feature-gap epics cover the read/query **DTO family**
 > (Get/List/Search/Projection, typed WhereDTO/OrderBy/Pagination, typed
 > populate/join/aggregate results, OpenAPI get/list/search), **schema objects**
 > (indexes, views, sequences, generated columns, namespaces, RLS), **set
 > operations + batch**, **read replicas**, **custom types & codecs**,
 > **seeding**, **entity modeling** (lifecycle events, embeddables, inheritance),
 > **framework integrations**, and an **LLM function-calling, bounded chat, MCP,
-> and OpenAPI-derived tools** harness. **1,332 tests green** across 172 files,
+> and OpenAPI-derived tools** harness. **1,350 tests green** across 172 files,
 > including real `node:sqlite` E2E, a Kysely
 > head-to-head, and the full validation + ORM benchmark suites (real PostgreSQL).
-> Alongside them, **395 expected-failing tests** hold the frozen specs of features
+> Alongside them, **382 expected-failing tests** hold the frozen specs of features
 > not yet built: each one calls the API the spec requires and carries the output
 > today's code produces, so a gap is a number in the summary line rather than a
 > paragraph in a design document.
@@ -39,7 +38,7 @@
 > MikroORM, NestJS and Typia run between them: 453 are answered by a named zmdb
 > test, 289 are argued against in writing, and `yarn verify:api-coverage` fails
 > on a suite that is neither.
-> Of the 276 docs-site pages, 194 document a capability that exists, 70 are marked
+> Of the 276 docs-site pages, 196 document a capability that exists, 68 are marked
 > `todo` — a page that argues for a feature gap rather than describing one — and 12
 > are marked not planned, where the answer is no and the page says what to reach for
 > instead. All three are counted by `yarn verify:docs-coverage`.

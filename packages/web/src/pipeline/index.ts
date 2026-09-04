@@ -1,7 +1,7 @@
 // @zmdb/web — request pipeline & runtime adapters (epic #272, spec ./SPEC.md).
-// Dispatches matched routes through: build Ctx → validate body → invoke handler
-// → serialize. Thin, structurally-typed node:http + Fetch adapters (no hard
-// deps). No reflection; no `as` on the consumer surface.
+// Dispatches matched routes through: build Ctx → run route guards → validate
+// body → invoke handler → serialize. Thin, structurally-typed node:http + Fetch
+// adapters (no hard deps). No reflection; no `as` on the consumer surface.
 
 import '../polyfill.js';
 import type { FileHandle } from 'node:fs/promises';
@@ -17,9 +17,12 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { Constructor } from '../di/index.js';
-import { getRoutes, type ResolvedRoute } from '../routing/index.js';
+import type { Guard } from '../middleware/index.js';
+import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
+import { resolveGuards, type GuardRegistry } from './guards.js';
 
 export type { Ctx } from '../context/index.js';
+export type { GuardRegistry } from './guards.js';
 
 /** A minimal, framework-neutral request. */
 export interface WebRequest {
@@ -47,9 +50,20 @@ export interface WebResponse {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-/** Per-handler pipeline options: an optional body validator run before invoke. */
+/** An OpenAPI security requirement maps each required scheme to its scopes. */
+export type SecurityRequirement = Readonly<Record<string, readonly string[]>>;
+
+/** Per-handler pipeline, guard and OpenAPI options. */
 export interface RouteOptions {
   readonly validateBody?: (raw: unknown) => unknown;
+  readonly guards?: readonly Guard[];
+  readonly security?: readonly SecurityRequirement[];
+  readonly deprecated?: true;
+}
+
+/** Router-wide guard configuration shared with OpenAPI generation. */
+export interface RouterOptions {
+  readonly guardRegistry?: GuardRegistry;
 }
 
 /** A handler takes one Ctx and returns a (possibly async) result. */
@@ -60,6 +74,7 @@ interface BoundRoute {
   readonly pattern: CompiledPattern;
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
+  readonly guards?: readonly Guard[];
 }
 
 // Routes are indexed by method, then by segment count, because a route can only
@@ -340,8 +355,8 @@ export interface Router {
   handle(req: WebRequest): Promise<WebResponse>;
 }
 
-/** Create a router. Routes are read from controllers once at register time. */
-export function createRouter(): Router {
+/** Create a router. Routes and their effective guards are resolved once at register time. */
+export function createRouter(routerOptions: RouterOptions = {}): Router {
   const buckets: MethodBuckets = new Map();
 
   return {
@@ -359,11 +374,21 @@ export function createRouter(): Router {
         // than re-deriving them from the same constant string per request.
         const pattern = compilePattern(route.path);
         const opts = options[route.handlerName];
-        bucketFor(buckets, route.method, pattern.segmentCount).push(
-          opts?.validateBody === undefined
-            ? { route, pattern, handler }
-            : { route, pattern, handler, validateBody: opts.validateBody },
-        );
+        const routeGuards = opts?.guards ?? [];
+        const publicRoute = isPublic(ctor, route.handlerName);
+        if (publicRoute && (routeGuards.length > 0 || (opts?.security !== undefined && opts.security.length > 0))) {
+          throw new Error(
+            `Guard configuration error at ${ctor.name}.${route.handlerName}: an @Public() route cannot declare route guards or a non-empty security requirement`,
+          );
+        }
+        const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
+        bucketFor(buckets, route.method, pattern.segmentCount).push({
+          route,
+          pattern,
+          handler,
+          ...(opts?.validateBody === undefined ? {} : { validateBody: opts.validateBody }),
+          ...(guards.length === 0 ? {} : { guards }),
+        });
       }
     },
 
@@ -381,7 +406,15 @@ export function createRouter(): Router {
           return resolved(ctx);
         };
         const pattern = compilePattern(route.path);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({ route, pattern, handler });
+        const guards = isPublic(controller, route.handlerName)
+          ? []
+          : resolveGuards(routerOptions.guardRegistry, controller.name);
+        bucketFor(buckets, route.method, pattern.segmentCount).push({
+          route,
+          pattern,
+          handler,
+          ...(guards.length === 0 ? {} : { guards }),
+        });
       }
     },
 
@@ -393,24 +426,33 @@ export function createRouter(): Router {
         if (params === undefined) {
           continue;
         }
-        let body = req.rawBody;
+        const ctx = {
+          params,
+          body: req.rawBody,
+          query: req.query ?? {},
+          headers: req.headers,
+          method,
+          path: req.path,
+        };
+        for (const guard of bound.guards ?? []) {
+          try {
+            if (!(await guard.canActivate(ctx))) {
+              return jsonResponse(403, { error: 'forbidden' });
+            }
+          } catch (error) {
+            return jsonResponse(500, { error: messageOf(error) });
+          }
+        }
+
         if (bound.validateBody !== undefined) {
           try {
-            body = bound.validateBody(req.rawBody);
+            ctx.body = bound.validateBody(req.rawBody);
           } catch (error) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
             return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
         }
-        const ctx: Ctx<Record<string, string>, unknown, QueryValues> = {
-          params,
-          body,
-          query: req.query ?? {},
-          headers: req.headers,
-          method,
-          path: req.path,
-        };
         try {
           const result = await bound.handler(ctx);
           // One symbol check on the hot path, no extra allocation: a handler that

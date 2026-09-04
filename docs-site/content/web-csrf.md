@@ -137,9 +137,12 @@ Worth stating as plainly as the freeze does, because a CSRF token in an audit lo
 - **Clickjacking.** The user makes the request themselves, on your origin, with a valid token. `frame-ancestors` is the control.
 - **A mutating `GET`.** Bypasses every method-based defence there is, including this one.
 
-## What it would take
+## Applying the guard
 
-One framework change, not two. A handler can already set a response header, so what is left is [guards wired into the router](./web-request-lifecycle.html) so a check applies without being called in each handler — which makes this **blocked in fact on the guards work**, even though no dependency edge records it. `Guard.canActivate` exists and `runChain` has no caller in the pipeline yet, so until that lands `verify(ctx)` at the top of a handler is the only working form.
+The router now runs guards supplied in `RouteOptions`, so `guard()` can be
+registered under every mutating handler. The CSRF helper itself remains a
+separate frozen feature; until it lands, `verify(ctx)` in the handler is the
+working form.
 
 The surface is `createCsrf({ secret, sessionOf, allowedOrigins })`, which is `async` — it returns
 a `Promise<Csrf>`, because importing the HMAC key is async — resolving to `issue`, `verify` and

@@ -52,14 +52,19 @@ const result = await runChain(chain, ctx, c => c.body);
   response wins, otherwise the error rethrows for the [pipeline](./web-pipeline.html)
   to turn into a 500.
 
+The router resolves an effective guard chain from `GuardRegistry.app`,
+`GuardRegistry.controllers[controllerName]`, then `RouteOptions.guards`.
+It returns 403 before validation or handler invocation when one returns false.
+`@Public()` bypasses inherited app/controller guards. The router does not run the
+rest of a `Chain`; pipes, interceptors and filters remain explicit `runChain`
+calls. `createApp` constructs its router without a registry or per-route options.
+
 > [!WARNING]
-> **The router does not call `runChain`.** `router.register(controller)` applies no
-> chain, and `createApp` registers controllers with no options at all — so a chain
-> runs only where you invoke it inside a handler. Two consequences follow: a
-> `ChainError(403)` reaching the router serialises as a **500**, not a 403, and a
-> filter response built as an untagged `{ status, body, headers }` literal is
-> serialised as the **body of a 200**. Responses built with `json`, `text`,
-> `bytes`, `stream` or `respond` keep their own status and headers. See
+> A `ChainError(403)` thrown by an explicit `runChain` call still reaches the
+> router as an ordinary error and serialises as **500**. A filter response built
+> as an untagged `{ status, body, headers }` literal is serialised as the **body
+> of a 200**; responses built with `json`, `text`, `bytes`, `stream` or `respond`
+> keep their own status and headers. See
 > [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Applying a chain in practice
@@ -100,9 +105,10 @@ it('every mutating route rejects an unauthenticated request', async () => {
 
 ## Concerns that belong elsewhere
 
-Anything that must apply to _every_ request, or that needs to set a status or a
-response header, goes in your adapter rather than in a chain — see
-[CORS](./web-cors.html) and [Exception Filters](./web-exception-filters.html).
+Anything other than a guard that must apply to _every_ request, or anything that
+needs to set a status or response header, goes in your adapter rather than in a
+chain — see [CORS](./web-cors.html) and
+[Exception Filters](./web-exception-filters.html).
 Anything that follows the data rather than the request composes as a `Driver`
 wrapper — logging, tracing, retries, a query budget, replica routing — which
 covers handlers, workers and CLI scripts alike.

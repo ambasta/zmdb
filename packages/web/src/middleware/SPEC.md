@@ -9,6 +9,8 @@
 
 - **`Guard`** — `{ canActivate(ctx): boolean | Promise<boolean> }`. A `false`
   short-circuits with `403` and the handler never runs.
+- **`SecurityAwareGuard`** — a `Guard` with
+  `enforces: { scheme; scopes }`, used by OpenAPI generation.
 - **`Pipe<In, Out>`** — `{ transform(value: In, ctx): Out | Promise<Out> }`.
   Transforms/validates the ctx body; a throw → `400`.
 - **`Interceptor`** — `{ intercept(ctx, next): Promise<unknown> }` where
@@ -27,8 +29,9 @@ A `Chain` composes them around a handler in this deterministic order:
 5. on any throw, the first matching **exception filter** produces the response.
 
 `runChain(chain, ctx, handler)` returns the produced value (or throws for the
-pipeline to serialize). A helper `applyChain(router-route, chain)` lets a route
-carry its chain; the pipeline runs it before/around the handler.
+pipeline to serialize). The router also runs the guard-only subset resolved from
+`GuardRegistry.app`, `GuardRegistry.controllers[controllerName]`, then
+`RouteOptions.guards`; complete chains remain explicit.
 
 ## Invariants
 
