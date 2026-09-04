@@ -74,6 +74,7 @@ export interface SpatialPredicate<C extends string = string> {
   readonly col: C;
   readonly value: GeoJsonGeometry;
   readonly distance?: number;
+  readonly connector?: 'AND' | 'OR';
 }
 
 /** Internal closed predicate shape shared with the dialect matrix. */
