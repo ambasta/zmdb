@@ -60,6 +60,25 @@ path kept as an attribute.
 There is deliberately no interceptor span. The router runs its effective guards,
 validation and handler, but `runChain` remains an explicit handler-level call.
 
+### Server-span attributes
+
+These are the complete server-span attributes emitted today under the pinned
+OpenTelemetry semantic conventions **v1.30.0**:
+
+| attribute                   | when present                    | value                                  |
+| --------------------------- | ------------------------------- | -------------------------------------- |
+| `http.request.method`       | every observed request          | uppercase method, or `_OTHER`          |
+| `http.route`                | a route matched                 | registered low-cardinality pattern     |
+| `url.path`                  | every observed request          | concrete request path                  |
+| `url.scheme`                | every observed request          | request scheme, defaulting to `http`   |
+| `http.response.status_code` | the router produced a response  | numeric response status                |
+| `error.type`                | the response is `5xx`           | thrown constructor name or status text |
+| `server.address`            | the request has a `host` header | host-header value                      |
+
+A normal `4xx` records the response status but is not marked as a server-span
+error. An unmatched request has no `http.route`; its concrete path remains in
+`url.path`.
+
 ## Query spans with useful attributes
 
 `tracedDriver` instruments the execute boundary. Parenting is explicit: pass the
@@ -79,6 +98,17 @@ There is no ambient current span and the OpenTelemetry adapter does not consult
 ambient context. Omitting the third argument therefore creates root database
 spans; passing `ctx.span` is what establishes the handler → query edge.
 
+The database-span table is likewise the complete emitted set:
+
+| attribute                 | when present                               | value                                            |
+| ------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| `db.system.name`          | compile-time query telemetry is available  | `postgresql`, `mysql` or `sqlite`                |
+| `db.operation.name`       | compile-time query telemetry is available  | `SELECT`, `INSERT`, `UPDATE` or `DELETE`         |
+| `db.collection.name`      | compile-time query telemetry is available  | primary table                                    |
+| `db.query.text`           | every traced execution                     | placeholder-only SQL before any sqlcommenter tag |
+| `db.response.status_code` | a failed driver call exposes an error code | dialect error code                               |
+| `zmdb.db.parameter_count` | every traced execution                     | `CompiledQuery.parameters.length`                |
+
 > [!WARNING]
 > `db.query.text` is safe because zmdb's compiled SQL contains **placeholders**, not
 > values — that is the point of `CompiledQuery`. Never record the parameters.
@@ -87,12 +117,10 @@ spans; passing `ctx.span` is what establishes the handler → query edge.
 
 Also avoid putting request bodies, headers or full URLs on spans, for the same reason.
 
-The names are `db.query.text` and `db.system.name`, `db.operation.name`,
-`db.collection.name` for the rest of the set. `db.statement`, `db.system`,
-`db.operation` and `db.sql.table` are the pre-v1.30.0 spellings, and they are the
-reason the frozen spec pins a convention version and treats a rename as an edit to
-the file: nothing fails to compile when an attribute is renamed, the dashboard just
-goes flat.
+`db.statement`, `db.system`, `db.operation` and `db.sql.table` are the
+pre-v1.30.0 spellings. They are why the frozen spec pins a convention version and
+treats a rename as an edit to the file: nothing fails to compile when an
+attribute is renamed, the dashboard just goes flat.
 
 `zmdb.db.parameter_count` is namespaced outside `db.` on purpose. Recent conventions
 use `db.operation.parameter.<key>` for parameter _values_, which is exactly what the

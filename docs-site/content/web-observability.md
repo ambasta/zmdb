@@ -115,6 +115,30 @@ Do not derive the verb by parsing SQL. A first-word regex reads `WITH` for a CTE
 that ends in an `INSERT`, and a leading comment changes the first token. Optional
 compile-time telemetry exists so the driver does not have to guess.
 
+## Measured framework overhead
+
+The committed run measured all three configurations on 2026-09-04 with Node
+26.8.1 on an AMD Ryzen 7 7840U. Each row is the median of six samples after a
+1.5-second warmup; all six mode orders were used. The recording case used a real
+`BasicTracerProvider`, `SimpleSpanProcessor` and bounded `SpanExporter`, with
+exporter flush/reset outside the timed interval and metrics disabled.
+
+| workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
+| -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
+| request  | off                |       395.64 |        baseline |                 0 |         1.084x |
+| request  | API no-op          |      1630.56 |         +312.1% |                 0 |         1.203x |
+| request  | recording exporter |      8829.30 |        +2131.7% |                 3 |         1.107x |
+| query    | off                |        78.33 |        baseline |                 0 |         1.187x |
+| query    | API no-op          |       315.27 |         +302.5% |                 0 |         1.274x |
+| query    | recording exporter |      2825.28 |        +3506.8% |                 1 |         1.239x |
+
+The request workload is one matched `GET`; the query workload is one compiled
+`SELECT` through `tracedDriver`. These are nanosecond-scale framework
+microbenchmarks, not end-to-end service latency. The raw 36 samples, runtime
+provenance, input hashes and median operations per second are published in
+`benchmarks/site/observability.json` and summarised on
+[Web Performance & Benchmarks](./web-benchmarks.html).
+
 ## Exposing a hand-rolled registry
 
 ```ts

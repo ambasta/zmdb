@@ -728,8 +728,7 @@ export const PAGE_META = {
   'sql-comments': {
     title: 'SQL Comments',
     group: 'Data Access',
-    status: 'todo',
-    note: 'serializer and execute-time decorators ship; the final trace-to-slow-query-log worked example remains (#584)',
+    status: 'supported',
   },
   streaming: {
     title: 'Streaming Results',

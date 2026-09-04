@@ -1,4 +1,4 @@
-> SQL comments are opt-in. `withComments` is the dependency-free driver
+> **Supported.** SQL comments are opt-in. `withComments` is the dependency-free driver
 > decorator; `tracedDriver` additionally supplies the query span's
 > `traceparent` when that key is selected. Neither stores request data on
 > `CompiledQuery`, and the disabled path keeps the original SQL byte-for-byte.
@@ -58,6 +58,44 @@ it registered. `method` is not one of the five keys; `action`, the handler
 name, carries the low-cardinality value wanted here.
 
 Because there is no ambient request context, the closure is how the tag gets in — which is more wiring than a global, and also the reason two concurrent requests cannot tag each other's queries.
+
+## Worked join: PostgreSQL slow-query log to trace
+
+With the configuration above, the statement reaching PostgreSQL has the query
+span's W3C trace context appended at execution time:
+
+```sql
+SELECT "id", "email" FROM "users" WHERE "id" = $1 /*action='get',route='%2Fusers%2F%3Aid',traceparent='00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01'*/
+```
+
+Configure PostgreSQL's `log_min_duration_statement` at the threshold you use for
+slow queries, point `POSTGRES_LOG` at that server log, then extract the latest
+tagged statement and split the standard
+`version-trace-id-span-id-flags` value:
+
+```sh
+slow_line=$(rg "duration: .*traceparent='" "$POSTGRES_LOG" | tail -n 1)
+traceparent=$(printf '%s\n' "$slow_line" | rg -o "traceparent='[^']+'" | cut -d"'" -f2)
+test -n "$traceparent"
+
+IFS=- read -r version trace_id span_id flags <<EOF
+$traceparent
+EOF
+printf 'trace_id=%s\nspan_id=%s\n' "$trace_id" "$span_id"
+```
+
+Search the tracing backend by `trace_id`; inside that trace, `span_id` selects
+the exact database span. For example, a Jaeger UI trace URL is:
+
+```sh
+printf '%s/trace/%s\n' "${JAEGER_UI_URL%/}" "$trace_id"
+```
+
+That is the join: the database log supplies the trace and query-span identities,
+while the trace supplies the request, route, handler and surrounding operations.
+The commands above were exercised against PostgreSQL 18.6; its logged statement
+retained the complete trailing comment and yielded the two identifiers shown in
+the SQL example.
 
 ## Escaping, and why `encodeURIComponent` is not enough
 

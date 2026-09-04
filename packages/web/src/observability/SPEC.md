@@ -212,7 +212,6 @@ Database span, one per `Driver.execute`:
 | `db.operation.name`       | compile time | `SELECT`, `INSERT`, `UPDATE`, `DELETE`           |
 | `db.collection.name`      | compile time | the primary table                                |
 | `db.query.text`           | compile time | the placeholder-only SQL — §6                    |
-| `db.namespace`            | runtime      | the driver's database or schema, when it knows   |
 | `db.response.status_code` | runtime      | the dialect's own error code on failure          |
 | `zmdb.db.parameter_count` | runtime      | `parameters.length` — §6                         |
 

@@ -1,6 +1,12 @@
-`@zmdb/web/health` provides app-owned liveness and readiness aggregation. Checks
-are passed explicitly; importing the module registers nothing and creates no global
-registry.
+> [!WARNING]
+> Never put a database, cache, DNS or other dependency check in **liveness**. A
+> dependency blip would make the orchestrator restart every otherwise healthy
+> replica, turning a partial outage into a full outage and adding a restart storm
+> to recovery. Dependency checks belong in **readiness**.
+
+`@zmdb/web/health` provides supported, app-owned liveness and readiness
+aggregation. Checks are passed explicitly; importing the module registers nothing
+and creates no global registry.
 
 ## A liveness and a readiness probe
 
@@ -53,7 +59,8 @@ mechanism as another protected handler. `@Public()` makes the two public probes
 explicit to strict OpenAPI generation. A `SELECT 1` that takes 400ms tells an
 unauthenticated caller the pool is exhausted; that timing never appears publicly.
 
-**Liveness** asks "is this process wedged?" It must not touch a dependency. If liveness checks the database and the database has a hiccup, the orchestrator kills every replica at once — turning a brief database blip into a full outage, and the restart storm makes recovery slower.
+**Liveness** asks "is this process wedged?" It is synchronous by type and must
+not touch a dependency.
 
 **Readiness** asks "should traffic come here?" It checks the dependencies the process needs to serve. A failing readiness probe removes one instance from the load balancer, which is the correct response to a lost connection pool.
 
