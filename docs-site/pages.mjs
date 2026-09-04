@@ -1620,7 +1620,7 @@ export const PAGE_META = {
     title: 'Task Scheduling',
     group: 'Web Framework — Techniques',
     status: 'todo',
-    note: 'no @Cron/@Interval decorators or scheduler registry; the dialect, the DST rules and the per-task lease are frozen (#586).',
+    note: '@Cron, @Interval and the app-owned scheduler ship; the final operational guide and supported-page pass are #590.',
   },
   'web-queues': {
     title: 'Queues',

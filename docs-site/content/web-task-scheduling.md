@@ -1,11 +1,11 @@
-> **ToDo / feature gap.** There is no scheduler yet, but the design is no longer open:
-> `@Cron`, `@Interval`, the cron dialect, the daylight-saving rules and the per-task
-> lease are frozen in `packages/web/src/schedule/SPEC.md` (#586). A scheduler can be a
-> provider: constructed providers receive `onModuleInit`, `onApplicationBootstrap` and
-> `onShutdown` through the app lifecycle. The queue half now ships, so a future task can
-> enqueue durable, deduplicated work without doing that work while it holds the scheduler lease.
+> **Implementation available; final guide pending #590.** `@Cron`, `@Interval`, the
+> app-owned scheduler, the daylight-saving rules and the renewable per-task lease ship
+> from `@zmdb/web/schedule`. Call `start()` explicitly, or from an owning provider's
+> `onApplicationBootstrap`; registering the scheduler as a constructed value provider lets
+> its `onShutdown` participate in app disposal. A task can enqueue durable, deduplicated
+> work without doing that work while it holds the scheduler lease.
 
-## The decision that matters more than the missing decorator
+## The decision that matters more than the decorator
 
 Where the schedule lives determines whether your job runs twice, or not at all.
 
@@ -16,7 +16,7 @@ Where the schedule lives determines whether your job runs twice, or not at all.
 | Platform cron hitting an HTTP route       | Yes                        | Yes                 | most deployments                       |
 | External scheduler (Kubernetes `CronJob`) | Yes                        | Yes                 | you already run Kubernetes             |
 
-A `@Cron` decorator gives you the first row — and the first row is wrong for any deployment with more than one instance. Three replicas means three concurrent runs of your nightly billing job. The frozen decorator therefore has no default for this: `runs` is a required option, either `'once-per-replica'` or `'once-per-cluster'`, because neither is safe for both a cache warmer (which must run everywhere, since each replica has its own cache) and a billing run (which must not). Asking for `'once-per-cluster'` without giving the scheduler a lease store is an error at startup rather than a surprise at 3 a.m.
+`@Cron` refuses to choose a row for you: `runs` is required, either `'once-per-replica'` or `'once-per-cluster'`, because neither is safe for both a cache warmer (which must run everywhere, since each replica has its own cache) and a billing run (which must not). Choosing per-replica on three replicas means three concurrent runs. Asking for `'once-per-cluster'` without giving the scheduler a lease store is an error at startup rather than a surprise at 3 a.m.
 
 ## Recommended — a platform cron calling a route
 
@@ -138,7 +138,7 @@ export class SchedulerController implements OnApplicationBootstrap, OnShutdown {
 Four details:
 
 - **`pg_try_advisory_lock`, not `pg_advisory_lock`.** The blocking version queues every replica, so they run in sequence instead of one running.
-- **The lock is held on a session.** If your driver uses a pool, the lock and the unlock must be on the same connection, or the unlock is a no-op and the lock leaks until that connection closes. A dedicated connection for the scheduler avoids this. This is also the reason the frozen scheduler does not use advisory locks: a session lock cannot expire, so a process that is wedged but still connected holds it forever and recovery needs a human, where a lease's worst case is bounded by its TTL and needs nobody. It is Postgres-only besides.
+- **The lock is held on a session.** If your driver uses a pool, the lock and the unlock must be on the same connection, or the unlock is a no-op and the lock leaks until that connection closes. A dedicated connection for the scheduler avoids this. This is also the reason the shipped scheduler does not use advisory locks: a session lock cannot expire, so a process that is wedged but still connected holds it forever and recovery needs a human, where a lease's worst case is bounded by its TTL and needs nobody. It is Postgres-only besides.
 - **`unref()`** so the timer does not hold the process open.
 - **`clearInterval` in `onShutdown`**, or a rolling deploy leaves the old process ticking.
 
@@ -148,7 +148,7 @@ factory provider participates once something actually resolves it.
 
 ## Idempotency, which is the part people skip
 
-Every scheduler retries, and every distributed lock has an edge case. Assume your job may run twice and make that harmless:
+Every schedule repeats, and every distributed lease has an edge case. Assume your job may run twice and make that harmless:
 
 ```ts
 await driver.execute({
@@ -163,11 +163,11 @@ If the insert affected no rows, today's run already happened — return. A uniqu
 
 The design question this section used to name — coordination — is answered, in `packages/web/src/schedule/SPEC.md` (#586). It is a per-task lease rather than a pluggable lock, held while the task runs and renewed at a third of its TTL, and it is per task rather than per process so that fifty tasks spread across replicas instead of piling onto whichever one won a global election.
 
-What #589 still owns is a cron parser (~150 lines; no dependency, and the dialect is frozen so that a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR), the scheduler loop, lease coordination and scheduled cleanup of queue completion markers. Provider lifecycle support is already present.
+The shipped parser has no dependency, and a five-field expression means exactly what `crontab(5)` means, including the surprising day-of-month/day-of-week OR. The scheduler stores absolute instants, sleeps to the earliest one, prevents overlap, and renews a per-task lease while a cluster-wide task runs. #590 owns the final operational examples and page restructure.
 
 Two things the freeze settled that are worth knowing before you write your own. **The scheduler's state is an absolute instant, not a wall-clock time**, which is what makes daylight saving one conversion rule instead of two special cases: a 02:30 task in `Europe/Berlin` fires once on the spring-forward day, at 03:30 local, and once on the fall-back day, at the earlier of the two 02:30s. `Date` cannot represent a zoned wall-clock time at all — `new Date('2026-03-29T02:30:00')` is parsed in the _host_ zone, which is the thing a scheduler must not depend on — and `Temporal` is not in Node yet, so this is `Intl.DateTimeFormat` and `formatToParts`. And **`timeZone` defaults to `'UTC'` and never to the host zone**, because the host zone is a container setting and a base-image bump should not move your nightly job.
 
-A second trap worth knowing if you write the timer yourself: `setTimeout`'s delay is coerced to a signed 32-bit integer, so anything past **24.86 days** does not wait. `setTimeout(fn, 2_147_483_648)` logs a `TimeoutOverflowWarning` and fires immediately, which turns a naive `@Interval(THIRTY_DAYS)` into a busy loop. The frozen design refuses that interval at registration and points you at `@Cron`, where "the first of the month" is expressible in the first place.
+A second trap worth knowing if you write the timer yourself: `setTimeout`'s delay is coerced to a signed 32-bit integer, so anything past **24.86 days** does not wait. `setTimeout(fn, 2_147_483_648)` logs a `TimeoutOverflowWarning` and fires immediately, which turns a naive `@Interval(THIRTY_DAYS)` into a busy loop. The shipped implementation refuses that interval at registration and points you at `@Cron`, where "the first of the month" is expressible in the first place.
 
 The idempotency section above is still the important part, and it composes with the other half of this epic: the recommended shape for anything that must not be lost is a scheduled task that only **enqueues** — `enqueue('billing.run', …, { dedupeKey: 'billing:2026-03-29' })` — because the queue's unique index turns a double fire into one row, which is a far weaker thing to need from a lease than exactness.
 

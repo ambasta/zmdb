@@ -152,7 +152,7 @@ For an effect that must happen once, write `ctx.idempotencyKey` to `zmdb_job_don
 
 The worker cannot write that marker around the handler safely. Writing it first creates a lost-job window; writing it afterwards cannot be atomic with an application effect in another transaction. The handler owns the only transaction that can make those two writes one fact.
 
-Marker cleanup is not automatic yet. Retention must exceed the retry and manual-replay horizon; #589 owns the scheduled cleanup path. Until then, applications retain or remove marker rows through their own operational policy.
+Marker cleanup is not automatic. Retention must exceed the retry and manual-replay horizon, and the framework cannot infer either value. Use the shipped scheduler if desired, but keep the retention interval in application policy rather than adopting a framework default that may reopen duplicates.
 
 ## Dead letters and replay
 

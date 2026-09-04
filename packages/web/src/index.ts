@@ -205,6 +205,23 @@ export {
   type WorkerOptions,
 } from './queues/index.js';
 
+// App-owned cron and interval scheduling with explicit scale-out semantics. See ./schedule.
+export {
+  Cron,
+  Interval,
+  createScheduler,
+  schedulesOf,
+  type IntervalOptions,
+  type LeaseStore,
+  type ScheduleDef,
+  type Scheduler,
+  type SchedulerOptions,
+  type SkippedRun,
+  type TaskDecorator,
+  type TaskOptions,
+  type TaskRuns,
+} from './schedule/index.js';
+
 // Testing utilities: in-process app + provider overrides. See ./testing.
 export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.js';
 

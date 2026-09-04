@@ -529,13 +529,12 @@ so there is no out-of-scope row this freeze invalidates — unlike `../versionin
 whose freeze does require rewriting a committed argument there. Worth stating because a
 reader who has been through the versioning epic will look for one.
 
-`docs-site/pages.mjs` carries `note: 'no @Cron/@Interval decorators or scheduler
-registry'`, which becomes a freeze citation in the shape `web-versioning`'s note already
-uses, with `status` unchanged until the epic closes. `web-task-scheduling.md` also contains
-code the repository's own lint bans — `Buffer.from` and `timingSafeEqual` from the
-restricted `node:crypto` — and that is corrected here rather than deferred, because a page
-presenting a lint violation as the pattern to copy is a defect regardless of which issue
-notices it.
+Before #589, `docs-site/pages.mjs` carried `note: 'no @Cron/@Interval decorators or
+scheduler registry'`. The implementation changes that note to name the shipped surface and
+#590, with `status` unchanged until the epic's docs pass. `web-task-scheduling.md` also
+contained code the repository's own lint bans — `Buffer.from` and `timingSafeEqual` from
+the restricted `node:crypto` — and the freeze corrected that rather than presenting a lint
+violation as the pattern to copy.
 
 ## Non-goals (rejected)
 

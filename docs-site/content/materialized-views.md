@@ -79,7 +79,7 @@ import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 createIndexDdl({ name: 'author_stats_pk', table: 'author_stats', columns: ['author_id'], unique: true }, 'postgres');
 ```
 
-Where the refresh runs is your decision: a cron, a [lifecycle hook](./lifecycle-hooks.html) after the writes that invalidate it, or a `LISTEN`/`NOTIFY` worker. zmdb has no scheduler — see [Task Scheduling](./web-task-scheduling.html).
+Where the refresh runs is your decision: a cron, a [lifecycle hook](./lifecycle-hooks.html) after the writes that invalidate it, or a `LISTEN`/`NOTIFY` worker. For an app-owned cron with explicit replica semantics, see [Task Scheduling](./web-task-scheduling.html).
 
 ## Migrations
 

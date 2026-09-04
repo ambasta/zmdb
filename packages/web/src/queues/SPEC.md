@@ -392,9 +392,10 @@ makes §6's replay and §8's abandoned handler safe, and #587 asserts it in both
 marker deleted while its job can still be retried or manually replayed reopens the duplicate
 window, so retention must exceed both horizons. The earlier freeze invented a 30-day
 default and a construction-time check even though neither live #588 nor #587 requires a
-retention field, and `WorkerOptions` has no such surface. Marker cleanup is scheduled work
-owned by #589; until that implementation lands, cleanup is not automatic and applications
-must retain markers themselves.
+retention field, and `WorkerOptions` has no such surface. #589 supplies a scheduler but
+does not guess this application-specific horizon: cleanup is not automatic, and
+applications must retain or remove markers under an operational policy longer than every
+retry and manual-replay window.
 
 **"Or the backend's own" is a trap and step 1 should not have offered it as an
 alternative.** SQS's content-based deduplication is a five-minute _enqueue-side_ window; it
@@ -715,10 +716,11 @@ notes (`docs-site/pages.mjs`) become freeze citations in the shape
 neighbouring pages need corrections that this freeze creates: `transactional-outbox` and
 `web-queues` both hand-roll the loop this file specifies.
 
-Two later ownership boundaries are explicit rather than implied. #589 owns completion-marker
-cleanup because it is scheduled work; #594 owns lifecycle discovery for plain providers
-because its live dispatcher DoD requires participation in the application lifecycle. Neither
-is silently pulled into #588.
+Two later ownership boundaries are explicit rather than implied. #589 supplies the trigger
+an application can use for completion-marker cleanup, but no automatic cleanup exists
+without a retention horizon; #594 owns lifecycle discovery for plain providers because its
+live dispatcher DoD requires participation in the application lifecycle. Neither is
+silently pulled into #588.
 
 ## Non-goals (rejected)
 

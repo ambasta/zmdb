@@ -1,15 +1,5 @@
-// Compile-time half of #587. Replace the local declarations with imports when #589 lands.
-type ScheduledMethod = () => void | Promise<void>;
-type TaskDecorator = (target: ScheduledMethod, context: ClassMethodDecoratorContext) => void;
-
-interface TaskOptions {
-  readonly runs: 'once-per-replica' | 'once-per-cluster';
-  readonly name?: string;
-  readonly timeZone?: string;
-  readonly timeoutMs?: number;
-}
-
-declare function Cron(expression: string, options: TaskOptions): TaskDecorator;
+// Compile-time half of #587, held against the shipped decorator signature.
+import { Cron, Interval } from './index.js';
 
 class ValidTasks {
   @Cron('0 0 3 * * *', { runs: 'once-per-cluster', timeZone: 'UTC' })
@@ -40,3 +30,11 @@ class InvalidTasks {
 
 void ValidTasks;
 void InvalidTasks;
+
+class InvalidIntervals {
+  // @ts-expect-error - a duration has no wall-clock timezone.
+  @Interval(1000, { runs: 'once-per-replica', timeZone: 'UTC' })
+  zoned(): void {}
+}
+
+void InvalidIntervals;
