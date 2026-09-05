@@ -6,10 +6,10 @@
 import '@zmdb/app';
 import type { FileHandle } from 'node:fs/promises';
 
+import { compileFastStringifier, stringify } from '@zmdb/aot-validator/serialization';
 import type { Constructor } from '@zmdb/app/di';
 import { fromTraceContext } from '@zmdb/app/observability';
 import type { Observability, Span, Tracer } from '@zmdb/app/observability';
-import { compileFastStringifier, stringify } from '@zmdb/aot-validator/serialization';
 import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 import {
