@@ -62,11 +62,18 @@ export type {
 
 import {
   frozenQuery,
+  havingClause,
+  joinClauses,
+  joinMethods,
   queryTelemetry,
+  renderPredicate,
   tailClause,
   tailMethods,
   whereClause,
   type ComparisonPredicate,
+  type JoinCondition,
+  type JoinKind,
+  type JoinSpec,
   type Predicate,
   type PredicateGroup,
 } from './clauses.js';
@@ -81,6 +88,7 @@ import {
   type DistanceExpression,
   type SpatialPredicate,
 } from './extensions/index.js';
+import { escapeFts5Term, type FtsOptions } from './fts/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
 export { EXPR, coalesce, concat, dec, inc, mul, not, proposed } from './expressions/index.js';
@@ -98,6 +106,8 @@ export type {
   VectorColumnOf,
 } from './extensions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export type { FtsOptions, JoinCondition, JoinKind };
+
 export type Operator =
   | '='
   | '!='
@@ -191,82 +201,159 @@ export interface QueryCompilerOptions {
   readonly telemetry?: true;
 }
 
-interface SelectState {
+export interface SelectItem {
+  readonly kind: 'col' | 'agg' | 'expr';
+  readonly col?: SelectedColumn | undefined;
+  readonly fn?: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | undefined;
+  readonly alias?: string | undefined;
+  readonly raw?: string | undefined;
+}
+
+export type WhereClause = (ComparisonPredicate & { readonly isMatch?: boolean }) | SpatialPredicate | PredicateGroup;
+
+export interface SelectState {
   readonly table: string;
-  readonly columns?: readonly SelectedColumn[];
-  readonly wheres: readonly Predicate[];
-  readonly orderBys: readonly { col: string | DistanceExpression; dir: Direction }[];
-  readonly limitN?: number;
-  readonly offsetN?: number;
+  readonly items: readonly SelectItem[];
+  readonly joins: readonly JoinSpec[];
+  readonly wheres: readonly WhereClause[];
+  readonly groups: readonly string[];
+  readonly havings: readonly Predicate[];
+  readonly orderBys: readonly { readonly col: string | DistanceExpression; readonly dir: Direction }[];
+  readonly limitN?: number | undefined;
+  readonly offsetN?: number | undefined;
+  readonly ftsTable?: string | boolean | undefined;
 }
 
 export interface SelectBuilder<T = unknown> {
   select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
+  count(expr: string, alias: string): SelectBuilder<T>;
+  sum(expr: string, alias: string): SelectBuilder<T>;
+  avg(expr: string, alias: string): SelectBuilder<T>;
+  min(expr: string, alias: string): SelectBuilder<T>;
+  max(expr: string, alias: string): SelectBuilder<T>;
+  expr(rawExpr: string, alias: string): SelectBuilder<T>;
+
+  innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): SelectBuilder<T>;
+  innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): SelectBuilder<T>;
+  leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): SelectBuilder<T>;
+  leftJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): SelectBuilder<T>;
+  rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): SelectBuilder<T>;
+  rightJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): SelectBuilder<T>;
+
+  whereMatch(column: string, term: string, options?: FtsOptions | string | boolean): SelectBuilder<T>;
   where(predicate: SpatialPredicate): SelectBuilder<T>;
-  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  where(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
   andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
   orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
   whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+
   whereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   orWhereNotIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
+
   whereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   andWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   orWhereExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+
   whereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   andWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
   orWhereNotExists(subquery: SelectBuilder<unknown> | { compile(): CompiledQuery }): SelectBuilder<T>;
+
+  groupBy(...cols: string[]): SelectBuilder<T>;
+  having(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  andHaving(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  orHaving(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+
   orderBy(col: string | DistanceExpression, dir: Direction): SelectBuilder<T>;
   limit(n: number): SelectBuilder<T>;
   offset(n: number): SelectBuilder<T>;
+
   compile(): CompiledQuery;
   readonly dialect: DialectTarget;
   readonly _type?: T;
 }
 
+function parseTableSpec(spec: string): { baseName: string; alias?: string } {
+  const m = /^(\S+)\s+(?:as\s+)?(\S+)$/i.exec(spec.trim());
+  if (m && m[1] && m[2]) {
+    return { baseName: m[1], alias: m[2] };
+  }
+  return { baseName: spec.trim() };
+}
+
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
-    next({ wheres: [...state.wheres, { col, op, value, connector }] });
+
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown, isMatch = false) =>
+    next({ wheres: [...state.wheres, { col, op, value, connector, isMatch }] });
+
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
   const addGroup = (connector: 'AND' | 'OR', predicates: readonly ComparisonPredicate[]) =>
     next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
-  function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function where(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function where(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  function where(first: string | SpatialPredicate, op?: Operator | string, value?: unknown): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function andWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function andWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  function andWhere(first: string | SpatialPredicate, op?: Operator | string, value?: unknown): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('andWhere(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function orWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function orWhere(col: string, op: Operator | string, value: unknown): SelectBuilder<T>;
+  function orWhere(first: string | SpatialPredicate, op?: Operator | string, value?: unknown): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('OR', first);
     if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
     return addWhere('OR', first, op, value);
   }
+  const addHaving = (connector: 'AND' | 'OR', col: string, op: Operator | string, value: unknown) =>
+    next({ havings: [...state.havings, { col, op, value, connector }] });
+  const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
+    next({ items: [...state.items, { kind: 'agg', fn, col, alias }] });
 
   return {
-    ...tailMethods(state, next),
+    ...tailMethods<string | DistanceExpression, SelectBuilder<T>>(state, next),
+    ...joinMethods(state.joins, next),
     dialect: d,
-    select: columns => (columns === undefined ? next({}) : next({ columns })),
+
+    select: columns => {
+      if (columns === undefined) return next({ items: [] });
+      const nonCols = state.items.filter(it => it.kind !== 'col');
+      const newCols: SelectItem[] = columns.map(c => ({ kind: 'col', col: c }));
+      return next({ items: [...nonCols, ...newCols] });
+    },
+
+    count: (e, a) => agg('COUNT', e, a),
+    sum: (e, a) => agg('SUM', e, a),
+    avg: (e, a) => agg('AVG', e, a),
+    min: (e, a) => agg('MIN', e, a),
+    max: (e, a) => agg('MAX', e, a),
+    expr: (raw, alias) => next({ items: [...state.items, { kind: 'expr', raw, alias }] }),
+
+    whereMatch: (column, term, options) => {
+      const ftsTable =
+        (typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable) ?? state.ftsTable;
+      return next({
+        wheres: [...state.wheres, { col: column, op: 'MATCH', value: term, connector: 'AND', isMatch: true }],
+        ftsTable,
+      });
+    },
+
     where,
     andWhere,
     orWhere,
@@ -275,50 +362,154 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     whereIn: (col, values) => addWhere('AND', col, 'in', values),
     andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
     orWhereIn: (col, values) => addWhere('OR', col, 'in', values),
+
     whereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
     andWhereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
     orWhereNotIn: (col, values) => addWhere('OR', col, 'not in', values),
+
     whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
     orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
+
     whereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
     andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
     orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
+
+    groupBy: (...cols) => next({ groups: [...state.groups, ...cols] }),
+
+    having: (col, op, value) => addHaving('AND', col, op, value),
+    andHaving: (col, op, value) => addHaving('AND', col, op, value),
+    orHaving: (col, op, value) => addHaving('OR', col, op, value),
+
     compile: () => {
       const params: unknown[] = [];
-      const cols =
-        state.columns && state.columns.length > 0
-          ? state.columns
-              .map(column =>
-                isAliasedColumn(column)
-                  ? `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`
-                  : isAliasedDistanceExpression(column)
-                    ? renderAliasedDistanceExpression(d, column, params)
-                    : quoteColumn(d, column),
-              )
-              .join(', ')
-          : '*';
-      const predicates = whereClause(d, state.wheres, params);
-      const orderBy =
-        state.orderBys.length === 0
-          ? ''
-          : ` ORDER BY ${state.orderBys
-              .map(order => {
-                const expression = isDistanceExpression(order.col)
-                  ? renderDistanceExpression(d, order.col, params)
-                  : quoteColumn(d, order.col);
-                return `${expression} ${order.dir.toUpperCase()}`;
-              })
-              .join(', ')}`;
-      const text =
-        `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
-        predicates +
-        orderBy +
-        tailClause(d, {
-          limitN: state.limitN,
-          offsetN: state.offsetN,
-          ordered: state.orderBys.length > 0,
+      // 1. SELECT items
+      let colsSql: string;
+      if (state.items.length === 0) {
+        colsSql = '*';
+      } else {
+        colsSql = state.items
+          .map(it => {
+            if (it.kind === 'col' && it.col !== undefined) {
+              const col = it.col;
+              if (isAliasedColumn(col)) {
+                return `${quoteColumn(d, col.column)} AS ${quoteIdentifier(d, col.alias)}`;
+              }
+              if (typeof col === 'object' && col !== null && isAliasedDistanceExpression(col)) {
+                return renderAliasedDistanceExpression(d, col, params);
+              }
+              if (typeof col === 'string') {
+                const colStr = col;
+                const m = /^(\S+)\s+as\s+(\S+)$/i.exec(colStr.trim());
+                if (m && m[1] && m[2]) return `${quoteColumn(d, m[1])} AS ${quoteIdentifier(d, m[2])}`;
+                if (state.joins.length > 0 && colStr.includes('.')) {
+                  const prefix = colStr.slice(0, colStr.indexOf('.')).toLowerCase();
+                  const { baseName, alias } = parseTableSpec(state.table);
+                  if (prefix !== baseName.toLowerCase() && (!alias || prefix !== alias.toLowerCase())) {
+                    return `${quoteColumn(d, colStr)} AS ${quoteIdentifier(d, colStr)}`;
+                  }
+                }
+                return quoteColumn(d, colStr);
+              }
+            }
+            if (it.kind === 'agg' && typeof it.col === 'string') {
+              const alias = it.alias ?? '';
+              return `${it.fn}(${quoteColumn(d, it.col)}) AS ${quoteIdentifier(d, alias)}`;
+            }
+            if (it.kind === 'expr' && typeof it.raw === 'string') {
+              const alias = it.alias ?? '';
+              return `${it.raw} AS ${quoteIdentifier(d, alias)}`;
+            }
+            return '';
+          })
+          .join(', ');
+      }
+
+      // 2. FROM & FTS / JOIN clauses
+      let fromSql = '';
+      const hasMatch = state.wheres.some(w => 'isMatch' in w && w.isMatch);
+
+      if (dialectTraits(d).fts === 'companionTable' && hasMatch) {
+        if (!state.ftsTable) {
+          throw new UnsupportedFeatureError('full-text search', dialectName(d));
+        }
+        const { baseName, alias } = parseTableSpec(state.table);
+        const quotedBaseTable = quoteTable(d, state.table);
+        const baseRef = alias ? quoteIdentifier(d, alias) : quoteColumn(d, baseName);
+
+        const ftsTableName = typeof state.ftsTable === 'string' ? state.ftsTable : `${baseName}_fts`;
+        const ftsAlias = alias ? `${alias}_fts` : undefined;
+        const quotedFtsTable = ftsAlias
+          ? `${quoteColumn(d, ftsTableName)} AS ${quoteIdentifier(d, ftsAlias)}`
+          : quoteColumn(d, ftsTableName);
+
+        const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
+
+        fromSql = `FROM ${quotedBaseTable} INNER JOIN ${quotedFtsTable} ON ${baseRef}.${quoteIdentifier(d, 'rowid')} = ${ftsRef}.${quoteIdentifier(d, 'rowid')}`;
+      } else {
+        fromSql = `FROM ${quoteTable(d, state.table)}`;
+      }
+
+      fromSql += joinClauses(d, state.joins, params);
+      // 3. WHERE clause
+      let whereSql = '';
+      if (state.wheres.length > 0) {
+        const parts = state.wheres.map((p, i) => {
+          let cond: string;
+          if ('isMatch' in p && p.isMatch) {
+            const ftsTrait = dialectTraits(d).fts;
+            if (ftsTrait === 'none') {
+              throw new UnsupportedFeatureError('full-text search', dialectName(d));
+            }
+            if (ftsTrait === 'companionTable') {
+              const { baseName, alias } = parseTableSpec(state.table);
+              const ftsTableName = typeof state.ftsTable === 'string' ? state.ftsTable : `${baseName}_fts`;
+              const ftsAlias = alias ? `${alias}_fts` : undefined;
+              const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
+              const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
+              params.push(escapeFts5Term(String(p.value)));
+              cond = `${ftsRef}.${quoteIdentifier(d, colName)} MATCH ${formatPlaceholder(d, params.length)}`;
+            } else if (ftsTrait === 'tsvector') {
+              params.push(p.value);
+              cond = `to_tsvector('english', ${quoteColumn(d, p.col)}) @@ to_tsquery('english', ${formatPlaceholder(d, params.length)})`;
+            } else {
+              // match (mysql / singlestore)
+              params.push(p.value);
+              cond = `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
+            }
+          } else {
+            cond = renderPredicate(d, p, params);
+          }
+          const connector = p.connector ?? 'AND';
+          return i === 0 ? cond : `${connector} ${cond}`;
         });
+        whereSql = ` WHERE ${parts.join(' ')}`;
+      }
+
+      // 4. GROUP BY clause
+      const groupBySql =
+        state.groups.length > 0 ? ` GROUP BY ${state.groups.map(c => quoteColumn(d, c)).join(', ')}` : '';
+
+      // 5. HAVING clause
+      const havingSql = havingClause(d, state.havings, params);
+
+      // 6. ORDER BY / LIMIT / OFFSET
+      let orderBySql = '';
+      if (state.orderBys && state.orderBys.length > 0) {
+        orderBySql = ` ORDER BY ${state.orderBys
+          .map(order => {
+            const expression = isDistanceExpression(order.col)
+              ? renderDistanceExpression(d, order.col, params)
+              : quoteColumn(d, order.col);
+            return `${expression} ${order.dir.toUpperCase()}`;
+          })
+          .join(', ')}`;
+      }
+      const tailSql =
+        orderBySql +
+        tailClause(d, { limitN: state.limitN, offsetN: state.offsetN, ordered: state.orderBys.length > 0 });
+
+      const text = `SELECT ${colsSql} ${fromSql}${whereSql}${groupBySql}${havingSql}${tailSql}`;
       return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
     },
   };
@@ -356,7 +547,7 @@ export interface DeleteBuilder {
 }
 
 export interface QueryCompiler {
-  selectFrom(table: string): SelectBuilder;
+  selectFrom<T = unknown>(table: string, options?: FtsOptions | string | boolean): SelectBuilder<T>;
   insertInto(table: string): InsertBuilder;
   updateTable(table: string): UpdateBuilder;
   deleteFrom(table: string): DeleteBuilder;
@@ -739,7 +930,23 @@ export function createQueryCompiler(
 ): QueryCompiler {
   const telemetry = options?.telemetry === true;
   return {
-    selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }, telemetry),
+    selectFrom: (table, opts) => {
+      const ftsTable = typeof opts === 'string' || typeof opts === 'boolean' ? opts : opts?.ftsTable;
+      return makeSelect(
+        dialect,
+        {
+          table,
+          items: [],
+          joins: [],
+          wheres: [],
+          groups: [],
+          havings: [],
+          orderBys: [],
+          ftsTable,
+        },
+        telemetry,
+      );
+    },
     insertInto: table => makeInsert(dialect, table, undefined, undefined, undefined, telemetry),
     updateTable: table => makeUpdate(dialect, table, undefined, [], undefined, telemetry),
     deleteFrom: table => makeDelete(dialect, table, [], undefined, telemetry),

@@ -276,9 +276,9 @@ type RelationLoaderMap<T extends DeclaredTable> = {
   [K in RelationKeys<T> & string]?: RelationLoader<T, K>;
 };
 
-export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
+export type RepositoryAggregateBuilder = SelectBuilder & {
   joinRelation(relationName: string, kind?: 'inner' | 'left' | 'right'): RepositoryAggregateBuilder;
-}
+};
 
 export { ValidationError, type ValidationIssue };
 
@@ -1880,7 +1880,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return { filters, knownNames: definitions.map(filter => filter.name) };
     };
 
-    const wrap = (b: AggregateSelect): RepositoryAggregateBuilder => {
+    const wrap = (b: SelectBuilder): RepositoryAggregateBuilder => {
       builder = b;
       const target: RepositoryAggregateBuilder = Object.assign(builder, {
         joinRelation(relationName: string, kind: 'inner' | 'left' | 'right' = 'inner'): RepositoryAggregateBuilder {
@@ -1998,11 +1998,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       });
     } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
       const spec = specOrBuild;
-      let builder = aggregateSelectFrom(
-        this.tableName,
-        this.dialect,
-        this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
-      );
+      let builder = this.qb.selectFrom(this.tableName);
       const joinedRelations = new Set<string>();
 
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
