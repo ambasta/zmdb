@@ -13,7 +13,7 @@ The `zmdb/orm` facade delegates to `@zmdb/repository`. Concrete database clients
 
 ```ts
 interface Driver<Name extends string = string> {
-  readonly dialect: SqlDialect<Name>;
+  readonly dialect: DialectTarget<Name>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
