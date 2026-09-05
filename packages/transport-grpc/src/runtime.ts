@@ -58,7 +58,7 @@ interface ServerCallSurface {
   getDeadline(): Date | number;
   getPeer(): string;
   on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -66,10 +66,16 @@ interface WritableResponseCall extends ServerCallSurface {
   end(metadata?: Metadata): void;
   destroy(error: Error): void;
   once(event: 'drain', listener: () => void): this;
-  removeListener(event: 'drain', listener: () => void): this;
+  removeListener(event: 'drain', listener: (...args: unknown[]) => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: 'end', listener: () => void): this;
+  on(event: 'error', listener: (err: unknown) => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -388,28 +394,28 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   let ended = false;
   let error: unknown;
 
-  const onData = (...args: unknown[]): void => {
-    queue.push(args[0] as DecodedRequest);
+  const onData = (data: DecodedRequest): void => {
+    queue.push(data);
     if (resolveNext) {
-      const r = resolveNext;
+      const fn = resolveNext;
       resolveNext = undefined;
-      r();
+      fn();
     }
   };
   const onEnd = (): void => {
     ended = true;
     if (resolveNext) {
-      const r = resolveNext;
+      const fn = resolveNext;
       resolveNext = undefined;
-      r();
+      fn();
     }
   };
-  const onError = (...args: unknown[]): void => {
-    error = args[0];
+  const onError = (err: unknown): void => {
+    error = err;
     if (resolveNext) {
-      const r = resolveNext;
+      const fn = resolveNext;
       resolveNext = undefined;
-      r();
+      fn();
     }
   };
 
@@ -420,7 +426,10 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   try {
     for (;;) {
       while (queue.length > 0) {
-        yield requestValue(queue.shift()!);
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+        }
       }
       if (error) throw error;
       if (ended) return;
