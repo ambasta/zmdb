@@ -79,7 +79,7 @@ interface BoundRoute {
   readonly route: ResolvedRoute;
   /** The exact serialisable operation object when this route came from a contract. */
   readonly operation?: HttpOperationIR;
-  readonly pattern: CompiledPattern;
+  readonly pattern?: CompiledPattern;
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
@@ -1049,7 +1049,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             'cannot be registered on a versioned router',
         );
       }
-      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       return;
     }
 
@@ -1062,9 +1062,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (operation.version.kind === 'neutral') {
       if (versioning.kind === 'path') {
-        bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+        insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       } else {
-        addNeutralRoute(versionBuckets, neutralBuckets, operation.method, { ...base, neutral: true });
+        insertRoute(trieFor(neutralTries, operation.method.toUpperCase()), operation.path, { ...base, neutral: true });
       }
       return;
     }
@@ -1077,7 +1077,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         );
       }
       claimVersionedRoute(controller, route, operation.version.value, operation.path);
-      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       return;
     }
 
@@ -1100,7 +1100,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     for (const version of operation.version.values) {
       claimVersionedRoute(controller, route, version, operation.path);
       if (mediaVersionLookup !== undefined) addKnownVersion(mediaVersionLookup, version);
-      addSpecificVersionRoute(versionBuckets, neutralBuckets, operation.method, version, {
+      const bound: BoundRoute = {
         ...base,
         ...(operation.version.kind === 'media-type'
           ? {
@@ -1109,9 +1109,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
               }),
             }
           : {}),
-      });
+      };
+      insertRoute(versionTrieFor(versionTries, operation.method.toUpperCase(), version), operation.path, bound);
     }
-    addSupportedRoute(supportedBuckets, operation.method, pattern, operation.version.values);
+    addSupportedRoute(supportedBuckets, operation.method.toUpperCase(), pattern, operation.version.values);
   }
 
   async function handleObserved(req: WebRequest): Promise<WebResponse> {
