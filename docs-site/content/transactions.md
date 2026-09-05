@@ -20,6 +20,28 @@ await db.transaction(async tx => {
 - SQL ordering is deterministic: `BEGIN … COMMIT` on success, `BEGIN … ROLLBACK` on throw.
 - Nested `tx.savepoint(fn)` maps to `SAVEPOINT`/`RELEASE`/`ROLLBACK TO SAVEPOINT`.
 
+## Retrying serialization failures
+
+Retries are explicit because the callback is executed again, including any
+side effects outside the database:
+
+```ts
+await db.transaction(
+  async tx => {
+    await accounts.withTransaction(tx).update(accountId, { balance: nextBalance });
+  },
+  { retry: { maxRetries: 4, baseDelayMs: 10, maxDelayMs: 1000 } },
+);
+```
+
+`maxRetries` is the number of retries after the first attempt. Backoff is
+exponential and capped. The wrapper retries only error codes classified by the
+selected connection dialect — Cockroach retries `40001`; Postgres also
+classifies `40P01`. With no `retry` option, the callback runs once.
+
+Keep message publishing, HTTP calls, file writes and other non-idempotent work
+outside a retrying callback. A database rollback cannot undo them.
+
 ## Emitted SQL
 
 ```sql

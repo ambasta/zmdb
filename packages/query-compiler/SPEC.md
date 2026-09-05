@@ -44,8 +44,10 @@ Builders are immutable: each method returns a new builder.
 | sqlite             | `?`           | `"ident"`        |
 | mssql              | `@p1, @p2, …` | `[ident]`        |
 
-`createQueryCompiler(dialect?: Dialect)` — default `postgres`; the shipped
-members are `'postgres' | 'mysql' | 'sqlite' | 'mssql'`.
+`createQueryCompiler(dialect?: Dialect)` — default `postgres`. Cockroach and
+SingleStore inherit the Postgres and MySQL placeholder/quoting rows; SQL Server
+uses its dedicated row above. The six shipped members are `'postgres'`,
+`'mysql'`, `'sqlite'`, `'mssql'`, `'cockroach'` and `'singlestore'`.
 
 ## 4. Golden SQL fixtures (postgres)
 
@@ -105,7 +107,7 @@ Two reasons, and the second is the decisive one.
 `sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned
 by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible where it
 lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of
-four dialects is a losing game. It is not defensible one layer up, where `compileWhere` in
+four root SQL grammars is a losing game. It is not defensible one layer up, where `compileWhere` in
 `schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security
 side. So a `<->` typed into `where()` would already "work" today, by fall-through, on the one surface that
 must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it
@@ -175,9 +177,10 @@ this rule is "one operator token per dialect", and it is wrong in both direction
   and writes that. A function call is still one emitter-owned expression over one column, so `concat` is
   in.
 - It would admit **division**, which is one token everywhere and multiple results. Integer `/`
-  truncates on Postgres, SQLite and SQL Server and yields a decimal on MySQL, while division-by-zero
-  behavior also differs. One declaration, several answers, so there is no `div` variant and there will
-  not be one.
+  truncates on the Postgres family, SQLite and SQL Server and yields a decimal
+  on the MySQL family, while division-by-zero behavior also differs. One
+  declaration, several answers, so there is no `div` variant and there will not
+  be one.
 
 ### 5b.2 The vocabulary
 
@@ -264,9 +267,10 @@ postgres  UPDATE "users" SET "nickname" = COALESCE("nickname", $1)      paramete
 `dec` emits `-` rather than `+` with a negated parameter, because `by` may be a `bigint` or a decimal
 string and negating it would be a per-type operation in JavaScript that the compiler has no business doing.
 
-Postgres, MySQL and SQLite use `NOT`; on MySQL it evaluates a `tinyint(1)` to `1` or `0`, which is what the
-column stores. SQL Server uses bitwise `~` because a `BIT` column is not a T-SQL boolean expression.
-`SET` parameters precede `WHERE` parameters, as they already do.
+The Postgres and MySQL families plus SQLite use `NOT`; on the MySQL family it
+evaluates a `tinyint(1)` to `1` or `0`, which is what the column stores. SQL
+Server uses bitwise `~` because a `BIT` column is not a T-SQL boolean
+expression. `SET` parameters precede `WHERE` parameters, as they already do.
 
 ### 5b.4 `proposed`, and the MySQL spelling
 
@@ -301,17 +305,18 @@ Emitting the alias would break two populations to silence a warning in one. If M
 
 ### 5b.5 Nullability, and the one place the vocabulary bites
 
-Arithmetic and `not` are null-propagating on all four dialects: `NULL + 1` and `NOT NULL` produce `NULL`.
-Concatenation is the exception: SQL Server's `CONCAT(NULL, 'x')` produces `'x'`, while Postgres, MySQL and
-SQLite preserve `NULL`. So:
+Arithmetic and `not` are null-propagating on all six dialects: `NULL + 1` and `NOT NULL` produce `NULL`.
+Concatenation is the exception: SQL Server's `CONCAT(NULL, 'x')` produces
+`'x'`, while the Postgres and MySQL families and SQLite preserve `NULL`. So:
 
 - On a `NOT NULL` column the current value cannot be null, and `add`/`sub`/`mul`/`not` cannot produce one.
 - `coalesce` with a non-null fallback cannot produce null at all, which is the only variant that is safe
   regardless of the column.
-- `concat` with a nullable column preserves null on Postgres, MySQL and SQLite but treats it as an empty
-  string on SQL Server. MySQL and SQL Server both use their native `CONCAT` function but assign different
-  meaning to a null operand, so callers that need portable null preservation must handle it outside this
-  closed expression.
+- `concat` with a nullable column preserves null on the Postgres and MySQL
+  families and SQLite but treats it as an empty string on SQL Server. The MySQL
+  family and SQL Server both use their native `CONCAT` function but assign
+  different meaning to a null operand, so callers that need portable null
+  preservation must handle it outside this closed expression.
 
 **`inc` on a nullable numeric column yields NULL, not `by`.** This is the classic surprise, and zmdb does not wrap it in a `COALESCE` to be helpful: that would make `inc` mean two different things depending on a column's nullability, and the author who wanted the wrapping cannot tell from the call site whether they got it.
 
@@ -378,8 +383,8 @@ same reason — bounding a stream is what `batchSize` is for, and it bounds memo
 
 ## 5e. The dialect mechanism (frozen — epic "The SQL dialect matrix")
 
-`Dialect` currently has four shipped members: `'postgres' | 'mysql' | 'sqlite' | 'mssql'`; the epic grows
-it to six with `'cockroach'` and `'singlestore'`.
+`Dialect` has the frozen six-member set: `'postgres' | 'mysql' | 'sqlite' |
+'mssql' | 'cockroach' | 'singlestore'`.
 The per-dialect divergences, construct by construct with the SQL written out, are in `src/dialects/SPEC.md`.
 What belongs here is the mechanism, because it changes how every section above is implemented.
 
@@ -389,16 +394,18 @@ Adding three members then stopped exactly three files; the other twenty-one site
 
 The cost is not hidden: `quoting.ts` is built around a quote-character pair,
 `renumberPlaceholders` takes a dialect so named placeholders can be continued across a `UNION`, and
-`tailClause` delegates to the resolved pagination trait. #508 supplies SQL Server's named-part assembly
-for `OUTPUT` and `MERGE`; #507 supplied the dispatch seam it uses.
+`tailClause` delegates to the resolved pagination trait. Cockroach and SingleStore now use that seam through
+their Postgres and MySQL parents, while SQL Server owns the named-part assembly
+for `OUTPUT` and `MERGE`; #507 supplied the shared dispatch seam.
 
 Three things this mechanism does **not** change:
 
 - **§1's contract.** A compiled query is still `{ text, parameters }`, still frozen, still a pure function of
   builder state. `parameters` stays positional and in placeholder order even where the dialect binds by name
   — the `mssql` driver adapter maps the array onto `@p1…@pn`, which is exactly what that ordering is for.
-- **§3's table**, which now describes the four dialects that ship. The remaining epic rows live with the
-  dialects that need them rather than being promised here before an emitter exists.
+- **§3's table**, which describes the four root dialect rows. Cockroach and
+  SingleStore inherit the Postgres and MySQL placeholder/quoting rows through
+  resolved traits.
 - **Dispatch timing.** `TRAITS` is resolved once when the module is evaluated and indexed thereafter, never
   walked per statement. It is a module-level record rather than per-compiler state because `quoteIdentifier`,
   `ddlType`, `emitUp`, `setOperation` and half a dozen more are exported functions taking a `Dialect` string,

@@ -64,8 +64,10 @@ of a tag — and `References` would become the only member of the tag vocabulary
 taking a second type parameter, when every other tag composes by intersection.
 
 `packages/repository/src/tagged-to-ddl.spec.ts` follows the declaration through
-the real snapshot and asserts that all four shipped dialect plans contain
-`REFERENCES`; `tests/api-coverage/mapping.mjs` cites that shipped behavior.
+the real snapshot and asserts that all four root-dialect plans contain
+`REFERENCES`; Cockroach inherits the Postgres form, while SingleStore refuses
+foreign keys explicitly. `tests/api-coverage/mapping.mjs` cites that shipped
+behavior.
 
 #### Two references to one table are two constraints
 

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import { projectSourceFileNames } from '@zmdb/aot-validator/reflect';
 import { AssertError } from '@zmdb/aot-validator/utilities';
-import type { Dialect } from '@zmdb/query-compiler';
+import { TRAITS, type Dialect } from '@zmdb/query-compiler';
 import type { Driver } from '@zmdb/repository';
 import { isRecord } from '@zmdb/schema-core';
 
@@ -187,7 +187,7 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
   const project = resolve(directory, config.project ?? 'tsconfig.json');
   const outDir = resolve(directory, config.out ?? 'migrations');
 
-  if (config.migrations?.schema !== undefined && config.dialect !== 'postgres') {
+  if (config.migrations?.schema !== undefined && TRAITS[config.dialect].family !== 'postgres') {
     throw new Error(
       `Invalid config ${configPath}: migrations.schema is PostgreSQL-only and cannot be used with ${config.dialect}`,
     );

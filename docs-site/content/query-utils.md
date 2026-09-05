@@ -30,7 +30,7 @@ The compiler attaches it rather than asking a driver to parse generated SQL.
 Useful in tests, and the fastest way to see what a dialect does differently:
 
 ```ts
-const dialects = ['postgres', 'mysql', 'sqlite', 'mssql'] as const;
+const dialects = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
 for (const d of dialects) {
   console.log(d, createQueryCompiler(d).selectFrom('users').where('id', '=', 1).compile().text);
 }
@@ -38,6 +38,8 @@ for (const d of dialects) {
 // mysql    SELECT * FROM `users` WHERE `id` = ?
 // sqlite   SELECT * FROM "users" WHERE "id" = ?
 // mssql    SELECT * FROM [users] WHERE [id] = @p1
+// cockroach SELECT * FROM "users" WHERE "id" = $1
+// singlestore SELECT * FROM `users` WHERE `id` = ?
 ```
 
 A builder exposes `readonly dialect`, so a helper that takes a builder can branch on it without being told twice.

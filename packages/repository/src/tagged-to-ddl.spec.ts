@@ -113,7 +113,7 @@ interface Probe<T extends DeclaredTable> {
   readonly create: CreateDTO<T>;
 }
 
-/** Every operation this repository can run, as SQL, for one schema. */
+/** Every read this repository can run, as SQL, for one schema. */
 async function everySql<T extends DeclaredTable>(
   schema: TaggedSchema<T>,
   dialect: Dialect,
@@ -140,7 +140,6 @@ async function everySql<T extends DeclaredTable>(
     page: { limit: 10, offset: 5 },
   });
   await repo.aggregate({ computed: { total: { fn: 'count' } } });
-  await repo.delete(pk);
   return compiled;
 }
 
@@ -283,6 +282,26 @@ it('executes a MySQL repository delete without unsupported RETURNING', async () 
   ]);
 });
 
+it('executes a SingleStore repository delete with inherited MySQL semantics', async () => {
+  const calls: CompiledQuery[] = [];
+  const driver: Driver = {
+    dialect: 'singlestore',
+    execute(query) {
+      calls.push(query);
+      return Promise.resolve([{ affectedRows: 1 }]);
+    },
+  };
+  const repo = defineRepository(Users, driver, { dialect: 'singlestore' });
+
+  await expect(repo.delete(7)).resolves.toBe(true);
+  expect(calls).toEqual([
+    {
+      text: 'DELETE FROM `users` WHERE `id` = ?',
+      parameters: [7],
+    },
+  ]);
+});
+
 // One call per table rather than one loop over all three, because every DTO in here is
 // derived from a different declared type and a loop would have to erase them back to
 // `Record<string, unknown>` to have a single body.
@@ -291,11 +310,11 @@ function everyOperationCompiles<T extends DeclaredTable>(schema: TaggedSchema<T>
     for (const dialect of DIALECTS) {
       it(`compiles every read (${dialect})`, async () => {
         const compiled = await everySql(schema, dialect, probe);
-        // Seven calls, each of which has to have produced at least one query. A schema value
+        // Six calls, each of which has to have produced at least one query. A schema value
         // assembled at build time is data, and the way data goes wrong is a field that is
         // absent rather than an error that is raised — a method that read a missing flag and
         // returned early would leave the count short without throwing anything.
-        expect(compiled.length).toBeGreaterThan(6);
+        expect(compiled.length).toBeGreaterThanOrEqual(6);
       });
     }
 

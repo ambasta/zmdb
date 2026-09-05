@@ -83,15 +83,15 @@ The expression object is the same branded object supplied by the caller.
 
 ## Return values by dialect
 
-Postgres and SQLite use `RETURNING *`, while SQL Server uses `OUTPUT
-INSERTED.*`; all three return the computed row from `update` and `increment`.
-`updateMany` returns the number of returned rows.
+The Postgres family and SQLite use `RETURNING *`, while SQL Server uses
+`OUTPUT INSERTED.*`; all of them return the computed row from `update` and
+`increment`. `updateMany` returns the number of returned rows.
 
-MySQL has no `UPDATE … RETURNING`. Expression-bearing `update`/`increment` and
-all `updateMany` calls omit it, execute one atomic statement, and resolve to
-`undefined`; the repository does not issue a hidden `SELECT`. Read explicitly
-afterward if the new row is required, and use a transaction if that read must be
-paired consistently with the write.
+The MySQL family has no `UPDATE … RETURNING`. Expression-bearing
+`update`/`increment` and all `updateMany` calls omit it, execute one atomic
+statement, and resolve to `undefined`; the repository does not issue a hidden
+`SELECT`. Read explicitly afterward if the new row is required, and use a
+transaction if that read must be paired consistently with the write.
 
 ## When not to store a counter
 

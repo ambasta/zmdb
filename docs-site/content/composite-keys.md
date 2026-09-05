@@ -34,9 +34,11 @@ CREATE TABLE "memberships" (
 )
 ```
 
-Postgres, MySQL, SQLite and SQL Server use that same table-level shape with their own identifier quoting and
-integer spelling. A one-column key keeps the existing inline form, including SQLite's
-`INTEGER PRIMARY KEY` rowid alias.
+The four root dialects and Cockroach use that same table-level shape with their
+own identifier quoting and integer spelling. SingleStore adds its required
+shard or rowstore declaration to the same `CREATE TABLE`. A one-column key
+keeps the existing inline form, including SQLite's `INTEGER PRIMARY KEY` rowid
+alias.
 
 Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit
 one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter

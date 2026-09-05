@@ -19,14 +19,24 @@ The module has **zero runtime exports**. There is nothing to import at runtime, 
 
 Applied with `extends`, not intersected.
 
-| Tag           | Payload          | Means                                                     |
-| ------------- | ---------------- | --------------------------------------------------------- |
-| `Table<Name>` | `string`         | This interface is a table, and `Name` is its name.        |
-| `Fts<Name>`   | `string \| true` | Backing [full-text-search](./full-text-search.html) table |
+| Tag                 | Payload               | Means                                                     |
+| ------------------- | --------------------- | --------------------------------------------------------- |
+| `Table<Name>`       | `string`              | This interface is a table, and `Name` is its name.        |
+| `Fts<Name>`         | `string \| true`      | Backing [full-text-search](./full-text-search.html) table |
+| `ShardKey<Columns>` | tuple of column names | SingleStore distribution key                              |
+| `SortKey<Columns>`  | tuple of column names | SingleStore columnstore sort key                          |
+| `Rowstore`          | —                     | SingleStore row-oriented storage                          |
 
 ```ts
 interface Article extends Table<'articles'>, Fts<'articles_fts'> {}
 ```
+
+```ts
+interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['createdAt', 'id']> {}
+```
+
+Shard and sort tuples must be non-empty, name each column once, and refer to
+columns declared by the interface.
 
 ## Structural
 
@@ -75,6 +85,10 @@ amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
 | `jsonEnum`  | a union    | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     |
 
 Plus `Serial`, which is `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)` (SQLite's rowid alias is what makes it auto-increment there).
+
+Cockroach inherits the Postgres map except for `integer` (`INT4`) and
+`Serial` (`INT8 DEFAULT unique_rowid()`). SingleStore inherits MySQL except for
+`Serial` (`BIGINT AUTO_INCREMENT`).
 
 That is the whole core set. Extension-backed types such as `vector`,
 `geometry`, and `citext` use `Ext`; other storage types such as `uuid`, `date`,

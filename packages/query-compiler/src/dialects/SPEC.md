@@ -1,8 +1,9 @@
 # Dialects — Spec (epic "The SQL dialect matrix — SQL Server, CockroachDB and SingleStore")
 
-> `Dialect` grows from three members to six over the epic. The #507 mechanism now carries four shipped
-> dialects in `index.ts`; SQL Server landed in #508, while CockroachDB and SingleStore remain later
-> implementation slices. The mechanism decision and what it costs are in `../../SPEC.md` §5e.
+> `Dialect` grows from three members to six over the epic. The #507 mechanism lives in `index.ts`, and
+> SQL Server landed in #508 while #509 ships CockroachDB and SingleStore as
+> parented variants. The mechanism decision and what it costs are in
+> `../../SPEC.md` §5e.
 
 ## 1. The inventory, and the number it produced
 
@@ -111,6 +112,7 @@ export interface DialectTraits {
 export const DIALECTS: Readonly<Record<Dialect, DialectTraits>>;
 
 export type ResolvedTraits = Omit<Required<DialectTraits>, 'parent'> & {
+  readonly family: 'postgres' | 'mysql' | 'sqlite' | 'mssql';
   readonly features: Readonly<Record<DialectFeature, boolean>>;
 };
 
@@ -122,6 +124,11 @@ The implementation strengthens the sketch at the type boundary: an entry with no
 every scalar trait, every feature and a complete `DialectTypeMap`; only an entry with an explicit parent may
 provide partial overrides. That is what makes a missing root type mapping a compile error while still
 allowing CockroachDB and SingleStore to inherit most of their maps.
+
+`family` records the resolved root once. Non-trait grammar that genuinely
+follows the wire family — telemetry names, introspection dispatch and existing
+MySQL/Postgres migration forms — reads it instead of repeating literal
+comparisons that would send a variant down the wrong fallback branch.
 
 Five deliberate differences from the sketch in the sub-issue, each because the sketch does not survive
 contact with the code:
@@ -514,7 +521,7 @@ including `timestamp: 'TIMESTAMPTZ'` — are inherited rather than repeated.
 
 ### 4.1 `serial` stays an integer, and the UUID advice stays a declaration
 
-`docs-site/content/dialect-cockroach.md:70` says a real dialect would map `serial` to
+The pre-implementation Cockroach page suggested that a real dialect might map `serial` to
 `UUID DEFAULT gen_random_uuid()`. It must not, and the reason is not about databases.
 
 `Entity<T>` types a `Serial` column as `number`. A dialect that emitted `UUID` would give the application a
@@ -559,6 +566,10 @@ SYSTEM TIME` is the one worth wanting on the select builder and it is a select-c
 
 Materialized views are **inherited as supported**: Cockroach has them, without
 `REFRESH … CONCURRENTLY`, which this package never emits.
+
+Stored-routine DDL and set-returning function calls also inherit Postgres
+grammar. Their parameter and return spellings still resolve through the
+Cockroach type overrides.
 
 ### 4.4 Retryable errors, and where the retry belongs
 
@@ -630,7 +641,7 @@ export type Rowstore = { readonly [zmdbRowstore]?: true };
 A tuple type argument rather than the comma-separated string `Fts` and `References` use, because a shard key
 is genuinely multi-column and `ShardKey<'a,b'>` would need a parser. The reflector already reads a tuple out
 of a tag — `Numeric<P, S>` stores `readonly [P, S]` — so the shape is precedented; reading a tuple type
-_argument_ is the new part, and it is one of the reasons the implementation slice for this dialect touches
+_argument_ is the new part, and it is one of the reasons this implementation slice touches
 `@zmdb/schema-core` and not only this package.
 
 The DDL:
@@ -649,7 +660,7 @@ SingleStore's default for a new table, which is excellent for aggregates and poo
 single-row updates, so the tag exists to make the transactional hot path sayable.
 
 **`TableSnapshot` has no place to put any of this.** It is `{ name, columns }`, and a shard key is neither.
-So the implementation slice adds an optional table-options field to the snapshot, which means it also
+The implementation adds an optional table-options field to the snapshot, which means it also
 appears in the snapshot JSON on disk and therefore in the diff — see §5.4.
 
 The field is exact rather than an open options bag:
@@ -679,8 +690,8 @@ decision being made by omission". The entire reason to add this dialect rather t
 to stop making it by omission, so on `singlestore` a `create_table` op for a table with neither declaration
 is refused at migration-generation time, naming the table and both ways to fix it.
 
-This costs nothing in migration: no schema declares these tags today because they do not exist, and no user
-is on this dialect because it is not a `Dialect` value. It is the one moment where the refusal is free.
+This was a compatibility-free addition: no schema at the implementation base could declare these tags,
+and `singlestore` was not yet a `Dialect` value. It was the one moment where the refusal was free.
 
 ### 5.3 `serial` is `BIGINT AUTO_INCREMENT`, and it is still a sharp edge
 
@@ -716,6 +727,13 @@ constraints with referential actions. SingleStore cannot inherit that behavior
 from MySQL: `foreignKeys: false` makes migration generation refuse a table whose
 snapshot contains one. Suppressing the SQL would leave a declaration that
 promises integrity while the database enforces none.
+
+### 5.6 Stored-routine DDL is refused
+
+SingleStore's `CREATE FUNCTION` and `CREATE PROCEDURE` grammar is not MySQL's
+routine grammar. The schema-object emitter refuses `RoutineDef` DDL instead of
+shipping a plausible MySQL statement. Existing scalar functions and procedures
+can still be called through the inherited MySQL quoting and placeholders.
 
 Everything else on the MySQL page applies unchanged and is inherited: backtick quoting, `?` placeholders,
 `TINYINT(1)` booleans, no `RETURNING`, `INSERT IGNORE` and `ON DUPLICATE KEY UPDATE`.
@@ -802,31 +820,38 @@ exists today keeps its title when it is parameterised, and the per-dialect suffi
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly. Four dialects now ship, and
+The epic requires this to be stated honestly. Six dialect values now ship, and
 `packages/repository/src/drivers/` contains `pg.ts`, `sqlite.ts` and `mssql.ts`; MySQL remains a supported
 dialect with no bundled adapter. "Supported" means the compiler emits correct SQL, with a bundled adapter
 where the table says one exists.
 
-| Dialect       | Driver here            | Always-on CI database                                   | Coverage                                                                 |
-| ------------- | ---------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `postgres`    | `drivers/pg.ts`        | yes                                                     | golden SQL + real E2E                                                    |
-| `sqlite`      | `drivers/sqlite.ts`    | in-process                                              | golden SQL + real E2E                                                    |
-| `mysql`       | none                   | no                                                      | golden SQL only, today                                                   |
-| `mssql`       | `drivers/mssql.ts`     | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable  |
-| `cockroach`   | reuses `drivers/pg.ts` | planned single-node container                           | golden SQL + real E2E when its implementation slice lands                |
-| `singlestore` | none                   | no: the image wants a licence key and several gigabytes | **golden SQL only**, plus an opt-in suite behind an environment variable |
+| Dialect       | Driver here            | Always-on CI database                                   | Coverage                                                                |
+| ------------- | ---------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `postgres`    | `drivers/pg.ts`        | yes                                                     | golden SQL + real E2E                                                   |
+| `sqlite`      | `drivers/sqlite.ts`    | in-process                                              | golden SQL + real E2E                                                   |
+| `mysql`       | none                   | no                                                      | golden SQL only, today                                                  |
+| `mssql`       | `drivers/mssql.ts`     | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable |
+| `cockroach`   | reuses `drivers/pg.ts` | no                                                      | complete golden matrix; live-server qualification remains               |
+| `singlestore` | none                   | no: the image wants a licence key and several gigabytes | complete golden matrix; live-server qualification remains               |
 
 SQL Server's opt-in suite executes generated DDL, the adapter's named-parameter binding, bracket escaping,
 `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a real server.
 When `ZMDB_MSSQL_URL` is absent or unreachable, it emits a visible `[skip] SQL Server E2E: …` reason and
 retains a passing availability assertion rather than silently disappearing.
 
-Cockroach remains the cheap future server target: it speaks the Postgres wire protocol, so the existing
-driver can run against it with a connection string change once that dialect slice lands.
+Cockroach speaks the Postgres wire protocol, so the existing driver can run
+against it with a connection string change. The always-on gate does not
+currently start a Cockroach server, so accepting the emitted SQL there remains
+deployment qualification rather than CI evidence.
 
-SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file cannot verify, because the question is whether the server accepts the DDL.
+SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys,
+per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file cannot verify,
+because the question is whether the server accepts the DDL.
 
-So the suite exists, is skipped unless a licence key is present, and **the docs page says "golden SQL only" in the same words this table uses.** A page that flipped to `supported` while implying CI coverage that does not exist would be worse than the current `todo`, which at least tells the truth.
+#509 ships the complete golden matrix and explicit refusal tests, but no licensed live-server suite exists in
+the repository. The docs page therefore says that server acceptance remains deployment qualification. A page
+that flipped to `supported` while implying CI coverage that does not exist would be worse than the current
+`todo`, which at least tells the truth.
 
 ## 9. Docs corrections now, support rewrite later
 
@@ -840,8 +865,8 @@ The tests freeze corrects the design claims that became false as soon as this sp
 - SingleStore's unique-index check is at migration generation rather than type reflection, and there is no
   foreign-key SQL to suppress in the current snapshot/emitter (§5).
 
-#508 replaces the SQL Server workaround body with its measured contract. #510 still owns `pages.mjs`
-status changes and the CockroachDB/SingleStore support-state rewrites once those implementations exist.
+#509 corrects the statements made false by the implementation while keeping both pages `todo`. #510 still
+owns the final support-state rewrite, any status changes, and any additional live-coverage evidence.
 
 ## 10. Non-goals (rejected)
 

@@ -27,7 +27,10 @@ export interface User extends Table<'users'> {
 Differences that matter:
 
 - **It is a type, not a value.** There is no `pgTable` call and nothing to construct — `schemaOf<User>()` produces the value the query compiler reads, at build time.
-- No dialect-specific import. One declaration compiles for all four shipped dialects; you pick the dialect when you build a compiler or repository.
+- No dialect-specific import. One declaration supplies the shared shape; you
+  pick the dialect when you build a compiler or repository. SingleStore tables
+  additionally declare `ShardKey<…>` or `Rowstore` because
+  distribution/storage cannot be inferred safely.
 - Columns take no name argument. The property key _is_ the column name.
 - Nullability is `| null`, not `.notNull()` — the default is non-null, and TypeScript already has a way to say the other thing. Write `(T & Tags) | null`, tags inside.
 - `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing Drizzle expresses that a declaration cannot.

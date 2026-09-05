@@ -59,6 +59,9 @@ tags: `Nullable<string>` is exactly `string | null`.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `Table<Name>`                      | The table the entity maps to.                                                                  |
 | `Fts<Name>`                        | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to. |
+| `ShardKey<Columns>`                | SingleStore shard-key columns, as a non-empty tuple in declaration order.                      |
+| `SortKey<Columns>`                 | SingleStore columnstore sort-key columns, as a non-empty tuple in declaration order.           |
+| `Rowstore`                         | Select SingleStore's row-oriented storage instead of its default columnstore.                  |
 | `ForeignKey<Local, Table, Target>` | Composite foreign key; comma-separated local and target columns are paired positionally.       |
 
 ### Column-level, structural

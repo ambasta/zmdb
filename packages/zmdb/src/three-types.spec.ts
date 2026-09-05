@@ -70,7 +70,9 @@ describe('a timestamp column, in all three of its types', () => {
   // The whole statement, not a fragment: the abstract word `timestamp` reaching the DDL is
   // the regression, and matching a fragment is how it hid — `TIMESTAMPTZ` contains
   // `TIMESTAMP`, so half the obvious assertions pass either way.
-  const DB: Readonly<Record<Dialect, string>> = {
+  const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+  type RootDialect = (typeof DIALECTS)[number];
+  const DB: Readonly<Record<RootDialect, string>> = {
     postgres: 'CREATE TABLE "events" ("at" TIMESTAMPTZ NOT NULL, "id" SERIAL PRIMARY KEY, "name" TEXT NOT NULL)',
     mysql:
       'CREATE TABLE `events` (`at` DATETIME(3) NOT NULL, `id` INT AUTO_INCREMENT PRIMARY KEY, `name` TEXT NOT NULL)',
@@ -80,7 +82,8 @@ describe('a timestamp column, in all three of its types', () => {
       '[name] NVARCHAR(MAX) NOT NULL)',
   };
 
-  for (const [dialect, statement] of Object.entries(DB) as [Dialect, string][]) {
+  for (const dialect of DIALECTS) {
+    const statement = DB[dialect];
     it(`declares the column the way ${dialect} spells it`, () => {
       expect(ddl(dialect)).toBe(statement);
     });

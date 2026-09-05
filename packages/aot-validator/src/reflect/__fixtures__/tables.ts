@@ -45,9 +45,12 @@ import type {
   Pattern,
   PrimaryKey,
   References,
+  Rowstore,
   Sensitive,
   Serial,
+  ShardKey,
   Sql,
+  SortKey,
   Table,
   Unique,
   WireAs,
@@ -187,3 +190,17 @@ export interface Product extends Table<'products'>, Fts<true> {
   listing?: Listing & OneToOne<'listings', 'productId'>;
 }
 taggedOnly<Product>('products');
+
+export interface DistributedOrder
+  extends Table<'distributed_orders'>, ShardKey<['customerId']>, SortKey<['createdAt', 'id']> {
+  id: bigint & Sql<'bigint'> & PrimaryKey;
+  customerId: bigint & Sql<'bigint'>;
+  createdAt: Date & Sql<'timestamp'>;
+}
+taggedOnly<DistributedOrder>('distributed-orders');
+
+export interface Session extends Table<'sessions'>, Rowstore {
+  id: string & Sql<'text'> & PrimaryKey;
+  value: string & Sql<'text'>;
+}
+taggedOnly<Session>('rowstore-sessions');

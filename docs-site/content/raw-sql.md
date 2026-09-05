@@ -47,19 +47,21 @@ const users = rows.map(r => assert<Entity<User>>(r));
 
 The placeholder syntax is the dialect's, because the text goes straight to the driver:
 
-| Dialect  | Placeholder     |
-| -------- | --------------- |
-| postgres | `$1`, `$2`, …   |
-| mysql    | `?`             |
-| sqlite   | `?`             |
-| mssql    | `@p1`, `@p2`, … |
+| Dialect     | Placeholder     |
+| ----------- | --------------- |
+| postgres    | `$1`, `$2`, …   |
+| mysql       | `?`             |
+| sqlite      | `?`             |
+| mssql       | `@p1`, `@p2`, … |
+| cockroach   | `$1`, `$2`, …   |
+| singlestore | `?`             |
 
 If a query has to run on more than one dialect, generate the placeholders:
 
 ```ts
-import { quoteIdentifier } from '@zmdb/query-compiler';
+import { formatPlaceholder, quoteIdentifier } from '@zmdb/query-compiler';
 
-const ph = (i: number) => (dialect === 'postgres' ? `$${i + 1}` : dialect === 'mssql' ? `@p${i + 1}` : '?');
+const ph = (i: number) => formatPlaceholder(dialect, i + 1);
 const list = ids.map((_, i) => ph(i)).join(', ');
 const text =
   `SELECT * FROM ${quoteIdentifier(dialect, 'users')} ` + `WHERE ${quoteIdentifier(dialect, 'id')} IN (${list})`;

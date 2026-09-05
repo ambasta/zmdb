@@ -13,11 +13,12 @@ import {
 } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
+const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+type ExpressionDialect = (typeof DIALECTS)[number];
 
-type Golden = Readonly<Record<Dialect, CompiledQuery>>;
+type Golden = Readonly<Record<ExpressionDialect, CompiledQuery>>;
 
-function expectAcrossDialects(build: (dialect: Dialect) => CompiledQuery, golden: Golden): void {
+function expectAcrossDialects(build: (dialect: ExpressionDialect) => CompiledQuery, golden: Golden): void {
   for (const dialect of DIALECTS) expect(build(dialect), dialect).toEqual(golden[dialect]);
 }
 

@@ -2,7 +2,7 @@
 //
 // The worker owns the state machine; repository owns the schema vocabulary
 // because table declarations and their generated migrations belong here.
-import type { Dialect } from '@zmdb/query-compiler';
+import { TRAITS, type Dialect } from '@zmdb/query-compiler';
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 import type { HasDefault, PrimaryKey, Sql, Table, Unique } from '@zmdb/schema-core/tags';
 
@@ -32,12 +32,13 @@ export interface JobDoneRow extends Table<'zmdb_job_done'> {
 
 /** The claim index: partial where supported, status-leading on MySQL. */
 export function jobPendingIndexDdl(dialect: Dialect): string {
+  const family = TRAITS[dialect].family;
   return createIndexDdl(
     {
       name: 'zmdb_job_pending',
       table: 'zmdb_job',
       columns: ['status', 'lease_until', 'enqueued_at'],
-      ...(dialect === 'mysql' ? {} : { where: "status = 'pending'" }),
+      ...(family === 'mysql' ? {} : { where: "status = 'pending'" }),
     },
     dialect,
   );

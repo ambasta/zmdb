@@ -52,6 +52,7 @@ import {
   type ShapeColumnIR,
   type ShapeIR,
   type TagField,
+  type TableOptions,
   type TypeIR,
 } from '@zmdb/schema-core/ir';
 import type { Node } from 'typescript/unstable/ast';
@@ -390,6 +391,9 @@ export class Reflector {
     }
 
     const fts = literalOf(this.#nonNullable(tags.get('ftsTable')));
+    const shardKey = this.#tableColumnList('ShardKey', tags.get('shardKey'));
+    const sortKey = this.#tableColumnList('SortKey', tags.get('sortKey'));
+    const rowstore = tags.has('rowstore');
     const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
     if (primaryKey.length > 1) {
       const serialKey = columns.find(column => column.primaryKey && column.serial);
@@ -402,6 +406,17 @@ export class Reflector {
       }
     }
     const foreignKeys = this.#foreignKeysOf(tableName, tags, columns);
+    const columnNames = new Set(columns.map(column => column.name));
+    for (const [label, names] of [
+      ['ShardKey', shardKey],
+      ['SortKey', sortKey],
+    ] as const) {
+      for (const column of names ?? []) {
+        if (!columnNames.has(column)) {
+          this.#refuse(tableName, `${label} names unknown column "${column}" on "${tableName}"`);
+        }
+      }
+    }
     const physicalColumns = new Map<string, string>();
     for (const column of columns) {
       const previous = physicalColumns.get(column.physicalName);
@@ -430,6 +445,15 @@ export class Reflector {
       );
     }
 
+    const tableOptions: TableOptions | undefined =
+      shardKey === undefined && sortKey === undefined && !rowstore
+        ? undefined
+        : {
+            ...(shardKey === undefined ? {} : { shardKey }),
+            ...(sortKey === undefined ? {} : { sortKey }),
+            ...(rowstore ? { rowstore: true } : {}),
+          };
+
     return {
       table: tableName,
       physicalTable,
@@ -438,6 +462,7 @@ export class Reflector {
       relations,
       foreignKeys,
       ...(typeof fts === 'string' || fts === true ? { ftsTable: fts } : {}),
+      ...(tableOptions === undefined ? {} : { tableOptions }),
     };
   }
 
@@ -1421,6 +1446,23 @@ export class Reflector {
       return undefined;
     }
     return [p, s];
+  }
+
+  #tableColumnList(label: 'ShardKey' | 'SortKey', tagged: Type | undefined): readonly string[] | undefined {
+    const spec = this.#nonNullable(tagged);
+    if (!spec) return undefined;
+    const parts = this.#checker.isTupleType(spec) ? this.#typeArguments(spec) : [];
+    const columns = parts.map(part => literalOf(part));
+    if (columns.length === 0 || columns.some(column => typeof column !== 'string')) {
+      this.#refuse(label, `${label}<Columns> needs a non-empty tuple of string literals`, this.#print(spec));
+      return undefined;
+    }
+    const names = columns.filter((column): column is string => typeof column === 'string');
+    if (new Set(names).size !== names.length) {
+      this.#refuse(label, `${label}<Columns> names each column once`, this.#print(spec));
+      return undefined;
+    }
+    return names;
   }
 
   /**

@@ -29,7 +29,7 @@ import {
 // ---------------------------------------------------------------------------
 // fixtures
 // ---------------------------------------------------------------------------
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
+const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'];
 
 const EPOCH = new Date(0);
 const NOW = new Date('2026-06-01T00:00:00.000Z');
@@ -160,10 +160,13 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
     );
     expect(outboxTableDdl('mssql')).toContain('[id] NVARCHAR(36) PRIMARY KEY');
     expect(outboxTableDdl('mssql')).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
+    expect(outboxTableDdl('cockroach')).toContain('"attempts" INT4 NOT NULL DEFAULT 0');
+    expect(outboxTableDdl('singlestore')).toMatch(/^CREATE ROWSTORE TABLE `zmdb_outbox`/);
+    expect(outboxTableDdl('singlestore')).toContain('`created_at` DATETIME(3)');
     for (const dialect of DIALECTS) {
       const migration = outboxMigration(42, dialect);
       expect(migration.version).toBe(42);
-      expect(migration.up).toContain('CREATE TABLE');
+      expect(migration.up).toMatch(/CREATE (?:ROWSTORE )?TABLE/);
       expect(migration.up).toContain('zmdb_outbox_pending');
       expect(migration.down).toContain('DROP TABLE');
     }
@@ -231,6 +234,9 @@ describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
     // the same index is created in full"; that is not what the shipped emitter does. See the
     // green companion below, and NOTES.md.
     expect(outboxPendingIndexDdl('mysql')).toBe(
+      'CREATE INDEX `zmdb_outbox_pending` ON `zmdb_outbox` (`status`, `lease_until`, `created_at`)',
+    );
+    expect(outboxPendingIndexDdl('singlestore')).toBe(
       'CREATE INDEX `zmdb_outbox_pending` ON `zmdb_outbox` (`status`, `lease_until`, `created_at`)',
     );
   });
@@ -369,10 +375,8 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('the candidate query never emits IS NULL', () => {
-    // SPEC §2.1 is a rule, not an observation: `Operator` has no `is` member and `sqlOperator`
-    // passes an unrecognised operator through verbatim, so a later change that reaches for
-    // `delivered_at IS NULL` compiles to something that is a syntax error on postgres. See the
-    // green companion below for exactly what it produces.
+    // The builder can now spell IS NULL, but the outbox deliberately keeps its state machine
+    // on the non-null status and lease columns so the claim index and terminal state stay explicit.
     for (const dialect of DIALECTS) {
       const q = outboxCandidatesQuery(dialect, { now: NOW, batch: 100 });
       expect(q.text.toUpperCase()).not.toContain('IS NULL');
@@ -380,21 +384,18 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     }
   });
 
-  it('an `is` operator compiles to a bound null today rather than IS NULL', () => {
-    // The gap SPEC §2.1 designs around, pinned. `where('deliveredAt', 'is', null)` on postgres is
-    // `"deliveredAt" is $1` with a null parameter: a syntax error there, and never true on the
-    // dialects that tolerate it.
+  it('the explicit `is null` operator emits no bound parameter', () => {
     expect(
       createQueryCompiler('postgres')
         .selectFrom(OUTBOX_TABLE)
         .select(['id'])
-        .where('deliveredAt', 'is', null)
+        .where('deliveredAt', 'is null', null)
         .compile(),
-    ).toEqual({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" is $1', parameters: [null] });
+    ).toEqual({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
   });
 
   it('no claim or mark statement emits RETURNING', () => {
-    // SPEC §4.1: dialect dispatch now refuses MySQL RETURNING and places SQL Server OUTPUT,
+    // Dialect dispatch refuses MySQL-family RETURNING and places SQL Server OUTPUT,
     // but the outbox claim protocol deliberately requests neither row-returning form.
     const statements = DIALECTS.flatMap(dialect => [
       outboxCandidatesQuery(dialect, { now: NOW, batch: 100 }),

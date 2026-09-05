@@ -19,6 +19,8 @@ interface ColumnSnapshot {
   readonly primaryKey: boolean;
   /** Present only for a `varchar`; omitted otherwise, so old snapshots still match. */
   readonly length?: number;
+  /** Present only when the declaration carries `Unique`; used by dialect-specific DDL validation. */
+  readonly unique?: boolean;
   /** A catalog default expression, verbatim. Recorded, never diffed — `../introspect/SPEC.md` §4. */
   readonly default?: string;
 }
@@ -42,6 +44,12 @@ interface TableSnapshot {
   readonly columns: readonly ColumnSnapshot[]; // sorted by name
   /** The ordered key. See §1.1. */
   readonly primaryKey: readonly string[];
+  /** SingleStore distribution/storage declarations; absent on ordinary tables. */
+  readonly tableOptions?: {
+    readonly shardKey?: readonly string[];
+    readonly sortKey?: readonly string[];
+    readonly rowstore?: true;
+  };
   /** Non-primary indexes, sorted by name. See §1.7. */
   readonly indexes: readonly IndexSnapshot[];
 }
@@ -173,7 +181,7 @@ vocabulary for "this column became that one" rather than an input shape and an o
 to be kept in step.
 
 A rename the caller supplies removes the pair from consideration, so the drop and the add are not also
-emitted. All three dialects can express both forms, which is why this is worth having rather than
+emitted. All six dialects can express both forms, which is why this is worth having rather than
 being a documentation note:
 
 ```
@@ -340,12 +348,14 @@ here is cheaper than discovering it from `no such table` during a migration.
   time** on MySQL, naming the action, the constraint and the dialect. It is not downgraded to `NO ACTION`:
   the two behaviours differ on exactly the delete the author was thinking about when they chose it.
 - **MySQL requires an index on the referencing columns and will create one silently.** zmdb emits it
-  itself, on MySQL only, named `<constraint>_idx`, immediately before the constraint. The reason is drift
+  itself, on MySQL only, named `<constraint>_idx`, immediately before the constraint. SingleStore refuses
+  foreign keys before this branch. The reason is drift
   rather than performance: a server-created index is a real index that introspection finds and that `diff`
   then wants to drop, so every `check` on a MySQL database would report an index nobody declared. On
-  Postgres, SQLite and SQL Server no index is emitted, because none of those servers creates one and the choice is the
-  author's — with the note that without one, `ON DELETE CASCADE` scans the child table once per deleted
-  parent row.
+  On the Postgres family, SQLite and SQL Server no index is emitted, because
+  none of those servers creates one and the choice is the author's — with the
+  note that without one, `ON DELETE CASCADE` scans the child table once per
+  deleted parent row.
 - **SQL Server spells `RESTRICT` as `NO ACTION`.** T-SQL has no `RESTRICT`
   referential action, and the two are equivalent for its immediate constraint
   enforcement, so the emitter maps that one spelling rather than sending
@@ -498,15 +508,17 @@ auto-increment values there are allocated per partition in large strides.
 ## 4. Migration lifecycle + version tracking
 
 - Version table `_zmdb_migrations(version, name, applied_at, checksum)`. The
-  version is `BIGINT` on Postgres/MySQL and SQLite's 64-bit `INTEGER`; checksum
-  is nullable so rows written by older runners remain applied but unverifiable.
+  version is `BIGINT` on the Postgres and MySQL families and SQLite's 64-bit
+  `INTEGER`; checksum is nullable so rows written by older runners remain
+  applied but unverifiable.
 - Runner verbs: `up`, `down`, `status`, where `up` applies every pending migration.
 - The driver adapter owns the ledger DDL and records SHA-256 over the exact
   `up` section. An applied non-null checksum mismatch refuses before new SQL.
-- Postgres, SQLite and SQL Server run each migration body and ledger write in
-  one pinned transaction. A driver for one of those dialects that cannot pin
-  callback queries is refused instead of receiving a misleading `BEGIN`.
-  MySQL warns before the first pending migration because its DDL auto-commits.
+- The Postgres family, SQLite and SQL Server run each migration body and ledger
+  write in one pinned transaction. A driver for one of those dialects that
+  cannot pin callback queries is refused instead of receiving a misleading
+  `BEGIN`. The MySQL family warns before the first pending migration because
+  its DDL auto-commits.
 
 `up`/`down`/`status` are the _library_ verbs, and they are not the command names. The executable spells
 them `migrate`, `rollback` and `status`, and deliberately has no `up` command at all — the reasoning, and

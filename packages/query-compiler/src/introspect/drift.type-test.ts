@@ -8,7 +8,7 @@ export type _DeclarationFindingsAreChangeOps = Expect<Equal<DriftReport['onlyInD
 export type _DetectDriftReturnsTheReport = Expect<Equal<ReturnType<typeof detectDrift>, DriftReport>>;
 export type _ExcludeIsAReadonlyList = Expect<Equal<DriftOptions['exclude'], readonly string[] | undefined>>;
 export type _DialectSelectsNoiseRules = Expect<
-  Equal<DriftOptions['dialect'], 'postgres' | 'mysql' | 'sqlite' | 'mssql' | undefined>
+  Equal<DriftOptions['dialect'], 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore' | undefined>
 >;
 
 const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };

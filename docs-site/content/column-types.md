@@ -2,7 +2,10 @@
 
 ## Type mapping
 
-Each dialect renders the type it owns. The declaration stays abstract — it says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that becomes a real type, because the four databases do not agree and a schema should not have to pick.
+Each dialect renders the type it owns. The declaration stays abstract — it
+says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that
+becomes a real type, because the four root grammars do not agree and a schema
+should not have to pick.
 
 | `Sql<…>`    | Postgres      | MySQL         | SQLite    | SQL Server          | TS type                    |
 | ----------- | ------------- | ------------- | --------- | ------------------- | -------------------------- |
@@ -17,6 +20,12 @@ Each dialect renders the type it owns. The declaration stays abstract — it say
 | `jsonEnum`  | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     | a literal union            |
 
 `serial` is the tenth, and it is the one you spell as a **tag** rather than an `Sql<…>` argument — `Sql<'serial'>` does not typecheck, because `Serial` already means it. It emits `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)`, is `number` in TS, and is omitted from `CreateDTO` entirely.
+
+Cockroach inherits the Postgres column map except that `integer` is `INT4` and
+`Serial` is `INT8 DEFAULT unique_rowid()`. SingleStore inherits MySQL except
+that `Serial` is `BIGINT AUTO_INCREMENT`; its table-level shard, sort and
+rowstore declarations are documented on the
+[SingleStore page](./dialect-singlestore.html).
 
 ```ts
 interface Event extends Table<'events'> {
@@ -49,7 +58,12 @@ Ten abstract types, closed. A type supplied by a database extension uses
 `inet`, `cidr`, and arrays still need a [custom type](./custom-types.html) or a
 `json` column.
 
-The union is small on purpose. Every back-end has to answer for every member: the DDL emitter needs a spelling in four dialects, the validator needs a check, the JSON Schema generator needs a keyword, the seeder needs a generator. Ten members means seventy answers, all of them written down and tested. A `SqlType` with forty members would mean most of those answers were guesses, and the guesses would be in whichever back-end nobody exercised.
+The union is small on purpose. Every back-end has to answer for every member:
+the DDL emitter needs a spelling in six dialects, the validator needs a check,
+the JSON Schema generator needs a keyword, and the seeder needs a generator.
+Ten members mean ninety answers, all of them written down and tested. A
+`SqlType` with forty members would mean most of those answers were guesses in
+whichever back-end nobody exercised.
 
 ## Constraining a column
 
@@ -90,7 +104,13 @@ CREATE TABLE [users] ([createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(M
 
 Columns come out sorted by name, because a snapshot has to be byte-stable to be diffable.
 
-Two things the snapshot does not yet carry, and so the DDL does not either: `DEFAULT` clauses and `UNIQUE`/`CHECK` constraints. For defaults this is not only a gap in the snapshot — `HasDefault` says a column _has_ a default, not _which one_, because a default is a runtime value and no type holds one.
+The snapshot still cannot carry `DEFAULT` values or general `CHECK`
+constraints. It now carries the `Unique` flag so SingleStore can validate and
+emit a unique declaration against its shard key, but the ordinary generated
+migration path still does not create standalone unique constraints for the
+other dialects. For defaults this is not only a snapshot gap — `HasDefault`
+says a column _has_ a default, not _which one_, because a default is a runtime
+value and no type holds one.
 
 Write the value in the migration, where the DDL is written anyway. Validation tags feed the JSON Schema, the OpenAPI document and the [seed generator](./seed-functions.html); enforce them at the HTTP boundary with [`assert`](./validators-assert.html), where a failure becomes a 400 rather than a partially-applied write.
 

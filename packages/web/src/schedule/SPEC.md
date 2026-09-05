@@ -329,9 +329,10 @@ tasks it happened to hold.
 **`pg_try_advisory_lock` is refused**, and `web-task-scheduling.md` presents it as the
 Postgres option. Three reasons, in increasing order of severity:
 
-1. It is Postgres-only. `@zmdb/repository` supports SQLite and MySQL, and a coordination
-   mechanism available on one dialect is a scheduler that works in production and not in the
-   test suite — which is the arrangement most likely to ship a broken lease.
+1. It is Postgres-only. `@zmdb/repository` supports four root dialect families
+   plus Cockroach and SingleStore variants, and a coordination mechanism
+   available on one dialect is a scheduler that works in production and not in
+   the test suite — which is the arrangement most likely to ship a broken lease.
 2. The page's own caveat — _"The lock is held on a session"_ — is fatal under a
    connection pool, because the application does not choose which session it gets. A lock
    taken on a pooled connection is released when that connection is reset or returned, and

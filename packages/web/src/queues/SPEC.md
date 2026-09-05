@@ -46,7 +46,7 @@ export interface Clock {
 
 /** The store port. Structural; supported adapters are separate opt-in subpaths — §3. */
 export interface JobStore {
-  readonly dialect?: 'postgres' | 'mysql' | 'sqlite';
+  readonly dialect?: Dialect;
   execute(query: {
     readonly text: string;
     readonly parameters: readonly unknown[];

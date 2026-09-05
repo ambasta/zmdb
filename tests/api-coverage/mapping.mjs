@@ -88,8 +88,9 @@ const NO_EXOTIC_JOIN =
 
 const NO_DIALECT_ONLY_SYNTAX =
   'This is syntax one engine has and the others do not — REPLACE INTO, SELECT ... FOR UPDATE OF, ' +
-  'TOP, materialized-view refresh, enum types created with CREATE TYPE. zmdb only compiles what ' +
-  'all three target dialects can run, because a builder that quietly produces SQL that fails on ' +
+  'TOP, materialized-view refresh, enum types created with CREATE TYPE. zmdb exposes a portable ' +
+  'semantic operation only when each shipped dialect has a safe spelling or an explicit refusal; ' +
+  'engine-only syntax remains raw SQL, because a builder that quietly produces SQL that fails on ' +
   'the dialect you deploy to is worse than one that never offered it.';
 
 const NO_IDENTITY_MAP =

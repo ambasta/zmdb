@@ -55,6 +55,9 @@ import type { ProtoScalar, ReferentialAction, RelationKind } from '../ir/index.j
 
 declare const zmdbTable: unique symbol;
 declare const zmdbFts: unique symbol;
+declare const zmdbShardKey: unique symbol;
+declare const zmdbSortKey: unique symbol;
+declare const zmdbRowstore: unique symbol;
 declare const zmdbSqlType: unique symbol;
 declare const zmdbPrimaryKey: unique symbol;
 declare const zmdbSerial: unique symbol;
@@ -88,6 +91,15 @@ export type Table<Name extends string> = { readonly [zmdbTable]?: Name };
 
 /** The full-text-search table backing this entity (`CoreSchema.ftsTable`). */
 export type Fts<Name extends string | true> = { readonly [zmdbFts]?: Name };
+
+/** SingleStore distribution columns, in declared order. */
+export type ShardKey<Columns extends readonly string[]> = { readonly [zmdbShardKey]?: Columns };
+
+/** SingleStore columnstore sort columns, in declared order. */
+export type SortKey<Columns extends readonly string[]> = { readonly [zmdbSortKey]?: Columns };
+
+/** Select SingleStore's row-oriented table storage instead of its columnstore default. */
+export type Rowstore = { readonly [zmdbRowstore]?: true };
 
 // ---------------------------------------------------------------------------
 // Column-level structural tags — facts the SQL layer needs that TypeScript

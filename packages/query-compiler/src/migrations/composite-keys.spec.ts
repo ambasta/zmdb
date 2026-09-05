@@ -13,7 +13,8 @@ import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, t
 // the ordered snapshot field, table-level DDL, reversible key-change operation and SQLite's
 // explicit refusal.
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
+const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+type KeyDialect = (typeof DIALECTS)[number];
 
 // ---------------------------------------------------------------------------
 // §1.2 Key DDL, per dialect
@@ -40,7 +41,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
   // The whole statement per dialect, not a fragment. The defect is a *second* `PRIMARY KEY`
   // appearing, and `toContain('PRIMARY KEY')` passes either way.
   it('emits one table-level PRIMARY KEY for a two-column key', () => {
-    const golden: Readonly<Record<Dialect, string>> = {
+    const golden: Readonly<Record<KeyDialect, string>> = {
       postgres:
         'CREATE TABLE "memberships" ("org_id" INTEGER NOT NULL, "role" TEXT NOT NULL, ' +
         '"user_id" INTEGER NOT NULL, PRIMARY KEY ("user_id", "org_id"))',
@@ -88,7 +89,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
       primaryKey: ['id'],
       foreignKeys: [],
     };
-    const golden: Readonly<Record<Dialect, string>> = {
+    const golden: Readonly<Record<KeyDialect, string>> = {
       postgres: 'CREATE TABLE "users" ("id" SERIAL PRIMARY KEY, "email" VARCHAR(255) NOT NULL)',
       mysql: 'CREATE TABLE `users` (`id` INT AUTO_INCREMENT PRIMARY KEY, `email` VARCHAR(255) NOT NULL)',
       sqlite: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "email" TEXT NOT NULL)',

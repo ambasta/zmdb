@@ -63,10 +63,11 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING *
 -- parameters: ['admin', 1]
 ```
 
-Postgres, SQLite and SQL Server expression-bearing keyed updates return the computed row;
-`updateMany` returns the number of rows returned. MySQL omits unsupported
-`RETURNING` for expression-bearing keyed updates and every `updateMany`, so
-those calls resolve to `undefined` without issuing a follow-up `SELECT`.
+The Postgres family, SQLite and SQL Server expression-bearing keyed updates
+return the computed row; `updateMany` returns the number of rows returned. The
+MySQL family omits unsupported `RETURNING` for expression-bearing keyed updates
+and every `updateMany`, so those calls resolve to `undefined` without issuing a
+follow-up `SELECT`.
 
 > [!WARNING]
 > Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:

@@ -43,8 +43,12 @@ export function createIntrospector(dialect: Dialect): Introspector {
   switch (dialect) {
     case 'postgres':
       return postgresIntrospector;
+    case 'cockroach':
+      return { dialect, snapshot: (driver, options) => postgresIntrospector.snapshot(driver, options) };
     case 'mysql':
       return mysqlIntrospector;
+    case 'singlestore':
+      return { dialect, snapshot: (driver, options) => mysqlIntrospector.snapshot(driver, options) };
     case 'sqlite':
       return sqliteIntrospector;
     case 'mssql':

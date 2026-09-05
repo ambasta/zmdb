@@ -129,7 +129,13 @@ See [Testing](./testing.html).
 
 ## Errors
 
-Let them propagate. zmdb does not catch driver errors or translate them, so what your handler sees is your client's error object with its native code — `23505` on Postgres, `ER_DUP_ENTRY` on MySQL. That is deliberate: an ORM that wraps `UniqueViolation` in its own class loses the detail you need and gains a mapping table that is always incomplete. Translate at your HTTP boundary, where you know what the codes should become:
+Let them propagate. Outside an explicitly retrying transaction, zmdb does not
+catch or translate driver errors, so what your handler sees is your client's
+error object with its native code — `23505` on Postgres, `ER_DUP_ENTRY` on
+MySQL. The transaction wrapper may inspect the direct `code` only when the
+caller opts into a dialect-classified retry; it still rethrows the original
+error when retries are disabled or exhausted. Translate at your HTTP boundary,
+where you know what the codes should become:
 
 ```ts
 try {

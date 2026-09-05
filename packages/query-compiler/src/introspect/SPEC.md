@@ -257,7 +257,7 @@ DDL is a deliberate human act rather than something a generator guesses.
 `nextval('…')` is not recorded as a default at all. It is how Postgres spells `serial`, it is consumed by
 §5, and recording it twice would make `push` emit both a `SERIAL` and a redundant `DEFAULT`.
 
-**`diff` does not compare defaults, and this section is where that is frozen.** Servers normalise these strings: MySQL rewrites the case of `CURRENT_TIMESTAMP`, Postgres appends `::text` casts and reformats whitespace. Comparing verbatim therefore reports an `alter` after a server upgrade that changed nothing, and comparing loosely means writing an expression normaliser for three dialects' expression grammars — the same trade `../schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason.
+**`diff` does not compare defaults, and this section is where that is frozen.** Servers normalise these strings: MySQL rewrites the case of `CURRENT_TIMESTAMP`, Postgres appends `::text` casts and reformats whitespace. Comparing verbatim therefore reports an `alter` after a server upgrade that changed nothing, and comparing loosely means writing an expression normaliser for four root dialect families' expression grammars — the same trade `../schema-objects/SPEC.md` §1.1 refuses for index expressions, for the same reason.
 
 So the default is recorded, shown by `pull`, printed in the generated comment, and not diffed. When a drift report is requested, its normalization boundary explicitly removes `default` and `catalogType` evidence before delegating to `diff`: the normalized abstract `type` is compared, while two server spellings of the same default remain review evidence rather than schema drift.
 

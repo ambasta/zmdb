@@ -51,5 +51,5 @@ export type _CreateTableCarriesForeignKeys = Expect<Equal<CreateTableForeignKeys
 // dialect is an optional diff input rather than an invented third op.
 type DiffOptions = Parameters<typeof diff>[2];
 type DiffDialect = NonNullable<DiffOptions>['dialect'];
-type FrozenDiffDialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | undefined;
+type FrozenDiffDialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore' | undefined;
 export type _DiffDialect = Expect<Equal<DiffDialect, FrozenDiffDialect>>;

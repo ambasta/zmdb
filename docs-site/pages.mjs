@@ -889,7 +889,7 @@ export const PAGE_META = {
     title: 'CockroachDB',
     group: 'Dialects',
     status: 'todo',
-    note: 'not a Dialect value; the postgres dialect works over the wire but Cockroach-specific DDL and types are unhandled',
+    note: 'dialect, inherited SQL and retry policy ship; live Cockroach qualification and final support docs remain',
   },
   'dialect-mssql': {
     title: 'SQL Server',
@@ -901,7 +901,7 @@ export const PAGE_META = {
     title: 'SingleStore',
     group: 'Dialects',
     status: 'todo',
-    note: 'not a Dialect value; the mysql dialect works over the wire but columnstore DDL is unhandled',
+    note: 'dialect and distribution/storage DDL ship; a licensed live-server qualification remains',
   },
   'dialect-gel': {
     title: 'Gel (EdgeDB)',

@@ -42,13 +42,14 @@ migration before running pending SQL.
 
 ## Transaction guarantees
 
-Postgres, SQLite and SQL Server run each migration body and its ledger insert
-in one driver-pinned transaction. The failing migration rolls back without a
-ledger row; migrations committed earlier in the batch remain applied.
+The Postgres family, SQLite and SQL Server run each migration body and its
+ledger insert in one driver-pinned transaction. The failing migration rolls
+back without a ledger row; migrations committed earlier in the batch remain
+applied.
 
-MySQL DDL is not transactional. The runner exposes a warning callback and the
-packaged command prints that warning before execution. Its ledger remains
-honest after a failure, but the schema can be partially changed.
+MySQL-family DDL is not transactional. The runner exposes a warning callback
+and the packaged command prints that warning before execution. Its ledger
+remains honest after a failure, but the schema can be partially changed.
 
 ## Custom connections
 

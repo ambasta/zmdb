@@ -61,7 +61,8 @@ If you delete `email` from the interface, every one of those changes in the same
 ## When not to use zmdb
 
 - You need a target we do not compile: Gel or MongoDB, or a SQL dialect beyond
-  Postgres, MySQL, SQLite and SQL Server. See [Dialects](./dialect-postgres.html).
+  Postgres, MySQL, SQLite, SQL Server, CockroachDB and SingleStore. See
+  [Dialects](./dialect-postgres.html).
 - You want the ORM to track your objects and work out the writes. That is the [unit of work](./anti-patterns.html), and it is excluded by design, not deferred.
 - You cannot run a TypeScript transformer in your build. The transformer is not optional — see [AOT Setup](./aot-setup.html).
 

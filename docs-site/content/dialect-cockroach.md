@@ -1,26 +1,33 @@
-> **ToDo / feature gap.** There is no `'cockroach'` dialect. `Dialect` is
-> `'postgres' | 'mysql' | 'sqlite' | 'mssql'`. CockroachDB speaks the Postgres wire
-> protocol, so it **works today through `'postgres'`** — with the caveats below,
-> which are the reason a dedicated dialect would exist.
+> **Dialect available; qualification still TODO.** `'cockroach'` is a
+> `Dialect` variant of Postgres. It has dedicated types, refusals and transaction
+> retry classification, while the existing Postgres wire adapter is reused.
 
-## Using it now
+## Using it
 
 ```ts
-const compiler = createQueryCompiler('postgres');
-const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'postgres' });
+const compiler = createQueryCompiler('cockroach');
+const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'cockroach' });
 ```
 
-Any Postgres client connects, so the [Postgres driver](./connect-postgres.html) is unchanged:
+Any Postgres client connects, so the [Postgres driver](./connect-postgres.html)
+is unchanged:
 
 ```ts
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });
 ```
 
-Ordinary selects, inserts, updates, deletes, joins, subqueries and transactions all behave.
+Ordinary selects, inserts, updates, deletes, joins and subqueries inherit the
+Postgres grammar. Telemetry also reports the Postgres wire family.
 
-## Where `'postgres'` is wrong for Cockroach
+## The dedicated divergences
 
-**`SERIAL` is a trap at scale.** Cockroach implements it, but a monotonically increasing key concentrates all writes on one range, which is exactly what a distributed database cannot spread. The Cockroach answer is `UUID DEFAULT gen_random_uuid()` or their `unique_rowid()`. `Serial` on an `integer` column emits `SERIAL`, so on Cockroach you want a `text` id and a hand-written default:
+**`serial` stays numeric and emits `INT8 DEFAULT unique_rowid()`.** `Entity<T>`
+types a `Serial` column as a `number`, so mapping it to a UUID would make the
+generated TypeScript type false. The dialect also maps `integer` to `INT4`;
+Cockroach's `INTEGER` alias is 64-bit and can exceed JavaScript's safe integer
+range.
+
+For a UUID primary key, keep the explicit declaration:
 
 ```ts
 import type { HasDefault, PrimaryKey, Sql, Table, Unique } from 'zmdb/tags';
@@ -35,41 +42,49 @@ export interface User extends Table<'users'> {
 ALTER TABLE "users" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ```
 
-`HasDefault` rather than `Serial` is the whole trick: it drops `id` from
-`CreateDTO<User>`'s required keys without claiming the column is an auto-incrementing
-integer, and the expression that fills it is a migration's business. No dialect change is
-needed, because nothing about it is dialect-specific on zmdb's side.
+`HasDefault` drops `id` from `CreateDTO<User>`'s required keys without claiming
+that it is an auto-incrementing integer.
 
-**Retryable transaction errors are normal.** Cockroach is serializable by default, so a transaction can fail with `40001` (`RETRY_SERIALIZABLE`) under contention and the client is expected to retry it. Nothing in zmdb retries. Wrap it:
+**Retryable transaction errors are explicit.** Cockroach is serializable by
+default, so `40001` (`RETRY_SERIALIZABLE`) under contention is normal. Give the
+pinned transaction connection the Cockroach dialect and opt into bounded
+retries:
 
 ```ts
-async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
-  for (let i = 0; ; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (i >= attempts - 1 || !isRetryable(e)) throw e;
-      await new Promise(r => setTimeout(r, 2 ** i * 10));
-    }
-  }
-}
+const db = createTransactionalDb({ ...connection, dialect: 'cockroach' });
 
-const isRetryable = (e: unknown) => typeof e === 'object' && e !== null && 'code' in e && e.code === '40001';
+await db.transaction(
+  async tx => {
+    await accounts.withTransaction(tx).update(accountId, patch);
+  },
+  { retry: { maxRetries: 4, baseDelayMs: 10, maxDelayMs: 1000 } },
+);
 ```
 
-If you do not do this, you will see intermittent failures under load that look like bugs and are not. This is the single most important thing to know about running on Cockroach.
+The callback may run five times in that example. Keep message publishing, HTTP
+calls, file writes and other non-idempotent side effects outside it; a database
+rollback cannot undo them. Without the `retry` option, the callback runs once.
 
-**`INTERLEAVE`, `AS OF SYSTEM TIME`, locality clauses and zone configs** have no representation. All available as [raw SQL](./raw-sql.html); `AS OF SYSTEM TIME` in particular is worth using for read-only queries, since it avoids contention entirely.
+**Full-text search and row-level security are refused.** Cockroach does not use
+Postgres's `to_tsvector`/`@@` full-text grammar. RLS support also varies by
+server version, so the dialect refuses the Postgres policy shape rather than
+guessing. Materialized views remain inherited.
 
-**Unsupported Postgres features.** Cockroach has no `LISTEN`/`NOTIFY`, no stored procedures until recently, and limited trigger support. If a page here suggests one of those — [transactional outbox](./transactional-outbox.html) mentions `NOTIFY` — poll instead.
+**Stored routines inherit Postgres grammar.** `RoutineDef` DDL, scalar and
+procedure calls, and set-returning function calls use the Postgres forms while
+routine types still use Cockroach's `INT4` and `INT8` mappings.
 
-**Schema changes are asynchronous.** `ALTER TABLE` returns before the change is complete across the cluster. A migration followed immediately by a query relying on the new column can fail. Cockroach also rejects several statements inside an explicit transaction, so a multi-statement `up` may need splitting.
+**Cockroach-only clauses remain raw SQL.** `INTERLEAVE`, `AS OF SYSTEM TIME`,
+locality clauses and zone configs have no builder representation.
 
-## What a real dialect would change
+**Schema changes are asynchronous.** `ALTER TABLE` can return before the change
+has propagated, and several statements cannot share an explicit transaction.
+Split a migration whose later statement depends immediately on an earlier
+schema change.
 
-`serial` would stay numeric and become `INT8 DEFAULT unique_rowid()`, because `Entity<T>` types a `Serial` column as a `number`; changing the storage type to UUID would make the generated TypeScript type false. UUID primary keys remain the explicit `Sql<'text'> & PrimaryKey & HasDefault` declaration shown above.
-
-A dedicated dialect would also map `integer` to `INT4`, refuse Postgres full-text-search SQL, and classify `40001` for a transaction wrapper to retry. The wrapper owns the unit of work; neither the query compiler nor a driver can safely replay application side effects.
+The automated suite proves the SQL and retry policy but does not currently run
+a Cockroach server image; deployment qualification remains a separate evidence
+step.
 
 ---
 

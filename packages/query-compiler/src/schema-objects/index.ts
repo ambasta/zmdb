@@ -1,4 +1,4 @@
-import { requireDialectFeature } from '../dialects/index.js';
+import { requireDialectFeature, TRAITS } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.js';
@@ -52,6 +52,7 @@ function indexMethod(value: unknown, def: IndexDef): IndexMethod | undefined {
 }
 
 function assertIndexMethodSupported(method: IndexMethod | undefined, def: IndexDef, dialect: Dialect): void {
+  const family = TRAITS[dialect].family;
   if (dialect === 'postgres' && def.unique === true && method !== undefined && method !== 'btree') {
     throw new UnsupportedFeatureError(
       `unique ${method} index`,
@@ -60,7 +61,7 @@ function assertIndexMethodSupported(method: IndexMethod | undefined, def: IndexD
     );
   }
   if (method === undefined || dialect === 'postgres') return;
-  if (dialect === 'mysql' && (method === 'btree' || method === 'hash')) return;
+  if (family === 'mysql' && (method === 'btree' || method === 'hash')) return;
   if (dialect === 'mssql' && method === 'btree') return;
   throw new UnsupportedFeatureError(
     `index method ${method}`,
@@ -109,7 +110,7 @@ function renderIndexColumn(column: IndexColumn, def: IndexDef, dialect: Dialect)
   if (typeof column === 'string') return quoteId(dialect, column);
 
   const expression = isExpressionColumn(column);
-  if (expression && (dialect === 'mysql' || dialect === 'mssql')) {
+  if (expression && (TRAITS[dialect].family === 'mysql' || dialect === 'mssql')) {
     const expr = column.expr;
     throw new UnsupportedFeatureError(
       `expression index "${def.name}"`,
@@ -145,7 +146,8 @@ export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
   assertIndexMethodSupported(method, def, dialect);
   const cols = def.columns.map(column => renderIndexColumn(column, def, dialect)).join(', ');
   const unique = def.unique ? 'UNIQUE ' : '';
-  const mysqlMethod = dialect === 'mysql' && method !== undefined ? ` USING ${method.toUpperCase()}` : '';
+  const mysqlMethod =
+    TRAITS[dialect].family === 'mysql' && method !== undefined ? ` USING ${method.toUpperCase()}` : '';
   const postgresMethod = dialect === 'postgres' && method !== undefined ? ` USING ${method}` : '';
   const withOptions = indexOptions(def, method);
   const where = def.where ? ` WHERE ${def.where}` : '';
@@ -269,11 +271,18 @@ function unsupportedRoutine(feature: string, dialect: Dialect): UnsupportedFeatu
 }
 
 function assertRoutineSupported(def: RoutineDef, dialect: Dialect): void {
-  if (dialect === 'sqlite' || dialect === 'mssql') {
+  if (dialect === 'sqlite' || dialect === 'mssql' || dialect === 'singlestore') {
     if (dialect === 'mssql') {
       throw unsupportedRoutine(
         `mssql stored routines are not modeled (${routineLabel(def, dialect)}); SQL Server uses a distinct ` +
           'CREATE/ALTER and EXEC grammar, so use a hand-written migration and driver call',
+        dialect,
+      );
+    }
+    if (dialect === 'singlestore') {
+      throw unsupportedRoutine(
+        `singlestore stored routines are not modeled (${routineLabel(def, dialect)}); SingleStore uses ` +
+          'different CREATE FUNCTION and CREATE PROCEDURE grammar, so use a hand-written migration',
         dialect,
       );
     }
@@ -314,7 +323,7 @@ function routineReturns(def: RoutineDef, dialect: Dialect): string {
   if (def.returns === undefined) {
     throw new TypeError(`${routineLabel(def, dialect)} must declare a return type`);
   }
-  if (dialect === 'mysql' && (def.returns.setof === true || def.returns.type === 'void')) {
+  if (TRAITS[dialect].family === 'mysql' && (def.returns.setof === true || def.returns.type === 'void')) {
     throw unsupportedRoutine(
       `mysql routine ${routineLabel(def, dialect)} cannot return ${def.returns.setof === true ? 'a set' : 'void'}`,
       dialect,
@@ -337,7 +346,7 @@ export function createRoutineDdl(def: RoutineDef, dialect: Dialect): string {
   const head = `${kind} ${quoteId(dialect, def.name)}(${routineParamsDdl(def, dialect)})`;
   const returns = routineReturns(def, dialect);
 
-  if (dialect === 'postgres') {
+  if (TRAITS[dialect].family === 'postgres') {
     const language = def.language ?? 'plpgsql';
     const tag = dollarQuoteTag(def.body);
     return `CREATE OR REPLACE ${head}${returns} LANGUAGE ${language} AS ${tag}\n${def.body}\n${tag}`;
@@ -358,7 +367,7 @@ export function dropRoutineDdl(def: RoutineDef, dialect: Dialect): string {
   assertRoutineSupported(def, dialect);
   const kind = def.kind.toUpperCase();
   const name = quoteId(dialect, def.name);
-  if (dialect === 'mysql') return `DROP ${kind} IF EXISTS ${name}`;
+  if (TRAITS[dialect].family === 'mysql') return `DROP ${kind} IF EXISTS ${name}`;
   const signature = def.params.map(param => routineTypeDdl(dialect, param.type)).join(', ');
   return `DROP ${kind} IF EXISTS ${name}(${signature})`;
 }
@@ -378,7 +387,7 @@ export function replaceRoutineStatements(
   dialect: Dialect,
 ): readonly string[] {
   const create = createRoutineDdl(next, dialect);
-  if (dialect === 'postgres' && (previous === undefined || samePostgresSignature(previous, next))) {
+  if (TRAITS[dialect].family === 'postgres' && (previous === undefined || samePostgresSignature(previous, next))) {
     return [create];
   }
   return [dropRoutineDdl(previous ?? next, dialect), create];

@@ -51,9 +51,10 @@ guard exists to prevent.
 
 ## Transaction behavior
 
-Postgres, SQLite and SQL Server execute the printed plan in a transaction
-pinned by the migration connection adapter. MySQL warns before execution
-because its DDL auto-commits and can leave a partial plan behind.
+The Postgres family, SQLite and SQL Server execute the printed plan in a
+transaction pinned by the migration connection adapter. The MySQL family warns
+before execution because its DDL auto-commits and can leave a partial plan
+behind.
 
 ## Where to use it
 

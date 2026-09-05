@@ -3,13 +3,14 @@
 // The store is structural on purpose: a repository Driver or TransactionContext
 // satisfies it directly. Supported backend adapters live on opt-in subpaths so
 // the core queue entry does not load an external backend.
+import { formatPlaceholder, quoteIdentifier, type Dialect } from '@zmdb/query-compiler';
 
 export interface Clock {
   now(): number;
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
 
-export type JobDialect = 'postgres' | 'mysql' | 'sqlite';
+export type JobDialect = Dialect;
 
 export interface JobStore {
   readonly dialect?: JobDialect;
@@ -225,11 +226,11 @@ function dialectOf(store: JobStore, fallback: JobDialect = 'sqlite'): JobDialect
 }
 
 function quote(name: string, dialect: JobDialect): string {
-  return dialect === 'mysql' ? `\`${name}\`` : `"${name}"`;
+  return quoteIdentifier(dialect, name);
 }
 
 function placeholder(dialect: JobDialect, position: number): string {
-  return dialect === 'postgres' ? `$${position}` : '?';
+  return formatPlaceholder(dialect, position);
 }
 
 function placeholders(dialect: JobDialect, count: number, start: number): string {

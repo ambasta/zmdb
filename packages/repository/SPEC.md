@@ -384,18 +384,18 @@ so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
 
 ### Return values, SQL Server and MySQL
 
-Postgres and SQLite expression-bearing `update`/`increment` calls return the
-computed row through `RETURNING *`; SQL Server returns it through
+The Postgres family and SQLite return expression-bearing `update`/`increment`
+calls through `RETURNING *`; SQL Server returns them through
 `OUTPUT INSERTED.*`. `updateMany` returns the number of rows the database
 returned from the dialect's row-returning clause (primary-key columns when
 present).
 
-MySQL has no `UPDATE … RETURNING`. The repository therefore emits no
-`RETURNING` for an expression-bearing keyed update or upsert update branch, and
-for every `updateMany`; those calls execute one atomic statement and resolve to
-`undefined`. There is no hidden follow-up `SELECT`. This is deliberately narrow:
-ordinary keyed updates and other pre-existing MySQL write-returning paths are
-outside this expression-write contract.
+The MySQL family has no `UPDATE … RETURNING`. The repository therefore emits
+no `RETURNING` for an expression-bearing keyed update or upsert update branch,
+and for every `updateMany`; those calls execute one atomic statement and
+resolve to `undefined`. There is no hidden follow-up `SELECT`. This is
+deliberately narrow: ordinary keyed updates and other pre-existing
+MySQL-family write-returning paths are outside this expression-write contract.
 
 ## 3c. Entity filters and soft delete (frozen — epic "Entity filters and soft delete")
 
@@ -834,6 +834,10 @@ createQueryCompiler('mysql').callProcedure('rebuild_search_index', [])
 mysql     CALL `rebuild_search_index`()                    parameters: []
 ```
 
+Cockroach inherits the Postgres call forms, including table functions.
+SingleStore inherits MySQL scalar-function and procedure calls, while its
+`RoutineDef` DDL is refused because that declaration grammar diverges.
+
 The calls are methods on the existing dialect-bound `QueryCompiler`. The
 original frozen sketch wrote them as top-level functions even though the same
 two-argument call was followed by different Postgres and MySQL goldens; with no
@@ -849,8 +853,9 @@ dialect and the caller cannot read it by a constant key.
 `callTableFunction` is a separate function rather than a `setof` flag because the two produce different
 shapes — one row of one column against a relation of many — and a boolean argument would make the call
 site's result shape depend on a runtime value. `callProcedure` uses `CALL` on both dialects (Postgres 11+).
-SQLite has no routines at all, so all three refuse there with the message in
-`../query-compiler/src/schema-objects/SPEC.md` §8.3.
+SQLite and SQL Server refuse all three calls. Table-function calls are limited
+to the Postgres family; SingleStore retains only scalar-function and procedure
+calls through its MySQL wire grammar.
 
 **These three are deliberately not generic.** The sketch this replaces had
 `callFunction<Args, R>(name, args)`, and those parameters would be a lie: `name` is a string, TypeScript

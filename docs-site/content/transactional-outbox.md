@@ -61,20 +61,27 @@ interface OutboxRow extends Table<'zmdb_outbox'> {
 
 Four choices are load-bearing:
 
-- `status`, not `deliveredAt IS NULL`: the query builder has no valid `IS NULL` operator.
+- `status`, not `deliveredAt IS NULL`: the builder can emit `IS NULL`, but an
+  explicit status also represents `dead` and leads the pending-row index.
 - `dead` is a terminal state, so a poison message leaves the pending working set.
 - `payload` is text, preserving the exact bytes the caller supplied.
 - `id` is application-generated text, so the writer needs no dialect-dependent `RETURNING`.
 
-Postgres uses `TIMESTAMPTZ`, MySQL uses `DATETIME(3)`, SQLite stores fixed-width ISO timestamps as `TEXT`,
-and SQL Server uses `DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`. The SQLite database-clock default uses
-`strftime` to keep the same sortable UTC representation as driver-bound `Date` values.
-The Postgres, SQLite and SQL Server pending indexes are filtered. MySQL has no partial indexes, so its full
-index starts with `status` and can still seek to pending rows. `outboxMigration` handles that difference; the
-lower-level `createIndexDdl` remains literal and does not silently discard predicates.
+Postgres/Cockroach use `TIMESTAMPTZ`, MySQL/SingleStore use `DATETIME(3)`,
+SQLite stores fixed-width ISO timestamps as `TEXT`, and SQL Server uses
+`DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`. The SQLite database-clock
+default uses `strftime` to keep the same sortable UTC representation as
+driver-bound `Date` values. The Postgres family, SQLite and SQL Server pending
+indexes are filtered. The MySQL family uses a full index whose leading
+`status` column can still seek to pending rows. `outboxMigration` handles that
+difference; the lower-level `createIndexDdl` remains literal and does not
+silently discard predicates.
 
-The MySQL migration uses bounded `VARCHAR` storage for the UUID, lease token and status because MySQL cannot
-key an unrestricted `TEXT` column. SQL Server uses the corresponding bounded `NVARCHAR` columns, and the
+The MySQL-family migration uses bounded `VARCHAR` storage for the UUID, lease
+token and status because those engines cannot key an unrestricted `TEXT`
+column. The SingleStore form is explicitly `CREATE ROWSTORE TABLE`, matching
+the outbox's transactional write path instead of selecting storage by omission.
+SQL Server uses the corresponding bounded `NVARCHAR` columns, and the
 application types remain strings.
 
 ## Write inside the caller's transaction

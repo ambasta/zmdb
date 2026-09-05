@@ -39,7 +39,10 @@ CREATE TABLE "documents" (
 
 Extension names are sorted for stable snapshots. Removing the declaration does **not** generate `DROP EXTENSION`: a safe removal needs a hand-written migration after checking every dependent object.
 
-MySQL, SQLite and SQL Server refuse PostgreSQL extension installation and extension-backed column DDL. There is no text fallback, because a value that round-trips as text is still unusable by the extension operators it was declared for.
+Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse PostgreSQL
+extension installation and extension-backed column DDL. There is no text
+fallback, because a value that round-trips as text is still unusable by the
+extension operators it was declared for.
 
 `Ext` names storage and migration behavior; it does not install a runtime value
 codec. Extension-specific writes that need conversion therefore remain explicit,

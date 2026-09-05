@@ -109,6 +109,12 @@ interface ForeignKeyIR {
   targetColumns: readonly string[];
 }
 
+interface TableOptions {
+  shardKey?: readonly string[];
+  sortKey?: readonly string[];
+  rowstore?: true;
+}
+
 interface SchemaIR {
   table: string;
   columns: readonly ColumnIR[];
@@ -116,11 +122,17 @@ interface SchemaIR {
   relations: readonly RelationIR[];
   foreignKeys: readonly ForeignKeyIR[];
   ftsTable?: string | boolean;
+  tableOptions?: TableOptions;
 }
 ```
 
 An unrecognised `ValidationRule.kind` becomes a named entry in `rules`, never a
 dropped check.
+
+`tableOptions` carries the table-level SingleStore vocabulary. It is absent for
+ordinary tables, so existing IR and snapshot JSON remain unchanged; when present,
+the reflector has already checked that each shard/sort key is a non-empty tuple,
+contains no duplicates, and names declared columns.
 
 ### 4.1 Keys (frozen — epic "Composite primary keys and expression indexes")
 
@@ -262,8 +274,9 @@ keeps its exhaustive shape behind that guard instead of growing a `default`. The
 cheaper to write and both cost more than they save:
 
 - **Widening `SqlType` with `'vector' | 'geometry' | 'citext'`** is a three-line diff, and it puts
-  Postgres extension types in the core vocabulary of a library that also targets MySQL, SQLite and SQL Server —
-  where `DDL_TYPES` would then owe them a row each, and the honest row is a refusal. It also cannot
+  Postgres extension types in the core vocabulary of a library that also
+  targets Cockroach, MySQL, SingleStore, SQLite and SQL Server — where
+  `DDL_TYPES` would then owe them a row each, and the honest row is a refusal. It also cannot
   carry `1536`, so it needs a second field beside it anyway, which is `length` again for a type that
   is not `varchar`.
 - **`SqlType | string`** deletes the property `vocabulary.type-test.ts` exists to pin. Note that the
@@ -330,8 +343,10 @@ driver has a type parser registered:
 than just the index. Prefer the expression index unless the column's _semantics_ are
 case-insensitive.
 
-**MySQL, SQLite and SQL Server refuse an extension type, and there is no fallback.** The refusal is an
-`UnsupportedFeatureError` at DDL time naming the dialect, the column and the extension:
+**Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse an extension
+type, and there is no fallback.** The refusal is an
+`UnsupportedFeatureError` at DDL time naming the dialect, the column and the
+extension:
 
 ```
 sqlite does not support the extension type vector(1536) on "items"."embedding" (extension `vector`);

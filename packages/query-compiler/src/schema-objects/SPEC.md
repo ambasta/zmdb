@@ -60,10 +60,10 @@ SQL parser and would break the opaque comparison rule below.
 **An expression is opaque to `diff`.** It is compared as a byte string, which makes
 `lower(email)` and `LOWER(email)` two different indexes, and a whitespace edit a drop and a
 recreate. That is deliberate and stated so nobody implements the alternative: normalising SQL
-expressions means parsing four dialects' expression grammars, and a normaliser that is wrong
+expressions means parsing four root dialect families' expression grammars, and a normaliser that is wrong
 in one direction reports no change for an index that did change.
 
-**MySQL and SQL Server are refused.** MySQL 8 supports functional key parts, but only wrapped in a second set
+**The MySQL family and SQL Server are refused.** MySQL 8 supports functional key parts, but only wrapped in a second set
 of parens — `((lower(email)))` — and not at all before 8.0.13. Emitting the Postgres spelling
 there produces a syntax error at migration time; emitting the MySQL spelling silently means
 the same declaration is two different indexes per dialect. So `createIndexDdl` throws
@@ -111,10 +111,12 @@ misremember and `WITH (list = 100)` is a Postgres error at migration time rather
 ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are (lists)
 ```
 
-Omitting `method` emits no `USING` clause, so every existing golden statement is unchanged. `ivfflat` and
-`hnsw` are refused on MySQL, SQLite and SQL Server by the same rule as the expression form, and `gin`,
-`gist` and `brin` are refused there too — they are Postgres access methods. MySQL's `USING BTREE` /
-`USING HASH` and SQL Server's accepted `btree` declaration are the only non-Postgres method cases.
+Omitting `method` emits no `USING` clause, so every existing golden statement
+is unchanged. `ivfflat` and `hnsw` are refused on Cockroach, MySQL,
+SingleStore, SQLite and SQL Server by the same rule as the expression form, and
+`gin`, `gist` and `brin` are refused there too — they are Postgres access
+methods. The MySQL family's `USING BTREE` / `USING HASH` and SQL Server's accepted
+`btree` declaration are the only non-Postgres method cases.
 
 ## 2. Views (#102/#103/#104)
 
@@ -129,7 +131,7 @@ function dropViewDdl(name, dialect, materialized?): string;
 ```
 
 - `CREATE [MATERIALIZED] VIEW "n" AS <select>`; drop is `DROP [MATERIALIZED]
-VIEW IF EXISTS "n"`. Materialized views: postgres only (else throws).
+VIEW IF EXISTS "n"`. Materialized views: Postgres family only (else throws).
 
 ## 3. Sequences (#105/#106/#107)
 
@@ -200,8 +202,9 @@ zmdb ever runs, so the statement that assumes it is absent fails on precisely th
 `name` and `schema` are identifiers and go through `quoteIdentifier`; `version` is a string literal and
 is single-quoted, which is the one place in this module where the two differ in the same statement.
 
-MySQL, SQLite and SQL Server refuse PostgreSQL extensions with the same
-`UnsupportedFeatureError` as materialized views and RLS.
+Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse PostgreSQL
+extensions with the same `UnsupportedFeatureError` as materialized views and
+RLS.
 
 **Ordering is part of the contract.** `CREATE EXTENSION` runs before anything that could name a type it
 provides, and index creation runs after the tables. A `vector` column in a table created before the
@@ -229,7 +232,7 @@ export interface RoutineDef {
   }[];
   /** Functions only. `setof` marks a set-returning function. */
   readonly returns?: { readonly type: SqlType | 'void'; readonly setof?: boolean };
-  readonly language?: string; // postgres only; default 'plpgsql'
+  readonly language?: string; // Postgres family only; default 'plpgsql'
   readonly deterministic?: boolean; // mysql only; default false
   readonly body: string; // opaque; the author owns it
 }
@@ -240,7 +243,7 @@ function replaceRoutineStatements(prev: RoutineDef | undefined, next: RoutineDef
 function routineFingerprint(def: RoutineDef): string;
 ```
 
-### 8.1 Postgres
+### 8.1 Postgres family
 
 ```
 { kind: 'function', name: 'archive_old_orders', language: 'plpgsql',
@@ -259,6 +262,10 @@ $zmdb$
 Clause order is frozen as `RETURNS`, then `LANGUAGE`, then `AS`. Postgres accepts those three in any
 order, so an emitter with no rule produces DDL that is correct and unstable, and every golden becomes a
 re-record.
+
+Cockroach inherits this grammar and replacement behavior. Its routine parameter
+and return types still go through the Cockroach type map, so `integer` emits
+`INT4` rather than Postgres `INTEGER`.
 
 Parameter types are rendered by the same `ddlType(dialect, type)` the columns use, which is why `timestamp`
 is `TIMESTAMPTZ` here and not `TIMESTAMP` — a routine parameter and a column of the same declared type must
@@ -310,7 +317,7 @@ Three characteristics are emitted and none of them is decoration:
   of the two routine-emitting dialects is not a thing to inherit. A definer-rights routine is deliberately not expressible
   here (§8.8).
 
-### 8.3 SQLite and SQL Server refuse
+### 8.3 SQLite, SQL Server and SingleStore DDL refuse
 
 ```
 sqlite does not support stored routines (function "archive_old_orders"); SQLite has no CREATE FUNCTION,
@@ -327,6 +334,11 @@ SQL Server also refuses this surface. Its function/procedure grammar and return
 shapes are distinct from the current Postgres/MySQL `RoutineDef`, so emitting a
 plausible approximation would move the failure from compile time to the server.
 
+SingleStore accepts scalar-function and procedure calls through the inherited
+MySQL wire grammar, but its routine declarations are not MySQL declarations.
+`createRoutineDdl`, `dropRoutineDdl` and `replaceRoutineStatements` therefore
+refuse it and direct the caller to a hand-written migration.
+
 ### 8.4 Replace semantics, and why `CREATE OR REPLACE` is not enough
 
 `CREATE OR REPLACE FUNCTION` on Postgres replaces a routine **only** when the parameter list and the return
@@ -341,17 +353,18 @@ type are unchanged. Two failure modes otherwise, and they differ:
 
 So `replaceRoutineStatements(prev, next, dialect)` decides:
 
-| Dialect  | Signature unchanged          | Signature changed                                     |
-| -------- | ---------------------------- | ----------------------------------------------------- |
-| postgres | `[CREATE OR REPLACE …]`      | `[DROP FUNCTION IF EXISTS "f"(<prev types>), CREATE]` |
-| mysql    | `[DROP … IF EXISTS, CREATE]` | `[DROP … IF EXISTS, CREATE]`                          |
+| Dialect              | Signature unchanged          | Signature changed                                     |
+| -------------------- | ---------------------------- | ----------------------------------------------------- |
+| postgres / cockroach | `[CREATE OR REPLACE …]`      | `[DROP FUNCTION IF EXISTS "f"(<prev types>), CREATE]` |
+| mysql                | `[DROP … IF EXISTS, CREATE]` | `[DROP … IF EXISTS, CREATE]`                          |
+| singlestore          | refused                      | refused                                               |
 
 The Postgres `DROP` names the **previous** parameter types, because an unqualified
 `DROP FUNCTION IF EXISTS "f"` is ambiguous when overloads exist and Postgres errors rather than guessing.
 That is also why `replaceRoutineStatements` takes `prev`: no other input carries the signature that has to
 be dropped, and reconstructing it from the database would mean introspecting `pg_proc` at emit time.
 
-**Drop-then-create is not atomic, and the spec does not pretend otherwise.** On Postgres the pair is inside the migration's transaction, because Postgres has transactional DDL, so no window exists. On MySQL, DDL commits implicitly and there is a real interval in which the routine does not exist; a caller in that interval gets `PROCEDURE does not exist`.
+**Drop-then-create is not atomic, and the spec does not pretend otherwise.** On the Postgres family the pair is inside the migration's transaction, because the family has transactional DDL, so no window exists. On MySQL, DDL commits implicitly and there is a real interval in which the routine does not exist; a caller in that interval gets `PROCEDURE does not exist`.
 
 There is no emitter trick that closes it — the practical remedies are outside the emitter: deploy the new routine under a new name and switch callers, or accept the window in a maintenance step. The runner surfaces the failure; it does not retry, because a retry after an implicit commit re-runs a `CREATE` against a routine that may now exist.
 
@@ -419,10 +432,10 @@ So one declaration would need two call shapes and two result types, and the type
 
 ## Frozen (all)
 
-- Identifiers quoted per dialect (`"` pg/sqlite, `` ` `` mysql).
+- Identifiers quoted per dialect (`"` Postgres family/SQLite, `` ` `` MySQL family, `[]` SQL Server).
 - Emitters are pure functions returning a single DDL statement; deterministic.
-- RLS / materialized views are postgres features — on other dialects the emitter
-  throws an explicit `UnsupportedFeatureError` (never silently wrong).
+- RLS is exact-Postgres; materialized views are Postgres-family features. Other
+  dialects throw an explicit `UnsupportedFeatureError` (never silently wrong).
 
 <!-- §3 sequences frozen: CREATE SEQUENCE with optional START/INCREMENT. -->
 

@@ -44,7 +44,11 @@ TiDB also offers `AUTO_RANDOM` for primary keys, which spreads writes rather tha
 
 Declare it as `id: bigint & Sql<'bigint'> & PrimaryKey` on the interface — `Serial` would emit `AUTO_INCREMENT` and fight the migration — and read [bigint keys](./bigint-keys.html), because `AUTO_RANDOM` produces values well above `Number.MAX_SAFE_INTEGER`. This is the one place where the string representation is not optional.
 
-**Optimistic transactions retry.** TiDB's default transaction mode can fail on write conflict and expects the client to retry. Nothing in zmdb retries, so wrap it — the loop is the same one on the [Cockroach page](./dialect-cockroach.html).
+**Optimistic transactions retry.** TiDB's default transaction mode can fail on
+write conflict and expects the client to retry. The MySQL dialect does not
+classify TiDB-specific retry codes, so wrap that error explicitly; the
+[Cockroach page](./dialect-cockroach.html) shows why replaying a transaction
+body must be opt-in.
 
 **`SELECT ... FOR UPDATE` behaves differently** under optimistic transactions.
 If your own raw SQL relies on row locks, use pessimistic transaction mode,

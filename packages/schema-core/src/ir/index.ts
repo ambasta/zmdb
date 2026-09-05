@@ -153,6 +153,12 @@ export interface PropertyIR {
 // Schema IR
 // ---------------------------------------------------------------------------
 
+export interface TableOptions {
+  readonly shardKey?: readonly string[];
+  readonly sortKey?: readonly string[];
+  readonly rowstore?: true;
+}
+
 /**
  * The four cardinalities, as data so a reader can check a string against them.
  *
@@ -251,6 +257,7 @@ export interface SchemaIR {
   readonly ftsTable?: string | boolean;
   /** Read-side soft-delete predicate; the public declaration tag lands in #451. */
   readonly softDelete?: { readonly column: string };
+  readonly tableOptions?: TableOptions;
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +302,9 @@ export type ConstraintKind = (typeof KNOWN_CONSTRAINT_KINDS)[number];
 export const TAG_NAMES = {
   table: 'zmdbTable',
   ftsTable: 'zmdbFts',
+  shardKey: 'zmdbShardKey',
+  sortKey: 'zmdbSortKey',
+  rowstore: 'zmdbRowstore',
   sql: 'zmdbSqlType',
   extension: 'zmdbExt',
   primaryKey: 'zmdbPrimaryKey',

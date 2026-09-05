@@ -146,8 +146,8 @@ Two query details are easy to get wrong:
 - **`<=>` is cosine distance.** Smaller is closer; `1 - distance` is similarity. Sort the distance ascending.
 
 The closed operators are `l2` (`<->`), `cosine` (`<=>`) and `ip` (`<#>`).
-MySQL, SQLite and SQL Server refuse them instead of emitting an operator with
-different semantics.
+Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse them instead of
+emitting an operator with different semantics.
 
 ## Validation cost
 

@@ -4,7 +4,10 @@ Part of `@zmdb/query-compiler`. This file owns the **SQL** an outbox needs — t
 three statements that make a claim safe. The declaration and the dispatcher loop land in `@zmdb/repository`
 (§1), which is what `docs-site/content/transactional-outbox.md` already says the shape should be.
 
-The reason this needs a freeze rather than an implementation note: three of the four mechanisms the pattern is normally built on are **not expressible in this repository today**, and each one is unavailable for a different reason.
+The freeze was needed because three of the four mechanisms the pattern is normally built on were not
+expressible at the implementation base, each for a different reason. Two compiler gaps have since closed:
+zero-operand `IS NULL` predicates now exist, and unsupported `RETURNING` is refused by dialect. The outbox
+still deliberately uses neither because its explicit state and read-back protocol are the portable design.
 
 A design written against the textbook version compiles into SQL that is a syntax error on one dialect, silently claims the same row twice on another, and cannot say "this event will never be delivered" at all. Those are found by discovering them here, in front of the reader, rather than by an implementation that appears to work on Postgres.
 
@@ -55,33 +58,31 @@ application DTO.
 
 Four differences from the issue's `OutboxRecord`, and every one of them is forced.
 
-### 2.1 `status`, because `IS NULL` is not expressible
+### 2.1 `status`, even though `IS NULL` is now expressible
 
-The canonical dispatcher predicate is `WHERE delivered_at IS NULL`. **The query builder cannot emit it.**
-`Operator` (`../index.ts:13-27`) has no `is` member, and `sqlOperator` (`../clauses.ts:93`) ends
-`return OP_MAP[op.toLowerCase().trim()] ?? op` — so an unrecognised operator is passed through into the SQL
-verbatim and `where('deliveredAt', 'is', null)` compiles to `"delivered_at" is $1` with a null parameter.
-That is a syntax error on Postgres, and on the dialects that tolerate it the comparison is never true. Nothing
-in `@zmdb/repository` supplies an `isNull` either.
+The canonical dispatcher predicate is `WHERE delivered_at IS NULL`. The query builder can now emit it with
+`where('deliveredAt', 'is null', null)`, binding no parameter. The outbox does not use that spelling because
+one nullable timestamp cannot represent the required third state, `dead`, and it cannot lead the pending-row
+index as clearly as an explicit status.
 
-So **no nullable column is ever a predicate.** Every state test becomes an equality or an ordered comparison
-on a column that is never null, which is why `status` exists and why `leaseOwner`/`leaseUntil` carry
-`HasDefault` instead of `| null`:
+Every outbox state test remains an equality or an ordered comparison on a column that is never null, which is
+why `status` exists and why `leaseOwner`/`leaseUntil` carry `HasDefault` instead of `| null`:
 
-| Wanted                    | Not expressible        | Expressed as         |
+| Wanted                    | Nullable spelling      | Outbox spelling      |
 | ------------------------- | ---------------------- | -------------------- |
 | undelivered               | `delivered_at IS NULL` | `status = 'pending'` |
 | unclaimed or lease lapsed | `lease_owner IS NULL`  | `lease_until < :now` |
 
-`deliveredAt` and `lastError` stay nullable because they are read and never filtered on. That distinction —
-nullable is fine for data, fatal for a predicate — is the rule to remember, and it applies well beyond the
-outbox.
+`deliveredAt` and `lastError` stay nullable because they are data rather than state-machine selectors.
 
-`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is this project's spelling for a
-column whose app type is a literal union — `vocabulary.type-test.ts:66` states it as data
-(`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the tagged-DTO path at
-`../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is identical to each dialect's
-widest text type: `TEXT` on Postgres, MySQL and SQLite, and `NVARCHAR(MAX)` on SQL Server.
+`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is
+this project's spelling for a column whose app type is a literal union —
+`vocabulary.type-test.ts:66` states it as data
+(`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the
+tagged-DTO path at
+`../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is
+identical to each dialect's widest text type: `TEXT` on the Postgres and MySQL
+families and SQLite, and `NVARCHAR(MAX)` on SQL Server.
 Nothing JSON-encodes — the name is about the IR, not the wire. What the tag buys is that the literal union
 survives into the IR's `enum`, so the app type is the union rather than a bare string
 (`../../../schema-core/src/ir/index.ts:428-431`) and OpenAPI emits
@@ -124,6 +125,10 @@ MySQL cannot do (§4.1).
 `createdAt` is `timestamp` and dialect-specific by the repository's existing rule: a `Date` in Node,
 `TIMESTAMPTZ` in Postgres, an ISO string in OpenAPI. Nothing here restates that mapping.
 
+The built-in SingleStore migration uses `CREATE ROWSTORE TABLE`. An outbox is a
+transactional write path, and the dialect's central rule is that storage and
+distribution cannot be selected by omission.
+
 ## 3. The index, and the one dialect that does not have it
 
 ```ts
@@ -142,15 +147,15 @@ createIndexDdl(
 predicate is expressible even though the query builder's `WHERE` is not — which is worth noticing, because it
 is why §2.1's restriction lands on the dispatcher's queries and not on its schema.
 
-**Postgres, SQLite and SQL Server use the filtered predicate; MySQL has no partial index.**
-`outboxPendingIndexDdl` drops the `where` on MySQL before calling `createIndexDdl`. The outbox's MySQL index
+**The Postgres family, SQLite and SQL Server use the filtered predicate; the MySQL family does not.**
+`outboxPendingIndexDdl` drops the `where` on MySQL and SingleStore before calling `createIndexDdl`. Their index
 is therefore created in full, and that is why `status` is the **leading column**: a full composite index on
 `(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from
 "index over a small set" to "index prefix over a small set" rather than to a table scan. An index ordered
 `(created_at, status)` would degrade to a scan of every row ever written.
 
-`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also
-executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all four
+`#593` asserts the emitted index DDL per dialect, including that the MySQL-family form has no `WHERE`; `#594` also
+executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all six
 dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the
 SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering. MySQL's
 migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status:
@@ -178,9 +183,11 @@ the row. **Neither channel for that answer exists:**
 - `Driver.execute` (`../../../repository/src/index.ts:51-54`) returns
   `Promise<readonly Record<string, unknown>[]>`. Rows, and no affected-row count. There is nowhere for a count
   to arrive.
-- `returning()` now dispatches by dialect: MySQL refuses it, Postgres/SQLite use `RETURNING`, and SQL Server
-  places `OUTPUT` in the verb-specific middle of the statement. The outbox still does not build on it,
-  because the driver contract has no affected-row count and the claim algorithm does not need returned rows.
+- `returning()` dispatches by dialect: MySQL-family dialects refuse it,
+  Postgres-family dialects and SQLite use `RETURNING`, and SQL Server places
+  `OUTPUT` in the verb-specific middle of the statement. The outbox still does
+  not build on it because the driver contract has no affected-row count and the
+  claim algorithm does not need returned rows.
 
 ### 4.2 So the claim is three statements, and the predicate is the lock
 
@@ -198,7 +205,7 @@ the row. **Neither channel for that answer exists:**
 ```
 
 Every clause is on the existing builders: `SelectBuilder.where/orderBy/limit`, `UpdateBuilder.set/where/whereIn`
-(`../index.ts:171-179`). No lock clause, no `RETURNING`, no row count, and dialect-correct SQL on all four
+(`../index.ts:171-179`). No lock clause, no `RETURNING`, no row count, and dialect-correct SQL on all six
 shipped dialects.
 
 **Two dispatchers cannot claim the same row, and no explicit locking is what makes that true.** Statement 2 is
@@ -373,10 +380,10 @@ margin.
    `lastError` set, `status` unchanged.
 7. `a row at maxAttempts goes dead and leaves the candidate set` — and `onDead` fires once, and a subsequent
    `runOnce` does not see it. This is the poison-row assertion.
-8. `the pending index is filtered on postgres, sqlite and mssql and full on mysql` — §3, golden DDL per dialect.
-9. `the candidate query never emits IS NULL` — golden SQL, because §2.1 is a rule that a later change would
-   quietly break.
-10. `no claim statement emits RETURNING` — §4.1, so the MySQL defect cannot reach the outbox.
+8. `the pending index is filtered on the Postgres family, sqlite and mssql and full on the MySQL family` — §3, golden DDL per dialect.
+9. `the candidate query never emits IS NULL` — golden SQL, because §2.1 keeps state on explicit non-null
+   columns even though the operator now exists.
+10. `no claim statement emits RETURNING` — §4.1, so the protocol stays portable to MySQL-family dialects.
 11. `the dispatcher's idle interval doubles to the cap and resets on work` — §5.
 12. `shutdown stops claiming and does not wait for the lease` — §5, asserting the current batch finishes and
     no later poll starts.
@@ -395,8 +402,8 @@ margin.
   for a design that no longer needs it.
 - **No `RETURNING` or `OUTPUT` in any outbox statement.** Dialect dispatch now handles those constructs,
   but the outbox claim protocol deliberately uses its authoritative read-back instead.
-- **No `IS NULL` operator.** §2.1 — a real gap, worth closing, and not by a subsystem that can express itself
-  without it. Adding an operator that changes how `null` binds in every existing query is not an outbox change.
+- **No `IS NULL` in the outbox state machine.** §2.1 — the operator exists, but an explicit status and
+  non-null lease columns remain the better representation.
 - **No `attempts = attempts + 1`.** §4.3 — the lease makes the read-modify-write safe, so the compiler's
   column-increment expression buys no additional correctness here.
 - **No per-topic ordering.** §7 — a per-topic lease means one stuck topic blocks itself indefinitely, which is

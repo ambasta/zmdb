@@ -40,9 +40,10 @@ await repo.find({ name: { ilike: '%ada%' } });
 // WHERE "name" ILIKE $1
 ```
 
-On MySQL and SQL Server, case-insensitivity normally comes from the collation instead; on SQLite,
-`LIKE` is already case-insensitive for ASCII. If a query has to behave the same on all four,
-that difference is worth a test.
+On MySQL/SingleStore and SQL Server, case-insensitivity normally comes from the
+collation instead; on SQLite, `LIKE` is already case-insensitive for ASCII.
+Cockroach follows the Postgres operator grammar. If a query has to behave the
+same on all six, that difference is worth a test.
 
 ## Features you reach past the builder for
 
@@ -86,7 +87,7 @@ new Pool({
 
 ## Connecting
 
-Any Postgres-wire-compatible service works through this dialect: [local Postgres](./connect-postgres.html), [Neon](./connect-neon.html), [Supabase](./connect-supabase.html), [Vercel Postgres](./connect-vercel-postgres.html), [Xata](./connect-xata.html), [Nile](./connect-nile.html), [PGlite](./connect-pglite.html), [AWS Data API](./connect-aws-data-api.html) and [Cockroach](./dialect-cockroach.html).
+Postgres-wire-compatible services include [local Postgres](./connect-postgres.html), [Neon](./connect-neon.html), [Supabase](./connect-supabase.html), [Vercel Postgres](./connect-vercel-postgres.html), [Xata](./connect-xata.html), [Nile](./connect-nile.html), [PGlite](./connect-pglite.html) and [AWS Data API](./connect-aws-data-api.html). Cockroach uses the same wire adapter through its dedicated [`'cockroach'` variant](./dialect-cockroach.html).
 
 ---
 

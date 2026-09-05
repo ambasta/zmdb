@@ -63,20 +63,20 @@ Rows written by an older runner have a null checksum. They remain applied but
 unverifiable; the runner adds the checksum column without pretending it knows
 what those old files contained.
 
-Versions use `BIGINT` on Postgres, MySQL and SQL Server. SQLite's `INTEGER` is
-already 64-bit, so the timestamp-shaped version fits there without another
-type.
+Versions use `BIGINT` on the Postgres and MySQL families and on SQL Server.
+SQLite's `INTEGER` is already 64-bit, so the timestamp-shaped version fits
+there without another type.
 
 ## Transaction boundary
 
-On Postgres, SQLite and SQL Server, each migration body and its ledger insert
-run in one driver-pinned transaction. If the body fails, that migration is
-rolled back and no ledger row is written. Migrations completed earlier in the
-run stay committed.
+On the Postgres family, SQLite and SQL Server, each migration body and its
+ledger insert run in one driver-pinned transaction. If the body fails, that
+migration is rolled back and no ledger row is written. Migrations completed
+earlier in the run stay committed.
 
-MySQL DDL auto-commits. The command warns before the first pending migration;
-after a failure, the absent ledger row is honest but the schema may need manual
-repair.
+MySQL-family DDL auto-commits. The command warns before the first pending
+migration; after a failure, the absent ledger row is honest but the schema may
+need manual repair.
 
 ## Deployment ordering
 

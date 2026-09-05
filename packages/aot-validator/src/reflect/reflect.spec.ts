@@ -977,6 +977,14 @@ describe('what only a tagged declaration can say', () => {
     expect(taggedOnly('products').ftsTable).toBe(true);
   });
 
+  it('carries SingleStore distribution and storage tags into the schema IR', () => {
+    expect(taggedOnly('distributed-orders').tableOptions).toEqual({
+      shardKey: ['customerId'],
+      sortKey: ['createdAt', 'id'],
+    });
+    expect(taggedOnly('rowstore-sessions').tableOptions).toEqual({ rowstore: true });
+  });
+
   it('treats Serial as implying a default', () => {
     // Not a convenience. `hasDefault` is what keeps the column out of `CreateDTO`, so a
     // `Serial` that only set `serial` would produce an insert payload demanding the key the

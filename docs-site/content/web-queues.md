@@ -38,7 +38,13 @@ The queue has two public constructors:
 - `createQueue<Jobs>({ store, clock })` inserts typed jobs, including delayed jobs and enqueue-side deduplication.
 - `createWorker<Jobs>(options)` claims jobs under a lease, validates at consume, applies bounded retries, exposes dead letters and drains on shutdown.
 
-The durable declarations are `JobRow` and `JobDoneRow` from `@zmdb/repository/jobs`. Generate their tables through the same tagged-schema migration path as application tables, and include `jobPendingIndexDdl(dialect)`. The pending index is partial on Postgres and SQLite and status-leading on MySQL. The supported in-memory backend installs the same shape automatically because it is ephemeral test storage.
+The durable declarations are `JobRow` and `JobDoneRow` from
+`@zmdb/repository/jobs`. Generate their tables through the same tagged-schema
+migration path as application tables, and include
+`jobPendingIndexDdl(dialect)`. The pending index is partial on the Postgres
+family, SQLite and SQL Server, and status-leading on the MySQL family. The
+supported in-memory backend installs the same shape automatically because it
+is ephemeral test storage.
 
 `JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. The package also ships an isolated SQLite memory backend and a node-postgres adapter. `pg` is an optional peer, so the core queue entry does not load it.
 

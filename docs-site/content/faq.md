@@ -16,12 +16,13 @@ No. The compiler emits SQL text, so a document store needs a second compiler tar
 
 ## Which dialects work?
 
-`'postgres'`, `'mysql'`, `'sqlite'` and `'mssql'`. Anything wire-compatible with
-one of the first three works through it — Neon, Supabase, PlanetScale, Turso,
-D1 and Cockroach all connect. SQL Server has its own compiler path and
-first-party pool adapter; dedicated Cockroach and SingleStore DDL remains
-unimplemented. See [SQL Server](./dialect-mssql.html) and
-[Postgres](./dialect-postgres.html).
+`'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`, `'cockroach'`, and
+`'singlestore'`. Cockroach inherits the Postgres wire grammar with dedicated
+types, refusals, and retry classification; SingleStore inherits MySQL and adds
+shard, sort, and rowstore DDL. SQL Server has its own compiler path and
+first-party pool adapter. See [SQL Server](./dialect-mssql.html),
+[CockroachDB](./dialect-cockroach.html), and
+[SingleStore](./dialect-singlestore.html).
 
 ## Why does `findById` return `Entity<S> | undefined` and not throw?
 

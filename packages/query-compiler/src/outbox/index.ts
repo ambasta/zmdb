@@ -10,17 +10,18 @@ export type OutboxStatus = 'pending' | 'delivered' | 'dead';
 const PENDING: OutboxStatus = 'pending';
 
 /**
- * Postgres, SQLite and SQL Server index only pending rows. MySQL has no partial
- * index, so it gets the full composite index with `status` first to preserve a
+ * The Postgres family, SQLite and SQL Server index only pending rows. The
+ * MySQL family gets the full composite index with `status` first to preserve a
  * useful pending-row prefix instead of degrading to an unindexed scan.
  */
 export function outboxPendingIndexDdl(dialect: Dialect): string {
+  const family = TRAITS[dialect].family;
   return createIndexDdl(
     {
       name: 'zmdb_outbox_pending',
       table: OUTBOX_TABLE,
       columns: ['status', 'lease_until', 'created_at'],
-      ...(dialect === 'mysql' ? {} : { where: "status = 'pending'" }),
+      ...(family === 'mysql' ? {} : { where: "status = 'pending'" }),
     },
     dialect,
   );
@@ -32,18 +33,18 @@ function timestampType(dialect: Dialect): string {
 
 function epochLiteral(dialect: Dialect): string {
   if (dialect === 'mssql') return "'1970-01-01T00:00:00.000+00:00'";
-  return dialect === 'mysql' ? "'1970-01-01 00:00:00.000'" : "'1970-01-01T00:00:00.000Z'";
+  return TRAITS[dialect].family === 'mysql' ? "'1970-01-01 00:00:00.000'" : "'1970-01-01T00:00:00.000Z'";
 }
 
 function createdAtDefault(dialect: Dialect): string {
-  if (dialect === 'mysql') return 'CURRENT_TIMESTAMP(3)';
+  if (TRAITS[dialect].family === 'mysql') return 'CURRENT_TIMESTAMP(3)';
   if (dialect === 'mssql') return 'SYSDATETIMEOFFSET()';
   if (dialect === 'sqlite') return "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))";
   return 'CURRENT_TIMESTAMP';
 }
 
 function boundedTextType(dialect: Dialect, length: number): string {
-  if (dialect === 'mysql') return `VARCHAR(${length})`;
+  if (TRAITS[dialect].family === 'mysql') return `VARCHAR(${length})`;
   if (dialect === 'mssql') return `NVARCHAR(${length})`;
   return 'TEXT';
 }
@@ -51,6 +52,7 @@ function boundedTextType(dialect: Dialect, length: number): string {
 /** The declared outbox table's migration DDL, including the defaults its type tags cannot carry. */
 export function outboxTableDdl(dialect: Dialect): string {
   const q = (name: string) => quoteIdentifier(dialect, name);
+  const createTable = dialect === 'singlestore' ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE';
   const timestamp = timestampType(dialect);
   const createdDefault = createdAtDefault(dialect);
   // MySQL refuses TEXT primary keys and TEXT columns in an index without a prefix
@@ -61,7 +63,7 @@ export function outboxTableDdl(dialect: Dialect): string {
   const statusType = boundedTextType(dialect, 16);
   const leaseOwnerType = boundedTextType(dialect, 36);
   return (
-    `CREATE TABLE ${q(OUTBOX_TABLE)} (` +
+    `${createTable} ${q(OUTBOX_TABLE)} (` +
     `${q('id')} ${idType} PRIMARY KEY, ` +
     `${q('topic')} ${text} NOT NULL, ` +
     `${q('payload')} ${text} NOT NULL, ` +

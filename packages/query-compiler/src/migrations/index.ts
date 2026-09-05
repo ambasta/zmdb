@@ -27,6 +27,14 @@ export interface ColumnSnapshot {
   readonly primaryKey: boolean;
   /** `varchar(255)` → `255`. MySQL rejects a `VARCHAR` with no length. */
   readonly length?: number | undefined;
+  /** Carried so dialect-specific DDL can validate or emit the declaration. */
+  readonly unique?: boolean;
+}
+
+export interface TableOptions {
+  readonly shardKey?: readonly string[];
+  readonly sortKey?: readonly string[];
+  readonly rowstore?: true;
 }
 
 export type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
@@ -46,6 +54,7 @@ export interface TableSnapshot {
   /** Ordered by declaration, independently of the deterministically sorted columns. */
   readonly primaryKey: readonly string[];
   readonly foreignKeys: readonly ForeignKeySnapshot[];
+  readonly tableOptions?: TableOptions;
 }
 
 export interface SchemaSnapshot {
@@ -67,6 +76,7 @@ export type ChangeOp =
       readonly columns: readonly ColumnSnapshot[];
       readonly primaryKey: readonly string[];
       readonly foreignKeys: readonly ForeignKeySnapshot[];
+      readonly tableOptions?: TableOptions;
     }
   | { readonly kind: 'drop_table'; readonly table: string }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
@@ -112,6 +122,7 @@ export interface SnapshotableSchema {
           readonly nullable: boolean;
           readonly primaryKey?: boolean | undefined;
           readonly length?: number | undefined;
+          readonly unique?: boolean | undefined;
         };
         readonly references?: { readonly target: string };
       }
@@ -130,6 +141,7 @@ export interface SnapshotableSchema {
       readonly targetTable: string;
       readonly targetColumns: readonly string[];
     }[];
+    readonly tableOptions?: TableOptions;
   };
 }
 
@@ -170,6 +182,7 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
             // Written only when there is one, so columns that are not `varchar` do not
             // acquire a meaningless field in the version-1 snapshot.
             ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
+            ...(meta.flags.unique === true ? { unique: true } : {}),
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -202,6 +215,7 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
         columns,
         primaryKey: schema.primaryKey,
         foreignKeys: foreignKeys.toSorted((a, b) => a.name.localeCompare(b.name)),
+        ...(schema.ir?.tableOptions === undefined ? {} : { tableOptions: schema.ir.tableOptions }),
       };
     })
     .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -246,6 +260,14 @@ function orderChanges(ops: readonly ChangeOp[]): readonly ChangeOp[] {
 
 function sameSequence(previous: readonly string[], next: readonly string[]): boolean {
   return previous.length === next.length && previous.every((value, index) => value === next[index]);
+}
+
+function sameTableOptions(previous: TableOptions | undefined, next: TableOptions | undefined): boolean {
+  if (previous?.rowstore !== next?.rowstore) return false;
+  return (
+    sameSequence(previous?.shardKey ?? [], next?.shardKey ?? []) &&
+    sameSequence(previous?.sortKey ?? [], next?.sortKey ?? [])
+  );
 }
 
 function foreignKeysOf(table: TableSnapshot): readonly ForeignKeySnapshot[] {
@@ -406,6 +428,14 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
   for (const t of next.tables) {
     const before = prevTables.get(t.name);
     if (!before) continue;
+    if (!sameTableOptions(before.tableOptions, t.tableOptions) && options.dialect === 'singlestore') {
+      throw new UnsupportedFeatureError(
+        'table options change',
+        'singlestore',
+        `singlestore cannot alter the shard key, sort key, or rowstore setting of "${t.name}"; ` +
+          'create a replacement table and copy the data',
+      );
+    }
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
     const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
@@ -444,6 +474,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
       columns: table.columns,
       primaryKey: table.primaryKey,
       foreignKeys,
+      ...(table.tableOptions === undefined ? {} : { tableOptions: table.tableOptions }),
     });
     if (options.dialect !== 'sqlite') {
       for (const foreignKey of foreignKeys) {
@@ -477,6 +508,8 @@ export const DDL_TYPES: Readonly<Record<Dialect, DialectTypeMap>> = Object.freez
   mysql: TRAITS.mysql.types,
   sqlite: TRAITS.sqlite.types,
   mssql: TRAITS.mssql.types,
+  cockroach: TRAITS.cockroach.types,
+  singlestore: TRAITS.singlestore.types,
 });
 
 export type DdlSqlType = DialectSqlType;
@@ -550,7 +583,7 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
     if (column?.length !== undefined && (mapped === 'VARCHAR' || mapped === 'NVARCHAR')) {
       return `${mapped}(${column.length})`;
     }
-    if (dialect === 'mysql') return 'TEXT';
+    if (TRAITS[dialect].family === 'mysql') return 'TEXT';
     if (dialect === 'mssql') return 'NVARCHAR(MAX)';
     return mapped;
   }
@@ -605,6 +638,73 @@ function foreignKeyDdl(dialect: Dialect, foreignKey: ForeignKeySnapshot): string
   );
 }
 
+function requireColumns(
+  table: string,
+  label: 'shard key' | 'sort key',
+  columns: readonly string[] | undefined,
+  available: ReadonlySet<string>,
+): void {
+  if (columns === undefined) return;
+  if (columns.length === 0) {
+    throw new TypeError(`${label} on "${table}" must name at least one column`);
+  }
+  for (const column of columns) {
+    if (!available.has(column)) {
+      throw new TypeError(`${label} on "${table}" names unknown column "${column}"`);
+    }
+  }
+}
+
+function singlestoreTableDefinitions(
+  op: Extract<ChangeOp, { kind: 'create_table' }>,
+  available: ReadonlySet<string>,
+): readonly string[] {
+  if (op.foreignKeys.length > 0) {
+    throw new UnsupportedFeatureError(
+      'foreign keys',
+      'singlestore',
+      `singlestore does not enforce foreign keys; remove the ${op.foreignKeys.length === 1 ? 'constraint' : 'constraints'} ` +
+        `from "${op.table}" and enforce referential integrity in the application`,
+    );
+  }
+
+  const options = op.tableOptions;
+  const shardKey = options?.shardKey;
+  const sortKey = options?.sortKey;
+  if (shardKey === undefined && options?.rowstore !== true) {
+    throw new UnsupportedFeatureError(
+      'table options',
+      'singlestore',
+      `singlestore table "${op.table}" must declare ShardKey<…> or Rowstore; ` +
+        'leaving both absent makes storage and distribution an accidental default',
+    );
+  }
+
+  requireColumns(op.table, 'shard key', shardKey, available);
+  requireColumns(op.table, 'sort key', sortKey, available);
+
+  const definitions: string[] = [];
+  for (const column of op.columns) {
+    if (column.unique !== true) continue;
+    if (shardKey === undefined || shardKey.some(shard => shard !== column.name)) {
+      throw new UnsupportedFeatureError(
+        `unique column "${column.name}" outside the shard key`,
+        'singlestore',
+        `singlestore cannot enforce UNIQUE on "${op.table}"."${column.name}" unless that index includes the ` +
+          `whole shard key (${shardKey?.join(', ') ?? 'none'}); change the shard key or enforce uniqueness in the application`,
+      );
+    }
+    definitions.push(`UNIQUE (${quoteIdentifier('singlestore', column.name)})`);
+  }
+  if (shardKey !== undefined) {
+    definitions.push(`SHARD KEY (${shardKey.map(column => quoteIdentifier('singlestore', column)).join(', ')})`);
+  }
+  if (sortKey !== undefined) {
+    definitions.push(`SORT KEY (${sortKey.map(column => quoteIdentifier('singlestore', column)).join(', ')})`);
+  }
+  return definitions;
+}
+
 function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect: Dialect): string {
   const inline = op.primaryKey.length === 1 ? op.primaryKey[0] : undefined;
   const tableLevel = op.primaryKey.length > 1 ? new Set(op.primaryKey) : undefined;
@@ -618,10 +718,23 @@ function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect
   if (dialect === 'sqlite') {
     for (const foreignKey of op.foreignKeys) definitions.push(foreignKeyDdl(dialect, foreignKey));
   }
-  return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${definitions.join(', ')})`;
+  if (dialect === 'singlestore') {
+    const available = new Set(op.columns.map(column => column.name));
+    definitions.push(...singlestoreTableDefinitions(op, available));
+  }
+  const create =
+    dialect === 'singlestore' && op.tableOptions?.rowstore === true ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE';
+  return `${create} ${quoteIdentifier(dialect, op.table)} (${definitions.join(', ')})`;
 }
 
 function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect: Dialect): string {
+  if (!TRAITS[dialect].features.foreignKeys) {
+    throw new UnsupportedFeatureError(
+      `foreign key "${foreignKey.name}" on "${table}"`,
+      dialect,
+      `${dialect} does not enforce foreign keys; remove the constraint and enforce referential integrity in the application`,
+    );
+  }
   if (dialect === 'sqlite') {
     throw new UnsupportedFeatureError(
       `adding foreign key "${foreignKey.name}" on "${table}"`,
@@ -631,7 +744,10 @@ function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect
         'see the migration guide',
     );
   }
-  if (dialect === 'mysql' && (foreignKey.onDelete === 'set default' || foreignKey.onUpdate === 'set default')) {
+  if (
+    TRAITS[dialect].family === 'mysql' &&
+    (foreignKey.onDelete === 'set default' || foreignKey.onUpdate === 'set default')
+  ) {
     throw new UnsupportedFeatureError(
       `SET DEFAULT on foreign key "${foreignKey.name}"`,
       dialect,
@@ -643,7 +759,7 @@ function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect
   const constraint =
     `ALTER TABLE ${quoteIdentifier(dialect, table)} ADD CONSTRAINT ${quoteIdentifier(dialect, foreignKey.name)} ` +
     foreignKeyDdl(dialect, foreignKey);
-  if (dialect !== 'mysql') return constraint;
+  if (TRAITS[dialect].family !== 'mysql') return constraint;
 
   const indexName = `${foreignKey.name}_idx`;
   if (indexName.length > 64) {
@@ -668,7 +784,10 @@ function dropForeignKeyDdl(table: string, name: string, dialect: Dialect): strin
         'see the migration guide',
     );
   }
-  const keyword = dialect === 'mysql' ? 'DROP FOREIGN KEY' : 'DROP CONSTRAINT';
+  if (!TRAITS[dialect].features.foreignKeys) {
+    throw new UnsupportedFeatureError(`dropping foreign key "${name}" on "${table}"`, dialect);
+  }
+  const keyword = TRAITS[dialect].family === 'mysql' ? 'DROP FOREIGN KEY' : 'DROP CONSTRAINT';
   return `ALTER TABLE ${quoteIdentifier(dialect, table)} ${keyword} ${quoteIdentifier(dialect, name)}`;
 }
 
@@ -698,7 +817,9 @@ function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly
   const clauses: string[] = [];
   if (from.length > 0) {
     clauses.push(
-      dialect === 'postgres' ? `DROP CONSTRAINT ${quoteIdentifier(dialect, `${table}_pkey`)}` : 'DROP PRIMARY KEY',
+      TRAITS[dialect].family === 'postgres'
+        ? `DROP CONSTRAINT ${quoteIdentifier(dialect, `${table}_pkey`)}`
+        : 'DROP PRIMARY KEY',
     );
   }
   if (to.length > 0) clauses.push(`ADD ${primaryKeyDdl(dialect, to)}`);
@@ -762,7 +883,7 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
           'sqlite cannot alter a column type in place; use a hand-written table rebuild',
         );
       }
-      return dialect === 'mysql'
+      return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.to)}`
         : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.to)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'up') : ''}`;
     case 'alter_primary_key':
@@ -804,7 +925,7 @@ export function emitDown(op: ChangeOp, dialect: Dialect): string {
           'sqlite cannot alter a column type in place; use a hand-written table rebuild',
         );
       }
-      return dialect === 'mysql'
+      return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.from)}`
         : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.from)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'down') : ''}`;
     case 'alter_primary_key':

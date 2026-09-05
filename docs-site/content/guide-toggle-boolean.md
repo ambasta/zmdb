@@ -57,14 +57,15 @@ const query = createQueryCompiler('postgres')
 await driver.execute(query);
 ```
 
-On MySQL, booleans are `tinyint(1)`, so `NOT` stores `0`/`1`. SQLite has the
+On the MySQL family, booleans are `tinyint(1)`, so `NOT` stores `0`/`1`. SQLite has the
 same truth table: `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a
 `Sql<'boolean'>` column.
 
-Postgres, SQLite and SQL Server return the computed row; SQL Server spells the
-toggle as bitwise `~` and returns it through `OUTPUT INSERTED.*`. MySQL has no
-`UPDATE … RETURNING`, so an expression-bearing repository update omits it and
-resolves to `undefined` without a follow-up read.
+The Postgres family, SQLite and SQL Server return the computed row; SQL Server
+spells the toggle as bitwise `~` and returns it through `OUTPUT INSERTED.*`.
+The MySQL family has no `UPDATE … RETURNING`, so an expression-bearing
+repository update omits it and resolves to `undefined` without a follow-up
+read.
 
 ## Prefer an explicit target state
 

@@ -31,7 +31,7 @@ export interface ZmdbConfigData {
   readonly naming?: 'snake_case' | 'snake_case_plural';
   readonly migrations?: {
     readonly table?: string;
-    /** Postgres only (§6). */
+    /** Postgres family only (§6). */
     readonly schema?: string;
   };
   readonly introspect?: IntrospectOptions;

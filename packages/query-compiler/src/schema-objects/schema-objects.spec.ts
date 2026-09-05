@@ -123,6 +123,31 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
     );
   });
 
+  it('inherits Postgres routine DDL on CockroachDB', () => {
+    expect(createRoutineDdl(archiveFunction, 'cockroach')).toContain(
+      'CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TIMESTAMPTZ) RETURNS INT4 LANGUAGE plpgsql',
+    );
+    expect(dropRoutineDdl(archiveFunction, 'cockroach')).toBe(
+      'DROP FUNCTION IF EXISTS "archive_old_orders"(TIMESTAMPTZ)',
+    );
+    expect(
+      replaceRoutineStatements(archiveFunction, { ...archiveFunction, body: 'BEGIN RETURN 2; END;' }, 'cockroach'),
+    ).toEqual([expect.stringMatching(/^CREATE OR REPLACE FUNCTION /)]);
+  });
+
+  it('refuses SingleStore routine DDL instead of emitting MySQL grammar', () => {
+    const singleStoreRoutine: RoutineDef = {
+      kind: archiveFunction.kind,
+      name: archiveFunction.name,
+      params: archiveFunction.params,
+      returns: { type: 'integer' },
+      body: archiveFunction.body,
+    };
+    expect(() => createRoutineDdl(singleStoreRoutine, 'singlestore')).toThrow(
+      /singlestore stored routines are not modeled.*hand-written migration/i,
+    );
+  });
+
   it('emits a MySQL procedure as one driver statement with no DELIMITER', () => {
     const ddl = createRoutineDdl(
       {
@@ -327,6 +352,30 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
         ),
       ).toThrow(UnsupportedFeatureError);
     }
+  });
+
+  it('inherits MySQL index methods and expression-index refusal on SingleStore', () => {
+    expect(
+      createIndexDdl(
+        {
+          name: 'users_email',
+          table: 'users',
+          method: 'btree',
+          columns: ['email'],
+        },
+        'singlestore',
+      ),
+    ).toBe('CREATE INDEX `users_email` USING BTREE ON `users` (`email`)');
+    expect(() =>
+      createIndexDdl(
+        {
+          name: 'users_email_ci',
+          table: 'users',
+          columns: [{ expr: 'lower(email)' }],
+        },
+        'singlestore',
+      ),
+    ).toThrow(/singlestore does not support an expression index/);
   });
 
   it('refuses a unique vector index before emitting invalid PostgreSQL DDL', () => {

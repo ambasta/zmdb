@@ -6,6 +6,7 @@ export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { DIALECTS, TRAITS } from './dialects/index.js';
 export type {
   Dialect,
+  DialectFamily,
   DialectFeature,
   DialectSqlType,
   DialectTraits,
@@ -71,6 +72,8 @@ export type Operator =
   | 'nin'
   | 'exists'
   | 'not exists'
+  | 'is null'
+  | 'is not null'
   | (string & {});
 
 export { OP_MAP } from './clauses.js';
@@ -91,6 +94,8 @@ export const DIALECT_PARAM_LIMITS: Readonly<Record<Dialect, number>> = Object.fr
   mysql: TRAITS.mysql.paramLimit,
   sqlite: TRAITS.sqlite.paramLimit,
   mssql: TRAITS.mssql.paramLimit,
+  cockroach: TRAITS.cockroach.paramLimit,
+  singlestore: TRAITS.singlestore.paramLimit,
 });
 
 /**
@@ -325,7 +330,7 @@ function routineCall(
   if (dialect === 'sqlite' || dialect === 'mssql') {
     throw new UnsupportedFeatureError(`stored routine "${name}"`, dialect);
   }
-  if (kind === 'table-function' && dialect !== 'postgres') {
+  if (kind === 'table-function' && TRAITS[dialect].family !== 'postgres') {
     throw new UnsupportedFeatureError(`set-returning function "${name}"`, dialect);
   }
 

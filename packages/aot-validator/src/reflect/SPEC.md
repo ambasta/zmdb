@@ -112,6 +112,11 @@ by whether its escaped name starts with `__@`, which identifies any
 `unique symbol` slot. "Which IR field does this tag set?" is answered by
 `TAG_NAMES`.
 
+The table-level `ShardKey<[…]>`, `SortKey<[…]>` and `Rowstore` slots use that
+same path. The two key tags are read as non-empty literal tuples, checked for
+duplicates and unknown columns, then carried as `SchemaIR.tableOptions`;
+`Rowstore` contributes the exact literal `true`.
+
 Testing the second question in place of the first made `Brand<number, 'UserId'>` a build error: the brand object looked like a second data part of the intersection, so the refusal was "an intersection of unrelated non-object types".
 
 A symbol-keyed property cannot cross a JSON boundary, so there is nothing to check and nothing lost by treating every one of them as phantom.
@@ -269,6 +274,7 @@ constraint the declaration just made.
 - [x] Each of the six rows in §8 has its own assertion — the five a schema value cannot hold, and the one default value no declaration can state.
 - [x] A `Codec` + `WireAs` column reflects all three of its types; a codec over a plain scalar records no payload.
 - [x] `Serial` alone yields `serial: true` **and** `hasDefault: true`.
+- [x] SingleStore shard, sort and rowstore tags survive reflection as validated table options.
 - [x] Mutual recursion (`Folder` ↔ `FileEntry`) closes with a `ref`, not just self-recursion.
 - [x] A discriminated union keeps its discriminant as a `literal` on every arm, so the emitter can choose a strategy from the IR alone; an undiscriminated union keeps declaration order.
 - [x] `Omit`/`Pick`/`Partial`/`Required`/mapped/conditional resolve to the expected property lists, optionality included, with tags on the properties intact.

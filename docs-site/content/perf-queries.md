@@ -50,7 +50,10 @@ The row type narrows too, so this is checked. It matters most for wide rows and 
 
 ## Index what you filter and order by
 
-`Unique` records the constraint, and the database gives you an index when you write it; nothing else does automatically, and a generated migration does not emit the constraint at all — see [Indexes & Constraints](./indexes-constraints.html).
+`Unique` records the constraint. SingleStore migration generation now carries
+that flag so it can enforce the shard-key rule; the other dialects still need
+an explicit schema-object migration for a standalone unique index. See
+[Indexes & Constraints](./indexes-constraints.html).
 
 ```ts
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';

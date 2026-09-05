@@ -126,7 +126,9 @@ export interface Order extends Table<'orders'> {
 }
 ```
 
-Postgres drivers hand back `json`/`jsonb` already parsed; MySQL, SQLite and SQL Server hand back a string. That difference is the driver's, so the read side is:
+Postgres-family drivers hand back `json`/`jsonb` already parsed; MySQL-family,
+SQLite and SQL Server drivers hand back a string. That difference is the
+driver's, so the read side is:
 
 ```ts
 const raw = row.payload;

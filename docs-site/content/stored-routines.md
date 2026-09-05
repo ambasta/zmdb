@@ -120,20 +120,23 @@ run, and execute the ordered result through a
 
 ## Dialect behavior
 
-| Behavior                  | postgres                                                  | mysql                                                                   | sqlite  | mssql   |
-| ------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | ------- | ------- |
-| Function DDL              | `CREATE OR REPLACE`; collision-safe tagged dollar quoting | ordered `DROP` + `CREATE`; explicit determinism and invoker security    | refuses | refuses |
-| Procedure DDL             | `CREATE OR REPLACE PROCEDURE`                             | ordered `DROP` + one `CREATE` driver statement; never emits `DELIMITER` | refuses | refuses |
-| Scalar / procedure call   | typed, validated, and bound                               | typed, validated, and bound                                             | refuses | refuses |
-| Scalar `setof` call       | `SELECT * FROM`; typed as a readonly array                | refuses                                                                 | refuses | refuses |
-| Routine `language` option | emitted; defaults to `plpgsql`                            | refuses                                                                 | refuses | refuses |
+| Dialect     | DDL                                                                             | Calls                                                       |
+| ----------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| postgres    | `CREATE OR REPLACE`; tagged dollar quoting and typed replacement                | scalar, procedure and `setof`; typed, validated and bound   |
+| cockroach   | inherits Postgres grammar while retaining Cockroach type spellings              | inherits Postgres scalar, procedure and `setof` calls       |
+| mysql       | ordered `DROP` + `CREATE`; explicit determinism and invoker security            | scalar and procedure calls; `setof` refused                 |
+| singlestore | refuses `RoutineDef` DDL; use a hand-written migration for its distinct grammar | inherited MySQL scalar and procedure calls; `setof` refused |
+| sqlite      | refuses                                                                         | refuses                                                     |
+| mssql       | refuses                                                                         | refuses                                                     |
 
 Only input parameters are supported: `out` and `inout` are refused. Function
-returns are scalar SQL types or, on Postgres, a `setof` scalar; composite/table
+returns are scalar SQL types or, on the Postgres family, a `setof` scalar; composite/table
 returns and overload declarations are not represented. SQLite has no stored
 routines, so both DDL and calls fail explicitly rather than being emulated.
 SQL Server also refuses this surface: its routine grammar and return shapes are
-not represented by the current `RoutineDef`.
+not represented by the current `RoutineDef`. SingleStore calls can target
+hand-written routines, but its declaration grammar is likewise not represented
+by `RoutineDef`.
 
 ## Deliberate boundaries
 

@@ -1,8 +1,9 @@
 import { UnsupportedFeatureError } from '../errors.js';
 import { MSSQL_TYPES, mssqlPaginate } from './mssql.js';
 
-export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql'] as const;
+export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
 export type Dialect = (typeof DIALECT_NAMES)[number];
+export type DialectFamily = Exclude<Dialect, 'cockroach' | 'singlestore'>;
 
 export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
 
@@ -75,7 +76,10 @@ export type DialectTraits =
       readonly features: Readonly<Record<DialectFeature, boolean>>;
     } & Omit<RequiredDialectTraits, 'types' | 'features'>);
 
-export type ResolvedTraits = RequiredDialectTraits;
+export type ResolvedTraits = RequiredDialectTraits & {
+  /** The root dialect after the parent chain is resolved. */
+  readonly family: DialectFamily;
+};
 
 function standardPaginate({ limit, offset }: PaginationTail): string {
   let text = '';
@@ -240,6 +244,27 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     paramLimit: 2000,
     retryableCodes: Object.freeze(['1205']),
   }),
+  cockroach: Object.freeze({
+    parent: 'postgres',
+    types: Object.freeze({
+      serial: 'INT8 DEFAULT unique_rowid()',
+      integer: 'INT4',
+    }),
+    fts: 'none',
+    features: Object.freeze({
+      rowLevelSecurity: false,
+    }),
+    retryableCodes: Object.freeze(['40001']),
+  }),
+  singlestore: Object.freeze({
+    parent: 'mysql',
+    types: Object.freeze({
+      serial: 'BIGINT AUTO_INCREMENT',
+    }),
+    features: Object.freeze({
+      foreignKeys: false,
+    }),
+  }),
 });
 
 function missingTrait(dialect: Dialect, trait: keyof RequiredDialectTraits): never {
@@ -278,6 +303,13 @@ function resolveTypes(
   });
 }
 
+function rootFamily(dialect: Dialect): DialectFamily {
+  if (dialect === 'cockroach' || dialect === 'singlestore') {
+    throw new Error(`Dialect "${dialect}" declares no parent`);
+  }
+  return dialect;
+}
+
 function resolveOne(
   dialect: Dialect,
   definitions: Readonly<Record<Dialect, DialectTraits>>,
@@ -306,6 +338,7 @@ function resolveOne(
   );
 
   const resolved = Object.freeze({
+    family: parent?.family ?? rootFamily(dialect),
     placeholder: inherited(dialect, 'placeholder', definition.placeholder, parent?.placeholder),
     quote: quotePair(inheritedQuote[0], inheritedQuote[1]),
     paginate: inherited(dialect, 'paginate', definition.paginate, parent?.paginate),
@@ -346,6 +379,8 @@ export function resolveDialectRegistry(
     mysql: resolveOne('mysql', definitions, cache, resolving, onResolve),
     sqlite: resolveOne('sqlite', definitions, cache, resolving, onResolve),
     mssql: resolveOne('mssql', definitions, cache, resolving, onResolve),
+    cockroach: resolveOne('cockroach', definitions, cache, resolving, onResolve),
+    singlestore: resolveOne('singlestore', definitions, cache, resolving, onResolve),
   });
 }
 

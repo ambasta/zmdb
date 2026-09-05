@@ -5,7 +5,15 @@
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import type { ColumnExpr, CompiledQuery, Dialect, Predicate, SelectBuilder, SetValue } from '@zmdb/query-compiler';
-import { chunkArray, createQueryCompiler, DIALECT_PARAM_LIMITS, EXPR, inc, sanitizeKeys } from '@zmdb/query-compiler';
+import {
+  chunkArray,
+  createQueryCompiler,
+  DIALECT_PARAM_LIMITS,
+  EXPR,
+  inc,
+  sanitizeKeys,
+  TRAITS,
+} from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
@@ -1745,7 +1753,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : requestedUpdateFields;
     const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(updateFields);
     if (
-      this.dialect === 'mysql' &&
+      TRAITS[this.dialect].family === 'mysql' &&
       updateFields !== undefined &&
       !Array.isArray(updateFields) &&
       this.hasColumnExpression(updateFields)
@@ -1781,7 +1789,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.preUpdate(clean);
     if (Object.keys(clean).length === 0) return 0;
     const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
-    if (this.dialect === 'mysql') {
+    if (TRAITS[this.dialect].family === 'mysql') {
       await this.driver.execute(builder.compile());
       await this.invalidateCache(options);
       return undefined;
@@ -1838,7 +1846,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return this.firstResult(query);
     }
     const builder = this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
-    if (this.dialect === 'mysql' && this.hasColumnExpression(clean)) {
+    if (TRAITS[this.dialect].family === 'mysql' && this.hasColumnExpression(clean)) {
       await this.driver.execute(this.assertKeyed(builder.compile(), 'update'));
       await this.invalidateCache(options);
       return undefined;
@@ -1870,10 +1878,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async delete(id: PrimaryKeyOf<T>, options?: CacheInvalidationOptions): Promise<boolean> {
     this.preDelete(id);
     const builder = this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete');
-    const query = this.dialect === 'mysql' ? builder.compile() : builder.returning(this.keyColumns).compile();
+    const mysqlFamily = TRAITS[this.dialect].family === 'mysql';
+    const query = mysqlFamily ? builder.compile() : builder.returning(this.keyColumns).compile();
     const rows = await this.driver.execute(this.assertKeyed(query, 'delete'));
     await this.invalidateCache(options);
-    if (this.dialect === 'mysql') {
+    if (mysqlFamily) {
       const affectedRows = rows[0]?.['affectedRows'];
       if (typeof affectedRows === 'number') return affectedRows > 0;
     }

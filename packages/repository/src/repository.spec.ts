@@ -414,7 +414,7 @@ function isRoutineCompiler(loaded: object): loaded is FrozenRoutineCompiler {
   return CALL_EXPORTS.every(name => typeof Reflect.get(loaded, name) === 'function');
 }
 
-async function routineCompiler(dialect: 'postgres' | 'mysql' | 'sqlite'): Promise<FrozenRoutineCompiler> {
+async function routineCompiler(dialect: 'postgres' | 'mysql' | 'sqlite' | 'cockroach'): Promise<FrozenRoutineCompiler> {
   const loaded: unknown = await import('@zmdb/query-compiler');
   if (typeof loaded !== 'object' || loaded === null) {
     throw new Error('@zmdb/query-compiler did not load as a module record');
@@ -499,6 +499,12 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
   it('compiles a set-returning function call as rows', async () => {
     const routines = await routineCompiler('postgres');
     expect(routines.callTableFunction('active_user_ids', [7n])).toEqual({
+      text: 'SELECT * FROM "active_user_ids"($1)',
+      parameters: [7n],
+    });
+
+    const cockroach = await routineCompiler('cockroach');
+    expect(cockroach.callTableFunction('active_user_ids', [7n])).toEqual({
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
     });

@@ -1,7 +1,7 @@
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { TRAITS, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
 
 export type TransactionState = 'active' | 'closed' | 'committed' | 'rolled_back' | string;
 
@@ -34,7 +34,72 @@ export interface TxConnection {
 }
 
 export interface TransactionalDb {
-  transaction<R, State extends string = 'active'>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
+  transaction<R, State extends string = 'active'>(
+    fn: (tx: TransactionContext<State>) => Promise<R>,
+    options?: TransactionOptions,
+  ): Promise<R>;
+}
+
+export interface TransactionRetryPolicy {
+  /** Retries after the first failed attempt. The transaction body may run `maxRetries + 1` times. */
+  readonly maxRetries: number;
+  /** Exponential-backoff starting delay. Defaults to 10 ms. */
+  readonly baseDelayMs?: number;
+  /** Backoff ceiling. Defaults to 1,000 ms. */
+  readonly maxDelayMs?: number;
+}
+
+export interface TransactionOptions {
+  /**
+   * Explicit opt-in only: retrying re-runs the callback, including any side effects
+   * outside the database. Keep those effects out of a retrying transaction body.
+   */
+  readonly retry?: TransactionRetryPolicy;
+}
+
+function nonNegativeInteger(name: string, value: number): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${name} must be a non-negative safe integer`);
+  }
+}
+
+function retryPolicy(options: TransactionOptions | undefined): Required<TransactionRetryPolicy> | undefined {
+  const policy = options?.retry;
+  if (policy === undefined) return undefined;
+  const baseDelayMs = policy.baseDelayMs ?? 10;
+  const maxDelayMs = policy.maxDelayMs ?? 1000;
+  nonNegativeInteger('retry.maxRetries', policy.maxRetries);
+  nonNegativeInteger('retry.baseDelayMs', baseDelayMs);
+  nonNegativeInteger('retry.maxDelayMs', maxDelayMs);
+  return { maxRetries: policy.maxRetries, baseDelayMs, maxDelayMs };
+}
+
+function errorCode(error: unknown): string | undefined {
+  if (error === null || typeof error !== 'object') return undefined;
+  const code = Reflect.get(error, 'code');
+  return typeof code === 'string' ? code : undefined;
+}
+
+function canRetry(
+  dialect: Dialect | undefined,
+  error: unknown,
+  retries: number,
+  policy: Required<TransactionRetryPolicy> | undefined,
+): policy is Required<TransactionRetryPolicy> {
+  if (dialect === undefined || policy === undefined || retries >= policy.maxRetries) return false;
+  const code = errorCode(error);
+  return code !== undefined && TRAITS[dialect].retryableCodes.includes(code);
+}
+
+function backoff(policy: Required<TransactionRetryPolicy>, retry: number): number {
+  return Math.min(policy.baseDelayMs * 2 ** (retry - 1), policy.maxDelayMs);
+}
+
+async function wait(milliseconds: number): Promise<void> {
+  if (milliseconds === 0) return;
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 export function createTransactionalDb(conn: TxConnection): TransactionalDb {
@@ -60,16 +125,23 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
   return {
     async transaction<R, State extends string = 'active'>(
       fn: (tx: TransactionContext<State>) => Promise<R>,
+      options?: TransactionOptions,
     ): Promise<R> {
-      savepointSeq = 0;
-      await conn.raw('BEGIN');
-      try {
-        const result = await fn(makeContext<State>());
-        await conn.raw('COMMIT');
-        return result;
-      } catch (err) {
-        await conn.raw('ROLLBACK');
-        throw err;
+      const policy = retryPolicy(options);
+      let retries = 0;
+      while (true) {
+        savepointSeq = 0;
+        await conn.raw('BEGIN');
+        try {
+          const result = await fn(makeContext<State>());
+          await conn.raw('COMMIT');
+          return result;
+        } catch (err) {
+          await conn.raw('ROLLBACK');
+          if (!canRetry(conn.dialect, err, retries, policy)) throw err;
+          retries++;
+          await wait(backoff(policy, retries));
+        }
       }
     },
   };

@@ -198,9 +198,10 @@ SELECT id, name, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lo
 FROM venues
 ```
 
-PostGIS support is PostgreSQL-only in zmdb. MySQL, SQLite and SQL Server refuse
-extension installation, PostGIS-backed DDL and the spatial predicate nodes
-instead of substituting an incompatible type or function.
+PostGIS support is available only on the `'postgres'` dialect in zmdb.
+Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse extension
+installation, PostGIS-backed DDL and the spatial predicate nodes instead of
+substituting an incompatible type or function.
 
 ---
 

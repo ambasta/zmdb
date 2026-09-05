@@ -7,6 +7,7 @@ import {
   formatPlaceholder,
   quoteIdentifier,
   quoteTable,
+  TRAITS,
   type CompiledQuery,
   type Dialect,
 } from '../index.js';
@@ -69,8 +70,10 @@ const DEFAULT_VERSION_TABLE = `CREATE TABLE IF NOT EXISTS _zmdb_migrations (
   checksum TEXT
 )`;
 
-const NON_TRANSACTIONAL_DDL_WARNING =
-  'mysql does not support transactional DDL; a failed migration may leave its schema changes partially applied even though its ledger row is absent';
+function nonTransactionalDdlWarning(dialect: Dialect | undefined): string {
+  const database = dialect ?? 'the configured database';
+  return `${database} does not support transactional DDL; a failed migration may leave its schema changes partially applied even though its ledger row is absent`;
+}
 
 /**
  * Adapt any runtime database driver instance (e.g. PostgreSQL, SQLite)
@@ -82,6 +85,7 @@ export function driverMigrationConnection(
   options: MigrationTableOptions = {},
 ): MigrationConnection {
   const qb = createQueryCompiler(dialect);
+  const traits = TRAITS[dialect];
   const tableName = options.table ?? '_zmdb_migrations';
   const qualifiedTableName = options.schema === undefined ? tableName : `${options.schema}.${tableName}`;
   const table = quoteTable(dialect, qualifiedTableName);
@@ -116,7 +120,7 @@ export function driverMigrationConnection(
   }
 
   async function transaction<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T> {
-    if (dialect === 'mysql') return run();
+    if (!traits.features.transactionalDdl) return run();
     if (driver.transaction !== undefined) {
       return driver.transaction(transactionDriver =>
         run(driverMigrationConnection(transactionDriver, dialect, options)),
@@ -130,7 +134,7 @@ export function driverMigrationConnection(
 
   return {
     dialect,
-    transactionalDdl: dialect !== 'mysql',
+    transactionalDdl: traits.features.transactionalDdl,
     async exec(sql: string): Promise<void> {
       await execute(sql);
     },
@@ -173,9 +177,9 @@ export function driverMigrationConnection(
           `version ${versionType} PRIMARY KEY, ` +
           'name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',
       );
-      if (dialect === 'postgres') {
+      if (traits.family === 'postgres') {
         await execute(`ALTER TABLE ${table} ALTER COLUMN version TYPE BIGINT`);
-      } else if (dialect === 'mysql') {
+      } else if (traits.family === 'mysql') {
         await execute(`ALTER TABLE ${table} MODIFY COLUMN version BIGINT NOT NULL`);
       }
       try {
@@ -209,7 +213,7 @@ export async function up(
   const applied = new Set(ledger.map(row => row.version));
   const pending = [...migrations].filter(migration => !applied.has(migration.version)).toSorted(byVersion);
   if (pending.length > 0 && conn.transactionalDdl === false) {
-    options.onWarning?.(NON_TRANSACTIONAL_DDL_WARNING);
+    options.onWarning?.(nonTransactionalDdlWarning(conn.dialect));
   }
 
   const done: number[] = [];

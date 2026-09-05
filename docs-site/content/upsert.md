@@ -87,17 +87,17 @@ undefined) to update all non-target columns, or use doNothing().
 Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CONFLICT DO NOTHING`, which matches a collision on any unique index.
 
 > [!WARNING]
-> On MySQL, `doNothing()` compiles to `INSERT IGNORE INTO …`, and the two are **not** equivalent.
+> On the MySQL family, `doNothing()` compiles to `INSERT IGNORE INTO …`, and the two are **not** equivalent.
 > `INSERT IGNORE` downgrades other errors to warnings as well — a truncated string, a bad date, a
 > failed foreign key — so it is broader than "ignore the conflict". If you need the narrow form on
 > MySQL, `doUpdate` the target columns back to themselves instead.
 
-## Conflict targets: honoured on Postgres, SQLite and SQL Server; ignored on MySQL
+## Conflict targets: honoured on the Postgres family, SQLite and SQL Server; ignored on the MySQL family
 
 > [!CAUTION]
-> Postgres, SQLite and SQL Server emit the target supplied to
-> `upsert(dto, { target: ['email'] })` or `onConflict('email')`. MySQL has no
-> equivalent syntax, so it silently ignores that target:
+> The Postgres family, SQLite and SQL Server emit the target supplied to
+> `upsert(dto, { target: ['email'] })` or `onConflict('email')`. The MySQL
+> family has no equivalent syntax, so it silently ignores that target:
 >
 > ```sql
 > -- postgres, sqlite

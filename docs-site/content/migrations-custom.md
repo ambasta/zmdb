@@ -95,7 +95,9 @@ const dialect = process.env.DB_DIALECT as Dialect;
 export const migrations = dialect === 'postgres' ? pgMigrations : sqliteMigrations;
 ```
 
-Hand-written migrations usually have to fork too — `ALTER COLUMN` alone differs across all four dialects.
+Hand-written migrations usually have to fork too — even among the four root
+dialects, `ALTER COLUMN` has different grammar. Cockroach and SingleStore
+inherit the Postgres and MySQL forms respectively.
 
 ## Testing them
 

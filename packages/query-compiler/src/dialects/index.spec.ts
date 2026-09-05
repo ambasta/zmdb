@@ -29,6 +29,8 @@ describe('dialect traits', () => {
     expect(Object.isFrozen(TRAITS.postgres)).toBe(true);
     expect(Object.isFrozen(TRAITS.postgres.types)).toBe(true);
     expect(Object.isFrozen(TRAITS.postgres.features)).toBe(true);
+    expect(TRAITS.cockroach.family).toBe('postgres');
+    expect(TRAITS.singlestore.family).toBe('mysql');
   });
 
   it('merges inherited scalar, feature and type traits', () => {
@@ -43,6 +45,8 @@ describe('dialect traits', () => {
       },
       sqlite: DIALECTS.sqlite,
       mssql: DIALECTS.mssql,
+      cockroach: DIALECTS.cockroach,
+      singlestore: DIALECTS.singlestore,
     };
 
     const resolved = resolveDialectRegistry(definitions);
@@ -54,6 +58,8 @@ describe('dialect traits', () => {
     expect(resolved.mysql.types.timestamp).toBe('DATETIME(3)');
     expect(resolved.mysql.features.materializedView).toBe(true);
     expect(resolved.mysql.features.rowLevelSecurity).toBe(false);
+    expect(resolved.cockroach.family).toBe('postgres');
+    expect(resolved.singlestore.family).toBe('postgres');
   });
 
   it('turns a false feature trait into a structured refusal', () => {
@@ -77,6 +83,8 @@ describe('dialect traits', () => {
       mysql: { parent: 'postgres' },
       sqlite: DIALECTS.sqlite,
       mssql: DIALECTS.mssql,
+      cockroach: DIALECTS.cockroach,
+      singlestore: DIALECTS.singlestore,
     };
 
     expect(() => resolveDialectRegistry(definitions)).toThrow('Dialect trait parent cycle includes "postgres"');

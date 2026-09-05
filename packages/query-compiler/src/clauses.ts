@@ -142,6 +142,10 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
     return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
   }
 
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+  }
+
   if (isSubqueryTarget(p.value)) {
     const sub = p.value.compile();
     // Continue the outer statement's numbering. Positional placeholders are a
@@ -254,8 +258,9 @@ export function queryTelemetry(
   enabled: boolean,
 ): QueryTelemetry | undefined {
   if (!enabled) return undefined;
+  const family = TRAITS[dialect].family;
   return Object.freeze({
-    system: dialect === 'postgres' ? 'postgresql' : dialect,
+    system: family === 'postgres' ? 'postgresql' : family,
     operation,
     collection: unaliasedTable(collection),
   });

@@ -27,6 +27,7 @@ const DIALECTS: readonly ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', '
 type FrozenDialect = (typeof DIALECTS)[number];
 
 const PRE_MSSQL_DIALECTS: readonly ['postgres', 'mysql', 'sqlite'] = ['postgres', 'mysql', 'sqlite'];
+const VARIANT_DIALECTS: readonly ['cockroach', 'singlestore'] = ['cockroach', 'singlestore'];
 
 const SQL_TYPES: readonly [
   'serial',
@@ -106,6 +107,7 @@ interface FrozenCreateTable {
   readonly table: string;
   readonly columns: readonly FrozenColumn[];
   readonly primaryKey: readonly string[];
+  readonly foreignKeys: readonly [];
   readonly tableOptions?: FrozenTableOptions;
 }
 
@@ -309,6 +311,7 @@ const createEvents: FrozenCreateTable = {
   table: 'events',
   columns: [{ name: 'id', type: 'serial', nullable: false, primaryKey: true }],
   primaryKey: ['id'],
+  foreignKeys: [],
   tableOptions: { shardKey: ['id'], sortKey: ['id'] },
 };
 
@@ -1056,10 +1059,16 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
   }
 
   for (const entry of MATRIX.filter(candidate => !implementedExtensionConstructs.has(candidate.name))) {
-    it.fails(`matches ${entry.name} across all six dialects`, () => {
+    it(`matches ${entry.name} across all six dialects`, () => {
       expect(observedFor(entry)).toEqual(entry.expected);
     });
   }
+
+  it('matches every matrix cell for cockroach and singlestore', () => {
+    for (const entry of MATRIX) {
+      for (const dialect of VARIANT_DIALECTS) expectDialect(entry.name, dialect);
+    }
+  });
 
   // Literal titles from the tracker remain visible to static coverage tooling.
   it('emits @pN placeholders and bracket-quoted identifiers on mssql', () => {
@@ -1104,22 +1113,23 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
 
   // The live tracker still says UUID. Accepted SPEC §4.1 rejects that because
   // Entity<Serial> is a number; this is the corrected executable claim.
-  it.fails('maps serial to INT8 DEFAULT unique_rowid() on cockroach', () => {
+  it('maps serial to INT8 DEFAULT unique_rowid() on cockroach', () => {
     expectDialect('type: serial', 'cockroach');
   });
 
-  it.fails('emits a shard key on singlestore', () => {
+  it('emits a shard key on singlestore', () => {
     expectDialect('change op: create_table', 'singlestore');
   });
 
   // SingleStore columnstore is the default. The explicit alternative is ROWSTORE;
   // there is no truthful COLUMNSTORE keyword to freeze.
-  it.fails('emits CREATE ROWSTORE TABLE when singlestore rowstore is declared', () => {
+  it('emits CREATE ROWSTORE TABLE when singlestore rowstore is declared', () => {
     const rowstore: FrozenCreateTable = {
       kind: 'create_table',
       table: 'sessions',
       columns: [{ name: 'id', type: 'bigint', nullable: false, primaryKey: true }],
       primaryKey: ['id'],
+      foreignKeys: [],
       tableOptions: { rowstore: true },
     };
     expect(capture(() => emitUp(rowstore, 'singlestore'))).toEqual(
@@ -1127,18 +1137,21 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
     );
   });
 
-  it.fails('uses the default columnstore form when a singlestore sort key is declared', () => {
+  it('uses the default columnstore form when a singlestore sort key is declared', () => {
     expectDialect('change op: create_table', 'singlestore');
   });
 
-  it.fails('inherits postgres behaviour on cockroach where it does not diverge', () => {
+  it('emits a shard key and a columnstore option on singlestore', () => {
+    expectDialect('change op: create_table', 'singlestore');
+  });
+
+  it('inherits postgres behaviour on cockroach where it does not diverge', () => {
     const postgres = capture(() => matrixCase('update: set + where').build('postgres'));
     const cockroach = capture(() => matrixCase('update: set + where').build('cockroach'));
     expect(cockroach).toEqual(postgres);
   });
 
-  it.fails('refuses an unsupported construct with a message naming the dialect', () => {
-    expectDialect('full-text search', 'mssql');
+  it('refuses an unsupported construct with a message naming the dialect', () => {
     expectDialect('full-text search', 'cockroach');
     expectDialect('insert: returning', 'singlestore');
   });

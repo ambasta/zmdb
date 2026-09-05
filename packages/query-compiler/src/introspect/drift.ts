@@ -1,4 +1,4 @@
-import type { Dialect } from '../index.js';
+import { TRAITS, type Dialect } from '../index.js';
 import {
   diff,
   type ChangeOp,
@@ -62,6 +62,7 @@ function normalizeColumn(column: DriftColumnSnapshot): ColumnSnapshot {
     nullable: column.nullable,
     primaryKey: column.primaryKey,
     ...(column.length === undefined ? {} : { length: column.length }),
+    ...(column.unique === undefined ? {} : { unique: column.unique }),
   };
 }
 
@@ -92,7 +93,7 @@ function normalizeIndexes(
   dialect: Dialect | undefined,
 ): readonly CatalogIndexSnapshot[] | undefined {
   if (table.indexes === undefined) return undefined;
-  if (role !== 'live' || dialect !== 'mysql') return table.indexes;
+  if (role !== 'live' || dialect === undefined || TRAITS[dialect].family !== 'mysql') return table.indexes;
   const foreignKeys = table.foreignKeys ?? [];
   return table.indexes.filter(index => !isMySqlForeignKeySupportingIndex(index, foreignKeys));
 }
@@ -121,6 +122,7 @@ export function normalizeDriftSnapshot(
         columns: table.columns.map(normalizeColumn),
         primaryKey: table.primaryKey,
         foreignKeys: table.foreignKeys ?? [],
+        ...(table.tableOptions === undefined ? {} : { tableOptions: table.tableOptions }),
         ...(indexes === undefined ? {} : { indexes }),
       };
       return normalized;

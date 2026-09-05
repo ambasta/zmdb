@@ -31,9 +31,10 @@ UPDATE "posts" SET "views" = "views" + ? WHERE "published" = ? RETURNING "id"
 UPDATE [posts] SET [views] = [views] + @p1 OUTPUT INSERTED.[id] WHERE [published] = @p2
 ```
 
-The parameters are `[1, false]`. Postgres, SQLite and SQL Server return the
-number of primary-key rows returned by the statement. MySQL omits unsupported
-`RETURNING`, executes the same atomic update, and resolves to `undefined`.
+The parameters are `[1, false]`. The Postgres family, SQLite and SQL Server
+return the number of primary-key rows returned by the statement. The MySQL
+family omits unsupported `RETURNING`, executes the same atomic update, and
+resolves to `undefined`.
 
 ## Different values per row
 

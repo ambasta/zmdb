@@ -17,16 +17,18 @@ const { text, parameters } = createQueryCompiler('postgres')
 
 Assert on `text` in a unit test. This is the same value the driver gets.
 
-## Compile the same query for four dialects
+## Compile the same query for six dialects
 
 ```ts
-for (const dialect of ['postgres', 'mysql', 'sqlite', 'mssql'] as const) {
+for (const dialect of ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const) {
   console.log(createQueryCompiler(dialect).selectFrom('users').where('id', '=', 1).compile().text);
 }
 // SELECT * FROM "users" WHERE "id" = $1
 // SELECT * FROM `users` WHERE `id` = ?
 // SELECT * FROM "users" WHERE "id" = ?
 // SELECT * FROM [users] WHERE [id] = @p1
+// SELECT * FROM "users" WHERE "id" = $1
+// SELECT * FROM `users` WHERE `id` = ?
 ```
 
 Useful for spotting portability problems before deploy, and for tests that must pass on both SQLite locally and Postgres in CI.

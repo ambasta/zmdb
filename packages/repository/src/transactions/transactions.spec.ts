@@ -5,6 +5,12 @@ import { recordingConn } from './recording-conn.js';
 
 // RED PHASE (#35 spec freeze): transaction lifecycle SQL ordering.
 
+class DriverError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
 describe('transaction lifecycle', () => {
   it('commits on success (BEGIN … COMMIT)', async () => {
     const conn = recordingConn();
@@ -35,6 +41,60 @@ describe('transaction lifecycle', () => {
       });
     });
     expect(conn.log).toEqual(['BEGIN', 'SAVEPOINT s1', 'EXEC', 'RELEASE SAVEPOINT s1', 'COMMIT']);
+  });
+
+  it('does not retry a transaction unless the caller opts in', async () => {
+    const conn = recordingConn({ dialect: 'cockroach' });
+    const db = createTransactionalDb(conn);
+    let attempts = 0;
+
+    await expect(
+      db.transaction(async () => {
+        attempts++;
+        throw new DriverError('40001');
+      }),
+    ).rejects.toThrow('40001');
+
+    expect(attempts).toBe(1);
+    expect(conn.log).toEqual(['BEGIN', 'ROLLBACK']);
+  });
+
+  it('retries a serialisation failure the specified number of times', async () => {
+    const conn = recordingConn({ dialect: 'cockroach' });
+    const db = createTransactionalDb(conn);
+    let attempts = 0;
+
+    const result = await db.transaction(
+      async () => {
+        attempts++;
+        if (attempts < 3) throw new DriverError('40001');
+        return 'committed';
+      },
+      { retry: { maxRetries: 2, baseDelayMs: 0, maxDelayMs: 0 } },
+    );
+
+    expect(result).toBe('committed');
+    expect(attempts).toBe(3);
+    expect(conn.log).toEqual(['BEGIN', 'ROLLBACK', 'BEGIN', 'ROLLBACK', 'BEGIN', 'COMMIT']);
+  });
+
+  it('does not retry a code the dialect does not classify as retryable', async () => {
+    const conn = recordingConn({ dialect: 'cockroach' });
+    const db = createTransactionalDb(conn);
+    let attempts = 0;
+
+    await expect(
+      db.transaction(
+        async () => {
+          attempts++;
+          throw new DriverError('23505');
+        },
+        { retry: { maxRetries: 2, baseDelayMs: 0, maxDelayMs: 0 } },
+      ),
+    ).rejects.toThrow('23505');
+
+    expect(attempts).toBe(1);
+    expect(conn.log).toEqual(['BEGIN', 'ROLLBACK']);
   });
 
   // Rolling an inner savepoint back while the outer transaction still commits is

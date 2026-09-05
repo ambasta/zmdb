@@ -100,10 +100,11 @@ The one that causes data loss. Postgres has two types:
 - `timestamp` — no time zone. Stores wall-clock digits with no offset, so `12:00` is meaningless without knowing where.
 - `timestamptz` — stores an instant, converting on the way in and out.
 
-**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>`
-emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all
-four dialects; SQL Server stores it as `DATETIMEOFFSET(3)`, so the instant is what crosses
-the boundary rather than a set of digits.
+**Anything that happened wants `timestamptz`,** and that is what you get:
+`Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres/Cockroach,
+`DATETIME(3)` on MySQL/SingleStore, `DATETIMEOFFSET(3)` on SQL Server, and
+`TEXT` on SQLite. The app type is `Date` on all six dialects, so the instant is
+what crosses the boundary rather than a set of digits.
 
 The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration;
 that is no longer a thing you have to remember, because a table of zone-less timestamps
