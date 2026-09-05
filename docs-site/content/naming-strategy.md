@@ -1,6 +1,3 @@
-> **Implementation complete; documentation tracking remains open.** Named and custom strategies resolve from `zmdb.config.ts`, both AOT routes emit the same physical names, every SQL path consumes
-> those names, and `Physical<'…'>` supplies per-table or per-column overrides. This page remains marked ToDo until the naming documentation issue is closed.
-
 ## The build-time boundary
 
 A table declaration has two vocabularies:
@@ -17,7 +14,7 @@ interface SchemaIR {
 }
 ```
 
-The naming strategy runs while the AOT reflector creates this IR. It runs once per table and once per real column, then disappears:
+The naming strategy runs while the AOT reflector creates this IR. It runs once per table and once per real column, then disappears. There is no query-time naming hook and no per-query strategy call:
 
 - `Entity<T>`, `CreateDTO<T>`, JSON Schema, OpenAPI and validation use declared property names;
 - DDL, snapshots, repository filters, ordering, grouping and writes use physical names;
@@ -96,8 +93,8 @@ import { zmdbAot } from 'zmdb/unplugin';
 const plugin = await zmdbAot();
 ```
 
-The lower-level `@zmdb/aot-validator` APIs still accept an explicit `naming` option for tools that own config loading. The committed plugin and codegen consumer fixtures load byte-identical configs
-and both emit `orders.ship_to` from `Table<'order'>` with a `shipTo` property.
+The lower-level `@zmdb/aot-validator` APIs still accept an explicit `naming` option for tools that own config loading. The build plugin and `zmdb-codegen` resolve the same project config, so both emit
+the same physical names.
 
 ## Explicit overrides
 

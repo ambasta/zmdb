@@ -541,8 +541,7 @@ export const PAGE_META = {
   'naming-strategy': {
     title: 'Naming Strategy',
     group: 'Schema',
-    status: 'todo',
-    note: 'implementation ships, including explicit Physical overrides; final documentation acceptance remains open',
+    status: 'supported',
   },
   'json-properties': {
     title: 'JSON Properties',

@@ -36,6 +36,36 @@ is no class and no `Collection` — the relation property is optional and holds 
 A read returns `Entity<User>`: a plain object, with no `posts` property unless you asked for one. `populate: ['posts']` is checked against the tag and batches its query from the same two strings —
 there is no runtime relations map beside the declaration. See [Relations](./relations.html).
 
+## Move naming into the build
+
+Do not assume a zmdb default will reproduce the identifiers in an existing MikroORM database. Compare the names generated from the declarations with the live catalog before taking the baseline
+snapshot.
+
+Put a shared convention in `zmdb.config.ts`:
+
+```ts
+import { defineConfig } from 'zmdb/config';
+
+export default defineConfig({
+  schema: 'src/**/*.schema.ts',
+  dialect: 'postgres',
+  naming: 'snake_case',
+});
+```
+
+Use `snake_case_plural` when the table rule also matches, or provide `namingStrategy` for a domain-specific convention. Preserve exceptions with explicit tags:
+
+```ts
+import type { Physical, Sql, Table } from 'zmdb/tags';
+
+interface UserAccount extends Table<'userAccount'>, Physical<'legacy_users'> {
+  createdAt: Date & Sql<'timestamp'> & Physical<'created_ts'>;
+}
+```
+
+The strategy and overrides are resolved while the build emits schema IR; there is no runtime naming hook. Raw SQL is not rewritten, so keep using the physical identifiers there. Turning on or changing
+a strategy against a live database is a rename migration, not a configuration-only change. See [Naming Strategy](./naming-strategy.html).
+
 ## The EntityManager has no analogue
 
 | MikroORM                          | zmdb                                    |
@@ -104,4 +134,4 @@ build tools and database commands, not as an application bootstrap. See [Configu
 
 ---
 
-See also: [Why fetched rows are inert](./inert-rows.html) · [Repository](./repository.html) · [Anti-patterns](./anti-patterns.html)
+See also: [Naming Strategy](./naming-strategy.html) · [Why fetched rows are inert](./inert-rows.html) · [Repository](./repository.html) · [Anti-patterns](./anti-patterns.html)
