@@ -405,6 +405,44 @@ The exact measured 74-symbol root inventory, 13-entry export map, target root/su
 ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the six-package baseline plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
+### 3.10 Frozen architecture-governance target (#722)
+
+This is the target contract for epic #721, not a claim that its verifiers already exist. Product membership remains owned by the canonical product catalog frozen in
+[`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The architecture policy attaches exactly one constraint row to every admitted catalog package and rejects both missing and stale rows; it never
+discovers a second package list from the filesystem, a workflow loop or a publish script.
+
+Zones are ordered from inward to outward:
+
+```text
+foundation < runtime < application < integration < tooling < facade
+```
+
+A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current six catalog
+members therefore freeze as:
+
+| Catalog id       | Zone          | Ring | Direct workspace dependencies                                  |
+| ---------------- | ------------- | ---: | -------------------------------------------------------------- |
+| `query-compiler` | `foundation`  |    0 | none                                                           |
+| `schema-core`    | `foundation`  |    1 | `query-compiler`                                               |
+| `aot-validator`  | `runtime`     |    2 | `schema-core`                                                  |
+| `repository`     | `runtime`     |    3 | `aot-validator`, `query-compiler`, `schema-core`               |
+| `web`            | `application` |    4 | `aot-validator`, `query-compiler`, `repository`, `schema-core` |
+| `zmdb`           | `facade`      |    5 | all five package ids above                                     |
+
+Roadmap-only directories do not receive policy rows. A package is added to this table only when it has a publishable manifest and is admitted to the product catalog; admission and policy must land
+atomically once the catalog exists.
+
+The dependency graph counts production type-only imports for ownership, rejects private cross-package source imports, and remains acyclic. Runtime reachability is checked separately from emitted entry
+points: ordinary exports cannot reach compiler/build tools, REPL/devtools modules or an optional peer assigned to another entry. Tooling exports and optional peers are explicit per-package exceptions,
+never inferred from a directory name. Relative source imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
+
+All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
+must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
+
+The complete `PackagePolicy` schema, all six rows, reachability rules, fixture-root contract and exact violation/remediation semantics are frozen in
+[`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering are frozen in [PUBLISHING.md](./PUBLISHING.md).
+
 ---
 
 ## 4. Implementation-language policy

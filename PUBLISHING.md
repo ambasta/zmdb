@@ -1,12 +1,106 @@
 # Publishing zmdb to npm (Trusted Publishing / OIDC)
 
-> **Prerelease.** The first releases are published as **`1.0.0-alpha.0`** under the **`alpha`** dist-tag (not `latest`), so `npm install @zmdb/x` won't pull a prerelease by default. Users opt in with
-> `npm install @zmdb/x@alpha`. Bump the prerelease (`alpha.1`, `alpha.2`, … then `beta.0`, then `1.0.0`) as it matures.
+> **Prerelease.** The current train is `1.0.0-alpha.*`. The workflow publishes a version under `latest` when it becomes the highest policy-precedence release (`stable > rc > beta > alpha`); otherwise
+> it uses its channel tag. Use an exact version for a deterministic prerelease install. Bump the prerelease (`alpha.1`, `alpha.2`, … then `beta.0`, then `1.0.0`) as it matures.
 
 The `@zmdb/*` packages publish from GitHub Actions using **Trusted Publishing (OIDC)** — **no npm token**. GitHub Actions proves its identity to npm with a short-lived OIDC credential, so there is no
 long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo also get automatic **provenance**.
 
 > **Do not create an automation token.** npm itself recommends Trusted Publishing over tokens for CI. There is no `NPM_TOKEN` secret in this setup.
+
+## Frozen lockstep governance target (#722)
+
+This section is the normative target for epic #721. The current workflow still repeats six package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728 implements this
+contract and removes those repetitions.
+
+### Authorities and release plan
+
+Four sources have non-overlapping ownership:
+
+1. `scripts/product/catalog.mjs` owns release membership and npm identity only.
+2. `scripts/architecture/policy.mjs` owns dependency constraints and therefore publish order.
+3. `packages/*/package.json` own the one current version and committed dependency ranges.
+4. Root `CHANGELOG.md` owns release content.
+
+No workflow, publish helper or documentation loop may maintain another package list or order. The read-only API is:
+
+```ts
+export function releasePlan(root: string): {
+  readonly version: string;
+  readonly packages: readonly string[];
+  readonly publishOrder: readonly string[];
+  readonly changelogEntry: string;
+};
+```
+
+`packages` contains every catalog npm name in catalog-id order. `publishOrder` contains the same names exactly once in deterministic topological order, with dependencies before consumers and catalog
+id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matching version section. The function performs no write, network request, registry lookup, build, tag or publish.
+
+### Lockstep version and manifest rules
+
+- Every catalog package has one identical valid SemVer version. Independent package versions, partial trains and compatibility exceptions are refused.
+- Every committed dependency, optional dependency or peer dependency on another catalog package creates a policy edge. Committed `dependencies` and `optionalDependencies` use exactly `workspace:^`; a
+  production import cannot rely on a dev dependency.
+- The publish manifest replaces a workspace range with the exact common version for a prerelease and `^<common version>` for a stable release. It never derives the version from one arbitrarily
+  selected package.
+- `publishConfig.access` is `public`. A prerelease channel is `alpha`, `beta` or `rc`; a stable release uses `latest`. The existing highest-precedence `latest` decision remains a publication concern,
+  not a product-catalog field.
+- The lockfile is regenerated after a bump and must agree with every committed workspace range before a release plan is valid.
+
+### One project changelog
+
+The repository has exactly one release changelog, `CHANGELOG.md`; catalog packages do not carry independent changelogs. Its machine-checkable shape is:
+
+```md
+# Changelog
+
+## [Unreleased]
+
+### Changed
+
+- **product:** describe the pending user-visible change
+
+## [1.0.0-alpha.5] - 2026-09-05
+
+### Fixed
+
+- **repository:** describe the released user-visible fix
+```
+
+`Unreleased` exists exactly once and precedes all versions. A released heading is exactly `## [<SemVer>] - <YYYY-MM-DD>`, appears once, and version sections are newest first. Allowed category headings
+are `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`; a release has at least one non-empty bullet under one of them. A bullet begins with a catalog id or `product` in bold, so a
+package rename is checked against the catalog while cross-cutting work has one explicit owner. The version requested for publication must have a non-empty section; an `Unreleased` section alone does
+not authorize publication.
+
+### Release preparation, tag and publish order
+
+The final release flow is:
+
+1. Write and review non-empty `Unreleased` notes.
+2. Run `node scripts/release/bump.mjs <version>`. It validates the version transition, moves the pending notes under a dated version heading, restores an empty `Unreleased` section, updates every
+   catalog manifest atomically and runs Yarn to update the lockfile. It does not create a commit or tag and does not publish.
+3. Run all architecture, metadata, release and packed-publication gates. A dry run is read-only outside its temporary package staging area.
+4. Commit the complete train and create exactly `v<version>` at that commit. A real publish is tag-triggered; manual dispatch remains dry-run only.
+5. Recompute the release plan in CI, reject any tag/version/changelog disagreement, build and verify every package, then publish in `publishOrder`.
+
+Publication stops at the first failure. A retry uses the same tag and version, verifies the registry copy of any package already published in the interrupted train, skips only a byte-identical
+existing version, and resumes the remaining topological suffix. It never bumps or retags a subset. The train is complete only when every planned npm name reports the common version.
+
+### Exact release violations
+
+Release verification reports every problem in deterministic package/path order and exits non-zero:
+
+| Code                        | Violation                                                              | Required remediation                                                              |
+| --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `RELEASE_VERSION_DRIFT`     | Catalog manifests do not carry one version                             | Run the release bump for the whole train; never edit one package alone            |
+| `RELEASE_WORKSPACE_RANGE`   | A committed or publish-time internal range has the wrong form          | Restore `workspace:^`, or regenerate the publish manifest from the common version |
+| `RELEASE_CHANGELOG_MISSING` | The common version has no unique non-empty root changelog section      | Move reviewed `Unreleased` notes into the exact version heading                   |
+| `RELEASE_CHANGELOG_OWNER`   | A bullet names neither a catalog id nor `product`                      | Use the owning catalog id or the explicit cross-cutting owner                     |
+| `RELEASE_TAG_MISMATCH`      | A real-publish tag is not exactly `v<common version>`                  | Create the exact tag at the verified release commit                               |
+| `RELEASE_MEMBERSHIP_DRIFT`  | A release consumer repeats or omits catalog membership                 | Read membership from the product catalog                                          |
+| `RELEASE_ORDER_DRIFT`       | A publish consumer disagrees with the policy-derived topological order | Consume `releasePlan(root).publishOrder`                                          |
+| `RELEASE_PARTIAL_TRAIN`     | A plan, tag or retry selects only part of the catalog                  | Resume or prepare the complete lockstep train                                     |
+| `RELEASE_EXISTING_MISMATCH` | A retry finds the same version with different packed bytes             | Stop; investigate the immutable registry conflict rather than overwriting         |
 
 ## Requirements (already handled in the workflow)
 
@@ -74,7 +168,8 @@ LICENSE
 
 ## How the build works, and why not tsup
 
-`scripts/build-package.mjs` runs `tsc -p tsconfig.build.json` and rewrites the `.ts` specifiers left in declaration output.
+`scripts/build-package.mjs` runs `tsc -p tsconfig.build.json` without post-processing import specifiers. Sources already use NodeNext `.js` relative specifiers, so both emitted JavaScript and
+declarations name the built files correctly while `allowImportingTsExtensions` remains `false`.
 
 The project previously used tsup. Its declaration step relies on `rollup-plugin-dts`, which expects `ts.sys` and `ts.createProgram` from the `typescript` package. TypeScript 7 does not expose that
 API, so declaration generation failed before reading a source file.
@@ -106,7 +201,7 @@ npm view @zmdb/repository dependencies
 - **repository.url mismatch** → publishing via OIDC requires `package.json` `repository.url` to match the GitHub repo exactly (it does here).
 - Provenance is **not** generated for private repos (n/a — this repo is public).
 
-## Cutting a release (proven flow)
+## Cutting a release (current flow; superseded by #728)
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
