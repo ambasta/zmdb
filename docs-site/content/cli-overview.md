@@ -1,7 +1,7 @@
 > **ToDo / documentation gap.** The published `zmdb` executable exposes
-> `generate`, `export`, `modules`, `repl`, and `new` scaffolding. The remaining
-> database commands and `studio` are still implementation gaps; the final full
-> CLI reference and command transcript remain for the documentation slice.
+> `generate`, `export`, `modules`, `repl`, `studio`, and `new` scaffolding. The
+> remaining database commands are still implementation gaps; the final full CLI
+> reference and command transcript remain for the documentation slice.
 
 `generate` and `export` are thin packaged wrappers over the public reflection,
 snapshot, diff, and DDL APIs. The same library entry points remain available for
@@ -30,13 +30,13 @@ the commands whose executable dispatch has not landed.
 | `check`                      | recognized, not implemented                        | [check](./cli-check.html)                           |
 | `export`                     | `zmdb export`                                      | [export](./cli-export.html)                         |
 | `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending     | [pull](./cli-pull.html)                             |
-| `studio`                     | **not possible** — no server, no UI                | [studio](./cli-studio.html)                         |
+| `studio`                     | read-only loopback browser over configured tables  | [studio](./cli-studio.html)                         |
 
-Two offline schema commands and the config-independent scaffold command are
-packaged. The remaining database verbs are recognized so their help, config
-errors, JSON envelope, and exit codes stay uniform while their scoped
-implementations land. `pull` has its catalog reader and declaration emitter as
-library APIs but still needs executable dispatch.
+Two offline schema commands, the config-independent scaffold command, and the
+local Studio are packaged. The remaining database verbs are recognized so
+their help, config errors, JSON envelope, and exit codes stay uniform while
+their scoped implementations land. `pull` has its catalog reader and
+declaration emitter as library APIs but still needs executable dispatch.
 
 ## A single entry point
 
@@ -47,6 +47,7 @@ separation, and exit codes:
 npx zmdb generate --name add_slug
 npx zmdb export > schema.sql
 npx zmdb new controller posts
+npx zmdb studio
 ```
 
 The schema commands accept `--config <path>` and `--project <tsconfig>`.

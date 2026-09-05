@@ -819,7 +819,7 @@ export const PAGE_META = {
     title: 'CLI Overview',
     group: 'CLI',
     status: 'todo',
-    note: 'the executable ships generate, export, modules and repl; the remaining database commands and studio are unimplemented',
+    note: 'generate, export, modules, repl and studio ship; the remaining database commands and final reference pass are open',
   },
   'config-file': {
     title: 'Config File',
@@ -877,7 +877,7 @@ export const PAGE_META = {
     title: 'studio',
     group: 'CLI',
     status: 'todo',
-    note: 'no data browser',
+    note: 'the read-only loopback browser ships; the final CLI transcript pass remains',
   },
   'dialect-postgres': {
     title: 'PostgreSQL',
@@ -1711,7 +1711,7 @@ export const PAGE_META = {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'scaffolding ships; the final CLI docs pass waits on remaining database commands and studio',
+    note: 'scaffolding and studio ship; the final CLI docs pass waits on remaining database commands',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',
@@ -1723,7 +1723,7 @@ export const PAGE_META = {
     title: 'Building CLI Applications',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'command applications and scaffolding ship; the final CLI docs pass waits on studio',
+    note: 'command applications, scaffolding and studio ship; the final CLI docs pass remains',
   },
   'web-microservices': {
     title: 'Microservices',

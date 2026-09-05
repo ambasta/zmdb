@@ -188,6 +188,18 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
     },
     maximumPositionals: 1,
   },
+  studio: {
+    usage: 'zmdb studio [--port <port>]',
+    summary: 'Browse configured tables through a read-only loopback server.',
+    options: {
+      port: {
+        type: 'string',
+        valueName: 'port',
+        description: 'Bind this loopback port instead of selecting an ephemeral one.',
+      },
+    },
+    maximumPositionals: 0,
+  },
 };
 
 const COMMANDS: Readonly<Record<string, CommandDefinition>> = {

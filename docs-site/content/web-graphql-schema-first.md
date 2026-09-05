@@ -85,7 +85,12 @@ Write a test that asserts every SDL field has a mapping, or the adapter rots. `s
 
 ## The introspection gap, which is the related real one
 
-There is no `db pull` — nothing reads an existing database and emits declarations. That is the substantive missing piece in this area, and it blocks adopting zmdb against a legacy schema, [`cli-pull`](./cli-pull.html) and [`cli-studio`](./cli-studio.html).
+There is no `db pull` — nothing reads an existing database and emits
+declarations. That is the substantive missing piece in this area, and it blocks
+adopting zmdb against a legacy schema and [`cli-pull`](./cli-pull.html).
+[`cli-studio`](./cli-studio.html) is deliberately narrower: it browses the
+declarations already selected by the config and does not introspect the
+database.
 
 Schema-first GraphQL and database introspection are the same shape of problem — deriving code from an external declaration — and introspection is the one with real demand.
 

@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { schemasFromFiles } from '@zmdb/aot-validator/testing';
 import { describeGraph, renderDot, renderTree, type GraphFilter } from '@zmdb/web/devtools';
 import type { ModuleClass } from '@zmdb/web/modules';
 
@@ -89,6 +90,10 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
 
   const parsedResult = parseCommand(command, argv.slice(1), io.cwd);
   if ('error' in parsedResult) {
+    if (command === 'studio' && !parsedResult.json) {
+      io.stderr(`zmdb: ${parsedResult.error}\n`);
+      return 2;
+    }
     return new CliOutput(command, parsedResult.config, parsedResult.json, io).failure(parsedResult.error, 2);
   }
 
@@ -108,9 +113,54 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
     const { createNewScaffold } = await import('./commands/new.js');
     return createNewScaffold(parsed, output, io.cwd);
   }
+  if (command === 'studio') return runStudioCommand(parsed, io);
   if (command === 'modules') return runModules(parsed, io);
   if (command === 'repl') return runRepl(parsed, io);
   return runDatabaseCommand(parsed, io);
+}
+
+async function runStudioCommand(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {
+  const pendingOutput = new CliOutput('studio', parsed.config, parsed.json, io);
+  if (parsed.json) {
+    return pendingOutput.failure('--json is unavailable because a studio session is not one JSON document', 2);
+  }
+
+  const portValue = parsed.values.port;
+  const port =
+    portValue === undefined
+      ? 0
+      : typeof portValue === 'string' && /^(?:0|[1-9]\d*)$/.test(portValue)
+        ? Number(portValue)
+        : Number.NaN;
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    return pendingOutput.failure(`--port must be an integer from 0 through 65535, received "${String(portValue)}"`, 2);
+  }
+
+  let config: ResolvedConfig;
+  try {
+    config = await loadCommandConfig(parsed, io.cwd);
+  } catch (error) {
+    return pendingOutput.failure(errorMessage(error), 2, parsed.config);
+  }
+  const output = pendingOutput.withConfig(config.configPath);
+  if (config.driver === undefined) {
+    return output.failure('the config must declare a driver thunk before studio can connect', 2);
+  }
+
+  try {
+    const schemas = schemasFromFiles(config.schemaFiles, { project: config.project });
+    const [driver, { runStudio }] = await Promise.all([config.driver(), import('./commands/studio.js')]);
+    return runStudio(
+      { schemas, driver, dialect: config.dialect },
+      {
+        port,
+        stdout: text => output.writeStdout(text),
+        stderr: text => output.writeStderr(text),
+      },
+    );
+  } catch (error) {
+    return output.failure(errorMessage(error), 1);
+  }
 }
 
 async function runDatabaseCommand(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {

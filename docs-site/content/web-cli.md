@@ -1,8 +1,8 @@
 > **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
-> `export`, `modules`, `repl`, and formatter-backed `new` scaffolding for
-> projects, schemas, controllers, modules, repositories, and commands. The
-> remaining database commands and `studio` still need their final implementation
-> and documentation passes.
+> `export`, `modules`, `repl`, the read-only `studio`, and formatter-backed
+> `new` scaffolding for projects, schemas, controllers, modules, repositories,
+> and commands. The remaining database commands and the full CLI reference
+> still need their final implementation and documentation passes.
 
 ## Scaffolding that ships
 
@@ -75,6 +75,10 @@ for (const row of (await posts.list({ page: { limit: 1000 } })).items) {
 
 `await using` disposes the app, closing the pool so the process exits. See [Standalone Applications](./web-standalone.html).
 
+**A local read-only data browser.** `zmdb studio` serves the tables declared by
+the active config on `127.0.0.1`. It accepts no SQL or write method, omits
+`Sensitive` columns, and caps pages at 50 rows. See [studio](./cli-studio.html).
+
 ## Why scaffolding stays deliberately small
 
 A generated controller remains ordinary framework code:
@@ -103,7 +107,8 @@ A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and vali
 now reads PostgreSQL, MySQL, and SQLite catalogs and emits reviewed TypeScript
 declarations, and `detectDrift()` compares those snapshots with declarations.
 The remaining gap is executable config/driver/output wiring; see
-[`cli-pull`](./cli-pull.html). `cli-studio` still needs its own server and UI.
+[`cli-pull`](./cli-pull.html). Studio deliberately does not depend on that
+introspection path: it browses only the declarations selected by the config.
 
 **Migration generation from a diff against the live database.** `detectDrift()`
 can compare declarations with an introspected snapshot, but generation still

@@ -56,6 +56,7 @@ interface StudioAppModule {
 
 interface StudioCommandModule {
   runStudio(input: StudioInput, options?: RunStudioOptions): Promise<number>;
+  listenStudio(options: StudioListenOptions): Promise<StudioListener>;
 }
 
 const STUDIO_APP_MODULE = '../studio/index.js';
@@ -71,7 +72,14 @@ function isStudioAppModule(value: unknown): value is StudioAppModule {
 }
 
 function isStudioCommandModule(value: unknown): value is StudioCommandModule {
-  return typeof value === 'object' && value !== null && 'runStudio' in value && typeof value.runStudio === 'function';
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'runStudio' in value &&
+    typeof value.runStudio === 'function' &&
+    'listenStudio' in value &&
+    typeof value.listenStudio === 'function'
+  );
 }
 
 async function loadStudioApp(): Promise<StudioAppModule> {
@@ -141,6 +149,21 @@ const postsIr: SchemaIR = {
 
 const UsersSchema = schemaFromIR(usersIr);
 const PostsSchema = schemaFromIR(postsIr);
+const SensitiveKeyUsersSchema = schemaFromIR({
+  ...usersIr,
+  columns: usersIr.columns.map(candidate => (candidate.name === 'id' ? { ...candidate, sensitive: true } : candidate)),
+});
+const PeopleSchema = schemaFromIR({
+  table: 'people',
+  physicalTable: 'app_people',
+  columns: [
+    { ...column('id', 'integer', { primaryKey: true }), physicalName: 'person_id' },
+    { ...column('name', 'text'), physicalName: 'display_name' },
+  ],
+  primaryKey: ['id'],
+  relations: [],
+  foreignKeys: [],
+});
 
 const userRows = Array.from({ length: 75 }, (_unused, index) => ({
   id: index + 1,
@@ -167,10 +190,6 @@ function recordingDriver(): RecordingDriver {
       queries.push(query);
       const text = query.text.toLowerCase();
       const source = text.includes('posts') ? postRows : userRows;
-      if (text.includes('count(')) {
-        return Promise.resolve([{ count: source.length }]);
-      }
-
       const whereValue = text.includes(' where ')
         ? query.parameters.find(value => typeof value === 'number')
         : undefined;
@@ -183,6 +202,9 @@ function recordingDriver(): RecordingDriver {
               }
               return row.id === whereValue;
             });
+      if (text.includes('count(')) {
+        return Promise.resolve([{ count: filtered.length }]);
+      }
       const limit = Number(/\blimit\s+(\d+)/i.exec(query.text)?.[1] ?? filtered.length);
       const offset = Number(/\boffset\s+(\d+)/i.exec(query.text)?.[1] ?? 0);
       return Promise.resolve(filtered.slice(offset, offset + limit));
@@ -217,9 +239,14 @@ function withQuery(path: string, key: string, value: string): string {
   return `${url.pathname}${url.search}`;
 }
 
+function linkedPath(html: string, pattern: RegExp, label: string): string {
+  const match = pattern.exec(html);
+  if (match?.[1] === undefined) throw new Error(`studio page did not link ${label}`);
+  return match[1];
+}
+
 describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
-  // Current actual for this block: ERR_MODULE_NOT_FOUND for ../studio/index.js.
-  it.fails('shows only tables in the configured schema set', async () => {
+  it('shows only tables in the configured schema set', async () => {
     const driver = recordingDriver();
     await withStudio(driver, async app => {
       const response = await app.fetch(new Request('http://127.0.0.1/'));
@@ -232,7 +259,32 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
     });
   });
 
-  it.fails('serves table rows read-only and rejects any write verb', async () => {
+  it('keeps declared names in the browser and physical names inside compiled SQL', async () => {
+    const queries: CompiledQuery[] = [];
+    const driver: Driver = {
+      dialect: 'sqlite',
+      execute(query) {
+        queries.push(query);
+        return Promise.resolve(
+          query.text.toLowerCase().includes('count(') ? [{ count: 1 }] : [{ person_id: 1, display_name: 'Ada' }],
+        );
+      },
+    };
+    const { createStudioApp } = await loadStudioApp();
+    await using app = createStudioApp({ schemas: [PeopleSchema], driver });
+    const index = await app.fetch(new Request('http://127.0.0.1/'));
+    const page = await app.fetch(new Request(new URL(tablePath(await index.text(), 'people'), 'http://127.0.0.1')));
+    const html = await page.text();
+
+    expect(page.status).toBe(200);
+    expect(html).toContain('Ada');
+    expect(html).toContain('name');
+    expect(html).not.toContain('display_name');
+    expect(queries.every(query => query.text.includes('"app_people"'))).toBe(true);
+    expect(queries.some(query => query.text.includes('"display_name"'))).toBe(true);
+  });
+
+  it('serves table rows read-only and rejects any write verb', async () => {
     const driver = recordingDriver();
     await withStudio(driver, async app => {
       const index = await app.fetch(new Request('http://127.0.0.1/'));
@@ -252,7 +304,7 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
     });
   });
 
-  it.fails('refuses a SQL string supplied by the client', async () => {
+  it('refuses a SQL string supplied by the client', async () => {
     const driver = recordingDriver();
     await withStudio(driver, async app => {
       const index = await app.fetch(new Request('http://127.0.0.1/'));
@@ -267,7 +319,7 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
     });
   });
 
-  it.fails('uses bounded offset pages instead of reading a whole table', async () => {
+  it('uses bounded offset pages instead of reading a whole table', async () => {
     const driver = recordingDriver();
     await withStudio(driver, async app => {
       const index = await app.fetch(new Request('http://127.0.0.1/'));
@@ -285,7 +337,7 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
     });
   });
 
-  it.fails('omits a Sensitive column even when the driver returns it', async () => {
+  it('omits a Sensitive column even when the driver returns it', async () => {
     const driver = recordingDriver();
     await withStudio(driver, async app => {
       const index = await app.fetch(new Request('http://127.0.0.1/'));
@@ -299,22 +351,109 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
     });
   });
 
-  it.fails('serves server-rendered HTML without a browser asset build', async () => {
+  it('keeps a Sensitive primary key out of pagination links', async () => {
+    const { createStudioApp } = await loadStudioApp();
+    await using app = createStudioApp({ schemas: [SensitiveKeyUsersSchema], driver: recordingDriver() });
+    const first = await app.fetch(new Request('http://127.0.0.1/tables/users?pageSize=1'));
+    const nextPath = linkedPath(await first.text(), /rel=["']next["'] href=["']([^"']+)["']/i, 'the next page');
+    const nextUrl = new URL(nextPath.replaceAll('&amp;', '&'), 'http://127.0.0.1');
+    const second = await app.fetch(new Request(nextUrl));
+
+    expect(first.status).toBe(200);
+    expect(nextUrl.searchParams.get('orderBy')).toBe('name');
+    expect(second.status).toBe(200);
+    expect(await second.text()).toContain('User 2');
+  });
+
+  it('serves server-rendered HTML without a browser asset build', async () => {
     await withStudio(recordingDriver(), async app => {
       const response = await app.fetch(new Request('http://127.0.0.1/'));
       const html = await response.text();
       expect(response.headers.get('content-type')).toMatch(/^text\/html\b/);
       expect(html).toMatch(/<!doctype html>|<html/i);
+      expect(html).toMatch(/local raw-data viewer/i);
       expect(html).not.toMatch(/<script[^>]+\bsrc=/i);
       expect(html).not.toMatch(/type=["']module["']/i);
+    });
+  });
+
+  it('rejects every non-GET verb at the router level', async () => {
+    const driver = recordingDriver();
+    await withStudio(driver, async app => {
+      for (const method of ['HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']) {
+        const response = await app.fetch(new Request('http://127.0.0.1/tables/users', { method }));
+        expect(response.status, method).toBe(405);
+        expect(response.headers.get('allow'), method).toBe('GET');
+      }
+      expect(driver.queries).toEqual([]);
+    });
+  });
+
+  it('caps the number of rows returned regardless of the requested page size', async () => {
+    const driver = recordingDriver();
+    await withStudio(driver, async app => {
+      const response = await app.fetch(new Request('http://127.0.0.1/tables/users?pageSize=10000'));
+      const html = await response.text();
+      const rowQuery = driver.queries.find(query => /\blimit\s+\d+/i.test(query.text));
+      const limit = Number(/\blimit\s+(\d+)/i.exec(rowQuery?.text ?? '')?.[1]);
+
+      expect(response.status).toBe(200);
+      expect(limit).toBeGreaterThan(0);
+      expect(limit).toBeLessThanOrEqual(50);
+      expect(html).toContain(`User ${String(limit)}`);
+      expect(html).not.toContain(`User ${String(limit + 1)}`);
+    });
+  });
+
+  it('refuses a table name that is not in the configured schema set', async () => {
+    const driver = recordingDriver();
+    await withStudio(driver, async app => {
+      const response = await app.fetch(new Request('http://127.0.0.1/tables/audit_log'));
+      expect(response.status).toBe(400);
+      expect(await response.text()).toMatch(/undeclared table.*audit_log|audit_log.*undeclared table/i);
+      expect(driver.queries).toEqual([]);
+    });
+  });
+
+  it('lists tables, pages rows, gets one row and follows a declared relation', async () => {
+    const driver = recordingDriver();
+    await withStudio(driver, async app => {
+      const index = await app.fetch(new Request('http://127.0.0.1/'));
+      const page = await app.fetch(new Request(new URL(tablePath(await index.text(), 'users'), 'http://127.0.0.1')));
+      const rowPath = linkedPath(await page.text(), /href=["']([^"']+\/rows\/[^"']+)["']/i, 'the first row');
+      const row = await app.fetch(new Request(new URL(rowPath, 'http://127.0.0.1')));
+      const relationPath = linkedPath(
+        await row.text(),
+        /href=["']([^"']+\/relations\/posts[^"']*)["']/i,
+        'the posts relation',
+      );
+      const relation = await app.fetch(new Request(new URL(relationPath, 'http://127.0.0.1')));
+      const html = await relation.text();
+
+      expect(page.status).toBe(200);
+      expect(row.status).toBe(200);
+      expect(relation.status).toBe(200);
+      expect(html).toContain('First');
+      expect(html).toContain('Second');
+      expect(html).not.toContain('Other user');
+    });
+  });
+
+  it('refuses an undeclared sort column before executing a query', async () => {
+    const driver = recordingDriver();
+    await withStudio(driver, async app => {
+      const response = await app.fetch(
+        new Request('http://127.0.0.1/tables/users?orderBy=createdByClient&direction=desc'),
+      );
+      expect(response.status).toBe(400);
+      expect(await response.text()).toMatch(/undeclared column.*createdByClient|createdByClient.*undeclared column/i);
+      expect(driver.queries).toEqual([]);
     });
   });
 });
 
 describe('zmdb studio listener boundary (frozen: CLI SPEC §14.3)', () => {
-  // Current actuals: runCli reports unknown command "studio", and importing
-  // ./commands/studio.js reports ERR_MODULE_NOT_FOUND.
-  it.fails('binds to loopback by default and refuses a non-loopback bind without the flag', async () => {
+  it('binds to loopback by default and refuses a non-loopback bind without the flag', async () => {
     let cliStdout = '';
     let cliStderr = '';
     const cliCode = await runCli(['studio', '--host', '0.0.0.0'], {
@@ -382,7 +521,7 @@ describe('zmdb studio listener boundary (frozen: CLI SPEC §14.3)', () => {
     });
   });
 
-  it.fails('keeps an explicit port on loopback and never retries a failed bind elsewhere', async () => {
+  it('keeps an explicit port on loopback and never retries a failed bind elsewhere', async () => {
     const { runStudio } = await loadStudioCommand();
     const seen: StudioListenOptions[] = [];
     const events: string[] = [];
@@ -413,5 +552,25 @@ describe('zmdb studio listener boundary (frozen: CLI SPEC §14.3)', () => {
     expect(seen.map(({ host, port }) => ({ host, port }))).toEqual([{ host: '127.0.0.1', port: 4545 }]);
     expect(stderr).toContain('EADDRINUSE fixture');
     expect(events).toEqual(['app:dispose']);
+  });
+
+  it('the concrete listener opens only a loopback socket', async () => {
+    const { listenStudio } = await loadStudioCommand();
+    await using listener = await listenStudio({
+      host: '127.0.0.1',
+      port: 0,
+      fetch: () =>
+        Promise.resolve(
+          new Response('<!doctype html><title>loopback</title>', {
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          }),
+        ),
+    });
+
+    const response = await fetch(`http://${listener.host}:${String(listener.port)}/`);
+    expect(listener.host).toBe('127.0.0.1');
+    expect(listener.port).toBeGreaterThan(0);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('loopback');
   });
 });

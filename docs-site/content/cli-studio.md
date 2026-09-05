@@ -1,57 +1,69 @@
-> **ToDo / feature gap.** There is no `zmdb studio`. There is no HTTP server, no
-> UI, and no browser bundle anywhere in the project. Unlike most
-> [CLI gaps](./cli-overview.html), this one is not packaging — it is a web
-> application that does not exist.
+> **Available now; the final CLI documentation pass is still open.**
+> `zmdb studio` serves a small, read-only browser for the tables declared by
+> the active config.
 
-## Why it is a long way off
+## Limits first
 
-`drizzle-kit studio` and `prisma studio` need three things zmdb does not have:
+The Studio is deliberately narrower than a database client or an admin panel:
 
-1. **Introspection**, to show tables it was not told about and to render a column it cannot type. See [pull](./cli-pull.html).
-2. **A UI**, which means a build step, a framework, and a bundle — in a project with [zero runtime dependencies](./why-zmdb.html) and no browser target.
-3. **A privileged connection**, held by a long-running local process, with write access to your database.
+- it binds only to `127.0.0.1` and has no authentication or `--host` flag;
+- it accepts `GET` requests only and has no write mode;
+- it lists only the config's schema set, without database introspection;
+- it never accepts SQL, free-text filters, or undeclared sort columns;
+- it omits columns tagged `Sensitive`, but otherwise shows raw values without
+  masking;
+- every page uses `LIMIT`/`OFFSET`, with a hard maximum of 50 rows.
 
-The third is the one worth thinking hardest about. A studio is a tool that holds production credentials and executes arbitrary generated SQL. That is a reasonable thing to build and a serious thing to ship, and it is not the next most valuable feature.
+Do not point it at a production database expecting an authorization layer or
+general-purpose redaction. The loopback socket is the security boundary.
 
-## What to use instead
+## Start it
 
-**Your database's own tools**, which are better than any ORM's:
+The selected config must include the same `driver` thunk used by the other
+database commands:
 
-- `psql` with `\d+ table`, and `\x` for readable wide rows
-- `pgcli` / `mycli` — completion and syntax highlighting over the same protocol
-- TablePlus, DataGrip, Beekeeper Studio — a GUI over the wire protocol, so nothing about zmdb affects them
-- `sqlite3` and the `.schema` / `.tables` dot-commands
-
-None of them care what generated your schema, which is the advantage of a data layer that produces ordinary tables.
-
-**A read-only admin endpoint**, if what you want is a browsable view of your own data. This is thirty lines with the pieces that exist, and it inherits your authentication:
-
-```ts
-@Controller('/admin')
-export class AdminController {
-  @Inject(USERS) private readonly repo!: UserRepository;
-
-  @Get('/users')
-  list(ctx: Ctx<Record<never, string>, unknown, { page?: string }>) {
-    const limit = 50;
-    const offset = (Math.max(Number(ctx.query.page ?? 1), 1) - 1) * limit;
-    return this.repo.list({ page: { limit, offset }, orderBy: [{ column: 'id', dir: 'desc' }] });
-  }
-}
+```bash
+zmdb studio
 ```
 
-Typed, paginated, behind your existing auth, and it only exposes the tables you wrote a handler for — which is a smaller blast radius than a general studio, not a limitation.
+The command chooses an ephemeral loopback port and prints its URL. A fixed port
+does not widen the bind:
 
-**`toOpenApi` plus any OpenAPI viewer**, for browsing the _shape_ of your data rather than its contents. `toOpenApiComponents(schemas)` gives you every table as a JSON Schema; drop it into Swagger UI or Redoc and you have generated documentation of the schema. See [OpenAPI](./openapi.html).
+```bash
+zmdb studio --port 4545
+```
 
-## What it would take
+There is no non-loopback fallback. If the requested socket cannot be opened,
+the command fails rather than listening on another interface.
 
-Introspection first, because without it a studio can only show what the schema objects declare — which is a data browser for your own tables, not a database client.
+## What the browser shows
 
-That narrower tool is genuinely feasible: it would be a `@zmdb/web` application over an array of schemas you hand it — nothing enumerates your tables, so the list is an argument — generating a list and a detail view per table from `toJsonSchema`, with writes going through the repositories.
+The index lists the config's declared tables. From there you can:
 
-Shipping it as an opt-in package rather than a CLI command would keep the credentials question in the user's hands, which is where it belongs.
+1. page and sort a table by declared columns;
+2. open one row through its declared primary key;
+3. follow a declared relation to another configured table.
+
+Declared property names stay in the browser while physical table and column
+names stay inside the compiled SQL. Unknown tables, columns, query parameters,
+and malformed row keys are refused before a query runs.
+
+The application uses `@zmdb/web`, but it has no browser framework, JavaScript
+bundle, or asset build. Each view is server-rendered HTML made from links,
+tables, and page controls.
+
+## What it is not
+
+Studio does not discover tables that exist only in the database, edit data, or
+replace `psql`, DataGrip, TablePlus, Beekeeper Studio, `sqlite3`, or another
+wire-protocol client. Those remain the right tools for database-wide
+introspection and administration.
+
+For remote access to this local-only viewer, use an authenticated tunnel such
+as `ssh -L`; Studio itself will not expose an unauthenticated database browser
+to the network.
 
 ---
 
-See also: [pull](./cli-pull.html) · [OpenAPI](./openapi.html) · [CLI Overview](./cli-overview.html)
+See also: [Config File](./config-file.html) · [pull](./cli-pull.html) ·
+[CLI Overview](./cli-overview.html)
