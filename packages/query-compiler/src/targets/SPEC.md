@@ -71,16 +71,15 @@ supposed to prevent it.
 Anything that generalises the plan therefore still has to nest the whole predicate tree first — `WhereDTO`'s `and`/`or` arms must round-trip through group nodes, not only repository filters. That is
 strictly larger than the target work and belongs to whichever epic owns general predicate grouping.
 
-**(b) The operator vocabulary is closed in the DTO and lexically bounded in the builder.** `FieldOps` has twelve universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`,
-`ilike`, `isNull`, `notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and `and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable; the twelve
-universal members map almost one-to-one onto Mongo (§4.1), while the three extension members are PostgreSQL-only and type-constrained to vector columns.
+**(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has twelve universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`,
+`notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and `and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable; the twelve universal members
+map almost one-to-one onto Mongo (§4.1), while the three extension members are PostgreSQL-only and type-constrained to vector columns.
 
-The slot it lands in is still semantically open: `Operator` in the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`, `findJoined` takes `{ col, op: string, value }`, and
-§5a's extension operators put real SQL tokens — `@>`, `&&`, `ILIKE` — into the same slot on purpose. It is not arbitrary SQL text: `sqlOperator` canonicalizes known names and refuses an unmapped
-string unless it is one bounded operator token, so whitespace, quotes, semicolons and comment openers cannot cross that boundary.
+But the slot it lands in is not closed: `Operator` in the compiler ends with `(string & {})`, `WhereTarget.where` takes `op: string`, `findJoined` takes `{ col, op: string, value }`, and §5a's
+extension operators put real SQL — `@>`, `&&`, `ILIKE` — into the same slot on purpose.
 
-So one plan field carries two different things: a closed DTO vocabulary a target can exhaustively translate or explicitly refuse, and a lexically safe but dialect-specific builder token a target can
-only refuse. A target cannot tell them apart from the plan alone, which means the refusal has to happen at the call site or not at all.
+So one plan field carries two different things: a closed DTO vocabulary a target can exhaustively translate or explicitly refuse, and arbitrary builder SQL text a target can only refuse. A target
+cannot tell them apart from the plan alone, which means the refusal has to happen at the call site or not at all.
 
 **(c) A subquery in the plan is already compiled SQL.** `whereExists(subquery)` accepts `SelectBuilder | { compile(): CompiledQuery }` and stores it as the predicate's `value`; `SubqueryTarget` in
 `@zmdb/schema-core` has the same `{ compile(): CompiledQuery }` arm, so `WhereDTO`'s `exists`/`notExists` and every `FieldOps` operator can carry one.

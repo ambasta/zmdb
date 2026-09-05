@@ -197,22 +197,7 @@ export interface HttpResponseHeaderIR {
   readonly typeId: string;
 }
 
-export type HttpVersionIR =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'neutral' }
-  | { readonly kind: 'path'; readonly value: string }
-  | {
-      readonly kind: 'header';
-      readonly name: string;
-      readonly values: readonly string[];
-      readonly default: string;
-    }
-  | {
-      readonly kind: 'media-type';
-      readonly key: string;
-      readonly values: readonly string[];
-      readonly default: string;
-    };
+export type HttpVersionIR = HttpVersionDeclaration;
 
 export type SecurityRequirement = Readonly<Record<string, readonly string[]>>;
 

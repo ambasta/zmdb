@@ -64,15 +64,16 @@ transformer decided not to touch.
 `typescript@7` is a Go binary behind a JS client that spawns a child process. A runtime module that reaches it does not merely bloat a bundle — it fails to build one. So the manifest publishes two
 sets of entry points:
 
-| Runtime (bundled)                                                         | Build-time (compiler)                                                                       |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing`, `./metro` |
+| Runtime (bundled)                                                         | Build-time (compiler)                                                            |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing` |
 
 `./testing` is on the build-time side for the same reason the other five are: `schemasFrom<{ User: User }>(import.meta.url, ['User'])` opens the caller's own project and reflects the named interfaces.
 It is a compiler client by definition — that is the service — and it exists because `schemaOf<T>()` has no runtime, so a test with no build step has no other route from a tagged interface to a schema.
 
-`./metro` is the eighth build-time subpath. Its `withZmdb(config)` wraps a project's existing Babel transformer (`src/plugin/SPEC.md` §6), and it is the one entry point reached by `require` of an ES
-module rather than by `import`, because `metro.config.js` is CommonJS in every React Native template.
+A seventh joins the build-time column when the Metro integration lands: `./metro`, whose `withZmdb(config)` wraps a project's existing Babel transformer (`src/plugin/SPEC.md` §6). It is a compiler
+client like the other six, so it goes in `BUILD_TIME_ENTRIES` too — and it is the one entry point that is reached by `require` of an ES module rather than by `import`, because `metro.config.js` is
+CommonJS in every React Native template.
 
 `typescript`, `metro`, and `metro-babel-transformer` are **optional peer dependencies**. Installing this package to call `is(value, ir)` at runtime should not pull down a compiler or a React Native
 toolchain. The canonical architecture policy assigns TypeScript only to compiler-facing entries and assigns both Metro peers only to `./metro`.
