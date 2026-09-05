@@ -282,7 +282,6 @@ export function windowFunction(fnName: string, args: readonly string[] = []): Wi
 
   return builder;
 }
-}
 
 /**
  * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.

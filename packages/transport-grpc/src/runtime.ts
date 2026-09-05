@@ -375,21 +375,24 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
-function requestValue(decoded: DecodedRequest): unknown {
-  if (!decoded.ok) {
-    throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
+function requestValue(decoded: unknown): unknown {
+  if (typeof decoded === 'object' && decoded !== null && 'ok' in decoded) {
+    if (!Reflect.get(decoded, 'ok')) {
+      throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
+    }
+    return Reflect.get(decoded, 'value');
   }
-  return decoded.value;
+  return decoded;
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const queue: DecodedRequest[] = [];
+  const queue: unknown[] = [];
   let resolveNext: (() => void) | undefined;
   let ended = false;
   let streamError: unknown = undefined;
 
   const onData = (data: unknown): void => {
-    queue.push(data as DecodedRequest);
+    queue.push(data);
     if (resolveNext !== undefined) {
       const cb = resolveNext;
       resolveNext = undefined;
@@ -425,9 +428,11 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
       if (scope.signal.aborted) throw scope.reason();
       if (streamError !== undefined) throw streamError;
       if (queue.length > 0) {
-        const item = queue.shift()!;
-        yield requestValue(item);
-        continue;
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+          continue;
+        }
       }
       if (ended) return;
 

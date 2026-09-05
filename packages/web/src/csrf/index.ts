@@ -103,8 +103,9 @@ function base64UrlToUint8(str: string): Uint8Array<ArrayBuffer> | undefined {
 }
 
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  if (typeof (value as { toBase64?: unknown }).toBase64 === 'function') {
-    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  const fn = Reflect.get(value, 'toBase64');
+  if (typeof fn === 'function') {
+    return fn.call(value, { alphabet: 'base64url', omitPadding: true });
   }
   return uint8ToBase64Url(value);
 }
@@ -114,10 +115,9 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded =
-      typeof (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 === 'function'
-        ? Uint8Array.fromBase64(value, { alphabet: 'base64url' })
-        : base64UrlToUint8(value);
+    const fn = Reflect.get(Uint8Array, 'fromBase64');
+    const decoded: Uint8Array<ArrayBuffer> | undefined =
+      typeof fn === 'function' ? fn.call(Uint8Array, value, { alphabet: 'base64url' }) : base64UrlToUint8(value);
     if (decoded === undefined) return undefined;
     return encodeBase64Url(decoded) === value ? decoded : undefined;
   } catch {
