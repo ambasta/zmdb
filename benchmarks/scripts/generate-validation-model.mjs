@@ -24,6 +24,17 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const HERE = dirname(fileURLToPath(import.meta.url));
+const VALIDATION = join(HERE, '..', 'harness', 'validation');
+const PROJECT = join(VALIDATION, 'tsconfig.json');
+const SOURCE = join(VALIDATION, 'aot-source.ts');
+const SHALLOW_SOURCE = join(VALIDATION, 'shallow-source.ts');
+const MODEL_OUT = join(VALIDATION, 'model.generated.ts');
+const AOT_OUT = join(VALIDATION, 'aot.generated.ts');
+const SHALLOW_OUT = join(VALIDATION, 'shallow.generated.ts');
+
+const check = process.argv.includes('--check');
+
 await import('../../scripts/ts-specifier-hook.mjs');
 const [{ findCallSites }, { Reflector }, { withSession }, { transformFile }] = await Promise.all([
   import('../../packages/aot-validator/src/reflect/callsites.js'),
