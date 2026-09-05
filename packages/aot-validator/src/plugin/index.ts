@@ -10,15 +10,17 @@
 // the project is the expensive half; a checker call is a cheap round-trip. A session per
 // file would make the AOT path cost more than the runtime walker it replaces.
 
+import path from 'node:path';
+
 import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
 
 import type { EmitOptions } from '../emit/index.js';
 import { ReflectSession } from '../reflect/session.js';
-import { transformCode, transformFile, type TransformDiagnostic } from '../transformer.js';
+import { transformCode, transformFile, type TransformDiagnostic, type TransformOptions } from '../transformer.js';
 
 /** Inline `validate(tags.X(…), …)` with no compiler. Type arguments need `transformFile`. */
-export function transformTypeChecks(code: string): string {
-  return transformCode(code);
+export function transformTypeChecks(code: string, options?: TransformOptions): string {
+  return transformCode(code, options);
 }
 
 export interface UnpluginLike {
@@ -52,6 +54,7 @@ export interface ZmdbAotOptions {
    * `validate(tags.X(…), …)` form and leaves every `f<T>(…)` call alone.
    */
   readonly project?: string;
+  readonly tsconfigPath?: string;
   readonly cwd?: string;
   /** An already-open session. The caller keeps ownership, including closing it. */
   readonly session?: ReflectSession;
@@ -65,6 +68,9 @@ export interface ZmdbAotOptions {
    * use (plan D4).
    */
   readonly onDiagnostic?: (diagnostic: TransformDiagnostic) => void;
+  readonly program?: { getSourceFile?: (id: string) => unknown };
+  readonly checker?: TransformOptions['checker'];
+  readonly compilerOptions?: unknown;
 }
 
 const SOURCE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs)$/;
@@ -79,8 +85,9 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
 
   const ensureSession = (): ReflectSession | undefined => {
     if (session) return session;
-    if (options.project === undefined) return undefined;
-    session = ReflectSession.open({ project: options.project, ...(options.cwd ? { cwd: options.cwd } : {}) });
+    const projPath = options.project ?? (options.tsconfigPath ? path.resolve(options.tsconfigPath) : undefined);
+    if (projPath === undefined) return undefined;
+    session = ReflectSession.open({ project: projPath, ...(options.cwd ? { cwd: options.cwd } : {}) });
     owned = true;
     return session;
   };
@@ -89,6 +96,7 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
     name: 'zmdb-aot',
     enforce: 'pre',
 
+    // boundary: options.program/options.checker are optional external compiler objects passed by bundler integrations.
     transform(code: string, id: string): { code: string } | null {
       // Never dependencies and never declaration files: a package ships already-built
       // JavaScript, and rewriting it would be rewriting someone else's compiled output.
@@ -97,7 +105,12 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
 
       const open = ensureSession();
       if (!open) {
-        const out = transformCode(code);
+        if (options.checker) {
+          const sourceFile = options.program?.getSourceFile?.(id);
+          const out = transformCode(code, { sourceFile, checker: options.checker, id });
+          return out === code ? null : { code: out };
+        }
+        const out = transformCode(code, { id });
         return out === code ? null : { code: out };
       }
 

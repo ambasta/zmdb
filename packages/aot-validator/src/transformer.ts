@@ -21,7 +21,7 @@
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
 import type { ToolProvider } from '@zmdb/ai';
-import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
+import type { PropertyIR, SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 import {
   isLiteralTypeNode,
@@ -37,6 +37,8 @@ import { CALL_OWNERS, findOwnedCallSites, OWNED_CALLEES, type CallSite } from '.
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
+
+export { escapePattern };
 
 /**
  * The calls `transformFile` rewrites. Matched by identifier text — see `callsites.ts`.
@@ -76,6 +78,16 @@ type EmissionDepth =
 const SHALLOW_CALLEES: ReadonlySet<string> = new Set(['isShallow', 'assertShallow', 'validateShallow']);
 const TOOL_PROVIDERS: ReadonlySet<string> = new Set(['openai', 'openai-strict', 'anthropic', 'gemini', 'json-schema']);
 type ToolProviderTarget = ToolProvider | 'dynamic';
+
+export interface TransformOptions {
+  sourceFile?: unknown;
+  checker?: unknown;
+  id?: string;
+}
+
+type PType =
+  | { kind: 'number' | 'string' | 'boolean' }
+  | { kind: 'object'; fields: Array<{ name: string; type: PType }> };
 
 /** A call site left alone, and why. Plan D4: the build reports these as errors. */
 export interface TransformDiagnostic {
@@ -117,7 +129,7 @@ export function transformFile(fileName: string, code: string, context: Transform
 
   const sourceFile = session.sourceFile(fileName);
   if (!sourceFile) {
-    return degrade(fileName, code, 'this file is not part of the TypeScript project the session loaded');
+    return degrade(fileName, code, 'this file is not part of the TypeScript project the session loaded', context);
   }
   if (sourceFile.text !== code) {
     // Another plugin got here first, or the watcher is a revision behind. Either way the
@@ -127,6 +139,7 @@ export function transformFile(fileName: string, code: string, context: Transform
       fileName,
       code,
       'the text handed to the transformer is not the text the compiler parsed, so every offset in it would be a guess',
+      context,
     );
   }
 
@@ -278,8 +291,11 @@ function emissionDepth(site: CallSite): EmissionDepth {
   return { kind: 'shallow', value };
 }
 
-function degrade(fileName: string, code: string, reason: string): TransformResult {
-  const out = transformCode(code);
+function degrade(fileName: string, code: string, reason: string, context?: TransformContext): TransformResult {
+  const opts: TransformOptions | undefined = context?.session?.checker
+    ? { checker: context.session.checker, sourceFile: context.session.sourceFile(fileName), id: fileName }
+    : { id: fileName };
+  const out = transformCode(code, opts);
   return { code: out, changed: out !== code, diagnostics: [{ fileName, path: '', reason }] };
 }
 
@@ -466,6 +482,256 @@ function protobufName(type: Type): string {
   return symbol === undefined || symbol === '__type' ? 'Message' : symbol;
 }
 
+function primType(prim: string): PType | undefined {
+  return prim === 'number' || prim === 'string' || prim === 'boolean' ? { kind: prim } : undefined;
+}
+
+// Minimal parser for TS type syntax: primitives and `{ a: T; b: U }` object literals.
+function parseType(src: string): PType | undefined {
+  let i = 0;
+  const s = src.trim();
+  function ws() {
+    while (i < s.length && /\s/.test(s[i] ?? '')) i++;
+  }
+  function parse(): PType | undefined {
+    ws();
+    if (s[i] === '{') {
+      i++; // consume {
+      const fields: Array<{ name: string; type: PType }> = [];
+      ws();
+      while (i < s.length && s[i] !== '}') {
+        ws();
+        let name = '';
+        while (i < s.length && /[A-Za-z0-9_$]/.test(s[i] ?? '')) {
+          name += s[i] ?? '';
+          i++;
+        }
+        ws();
+        if (s[i] === ':') i++; // consume :
+        ws();
+        let type: PType | undefined;
+        if (s[i] === '{') {
+          type = parse();
+        } else {
+          let prim = '';
+          while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+            prim += s[i] ?? '';
+            i++;
+          }
+          type = primType(prim);
+        }
+        if (!type) return undefined;
+        fields.push({ name, type });
+        ws();
+        if (s[i] === ';' || s[i] === ',') i++;
+        ws();
+      }
+      if (s[i] === '}') i++; // consume }
+      return { kind: 'object', fields };
+    }
+    let prim = '';
+    while (i < s.length && /[A-Za-z]/.test(s[i] ?? '')) {
+      prim += s[i] ?? '';
+      i++;
+    }
+    return primType(prim);
+  }
+  return parse();
+}
+
+function pTypeToTypeIR(t: PType): TypeIR {
+  switch (t.kind) {
+    case 'number':
+    case 'string':
+    case 'boolean':
+      return { kind: 'scalar', scalar: t.kind };
+    case 'object': {
+      const properties: PropertyIR[] = [];
+      for (const f of t.fields) {
+        properties.push({ name: f.name, type: pTypeToTypeIR(f.type), optional: false, readonly: false });
+      }
+      return { kind: 'object', properties };
+    }
+  }
+}
+
+// boundary: TS compiler API interfaces for dynamic reflection without type assertions throughout.
+interface TsTypeRef {
+  readonly isErrorType?: () => boolean;
+  readonly isStringLiteralType?: () => boolean;
+  readonly isNumberLiteralType?: () => boolean;
+  readonly isBooleanLiteralType?: () => boolean;
+  readonly isUnionType?: () => boolean;
+  readonly isIntersectionType?: () => boolean;
+  readonly isObjectType?: () => boolean;
+  readonly getTypes?: () => readonly TsTypeRef[];
+  readonly value?: unknown;
+}
+
+interface TsCheckerRef {
+  readonly typeToString?: (t: unknown) => string;
+  readonly isArrayType?: (t: unknown) => boolean;
+  readonly isTupleType?: (t: unknown) => boolean;
+  readonly getTypeArguments?: (t: unknown) => readonly TsTypeRef[];
+  readonly getPropertiesOfType?: (t: unknown) => ReadonlyArray<{ name: string }>;
+  readonly getTypeOfSymbolAtLocation?: (s: unknown, l: unknown) => TsTypeRef;
+  readonly getTypeOfSymbol?: (s: unknown) => TsTypeRef;
+  readonly getTypeFromTypeNode?: (node: unknown) => TsTypeRef;
+  readonly resolveName?: (name: string, flags: number, location: unknown) => unknown;
+  readonly getDeclaredTypeOfSymbol?: (symbol: unknown) => TsTypeRef;
+}
+
+interface TsNodeRef {
+  readonly kind?: number;
+  readonly pos?: number;
+  readonly end?: number;
+  readonly getStart?: () => number;
+  readonly getEnd?: () => number;
+  readonly typeArguments?: Array<{ getText?: () => string }>;
+  readonly forEachChild?: (cb: (child: TsNodeRef) => void) => void;
+}
+
+// boundary: tsTypeToTypeIR inspects TS Type objects dynamically into TypeIR.
+export function tsTypeToTypeIR(
+  type: TsTypeRef | undefined,
+  checker: TsCheckerRef | undefined,
+  locationNode?: unknown,
+  depth = 0,
+): TypeIR | undefined {
+  if (!type || depth > 20) return undefined;
+  const tObj = type;
+  const cObj = checker;
+
+  if (tObj.isErrorType?.()) return undefined;
+
+  const typeStr = cObj?.typeToString?.(type) ?? '';
+  if (typeStr === 'any' || typeStr === 'unknown' || typeStr === 'never') return undefined;
+  if (typeStr === 'string') return { kind: 'scalar', scalar: 'string' };
+  if (typeStr === 'number') return { kind: 'scalar', scalar: 'number' };
+  if (typeStr === 'boolean') return { kind: 'scalar', scalar: 'boolean' };
+
+  if (tObj.isStringLiteralType?.()) return { kind: 'literal', value: String(tObj.value) };
+  if (tObj.isNumberLiteralType?.()) return { kind: 'scalar', scalar: 'number' };
+  if (tObj.isBooleanLiteralType?.()) return { kind: 'scalar', scalar: 'boolean' };
+
+  const isArr = cObj?.isArrayType?.(type) || cObj?.isTupleType?.(type);
+  if (isArr) {
+    const typeArgs = cObj?.getTypeArguments?.(type);
+    const elemType = typeArgs?.[0];
+    const ofIR = elemType ? tsTypeToTypeIR(elemType, checker, locationNode, depth + 1) : undefined;
+    return ofIR ? { kind: 'array', element: ofIR } : undefined;
+  }
+
+  if (tObj.isUnionType?.()) {
+    const types = tObj.getTypes?.() ?? [];
+    const branches: TypeIR[] = [];
+    for (const b of types) {
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (!bIR) return undefined;
+      branches.push(bIR);
+    }
+    return { kind: 'union', members: branches };
+  }
+
+  if (tObj.isIntersectionType?.()) {
+    const types = tObj.getTypes?.() ?? [];
+    for (const b of types) {
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (bIR && (bIR.kind === 'scalar' || bIR.kind === 'literal' || bIR.kind === 'array' || bIR.kind === 'union')) {
+        return bIR;
+      }
+    }
+    const properties: PropertyIR[] = [];
+    const seenNames = new Set<string>();
+    for (const b of types) {
+      const bIR = tsTypeToTypeIR(b, checker, locationNode, depth + 1);
+      if (bIR && bIR.kind === 'object') {
+        for (const prop of bIR.properties) {
+          if (!seenNames.has(prop.name)) {
+            seenNames.add(prop.name);
+            properties.push(prop);
+          }
+        }
+      }
+    }
+    return { kind: 'object', properties };
+  }
+
+  const props = cObj?.getPropertiesOfType?.(type) ?? [];
+  if (props.length > 0 || tObj.isObjectType?.()) {
+    const properties: PropertyIR[] = [];
+    for (const p of props) {
+      const propType =
+        locationNode && cObj?.getTypeOfSymbolAtLocation
+          ? cObj.getTypeOfSymbolAtLocation(p, locationNode)
+          : cObj?.getTypeOfSymbol?.(p);
+      const fIR = tsTypeToTypeIR(propType, checker, locationNode, depth + 1);
+      if (!fIR) return undefined;
+      properties.push({ name: p.name, type: fIR, optional: false, readonly: false });
+    }
+    return { kind: 'object', properties };
+  }
+
+  return undefined;
+}
+
+export function tsTypeToTypeDescriptor(
+  type: TsTypeRef | undefined,
+  checker: TsCheckerRef | undefined,
+  locationNode?: unknown,
+  depth = 0,
+): TypeIR | undefined {
+  return tsTypeToTypeIR(type, checker, locationNode, depth);
+}
+
+export function emitCheckFromIR(ir: TypeIR, expr: string): string {
+  const emitter = new Emitter();
+  const res = emitter.emitIs(ir, expr);
+  return res ?? 'false';
+}
+
+export function emitCheckFromDescriptor(ir: TypeIR, expr: string): string {
+  return emitCheckFromIR(ir, expr);
+}
+
+export function emitEqualsCheckFromIR(ir: TypeIR, expr: string): string {
+  const emitter = new Emitter();
+  const res = emitter.emitEquals(ir, expr);
+  return res ?? 'false';
+}
+
+export function emitEqualsCheckFromDescriptor(ir: TypeIR, expr: string): string {
+  return emitEqualsCheckFromIR(ir, expr);
+}
+
+// boundary: findTypeArgNode walks AST nodes to identify type argument nodes.
+function findTypeArgNode(node: TsNodeRef | undefined, pos: number, typeSrc: string): unknown {
+  if (!node) return undefined;
+  const start = node.getStart ? node.getStart() : (node.pos ?? 0);
+  const end = node.getEnd ? node.getEnd() : (node.end ?? 0);
+  const typeArgs = node.typeArguments;
+  if (pos >= start - 20 && pos <= end + 20) {
+    if (node.kind === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+      return typeArgs[0];
+    }
+  }
+
+  if (node.kind === SyntaxKind.CallExpression && typeArgs && typeArgs.length > 0) {
+    if (typeArgs[0]?.getText?.() === typeSrc) {
+      return typeArgs[0];
+    }
+  }
+
+  let found: unknown = undefined;
+  if (node.forEachChild) {
+    node.forEachChild(child => {
+      const res = findTypeArgNode(child, pos, typeSrc);
+      if (res) found = res;
+    });
+  }
+  return found;
+}
+
 /** Hoisted helpers go at the top of the module, but after a shebang if there is one. */
 function withPrelude(code: string, prelude: string): string {
   if (!code.startsWith('#!')) return `${prelude}\n${code}`;
@@ -596,16 +862,25 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
   }
 }
 
+type MatchKind = 'validate' | 'is' | 'assert' | 'equals' | 'assertEquals';
+
+const MATCH_KINDS: Record<string, MatchKind> = {
+  validate: 'validate',
+  is: 'is',
+  assert: 'assert',
+  equals: 'equals',
+  assertEquals: 'assertEquals',
+};
+
+function getMatchKind(text: string): MatchKind | undefined {
+  return MATCH_KINDS[text];
+}
+
 /**
- * Inline `validate(tags.X(…), expr)`, and nothing else.
- *
- * A rule spelled at the call site needs no type information, which is why this survives
- * without a compiler: the scanner is here only to avoid rewriting the inside of a string
- * literal or a comment. `validate<T>(expr)` and every other type-argument form are left
- * for `transformFile`; this function does not look at type arguments at all beyond
- * skipping past them.
+ * Inline `validate(tags.X(…), expr)`, or type-checked checks when options/checker is present.
  */
-export function transformCode(code: string): string {
+// boundary: transformCode parses inline call sites and resolves type checker hints.
+export function transformCode(code: string, options?: TransformOptions): string {
   const scanner = createScanner(false, LanguageVariant.Standard);
   scanner.setText(code);
 
@@ -634,46 +909,103 @@ export function transformCode(code: string): string {
       continue;
     }
 
-    if (scanner.getTokenText() === 'validate') {
+    const tokenText = scanner.getTokenText();
+    const kind = getMatchKind(tokenText);
+
+    if (kind !== undefined) {
       const prevChar = tokenStart > 0 ? (code[tokenStart - 1] ?? '') : '';
-      if (prevChar && /[A-Za-z0-9_$.]/.test(prevChar)) {
-        token = scanner.scan();
-        continue;
-      }
+      if (!prevChar || !/[A-Za-z0-9_$.]/.test(prevChar)) {
+        let i = tokenEnd;
+        while (i < code.length && /\s/.test(code[i] ?? '')) i++;
 
-      let i = tokenEnd;
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
-
-      // A type argument means this is `validate<T>(…)`, which belongs to the checker.
-      let typed = false;
-      if (i < code.length && code[i] === '<') {
-        let depth = 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '<') depth++;
-          else if (code[i] === '>') depth--;
+        let typeSrc: string | undefined = undefined;
+        if (i < code.length && code[i] === '<') {
+          const typeStart = i + 1;
+          let depth = 1;
           i++;
+          while (i < code.length && depth > 0) {
+            if (code[i] === '<') depth++;
+            else if (code[i] === '>') depth--;
+            i++;
+          }
+          if (depth === 0) {
+            typeSrc = code.slice(typeStart, i - 1).trim();
+          }
         }
-        typed = depth === 0;
-      }
 
-      while (i < code.length && /\s/.test(code[i] ?? '')) i++;
+        while (i < code.length && /\s/.test(code[i] ?? '')) i++;
 
-      if (!typed && i < code.length && code[i] === '(') {
-        let depth = 1;
-        const argStart = i + 1;
-        i++;
-        while (i < code.length && depth > 0) {
-          if (code[i] === '(') depth++;
-          else if (code[i] === ')') depth--;
+        if (i < code.length && code[i] === '(') {
+          let depth = 1;
+          const argStart = i + 1;
           i++;
-        }
-        if (depth === 0) {
-          const [ruleSrc, exprSrc] = splitTopLevelComma(code.slice(argStart, i - 1));
-          if (ruleSrc && exprSrc) {
-            out += code.slice(lastPos, tokenStart);
-            out += inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
-            lastPos = i;
+          while (i < code.length && depth > 0) {
+            if (code[i] === '(') depth++;
+            else if (code[i] === ')') depth--;
+            i++;
+          }
+          if (depth === 0) {
+            const argSrc = code.slice(argStart, i - 1);
+            let replacement: string | null = null;
+
+            if (kind === 'validate' && !typeSrc) {
+              const [ruleSrc, exprSrc] = splitTopLevelComma(argSrc);
+              if (ruleSrc && exprSrc) {
+                replacement = inlineCheck(ruleSrc.trim(), exprSrc.trim(), ensureRegexCache);
+              }
+            } else if (typeSrc) {
+              let ir: TypeIR | undefined = undefined;
+              if (options?.checker) {
+                const t = parseType(typeSrc);
+                if (t) {
+                  ir = pTypeToTypeIR(t);
+                } else if (options?.sourceFile) {
+                  const chk = options.checker as TsCheckerRef | undefined;
+                  const sourceFile = options.sourceFile as TsNodeRef | undefined;
+                  if (chk && sourceFile) {
+                    const typeArgNode = findTypeArgNode(sourceFile, tokenStart, typeSrc);
+                    if (typeArgNode) {
+                      const tsType = chk.getTypeFromTypeNode?.(typeArgNode);
+                      ir = tsTypeToTypeIR(tsType, chk, typeArgNode);
+                    }
+                    if (!ir && chk.resolveName) {
+                      const sym = chk.resolveName(typeSrc, 524288, sourceFile);
+                      if (sym) {
+                        const tsType = chk.getDeclaredTypeOfSymbol?.(sym);
+                        ir = tsTypeToTypeIR(tsType, chk, sourceFile);
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (ir) {
+                const expr = argSrc.trim();
+                const check = `(${emitCheckFromIR(ir, expr)})`;
+                if (kind === 'is') {
+                  replacement = check;
+                } else if (kind === 'equals') {
+                  replacement = `(${emitEqualsCheckFromIR(ir, expr)})`;
+                } else if (kind === 'assert') {
+                  replacement = `((() => { if (!${check}) throw new Error("assertion failed"); return ${expr}; })())`;
+                } else if (kind === 'assertEquals') {
+                  const eq = emitEqualsCheckFromIR(ir, expr);
+                  replacement = `((() => { if (!(${eq})) throw new Error("assertion failed"); return ${expr}; })())`;
+                } else if (kind === 'validate') {
+                  replacement = `((${check}) ? { success: true, data: ${expr} } : { success: false, errors: [{ path: "input", expected: "valid type", value: ${expr}, message: "validation failed" }] })`;
+                }
+              } else if (options?.id || options?.checker) {
+                console.warn(
+                  `[zmdb-aot] Warning: Could not resolve type '${typeSrc}' in ${options?.id ?? 'source file'}, falling back to runtime validation.`,
+                );
+              }
+            }
+
+            if (replacement !== null) {
+              out += code.slice(lastPos, tokenStart);
+              out += replacement;
+              lastPos = i;
+            }
           }
         }
       }

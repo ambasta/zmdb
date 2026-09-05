@@ -62,6 +62,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { threadCpuUsage } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { codegen } from '../../packages/aot-validator/src/cli/index.ts';
@@ -257,7 +258,7 @@ function pass(tsconfig, options) {
   const session = ReflectSession.open({ project: tsconfig });
   const opened = performance.now() - openedAt;
   try {
-    const startedAt = performance.now();
+    const startCpu = threadCpuUsage();
     const result = codegen({ ...options, project: tsconfig, session });
     const beforeHttpContract = apiInstanceCount();
     const httpContract = compileHttpContracts(
@@ -270,12 +271,14 @@ function pass(tsconfig, options) {
       ],
       { session },
     );
+    const cpuDiff = threadCpuUsage(startCpu);
+    const cpuMs = (cpuDiff.user + cpuDiff.system) / 1000;
     return {
       result,
       httpOperations: httpContract.ir.operations.length,
       httpContractApiInstances: apiInstanceCount() - beforeHttpContract,
       opened,
-      elapsed: performance.now() - startedAt,
+      elapsed: cpuMs,
       apiInstances: apiInstanceCount() - before,
       updates: [...session.updates],
     };
