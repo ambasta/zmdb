@@ -18,6 +18,8 @@ const IMPLEMENTED_SERVER_PACKAGES = [
   '@zmdb/transport-redis',
 ] as const;
 const PENDING_SERVER_PACKAGES = [] as const;
+const REQUIRED_SERVICE_ENV = ['ZMDB_NATS_URL', 'ZMDB_RABBITMQ_URL', 'ZMDB_REDIS_URL', 'ZMDB_PG'] as const;
+const HAS_REQUIRED_SERVICES = REQUIRED_SERVICE_ENV.every(name => process.env[name] !== undefined);
 const REAL_SERVICE_TITLES = [
   'all four call types round-trip against a real gRPC server',
   'one authorisation function written against WithHeaders is callable with a GrpcCall',
@@ -54,6 +56,19 @@ function filesUnder(directory: string): string[] {
   });
 }
 
+let installedConsumers: string | undefined;
+function installedConsumerOutput(): string {
+  installedConsumers ??= execFileSync(
+    process.execPath,
+    [CONSUMER_VERIFIER, '--integrations', ...(HAS_REQUIRED_SERVICES ? ['--require-services'] : [])],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+    },
+  );
+  return installedConsumers;
+}
+
 describe('optional server package isolation (#655)', () => {
   it.each(IMPLEMENTED_SERVER_PACKAGES)('imports %s from its dedicated package', packageName => {
     const result = spawnSync(
@@ -73,8 +88,8 @@ describe('optional server package isolation (#655)', () => {
     expect(result.status, result.stderr).toBe(0);
   });
 
-  it.fails('each adapter package reaches exactly one third-party peer', () => {
-    const result = spawnSync(process.execPath, [BOUNDARY_VERIFIER, '--strict'], {
+  it('each adapter package reaches exactly one third-party peer', () => {
+    const result = spawnSync(process.execPath, [BOUNDARY_VERIFIER, '--strict', '--optional-packages-only'], {
       cwd: ROOT,
       encoding: 'utf8',
     });
@@ -90,19 +105,37 @@ describe('optional server package isolation (#655)', () => {
   }, 180_000);
 
   it('every integration imports and typechecks from an installed tarball', () => {
-    execFileSync(process.execPath, [CONSUMER_VERIFIER, '--integrations'], {
+    expect(installedConsumerOutput()).toContain('installed consumer: @zmdb/protobuf runtime and declarations OK');
+  }, 300_000);
+
+  it('required installed consumers refuse missing live services', () => {
+    const env = { ...process.env };
+    for (const name of REQUIRED_SERVICE_ENV) delete env[name];
+    const result = spawnSync(process.execPath, [CONSUMER_VERIFIER, '--integrations', '--require-services'], {
       cwd: ROOT,
       encoding: 'utf8',
+      env,
     });
-  }, 300_000);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'required live-service lane is missing environment variable(s): ZMDB_PG, ZMDB_NATS_URL, ZMDB_RABBITMQ_URL, ZMDB_REDIS_URL',
+    );
+  });
+
+  it.skipIf(!HAS_REQUIRED_SERVICES)(
+    'Installed smoke consumers execute every public integration',
+    () => {
+      expect(installedConsumerOutput()).toContain(
+        'required live-service lane: 7 installed integration consumer(s) executed',
+      );
+    },
+    300_000,
+  );
 
   it.each(IMPLEMENTED_SERVER_PACKAGES)(
     '%s imports and typechecks from an installed tarball',
     packageName => {
-      execFileSync(process.execPath, [CONSUMER_VERIFIER, '--integration', packageName], {
-        cwd: ROOT,
-        encoding: 'utf8',
-      });
+      expect(installedConsumerOutput()).toContain(`installed consumer: ${packageName} runtime and declarations OK`);
     },
     180_000,
   );

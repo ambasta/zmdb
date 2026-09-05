@@ -31,7 +31,7 @@ Redis Pub/Sub is opt-in: install `@zmdb/transport-redis` with `redis`; neither t
 
 PostgreSQL job storage is opt-in: install `@zmdb/jobs-postgres` with `pg` when workers use a caller-owned PostgreSQL pool or client.
 
-> The workspace publishes **23 packages** across **126 export-map entry points**. The current suite has **3,010 passing tests** across 274 files, plus **156 expected failures** that describe work
+> The workspace publishes **23 packages** across **126 export-map entry points**. The current suite has **3,012 passing tests** across 274 files, plus **155 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 

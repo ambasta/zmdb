@@ -13,7 +13,9 @@ if (typeof createRedisStrategy !== 'function') {
 }
 
 const url = process.env.ZMDB_REDIS_URL;
-if (url !== undefined) {
+if (url === undefined) {
+  console.warn('[skip] @zmdb/transport-redis packed runtime: set ZMDB_REDIS_URL for the required live-service lane');
+} else {
   const prefix = `zmdb.packed.${globalThis.crypto.randomUUID()}`;
   const eventPattern = `${prefix}.event`;
   const requestPattern = `${prefix}.request`;
@@ -87,6 +89,7 @@ if (url !== undefined) {
     if (errors.length > 0) {
       throw new AggregateError(errors, '@zmdb/transport-redis packed consumer observed transport errors');
     }
+    console.log('@zmdb/transport-redis packed consumer: live event and request/reply executed');
   } finally {
     await extension.stop({ graceMs: 2_000 });
   }

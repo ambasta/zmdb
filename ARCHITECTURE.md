@@ -446,7 +446,8 @@ Resource ownership is explicit:
 Release publication follows the manifest DAG: publish `@zmdb/protobuf`, `@zmdb/app` and `@zmdb/jobs` before their dependants, publish the compiler version that recognises the new protobuf owner only
 after `@zmdb/protobuf` exists, then publish each integration independently. A release is qualified only when every package packs, installs, imports and typechecks outside the workspace; real gRPC,
 NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and a missing required service fails rather than silently skipping. `@zmdb/otel` is proven with real API/SDK objects but owns
-no collector or exporter.
+no collector or exporter. The executable CI and release gate is `yarn verify:server-integrations`; its local non-required mode prints an explicit skip for each absent service rather than treating
+absence as runtime evidence.
 
 The exact public exports, lifecycle, install commands and evidence are frozen in [`packages/protobuf/SPEC.md`](./packages/protobuf/SPEC.md),
 [`packages/transport-grpc/SPEC.md`](./packages/transport-grpc/SPEC.md), [`packages/transport-nats/SPEC.md`](./packages/transport-nats/SPEC.md),

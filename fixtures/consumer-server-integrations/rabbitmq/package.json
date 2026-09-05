@@ -10,10 +10,6 @@
     "@types/node": "^26.4.1"
   },
   "zmdbFixture": {
-    "target": "@zmdb/transport-rabbitmq",
-    "links": [
-      "@types/node",
-      "amqplib"
-    ]
+    "target": "@zmdb/transport-rabbitmq"
   }
 }

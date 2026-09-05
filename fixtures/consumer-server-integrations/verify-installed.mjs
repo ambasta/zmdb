@@ -9,36 +9,30 @@
 // while `--integrations` checks the complete target set.
 
 import { spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import {
+  PACKAGES,
+  publishManifest,
+  readManifest as readPublishManifest,
+} from '../../.github/scripts/lib/publish-manifest.mjs';
+import { SERVER_PACKAGES as SERVER_TARGETS } from '../../.github/scripts/verify-server-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');
-const SERVER_PACKAGES = [
-  '@zmdb/protobuf',
-  '@zmdb/transport-grpc',
-  '@zmdb/transport-nats',
-  '@zmdb/transport-rabbitmq',
-  '@zmdb/transport-redis',
-  '@zmdb/jobs-postgres',
-  '@zmdb/otel',
-];
-const SERVER_PEERS = ['@grpc/grpc-js', '@nats-io/transport-node', '@opentelemetry/api', 'amqplib', 'pg', 'redis'];
+const SERVER_PACKAGES = SERVER_TARGETS.map(target => target.name);
+const SERVER_PEERS = SERVER_TARGETS.flatMap(target => (target.peer === undefined ? [] : [target.peer.name]));
+const PUBLISH_PACKAGE_NAMES = PACKAGES.map(directory => readPublishManifest(directory).name);
+const REQUIRED_SERVICE_ENV = new Map([
+  ['@zmdb/jobs-postgres', 'ZMDB_PG'],
+  ['@zmdb/transport-nats', 'ZMDB_NATS_URL'],
+  ['@zmdb/transport-rabbitmq', 'ZMDB_RABBITMQ_URL'],
+  ['@zmdb/transport-redis', 'ZMDB_REDIS_URL'],
+]);
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { encoding: 'utf8', ...options });
@@ -74,7 +68,26 @@ function workspaceClosure(packages, roots) {
       if (packages.has(dependency)) queue.push(dependency);
     }
   }
-  return [...closure];
+  const ordered = PUBLISH_PACKAGE_NAMES.filter(name => closure.has(name));
+  const missing = [...closure].filter(name => !PUBLISH_PACKAGE_NAMES.includes(name));
+  if (missing.length > 0) {
+    throw new Error(`publish manifest omits workspace package(s): ${missing.join(', ')}`);
+  }
+
+  const position = new Map(ordered.map((name, index) => [name, index]));
+  for (const name of ordered) {
+    const pkg = packages.get(name);
+    if (pkg === undefined) throw new Error(`workspace package ${name} disappeared while ordering`);
+    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {})) {
+      if (!closure.has(dependency)) continue;
+      const dependencyIndex = position.get(dependency);
+      const packageIndex = position.get(name);
+      if (dependencyIndex === undefined || packageIndex === undefined || dependencyIndex >= packageIndex) {
+        throw new Error(`publish order places ${name} before its dependency ${dependency}`);
+      }
+    }
+  }
+  return ordered;
 }
 
 function copyForPack(source, destination) {
@@ -89,6 +102,7 @@ function packWorkspace(packages, names, scratch) {
   const tarballs = new Map();
   const stage = join(scratch, 'stage');
   mkdirSync(stage, { recursive: true });
+  console.log(`publish order: ${names.join(' -> ')}`);
 
   for (const name of names) {
     const pkg = packages.get(name);
@@ -188,45 +202,156 @@ function verifyCoreInstall(packages, scratch) {
 }
 
 function fixtureProjects() {
-  return readdirSync(FIXTURES, { withFileTypes: true })
+  const fixtures = readdirSync(FIXTURES, { withFileTypes: true })
     .filter(entry => entry.isDirectory())
     .map(entry => {
       const dir = join(FIXTURES, entry.name);
       const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
       const fixture = manifest.zmdbFixture;
-      if (
-        typeof fixture !== 'object' ||
-        fixture === null ||
-        typeof fixture.target !== 'string' ||
-        !Array.isArray(fixture.links) ||
-        fixture.links.some(link => typeof link !== 'string')
-      ) {
+      if (typeof fixture !== 'object' || fixture === null || typeof fixture.target !== 'string') {
         throw new Error(`${relative(ROOT, dir)}/package.json has an invalid zmdbFixture contract`);
       }
-      return { name: entry.name, dir, target: fixture.target, links: fixture.links };
+      return { name: entry.name, dir, target: fixture.target, manifest };
     })
     .toSorted((left, right) => left.name.localeCompare(right.name));
+
+  const targetCounts = new Map();
+  for (const fixture of fixtures) {
+    targetCounts.set(fixture.target, (targetCounts.get(fixture.target) ?? 0) + 1);
+  }
+  const missing = SERVER_PACKAGES.filter(name => !targetCounts.has(name));
+  const repeated = [...targetCounts].filter(([, count]) => count !== 1).map(([name]) => name);
+  const unexpected = [...targetCounts.keys()].filter(name => !SERVER_PACKAGES.includes(name));
+  if (missing.length > 0 || repeated.length > 0 || unexpected.length > 0) {
+    throw new Error(
+      `optional-server fixtures must cover each package once; missing=[${missing.join(', ')}], ` +
+        `repeated=[${repeated.join(', ')}], unexpected=[${unexpected.join(', ')}]`,
+    );
+  }
+  return fixtures;
 }
 
 function packagePath(nodeModules, name) {
   return join(nodeModules, ...name.split('/'));
 }
 
-function extractTarball(tarball, destination) {
-  mkdirSync(destination, { recursive: true });
-  const extracted = run('tar', ['-xzf', tarball, '-C', destination, '--strip-components=1']);
-  if (extracted.status !== 0) throw new Error(`could not extract ${tarball}: ${message(extracted)}`);
+function externalDependencies(packages, dependencies) {
+  return Object.fromEntries(
+    Object.entries(dependencies ?? {})
+      .filter(([name]) => !packages.has(name))
+      .toSorted(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
-function linkRootPackage(appNodeModules, name) {
-  const source = packagePath(join(ROOT, 'node_modules'), name);
-  if (!existsSync(source)) throw new Error(`fixture dependency ${name} is not installed at the workspace root`);
-  const destination = packagePath(appNodeModules, name);
-  mkdirSync(dirname(destination), { recursive: true });
-  symlinkSync(source, destination, 'dir');
+function writeConsumerManifest(packages, fixture, closure, tarballs, app) {
+  const localPackages = Object.fromEntries(
+    closure.map(name => {
+      const tarball = tarballs.get(name);
+      if (tarball === undefined) throw new Error(`no packed tarball recorded for ${name}`);
+      return [name, `file:${tarball}`];
+    }),
+  );
+  const dependencies = {
+    ...localPackages,
+    ...externalDependencies(packages, fixture.manifest.dependencies),
+  };
+  const devDependencies = externalDependencies(packages, fixture.manifest.devDependencies);
+  const manifest = {
+    ...fixture.manifest,
+    dependencies,
+    ...(Object.keys(devDependencies).length === 0 ? {} : { devDependencies }),
+  };
+  if (Object.keys(devDependencies).length === 0) delete manifest.devDependencies;
+  writeFileSync(join(app, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-function verifyIntegrationConsumers(packages, scratch, target) {
+function installConsumer(app, target) {
+  const installed = run(
+    'npm',
+    [
+      'install',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--package-lock=false',
+      '--prefer-offline',
+      '--loglevel=error',
+    ],
+    {
+      cwd: app,
+      env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
+    },
+  );
+  if (installed.status !== 0) throw new Error(`${target} consumer install failed: ${message(installed)}`);
+}
+
+function targetContract(name) {
+  const target = SERVER_TARGETS.find(candidate => candidate.name === name);
+  if (target === undefined) throw new Error(`no optional-server boundary contract for ${name}`);
+  return target;
+}
+
+function verifyInstalledIntegration(fixture, closure, app) {
+  const target = targetContract(fixture.target);
+  const nodeModules = join(app, 'node_modules');
+  const namesInTree = installedPackageNames(nodeModules);
+  const allowedPackages = new Set(closure);
+  const unexpectedPackages = SERVER_PACKAGES.filter(name => namesInTree.has(name) && !allowedPackages.has(name));
+  const expectedPeer = target.peer?.name;
+  const unexpectedPeers = SERVER_PEERS.filter(name => namesInTree.has(name) && name !== expectedPeer);
+  if (unexpectedPackages.length > 0 || unexpectedPeers.length > 0) {
+    throw new Error(
+      `${fixture.target} consumer contains unrelated optional packages=[${unexpectedPackages.join(', ')}] ` +
+        `or peers=[${unexpectedPeers.join(', ')}]`,
+    );
+  }
+  if (expectedPeer !== undefined && !namesInTree.has(expectedPeer)) {
+    throw new Error(`${fixture.target} consumer did not install required peer ${expectedPeer}`);
+  }
+
+  const installedManifest = JSON.parse(
+    readFileSync(join(packagePath(nodeModules, fixture.target), 'package.json'), 'utf8'),
+  );
+  const actualPeers = Object.entries(installedManifest.peerDependencies ?? {}).toSorted(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const expectedPeers = target.peer === undefined ? [] : [[target.peer.name, target.peer.range]];
+  if (JSON.stringify(actualPeers) !== JSON.stringify(expectedPeers)) {
+    throw new Error(
+      `${fixture.target} packed peers ${JSON.stringify(actualPeers)}, expected ${JSON.stringify(expectedPeers)}`,
+    );
+  }
+  if (expectedPeer !== undefined && installedManifest.peerDependenciesMeta?.[expectedPeer]?.optional === true) {
+    throw new Error(`${fixture.target} packed required peer ${expectedPeer} is marked optional`);
+  }
+
+  console.log(
+    `installed boundary: ${fixture.target}, ${String(closure.length)} workspace tarball(s), ` +
+      `${expectedPeer === undefined ? 'no peer' : `peer ${expectedPeer}`}, 0 unrelated optional peers`,
+  );
+}
+
+function runtimeEnvironment(fixtures, requireServices) {
+  const env = { ...process.env };
+  if (!requireServices) return env;
+
+  const missing = [];
+  for (const fixture of fixtures) {
+    const variable = REQUIRED_SERVICE_ENV.get(fixture.target);
+    if (variable !== undefined && (env[variable] === undefined || env[variable].length === 0)) missing.push(variable);
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `required live-service lane is missing environment variable(s): ${[...new Set(missing)].join(', ')}`,
+    );
+  }
+  if (fixtures.some(fixture => fixture.target === '@zmdb/jobs-postgres')) {
+    env.ZMDB_REQUIRE_PG = '1';
+  }
+  return env;
+}
+
+function verifyIntegrationConsumers(packages, scratch, target, requireServices) {
   const fixtures =
     target === undefined ? fixtureProjects() : fixtureProjects().filter(fixture => fixture.target === target);
   if (fixtures.length === 0) throw new Error(`no optional-server fixture targets ${String(target)}`);
@@ -234,6 +359,7 @@ function verifyIntegrationConsumers(packages, scratch, target) {
   if (missing.length > 0) {
     throw new Error(`optional server packages are not implemented: ${missing.join(', ')}`);
   }
+  const childEnvironment = runtimeEnvironment(fixtures, requireServices);
 
   const built = run('yarn', ['build'], { cwd: ROOT, stdio: 'inherit' });
   if (built.status !== 0) throw new Error('yarn build failed before installed integration verification');
@@ -250,43 +376,54 @@ function verifyIntegrationConsumers(packages, scratch, target) {
   for (const fixture of fixtures) {
     const app = join(scratch, `consumer-${fixture.name}`);
     copyForPack(fixture.dir, app);
-    const nodeModules = join(app, 'node_modules');
-    mkdirSync(nodeModules, { recursive: true });
-    for (const name of workspaceClosure(packages, [fixture.target])) {
-      const tarball = tarballs.get(name);
-      if (tarball === undefined) throw new Error(`no packed tarball recorded for ${name}`);
-      extractTarball(tarball, packagePath(nodeModules, name));
-    }
-    for (const name of fixture.links) linkRootPackage(nodeModules, name);
+    const closure = workspaceClosure(packages, [fixture.target]);
+    writeConsumerManifest(packages, fixture, closure, tarballs, app);
+    installConsumer(app, fixture.target);
+    verifyInstalledIntegration(fixture, closure, app);
 
-    const runtime = run(process.execPath, [join(app, 'src', 'runtime.mjs')], { cwd: app });
+    const runtime = run(process.execPath, [join(app, 'src', 'runtime.mjs')], {
+      cwd: app,
+      env: childEnvironment,
+    });
     const declarations = run(tsc, ['--noEmit', '-p', join(app, 'tsconfig.json')], { cwd: app });
     if (runtime.status !== 0) failures.push(`${fixture.target} runtime: ${message(runtime)}`);
     if (declarations.status !== 0) failures.push(`${fixture.target} declarations: ${message(declarations)}`);
     if (runtime.status === 0 && declarations.status === 0) {
+      const runtimeOutput = message(runtime);
+      if (runtimeOutput.length > 0) console.log(runtimeOutput);
       console.log(`installed consumer: ${fixture.target} runtime and declarations OK`);
     }
   }
 
   if (failures.length > 0) throw new Error(failures.join('\n'));
+  if (requireServices) {
+    console.log(`required live-service lane: ${String(fixtures.length)} installed integration consumer(s) executed`);
+  }
 }
 
 function main() {
-  const mode = process.argv[2];
-  const target = process.argv[3];
+  const raw = process.argv.slice(2);
+  const requireServices = raw.includes('--require-services');
+  const args = raw.filter(argument => argument !== '--require-services');
+  const [mode, target, ...extra] = args;
+  if (extra.length > 0) throw new Error(`unexpected argument(s): ${extra.join(', ')}`);
   if (mode !== '--core' && mode !== '--integrations' && mode !== '--integration') {
-    throw new Error('usage: verify-installed.mjs --core|--integrations|--integration <package>');
+    throw new Error(
+      'usage: verify-installed.mjs --core|--integrations [--require-services]|' +
+        '--integration <package> [--require-services]',
+    );
   }
   if (mode === '--integration' && target === undefined) {
     throw new Error('--integration requires an exact package name');
   }
   if (mode !== '--integration' && target !== undefined) throw new Error(`${mode} accepts no package argument`);
+  if (mode === '--core' && requireServices) throw new Error('--core does not accept --require-services');
 
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-server-consumer-'));
   try {
     const packages = workspacePackages();
     if (mode === '--core') verifyCoreInstall(packages, scratch);
-    else verifyIntegrationConsumers(packages, scratch, mode === '--integration' ? target : undefined);
+    else verifyIntegrationConsumers(packages, scratch, mode === '--integration' ? target : undefined, requireServices);
   } finally {
     if (process.env.ZMDB_KEEP_SERVER_FIXTURES === undefined) {
       rmSync(scratch, { recursive: true, force: true });

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { analyzeAppKernelBoundary } from './verify-server-boundaries.mjs';
+import { analyzeAppKernelBoundary, analyzeOptionalServerPackages } from './verify-server-boundaries.mjs';
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
@@ -27,6 +27,22 @@ describe('the optional server boundary verifier', () => {
   it('accepts the complete positive package graph', () => {
     const result = verifyFixture('positive');
     expect(result.status, result.stderr).toBe(0);
+  });
+
+  it('reports the live optional package graph independently of pending core work', () => {
+    expect(analyzeOptionalServerPackages(ROOT)).toEqual([]);
+    const result = spawnSync(process.execPath, [SCRIPT, '--strict', '--optional-packages-only'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('7 optional package manifests');
+  });
+
+  it('reports a planted optional-package peer leak through the scoped analysis', () => {
+    expect(analyzeOptionalServerPackages(join(FIXTURES, 'multiple-peers'), { requireAll: false })).toContain(
+      '@zmdb/transport-nats reaches external packages [@nats-io/transport-node, redis], expected [@nats-io/transport-node]',
+    );
   });
 
   it.each([

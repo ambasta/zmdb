@@ -29,6 +29,7 @@ try {
   if (caller.rows[0]?.answer !== 7) {
     throw new Error('@zmdb/jobs-postgres took ownership of the installed consumer pool');
   }
+  console.log('@zmdb/jobs-postgres packed consumer: live parameterized query and caller-owned pool executed');
 } finally {
   await pool.end();
 }

@@ -11,10 +11,6 @@
     "@types/pg": "8.23.1"
   },
   "zmdbFixture": {
-    "target": "@zmdb/jobs-postgres",
-    "links": [
-      "pg",
-      "@types/pg"
-    ]
+    "target": "@zmdb/jobs-postgres"
   }
 }

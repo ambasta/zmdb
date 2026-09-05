@@ -8,9 +8,6 @@
     "@zmdb/transport-nats": "1.0.0-alpha.4"
   },
   "zmdbFixture": {
-    "target": "@zmdb/transport-nats",
-    "links": [
-      "@nats-io/transport-node"
-    ]
+    "target": "@zmdb/transport-nats"
   }
 }

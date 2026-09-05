@@ -7,10 +7,10 @@
     "@zmdb/transport-redis": "1.0.0-alpha.4",
     "redis": "6.2.1"
   },
+  "devDependencies": {
+    "@types/node": "^26.4.1"
+  },
   "zmdbFixture": {
-    "target": "@zmdb/transport-redis",
-    "links": [
-      "redis"
-    ]
+    "target": "@zmdb/transport-redis"
   }
 }

@@ -53,6 +53,7 @@
     "verify:product-catalog": "node .github/scripts/verify-product-catalog.mjs",
     "verify:publish": "yarn verify:package-metadata && node .github/scripts/verify-publish.mjs",
     "verify:runtime-reachability": "node .github/scripts/verify-runtime-reachability.mjs && node .github/scripts/verify-runtime-reachability.mjs --self-test",
+    "verify:server-integrations": "node fixtures/consumer-server-integrations/verify-installed.mjs --integrations --require-services",
     "verify:tf-acceptance": "node .github/scripts/verify-tf-acceptance.mjs",
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },

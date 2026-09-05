@@ -612,6 +612,12 @@ export function analyzeCoreServerBoundaries(root = SCRIPT_ROOT, options = {}) {
   return { packageProblems, edges, graphProblems };
 }
 
+export function analyzeOptionalServerPackages(root = SCRIPT_ROOT, options = {}) {
+  const requireAll = options.requireAll !== false;
+  const graph = createImportGraph(root);
+  return SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, target, requireAll)).toSorted();
+}
+
 function coreProblems(root, graph) {
   const problems = [];
   for (const name of CORE_PACKAGES) {
@@ -679,22 +685,26 @@ function parseArgs(argv) {
   let strict = false;
   let requireAll = true;
   let baseline = DEFAULT_BASELINE;
+  let optionalPackagesOnly = false;
 
   for (let index = 0; index < argv.length; index++) {
     const argument = argv[index];
     if (argument === '--strict') strict = true;
     else if (argument === '--partial') requireAll = false;
+    else if (argument === '--optional-packages-only') optionalPackagesOnly = true;
     else if (argument === '--root') root = resolve(argv[++index] ?? '');
     else if (argument === '--baseline') baseline = resolve(argv[++index] ?? '');
     else throw new Error(`unknown argument: ${argument}`);
   }
-  return { root, strict, requireAll, baseline };
+  return { root, strict, requireAll, baseline, optionalPackagesOnly };
 }
 
 function runCli() {
-  const { root, strict, requireAll, baseline } = parseArgs(process.argv.slice(2));
-  const actual = analyzeServerBoundaries(root, { requireAll });
-  const expected = strict ? [] : readBoundaryBaseline(baseline);
+  const { root, strict, requireAll, baseline, optionalPackagesOnly } = parseArgs(process.argv.slice(2));
+  const actual = optionalPackagesOnly
+    ? analyzeOptionalServerPackages(root, { requireAll })
+    : analyzeServerBoundaries(root, { requireAll });
+  const expected = strict || optionalPackagesOnly ? [] : readBoundaryBaseline(baseline);
   const added = difference(actual, expected);
   const retired = difference(expected, actual);
 
@@ -705,7 +715,11 @@ function runCli() {
     process.exit(1);
   }
 
-  if (strict) {
+  if (optionalPackagesOnly) {
+    console.log(
+      `server boundaries: ${String(SERVER_PACKAGES.length)} optional package manifests, exports, peers, and reachable dependency graphs are strict.`,
+    );
+  } else if (strict) {
     console.log(
       `server boundaries: strict package graph clean across ${String(SERVER_PACKAGES.length)} optional and ${String(CORE_SERVER_PACKAGES.length + 1)} core/facade packages.`,
     );

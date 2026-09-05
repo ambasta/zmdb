@@ -110,6 +110,8 @@ Release verification reports every problem in deterministic package/path order a
 - **`registry-url: https://registry.npmjs.org`** on `setup-node` — set.
 - **`package.json` `repository.url` must exactly match the GitHub repo** — it is `git+https://github.com/ambasta/zmdb.git` for every package.
 - Packages are built to conventional ESM `.js` + `.d.ts` and the manifests are repointed to `dist` before publish (see the build steps).
+- The publish job provides PostgreSQL, NATS, RabbitMQ, and Redis services. `yarn verify:server-integrations` requires all four URLs and fails the release if any installed optional integration skips or
+  cannot execute its public API.
 
 ## One-time setup (you, on npmjs.com)
 
@@ -149,12 +151,14 @@ Release verification reports every problem in deterministic package/path order a
 
 ## Releasing (after trusted publishers are configured)
 
-- **Dry run** (recommended): Actions tab → _Publish @zmdb packages to npm_ → Run workflow → leave `dry_run = true`. Builds + `npm pack --dry-run` each package.
+- **Dry run** (recommended): Actions tab → _Publish @zmdb packages to npm_ → Run workflow → leave `dry_run = true`. Builds, installs and executes every optional server integration against its live
+  peer, then runs `npm pack --dry-run` for each package.
 - **Real publish**: run with `dry_run = false`, or push a tag:
   ```bash
   git tag v1.0.0-alpha.0 && git push --tags
   ```
-  The workflow installs → tests → builds `dist` (topological) → verifies the packed packages install and load → repoints manifests → `npm publish` each via OIDC. No secrets involved.
+  The workflow installs → tests → builds `dist` (topological) → verifies the packed packages install and load → executes the seven installed optional server consumers against their required peers →
+  repoints manifests → `npm publish` each via OIDC. No secrets involved.
 
 ## What ends up in each tarball
 

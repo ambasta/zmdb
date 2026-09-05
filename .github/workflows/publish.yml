@@ -24,6 +24,41 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest # OIDC trusted publishing requires GitHub-hosted runners
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: bench
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bench"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      nats:
+        image: nats:2.12-alpine
+        ports:
+          - 4222:4222
+      rabbitmq:
+        image: rabbitmq:4.1-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,6 +109,14 @@ jobs:
       # gate runs inside a workspace where `node_modules/@zmdb/*` is a symlink.
       - name: Verify the packages install and load as published
         run: yarn verify:publish
+
+      - name: Verify installed optional server integrations against live peers
+        env:
+          ZMDB_NATS_URL: nats://127.0.0.1:4222
+          ZMDB_PG: postgres://postgres:postgres@127.0.0.1:5432/bench
+          ZMDB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
+          ZMDB_REDIS_URL: redis://127.0.0.1:6379
+        run: yarn verify:server-integrations
 
       - name: Repoint package.json → dist (publish manifest)
         run: node .github/scripts/repoint-dist.mjs

@@ -12,6 +12,7 @@ try {
   if (exporter.getFinishedSpans().length !== 1) {
     throw new Error('@zmdb/otel did not export the installed consumer span');
   }
+  console.log('@zmdb/otel packed consumer: real API and SDK span export executed');
 } finally {
   await provider.shutdown();
 }
