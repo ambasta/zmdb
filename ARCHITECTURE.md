@@ -435,15 +435,15 @@ Importing the root must not reach the CLI, config loader, compiler, migration fi
 configuration rather than declaring another `ZmdbConfig`, repeating discovery or applying private defaults. The implementation may move between tooling packages while the public entry point remains
 stable.
 
-A future read-only catalog at `scripts/product/catalog.mjs` becomes the sole authority for official package membership and product exposure. Each row identifies the package directory and npm name, its
-unique product role, root/subpath facade visibility, product optionality, documentation owner and packed-consumer evidence. Facade verification, package-reference generation, support matrices and
+The read-only catalog at `scripts/product/catalog.mjs` is the sole authority for official package membership and product exposure. Each row identifies the package directory and npm name, its unique
+product role, root/subpath facade visibility, product optionality, documentation owner and packed-consumer evidence. Facade verification, package-reference generation, support matrices and
 consumer-fixture discovery consume that catalog instead of copying package lists.
 
 The catalog deliberately does not own versions, dependency ranges, changelogs, npm tags, publication credentials, publish order, compatibility timing or partial-release behavior. Those policies belong
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the seven-package baseline plus required catalog consumers and rejection rules are frozen in
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the fourteen-package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Frozen architecture-governance target (#722)

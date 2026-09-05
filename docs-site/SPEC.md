@@ -128,7 +128,7 @@ Rules:
 
 `docs-site/content/package-reference.md` is generated from two authorities:
 
-1. `scripts/product/catalog.mjs`, supplied by #622, owns official product membership, package directory, product role, facade visibility, optionality, documentation owner and external-consumer owner.
+1. `scripts/product/catalog.mjs` owns official product membership, package directory, product role, facade visibility, optionality, documentation owner and external-consumer owner.
 2. `<catalog directory>/package.json` owns npm name, version, description, exports, dependencies, optional peers, engines, license and repository metadata.
 
 The root workspace glob is not official-product membership: it also includes benchmarks and fixtures. The generator rejects an official catalog row without a matching manifest, an unregistered public

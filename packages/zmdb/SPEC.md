@@ -144,7 +144,7 @@ CLI are product-owned capabilities, but they are not facade modules and remain b
 - #619 freezes exact root/type imports, concern subpaths, module reachability, config sharing, catalog generation, and the packed external journey.
 - #620 implements the facade and eager-import boundary.
 - #621 makes `zmdb/config` the only project-config owner.
-- #622 creates the canonical product catalog and its generated consumers.
+- #622 owns the canonical product catalog and its generated or verified consumers.
 - #623 proves the packed one-install SQLite HTTP journey.
 - #624 rewrites beginner documentation from that measured fixture.
 - #721/#728 exclusively own versioning, changelog, tags, publish order, compatibility/deprecation timing, and partial-release behavior.

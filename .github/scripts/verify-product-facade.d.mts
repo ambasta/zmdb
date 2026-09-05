@@ -1,6 +1,6 @@
 export interface FacadeItem {
   readonly name: string;
-  readonly owner: string;
+  readonly owner?: string;
 }
 
 export interface FacadeOwnership {

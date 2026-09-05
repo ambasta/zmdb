@@ -46,6 +46,7 @@
     "verify:no-descriptors": "node .github/scripts/verify-no-descriptors.mjs",
     "verify:one-walker": "node .github/scripts/verify-one-walker.mjs",
     "verify:operator-boundary": "node .github/scripts/verify-operator-boundary.mjs",
+    "verify:product-catalog": "node .github/scripts/verify-product-catalog.mjs",
     "verify:publish": "node .github/scripts/verify-publish.mjs",
     "verify:tf-acceptance": "node .github/scripts/verify-tf-acceptance.mjs",
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"

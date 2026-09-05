@@ -1,7 +1,7 @@
 # Product catalog — specification
 
-Issue #618 freezes the read-only metadata contract for the future canonical module `scripts/product/catalog.mjs`. #622 implements the module and replaces handwritten product inventories with generated
-or verified consumers.
+Issue #618 froze the read-only metadata contract for the canonical module `scripts/product/catalog.mjs`. #622 implements that module and replaces handwritten product inventories with generated or
+verified consumers.
 
 ## 1. Authority and exclusions
 
@@ -61,8 +61,8 @@ repository root explicitly.
 ## 3. Measured package inventory
 
 At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #706, #707, #708, and #709 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`,
-`@zmdb/app`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, and `@zmdb/mcp`. The hard-coded publication array now repeats all fourteen
-admitted catalog packages until the catalog replaces it:
+`@zmdb/app`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, and `@zmdb/mcp`. The catalog now accounts for all fourteen manifest-backed
+packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
 
 | Directory                 | npm name               | Frozen product role | Current facade ownership                                      |
 | ------------------------- | ---------------------- | ------------------- | ------------------------------------------------------------- |
@@ -77,12 +77,12 @@ admitted catalog packages until the catalog replaces it:
 | `packages/protobuf`       | `@zmdb/protobuf`       | `protobuf`          | None; installed and imported independently                    |
 | `packages/aot-validator`  | `@zmdb/aot-validator`  | `validator`         | Root validator names and `unplugin`                           |
 | `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and database-driver subpaths                   |
-| `packages/app`            | `@zmdb/app`            | `app`               | Protocol-neutral application names through `zmdb/web`         |
+| `packages/app`            | `@zmdb/app`            | `app`               | None; the current `zmdb/web` aggregate is owned by web        |
 | `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                    |
 | `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable         |
 
-This table is review evidence, not the canonical machine source. #622 creates the fourteen catalog rows, assigns `docsOwner` and `consumer`, and makes later package additions or renames single catalog
-edits. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The fourteen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
+the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

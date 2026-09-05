@@ -3,12 +3,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  catalogFacadeOwnership,
   compareGeneratedRegion,
+  discoverCatalogConsumers,
+  handwrittenInventoryProblems,
   inspectProductCatalog,
   renderIntegrationRows,
   renderPackageReferenceRows,
+  verifyFacadeDelegation,
   verifyFacadeOwnership,
   verifyIntegrationRecords,
+  verifyProductCatalogRows,
 } from '../../../.github/scripts/verify-product-catalog.mjs';
 import {
   REQUIRED_PRODUCT_SUBPATHS,
@@ -16,8 +21,10 @@ import {
   TARGET_ROOT_VALUES,
   inspectProductConsumerFixture,
   inspectProductFacade,
+  readFacadeOwnership,
   runPackedProductConsumer,
 } from '../../../.github/scripts/verify-product-facade.mjs';
+import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
 
 const ROOT = process.cwd();
 const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
@@ -34,7 +41,7 @@ function catalogReport(): ReturnType<typeof inspectProductCatalog> {
   return measuredCatalog;
 }
 
-describe('the one-product facade and catalog (#619)', () => {
+describe('the one-product facade and catalog (#619, #622)', () => {
   // Current measured state: the root exposes 42 runtime values and 32
   // type-only declarations, while the frozen target is 19 values and 27 types.
   // Seven of the thirteen required concern/driver subpaths are also absent.
@@ -58,10 +65,7 @@ describe('the one-product facade and catalog (#619)', () => {
     expect(report.forbiddenImports).toEqual([]);
   });
 
-  // Current measured state: scripts/product/catalog.mjs does not exist, so no
-  // package role, facade ownership, or generated package-reference bytes can be
-  // derived from a canonical source.
-  it.fails('derives every official package role and facade exposure from one product catalog', async () => {
+  it('derives every official package role and facade exposure from one product catalog', async () => {
     const report = await catalogReport();
 
     expect(report.membershipProblems).toEqual([]);
@@ -102,7 +106,7 @@ describe('the one-product facade and catalog (#619)', () => {
         docsOwner: 'schema-declaration',
         consumer: { reason: 'covered by the product consumer' },
       },
-    ];
+    ] as const;
     const manifests = new Map([
       [
         'packages/schema-core',
@@ -151,13 +155,143 @@ describe('the one-product facade and catalog (#619)', () => {
     );
   });
 
-  // Current measured state: the canonical catalog is absent, so none of the
-  // six publishable package manifests has a catalog-owned fixture or reason.
-  it.fails('assigns every official package an external consumer or an explicit catalog reason', async () => {
+  it('assigns every official package an external consumer or an explicit catalog reason', async () => {
     const report = await catalogReport();
 
     expect(report.consumerProblems).toEqual([]);
     expect(report.rows).toHaveLength(report.manifests.size);
+  });
+
+  it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
+    const report = await catalogReport();
+    expect(report.membershipProblems).toEqual([]);
+    expect(report.rows).toHaveLength(14);
+    expect(report.manifests.size).toBe(14);
+
+    const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
+    const staleManifests = new Map(report.manifests);
+    const first = PRODUCT_CATALOG[0];
+    if (first === undefined) throw new Error('product catalog is empty');
+    staleManifests.delete(first.directory);
+    expect(verifyProductCatalogRows(PRODUCT_CATALOG, staleManifests, pages)).toContain(
+      `catalog package directory ${first.directory} has no manifest`,
+    );
+
+    const unregistered = new Map(report.manifests);
+    unregistered.set('packages/unregistered', {
+      manifest: { name: '@zmdb/unregistered' },
+    });
+    expect(verifyProductCatalogRows(PRODUCT_CATALOG, unregistered, pages)).toContain(
+      'official package manifest packages/unregistered/package.json has no catalog row',
+    );
+  });
+
+  it('derives root and subpath facade ownership from the catalog', () => {
+    const actual = readFacadeOwnership(ROOT);
+    const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
+
+    expect(derived.root).toHaveLength(71);
+    expect(derived.subpaths).toHaveLength(14);
+    expect(actual.root).toEqual(derived.root);
+    expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
+    expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
+    expect(verifyFacadeDelegation(ROOT, PRODUCT_CATALOG)).toEqual([]);
+  });
+
+  it('generates package-reference and support-matrix rows without a handwritten package list', async () => {
+    const report = await catalogReport();
+    expect(report.generatedProblems).toEqual([]);
+    expect(report.packageReferenceBytes).toContain('@zmdb/schema-core');
+    expect(report.packageReferenceBytes).toMatch(/\|\s+zmdb\s+\|/);
+    expect(handwrittenInventoryProblems(ROOT, PRODUCT_CATALOG)).toEqual([]);
+
+    const records = [
+      {
+        capability: 'Vercel AI SDK',
+        package: '@zmdb/ai-vercel',
+        status: 'optional',
+        peer: 'ai',
+        docs: 'llm-vercel-ai-sdk',
+        evidence: ['fixtures/llm-adapters'],
+      },
+    ];
+    expect(verifyIntegrationRecords(PRODUCT_CATALOG, records)).toEqual([]);
+    expect(renderIntegrationRows(records)).toContain('Vercel AI SDK');
+    expect(renderIntegrationRows(records)).toContain('@zmdb/ai-vercel');
+  });
+
+  it('discovers every packed external consumer from its catalog owner', () => {
+    const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
+
+    expect(report.problems).toEqual([]);
+    expect(report.assignments).toHaveLength(14);
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(6);
+    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
+  });
+
+  it('rejects an undocumented package, duplicate public role, or facade export with no owner', async () => {
+    const report = await catalogReport();
+    const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
+    const first = PRODUCT_CATALOG[0];
+    const second = PRODUCT_CATALOG[1];
+    if (first === undefined || second === undefined) throw new Error('product catalog needs two rows');
+
+    const undocumented = Object.freeze(
+      PRODUCT_CATALOG.map(row => (row === first ? Object.freeze({ ...row, docsOwner: 'missing-page' }) : row)),
+    );
+    expect(verifyProductCatalogRows(undocumented, report.manifests, pages)).toContain(
+      `catalog package ${first.npmName} docs owner missing-page is absent from the page registry`,
+    );
+
+    const duplicateRole = Object.freeze(
+      PRODUCT_CATALOG.map(row => (row === second ? Object.freeze({ ...row, role: first.role }) : row)),
+    );
+    expect(verifyProductCatalogRows(duplicateRole, report.manifests, pages)).toContain(
+      `duplicate catalog role ${first.role}`,
+    );
+
+    expect(
+      verifyFacadeOwnership(PRODUCT_CATALOG, {
+        root: [{ name: 'orphanedFacadeExport', owner: '@zmdb/missing' }],
+        subpaths: [],
+      }),
+    ).toContain('facade root export orphanedFacadeExport owner @zmdb/missing is absent from the catalog');
+  });
+
+  it('exposes package membership to release governance without encoding versions or publish actions', () => {
+    const releaseFields = [
+      'changelog',
+      'credentials',
+      'distTag',
+      'npmTag',
+      'publish',
+      'publishOrder',
+      'releaseNotes',
+      'tag',
+      'version',
+    ];
+
+    expect(PRODUCT_CATALOG.map(row => row.id)).toEqual(PRODUCT_CATALOG.map(row => row.id).toSorted());
+    for (const row of PRODUCT_CATALOG) {
+      expect(Object.keys(row).toSorted()).toEqual([
+        'consumer',
+        'directory',
+        'docsOwner',
+        'facade',
+        'id',
+        'npmName',
+        'optionality',
+        'role',
+      ]);
+      expect(Object.isFrozen(row)).toBe(true);
+      expect(Object.isFrozen(row.facade)).toBe(true);
+      expect(Object.isFrozen(row.facade.root)).toBe(true);
+      expect(Object.isFrozen(row.facade.subpaths)).toBe(true);
+      expect(Object.isFrozen(row.optionality)).toBe(true);
+      expect(Object.isFrozen(row.consumer)).toBe(true);
+      for (const field of releaseFields) expect(Object.hasOwn(row, field)).toBe(false);
+    }
+    expect(Reflect.set(PRODUCT_CATALOG[0] ?? {}, 'version', '9.9.9')).toBe(false);
   });
 
   // The fixture itself is a real external project: one registry dependency,

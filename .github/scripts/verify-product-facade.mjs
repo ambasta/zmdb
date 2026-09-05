@@ -23,7 +23,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { PACKAGES, publishManifest } from './lib/publish-manifest.mjs';
+import { PRODUCT_CATALOG } from '../../scripts/product/catalog.mjs';
+import { publishManifest } from './lib/publish-manifest.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -192,13 +193,7 @@ export function readFacadeOwnership(root = ROOT) {
   const subpaths = [];
   for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
     if (subpath === '.' || typeof target !== 'string') continue;
-    const source = readFileSync(join(root, 'packages', 'zmdb', target), 'utf8');
-    const ownerMatch = /(?:export|import)\b[\s\S]*?\bfrom\s+['"]([^'"]+)['"]/.exec(source);
-    const ownerSpecifier = ownerMatch?.[1] ?? 'zmdb';
-    subpaths.push({
-      name: consumerSubpath('zmdb', subpath),
-      owner: ownerSpecifier.startsWith('.') ? 'zmdb' : packageName(ownerSpecifier),
-    });
+    subpaths.push({ name: consumerSubpath('zmdb', subpath) });
   }
   return {
     root: [...rootOwnership.values, ...rootOwnership.types].toSorted((left, right) =>
@@ -496,9 +491,9 @@ export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixt
   mkdirSync(join(app, 'node_modules'), { recursive: true });
 
   try {
-    for (const name of PACKAGES) {
-      const source = join(root, 'packages', name);
-      const staged = join(stage, name);
+    for (const row of PRODUCT_CATALOG) {
+      const source = join(root, row.directory);
+      const staged = join(stage, row.id);
       cpSync(source, staged, {
         recursive: true,
         dereference: true,
