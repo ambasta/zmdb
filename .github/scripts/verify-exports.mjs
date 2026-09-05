@@ -23,6 +23,11 @@ for (const pkgDirName of packageDirs) {
   const pkgJsonPath = join(pkgDir, 'package.json');
 
   if (!existsSync(pkgJsonPath)) {
+    const entries = readdirSync(pkgDir).toSorted();
+    if (entries.length === 1 && entries[0] === 'SPEC.md') {
+      console.log(`  accepted future-package specification at packages/${pkgDirName}/SPEC.md`);
+      continue;
+    }
     console.error(`[ERROR] Package manifest missing at ${pkgJsonPath}`);
     errorsCount++;
     continue;

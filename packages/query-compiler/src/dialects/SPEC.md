@@ -783,3 +783,211 @@ evidence.
 - **Parameterising builders by dialect (`QueryCompiler<'mssql'>`).** §6 — the dialect is not a literal at the boundary, so the type would widen exactly where it needed to narrow.
 - **`Partial<Record<Dialect, …>>` for any dialect table, including test expectation tables.** §1.1, §6, §7 — it is the only compile-time guarantee in the package.
 - **Claiming CI coverage for `singlestore`.** §8.
+
+## 11. Database vertical extraction target (issue #666)
+
+This section freezes the target owned by epic #665. Sections 1–10 remain the measured history and current six-name implementation until the extraction issues land; where they prescribe a global
+`Dialect` union, `DIALECTS`, `TRAITS`, module-load resolution, or string dispatch, this section supersedes them for the target architecture. Issue #666 changes specifications only.
+
+### 11.1 Measured starting point
+
+At commit `94164c53`, the official names are declared together in `index.ts`, the compiler defaults to the string `'postgres'`, `createIntrospector` switches over all six names, repository drivers
+carry optional string names, and config/CLI surfaces pass those strings through. The current tree has three driver implementations (`sqlite`, `pg`, `mssql`), three catalog readers (`sqlite`,
+`postgres`, `mysql`), no MySQL driver, and no SQL Server catalog reader. Cockroach and SingleStore inherit central records and delegate catalog work to their parents.
+
+Those facts describe the migration source, not the support state promised by the target packages.
+
+### 11.2 Generic public contract
+
+`@zmdb/query-compiler` owns these vendor-neutral types and construction helpers:
+
+```ts
+export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
+export type ReturningStyle = 'suffix' | 'output' | 'none';
+
+export interface DatabaseCapabilities {
+  readonly returning: Readonly<Record<ReturningStatement, boolean>>;
+  readonly transactionalDdl: boolean;
+  readonly schemas: boolean;
+  readonly sequences: boolean;
+  readonly generatedColumns: boolean;
+  readonly partialIndexes: boolean;
+  readonly foreignKeys: boolean;
+  readonly rowLevelSecurity: boolean;
+  readonly streaming: boolean;
+  readonly cancellation: boolean;
+}
+
+export interface ResolvedDialectTraits {
+  readonly placeholder: 'numbered' | 'positional' | 'named';
+  readonly quote: readonly [open: string, close: string];
+  readonly paginate: (tail: PaginationTail) => string;
+  readonly returning: Readonly<Record<ReturningStatement, ReturningStyle>>;
+  readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
+  readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly concat: 'operator' | 'function';
+  readonly booleanNot: 'not' | 'bitwise';
+  readonly types: DialectTypeMap;
+  readonly paramLimit: number;
+  readonly retryableCodes: readonly string[];
+  readonly acceptsOperator: (operator: string) => boolean;
+  readonly tableFunctions: boolean;
+}
+
+export interface SqlDialect<Name extends string> {
+  readonly name: Name;
+  readonly family: string;
+  readonly traits: ResolvedDialectTraits;
+  readonly capabilities: DatabaseCapabilities;
+  readonly migrations: MigrationDialect<Name>;
+  readonly introspector: Introspector<Name>;
+}
+
+export interface SqlDialectDefinition<Name extends string> extends SqlDialect<Name> {}
+
+export interface SqlDialectExtension<Name extends string> {
+  readonly name: Name;
+  readonly traits?: Omit<Partial<ResolvedDialectTraits>, 'returning' | 'types'> & {
+    readonly returning?: Partial<ResolvedDialectTraits['returning']>;
+    readonly types?: Partial<ResolvedDialectTraits['types']>;
+  };
+  readonly capabilities?: Partial<DatabaseCapabilities> & {
+    readonly returning?: Partial<DatabaseCapabilities['returning']>;
+  };
+  readonly migrations: MigrationDialect<Name>;
+  readonly introspector: Introspector<Name>;
+}
+
+export declare function defineSqlDialect<Name extends string>(definition: SqlDialectDefinition<Name>): SqlDialect<Name>;
+
+export declare function extendSqlDialect<Parent extends string, Name extends string>(parent: SqlDialect<Parent>, extension: SqlDialectExtension<Name>): SqlDialect<Name>;
+```
+
+`defineSqlDialect` verifies a complete root definition and deep-freezes the returned object. `extendSqlDialect` resolves the partial override once, sets `family` to the parent's `family`, deep-freezes
+the result, and never mutates or lazily consults the parent. The returned object is complete: capability and returning records have every key, type maps have every abstract SQL type, and all strategy
+functions are callable before any statement is compiled.
+
+The two representations of returning support must agree: `capabilities.returning[k]` is true exactly when `traits.returning[k] !== 'none'`. The conformance suite rejects disagreement.
+
+`family` is descriptive metadata for diagnostics, telemetry and documentation. Generic production code does not branch on `name` or `family`; a behavior difference is a trait, migration hook,
+introspector method, driver method, capability, or explicit refusal. Adding a third-party dialect therefore requires no edit to a generic package.
+
+### 11.3 Construction, selection and family inheritance
+
+Selection is ordinary dependency injection:
+
+```ts
+import { postgres } from '@zmdb/postgres';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+const sql = createQueryCompiler(postgres);
+```
+
+There is no official-name union in a generic runtime package, no `Record<OfficialDatabase, …>`, no `registerDialect`, no mutable registry, no import-for-side-effect convention and no discovery by
+package name. Importing a database package may construct and freeze its own constants; it must not mutate process-global state.
+
+Only two database-package dependency edges exist:
+
+- `@zmdb/cockroach` imports the public extension surface of `@zmdb/postgres`;
+- `@zmdb/singlestore` imports the public extension surface of `@zmdb/mysql`.
+
+The parent never imports its child. A child calls `extendSqlDialect` once and supplies only real differences. It may reuse a public parent driver/catalog primitive, but it cannot import a parent
+private path, copy a parent implementation, mutate a parent object, or defer trait lookup to every statement.
+
+### 11.4 String-to-object migration
+
+The cut-over issue must make these changes as one coherent boundary:
+
+| Surface          | Current input                                                                                              | Frozen target                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compiler         | `createQueryCompiler(name?: Dialect)` with implicit Postgres                                               | `createQueryCompiler(dialect: SqlDialect<Name>)`; no default                                                                                    |
+| Compiler helpers | `Dialect` strings accepted by quoting, clauses, FTS, expressions, joins, set operations and schema objects | the selected `SqlDialect` or its already-resolved strategy object                                                                               |
+| Migrations       | `diff`, `ddlType`, `emitUp`, `emitDown` and runner adapters receive a string                               | generic algorithms receive the selected object's `migrations` implementation                                                                    |
+| Introspection    | `createIntrospector(name)` central switch                                                                  | `dialect.introspector`; the factory and switch disappear                                                                                        |
+| Repository       | optional `Driver.dialect` plus a separate constructor/options string                                       | every `Driver<Name>` has one required `SqlDialect<Name>`; repositories derive compiler, limits, retries and returning behavior from it          |
+| Config           | AOT-validated dialect string                                                                               | an explicitly imported `SqlDialect`; the callable object is checked structurally outside the plain-data validator                               |
+| CLI              | forwards the config string and contains SQLite/name branches                                               | consumes `config.dialect`, `config.dialect.migrations` and `config.dialect.introspector`; generated projects import one chosen database package |
+| Facade           | old driver-only subpaths                                                                                   | optional identity re-exports for complete database verticals; no root eager selection and no bundled database clients                           |
+
+Temporary string overloads may exist only inside the implementation cut-over and must be gone before #675 completes. They are not a compatibility promise.
+
+### 11.5 Complete ownership inventory
+
+“Move” below means move the named implementation or per-database case, not necessarily the entire mixed file. Generic algorithms and shared test harnesses stay in their current generic package. Every
+vendor-owned unit has one owner:
+
+| Current unit                                                                                                                                                        | Future owner                                                                                                                             | Generic remainder                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `dialects/index.ts`: PostgreSQL definition, type map, limits, retry codes                                                                                           | `@zmdb/postgres`                                                                                                                         | protocol types and `defineSqlDialect` / `extendSqlDialect`               |
+| `dialects/index.ts`: MySQL definition, type map, limits, retry codes                                                                                                | `@zmdb/mysql`                                                                                                                            | same                                                                     |
+| `dialects/index.ts`: SQLite definition, type map and limits                                                                                                         | `@zmdb/sqlite`                                                                                                                           | same                                                                     |
+| `dialects/index.ts` and `dialects/mssql.ts`: SQL Server definition, types and pagination                                                                            | `@zmdb/mssql`                                                                                                                            | same                                                                     |
+| `dialects/index.ts`: Cockroach overrides (`serial`, `integer`, FTS, RLS, retry `40001`)                                                                             | `@zmdb/cockroach`                                                                                                                        | same                                                                     |
+| `dialects/index.ts`: SingleStore overrides (`serial`, foreign-key refusal)                                                                                          | `@zmdb/singlestore`                                                                                                                      | same                                                                     |
+| `index.ts`: six parameter-limit cells and database-specific RETURNING/upsert/table-function assembly                                                                | the package named by each cell or strategy                                                                                               | immutable builder state and statement assembly                           |
+| `clauses.ts`, `quoting.ts`, `set-ops/index.ts`, `expressions/index.ts`, `aggregations/index.ts`, `joins/index.ts`, `fts/index.ts`, `extensions/index.ts`            | each package owns its own strategy values, operator allow-list, FTS form and refusals                                                    | traversal, parameter collection and strategy invocation                  |
+| `migrations/index.ts`: PostgreSQL-family DDL, extensions, types, keys, constraints and ALTER forms                                                                  | `@zmdb/postgres`; Cockroach-only overrides in `@zmdb/cockroach`                                                                          | snapshot and ordered diff algorithms                                     |
+| `migrations/index.ts`: MySQL-family DDL, types, foreign-key indexes and ALTER forms                                                                                 | `@zmdb/mysql`; SingleStore-only storage/shard/sort/refusal logic in `@zmdb/singlestore`                                                  | snapshot and ordered diff algorithms                                     |
+| `migrations/index.ts`: SQLite DDL and ALTER/foreign-key refusals                                                                                                    | `@zmdb/sqlite`                                                                                                                           | snapshot and ordered diff algorithms                                     |
+| `migrations/index.ts`: SQL Server DDL, nullability restatement, OUTPUT-related forms and referential-action spelling                                                | `@zmdb/mssql`                                                                                                                            | snapshot and ordered diff algorithms                                     |
+| `migrations/runner.ts`: ledger DDL, quoting, placeholders and transactional-DDL choice                                                                              | each package's `MigrationDialect.connection`                                                                                             | version ordering, checksum verification and up/down/status orchestration |
+| `migrations/embedded.ts`: SQLite ledger probe and transaction protocol                                                                                              | `@zmdb/sqlite` browser-safe/embedded export                                                                                              | `EmbeddedMigration` data shape may remain generic                        |
+| `schema-objects/index.ts` and `schema-objects/extensions.ts`: per-database index, view, sequence, generated-column, schema, RLS, extension and routine SQL/refusals | the package named by each behavior; PostgreSQL family reuse only through `@zmdb/postgres`, MySQL family reuse only through `@zmdb/mysql` | public operation types and delegation wrappers                           |
+| `outbox/index.ts`: timestamp/default/text/table/index DDL spellings                                                                                                 | each database package's migration strategies                                                                                             | database-neutral outbox workflow and query shape                         |
+| `introspect/postgres.ts`                                                                                                                                            | `@zmdb/postgres`                                                                                                                         | none                                                                     |
+| `introspect/mysql.ts` and `introspect/__fixtures__/mysql-8.4.11.json`                                                                                               | `@zmdb/mysql`                                                                                                                            | none                                                                     |
+| `introspect/sqlite.ts`                                                                                                                                              | `@zmdb/sqlite`                                                                                                                           | none                                                                     |
+| `introspect/index.ts`: Cockroach delegation                                                                                                                         | `@zmdb/cockroach`                                                                                                                        | protocol exports only; no dispatch                                       |
+| `introspect/index.ts`: SingleStore delegation                                                                                                                       | `@zmdb/singlestore`                                                                                                                      | protocol exports only; no dispatch                                       |
+| `introspect/index.ts`: SQL Server refusal                                                                                                                           | replaced by the real `@zmdb/mssql` introspector                                                                                          | protocol exports only; no dispatch                                       |
+| `introspect/drift.ts`: MySQL support-index normalization                                                                                                            | `@zmdb/mysql` introspector normalization                                                                                                 | two-snapshot comparison and report formatting                            |
+| `repository/src/drivers/sqlite.ts`                                                                                                                                  | `@zmdb/sqlite` Node-specific export                                                                                                      | none                                                                     |
+| `repository/src/drivers/pg.ts`                                                                                                                                      | `@zmdb/postgres` public family driver primitive                                                                                          | none                                                                     |
+| `repository/src/drivers/mssql.ts`                                                                                                                                   | `@zmdb/mssql`                                                                                                                            | none                                                                     |
+| missing structural `mysql2/promise` adapter                                                                                                                         | `@zmdb/mysql`                                                                                                                            | none                                                                     |
+| `repository/src/index.ts`: SQL Server single-row limit and MySQL-family write/returning branches                                                                    | `@zmdb/mssql`, `@zmdb/mysql`, and inherited SingleStore behavior respectively                                                            | CRUD orchestration over injected strategies                              |
+| `repository/src/cache/index.ts`: stored dialect and parameter-limit choice                                                                                          | each package supplies the limit through its dialect                                                                                      | cache keying and chunk orchestration                                     |
+| `repository/src/transactions/index.ts`: retry code lists                                                                                                            | the selected database package's traits                                                                                                   | explicit retry policy, backoff and callback replay                       |
+| `repository/src/transactions/recording-conn.ts`: string dialect classification                                                                                      | the injected driver object                                                                                                               | transaction recording remains generic                                    |
+| `repository/src/jobs/index.ts` and `repository/src/outbox/index.ts`: database-specific index/DDL choices                                                            | each selected database package's migration strategies                                                                                    | repository-facing job/outbox API                                         |
+| `repository/package.json`: three driver subpaths and client test dependencies                                                                                       | database package manifests/exports own their adapter                                                                                     | generic repository manifest retains no vendor subpath or client          |
+| `zmdb/src/config/index.ts` and generated validator/witness artifacts: closed name validation and PostgreSQL-family schema branch                                    | selected dialect object and its migration validation; `zmdb` remains the config consumer                                                 | config discovery, paths and plain-data validation                        |
+| `zmdb/src/cli/**` and `zmdb/src/studio/index.ts`: string propagation, SQLite-only branches, templates and fixtures                                                  | `zmdb` consumes one explicit database object; database behavior belongs to the selected package                                          | command/studio workflow, argument handling and generated-project UX      |
+| `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: `Dialect`/driver facade exports                                               | optional identity/compatibility re-exports only; implementations belong to the selected database package                                 | facade policy remains `zmdb`                                             |
+
+The test move follows the same unit boundary:
+
+| Current tests                                                                                                                                                                                                                          | Future owner                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dialects.spec.ts`, `dialects/index.spec.ts`, `dialects/matrix.{spec,type-test}.ts`, `dialects/mssql.spec.ts`, `dialects/variants.spec.ts`, `query-compiler.spec.ts`, `quoting.spec.ts`, expression/aggregation/join/FTS/set-op suites | each database's expectation and refusal rows move to that database package; the generic synthetic-dialect harness stays in `@zmdb/query-compiler`           |
+| `migrations/{composite-keys,ddl-dialects,migrations,runner,sql-types,referential-actions}*`, schema-object suites and `outbox/outbox.spec.ts`                                                                                          | per-database DDL cells/refusals move to their package; snapshot/diff/order/checksum tests stay generic                                                      |
+| `introspect/introspect.spec.ts`, `introspect/postgres.spec.ts`, `introspect/emit.spec.ts`, `introspect/drift.type-test.ts`                                                                                                             | catalog-reader and database-normalization cases move to their package; common row validation, declaration printing and generic drift reporting stay generic |
+| `repository/src/drivers/*.spec.ts`, `mssql-e2e.spec.ts` and database-backed SQLite/PostgreSQL cases                                                                                                                                    | move with the corresponding driver/database package                                                                                                         |
+| repository suites that merely use SQLite as a deterministic fixture                                                                                                                                                                    | stay in `@zmdb/repository`; using a database to test generic repository semantics does not transfer ownership                                               |
+| repository matrix rows for MySQL-family writes, SQL Server limiting, parameter limits or retry codes                                                                                                                                   | move to the database package that supplies the strategy; generic repository conformance stays                                                               |
+| `zmdb/src/three-types.spec.ts`, config/CLI string fixtures and facade re-export tests                                                                                                                                                  | product-consumer tests stay in `zmdb`, but import explicit package objects and contain no vendor implementation                                             |
+
+The test-freeze issue must encode the inventory as an AST/source-boundary check. A path is not considered transferred while a generic shipped file still contains an official name, a database client
+import, or an equivalent vendor branch hidden behind a family comparison.
+
+### 11.6 Capability and refusal evidence
+
+`DatabaseCapabilities` is total and coarse-grained. Every finer compiler, DDL and catalog construct is represented in the package conformance matrix as either:
+
+- an exact SQL/result expectation; or
+- an `UnsupportedFeatureError` with stable `feature` and `dialect` fields, thrown before a driver executes.
+
+`false` means “the zmdb package deliberately refuses this operation,” not “the server can never do it.” A true value requires a package-bound test and the real-server lane where server behavior is
+involved. No generic fallback may turn a missing hook into another database's SQL.
+
+All six packages begin from the capability tables in their root `SPEC.md`. Changing a boolean or a refusal requires changing that package spec, its exhaustive matrix, real-server evidence when
+applicable, packed-consumer evidence and generated documentation in the same implementation issue.
+
+### 11.7 Qualification and documentation
+
+A package is “supported” only after its root spec's mandatory lane passes from a packed artifact. The lane installs declared dependencies, typechecks without workspace paths, runs compilation,
+migration, CRUD and introspection against the named server, exercises claimed stream/cancel behavior, and fails when a required service is absent. Local optional suites may skip with a visible reason;
+release qualification may not.
+
+Connection-only variants such as hosted PostgreSQL or MySQL providers remain tested recipes. They earn a package only when they own substantive behavior in at least two vertical layers and can meet
+the same independent capability, refusal, real-server and packed-consumer contract. Marketing identity, a URL parser or a two-line connection option is not a package boundary.

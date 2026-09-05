@@ -639,3 +639,130 @@ records the remaining platform boundary as an application-selected SQLite bindin
 - **A `Driver` or `MigrationDriver` parameter for `runEmbedded`.** §5.3 — one inverts a dependency edge, the other requires a compiler.
 - **A flag that tolerates a ledger ahead of the bundle.** §5.3 step 4.
 - **Reusing `./migrations` or `./migrations/runner` for the device.** §5.5 — both reach the whole compiler, and Metro will not remove it.
+
+## 7. Injected migration dialect (issue #666)
+
+This section freezes the epic #665 target. The snapshot shape, deterministic `diff`, migration ordering, checksums and ledger state machine remain generic. Database SQL, validation, schema-object
+grammar and connection adaptation do not.
+
+### 7.1 Protocol
+
+`@zmdb/query-compiler/migrations` exports the following vendor-neutral seam:
+
+```ts
+export type SchemaObjectOperation =
+  | { readonly kind: 'create_index'; readonly definition: IndexDef }
+  | { readonly kind: 'check_constraint'; readonly table: string; readonly name: string; readonly expression: string }
+  | { readonly kind: 'create_view'; readonly definition: ViewDef }
+  | { readonly kind: 'drop_view'; readonly name: string; readonly materialized?: boolean }
+  | { readonly kind: 'create_sequence'; readonly definition: SequenceDef }
+  | { readonly kind: 'generated_column'; readonly definition: GeneratedColumn }
+  | { readonly kind: 'create_schema'; readonly name: string }
+  | { readonly kind: 'enable_rls'; readonly table: string }
+  | { readonly kind: 'create_policy'; readonly definition: RlsPolicy }
+  | { readonly kind: 'create_extension'; readonly definition: ExtensionDef }
+  | { readonly kind: 'create_routine'; readonly definition: RoutineDef }
+  | { readonly kind: 'drop_routine'; readonly definition: RoutineDef }
+  | {
+      readonly kind: 'replace_routine';
+      readonly previous?: RoutineDef;
+      readonly next: RoutineDef;
+    };
+
+export interface MigrationPlan {
+  readonly before: SchemaSnapshot;
+  readonly after: SchemaSnapshot;
+  readonly operations: readonly ChangeOp[];
+}
+
+export interface MigrationDriver<Name extends string = string> {
+  readonly dialect: SqlDialect<Name>;
+  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  transaction?<Result>(run: (driver: MigrationDriver<Name>) => Promise<Result>): Promise<Result>;
+}
+
+export interface MigrationConnection<Name extends string = string> {
+  readonly name: Name;
+  readonly transactionalDdl: boolean;
+  exec(sql: string): Promise<void> | void;
+  appliedVersions(): Promise<readonly number[]> | readonly number[];
+  appliedMigrations?(): Promise<readonly AppliedMigration[]> | readonly AppliedMigration[];
+  recordApplied(version: number, name: string, checksum?: string): Promise<void> | void;
+  recordReverted(version: number): Promise<void> | void;
+  ensureVersionTable(): Promise<void> | void;
+  checksum?(sql: string): Promise<string> | string;
+  transaction?<Result>(run: (connection?: MigrationConnection<Name>) => Promise<Result>): Promise<Result>;
+}
+
+export interface MigrationDialect<Name extends string = string> {
+  readonly name: Name;
+  validateSnapshot(snapshot: SchemaSnapshot): void;
+  validatePlan(plan: MigrationPlan): void;
+  ddlType(column: ColumnSnapshot): string;
+  emitUp(operation: ChangeOp): string;
+  emitDown(operation: ChangeOp): string;
+  emitSchemaObject(operation: SchemaObjectOperation): readonly string[];
+  connection(driver: MigrationDriver<Name>, options?: MigrationTableOptions): MigrationConnection<Name>;
+}
+```
+
+`diff(before, after)` stays database-neutral and returns every structural change it can represent. The caller then invokes `dialect.migrations.validatePlan({ before, after, operations })` before
+rendering or execution. A package may reject a structurally valid plan, such as an SQLite primary-key alteration or a SingleStore storage transition, but it cannot drop an operation.
+
+The existing public helpers remain useful as delegation wrappers, with object injection instead of string dispatch:
+
+```ts
+ddlType(dialect.migrations, column);
+emitUp(dialect.migrations, operation);
+emitDown(dialect.migrations, operation);
+emitSchemaObject(dialect.migrations, operation);
+```
+
+No generic migration file may inspect `dialect.name`, `dialect.family`, an official package, or a database client. A missing hook is a construction error. An unsupported operation throws
+`UnsupportedFeatureError` during validation or emission, before any call to `exec` or `execute`.
+
+### 7.2 Ownership after extraction
+
+| Current unit                                                                               | Generic owner           | Database owner                                                                        |
+| ------------------------------------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------- |
+| Snapshot types, physical-name projection, deterministic sorting                            | `@zmdb/query-compiler`  | none                                                                                  |
+| Structural `diff`, operation ordering and reversible payloads                              | `@zmdb/query-compiler`  | package validation may refuse but may not rewrite the generic operation list silently |
+| `DDL_TYPES`, `ddlType`, column definitions, table/key/FK/ALTER SQL                         | protocol/wrappers only  | each package owns its own mappings and emitters                                       |
+| SQLite FK/key alteration refusals and inline FK table creation                             | none                    | `@zmdb/sqlite`                                                                        |
+| PostgreSQL extensions, key constraint naming and ALTER forms                               | none                    | `@zmdb/postgres`; Cockroach owns only its overrides                                   |
+| MySQL support indexes, `MODIFY`, non-transactional DDL and referential-action restrictions | none                    | `@zmdb/mysql`; SingleStore owns only its overrides                                    |
+| SQL Server `ADD`, nullability restatement, types and ledger DDL                            | none                    | `@zmdb/mssql`                                                                         |
+| SingleStore shard/sort/rowstore validation and foreign-key refusal                         | none                    | `@zmdb/singlestore`                                                                   |
+| Ledger ordering, checksum, duplicate/downgrade checks, up/down/status                      | `@zmdb/query-compiler`  | none                                                                                  |
+| Ledger table SQL, placeholder/quoting and transaction adaptation in `runner.ts`            | runner calls a protocol | selected package's `connection`                                                       |
+| Embedded migration data type and checksum comparison                                       | `@zmdb/query-compiler`  | none                                                                                  |
+| SQLite-specific embedded ledger probe and runner                                           | none                    | `@zmdb/sqlite` browser-safe embedded subpath                                          |
+| Schema-object operation types and delegation wrappers                                      | `@zmdb/query-compiler`  | none                                                                                  |
+| Index/view/sequence/generated/schema/RLS/extension/routine SQL and refusals                | none                    | each package's `emitSchemaObject`                                                     |
+
+The current `migrations/*.spec.ts` files split on the same line. Snapshot serialization, operation ordering, checksum and generic runner state tests stay here. Every SQL golden, database-specific
+refusal, transactional-DDL expectation and connection-adapter test moves to the package whose `MigrationDialect` produced it.
+
+### 7.3 Connection and transaction rules
+
+`MigrationDialect.connection` is the sole place that knows ledger DDL, placeholder spelling, quoted table names and whether DDL can roll back. The generic runner:
+
+- trusts the connection's required `transactionalDdl` boolean instead of looking up a name;
+- warns before applying a non-transactional plan;
+- requires a pinned transaction callback when transactional DDL is claimed; and
+- never defaults a missing dialect to PostgreSQL.
+
+Family children receive a driver whose `dialect` is the child object. Reusing a parent connection adapter is allowed only through a public parent factory that accepts that object; the child cannot
+return a driver or migration connection that reports the parent's name.
+
+### 7.4 Qualification
+
+Each database package must prove, from its packed artifact and required server:
+
+1. every abstract SQL type and every `ChangeOp` is an exact statement or explicit refusal;
+2. schema-object operations use the same capability/refusal policy;
+3. applying the emitted plan and introspecting it produces a clean normalized diff;
+4. ledger creation, apply, rollback, checksum mismatch and transaction behavior work through the package driver; and
+5. an absent required service fails the qualification lane rather than converting it to a skip.
+
+Golden SQL alone is necessary but cannot establish server acceptance, transactional behavior or catalog round-trip.

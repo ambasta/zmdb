@@ -344,3 +344,89 @@ resolved config (#492). Neither side keeps a private copy of the catalog SQL.
 - **Evaluating a default expression.** §4.
 - **Diffing default expressions.** §4 — the drift normalization removes them rather than guessing whether two dialect expressions are equivalent.
 - **A hand-written SQL parser for `sqlite_master.sql`.** It is a last resort for facts the pragmas do not carry, every use warns, and it is never the source for a fact a pragma reports.
+
+## 11. Database-package boundary (issue #666)
+
+This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. The current dispatch remains shipped behavior until the implementation children land.
+
+### 11.1 Vendor-neutral protocol
+
+`@zmdb/query-compiler/introspect` keeps the catalog result types, strict row-field helpers, declaration emitter and two-snapshot drift algorithm. It exports no official introspector and knows no
+official database name.
+
+```ts
+export interface IntrospectionDriver {
+  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+}
+
+export interface IntrospectOptions {
+  readonly schemas?: readonly string[];
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
+}
+
+export interface Introspector<Name extends string = string> {
+  readonly name: Name;
+  snapshot(driver: IntrospectionDriver, options?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
+  normalizeForDrift(snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
+}
+```
+
+The selected `SqlDialect<Name>` carries one `Introspector<Name>`. Callers use `dialect.introspector.snapshot(...)`; there is no factory, registry, string switch, dynamic package lookup or
+import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots.
+
+`emitDeclarations` receives the selected `SqlDialect` rather than a string. It uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch
+catalog parsing or reverse type maps.
+
+### 11.2 One owner for every current catalog path
+
+| Current unit                                                         | Future owner                                                                                              |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `common.ts` catalog snapshots, errors and strict row helpers         | `@zmdb/query-compiler`                                                                                    |
+| `emit.ts` and `tagged-property.ts` deterministic TypeScript emission | `@zmdb/query-compiler`                                                                                    |
+| `drift.ts` generic exclusion and comparison                          | `@zmdb/query-compiler`                                                                                    |
+| `drift.ts` MySQL implicit foreign-key support-index removal          | `@zmdb/mysql` via `normalizeForDrift`                                                                     |
+| `postgres.ts` and its parser/catalog tests                           | `@zmdb/postgres`                                                                                          |
+| `mysql.ts` and `__fixtures__/mysql-8.4.11.json`                      | `@zmdb/mysql`                                                                                             |
+| `sqlite.ts` and its pragma/catalog tests                             | `@zmdb/sqlite`                                                                                            |
+| `index.ts` Cockroach wrapper over the PostgreSQL reader              | `@zmdb/cockroach`, implemented by composing the public PostgreSQL reader and explicit Cockroach overrides |
+| `index.ts` SingleStore wrapper over the MySQL reader                 | `@zmdb/singlestore`, implemented by composing the public MySQL reader and explicit SingleStore overrides  |
+| `index.ts` SQL Server unsupported branch                             | replaced by `@zmdb/mssql` catalog implementation                                                          |
+| `index.ts` public result/protocol exports                            | `@zmdb/query-compiler`                                                                                    |
+
+`introspect.spec.ts` is split by assertion ownership: common malformed-row, deterministic-filtering and generic result-shape tests stay here; SQLite and MySQL expectation rows move to those packages.
+`postgres.spec.ts` moves in full. `emit.spec.ts` stays except for any database-specific normalization fixture, which moves to that database package.
+
+### 11.3 Package requirements
+
+Each database package exports its named introspector by identity and embeds it in its dialect object:
+
+```ts
+export const postgresIntrospector: Introspector<'postgres'>;
+export const postgres: SqlDialect<'postgres'>; // postgres.introspector === postgresIntrospector
+```
+
+Equivalent identity rules apply to the other five packages. A family child may reuse a parent catalog query or parser only through a public frozen parent export. The child still owns:
+
+- a real-server fixture proving inherited queries against the child server;
+- explicit normalization for every observed catalog difference;
+- its own `name`, warnings, refusals and evidence; and
+- a test that parent objects are unchanged after the child loads.
+
+Blind delegation is not qualification. SQL Server must read columns, identity, keys, indexes, defaults and foreign keys before `@zmdb/mssql` can be supported. MySQL's captured fixture remains a
+deterministic parser test but does not replace its required live lane.
+
+### 11.4 Failure and evidence policy
+
+Catalog queries are parameterized `CompiledQuery` values. A malformed row throws `CatalogRowError` before partial output is returned. A requested construct that the package deliberately cannot
+represent produces a stable warning only when the snapshot remains exact; inability to produce an exact snapshot is an explicit `UnsupportedFeatureError`, never an omitted object.
+
+Every package's required server lane must:
+
+1. create the package's representative schema through its own migration dialect;
+2. introspect through its exported public object;
+3. compare keys, foreign keys, indexes, generated/default facts and package-specific objects;
+4. normalize and obtain a clean generic drift report; and
+5. run from the packed package in an external consumer.
+
+A required lane fails if its service is absent. An optional developer invocation may report a visible skip, but that result is not support evidence.

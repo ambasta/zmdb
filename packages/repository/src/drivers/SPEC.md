@@ -135,3 +135,94 @@ rather than half-applying it.
   and cleanup. Live-PG E2E proves parameterised `DECLARE`, repeated early-return pool safety and `pg_cancel_backend` cancellation when reachable.
 - mssql driver: unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. A real suite runs DDL, CRUD and transactional rollback through SQL Server when `ZMDB_MSSQL_URL`
   is reachable, and emits a visible `[skip] SQL Server E2E: …` reason otherwise.
+
+## Database vertical target (issue #666)
+
+The sections above describe the current repository-owned adapters. Epic #665 moves each adapter into the package that owns the complete database vertical. This section supersedes the optional string
+`Driver.dialect` contract for that target; it makes no runtime change in #666.
+
+### Generic repository protocol
+
+`@zmdb/repository` owns only these vendor-neutral interfaces:
+
+```ts
+export interface Driver<Name extends string = string> {
+  readonly dialect: SqlDialect<Name>;
+  readonly queryTelemetry?: true;
+  execute(query: CompiledQuery, options?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, options?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
+}
+
+export interface TransactionalDriver<Name extends string = string> extends Driver<Name> {
+  transaction<Result>(run: (driver: Driver<Name>) => Promise<Result>): Promise<Result>;
+}
+
+export interface DatabaseVertical<Name extends string, Connection, Options = undefined> {
+  readonly dialect: SqlDialect<Name>;
+  driver(connection: Connection, options?: Options): TransactionalDriver<Name>;
+}
+```
+
+Every first-party package root exports one `DatabaseVertical` object, its dialect by identity, its named driver function and its named introspector:
+
+```ts
+export const sqlite: SqlDialect<'sqlite'>;
+export const sqliteDriver: (database: SqliteDatabase, options?: SqliteOptions) => TransactionalDriver<'sqlite'>;
+export const sqliteIntrospector: Introspector<'sqlite'>;
+export const sqliteVertical: DatabaseVertical<'sqlite', SqliteDatabase, SqliteOptions>;
+
+sqliteVertical.dialect === sqlite;
+sqliteVertical.driver === sqliteDriver;
+sqlite.introspector === sqliteIntrospector;
+```
+
+The other packages use the same naming pattern: `postgres` / `postgresDriver` / `postgresIntrospector` / `postgresVertical`, and correspondingly for MySQL, MSSQL, Cockroach and SingleStore. The short
+package-named value is the normal compiler/config import; the `*Vertical` value proves the complete package contract and supports advanced composition.
+
+A repository constructor receives a `Driver<Name>` and no separate dialect argument. It constructs its compiler from `driver.dialect`, reads limits/retries/returning support from that same frozen
+object, and preserves the object by identity across `withTransaction`, replicas, streams, loaders and caches. A transactional callback driver cannot change the dialect.
+
+### Adapter ownership and dependencies
+
+| Current implementation                | Target owner                                                 | Client policy                                                                         |
+| ------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `sqlite.ts`                           | `@zmdb/sqlite` Node-specific export                          | `node:sqlite`; no third-party dependency                                              |
+| `pg.ts`                               | `@zmdb/postgres`                                             | structural `pg` client; `pg` optional peer and development dependency                 |
+| missing MySQL adapter                 | `@zmdb/mysql`                                                | structural `mysql2/promise` client; `mysql2` optional peer and development dependency |
+| `mssql.ts`                            | `@zmdb/mssql`                                                | structural node-mssql pool; `mssql` optional peer and development dependency          |
+| PostgreSQL adapter bound to Cockroach | `@zmdb/cockroach` through a public PostgreSQL-family factory | no copied adapter and no private parent import                                        |
+| MySQL adapter bound to SingleStore    | `@zmdb/singlestore` through a public MySQL-family factory    | no copied adapter and no private parent import                                        |
+| `transactional.ts` interface          | `@zmdb/repository`                                           | no client                                                                             |
+
+No generic manifest may depend on `pg`, `mysql2`, `mssql` or another database client. A package root must also remain importable without resolving its optional client: the application constructs a
+compatible connection and passes it to `driver`. SQLite's package root remains browser-safe; its `node:sqlite` adapter is a Node-specific public subpath.
+
+Parent family packages expose only the narrow frozen primitives a child needs to bind the parent's structural adapter and catalog implementation to the child's `SqlDialect`. Those primitives accept
+the child object explicitly and return a driver that reports that child object. Parents never import children.
+
+### Streaming, cancellation and result semantics
+
+`DatabaseCapabilities.streaming` and `.cancellation` report functionality the official adapter can supply under its documented connection/options contract. Method presence remains the runtime fact: a
+configured adapter may omit `stream` when its supplied client cannot check out a cursor connection.
+
+- PostgreSQL and Cockroach claim streaming and cancellation only with the already-specified checked-out and second-connection prerequisites.
+- SQLite claims streaming and refuses in-flight engine cancellation; abort remains observable between rows.
+- MySQL, SQL Server and SingleStore initially set both capabilities false. Their verticals may still execute buffered reads and honor already-aborted signals. A later claim requires a spec, driver
+  lifecycle tests and real-server evidence.
+
+MySQL's official adapter must not invent returned entities where the dialect refuses `RETURNING`. Driver result metadata such as affected rows or insert identifiers needs a separate explicit result
+surface; it is not converted into a row array that looks like compiled `RETURNING`.
+
+### Qualification
+
+An official adapter is not qualified by recorder tests alone. Its package lane runs the public driver against the named server and proves:
+
+- parameter binding and result decoding;
+- a pinned transaction and real rollback;
+- every claimed stream/cancel behavior and cleanup path;
+- migration and introspection through the same driver;
+- no undeclared client in the packed dependency tree; and
+- a packed external consumer using public exports only.
+
+SQLite runs in-process and cannot skip. The other five required release lanes fail when their service or credentials are missing. Optional local invocations may report a visible skip but are not
+support evidence.

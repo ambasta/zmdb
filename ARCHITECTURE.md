@@ -112,7 +112,9 @@ If a concern fails these tests it stays a **sub-module** (`src/<concern>/` with 
 
 Conversely, we **merge** packages that have grown a bidirectional dependency or that no one installs independently — dissolving a package is a valid, encouraged refactor.
 
-### 3.2 The dependency DAG (must stay acyclic)
+### 3.2 The current dependency DAG (must stay acyclic)
+
+This is the shipped graph before the database-vertical extraction frozen in §3.4.
 
 ```
       ┌────────────────┐
@@ -151,12 +153,12 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 - **query-compiler is the lower-level SQL/tooling package.** Its declaration emitter is the only framework path that requires `oxfmt`; ordinary query compilation does not invoke it.
 - **schema-core is the semantic Single Source of Truth.** It reuses lower-level compiler query, quoting, and naming utilities but must not import validator, repository, or web.
 - **aot-validator depends on schema-core, never the reverse.** Reflection and boundary validation remain above the declaration vocabulary.
-- **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
+- **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
 - **web sits above repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and observability reads optional compile-time
   query metadata without parsing SQL at execution.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
 
-### 3.3 Current + planned package map
+### 3.3 Current package map
 
 | Package                | Responsibility                                                                                                                                                                                                                                                                                                   | Runtime deps                                           |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -172,6 +174,68 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 - `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime fallback** if the plugin grows a heavy `typescript` coupling that hurts the runtime package's install weight.
 - `@zmdb/web` will likely spawn **sub-modules first** (routing, DI, pipeline, guards/interceptors) and only promote one to a package if it becomes independently useful (e.g. the DI container).
 - Native/WASM hot-path kernels (§4) would ship as their own artifact packages (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
+
+### 3.4 Frozen database-vertical target
+
+Issue #666 freezes this target for epic #665. It is a specification, not a claim about the current tree: until the implementation children land, the six database definitions remain in
+`@zmdb/query-compiler`, the three bundled drivers remain in `@zmdb/repository`, and the umbrella exposes the old `zmdb/drivers/*` subpaths.
+
+A database package is a **complete vertical**, not a syntax table. It owns the database's query traits, DDL and migration behavior, introspector, official driver adapter, capability/refusal metadata,
+golden SQL, real-server qualification and packed-consumer evidence. Generic packages retain the algorithms and protocols that can serve an unknown third-party database.
+
+The complete permitted internal graph is:
+
+| Dependency                                                   | Consumer                                                       | Kind                                                                  |
+| ------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `@zmdb/query-compiler`                                       | `@zmdb/repository`                                             | required generic edge                                                 |
+| `@zmdb/query-compiler`, `@zmdb/repository`                   | `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mysql`, `@zmdb/mssql` | required vertical edges                                               |
+| `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/postgres` | `@zmdb/cockroach`                                              | required child edge                                                   |
+| `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/mysql`    | `@zmdb/singlestore`                                            | required child edge                                                   |
+| current generic product packages                             | `zmdb`                                                         | required facade edges, as in §3.2                                     |
+| a selected database package                                  | `zmdb/<database>`                                              | optional peer identity edge, only if that facade subpath is published |
+
+The two family edges are the only permitted database-package edges: Cockroach extends PostgreSQL, and SingleStore extends MySQL. A generic package never imports an official database package; a parent
+database package never imports its child; and no database package imports `zmdb`. `zmdb` must not make all six database packages hard dependencies: a database facade subpath, if retained, resolves an
+optional peer selected by the application. The exact protocol types live below the database packages in `@zmdb/query-compiler` and `@zmdb/repository`, so the graph has no reverse edge.
+
+Database selection is explicit:
+
+- A consumer imports a database object from its package and passes that object to compiler, repository, config and tooling surfaces. The final architecture has no mutable registry, no
+  `registerDialect()`, and no import-for-side-effect convention.
+- A package root may construct and freeze its own object, but importing it must not alter process-global state.
+- The umbrella may expose explicit `zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach` and `zmdb/singlestore` identity re-exports backed by optional peers. Its root does not
+  select, resolve or eagerly instantiate a database.
+- Official driver adapters are structurally typed. A database client may be a development dependency for conformance tests, but it is not a hard runtime dependency unless a future adapter proves that
+  structural injection is insufficient. Consequently, installing `zmdb` must not install `pg`, `mysql2`, `mssql` or another database client.
+
+#### 3.4.1 When a database earns a package
+
+All of these conditions are mandatory:
+
+1. **Substantive ownership.** The database owns non-trivial behavior in at least two of SQL compilation, DDL/migrations, introspection, transactions and wire-driver handling.
+2. **A complete installable vertical.** The package exposes one coherent database object and official driver adapter rather than a constant, URL parser or connection recipe.
+3. **Distinct capabilities or refusals.** Differences are executable metadata and tests, not prose or an implicit fallback to a parent dialect.
+4. **Real-server evidence.** A required CI lane exercises generated DDL, migrations, introspection and CRUD against the named server and version.
+5. **Packed-consumer evidence.** A project outside the workspace installs the tarball, typechecks without path mappings and runs the public entry points.
+6. **An acyclic owner.** Every implementation unit has one package owner, and any family reuse follows one of the two permitted parent edges above.
+7. **Independent documentation.** The database can state its installation, capabilities, refusals, client requirement and evidence without borrowing another package's unsupported claims.
+
+Neon, Supabase, Amazon RDS, Aurora, PlanetScale, Vercel Postgres and similar hosted products remain documentation recipes while they only change connection details. A framework or provider gets a
+package only after it satisfies the same criteria with behavior that cannot live in its underlying database package.
+
+#### 3.4.2 What "supported" means
+
+`supported` is earned by evidence, not by membership in a string union. Every official database package must have:
+
+- a total capability table in which each construct is either an exact expectation or an explicit `UnsupportedFeatureError`;
+- golden SQL and type-level conformance at the package's public boundary;
+- a real-server lane covering schema creation, migration application, introspection round-trip, transactions and CRUD;
+- driver lifecycle tests for every claimed stream, cancellation and transaction behavior;
+- a packed external consumer that imports every published subpath and installs only declared dependencies; and
+- documentation generated from or checked against the same capability metadata.
+
+A local run may report that an optional service is unavailable, but a release-qualification lane assigned to that database must fail rather than silently skip. Until all evidence above exists, the
+package or capability is experimental and documentation must say which evidence is missing.
 
 ---
 
