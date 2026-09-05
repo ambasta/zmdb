@@ -2455,8 +2455,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         if (typeof val === 'string') return val;
         return JSON.stringify(val);
       case 'bigint':
-        if (typeof val === 'bigint') return val;
-        if (typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean') return BigInt(val);
+        if (typeof val === 'bigint') return this.dialect === 'sqlite' ? val.toString() : val;
+        if (typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean') {
+          const b = BigInt(val);
+          return this.dialect === 'sqlite' ? b.toString() : b;
+        }
         return val;
       default:
         return val;

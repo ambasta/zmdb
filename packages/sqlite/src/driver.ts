@@ -14,7 +14,6 @@ export interface SqliteStatement {
   run(...params: unknown[]): unknown;
   /** Steps a row-returning statement without materialising the result. */
   iterate(...params: unknown[]): Iterable<Record<string, unknown>>;
-  setReadBigInts?(readBigInts: boolean): void;
 }
 export interface SqliteDatabase {
   exec(sql: string): unknown;
@@ -70,7 +69,6 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
     }
 
     const stmt = db.prepare(text);
-    stmt.setReadBigInts?.(true);
     const columns = stmt.columns?.();
     entry = {
       stmt,

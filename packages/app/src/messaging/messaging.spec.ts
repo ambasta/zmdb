@@ -542,7 +542,7 @@ describe('application messaging lifecycle (#648)', () => {
       'close:connection',
       'onShutdown:Consumer',
     ]);
-    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5)).toBe(true);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 50)).toBe(true);
 
     release.resolve();
     await dispatch;

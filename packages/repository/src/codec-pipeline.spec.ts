@@ -8,7 +8,7 @@ import { defineType } from '@zmdb/schema-core/custom-types';
 import type { Codec, HasDefault, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { BaseRepository, ValidationError, type Driver } from './index.js';
 
 export const customCodec = defineType<string, string[], string>({
@@ -68,7 +68,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
       CREATE TABLE events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        bigintVal BIGINT NOT NULL,
+        bigintVal TEXT NOT NULL,
         isPublished INTEGER NOT NULL,
         createdAt TEXT NOT NULL,
         payload TEXT NOT NULL,
@@ -83,7 +83,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       'Launch Event',
-      9007199254740993n,
+      '9007199254740993',
       1,
       '2026-08-30T10:00:00.000Z',
       '{"key":"value","count":42}',
@@ -119,7 +119,7 @@ describe('AOT-Validator & Schema Codec Pipeline Integration', () => {
       CREATE TABLE events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        bigintVal BIGINT NOT NULL,
+        bigintVal TEXT NOT NULL,
         isPublished INTEGER NOT NULL,
         createdAt TEXT NOT NULL,
         payload TEXT NOT NULL,
