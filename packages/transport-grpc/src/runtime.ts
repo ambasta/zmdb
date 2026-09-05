@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: (...args: any[]) => void): this;
-  removeListener(event: string, listener: (...args: any[]) => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -382,6 +382,10 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+function isDecodedRequest(value: unknown): value is DecodedRequest {
+  return typeof value === 'object' && value !== null && 'ok' in value;
+}
+
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let notify: (() => void) | undefined;
@@ -397,8 +401,10 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   };
 
   const onData = (value: unknown): void => {
-    queue.push(value as DecodedRequest);
-    trigger();
+    if (isDecodedRequest(value)) {
+      queue.push(value);
+      trigger();
+    }
   };
   const onEnd = (): void => {
     ended = true;
@@ -418,9 +424,11 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
       if (scope.signal.aborted) throw scope.reason();
       if (streamError !== undefined) throw streamError;
       if (queue.length > 0) {
-        const item = queue.shift()!;
-        yield requestValue(item);
-        continue;
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+          continue;
+        }
       }
       if (ended) return;
 

@@ -10,7 +10,6 @@ import {
 import {
   transformCode as srcUnpluginTransformCode,
   transformTypeChecks as srcUnpluginTransformTypeChecks,
-  zmdbAot as srcZmdbAot,
   type UnpluginLike as SrcUnpluginLike,
 } from '@zmdb/validator/unplugin';
 import { assert as ownerAssert } from '@zmdb/validator/utilities';
